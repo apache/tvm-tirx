@@ -548,7 +548,7 @@ inline PBroadcastExpr<TA, TLanes> broadcast(const Pattern<TA>& value,
 }
 
 // internal namespace
-namespace detail {
+namespace details {
 // implementation details for  CallExpr
 template <bool stop, std::size_t I, typename F>
 struct tuple_for_each_dispatcher {
@@ -597,7 +597,7 @@ struct PCallExprEvalArgsFunctor {
     args_.push_back(pattern.Eval());
   }
 };
-}  // namespace detail
+}  // namespace details
 
 /*!
  * \brief Pattern CallExpr expression.
@@ -612,16 +612,16 @@ class PCallExpr : public Pattern<PCallExpr<Op, TArgs...>> {
   explicit PCallExpr(const TArgs&... args) : args_(args...) {}
 
   void InitMatch_() const {
-    detail::PCallExprInitMatchFunctor finit;
-    detail::tuple_for_each(finit, args_);
+    details::PCallExprInitMatchFunctor finit;
+    details::tuple_for_each(finit, args_);
   }
 
   bool Match_(const ffi::ObjectRef& node) const {
     if (const CallNode* ptr = node.as<CallNode>()) {
       if (ptr->args.size() != sizeof...(TArgs)) return false;
       if (!ptr->op.same_as(Op::GetOp())) return false;
-      detail::PCallExprMatchFunctor fmatch(ptr);
-      detail::tuple_for_each(fmatch, args_);
+      details::PCallExprMatchFunctor fmatch(ptr);
+      details::tuple_for_each(fmatch, args_);
       return fmatch.matched_;
     } else {
       return false;
@@ -629,8 +629,8 @@ class PCallExpr : public Pattern<PCallExpr<Op, TArgs...>> {
   }
 
   PrimExpr Eval() const {
-    detail::PCallExprEvalArgsFunctor feval_args;
-    detail::tuple_for_each(feval_args, args_);
+    details::PCallExprEvalArgsFunctor feval_args;
+    details::tuple_for_each(feval_args, args_);
     return Op::Eval(feval_args.args_);
   }
 
