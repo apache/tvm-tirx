@@ -25,6 +25,7 @@
 #include <tvm/ir/expr.h>
 #include <tvm/ir/prim/expr.h>
 #include <tvm/ir/prim/op.h>
+#include <tvm/ir/prim/pattern_match.h>
 #include <tvm/sym/analyzer.h>
 #include <tvm/tirx/analysis.h>
 #include <tvm/tirx/expr.h>
@@ -35,8 +36,6 @@
 #include <list>
 #include <stack>
 #include <utility>
-
-#include "../../sym/pattern_match.h"
 
 namespace tvm {
 
@@ -332,7 +331,7 @@ inline PrimExpr MergeMulMod(sym::AnalyzerObj* analyzer, const PrimExpr& base) {
   // The elements in the Mod will be used to match against the elements in Mul.
   // The result will then be split and pushed back to these two lists.
   PrimExpr simplified_base = base;
-  sym::PVar<PrimExpr> x, y;
+  tvm::PVar<PrimExpr> x, y;
   if ((floordiv(x, y) * y + floormod(x, y)).Match(simplified_base)) {
     simplified_base = x.Eval();
   }

@@ -29,6 +29,7 @@
 #include <tvm/ir/op.h>
 #include <tvm/ir/prim/expr.h>
 #include <tvm/ir/prim/op.h>
+#include <tvm/ir/prim/pattern_match.h>
 #include <tvm/sym/analyzer.h>
 
 #include <algorithm>
@@ -38,7 +39,6 @@
 
 #include "const_fold.h"
 #include "constraint_extract.h"
-#include "pattern_match.h"
 
 namespace tvm {
 namespace sym {

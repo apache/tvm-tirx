@@ -64,9 +64,9 @@ class IntervalSetObj : public IntSetObj {
   }
 
   /*! \return Whether the interval has upper bound. */
-  bool HasUpperBound() const { return !is_pos_inf(max_value) && !IsEmpty(); }
+  bool HasUpperBound() const { return !prim::is_pos_inf(max_value) && !IsEmpty(); }
   /*! \return Whether the interval has lower bound. */
-  bool HasLowerBound() const { return !is_neg_inf(min_value) && !IsEmpty(); }
+  bool HasLowerBound() const { return !prim::is_neg_inf(min_value) && !IsEmpty(); }
   /*! \return Whether the interval is a single point. */
   bool IsSinglePoint() const {
     // NOTE: we are only doing cheap check as this is a frequently called routine,
@@ -77,10 +77,10 @@ class IntervalSetObj : public IntSetObj {
   /*! \return whether interval represent nothing */
   bool IsEmpty() const {
     // during computations, either extreme could occur.
-    return is_pos_inf(min_value) || is_neg_inf(max_value);
+    return prim::is_pos_inf(min_value) || prim::is_neg_inf(max_value);
   }
   /*! \return whether interval represent everything */
-  bool IsEverything() const { return is_neg_inf(min_value) && is_pos_inf(max_value); }
+  bool IsEverything() const { return prim::is_neg_inf(min_value) && prim::is_pos_inf(max_value); }
   TVM_FFI_DECLARE_OBJECT_INFO_FINAL("sym.IntervalSet", IntervalSetObj, IntSetObj);
 };
 
@@ -109,12 +109,12 @@ class IntervalSet : public IntSet {
    * \param value The value to be represented.
    * \return The result set.
    */
-  static IntervalSet Everything() { return IntervalSet(neg_inf(), pos_inf()); }
+  static IntervalSet Everything() { return IntervalSet(prim::neg_inf(), prim::pos_inf()); }
   /*!
    * \brief Create an empty eet.
    * \return The result set.
    */
-  static IntervalSet Empty() { return IntervalSet(pos_inf(), neg_inf()); }
+  static IntervalSet Empty() { return IntervalSet(prim::pos_inf(), prim::neg_inf()); }
 
   TVM_DEFINE_OBJECT_REF_COW_METHOD(IntervalSetObj);
   TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(IntervalSet, IntSet, IntervalSetObj);

@@ -25,8 +25,8 @@
 #include <tvm/ir/prim/op.h>
 #include <tvm/runtime/logging.h>
 #include <tvm/sym/analyzer.h>
-#include <tvm/sym/pattern.h>
 #include <tvm/target/target.h>
+#include <tvm/tirx/analysis.h>
 #include <tvm/tirx/function.h>
 #include <tvm/tirx/op/annotation.h>
 #include <tvm/tirx/op/attr.h>
@@ -547,7 +547,7 @@ struct ExecAnalysis::Impl {
                                  int64_t* base) {
     PrimExpr simplified = analyzer_->Simplify(diff);
     for (const auto& [var, candidate] : ScopeIdTargets()) {
-      ffi::Array<PrimExpr> linear = sym::DetectLinearEquation(simplified, {var});
+      ffi::Array<PrimExpr> linear = tirx::DetectLinearEquation(simplified, {var});
       if (linear.size() != 2) continue;
       int64_t c = 0;
       int64_t b = 0;

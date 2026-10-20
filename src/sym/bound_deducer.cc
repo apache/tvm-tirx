@@ -27,7 +27,7 @@
 #include <tvm/ir/expr_functor.h>
 #include <tvm/ir/prim/expr.h>
 #include <tvm/sym/analyzer.h>
-#include <tvm/sym/bound.h>
+#include <tvm/sym/int_set.h>
 
 #include <unordered_set>
 #include <vector>
@@ -375,7 +375,7 @@ IntSet DeduceBound(PrimExpr v, PrimExpr e, const ffi::Map<Var, IntSet>& hint_map
   BoundDeducer d(v, e, hint_map, relax_map);
   d.Deduce();
   if (!d.success_) return IntSet::Nothing();
-  PrimExpr min = neg_inf(), max = pos_inf();
+  PrimExpr min = prim::neg_inf(), max = prim::pos_inf();
   if (d.comp_op == kEqual) {
     min = d.result_;
     max = d.result_;

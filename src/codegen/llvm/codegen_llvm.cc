@@ -87,6 +87,7 @@
 #include <llvm/Target/TargetMachine.h>
 #include <llvm/Transforms/IPO.h>
 #include <llvm/Transforms/Utils/ModuleUtils.h>
+#include <tvm/ir/prim/pattern_match.h>
 #include <tvm/runtime/base.h>
 #include <tvm/runtime/device_api.h>
 #include <tvm/runtime/logging.h>
@@ -100,7 +101,6 @@
 #include <utility>
 #include <vector>
 
-#include "../../sym/pattern_match.h"
 #include "../build_common.h"
 #include "codegen_params.h"
 #include "llvm_instance.h"
@@ -664,12 +664,12 @@ void CodeGenLLVM::AddAliasInfo(llvm::Instruction* inst, const VarNode* buffer_va
   }
 
   int64_t base = 0, width = 0;
-  sym::PVar<IntImm> pbase, pstride;
-  sym::PVar<IntImm> planes;
+  tvm::PVar<IntImm> pbase, pstride;
+  tvm::PVar<IntImm> planes;
   // create meta-data for alias analysis
   // Use a group of binary tree ranges of memory banks.
   int64_t xwith = 0;
-  if (sym::ramp(pbase, pstride, planes).Match(index)) {
+  if (tvm::ramp(pbase, pstride, planes).Match(index)) {
     if (auto b = pbase.Eval()->value.as<int64_t>(),
         w = (planes.Eval()->value * pstride.Eval()->value).as<int64_t>();
         b.has_value() && w.has_value()) {

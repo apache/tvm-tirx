@@ -33,7 +33,6 @@
 #include <tvm/tirx/stmt_functor_with_analyzer.h>
 #include <tvm/tirx/transform.h>
 
-#include "../../sym/const_fold.h"
 #include "ir_utils.h"
 
 namespace tvm {
@@ -120,7 +119,7 @@ class NoOpRemover : public StmtExprMutatorWithAnalyzer {
   UnchangedOr<Stmt> Mutate_(const ForNode* op, InplaceMode inplace_mode) final {
     auto extent_range =
         sym::EvalSet(Range::GetExtentFromBeginEnd(op->begin, op->end), var_range_map_);
-    if (!sym::is_neg_inf(extent_range.max()) && !sym::is_pos_inf(extent_range.max()) &&
+    if (!prim::is_neg_inf(extent_range.max()) && !prim::is_pos_inf(extent_range.max()) &&
         analyzer_->CanProve(extent_range.max() <= 0)) {
       return Evaluate(0);
     }

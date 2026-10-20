@@ -24,11 +24,12 @@
 #include <tvm/ffi/function.h>
 #include <tvm/ffi/reflection/registry.h>
 #include <tvm/ir/prim/op.h>
+#include <tvm/ir/prim/pattern_match.h>
 #include <tvm/tirx/stmt.h>
 #include <tvm/tirx/stmt_functor_with_analyzer.h>
 #include <tvm/tirx/transform.h>
 
-#include "../../sym/pattern_match.h"
+#include "../../sym/int_operator.h"
 
 namespace tvm {
 namespace tirx {

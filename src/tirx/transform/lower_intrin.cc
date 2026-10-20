@@ -28,6 +28,7 @@
 #include <tvm/ir/op.h>
 #include <tvm/ir/prim/expr.h>
 #include <tvm/ir/prim/op.h>
+#include <tvm/ir/prim/pattern_match.h>
 #include <tvm/runtime/logging.h>
 #include <tvm/target/target.h>
 #include <tvm/tirx/expr.h>
@@ -37,8 +38,6 @@
 
 #include <limits>
 #include <unordered_set>
-
-#include "../../sym/pattern_match.h"
 
 namespace tvm {
 namespace tirx {
@@ -249,7 +248,6 @@ class IntrinInjecter : public StmtExprMutatorWithAnalyzer {
   }
 
   UnchangedOr<PrimExpr> Mutate_(const prim::MaxNode* op, InplaceMode inplace_mode) final {
-    using namespace sym;
     PVar<PrimExpr> x, y;
     PVar<IntImm> c;
     auto e = ffi::GetRef<PrimExpr>(op);
@@ -262,7 +260,6 @@ class IntrinInjecter : public StmtExprMutatorWithAnalyzer {
   }
 
   UnchangedOr<PrimExpr> Mutate_(const prim::EQNode* op, InplaceMode inplace_mode) final {
-    using namespace sym;
     PVar<PrimExpr> x, y;
     auto e = ffi::GetRef<PrimExpr>(op);
     if ((floormod(x, y) == 0).Match(e)) {
@@ -273,7 +270,6 @@ class IntrinInjecter : public StmtExprMutatorWithAnalyzer {
   }
 
   UnchangedOr<PrimExpr> Mutate_(const prim::NENode* op, InplaceMode inplace_mode) final {
-    using namespace sym;
     PVar<PrimExpr> x, y;
     auto e = ffi::GetRef<PrimExpr>(op);
     if ((floormod(x, y) != 0).Match(e)) {

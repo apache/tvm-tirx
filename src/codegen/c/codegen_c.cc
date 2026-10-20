@@ -26,6 +26,7 @@
 #include <tvm/ffi/extra/structural_equal.h>
 #include <tvm/ir/function.h>
 #include <tvm/ir/prim/op.h>
+#include <tvm/ir/prim/pattern_match.h>
 #include <tvm/ir/unique_name_supply.h>
 #include <tvm/runtime/memory_scope.h>
 #include <tvm/sym/analyzer.h>
@@ -41,7 +42,6 @@
 #include <iomanip>
 #include <limits>
 
-#include "../../sym/pattern_match.h"
 #include "codegen_params.h"
 
 namespace tvm {
@@ -1016,8 +1016,8 @@ void CodeGenC::Dispatch_(const TensorLoadNode* op, std::ostream& os) {  // NOLIN
     }
   } else {
     bool can_vector_load = false;
-    sym::PVar<PrimExpr> base;
-    if (sym::ramp(base, 1, value_ty.lanes()).Match(index)) {
+    tvm::PVar<PrimExpr> base;
+    if (tvm::ramp(base, 1, value_ty.lanes()).Match(index)) {
       const prim::RampNode* ramp = index.as<prim::RampNode>();
       TVM_FFI_ICHECK(ramp);
       sym::ModularSet me = sym::Analyzer()->modular_set(ramp->base);
@@ -1082,9 +1082,9 @@ void CodeGenC::Dispatch_(const TensorStoreNode* op) {
     this->PrintIndent();
     stream << ref << " = " << value << ";\n";
   } else {
-    sym::PVar<PrimExpr> base;
+    tvm::PVar<PrimExpr> base;
 
-    if (sym::ramp(base, 1, value_ty.lanes()).Match(index_expr) &&
+    if (tvm::ramp(base, 1, value_ty.lanes()).Match(index_expr) &&
         value_ty.code() != DLDataTypeCode::kDLFloat4_e2m1fn) {
       std::string value = this->PrintExpr(op->value);
       this->PrintVecStore(op->dest.as_or_throw<TensorVar>().get(), value_ty, base.Eval(), value);

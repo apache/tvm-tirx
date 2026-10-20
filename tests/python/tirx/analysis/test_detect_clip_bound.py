@@ -22,19 +22,23 @@ def test_basic():
     a = tvm_tirx.tirx.Var("a", "int32")
     b = tvm_tirx.tirx.Var("b", "int32")
     c = tvm_tirx.tirx.Var("c", "int32")
-    m = tvm_tirx.sym.detect_clip_bound(tvm_tirx.tirx.all(a * 1 < b * 6, a - 1 > 0), [a])
+    m = tvm_tirx.tirx.analysis.detect_clip_bound(tvm_tirx.tirx.all(a * 1 < b * 6, a - 1 > 0), [a])
     assert tvm_tirx.sym.Analyzer().can_prove_equal(m[1], b * 6 - 1)
     assert m[0].value == 2
-    m = tvm_tirx.sym.detect_clip_bound(tvm_tirx.tirx.all(a * 1 < b * 6, a - 1 > 0), [a, b])
+    m = tvm_tirx.tirx.analysis.detect_clip_bound(
+        tvm_tirx.tirx.all(a * 1 < b * 6, a - 1 > 0), [a, b]
+    )
     assert len(m) == 0
-    m = tvm_tirx.sym.detect_clip_bound(tvm_tirx.tirx.all(a + 10 * c <= 20, b - 1 > 0), [a, b])
+    m = tvm_tirx.tirx.analysis.detect_clip_bound(
+        tvm_tirx.tirx.all(a + 10 * c <= 20, b - 1 > 0), [a, b]
+    )
     assert tvm_tirx.sym.Analyzer().can_prove_equal(m[1], 20 - 10 * c)
     assert tvm_tirx.sym.Analyzer().can_prove_equal(m[2], 2)
-    m = tvm_tirx.sym.detect_clip_bound(
+    m = tvm_tirx.tirx.analysis.detect_clip_bound(
         tvm_tirx.tirx.all(tvm_tirx.tirx.Not(a * 1 > b * 6), a - 1 > 0), [a]
     )
     assert tvm_tirx.sym.Analyzer().can_prove_equal(m[1], b * 6)
-    m = tvm_tirx.sym.detect_clip_bound(
+    m = tvm_tirx.tirx.analysis.detect_clip_bound(
         tvm_tirx.tirx.all(tvm_tirx.tirx.Min(a, b) > 3, a - 10 < 0), [a, b]
     )
     assert tvm_tirx.sym.Analyzer().can_prove_equal(m[0], 4)
@@ -45,10 +49,10 @@ def test_basic():
 def test_trivial_eq():
     a = tvm_tirx.tirx.Var("a", "int32")
     b = tvm_tirx.tirx.Var("b", "int32")
-    m = tvm_tirx.sym.detect_clip_bound(b == 3, [a, b])
+    m = tvm_tirx.tirx.analysis.detect_clip_bound(b == 3, [a, b])
     assert tvm_tirx.sym.Analyzer().can_prove_equal(m[2], 3)
     assert tvm_tirx.sym.Analyzer().can_prove_equal(m[3], 3)
-    m = tvm_tirx.sym.detect_clip_bound(tvm_tirx.tirx.all(a == 4, b == 3), [a, b])
+    m = tvm_tirx.tirx.analysis.detect_clip_bound(tvm_tirx.tirx.all(a == 4, b == 3), [a, b])
     assert tvm_tirx.sym.Analyzer().can_prove_equal(m[0], 4)
     assert tvm_tirx.sym.Analyzer().can_prove_equal(m[1], 4)
     assert tvm_tirx.sym.Analyzer().can_prove_equal(m[2], 3)

@@ -18,7 +18,7 @@
  */
 
 /*!
- * \file detect_linear_equation.cc
+ * \file linear_analysis.cc
  * \brief Utility to detect patterns in the expression.
  */
 #include <tvm/ffi/extra/structural_visit.h>
@@ -28,12 +28,12 @@
 #include <tvm/ir/prim/expr.h>
 #include <tvm/ir/prim/op.h>
 #include <tvm/sym/analyzer.h>
-#include <tvm/sym/pattern.h>
+#include <tvm/tirx/analysis.h>
 
 #include <unordered_set>
 
 namespace tvm {
-namespace sym {
+namespace tirx {
 using namespace tvm::prim;
 
 // Linear equation, the components can be undefined.
@@ -226,7 +226,7 @@ bool DetectClipBound(const PrimExpr& cond,
     return false;
   }
   LinearEqEntry ret;
-  Analyzer analyzer;
+  sym::Analyzer analyzer;
   if (!LinearEqDetector(var.value()).Detect(canonical, &ret)) return false;
   ret.coeff = analyzer->Simplify(ret.coeff.value());
   IntervalEntry& p = bmap->at(var.value().get());
@@ -281,7 +281,7 @@ void SplitCommExpr(const PrimExpr& e, std::vector<PrimExpr>* ret) {
 ffi::Array<ffi::Optional<PrimExpr>> DetectClipBound(const PrimExpr& e,
                                                     const ffi::Array<PrimVar>& vars) {
   std::vector<PrimExpr> splits;
-  Analyzer analyzer;
+  sym::Analyzer analyzer;
   SplitCommExpr<prim::AndNode>(analyzer->Simplify(e), &splits);
   std::unordered_map<const VarNode*, IntervalEntry> rmap;
   for (PrimVar v : vars) {
@@ -308,10 +308,10 @@ ffi::Array<ffi::Optional<PrimExpr>> DetectClipBound(const PrimExpr& e,
 TVM_FFI_STATIC_INIT_BLOCK() {
   namespace refl = tvm::ffi::reflection;
   refl::GlobalDef()
-      .def("sym.DetectLinearEquation", DetectLinearEquation)
-      .def("sym.DetectClipBound", [](const PrimExpr& e, const ffi::Array<PrimVar>& vars) {
+      .def("tirx.analysis.DetectLinearEquation", DetectLinearEquation)
+      .def("tirx.analysis.DetectClipBound", [](const PrimExpr& e, const ffi::Array<PrimVar>& vars) {
         return DetectClipBound(e, vars);
       });
 }
-}  // namespace sym
+}  // namespace tirx
 }  // namespace tvm

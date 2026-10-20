@@ -303,6 +303,24 @@ TVM_TIRX_DLL ffi::Array<IntSet> EstimateRegionUpperBound(const ffi::Array<Range>
                                                          const PrimExpr& predicate,
                                                          const sym::Analyzer& analyzer);
 
+/*!
+ * \brief Deduce the bound of the target variable in an expression,
+ *  given the domain of each variable. Return IntSet::Nothing() to
+ *  represent failure.
+ *
+ * \note The returned set may be smaller than set that
+ *       contains all possible values of v that satisfies the bound.
+ *
+ * \param v The target variable to be deduced.
+ * \param cond The conditional expression.
+ * \param hint_map The domain of variable, used to help deduce.
+ * \param relax_map The domain of each variable, used to relax the domain,
+ *        The deduce bound must imply e for all value in relax_map
+ * \return An integer set that always satisfies the condition.
+ */
+TVM_TIRX_DLL IntSet DeduceBound(PrimExpr v, PrimExpr cond, const ffi::Map<Var, IntSet>& hint_map,
+                                const ffi::Map<Var, IntSet>& relax_map);
+
 }  // namespace sym
 }  // namespace tvm
 #endif  // TVM_SYM_INT_SET_H_

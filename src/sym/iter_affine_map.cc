@@ -27,6 +27,7 @@
 #include <tvm/ffi/reflection/registry.h>
 #include <tvm/ir/expr_functor.h>
 #include <tvm/ir/prim/expr.h>
+#include <tvm/ir/prim/pattern_match.h>
 #include <tvm/sym/analyzer.h>
 #include <tvm/sym/iter_affine_map.h>
 
@@ -34,7 +35,6 @@
 #include <utility>
 
 #include "const_fold.h"
-#include "pattern_match.h"
 #include "product_normal_form.h"
 
 namespace tvm {
@@ -1376,7 +1376,7 @@ struct IterConstraint {
  */
 bool MatchBoundConstraints(PrimExpr pred, ffi::Map<PrimVar, Range>* input_iters,
                            std::vector<IterConstraint>* result) {
-  sym::PVar<PrimExpr> lhs, rhs, rest;
+  tvm::PVar<PrimExpr> lhs, rhs, rest;
   std::unordered_set<const VarNode*> input_iter_nodes;
   for (const auto& [var, _] : *input_iters) {
     input_iter_nodes.insert(var.get());

@@ -20,7 +20,6 @@
 #include <gtest/gtest.h>
 #include <tvm/ir/prim/op.h>
 #include <tvm/sym/analyzer.h>
-#include <tvm/sym/bound.h>
 #include <tvm/sym/int_set.h>
 
 namespace tvm {

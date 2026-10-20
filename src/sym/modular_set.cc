@@ -26,14 +26,13 @@
 #include <tvm/ffi/reflection/registry.h>
 #include <tvm/ir/expr_functor.h>
 #include <tvm/ir/prim/op.h>
+#include <tvm/ir/prim/pattern_match.h>
 #include <tvm/sym/analyzer.h>
 
 #include <limits>
 #include <numeric>
 #include <unordered_map>
 #include <utility>
-
-#include "pattern_match.h"
 
 namespace tvm {
 namespace sym {

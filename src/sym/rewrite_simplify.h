@@ -27,6 +27,7 @@
 #include <tvm/ffi/reflection/registry.h>
 #include <tvm/ir/cow.h>
 #include <tvm/ir/prim/op.h>
+#include <tvm/ir/prim/pattern_match.h>
 #include <tvm/sym/analyzer.h>
 
 #include <algorithm>
@@ -34,7 +35,6 @@
 #include <vector>
 
 #include "const_fold.h"
-#include "pattern_match.h"
 #include "simplify_base.h"
 
 namespace tvm {

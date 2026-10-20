@@ -21,15 +21,24 @@
  * \file symbolic_limits.cc
  * \brief Shared symbolic infinity atoms for primitive operations and integer analysis.
  */
-#include "const_fold.h"
+#include <tvm/ir/prim/op.h>
 
 namespace tvm {
 namespace prim {
-namespace detail {
 
-PrimExpr SymbolicLimits::pos_inf_ = PrimVar("pos_inf", PrimType::Int(64));
-PrimExpr SymbolicLimits::neg_inf_ = PrimVar("neg_inf", PrimType::Int(64));
+const PrimExpr& pos_inf() {
+  static const PrimExpr value = PrimVar("pos_inf", PrimType::Int(64));
+  return value;
+}
 
-}  // namespace detail
+const PrimExpr& neg_inf() {
+  static const PrimExpr value = PrimVar("neg_inf", PrimType::Int(64));
+  return value;
+}
+
+bool is_pos_inf(const PrimExpr& value) { return value.same_as(pos_inf()); }
+
+bool is_neg_inf(const PrimExpr& value) { return value.same_as(neg_inf()); }
+
 }  // namespace prim
 }  // namespace tvm

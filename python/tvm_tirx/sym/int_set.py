@@ -201,3 +201,24 @@ def union_lower_bound(sets):
         An N-dimensional integer set, the lower bound of the union
     """
     return _ffi_api.UnionLowerBound(sets)
+
+
+def deduce_bound(var, cond, hint_map, relax_map):
+    """Deduce the bound of the target variable in the cond.
+
+    Parameters
+    ----------
+    var : tvm_tirx.ir.Var
+        The target variable to be deduced.
+
+    cond : Expr
+        The condition
+
+    hint_map : Map[tvm_tirx.ir.Var, IntSet]
+        Domain of variables used to help deduction.
+
+    relax_map : Map[tvm_tirx.ir.Var, IntSet]
+        The domain of the variables to be relaxed
+        using the provided domain.
+    """
+    return _ffi_api.DeduceBound(var, cond, hint_map, relax_map)

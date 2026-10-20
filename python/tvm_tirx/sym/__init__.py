@@ -20,6 +20,7 @@
 from .int_set import (
     IntSet,
     IntervalSet,
+    deduce_bound,
     estimate_region_lower_bound,
     estimate_region_strict_bound,
     estimate_region_upper_bound,
@@ -32,8 +33,6 @@ from .analyzer import (
     CompareResult,
     allow_uint_as_index,
 )
-from .bound import deduce_bound
-from .pattern import detect_linear_equation, detect_clip_bound
 from .iter_affine_map import IterMapExpr, IterMark, IterSplitExpr, IterSumExpr
 from .iter_affine_map import (
     detect_iter_map,

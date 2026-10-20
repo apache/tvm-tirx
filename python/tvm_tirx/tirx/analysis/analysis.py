@@ -83,3 +83,45 @@ def check_well_formed(obj: Function | IRModule, assert_mode: bool = True) -> boo
         If the IR is invalid and assert_mode is True.
     """
     return _ffi_api.CheckWellFormed(obj, assert_mode)  # type: ignore # pylint: disable=no-member
+
+
+def detect_linear_equation(expr, var_list):
+    """Match `expr = sum_{i=0}^{n-1} var[i] * coeff[i] + coeff[n]`
+
+    Where coeff[i] and base are invariant of var[j] for all i and j.
+
+    Parameters
+    ----------
+    expr : Expr
+        The expression to be matched.
+
+    var_list : List[tvm_tirx.ir.Var]
+        A list of variables.
+
+    Returns
+    -------
+    coeff : List[Expr]
+        A list of co-efficients if the match is successful.
+        An empty list if the match failed.
+    """
+    return _ffi_api.DetectLinearEquation(expr, var_list)
+
+
+def detect_clip_bound(expr, var_list):
+    """Detect if expression corresponds to clip bound of the vars
+
+    Parameters
+    ----------
+    expr : Expr
+        The expression to be matched.
+
+    var_list : List[tvm_tirx.ir.Var]
+        A list of variables.
+
+    Returns
+    -------
+    coeff : List[Expr]
+        `concat([min_value[i], max_value[i]] for i, v in enumerate(var_list))`
+        An empty list if the match failed.
+    """
+    return _ffi_api.DetectClipBound(expr, var_list)

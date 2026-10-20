@@ -27,6 +27,7 @@
 #include <tvm/ffi/reflection/registry.h>
 #include <tvm/ir/function.h>
 #include <tvm/ir/prim/op.h>
+#include <tvm/ir/prim/pattern_match.h>
 #include <tvm/runtime/memory_scope.h>
 #include <tvm/support/bytes_io.h>
 #include <tvm/support/gpu_thread_tag.h>
@@ -49,7 +50,6 @@
 
 #include "../../../codegen/build_common.h"
 #include "../../../runtime/metadata.h"
-#include "../../../sym/pattern_match.h"
 #include "webgpu_fallback_module.h"
 
 namespace tvm {
@@ -657,8 +657,8 @@ void CodeGenWebGPU::Dispatch_(const TensorLoadNode* op, std::ostream& os) {  // 
     TVM_FFI_ICHECK_EQ(element_ty.lanes(), 1) << "Can only vector load scalar array";
     TVM_FFI_ICHECK(value_ty.WithLanes(1) == element_ty)
         << "WebGPU vector loading requires base type to match";
-    sym::PVar<PrimExpr> base;
-    if (sym::ramp(base, 1, value_ty.lanes()).Match(index)) {
+    tvm::PVar<PrimExpr> base;
+    if (tvm::ramp(base, 1, value_ty.lanes()).Match(index)) {
       // vec3<f32>(buf[base + 0], buf[base + 1], buf[base + 2]);
       std::string base_vid = SSAGetID(PrintExpr(base.Eval()), base.Eval().ty());
       PrintType(element_ty.WithLanes(value_ty.lanes()), os);
@@ -743,8 +743,8 @@ void CodeGenWebGPU::Dispatch_(const TensorStoreNode* op) {
     TVM_FFI_ICHECK(value_ty.WithLanes(1) == element_ty)
         << "WebGPU vector stire requires base type to match";
     std::string value_vid = PrintExpr(op->value);
-    sym::PVar<PrimExpr> base;
-    if (sym::ramp(base, 1, value_ty.lanes()).Match(index)) {
+    tvm::PVar<PrimExpr> base;
+    if (tvm::ramp(base, 1, value_ty.lanes()).Match(index)) {
       // buf[base + 0] = value[0]
       // buf[base + 1] = value[1]
       std::string base_vid = SSAGetID(PrintExpr(base.Eval()), base.Eval().ty());

@@ -39,6 +39,28 @@ namespace tvm {
 namespace tirx {
 
 /*!
+ * \brief Detect if e can be rewritten as e = sum_{i=0}^{n-1} var[i] * coeff[i] + coeff[n]
+ *  Where coeff[i] and base are invariant of var[j] for all i and j.
+ *
+ * \param e The expression to be detected.
+ * \param vars List of variables to be used in detection.
+ * \return [coeff[i]] if it is possible, empty array if it is not.
+ */
+TVM_TIRX_DLL ffi::Array<PrimExpr> DetectLinearEquation(const PrimExpr& e,
+                                                       const ffi::Array<PrimVar>& vars);
+
+/*!
+ * \brief Detect if expression corresponds to clip bound of the vars
+ *
+ * \param e The expression to be detected.
+ * \param vars List of variables to be used in detection.
+ * \return concat([min_value[i], max_value[i]]), None is returned if there is no min or max value
+ *          return empty if the e does not match the pattern.
+ */
+TVM_TIRX_DLL ffi::Array<ffi::Optional<PrimExpr>> DetectClipBound(const PrimExpr& e,
+                                                                 const ffi::Array<PrimVar>& vars);
+
+/*!
  * \brief Verify if memory accesses are legal for a specific target device type.
  *
  *  In the case that tgt is cuda, if not all workload is bound with

@@ -21,13 +21,13 @@
  */
 
 #include <tvm/ir/prim/expr.h>
+#include <tvm/ir/prim/pattern_match.h>
 #include <tvm/sym/analyzer.h>
 
 #include <optional>
 #include <vector>
 
 #include "constraint_extract.h"
-#include "pattern_match.h"
 
 namespace tvm {
 namespace sym {

@@ -266,6 +266,34 @@ inline PrimExpr operator*=(PrimExpr& a, PrimExpr b) {
 namespace prim {
 
 /*!
+ * \brief Symbolic positive infinity for unbounded integer intervals.
+ * \note This sentinel is not IEEE infinity and cannot be used in normal expressions.
+ * \return The positive infinity sentinel with stable identity and lifetime.
+ */
+TVM_TIRX_DLL const PrimExpr& pos_inf();
+
+/*!
+ * \brief Symbolic negative infinity for unbounded integer intervals.
+ * \note This sentinel is not IEEE infinity and cannot be used in normal expressions.
+ * \return The negative infinity sentinel with stable identity and lifetime.
+ */
+TVM_TIRX_DLL const PrimExpr& neg_inf();
+
+/*!
+ * \brief Check whether a value is the symbolic positive infinity sentinel.
+ * \param value The value to check.
+ * \return Whether the value has the sentinel's identity.
+ */
+TVM_TIRX_DLL bool is_pos_inf(const PrimExpr& value);
+
+/*!
+ * \brief Check whether a value is the symbolic negative infinity sentinel.
+ * \param value The value to check.
+ * \return Whether the value has the sentinel's identity.
+ */
+TVM_TIRX_DLL bool is_neg_inf(const PrimExpr& value);
+
+/*!
  * \brief Get the target's vscale value. It will be lowered to llvm.vscale intrinsic
  * (https://llvm.org/docs/LangRef.html#llvm-vscale-intrinsic)
  */

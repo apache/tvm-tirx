@@ -28,6 +28,7 @@
 #include <tvm/ir/expr_functor.h>
 #include <tvm/ir/prim/expr.h>
 #include <tvm/ir/prim/op.h>
+#include <tvm/ir/prim/pattern_match.h>
 #include <tvm/runtime/logging.h>
 #include <tvm/sym/int_set.h>
 #include <tvm/sym/iter_affine_map.h>
@@ -40,7 +41,6 @@
 #include "constraint_extract.h"
 #include "int_operator.h"
 #include "interval_set.h"
-#include "pattern_match.h"
 
 namespace tvm {
 namespace sym {
@@ -149,9 +149,9 @@ inline IntervalSet Combine<prim::Add>(AnalyzerObj* analyer, IntervalSet a, Inter
   if (a->IsEmpty()) return a;
   if (b->IsEmpty()) return b;
   PrimExpr min_value =
-      a->HasLowerBound() && b->HasLowerBound() ? a->min_value + b->min_value : neg_inf();
+      a->HasLowerBound() && b->HasLowerBound() ? a->min_value + b->min_value : prim::neg_inf();
   PrimExpr max_value =
-      a->HasUpperBound() && b->HasUpperBound() ? a->max_value + b->max_value : pos_inf();
+      a->HasUpperBound() && b->HasUpperBound() ? a->max_value + b->max_value : prim::pos_inf();
   return IntervalSet(min_value, max_value);
 }
 
@@ -164,9 +164,9 @@ inline IntervalSet Combine<prim::Sub>(AnalyzerObj* analyer, IntervalSet a, Inter
   if (a->IsEmpty()) return a;
   if (b->IsEmpty()) return b;
   PrimExpr min_value =
-      a->HasLowerBound() && b->HasUpperBound() ? a->min_value - b->max_value : neg_inf();
+      a->HasLowerBound() && b->HasUpperBound() ? a->min_value - b->max_value : prim::neg_inf();
   PrimExpr max_value =
-      a->HasUpperBound() && b->HasLowerBound() ? a->max_value - b->min_value : pos_inf();
+      a->HasUpperBound() && b->HasLowerBound() ? a->max_value - b->min_value : prim::pos_inf();
   return IntervalSet(min_value, max_value);
 }
 
@@ -185,12 +185,12 @@ inline IntervalSet Combine<prim::Mul>(AnalyzerObj* analyzer, IntervalSet a, Inte
     if (IsZero(b->min_value)) return b;
     if (IsOne(b->min_value)) return a;
     if (analyzer->CanProveGreaterEqual(b->min_value, 0)) {
-      PrimExpr min_value = a->HasLowerBound() ? a->min_value * b->min_value : neg_inf();
-      PrimExpr max_value = a->HasUpperBound() ? a->max_value * b->min_value : pos_inf();
+      PrimExpr min_value = a->HasLowerBound() ? a->min_value * b->min_value : prim::neg_inf();
+      PrimExpr max_value = a->HasUpperBound() ? a->max_value * b->min_value : prim::pos_inf();
       return IntervalSet(min_value, max_value);
     } else if (analyzer->CanProveGreaterEqual(-b->min_value, 1)) {
-      PrimExpr min_value = a->HasUpperBound() ? a->max_value * b->min_value : neg_inf();
-      PrimExpr max_value = a->HasLowerBound() ? a->min_value * b->min_value : pos_inf();
+      PrimExpr min_value = a->HasUpperBound() ? a->max_value * b->min_value : prim::neg_inf();
+      PrimExpr max_value = a->HasLowerBound() ? a->min_value * b->min_value : prim::pos_inf();
       return IntervalSet(min_value, max_value);
     } else if (a->HasUpperBound() && a->HasLowerBound()) {
       PrimExpr sign = b->min_value >= IntImm(b->min_value.ty().WithLanes(1), 0);
@@ -218,12 +218,12 @@ inline IntervalSet Combine<prim::Div>(AnalyzerObj* analyzer, IntervalSet a, Inte
     if (IsOne(b->min_value)) return a;
     // no relaxation is needed in here due to set is inclusive
     if (analyzer->CanProveGreaterEqual(b->min_value, 0)) {
-      PrimExpr min_value = a->HasLowerBound() ? a->min_value / b->min_value : neg_inf();
-      PrimExpr max_value = a->HasUpperBound() ? a->max_value / b->min_value : pos_inf();
+      PrimExpr min_value = a->HasLowerBound() ? a->min_value / b->min_value : prim::neg_inf();
+      PrimExpr max_value = a->HasUpperBound() ? a->max_value / b->min_value : prim::pos_inf();
       return IntervalSet(min_value, max_value);
     } else if (analyzer->CanProveGreaterEqual(-b->min_value, 1)) {
-      PrimExpr min_value = a->HasUpperBound() ? a->max_value / b->min_value : neg_inf();
-      PrimExpr max_value = a->HasLowerBound() ? a->min_value / b->min_value : pos_inf();
+      PrimExpr min_value = a->HasUpperBound() ? a->max_value / b->min_value : prim::neg_inf();
+      PrimExpr max_value = a->HasLowerBound() ? a->min_value / b->min_value : prim::pos_inf();
       return IntervalSet(min_value, max_value);
     } else if (a->HasUpperBound() && a->HasLowerBound()) {
       PrimExpr sign = b->min_value >= IntImm(b->min_value.ty().WithLanes(1), 0);
@@ -280,12 +280,16 @@ inline IntervalSet Combine<prim::FloorDiv>(AnalyzerObj* analyzer, IntervalSet a,
     if (IsOne(b->min_value)) return a;
     // no relaxation is needed in here due to set is inclusive
     if (analyzer->CanProveGreaterEqual(b->min_value, 0)) {
-      PrimExpr min_value = a->HasLowerBound() ? floordiv(a->min_value, b->min_value) : neg_inf();
-      PrimExpr max_value = a->HasUpperBound() ? floordiv(a->max_value, b->min_value) : pos_inf();
+      PrimExpr min_value =
+          a->HasLowerBound() ? floordiv(a->min_value, b->min_value) : prim::neg_inf();
+      PrimExpr max_value =
+          a->HasUpperBound() ? floordiv(a->max_value, b->min_value) : prim::pos_inf();
       return IntervalSet(min_value, max_value);
     } else if (analyzer->CanProveGreaterEqual(-b->min_value, 1)) {
-      PrimExpr min_value = a->HasUpperBound() ? floordiv(a->max_value, b->min_value) : neg_inf();
-      PrimExpr max_value = a->HasLowerBound() ? floordiv(a->min_value, b->min_value) : pos_inf();
+      PrimExpr min_value =
+          a->HasUpperBound() ? floordiv(a->max_value, b->min_value) : prim::neg_inf();
+      PrimExpr max_value =
+          a->HasLowerBound() ? floordiv(a->min_value, b->min_value) : prim::pos_inf();
       return IntervalSet(min_value, max_value);
     } else if (a->HasUpperBound() && a->HasLowerBound()) {
       PrimExpr sign = b->min_value >= IntImm(b->min_value.ty().WithLanes(1), 0);
@@ -315,12 +319,12 @@ inline IntervalSet Combine<prim::FloorMod>(AnalyzerObj* analyzer, IntervalSet a,
     if (analyzer->CanProveGreaterEqual(divisor, 0)) {
       if (divisor.as<IntImmNode>()) {
         // a mod b = a - (a / b) * b if a_max / b == a_min / b
-        auto qmax = a->HasUpperBound() ? floordiv(a->max_value, divisor) : pos_inf();
-        auto qmin = a->HasLowerBound() ? floordiv(a->min_value, divisor) : neg_inf();
+        auto qmax = a->HasUpperBound() ? floordiv(a->max_value, divisor) : prim::pos_inf();
+        auto qmin = a->HasLowerBound() ? floordiv(a->min_value, divisor) : prim::neg_inf();
         // We can compare +/- inf against each other, but cannot use
         // operator== between the symbolic limits and an integer.
-        bool qmin_is_symbolic_limit = is_pos_inf(qmin) || is_neg_inf(qmin);
-        bool qmax_is_symbolic_limit = is_pos_inf(qmax) || is_neg_inf(qmax);
+        bool qmin_is_symbolic_limit = prim::is_pos_inf(qmin) || prim::is_neg_inf(qmin);
+        bool qmax_is_symbolic_limit = prim::is_pos_inf(qmax) || prim::is_neg_inf(qmax);
         bool compatible_dtypes = qmin_is_symbolic_limit == qmax_is_symbolic_limit;
         if (compatible_dtypes && analyzer->CanProve(qmax == qmin)) {
           auto tmax = a->max_value - divisor * qmin;
@@ -572,10 +576,10 @@ class IntervalSetEvaluator : public tvm::ExprFunctor<IntervalSet(const Expr&)> {
     }
     PrimExpr min_value = value_set->HasLowerBound()
                              ? prim::cast(value_set->min_value, op->ty.as_or_throw<PrimType>())
-                             : neg_inf();
+                             : prim::neg_inf();
     PrimExpr max_value = value_set->HasUpperBound()
                              ? prim::cast(value_set->max_value, op->ty.as_or_throw<PrimType>())
-                             : pos_inf();
+                             : prim::pos_inf();
     return IntervalSet(min_value, max_value);
   }
 
@@ -735,25 +739,25 @@ std::vector<std::pair<Var, IntSet>> IntSetAnalyzer::Impl::DetectBoundInfo(
   std::vector<std::pair<Var, IntSet>> bounds;
   for (const PrimExpr& subconstraint : ExtractConstraints(constraint)) {
     if ((x <= limit).Match(subconstraint)) {
-      bounds.push_back({x.Eval(), IntSet::Interval(SymbolicLimits::neg_inf_, limit.Eval())});
+      bounds.push_back({x.Eval(), IntSet::Interval(prim::neg_inf(), limit.Eval())});
     } else if ((x < limit).Match(subconstraint)) {
-      bounds.push_back({x.Eval(), IntSet::Interval(SymbolicLimits::neg_inf_, limit.Eval() - 1)});
+      bounds.push_back({x.Eval(), IntSet::Interval(prim::neg_inf(), limit.Eval() - 1)});
     } else if ((x >= limit).Match(subconstraint)) {
-      bounds.push_back({x.Eval(), IntSet::Interval(limit.Eval(), SymbolicLimits::pos_inf_)});
+      bounds.push_back({x.Eval(), IntSet::Interval(limit.Eval(), prim::pos_inf())});
     } else if ((x > limit).Match(subconstraint)) {
-      bounds.push_back({x.Eval(), IntSet::Interval(limit.Eval() + 1, SymbolicLimits::pos_inf_)});
+      bounds.push_back({x.Eval(), IntSet::Interval(limit.Eval() + 1, prim::pos_inf())});
     } else if ((x == limit).Match(subconstraint)) {
       bounds.push_back({x.Eval(), IntSet::SinglePoint(limit.Eval())});
     }
 
     if ((limit >= x).Match(subconstraint)) {
-      bounds.push_back({x.Eval(), IntSet::Interval(SymbolicLimits::neg_inf_, limit.Eval())});
+      bounds.push_back({x.Eval(), IntSet::Interval(prim::neg_inf(), limit.Eval())});
     } else if ((limit > x).Match(subconstraint)) {
-      bounds.push_back({x.Eval(), IntSet::Interval(SymbolicLimits::neg_inf_, limit.Eval() - 1)});
+      bounds.push_back({x.Eval(), IntSet::Interval(prim::neg_inf(), limit.Eval() - 1)});
     } else if ((limit <= x).Match(subconstraint)) {
-      bounds.push_back({x.Eval(), IntSet::Interval(limit.Eval(), SymbolicLimits::pos_inf_)});
+      bounds.push_back({x.Eval(), IntSet::Interval(limit.Eval(), prim::pos_inf())});
     } else if ((limit < x).Match(subconstraint)) {
-      bounds.push_back({x.Eval(), IntSet::Interval(limit.Eval() + 1, SymbolicLimits::pos_inf_)});
+      bounds.push_back({x.Eval(), IntSet::Interval(limit.Eval() + 1, prim::pos_inf())});
     } else if ((limit == x).Match(subconstraint)) {
       bounds.push_back({x.Eval(), IntSet::SinglePoint(limit.Eval())});
     }
@@ -977,9 +981,11 @@ IntSet UnionLowerBound(const ffi::Array<IntSet>& sets) {
         max_inclusive = std::move(new_max_inclusive);
         continue;
       }
-      bool bound_1 = is_neg_inf(new_min_inclusive) || is_pos_inf(max_inclusive.value()) ||
+      bool bound_1 = prim::is_neg_inf(new_min_inclusive) ||
+                     prim::is_pos_inf(max_inclusive.value()) ||
                      analyzer->CanProve(new_min_inclusive <= max_inclusive.value() + 1);
-      bool bound_2 = is_neg_inf(min_inclusive.value()) || is_pos_inf(new_max_inclusive) ||
+      bool bound_2 = prim::is_neg_inf(min_inclusive.value()) ||
+                     prim::is_pos_inf(new_max_inclusive) ||
                      analyzer->CanProve(min_inclusive.value() <= new_max_inclusive + 1);
       if (bound_1 && bound_2) {
         min_inclusive = min(min_inclusive.value(), new_min_inclusive);
@@ -1267,8 +1273,8 @@ TVM_FFI_STATIC_INIT_BLOCK() {
              Analyzer analyzer = opt_analyzer.has_value() ? opt_analyzer.value() : Analyzer();
              return EstimateRegionUpperBound(region, var_dom, predicate, analyzer);
            })
-      .def("sym.PosInf", []() { return SymbolicLimits::pos_inf_; })
-      .def("sym.NegInf", []() { return SymbolicLimits::neg_inf_; })
+      .def("sym.PosInf", []() { return prim::pos_inf(); })
+      .def("sym.NegInf", []() { return prim::neg_inf(); })
       .def("sym.UnionLowerBound", UnionLowerBound);
 }
 

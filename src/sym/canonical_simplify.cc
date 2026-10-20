@@ -27,10 +27,10 @@
 #include <tvm/ir/cow.h>
 #include <tvm/ir/prim/expr.h>
 #include <tvm/ir/prim/op.h>
+#include <tvm/ir/prim/pattern_match.h>
 #include <tvm/sym/analyzer.h>
 
 #include "const_fold.h"
-#include "pattern_match.h"
 #include "product_normal_form.h"
 #include "rewrite_simplify.h"
 
