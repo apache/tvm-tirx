@@ -79,7 +79,7 @@ jobs:
           from importlib.metadata import requires, version
 
           assert version("apache-tvm-ffi") == os.environ["TVM_FFI_VERSION"]
-          assert version("apache-tvm-tirx") == "0.1.0a1"
+          assert version("apache-tvm-tirx") == "0.1.0a2"
           assert "apache-tvm-ffi>=0.1.15.post0" in requires("apache-tvm-tirx")
           assert "apache-tvm-ffi-orcjit>=0.1.2" in requires("apache-tvm-tirx")
           PY
