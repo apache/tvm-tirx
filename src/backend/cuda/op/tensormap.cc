@@ -28,6 +28,17 @@ namespace cuda {
 
 using namespace tirx;
 
+void TensorMapEncodeTiledAttr::RegisterReflection() {
+  namespace refl = ffi::reflection;
+  ffi::reflection::ObjectDef<TensorMapEncodeTiledAttr>()
+      .def_ro("descriptor_dtype", &TensorMapEncodeTiledAttr::descriptor_dtype)
+      .def_ro("rank", &TensorMapEncodeTiledAttr::rank)
+      .def_ro("interleave", &TensorMapEncodeTiledAttr::interleave, refl::DefaultValue(0))
+      .def_ro("swizzle", &TensorMapEncodeTiledAttr::swizzle, refl::DefaultValue(0))
+      .def_ro("l2_promotion", &TensorMapEncodeTiledAttr::l2_promotion, refl::DefaultValue(0))
+      .def_ro("oob_fill", &TensorMapEncodeTiledAttr::oob_fill, refl::DefaultValue(0))
+      .def_ro("force_cu_dtype", &TensorMapEncodeTiledAttr::force_cu_dtype, refl::DefaultValue(-1));
+}
 const Op& tensormap_encode_tiled_op() {
   static const Op op = Op::Get("tirx.cuda.tensormap_encode_tiled");
   return op;

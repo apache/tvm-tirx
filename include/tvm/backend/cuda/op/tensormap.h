@@ -41,18 +41,7 @@ struct TensorMapEncodeTiledAttr : public AttrsNode {
   int64_t oob_fill;
   int64_t force_cu_dtype;
 
-  static void RegisterReflection() {
-    namespace refl = ffi::reflection;
-    ffi::reflection::ObjectDef<TensorMapEncodeTiledAttr>()
-        .def_ro("descriptor_dtype", &TensorMapEncodeTiledAttr::descriptor_dtype)
-        .def_ro("rank", &TensorMapEncodeTiledAttr::rank)
-        .def_ro("interleave", &TensorMapEncodeTiledAttr::interleave, refl::DefaultValue(0))
-        .def_ro("swizzle", &TensorMapEncodeTiledAttr::swizzle, refl::DefaultValue(0))
-        .def_ro("l2_promotion", &TensorMapEncodeTiledAttr::l2_promotion, refl::DefaultValue(0))
-        .def_ro("oob_fill", &TensorMapEncodeTiledAttr::oob_fill, refl::DefaultValue(0))
-        .def_ro("force_cu_dtype", &TensorMapEncodeTiledAttr::force_cu_dtype,
-                refl::DefaultValue(-1));
-  }
+  static void RegisterReflection();
   TVM_FFI_DECLARE_OBJECT_INFO_FINAL("tirx.cuda.TensorMapEncodeTiledAttr", TensorMapEncodeTiledAttr,
                                     AttrsNode);
 };
