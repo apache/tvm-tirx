@@ -343,7 +343,7 @@ class Pass : public ffi::ObjectRef {
  * perform a host of optimizations with a given optimization level and disabled
  * passes.
  */
-class TVM_TIRX_DLL SequentialObj : public PassObj {
+class SequentialObj : public PassObj {
  public:
   explicit SequentialObj(PassInfo pass_info) : pass_info(std::move(pass_info)) {}
   explicit SequentialObj(ffi::UnsafeInit tag) : pass_info(tag) {}
@@ -376,7 +376,7 @@ class TVM_TIRX_DLL SequentialObj : public PassObj {
    *
    * \return Return the updated module.
    */
-  IRModule operator()(IRModule mod, const PassContext& pass_ctx) const final;
+  TVM_TIRX_DLL IRModule operator()(IRModule mod, const PassContext& pass_ctx) const final;
   TVM_FFI_DECLARE_OBJECT_INFO_FINAL("transform.Sequential", SequentialObj, PassObj);
 };
 
@@ -402,7 +402,7 @@ class Sequential : public Pass {
 
   explicit Sequential(ffi::UnsafeInit tag) : Pass(tag) {}
 
-  TVM_TIRX_DLL const SequentialObj* operator->() const;
+  const SequentialObj* operator->() const { return static_cast<const SequentialObj*>(get()); }
   using ContainerType = SequentialObj;
 };
 

@@ -516,10 +516,6 @@ Sequential::Sequential(tvm::ffi::Array<Pass> passes, ffi::String name) : Pass(ff
   data_ = std::move(n);
 }
 
-const SequentialObj* Sequential::operator->() const {
-  return static_cast<const SequentialObj*>(get());
-}
-
 IRModule SequentialObj::operator()(IRModule mod, const PassContext& pass_ctx) const {
   for (const Pass& pass : passes) {
     VLOG(0) << "Running pass " << pass->Info()->name;

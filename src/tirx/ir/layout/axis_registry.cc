@@ -52,18 +52,6 @@ ffi::Optional<T> AxisAttr(const AxisNode* axis, const char* key) {
   return value.value().cast<T>();
 }
 
-bool AxisNode::IsThreadAxis() const {
-  auto thread = AxisAttr<bool>(this, "thread");
-  TVM_FFI_ICHECK(thread.has_value()) << "Axis '" << _str_index << "' has no thread classification";
-  return thread.value();
-}
-
-bool AxisNode::IsMemoryAxis() const {
-  auto thread = AxisAttr<bool>(this, "thread");
-  TVM_FFI_ICHECK(thread.has_value()) << "Axis '" << _str_index << "' has no thread classification";
-  return !thread.value();
-}
-
 ffi::Optional<ffi::String> AxisNode::GetBackend() const {
   return AxisAttr<ffi::String>(this, "backend");
 }

@@ -85,10 +85,19 @@ using FAxisFuser = ffi::TypedFunction<ffi::Optional<Iter>(Target, ThreadScope, T
 class AxisNode : public ffi::EnumObj {
  public:
   /*! \brief Check if the axis is a thread axis. */
-  TVM_TIRX_DLL bool IsThreadAxis() const;
+  bool IsThreadAxis() const {
+    static ffi::reflection::TypeAttrColumn state_column(ffi::type_attr::kEnumState);
+    static ffi::EnumState state =
+        ffi::Any(state_column[_GetOrAllocRuntimeTypeIndex()]).as_or_throw<ffi::EnumState>();
+    auto column = state->attrs.Get("thread");
+    auto thread = column ? column->Get(ffi::GetRef<ffi::ObjectRef>(this)) : std::nullopt;
+    TVM_FFI_ICHECK(thread.has_value())
+        << "Axis '" << _str_index << "' has no thread classification";
+    return thread->cast<bool>();
+  }
 
   /*! \brief Check if the axis is a memory axis. */
-  TVM_TIRX_DLL bool IsMemoryAxis() const;
+  bool IsMemoryAxis() const { return !IsThreadAxis(); }
 
   /*! \brief The backend owning this axis, if any. */
   TVM_TIRX_DLL ffi::Optional<ffi::String> GetBackend() const;
