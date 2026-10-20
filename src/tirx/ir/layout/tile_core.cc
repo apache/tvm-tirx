@@ -267,10 +267,10 @@ ffi::Map<ffi::String, PrimExpr> TileLayoutNode::Apply(const ffi::Array<PrimExpr>
         per_shard_coords.Set(i, split[j]);
       }
     }
-    return grouped->Apply(per_shard_coords);
+    return grouped.Apply(per_shard_coords);
   }
   // Fallback: flatten across input shape then split against shard shape.
-  return LayoutNode::Apply(coord, shape);
+  return Apply(FlattenCoord(coord, shape));
 }
 
 ffi::Map<ffi::String, PrimExpr> TileLayoutNode::Apply(Array<PrimExpr> coord) const {
@@ -343,7 +343,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
                           return layout->IsContiguous(std::move(analyzer));
                         });
   refl::GlobalDef().def("tirx.TileLayoutIsTrivial", [](const TileLayout& layout) {
-    return layout->Canonicalize().as<TileLayout>().value()->IsTrivial();
+    return layout.Canonicalize().as<TileLayout>().value()->IsTrivial();
   });
 }
 

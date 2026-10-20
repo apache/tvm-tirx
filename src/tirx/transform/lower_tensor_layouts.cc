@@ -218,7 +218,7 @@ class LayoutApplier : public StmtExprMutatorWithAnalyzer {
         // the allocation footprint of a strided view. Round the underlying
         // memory span to a block whose upper bits the swizzle cannot change.
         // A bare swizzle applies to the full tensor, not just its atom period.
-        PrimExpr mem_span = compose->tile_layout->GetSpan(ffi::String("m"));
+        PrimExpr mem_span = compose->tile_layout.GetSpan(ffi::String("m"));
         if (compose->tile_layout->IsTrivial()) {
           mem_span = IntImm::Int32(1);
           for (const auto& extent : buf.shape()) mem_span = mem_span * extent;
@@ -319,7 +319,7 @@ class LayoutApplier : public StmtExprMutatorWithAnalyzer {
         auto tile = layout.as_or_throw<TileLayout>();
         layout = TileLayout(tile->shard, tile->replica, {});
       }
-      auto res = layout->Canonicalize()->Apply(indices, tensor.shape());
+      auto res = layout.Canonicalize().Apply(indices, tensor.shape());
       if (res.empty() && tensor.shape().empty()) {
         return {IntImm(tensor.ty()->DefaultIndexType(), 0)};
       }

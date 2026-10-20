@@ -124,8 +124,8 @@ TVM_FFI_STATIC_INIT_BLOCK() {
 
 Layout TileLayoutNode::Tile(const TileLayout& outer_in, const Array<PrimExpr>& outer_shape,
                             const Array<PrimExpr>& inner_shape) const {
-  auto outer = outer_in->Canonicalize().as<TileLayout>().value();
-  auto inner = ffi::GetRef<TileLayout>(this)->Canonicalize().as<TileLayout>().value();
+  auto outer = outer_in.Canonicalize().as<TileLayout>().value();
+  auto inner = ffi::GetRef<TileLayout>(this).Canonicalize().as<TileLayout>().value();
 
   TVM_FFI_ICHECK_EQ(outer_shape.size(), inner_shape.size())
       << "Outer and inner shape size must match";
@@ -184,7 +184,7 @@ Layout TileLayoutNode::Tile(const TileLayout& outer_in, const Array<PrimExpr>& o
     }
   }
 
-  return TileLayout(tile_shard, tile_rep, tile_offset)->Canonicalize();
+  return TileLayout(tile_shard, tile_rep, tile_offset).Canonicalize();
 }
 
 }  // namespace tirx

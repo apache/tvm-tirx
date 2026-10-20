@@ -400,7 +400,7 @@ ffi::Array<PrimExpr> TensorTypeNode::ElemOffset(ffi::Array<PrimExpr> input_indic
 
   sym::Analyzer ana;
   if (layout.has_value()) {
-    auto mapped = layout.value()->Apply(input_indices, shape);
+    auto mapped = layout.value().Apply(input_indices, shape);
     if (mapped.empty() && shape.empty()) {
       return {IntImm(DefaultIndexType(), 0)};
     }

@@ -22,36 +22,78 @@
 namespace tvm {
 namespace tirx {
 
-/**************** Layout ****************/
-ffi::Map<ffi::String, PrimExpr> LayoutNode::Apply(const ffi::Array<PrimExpr>& coord,
-                                                  const ffi::Array<PrimExpr>& shape) const {
-  TVM_FFI_ICHECK_EQ(coord.size(), shape.size())
-      << "ValueError: The size of coord and shape should be equal";
-  return Apply(FlattenCoord(coord, shape));
+namespace {
+
+template <typename F>
+decltype(auto) DispatchLayout(const Layout& layout, F&& f) {
+  if (const auto* tile = layout.as<TileLayoutNode>()) {
+    return f(tile);
+  }
+  if (const auto* compose = layout.as<ComposeLayoutNode>()) {
+    return f(compose);
+  }
+  TVM_FFI_THROW(TypeError) << "Unsupported layout type: " << layout->GetTypeKey();
+}
+
+}  // namespace
+
+void Layout::CheckWellFormed() const {
+  DispatchLayout(*this, [](const auto* node) { node->CheckWellFormed(); });
+}
+
+PrimExpr Layout::GetSize(ffi::Optional<ffi::String> axis_name) const {
+  return DispatchLayout(*this, [&](const auto* node) { return node->GetSize(axis_name); });
+}
+
+PrimExpr Layout::GetSpan(ffi::Optional<ffi::String> axis_name) const {
+  return DispatchLayout(*this, [&](const auto* node) { return node->GetSpan(axis_name); });
+}
+
+ffi::Map<ffi::String, PrimExpr> Layout::Apply(ffi::Array<PrimExpr> coord) const {
+  return DispatchLayout(*this, [&](const auto* node) { return node->Apply(std::move(coord)); });
+}
+
+ffi::Map<ffi::String, PrimExpr> Layout::Apply(PrimExpr coord) const {
+  return DispatchLayout(*this, [&](const auto* node) { return node->Apply(std::move(coord)); });
+}
+
+ffi::Map<ffi::String, PrimExpr> Layout::Apply(const ffi::Array<PrimExpr>& coord,
+                                              const ffi::Array<PrimExpr>& shape) const {
+  return DispatchLayout(*this, [&](const auto* node) { return node->Apply(coord, shape); });
+}
+
+Layout Layout::Canonicalize() const {
+  return DispatchLayout(*this, [](const auto* node) { return node->Canonicalize(); });
+}
+
+Layout Layout::Tile(const TileLayout& outer, const ffi::Array<PrimExpr>& outer_shape,
+                    const ffi::Array<PrimExpr>& inner_shape) const {
+  return DispatchLayout(
+      *this, [&](const auto* node) { return node->Tile(outer, outer_shape, inner_shape); });
 }
 
 TVM_FFI_STATIC_INIT_BLOCK() {
   namespace refl = tvm::ffi::reflection;
   auto def = refl::GlobalDef();
-  def.def("tirx.LayoutCheckWellFormed", [](Layout layout) { return layout->CheckWellFormed(); });
+  def.def("tirx.LayoutCheckWellFormed", [](Layout layout) { return layout.CheckWellFormed(); });
   def.def("tirx.LayoutGetSize", [](Layout layout, ffi::Optional<ffi::String> axis_name) {
-    return layout->GetSize(axis_name);
+    return layout.GetSize(axis_name);
   });
   def.def("tirx.LayoutGetSpan", [](Layout layout, ffi::Optional<ffi::String> axis_name) {
-    return layout->GetSpan(axis_name);
+    return layout.GetSpan(axis_name);
   });
   def.def("tirx.LayoutApplyWithShape",
           [](Layout layout, ffi::Array<PrimExpr> coord, ffi::Array<PrimExpr> shape) {
-            return layout->Apply(coord, shape);
+            return layout.Apply(coord, shape);
           });
   def.def("tirx.LayoutApply",
-          [](Layout layout, ffi::Array<PrimExpr> coord) { return layout->Apply(coord); });
+          [](Layout layout, ffi::Array<PrimExpr> coord) { return layout.Apply(coord); });
   def.def("tirx.LayoutApplyLinear",
-          [](Layout layout, PrimExpr coord) { return layout->Apply(coord); });
-  def.def("tirx.LayoutCanonicalize", [](Layout layout) { return layout->Canonicalize(); });
+          [](Layout layout, PrimExpr coord) { return layout.Apply(coord); });
+  def.def("tirx.LayoutCanonicalize", [](Layout layout) { return layout.Canonicalize(); });
   def.def("tirx.LayoutTile", [](Layout layout, TileLayout outer, ffi::Array<PrimExpr> outer_shape,
                                 ffi::Array<PrimExpr> inner_shape) {
-    return layout->Tile(outer, outer_shape, inner_shape);
+    return layout.Tile(outer, outer_shape, inner_shape);
   });
 }
 
