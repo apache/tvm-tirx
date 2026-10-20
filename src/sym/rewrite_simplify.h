@@ -122,7 +122,7 @@ class RewriteSimplifier::Impl : public SimplifierBase {
   UnchangedOr<PrimExpr> Mutate_(const prim::CastNode* op, InplaceMode inplace_mode) override;
   UnchangedOr<PrimExpr> Mutate_(const prim::LetNode* op, InplaceMode inplace_mode) override;
 
-  ffi::TypedFunction<void()> EnterConstraint(const PrimExpr& constraint, bool is_assume);
+  std::function<void()> EnterConstraint(const PrimExpr& constraint, bool is_assume);
 
   RewriteSimplifierStats GetStatsCounters() const { return RewriteSimplifierStats(stats_); }
 

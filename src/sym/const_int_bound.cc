@@ -164,17 +164,17 @@ class ConstIntBoundAnalyzer::Impl final
         res = Intersect(res, info.bound);
       }
     }
-    if (bound_lookup_) {
-      auto val = (*bound_lookup_)(prim_expr);
-      if (val.has_value()) {
+    if (bound_) {
+      auto val = bound_->find(prim_expr);
+      if (val != bound_->end()) {
         auto everything = Everything(prim_expr.ty());
         TVM_FFI_ICHECK(
-            (val.value()->min_value == res.min_value && val.value()->max_value == res.max_value) ||
-            (val.value()->min_value == everything.min_value &&
-             val.value()->max_value == everything.max_value))
+            (val->second->min_value == res.min_value && val->second->max_value == res.max_value) ||
+            (val->second->min_value == everything.min_value &&
+             val->second->max_value == everything.max_value))
             << "Detected bound for " << expr << "conflicts with memorization";
       }
-      (*bound_update_)(prim_expr, ConstIntBound(res.min_value, res.max_value));
+      bound_->insert_or_assign(prim_expr, ConstIntBound(res.min_value, res.max_value));
     }
     return res;
   }
@@ -520,7 +520,7 @@ class ConstIntBoundAnalyzer::Impl final
     }
   }
 
-  ffi::TypedFunction<void()> EnterConstraint(const PrimExpr& constraint) {
+  std::function<void()> EnterConstraint(const PrimExpr& constraint) {
     std::vector<BoundInfo> info = DetectBoundInfo(constraint);
     if (info.size() == 0) return nullptr;
     size_t old_size = additional_info_.size();
@@ -547,8 +547,7 @@ class ConstIntBoundAnalyzer::Impl final
   // additional bound info
   std::vector<BoundInfo> additional_info_;
   // look up table for memorization
-  const ffi::TypedFunction<ffi::Optional<ConstIntBound>(const PrimExpr&)>* bound_lookup_{nullptr};
-  const ffi::TypedFunction<void(const PrimExpr&, const ConstIntBound&)>* bound_update_{nullptr};
+  BoundMapType* bound_{nullptr};
   // constants: the limit value means umlimited
   // NOTE: kNegInf/kPosInf are used to represent infinity.
   static const constexpr int64_t kNegInf = ConstIntBound::kNegInf;
@@ -878,22 +877,13 @@ ConstIntBound ConstIntBoundAnalyzer::operator()(const PrimExpr& expr) const {
   return ConstIntBound(ret.min_value, ret.max_value);
 }
 
-ConstIntBound ConstIntBoundAnalyzer::WithMemo(
-    const PrimExpr& expr,
-    const ffi::TypedFunction<ffi::Optional<ConstIntBound>(const PrimExpr&)>& lookup,
-    const ffi::TypedFunction<void(const PrimExpr&, const ConstIntBound&)>& update) {
-  // Restore borrowed callbacks even when analysis throws or recursively invokes this analyzer.
+ConstIntBound ConstIntBoundAnalyzer::operator()(const PrimExpr& expr, BoundMapType* bound) {
   struct RestoreMemo {
     Impl* impl;
-    decltype(impl_->bound_lookup_) lookup;
-    decltype(impl_->bound_update_) update;
-    ~RestoreMemo() {
-      impl->bound_lookup_ = lookup;
-      impl->bound_update_ = update;
-    }
-  } restore{impl_.get(), impl_->bound_lookup_, impl_->bound_update_};
-  impl_->bound_lookup_ = &lookup;
-  impl_->bound_update_ = &update;
+    BoundMapType* previous;
+    ~RestoreMemo() { impl->bound_ = previous; }
+  } restore{impl_.get(), impl_->bound_};
+  impl_->bound_ = bound;
   Entry ret = impl_->Dispatch(expr);
   return ConstIntBound(ret.min_value, ret.max_value);
 }
@@ -908,7 +898,7 @@ void ConstIntBoundAnalyzer::Bind(const Var& var, const Range& range, bool allow_
 
 bool ConstIntBoundAnalyzer::IsBound(const Var& var) const { return impl_->IsBound(var); }
 
-ffi::TypedFunction<void()> ConstIntBoundAnalyzer::EnterConstraint(const PrimExpr& constraint) {
+std::function<void()> ConstIntBoundAnalyzer::EnterConstraint(const PrimExpr& constraint) {
   return impl_->EnterConstraint(constraint);
 }
 

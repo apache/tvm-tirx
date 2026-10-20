@@ -661,7 +661,7 @@ class IntSetAnalyzer::Impl {
 
   void Update(const Var& var, const IntSet& info, bool override_info);
   void Bind(const Var& var, const PrimExpr& expr, bool override_info);
-  ffi::TypedFunction<void()> EnterConstraint(const PrimExpr& constraint);
+  std::function<void()> EnterConstraint(const PrimExpr& constraint);
 
   void CopyFrom(const Impl& other) {
     dom_map_ = other.dom_map_;
@@ -765,11 +765,11 @@ std::vector<std::pair<Var, IntSet>> IntSetAnalyzer::Impl::DetectBoundInfo(
   return bounds;
 }
 
-ffi::TypedFunction<void()> IntSetAnalyzer::EnterConstraint(const PrimExpr& constraint) {
+std::function<void()> IntSetAnalyzer::EnterConstraint(const PrimExpr& constraint) {
   return impl_->EnterConstraint(constraint);
 }
 
-ffi::TypedFunction<void()> IntSetAnalyzer::Impl::EnterConstraint(const PrimExpr& constraint) {
+std::function<void()> IntSetAnalyzer::Impl::EnterConstraint(const PrimExpr& constraint) {
   auto bounds = DetectBoundInfo(constraint);
 
   if (bounds.size() == 0) return nullptr;
@@ -1087,24 +1087,23 @@ IntSet EvalSet(IntSet s, const ffi::Map<Var, IntSet>& dom_map) {
 
 class SubExprIntervalSetEvaluator : public IntervalSetEvaluator {
  public:
-  SubExprIntervalSetEvaluator(AnalyzerObj* analyzer, const ffi::Map<Var, IntSet>& dom_map,
-                              const ffi::TypedFunction<void(const PrimExpr&, const IntSet&)>& visit)
-      : IntervalSetEvaluator(analyzer, dom_map), visit_(visit) {}
+  explicit SubExprIntervalSetEvaluator(AnalyzerObj* analyzer, const ffi::Map<Var, IntSet>& dom_map)
+      : IntervalSetEvaluator(analyzer, dom_map) {}
 
   IntervalSet Dispatch(const Expr& n) final {
     IntervalSet ret = IntervalSetEvaluator::Dispatch(n);
-    visit_(n.as_or_throw<PrimExpr>(), ret);
+    expr_map.insert_or_assign(n.as_or_throw<PrimExpr>(), ret);
     return ret;
   }
 
-  const ffi::TypedFunction<void(const PrimExpr&, const IntSet&)>& visit_;
+  ExprIntSetMap expr_map;
 };
 
-void EvalSetForEachSubExpr(PrimExpr e, const ffi::Map<Var, IntSet>& dom_map,
-                           const ffi::TypedFunction<void(const PrimExpr&, const IntSet&)>& visit) {
+ExprIntSetMap EvalSetForEachSubExpr(PrimExpr e, const ffi::Map<Var, IntSet>& dom_map) {
   Analyzer ana;
-  SubExprIntervalSetEvaluator m(ana.get(), dom_map, visit);
+  SubExprIntervalSetEvaluator m(ana.get(), dom_map);
   m.Eval(e);
+  return m.expr_map;
 }
 
 ffi::Map<Var, sym::IntSet> AsIntSet(const ffi::Map<Var, Range>& var_dom) {

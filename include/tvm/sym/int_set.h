@@ -24,7 +24,6 @@
 #ifndef TVM_SYM_INT_SET_H_
 #define TVM_SYM_INT_SET_H_
 
-#include <tvm/ffi/function.h>
 #include <tvm/ir/expr.h>
 #include <tvm/ir/prim/expr.h>
 
@@ -197,16 +196,6 @@ TVM_TIRX_DLL IntSet EvalSet(Range r, const ffi::Map<Var, IntSet>& dom_map);
  */
 TVM_TIRX_DLL ffi::Array<IntSet> EvalSet(const ffi::Array<Range>& region,
                                         const ffi::Map<Var, IntSet>& dom_map);
-/*!
- * \brief Evaluate each sub-expression and synchronously report its integer set.
- * \param e The expression to evaluate.
- * \param dom_map The domain of each variable.
- * \param visit Receives each result; it is not retained and may be called repeatedly for a node.
- */
-TVM_TIRX_DLL void EvalSetForEachSubExpr(
-    PrimExpr e, const ffi::Map<Var, IntSet>& dom_map,
-    const ffi::TypedFunction<void(const PrimExpr&, const IntSet&)>& visit);
-
 /*! \brief Map from Expr to IntSet */
 using ExprIntSetMap = std::unordered_map<PrimExpr, IntSet, ffi::ObjectPtrHash, ffi::ObjectPtrEqual>;
 /*!
@@ -217,14 +206,7 @@ using ExprIntSetMap = std::unordered_map<PrimExpr, IntSet, ffi::ObjectPtrHash, f
  * \param dom_map The domain of each variable.
  * \return the map from the expression to its possible value.
  */
-inline ExprIntSetMap EvalSetForEachSubExpr(PrimExpr e, const ffi::Map<Var, IntSet>& dom_map) {
-  ExprIntSetMap result;
-  EvalSetForEachSubExpr(std::move(e), dom_map,
-                        [&result](const PrimExpr& expr, const IntSet& value) {
-                          result.insert_or_assign(expr, value);
-                        });
-  return result;
-}
+TVM_TIRX_DLL ExprIntSetMap EvalSetForEachSubExpr(PrimExpr e, const ffi::Map<Var, IntSet>& dom_map);
 
 /*!
  * \brief Create a union set of all sets, possibly relaxed

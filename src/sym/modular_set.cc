@@ -152,7 +152,7 @@ class ModularSetAnalyzer::Impl final
   }
 
   // Detect useful constraints and use them in the analysis scope.
-  ffi::TypedFunction<void()> EnterConstraint(const PrimExpr& constraint) {
+  std::function<void()> EnterConstraint(const PrimExpr& constraint) {
     PVar<Var> var;
     PVar<IntImm> coeff, base;
     // pattern match interesting constraints
@@ -352,7 +352,7 @@ class ModularSetAnalyzer::Impl final
    * \param entry The entry to be updated.
    * \return The recovery function of the scope.
    */
-  ffi::TypedFunction<void()> UpdateByIntersect(const Var& var, Entry entry) {
+  std::function<void()> UpdateByIntersect(const Var& var, Entry entry) {
     Entry old = Everything();
     auto it = var_map_.find(var);
     if (it != var_map_.end()) {
@@ -430,7 +430,7 @@ void ModularSetAnalyzer::Update(const Var& var, const ModularSet& info, bool all
   impl_->Update(var, info, allow_override);
 }
 
-ffi::TypedFunction<void()> ModularSetAnalyzer::EnterConstraint(const PrimExpr& constraint) {
+std::function<void()> ModularSetAnalyzer::EnterConstraint(const PrimExpr& constraint) {
   return impl_->EnterConstraint(constraint);
 }
 

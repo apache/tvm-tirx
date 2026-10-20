@@ -281,7 +281,7 @@ class Z3Prover::Impl final : tvm::ExprFunctor<z3::expr(const Expr&)> {
   std::vector<std::vector<PrimExpr>> scope_side_effects_;
 
   /// @brief Enter a constraint scope
-  ffi::TypedFunction<void()> EnterConstraint(const PrimExpr& constraint, bool is_assume) {
+  std::function<void()> EnterConstraint(const PrimExpr& constraint, bool is_assume) {
     scope_stack_.push_back({});
     scope_stack_.back().push_back(Scope{Scope::Constraint, std::nullopt, std::nullopt, std::nullopt,
                                         std::nullopt, constraint, is_assume});
@@ -976,7 +976,7 @@ TVM_TIRX_DLL void Z3Prover::Bind(const Var& var, const Range& new_range, bool al
 TVM_TIRX_DLL void Z3Prover::Bind(const Var& var, const PrimExpr& expr, bool allow_override) {
   return impl_->Bind(var, expr, allow_override);
 }
-ffi::TypedFunction<void()> Z3Prover::EnterConstraint(const PrimExpr& constraint, bool is_assume) {
+std::function<void()> Z3Prover::EnterConstraint(const PrimExpr& constraint, bool is_assume) {
   return impl_->EnterConstraint(constraint, is_assume);
 }
 ffi::String Z3Prover::GetSMTLIB2(const ffi::Optional<PrimExpr> expr) {
@@ -1020,7 +1020,7 @@ TVM_TIRX_DLL bool Z3Prover::IsEnabled() const { return false; }
 TVM_TIRX_DLL bool Z3Prover::CanProve(const PrimExpr& expr) { return false; }
 TVM_TIRX_DLL void Z3Prover::Bind(const Var& var, const Range& new_range, bool allow_override) {}
 TVM_TIRX_DLL void Z3Prover::Bind(const Var& var, const PrimExpr& expr, bool allow_override) {}
-ffi::TypedFunction<void()> Z3Prover::EnterConstraint(const PrimExpr& constraint, bool is_assume) {
+std::function<void()> Z3Prover::EnterConstraint(const PrimExpr& constraint, bool is_assume) {
   return []() {};
 }
 ffi::String Z3Prover::GetSMTLIB2(const ffi::Optional<PrimExpr> expr) {

@@ -25,7 +25,6 @@
 #define TVM_SYM_ANALYZER_H_
 
 #include <tvm/ffi/cast.h>
-#include <tvm/ffi/function.h>
 #include <tvm/ffi/object.h>
 #include <tvm/ffi/reflection/registry.h>
 #include <tvm/ffi/string.h>
@@ -33,6 +32,7 @@
 #include <tvm/ir/with_context.h>
 #include <tvm/sym/int_set.h>
 
+#include <functional>
 #include <limits>
 #include <memory>
 #include <unordered_map>
@@ -149,20 +149,7 @@ class ConstIntBoundAnalyzer {
    * \param bound The lookup table to store the intermediate results
    * \return the result of the analysis.
    */
-  ConstIntBound operator()(const PrimExpr& expr, BoundMapType* bound) {
-    if (bound == nullptr) return (*this)(expr);
-    // Keep pointer identity and caller-visible updates in the caller's native map.
-    return WithMemo(
-        expr,
-        [bound](const PrimExpr& key) -> ffi::Optional<ConstIntBound> {
-          auto it = bound->find(key);
-          if (it == bound->end()) return std::nullopt;
-          return it->second;
-        },
-        [bound](const PrimExpr& key, const ConstIntBound& value) {
-          bound->insert_or_assign(key, value);
-        });
-  }
+  TVM_TIRX_DLL ConstIntBound operator()(const PrimExpr& expr, BoundMapType* bound);
 
   /*!
    * \brief Update constant int bound information of var.
@@ -192,11 +179,6 @@ class ConstIntBoundAnalyzer {
  private:
   friend class AnalyzerObj;
   friend class ConstraintContext;
-  // Both callbacks are invoked synchronously and are never retained.
-  TVM_TIRX_DLL ConstIntBound
-  WithMemo(const PrimExpr& expr,
-           const ffi::TypedFunction<ffi::Optional<ConstIntBound>(const PrimExpr&)>& lookup,
-           const ffi::TypedFunction<void(const PrimExpr&, const ConstIntBound&)>& update);
   explicit ConstIntBoundAnalyzer(AnalyzerObj* parent);
   TVM_TIRX_DLL ~ConstIntBoundAnalyzer();
   void CopyFrom(const ConstIntBoundAnalyzer& other);
@@ -206,7 +188,7 @@ class ConstIntBoundAnalyzer {
    *
    * \return an exit function that must be called to cleanup the constraint can be nullptr.
    */
-  ffi::TypedFunction<void()> EnterConstraint(const PrimExpr& constraint);
+  std::function<void()> EnterConstraint(const PrimExpr& constraint);
   struct Entry;
   class Impl;
   /*! \brief Internal impl */
@@ -286,7 +268,7 @@ class ModularSetAnalyzer {
    *
    * \return an exit function that must be called to cleanup the constraint can be nullptr.
    */
-  ffi::TypedFunction<void()> EnterConstraint(const PrimExpr& constraint);
+  std::function<void()> EnterConstraint(const PrimExpr& constraint);
   struct Entry;
   class Impl;
   /*! \brief Internal impl */
@@ -321,8 +303,8 @@ class RewriteSimplifier {
    *
    * \return an exit function that must be called to cleanup the constraint can be nullptr.
    */
-  TVM_TIRX_DLL ffi::TypedFunction<void()> EnterConstraint(const PrimExpr& constraint,
-                                                          bool is_assume = false);
+  TVM_TIRX_DLL std::function<void()> EnterConstraint(const PrimExpr& constraint,
+                                                     bool is_assume = false);
 
   /*! \brief Return the statistics counters */
   TVM_TIRX_DLL ffi::ObjectRef GetStatsCounters() const;
@@ -455,7 +437,7 @@ class KnownComparisonAnalyzer {
    *
    * \return an exit function that must be called to cleanup the constraint can be nullptr.
    */
-  TVM_TIRX_DLL ffi::TypedFunction<void()> EnterConstraint(const PrimExpr& constraint);
+  TVM_TIRX_DLL std::function<void()> EnterConstraint(const PrimExpr& constraint);
 
  private:
   friend class AnalyzerObj;
@@ -512,7 +494,7 @@ class IntSetAnalyzer {
    */
   TVM_TIRX_DLL void Bind(const Var& var, const Range& new_range, bool allow_override = false);
 
-  TVM_TIRX_DLL ffi::TypedFunction<void()> EnterConstraint(const PrimExpr& constraint);
+  TVM_TIRX_DLL std::function<void()> EnterConstraint(const PrimExpr& constraint);
 
  private:
   friend class AnalyzerObj;
@@ -566,8 +548,8 @@ class Z3Prover {
    * \param is_assume Whether the constraint comes from an assumption.
    * \return an exit function that must be called to cleanup the constraint can be nullptr.
    */
-  TVM_TIRX_DLL ffi::TypedFunction<void()> EnterConstraint(const PrimExpr& constraint,
-                                                          bool is_assume = false);
+  TVM_TIRX_DLL std::function<void()> EnterConstraint(const PrimExpr& constraint,
+                                                     bool is_assume = false);
 
   /*!
    * \brief Get the SMTLIB2 representation of the current context.
@@ -935,7 +917,7 @@ class ConstraintContext {
   /*! \brief The constraint */
   PrimExpr constraint_;
   /*! \brief functions to be called in recovery */
-  std::vector<ffi::TypedFunction<void()>> recovery_functions_;
+  std::vector<std::function<void()>> recovery_functions_;
   /*! \brief Whether the constraint comes from an assumption. */
   bool is_assume_;
 };
