@@ -27,7 +27,7 @@
 namespace tvm {
 using prim::IsConstInt;
 using prim::MakeConst;
-using namespace prim::detail;
+using namespace prim::details;
 namespace {
 TVM_FFI_INLINE const PrimTypeNode* GetPrimTypeNode(const PrimExpr& expr) {
   // Avoid PrimExpr::ty() ObjectRef materialization on binary operator hot paths.
@@ -71,7 +71,7 @@ bool IsVScaleCall(const PrimExpr& expr) {
 }
 
 }  // namespace
-namespace prim::detail {
+namespace prim::details {
 void BroadcastToMatchLanes(PrimExpr& op_a, PrimExpr& op_b) {  // NOLINT(*)
   PrimType ty_a = op_a.ty();
   PrimType ty_b = op_b.ty();
@@ -183,7 +183,7 @@ void BinaryOpMatchTypes(PrimExpr& lhs, PrimExpr& rhs, Location loc) {  // NOLINT
   }
 }
 
-}  // namespace prim::detail
+}  // namespace prim::details
 namespace prim {
 // maximum and min limits
 PrimExpr max_value(PrimType value_ty, Location loc) {
@@ -401,7 +401,7 @@ PrimExpr neg(PrimExpr a, Location loc) {
   if (pa) {
     ffi::BigInt value = -pa->value;
     if (a.ty().MatchesCode(DLDataTypeCode::kDLInt) && a.ty().bits() >= 64) {
-      value = prim::detail::GetFoldResult(std::move(value), a.ty());
+      value = prim::details::GetFoldResult(std::move(value), a.ty());
     }
     return IntImm(a.ty(), std::move(value), loc);
   }
@@ -651,7 +651,7 @@ PrimExpr left_shift(PrimExpr a, PrimExpr b, Location loc) {
           << result_ty;
     if (pa && pb) {
       ffi::BigInt value = pa->value << pb->value;
-      if (result_ty.bits() >= 64) value = prim::detail::GetFoldResult(std::move(value), result_ty);
+      if (result_ty.bits() >= 64) value = prim::details::GetFoldResult(std::move(value), result_ty);
       return IntImm(result_ty, std::move(value), loc);
     }
     if (pb) {
@@ -733,7 +733,7 @@ PrimExpr prim::IntegerAbs(PrimExpr x, Location loc) {
   if (x.ty().MatchesCode(DLDataTypeCode::kDLInt)) {
     if (const IntImmNode* px = x.as<IntImmNode>()) {
       ffi::BigInt value = px->value < 0 ? -px->value : px->value;
-      if (x.ty().bits() >= 64) value = prim::detail::GetFoldResult(std::move(value), x.ty());
+      if (x.ty().bits() >= 64) value = prim::details::GetFoldResult(std::move(value), x.ty());
       return IntImm(x.ty(), std::move(value), px->loc);
     }
     return Select(x >= MakeConst(x.ty(), 0), x, -x, loc);

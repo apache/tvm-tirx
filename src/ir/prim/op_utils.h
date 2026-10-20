@@ -20,8 +20,8 @@
 #ifndef TVM_IR_PRIM_OP_UTILS_H_
 #define TVM_IR_PRIM_OP_UTILS_H_
 #include <tvm/ir/prim/op.h>
-namespace tvm::prim::detail {
+namespace tvm::prim::details {
 TVM_TIRX_DLL void BinaryOpMatchTypes(PrimExpr& lhs, PrimExpr& rhs, Location loc);
 
-}  // namespace tvm::prim::detail
+}  // namespace tvm::prim::details
 #endif  // TVM_IR_PRIM_OP_UTILS_H_

@@ -31,7 +31,7 @@
 namespace tvm {
 namespace prim {
 
-using namespace prim::detail;
+using namespace prim::details;
 
 template <size_t N>
 static Type InferTypeReturnArgType(const CallNode* call) {

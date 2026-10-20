@@ -87,10 +87,10 @@ inline bool WillOverflow<prim::ModNode>(int64_t x, int64_t y, int64_t min_value,
   return y == 0;
 }
 
-using prim::detail::floordiv;
-using prim::detail::floormod;
-using prim::detail::truncdiv;
-using prim::detail::truncmod;
+using prim::details::floordiv;
+using prim::details::floormod;
+using prim::details::truncdiv;
+using prim::details::truncmod;
 
 /*!
  * \brief Take GCD of a and b.

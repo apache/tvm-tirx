@@ -20,6 +20,13 @@
 /*!
  * \file tvm/ir/pattern_match.h
  * \brief Shared expression-template pattern and capture protocol.
+ *
+ * \code
+ * tvm::PVar<int> value;
+ * if (value.Match(42)) {
+ *   int captured = value.Eval();  // captured is 42.
+ * }
+ * \endcode
  */
 #ifndef TVM_IR_PATTERN_MATCH_H_
 #define TVM_IR_PATTERN_MATCH_H_

@@ -28,7 +28,7 @@
 
 namespace tvm {
 namespace prim {
-namespace detail {
+namespace details {
 
 /*!
  * \brief Perform trunc division of two integers.
@@ -71,7 +71,7 @@ inline int64_t floormod(int64_t x, int64_t y) {
   return is_floor_div ? rmod : rmod + y;
 }
 
-}  // namespace detail
+}  // namespace details
 }  // namespace prim
 }  // namespace tvm
 #endif  // TVM_IR_PRIM_INT_OPERATOR_H_
