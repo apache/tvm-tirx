@@ -17,6 +17,7 @@
 # ruff: noqa: RUF005
 """Triton kernel integration with TIR"""
 
+from numbers import Integral
 from typing import Any
 
 import triton
@@ -25,9 +26,8 @@ from packaging import version
 from triton.runtime.jit import type_canonicalisation_dict
 
 import tvm_tirx
-from tvm_tirx import tirx
-from tvm_tirx.ir import PrimType, PtrType, is_prim_expr
-from tvm_tirx.sym.utils import get_const_int
+from tvm_tirx import sym, tirx
+from tvm_tirx.ir import IntImm, PrimType, PtrType, is_prim_expr
 
 from .external_kernel import BaseKernel
 
@@ -117,7 +117,13 @@ class TritonKernel(BaseKernel):
         kernel_args = []  # Arguments to invoke the kernel
         for i, arg in enumerate(args):
             if kernel_params[i].is_constexpr:
-                constants[kernel_params[i].name] = get_const_int(arg)
+                if not isinstance(arg, Integral):
+                    if not isinstance(arg, IntImm):
+                        arg = sym.Analyzer().simplify(arg)
+                    if not isinstance(arg, IntImm):
+                        raise ValueError("Expect value to be constant int")
+                    arg = int(arg.value)
+                constants[kernel_params[i].name] = arg
                 signature[kernel_params[i].name] = "constexpr"
                 continue
             if isinstance(arg.ty, PtrType):
