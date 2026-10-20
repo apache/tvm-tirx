@@ -68,9 +68,6 @@ class DocNode : public ffi::Object {
   static constexpr bool _type_mutable = true;
 
   TVM_FFI_DECLARE_OBJECT_INFO("script.printer.Doc", DocNode, ffi::Object);
-
- public:
-  virtual ~DocNode() = default;
 };
 
 /*!

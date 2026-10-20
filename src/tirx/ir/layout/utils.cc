@@ -45,7 +45,7 @@ ffi::Map<ffi::String, PrimExpr> BuildSpanMap(const TileLayout& layout) {
   ffi::Map<ffi::String, PrimExpr> span_map;
   for (const auto& iter : layout->shard) {
     if (span_map.find(iter->axis.name()) == span_map.end()) {
-      span_map.Set(iter->axis.name(), layout->GetSpan(iter->axis.name()));
+      span_map.Set(iter->axis.name(), layout.GetSpan(iter->axis.name()));
     }
   }
   return span_map;

@@ -47,34 +47,34 @@ using ffi::Tuple;
 // Base class for layout
 class LayoutNode : public ffi::Object {
  public:
-  /*! \brief Verify if the layout is well-formed */
-  virtual void CheckWellFormed() const = 0;
-
-  /*! \brief Get the size of the layout (of some axis) */
-  virtual PrimExpr GetSize(ffi::Optional<ffi::String> axis_name = std::nullopt) const = 0;
-
-  /*! \brief Get the span of the layout (of some axis) */
-  virtual PrimExpr GetSpan(ffi::Optional<ffi::String> axis_name = std::nullopt) const = 0;
-
-  /*! \brief Apply layout on the input coordinate and get the mapped output */
-  virtual ffi::Map<ffi::String, PrimExpr> Apply(ffi::Array<PrimExpr> coord) const = 0;
-  virtual ffi::Map<ffi::String, PrimExpr> Apply(PrimExpr coord) const = 0;
-  virtual ffi::Map<ffi::String, PrimExpr> Apply(const ffi::Array<PrimExpr>& coord,
-                                                const ffi::Array<PrimExpr>& shape) const;
-
-  /*! \brief Turn the layout to canonical form */
-  virtual Layout Canonicalize() const = 0;
-
-  /*! \brief Tile the current layout with a given layout */
-  virtual Layout Tile(const TileLayout& outer, const ffi::Array<PrimExpr>& outer_shape,
-                      const ffi::Array<PrimExpr>& inner_shape) const = 0;
-
   static constexpr TVMFFISEqHashKind _type_s_eq_hash_kind = kTVMFFISEqHashKindTreeNode;
   TVM_FFI_DECLARE_OBJECT_INFO("tirx.Layout", LayoutNode, ffi::Object);
 };
 
 class Layout : public ffi::ObjectRef {
  public:
+  /*! \brief Verify if the layout is well-formed */
+  TVM_TIRX_DLL void CheckWellFormed() const;
+
+  /*! \brief Get the size of the layout (of some axis) */
+  TVM_TIRX_DLL PrimExpr GetSize(ffi::Optional<ffi::String> axis_name = std::nullopt) const;
+
+  /*! \brief Get the span of the layout (of some axis) */
+  TVM_TIRX_DLL PrimExpr GetSpan(ffi::Optional<ffi::String> axis_name = std::nullopt) const;
+
+  /*! \brief Apply layout on the input coordinate and get the mapped output */
+  TVM_TIRX_DLL ffi::Map<ffi::String, PrimExpr> Apply(ffi::Array<PrimExpr> coord) const;
+  TVM_TIRX_DLL ffi::Map<ffi::String, PrimExpr> Apply(PrimExpr coord) const;
+  TVM_TIRX_DLL ffi::Map<ffi::String, PrimExpr> Apply(const ffi::Array<PrimExpr>& coord,
+                                                     const ffi::Array<PrimExpr>& shape) const;
+
+  /*! \brief Turn the layout to canonical form */
+  TVM_TIRX_DLL Layout Canonicalize() const;
+
+  /*! \brief Tile the current layout with a given layout */
+  TVM_TIRX_DLL Layout Tile(const TileLayout& outer, const ffi::Array<PrimExpr>& outer_shape,
+                           const ffi::Array<PrimExpr>& inner_shape) const;
+
   TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(Layout, ffi::ObjectRef, LayoutNode);
 };
 
@@ -164,30 +164,30 @@ class TileLayoutNode : public LayoutNode {
   }
 
   /*! \brief Verify if the layout is well-formed */
-  void CheckWellFormed() const final;
+  void CheckWellFormed() const;
 
   /*! \brief Get the size of the layout (of some axis) */
-  PrimExpr GetSize(ffi::Optional<ffi::String> axis_name = std::nullopt) const final;
+  PrimExpr GetSize(ffi::Optional<ffi::String> axis_name = std::nullopt) const;
 
   /*! \brief Get the span of the layout (of some axis) */
-  PrimExpr GetSpan(ffi::Optional<ffi::String> axis_name = std::nullopt) const final;
+  PrimExpr GetSpan(ffi::Optional<ffi::String> axis_name = std::nullopt) const;
 
   /*! \brief Apply the input coordinate and get the mapped output */
-  ffi::Map<ffi::String, PrimExpr> Apply(ffi::Array<PrimExpr> coord) const final;
-  ffi::Map<ffi::String, PrimExpr> Apply(PrimExpr coord) const final;
-  /*! \brief Group-first override: if this layout can be regrouped by ``shape``,
+  ffi::Map<ffi::String, PrimExpr> Apply(ffi::Array<PrimExpr> coord) const;
+  ffi::Map<ffi::String, PrimExpr> Apply(PrimExpr coord) const;
+  /*! \brief Group-first application: if this layout can be regrouped by ``shape``,
    *  split each ``coord[d]`` against its group's local extents (cleaner
    *  symbolic form than flatten+split-against-shard-shape). Otherwise fall
    *  back to flatten+split. */
   ffi::Map<ffi::String, PrimExpr> Apply(const ffi::Array<PrimExpr>& coord,
-                                        const ffi::Array<PrimExpr>& shape) const final;
+                                        const ffi::Array<PrimExpr>& shape) const;
 
   /*! \brief Turn the layout to canonical form */
-  Layout Canonicalize() const final;
+  Layout Canonicalize() const;
 
   /*! \brief Tile the layout with an outer layout */
   Layout Tile(const TileLayout& outer, const ffi::Array<PrimExpr>& outer_shape,
-              const ffi::Array<PrimExpr>& inner_shape) const final;
+              const ffi::Array<PrimExpr>& inner_shape) const;
 
   /*! \brief Get the shape of the shard */
   ffi::Array<PrimExpr> GetShardShape() const;
@@ -254,26 +254,26 @@ class ComposeLayoutNode : public LayoutNode {
   }
 
   /*! \brief Verify if the layout is well-formed */
-  void CheckWellFormed() const final;
+  void CheckWellFormed() const;
 
   /*! \brief Get the size (of some axis) of the layout */
-  PrimExpr GetSize(ffi::Optional<ffi::String> axis_name = std::nullopt) const final;
+  PrimExpr GetSize(ffi::Optional<ffi::String> axis_name = std::nullopt) const;
 
   /*! \brief Get the span (of some axis) of the layout */
-  PrimExpr GetSpan(ffi::Optional<ffi::String> axis_name = std::nullopt) const final;
+  PrimExpr GetSpan(ffi::Optional<ffi::String> axis_name = std::nullopt) const;
 
   /*! \brief Apply the input coordinate and get the mapped output */
-  ffi::Map<ffi::String, PrimExpr> Apply(ffi::Array<PrimExpr> coord) const final;
-  ffi::Map<ffi::String, PrimExpr> Apply(PrimExpr coord) const final;
+  ffi::Map<ffi::String, PrimExpr> Apply(ffi::Array<PrimExpr> coord) const;
+  ffi::Map<ffi::String, PrimExpr> Apply(PrimExpr coord) const;
   ffi::Map<ffi::String, PrimExpr> Apply(const ffi::Array<PrimExpr>& coord,
-                                        const ffi::Array<PrimExpr>& shape) const final;
+                                        const ffi::Array<PrimExpr>& shape) const;
 
   /*! \brief Turn the layout to canonical form */
-  Layout Canonicalize() const final;
+  Layout Canonicalize() const;
 
   /*! \brief Tile the layout with an outer layout */
   Layout Tile(const TileLayout& outer, const ffi::Array<PrimExpr>& outer_shape,
-              const ffi::Array<PrimExpr>& inner_shape) const final;
+              const ffi::Array<PrimExpr>& inner_shape) const;
 
   TVM_FFI_DECLARE_OBJECT_INFO_FINAL("tirx.ComposeLayout", ComposeLayoutNode, LayoutNode);
 };

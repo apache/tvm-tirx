@@ -86,9 +86,9 @@ TVM_FFI_INLINE TensorVar FlattenedTensor(const TensorVar& tensor,
       }
     }
   } else if (tile) {
-    output_shape.Set(0, ana->Simplify(tile->GetSpan(ffi::String("m"))));
+    output_shape.Set(0, ana->Simplify(tensor.ty()->layout.value().GetSpan(ffi::String("m"))));
   } else if (const auto* compose = tensor.ty()->layout.as<ComposeLayoutNode>()) {
-    PrimExpr span = compose->tile_layout->GetSpan(ffi::String("m"));
+    PrimExpr span = compose->tile_layout.GetSpan(ffi::String("m"));
     if (compose->tile_layout->IsTrivial()) {
       span = IntImm(tensor.ty()->DefaultIndexType(), 1);
       for (const auto& extent : tensor.shape()) span = span * extent;

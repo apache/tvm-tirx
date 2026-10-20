@@ -65,7 +65,7 @@ bool TensorTypeNode::IsScalar(bool alloc_or_decl) const {
   return shape.size() == 1 && tvm::prim::IsOne(shape[0]) && data_alignment == 64 &&
          (!layout.has_value() ||
           (layout.as<TileLayoutNode>() &&
-           layout.value()->Canonicalize().as_or_throw<TileLayout>()->IsTrivial()));
+           layout.value().Canonicalize().as_or_throw<TileLayout>()->IsTrivial()));
 }
 
 std::optional<int64_t> TensorTypeNode::ConstantAllocationSize() const {

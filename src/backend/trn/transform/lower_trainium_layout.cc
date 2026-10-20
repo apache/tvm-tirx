@@ -175,13 +175,13 @@ class TrainiumLayoutApplier : public tirx::StmtExprMutatorWithAnalyzer {
     TensorVar flattened = buf;
     ffi::ObjectPtr<TensorTypeNode> type;
     if (IsTrainiumLayout(trn_layout)) {
+      const Layout& layout = buf.ty()->layout.value();
       ffi::Array<PrimExpr> new_shape =
-          buf.scope() == scope_trn_psum
-              ? ffi::Array<PrimExpr>{trn_layout->GetSpan(ffi::String("Bank")),
-                                     trn_layout->GetSize(ffi::String("P")),
-                                     trn_layout->GetSpan(ffi::String("F"))}
-              : ffi::Array<PrimExpr>{trn_layout->GetSize(ffi::String("P")),
-                                     trn_layout->GetSpan(ffi::String("F"))};
+          buf.scope() == scope_trn_psum ? ffi::Array<PrimExpr>{layout.GetSpan(ffi::String("Bank")),
+                                                               layout.GetSize(ffi::String("P")),
+                                                               layout.GetSpan(ffi::String("F"))}
+                                        : ffi::Array<PrimExpr>{layout.GetSize(ffi::String("P")),
+                                                               layout.GetSpan(ffi::String("F"))};
       flattened = buf;
       type = ffi::make_object<TensorTypeNode>(*flattened.ty().get());
       type->shape = new_shape;
@@ -281,7 +281,7 @@ class TrainiumLayoutApplier : public tirx::StmtExprMutatorWithAnalyzer {
                    .as_or_throw<Layout>();
       auto tile_layout = layout.as<TileLayoutNode>();
       if (IsTrainiumLayout(tile_layout)) {
-        auto coord = layout->Apply(indices, tensor.shape());
+        auto coord = layout.Apply(indices, tensor.shape());
         std::vector<PrimExpr> res;
         for (const auto& axis : tensor.scope() == scope_trn_psum
                                     ? ffi::Array<ffi::String>{"Bank", "P", "F"}
@@ -300,7 +300,7 @@ class TrainiumLayoutApplier : public tirx::StmtExprMutatorWithAnalyzer {
                    << "layout: unable to verify that the coordinate matches the current thread. "
                    << "Use .view() + .local() to decompose thread and memory axes.";
       }
-      auto res = layout->Canonicalize()->Apply(indices, tensor.shape());
+      auto res = layout.Canonicalize().Apply(indices, tensor.shape());
       TVM_FFI_ICHECK_EQ(res.size(), 1) << "Expected a single element offset";
       return {analyzer_->Simplify((*res.begin()).second)};
     }
