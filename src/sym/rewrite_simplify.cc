@@ -52,17 +52,17 @@ TVM_FFI_INLINE bool IsVectorExpr(const ExprNode* expr) {
 
 TVM_FFI_STATIC_INIT_BLOCK() { RewriteSimplifierStatsObj::RegisterReflection(); }
 
-// Note: When using matches_one_of or PMatchesOneOf alongside these
+// Note: When using MatchesOneOf or PMatchesOneOf alongside these
 // macros, be careful which patterns are used in the ResExpr.  While
 // the different source expressions may be in terms of different PVar,
 // the ResExpr should only contain patterns that are defined in
 // *every* SrcExpr given.
 //
 // Allowed (replacement does not use either c1 or y):
-//     TVM_TRY_REWRITE(matches_one_of(x + c1 - c1, x + y - y), x)
+//     TVM_TRY_REWRITE(MatchesOneOf(x + c1 - c1, x + y - y), x)
 //
 // Forbidden (c3 undefined if the first pattern matches):
-//     TVM_TRY_REWRITE(matches_one_of(floormod(x*c1,c2), floormod(x*c1 + c3, c2)),
+//     TVM_TRY_REWRITE(MatchesOneOf(floormod(x*c1,c2), floormod(x*c1 + c3, c2)),
 //                     floormod(x*floormod(c1,c2) + floormod(c3,c2), c2))
 
 // macro for doing simple rewrite
@@ -311,9 +311,9 @@ UnchangedOr<PrimExpr> RewriteSimplifier::Impl::Mutate_(const prim::AddNode* op,
     // mul co-efficient folding
     TVM_TRY_REWRITE(x + x, x * 2);
 
-    TVM_TRY_REWRITE(matches_one_of(x * y + x, y * x + x, x + y * x, x + x * y), (y + 1) * x);
+    TVM_TRY_REWRITE(MatchesOneOf(x * y + x, y * x + x, x + y * x, x + x * y), (y + 1) * x);
 
-    TVM_TRY_REWRITE(matches_one_of(x * y + x * z, y * x + x * z, x * y + z * x, y * x + z * x),
+    TVM_TRY_REWRITE(MatchesOneOf(x * y + x * z, y * x + x * z, x * y + z * x, y * x + z * x),
                     (y + z) * x);
 
     // DivMod rules
@@ -321,8 +321,8 @@ UnchangedOr<PrimExpr> RewriteSimplifier::Impl::Mutate_(const prim::AddNode* op,
     TVM_TRY_REWRITE(truncdiv(x, c1) * c1 + truncmod(x, c1), x);
     // floor div
     TVM_TRY_REWRITE(
-        matches_one_of(floordiv(x, y) * y + floormod(x, y), y * floordiv(x, y) + floormod(x, y),
-                       floormod(x, y) + floordiv(x, y) * y, floormod(x, y) + y * floordiv(x, y)),
+        MatchesOneOf(floordiv(x, y) * y + floormod(x, y), y * floordiv(x, y) + floormod(x, y),
+                     floormod(x, y) + floordiv(x, y) * y, floormod(x, y) + y * floordiv(x, y)),
         x);
 
     TVM_TRY_REWRITE_IF(floordiv(floormod(x, c2) + c1, c2) + floordiv(x, c2), floordiv(x + c1, c2),
@@ -342,9 +342,8 @@ UnchangedOr<PrimExpr> RewriteSimplifier::Impl::Mutate_(const prim::AddNode* op,
     // canonicalization rule
     // will try rewrite again after canonicalization.
 
-    TVM_TRY_RECURSIVE_REWRITE(matches_one_of(x + (c1 - y), (c1 - y) + x), (x - y) + c1);
-    TVM_TRY_RECURSIVE_REWRITE(matches_one_of((x + c1) + y, x + (c1 + y), x + (y + c1)),
-                              (x + y) + c1);
+    TVM_TRY_RECURSIVE_REWRITE(MatchesOneOf(x + (c1 - y), (c1 - y) + x), (x - y) + c1);
+    TVM_TRY_RECURSIVE_REWRITE(MatchesOneOf((x + c1) + y, x + (c1 + y), x + (y + c1)), (x + y) + c1);
     TVM_TRY_RECURSIVE_REWRITE(x + max(y, z), max(y, z) + x);
     TVM_TRY_RECURSIVE_REWRITE(x + min(y, z), min(y, z) + x);
 
@@ -418,19 +417,19 @@ UnchangedOr<PrimExpr> RewriteSimplifier::Impl::Mutate_(const prim::SubNode* op,
   if (IsIndexTypedExpr(op)) {
     // Index rules
     // cancelation rules
-    TVM_TRY_REWRITE(matches_one_of((x + y) - y, (y + x) - y), x);
-    TVM_TRY_REWRITE(matches_one_of(x - (y + x), x - (x + y)), 0 - y);
+    TVM_TRY_REWRITE(MatchesOneOf((x + y) - y, (y + x) - y), x);
+    TVM_TRY_REWRITE(MatchesOneOf(x - (y + x), x - (x + y)), 0 - y);
 
-    TVM_TRY_REWRITE(matches_one_of(min(x, y) - y, x - max(y, x)), min(x - y, 0));
-    TVM_TRY_REWRITE(matches_one_of(x - max(x, y), min(y, x) - y), min(0, x - y));
-    TVM_TRY_REWRITE(matches_one_of(max(x, y) - y, x - min(y, x)), max(x - y, 0));
-    TVM_TRY_REWRITE(matches_one_of(x - min(x, y), max(y, x) - y), max(0, x - y));
+    TVM_TRY_REWRITE(MatchesOneOf(min(x, y) - y, x - max(y, x)), min(x - y, 0));
+    TVM_TRY_REWRITE(MatchesOneOf(x - max(x, y), min(y, x) - y), min(0, x - y));
+    TVM_TRY_REWRITE(MatchesOneOf(max(x, y) - y, x - min(y, x)), max(x - y, 0));
+    TVM_TRY_REWRITE(MatchesOneOf(x - min(x, y), max(y, x) - y), max(0, x - y));
 
     // mul co-efficient folding: pefer co-effiicent to stay at rhs
     TVM_TRY_REWRITE(x - x, ZeroWithTypeLike(x));
-    TVM_TRY_REWRITE(matches_one_of(x * y - x, y * x - x), (y - 1) * x);
-    TVM_TRY_REWRITE(matches_one_of(x - x * y, x - y * x), (1 - y) * x);
-    TVM_TRY_REWRITE(matches_one_of(x * y - x * z, y * x - x * z, x * y - z * x, y * x - z * x),
+    TVM_TRY_REWRITE(MatchesOneOf(x * y - x, y * x - x), (y - 1) * x);
+    TVM_TRY_REWRITE(MatchesOneOf(x - x * y, x - y * x), (1 - y) * x);
+    TVM_TRY_REWRITE(MatchesOneOf(x * y - x * z, y * x - x * z, x * y - z * x, y * x - z * x),
                     (y - z) * x);
 
     // constant cancelation
@@ -439,28 +438,28 @@ UnchangedOr<PrimExpr> RewriteSimplifier::Impl::Mutate_(const prim::SubNode* op,
 
     // cancelization rule involving 4 operands
     TVM_TRY_REWRITE(
-        matches_one_of((x + y) - (x + z), (x + y) - (z + x), (y + x) - (z + x), (y + x) - (x + z)),
+        MatchesOneOf((x + y) - (x + z), (x + y) - (z + x), (y + x) - (z + x), (y + x) - (x + z)),
         y - z);
 
-    TVM_TRY_REWRITE(matches_one_of(min(x + y, z) - x, min(y + x, z) - x), min(y, z - x));
-    TVM_TRY_REWRITE(matches_one_of(min(z, x + y) - x, min(z, y + x) - x), min(z - x, y));
+    TVM_TRY_REWRITE(MatchesOneOf(min(x + y, z) - x, min(y + x, z) - x), min(y, z - x));
+    TVM_TRY_REWRITE(MatchesOneOf(min(z, x + y) - x, min(z, y + x) - x), min(z - x, y));
 
-    TVM_TRY_REWRITE(matches_one_of(max(x + y, z) - x, max(y + x, z) - x), max(y, z - x));
-    TVM_TRY_REWRITE(matches_one_of(max(z, x + y) - x, max(z, y + x) - x), max(z - x, y));
+    TVM_TRY_REWRITE(MatchesOneOf(max(x + y, z) - x, max(y + x, z) - x), max(y, z - x));
+    TVM_TRY_REWRITE(MatchesOneOf(max(z, x + y) - x, max(z, y + x) - x), max(z - x, y));
 
-    TVM_TRY_REWRITE(matches_one_of(x - min(x + y, z), x - min(y + x, z)), max(0 - y, x - z));
-    TVM_TRY_REWRITE(matches_one_of(x - min(z, x + y), x - min(z, y + x)), max(x - z, 0 - y));
-    TVM_TRY_REWRITE(matches_one_of(x - max(x + y, z), x - max(y + x, z)), min(0 - y, x - z));
-    TVM_TRY_REWRITE(matches_one_of(x - max(z, x + y), x - max(z, y + x)), min(x - z, 0 - y));
+    TVM_TRY_REWRITE(MatchesOneOf(x - min(x + y, z), x - min(y + x, z)), max(0 - y, x - z));
+    TVM_TRY_REWRITE(MatchesOneOf(x - min(z, x + y), x - min(z, y + x)), max(x - z, 0 - y));
+    TVM_TRY_REWRITE(MatchesOneOf(x - max(x + y, z), x - max(y + x, z)), min(0 - y, x - z));
+    TVM_TRY_REWRITE(MatchesOneOf(x - max(z, x + y), x - max(z, y + x)), min(x - z, 0 - y));
 
     TVM_TRY_REWRITE(min(x, y) - min(y, x), ZeroWithTypeLike(x));
     TVM_TRY_REWRITE(max(x, y) - max(y, x), ZeroWithTypeLike(x));
 
-    TVM_TRY_REWRITE_IF(matches_one_of(min(b1, b2) - min(s1, s2), min(b1, b2) - min(s2, s1)),
-                       b1 - s1, CanProveEqual(((b1 - s1) - (b2 - s2)).Eval(), 0));
+    TVM_TRY_REWRITE_IF(MatchesOneOf(min(b1, b2) - min(s1, s2), min(b1, b2) - min(s2, s1)), b1 - s1,
+                       CanProveEqual(((b1 - s1) - (b2 - s2)).Eval(), 0));
 
-    TVM_TRY_REWRITE_IF(matches_one_of(max(b1, b2) - max(s1, s2), max(b1, b2) - max(s2, s1)),
-                       b1 - s1, CanProveEqual(((b1 - s1) - (b2 - s2)).Eval(), 0));
+    TVM_TRY_REWRITE_IF(MatchesOneOf(max(b1, b2) - max(s1, s2), max(b1, b2) - max(s2, s1)), b1 - s1,
+                       CanProveEqual(((b1 - s1) - (b2 - s2)).Eval(), 0));
 
     // DivMod rules
     // trucdiv
@@ -602,8 +601,8 @@ UnchangedOr<PrimExpr> RewriteSimplifier::Impl::Mutate_(const prim::MulNode* op,
   // Vector rules
   if (IsVectorExpr(op)) {
     TVM_TRY_REWRITE(broadcast(x, lanes) * broadcast(y, lanes), broadcast(x * y, lanes));
-    TVM_TRY_REWRITE(matches_one_of(ramp(b1, s1, lanes) * broadcast(x, lanes),
-                                   broadcast(x, lanes) * ramp(b1, s1, lanes)),
+    TVM_TRY_REWRITE(MatchesOneOf(ramp(b1, s1, lanes) * broadcast(x, lanes),
+                                 broadcast(x, lanes) * ramp(b1, s1, lanes)),
                     ramp(b1 * x, s1 * x, lanes));
     TVM_TRY_REWRITE_IF(broadcast(c3, lanes) * x, broadcast(c3, lanes), c3.Eval()->value == 0.0f);
   }
@@ -612,7 +611,7 @@ UnchangedOr<PrimExpr> RewriteSimplifier::Impl::Mutate_(const prim::MulNode* op,
     // constant simplification rule
     TVM_TRY_REWRITE((x + c1) * c2, x * c2 + c1 * c2);
     TVM_TRY_REWRITE((x * c1) * c2, x * (c1 * c2));
-    TVM_TRY_REWRITE(matches_one_of(min(x, y) * max(x, y), max(x, y) * min(x, y)), x * y);
+    TVM_TRY_REWRITE(MatchesOneOf(min(x, y) * max(x, y), max(x, y) * min(x, y)), x * y);
 
     // Two representations of const*ceildiv(x, c1)
     TVM_TRY_REWRITE_IF(floordiv(x - floormod(x, c2), c1) * c1, x - floormod(x, c2),
@@ -699,7 +698,7 @@ UnchangedOr<PrimExpr> RewriteSimplifier::Impl::Mutate_(const prim::DivNode* op,
     }
 
     TVM_TRY_REWRITE(truncdiv(x, x), OneWithTypeLike(x));
-    TVM_TRY_REWRITE(matches_one_of(truncdiv(x * c1, x), truncdiv(c1 * x, x)), c1);
+    TVM_TRY_REWRITE(MatchesOneOf(truncdiv(x * c1, x), truncdiv(c1 * x, x)), c1);
 
     // Rules involving 2-operands.
     TVM_TRY_REWRITE_IF(truncdiv(x * c1 + y, c2), x * truncdiv(c1, c2) + truncdiv(y, c2),
@@ -758,23 +757,23 @@ UnchangedOr<PrimExpr> RewriteSimplifier::Impl::Mutate_(const prim::DivNode* op,
                            c1.Eval()->value % c2.Eval()->value == 0 &&
                            CanProveGreaterEqual(x.Eval(), 0));
 
-    TVM_TRY_REWRITE_IF(matches_one_of(truncdiv(x + y, x), truncdiv(y + x, x)), truncdiv(y, x) + 1,
+    TVM_TRY_REWRITE_IF(MatchesOneOf(truncdiv(x + y, x), truncdiv(y + x, x)), truncdiv(y, x) + 1,
                        CanProveGreaterEqual(x.Eval(), 0) && CanProveGreaterEqual(y.Eval(), 0));
 
     TVM_TRY_REWRITE_IF(
-        matches_one_of(truncdiv((x + y) + z, x), truncdiv((y + x) + z, x), truncdiv(y + (z + x), x),
-                       truncdiv(y + (x + z), x)),
+        MatchesOneOf(truncdiv((x + y) + z, x), truncdiv((y + x) + z, x), truncdiv(y + (z + x), x),
+                     truncdiv(y + (x + z), x)),
         truncdiv(y + z, x) + 1,
         CanProveGreaterEqual(x.Eval(), 0) && CanProveGreaterEqual((y + z).Eval(), 0));
 
-    TVM_TRY_REWRITE_IF(matches_one_of(truncdiv(x * y, y), truncdiv(y * x, y)), x,
+    TVM_TRY_REWRITE_IF(MatchesOneOf(truncdiv(x * y, y), truncdiv(y * x, y)), x,
                        CanProveGreaterEqual(x.Eval(), 0) && CanProveGreaterEqual(y.Eval(), 0));
 
-    TVM_TRY_REWRITE_IF(matches_one_of(truncdiv(x * z + y, z), truncdiv(z * x + y, z)),
+    TVM_TRY_REWRITE_IF(MatchesOneOf(truncdiv(x * z + y, z), truncdiv(z * x + y, z)),
                        x + truncdiv(y, z),
                        CanProveGreaterEqual(x.Eval(), 0) && CanProveGreaterEqual(y.Eval(), 0) &&
                            CanProveGreaterEqual(z.Eval(), 0));
-    TVM_TRY_REWRITE_IF(matches_one_of(truncdiv(y + x * z, z), truncdiv(y + z * x, z)),
+    TVM_TRY_REWRITE_IF(MatchesOneOf(truncdiv(y + x * z, z), truncdiv(y + z * x, z)),
                        truncdiv(y, z) + x,
                        CanProveGreaterEqual(x.Eval(), 0) && CanProveGreaterEqual(y.Eval(), 0) &&
                            CanProveGreaterEqual(z.Eval(), 0));
@@ -956,7 +955,7 @@ UnchangedOr<PrimExpr> RewriteSimplifier::Impl::Mutate_(const prim::FloorDivNode*
     }
 
     TVM_TRY_REWRITE(floordiv(x, x), OneWithTypeLike(x));
-    TVM_TRY_REWRITE(matches_one_of(floordiv(x * c1, x), floordiv(c1 * x, x)), c1);
+    TVM_TRY_REWRITE(MatchesOneOf(floordiv(x * c1, x), floordiv(c1 * x, x)), c1);
 
     TVM_TRY_REWRITE(floordiv(floormod(x, 2) + 1, 2), floormod(x, 2));
 
@@ -981,7 +980,7 @@ UnchangedOr<PrimExpr> RewriteSimplifier::Impl::Mutate_(const prim::FloorDivNode*
                            c2.Eval()->value % c1.Eval()->value == 0 &&
                            CanProveEqual(floordiv(y.Eval() + z.Eval(), c1.Eval()), 0));
 
-    TVM_TRY_REWRITE_IF(matches_one_of(floordiv(x * c1 - y + z, c2), floordiv(x * c1 + z - y, c2)),
+    TVM_TRY_REWRITE_IF(MatchesOneOf(floordiv(x * c1 - y + z, c2), floordiv(x * c1 + z - y, c2)),
                        x * floordiv(c1, c2) + floordiv(z - y, c2),
                        c2.Eval()->value > 0 && c1.Eval()->value % c2.Eval()->value == 0);
 
@@ -999,19 +998,19 @@ UnchangedOr<PrimExpr> RewriteSimplifier::Impl::Mutate_(const prim::FloorDivNode*
 
     TVM_TRY_REWRITE_IF(floordiv(x * c1, x * c2), floordiv(c1, c2), c2.Eval()->value > 0);
 
-    TVM_TRY_REWRITE_IF(matches_one_of(floordiv(x + y, x), floordiv(y + x, x)), floordiv(y, x) + 1,
+    TVM_TRY_REWRITE_IF(MatchesOneOf(floordiv(x + y, x), floordiv(y + x, x)), floordiv(y, x) + 1,
                        CanProveGreaterEqual(x.Eval(), 0));
 
-    TVM_TRY_REWRITE_IF(matches_one_of(floordiv((x + y) + z, x), floordiv((y + x) + z, x),
-                                      floordiv(y + (z + x), x), floordiv(y + (x + z), x)),
+    TVM_TRY_REWRITE_IF(MatchesOneOf(floordiv((x + y) + z, x), floordiv((y + x) + z, x),
+                                    floordiv(y + (z + x), x), floordiv(y + (x + z), x)),
                        floordiv(y + z, x) + 1, CanProveGreaterEqual(x.Eval(), 0));
 
-    TVM_TRY_REWRITE_IF(matches_one_of(floordiv(x * y, y), floordiv(y * x, y)), x,
+    TVM_TRY_REWRITE_IF(MatchesOneOf(floordiv(x * y, y), floordiv(y * x, y)), x,
                        CanProveGreaterEqual(y.Eval(), 0));
 
-    TVM_TRY_REWRITE_IF(matches_one_of(floordiv(x * z + y, z), floordiv(z * x + y, z)),
+    TVM_TRY_REWRITE_IF(MatchesOneOf(floordiv(x * z + y, z), floordiv(z * x + y, z)),
                        x + floordiv(y, z), CanProveGreaterEqual(z.Eval(), 0));
-    TVM_TRY_REWRITE_IF(matches_one_of(floordiv(y + x * z, z), floordiv(y + z * x, z)),
+    TVM_TRY_REWRITE_IF(MatchesOneOf(floordiv(y + x * z, z), floordiv(y + z * x, z)),
                        floordiv(y, z) + x, CanProveGreaterEqual(z.Eval(), 0));
     TVM_TRY_REWRITE_IF(floordiv(x * z * c1 + y, z * c1), x + floordiv(y, z * c1),
                        CanProveGreaterEqual(z.Eval() * c1.Eval(), 0));
@@ -1150,15 +1149,15 @@ UnchangedOr<PrimExpr> RewriteSimplifier::Impl::Mutate_(const prim::FloorModNode*
 
     TVM_TRY_REWRITE_IF(floormod(x * c1, x * c2), x * floormod(c1, c2), c2.Eval()->value != 0);
 
-    TVM_TRY_REWRITE(matches_one_of(floormod(x * y, y), floormod(y * x, y)), ZeroWithTypeLike(y));
+    TVM_TRY_REWRITE(MatchesOneOf(floormod(x * y, y), floormod(y * x, y)), ZeroWithTypeLike(y));
 
     // x = ay + b, then (ay + b + (ny - ay - b) % y) % y -> (b + (-b) % y) % y -> 0
     TVM_TRY_REWRITE_IF(
-        matches_one_of(floormod(x + floormod(z, y), y), floormod(floormod(z, y) + x, y)),
+        MatchesOneOf(floormod(x + floormod(z, y), y), floormod(floormod(z, y) + x, y)),
         ZeroWithTypeLike(x), CanProveEqual(floormod(x.Eval() + z.Eval(), y.Eval()), 0));
     // x = ay + b, then (ay + b - (ay + b) % +-y) % y -> (b - b % +-y) % y -> 0
     TVM_TRY_REWRITE_IF(
-        matches_one_of(floormod(x - floormod(x, z), y), floormod(floormod(x, z) - x, y)),
+        MatchesOneOf(floormod(x - floormod(x, z), y), floormod(floormod(x, z) - x, y)),
         ZeroWithTypeLike(x),
         CanProveEqual(y.Eval() - z.Eval(), 0) || CanProveEqual(y.Eval() + z.Eval(), 0));
 
@@ -1299,19 +1298,19 @@ UnchangedOr<PrimExpr> RewriteSimplifier::Impl::Mutate_(const prim::MinNode* op,
     // DivMod rules
     // NOTE: trucdiv(x, y) >= floordiv(x, y)
     TVM_TRY_REWRITE_IF(
-        matches_one_of(min(truncdiv(x + c1, c2) * c2, x), min(x, truncdiv(x + c1, c2) * c2),
-                       min(floordiv(x + c1, c2) * c2, x), min(x, floordiv(x + c1, c2) * c2)),
+        MatchesOneOf(min(truncdiv(x + c1, c2) * c2, x), min(x, truncdiv(x + c1, c2) * c2),
+                     min(floordiv(x + c1, c2) * c2, x), min(x, floordiv(x + c1, c2) * c2)),
         x, c2.Eval()->value > 0 && c1.Eval()->value + 1 == c2.Eval()->value);
 
-    TVM_TRY_REWRITE_IF(matches_one_of(min(truncdiv(x + c1, c2) * c2, max(x, c2)),
-                                      min(max(x, c2), truncdiv(x + c1, c2) * c2),
-                                      min(floordiv(x + c1, c2) * c2, max(x, c2)),
-                                      min(max(x, c2), floordiv(x + c1, c2) * c2)),
+    TVM_TRY_REWRITE_IF(MatchesOneOf(min(truncdiv(x + c1, c2) * c2, max(x, c2)),
+                                    min(max(x, c2), truncdiv(x + c1, c2) * c2),
+                                    min(floordiv(x + c1, c2) * c2, max(x, c2)),
+                                    min(max(x, c2), floordiv(x + c1, c2) * c2)),
                        max(x, c2),
                        c2.Eval()->value > 0 && c1.Eval()->value + 1 == c2.Eval()->value &&
                            CanProveGreaterEqual(x.Eval(), 1));
 
-    TVM_TRY_REWRITE_IF(matches_one_of(min(x, floordiv(x, c2) * c2), min(floordiv(x, c2) * c2, x)),
+    TVM_TRY_REWRITE_IF(MatchesOneOf(min(x, floordiv(x, c2) * c2), min(floordiv(x, c2) * c2, x)),
                        floordiv(x, c2) * c2, c2.Eval()->value > 0);
 
     TVM_TRY_REWRITE((PMatchesOneOf{
@@ -1911,8 +1910,8 @@ PrimExpr RewriteSimplifier::Impl::ApplyRewriteRules(prim::LT ret, InplaceMode in
 
     // clang-format on
 
-    TVM_TRY_RECURSIVE_REWRITE(matches_one_of(c1 < x + c2, c1 - x < c2), c1 - c2 < x);
-    TVM_TRY_RECURSIVE_REWRITE(matches_one_of(c1 < c2 - x, x + c1 < c2), x < c2 - c1);
+    TVM_TRY_RECURSIVE_REWRITE(MatchesOneOf(c1 < x + c2, c1 - x < c2), c1 - c2 < x);
+    TVM_TRY_RECURSIVE_REWRITE(MatchesOneOf(c1 < c2 - x, x + c1 < c2), x < c2 - c1);
     TVM_TRY_RECURSIVE_REWRITE(c1 < x - c2, c1 + c2 < x);
     TVM_TRY_RECURSIVE_REWRITE(x - c2 < c1, x < c1 + c2);
 
@@ -2040,10 +2039,10 @@ UnchangedOr<PrimExpr> RewriteSimplifier::Impl::Mutate_(const prim::AndNode* op,
                      cfalse, c2.Eval()->value > c1.Eval()->value);
 
   TVM_TRY_REWRITE((x == c1) && (x == c2), (x == c1) && (c1 == c2));
-  TVM_TRY_REWRITE(matches_one_of(x == c1 && x != c2, x != c2 && x == c1), x == c1 && c1 != c2);
+  TVM_TRY_REWRITE(MatchesOneOf(x == c1 && x != c2, x != c2 && x == c1), x == c1 && c1 != c2);
 
-  TVM_TRY_RECURSIVE_REWRITE(matches_one_of(floordiv(x, c2) == c1 && floormod(x, c2) == c3,
-                                           floormod(x, c2) == c3 && floordiv(x, c2) == c1),
+  TVM_TRY_RECURSIVE_REWRITE(MatchesOneOf(floordiv(x, c2) == c1 && floormod(x, c2) == c3,
+                                         floormod(x, c2) == c3 && floordiv(x, c2) == c1),
                             x == c1 * c2 + c3);
 
   TVM_TRY_RECURSIVE_REWRITE_IF((PMatchesOneOf{
@@ -2079,18 +2078,18 @@ UnchangedOr<PrimExpr> RewriteSimplifier::Impl::Mutate_(const prim::AndNode* op,
       (((c1.Eval()->value + 1) % c2.Eval()->value) + c2.Eval()->value) % c2.Eval()->value >
           c3.Eval()->value);
 
-  TVM_TRY_RECURSIVE_REWRITE(matches_one_of(floordiv(x, c2) == c1 && floormod(x, c2) < c3,
-                                           floormod(x, c2) < c3 && floordiv(x, c2) == c1),
+  TVM_TRY_RECURSIVE_REWRITE(MatchesOneOf(floordiv(x, c2) == c1 && floormod(x, c2) < c3,
+                                         floormod(x, c2) < c3 && floordiv(x, c2) == c1),
                             c1 * c2 <= x && x < c1 * c2 + c3);
-  TVM_TRY_RECURSIVE_REWRITE(matches_one_of(floordiv(x, c2) == c1 && floormod(x, c2) <= c3,
-                                           floormod(x, c2) <= c3 && floordiv(x, c2) == c1),
+  TVM_TRY_RECURSIVE_REWRITE(MatchesOneOf(floordiv(x, c2) == c1 && floormod(x, c2) <= c3,
+                                         floormod(x, c2) <= c3 && floordiv(x, c2) == c1),
                             c1 * c2 <= x && x <= c1 * c2 + c3);
 
-  TVM_TRY_RECURSIVE_REWRITE(matches_one_of(floordiv(x, c2) == c1 && c3 <= floormod(x, c2),
-                                           c3 <= floormod(x, c2) && floordiv(x, c2) == c1),
+  TVM_TRY_RECURSIVE_REWRITE(MatchesOneOf(floordiv(x, c2) == c1 && c3 <= floormod(x, c2),
+                                         c3 <= floormod(x, c2) && floordiv(x, c2) == c1),
                             c1 * c2 + c3 <= x && x < (c1 + 1) * c2);
-  TVM_TRY_RECURSIVE_REWRITE(matches_one_of(floordiv(x, c2) == c1 && c3 < floormod(x, c2),
-                                           c3 < floormod(x, c2) && floordiv(x, c2) == c1),
+  TVM_TRY_RECURSIVE_REWRITE(MatchesOneOf(floordiv(x, c2) == c1 && c3 < floormod(x, c2),
+                                         c3 < floormod(x, c2) && floordiv(x, c2) == c1),
                             c1 * c2 + c3 < x && x < (c1 + 1) * c2);
 
   TVM_TRY_RECURSIVE_REWRITE(x && (y && z), (x && y) && z);

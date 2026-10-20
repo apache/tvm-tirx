@@ -22,9 +22,15 @@
  * \brief Shared expression-template pattern and capture protocol.
  *
  * \code
- * tvm::PVar<int> value;
- * if (value.Match(42)) {
- *   int captured = value.Eval();  // captured is 42.
+ * #include <tvm/ir/prim/pattern_match.h>
+ *
+ * void MatchMultiplyAdd(const tvm::PrimExpr& expr) {
+ *   tvm::PVar<tvm::PrimExpr> a, b, c;
+ *   if ((a * b + c).Match(expr)) {
+ *     tvm::PrimExpr lhs = a.Eval();
+ *     tvm::PrimExpr rhs = b.Eval();
+ *     tvm::PrimExpr addend = c.Eval();
+ *   }
  * }
  * \endcode
  */
@@ -299,7 +305,7 @@ class PMatchesOneOf {
 template <typename... TPattern>
 inline std::enable_if_t<(std::is_base_of_v<Pattern<TPattern>, TPattern> && ... && true),
                         PMatchesOneOf<TPattern...>>
-matches_one_of(const TPattern&... patterns) {
+MatchesOneOf(const TPattern&... patterns) {
   return PMatchesOneOf<TPattern...>(patterns...);
 }
 }  // namespace tvm
