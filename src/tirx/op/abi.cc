@@ -32,18 +32,6 @@
 namespace tvm {
 namespace tirx {
 
-void CallFFIKernelAttr::RegisterReflection() {
-  namespace refl = ffi::reflection;
-  refl::ObjectDef<CallFFIKernelAttr>()
-      .def_ro("launch_params", &CallFFIKernelAttr::launch_params,
-              refl::DefaultValue(ffi::Array<ffi::String>()))
-      .def_ro("launch_fields", &CallFFIKernelAttr::launch_fields,
-              refl::DefaultValue(ffi::Array<ffi::String>()))
-      .def_ro("num_kernel_args", &CallFFIKernelAttr::num_kernel_args, refl::DefaultValue(-1))
-      .def_ro("kernel_attrs", &CallFFIKernelAttr::kernel_attrs,
-              refl::DefaultValue(ffi::Map<ffi::String, int64_t>()));
-}
-
 Type InferTypeStackAlloca(const CallNode* call) {
   TVM_FFI_CHECK_GE(call->args.size(), 1U, ValueError) << "Stack allocation requires a dtype name";
   ffi::String dtype = call->args[0].as_or_throw<StringImm>()->value;

@@ -136,16 +136,6 @@ LogFatal::Entry& LogFatal::GetEntry() {
   return result;
 }
 
-std::string VLogContext::str() const {
-  std::stringstream result;
-  for (const auto* entry : context_stack_) {
-    TVM_FFI_ICHECK_NOTNULL(entry);
-    result << entry->str();
-    result << ": ";
-  }
-  return result.str();
-}
-
 }  // namespace detail
 }  // namespace runtime
 }  // namespace tvm

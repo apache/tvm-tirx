@@ -154,7 +154,7 @@ void ConstraintContext::EnterWithScope() {
 void ConstraintContext::ExitWithScope() {
   while (recovery_functions_.size()) {
     auto& func = recovery_functions_.back();
-    if (func) {
+    if (func != nullptr) {
       func();
     }
     recovery_functions_.pop_back();

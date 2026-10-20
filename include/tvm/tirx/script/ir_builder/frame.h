@@ -29,7 +29,6 @@
 #include <tvm/tirx/stmt.h>
 #include <tvm/tirx/tile/thread_scope.h>
 
-#include <functional>
 #include <utility>
 
 namespace tvm {
@@ -86,7 +85,7 @@ class TVM_TIRX_DLL FunctionFrameObj : public ir::StmtFrameObj {
   void ExitWithScope() final;
 
   /*! \brief Register validation for an extension-owned function attribute. */
-  using AttrValidator = std::function<void(const FunctionFrameObj*, const ffi::Any&)>;
+  using AttrValidator = ffi::TypedFunction<void(const FunctionFrameObj*, const ffi::Any&)>;
   static void RegisterAttrValidator(ffi::String key, AttrValidator validator);
   void ValidateAttrs() const;
 

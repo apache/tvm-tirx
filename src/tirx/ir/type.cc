@@ -68,7 +68,7 @@ bool TensorTypeNode::IsScalar(bool alloc_or_decl) const {
            layout.value()->Canonicalize().as_or_throw<TileLayout>()->IsTrivial()));
 }
 
-std::optional<int64_t> TensorTypeNode::ConstantAllocationSize() const {
+ffi::Optional<int64_t> TensorTypeNode::ConstantAllocationSize() const {
   int64_t result = 1;
   for (const PrimExpr& extent : shape) {
     const auto* size = extent.as<IntImmNode>();

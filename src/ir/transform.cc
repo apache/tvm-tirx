@@ -107,7 +107,7 @@ bool PassContext::PassEnabled(const PassInfo& info) const {
 class PassConfigManager {
  public:
   void Register(std::string key, ffi::String value_type_str,
-                std::function<ffi::Any(ffi::Any)> legalization) {
+                ffi::TypedFunction<ffi::Any(ffi::Any)> legalization) {
     TVM_FFI_ICHECK_EQ(key2vtype_.count(key), 0U);
     ValueTypeInfo info;
     info.type_str = value_type_str;
@@ -135,7 +135,7 @@ class PassConfigManager {
 
       TVM_FFI_CHECK(value != nullptr, AttributeError) << key << " is None";
 
-      TVM_FFI_CHECK(info.legalization, AttributeError)
+      TVM_FFI_CHECK(info.legalization != nullptr, AttributeError)
           << "Config option \'" << key << "\' was defined without a legalization function.";
       auto legalized = info.legalization(value);
       if (!legalized.same_as(value)) {
@@ -165,14 +165,14 @@ class PassConfigManager {
  private:
   struct ValueTypeInfo {
     std::string type_str;
-    std::function<ffi::Any(ffi::Any)> legalization;
+    ffi::TypedFunction<ffi::Any(ffi::Any)> legalization;
   };
 
   std::unordered_map<std::string, ValueTypeInfo> key2vtype_;
 };
 
 void PassContext::RegisterConfigOption(const char* key, ffi::String value_type_str,
-                                       std::function<ffi::Any(ffi::Any)> legalization) {
+                                       ffi::TypedFunction<ffi::Any(ffi::Any)> legalization) {
   PassConfigManager::Global()->Register(key, value_type_str, legalization);
 }
 
@@ -430,7 +430,7 @@ class ModulePassObj : public PassObj {
    * implement the algorithm in the `pass_func` and let it run on a module. It
    * will then remove the dead code including the unused functions in the module.
    */
-  std::function<IRModule(IRModule, PassContext)> pass_func;
+  ffi::TypedFunction<IRModule(ffi::RValueRef<IRModule>, PassContext)> pass_func;
 
   explicit ModulePassObj(PassInfo pass_info) : pass_info(std::move(pass_info)) {}
   explicit ModulePassObj(ffi::UnsafeInit tag) : pass_info(tag) {}
@@ -459,7 +459,8 @@ class ModulePassObj : public PassObj {
 
 class ModulePass : public Pass {
  public:
-  ModulePass(std::function<IRModule(IRModule, PassContext)> pass_func, PassInfo pass_info);
+  ModulePass(ffi::TypedFunction<IRModule(ffi::RValueRef<IRModule>, PassContext)> pass_func,
+             PassInfo pass_info);
 
   TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(ModulePass, Pass, ModulePassObj);
 };
@@ -471,7 +472,9 @@ PassInfo::PassInfo(int opt_level, ffi::String name) {
   data_ = std::move(pass_info);
 }
 
-ModulePass::ModulePass(std::function<IRModule(IRModule, PassContext)> pass_func, PassInfo pass_info)
+ModulePass::ModulePass(
+    ffi::TypedFunction<IRModule(ffi::RValueRef<IRModule>, PassContext)> pass_func,
+    PassInfo pass_info)
     : Pass(ffi::UnsafeInit{}) {
   auto n = ffi::make_object<ModulePassObj>(std::move(pass_info));
   n->pass_func = std::move(pass_func);
@@ -491,7 +494,7 @@ IRModule ModulePassObj::operator()(IRModule mod, const PassContext& pass_ctx) co
   // TVMScript-rendered location.
   IRModule input_mod = mod;
   try {
-    mod = pass_func(std::move(mod), pass_ctx);
+    mod = pass_func(ffi::RValueRef<IRModule>(std::move(mod)), pass_ctx);
   } catch (ffi::Error& err) {
     throw EnrichPassErrorWithContext(err, input_mod, pass_info->name);
   }
@@ -532,8 +535,8 @@ IRModule SequentialObj::operator()(IRModule mod, const PassContext& pass_ctx) co
   return mod;
 }
 
-Pass CreateModulePass(std::function<IRModule(IRModule, PassContext)> pass_func, int opt_level,
-                      ffi::String name) {
+Pass CreateModulePass(ffi::TypedFunction<IRModule(ffi::RValueRef<IRModule>, PassContext)> pass_func,
+                      int opt_level, ffi::String name) {
   PassInfo pass_info = PassInfo(opt_level, name);
   return ModulePass(std::move(pass_func), pass_info);
 }
@@ -563,12 +566,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
   refl::GlobalDef()
       .def("transform.MakeModulePass",
            [](ffi::TypedFunction<IRModule(ffi::RValueRef<IRModule>, PassContext)> pass_func,
-              PassInfo pass_info) {
-             auto wrapped_pass_func = [pass_func](IRModule mod, PassContext ctx) {
-               return pass_func(ffi::RValueRef<IRModule>(std::move(mod)), ctx);
-             };
-             return ModulePass(wrapped_pass_func, pass_info);
-           })
+              PassInfo pass_info) { return ModulePass(std::move(pass_func), pass_info); })
       .def("transform.RunPass",
            [](Pass pass, ffi::RValueRef<IRModule> mod) { return pass(*std::move(mod)); });
 }

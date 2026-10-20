@@ -73,7 +73,7 @@ class KnownComparisonAnalyzer::Impl {
    * \return An exit function that must be called to cleanup.  May be
    * `nullptr`, if no cleanup is required.
    */
-  std::function<void()> EnterConstraint(const PrimExpr& expr);
+  ffi::TypedFunction<void()> EnterConstraint(const PrimExpr& expr);
 
   void CopyFrom(const Impl& other) {
     expr_to_key = other.expr_to_key;
@@ -400,7 +400,7 @@ void KnownComparisonAnalyzer::Bind(const Var& var, const Range& range, bool allo
   impl_->Bind(var, range, allow_override);
 }
 
-std::function<void()> KnownComparisonAnalyzer::EnterConstraint(const PrimExpr& constraint) {
+ffi::TypedFunction<void()> KnownComparisonAnalyzer::EnterConstraint(const PrimExpr& constraint) {
   return impl_->EnterConstraint(constraint);
 }
 
@@ -447,7 +447,7 @@ void KnownComparisonAnalyzer::Impl::Bind(const Var& var, const PrimExpr& expr,
   Bind(var, Range::FromMinExtent(expr, 1), allow_override);
 }
 
-std::function<void()> KnownComparisonAnalyzer::Impl::EnterConstraint(const PrimExpr& expr) {
+ffi::TypedFunction<void()> KnownComparisonAnalyzer::Impl::EnterConstraint(const PrimExpr& expr) {
   size_t old_literal_size = scoped_knowns_.size();
   AddKnown(expr, &scoped_knowns_);
   size_t new_literal_size = scoped_knowns_.size();

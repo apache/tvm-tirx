@@ -59,8 +59,21 @@ TVM_TIRX_DLL Pass DecorateDeviceScope();
  * \return The created function pass.
  */
 TVM_TIRX_DLL Pass CreateFunctionPass(
-    std::function<ffi::Optional<Function>(Function, IRModule, PassContext)> pass_func,
+    ffi::TypedFunction<ffi::Optional<Function>(ffi::RValueRef<Function>, IRModule, PassContext)>
+        pass_func,
     int opt_level, ffi::String name);
+
+/*! \brief Adapt a native callable while preserving move ownership across the FFI boundary. */
+inline Pass CreateFunctionPass(
+    std::function<ffi::Optional<Function>(Function, IRModule, PassContext)> pass_func,
+    int opt_level, ffi::String name) {
+  ffi::TypedFunction<ffi::Optional<Function>(ffi::RValueRef<Function>, IRModule, PassContext)>
+      callback = [pass_func = std::move(pass_func)](ffi::RValueRef<Function> func, IRModule mod,
+                                                    PassContext ctx) -> ffi::Optional<Function> {
+    return pass_func(*std::move(func), std::move(mod), std::move(ctx));
+  };
+  return CreateFunctionPass(std::move(callback), opt_level, std::move(name));
+}
 
 /*!
  * \brief Lower vectorization loops.

@@ -70,10 +70,10 @@ TVM_TIRX_DLL void DefFunction(const ffi::String& func_name, const BaseFunc& func
  * \param annotations The optional annotations of the For statement.
  * \return The ForFrame.
  */
-ForFrame For(ForKind kind, PrimExpr start, PrimExpr stop,
-             ffi::Optional<PrimExpr> step = std::nullopt,
-             ffi::Optional<PrimType> dtype = std::nullopt,
-             ffi::Optional<ffi::Map<ffi::String, Any>> annotations = std::nullopt);
+TVM_TIRX_DLL ForFrame For(ForKind kind, PrimExpr start, PrimExpr stop,
+                          ffi::Optional<PrimExpr> step = std::nullopt,
+                          ffi::Optional<PrimType> dtype = std::nullopt,
+                          ffi::Optional<ffi::Map<ffi::String, Any>> annotations = std::nullopt);
 
 /*!
  * \brief The grid For statement.
@@ -82,8 +82,9 @@ ForFrame For(ForKind kind, PrimExpr start, PrimExpr stop,
  *              each loop var takes the dtype of its own extent.
  * \return The ForFrame.
  */
-ForFrame Grid(ffi::Array<ffi::Variant<PrimExpr, ffi::Tuple<PrimExpr, PrimExpr>>> extents,
-              ffi::Optional<PrimType> dtype = std::nullopt);
+TVM_TIRX_DLL ForFrame
+Grid(ffi::Array<ffi::Variant<PrimExpr, ffi::Tuple<PrimExpr, PrimExpr>>> extents,
+     ffi::Optional<PrimType> dtype = std::nullopt);
 
 /*!
  * \brief The assertion statement.
@@ -92,53 +93,53 @@ ForFrame Grid(ffi::Array<ffi::Variant<PrimExpr, ffi::Tuple<PrimExpr, PrimExpr>>>
  * \param message_parts The error message parts (stored as separate fragments in the IR).
  * \return The AssertFrame.
  */
-AssertFrame Assert(PrimExpr condition, ffi::String error_kind,
-                   ffi::Array<ffi::String> message_parts);
+TVM_TIRX_DLL AssertFrame Assert(PrimExpr condition, ffi::String error_kind,
+                                ffi::Array<ffi::String> message_parts);
 
 /*!
  * \brief Create a while loop.
  * \param condition The termination condition of the loop.
  * \return The result WhileFrame.
  */
-WhileFrame While(PrimExpr condition);
+TVM_TIRX_DLL WhileFrame While(PrimExpr condition);
 
 /*!
  * \brief Create a return statement.
  * \param value The value to return.
  * \return The same statement that was added to the parent frame.
  */
-tvm::Stmt Return(Expr value);
+TVM_TIRX_DLL tvm::Stmt Return(Expr value);
 
 /*!
  * \brief Create a break statement.
  * \return The same statement that was added to the parent frame.
  */
-tvm::Stmt Break();
+TVM_TIRX_DLL tvm::Stmt Break();
 
 /*!
  * \brief Create a continue statement.
  * \return The same statement that was added to the parent frame.
  */
-tvm::Stmt Continue();
+TVM_TIRX_DLL tvm::Stmt Continue();
 
 /*!
  * \brief Create an if statement.
  * \param condition The condition of if statement.
  * \return The result IfFrame.
  */
-IfFrame If(PrimExpr condition);
+TVM_TIRX_DLL IfFrame If(PrimExpr condition);
 
 /*!
  * \brief Create a then.
  * \return The result ThenFrame.
  */
-ThenFrame Then();
+TVM_TIRX_DLL ThenFrame Then();
 
 /*!
  * \brief Create an else.
  * \return The result ElseFrame.
  */
-ElseFrame Else();
+TVM_TIRX_DLL ElseFrame Else();
 
 /*!
  * \brief Construct a result-free region with lexical body parameters.
@@ -147,16 +148,16 @@ ElseFrame Else();
  * \param body_params Existing body parameters, or omitted to generate them from the operation.
  * \param attrs Additional operation attributes.
  */
-RegionFrame Region(Op op, ffi::Array<Expr> args,
-                   ffi::Optional<ffi::Array<Var>> body_params = std::nullopt,
-                   DictAttrs attrs = DictAttrs());
+TVM_TIRX_DLL RegionFrame Region(Op op, ffi::Array<Expr> args,
+                                ffi::Optional<ffi::Array<Var>> body_params = std::nullopt,
+                                DictAttrs attrs = DictAttrs());
 
 /*!
  * \brief Evaluate the input expression.
  * \param value The input expression to evaluate.
  * \return The same statement that was added to the parent frame.
  */
-tvm::Stmt Evaluate(Expr value);
+TVM_TIRX_DLL tvm::Stmt Evaluate(Expr value);
 
 }  // namespace ir
 }  // namespace ir_builder

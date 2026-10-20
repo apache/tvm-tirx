@@ -93,9 +93,9 @@ static TargetKind GetTargetKind(const ffi::String& name) {
   return kind.value();
 }
 
-const std::string& TargetObj::str() const {
+ffi::String TargetObj::str() const {
   if (str_repr_.empty()) {
-    str_repr_ = std::string(ffi::json::Stringify(ToConfig()));
+    str_repr_ = ffi::json::Stringify(ToConfig());
   }
   return str_repr_;
 }
@@ -176,7 +176,7 @@ int TargetObj::GetTargetDeviceType() const {
   return kind->default_device_type;
 }
 
-bool TargetObj::HasKey(const std::string& query_key) const {
+bool TargetObj::HasKey(const ffi::String& query_key) const {
   return std::any_of(keys.begin(), keys.end(),
                      [&query_key](const auto& key) { return key == query_key; });
 }

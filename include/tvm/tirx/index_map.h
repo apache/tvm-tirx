@@ -27,6 +27,7 @@
 #define TVM_TIRX_INDEX_MAP_H_
 
 #include <tvm/ffi/container/array.h>
+#include <tvm/ffi/container/tuple.h>
 #include <tvm/ir/expr.h>
 #include <tvm/runtime/tensor.h>
 
@@ -97,7 +98,7 @@ class IndexMapNode : public ffi::Object {
    * \returns The indices in the output space.  Contains one value for
    * each expression in `final_indices`.
    */
-  ffi::Array<PrimExpr> MapIndices(const ffi::Array<PrimExpr>& indices) const;
+  TVM_TIRX_DLL ffi::Array<PrimExpr> MapIndices(const ffi::Array<PrimExpr>& indices) const;
   /*!
    * \brief Map indices to the output space using an existing analyzer.
    *
@@ -122,7 +123,7 @@ class IndexMapNode : public ffi::Object {
    * \returns The ranges in the output space.  Contains one value for
    * each expression in `final_indices`.
    */
-  ffi::Array<Range> MapRanges(const ffi::Array<Range>& ranges) const;
+  TVM_TIRX_DLL ffi::Array<Range> MapRanges(const ffi::Array<Range>& ranges) const;
   /*! \brief Map a memory range to the output space using an existing analyzer.
    *
    * If contiguous memory locations in the input space are not
@@ -136,7 +137,8 @@ class IndexMapNode : public ffi::Object {
    * \returns The ranges in the output space.  Contains one value for
    * each expression in `final_indices`.
    */
-  ffi::Array<Range> MapRanges(const ffi::Array<Range>& ranges, const sym::Analyzer& analyzer) const;
+  TVM_TIRX_DLL ffi::Array<Range> MapRanges(const ffi::Array<Range>& ranges,
+                                           const sym::Analyzer& analyzer) const;
 
   /*! \brief Map a tensor shape to the output space using a fresh analyzer.
    *
@@ -145,7 +147,7 @@ class IndexMapNode : public ffi::Object {
    * \returns The tensor shape in the output space.  Contains one
    * value for each expression in `final_indices`.
    */
-  ffi::Array<PrimExpr> MapShape(const ffi::Array<PrimExpr>& shape) const;
+  TVM_TIRX_DLL ffi::Array<PrimExpr> MapShape(const ffi::Array<PrimExpr>& shape) const;
   /*! \brief Map a tensor shape to the output space using an existing analyzer.
    *
    * \param shape The tensor shape in the input space.  Should contain
@@ -163,7 +165,7 @@ class IndexMapNode : public ffi::Object {
    *
    * \returns The transformed Tensor.
    */
-  ffi::Tensor MapTensor(ffi::Tensor arr_src) const;
+  TVM_TIRX_DLL ffi::Tensor MapTensor(ffi::Tensor arr_src) const;
 
   /*!
    * \brief Convert to string representation in Python.
@@ -171,7 +173,8 @@ class IndexMapNode : public ffi::Object {
    * \return The stringified lambda expression in Python.
    */
   TVM_TIRX_DLL ffi::String ToPythonString(
-      const std::function<ffi::Optional<ffi::String>(const Var& var)>& f_name_map = nullptr) const;
+      const ffi::TypedFunction<ffi::Optional<ffi::String>(const Var& var)>& f_name_map =
+          nullptr) const;
 
   static void RegisterReflection() {
     namespace refl = tvm::ffi::reflection;
@@ -218,7 +221,7 @@ class IndexMap : public ffi::ObjectRef {
    * assumed to be correct and bijective, and is returned.
    * \param initial_ranges The ranges of the input indices.
    */
-  IndexMap Inverse(ffi::Array<Range> initial_ranges) const;
+  TVM_TIRX_DLL IndexMap Inverse(ffi::Array<Range> initial_ranges) const;
   /*! \brief Generate the inverse mapping using an existing analyzer.
    *
    * The range of the input indices is required in order to ensure
@@ -241,8 +244,9 @@ class IndexMap : public ffi::ObjectRef {
    * \param f_name_map The optional name map to rename the variables.
    * \return The renamed index map.
    */
-  TVM_TIRX_DLL IndexMap RenameVariables(
-      const std::function<ffi::Optional<ffi::String>(const Var& var)>& f_name_map = nullptr) const;
+  TVM_TIRX_DLL IndexMap
+  RenameVariables(const ffi::TypedFunction<ffi::Optional<ffi::String>(const Var& var)>& f_name_map =
+                      nullptr) const;
 
   /*! \brief Generate the inverse mapping using a fresh analyzer.
    *
@@ -254,7 +258,8 @@ class IndexMap : public ffi::ObjectRef {
    * \return The inverted index map, along with the predicate for
    * which the inverse maps to a valid range.
    */
-  std::pair<IndexMap, PrimExpr> NonSurjectiveInverse(ffi::Array<Range> initial_ranges) const;
+  TVM_TIRX_DLL ffi::Tuple<IndexMap, PrimExpr> NonSurjectiveInverse(
+      ffi::Array<Range> initial_ranges) const;
   /*! \brief Generate the inverse mapping using an existing analyzer.
    *
    * Determine the inverse, where the output range may contain
@@ -267,7 +272,7 @@ class IndexMap : public ffi::ObjectRef {
    * \return The inverted index map, along with the predicate for
    * which the inverse maps to a valid range.
    */
-  TVM_TIRX_DLL std::pair<IndexMap, PrimExpr> NonSurjectiveInverse(
+  TVM_TIRX_DLL ffi::Tuple<IndexMap, PrimExpr> NonSurjectiveInverse(
       ffi::Array<Range> initial_ranges, const sym::Analyzer& analyzer) const;
 
   TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(IndexMap, ffi::ObjectRef, IndexMapNode);

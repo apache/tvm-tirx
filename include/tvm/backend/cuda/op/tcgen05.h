@@ -46,7 +46,23 @@ struct TCGen05InstrDescriptorAttrs : public AttrsNode {
   bool sat_d = false;
   bool is_sparse = false;
 
-  static void RegisterReflection();
+  static void RegisterReflection() {
+    namespace refl = ffi::reflection;
+    refl::ObjectDef<TCGen05InstrDescriptorAttrs>()
+        .def_ro("d_dtype", &TCGen05InstrDescriptorAttrs::d_dtype)
+        .def_ro("a_dtype", &TCGen05InstrDescriptorAttrs::a_dtype)
+        .def_ro("b_dtype", &TCGen05InstrDescriptorAttrs::b_dtype)
+        .def_ro("M", &TCGen05InstrDescriptorAttrs::M)
+        .def_ro("N", &TCGen05InstrDescriptorAttrs::N)
+        .def_ro("K", &TCGen05InstrDescriptorAttrs::K)
+        .def_ro("trans_a", &TCGen05InstrDescriptorAttrs::trans_a)
+        .def_ro("trans_b", &TCGen05InstrDescriptorAttrs::trans_b)
+        .def_ro("n_cta_groups", &TCGen05InstrDescriptorAttrs::n_cta_groups, refl::DefaultValue(1))
+        .def_ro("neg_a", &TCGen05InstrDescriptorAttrs::neg_a, refl::DefaultValue(false))
+        .def_ro("neg_b", &TCGen05InstrDescriptorAttrs::neg_b, refl::DefaultValue(false))
+        .def_ro("sat_d", &TCGen05InstrDescriptorAttrs::sat_d, refl::DefaultValue(false))
+        .def_ro("is_sparse", &TCGen05InstrDescriptorAttrs::is_sparse, refl::DefaultValue(false));
+  }
   TVM_FFI_DECLARE_OBJECT_INFO_FINAL("tirx.cuda.TCGen05InstrDescriptorAttrs",
                                     TCGen05InstrDescriptorAttrs, AttrsNode);
 };
@@ -68,7 +84,26 @@ struct TCGen05InstrDescriptorBlockScaledAttrs : public AttrsNode {
   bool neg_b = false;
   bool is_sparse = false;
 
-  static void RegisterReflection();
+  static void RegisterReflection() {
+    namespace refl = ffi::reflection;
+    refl::ObjectDef<TCGen05InstrDescriptorBlockScaledAttrs>()
+        .def_ro("d_dtype", &TCGen05InstrDescriptorBlockScaledAttrs::d_dtype)
+        .def_ro("a_dtype", &TCGen05InstrDescriptorBlockScaledAttrs::a_dtype)
+        .def_ro("b_dtype", &TCGen05InstrDescriptorBlockScaledAttrs::b_dtype)
+        .def_ro("sfa_dtype", &TCGen05InstrDescriptorBlockScaledAttrs::sfa_dtype)
+        .def_ro("sfb_dtype", &TCGen05InstrDescriptorBlockScaledAttrs::sfb_dtype)
+        .def_ro("M", &TCGen05InstrDescriptorBlockScaledAttrs::M)
+        .def_ro("N", &TCGen05InstrDescriptorBlockScaledAttrs::N)
+        .def_ro("K", &TCGen05InstrDescriptorBlockScaledAttrs::K)
+        .def_ro("trans_a", &TCGen05InstrDescriptorBlockScaledAttrs::trans_a)
+        .def_ro("trans_b", &TCGen05InstrDescriptorBlockScaledAttrs::trans_b)
+        .def_ro("n_cta_groups", &TCGen05InstrDescriptorBlockScaledAttrs::n_cta_groups,
+                refl::DefaultValue(1))
+        .def_ro("neg_a", &TCGen05InstrDescriptorBlockScaledAttrs::neg_a, refl::DefaultValue(false))
+        .def_ro("neg_b", &TCGen05InstrDescriptorBlockScaledAttrs::neg_b, refl::DefaultValue(false))
+        .def_ro("is_sparse", &TCGen05InstrDescriptorBlockScaledAttrs::is_sparse,
+                refl::DefaultValue(false));
+  }
   TVM_FFI_DECLARE_OBJECT_INFO_FINAL("tirx.cuda.TCGen05InstrDescriptorBlockScaledAttrs",
                                     TCGen05InstrDescriptorBlockScaledAttrs, AttrsNode);
 };

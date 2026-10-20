@@ -269,8 +269,8 @@ std::string PackImportsToBytes(const ffi::Module& mod) {
 
 }  // namespace
 
-std::string PackImportsToC(const ffi::Module& mod, bool system_lib,
-                           const std::string& c_symbol_prefix) {
+ffi::String PackImportsToC(const ffi::Module& mod, bool system_lib,
+                           const ffi::String& c_symbol_prefix) {
   if (c_symbol_prefix.length() != 0) {
     TVM_FFI_ICHECK(system_lib)
         << "c_symbol_prefix advanced option should be used in conjuction with system-lib";
@@ -314,8 +314,8 @@ std::string PackImportsToC(const ffi::Module& mod, bool system_lib,
 }
 
 void PackImportsToObjectFile(const ffi::Module& mod, bool system_lib,
-                             const std::string& llvm_target_string, const std::string& file_name,
-                             const std::string& c_symbol_prefix) {
+                             const ffi::String& llvm_target_string, const ffi::String& file_name,
+                             const ffi::String& c_symbol_prefix) {
   if (c_symbol_prefix.length() != 0) {
     TVM_FFI_ICHECK(system_lib)
         << "c_symbol_prefix advanced option should be used in conjuction with system-lib";

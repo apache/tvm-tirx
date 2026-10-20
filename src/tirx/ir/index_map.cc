@@ -67,10 +67,10 @@ IndexMap IndexMap::FromFunc(int ndim,
   return IndexMap(initial_indices, func(callback_indices), std::move(inverse_index_map));
 }
 
-std::pair<IndexMap, PrimExpr> IndexMapInverseImpl(const IndexMap& self,
-                                                  const ffi::Array<Range>& initial_ranges,
-                                                  sym::IterMapLevel check_level,
-                                                  sym::AnalyzerObj* analyzer) {
+ffi::Tuple<IndexMap, PrimExpr> IndexMapInverseImpl(const IndexMap& self,
+                                                   const ffi::Array<Range>& initial_ranges,
+                                                   sym::IterMapLevel check_level,
+                                                   sym::AnalyzerObj* analyzer) {
   TVM_FFI_ICHECK(analyzer != nullptr);
   sym::Analyzer analyzer_ref = ffi::GetRef<sym::Analyzer>(analyzer);
   if (self->inverse_index_map.has_value()) {
@@ -78,7 +78,7 @@ std::pair<IndexMap, PrimExpr> IndexMapInverseImpl(const IndexMap& self,
     // case, the user-defined inverse is assumed to be correct and
     // bijective.
     PrimExpr padding_predicate = IntImm::Bool(false);
-    return {self->inverse_index_map.value().as_or_throw<IndexMap>(), padding_predicate};
+    return ffi::Tuple(self->inverse_index_map.value().as_or_throw<IndexMap>(), padding_predicate);
   }
 
   // Dummy variables to represent the inverse's inputs.
@@ -158,17 +158,17 @@ std::pair<IndexMap, PrimExpr> IndexMapInverseImpl(const IndexMap& self,
     padding_predicate = output_var_analyzer->Simplify(padding_predicate, 10);
   }
 
-  return {IndexMap(output_vars, inverse_exprs), padding_predicate};
+  return ffi::Tuple(IndexMap(output_vars, inverse_exprs), padding_predicate);
 }
 
-std::pair<IndexMap, PrimExpr> IndexMap::NonSurjectiveInverse(
+ffi::Tuple<IndexMap, PrimExpr> IndexMap::NonSurjectiveInverse(
     ffi::Array<Range> initial_ranges) const {
   sym::Analyzer analyzer;
   return NonSurjectiveInverse(initial_ranges, analyzer);
 }
 
-std::pair<IndexMap, PrimExpr> IndexMap::NonSurjectiveInverse(ffi::Array<Range> initial_ranges,
-                                                             const sym::Analyzer& analyzer) const {
+ffi::Tuple<IndexMap, PrimExpr> IndexMap::NonSurjectiveInverse(ffi::Array<Range> initial_ranges,
+                                                              const sym::Analyzer& analyzer) const {
   return IndexMapInverseImpl(*this, initial_ranges, sym::IterMapLevel::NoCheck, analyzer.get());
 }
 
@@ -205,7 +205,7 @@ ffi::Array<PrimExpr> IndexMapNode::MapIndices(const ffi::Array<PrimExpr>& indice
 
   ffi::Array<PrimExpr> output = final_indices.Map([&](PrimExpr index) {
     PrimExpr result = SubstituteWithDataTypeLegalization(
-        std::move(index), [&](const Var& var) { return vmap.Get(var); });
+        std::move(index), [&](const Var& var) -> ffi::Optional<PrimExpr> { return vmap.Get(var); });
     return analyzer_ptr->Simplify(result);
   });
   return output;
@@ -363,7 +363,7 @@ ffi::Tensor IndexMapNode::MapTensor(ffi::Tensor arr_src) const {
 }
 
 IndexMap IndexMap::RenameVariables(
-    const std::function<ffi::Optional<ffi::String>(const Var& var)>& f_name_map) const {
+    const ffi::TypedFunction<ffi::Optional<ffi::String>(const Var& var)>& f_name_map) const {
   std::unordered_set<std::string> used_names;
   ffi::Map<Var, Var> var_remap;
   UniqueNameSupply name_supply;
@@ -461,7 +461,7 @@ std::string IndexMap2PythonLambdaExpr(const ffi::Array<PrimVar>& initial_indices
 }
 
 ffi::String IndexMapNode::ToPythonString(
-    const std::function<ffi::Optional<ffi::String>(const Var& var)>& f_name_map) const {
+    const ffi::TypedFunction<ffi::Optional<ffi::String>(const Var& var)>& f_name_map) const {
   auto index_map = ffi::GetRef<IndexMap>(this).RenameVariables(f_name_map);
   std::string lambda_expr =
       IndexMap2PythonLambdaExpr(index_map->initial_indices, index_map->final_indices);
@@ -516,7 +516,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
                                                    ffi::Optional<sym::Analyzer> opt_analyzer) {
         sym::Analyzer analyzer = opt_analyzer.has_value() ? opt_analyzer.value() : sym::Analyzer();
         auto result = forward.NonSurjectiveInverse(initial_ranges, analyzer);
-        return ffi::Array<ffi::ObjectRef>{result.first, result.second};
+        return ffi::Array<ffi::ObjectRef>{result.get<0>(), result.get<1>()};
       });
 }
 

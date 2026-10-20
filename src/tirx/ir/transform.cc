@@ -64,7 +64,8 @@ class FunctionPassObj : public PassObj {
   PassInfo pass_info;
 
   /*! \brief The pass function called on each. */
-  std::function<ffi::Optional<Function>(Function, IRModule, PassContext)> pass_func;
+  ffi::TypedFunction<ffi::Optional<Function>(ffi::RValueRef<Function>, IRModule, PassContext)>
+      pass_func;
 
   static void RegisterReflection() {
     namespace refl = tvm::ffi::reflection;
@@ -96,14 +97,16 @@ class FunctionPass : public Pass {
    * \param pass_info The pass info.
    */
   TVM_TIRX_DLL FunctionPass(
-      std::function<ffi::Optional<Function>(Function, IRModule, PassContext)> pass_func,
+      ffi::TypedFunction<ffi::Optional<Function>(ffi::RValueRef<Function>, IRModule, PassContext)>
+          pass_func,
       PassInfo pass_info);
 
   TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(FunctionPass, Pass, FunctionPassObj);
 };
 
 FunctionPass::FunctionPass(
-    std::function<ffi::Optional<Function>(Function, IRModule, PassContext)> pass_func,
+    ffi::TypedFunction<ffi::Optional<Function>(ffi::RValueRef<Function>, IRModule, PassContext)>
+        pass_func,
     PassInfo pass_info)
     : Pass(ffi::UnsafeInit{}) {
   auto n = ffi::make_object<FunctionPassObj>(std::move(pass_info));
@@ -126,7 +129,7 @@ IRModule FunctionPassObj::operator()(IRModule mod, const PassContext& pass_ctx) 
       // use move semantics as follows to avoid only copy.
       kv.second.reset();
       Function func = *std::move(opt_func);
-      auto updated = pass_func(std::move(func), mod, pass_ctx);
+      auto updated = pass_func(ffi::RValueRef<Function>(std::move(func)), mod, pass_ctx);
       kv.second = Any(std::move(updated));
       if (kv.second == nullptr) {
         deleted_list.push_back(kv.first.as_or_throw<GlobalVar>());
@@ -144,7 +147,8 @@ IRModule FunctionPassObj::operator()(IRModule mod, const PassContext& pass_ctx) 
 }
 
 Pass CreateFunctionPass(
-    std::function<ffi::Optional<Function>(Function, IRModule, PassContext)> pass_func,
+    ffi::TypedFunction<ffi::Optional<Function>(ffi::RValueRef<Function>, IRModule, PassContext)>
+        pass_func,
     int opt_level, ffi::String name) {
   PassInfo pass_info = PassInfo(opt_level, name);
   return FunctionPass(std::move(pass_func), pass_info);
@@ -155,15 +159,11 @@ TVM_FFI_STATIC_INIT_BLOCK() { FunctionPassObj::RegisterReflection(); }
 TVM_FFI_STATIC_INIT_BLOCK() {
   namespace refl = tvm::ffi::reflection;
   refl::GlobalDef().def(
-      "tirx.transform.CreateFunctionPass", [](ffi::TypedFunction<ffi::Optional<Function>(
-                                                  ffi::RValueRef<Function>, IRModule, PassContext)>
-                                                  pass_func,
-                                              PassInfo pass_info) {
-        auto wrapped_pass_func = [pass_func](Function func, IRModule mod, PassContext ctx) {
-          return pass_func(ffi::RValueRef<Function>(std::move(func)), mod, ctx);
-        };
-        return FunctionPass(wrapped_pass_func, pass_info);
-      });
+      "tirx.transform.CreateFunctionPass",
+      [](ffi::TypedFunction<ffi::Optional<Function>(ffi::RValueRef<Function>, IRModule,
+                                                    PassContext)>
+             pass_func,
+         PassInfo pass_info) { return FunctionPass(std::move(pass_func), pass_info); });
 }
 
 // Pattern A (RM): auto-default repr from reflection.

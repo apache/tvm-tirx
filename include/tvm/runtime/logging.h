@@ -304,7 +304,15 @@ class VLogContext {
     }
   }
 
-  std::string str() const;
+  std::string str() const {
+    std::stringstream result;
+    for (const auto* entry : context_stack_) {
+      TVM_FFI_ICHECK_NOTNULL(entry);
+      result << entry->str();
+      result << ": ";
+    }
+    return result.str();
+  }
 
  private:
   std::vector<std::stringstream*> context_stack_;

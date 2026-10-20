@@ -443,8 +443,8 @@ class IRSubstituteWithDataTypeLegalization : public DataTypeLegalizer {
   }
 };
 
-Stmt SubstituteWithDataTypeLegalization(Stmt stmt,
-                                        std::function<ffi::Optional<PrimExpr>(const Var&)> vmap) {
+Stmt SubstituteWithDataTypeLegalization(
+    Stmt stmt, ffi::TypedFunction<ffi::Optional<PrimExpr>(const Var&)> vmap) {
   auto general_vmap = [vmap = std::move(vmap)](const Var& var) -> ffi::Optional<Expr> {
     if (auto replacement = vmap(var)) return Expr(replacement.value());
     return std::nullopt;
@@ -455,7 +455,7 @@ Stmt SubstituteWithDataTypeLegalization(Stmt stmt,
 }
 
 PrimExpr SubstituteWithDataTypeLegalization(
-    PrimExpr expr, std::function<ffi::Optional<PrimExpr>(const Var&)> vmap) {
+    PrimExpr expr, ffi::TypedFunction<ffi::Optional<PrimExpr>(const Var&)> vmap) {
   auto general_vmap = [vmap = std::move(vmap)](const Var& var) -> ffi::Optional<Expr> {
     if (auto replacement = vmap(var)) return Expr(replacement.value());
     return std::nullopt;

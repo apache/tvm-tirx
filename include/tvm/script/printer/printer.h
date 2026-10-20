@@ -38,7 +38,7 @@ namespace tvm {
  * \param config Optional translation and rendering configuration.
  * \return The rendered script or fallback representation.
  */
-TVM_TIRX_DLL std::string Script(const ffi::ObjectRef& node,
+TVM_TIRX_DLL ffi::String Script(const ffi::ObjectRef& node,
                                 const ffi::Optional<PrinterConfig>& config = std::nullopt);
 
 namespace script {

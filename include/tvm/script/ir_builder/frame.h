@@ -42,7 +42,7 @@ namespace ir {
  *
  * \sa IRModuleFrame
  */
-class IRModuleFrameObj : public IRBuilderFrameObj {
+class TVM_TIRX_DLL IRModuleFrameObj : public IRBuilderFrameObj {
  public:
   /*! \brief A map from string names to global variables that ensures global uniqueness. */
   ffi::Map<ffi::String, GlobalVar> global_var_map;
@@ -128,7 +128,7 @@ TVM_TIRX_DLL void AddToParent(tvm::Stmt stmt, Location loc);
  *
  * \sa ForFrame
  */
-class ForFrameObj : public StmtFrameObj {
+class TVM_TIRX_DLL ForFrameObj : public StmtFrameObj {
  public:
   /*!
    * \brief Functions that generate loop nests.
@@ -185,7 +185,7 @@ class ForFrame : public StmtFrame {
  *
  * \sa AssertFrame
  */
-class AssertFrameObj : public StmtFrameObj {
+class TVM_TIRX_DLL AssertFrameObj : public StmtFrameObj {
  public:
   explicit AssertFrameObj(ffi::UnsafeInit tag) : condition(tag), error_kind(tag) {}
 
@@ -234,7 +234,7 @@ class AssertFrame : public StmtFrame {
  * \brief A result-free region with lexical body parameters.
  * \sa RegionFrame
  */
-class RegionFrameObj : public StmtFrameObj {
+class TVM_TIRX_DLL RegionFrameObj : public StmtFrameObj {
  public:
   explicit RegionFrameObj(ffi::UnsafeInit tag) : op(tag) {}
   explicit RegionFrameObj(Op op) : op(std::move(op)) {}
@@ -277,7 +277,7 @@ class RegionFrame : public StmtFrame {
  *
  * \sa WhileFrame
  */
-class WhileFrameObj : public StmtFrameObj {
+class TVM_TIRX_DLL WhileFrameObj : public StmtFrameObj {
  public:
   explicit WhileFrameObj(ffi::UnsafeInit tag) : condition(tag) {}
 
@@ -319,7 +319,7 @@ class WhileFrame : public StmtFrame {
  *
  * \sa IfFrame
  */
-class IfFrameObj : public StmtFrameObj {
+class TVM_TIRX_DLL IfFrameObj : public StmtFrameObj {
  public:
   explicit IfFrameObj(ffi::UnsafeInit tag) : condition(tag) {}
 
@@ -367,7 +367,7 @@ class IfFrame : public StmtFrame {
  *
  * \sa ThenFrame
  */
-class ThenFrameObj : public StmtFrameObj {
+class TVM_TIRX_DLL ThenFrameObj : public StmtFrameObj {
  public:
   static void RegisterReflection() {
     namespace refl = tvm::ffi::reflection;
@@ -406,7 +406,7 @@ class ThenFrame : public StmtFrame {
  *
  * \sa ElseFrame
  */
-class ElseFrameObj : public StmtFrameObj {
+class TVM_TIRX_DLL ElseFrameObj : public StmtFrameObj {
  public:
   static void RegisterReflection() {
     namespace refl = tvm::ffi::reflection;

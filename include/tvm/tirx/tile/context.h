@@ -104,20 +104,20 @@ class DispatchContextObj : public ffi::Object {
   }
 
   /*! \brief Add a tensor to be allocated in the kernel. */
-  void AddAllocTensor(TensorVar tensor, ffi::Array<PrimExpr> allocated_addr = {},
-                      ffi::Map<ffi::String, ffi::Any> annotations = {});
+  TVM_TIRX_DLL void AddAllocTensor(TensorVar tensor, ffi::Array<PrimExpr> allocated_addr = {},
+                                   ffi::Map<ffi::String, ffi::Any> annotations = {});
 
   /*! \brief Add an initialization statement to be inserted. */
-  void AddInitStmt(Stmt stmt, bool host = false);
+  TVM_TIRX_DLL void AddInitStmt(Stmt stmt, bool host = false);
 
   /*! \brief Add a statement to be inserted after a tensor's definition. */
-  void AddPostTensorDefStmt(TensorVar tensor, Stmt stmt);
+  TVM_TIRX_DLL void AddPostTensorDefStmt(TensorVar tensor, Stmt stmt);
 
   /*! \brief Set a value in the shared state cache. */
-  void SharedStateSet(ffi::String key, ffi::ObjectRef value);
+  TVM_TIRX_DLL void SharedStateSet(ffi::String key, ffi::ObjectRef value);
 
   /*! \brief Get a value from the shared state cache. */
-  ffi::Optional<ffi::ObjectRef> SharedStateGet(ffi::String key);
+  TVM_TIRX_DLL ffi::Optional<ffi::ObjectRef> SharedStateGet(ffi::String key);
 
   TVM_FFI_DECLARE_OBJECT_INFO_FINAL("tirx.DispatchContext", DispatchContextObj, ffi::Object);
 };

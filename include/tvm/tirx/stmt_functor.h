@@ -294,7 +294,7 @@ class TVM_TIRX_DLL StmtExprMutator : public tvm::ExprMutator {
  * \return The result.
  */
 TVM_TIRX_DLL Stmt SubstituteWithDataTypeLegalization(
-    Stmt stmt, std::function<ffi::Optional<PrimExpr>(const Var&)> vmap);
+    Stmt stmt, ffi::TypedFunction<ffi::Optional<PrimExpr>(const Var&)> vmap);
 
 /*!
  * \brief Substitute the var specified by vmap and legalize data types after substitution.
@@ -306,7 +306,7 @@ TVM_TIRX_DLL Stmt SubstituteWithDataTypeLegalization(
  * \return The result.
  */
 TVM_TIRX_DLL PrimExpr SubstituteWithDataTypeLegalization(
-    PrimExpr expr, std::function<ffi::Optional<PrimExpr>(const Var&)> vmap);
+    PrimExpr expr, ffi::TypedFunction<ffi::Optional<PrimExpr>(const Var&)> vmap);
 
 /*!
  * \brief Check if the statement contains the specified node type.

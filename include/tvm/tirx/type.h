@@ -111,7 +111,7 @@ class TensorTypeNode : public TypeNode {
   TVM_TIRX_DLL bool IsScalar(bool alloc_or_decl = true) const;
 
   /*! \brief Return the constant element count, or nullopt for symbolic extents or overflow. */
-  TVM_TIRX_DLL std::optional<int64_t> ConstantAllocationSize() const;
+  TVM_TIRX_DLL ffi::Optional<int64_t> ConstantAllocationSize() const;
 
   /*! \brief Determine the offset in the tensor of the given index.
    *

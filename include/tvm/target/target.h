@@ -61,7 +61,7 @@ class TargetObj : public ffi::Object {
    * \brief The JSON string representation of the target
    * \return JSON string of the target configuration (e.g. {"kind": "llvm", "mcpu": "cortex-a53"})
    */
-  TVM_TIRX_DLL const std::string& str() const;
+  TVM_TIRX_DLL ffi::String str() const;
   /*! \return Export target to JSON-like configuration */
   TVM_TIRX_DLL ffi::Map<ffi::String, ffi::Any> ToConfig() const;
   /*! \return The ffi::Optional<Target> typed target host of the TargetObj */
@@ -77,7 +77,7 @@ class TargetObj : public ffi::Object {
    * \return True if the target's `TargetObj::keys` contains the
    * specified key, False otherwise.
    */
-  TVM_TIRX_DLL bool HasKey(const std::string& query_key) const;
+  TVM_TIRX_DLL bool HasKey(const ffi::String& query_key) const;
 
   static void RegisterReflection() {
     namespace refl = tvm::ffi::reflection;
@@ -139,7 +139,7 @@ class TargetObj : public ffi::Object {
 
  private:
   /*! \brief Internal string repr. */
-  mutable std::string str_repr_;
+  mutable ffi::String str_repr_;
 
   friend class TargetInternal;
 };
@@ -181,10 +181,10 @@ class Target : public ffi::ObjectRef {
 
   TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(Target, ffi::ObjectRef, TargetObj);
 
-  static Target WithHost(const Target& target, const ffi::Optional<Target>& host);
+  TVM_TIRX_DLL static Target WithHost(const Target& target, const ffi::Optional<Target>& host);
 
   /*! \return The target with the host stripped out */
-  Target WithoutHost() const;
+  TVM_TIRX_DLL Target WithoutHost() const;
 
  private:
   // enable with syntax.

@@ -45,7 +45,7 @@ using ffi::Array;
 using ffi::Tuple;
 
 // Base class for layout
-class LayoutNode : public ffi::Object {
+class TVM_TIRX_DLL LayoutNode : public ffi::Object {
  public:
   /*! \brief Verify if the layout is well-formed */
   virtual void CheckWellFormed() const = 0;
@@ -85,22 +85,22 @@ using FAxisFuser = ffi::TypedFunction<ffi::Optional<Iter>(Target, ThreadScope, T
 class AxisNode : public ffi::EnumObj {
  public:
   /*! \brief Check if the axis is a thread axis. */
-  bool IsThreadAxis() const;
+  TVM_TIRX_DLL bool IsThreadAxis() const;
 
   /*! \brief Check if the axis is a memory axis. */
-  bool IsMemoryAxis() const;
+  TVM_TIRX_DLL bool IsMemoryAxis() const;
 
   /*! \brief The backend owning this axis, if any. */
-  ffi::Optional<ffi::String> GetBackend() const;
+  TVM_TIRX_DLL ffi::Optional<ffi::String> GetBackend() const;
 
   /*! \brief Get the scope of the (thread) axis. */
-  ffi::Optional<ThreadScope> GetScope() const;
+  TVM_TIRX_DLL ffi::Optional<ThreadScope> GetScope() const;
 
   /*! \brief Get the subscope of the (thread) axis. */
-  ffi::Optional<ThreadScope> GetSubscope() const;
+  TVM_TIRX_DLL ffi::Optional<ThreadScope> GetSubscope() const;
 
   /*! \brief Get the fuser of the (thread) axis. */
-  ffi::Optional<FAxisFuser> GetFuser() const;
+  TVM_TIRX_DLL ffi::Optional<FAxisFuser> GetFuser() const;
 
   TVM_FFI_DECLARE_OBJECT_INFO_FINAL("tirx.Axis", AxisNode, ffi::EnumObj);
 };
@@ -149,7 +149,7 @@ class Iter : public ffi::ObjectRef {
   TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(Iter, ffi::ObjectRef, IterNode);
 };
 
-class TileLayoutNode : public LayoutNode {
+class TVM_TIRX_DLL TileLayoutNode : public LayoutNode {
  public:
   ffi::Array<Iter> shard;
   ffi::Array<Iter> replica;
@@ -199,7 +199,7 @@ class TileLayoutNode : public LayoutNode {
    * axes are rejected; unit extents may have arbitrary strides. Deep equality
    * is tried first, reusing the supplied analyzer or lazily creating one for proof.
    */
-  TVM_TIRX_DLL bool IsContiguous(ffi::Optional<sym::Analyzer> analyzer = std::nullopt) const;
+  bool IsContiguous(ffi::Optional<sym::Analyzer> analyzer = std::nullopt) const;
 
   /*! \brief Is the layout trivial (pure memory, identical mapping) */
   bool IsTrivial() const;
@@ -211,7 +211,7 @@ class TileLayoutNode : public LayoutNode {
   ffi::Optional<Tuple<ThreadScope, ThreadScope>> GetScope() const;
 
   /*! \brief Get the default layout for the shape */
-  TVM_TIRX_DLL static TileLayout DefaultLayout(ffi::Array<PrimExpr> shape);
+  static TileLayout DefaultLayout(ffi::Array<PrimExpr> shape);
 
   TVM_FFI_DECLARE_OBJECT_INFO_FINAL("tirx.TileLayout", TileLayoutNode, LayoutNode);
 };
@@ -226,7 +226,7 @@ class TileLayout : public Layout {
 };
 
 // ComposeLayout
-class ComposeLayoutNode : public LayoutNode {
+class TVM_TIRX_DLL ComposeLayoutNode : public LayoutNode {
  public:
   explicit ComposeLayoutNode(TileLayout tile_layout) : tile_layout(std::move(tile_layout)) {}
   explicit ComposeLayoutNode(ffi::UnsafeInit) : tile_layout(ffi::UnsafeInit{}) {}

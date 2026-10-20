@@ -108,7 +108,7 @@ class PrinterConfigObj : public ffi::Object {
         .def_ro("extra_config", &PrinterConfigObj::extra_config);
   }
 
-  ffi::Array<ffi::String> GetBuiltinKeywords();
+  TVM_TIRX_DLL ffi::Array<ffi::String> GetBuiltinKeywords();
 
   static constexpr const bool _type_mutable = true;
   TVM_FFI_DECLARE_OBJECT_INFO_FINAL("script.PrinterConfig", PrinterConfigObj, ffi::Object);
@@ -129,7 +129,7 @@ class TVM_TIRX_DLL PrinterConfig : public ffi::ObjectRef {
  * address string.  Defined in src/script/printer/script_printer.cc so that
  * <tvm/runtime/logging.h> is not pulled into this public header.
  */
-TVM_TIRX_DLL std::string RedirectedReprPrinterMethod(const ffi::ObjectRef& obj);
+TVM_TIRX_DLL ffi::String RedirectedReprPrinterMethod(const ffi::ObjectRef& obj);
 
 }  // namespace tvm
 #endif  // TVM_SCRIPT_PRINTER_CONFIG_H_

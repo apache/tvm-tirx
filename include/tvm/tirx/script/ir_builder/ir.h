@@ -49,8 +49,8 @@ using tvm::tirx::ThreadScope;
  * \brief The primitive function statement.
  * \return The FunctionFrame.
  */
-FunctionFrame Function(bool is_private = false, bool persistent = false,
-                       bool is_declaration = false);
+TVM_TIRX_DLL FunctionFrame Function(bool is_private = false, bool persistent = false,
+                                    bool is_declaration = false);
 
 /*!
  * \brief The Function variable arguments adding function.
@@ -58,7 +58,7 @@ FunctionFrame Function(bool is_private = false, bool persistent = false,
  * \param var The variable argument.
  * \return The variable.
  */
-Var Arg(ffi::String name, Var var);
+TVM_TIRX_DLL Var Arg(ffi::String name, Var var);
 
 /*!
  * \brief The Function tensor arguments adding function.
@@ -66,26 +66,26 @@ Var Arg(ffi::String name, Var var);
  * \param tensor The tensor argument.
  * \return The tensor.
  */
-TensorVar Arg(ffi::String name, TensorVar tensor);
+TVM_TIRX_DLL TensorVar Arg(ffi::String name, TensorVar tensor);
 
 /*!
  * \brief The Function naming statement.
  * \param name The name of the Function.
  */
-void FuncName(ffi::String name);
+TVM_TIRX_DLL void FuncName(ffi::String name);
 
 /*!
  * \brief The Function annotation statement.
  * \param attrs The annotations of the Function.
  */
-void FuncAttrs(ffi::Map<ffi::String, ffi::Any> attrs);
+TVM_TIRX_DLL void FuncAttrs(ffi::Map<ffi::String, ffi::Any> attrs);
 
 /*!
  * \brief The Function return type statement.
  * \param ret_type The return type of the Function.
  * \return The return type.
  */
-Type FuncRet(Type ret_type);
+TVM_TIRX_DLL Type FuncRet(Type ret_type);
 
 /*!
  * \brief Store data in a tensor destination.
@@ -94,7 +94,7 @@ Type FuncRet(Type ret_type);
  * \param value The value to be stored.
  * \return The same statement that was added to the parent frame.
  */
-tvm::Stmt TensorStore(Expr dest, ffi::Array<PrimExpr> indices, PrimExpr value);
+TVM_TIRX_DLL tvm::Stmt TensorStore(Expr dest, ffi::Array<PrimExpr> indices, PrimExpr value);
 
 /*!
  * \brief Create a TIR var that represents a pointer

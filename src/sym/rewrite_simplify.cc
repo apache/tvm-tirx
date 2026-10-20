@@ -360,8 +360,8 @@ UnchangedOr<PrimExpr> RewriteSimplifier::Impl::Mutate_(const prim::AddNode* op,
   return ret;
 }
 
-std::function<void()> RewriteSimplifier::Impl::EnterConstraint(const PrimExpr& constraint,
-                                                               bool is_assume) {
+ffi::TypedFunction<void()> RewriteSimplifier::Impl::EnterConstraint(const PrimExpr& constraint,
+                                                                    bool is_assume) {
   size_t old_literal_size = literal_constraints_.size();
   // we will compare the already simplified result with the constraint,
   // so simplify the constraint as well
@@ -2379,8 +2379,8 @@ void RewriteSimplifier::Update(const Var& var, const PrimExpr& info, bool allow_
   impl_->Update(var, info, allow_override);
 }
 
-std::function<void()> RewriteSimplifier::EnterConstraint(const PrimExpr& constraint,
-                                                         bool is_assume) {
+ffi::TypedFunction<void()> RewriteSimplifier::EnterConstraint(const PrimExpr& constraint,
+                                                              bool is_assume) {
   return impl_->EnterConstraint(constraint, is_assume);
 }
 

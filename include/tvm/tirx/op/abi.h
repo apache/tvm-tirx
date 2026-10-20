@@ -182,7 +182,17 @@ struct CallFFIKernelAttr : public AttrsNode {
   /*! \brief Compile-time CUDA kernel requirements. */
   ffi::Map<ffi::String, int64_t> kernel_attrs;
 
-  static void RegisterReflection();
+  static void RegisterReflection() {
+    namespace refl = ffi::reflection;
+    refl::ObjectDef<CallFFIKernelAttr>()
+        .def_ro("launch_params", &CallFFIKernelAttr::launch_params,
+                refl::DefaultValue(ffi::Array<ffi::String>()))
+        .def_ro("launch_fields", &CallFFIKernelAttr::launch_fields,
+                refl::DefaultValue(ffi::Array<ffi::String>()))
+        .def_ro("num_kernel_args", &CallFFIKernelAttr::num_kernel_args, refl::DefaultValue(-1))
+        .def_ro("kernel_attrs", &CallFFIKernelAttr::kernel_attrs,
+                refl::DefaultValue(ffi::Map<ffi::String, int64_t>()));
+  }
   TVM_FFI_DECLARE_OBJECT_INFO_FINAL("tirx.CallFFIKernelAttr", CallFFIKernelAttr, AttrsNode);
 };
 

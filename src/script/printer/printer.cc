@@ -457,7 +457,7 @@ std::string RenderFallbackWithInvisiblePathInfo(const ffi::String& script,
 
 }  // namespace
 
-std::string Script(const ffi::ObjectRef& node, const ffi::Optional<PrinterConfig>& cfg) {
+ffi::String Script(const ffi::ObjectRef& node, const ffi::Optional<PrinterConfig>& cfg) {
   PrinterConfig config = cfg.value_or(PrinterConfig());
   static ffi::reflection::TypeAttrColumn translate(
       tvm::script::printer::type_attr::kDocTranslate.name);
@@ -467,15 +467,15 @@ std::string Script(const ffi::ObjectRef& node, const ffi::Optional<PrinterConfig
        !node.as<TypeNode>())) {
     return RenderFallbackWithInvisiblePathInfo(ffi::ReprPrint(ffi::Any(node)), config);
   }
-  return std::string(script::printer::RenderScript(node, config));
+  return script::printer::RenderScript(node, config);
 }
 
-std::string RedirectedReprPrinterMethod(const ffi::ObjectRef& obj) {
+ffi::String RedirectedReprPrinterMethod(const ffi::ObjectRef& obj) {
   try {
     PrinterConfig config;
     config->extra_config.Set("ir.comment_imports", true);
     // Call translation directly so an unsupported type cannot recurse through ffi repr.
-    return std::string(script::printer::RenderScript(obj, config));
+    return script::printer::RenderScript(obj, config);
   } catch (const tvm::ffi::Error& e) {
     LOG(WARNING) << "TVMScript printer falls back to the basic address printer with the error:\n"
                  << e.what();
