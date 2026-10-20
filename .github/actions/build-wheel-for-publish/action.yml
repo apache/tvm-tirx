@@ -108,7 +108,7 @@ runs:
 
     # ---- Build and test wheels ----
     - name: Build and test TIRx core wheel
-      uses: pypa/cibuildwheel@294735312765b09d24a2fbec22660ce817587d55  # v4.1.0
+      uses: pypa/cibuildwheel@b3395e271a35f73dad77f21802abe9b986dfe299  # v4.3.1
       with:
         package-dir: .
         output-dir: wheelhouse
