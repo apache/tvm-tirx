@@ -387,7 +387,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
   });
 }
 
-TVM_RUNTIME_DLL ffi::String GetCudaFreeMemory() {
+ffi::String GetCudaFreeMemory() {
   size_t free_mem, total_mem;
   TVM_FFI_CHECK_CUDA_ERROR(cudaMemGetInfo(&free_mem, &total_mem));
   std::stringstream ss;
@@ -409,7 +409,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
       });
 }
 
-TVM_RUNTIME_DLL int GetCudaDeviceCount() {
+int GetCudaDeviceCount() {
   int count;
   TVM_FFI_CHECK_CUDA_ERROR(cudaGetDeviceCount(&count));
   return count;
