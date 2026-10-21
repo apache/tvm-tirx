@@ -33,3 +33,30 @@ function(tvm_tirx_configure_target target)
     set_target_properties(${target} PROPERTIES BUILD_RPATH "\$ORIGIN" INSTALL_RPATH "\$ORIGIN")
   endif()
 endfunction()
+
+# Hide archive dependencies in the final shared library, without changing the archives themselves.
+function(tvm_tirx_hide_static_linked_lib_symbols target_name)
+  if(NOT APPLE)
+    tvm_ffi_hide_static_linked_lib_symbols(${target_name})
+    return()
+  endif()
+
+  # CMake evaluates link features in the caller's directory scope, after this function returns.
+  set(CMAKE_LINK_LIBRARY_USING_tvm_hidden "LINKER:-load_hidden,<LIBRARY>" PARENT_SCOPE)
+  set(CMAKE_LINK_LIBRARY_USING_tvm_hidden_SUPPORTED TRUE PARENT_SCOPE)
+  get_target_property(_libs ${target_name} LINK_LIBRARIES)
+  foreach(_lib IN LISTS _libs)
+    if(TARGET ${_lib})
+      # Shared, interface and object targets do not provide dependency archives to hide.
+      get_target_property(_type ${_lib} TYPE)
+      if(_type STREQUAL "STATIC_LIBRARY" OR _type STREQUAL "UNKNOWN_LIBRARY")
+        # UNKNOWN imports may resolve to a shared library; inspect the selected configuration's file.
+        set_property(TARGET ${target_name} PROPERTY LINK_LIBRARY_OVERRIDE_${_lib}
+          "$<IF:$<STREQUAL:$<PATH:GET_EXTENSION,LAST_ONLY,$<TARGET_FILE:${_lib}>>,.a>,tvm_hidden,DEFAULT>")
+      endif()
+    elseif(_lib MATCHES "[.]a$")
+      # llvm-config also supplies archive paths directly, without imported CMake targets.
+      set_property(TARGET ${target_name} PROPERTY LINK_LIBRARY_OVERRIDE_${_lib} tvm_hidden)
+    endif()
+  endforeach()
+endfunction()
