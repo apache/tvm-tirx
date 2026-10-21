@@ -1182,13 +1182,10 @@ TVM_FFI_STATIC_INIT_BLOCK() {
 }
 
 // Var
-Var::Var(ffi::String name, ffi::Optional<Type> ty_annotation, Location loc)
-    : Expr(ffi::UnsafeInit{}) {
+Var::Var(ffi::String name, Type ty, Location loc) : Expr(ffi::UnsafeInit{}) {
   ffi::ObjectPtr<VarNode> n = ffi::make_object<VarNode>();
   n->name = std::move(name);
-  if (ty_annotation.has_value()) {
-    n->ty = ty_annotation.value();
-  }
+  n->ty = std::move(ty);
   n->loc = loc;
   data_ = std::move(n);
 }
@@ -1202,8 +1199,8 @@ TVM_FFI_STATIC_INIT_BLOCK() {
       .attr(ffi::type_attr::kStructuralMaybeInplaceMutate,
             ffi::FStructuralMutate::FromNative<&VarMaybeInplaceMutate>());
 
-  refl::GlobalDef().def("ir.Var", [](ffi::String name, ffi::Optional<Type> ty_annotation,
-                                     Location loc) { return Var(name, ty_annotation, loc); });
+  refl::GlobalDef().def("ir.Var",
+                        [](ffi::String name, Type ty, Location loc) { return Var(name, ty, loc); });
 }
 
 Var Var::CopyWithName(const ffi::String& name) const {

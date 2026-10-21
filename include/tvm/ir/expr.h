@@ -571,8 +571,7 @@ class VarNode : public ExprNode {
 /*! \brief Managed reference to VarNode. */
 class Var : public Expr {
  public:
-  TVM_TIRX_DLL explicit Var(ffi::String name, ffi::Optional<Type> ty_annotation,
-                            Location loc = UnknownLoc());
+  TVM_TIRX_DLL explicit Var(ffi::String name, Type ty, Location loc = UnknownLoc());
 
   /*! \brief Return a fresh ordinary Var with the same type and a new name. */
   TVM_TIRX_DLL Var CopyWithName(const ffi::String& name) const;

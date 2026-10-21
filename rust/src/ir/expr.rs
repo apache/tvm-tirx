@@ -1116,8 +1116,12 @@ tvm_ffi::impl_object_upcast!(Var => Expr);
 impl Var {
     /// The variable `name`, of type `ty` or a missing type when `None` (`ir.Var`).
     pub fn new(name: &str, ty: Option<&Type>, loc: impl Into<Location>) -> Result<Self> {
+        let ty = match ty {
+            Some(ty) => ty.clone(),
+            None => crate::ir::r#type::MissingType::new()?.into(),
+        };
         tvm_ffi::cached_global_func!("ir.Var")
-            .call_tuple((String::from(name), ty.cloned(), &loc.into()))?
+            .call_tuple((String::from(name), ty, &loc.into()))?
             .try_into()
     }
 }

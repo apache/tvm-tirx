@@ -843,11 +843,13 @@ class Var(_CallableExprWithOp):
             raise TypeError("name must be a str")
 
         # pylint: disable=import-outside-toplevel
-        from .type import PrimType, PtrType, Type
+        from .type import MissingType, PrimType, PtrType, Type
 
-        if isinstance(ty, str):
+        if ty is None:
+            ty = MissingType()
+        elif isinstance(ty, str):
             ty = PtrType(PrimType("void")) if ty == "handle" else PrimType(ty)
-        elif ty is not None:
+        else:
             ty = tvm_ffi.convert(ty)
             if not isinstance(ty, Type):
                 raise TypeError("ty must be a Type or primitive dtype string")
