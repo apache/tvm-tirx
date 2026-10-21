@@ -267,7 +267,7 @@ foreach(_target tvm_runtime tvm_tirx_compiler ${TVM_RUNTIME_BACKEND_LIBS})
   elseif(UNIX)
     target_link_options(${_target} PRIVATE "-Wl,--no-undefined")
   endif()
-  tvm_ffi_hide_static_linked_lib_symbols(${_target})
+  tvm_tirx_hide_static_linked_lib_symbols(${_target})
   tvm_ffi_add_apple_dsymutil(${_target})
 endforeach()
 

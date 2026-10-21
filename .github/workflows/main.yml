@@ -79,6 +79,7 @@ jobs:
         run: >-
           python -m pytest -v tests/python/codegen/llvm/test_minimal.py
           tests/python/runtime/test_validate_wheel_library.py tests/python/script
+          tests/python/test_cmake_library.py
       - name: Minimal Metal Compile-Only
         shell: bash -l {0}
         run: |
