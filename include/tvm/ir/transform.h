@@ -259,7 +259,12 @@ class PassInfo : public ffi::ObjectRef {
    * \param opt_level The optimization level
    * \param name Name of the pass.
    */
-  PassInfo(int opt_level, ffi::String name);
+  PassInfo(int opt_level, ffi::String name) {
+    auto pass_info = ffi::make_object<PassInfoObj>();
+    pass_info->opt_level = opt_level;
+    pass_info->name = std::move(name);
+    data_ = std::move(pass_info);
+  }
 
   TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(PassInfo, ffi::ObjectRef, PassInfoObj);
 };
@@ -316,7 +321,9 @@ class Pass : public ffi::ObjectRef {
    *
    * \return The transformed module.
    */
-  IRModule operator()(IRModule mod) const;
+  IRModule operator()(IRModule mod) const {
+    return this->operator()(std::move(mod), PassContext::Current());
+  }
 
   /*!
    * \brief Transform mod using a functor under a given pass context.
@@ -670,17 +677,6 @@ inline void PassContext::InstrumentAfterPass(const IRModule& ir_module,
       pi->RunAfterPass(ir_module, pass_info);
     }
   }
-}
-
-inline PassInfo::PassInfo(int opt_level, ffi::String name) {
-  auto pass_info = ffi::make_object<PassInfoObj>();
-  pass_info->opt_level = opt_level;
-  pass_info->name = std::move(name);
-  data_ = std::move(pass_info);
-}
-
-inline IRModule Pass::operator()(IRModule mod) const {
-  return this->operator()(std::move(mod), PassContext::Current());
 }
 
 }  // namespace transform

@@ -114,10 +114,16 @@ class DispatchContextObj : public ffi::Object {
   TVM_TIRX_DLL void AddPostTensorDefStmt(TensorVar tensor, Stmt stmt);
 
   /*! \brief Set a value in the shared state cache. */
-  void SharedStateSet(ffi::String key, ffi::ObjectRef value);
+  void SharedStateSet(ffi::String key, ffi::ObjectRef value) { shared_state.Set(key, value); }
 
   /*! \brief Get a value from the shared state cache. */
-  ffi::Optional<ffi::ObjectRef> SharedStateGet(ffi::String key);
+  ffi::Optional<ffi::ObjectRef> SharedStateGet(ffi::String key) {
+    auto it = shared_state.find(key);
+    if (it != shared_state.end()) {
+      return (*it).second;
+    }
+    return ffi::Optional<ffi::ObjectRef>();
+  }
 
   TVM_FFI_DECLARE_OBJECT_INFO_FINAL("tirx.DispatchContext", DispatchContextObj, ffi::Object);
 };
@@ -139,18 +145,6 @@ class DispatchContext : public ffi::ObjectRef {
   TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(DispatchContext, ffi::ObjectRef,
                                                 DispatchContextObj);
 };
-
-inline void DispatchContextObj::SharedStateSet(ffi::String key, ffi::ObjectRef value) {
-  shared_state.Set(key, value);
-}
-
-inline ffi::Optional<ffi::ObjectRef> DispatchContextObj::SharedStateGet(ffi::String key) {
-  auto it = shared_state.find(key);
-  if (it != shared_state.end()) {
-    return (*it).second;
-  }
-  return ffi::Optional<ffi::ObjectRef>();
-}
 
 }  // namespace tile
 }  // namespace tirx
