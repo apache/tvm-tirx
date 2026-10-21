@@ -1390,6 +1390,10 @@ UnchangedOr<PrimExpr> CanonicalSimplifier::Impl::Mutate_(const prim::CastNode* o
 
 UnchangedOr<PrimExpr> CanonicalSimplifier::Impl::Mutate_(const prim::LTNode* op,
                                                          InplaceMode inplace_mode) {
+  // Unsigned subtraction does not preserve comparison ordering.
+  if (op->a->ty.as_or_throw<PrimType>().MatchesCode(DLDataTypeCode::kDLUInt)) {
+    return Rewriter::Mutate_(op, inplace_mode);
+  }
   // First convert a < b into a - b < 0
   PrimExpr difference = op->a - op->b;
   PrimExpr expr = DirectMutate(difference, inplace_mode).ValueOrUnchanged(std::move(difference));

@@ -411,6 +411,11 @@ def test_floormod_two():
     ck.verify(flm(x * 10 + 1 + y * 2 + 2, 2), 1)
 
 
+def test_simplify_unsigned_comparison():
+    ck = CanonicalChecker()
+    ck.verify(tirx.Cast("uint8", T.uint8(1)) > tirx.Cast("uint8", T.uint8(0)), T.bool(True))
+
+
 def test_simplify_le():
     ck = CanonicalChecker()
     # Case 1. Ignore the extra expr if it's small than the division number
