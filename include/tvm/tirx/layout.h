@@ -176,10 +176,10 @@ class TileLayoutNode : public LayoutNode {
   TVM_TIRX_DLL void CheckWellFormed() const;
 
   /*! \brief Get the size of the layout (of some axis) */
-  PrimExpr GetSize(ffi::Optional<ffi::String> axis_name = std::nullopt) const;
+  TVM_TIRX_DLL PrimExpr GetSize(ffi::Optional<ffi::String> axis_name = std::nullopt) const;
 
   /*! \brief Get the span of the layout (of some axis) */
-  PrimExpr GetSpan(ffi::Optional<ffi::String> axis_name = std::nullopt) const;
+  TVM_TIRX_DLL PrimExpr GetSpan(ffi::Optional<ffi::String> axis_name = std::nullopt) const;
 
   /*! \brief Apply the input coordinate and get the mapped output */
   TVM_TIRX_DLL ffi::Map<ffi::String, PrimExpr> Apply(ffi::Array<PrimExpr> coord) const;
@@ -266,10 +266,10 @@ class ComposeLayoutNode : public LayoutNode {
   TVM_TIRX_DLL void CheckWellFormed() const;
 
   /*! \brief Get the size (of some axis) of the layout */
-  PrimExpr GetSize(ffi::Optional<ffi::String> axis_name = std::nullopt) const;
+  TVM_TIRX_DLL PrimExpr GetSize(ffi::Optional<ffi::String> axis_name = std::nullopt) const;
 
   /*! \brief Get the span (of some axis) of the layout */
-  PrimExpr GetSpan(ffi::Optional<ffi::String> axis_name = std::nullopt) const;
+  TVM_TIRX_DLL PrimExpr GetSpan(ffi::Optional<ffi::String> axis_name = std::nullopt) const;
 
   /*! \brief Apply the input coordinate and get the mapped output */
   TVM_TIRX_DLL ffi::Map<ffi::String, PrimExpr> Apply(ffi::Array<PrimExpr> coord) const;
