@@ -23,7 +23,7 @@ repository root:
 
 ```bash
 uv pip install --group docs
-uv run --no-sync python -m sphinx -b html -W docs docs/_build/html
+uv run python -m sphinx -b html -W docs docs/_build/html
 ```
 
 Open `docs/_build/html/index.html` to browse the Developer Manual and API reference.

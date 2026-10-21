@@ -75,7 +75,7 @@ test = [
 ]
 lint = ["ruff", "pre-commit"]
 dev = [{ include-group = "test" }, { include-group = "lint" }]
-docs = ["sphinx>=7", "sphinx-book-theme"]
+docs = ["sphinx>=7", "sphinx-book-theme", "sphinx-autobuild", "pytest"]
 
 [project.scripts]
 tvm-tirx-config = "tvm_tirx.config:__main__"

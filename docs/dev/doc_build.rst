@@ -18,50 +18,45 @@
 Build This Doc Site
 ===================
 
-The Sphinx site imports TIRx to generate its Python API reference. Complete
-:doc:`source_build` first, including the editable install and import check.
-Use the same active mamba environment and repository-local ``.venv`` for these
-commands; a GPU is not required to build the documentation.
+This guide walks through building the TIRx documentation locally.
+Building the docs requires the Python package to be installed first; see
+:doc:`source_build` for instructions.
 
-Build and View
---------------
+.. admonition:: Prerequisite
+   :class: hint
 
-Install the documentation dependency group and build HTML with warnings treated
-as errors:
+   - Use the activated mamba environment from :doc:`source_build`.
+   - Run commands from the repository root.
+   - Install the documentation tools with ``uv pip install --group docs``.
 
-.. code-block:: bash
+Interactive Build (Auto-Reload)
+-------------------------------
 
-   uv pip install --group docs
-   uv run --no-sync python -m sphinx -b html -W docs docs/_build/html
-
-Open ``docs/_build/html/index.html``, or serve the output locally:
+Rebuilds and serves the documentation locally with live reload:
 
 .. code-block:: bash
 
-   uv run --no-sync python -m http.server --bind 127.0.0.1 \
-     --directory docs/_build/html 8000
+   uv run sphinx-autobuild docs docs/_build/html --ignore docs/reference/python/generated
 
-Visit http://127.0.0.1:8000. Re-run the Sphinx command after edits, then refresh
-the browser; the HTTP server does not rebuild pages. Rebuild the editable
-package first if you changed native code.
+Open ``http://127.0.0.1:8000`` after the initial build completes.
 
-For a full Sphinx rebuild that reports all warnings in one pass:
+One-Off Build
+-------------
+
+Generates the HTML documentation once, with warnings treated as errors:
 
 .. code-block:: bash
 
-   uv run --no-sync python -m sphinx -E -a -b html -W --keep-going \
-     docs docs/_build/html
+   uv run python -m sphinx -b html -W docs docs/_build/html
 
-Sphinx generates API stubs in ``docs/reference/python/generated``. If you remove
-or rename API pages, delete that generated directory and ``docs/_build`` before
-rebuilding to avoid stale output. Keep hand-written reference pages intact.
+Open ``docs/_build/html/index.html`` to browse the result.
 
-CI Documentation Build
-----------------------
+Cleanup
+-------
 
-The GPU Jenkins pipeline runs ``tests/scripts/task_python_docs.sh`` after
-building wheels. That script installs the wheels from ``dist/`` and the docs
-dependencies under ``.local/python``, points ``TVM_TIRX_LIBRARY_PATH`` at those
-libraries, and performs a clean warnings-as-errors build. It writes the source
-commit to ``docs/_build/html/commit_hash`` and packages the site as ``docs.tgz``.
-See :doc:`ci_cd` for the CI images and wheel-build prerequisites.
+Remove generated artifacts when they are no longer needed:
+
+.. code-block:: bash
+
+   rm -rf docs/_build/
+   rm -rf docs/reference/python/generated

@@ -18,156 +18,119 @@
 Build from Source
 =================
 
-Build TIRx from source to develop the compiler or select its native backends.
-The distribution is ``apache-tvm-tirx``; Python code imports ``tvm_tirx``.
-Run the commands below from the repository root unless noted otherwise.
+This guide covers building the TIRx Python package, which automatically
+includes the core C++ compiler and runtime libraries.
 
-Set Up the Environment
-----------------------
+.. admonition:: Prerequisite
+   :class: tip
 
-You need Git, Python 3.10 or newer, a C++20 compiler, CMake 3.26 or newer,
-and Ninja. The default LLVM backend requires LLVM development libraries
-(version 15 or newer), including ``llvm-config``. Install a device SDK only
-if you plan to enable its runtime.
+   - Python: 3.10 or newer.
+   - Compiler: a C++20-capable GCC, Clang, or MSVC toolchain.
+   - Build tools: Git, CMake 3.26+, Ninja, and uv.
+   - LLVM: development libraries and ``llvm-config`` from LLVM 15 or newer.
 
-On Linux or macOS, install `Miniforge <https://github.com/conda-forge/miniforge>`__
-and initialize mamba for your shell. Create an environment for Python and the
-native build tools:
+   On most platforms, you can get LLVM and the build dependencies through
+   `Miniforge <https://github.com/conda-forge/miniforge>`__:
 
-.. code-block:: bash
+   .. code-block:: bash
 
-   mamba create -n tirx-dev -c conda-forge python=3.12 \
-     "cmake>=3.26" ninja git "llvmdev=22" uv
-   mamba activate tirx-dev
+      mamba create -n tirx-dev -c conda-forge python=3.12 llvmdev "cmake>=3.26" ninja git uv
+      mamba activate tirx-dev
+      llvm-config --version
 
-Use a system C++20 compiler, or install one with ``mamba install -c conda-forge
-cxx-compiler``. On macOS, also install the Xcode command-line tools
-(``xcode-select --install``). On Windows, use a Visual Studio developer shell
-with the C++ workload; adapt the shell syntax and use the environment's
-``Library/bin/llvm-config.exe``.
+   Use this mamba environment for all commands. Keep ``uv run`` in the same
+   environment without resynchronizing the packages installed by ``uv pip``:
 
-Check out TIRx and its pinned dependencies:
+   .. code-block:: bash
 
-.. code-block:: bash
-
-   git clone --recursive https://github.com/apache/tvm-tirx.git
-   cd tvm-tirx
-
-For an existing checkout, run ``git submodule update --init --recursive`` after
-switching revisions. In particular, the native build uses the TVM-FFI submodule.
-
-Keep native tools in the mamba environment and Python project packages in a
-uv virtual environment. Select the active environment's interpreter explicitly
-so uv does not choose an unrelated Python installation:
-
-.. code-block:: bash
-
-   uv venv --python "$(command -v python)"
-   source .venv/bin/activate
-   export TIRX_LLVM_CONFIG="$(command -v llvm-config)"
-   "$TIRX_LLVM_CONFIG" --version
-   export CMAKE_ARGS="-DTVM_TIRX_USE_LLVM=$TIRX_LLVM_CONFIG -DTVM_TIRX_USE_CUDA=OFF"
-   export CMAKE_BUILD_PARALLEL_LEVEL=8
-
-Adjust the parallelism to available memory and CPU cores. Activating ``.venv``
-ensures ``uv pip install`` targets the project environment; the mamba-provided
-native tools remain on ``PATH``. In a new shell, activate ``tirx-dev`` first,
-then ``.venv`` from the repository root. ``uv run --no-sync`` uses those packages
-without replacing the editable build.
+      export UV_PROJECT_ENVIRONMENT="$CONDA_PREFIX"
+      export UV_NO_SYNC=1
 
 Build the Python Package
 ------------------------
 
-Install the editable package and development dependencies. scikit-build-core
-runs CMake to build the native libraries:
+Download the source via:
 
 .. code-block:: bash
 
-   uv pip install --verbose --group dev -e .
+   git clone --recursive https://github.com/apache/tvm-tirx
+   cd tvm-tirx
 
-Python edits take effect immediately. After changing C++ code or CMake options,
-re-run the install with ``--reinstall-package apache-tvm-tirx``:
+.. note::
+
+   Always clone with ``--recursive`` to pull submodules. If you already cloned
+   without it, run:
+
+   .. code-block:: bash
+
+      git submodule update --init --recursive
+
+Build the Python package with scikit-build-core, which drives CMake to compile
+the C++ libraries:
 
 .. code-block:: bash
 
-   uv pip install --verbose --reinstall-package apache-tvm-tirx -e .
+   uv pip install --force-reinstall --verbose -e .
 
-Verify the package and the libraries actually loaded by this interpreter:
+The ``--force-reinstall`` flag forces a rebuild, and ``-e`` (editable) means
+Python-only changes are reflected immediately without rebuilding.
+
+**CMake flags** can be exported through ``CMAKE_ARGS`` before running the
+install command. For example, to require the CUDA runtime:
 
 .. code-block:: bash
 
-   uv run --no-sync python - <<'PYTHON'
-   import tvm_tirx
-   from tvm_tirx import base
+   export CMAKE_ARGS="-DTVM_TIRX_USE_CUDA=ON"
 
-   print("Version:", tvm_tirx.__version__)
-   print("Python package:", tvm_tirx.__file__)
-   for name, library in base._LOADED_LIBS.items():
-       print(name, library._name)
-   assert "tvm_tirx_compiler" in base._LOADED_LIBS
-   PYTHON
-   uv run --no-sync tvm-tirx-config --libfiles
+Available CMake options (see `CMakeLists.txt
+<https://github.com/apache/tvm-tirx/blob/main/CMakeLists.txt>`__) include:
 
-``base._LOADED_LIBS`` is an internal diagnostic: it reports loaded handles,
-not just candidate library paths. If paths point to another checkout, remove
-stale ``PYTHONPATH`` or ``TVM_TIRX_LIBRARY_PATH`` overrides and rebuild in this
-environment.
+- ``TVM_TIRX_USE_LLVM`` -- Enable LLVM, or select an ``llvm-config`` command (default: ``ON``).
+- ``TVM_TIRX_USE_CUDA`` -- Enable the CUDA runtime (default: ``AUTO``).
+- ``TVM_TIRX_USE_METAL`` -- Enable the Metal runtime on macOS (default: ``OFF``).
+- ``TVM_TIRX_USE_Z3`` -- Enable the Z3 solver (default: ``AUTO``).
+- ``TVM_TIRX_BUILD_TESTS`` -- Build C++ tests (default: ``OFF``).
 
-Select Backends
+Verify the install:
+
+.. code-block:: bash
+
+   uv run python -c "import tvm_tirx; print(tvm_tirx.__version__)"
+   uv run tvm-tirx-config -h
+
+.. tip::
+
+   Use ``tvm-tirx-config`` to query include and link flags for external C++ projects:
+
+   .. code-block:: bash
+
+      tvm-tirx-config --includedir
+      tvm-tirx-config --libfiles
+      tvm-tirx-config --libs compiler  # Linux/macOS
+      tvm-tirx-config --ldflags        # Linux/macOS
+
+Build Wheels with Static LLVM
+-----------------------------
+
+When shipping wheels, link LLVM statically so users do not need the same shared
+LLVM library installed. Install its development dependencies and export the
+static-link setting before building the wheel:
+
+.. code-block:: bash
+
+   mamba install -c conda-forge zlib zstd-static libxml2-devel
+   export CMAKE_ARGS="-DTVM_TIRX_USE_LLVM='llvm-config --link-static' -DZLIB_USE_STATIC_LIBS=ON"
+
+See :doc:`ci_cd` for wheel builds and the publication toolchain configuration.
+
+Troubleshooting
 ---------------
 
-Pass options through ``CMAKE_ARGS`` before installing or rebuilding. For
-example, enable CUDA while keeping the selected LLVM toolchain:
+- **Rebuilding after C++ changes**: re-run ``uv pip install --force-reinstall -e .``.
+  Editable installs only auto-reflect Python changes.
+- **Submodules missing**: run ``git submodule update --init --recursive`` from
+  the repository root.
 
-.. code-block:: bash
+.. seealso::
 
-   export CMAKE_ARGS="-DTVM_TIRX_USE_LLVM=$TIRX_LLVM_CONFIG -DTVM_TIRX_USE_CUDA=ON"
-   uv pip install --verbose --reinstall-package apache-tvm-tirx -e .
-
-The options are defined in `CMakeLists.txt
-<https://github.com/apache/tvm-tirx/blob/main/CMakeLists.txt>`__:
-
-.. list-table::
-   :header-rows: 1
-   :widths: 32 68
-
-   * - Option
-     - Behavior
-   * - ``TVM_TIRX_USE_LLVM``
-     - Defaults to ``ON``, which searches for an LLVM CMake package. A full
-       ``llvm-config`` path selects that installation explicitly; ``OFF``
-       disables LLVM code generation.
-   * - ``TVM_TIRX_USE_CUDA``
-     - Defaults to ``AUTO``. Use ``ON`` or an SDK path to require CUDA,
-       or ``OFF`` for a CPU-only build. Execution needs a compatible driver
-       and GPU as well as the toolkit.
-   * - ``TVM_TIRX_USE_METAL``
-     - Defaults to ``OFF``; enable on macOS to build the Metal runtime.
-   * - ``TVM_TIRX_USE_ROCM``, ``TVM_TIRX_USE_VULKAN``, ``TVM_TIRX_USE_OPENCL``
-     - Default to ``OFF``. Enable with the corresponding SDK and runtime
-       available; device tests also need supported hardware.
-   * - ``TVM_TIRX_USE_Z3``
-     - Defaults to ``AUTO``. The Python build provides ``mlc-z3-static``;
-       use ``ON`` to require the solver or ``OFF`` to disable it.
-   * - ``TVM_TIRX_BUILD_TESTS``
-     - Defaults to ``OFF``. Enable for the C++ test target; see :doc:`ci_cd`.
-
-Build the C++ Libraries
------------------------
-
-For native development without an editable Python install, configure a separate
-build directory. The TVM-FFI submodule is built as part of the same CMake graph:
-
-.. code-block:: bash
-
-   cmake -S . -B build_cpp -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo \
-     -DTVM_TIRX_USE_LLVM="$TIRX_LLVM_CONFIG" -DTVM_TIRX_USE_CUDA=OFF
-   cmake --build build_cpp --parallel 8 --target tvm_tirx_compiler runtime
-
-Libraries are written under ``build_cpp/lib``. The ``runtime`` target includes
-the core runtime and enabled device runtimes. This does not install the Python
-package; use the editable workflow above for Python tests and documentation.
-For a multi-configuration generator such as Visual Studio, add
-``--config RelWithDebInfo`` to the build command.
-
-Continue with :doc:`ci_cd` for tests or :doc:`doc_build` for documentation.
+   - :doc:`ci_cd`: Reproduce linters, unit tests, and wheel builds locally.
