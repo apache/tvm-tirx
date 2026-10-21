@@ -73,18 +73,6 @@ void DispatchContextObj::AddPostTensorDefStmt(TensorVar tensor, Stmt stmt) {
   callbacks.Set(callback::kPostTensorDefStmt.name, mapping);
 }
 
-void DispatchContextObj::SharedStateSet(ffi::String key, ffi::ObjectRef value) {
-  shared_state.Set(key, value);
-}
-
-ffi::Optional<ffi::ObjectRef> DispatchContextObj::SharedStateGet(ffi::String key) {
-  auto it = shared_state.find(key);
-  if (it != shared_state.end()) {
-    return (*it).second;
-  }
-  return ffi::Optional<ffi::ObjectRef>();
-}
-
 DispatchContext::DispatchContext(Target target, ThreadScope thread_scope,
                                  ffi::Map<ffi::String, ffi::Tuple<PrimVar, PrimExpr>> launch_params,
                                  ffi::Map<Var, Range> var_range_map, bool alloc_only,

@@ -132,10 +132,6 @@ TVM_FFI_STATIC_INIT_BLOCK() {
       });
 }
 
-bool IRModuleNode::ContainGlobalVar(const ffi::String& name) const {
-  return global_var_map_.find(name) != global_var_map_.end();
-}
-
 GlobalVar IRModuleNode::GetGlobalVar(const ffi::String& name) const {
   auto it = global_var_map_.find(name);
   if (it == global_var_map_.end()) {
@@ -166,11 +162,6 @@ tvm::ffi::Array<GlobalVar> IRModuleNode::GetGlobalVars() const {
   return tvm::ffi::Array<GlobalVar>(global_vars);
 }
 
-void IRModuleNode::Add(const GlobalVar& var, const BaseFunc& f, bool update) {
-  BaseFunc checked_func = f;
-  AddUnchecked(var, checked_func);
-}
-
 void IRModuleNode::AddUnchecked(const GlobalVar& var, const BaseFunc& func) {
   this->functions.Set(var, func);
 
@@ -183,43 +174,6 @@ void IRModuleNode::AddUnchecked(const GlobalVar& var, const BaseFunc& func) {
   }
 
   global_var_map_.Set(var->name_hint, var);
-}
-
-void IRModuleNode::Update(const GlobalVar& var, const BaseFunc& func) {
-  this->Add(var, func, true);
-}
-
-void IRModuleNode::UpdateGlobalInfo(const ffi::String& name, const ffi::Array<GlobalInfo>& info) {
-  this->global_infos.Set(name, info);
-}
-
-void IRModuleNode::Remove(const GlobalVar& var) {
-  auto functions_node = this->functions.CopyOnWrite();
-  functions_node->erase(var);
-  auto gvar_node = global_var_map_.CopyOnWrite();
-  gvar_node->erase(var->name_hint);
-}
-
-BaseFunc IRModuleNode::Lookup(const GlobalVar& var) const {
-  auto it = functions.find(var);
-  TVM_FFI_ICHECK(it != functions.end()) << "There is no definition of " << var;
-  return (*it).second;
-}
-
-BaseFunc IRModuleNode::Lookup(const ffi::String& name) const {
-  GlobalVar id = this->GetGlobalVar(name);
-  return this->Lookup(id);
-}
-
-void IRModuleNode::Update(const IRModule& mod) {
-  for (auto pair : mod->functions) {
-    // TODO(@jroesch): rename into IRModule.
-    this->AddUnchecked(pair.first, pair.second);
-  }
-}
-
-IRModule IRModuleNode::ShallowCopy() {
-  return IRModule(this->functions, this->attrs, this->global_infos);
 }
 
 IRModule IRModule::FromExpr(const Expr& expr,

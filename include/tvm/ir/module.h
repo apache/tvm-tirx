@@ -177,7 +177,7 @@ class IRModuleNode : public ffi::Object {
    * \param update Controls whether you can replace a definition in the
    * environment.
    */
-  TVM_TIRX_DLL void Add(const GlobalVar& var, const BaseFunc& func, bool update = false);
+  void Add(const GlobalVar& var, const BaseFunc& func, bool update = false);
 
   /*!
    * \brief Add a function to the global environment.
@@ -193,27 +193,27 @@ class IRModuleNode : public ffi::Object {
    * \param var The name of the global function to update.
    * \param func The new function.
    */
-  TVM_TIRX_DLL void Update(const GlobalVar& var, const BaseFunc& func);
+  void Update(const GlobalVar& var, const BaseFunc& func);
 
   /*!
    * \brief Update an array of global infos in the global environment.
    * \param name The name of the global info.
    * \param info The new array of global infos.
    */
-  TVM_TIRX_DLL void UpdateGlobalInfo(const ffi::String& name, const ffi::Array<GlobalInfo>& info);
+  void UpdateGlobalInfo(const ffi::String& name, const ffi::Array<GlobalInfo>& info);
 
   /*!
    * \brief Remove a function from the global environment.
    * \param var The name of the global function to update.
    */
-  TVM_TIRX_DLL void Remove(const GlobalVar& var);
+  void Remove(const GlobalVar& var);
 
   /*!
    * \brief Check if the global_var_map_ contains a global variable.
    * \param name The variable name.
    * \returns true if contains, otherise false.
    */
-  TVM_TIRX_DLL bool ContainGlobalVar(const ffi::String& name) const;
+  bool ContainGlobalVar(const ffi::String& name) const;
 
   /*!
    * \brief Lookup a global function by its variable.
@@ -234,27 +234,27 @@ class IRModuleNode : public ffi::Object {
    * \param var The global var to lookup.
    * \returns The function named by the variable argument.
    */
-  TVM_TIRX_DLL BaseFunc Lookup(const GlobalVar& var) const;
+  BaseFunc Lookup(const GlobalVar& var) const;
 
   /*!
    * \brief Look up a global function by its string name
    * \param name The name of the function.
    * \returns The function named by the argument.
    */
-  TVM_TIRX_DLL BaseFunc Lookup(const ffi::String& name) const;
+  BaseFunc Lookup(const ffi::String& name) const;
 
   /*!
    * \brief Update the functions inside this environment by
    *        functions in another environment.
    * \param other The other environment.
    */
-  TVM_TIRX_DLL void Update(const IRModule& other);
+  void Update(const IRModule& other);
 
   /*!
    * \brief Create a shallow copy of this IRModule.
    * \returns The shallow copy of the IRModule.
    */
-  TVM_TIRX_DLL IRModule ShallowCopy();
+  IRModule ShallowCopy();
 
   static constexpr TVMFFISEqHashKind _type_s_eq_hash_kind = kTVMFFISEqHashKindTreeNode;
 
@@ -311,6 +311,53 @@ class IRModule : public ffi::ObjectRef {
   // allow copy on write.
   TVM_DEFINE_OBJECT_REF_COW_METHOD(IRModuleNode);
 };
+
+inline void IRModuleNode::Add(const GlobalVar& var, const BaseFunc& f, bool update) {
+  BaseFunc checked_func = f;
+  AddUnchecked(var, checked_func);
+}
+
+inline void IRModuleNode::Update(const IRModule& mod) {
+  for (auto pair : mod->functions) {
+    // TODO(@jroesch): rename into IRModule.
+    this->AddUnchecked(pair.first, pair.second);
+  }
+}
+
+inline void IRModuleNode::Update(const GlobalVar& var, const BaseFunc& func) {
+  this->Add(var, func, true);
+}
+
+inline void IRModuleNode::UpdateGlobalInfo(const ffi::String& name,
+                                           const ffi::Array<GlobalInfo>& info) {
+  this->global_infos.Set(name, info);
+}
+
+inline void IRModuleNode::Remove(const GlobalVar& var) {
+  auto functions_node = this->functions.CopyOnWrite();
+  functions_node->erase(var);
+  auto gvar_node = global_var_map_.CopyOnWrite();
+  gvar_node->erase(var->name_hint);
+}
+
+inline bool IRModuleNode::ContainGlobalVar(const ffi::String& name) const {
+  return global_var_map_.find(name) != global_var_map_.end();
+}
+
+inline BaseFunc IRModuleNode::Lookup(const ffi::String& name) const {
+  GlobalVar id = this->GetGlobalVar(name);
+  return this->Lookup(id);
+}
+
+inline BaseFunc IRModuleNode::Lookup(const GlobalVar& var) const {
+  auto it = functions.find(var);
+  TVM_FFI_ICHECK(it != functions.end()) << "There is no definition of " << var;
+  return (*it).second;
+}
+
+inline IRModule IRModuleNode::ShallowCopy() {
+  return IRModule(this->functions, this->attrs, this->global_infos);
+}
 
 namespace attr {
 

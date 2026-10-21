@@ -146,31 +146,6 @@ void IRBuilderFrameObj::AddCallback(ffi::TypedFunction<void()> callback) {
   IRBuilder::Current()->frames.back()->callbacks.push_back(callback);
 }
 
-IRBuilder::IRBuilder() {
-  ffi::ObjectPtr<IRBuilderObj> n = ffi::make_object<IRBuilderObj>();
-  n->frames.clear();
-  n->result = std::nullopt;
-  n->locs.clear();
-  data_ = n;
-}
-
-int64_t IRBuilderObj::PushLoc(Location loc) {
-  locs.push_back(std::move(loc));
-  return static_cast<int64_t>(locs.size()) - 1;
-}
-
-void IRBuilderObj::UpdateLoc(int64_t index, Location loc) {
-  TVM_FFI_CHECK(index >= 0 && static_cast<size_t>(index) < locs.size(), ValueError)
-      << "Invalid source location scope";
-  locs[index] = std::move(loc);
-}
-
-void IRBuilderObj::PopLoc() {
-  TVM_FFI_CHECK(!locs.empty(), ValueError)
-      << "ValueError: No source location exists in the builder scope";
-  locs.pop_back();
-}
-
 Location IRBuilderObj::ResolveLoc(Location location) const {
   std::vector<Location> normalized;
   normalized.reserve(locs.size());

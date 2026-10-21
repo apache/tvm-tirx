@@ -150,11 +150,6 @@ TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> TileLayoutMaybeInplaceM
 TVM_FFI_STATIC_INIT_BLOCK() { ComposeLayoutNode::RegisterReflection(); }
 
 /**************** Iter ****************/
-Iter::Iter(PrimExpr extent, PrimExpr stride, Axis axis) {
-  auto n = ffi::make_object<IterNode>(extent, stride, axis);
-  data_ = std::move(n);
-}
-
 TVM_FFI_STATIC_INIT_BLOCK() {
   namespace refl = tvm::ffi::reflection;
   IterNode::RegisterReflection();
@@ -170,16 +165,6 @@ TVM_FFI_STATIC_INIT_BLOCK() {
 }
 
 /**************** TileLayout ****************/
-TileLayout::TileLayout(ffi::Array<Iter> shard, ffi::Array<Iter> replica,
-                       ffi::Map<Axis, PrimExpr> offset)
-    : Layout(ffi::UnsafeInit{}) {
-  auto n = ffi::make_object<TileLayoutNode>();
-  n->shard = shard;
-  n->replica = replica;
-  n->offset = offset;
-  data_ = std::move(n);
-}
-
 TVM_FFI_STATIC_INIT_BLOCK() {
   namespace refl = tvm::ffi::reflection;
   TileLayoutNode::RegisterReflection();
@@ -307,10 +292,6 @@ ffi::Map<ffi::String, PrimExpr> layout_details::Apply(const TileLayoutNode* layo
   return result;
 }
 
-ffi::Array<PrimExpr> TileLayout::GetShardShape() const {
-  return get()->shard.Map([](const Iter& iter) { return iter->extent; });
-}
-
 bool TileLayout::IsContiguous(ffi::Optional<sym::Analyzer> analyzer) const {
   if (!get()->replica.empty()) return false;
   static const Axis memory_axis = Axis::Get("m");
@@ -336,14 +317,6 @@ bool TileLayout::IsContiguous(ffi::Optional<sym::Analyzer> analyzer) const {
   return true;
 }
 
-bool TileLayout::IsTrivial() const {
-  if (get()->shard.size() > 1) return false;
-  if (get()->shard.size() == 1) {
-    if (!get()->shard[0]->axis->IsMemoryAxis() || !IsOne(get()->shard[0]->stride)) return false;
-  }
-  return get()->replica.size() == 0 && get()->offset.size() == 0;
-}
-
 TVM_FFI_STATIC_INIT_BLOCK() {
   namespace refl = tvm::ffi::reflection;
   refl::GlobalDef().def("tirx.TileLayoutIsContiguous",
@@ -353,11 +326,6 @@ TVM_FFI_STATIC_INIT_BLOCK() {
   refl::GlobalDef().def("tirx.TileLayoutIsTrivial", [](const TileLayout& layout) {
     return layout.Canonicalize().as<TileLayout>().value().IsTrivial();
   });
-}
-
-bool TileLayout::HasThreadAxis() const {
-  return std::any_of(get()->shard.begin(), get()->shard.end(),
-                     [](const Iter& iter) { return iter->axis->IsThreadAxis(); });
 }
 
 ffi::Optional<ffi::Tuple<ThreadScope, ThreadScope>> TileLayout::GetScope() const {

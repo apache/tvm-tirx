@@ -31,6 +31,7 @@
 #include <tvm/runtime/device_api.h>
 #include <tvm/target/target_kind.h>
 
+#include <algorithm>
 #include <string>
 
 namespace tvm {
@@ -65,9 +66,9 @@ class TargetObj : public ffi::Object {
   /*! \return Export target to JSON-like configuration */
   TVM_TIRX_DLL ffi::Map<ffi::String, ffi::Any> ToConfig() const;
   /*! \return The ffi::Optional<Target> typed target host of the TargetObj */
-  TVM_TIRX_DLL ffi::Optional<Target> GetHost() const;
+  ffi::Optional<Target> GetHost() const;
   /*! \return The device type for this target */
-  TVM_TIRX_DLL int GetTargetDeviceType() const;
+  int GetTargetDeviceType() const;
 
   /*!
    * \brief Check if the target contains a key
@@ -77,7 +78,7 @@ class TargetObj : public ffi::Object {
    * \return True if the target's `TargetObj::keys` contains the
    * specified key, False otherwise.
    */
-  TVM_TIRX_DLL bool HasKey(const ffi::String& query_key) const;
+  bool HasKey(const ffi::String& query_key) const;
 
   static void RegisterReflection() {
     namespace refl = tvm::ffi::reflection;
@@ -174,7 +175,7 @@ class Target : public ffi::ObjectRef {
    * \param target The Target typed object with host field undefined for target
    * \param host The Target typed object for target host
    */
-  TVM_TIRX_DLL explicit Target(Target target, ffi::Optional<Target> host);
+  explicit Target(Target target, ffi::Optional<Target> host);
   explicit Target(ffi::UnsafeInit tag, ffi::ObjectPtr<TargetObj> n) : ffi::ObjectRef(tag) {
     data_ = std::move(n);
   }
@@ -184,7 +185,7 @@ class Target : public ffi::ObjectRef {
   TVM_TIRX_DLL static Target WithHost(const Target& target, const ffi::Optional<Target>& host);
 
   /*! \return The target with the host stripped out */
-  TVM_TIRX_DLL Target WithoutHost() const;
+  Target WithoutHost() const;
 
  private:
   // enable with syntax.
@@ -201,6 +202,37 @@ class Target : public ffi::ObjectRef {
    */
   TVM_TIRX_DLL void ExitWithScope();
 };
+
+inline ffi::Optional<Target> TargetObj::GetHost() const { return this->host.as<Target>(); }
+
+inline int TargetObj::GetTargetDeviceType() const {
+  if (ffi::Optional<int64_t> device_type = GetAttr<int64_t>("target_device_type")) {
+    return static_cast<int>(device_type.value());
+  }
+  return kind->default_device_type;
+}
+
+inline bool TargetObj::HasKey(const ffi::String& query_key) const {
+  return std::any_of(keys.begin(), keys.end(),
+                     [&query_key](const auto& key) { return key == query_key; });
+}
+
+inline Target::Target(Target target, ffi::Optional<Target> host) {
+  ffi::ObjectPtr<TargetObj> n = ffi::make_object<TargetObj>(*target.get());
+  n->host =
+      host.has_value() ? ffi::Optional<ffi::ObjectRef>(std::move(host).value()) : std::nullopt;
+  data_ = std::move(n);
+}
+
+inline Target Target::WithoutHost() const {
+  if ((*this)->GetHost()) {
+    auto output = ffi::make_object<TargetObj>(*get());
+    output->host = std::nullopt;
+    return Target(ffi::UnsafeInit{}, std::move(output));
+  } else {
+    return *this;
+  }
+}
 
 namespace attr {
 /*! \brief Optional backend configuration on a Target, distinct from serialized IR/runtime JSON. */

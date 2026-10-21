@@ -126,13 +126,6 @@ Target::Target(const ffi::Map<ffi::String, ffi::Any>& config) {
   data_ = std::move(target);
 }
 
-Target::Target(Target target, ffi::Optional<Target> host) {
-  ffi::ObjectPtr<TargetObj> n = ffi::make_object<TargetObj>(*target.get());
-  n->host =
-      host.has_value() ? ffi::Optional<ffi::ObjectRef>(std::move(host).value()) : std::nullopt;
-  data_ = std::move(n);
-}
-
 TVM_FFI_STATIC_INIT_BLOCK() {
   namespace refl = tvm::ffi::reflection;
   TargetObj::RegisterReflection();
@@ -155,30 +148,6 @@ ffi::Map<ffi::String, ffi::Any> TargetObj::ToConfig() const {
     result.Set(kv.first, kv.second);
   }
   return result;
-}
-
-ffi::Optional<Target> TargetObj::GetHost() const { return this->host.as<Target>(); }
-
-Target Target::WithoutHost() const {
-  if ((*this)->GetHost()) {
-    auto output = ffi::make_object<TargetObj>(*get());
-    output->host = std::nullopt;
-    return Target(ffi::UnsafeInit{}, std::move(output));
-  } else {
-    return *this;
-  }
-}
-
-int TargetObj::GetTargetDeviceType() const {
-  if (ffi::Optional<int64_t> device_type = GetAttr<int64_t>("target_device_type")) {
-    return static_cast<int>(device_type.value());
-  }
-  return kind->default_device_type;
-}
-
-bool TargetObj::HasKey(const ffi::String& query_key) const {
-  return std::any_of(keys.begin(), keys.end(),
-                     [&query_key](const auto& key) { return key == query_key; });
 }
 
 /*! \brief Entry to hold the Target context stack. */

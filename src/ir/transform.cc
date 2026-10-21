@@ -180,10 +180,6 @@ ffi::Map<ffi::String, ffi::Map<ffi::String, ffi::String>> PassContext::ListConfi
   return PassConfigManager::Global()->ListConfigs();
 }
 
-PassContext PassContext::Create() {
-  return PassContext(ffi::UnsafeInit{}, ffi::make_object<PassContextObj>());
-}
-
 namespace {
 struct ClearOnError {
   ffi::Array<PassInstrument>* instruments{nullptr};
@@ -279,19 +275,6 @@ bool PassContext::InstrumentBeforePass(const IRModule& ir_module, const PassInfo
     }
   }
   return should_run;
-}
-
-void PassContext::InstrumentAfterPass(const IRModule& ir_module, const PassInfo& pass_info) const {
-  auto pass_ctx_node = this->operator->();
-  if (pass_ctx_node->instruments.defined()) {
-    for (PassInstrument pi : pass_ctx_node->instruments) {
-      pi->RunAfterPass(ir_module, pass_info);
-    }
-  }
-}
-
-IRModule Pass::operator()(IRModule mod) const {
-  return this->operator()(std::move(mod), PassContext::Current());
 }
 
 namespace {
@@ -464,13 +447,6 @@ class ModulePass : public Pass {
 
   TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(ModulePass, Pass, ModulePassObj);
 };
-
-PassInfo::PassInfo(int opt_level, ffi::String name) {
-  auto pass_info = ffi::make_object<PassInfoObj>();
-  pass_info->opt_level = opt_level;
-  pass_info->name = std::move(name);
-  data_ = std::move(pass_info);
-}
 
 ModulePass::ModulePass(
     ffi::TypedFunction<IRModule(ffi::RValueRef<IRModule>, PassContext)> pass_func,

@@ -87,7 +87,7 @@ class PassContext : public ffi::ObjectRef {
    * \brief Construct a PassContext containing the default configurations.
    * \return The new PassContext.
    */
-  TVM_TIRX_DLL static PassContext Create();
+  static PassContext Create();
   /*!
    * \brief Get the default pass context in the current scope.
    * \return The pass context.
@@ -134,7 +134,7 @@ class PassContext : public ffi::ObjectRef {
    * \param mod The module that an optimization pass runs on.
    * \param info The pass information.
    */
-  TVM_TIRX_DLL void InstrumentAfterPass(const IRModule& mod, const PassInfo& info) const;
+  void InstrumentAfterPass(const IRModule& mod, const PassInfo& info) const;
 
   /*!
    * \brief Check whether a pass is enabled.
@@ -259,7 +259,7 @@ class PassInfo : public ffi::ObjectRef {
    * \param opt_level The optimization level
    * \param name Name of the pass.
    */
-  TVM_TIRX_DLL PassInfo(int opt_level, ffi::String name);
+  PassInfo(int opt_level, ffi::String name);
 
   TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(PassInfo, ffi::ObjectRef, PassInfoObj);
 };
@@ -316,7 +316,7 @@ class Pass : public ffi::ObjectRef {
    *
    * \return The transformed module.
    */
-  TVM_TIRX_DLL IRModule operator()(IRModule mod) const;
+  IRModule operator()(IRModule mod) const;
 
   /*!
    * \brief Transform mod using a functor under a given pass context.
@@ -656,6 +656,31 @@ inline const PassContextObj* PassContext::operator->() const {
 inline PassContextObj* PassContext::operator->() {
   TVM_FFI_ICHECK(get() != nullptr);
   return static_cast<PassContextObj*>(get_mutable());
+}
+
+inline PassContext PassContext::Create() {
+  return PassContext(ffi::UnsafeInit{}, ffi::make_object<PassContextObj>());
+}
+
+inline void PassContext::InstrumentAfterPass(const IRModule& ir_module,
+                                             const PassInfo& pass_info) const {
+  auto pass_ctx_node = this->operator->();
+  if (pass_ctx_node->instruments.defined()) {
+    for (PassInstrument pi : pass_ctx_node->instruments) {
+      pi->RunAfterPass(ir_module, pass_info);
+    }
+  }
+}
+
+inline PassInfo::PassInfo(int opt_level, ffi::String name) {
+  auto pass_info = ffi::make_object<PassInfoObj>();
+  pass_info->opt_level = opt_level;
+  pass_info->name = std::move(name);
+  data_ = std::move(pass_info);
+}
+
+inline IRModule Pass::operator()(IRModule mod) const {
+  return this->operator()(std::move(mod), PassContext::Current());
 }
 
 }  // namespace transform

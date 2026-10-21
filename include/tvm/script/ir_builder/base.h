@@ -184,15 +184,15 @@ class IRBuilderObj : public ffi::Object {
    * \brief Push a frontend source location for IR constructed in the nested scope.
    * \return The index of the pushed scope, valid until it is popped.
    */
-  TVM_TIRX_DLL int64_t PushLoc(Location loc);
+  int64_t PushLoc(Location loc);
   /*!
    * \brief Update a source location without changing its nested scopes.
    * \param index The index returned by PushLoc for a scope that has not been popped.
    * \param loc The replacement location for that scope.
    */
-  TVM_TIRX_DLL void UpdateLoc(int64_t index, Location loc);
+  void UpdateLoc(int64_t index, Location loc);
   /*! \brief Pop the innermost frontend source location. */
-  TVM_TIRX_DLL void PopLoc();
+  void PopLoc();
   /*! \brief Normalize the full active source stack with an optional explicit location. */
   TVM_TIRX_DLL Location ResolveLoc(Location location = UnknownLoc()) const;
   /*! \brief Compose active and explicit source context onto the same supported node or frame. */
@@ -206,7 +206,7 @@ class IRBuilderObj : public ffi::Object {
 class IRBuilder : public ffi::ObjectRef {
  public:
   /*! \brief Creates an IRBuilder. */
-  TVM_TIRX_DLL IRBuilder();
+  IRBuilder();
   TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(IRBuilder, ffi::ObjectRef, IRBuilderObj);
 
  public:
@@ -309,6 +309,31 @@ inline TObjectRef IRBuilderObj::Get() const {
   TVM_FFI_CHECK(n != nullptr, TypeError)
       << "IRBuilder result is not of type: " << TObject::_type_key;
   return ffi::GetRef<TObjectRef>(n);
+}
+
+inline int64_t IRBuilderObj::PushLoc(Location loc) {
+  locs.push_back(std::move(loc));
+  return static_cast<int64_t>(locs.size()) - 1;
+}
+
+inline void IRBuilderObj::UpdateLoc(int64_t index, Location loc) {
+  TVM_FFI_CHECK(index >= 0 && static_cast<size_t>(index) < locs.size(), ValueError)
+      << "Invalid source location scope";
+  locs[index] = std::move(loc);
+}
+
+inline void IRBuilderObj::PopLoc() {
+  TVM_FFI_CHECK(!locs.empty(), ValueError)
+      << "ValueError: No source location exists in the builder scope";
+  locs.pop_back();
+}
+
+inline IRBuilder::IRBuilder() {
+  ffi::ObjectPtr<IRBuilderObj> n = ffi::make_object<IRBuilderObj>();
+  n->frames.clear();
+  n->result = std::nullopt;
+  n->locs.clear();
+  data_ = n;
 }
 
 }  // namespace ir_builder
