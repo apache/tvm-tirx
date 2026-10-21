@@ -157,7 +157,7 @@ DOCKER_IMAGE_NAME
 
     The name of the docker container to be run.  This can be an
     explicit name of a docker image (e.g. "tlcpack/ci-gpu:v0.76") or
-    can be a shortcut as defined in the TVM Jenkinsfile
+    can be a shortcut from ci/jenkins/docker-images.ini
     (e.g. "ci_gpu").
 
 COMMAND
@@ -423,19 +423,10 @@ function lookup_image_spec() {
 
 DOCKER_MOUNT=( )
 DOCKER_DEVICES=( )
-# If the user gave a shortcut defined in the Jenkinsfile, use it.
+# Resolve configured shortcuts locally; explicit image names pass through.
 EXPANDED_SHORTCUT=$(lookup_image_spec "${DOCKER_IMAGE_NAME}")
 if [ -n "${EXPANDED_SHORTCUT}" ]; then
-    if [ "${CI+x}" == "x" ]; then
-        DOCKER_IMAGE_NAME="${EXPANDED_SHORTCUT}"
-    else
-        python3 "${REPO_DIR}/ci/jenkins/scripts/determine_docker_images.py" \
-            --base-dir "${REPO_DIR}/.docker-image-names" "$DOCKER_IMAGE_NAME" 2> /dev/null
-        DOCKER_IMAGE_NAME=$(cat "${REPO_DIR}/.docker-image-names/$DOCKER_IMAGE_NAME")
-        if [[ "$DOCKER_IMAGE_NAME" == *"tlcpackstaging"* ]]; then
-            echo "WARNING: resolved docker image to fallback tag in tlcpackstaging" >&2
-        fi
-    fi
+    DOCKER_IMAGE_NAME="${EXPANDED_SHORTCUT}"
 fi
 
 
