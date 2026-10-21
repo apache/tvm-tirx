@@ -20,7 +20,7 @@
 /*
  * Canonicalization routines for TileLayout.
  */
-#include "utils.h"
+#include "tile_internal.h"
 
 namespace tvm {
 namespace tirx {
@@ -81,7 +81,7 @@ TileLayout FuseContiguousShardIters(TileLayout layout) {
 
 TileLayout FuseAxesByScope(TileLayout layout) {
   // Step 1: Get the target and scope information
-  auto scope_pair_opt = layout->GetScope();
+  auto scope_pair_opt = layout.GetScope();
   ffi::Optional<Target> target = Target::Current();
   if (!scope_pair_opt.has_value() || !target.has_value()) {
     return layout;
@@ -119,9 +119,9 @@ TileLayout FuseAxesByScope(TileLayout layout) {
   return result;
 }
 
-Layout TileLayoutNode::Canonicalize() const {
+Layout layout_details::Canonicalize(const TileLayoutNode* layout) {
   // 0. Remove unit iters in shard
-  TileLayout res = RemoveUnitIters(ffi::GetRef<TileLayout>(this));
+  TileLayout res = RemoveUnitIters(ffi::GetRef<TileLayout>(layout));
   // 1. Remove zero offset
   res = RemoveZeroOffsets(res);
   // 2. Try fuse axes

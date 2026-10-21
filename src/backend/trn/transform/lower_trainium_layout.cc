@@ -188,7 +188,7 @@ class TrainiumLayoutApplier : public tirx::StmtExprMutatorWithAnalyzer {
       type->layout = std::nullopt;
     } else if (is_alloc) {
       if (auto tile_layout = buf.ty()->layout.as<TileLayoutNode>();
-          tile_layout && tile_layout->HasThreadAxis()) {
+          tile_layout && ffi::GetRef<TileLayout>(tile_layout).HasThreadAxis()) {
         sym::Analyzer ana;
         PrimExpr mem_span = IntImm::Int32(1);
         for (const auto& iter : tile_layout->shard) {
@@ -295,7 +295,7 @@ class TrainiumLayoutApplier : public tirx::StmtExprMutatorWithAnalyzer {
         }
         return res;
       }
-      if (tile_layout && tile_layout->HasThreadAxis()) {
+      if (tile_layout && ffi::GetRef<TileLayout>(tile_layout).HasThreadAxis()) {
         LOG(FATAL) << "Cannot lower direct TensorLoad/TensorStore on a tensor with thread-axis "
                    << "layout: unable to verify that the coordinate matches the current thread. "
                    << "Use .view() + .local() to decompose thread and memory axes.";
