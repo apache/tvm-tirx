@@ -217,92 +217,13 @@ class IntExpr : public PrimExpr {
   static constexpr bool _type_container_is_exact = false;
 };
 
-namespace ffi {
-template <typename ExpectedType>
-inline constexpr bool use_default_type_traits_v<TypedExpr<ExpectedType>> = false;
-
-template <typename ExpectedType>
-struct TypeTraits<TypedExpr<ExpectedType>>
-    : public ObjectRefTypeTraitsBase<TypedExpr<ExpectedType>> {
-  TVM_FFI_INLINE static bool CheckAnyStrict(const TVMFFIAny* src) {
-    if (src->type_index < TypeIndex::kTVMFFIStaticObjectBegin ||
-        !details::IsObjectInstance<ExprNode>(src->type_index)) {
-      return false;
-    }
-    // Non-owning: this only reads `ty`, and the owning form's incref/decref pair costs two
-    // atomics per check on a path every typed field assignment takes.
-    const auto* expr = details::ObjectUnsafe::RawObjectPtrFromUnowned<ExprNode>(src->v_obj);
-    return details::AnyUnsafe::CheckAnyViewStrict<ExpectedType>(expr->ty);
-  }
-
-  TVM_FFI_INLINE static std::string GetMismatchTypeInfo(const TVMFFIAny* src) {
-    if (src->type_index >= TypeIndex::kTVMFFIStaticObjectBegin && src->v_obj != nullptr &&
-        details::IsObjectInstance<ExprNode>(src->type_index)) {
-      const auto* expr = details::ObjectUnsafe::RawObjectPtrFromUnowned<ExprNode>(src->v_obj);
-      if (expr->ty.defined()) {
-        const auto* prim_ty = expr->ty.as<PrimTypeNode>();
-        std::string ty =
-            prim_ty ? std::string(ffi::DLDataTypeToString(prim_ty->dtype)) : expr->ty.GetTypeKey();
-        return TypeIndexToTypeKey(src->type_index) + "[ty=" + ty + "]";
-      }
-    }
-    return TypeTraitsBase::GetMismatchTypeInfo(src);
-  }
-};
-
-// Declare these traits before containers such as Array<Expr> and SubscriptSlice instantiate them.
-// Conversion bodies follow the complete literal and tuple nodes below.
-// Generic expression arguments accept primitive/string literals and arrays of expressions.
+namespace ffi::details {
+// Array members require storage availability before the expression traits below are complete.
 template <>
-inline constexpr bool use_default_type_traits_v<Expr> = false;
-
+inline constexpr bool storage_enabled_v<Expr> = true;
 template <>
-struct TypeTraits<Expr> : public ObjectRefWithFallbackTraitsBase<Expr, PrimExpr, ffi::String> {
-  TVM_FFI_INLINE static Expr ConvertFallbackValue(PrimExpr value) { return value; }
-  TVM_FFI_INLINE static Expr ConvertFallbackValue(ffi::String value);
-  inline static std::optional<Expr> TryCastFromAnyView(const TVMFFIAny* src);
-};
-
-// Primitive expression arguments also accept bool, integer, and floating-point literals.
-template <>
-inline constexpr bool use_default_type_traits_v<PrimExpr> = false;
-
-template <>
-struct TypeTraits<PrimExpr>
-    : public ObjectRefWithFallbackTraitsBase<PrimExpr, StrictBool, int64_t, double> {
-  TVM_FFI_INLINE static bool CheckAnyStrict(const TVMFFIAny* src) {
-    return TypeTraits<TypedExpr<PrimType>>::CheckAnyStrict(src);
-  }
-
-  TVM_FFI_INLINE static std::string TypeStr() { return "ir.PrimExpr"; }
-
-  TVM_FFI_INLINE static std::string GetMismatchTypeInfo(const TVMFFIAny* src) {
-    return TypeTraits<TypedExpr<PrimType>>::GetMismatchTypeInfo(src);
-  }
-
-  TVM_FFI_INLINE static PrimExpr ConvertFallbackValue(StrictBool value);
-  TVM_FFI_INLINE static PrimExpr ConvertFallbackValue(int64_t value);
-  TVM_FFI_INLINE static PrimExpr ConvertFallbackValue(double value);
-};
-
-}  // namespace ffi
-
-/*! \brief Expression subscripts: point indices or (start, stop, step) slices. */
-using SubscriptSlice = ffi::Array<ffi::Variant<
-    ffi::Tuple<ffi::Optional<PrimExpr>, ffi::Optional<PrimExpr>, ffi::Optional<PrimExpr>>,
-    PrimExpr>>;
-
-namespace type_attr {
-/*!
- * \brief Realize a subscript of an expression, dispatched on the type of the expression.
- *
- * The callback receives the expression, its point indices or slices, and the source location.
- * It returns a defined object representing the realized subscription.
- */
-inline constexpr ffi::reflection::AttrKey<
-    ffi::TypedFunction<ffi::ObjectRef(Expr, SubscriptSlice, Location)>>
-    kExprSubscriptRealizeByTy{"__tvm_expr_subscript_realize__"};
-}  // namespace type_attr
+inline constexpr bool storage_enabled_v<PrimExpr> = true;
+}  // namespace ffi::details
 
 /*! \brief Base node for literal constants. */
 class ConstantNode : public ExprNode {
@@ -1059,32 +980,6 @@ TVM_TIRX_DLL CallEffectKind SideEffect(const Expr& expr);
 namespace ffi {
 
 template <>
-inline constexpr bool use_default_type_traits_v<IntExpr> = false;
-
-template <>
-struct TypeTraits<IntExpr> : public ObjectRefWithFallbackTraitsBase<IntExpr, int64_t> {
-  using Base = ObjectRefWithFallbackTraitsBase<IntExpr, int64_t>;
-
-  TVM_FFI_INLINE static bool CheckAnyStrict(const TVMFFIAny* src) {
-    if (!Base::CheckAnyStrict(src)) return false;
-    const auto* expr = details::ObjectUnsafe::RawObjectPtrFromUnowned<ExprNode>(src->v_obj);
-    const auto* ty = expr->ty.as<PrimTypeNode>();
-    return ty != nullptr && ty->dtype.lanes == 1 &&
-           (ty->dtype.code == kDLInt || ty->dtype.code == kDLUInt);
-  }
-
-  TVM_FFI_INLINE static IntExpr ConvertFallbackValue(int64_t value) {
-    return TypeTraits<PrimExpr>::ConvertFallbackValue(value).as_or_throw<IntExpr>();
-  }
-
-  TVM_FFI_INLINE static std::string TypeStr() { return "ir.IntExpr"; }
-
-  TVM_FFI_INLINE static std::string GetMismatchTypeInfo(const TVMFFIAny* src) {
-    return TypeTraits<TypedExpr<PrimType>>::GetMismatchTypeInfo(src);
-  }
-};
-
-template <>
 inline constexpr bool use_default_type_traits_v<tvm::StringImm> = false;
 
 template <>
@@ -1128,6 +1023,114 @@ inline constexpr bool object_ref_contains_v<PrimExpr, FloatImmNode> = true;
 template <>
 inline constexpr bool object_ref_contains_v<PrimExpr, TensorLoadNode> = true;
 
+template <typename ExpectedType>
+inline constexpr bool use_default_type_traits_v<TypedExpr<ExpectedType>> = false;
+
+template <typename ExpectedType>
+struct TypeTraits<TypedExpr<ExpectedType>>
+    : public ObjectRefTypeTraitsBase<TypedExpr<ExpectedType>> {
+  TVM_FFI_INLINE static bool CheckAnyStrict(const TVMFFIAny* src) {
+    if (src->type_index < TypeIndex::kTVMFFIStaticObjectBegin ||
+        !details::IsObjectInstance<ExprNode>(src->type_index)) {
+      return false;
+    }
+    // Non-owning: this only reads `ty`, and the owning form's incref/decref pair costs two
+    // atomics per check on a path every typed field assignment takes.
+    const auto* expr = details::ObjectUnsafe::RawObjectPtrFromUnowned<ExprNode>(src->v_obj);
+    return details::AnyUnsafe::CheckAnyViewStrict<ExpectedType>(expr->ty);
+  }
+
+  TVM_FFI_INLINE static std::string GetMismatchTypeInfo(const TVMFFIAny* src) {
+    if (src->type_index >= TypeIndex::kTVMFFIStaticObjectBegin && src->v_obj != nullptr &&
+        details::IsObjectInstance<ExprNode>(src->type_index)) {
+      const auto* expr = details::ObjectUnsafe::RawObjectPtrFromUnowned<ExprNode>(src->v_obj);
+      if (expr->ty.defined()) {
+        const auto* prim_ty = expr->ty.as<PrimTypeNode>();
+        std::string ty =
+            prim_ty ? std::string(ffi::DLDataTypeToString(prim_ty->dtype)) : expr->ty.GetTypeKey();
+        return TypeIndexToTypeKey(src->type_index) + "[ty=" + ty + "]";
+      }
+    }
+    return TypeTraitsBase::GetMismatchTypeInfo(src);
+  }
+};
+
+// Primitive expression arguments also accept bool, integer, and floating-point literals.
+template <>
+inline constexpr bool use_default_type_traits_v<PrimExpr> = false;
+
+template <>
+struct TypeTraits<PrimExpr>
+    : public ObjectRefWithFallbackTraitsBase<PrimExpr, StrictBool, int64_t, double> {
+  TVM_FFI_INLINE static bool CheckAnyStrict(const TVMFFIAny* src) {
+    return TypeTraits<TypedExpr<PrimType>>::CheckAnyStrict(src);
+  }
+
+  TVM_FFI_INLINE static std::string TypeStr() { return "ir.PrimExpr"; }
+
+  TVM_FFI_INLINE static std::string GetMismatchTypeInfo(const TVMFFIAny* src) {
+    return TypeTraits<TypedExpr<PrimType>>::GetMismatchTypeInfo(src);
+  }
+
+  TVM_FFI_INLINE static PrimExpr ConvertFallbackValue(StrictBool value) {
+    return IntImm::Bool(value);
+  }
+  TVM_FFI_INLINE static PrimExpr ConvertFallbackValue(int64_t value) {
+    return TypeTraits<IntImm>::ConvertFallbackValue(value);
+  }
+  TVM_FFI_INLINE static PrimExpr ConvertFallbackValue(double value) {
+    return TypeTraits<FloatImm>::ConvertFallbackValue(value);
+  }
+};
+
+// Generic expression arguments accept primitive/string literals and arrays of expressions.
+template <>
+inline constexpr bool use_default_type_traits_v<Expr> = false;
+
+template <>
+struct TypeTraits<Expr> : public ObjectRefWithFallbackTraitsBase<Expr, PrimExpr, ffi::String> {
+  TVM_FFI_INLINE static Expr ConvertFallbackValue(PrimExpr value) { return value; }
+  TVM_FFI_INLINE static Expr ConvertFallbackValue(ffi::String value) {
+    return StringImm(std::move(value));
+  }
+  static std::optional<Expr> TryCastFromAnyView(const TVMFFIAny* src) {
+    if (auto value =
+            ObjectRefWithFallbackTraitsBase<Expr, PrimExpr, ffi::String>::TryCastFromAnyView(src)) {
+      return value;
+    }
+    if (auto fields = TypeTraits<ffi::Array<Expr>>::TryCastFromAnyView(src)) {
+      return tvm::Tuple(std::move(*fields));
+    }
+    return std::nullopt;
+  }
+};
+
+template <>
+inline constexpr bool use_default_type_traits_v<IntExpr> = false;
+
+template <>
+struct TypeTraits<IntExpr> : public ObjectRefWithFallbackTraitsBase<IntExpr, int64_t> {
+  using Base = ObjectRefWithFallbackTraitsBase<IntExpr, int64_t>;
+
+  TVM_FFI_INLINE static bool CheckAnyStrict(const TVMFFIAny* src) {
+    if (!Base::CheckAnyStrict(src)) return false;
+    const auto* expr = details::ObjectUnsafe::RawObjectPtrFromUnowned<ExprNode>(src->v_obj);
+    const auto* ty = expr->ty.as<PrimTypeNode>();
+    return ty != nullptr && ty->dtype.lanes == 1 &&
+           (ty->dtype.code == kDLInt || ty->dtype.code == kDLUInt);
+  }
+
+  TVM_FFI_INLINE static IntExpr ConvertFallbackValue(int64_t value) {
+    return TypeTraits<PrimExpr>::ConvertFallbackValue(value).as_or_throw<IntExpr>();
+  }
+
+  TVM_FFI_INLINE static std::string TypeStr() { return "ir.IntExpr"; }
+
+  TVM_FFI_INLINE static std::string GetMismatchTypeInfo(const TVMFFIAny* src) {
+    return TypeTraits<TypedExpr<PrimType>>::GetMismatchTypeInfo(src);
+  }
+};
+
 template <>
 inline constexpr bool use_default_type_traits_v<PrimVar> = false;
 
@@ -1170,34 +1173,24 @@ struct TypeTraits<TensorRegion> : public ObjectRefWithFallbackTraitsBase<TensorR
   }
 };
 
-TVM_FFI_INLINE Expr TypeTraits<Expr>::ConvertFallbackValue(ffi::String value) {
-  return StringImm(std::move(value));
-}
-
-inline std::optional<Expr> TypeTraits<Expr>::TryCastFromAnyView(const TVMFFIAny* src) {
-  if (auto value =
-          ObjectRefWithFallbackTraitsBase<Expr, PrimExpr, ffi::String>::TryCastFromAnyView(src)) {
-    return value;
-  }
-  if (auto fields = TypeTraits<ffi::Array<Expr>>::TryCastFromAnyView(src)) {
-    return tvm::Tuple(std::move(*fields));
-  }
-  return std::nullopt;
-}
-
-TVM_FFI_INLINE PrimExpr TypeTraits<PrimExpr>::ConvertFallbackValue(StrictBool value) {
-  return IntImm::Bool(value);
-}
-
-TVM_FFI_INLINE PrimExpr TypeTraits<PrimExpr>::ConvertFallbackValue(int64_t value) {
-  return TypeTraits<IntImm>::ConvertFallbackValue(value);
-}
-
-TVM_FFI_INLINE PrimExpr TypeTraits<PrimExpr>::ConvertFallbackValue(double value) {
-  return TypeTraits<FloatImm>::ConvertFallbackValue(value);
-}
-
 }  // namespace ffi
+
+/*! \brief Expression subscripts: point indices or (start, stop, step) slices. */
+using SubscriptSlice = ffi::Array<ffi::Variant<
+    ffi::Tuple<ffi::Optional<PrimExpr>, ffi::Optional<PrimExpr>, ffi::Optional<PrimExpr>>,
+    PrimExpr>>;
+
+namespace type_attr {
+/*!
+ * \brief Realize a subscript of an expression, dispatched on the type of the expression.
+ *
+ * The callback receives the expression, its point indices or slices, and the source location.
+ * It returns a defined object representing the realized subscription.
+ */
+inline constexpr ffi::reflection::AttrKey<
+    ffi::TypedFunction<ffi::ObjectRef(Expr, SubscriptSlice, Location)>>
+    kExprSubscriptRealizeByTy{"__tvm_expr_subscript_realize__"};
+}  // namespace type_attr
 
 }  // namespace tvm
 
