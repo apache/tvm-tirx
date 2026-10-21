@@ -113,7 +113,6 @@ To build wheels locally:
    uv tool install cibuildwheel
    cibuildwheel --output-dir dist
 
-You can restrict the build to one interpreter with ``CIBW_BUILD="cp310-*"``.
 TIRx uses TVM-FFI for interpreter bindings and sets ``wheel.py-api = "py3"``,
 so its ``py3-none-<platform>`` wheel works across supported Python 3 versions
 without rebuilding TIRx for each minor version. The package requires Python
