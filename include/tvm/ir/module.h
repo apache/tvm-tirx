@@ -333,7 +333,6 @@ class IRModule : public ffi::ObjectRef {
 
 inline void IRModuleNode::Update(const IRModule& mod) {
   for (auto pair : mod->functions) {
-    // TODO(@jroesch): rename into IRModule.
     this->AddUnchecked(pair.first, pair.second);
   }
 }
