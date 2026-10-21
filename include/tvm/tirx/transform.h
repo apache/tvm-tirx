@@ -52,22 +52,9 @@ TVM_TIRX_DLL Pass DecorateDeviceScope();
 /*!
  * \brief Create a function pass from an owning FFI callback.
  *
- * The returned pass retains the callback and invokes it for each TIRx Function in
- * the input module. The callback receives the function as an rvalue reference,
- * the containing module, and the active pass context. Return the transformed
- * function, or std::nullopt to remove it from the module.
- *
- * Transfer the function reference without an extra copy using:
- * \code{.cpp}
- * Function input = *std::move(func);
- * \endcode
- * Other references can still require copy-on-write. Any objects
- * borrowed by the callback must remain valid whenever the pass is run.
- *
- * \param pass_func The callback that transforms each function.
+ * \param pass_func The callback that transforms each function, returning std::nullopt to remove it.
  * \param opt_level The optimization level of the function pass.
  * \param name The name of the function pass.
- *
  * \return The created function pass.
  */
 TVM_TIRX_DLL Pass CreateFunctionPass(
@@ -78,21 +65,10 @@ TVM_TIRX_DLL Pass CreateFunctionPass(
 /*!
  * \brief Create a function pass from a native C++ callback.
  *
- * The callback receives each TIRx Function, its containing module, and the active
- * pass context by value. Return the transformed function, or std::nullopt to remove
- * it from the module. This overload moves its copy of the callable into an owning
- * FFI adapter retained by the returned pass; reference captures still require their
- * referents to remain valid whenever the pass is run.
- *
- * The adapter moves the function, module, and context into the native callback
- * without adding a function reference. This preserves the opportunity for in-place
- * updates when the function is uniquely owned; other references still require COW.
- *
- * \param pass_func The native callback that transforms each function. Passing an
- *        lvalue copies the callable; passing an rvalue transfers it into the adapter.
+ * \param pass_func The callback that transforms each function, returning std::nullopt to remove it.
  * \param opt_level The optimization level of the function pass.
  * \param name The name of the function pass.
- * \return The created function pass, which owns the adapted callback.
+ * \return The created function pass.
  */
 inline Pass CreateFunctionPass(
     std::function<ffi::Optional<Function>(Function, IRModule, PassContext)> pass_func,

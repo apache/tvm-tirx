@@ -409,20 +409,9 @@ class Sequential : public Pass {
 /*!
  * \brief Create a module pass from an owning FFI callback.
  *
- * The returned pass retains the callback for later invocations. The callback receives
- * the input module as an rvalue reference and the active pass context, and must return
- * a defined transformed module. Transfer its reference without an extra copy using:
- * \code{.cpp}
- * IRModule input = *std::move(mod);
- * \endcode
- * This does not guarantee unique ownership:
- * other references, including the executor's diagnostic snapshot, can require COW.
- * Any objects borrowed by the callback must remain valid whenever the pass is run.
- *
  * \param pass_func The callback that transforms the module.
  * \param opt_level The optimization level of the module pass.
  * \param name The name of the module pass.
- *
  * \return The created module pass.
  */
 TVM_TIRX_DLL Pass
@@ -432,20 +421,10 @@ CreateModulePass(ffi::TypedFunction<IRModule(ffi::RValueRef<IRModule>, PassConte
 /*!
  * \brief Create a module pass from a native C++ callback.
  *
- * The callback receives the input module and active pass context by value and must
- * return a defined transformed module. This overload moves its copy of the callable
- * into an owning FFI adapter retained by the returned pass; reference captures still
- * require their referents to remain valid whenever the pass is run.
- *
- * The adapter moves the module and context into the native callback without adding
- * a module reference. Copy-on-write still depends on other owners; in particular,
- * the module-pass executor retains a diagnostic snapshot of the input module.
- *
- * \param pass_func The native callback that transforms the module. Passing an lvalue
- *        copies the callable; passing an rvalue transfers it into the adapter.
+ * \param pass_func The callback that transforms the module.
  * \param opt_level The optimization level of the module pass.
  * \param name The name of the module pass.
- * \return The created module pass, which owns the adapted callback.
+ * \return The created module pass.
  */
 inline Pass CreateModulePass(std::function<IRModule(IRModule, PassContext)> pass_func,
                              int opt_level, ffi::String name) {
