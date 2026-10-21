@@ -51,8 +51,9 @@ function(tvm_tirx_hide_static_linked_lib_symbols target_name)
       get_target_property(_type ${_lib} TYPE)
       if(_type STREQUAL "STATIC_LIBRARY" OR _type STREQUAL "UNKNOWN_LIBRARY")
         # UNKNOWN imports may resolve to a shared library; inspect the selected configuration's file.
+        set(_is_archive "$<STREQUAL:$<PATH:GET_EXTENSION,LAST_ONLY,$<TARGET_FILE:${_lib}>>,.a>")
         set_property(TARGET ${target_name} PROPERTY LINK_LIBRARY_OVERRIDE_${_lib}
-          "$<IF:$<STREQUAL:$<PATH:GET_EXTENSION,LAST_ONLY,$<TARGET_FILE:${_lib}>>,.a>,tvm_hidden,DEFAULT>")
+          "$<IF:${_is_archive},tvm_hidden,DEFAULT>")
       endif()
     elseif(_lib MATCHES "[.]a$")
       # llvm-config also supplies archive paths directly, without imported CMake targets.
