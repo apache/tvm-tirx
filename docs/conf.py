@@ -61,8 +61,8 @@ _triton.__path__ = []
 sys.modules.setdefault("triton", _triton)
 
 html_theme_options = {
-    "repository_url": "https://github.com/apache/tvm",
-    "repository_branch": "tirx-standalone-root",
+    "repository_url": "https://github.com/apache/tvm-tirx",
+    "repository_branch": "main",
     "path_to_docs": "docs",
     "use_repository_button": True,
     "show_toc_level": 2,

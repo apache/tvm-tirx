@@ -17,7 +17,8 @@
 
 # TIRx Documentation
 
-After building TIRx, install the documentation dependencies and build from the
+See [Build from Source](dev/source_build.rst) for the Miniforge/mamba and uv
+environment. After building TIRx, install the documentation dependencies and build from the
 repository root:
 
 ```bash
@@ -25,4 +26,5 @@ uv pip install --group docs
 uv run --no-sync python -m sphinx -b html -W docs docs/_build/html
 ```
 
-Open `docs/_build/html/index.html` to browse the reference.
+Open `docs/_build/html/index.html` to browse the Developer Manual and API reference.
+See [Build This Doc Site](dev/doc_build.rst) for local serving and clean rebuilds.
