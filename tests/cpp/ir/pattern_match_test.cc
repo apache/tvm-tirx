@@ -24,7 +24,8 @@
 TEST(Pattern, Basic) {
   using namespace tvm;
   tvm::PrimVar x("x"), y("y"), z("z");
-  PrimExpr scalable_lanes = prim::Mul(Call(PrimType::Int(32), prim::vscale_op(), {}), 4);
+  PrimExpr scalable_lanes =
+      prim::Mul(Call(PrimType::Int(32), prim::vscale_op(), {}).as_or_throw<PrimExpr>(), 4);
   tvm::PVar<PrimExpr> px, py, pz;
   tvm::PVar<DLDataType> pt;
   tvm::PVar<PrimExpr> planes;

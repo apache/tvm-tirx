@@ -299,7 +299,8 @@ class TryPredicateTensorAccesses : public StmtExprMutator {
       ffi::Array<Expr> args{load->source.as_or_throw<tvm::tirx::TensorVar>()};
       for (const PrimExpr& index : load->indices) args.push_back(index);
       args.push_back(mask.value());
-      return Call(load->ty, tirx::masked_load_op(), args, {}, {}, load->loc);
+      return Call(load->ty, tirx::masked_load_op(), args, {}, {}, load->loc)
+          .as_or_throw<PrimExpr>();
     }
     return load;
   }

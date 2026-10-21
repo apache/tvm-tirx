@@ -234,8 +234,9 @@ UnchangedOr<Stmt> StmtExprMutatorWithAnalyzer::Mutate_(const RegionStmtNode* op,
         if (field.rfind("grid.", 0) == 0) intrinsic = "tirx.cuda.block_idx";
         if (field.rfind("block.", 0) == 0) intrinsic = "tirx.cuda.thread_idx";
         if (intrinsic.empty()) continue;
-        PrimExpr index = Call(PrimType::Int(32), Op::Get(intrinsic),
-                              {StringImm(field.substr(field.size() - 1))});
+        PrimExpr index =
+            Call(PrimType::Int(32), Op::Get(intrinsic), {StringImm(field.substr(field.size() - 1))})
+                .as_or_throw<PrimExpr>();
         constraint_scope_.Current().Emplace(analyzer_, index >= 0);
         constraint_scope_.Current().Emplace(analyzer_, index < op->args[i].as_or_throw<PrimExpr>());
       }

@@ -48,10 +48,6 @@ TensorRegion TensorRegion::FromTensorLoad(TensorLoad value) {
                       value->loc);
 }
 
-TensorRegion ffi::TypeTraits<TensorRegion>::ConvertFallbackValue(TensorLoad value) {
-  return TensorRegion::FromTensorLoad(std::move(value));
-}
-
 namespace tirx {
 using namespace tvm::prim;
 

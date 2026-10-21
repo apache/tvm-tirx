@@ -25,29 +25,284 @@
 #define TVM_IR_EXPR_H_
 
 #include <tvm/ffi/big_int.h>
+#include <tvm/ffi/cast.h>
+#include <tvm/ffi/container/array.h>
+#include <tvm/ffi/container/tuple.h>
+#include <tvm/ffi/container/variant.h>
 #include <tvm/ffi/dtype.h>
 #include <tvm/ffi/error.h>
 #include <tvm/ffi/extra/dataclass.h>
 #include <tvm/ffi/extra/structural_equal.h>
 #include <tvm/ffi/extra/structural_hash.h>
+#include <tvm/ffi/extra/structural_mutate.h>
+#include <tvm/ffi/extra/structural_visit.h>
+#include <tvm/ffi/function.h>
+#include <tvm/ffi/optional.h>
 #include <tvm/ffi/reflection/native_function.h>
 #include <tvm/ffi/reflection/registry.h>
 #include <tvm/ffi/string.h>
 #include <tvm/ir/attrs.h>
-#include <tvm/ir/base_expr.h>
 #include <tvm/ir/cow.h>
 #include <tvm/ir/location.h>
+#include <tvm/ir/type.h>
 
 #include <algorithm>
+#include <cstddef>
 #include <cstdint>
 #include <functional>
 #include <limits>
 #include <optional>
 #include <ostream>
 #include <string>
+#include <type_traits>
 #include <utility>
 
 namespace tvm {
+
+/*!
+ * \brief Base type of all the expressions.
+ * \sa Expr
+ */
+class ExprNode : public ffi::Object {
+ public:
+  /*!
+   * \brief Location that points to the original source code.
+   *        Reserved debug information.
+   */
+  mutable Location loc = UnknownLoc();
+
+  /*!
+   * \brief The deduced or annotated type of the expression.
+   *
+   * MissingType() denotes type information that will be populated by
+   * later analysis passes instead of expression constructors.
+   */
+  mutable Type ty = MissingType();
+
+  static void RegisterReflection() {
+    namespace refl = tvm::ffi::reflection;
+    // loc does not participate in structural equal and hash.
+    refl::ObjectDef<ExprNode>()
+        .def_ro("loc", &ExprNode::loc, refl::DefaultValue(UnknownLoc()),
+                refl::AttachFieldFlag::SEqHashIgnore())
+        .def_ro("ty", &ExprNode::ty, refl::DefaultValue(MissingType()));
+  }
+
+  static constexpr TVMFFISEqHashKind _type_s_eq_hash_kind = kTVMFFISEqHashKindTreeNode;
+
+  static constexpr const uint32_t _type_child_slots = 64;
+  TVM_FFI_DECLARE_OBJECT_INFO("ir.Expr", ExprNode, ffi::Object);
+};
+
+/*!
+ * \brief Managed reference to ExprNode.
+ * \sa ExprNode
+ */
+class Expr : public ffi::ObjectRef {
+ public:
+  // Expressions do not implicitly compare by object identity or address.  Callers must name
+  // whether they intend object identity, structural equality, or primitive symbolic comparison.
+  bool operator==(const Expr& other) const = delete;
+  bool operator!=(const Expr& other) const = delete;
+  bool operator<(const Expr& other) const = delete;
+
+  explicit Expr(ffi::ObjectPtr<ExprNode> node) : ffi::ObjectRef(std::move(node)) {
+    TVM_FFI_CHECK(defined(), ValueError) << "Expr expects a defined node";
+  }
+
+  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(Expr, ffi::ObjectRef, ExprNode);
+};
+
+/*! \brief Base node for traversable expressions eliminated during compilation. */
+class StagingExprNode : public ExprNode {
+ public:
+  static void RegisterReflection() { ffi::reflection::ObjectDef<StagingExprNode>(); }
+  static constexpr const uint32_t _type_child_slots = 4;
+  TVM_FFI_DECLARE_OBJECT_INFO("ir.StagingExpr", StagingExprNode, ExprNode);
+};
+
+/*! \brief Managed reference to a staging expression. */
+class StagingExpr : public Expr {
+ public:
+  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(StagingExpr, Expr, StagingExprNode);
+};
+
+/*!
+ * \brief Base node for opaque construction-time expressions.
+ *
+ * Subclasses are passed through by generic expression visitors and mutators.
+ * They must not remain in finished IR.
+ */
+class OpaqueExprNode : public ExprNode {
+ public:
+  static void RegisterReflection() {
+    namespace refl = tvm::ffi::reflection;
+    refl::ObjectDef<OpaqueExprNode>();
+  }
+
+  static constexpr const uint32_t _type_child_slots = 2;
+  TVM_FFI_DECLARE_OBJECT_INFO("ir.OpaqueExpr", OpaqueExprNode, ExprNode);
+};
+
+/*! \brief Managed reference to OpaqueExprNode. */
+class OpaqueExpr : public Expr {
+ public:
+  explicit OpaqueExpr(ffi::ObjectPtr<OpaqueExprNode> node) : Expr(std::move(node)) {}
+
+  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(OpaqueExpr, Expr, OpaqueExprNode);
+};
+
+/*!
+ * \brief Typed reference/view over an expression whose result type is a
+ * specific Type subtype.
+ * \tparam ExpectedType The expected expression result type.
+ */
+template <typename ExpectedType>
+class TypedExpr : public Expr {
+ public:
+  /*! \return the typed result of this expression. */
+  ExpectedType ty() const {
+    const auto* node = get();
+    TVM_FFI_DCHECK(node != nullptr);
+    const auto* ty_node = node->ExprNode::ty.template as<typename ExpectedType::ContainerType>();
+    TVM_FFI_DCHECK(ty_node != nullptr);
+    return ffi::GetRef<ExpectedType>(ty_node);
+  }
+
+  explicit TypedExpr(ffi::ObjectPtr<ExprNode> node) : Expr(std::move(node)) {}
+
+  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(TypedExpr, Expr, ExprNode);
+  static constexpr bool _type_container_is_exact = false;
+};
+
+/*!
+ * \brief Typed reference/view over any Expr whose `ExprNode::ty` is PrimType.
+ *
+ * PrimExpr is a type category rather than a dedicated runtime node category.
+ * It can contain intrinsic primitive nodes such as IntImmNode and FloatImmNode,
+ * or a general ExprNode such as CallNode, when that expression's `ty` field is
+ * a PrimType. This keeps primitive-only APIs explicit while allowing shared
+ * Expr nodes for cross-dialect values with richer result types when needed.
+ */
+class PrimExpr : public TypedExpr<PrimType> {
+ public:
+  using TypedExpr<PrimType>::ty;
+
+  /*!
+   * \brief construct from integer.
+   * \param value The value to be constructed.
+   */
+  TVM_TIRX_DLL PrimExpr(int32_t value);  // NOLINT(*)
+  /*!
+   * \brief construct from float.
+   * \param value The value to be constructed.
+   */
+  TVM_TIRX_DLL PrimExpr(float value);  // NOLINT(*)
+
+  explicit PrimExpr(ffi::ObjectPtr<ExprNode> node) : TypedExpr<PrimType>(std::move(node)) {}
+
+  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(PrimExpr, TypedExpr<PrimType>, ExprNode);
+  static constexpr bool _type_container_is_exact = false;
+};
+
+/*!
+ * \brief View over a scalar signed or unsigned integer expression of any bit width.
+ *
+ * IntExpr validates integer operands in operator signatures without changing the
+ * underlying expression node or its PrimExpr implementation API.
+ */
+class IntExpr : public PrimExpr {
+ public:
+  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(IntExpr, PrimExpr, ExprNode);
+  static constexpr bool _type_container_is_exact = false;
+};
+
+namespace ffi {
+template <typename ExpectedType>
+inline constexpr bool use_default_type_traits_v<TypedExpr<ExpectedType>> = false;
+
+template <typename ExpectedType>
+struct TypeTraits<TypedExpr<ExpectedType>>
+    : public ObjectRefTypeTraitsBase<TypedExpr<ExpectedType>> {
+  TVM_FFI_INLINE static bool CheckAnyStrict(const TVMFFIAny* src) {
+    if (src->type_index < TypeIndex::kTVMFFIStaticObjectBegin ||
+        !details::IsObjectInstance<ExprNode>(src->type_index)) {
+      return false;
+    }
+    // Non-owning: this only reads `ty`, and the owning form's incref/decref pair costs two
+    // atomics per check on a path every typed field assignment takes.
+    const auto* expr = details::ObjectUnsafe::RawObjectPtrFromUnowned<ExprNode>(src->v_obj);
+    return details::AnyUnsafe::CheckAnyViewStrict<ExpectedType>(expr->ty);
+  }
+
+  TVM_FFI_INLINE static std::string GetMismatchTypeInfo(const TVMFFIAny* src) {
+    if (src->type_index >= TypeIndex::kTVMFFIStaticObjectBegin && src->v_obj != nullptr &&
+        details::IsObjectInstance<ExprNode>(src->type_index)) {
+      const auto* expr = details::ObjectUnsafe::RawObjectPtrFromUnowned<ExprNode>(src->v_obj);
+      if (expr->ty.defined()) {
+        const auto* prim_ty = expr->ty.as<PrimTypeNode>();
+        std::string ty =
+            prim_ty ? std::string(ffi::DLDataTypeToString(prim_ty->dtype)) : expr->ty.GetTypeKey();
+        return TypeIndexToTypeKey(src->type_index) + "[ty=" + ty + "]";
+      }
+    }
+    return TypeTraitsBase::GetMismatchTypeInfo(src);
+  }
+};
+
+// Declare these traits before containers such as Array<Expr> and SubscriptSlice instantiate them.
+// Conversion bodies follow the complete literal and tuple nodes below.
+// Generic expression arguments accept primitive/string literals and arrays of expressions.
+template <>
+inline constexpr bool use_default_type_traits_v<Expr> = false;
+
+template <>
+struct TypeTraits<Expr> : public ObjectRefWithFallbackTraitsBase<Expr, PrimExpr, ffi::String> {
+  TVM_FFI_INLINE static Expr ConvertFallbackValue(PrimExpr value) { return value; }
+  TVM_FFI_INLINE static Expr ConvertFallbackValue(ffi::String value);
+  inline static std::optional<Expr> TryCastFromAnyView(const TVMFFIAny* src);
+};
+
+// Primitive expression arguments also accept bool, integer, and floating-point literals.
+template <>
+inline constexpr bool use_default_type_traits_v<PrimExpr> = false;
+
+template <>
+struct TypeTraits<PrimExpr>
+    : public ObjectRefWithFallbackTraitsBase<PrimExpr, StrictBool, int64_t, double> {
+  TVM_FFI_INLINE static bool CheckAnyStrict(const TVMFFIAny* src) {
+    return TypeTraits<TypedExpr<PrimType>>::CheckAnyStrict(src);
+  }
+
+  TVM_FFI_INLINE static std::string TypeStr() { return "ir.PrimExpr"; }
+
+  TVM_FFI_INLINE static std::string GetMismatchTypeInfo(const TVMFFIAny* src) {
+    return TypeTraits<TypedExpr<PrimType>>::GetMismatchTypeInfo(src);
+  }
+
+  TVM_FFI_INLINE static PrimExpr ConvertFallbackValue(StrictBool value);
+  TVM_FFI_INLINE static PrimExpr ConvertFallbackValue(int64_t value);
+  TVM_FFI_INLINE static PrimExpr ConvertFallbackValue(double value);
+};
+
+}  // namespace ffi
+
+/*! \brief Expression subscripts: point indices or (start, stop, step) slices. */
+using SubscriptSlice = ffi::Array<ffi::Variant<
+    ffi::Tuple<ffi::Optional<PrimExpr>, ffi::Optional<PrimExpr>, ffi::Optional<PrimExpr>>,
+    PrimExpr>>;
+
+namespace type_attr {
+/*!
+ * \brief Realize a subscript of an expression, dispatched on the type of the expression.
+ *
+ * The callback receives the expression, its point indices or slices, and the source location.
+ * It returns a defined object representing the realized subscription.
+ */
+inline constexpr ffi::reflection::AttrKey<
+    ffi::TypedFunction<ffi::ObjectRef(Expr, SubscriptSlice, Location)>>
+    kExprSubscriptRealizeByTy{"__tvm_expr_subscript_realize__"};
+}  // namespace type_attr
 
 /*! \brief Base node for literal constants. */
 class ConstantNode : public ExprNode {
@@ -812,7 +1067,6 @@ struct TypeTraits<IntExpr> : public ObjectRefWithFallbackTraitsBase<IntExpr, int
 
   TVM_FFI_INLINE static bool CheckAnyStrict(const TVMFFIAny* src) {
     if (!Base::CheckAnyStrict(src)) return false;
-    if (src->type_index == TypeIndex::kTVMFFINone) return true;
     const auto* expr = details::ObjectUnsafe::RawObjectPtrFromUnowned<ExprNode>(src->v_obj);
     const auto* ty = expr->ty.as<PrimTypeNode>();
     return ty != nullptr && ty->dtype.lanes == 1 &&
@@ -889,9 +1143,6 @@ struct TypeTraits<PrimVar> : public ObjectRefTypeTraitsBase<PrimVar> {
   using Base::TypeStr;
 
   TVM_FFI_INLINE static bool CheckAnyStrict(const TVMFFIAny* src) {
-    if (src->type_index == TypeIndex::kTVMFFINone) {
-      return PrimVar::_type_is_nullable;
-    }
     if (src->type_index != VarNode::RuntimeTypeIndex()) {
       return false;
     }
@@ -902,9 +1153,6 @@ struct TypeTraits<PrimVar> : public ObjectRefTypeTraitsBase<PrimVar> {
 
   TVM_FFI_INLINE static std::optional<PrimVar> TryCastFromAnyView(const TVMFFIAny* src) {
     if (CheckAnyStrict(src)) {
-      if (src->type_index == TypeIndex::kTVMFFINone) {
-        return details::ObjectUnsafe::ObjectRefFromObjectPtr<PrimVar>(nullptr);
-      }
       return details::ObjectUnsafe::ObjectRefFromObjectPtr<PrimVar>(
           details::ObjectUnsafe::ObjectPtrFromUnowned<VarNode>(src->v_obj));
     }
@@ -917,8 +1165,37 @@ inline constexpr bool use_default_type_traits_v<TensorRegion> = false;
 
 template <>
 struct TypeTraits<TensorRegion> : public ObjectRefWithFallbackTraitsBase<TensorRegion, TensorLoad> {
-  TVM_TIRX_DLL static TensorRegion ConvertFallbackValue(TensorLoad value);
+  TVM_FFI_INLINE static TensorRegion ConvertFallbackValue(TensorLoad value) {
+    return TensorRegion::FromTensorLoad(std::move(value));
+  }
 };
+
+TVM_FFI_INLINE Expr TypeTraits<Expr>::ConvertFallbackValue(ffi::String value) {
+  return StringImm(std::move(value));
+}
+
+inline std::optional<Expr> TypeTraits<Expr>::TryCastFromAnyView(const TVMFFIAny* src) {
+  if (auto value =
+          ObjectRefWithFallbackTraitsBase<Expr, PrimExpr, ffi::String>::TryCastFromAnyView(src)) {
+    return value;
+  }
+  if (auto fields = TypeTraits<ffi::Array<Expr>>::TryCastFromAnyView(src)) {
+    return tvm::Tuple(std::move(*fields));
+  }
+  return std::nullopt;
+}
+
+TVM_FFI_INLINE PrimExpr TypeTraits<PrimExpr>::ConvertFallbackValue(StrictBool value) {
+  return IntImm::Bool(value);
+}
+
+TVM_FFI_INLINE PrimExpr TypeTraits<PrimExpr>::ConvertFallbackValue(int64_t value) {
+  return TypeTraits<IntImm>::ConvertFallbackValue(value);
+}
+
+TVM_FFI_INLINE PrimExpr TypeTraits<PrimExpr>::ConvertFallbackValue(double value) {
+  return TypeTraits<FloatImm>::ConvertFallbackValue(value);
+}
 
 }  // namespace ffi
 

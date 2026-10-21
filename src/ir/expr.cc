@@ -39,43 +39,6 @@
 
 namespace tvm {
 
-namespace ffi {
-
-Expr TypeTraits<Expr>::ConvertFallbackValue(ffi::String value) {
-  return StringImm(std::move(value));
-}
-
-std::optional<Expr> TypeTraits<Expr>::TryCastFromAnyView(const TVMFFIAny* src) {
-  if (auto value =
-          ObjectRefWithFallbackTraitsBase<Expr, PrimExpr, ffi::String>::TryCastFromAnyView(src)) {
-    return value;
-  }
-  if (auto fields = TypeTraits<ffi::Array<Expr>>::TryCastFromAnyView(src)) {
-    return tvm::Tuple(std::move(*fields));
-  }
-  return std::nullopt;
-}
-
-std::optional<PrimExpr> TypeTraits<PrimExpr>::TryCastFromAnyView(const TVMFFIAny* src) {
-  // A required expression cannot accept None.
-  if (src->type_index == TypeIndex::kTVMFFINone) return std::nullopt;
-  return Base::TryCastFromAnyView(src);
-}
-
-PrimExpr TypeTraits<PrimExpr>::ConvertFallbackValue(StrictBool value) {
-  return IntImm::Bool(value);
-}
-
-PrimExpr TypeTraits<PrimExpr>::ConvertFallbackValue(int64_t value) {
-  return TypeTraits<IntImm>::ConvertFallbackValue(value);
-}
-
-PrimExpr TypeTraits<PrimExpr>::ConvertFallbackValue(double value) {
-  return TypeTraits<FloatImm>::ConvertFallbackValue(value);
-}
-
-}  // namespace ffi
-
 namespace {
 
 template <typename TNode>
@@ -912,8 +875,6 @@ TVM_FFI_STATIC_INIT_BLOCK() {
     return TupleGetItem(tuple, index, loc);
   });
 }
-
-PrimExpr::PrimExpr(Call call) : PrimExpr(std::move(call).as_or_throw<PrimExpr>()) {}
 
 PrimExpr::PrimExpr(int32_t value) : PrimExpr(IntImm::Int32(value)) {}
 
