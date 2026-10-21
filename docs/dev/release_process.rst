@@ -99,7 +99,7 @@ This builds and signs the source release artifacts under
    _make_tarball "$TIRX_VERSION"
    _upload_to_apache_dev_svn "$TIRX_VERSION"
 
-Download the staged archive, verify its signature and checksum, and build/test
+Download the staged archive, verify its signature and checksum, and build and test
 the extracted sources using :doc:`source_build` and :doc:`ci_cd`. Check that
 licenses and recursive submodule sources are included. The artifact uses its
 final filename from the start so its checksum and signature survive promotion.
@@ -115,7 +115,7 @@ Step 2. Conclude Release
 After the vote passes, conclude the vote, publish wheels, finalize the release
 tag, and bump the development version.
 
-**Step 2.1.** Conclude voting results by opening a ``[RESULT][VOTE]`` issue on
+**Step 2.1.** Announce the voting results by opening a ``[RESULT][VOTE]`` issue on
 the `issue tracker <https://github.com/apache/tvm-tirx/issues/new>`__.
 Issue notifications are mirrored to ``discuss-archive@tvm.apache.org``;
 post the result to ``dev@tvm.apache.org`` as well.

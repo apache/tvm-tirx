@@ -91,7 +91,7 @@ Available CMake options (see `CMakeLists.txt
 - ``TVM_TIRX_USE_Z3`` -- Enable the Z3 solver (default: ``AUTO``).
 - ``TVM_TIRX_BUILD_TESTS`` -- Build C++ tests (default: ``OFF``).
 
-Verify the install:
+Verify the installation:
 
 .. code-block:: bash
 
@@ -134,7 +134,7 @@ Troubleshooting
 ---------------
 
 - **Rebuilding after C++ changes**: re-run ``uv pip install --force-reinstall -e .``.
-  Editable installs only auto-reflect Python changes.
+  Editable installs automatically reflect only Python changes.
 - **Submodules missing**: run ``git submodule update --init --recursive`` from
   the repository root.
 

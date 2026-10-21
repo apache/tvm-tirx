@@ -22,7 +22,7 @@ This guide explains how to reproduce CI checks and tests locally,
 and how wheel builds and releases work. Workflows are defined under
 `.github/workflows/ <https://github.com/apache/tvm-tirx/tree/main/.github/workflows>`__
 and `ci/jenkins/ <https://github.com/apache/tvm-tirx/tree/main/ci/jenkins>`__.
-For building the project from source, see :doc:`source_build`.
+To build the project from source, see :doc:`source_build`.
 
 Linters
 -------

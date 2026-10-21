@@ -32,7 +32,7 @@ Building the docs requires the Python package to be installed first; see
 Interactive Build (Auto-Reload)
 -------------------------------
 
-Rebuilds and serves the documentation locally with live reload:
+Rebuild and serve the documentation locally with live reload:
 
 .. code-block:: bash
 
@@ -43,7 +43,7 @@ Open ``http://127.0.0.1:8000`` after the initial build completes.
 One-Off Build
 -------------
 
-Generates the HTML documentation once, with warnings treated as errors:
+Generate the HTML documentation once, with warnings treated as errors:
 
 .. code-block:: bash
 
