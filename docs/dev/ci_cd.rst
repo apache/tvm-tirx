@@ -113,8 +113,9 @@ To build wheels locally:
    uv tool install cibuildwheel
    cibuildwheel --output-dir dist
 
-TIRx uses TVM-FFI for interpreter bindings and sets ``wheel.py-api = "py3"``,
-so its ``py3-none-<platform>`` wheel works across supported Python 3 versions
+TIRx uses TVM-FFI for bindings, making it agnostic to Python versions.
+The project sets ``wheel.py-api = "py3"``, so its
+``py3-none-<platform>`` wheel works across supported Python 3 versions
 without rebuilding TIRx for each minor version. The package requires Python
 3.10 or newer (classifiers list 3.10--3.13), with compatible TVM-FFI and other
 dependencies. OS, CPU architecture, and native runtime requirements still apply.

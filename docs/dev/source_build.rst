@@ -18,8 +18,7 @@
 Build from Source
 =================
 
-This guide covers building the TIRx Python package, which automatically
-includes the core C++ compiler and runtime libraries.
+This guide provides instructions on how to build the TIRx package from source.
 
 .. admonition:: Prerequisite
    :class: tip
@@ -76,11 +75,12 @@ The ``--force-reinstall`` flag forces a rebuild, and ``-e`` (editable) means
 Python-only changes are reflected immediately without rebuilding.
 
 **CMake flags** can be exported through ``CMAKE_ARGS`` before running the
-install command. For example, to require the CUDA runtime:
+install command. For example, to switch off the CUDA runtime (which is
+automatically switched on when available):
 
 .. code-block:: bash
 
-   export CMAKE_ARGS="-DTVM_TIRX_USE_CUDA=ON"
+   export CMAKE_ARGS="-DTVM_TIRX_USE_CUDA=OFF"
 
 Available CMake options (see `CMakeLists.txt
 <https://github.com/apache/tvm-tirx/blob/main/CMakeLists.txt>`__) include:
@@ -106,8 +106,15 @@ Verify the install:
 
       tvm-tirx-config --includedir
       tvm-tirx-config --libfiles
-      tvm-tirx-config --libs compiler  # Linux/macOS
-      tvm-tirx-config --ldflags        # Linux/macOS
+
+   On Linux/macOS, query linker flags for the compiler or runtime libraries:
+
+   .. code-block:: bash
+
+      tvm-tirx-config --libs compiler      # Compiler and its dependencies
+      tvm-tirx-config --libs runtime       # Core runtime
+      tvm-tirx-config --libs runtime cuda  # Core and CUDA runtimes (CUDA build)
+      tvm-tirx-config --ldflags            # Library search paths
 
 Build Wheels with Static LLVM
 -----------------------------

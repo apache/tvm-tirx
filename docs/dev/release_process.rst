@@ -112,25 +112,19 @@ the result in the release thread.
 Step 2. Conclude Release
 ------------------------
 
-After the vote passes, conclude the vote, publish wheels, update documentation,
-and finalize the release tag.
+After the vote passes, conclude the vote, publish wheels, finalize the release
+tag, and bump the development version.
 
-**Step 2.1.** Post the voting result on ``dev@tvm.apache.org`` and update the
-`release tracking issue <https://github.com/apache/tvm-tirx/issues>`__.
+**Step 2.1.** Conclude voting results by opening a ``[RESULT][VOTE]`` issue on
+the `issue tracker <https://github.com/apache/tvm-tirx/issues/new>`__.
+Issue notifications are mirrored to ``discuss-archive@tvm.apache.org``;
+post the result to ``dev@tvm.apache.org`` as well.
 
-**Step 2.2.** Build PyPI wheels with the `publication workflow
-<https://github.com/apache/tvm-tirx/actions/workflows/publish_wheel.yml>`__:
-set ``tag=$TIRX_VERSION`` and ``publish_repository=none`` to check artifacts,
-then ``pypi`` to publish. See :doc:`ci_cd` for cibuildwheel setup.
-The workflow rebuilds wheels on each run; arrange signing and Apache
-distribution of the published wheel bytes with the PMC before publication.
-Those steps are not supplied by this workflow.
+**Step 2.2.** Publish PyPI wheels with the `publication workflow
+<https://github.com/apache/tvm-tirx/actions/workflows/publish_wheel.yml>`__.
+See :doc:`ci_cd` for how wheels are built with cibuildwheel.
 
-**Step 2.3.** Update documentation to latest: build :doc:`doc_build` and
-coordinate publication with the `TVM website
-<https://github.com/apache/tvm-site>`__ maintainers.
-
-**Step 2.4.** Tag the approved candidate commit as the final version:
+**Step 2.3.** Tag the approved candidate commit as the final version:
 
 .. code-block:: bash
 
@@ -142,8 +136,20 @@ coordinate publication with the `TVM website
      git push upstream "$TIRX_RELEASE_VERSION"
    )
 
-Keep the candidate tag for traceability. In a follow-up pull request, bump all
-three version fields from Step 0 to the next development version.
+Keep the candidate tag for traceability. Then create a version-bump branch and
+set all three version fields from Step 0 to the next development version
+(for example, ``0.1.1.dev0`` after ``0.1.0``):
+
+.. code-block:: bash
+
+   cd tvm-tirx-release
+   git switch -c bump-version upstream/main
+   "${EDITOR:-vi}" pyproject.toml CMakeLists.txt python/tvm_tirx/libinfo.py
+   git add pyproject.toml CMakeLists.txt python/tvm_tirx/libinfo.py
+   git commit -m "Bump development version after $TIRX_RELEASE_VERSION"
+   git push -u upstream bump-version
+
+Open a pull request for the version bump.
 
 Step 3. Upload Release Artifacts
 --------------------------------
