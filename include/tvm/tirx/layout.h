@@ -158,7 +158,7 @@ class IterNode : public ffi::Object {
 class Iter : public ffi::ObjectRef {
  public:
   explicit Iter(PrimExpr extent, PrimExpr stride, Axis axis) {
-    auto n = ffi::make_object<IterNode>(extent, stride, axis);
+    auto n = ffi::make_object<IterNode>(std::move(extent), std::move(stride), std::move(axis));
     data_ = std::move(n);
   }
   TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(Iter, ffi::ObjectRef, IterNode);
@@ -187,9 +187,9 @@ class TileLayout : public Layout {
                       ffi::Map<Axis, PrimExpr> offset)
       : Layout(ffi::UnsafeInit{}) {
     auto n = ffi::make_object<TileLayoutNode>();
-    n->shard = shard;
-    n->replica = replica;
-    n->offset = offset;
+    n->shard = std::move(shard);
+    n->replica = std::move(replica);
+    n->offset = std::move(offset);
     data_ = std::move(n);
   }
 

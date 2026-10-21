@@ -217,13 +217,7 @@ class IRBuilderObj : public ffi::Object {
 class IRBuilder : public ffi::ObjectRef {
  public:
   /*! \brief Creates an IRBuilder. */
-  IRBuilder() {
-    ffi::ObjectPtr<IRBuilderObj> n = ffi::make_object<IRBuilderObj>();
-    n->frames.clear();
-    n->result = std::nullopt;
-    n->locs.clear();
-    data_ = n;
-  }
+  IRBuilder() { data_ = ffi::make_object<IRBuilderObj>(); }
   TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(IRBuilder, ffi::ObjectRef, IRBuilderObj);
 
  public:
