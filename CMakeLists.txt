@@ -237,6 +237,19 @@ add_library(tvm_tirx_compiler SHARED $<TARGET_OBJECTS:tvm_tirx_compiler_objs>)
 add_library(tvm_tirx_compiler::shared ALIAS tvm_tirx_compiler)
 target_link_libraries(tvm_tirx_compiler PUBLIC tvm_runtime tvm_tirx_header)
 target_link_libraries(tvm_tirx_compiler PRIVATE ${TVM_LINKER_LIBS})
+if(APPLE)
+  # Hide dependency archives only in the final dylib; leave shared dependencies unchanged.
+  set(CMAKE_LINK_LIBRARY_USING_tvm_hidden "LINKER:-load_hidden,<LIBRARY>")
+  set(CMAKE_LINK_LIBRARY_USING_tvm_hidden_SUPPORTED TRUE)
+  foreach(_lib IN LISTS TVM_LINKER_LIBS)
+    if(TARGET ${_lib})
+      set_property(TARGET tvm_tirx_compiler PROPERTY LINK_LIBRARY_OVERRIDE_${_lib}
+        "$<IF:$<STREQUAL:$<PATH:GET_EXTENSION,LAST_ONLY,$<TARGET_FILE:${_lib}>>,.a>,tvm_hidden,DEFAULT>")
+    elseif(_lib MATCHES "[.]a$")
+      set_property(TARGET tvm_tirx_compiler PROPERTY LINK_LIBRARY_OVERRIDE_${_lib} tvm_hidden)
+    endif()
+  endforeach()
+endif()
 
 # Avoid GNU ld relaxation of LLVM's GOT calls into incorrect direct calls.
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND NOT "${TVM_TIRX_USE_LLVM}" MATCHES ${IS_FALSE_PATTERN})
@@ -267,7 +280,7 @@ foreach(_target tvm_runtime tvm_tirx_compiler ${TVM_RUNTIME_BACKEND_LIBS})
   elseif(UNIX)
     target_link_options(${_target} PRIVATE "-Wl,--no-undefined")
   endif()
-  tvm_tirx_hide_static_linked_lib_symbols(${_target})
+  tvm_ffi_hide_static_linked_lib_symbols(${_target})
   tvm_ffi_add_apple_dsymutil(${_target})
 endforeach()
 
@@ -278,7 +291,7 @@ install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/include/"
   DESTINATION include COMPONENT tvm_tirx FILES_MATCHING PATTERN "*.h")
 
 # Libraries
-install(TARGETS tvm_tirx_header tvm_tirx_compiler tvm_runtime tvm_runtime_static
+install(TARGETS tvm_tirx_header tvm_tirx_compiler tvm_runtime
   ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR} COMPONENT tvm_tirx
   LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR} COMPONENT tvm_tirx
   RUNTIME DESTINATION ${CMAKE_INSTALL_LIBDIR} COMPONENT tvm_tirx)
