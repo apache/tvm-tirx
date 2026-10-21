@@ -73,7 +73,7 @@ TVM_FFI_INLINE TensorVar FlattenedTensor(const TensorVar& tensor,
     for (const auto& iter : tile->shard) {
       span = span + (iter->extent - 1) * iter->stride;
     }
-    if (tile->IsContiguous(ana)) {
+    if (ffi::GetRef<TileLayout>(tile).IsContiguous(ana)) {
       for (const auto& extent : tensor.shape()) output_shape.Set(0, output_shape[0] * extent);
     } else {
       output_shape.Set(0, tvm::max(tile->shard[0]->stride * tensor.shape()[0], span));
@@ -89,7 +89,7 @@ TVM_FFI_INLINE TensorVar FlattenedTensor(const TensorVar& tensor,
     output_shape.Set(0, ana->Simplify(tensor.ty()->layout.value().GetSpan(ffi::String("m"))));
   } else if (const auto* compose = tensor.ty()->layout.as<ComposeLayoutNode>()) {
     PrimExpr span = compose->tile_layout.GetSpan(ffi::String("m"));
-    if (compose->tile_layout->IsTrivial()) {
+    if (compose->tile_layout.IsTrivial()) {
       span = IntImm(tensor.ty()->DefaultIndexType(), 1);
       for (const auto& extent : tensor.shape()) span = span * extent;
     }

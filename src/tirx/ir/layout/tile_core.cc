@@ -196,12 +196,14 @@ TVM_FFI_STATIC_INIT_BLOCK() {
   });
 }
 
-void TileLayoutNode::CheckWellFormed() const {
-  TVM_FFI_CHECK(GetScope().has_value() || !HasThreadAxis(), ValueError)
+void layout_details::CheckWellFormed(const TileLayoutNode* layout) {
+  const auto tile = ffi::GetRef<TileLayout>(layout);
+  TVM_FFI_CHECK(tile.GetScope().has_value() || !tile.HasThreadAxis(), ValueError)
       << "A tile layout with thread axes must have a connected scope";
 }
 
-PrimExpr TileLayoutNode::GetSize(ffi::Optional<ffi::String> axis_name) const {
+PrimExpr layout_details::GetSize(const TileLayoutNode* layout,
+                                 ffi::Optional<ffi::String> axis_name) {
   auto filter = [&](const Iter& iter, PrimExpr acc) {
     if (!axis_name.has_value() || iter->axis.name() == axis_name.value()) {
       return acc * iter->extent;
@@ -209,35 +211,38 @@ PrimExpr TileLayoutNode::GetSize(ffi::Optional<ffi::String> axis_name) const {
     return acc;
   };
   PrimExpr res = 1;
-  for (const auto& iter : shard) {
+  for (const auto& iter : layout->shard) {
     res = filter(iter, res);
   }
   return res;
 }
 
-PrimExpr TileLayoutNode::GetSpan(ffi::Optional<ffi::String> axis_name) const {
+PrimExpr layout_details::GetSpan(const TileLayoutNode* layout,
+                                 ffi::Optional<ffi::String> axis_name) {
   sym::Analyzer analyzer;
   PrimExpr result = 1;
   auto filter = [&](const Axis& axis) { return AxisMatchesFilter(axis, axis_name); };
 
-  for (const auto& iter : shard) {
+  for (const auto& iter : layout->shard) {
     if (filter(iter->axis)) result += (iter->extent - 1) * iter->stride;
   }
-  for (const auto& iter : replica) {
+  for (const auto& iter : layout->replica) {
     if (filter(iter->axis)) result += (iter->extent - 1) * iter->stride;
   }
-  for (const auto& [axis, off] : offset) {
+  for (const auto& [axis, off] : layout->offset) {
     if (filter(axis)) result += off;
   }
   return analyzer->Simplify(result);
 }
 
-ffi::Map<ffi::String, PrimExpr> TileLayoutNode::Apply(PrimExpr coord) const {
-  return Apply(SplitCoord(coord, GetShardShape()));
+ffi::Map<ffi::String, PrimExpr> layout_details::Apply(const TileLayoutNode* layout,
+                                                      PrimExpr coord) {
+  return Apply(layout, SplitCoord(coord, ffi::GetRef<TileLayout>(layout).GetShardShape()));
 }
 
-ffi::Map<ffi::String, PrimExpr> TileLayoutNode::Apply(const ffi::Array<PrimExpr>& coord,
-                                                      const ffi::Array<PrimExpr>& shape) const {
+ffi::Map<ffi::String, PrimExpr> layout_details::Apply(const TileLayoutNode* layout,
+                                                      const ffi::Array<PrimExpr>& coord,
+                                                      const ffi::Array<PrimExpr>& shape) {
   TVM_FFI_ICHECK_EQ(coord.size(), shape.size())
       << "ValueError: The size of coord and shape should be equal";
   // Group-first path: if this layout can be regrouped by ``shape`` (the input
@@ -247,7 +252,8 @@ ffi::Map<ffi::String, PrimExpr> TileLayoutNode::Apply(const ffi::Array<PrimExpr>
   // symbolic form small (local mod/divs) and avoids the cross-dim noise of the
   // flatten+split-against-shard-shape round-trip. Equivalent numerical output,
   // much friendlier for sym.Analyzer downstream.
-  if (auto grouped_opt = TryGroup(ffi::GetRef<TileLayout>(this), shape); grouped_opt.has_value()) {
+  if (auto grouped_opt = TryGroup(ffi::GetRef<TileLayout>(layout), shape);
+      grouped_opt.has_value()) {
     auto& [grouped, seps] = *grouped_opt;
     ffi::Array<PrimExpr> per_shard_coords;
     per_shard_coords.reserve(grouped->shard.size());
@@ -270,26 +276,27 @@ ffi::Map<ffi::String, PrimExpr> TileLayoutNode::Apply(const ffi::Array<PrimExpr>
     return grouped.Apply(per_shard_coords);
   }
   // Fallback: flatten across input shape then split against shard shape.
-  return Apply(FlattenCoord(coord, shape));
+  return Apply(layout, FlattenCoord(coord, shape));
 }
 
-ffi::Map<ffi::String, PrimExpr> TileLayoutNode::Apply(Array<PrimExpr> coord) const {
+ffi::Map<ffi::String, PrimExpr> layout_details::Apply(const TileLayoutNode* layout,
+                                                      Array<PrimExpr> coord) {
   sym::Analyzer analyzer;
-  TVM_FFI_ICHECK_EQ(coord.size(), shard.size())
+  TVM_FFI_ICHECK_EQ(coord.size(), layout->shard.size())
       << "Coordinate size must match the number of shard axes";
   std::unordered_map<ffi::String, PrimExpr> result;
-  for (size_t i = 0; i < shard.size(); ++i) {
-    auto it = result.find(shard[i]->axis.name());
+  for (size_t i = 0; i < layout->shard.size(); ++i) {
+    auto it = result.find(layout->shard[i]->axis.name());
     if (it == result.end()) {
-      result.insert_or_assign(shard[i]->axis.name(),
-                              analyzer->Simplify(coord[i] * shard[i]->stride));
+      result.insert_or_assign(layout->shard[i]->axis.name(),
+                              analyzer->Simplify(coord[i] * layout->shard[i]->stride));
     } else {
-      result.insert_or_assign(shard[i]->axis.name(),
-                              analyzer->Simplify(it->second + coord[i] * shard[i]->stride));
+      result.insert_or_assign(layout->shard[i]->axis.name(),
+                              analyzer->Simplify(it->second + coord[i] * layout->shard[i]->stride));
     }
   }
   // Add offset to the result
-  for (const auto& [axis, off] : offset) {
+  for (const auto& [axis, off] : layout->offset) {
     auto it = result.find(axis.name());
     if (it == result.end()) {
       result.insert_or_assign(axis.name(), analyzer->Simplify(off));
@@ -300,17 +307,17 @@ ffi::Map<ffi::String, PrimExpr> TileLayoutNode::Apply(Array<PrimExpr> coord) con
   return result;
 }
 
-ffi::Array<PrimExpr> TileLayoutNode::GetShardShape() const {
-  return shard.Map([](const Iter& iter) { return iter->extent; });
+ffi::Array<PrimExpr> TileLayout::GetShardShape() const {
+  return get()->shard.Map([](const Iter& iter) { return iter->extent; });
 }
 
-bool TileLayoutNode::IsContiguous(ffi::Optional<sym::Analyzer> analyzer) const {
-  if (!replica.empty()) return false;
+bool TileLayout::IsContiguous(ffi::Optional<sym::Analyzer> analyzer) const {
+  if (!get()->replica.empty()) return false;
   static const Axis memory_axis = Axis::Get("m");
-  for (const auto& [axis, origin] : offset) {
+  for (const auto& [axis, origin] : get()->offset) {
     if (axis != memory_axis) return false;
   }
-  for (const auto& iter : shard) {
+  for (const auto& iter : get()->shard) {
     if (iter->axis != memory_axis) return false;
   }
   prim::ExprDeepEqual deep_equal;
@@ -319,40 +326,41 @@ bool TileLayoutNode::IsContiguous(ffi::Optional<sym::Analyzer> analyzer) const {
     if (!analyzer.has_value()) analyzer = sym::Analyzer();
     return analyzer.value()->CanProveEqual(lhs, rhs);
   };
-  PrimExpr stride = IntImm(shard.empty() ? PrimType::Int(64) : shard.back()->stride.ty(), 1);
-  for (size_t i = shard.size(); i > 0; --i) {
-    const auto& iter = shard[i - 1];
+  PrimExpr stride =
+      IntImm(get()->shard.empty() ? PrimType::Int(64) : get()->shard.back()->stride.ty(), 1);
+  for (size_t i = get()->shard.size(); i > 0; --i) {
+    const auto& iter = get()->shard[i - 1];
     if (!prim::IsOne(iter->extent) && !equal(iter->stride, stride)) return false;
     stride = stride * iter->extent;
   }
   return true;
 }
 
-bool TileLayoutNode::IsTrivial() const {
-  if (shard.size() > 1) return false;
-  if (shard.size() == 1) {
-    if (!shard[0]->axis->IsMemoryAxis() || !IsOne(shard[0]->stride)) return false;
+bool TileLayout::IsTrivial() const {
+  if (get()->shard.size() > 1) return false;
+  if (get()->shard.size() == 1) {
+    if (!get()->shard[0]->axis->IsMemoryAxis() || !IsOne(get()->shard[0]->stride)) return false;
   }
-  return replica.size() == 0 && offset.size() == 0;
+  return get()->replica.size() == 0 && get()->offset.size() == 0;
 }
 
 TVM_FFI_STATIC_INIT_BLOCK() {
   namespace refl = tvm::ffi::reflection;
   refl::GlobalDef().def("tirx.TileLayoutIsContiguous",
                         [](const TileLayout& layout, ffi::Optional<sym::Analyzer> analyzer) {
-                          return layout->IsContiguous(std::move(analyzer));
+                          return layout.IsContiguous(std::move(analyzer));
                         });
   refl::GlobalDef().def("tirx.TileLayoutIsTrivial", [](const TileLayout& layout) {
-    return layout.Canonicalize().as<TileLayout>().value()->IsTrivial();
+    return layout.Canonicalize().as<TileLayout>().value().IsTrivial();
   });
 }
 
-bool TileLayoutNode::HasThreadAxis() const {
-  return std::any_of(shard.begin(), shard.end(),
+bool TileLayout::HasThreadAxis() const {
+  return std::any_of(get()->shard.begin(), get()->shard.end(),
                      [](const Iter& iter) { return iter->axis->IsThreadAxis(); });
 }
 
-ffi::Optional<ffi::Tuple<ThreadScope, ThreadScope>> TileLayoutNode::GetScope() const {
+ffi::Optional<ffi::Tuple<ThreadScope, ThreadScope>> TileLayout::GetScope() const {
   if (!HasThreadAxis()) return std::nullopt;
 
   std::unordered_map<ThreadScope, ThreadScope, ffi::ObjectPtrHash, ffi::ObjectPtrEqual> scope_map;
@@ -382,9 +390,9 @@ ffi::Optional<ffi::Tuple<ThreadScope, ThreadScope>> TileLayoutNode::GetScope() c
     TVM_FFI_ICHECK(inserted || it->second.same_as(scope))
         << "Ill-formed tile layout: conflicting scopes for " << subscope;
   };
-  for (const auto& iter : shard) check_axis(iter->axis);
-  for (const auto& iter : replica) check_axis(iter->axis);
-  for (const auto& [axis, off] : offset) check_axis(axis);
+  for (const auto& iter : get()->shard) check_axis(iter->axis);
+  for (const auto& iter : get()->replica) check_axis(iter->axis);
+  for (const auto& [axis, off] : get()->offset) check_axis(axis);
 
   ThreadScope outer_most = inner_most.value();
   size_t count = 0;
@@ -398,7 +406,7 @@ ffi::Optional<ffi::Tuple<ThreadScope, ThreadScope>> TileLayoutNode::GetScope() c
   return Tuple<ThreadScope, ThreadScope>{inner_most.value(), outer_most};
 }
 
-TileLayout TileLayoutNode::DefaultLayout(ffi::Array<PrimExpr> shape) {
+TileLayout TileLayout::DefaultLayout(ffi::Array<PrimExpr> shape) {
   Array<Iter> shard;
   auto strides = GetDefaultStrides(shape);
   for (size_t i = 0; i < shape.size(); ++i) {
@@ -412,7 +420,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
   refl::GlobalDef().def(
       "tirx.TileLayoutGetScope",
       [](const TileLayout& layout) -> ffi::Optional<ffi::Tuple<ThreadScope, ThreadScope>> {
-        return layout->GetScope();
+        return layout.GetScope();
       });
 }
 

@@ -308,7 +308,7 @@ ComposeLayout::ComposeLayout(int per_element, int swizzle_len, int atom_len, Til
   n->swizzle_len = swizzle_len;
   n->atom_len = atom_len;
   n->swizzle_inner = swizzle_inner;
-  n->CheckWellFormed();
+  layout_details::CheckWellFormed(n.get());
   int swizzle_mask = (1 << swizzle_len) - 1;
   n->inner_mask = swizzle_mask;
   n->outer_mask = swizzle_mask << atom_len;
@@ -323,56 +323,64 @@ TVM_FFI_STATIC_INIT_BLOCK() {
   });
 }
 
-void ComposeLayoutNode::CheckWellFormed() const {
-  TVM_FFI_CHECK(per_element >= 0 && swizzle_len >= 0 && atom_len >= swizzle_len, ValueError)
+void layout_details::CheckWellFormed(const ComposeLayoutNode* layout) {
+  TVM_FFI_CHECK(layout->per_element >= 0 && layout->swizzle_len >= 0 &&
+                    layout->atom_len >= layout->swizzle_len,
+                ValueError)
       << "A compose layout requires nonnegative per_element and swizzle_len, and "
       << "atom_len >= swizzle_len";
-  tile_layout.CheckWellFormed();
+  layout->tile_layout.CheckWellFormed();
 }
 
-PrimExpr ComposeLayoutNode::GetSize(ffi::Optional<ffi::String> axis_name) const {
+PrimExpr layout_details::GetSize(const ComposeLayoutNode* layout,
+                                 ffi::Optional<ffi::String> axis_name) {
   TVM_FFI_ICHECK(!axis_name.has_value())
       << "ValueError: axis_name is not supported for compose layout";
-  return tile_layout.GetSize(axis_name);
+  return layout->tile_layout.GetSize(axis_name);
 }
 
-PrimExpr ComposeLayoutNode::GetSpan(ffi::Optional<ffi::String> axis_name) const {
+PrimExpr layout_details::GetSpan(const ComposeLayoutNode* layout,
+                                 ffi::Optional<ffi::String> axis_name) {
   TVM_FFI_ICHECK(!axis_name.has_value())
       << "ValueError: axis_name is not supported for compose layout";
-  return tile_layout.GetSpan(axis_name);
+  return layout->tile_layout.GetSpan(axis_name);
 }
 
-ffi::Map<ffi::String, PrimExpr> ComposeLayoutNode::Apply(ffi::Array<PrimExpr> coord) const {
-  return ApplyStructured(this, tile_layout, std::move(coord));
+ffi::Map<ffi::String, PrimExpr> layout_details::Apply(const ComposeLayoutNode* layout,
+                                                      ffi::Array<PrimExpr> coord) {
+  return ApplyStructured(layout, layout->tile_layout, std::move(coord));
 }
 
-ffi::Map<ffi::String, PrimExpr> ComposeLayoutNode::Apply(PrimExpr coord) const {
-  auto res = tile_layout.Apply(coord);
+ffi::Map<ffi::String, PrimExpr> layout_details::Apply(const ComposeLayoutNode* layout,
+                                                      PrimExpr coord) {
+  auto res = layout->tile_layout.Apply(coord);
   TVM_FFI_ICHECK(res.size() == 1 && res.find("m") != res.end());
   auto m = res["m"];
   // Inline the swizzle XOR (formerly SwizzleLayoutNode::Apply): the swizzle
   // operates on the tile-mapped coordinate ``m``.
   auto f = [&](const PrimExpr& x) -> PrimExpr {
-    if (swizzle_inner) {
-      return x ^ ((x & outer_mask) >> atom_len);
+    if (layout->swizzle_inner) {
+      return x ^ ((x & layout->outer_mask) >> layout->atom_len);
     } else {
-      return x ^ ((x & inner_mask) << atom_len);
+      return x ^ ((x & layout->inner_mask) << layout->atom_len);
     }
   };
-  auto base = 1 << per_element;
+  auto base = 1 << layout->per_element;
   sym::Analyzer analyzer;
-  return {{"m", analyzer->Simplify((f(floordiv(m, base)) << per_element) + floormod(m, base))}};
+  return {
+      {"m", analyzer->Simplify((f(floordiv(m, base)) << layout->per_element) + floormod(m, base))}};
 }
 
-ffi::Map<ffi::String, PrimExpr> ComposeLayoutNode::Apply(const ffi::Array<PrimExpr>& coord,
-                                                         const ffi::Array<PrimExpr>& shape) const {
+ffi::Map<ffi::String, PrimExpr> layout_details::Apply(const ComposeLayoutNode* layout,
+                                                      const ffi::Array<PrimExpr>& coord,
+                                                      const ffi::Array<PrimExpr>& shape) {
   TVM_FFI_ICHECK_EQ(coord.size(), shape.size())
       << "ValueError: The size of coord and shape should be equal";
-  auto grouped = TryGroup(tile_layout, shape);
+  auto grouped = TryGroup(layout->tile_layout, shape);
   if (!grouped.has_value()) {
-    auto mapped = tile_layout.Apply(coord, shape);
+    auto mapped = layout->tile_layout.Apply(coord, shape);
     TVM_FFI_ICHECK(mapped.size() == 1 && mapped.find("m") != mapped.end());
-    return {{"m", ApplyFullSwizzle(this, mapped["m"])}};
+    return {{"m", ApplyFullSwizzle(layout, mapped["m"])}};
   }
 
   const auto& [grouped_tile, separators] = grouped.value();
@@ -394,25 +402,28 @@ ffi::Map<ffi::String, PrimExpr> ComposeLayoutNode::Apply(const ffi::Array<PrimEx
       shard_coord.Set(i, split[j]);
     }
   }
-  return ApplyStructured(this, grouped_tile, std::move(shard_coord));
+  return ApplyStructured(layout, grouped_tile, std::move(shard_coord));
 }
 
-Layout ComposeLayoutNode::Canonicalize() const {
-  auto tile_normalized = tile_layout.Canonicalize().as<TileLayout>().value();
-  return ComposeLayout(per_element, swizzle_len, atom_len, tile_normalized, swizzle_inner);
+Layout layout_details::Canonicalize(const ComposeLayoutNode* layout) {
+  auto tile_normalized = layout->tile_layout.Canonicalize().as<TileLayout>().value();
+  return ComposeLayout(layout->per_element, layout->swizzle_len, layout->atom_len, tile_normalized,
+                       layout->swizzle_inner);
 }
 
-Layout ComposeLayoutNode::Tile(const TileLayout& outer, const ffi::Array<PrimExpr>& outer_shape,
-                               const ffi::Array<PrimExpr>& inner_shape) const {
+Layout layout_details::Tile(const ComposeLayoutNode* layout, const TileLayout& outer,
+                            const ffi::Array<PrimExpr>& outer_shape,
+                            const ffi::Array<PrimExpr>& inner_shape) {
   // A bare swizzle (ComposeLayout with a trivial tile) carries only the swizzle
   // period, not a tile matching `inner_shape`; substitute an identity tile over
   // the inner product first, matching the former SwizzleLayoutNode::Tile.
-  TileLayout base = this->tile_layout;
-  if (base->IsTrivial()) {
+  TileLayout base = layout->tile_layout;
+  if (base.IsTrivial()) {
     base = IdentityTileLayout(inner_shape);
   }
   auto tiled_B = base.Tile(outer, outer_shape, inner_shape).as<TileLayout>().value();
-  return ComposeLayout(per_element, swizzle_len, atom_len, tiled_B, swizzle_inner);
+  return ComposeLayout(layout->per_element, layout->swizzle_len, layout->atom_len, tiled_B,
+                       layout->swizzle_inner);
 }
 
 }  // namespace tirx

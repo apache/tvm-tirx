@@ -219,7 +219,7 @@ class LayoutApplier : public StmtExprMutatorWithAnalyzer {
         // memory span to a block whose upper bits the swizzle cannot change.
         // A bare swizzle applies to the full tensor, not just its atom period.
         PrimExpr mem_span = compose->tile_layout.GetSpan(ffi::String("m"));
-        if (compose->tile_layout->IsTrivial()) {
+        if (compose->tile_layout.IsTrivial()) {
           mem_span = IntImm::Int32(1);
           for (const auto& extent : buf.shape()) mem_span = mem_span * extent;
         }
@@ -303,7 +303,7 @@ class LayoutApplier : public StmtExprMutatorWithAnalyzer {
                                                const ffi::Array<PrimExpr>& indices) {
     if (tensor.ty()->layout.has_value()) {
       if (auto tile = tensor.ty()->layout.value().as<TileLayoutNode>();
-          tile && tile->HasThreadAxis()) {
+          tile && ffi::GetRef<TileLayout>(tile).HasThreadAxis()) {
         LOG(FATAL) << "Cannot lower direct TensorLoad/TensorStore on a tensor with thread-axis "
                    << "layout: unable to verify that the coordinate matches the current thread. "
                    << "Use .view() + .local() to decompose thread and memory axes.";

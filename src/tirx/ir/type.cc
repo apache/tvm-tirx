@@ -57,7 +57,7 @@ bool TensorTypeNode::HasDefaultLayout(ffi::Optional<sym::Analyzer> analyzer) con
   for (size_t i = shape.size(); i > 0; --i) size = size * shape[i - 1];
   if (!equal(extent, size)) return false;
   // Delegate last so any analyzer created above is reused by the stride proof.
-  return tile->IsContiguous(std::move(analyzer));
+  return ffi::GetRef<TileLayout>(tile).IsContiguous(std::move(analyzer));
 }
 
 bool TensorTypeNode::IsScalar(bool alloc_or_decl) const {
@@ -65,7 +65,7 @@ bool TensorTypeNode::IsScalar(bool alloc_or_decl) const {
   return shape.size() == 1 && tvm::prim::IsOne(shape[0]) && data_alignment == 64 &&
          (!layout.has_value() ||
           (layout.as<TileLayoutNode>() &&
-           layout.value().Canonicalize().as_or_throw<TileLayout>()->IsTrivial()));
+           layout.value().Canonicalize().as_or_throw<TileLayout>().IsTrivial()));
 }
 
 std::optional<int64_t> TensorTypeNode::ConstantAllocationSize() const {
