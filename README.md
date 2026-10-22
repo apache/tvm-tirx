@@ -15,7 +15,9 @@
 <!--- specific language governing permissions and limitations -->
 <!--- under the License. -->
 
-# TVM TIRx
+# TVM TIRx: Open ML Compiler Foundation
+
+[Documentation](https://tvm.apache.org/tirx/)
 
 TIRx is an Open ML Compiler Foundation for building and extending machine
 learning compilers. It provides a shared intermediate representation and type
@@ -25,7 +27,3 @@ runtime support.
 Its components can be used individually or combined into compiler workflows.
 Developers can build on this infrastructure to add their own analyses,
 transformation passes, operators, types, and backend implementations.
-
-- [Programming Guide](docs/user/index.rst)
-- [Python API Reference](docs/reference/python/index.rst)
-- [Build from Source](docs/dev/source_build.rst)
