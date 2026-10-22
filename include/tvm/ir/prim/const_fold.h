@@ -360,7 +360,7 @@ inline ffi::Optional<PrimExpr> TryConstFold<prim::Min>(PrimExpr a, PrimExpr b) {
   TVM_PRIM_CONST_PROPAGATION({
     PrimType result_ty = a.ty();
     if (pa && pb) return IntImm(result_ty, std::min(pa->value, pb->value));
-    if (fa && fb) return FloatImm(result_ty, std::min(fa->value, fb->value));
+    if (fa && fb) return std::isnan(fa->value) || fa->value < fb->value ? a : b;
   });
   if (a.same_as(b)) return a;
   return std::nullopt;
@@ -371,7 +371,7 @@ inline ffi::Optional<PrimExpr> TryConstFold<prim::Max>(PrimExpr a, PrimExpr b) {
   TVM_PRIM_CONST_PROPAGATION({
     PrimType result_ty = a.ty();
     if (pa && pb) return IntImm(result_ty, std::max(pa->value, pb->value));
-    if (fa && fb) return FloatImm(result_ty, std::max(fa->value, fb->value));
+    if (fa && fb) return std::isnan(fa->value) || fa->value > fb->value ? a : b;
   });
   if (a.same_as(b)) return a;
   return std::nullopt;

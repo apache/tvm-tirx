@@ -492,6 +492,7 @@ class CodeGenLLVM : public tvm::ExprFunctor<llvm::Value*(const Expr&)>,
   llvm::Value* CreateLE(PrimType t, llvm::Value* a, llvm::Value* b);
   llvm::Value* CreateGT(PrimType t, llvm::Value* a, llvm::Value* b);
   llvm::Value* CreateGE(PrimType t, llvm::Value* a, llvm::Value* b);
+  llvm::Value* CreateMinMax(const PrimExpr& lhs, const PrimExpr& rhs, bool is_min);
   llvm::Value* CreateAdd(PrimType t, llvm::Value* a, llvm::Value* b);
   llvm::Value* CreateSub(PrimType t, llvm::Value* a, llvm::Value* b);
   llvm::Value* CreateMul(PrimType t, llvm::Value* a, llvm::Value* b);

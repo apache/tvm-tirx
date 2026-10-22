@@ -102,6 +102,7 @@
 #include <vector>
 
 #include "../build_common.h"
+#include "../min_max_utils.h"
 #include "codegen_params.h"
 #include "llvm_instance.h"
 
@@ -1640,15 +1641,46 @@ llvm::Value* CodeGenLLVM::Dispatch_(const prim::ModNode* op) {
 }
 
 llvm::Value* CodeGenLLVM::Dispatch_(const prim::MinNode* op) {
-  llvm::Value* a = MakeValue(op->a);
-  llvm::Value* b = MakeValue(op->b);
-  return builder_->CreateSelect(CreateLT(PrimType(op->a.ty()->dtype), a, b), a, b);
+  return CreateMinMax(op->a, op->b, true);
 }
 
 llvm::Value* CodeGenLLVM::Dispatch_(const prim::MaxNode* op) {
-  llvm::Value* a = MakeValue(op->a);
-  llvm::Value* b = MakeValue(op->b);
-  return builder_->CreateSelect(CreateGT(PrimType(op->a.ty()->dtype), a, b), a, b);
+  return CreateMinMax(op->a, op->b, false);
+}
+
+llvm::Value* CodeGenLLVM::CreateMinMax(const PrimExpr& lhs, const PrimExpr& rhs, bool is_min) {
+  // Evaluate both operands before simplifying a constant result, preserving
+  // calls with side effects even when the lhs is a constant NaN.
+  llvm::Value* a = MakeValue(lhs);
+  llvm::Value* b = MakeValue(rhs);
+  PrimType dtype(lhs.ty()->dtype);
+  if (!a->getType()->isFPOrFPVectorTy()) {
+    return builder_->CreateSelect(is_min ? CreateLT(dtype, a, b) : CreateGT(dtype, a, b), a, b);
+  }
+
+  // LLVM comparisons and selects operate lane-wise on both fixed-length and
+  // scalable vectors. BF16/FP8 computations are legalized before codegen.
+  ConstFloatKind a_kind = GetConstFloatKind(lhs);
+  ConstFloatKind b_kind = GetConstFloatKind(rhs);
+  if (a_kind == ConstFloatKind::kNaN) {
+    return a;
+  }
+
+  llvm::Value* take_a;
+  auto ordered_cmp = is_min ? llvm::CmpInst::FCMP_OLT : llvm::CmpInst::FCMP_OGT;
+  if (a_kind == ConstFloatKind::kNonNaN) {
+    take_a = builder_->CreateFCmp(ordered_cmp, a, b);
+  } else if (b_kind == ConstFloatKind::kNaN) {
+    take_a = builder_->CreateFCmpUNO(a, a);
+  } else if (b_kind == ConstFloatKind::kNonNaN) {
+    // An unordered strict comparison also selects a when a is NaN.
+    take_a = builder_->CreateFCmp(is_min ? llvm::CmpInst::FCMP_ULT : llvm::CmpInst::FCMP_UGT, a, b);
+  } else {
+    // Either NaN propagates; equal values, including signed zero, select b.
+    take_a =
+        builder_->CreateOr(builder_->CreateFCmp(ordered_cmp, a, b), builder_->CreateFCmpUNO(a, a));
+  }
+  return builder_->CreateSelect(take_a, a, b);
 }
 
 llvm::Value* CodeGenLLVM::Dispatch_(const prim::EQNode* op) {

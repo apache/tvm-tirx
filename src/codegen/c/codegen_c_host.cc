@@ -31,9 +31,12 @@
 #include <tvm/tirx/op/abi.h>
 
 #include <algorithm>
+#include <cmath>
 #include <string>
 #include <utility>
 #include <vector>
+
+#include "../min_max_utils.h"
 
 namespace tvm {
 namespace codegen {
@@ -350,26 +353,61 @@ void CodeGenCHost::Dispatch_(const AssertStmtNode* op) {  // NOLINT(*)
   }
 }
 
+void CodeGenCHost::Dispatch_(const FloatImmNode* op, std::ostream& os) {  // NOLINT(*)
+  if (std::isfinite(op->value)) {
+    CodeGenC::Dispatch_(op, os);
+  } else {
+    os << "((";
+    PrintType(op->ty.as_or_throw<PrimType>(), os);
+    os << ")" << (std::isnan(op->value) ? "NAN" : op->value < 0 ? "-INFINITY" : "INFINITY") << ")";
+  }
+}
+
 void CodeGenCHost::Dispatch_(const prim::MinNode* op, std::ostream& os) {  // NOLINT(*)
-  PrintTernaryCondExpr(op, "<", os);
+  PrintTernaryCondExpr(op, "<", ">=", os);
 }
 
 void CodeGenCHost::Dispatch_(const prim::MaxNode* op, std::ostream& os) {  // NOLINT(*)
-  PrintTernaryCondExpr(op, ">", os);
+  PrintTernaryCondExpr(op, ">", "<=", os);
 }
 
 template <typename T>
 inline void CodeGenCHost::PrintTernaryCondExpr(const T* op, const char* compare,
+                                               const char* reverse_compare,
                                                std::ostream& os) {  // NOLINT(*)
-  std::ostringstream temp_a;
-  Dispatch(op->a, temp_a);
-  std::string a_id = SSAGetID(temp_a.str(), op->a.ty());
-  std::ostringstream temp_b;
-  Dispatch(op->b, temp_b);
-  std::string b_id = SSAGetID(temp_b.str(), op->b.ty());
+  int ssa_scope = BeginScope();
+  auto bind_operand = [&](const PrimExpr& operand) {
+    std::string value = PrintExpr(operand);
+    std::string name = name_supply_->FreshName("v_");
+    PrintIndent();
+    PrintSSAAssign(name, value, operand.ty());
+    return name;
+  };
+  // SSAGetID caches by source text and can merge distinct calls with effects.
+  std::string a_id = bind_operand(op->a);
+  std::string b_id = bind_operand(op->b);
+  PrimType dtype = op->ty.template as_or_throw<PrimType>();
+  ConstFloatKind a_kind = GetConstFloatKind(op->a);
+  ConstFloatKind b_kind = GetConstFloatKind(op->b);
 
-  os << "((" << a_id << ") " << compare << " (" << b_id << ") "
-     << "? (" << a_id << ") : (" << b_id << "))";
+  if (!dtype.MatchesCode(DLDataTypeCode::kDLFloat)) {
+    os << "((" << a_id << ") " << compare << " (" << b_id << ") ? (" << a_id << ") : (" << b_id
+       << "))";
+  } else if (a_kind == ConstFloatKind::kNaN) {
+    os << "(" << a_id << ")";
+  } else if (a_kind == ConstFloatKind::kNonNaN) {
+    os << "((" << a_id << ") " << compare << " (" << b_id << ") ? (" << a_id << ") : (" << b_id
+       << "))";
+  } else if (b_kind == ConstFloatKind::kNaN) {
+    os << "((" << a_id << ") != (" << a_id << ") ? (" << a_id << ") : (" << b_id << "))";
+  } else if (b_kind == ConstFloatKind::kNonNaN) {
+    os << "((" << a_id << ") " << reverse_compare << " (" << b_id << ") ? (" << b_id << ") : ("
+       << a_id << "))";
+  } else {
+    os << "(((" << a_id << ") " << compare << " (" << b_id << ") || (" << a_id << ") != (" << a_id
+       << ")) ? (" << a_id << ") : (" << b_id << "))";
+  }
+  EndScope(ssa_scope);
 }
 
 ffi::Module BuildCHost(IRModule mod, Target target) {

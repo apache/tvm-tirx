@@ -62,6 +62,7 @@ class CodeGenCHost : public CodeGenC {
   // overload visitor functions
   void Dispatch_(const prim::BroadcastNode* op, std::ostream& os) final;  // NOLINT(*)
   void Dispatch_(const CallNode* op, std::ostream& os) override;          // NOLINT(*)
+  void Dispatch_(const FloatImmNode* op, std::ostream& os) final;         // NOLINT(*)
   // overload min and max to use the ternary operator, so we don't rely on the
   // standard library implementations
   void Dispatch_(const prim::MinNode* op, std::ostream& os) final;  // NOLINT(*)
@@ -97,13 +98,14 @@ class CodeGenCHost : public CodeGenC {
   void PrintCallPacked(const CallNode* op);
   /*!
    * \brief Print ternary conditional operator implementing binary `op`
-   * Forces the operands to be in SSA form.
+   * Evaluates each operand occurrence once in a fresh temporary.
    * \param op binary operator being expressed
-   * \param compare string representation of comparison operator
+   * \param compare string representation of the strict comparison operator
+   * \param reverse_compare string representation of the reverse non-strict comparison operator
    * \param os stream reference to print into
    */
   template <typename T>
-  inline void PrintTernaryCondExpr(const T* op, const char* compare,
+  inline void PrintTernaryCondExpr(const T* op, const char* compare, const char* reverse_compare,
                                    std::ostream& os);  // NOLINT(*)
 };
 
