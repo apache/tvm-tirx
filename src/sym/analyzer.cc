@@ -187,7 +187,8 @@ bool AnalyzerObj::CanProveEqual(const PrimExpr& lhs, const PrimExpr& rhs) {
       prim::is_neg_inf(rhs)) {
     return lhs.same_as(rhs);
   }
-  return CanProve(lhs - rhs == 0);
+  PrimExpr difference = lhs - rhs;
+  return CanProve(difference == prim::MakeConst(difference.ty(), 0));
 }
 
 bool AnalyzerObj::CanProveLessEqualThanSymbolicShapeValue(const PrimExpr& lhs,

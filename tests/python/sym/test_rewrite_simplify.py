@@ -1647,14 +1647,26 @@ class TestCast(BaseCompare):
         x = tvm_tirx.tirx.Var("x", "int32")
         dtypes = ["float32", "float16", "int32", "int8", "bool"]
         for dtype1 in dtypes:
-            yield TestCase(tvm_tirx.tirx.Cast(dtype1, x - x), tvm_tirx.tirx.const(0, dtype1))
-            yield TestCase(tvm_tirx.tirx.Cast(dtype1, x == x), tvm_tirx.tirx.const(1, dtype1))
+            yield TestCase(
+                tvm_tirx.tirx.Cast(dtype1, x - x),
+                tvm_tirx.tirx.Cast(dtype1, tvm_tirx.tirx.const(0, "int32"))
+                if dtype1 == "float16"
+                else tvm_tirx.tirx.const(0, dtype1),
+            )
+            yield TestCase(
+                tvm_tirx.tirx.Cast(dtype1, x == x),
+                tvm_tirx.tirx.Cast(dtype1, tvm_tirx.tirx.const(1, "bool"))
+                if dtype1 == "float16"
+                else tvm_tirx.tirx.const(1, dtype1),
+            )
             for dtype2 in dtypes:
                 for i in [0, 1, 2, 3]:
                     if i <= 1 or (dtype1 != "bool" and dtype2 != "bool"):
                         yield TestCase(
                             tvm_tirx.tirx.Cast(dtype1, tvm_tirx.tirx.const(i, dtype2)),
-                            tvm_tirx.tirx.const(i, dtype1),
+                            tvm_tirx.tirx.Cast(dtype1, tvm_tirx.tirx.const(i, dtype2))
+                            if dtype1 == "float16" and dtype2 != dtype1
+                            else tvm_tirx.tirx.const(i, dtype1),
                         )
 
     @pytest.fixture(params=[*_generate_tests()], scope="session")

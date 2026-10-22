@@ -89,14 +89,26 @@ inline bool IsIndexTypedExpr(const PrimExpr& expr) { return IsIndexTypedExpr(exp
 /*! \brief Whether an exact integer is a valid literal of the given scalar type. */
 inline bool IsRepresentable(const ffi::BigInt& value, const PrimType& dtype) {
   if (!dtype.IsScalar() || dtype.bits() <= 0) return false;
+  if (auto small = value.as<int64_t>()) {
+    if (dtype.MatchesCode(DLDataTypeCode::kDLUInt)) {
+      return *small >= 0 &&
+             (dtype.bits() >= 63 || static_cast<uint64_t>(*small) < (uint64_t{1} << dtype.bits()));
+    }
+    if (dtype.MatchesCode(DLDataTypeCode::kDLBool) ||
+        (dtype.MatchesCode(DLDataTypeCode::kDLInt) && dtype.bits() == 1)) {
+      return *small == 0 || *small == 1;
+    }
+    if (dtype.MatchesCode(DLDataTypeCode::kDLInt)) {
+      if (dtype.bits() >= 64) return true;
+      int64_t limit = int64_t{1} << (dtype.bits() - 1);
+      return *small >= -limit && *small < limit;
+    }
+    return false;
+  }
   if (dtype.MatchesCode(DLDataTypeCode::kDLUInt)) {
     return value >= 0 && value < (ffi::BigInt(1) << dtype.bits());
   }
-  if (dtype.MatchesCode(DLDataTypeCode::kDLBool) ||
-      (dtype.MatchesCode(DLDataTypeCode::kDLInt) && dtype.bits() == 1)) {
-    return value == 0 || value == 1;
-  }
-  if (dtype.MatchesCode(DLDataTypeCode::kDLInt)) {
+  if (dtype.MatchesCode(DLDataTypeCode::kDLInt) && dtype.bits() > 1) {
     ffi::BigInt limit = ffi::BigInt(1) << (dtype.bits() - 1);
     return value >= -limit && value < limit;
   }

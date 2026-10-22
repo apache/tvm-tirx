@@ -308,26 +308,21 @@ PrimExpr cast(PrimExpr value, PrimType t, Location loc) {
       << "Cannot cast an expression with the void sentinel type";
   // const fold IntImm as they are used in index computations
   if (dtype.IsScalar()) {
-    bool integer =
-        dtype.MatchesCode(DLDataTypeCode::kDLInt, DLDataTypeCode::kDLUInt, DLDataTypeCode::kDLBool);
     if (const IntImmNode* op = value.as<IntImmNode>()) {
-      if (integer) {
+      if (dtype.MatchesCode(DLDataTypeCode::kDLInt, DLDataTypeCode::kDLUInt,
+                            DLDataTypeCode::kDLBool)) {
         if (details::IsRepresentable(op->value, dtype)) return IntImm(dtype, op->value, op->loc);
       } else if (dtype.MatchesElementType(DLDataTypeCode::kDLFloat, 32)) {
-        double result = static_cast<double>(op->value);
-        // A rounded double can hide an out-of-range integer or double-round
-        // at a float32 midpoint. Defer when this intermediate is not exact.
-        if (ffi::BigInt(result) == op->value && details::IsInFloat32Range(result)) {
-          return FloatImm(dtype, static_cast<float>(result), op->loc);
+        if (auto small = op->value.as<int64_t>()) {
+          return FloatImm(dtype, static_cast<float>(*small), op->loc);
         }
-      } else {
-        return MakeConst(dtype, op->value, op->loc);
       }
     } else if (const FloatImmNode* op = value.as<FloatImmNode>()) {
       double source = value.ty().MatchesElementType(DLDataTypeCode::kDLFloat, 32)
                           ? static_cast<float>(op->value)
                           : op->value;
-      if (integer) {
+      if (dtype.MatchesCode(DLDataTypeCode::kDLInt, DLDataTypeCode::kDLUInt,
+                            DLDataTypeCode::kDLBool)) {
         // Non-finite values cannot be converted to BigInt. Boolean casts also
         // need to preserve nonzero testing rather than truncate a fraction.
         if (std::isfinite(source) &&
@@ -341,8 +336,6 @@ PrimExpr cast(PrimExpr value, PrimType t, Location loc) {
         if (details::IsInFloat32Range(source)) {
           return FloatImm(dtype, static_cast<float>(source), op->loc);
         }
-      } else {
-        return MakeConst(dtype, source, op->loc);
       }
     }
     return prim::Cast(std::move(t), value, loc);
