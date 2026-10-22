@@ -197,7 +197,7 @@ def test_tensor_store():
     _assert_print(
         obj,
         """A = T.Var("A", T.Tensor((128, 128), T.float16))
-A[128, 128] = A[128, 128] + T.Cast("float16", 1)""",
+A[128, 128] = A[128, 128] + T.float16(1.0)""",
     )
 
 
@@ -635,7 +635,7 @@ def test_float_imm():
     _assert_print(
         obj,
         """
-T.Cast("float16", 1)
+T.float16(1.0)
 """,
     )
 

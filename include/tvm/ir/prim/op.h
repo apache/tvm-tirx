@@ -751,7 +751,8 @@ TVM_TIRX_DLL PrimExpr max_value(PrimType dtype, Location loc = UnknownLoc());
  * \param loc The location of this operation in the source.
  * \return The result expression.
  * \note This function may return value if the type is the same. Constant folding
- * uses MakeConst for scalar and vector constants.
+ * is limited to supported conversions whose results fit the destination type.
+ * Use MakeConst to construct typed literals directly.
  */
 TVM_TIRX_DLL PrimExpr cast(PrimExpr value, PrimType t, Location loc = UnknownLoc());
 /*! \brief Construct integer absolute value; floating absolute value belongs to TIRX. */

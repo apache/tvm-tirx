@@ -22,6 +22,7 @@
 
 #include <cmath>
 
+#include "../../support/limits.h"
 #include "op_utils.h"
 
 namespace tvm {
@@ -214,7 +215,7 @@ PrimExpr max_value(PrimType value_ty, Location loc) {
       return FloatImm(value_ty, 65504.0, loc);
     }
   } else if (IsBFloat16Type(dtype)) {
-    return FloatImm(value_ty, std::numeric_limits<float>::max(), loc);
+    return FloatImm(value_ty, support::kMaxBFloat16, loc);
   } else if (IsFloat8Type(dtype)) {
     // according to https://arxiv.org/pdf/2209.05433.pdf
     if (dtype.code() == DLDataTypeCode::kDLFloat8_e5m2) {
@@ -268,7 +269,7 @@ PrimExpr min_value(PrimType value_ty, Location loc) {
       return FloatImm(value_ty, -65504.0, loc);
     }
   } else if (IsBFloat16Type(dtype)) {
-    return FloatImm(value_ty, std::numeric_limits<float>::lowest(), loc);
+    return FloatImm(value_ty, -support::kMaxBFloat16, loc);
   } else if (IsFloat8Type(dtype)) {
     // according to https://arxiv.org/pdf/2209.05433.pdf
     if (dtype.code() == DLDataTypeCode::kDLFloat8_e5m2) {
@@ -316,8 +317,29 @@ PrimExpr cast(PrimExpr value, PrimType t, Location loc) {
         if (auto small = op->value.as<int64_t>()) {
           return FloatImm(dtype, static_cast<float>(*small), op->loc);
         }
+      } else if (dtype.MatchesElementType(DLDataTypeCode::kDLFloat, 16) ||
+                 dtype.MatchesElementType(DLDataTypeCode::kDLBfloat, 16)) {
+        double source = static_cast<double>(op->value);
+        double limit = dtype.MatchesCode(DLDataTypeCode::kDLBfloat) ? support::kMaxBFloat16
+                                                                    : support::kMaxFloat16;
+        // Keep the integer exact until the destination performs its rounding.
+        if (source >= -limit && source <= limit && ffi::BigInt(source) == op->value) {
+          return FloatImm(dtype, source, op->loc);
+        }
       }
     } else if (const FloatImmNode* op = value.as<FloatImmNode>()) {
+      if (std::isfinite(op->value) &&
+          (value.ty().MatchesElementType(DLDataTypeCode::kDLFloat, 16) ||
+           value.ty().MatchesElementType(DLDataTypeCode::kDLBfloat, 16))) {
+        // FloatImm stores an unrounded double. Preserve the cast when using it
+        // directly would skip rounding in the source's 16-bit floating type.
+        bool is_bfloat = value.ty().MatchesCode(DLDataTypeCode::kDLBfloat);
+        int exponent;
+        std::frexp(op->value, &exponent);
+        int step = std::max(exponent - (is_bfloat ? 8 : 11), is_bfloat ? -133 : -24);
+        double scaled = std::ldexp(op->value, -step);
+        if (std::trunc(scaled) != scaled) return prim::Cast(std::move(t), value, loc);
+      }
       double source = value.ty().MatchesElementType(DLDataTypeCode::kDLFloat, 32)
                           ? static_cast<float>(op->value)
                           : op->value;
@@ -335,6 +357,13 @@ PrimExpr cast(PrimExpr value, PrimType t, Location loc) {
       } else if (dtype.MatchesElementType(DLDataTypeCode::kDLFloat, 32)) {
         if (details::IsInFloat32Range(source)) {
           return FloatImm(dtype, static_cast<float>(source), op->loc);
+        }
+      } else if (dtype.MatchesElementType(DLDataTypeCode::kDLFloat, 16) ||
+                 dtype.MatchesElementType(DLDataTypeCode::kDLBfloat, 16)) {
+        double limit = dtype.MatchesCode(DLDataTypeCode::kDLBfloat) ? support::kMaxBFloat16
+                                                                    : support::kMaxFloat16;
+        if (!std::isfinite(source) || (source >= -limit && source <= limit)) {
+          return FloatImm(dtype, source, op->loc);
         }
       }
     }

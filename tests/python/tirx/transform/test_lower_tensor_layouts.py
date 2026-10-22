@@ -1355,9 +1355,9 @@ def test_lower_alloc_decl_tensor_outside_of_parser():
             v = T.alloc_tensor(ty_args=[T.Tensor((1,), T.float16, scope="local")])
             v_1 = T.alloc_tensor(ty_args=[T.Tensor((1,), T.float16, scope="local")])
             v_2 = T.decl_tensor(smem.data, ty_args=[T.Tensor((1,), T.float16, scope="shared.dyn")])
-            v[0] = T.Cast("float16", 1)
-            v_1[0] = T.Cast("float16", 2)
-            v_2[0] = T.Cast("float16", 3)
+            v[0] = T.float16(1.0)
+            v_1[0] = T.float16(2.0)
+            v_2[0] = T.float16(3.0)
             D = T.alloc_tensor(ty_args=[T.Tensor((1,), T.int32, scope="local")])
             D[0] = 1
             D[0] = D[0] + 1
