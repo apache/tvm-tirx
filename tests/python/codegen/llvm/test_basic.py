@@ -33,6 +33,26 @@ from tvm_tirx.testing import env
 
 
 @pytest.mark.skipif(not env.has_llvm(), reason="need llvm")
+def test_bool_comparisons():
+    @T.function
+    def compare(A: T.Tensor((4,), "bool"), B: T.Tensor((4,), "bool"), C: T.Tensor((6, 4), "bool")):
+        for i in range(4):
+            C[0, i] = A[i] == B[i]
+            C[1, i] = A[i] != B[i]
+            C[2, i] = A[i] < B[i]
+            C[3, i] = A[i] <= B[i]
+            C[4, i] = A[i] > B[i]
+            C[5, i] = A[i] >= B[i]
+
+    a = np.array([False, False, True, True])
+    b = np.array([False, True, False, True])
+    output = tvm_tirx.runtime.empty((6, 4), "bool")
+    compiled = tvm_tirx.tirx.compile(compare, target="llvm")
+    compiled(tvm_tirx.runtime.tensor(a), tvm_tirx.runtime.tensor(b), output)
+    np.testing.assert_array_equal(output.numpy(), [a == b, a != b, a < b, a <= b, a > b, a >= b])
+
+
+@pytest.mark.skipif(not env.has_llvm(), reason="need llvm")
 def test_duplicate_function_global_symbol_diagnostic():
     @I.ir_module
     class Module:
