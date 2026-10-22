@@ -86,14 +86,39 @@ def test_tir_large_py_int_literals(dtype, literals):
 
 
 def test_tir_intimm_overflow():
-    assert int(tirx.const(255, "uint8") + tirx.const(1, "uint8")) == 0
-    assert int(tirx.const(2**31 - 1, "int32") + tirx.const(1, "int32")) == -(2**31)
-    assert int(tirx.const(2**32 - 1, "uint32") + tirx.const(1, "uint32")) == 0
-    assert int(tirx.const(2**63 - 1, "int64") + tirx.const(1, "int64")) == -(2**63)
-    assert int(tirx.const(2**32, "uint64") * tirx.const(2**32, "uint64")) == 0
-    # customized int types
-    assert int(tirx.const(7, "int4") + tirx.const(1, "int4")) == -8
-    assert int(tirx.const(2**39 - 1, "int40") + tirx.const(1, "int40")) == -(2**39)
+    assert isinstance(tirx.const(255, "uint8") + tirx.const(1, "uint8"), tirx.Add)
+    assert isinstance(tirx.const(2**31 - 1, "int32") + tirx.const(1, "int32"), tirx.Add)
+    assert isinstance(tirx.const(2**32 - 1, "uint32") + tirx.const(1, "uint32"), tirx.Add)
+    assert isinstance(tirx.const(2**63 - 1, "int64") + tirx.const(1, "int64"), tirx.Add)
+    assert isinstance(tirx.const(2**32, "uint64") * tirx.const(2**32, "uint64"), tirx.Mul)
+    # Customized integer widths follow the same conservative policy.
+    assert isinstance(tirx.const(7, "int4") + tirx.const(1, "int4"), tirx.Add)
+    assert isinstance(tirx.const(2**39 - 1, "int40") + tirx.const(1, "int40"), tirx.Add)
+
+
+def test_tir_integer_cast_folding():
+    from tvm_tirx.ir.prim import Broadcast
+
+    small = tirx.const(127, "int32")
+    large = tirx.const(128, "int32")
+    assert small.astype("int8").value == 127
+    narrowed = large.astype("int8")
+    assert isinstance(narrowed, tirx.Cast) and narrowed.value.same_as(large)
+    assert narrowed.ty == tvm_tirx.ir.PrimType("int8")
+    assert isinstance(tirx.const(-1, "int32").astype("uint32"), tirx.Cast)
+    assert isinstance(tirx.const(2**64 - 1, "uint64").astype("int64"), tirx.Cast)
+    assert tirx.const(2**63, "uint64").astype("int128").value == 2**63
+
+    folded = small.astype("int8x4")
+    assert isinstance(folded, Broadcast) and folded.value.value == 127
+    deferred = large.astype("int8x4")
+    assert isinstance(deferred, Broadcast) and isinstance(deferred.value, tirx.Cast)
+    assert deferred.ty == tvm_tirx.ir.PrimType("int8x4")
+    vector = Broadcast(large, 4).astype("int8x4")
+    tvm_tirx.ir.assert_structural_equal(vector, deferred)
+    scalable = large.astype("int8xvscalex4")
+    assert isinstance(scalable, Broadcast) and isinstance(scalable.value, tirx.Cast)
+    assert scalable.ty == tvm_tirx.ir.PrimType("int8xvscalex4")
 
 
 def compare_float_value(value, expect, msg):
@@ -229,6 +254,8 @@ def check_tir_const_fold(
     else:
         y = np.random.uniform(y_range[0], y_range[1])
 
+    if dtype.startswith(("int", "uint")):
+        x, y = int(x), int(y)
     if skip_overflow:
         py_res = foldf(x, y)
         if isinstance(py_res, tvm_tirx.ir.IntImm | tvm_tirx.ir.FloatImm):
@@ -247,6 +274,13 @@ def check_tir_const_fold(
         + f"if it fails please report it in GitHub issue together with this seed {seed}\n"
     )
     if dtype.startswith("float"):
+        if not isinstance(fold_res, tvm_tirx.ir.FloatImm):
+            exact_res = foldf(float(np.float32(x)), float(np.float32(y)))
+            assert math.isfinite(exact_res) and abs(exact_res) > float(ninfo.max), flaky_msg
+            assert fold_res.ty == tvm_tirx.ir.PrimType(dtype)
+            if expect:
+                compare_float_value(expect, calc_res, flaky_msg)
+            return
         compare_float_value(calc_res, fold_res.value, flaky_msg)
         if expect:
             compare_float_value(expect, calc_res, flaky_msg)
@@ -344,9 +378,9 @@ def test_tir_int8_const_fold():
     ffloordiv = tvm_tirx.tirx.compile(imm_floordiv, target="llvm")
     ftruncdiv = tvm_tirx.tirx.compile(imm_truncdiv, target="llvm")
 
-    # overflow
-    check_tir_const_fold("int8", lambda x, y: x + y, fadd, 127, 1, -128)
-    check_tir_const_fold("int8", lambda x, y: x * y, fmul, 127, 127, 1)
+    # Overflow remains a typed operation instead of manufacturing a wrapped literal.
+    assert isinstance(tirx.const(127, "int8") + tirx.const(1, "int8"), tirx.Add)
+    assert isinstance(tirx.const(127, "int8") * tirx.const(127, "int8"), tirx.Mul)
 
     # divide by zero
     with pytest.raises(RuntimeError):
@@ -363,9 +397,9 @@ def test_tir_int8_const_fold():
     )
 
     # randomized check
-    check_tir_const_fold("int8", lambda x, y: x * y, fmul)
-    check_tir_const_fold("int8", lambda x, y: x + y, fadd)
-    check_tir_const_fold("int8", lambda x, y: x - y, fsub)
+    check_tir_const_fold("int8", lambda x, y: x * y, fmul, skip_overflow=True)
+    check_tir_const_fold("int8", lambda x, y: x + y, fadd, skip_overflow=True)
+    check_tir_const_fold("int8", lambda x, y: x - y, fsub, skip_overflow=True)
     check_tir_const_fold(
         "int8", lambda x, y: tirx.floordiv(x, y), ffloordiv, y_range=(1, np.iinfo("int8").max)
     )
@@ -404,12 +438,9 @@ def test_tir_uint8_const_fold():
     ffloordiv = tvm_tirx.tirx.compile(imm_floordiv, target="llvm")
     ftruncdiv = tvm_tirx.tirx.compile(imm_truncdiv, target="llvm")
 
-    # overflow
-    check_tir_const_fold("uint8", lambda x, y: x + y, fadd, 255, 1, 0)
-
-    # zero sub
-    with pytest.raises(RuntimeError):
-        check_tir_const_fold("uint8", lambda x, y: x - y, fsub, 0, 10)
+    # Both overflow and negative unsigned results decline folding.
+    assert isinstance(tirx.const(255, "uint8") + tirx.const(1, "uint8"), tirx.Add)
+    assert isinstance(tirx.const(0, "uint8") - tirx.const(10, "uint8"), tirx.Sub)
 
     # divide by zero
     with pytest.raises(RuntimeError):
@@ -428,9 +459,9 @@ def test_tir_uint8_const_fold():
     )
 
     # randomized check
-    check_tir_const_fold("uint8", lambda x, y: x * y, fmul)
-    check_tir_const_fold("uint8", lambda x, y: x + y, fadd)
-    check_tir_const_fold("uint8", lambda x, y: x - y, fsub)
+    check_tir_const_fold("uint8", lambda x, y: x * y, fmul, skip_overflow=True)
+    check_tir_const_fold("uint8", lambda x, y: x + y, fadd, skip_overflow=True)
+    check_tir_const_fold("uint8", lambda x, y: x - y, fsub, skip_overflow=True)
     check_tir_const_fold(
         "uint8", lambda x, y: tirx.floordiv(x, y), ffloordiv, y_range=(1, np.iinfo("uint8").max)
     )
@@ -479,9 +510,9 @@ def test_tir_int32_const_fold():
     ftruncdiv = tvm_tirx.tirx.compile(imm_truncdiv, target="llvm")
     ftruncmod = tvm_tirx.tirx.compile(imm_truncmod, target="llvm")
 
-    # i32 overflow is not specified, only check for range
-    assert -(2**31) <= int(tirx.const(2**31 - 1, "int32") + tirx.const(1, "int32")) < 2**31
-    assert -(2**31) <= int(tirx.const(-(2**31), "int32") - tirx.const(1, "int32")) < 2**31
+    # Out-of-range exact results remain typed operations.
+    assert isinstance(tirx.const(2**31 - 1, "int32") + tirx.const(1, "int32"), tirx.Add)
+    assert isinstance(tirx.const(-(2**31), "int32") - tirx.const(1, "int32"), tirx.Sub)
 
     # divide by zero
     with pytest.raises(RuntimeError):
@@ -557,8 +588,8 @@ def test_tir_uint32_const_fold():
     ffloordiv = tvm_tirx.tirx.compile(imm_floordiv, target="llvm")
     ftruncdiv = tvm_tirx.tirx.compile(imm_truncdiv, target="llvm")
 
-    # u32 overflow is not specified, only check for range
-    assert 0 <= int(tirx.const(2**32 - 1, "uint32") + tirx.const(1, "uint32")) < 2**32
+    # Out-of-range exact results remain typed operations.
+    assert isinstance(tirx.const(2**32 - 1, "uint32") + tirx.const(1, "uint32"), tirx.Add)
 
     # divide by zero
     with pytest.raises(RuntimeError):

@@ -308,25 +308,49 @@ PrimExpr cast(PrimExpr value, PrimType t, Location loc) {
       << "Cannot cast an expression with the void sentinel type";
   // const fold IntImm as they are used in index computations
   if (dtype.IsScalar()) {
+    bool integer =
+        dtype.MatchesCode(DLDataTypeCode::kDLInt, DLDataTypeCode::kDLUInt, DLDataTypeCode::kDLBool);
     if (const IntImmNode* op = value.as<IntImmNode>()) {
-      return MakeConst(dtype, op->value, op->loc);
+      if (integer) {
+        if (details::IsRepresentable(op->value, dtype)) return IntImm(dtype, op->value, op->loc);
+      } else if (dtype.MatchesElementType(DLDataTypeCode::kDLFloat, 32)) {
+        double result = static_cast<double>(op->value);
+        // A rounded double can hide an out-of-range integer or double-round
+        // at a float32 midpoint. Defer when this intermediate is not exact.
+        if (ffi::BigInt(result) == op->value && details::IsInFloat32Range(result)) {
+          return FloatImm(dtype, static_cast<float>(result), op->loc);
+        }
+      } else {
+        return MakeConst(dtype, op->value, op->loc);
+      }
     } else if (const FloatImmNode* op = value.as<FloatImmNode>()) {
-      return MakeConst(dtype, op->value, op->loc);
+      double source = value.ty().MatchesElementType(DLDataTypeCode::kDLFloat, 32)
+                          ? static_cast<float>(op->value)
+                          : op->value;
+      if (integer) {
+        // Non-finite values cannot be converted to BigInt. Boolean casts also
+        // need to preserve nonzero testing rather than truncate a fraction.
+        if (std::isfinite(source) &&
+            (!dtype.MatchesCode(DLDataTypeCode::kDLBool) || source == 0 || source == 1)) {
+          ffi::BigInt result(source);
+          if (details::IsRepresentable(result, dtype)) {
+            return IntImm(dtype, std::move(result), op->loc);
+          }
+        }
+      } else if (dtype.MatchesElementType(DLDataTypeCode::kDLFloat, 32)) {
+        if (details::IsInFloat32Range(source)) {
+          return FloatImm(dtype, static_cast<float>(source), op->loc);
+        }
+      } else {
+        return MakeConst(dtype, source, op->loc);
+      }
     }
     return prim::Cast(std::move(t), value, loc);
   } else {
     PrimType elem_ty = dtype.WithLanes(1);
     if (!value.ty().IsScalableVector() && !value.ty().IsFixedLengthVector()) {
       // manually unroll cast
-      if (value.ty() != elem_ty) {
-        if (const IntImmNode* op = value.as<IntImmNode>()) {
-          value = MakeConst(elem_ty, op->value, op->loc);
-        } else if (const FloatImmNode* op = value.as<FloatImmNode>()) {
-          value = MakeConst(elem_ty, op->value, op->loc);
-        } else {
-          value = prim::Cast(elem_ty, value, loc);
-        }
-      }
+      value = cast(value, elem_ty, loc);
       if (dtype.IsScalableVector()) {
         return prim::Broadcast(
             value,
@@ -349,10 +373,21 @@ PrimExpr cast(PrimExpr value, PrimType t, Location loc) {
       if (const auto* broadcast = value.as<prim::BroadcastNode>()) {
         return prim::Broadcast(cast(broadcast->value, elem_ty, loc), broadcast->lanes, loc);
       } else if (const auto* ramp = value.as<prim::RampNode>()) {
-        if (dtype.MatchesCode(DLDataTypeCode::kDLInt, DLDataTypeCode::kDLUInt)) {
-          // only cast to index data type can be folded to ramp
-          return prim::Ramp(cast(ramp->base, elem_ty, loc), cast(ramp->stride, elem_ty, loc),
-                            ramp->lanes, loc);
+        // Casting a ramp's base and stride is valid only when every lane
+        // remains the same integer in both types. In particular, widening
+        // must not remove source overflow, and floating casts need not be affine.
+        const auto* base = ramp->base.as<IntImmNode>();
+        const auto* stride = ramp->stride.as<IntImmNode>();
+        if (dtype.IsFixedLengthVector() && base && stride &&
+            dtype.MatchesCode(DLDataTypeCode::kDLInt, DLDataTypeCode::kDLUInt)) {
+          ffi::BigInt last = base->value + stride->value * (dtype.lanes() - 1);
+          if (details::IsRepresentable(base->value, elem_ty) &&
+              details::IsRepresentable(stride->value, elem_ty) &&
+              details::IsRepresentable(last, elem_ty) &&
+              details::IsRepresentable(last, ramp->base.ty())) {
+            return prim::Ramp(cast(ramp->base, elem_ty, loc), cast(ramp->stride, elem_ty, loc),
+                              ramp->lanes, loc);
+          }
         }
       }
       return prim::Cast(std::move(t), value, loc);
@@ -400,10 +435,9 @@ PrimExpr neg(PrimExpr a, Location loc) {
   const FloatImmNode* fa = a.as<FloatImmNode>();
   if (pa) {
     ffi::BigInt value = -pa->value;
-    if (a.ty().MatchesCode(DLDataTypeCode::kDLInt) && a.ty().bits() >= 64) {
-      value = prim::details::GetFoldResult(std::move(value), a.ty());
+    if (prim::details::IsRepresentable(value, a.ty())) {
+      return IntImm(a.ty(), std::move(value), loc);
     }
-    return IntImm(a.ty(), std::move(value), loc);
   }
   if (fa) return FloatImm(a.ty(), -fa->value, loc);
   return MakeConst(a.ty(), 0, loc) - a;
@@ -651,8 +685,9 @@ PrimExpr left_shift(PrimExpr a, PrimExpr b, Location loc) {
           << result_ty;
     if (pa && pb) {
       ffi::BigInt value = pa->value << pb->value;
-      if (result_ty.bits() >= 64) value = prim::details::GetFoldResult(std::move(value), result_ty);
-      return IntImm(result_ty, std::move(value), loc);
+      if (prim::details::IsRepresentable(value, result_ty)) {
+        return IntImm(result_ty, std::move(value), loc);
+      }
     }
     if (pb) {
       if (pb->value == 0) return a;
@@ -733,8 +768,9 @@ PrimExpr prim::IntegerAbs(PrimExpr x, Location loc) {
   if (x.ty().MatchesCode(DLDataTypeCode::kDLInt)) {
     if (const IntImmNode* px = x.as<IntImmNode>()) {
       ffi::BigInt value = px->value < 0 ? -px->value : px->value;
-      if (x.ty().bits() >= 64) value = prim::details::GetFoldResult(std::move(value), x.ty());
-      return IntImm(x.ty(), std::move(value), px->loc);
+      if (prim::details::IsRepresentable(value, x.ty())) {
+        return IntImm(x.ty(), std::move(value), px->loc);
+      }
     }
     return Select(x >= MakeConst(x.ty(), 0), x, -x, loc);
   }

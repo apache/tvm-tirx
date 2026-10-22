@@ -669,15 +669,9 @@ UnchangedOr<PrimExpr> RewriteSimplifier::Impl::Mutate_(const prim::DivNode* op,
     // We adopt the default C division uses truncation instead of floordiv.
     // This means most rules need to check non-negativeness of the operands.
 
-    // TryConstFold doesn't work for negative cases because it is also used by legacy
-    // parts of tvm which still assume euclidean div. In this simplifier we assume that the division
-    // is truncated, so perform const folding again.
-    // NOTE: trunc div required
-    if (truncdiv(c1, c2).Match(ret)) {
-      ffi::BigInt c1val = c1.Eval()->value;
-      ffi::BigInt c2val = c2.Eval()->value;
-      return IntImm(op->ty.as_or_throw<PrimType>(), (c1val / c2val));
-    }
+    // TryConstFold already handles truncation for both signs. A declined
+    // literal division has an unrepresentable result and must remain typed.
+    if (truncdiv(c1, c2).Match(ret)) return ret;
 
     // while it is always true for trunc div
     // restrict to common case(positive div)

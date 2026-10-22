@@ -774,6 +774,8 @@ UnchangedOr<PrimExpr> CanonicalSimplifier::Impl::Mutate_(const prim::AddNode* op
 
   // const folding
   if (auto const_res = TryConstFold<prim::Add>(a, b)) return *std::move(const_res);
+  // A declined literal fold must not be materialized through canonical coefficients.
+  if (a.as<IntImmNode>() && b.as<IntImmNode>()) return prim::Add(a, b);
 
   // canonical form simplification.
   SumExpr ret = ToSumExpr(std::move(a));
@@ -799,6 +801,8 @@ UnchangedOr<PrimExpr> CanonicalSimplifier::Impl::Mutate_(const prim::SubNode* op
 
   // const folding
   if (auto const_res = TryConstFold<prim::Sub>(a, b)) return *std::move(const_res);
+  // A declined literal fold must not be materialized through canonical coefficients.
+  if (a.as<IntImmNode>() && b.as<IntImmNode>()) return prim::Sub(a, b);
 
   // canonical form simplification.
   SumExpr ret = ToSumExpr(std::move(a));
@@ -824,6 +828,8 @@ UnchangedOr<PrimExpr> CanonicalSimplifier::Impl::Mutate_(const prim::MulNode* op
 
   // const folding
   if (auto const_res = TryConstFold<prim::Mul>(a, b)) return *std::move(const_res);
+  // A declined literal fold must not be materialized through canonical coefficients.
+  if (a.as<IntImmNode>() && b.as<IntImmNode>()) return prim::Mul(a, b);
 
   // x * c
   if (a.as<IntImmNode>()) {
