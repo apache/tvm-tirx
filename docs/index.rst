@@ -23,6 +23,12 @@ Table of Contents
 
 .. toctree::
    :maxdepth: 1
+   :caption: Programming Guide
+
+   user/index
+
+.. toctree::
+   :maxdepth: 1
    :caption: Reference
 
    Python API <reference/python/index>
