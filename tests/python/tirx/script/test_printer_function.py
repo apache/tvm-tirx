@@ -289,7 +289,7 @@ def test_custom_float_types(dtype):
 
 @T.function
 def func():
-    T.evaluate(T.{dtype}(0.0))
+    T.evaluate(T.Cast("{dtype}", T.float32(0.0)))
 """
     _assert_print(func, expected_output)
 
