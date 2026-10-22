@@ -16,19 +16,17 @@
 # under the License.
 """NaN propagation, constant operands, and evaluation of host min/max."""
 
-import ctypes
-
 import numpy as np
 import pytest
 
 import tvm_tirx
 import tvm_tirx.testing
 from tvm_tirx.script import tirx as T
-from tvm_tirx.support import cc
 from tvm_tirx.testing import env
 
 
-def _load_c_module(compiled, tmp_path, **kwargs):
+def _build(module, target, tmp_path, **kwargs):
+    compiled = tvm_tirx.tirx.compile(module, target=target)
     library = str(tmp_path / "min_max.so")
     compiled.export_library(library, **kwargs)
     return tvm_tirx.runtime.load_module(library)
@@ -78,9 +76,7 @@ def test_min_max_nan_preserving(target, dtype, lanes, tmp_path):
             C[13, i] = T.min(A[i], T.cast(infinity, dtype))
             C[14, i] = T.max(A[i], T.cast(-infinity, dtype))
 
-    compiled = tvm_tirx.tirx.compile(main, target=target)
-    if target == "c":
-        compiled = _load_c_module(compiled, tmp_path)
+    compiled = _build(main, target, tmp_path)
     out = tvm_tirx.runtime.empty((15, n), dtype)
     compiled(tvm_tirx.runtime.tensor(a), tvm_tirx.runtime.tensor(b), out)
 
@@ -106,42 +102,49 @@ def test_min_max_nan_preserving(target, dtype, lanes, tmp_path):
 
 @pytest.mark.skipif(not env.has_llvm(), reason="need llvm")
 @pytest.mark.parametrize("lanes", [1, 4, "scalable"])
-@pytest.mark.parametrize("case", ["dynamic", "lhs_zero", "rhs_zero", "lhs_nan", "rhs_nan"])
-def test_llvm_min_max_constant_conditions(lanes, case):
+def test_llvm_min_max_constant_conditions(lanes):
     scalable = lanes == "scalable"
     target = {"kind": "llvm", "opt-level": 0}
     if scalable:
         target.update(mtriple="aarch64-linux-gnu", mattr=["+sve"])
-    const_value = 0.0 if case.endswith("zero") else float("nan")
     extent = 4 * tvm_tirx.tirx.vscale() if scalable else lanes
+    cases = {
+        "dynamic": {"olt", "ogt", "uno"},
+        "lhs_zero": {"olt", "ogt"},
+        "rhs_zero": {"ult", "ugt"},
+        "lhs_nan": set(),
+        "rhs_nan": {"uno"},
+    }
+    functions = {}
+    for case in cases:
+        const_value = 0.0 if case.endswith("zero") else float("nan")
 
-    @T.function
-    def main(
-        A: T.Tensor((128,), "float32"),
-        B: T.Tensor((128,), "float32"),
-        C: T.Tensor((2, 128), "float32"),
-    ):
-        index = 0 if T.constexpr(lanes == 1) else T.ramp(0, 1, extent)
-        lhs = T.float32(const_value) if T.constexpr(case.startswith("lhs")) else A[index]
-        rhs = T.float32(const_value) if T.constexpr(case.startswith("rhs")) else B[index]
-        C[0, index] = T.min(lhs, rhs)
-        C[1, index] = T.max(lhs, rhs)
+        @T.function
+        def main(
+            A: T.Tensor((128,), "float32"),
+            B: T.Tensor((128,), "float32"),
+            C: T.Tensor((2, 128), "float32"),
+        ):
+            index = 0 if T.constexpr(lanes == 1) else T.ramp(0, 1, extent)
+            lhs = T.float32(const_value) if T.constexpr(case.startswith("lhs")) else A[index]
+            rhs = T.float32(const_value) if T.constexpr(case.startswith("rhs")) else B[index]
+            C[0, index] = T.min(lhs, rhs)
+            C[1, index] = T.max(lhs, rhs)
 
-    source = tvm_tirx.tirx.compile(main, target=target).mod.inspect_source("ll")
-    comparisons = [line for line in source.splitlines() if " fcmp " in line]
-    predicates = {line.split(" fcmp ")[1].split()[0] for line in comparisons}
-    assert (
-        predicates
-        == {
-            "dynamic": {"olt", "ogt", "uno"},
-            "lhs_zero": {"olt", "ogt"},
-            "rhs_zero": {"ult", "ugt"},
-            "lhs_nan": set(),
-            "rhs_nan": {"uno"},
-        }[case]
+        functions[case] = main.with_attr("global_symbol", case)
+
+    source = tvm_tirx.tirx.compile(tvm_tirx.IRModule(functions), target=target).mod.inspect_source(
+        "ll"
     )
     llvm_type = "<vscale x 4 x float>" if scalable else "<4 x float>" if lanes == 4 else "float"
-    assert all(f" {llvm_type} " in line for line in comparisons)
+    for case, expected in cases.items():
+        # Inspect each compute function separately, excluding its packed ABI wrapper.
+        body = next(
+            part for part in source.split("\ndefine ") if f"@{case}_" in part.splitlines()[0]
+        )
+        comparisons = [line for line in body.splitlines() if " fcmp " in line]
+        assert {line.split(" fcmp ")[1].split()[0] for line in comparisons} == expected, case
+        assert all(f" {llvm_type} " in line for line in comparisons), case
 
 
 @pytest.mark.parametrize("target", ["c", "llvm"])
@@ -153,10 +156,6 @@ def test_min_max_operand_evaluation(target, tmp_path):
     helper_source.write_text(
         'extern "C" float test_min_max_increment(float* p) { float old = *p; *p += 1; return old; }'
     )
-    if target == "llvm":
-        helper_library = str(tmp_path / "increment.so")
-        cc.create_shared(helper_library, [str(helper_source)])
-        _helper = ctypes.CDLL(helper_library, mode=ctypes.RTLD_GLOBAL)
 
     @T.function
     def main(count: T.Tensor((2,), "float32"), out: T.Tensor((2,), "float32")):
@@ -169,9 +168,12 @@ def test_min_max_operand_evaluation(target, tmp_path):
             T.call_extern("test_min_max_increment", T.address_of(count[1]), ty="float32"),
         )
 
-    compiled = tvm_tirx.tirx.compile(main, target=target)
-    if target == "c":
-        compiled = _load_c_module(compiled, tmp_path, options=["-include", str(helper_source)])
+    options = (
+        {"options": ["-include", str(helper_source)]}
+        if target == "c"
+        else {"addons": [str(helper_source)]}
+    )
+    compiled = _build(main, target, tmp_path, **options)
     count = tvm_tirx.runtime.tensor(np.zeros(2, dtype="float32"))
     out = tvm_tirx.runtime.empty((2,), "float32")
     compiled(count, out)
