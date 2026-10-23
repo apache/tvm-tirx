@@ -93,8 +93,8 @@ also use variables and arithmetic.
 Expressions
 -----------
 
-With the input and result types described, expressions can represent the
-parameter and the addition itself. All expressions share two fields:
+Variables, constants, arithmetic operations, calls, and tensor reads are all
+expressions. They share two fields defined by ``ir.Expr``:
 
 * ``ty``: an ``ir.Type`` describing the expression's result. ``ir.MissingType``
   marks type information that has not yet been supplied or computed.
