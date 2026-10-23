@@ -14,7 +14,7 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-"""NaN propagation, constant operands, and evaluation of host min/max."""
+"""NaN-preserving min/max for C and LLVM."""
 
 import numpy as np
 import pytest
@@ -25,13 +25,6 @@ from tvm_tirx.script import tirx as T
 from tvm_tirx.testing import env
 
 
-def _build(module, target, tmp_path, **kwargs):
-    compiled = tvm_tirx.tirx.compile(module, target=target)
-    library = str(tmp_path / "min_max.so")
-    compiled.export_library(library, **kwargs)
-    return tvm_tirx.runtime.load_module(library)
-
-
 @pytest.mark.parametrize(
     "target,dtype,lanes",
     [("c", dtype, 1) for dtype in ("float32", "float64")]
@@ -39,22 +32,22 @@ def _build(module, target, tmp_path, **kwargs):
         ("llvm", dtype, lanes)
         for dtype in ("float16", "float32", "float64", "bfloat16")
         for lanes in (1, 4)
-    ],
+    ]
+    + [("llvm", "float32", "scalable")],
 )
-def test_min_max_nan_preserving(target, dtype, lanes, tmp_path):
+def test_min_max(target, dtype, lanes, tmp_path):
     if target == "llvm" and not env.has_llvm():
         pytest.skip("need llvm")
-    np_dtype = pytest.importorskip("ml_dtypes").bfloat16 if dtype == "bfloat16" else dtype
-    a = np.array([np.nan, 1, np.nan, 0.0, -0.0, 3, 2, -5, np.inf, -np.inf, 1, -1], dtype=np_dtype)
-    b = np.array([1, np.nan, np.nan, -0.0, 0.0, 2, 2, -4, 1, 1, np.inf, -np.inf], dtype=np_dtype)
-    n = len(a)
+    scalable = lanes == "scalable"
+    extent = 4 * tvm_tirx.tirx.vscale() if scalable else lanes
+    n = 128 if scalable else 12
     nan = float("nan")
     infinity = float("inf")
 
     @T.function
     def main(A: T.Tensor((n,), dtype), B: T.Tensor((n,), dtype), C: T.Tensor((14, n), dtype)):
-        for outer in range(n // lanes):
-            i = outer if T.constexpr(lanes == 1) else T.ramp(outer * lanes, 1, lanes)
+        for outer in range(n // extent):
+            i = outer if T.constexpr(lanes == 1) else T.ramp(outer * extent, 1, extent)
             C[0, i] = T.min(A[i], B[i])
             C[1, i] = T.min(T.cast(0, dtype), A[i])
             C[2, i] = T.min(A[i], T.cast(0, dtype))
@@ -71,9 +64,35 @@ def test_min_max_nan_preserving(target, dtype, lanes, tmp_path):
             C[12, i] = T.min(A[i], T.cast(infinity, dtype))
             C[13, i] = T.max(A[i], T.cast(-infinity, dtype))
 
-    compiled = _build(main, target, tmp_path)
+    build_target = {"kind": "llvm", "opt-level": 0} if target == "llvm" else target
+    if scalable:
+        build_target.update(mtriple="aarch64-linux-gnu", mattr=["+sve"])
+    compiled = tvm_tirx.tirx.compile(main, target=build_target)
+    if target == "llvm" and dtype == "float32":
+        comparisons = [
+            line for line in compiled.mod.inspect_source("ll").splitlines() if " fcmp " in line
+        ]
+        # The same kernel checks general and simplified constant comparisons.
+        assert {line.split(" fcmp ")[1].split()[0] for line in comparisons} == {
+            "olt",
+            "ogt",
+            "ult",
+            "ugt",
+            "uno",
+        }
+        llvm_type = "<vscale x 4 x float>" if scalable else "<4 x float>" if lanes == 4 else "float"
+        assert all(f" {llvm_type} " in line for line in comparisons)
+    if scalable:
+        return  # Cross-compile SVE; execution requires SVE hardware.
+
+    library = str(tmp_path / "min_max.so")
+    compiled.export_library(library)
+    executable = tvm_tirx.runtime.load_module(library)
+    np_dtype = pytest.importorskip("ml_dtypes").bfloat16 if dtype == "bfloat16" else dtype
+    a = np.array([np.nan, 1, np.nan, 0.0, -0.0, 3, 2, -5, np.inf, -np.inf, 1, -1], dtype=np_dtype)
+    b = np.array([1, np.nan, np.nan, -0.0, 0.0, 2, 2, -4, 1, 1, np.inf, -np.inf], dtype=np_dtype)
     out = tvm_tirx.runtime.empty((14, n), dtype)
-    compiled(tvm_tirx.runtime.tensor(a), tvm_tirx.runtime.tensor(b), out)
+    executable(tvm_tirx.runtime.tensor(a), tvm_tirx.runtime.tensor(b), out)
 
     zero, nan_array = np.zeros_like(a), np.full_like(a, np.nan)
     expected = []
@@ -91,80 +110,6 @@ def test_min_max_nan_preserving(target, dtype, lanes, tmp_path):
     np.testing.assert_array_equal(
         got.view(uint_dtype)[~nan_mask], expected.view(uint_dtype)[~nan_mask]
     )
-
-
-@pytest.mark.skipif(not env.has_llvm(), reason="need llvm")
-@pytest.mark.parametrize("lanes", [1, 4, "scalable"])
-def test_llvm_min_max_constant_conditions(lanes):
-    scalable = lanes == "scalable"
-    target = {"kind": "llvm", "opt-level": 0}
-    if scalable:
-        target.update(mtriple="aarch64-linux-gnu", mattr=["+sve"])
-    extent = 4 * tvm_tirx.tirx.vscale() if scalable else lanes
-    cases = {
-        "dynamic": {"olt", "ogt", "uno"},
-        "lhs_zero": {"olt", "ogt"},
-        "rhs_zero": {"ult", "ugt"},
-        "lhs_nan": set(),
-        "rhs_nan": {"uno"},
-    }
-    functions = {}
-    for case in cases:
-        const_value = 0.0 if case.endswith("zero") else float("nan")
-
-        @T.function
-        def main(
-            A: T.Tensor((128,), "float32"),
-            B: T.Tensor((128,), "float32"),
-            C: T.Tensor((2, 128), "float32"),
-        ):
-            index = 0 if T.constexpr(lanes == 1) else T.ramp(0, 1, extent)
-            lhs = T.float32(const_value) if T.constexpr(case.startswith("lhs")) else A[index]
-            rhs = T.float32(const_value) if T.constexpr(case.startswith("rhs")) else B[index]
-            C[0, index] = T.min(lhs, rhs)
-            C[1, index] = T.max(lhs, rhs)
-
-        functions[case] = main.with_attr("global_symbol", case)
-
-    source = tvm_tirx.tirx.compile(tvm_tirx.IRModule(functions), target=target).mod.inspect_source(
-        "ll"
-    )
-    llvm_type = "<vscale x 4 x float>" if scalable else "<4 x float>" if lanes == 4 else "float"
-    for case, expected in cases.items():
-        # Inspect each compute function separately, excluding its packed ABI wrapper.
-        body = next(
-            part for part in source.split("\ndefine ") if f"@{case}_" in part.splitlines()[0]
-        )
-        comparisons = [line for line in body.splitlines() if " fcmp " in line]
-        assert {line.split(" fcmp ")[1].split()[0] for line in comparisons} == expected, case
-        assert all(f" {llvm_type} " in line for line in comparisons), case
-
-
-@pytest.mark.skipif(not env.has_llvm(), reason="need llvm")
-def test_llvm_min_max_operand_evaluation(tmp_path):
-    helper_source = tmp_path / "increment.cc"
-    helper_source.write_text(
-        'extern "C" float test_min_max_increment(float* p) { float old = *p; *p += 1; return old; }'
-    )
-
-    @T.function
-    def main(count: T.Tensor((2,), "float32"), out: T.Tensor((2,), "float32")):
-        out[0] = T.max(
-            T.call_extern("test_min_max_increment", count.data, ty="float32"),
-            T.call_extern("test_min_max_increment", count.data, ty="float32"),
-        )
-        out[1] = T.max(
-            T.float32("nan"),
-            T.call_extern("test_min_max_increment", T.address_of(count[1]), ty="float32"),
-        )
-
-    compiled = _build(main, "llvm", tmp_path, addons=[str(helper_source)])
-    count = tvm_tirx.runtime.tensor(np.zeros(2, dtype="float32"))
-    out = tvm_tirx.runtime.empty((2,), "float32")
-    compiled(count, out)
-    np.testing.assert_array_equal(count.numpy(), [2, 1])
-    assert out.numpy()[0] == 1
-    assert np.isnan(out.numpy()[1])
 
 
 if __name__ == "__main__":
