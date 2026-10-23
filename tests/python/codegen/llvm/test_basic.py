@@ -1354,25 +1354,17 @@ def test_llvm_min_max_nan_preserving(dtype, lanes):
     if scalable:
         target.update(mtriple="aarch64-linux-gnu", mattr=["+sve"])
     compiled = tvm_tirx.tirx.compile(main, target=target)
-    if dtype == "float32":
-        comparisons = [
-            line for line in compiled.mod.inspect_source("ll").splitlines() if " fcmp " in line
-        ]
-        # Check predicate presence and scalar/vector types across the kernel.
-        assert {line.split(" fcmp ")[1].split()[0] for line in comparisons} == {
-            "olt",
-            "ogt",
-            "ult",
-            "ugt",
-            "uno",
-        }
-        if scalable:
-            llvm_type = "<vscale x 4 x float>"
-        elif lanes == 1:
-            llvm_type = "float"
-        else:
-            llvm_type = f"<{lanes} x float>"
-        assert all(f" {llvm_type} " in line for line in comparisons)
+    # BF16 arithmetic is legalized to float32 before LLVM codegen.
+    llvm_type = {"float16": "half", "float32": "float", "float64": "double", "bfloat16": "float"}[
+        dtype
+    ]
+    if scalable:
+        llvm_type = f"<vscale x 4 x {llvm_type}>"
+    elif lanes != 1:
+        llvm_type = f"<{lanes} x {llvm_type}>"
+    llvm_ir = compiled.mod.inspect_source("ll")
+    for intrinsic in ("minimum", "maximum"):
+        assert f"call {llvm_type} @llvm.{intrinsic}." in llvm_ir
     if scalable:
         return  # Cross-compile SVE; execution requires SVE hardware.
 
@@ -1386,9 +1378,15 @@ def test_llvm_min_max_nan_preserving(dtype, lanes):
     operand_pairs = ((a, b), (zero, a), (a, zero), (nan_array, a), (a, nan_array))
     expected_by_op = {}
     for name, compare in (("min", np.less), ("max", np.greater)):
-        expected_by_op[name] = [
-            np.where(compare(lhs, rhs) | np.isnan(lhs), lhs, rhs) for lhs, rhs in operand_pairs
-        ]
+        values = []
+        for lhs, rhs in operand_pairs:
+            take_lhs = compare(lhs, rhs) | np.isnan(lhs)
+            # IEEE minimum selects -0 and maximum selects +0 on a zero tie.
+            both_zero = (lhs == 0) & (rhs == 0)
+            preferred_zero = np.signbit(lhs) if name == "min" else ~np.signbit(lhs)
+            take_lhs |= both_zero & preferred_zero
+            values.append(np.where(take_lhs, lhs, rhs))
+        expected_by_op[name] = values
     expected = expected_by_op["min"] + expected_by_op["max"]
     max_ab, max_zero_a = expected_by_op["max"][:2]
     expected.extend([max_ab + np.ones_like(a), max_zero_a + np.ones_like(a)])

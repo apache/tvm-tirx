@@ -102,7 +102,6 @@
 #include <vector>
 
 #include "../build_common.h"
-#include "../min_max_utils.h"
 #include "codegen_params.h"
 #include "llvm_instance.h"
 
@@ -1649,42 +1648,18 @@ llvm::Value* CodeGenLLVM::Dispatch_(const prim::MaxNode* op) {
 }
 
 llvm::Value* CodeGenLLVM::CreateMinMax(const PrimExpr& lhs, const PrimExpr& rhs, bool is_min) {
-  // Evaluate both operands before simplifying a constant result, preserving
-  // calls with side effects even when the lhs is a constant NaN.
   llvm::Value* lhs_value = MakeValue(lhs);
   llvm::Value* rhs_value = MakeValue(rhs);
+  if (lhs_value->getType()->isFPOrFPVectorTy()) {
+    // Propagate NaNs lane-wise for scalars, fixed-length vectors, and scalable vectors.
+    // On a signed-zero tie, minimum selects -0 and maximum selects +0.
+    return is_min ? builder_->CreateMinimum(lhs_value, rhs_value)
+                  : builder_->CreateMaximum(lhs_value, rhs_value);
+  }
+
   PrimType dtype(lhs.ty()->dtype);
-  if (!lhs_value->getType()->isFPOrFPVectorTy()) {
-    llvm::Value* take_lhs =
-        is_min ? CreateLT(dtype, lhs_value, rhs_value) : CreateGT(dtype, lhs_value, rhs_value);
-    return builder_->CreateSelect(take_lhs, lhs_value, rhs_value);
-  }
-
-  // LLVM comparisons and selects operate lane-wise on both fixed-length and
-  // scalable vectors. BF16/FP8 computations are legalized before codegen.
-  // Min: (lhs < rhs || isnan(lhs)) ? lhs : rhs. Max uses > instead.
-  FloatNaNStatus lhs_nan_status = GetFloatNaNStatus(lhs);
-  FloatNaNStatus rhs_nan_status = GetFloatNaNStatus(rhs);
-  if (lhs_nan_status == FloatNaNStatus::kKnownNaN) {
-    return lhs_value;
-  }
-
-  llvm::Value* take_lhs;
-  auto ordered_cmp = is_min ? llvm::CmpInst::FCMP_OLT : llvm::CmpInst::FCMP_OGT;
-  if (lhs_nan_status == FloatNaNStatus::kKnownNotNaN) {
-    take_lhs = builder_->CreateFCmp(ordered_cmp, lhs_value, rhs_value);
-  } else if (rhs_nan_status == FloatNaNStatus::kKnownNaN) {
-    // Select lhs only when it is also NaN; otherwise select the NaN rhs.
-    take_lhs = builder_->CreateFCmpUNO(lhs_value, lhs_value);
-  } else if (rhs_nan_status == FloatNaNStatus::kKnownNotNaN) {
-    // An unordered strict comparison also selects lhs when lhs is NaN.
-    take_lhs = builder_->CreateFCmp(is_min ? llvm::CmpInst::FCMP_ULT : llvm::CmpInst::FCMP_UGT,
-                                    lhs_value, rhs_value);
-  } else {
-    // Either NaN propagates; equal values, including signed zero, select rhs.
-    take_lhs = builder_->CreateOr(builder_->CreateFCmp(ordered_cmp, lhs_value, rhs_value),
-                                  builder_->CreateFCmpUNO(lhs_value, lhs_value));
-  }
+  llvm::Value* take_lhs =
+      is_min ? CreateLT(dtype, lhs_value, rhs_value) : CreateGT(dtype, lhs_value, rhs_value);
   return builder_->CreateSelect(take_lhs, lhs_value, rhs_value);
 }
 
