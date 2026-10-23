@@ -46,7 +46,7 @@ class OpRegistry {
 
   Op GetOrCreate(const ffi::String& name) {
     if (auto op = ops_.Get(name)) return *op;
-    auto node = ffi::make_object<OpNode>();
+    auto node = ffi::make_object<OpObj>();
     node->name = name;
     node->index_ = static_cast<uint32_t>(ops_.size());
     Op op(std::move(node));
@@ -105,7 +105,7 @@ Op Op::Get(const ffi::String& name) { return OpRegistry::Global()->Get(name); }
 
 ffi::Array<ffi::String> Op::ListNames() { return OpRegistry::Global()->ListNames(); }
 
-void Op::ThrowInvalidCall(const OpNode* op) {
+void Op::ThrowInvalidCall(const OpObj* op) {
   TVM_FFI_THROW(TypeError) << "Op `" << op->name << "`: invalid Call";
 }
 
@@ -176,8 +176,8 @@ ffi::Optional<ArgumentInfo> MakeTailInfo(const ffi::Array<ffi::String>& tail) {
   return ArgumentInfo(ffi::UnsafeInit{}, std::move(info));
 }
 
-TVM_FFI_INLINE ffi::Expected<void> ValidateCountSignature(const CallNode* call) noexcept {
-  const OpNode* op = call ? call->op.as<OpNode>() : nullptr;
+TVM_FFI_INLINE ffi::Expected<void> ValidateCountSignature(const CallObj* call) noexcept {
+  const OpObj* op = call ? call->op.as<OpObj>() : nullptr;
   if (TVM_FFI_PREDICT_FALSE(!op)) {
     return TVM_FFI_UNEXPECTED(TypeError) << "Invalid Op Call";
   }
@@ -213,10 +213,10 @@ void SetOpSignature(Op op, const ffi::Array<ffi::String>& arg_names,
   auto ty_args_info = MakeArgumentInfos(ty_arg_names, ty_arg_docs);
   auto var_args_info = MakeTailInfo(var_args);
   auto var_ty_args_info = MakeTailInfo(var_ty_args);
-  auto* node = const_cast<OpNode*>(op.operator->());
+  auto* node = const_cast<OpObj*>(op.operator->());
   if (!node->validator_is_custom) {
-    using View = ffi::reflection::NativeFunctionView<void(const CallNode*)>;
-    node->validator = ffi::reflection::NativeFunction<void(const CallNode*)>::From(
+    using View = ffi::reflection::NativeFunctionView<void(const CallObj*)>;
+    node->validator = ffi::reflection::NativeFunction<void(const CallObj*)>::From(
         View::FromNative<&ValidateCountSignature>());
   }
   node->args_info = std::move(args_info);
@@ -229,18 +229,18 @@ void SetOpSignature(Op op, const ffi::Array<ffi::String>& arg_names,
 
 }  // namespace
 
-void OpNode::RegisterReflection() {
+void OpObj::RegisterReflection() {
   namespace refl = ffi::reflection;
   // clang-format off
-  refl::ObjectDef<OpNode>()
-      .def_ro("index", &OpNode::index_, refl::AttachFieldFlag::SEqHashIgnore())
-      .def_ro("name", &OpNode::name)
-      .def_ro("doc", &OpNode::doc, refl::AttachFieldFlag::SEqHashIgnore())
-      .def_ro("args_info", &OpNode::args_info, refl::AttachFieldFlag::SEqHashIgnore())
-      .def_ro("attrs_type_key", &OpNode::attrs_type_key, refl::AttachFieldFlag::SEqHashIgnore())
-      .def_ro("ty_args_info", &OpNode::ty_args_info, refl::AttachFieldFlag::SEqHashIgnore())
-      .def_ro("var_args_info", &OpNode::var_args_info, refl::AttachFieldFlag::SEqHashIgnore())
-      .def_ro("var_ty_args_info", &OpNode::var_ty_args_info, refl::AttachFieldFlag::SEqHashIgnore())
+  refl::ObjectDef<OpObj>()
+      .def_ro("index", &OpObj::index_, refl::AttachFieldFlag::SEqHashIgnore())
+      .def_ro("name", &OpObj::name)
+      .def_ro("doc", &OpObj::doc, refl::AttachFieldFlag::SEqHashIgnore())
+      .def_ro("args_info", &OpObj::args_info, refl::AttachFieldFlag::SEqHashIgnore())
+      .def_ro("attrs_type_key", &OpObj::attrs_type_key, refl::AttachFieldFlag::SEqHashIgnore())
+      .def_ro("ty_args_info", &OpObj::ty_args_info, refl::AttachFieldFlag::SEqHashIgnore())
+      .def_ro("var_args_info", &OpObj::var_args_info, refl::AttachFieldFlag::SEqHashIgnore())
+      .def_ro("var_ty_args_info", &OpObj::var_ty_args_info, refl::AttachFieldFlag::SEqHashIgnore())
       .def(
           "get_attr",
           [](Op op, ffi::String name) {
@@ -315,13 +315,13 @@ TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> OpMaybeInplaceMutate(
 TVM_FFI_STATIC_INIT_BLOCK() {
   namespace refl = ffi::reflection;
   ArgumentInfoObj::RegisterReflection();
-  OpNode::RegisterReflection();
-  refl::TypeAttrDef<OpNode>()
+  OpObj::RegisterReflection();
+  refl::TypeAttrDef<OpObj>()
       .attr(ffi::type_attr::kStructuralVisit, ffi::FStructuralVisit::FromNative<&OpVisit>())
       .attr(ffi::type_attr::kStructuralMutate, ffi::FStructuralMutate::FromNative<&OpMutate>())
       .attr(ffi::type_attr::kStructuralMaybeInplaceMutate,
             ffi::FStructuralMutate::FromNative<&OpMaybeInplaceMutate>())
-      .def(tvm::ffi::type_attr::kDataToJson.name, [](const OpNode* node) { return node->name; })
+      .def(tvm::ffi::type_attr::kDataToJson.name, [](const OpObj* node) { return node->name; })
       .def(tvm::ffi::type_attr::kDataFromJson.name, &Op::Get);
   // clang-format off
   refl::GlobalDef()

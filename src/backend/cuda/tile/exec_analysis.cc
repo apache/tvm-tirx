@@ -62,7 +62,7 @@ class ElectSyncFinder : public StmtExprVisitor {
  private:
   using StmtExprVisitor::Visit_;
 
-  ffi::Optional<VisitInterrupt> Visit_(const CallNode* op) final {
+  ffi::Optional<VisitInterrupt> Visit_(const CallObj* op) final {
     auto is_canonical_elect_sync = [&]() {
       static const Op ptx_elect_sync_op = Op::Get("tirx.cuda.elect_sync");
       return op->op.same_as(ptx_elect_sync_op);
@@ -90,7 +90,7 @@ class ScopeIdVarFinder : public StmtExprVisitor {
  private:
   using StmtExprVisitor::Visit_;
 
-  ffi::Optional<VisitInterrupt> Visit_(const VarNode* op) final {
+  ffi::Optional<VisitInterrupt> Visit_(const VarObj* op) final {
     for (const PrimVar& candidate : vars_) {
       if (candidate.get() == op) {
         found_ = true;
@@ -145,7 +145,7 @@ class CudaIndexLowerer : public StmtExprMutator {
     if (lowerer->needs_warp_) {
       int64_t threads = 1;
       for (int axis = 0; axis < 3; ++axis) {
-        auto extent = lowerer->BlockDimension(axis).as<IntImmNode>();
+        auto extent = lowerer->BlockDimension(axis).as<IntImmObj>();
         TVM_FFI_CHECK(extent, ValueError) << "Warp indices require a static block size";
         auto dimension = extent->value.as<int64_t>();
         TVM_FFI_CHECK(dimension && *dimension > 0 && *dimension <= 1024 / threads, ValueError)
@@ -178,7 +178,7 @@ class CudaIndexLowerer : public StmtExprMutator {
   }
   PrimExpr BlockDimension(int axis) {
     auto it = params_.find("threadIdx." + std::string(1, 'x' + axis));
-    if (it != params_.end() && it->second.get<1>().as<IntImmNode>()) return it->second.get<1>();
+    if (it != params_.end() && it->second.get<1>().as<IntImmObj>()) return it->second.get<1>();
     return Register("ntid." + std::string(1, 'x' + axis));
   }
   PrimExpr LinearThread() {
@@ -187,8 +187,8 @@ class CudaIndexLowerer : public StmtExprMutator {
         Axis("threadIdx.", 0) +
         BlockDimension(0) * (Axis("threadIdx.", 1) + BlockDimension(1) * Axis("threadIdx.", 2)));
   }
-  UnchangedOr<Expr> Mutate_(const CallNode* op, InplaceMode inplace_mode) final {
-    const auto* name_op = op->op.as<OpNode>();
+  UnchangedOr<Expr> Mutate_(const CallObj* op, InplaceMode inplace_mode) final {
+    const auto* name_op = op->op.as<OpObj>();
     if (!name_op) return StmtExprMutator::Mutate_(op, inplace_mode);
     std::string name(name_op->name);
     if (name.rfind("tirx.cuda.", 0) != 0) return StmtExprMutator::Mutate_(op, inplace_mode);
@@ -252,7 +252,7 @@ struct ExecAnalysis::Impl {
       for (const char* k : keys) {
         auto it = launch_params_.find(ffi::String(k));
         if (it == launch_params_.end()) continue;
-        const auto* imm = it->second.get<1>().as<IntImmNode>();
+        const auto* imm = it->second.get<1>().as<IntImmObj>();
         if (imm == nullptr) return 0;  // symbolic
         auto product = (n * imm->value).as<int64_t>();
         if (!product.has_value()) return 0;
@@ -268,7 +268,7 @@ struct ExecAnalysis::Impl {
         PrimExpr extent = it->second.get<1>();
         if (auto bound = cluster_bounds_.find(thread_key); bound != cluster_bounds_.end())
           extent = bound->second;
-        const auto* imm = extent.as<IntImmNode>();
+        const auto* imm = extent.as<IntImmObj>();
         if (imm == nullptr) return std::vector<std::pair<std::string, int64_t>>();
         auto value = imm->value.as<int64_t>();
         if (!value.has_value()) return std::vector<std::pair<std::string, int64_t>>();
@@ -340,9 +340,9 @@ struct ExecAnalysis::Impl {
   }
 
   std::optional<ScopeIdTarget> ResolveScopeIdTarget(const PrimExpr& expr) const {
-    if (auto cast = expr.as<prim::CastNode>()) return ResolveScopeIdTarget(cast->value);
-    if (auto call = expr.as<CallNode>()) {
-      const auto* op = call->op.as<OpNode>();
+    if (auto cast = expr.as<prim::CastObj>()) return ResolveScopeIdTarget(cast->value);
+    if (auto call = expr.as<CallObj>()) {
+      const auto* op = call->op.as<OpObj>();
       if (!op) return std::nullopt;
       std::string name(op->name);
       ScopeBinding binding;
@@ -387,7 +387,7 @@ struct ExecAnalysis::Impl {
       }
       return ScopeIdTarget{binding, dim, std::max(ndim, dim + 1)};
     }
-    const auto* var_node = expr.as<VarNode>();
+    const auto* var_node = expr.as<VarObj>();
     if (var_node == nullptr) return std::nullopt;
     Var var = ffi::GetRef<Var>(var_node);
     if (auto it = scope_aliases_.find(var); it != scope_aliases_.end()) return it->second;
@@ -515,7 +515,7 @@ struct ExecAnalysis::Impl {
   }
 
   static bool TryExtractIntImm(const PrimExpr& expr, int64_t* value) {
-    if (const auto* imm = expr.as<IntImmNode>()) {
+    if (const auto* imm = expr.as<IntImmObj>()) {
       if (auto value_i64 = imm->value.as<int64_t>(); value_i64.has_value()) {
         *value = *value_i64;
         return true;
@@ -626,10 +626,10 @@ struct ExecAnalysis::Impl {
   bool TryExtractModuloTarget(const PrimExpr& expr, ScopeIdTarget* target, int64_t* modulus) {
     PrimExpr lhs{ffi::UnsafeInit{}};
     PrimExpr rhs{ffi::UnsafeInit{}};
-    if (const auto* mod = expr.as<prim::ModNode>()) {
+    if (const auto* mod = expr.as<prim::ModObj>()) {
       lhs = mod->a;
       rhs = mod->b;
-    } else if (const auto* floormod = expr.as<prim::FloorModNode>()) {
+    } else if (const auto* floormod = expr.as<prim::FloorModObj>()) {
       lhs = floormod->a;
       rhs = floormod->b;
     } else {
@@ -660,41 +660,41 @@ struct ExecAnalysis::Impl {
   }
 
   bool TryPushComparisonPredicate(const PrimExpr& pred) {
-    if (const auto* eq = pred.as<prim::EQNode>()) {
+    if (const auto* eq = pred.as<prim::EQObj>()) {
       return TryPushLinearEquality(eq->a, eq->b) || TryPushModuloEquality(eq->a, eq->b);
     }
-    if (const auto* lt = pred.as<prim::LTNode>()) {
+    if (const auto* lt = pred.as<prim::LTObj>()) {
       return TryPushLinearCompare(lt->a, lt->b, /*inclusive=*/false, /*lhs_less_rhs=*/true);
     }
-    if (const auto* le = pred.as<prim::LENode>()) {
+    if (const auto* le = pred.as<prim::LEObj>()) {
       return TryPushLinearCompare(le->a, le->b, /*inclusive=*/true, /*lhs_less_rhs=*/true);
     }
-    if (const auto* gt = pred.as<prim::GTNode>()) {
+    if (const auto* gt = pred.as<prim::GTObj>()) {
       return TryPushLinearCompare(gt->a, gt->b, /*inclusive=*/false, /*lhs_less_rhs=*/false);
     }
-    if (const auto* ge = pred.as<prim::GENode>()) {
+    if (const auto* ge = pred.as<prim::GEObj>()) {
       return TryPushLinearCompare(ge->a, ge->b, /*inclusive=*/true, /*lhs_less_rhs=*/false);
     }
     return false;
   }
 
   bool TryExtractComparisonRange(const PrimExpr& pred, ScopeIdRange* range) {
-    if (const auto* eq = pred.as<prim::EQNode>()) {
+    if (const auto* eq = pred.as<prim::EQObj>()) {
       return TryExtractLinearEqualityRange(eq->a, eq->b, range);
     }
-    if (const auto* lt = pred.as<prim::LTNode>()) {
+    if (const auto* lt = pred.as<prim::LTObj>()) {
       return TryExtractLinearCompareRange(lt->a, lt->b, /*inclusive=*/false,
                                           /*lhs_less_rhs=*/true, range);
     }
-    if (const auto* le = pred.as<prim::LENode>()) {
+    if (const auto* le = pred.as<prim::LEObj>()) {
       return TryExtractLinearCompareRange(le->a, le->b, /*inclusive=*/true,
                                           /*lhs_less_rhs=*/true, range);
     }
-    if (const auto* gt = pred.as<prim::GTNode>()) {
+    if (const auto* gt = pred.as<prim::GTObj>()) {
       return TryExtractLinearCompareRange(gt->a, gt->b, /*inclusive=*/false,
                                           /*lhs_less_rhs=*/false, range);
     }
-    if (const auto* ge = pred.as<prim::GENode>()) {
+    if (const auto* ge = pred.as<prim::GEObj>()) {
       return TryExtractLinearCompareRange(ge->a, ge->b, /*inclusive=*/true,
                                           /*lhs_less_rhs=*/false, range);
     }
@@ -702,12 +702,12 @@ struct ExecAnalysis::Impl {
   }
 
   void FlattenConjuncts(const PrimExpr& pred, std::vector<PrimExpr>* out) const {
-    if (const auto* and_node = pred.as<prim::AndNode>()) {
+    if (const auto* and_node = pred.as<prim::AndObj>()) {
       FlattenConjuncts(and_node->a, out);
       FlattenConjuncts(and_node->b, out);
       return;
     }
-    if (const auto* and_node = pred.as<prim::BitwiseAndNode>()) {
+    if (const auto* and_node = pred.as<prim::BitwiseAndObj>()) {
       FlattenConjuncts(and_node->a, out);
       FlattenConjuncts(and_node->b, out);
       return;
@@ -715,7 +715,7 @@ struct ExecAnalysis::Impl {
     out->push_back(pred);
   }
 
-  int PushFilterPredicateCtx(const CallNode* call) {
+  int PushFilterPredicateCtx(const CallObj* call) {
     TVM_FFI_ICHECK_EQ(call->args.size(), 2)
         << "TIRxError: tirx.gpu_thread_filter expects (var, cond); got " << call->args.size()
         << " args";
@@ -919,10 +919,10 @@ struct ExecAnalysis::Impl {
 
   int PushPredicateCtx(const PrimExpr& pred) {
     if (ctx_stack_.empty()) return 0;
-    if (pred.as<prim::AndNode>() || pred.as<prim::BitwiseAndNode>()) {
+    if (pred.as<prim::AndObj>() || pred.as<prim::BitwiseAndObj>()) {
       return PushConjunctivePredicateCtx(pred);
     }
-    if (const auto* call = pred.as<CallNode>()) {
+    if (const auto* call = pred.as<CallObj>()) {
       if (call->op.same_as(tirx::gpu_thread_filter_op())) {
         return PushFilterPredicateCtx(call);
       }
@@ -931,7 +931,7 @@ struct ExecAnalysis::Impl {
     return 0;
   }
 
-  PrimExpr RewriteFilterCall(const CallNode* call) const {
+  PrimExpr RewriteFilterCall(const CallObj* call) const {
     TVM_FFI_ICHECK_EQ(call->args.size(), 2)
         << "TIRxError: tirx.gpu_thread_filter expects (var, cond); got " << call->args.size()
         << " args";
@@ -939,7 +939,7 @@ struct ExecAnalysis::Impl {
   }
 
   PrimExpr RewriteFilterCalls(const PrimExpr& pred) const {
-    if (const auto* and_node = pred.as<prim::AndNode>()) {
+    if (const auto* and_node = pred.as<prim::AndObj>()) {
       PrimExpr a = RewriteFilterCalls(and_node->a);
       PrimExpr b = RewriteFilterCalls(and_node->b);
       if (a.same_as(and_node->a) && b.same_as(and_node->b)) {
@@ -947,42 +947,42 @@ struct ExecAnalysis::Impl {
       }
       return PrimExpr(a && b);
     }
-    if (const auto* op = pred.as<prim::LShiftNode>()) {
+    if (const auto* op = pred.as<prim::LShiftObj>()) {
       PrimExpr a = RewriteFilterCalls(op->a);
       PrimExpr b = RewriteFilterCalls(op->b);
       if (a.same_as(op->a) && b.same_as(op->b)) return pred;
       return tvm::left_shift(a, b, op->loc);
     }
-    if (const auto* op = pred.as<prim::RShiftNode>()) {
+    if (const auto* op = pred.as<prim::RShiftObj>()) {
       PrimExpr a = RewriteFilterCalls(op->a);
       PrimExpr b = RewriteFilterCalls(op->b);
       if (a.same_as(op->a) && b.same_as(op->b)) return pred;
       return tvm::right_shift(a, b, op->loc);
     }
-    if (const auto* op = pred.as<prim::BitwiseAndNode>()) {
+    if (const auto* op = pred.as<prim::BitwiseAndObj>()) {
       PrimExpr a = RewriteFilterCalls(op->a);
       PrimExpr b = RewriteFilterCalls(op->b);
       if (a.same_as(op->a) && b.same_as(op->b)) return pred;
       return tvm::bitwise_and(a, b, op->loc);
     }
-    if (const auto* op = pred.as<prim::BitwiseOrNode>()) {
+    if (const auto* op = pred.as<prim::BitwiseOrObj>()) {
       PrimExpr a = RewriteFilterCalls(op->a);
       PrimExpr b = RewriteFilterCalls(op->b);
       if (a.same_as(op->a) && b.same_as(op->b)) return pred;
       return tvm::bitwise_or(a, b, op->loc);
     }
-    if (const auto* op = pred.as<prim::BitwiseXorNode>()) {
+    if (const auto* op = pred.as<prim::BitwiseXorObj>()) {
       PrimExpr a = RewriteFilterCalls(op->a);
       PrimExpr b = RewriteFilterCalls(op->b);
       if (a.same_as(op->a) && b.same_as(op->b)) return pred;
       return tvm::bitwise_xor(a, b, op->loc);
     }
-    if (const auto* op = pred.as<prim::BitwiseNotNode>()) {
+    if (const auto* op = pred.as<prim::BitwiseNotObj>()) {
       PrimExpr a = RewriteFilterCalls(op->a);
       if (a.same_as(op->a)) return pred;
       return prim::BitwiseNot(a, op->loc);
     }
-    if (const auto* call = pred.as<CallNode>()) {
+    if (const auto* call = pred.as<CallObj>()) {
       if (call->op.same_as(tirx::gpu_thread_filter_op())) {
         return RewriteFilterCalls(RewriteFilterCall(call));
       }

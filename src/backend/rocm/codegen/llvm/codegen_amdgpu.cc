@@ -97,15 +97,15 @@ class CodeGenAMDGPU : public CodeGenLLVM {
     function_->addFnAttr("amdgpu-flat-work-group-size", attr.str());
   }
 
-  void Dispatch_(const BindNode* op) final {
-    if (const auto* call = op->value.as<CallNode>();
+  void Dispatch_(const BindObj* op) final {
+    if (const auto* call = op->value.as<CallObj>();
         call && call->op.same_as(tirx::alloc_tensor_op())) {
       return DispatchAllocTensor(op, call);
     }
     CodeGenLLVM::Dispatch_(op);
   }
 
-  void DispatchAllocTensor(const BindNode* op, const CallNode* buffer_call) {
+  void DispatchAllocTensor(const BindObj* op, const CallObj* buffer_call) {
     static const auto scope_shared_dyn = runtime::MemoryScope::Get("shared.dyn");
     static const auto scope_local = runtime::MemoryScope::Get("local");
     static const auto scope_shared = runtime::MemoryScope::Get("shared");
@@ -122,7 +122,7 @@ class CodeGenAMDGPU : public CodeGenLLVM {
       buf = AllocateSharedMemory(PrimType(dtype), 0, 3, std::min(info.alignment, 16),
                                  llvm::GlobalValue::ExternalLinkage);
     } else {
-      const IntImmNode* dim_imm = shape->fields[0].as<IntImmNode>();
+      const IntImmObj* dim_imm = shape->fields[0].as<IntImmObj>();
       TVM_FFI_ICHECK(dim_imm) << "Can only handle constant size stack allocation in GPU";
       size_t constant_size = dim_imm->value.as<size_t>().value();
       TVM_FFI_ICHECK_GT(constant_size, 0)
@@ -208,8 +208,8 @@ class CodeGenAMDGPU : public CodeGenLLVM {
     return this->CreateCast(PrimType::Int(32), var.ty(), result);
   }
 
-  llvm::Value* CreateStorageSync(const CallNode* op) final {
-    const std::string& sync = op->args[0].as<StringImmNode>()->value;
+  llvm::Value* CreateStorageSync(const CallObj* op) final {
+    const std::string& sync = op->args[0].as<StringImmObj>()->value;
     if (sync == "warp") {
       return nullptr;
     } else if (sync == "shared") {
@@ -235,7 +235,7 @@ class CodeGenAMDGPU : public CodeGenLLVM {
 
   unsigned GetGlobalAddressSpace() const final { return 1; }
 
-  llvm::Value* CreateIntrinsic(const CallNode* op) final {
+  llvm::Value* CreateIntrinsic(const CallObj* op) final {
     if (op->op.same_as(tirx::atomic_add_op())) {
       const ffi::Array<Expr>& args = op->args;
       PrimExpr value = args[1].as_or_throw<PrimExpr>();

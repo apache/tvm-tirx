@@ -320,7 +320,7 @@ std::optional<KnownComparisonAnalyzer::Impl::Comparison> KnownComparisonAnalyzer
   PrimExpr lhs_expr = x.Eval();
   PrimExpr rhs_expr = y.Eval();
 
-  if (lhs_expr.as<IntImmNode>() && rhs_expr.as<IntImmNode>()) {
+  if (lhs_expr.as<IntImmObj>() && rhs_expr.as<IntImmObj>()) {
     return std::nullopt;
   }
 
@@ -469,8 +469,8 @@ CompareResult KnownComparisonAnalyzer::Impl::TryCompare(const PrimExpr& lhs_expr
 
   // Bail out early if possible.  This int check should have been
   // constant-folded earlier, so this check shouldn't occur.
-  auto* x_int = lhs_expr.as<IntImmNode>();
-  auto* y_int = rhs_expr.as<IntImmNode>();
+  auto* x_int = lhs_expr.as<IntImmObj>();
+  auto* y_int = rhs_expr.as<IntImmObj>();
   if (x_int && y_int) {
     if (x_int->value < y_int->value) {
       return CompareResult::kLT;

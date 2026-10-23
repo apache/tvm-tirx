@@ -83,8 +83,8 @@ class IntrinInjecter : public StmtExprMutatorWithAnalyzer {
       }
   }
 
-  UnchangedOr<Expr> Mutate_(const CallNode* op, InplaceMode inplace_mode) final {
-    if (auto* ptr_op = op->op.as<OpNode>()) {
+  UnchangedOr<Expr> Mutate_(const CallObj* op, InplaceMode inplace_mode) final {
+    if (auto* ptr_op = op->op.as<OpObj>()) {
       Op op_ref = ffi::GetRef<Op>(ptr_op);
       Expr e = ffi::GetRef<Call>(op);
       if (auto prim_e = e.as<PrimExpr>()) {
@@ -106,10 +106,10 @@ class IntrinInjecter : public StmtExprMutatorWithAnalyzer {
     return StmtExprMutatorWithAnalyzer::Mutate_(op, inplace_mode);
   }
 
-  UnchangedOr<PrimExpr> Mutate_(const prim::AddNode* op, InplaceMode inplace_mode) final {
-    if (const prim::MulNode* mb = op->b.as<prim::MulNode>()) {
+  UnchangedOr<PrimExpr> Mutate_(const prim::AddObj* op, InplaceMode inplace_mode) final {
+    if (const prim::MulObj* mb = op->b.as<prim::MulObj>()) {
       return MakeFMA(mb->a, mb->b, op->a, op);
-    } else if (const prim::MulNode* ma = op->a.as<prim::MulNode>()) {
+    } else if (const prim::MulObj* ma = op->a.as<prim::MulObj>()) {
       return MakeFMA(ma->a, ma->b, op->b, op);
     }
     return StmtExprMutatorWithAnalyzer::Mutate_(op, inplace_mode);
@@ -117,11 +117,11 @@ class IntrinInjecter : public StmtExprMutatorWithAnalyzer {
 
   // We use floordiv for integer analysis,
   // but will need to lower them to native truncdiv instructions
-  UnchangedOr<PrimExpr> Mutate_(const prim::FloorDivNode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<PrimExpr> Mutate_(const prim::FloorDivObj* op, InplaceMode inplace_mode) final {
     auto e = ffi::GetRef<PrimExpr>(op);
     PrimExpr ret = StmtExprMutatorWithAnalyzer::Mutate_(op, inplace_mode)
                        .ValueOrUnchanged(ffi::GetRef<PrimExpr>(op));
-    op = ret.as<prim::FloorDivNode>();
+    op = ret.as<prim::FloorDivObj>();
     if (op == nullptr) return ret;
     int shift;
     PrimType dtype = op->ty.as_or_throw<PrimType>();
@@ -137,7 +137,7 @@ class IntrinInjecter : public StmtExprMutatorWithAnalyzer {
       if (analyzer_->CanProveGreaterEqual(op->a, 0) || analyzer_->CanProveGreaterEqual(e, 0)) {
         return truncdiv(op->a, op->b);
       }
-      const auto* b_as_intimm = op->b.as<IntImmNode>();
+      const auto* b_as_intimm = op->b.as<IntImmObj>();
       if (auto b_value = b_as_intimm ? b_as_intimm->value.as<int64_t>() : std::nullopt;
           b_value.has_value()) {
         if (auto opt_c_value = TryFindShiftCoefficientForPositiveRange(op->a, *b_value);
@@ -182,10 +182,10 @@ class IntrinInjecter : public StmtExprMutatorWithAnalyzer {
     }
   }
 
-  UnchangedOr<PrimExpr> Mutate_(const prim::FloorModNode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<PrimExpr> Mutate_(const prim::FloorModObj* op, InplaceMode inplace_mode) final {
     PrimExpr ret = StmtExprMutatorWithAnalyzer::Mutate_(op, inplace_mode)
                        .ValueOrUnchanged(ffi::GetRef<PrimExpr>(op));
-    op = ret.as<prim::FloorModNode>();
+    op = ret.as<prim::FloorModObj>();
     if (op == nullptr) return ret;
     // Lower floordiv to native truncdiv.
     int shift;
@@ -203,7 +203,7 @@ class IntrinInjecter : public StmtExprMutatorWithAnalyzer {
       if (analyzer_->CanProveGreaterEqual(op->a, 0)) {
         return truncmod(op->a, op->b);
       }
-      const auto* b_as_intimm = op->b.as<IntImmNode>();
+      const auto* b_as_intimm = op->b.as<IntImmObj>();
       if (auto b_value = b_as_intimm ? b_as_intimm->value.as<int64_t>() : std::nullopt;
           b_value.has_value()) {
         if (auto opt_c_value = TryFindShiftCoefficientForPositiveRange(op->a, *b_value);
@@ -247,7 +247,7 @@ class IntrinInjecter : public StmtExprMutatorWithAnalyzer {
     }
   }
 
-  UnchangedOr<PrimExpr> Mutate_(const prim::MaxNode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<PrimExpr> Mutate_(const prim::MaxObj* op, InplaceMode inplace_mode) final {
     PVar<PrimExpr> x, y;
     PVar<IntImm> c;
     auto e = ffi::GetRef<PrimExpr>(op);
@@ -259,7 +259,7 @@ class IntrinInjecter : public StmtExprMutatorWithAnalyzer {
     return StmtExprMutatorWithAnalyzer::Mutate_(op, inplace_mode);
   }
 
-  UnchangedOr<PrimExpr> Mutate_(const prim::EQNode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<PrimExpr> Mutate_(const prim::EQObj* op, InplaceMode inplace_mode) final {
     PVar<PrimExpr> x, y;
     auto e = ffi::GetRef<PrimExpr>(op);
     if ((floormod(x, y) == 0).Match(e)) {
@@ -269,7 +269,7 @@ class IntrinInjecter : public StmtExprMutatorWithAnalyzer {
     return StmtExprMutatorWithAnalyzer::Mutate_(op, inplace_mode);
   }
 
-  UnchangedOr<PrimExpr> Mutate_(const prim::NENode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<PrimExpr> Mutate_(const prim::NEObj* op, InplaceMode inplace_mode) final {
     PVar<PrimExpr> x, y;
     auto e = ffi::GetRef<PrimExpr>(op);
     if ((floormod(x, y) != 0).Match(e)) {
@@ -285,8 +285,8 @@ class IntrinInjecter : public StmtExprMutatorWithAnalyzer {
     // For some targets, LLVM will generate more efficient FMA
     // instruction with the latter. For example, vmla vs. vmlal
     // on ARM.
-    if (const prim::BroadcastNode* bcast = e.as<prim::BroadcastNode>()) {
-      if (const prim::CastNode* cast = bcast->value.as<prim::CastNode>()) {
+    if (const prim::BroadcastObj* bcast = e.as<prim::BroadcastObj>()) {
+      if (const prim::CastObj* cast = bcast->value.as<prim::CastObj>()) {
         auto should_swap = [&]() {
           PrimType cast_ty = cast->ty.as_or_throw<PrimType>();
           PrimType value_ty = cast->value.ty();
@@ -317,7 +317,7 @@ class IntrinInjecter : public StmtExprMutatorWithAnalyzer {
   }
 
   PrimExpr MakeFMA(const PrimExpr& a, const PrimExpr& b, const PrimExpr& c,
-                   const prim::AddNode* op) {
+                   const prim::AddObj* op) {
     // emit fma instruction: a * b + c
     PrimExpr lhs = SwapBroadcastCast(a);
     PrimExpr rhs = SwapBroadcastCast(b);

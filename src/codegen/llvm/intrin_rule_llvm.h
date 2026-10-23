@@ -40,7 +40,7 @@ namespace codegen {
 // num_signature means number of arguments used to query signature
 template <unsigned id, int num_signature>
 inline PrimExpr DispatchLLVMPureIntrin(const PrimExpr& e) {
-  const CallNode* call = e.as<CallNode>();
+  const CallObj* call = e.as<CallObj>();
   TVM_FFI_ICHECK(call != nullptr);
   ffi::Array<PrimExpr> cargs;
   // intrin id.
@@ -58,7 +58,7 @@ inline PrimExpr DispatchLLVMPureIntrin(const PrimExpr& e) {
 
 template <unsigned id, int num_signature>
 inline PrimExpr DispatchLLVMIntrin(const PrimExpr& e) {
-  const CallNode* call = e.as<CallNode>();
+  const CallObj* call = e.as<CallObj>();
   TVM_FFI_ICHECK(call != nullptr);
   ffi::Array<Expr> cargs;
   // intrin id.

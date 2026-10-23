@@ -93,7 +93,7 @@ ffi::Map<ffi::String, ffi::Array<ffi::Any>> CollectMetadata(
         auto index_doc = reference.value()->indices[0].as<LiteralDoc>();
         if (!id || origins.count(id.value()) || !key_doc || !index_doc) return;
         auto key = key_doc.value()->value.as<ffi::String>();
-        const auto* index = index_doc.value()->value.as<IntImmNode>();
+        const auto* index = index_doc.value()->value.as<IntImmObj>();
         if (!key || key.value() != original.value()->GetTypeKey() || !index) return;
         auto slot = index->value.as<int64_t>();
         if (!slot.has_value() || slot.value() < 0) return;
@@ -197,7 +197,7 @@ void RecoverDocPaths(
   const ffi::Object* object = value.as<ffi::Object>();
   if (!object || !active->insert(object).second) return;
   std::vector<AccessPath> context = enclosing_ir_paths;
-  if (auto doc = value.as<DocNode>()) {
+  if (auto doc = value.as<DocObj>()) {
     auto origin = origins.find(object);
     if (origin != origins.end()) {
       auto candidates = ir_paths.find(origin->second.get());
@@ -213,7 +213,7 @@ void RecoverDocPaths(
         if (context.empty()) context = candidates->second;
         // Parameter wrappers provide occurrence context; the name and type
         // carry their own visible ranges.
-        if (!(function_parameter && value.as<AssignDocNode>())) {
+        if (!(function_parameter && value.as<AssignDocObj>())) {
           for (const AccessPath& path : context) {
             if (std::none_of(
                     doc->source_paths.begin(), doc->source_paths.end(),
@@ -238,7 +238,7 @@ void RecoverDocPaths(
         TVMFFIGetTypeInfo(object->type_index()), [&](const TVMFFIFieldInfo* field) {
           if (ffi::String(field->name) == "source_paths") return;
           ffi::Any children = ffi::reflection::FieldGetter(field)(object);
-          bool parameters = value.as<FunctionDocNode>() && ffi::String(field->name) == "args";
+          bool parameters = value.as<FunctionDocObj>() && ffi::String(field->name) == "args";
           if (parameters) {
             auto function_origin = origins.find(object);
             auto args = children.as<ffi::Array<AssignDoc>>();
@@ -464,7 +464,7 @@ ffi::String Script(const ffi::ObjectRef& node, const ffi::Optional<PrinterConfig
   // Builtin runtime roots keep their native repr; hooks still translate them within IR.
   if (!node.defined() || node->type_index() < ffi::TypeIndex::kTVMFFIDynObjectBegin ||
       (translate[node->type_index()].type_index() == ffi::TypeIndex::kTVMFFINone &&
-       !node.as<TypeNode>())) {
+       !node.as<TypeObj>())) {
     return RenderFallbackWithInvisiblePathInfo(ffi::ReprPrint(ffi::Any(node)), config);
   }
   return script::printer::RenderScript(node, config);

@@ -48,7 +48,7 @@ AxisRange MakeRange(int64_t extent, int64_t offset = 0, int64_t stride = 1) {
 }
 
 bool TryAsInt64(const PrimExpr& expr, int64_t* value) {
-  if (const auto* imm = expr.as<IntImmNode>()) {
+  if (const auto* imm = expr.as<IntImmObj>()) {
     if (auto value_i64 = imm->value.as<int64_t>(); value_i64.has_value()) {
       *value = *value_i64;
       return true;

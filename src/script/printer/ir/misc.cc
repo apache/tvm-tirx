@@ -40,13 +40,13 @@ namespace {
 ffi::Optional<ExprDoc> DataTypeImmDocTranslate(DocTranslatorObj*, ffi::AnyView input,
                                                const ffi::Object*) {
   const auto* imm =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const DataTypeImmNode>(input);
+      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const DataTypeImmObj>(input);
   return NamespaceDoc("tirx")->Attr("dtype")->Call(
       {LiteralDoc::DataType(imm->value, std::nullopt)});
 }
 
 TVM_FFI_STATIC_INIT_BLOCK() {
-  ffi::reflection::TypeAttrDef<DataTypeImmNode>().attr(
+  ffi::reflection::TypeAttrDef<DataTypeImmObj>().attr(
       tvm::script::printer::type_attr::kDocTranslate.name,
       FDocTranslate::FromNative<&DataTypeImmDocTranslate>());
 }

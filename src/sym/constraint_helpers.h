@@ -38,7 +38,7 @@ namespace detail {
 
 enum class CompareKind { kEQ, kLT, kLE, kGT, kGE };
 
-inline void AppendFloorDivConstraints(const prim::FloorDivNode* div, const IntImm& k,
+inline void AppendFloorDivConstraints(const prim::FloorDivObj* div, const IntImm& k,
                                       CompareKind kind, std::vector<PrimExpr>* out) {
   auto divisor = div->b.as<IntImm>();
   if (!divisor.has_value() || (*divisor)->value <= 0) return;
@@ -92,11 +92,11 @@ inline CompareKind InvertCompare(CompareKind kind) {
 
 inline void CollectFloorDivConstraintsFromCompare(const PrimExpr& lhs, const PrimExpr& rhs,
                                                   CompareKind kind, std::vector<PrimExpr>* out) {
-  if (const auto* div = lhs.as<prim::FloorDivNode>()) {
+  if (const auto* div = lhs.as<prim::FloorDivObj>()) {
     if (auto value = rhs.as<IntImm>(); value.has_value())
       AppendFloorDivConstraints(div, *value, kind, out);
   }
-  if (const auto* div = rhs.as<prim::FloorDivNode>()) {
+  if (const auto* div = rhs.as<prim::FloorDivObj>()) {
     if (auto value = lhs.as<IntImm>(); value.has_value()) {
       AppendFloorDivConstraints(div, *value, InvertCompare(kind), out);
     }
@@ -104,12 +104,12 @@ inline void CollectFloorDivConstraintsFromCompare(const PrimExpr& lhs, const Pri
 }
 
 inline void CollectDerivedConstraintFacts(const PrimExpr& condition, std::vector<PrimExpr>* out) {
-  if (const auto* and_node = condition.as<prim::AndNode>()) {
+  if (const auto* and_node = condition.as<prim::AndObj>()) {
     CollectDerivedConstraintFacts(and_node->a, out);
     CollectDerivedConstraintFacts(and_node->b, out);
     return;
   }
-  if (const auto* and_node = condition.as<prim::BitwiseAndNode>()) {
+  if (const auto* and_node = condition.as<prim::BitwiseAndObj>()) {
     if (and_node->a.ty().MatchesElementType(DLDataTypeCode::kDLBool, 8) &&
         and_node->b.ty().MatchesElementType(DLDataTypeCode::kDLBool, 8)) {
       CollectDerivedConstraintFacts(and_node->a, out);
@@ -117,15 +117,15 @@ inline void CollectDerivedConstraintFacts(const PrimExpr& condition, std::vector
       return;
     }
   }
-  if (const auto* eq = condition.as<prim::EQNode>()) {
+  if (const auto* eq = condition.as<prim::EQObj>()) {
     CollectFloorDivConstraintsFromCompare(eq->a, eq->b, CompareKind::kEQ, out);
-  } else if (const auto* lt = condition.as<prim::LTNode>()) {
+  } else if (const auto* lt = condition.as<prim::LTObj>()) {
     CollectFloorDivConstraintsFromCompare(lt->a, lt->b, CompareKind::kLT, out);
-  } else if (const auto* le = condition.as<prim::LENode>()) {
+  } else if (const auto* le = condition.as<prim::LEObj>()) {
     CollectFloorDivConstraintsFromCompare(le->a, le->b, CompareKind::kLE, out);
-  } else if (const auto* gt = condition.as<prim::GTNode>()) {
+  } else if (const auto* gt = condition.as<prim::GTObj>()) {
     CollectFloorDivConstraintsFromCompare(gt->a, gt->b, CompareKind::kGT, out);
-  } else if (const auto* ge = condition.as<prim::GENode>()) {
+  } else if (const auto* ge = condition.as<prim::GEObj>()) {
     CollectFloorDivConstraintsFromCompare(ge->a, ge->b, CompareKind::kGE, out);
   }
 }

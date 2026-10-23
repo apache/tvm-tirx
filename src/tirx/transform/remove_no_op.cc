@@ -88,11 +88,11 @@ class NoOpRemover : public StmtExprMutatorWithAnalyzer {
       : Parent(analyzer), ignore_profiler_call_(ignore_profiler_call) {}
 
  private:
-  UnchangedOr<Stmt> Mutate_(const IfNode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<Stmt> Mutate_(const IfObj* op, InplaceMode inplace_mode) final {
     Stmt stmt = Parent::Mutate_(op, inplace_mode).ValueOrUnchanged(ffi::GetRef<Stmt>(op));
-    op = stmt.as<IfNode>();
+    op = stmt.as<IfObj>();
     // Sometimes the condition can be statically determined,
-    // in which the type of the `stmt` will not be IfNode.
+    // in which the type of the `stmt` will not be IfObj.
     if (!op) {
       return stmt;
     }
@@ -116,7 +116,7 @@ class NoOpRemover : public StmtExprMutatorWithAnalyzer {
       }
     }
   }
-  UnchangedOr<Stmt> Mutate_(const ForNode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<Stmt> Mutate_(const ForObj* op, InplaceMode inplace_mode) final {
     auto extent_range =
         sym::EvalSet(Range::GetExtentFromBeginEnd(op->begin, op->end), var_range_map_);
     if (!prim::is_neg_inf(extent_range.max()) && !prim::is_pos_inf(extent_range.max()) &&
@@ -126,14 +126,14 @@ class NoOpRemover : public StmtExprMutatorWithAnalyzer {
     var_range_map_.Set(op->var, sym::IntSet::FromRange(Range(op->begin, op->end)));
     Stmt stmt = Parent::Mutate_(op, inplace_mode).ValueOrUnchanged(ffi::GetRef<Stmt>(op));
     var_range_map_.erase(op->var);
-    op = stmt.as<ForNode>();
+    op = stmt.as<ForObj>();
     if (IsZero(Range::GetExtentFromBeginEnd(op->begin, op->end))) {
       return Evaluate(0);
     }
     return tirx::IsNoOp(op->body) ? MakeEvaluate({op->begin, op->end, op->step}) : stmt;
   }
 
-  UnchangedOr<Stmt> Mutate_(const EvaluateNode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<Stmt> Mutate_(const EvaluateObj* op, InplaceMode inplace_mode) final {
     if (HasSideEffect(op->value)) {
       return ffi::Unchanged();
     } else {
@@ -146,10 +146,10 @@ class NoOpRemover : public StmtExprMutatorWithAnalyzer {
     // Variables and string literals are pure.  Preserve non-primitive calls
     // conservatively because their effect metadata is independent of the
     // call's semantic return type.
-    return value.as<CallNode>() != nullptr;
+    return value.as<CallObj>() != nullptr;
   }
 
-  UnchangedOr<Stmt> Mutate_(const TensorStoreNode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<Stmt> Mutate_(const TensorStoreObj* op, InplaceMode inplace_mode) final {
     TensorStore store = ffi::GetRef<TensorStore>(op);
 
     // Helper function that returns a statement containing only the
@@ -176,7 +176,7 @@ class NoOpRemover : public StmtExprMutatorWithAnalyzer {
 
     // If the stored value is a load from the same location, the
     // statement is a no-op, regardless of contextual information.
-    if (const TensorLoadNode* load = store->value.as<TensorLoadNode>()) {
+    if (const TensorLoadObj* load = store->value.as<TensorLoadObj>()) {
       TensorVar tensor = load->source.as_or_throw<tvm::tirx::TensorVar>();
       if (tensor.same_as(store->dest.as_or_throw<TensorVar>()) &&
           ArrayValueEqual(load->indices, store->indices)) {
@@ -201,7 +201,7 @@ class NoOpRemover : public StmtExprMutatorWithAnalyzer {
 
   bool HasSideEffect(const PrimExpr& value) {
     if (ignore_profiler_call_) {
-      if (const CallNode* call = value.as<CallNode>()) {
+      if (const CallObj* call = value.as<CallObj>()) {
         static const Op timer_init_op = Op::Get("tirx.cuda.timer_init");
         static const Op timer_start_op = Op::Get("tirx.cuda.timer_start");
         static const Op timer_end_op = Op::Get("tirx.cuda.timer_end");

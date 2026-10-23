@@ -47,7 +47,7 @@ namespace tirx {
  *
  * \sa Function
  */
-class FunctionNode : public BaseFuncNode {
+class FunctionObj : public BaseFuncObj {
  public:
   /*! \brief Function parameters */
   ffi::Array<tvm::Var> params;
@@ -58,16 +58,16 @@ class FunctionNode : public BaseFuncNode {
 
   static void RegisterReflection() {
     namespace refl = tvm::ffi::reflection;
-    refl::ObjectDef<FunctionNode>()
-        .def_ro("params", &FunctionNode::params, refl::AttachFieldFlag::SEqHashDefPattern())
-        .def_ro("ret_type", &FunctionNode::ret_type)
-        .def_ro("body", &FunctionNode::body);
-    refl::TypeAttrDef<FunctionNode>()
-        .def(tvm::ffi::type_attr::kSEqual.name, &FunctionNode::SEqual)
-        .def(tvm::ffi::type_attr::kSHash.name, &FunctionNode::SHash);
+    refl::ObjectDef<FunctionObj>()
+        .def_ro("params", &FunctionObj::params, refl::AttachFieldFlag::SEqHashDefPattern())
+        .def_ro("ret_type", &FunctionObj::ret_type)
+        .def_ro("body", &FunctionObj::body);
+    refl::TypeAttrDef<FunctionObj>()
+        .def(tvm::ffi::type_attr::kSEqual.name, &FunctionObj::SEqual)
+        .def(tvm::ffi::type_attr::kSHash.name, &FunctionObj::SHash);
   }
 
-  bool SEqual(const FunctionNode* other,
+  bool SEqual(const FunctionObj* other,
               ffi::TypedFunction<bool(AnyView, AnyView, bool, AnyView)> equal) const {
     // `ty` is derived from the signature; compare its source fields directly.
     return equal(attrs, other->attrs, false, "attrs") &&
@@ -94,12 +94,12 @@ class FunctionNode : public BaseFuncNode {
    */
   TVM_TIRX_DLL FuncType func_type_annotation() const;
 
-  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("tirx.Function", FunctionNode, BaseFuncNode);
+  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("tirx.Function", FunctionObj, BaseFuncObj);
 };
 
 /*!
- * \brief Managed reference to FunctionNode.
- * \sa FunctionNode
+ * \brief Managed reference to FunctionObj.
+ * \sa FunctionObj
  */
 class Function : public BaseFunc {
  public:
@@ -120,10 +120,10 @@ class Function : public BaseFunc {
                         Type ret_type = VoidType(), DictAttrs attrs = DictAttrs(),
                         Location loc = UnknownLoc());
 
-  explicit Function(ffi::ObjectPtr<FunctionNode> node) : BaseFunc(std::move(node)) {}
+  explicit Function(ffi::ObjectPtr<FunctionObj> node) : BaseFunc(std::move(node)) {}
 
-  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(Function, BaseFunc, FunctionNode);
-  TVM_DEFINE_OBJECT_REF_COW_METHOD(FunctionNode);
+  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(Function, BaseFunc, FunctionObj);
+  TVM_DEFINE_OBJECT_REF_COW_METHOD(FunctionObj);
 };
 
 /*!

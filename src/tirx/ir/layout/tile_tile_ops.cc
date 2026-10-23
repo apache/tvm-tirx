@@ -122,7 +122,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
       });
 }
 
-Layout layout_details::Tile(const TileLayoutNode* layout, const TileLayout& outer_in,
+Layout layout_details::Tile(const TileLayoutObj* layout, const TileLayout& outer_in,
                             const Array<PrimExpr>& outer_shape,
                             const Array<PrimExpr>& inner_shape) {
   auto outer = outer_in.Canonicalize().as<TileLayout>().value();

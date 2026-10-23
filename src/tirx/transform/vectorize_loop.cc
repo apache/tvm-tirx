@@ -60,7 +60,7 @@ int GetLanesOrVScaleFactor(const PrimType& ty) {
 
 // File-local helper: true if `expr` is a call to prim::vscale_op().
 bool IsVScaleCall(const PrimExpr& expr) {
-  if (const auto* call = expr.as<CallNode>()) {
+  if (const auto* call = expr.as<CallObj>()) {
     return call->op.same_as(prim::vscale_op());
   }
   return false;
@@ -94,7 +94,7 @@ bool TargetHasVLA(ffi::Optional<Target> target) {
 bool ContainsCallNode(const Stmt& stmt) {
   struct CallFinder : StmtExprVisitor {
     ffi::Optional<VisitInterrupt> Visit(ffi::AnyView value) final {
-      if (auto expr = value.as<PrimExpr>(); expr && expr->as<CallNode>()) {
+      if (auto expr = value.as<PrimExpr>(); expr && expr->as<CallObj>()) {
         return VisitInterrupt();
       }
       return StmtExprVisitor::Visit(value);
@@ -104,7 +104,7 @@ bool ContainsCallNode(const Stmt& stmt) {
 }
 
 PrimType GetTextureElementType(const Expr& texture) {
-  const auto* pointer_type = texture->ty.as<PtrTypeNode>();
+  const auto* pointer_type = texture->ty.as<PtrTypeObj>();
   TVM_FFI_ICHECK(pointer_type) << "Texture arguments must have PtrType";
   return pointer_type->element_type.as_or_throw<PrimType>();
 }
@@ -123,7 +123,7 @@ inline PrimExpr BroadcastTo(PrimExpr e, int lanes, bool is_scalable) {
   // Check if e is already in the expected form
   if (GetLanesOrVScaleFactor(e.ty()) == lanes && e.ty().IsScalableVector() == is_scalable) return e;
 
-  if (const prim::BroadcastNode* op = e.as<prim::BroadcastNode>()) {
+  if (const prim::BroadcastObj* op = e.as<prim::BroadcastObj>()) {
     TVM_FFI_ICHECK(op->ty.as_or_throw<PrimType>().IsScalableVector() == is_scalable)
         << "Can't broadcast between scalable and fixed length vectors.";
     int e_lanes = GetLanesOrVScaleFactor(op->ty.as_or_throw<PrimType>());
@@ -191,7 +191,7 @@ class TryPredicateTensorAccesses : public StmtExprMutator {
    */
   std::pair<bool, Stmt> Run(Stmt stmt, PrimExpr condition) {
     // Check that the condition provided is of the form a < b, for now.
-    if (!condition->IsInstance<prim::LTNode>()) {
+    if (!condition->IsInstance<prim::LTObj>()) {
       return {false, stmt};
     }
 
@@ -199,7 +199,7 @@ class TryPredicateTensorAccesses : public StmtExprMutator {
 
     // Check the form of the vectorized condition, we're expecting
     // Ramp(...) < Broadcast(...)
-    if (!lt->a->IsInstance<prim::RampNode>() || !lt->b->IsInstance<prim::BroadcastNode>()) {
+    if (!lt->a->IsInstance<prim::RampObj>() || !lt->b->IsInstance<prim::BroadcastObj>()) {
       return {false, stmt};
     }
 
@@ -221,21 +221,21 @@ class TryPredicateTensorAccesses : public StmtExprMutator {
  private:
   using StmtExprMutator::Mutate_;
 
-  UnchangedOr<PrimExpr> Mutate_(const TensorLoadNode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<PrimExpr> Mutate_(const TensorLoadObj* op, InplaceMode inplace_mode) final {
     auto load = StmtExprMutator::Mutate_(op, inplace_mode)
                     .ValueOrUnchanged(ffi::GetRef<PrimExpr>(op))
                     .as_or_throw<TensorLoad>();
     return TryPredicateTensorAccess(load);
   }
 
-  UnchangedOr<Stmt> Mutate_(const TensorStoreNode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<Stmt> Mutate_(const TensorStoreObj* op, InplaceMode inplace_mode) final {
     auto store = StmtExprMutator::Mutate_(op, inplace_mode)
                      .ValueOrUnchanged(ffi::GetRef<Stmt>(op))
                      .as_or_throw<TensorStore>();
     return TryPredicateTensorAccess(store);
   }
 
-  UnchangedOr<Expr> Mutate_(const CallNode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<Expr> Mutate_(const CallObj* op, InplaceMode inplace_mode) final {
     Call call = StmtExprMutator::Mutate_(op, inplace_mode)
                     .ValueOrUnchanged(ffi::GetRef<Expr>(op))
                     .as_or_throw<Call>();
@@ -262,7 +262,7 @@ class TryPredicateTensorAccesses : public StmtExprMutator {
     num_accesses_analyzed_ += 1;
 
     // Do not try to predicate non-vectorized accesses
-    if (!indices.size() || !indices[0]->IsInstance<prim::RampNode>()) {
+    if (!indices.size() || !indices[0]->IsInstance<prim::RampObj>()) {
       return std::nullopt;
     }
     prim::Ramp ramp = indices[0].as_or_throw<prim::Ramp>();
@@ -345,10 +345,10 @@ class VecAllocAccess : public StmtExprMutator {
  public:
   using StmtExprMutator::Mutate_;
 
-  VecAllocAccess(const VarNode* buf, Var var, PrimExpr var_lanes)
+  VecAllocAccess(const VarObj* buf, Var var, PrimExpr var_lanes)
       : buf_(buf), var_(var), var_lanes_(var_lanes) {}
 
-  UnchangedOr<PrimExpr> Mutate_(const TensorLoadNode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<PrimExpr> Mutate_(const TensorLoadObj* op, InplaceMode inplace_mode) final {
     auto indices =
         Mutate(op->indices, inplace_mode).as_or_throw<UnchangedOr<ffi::Array<PrimExpr>>>();
     TensorLoad load = indices.UnchangedOrSameAs(op->indices)
@@ -358,7 +358,7 @@ class VecAllocAccess : public StmtExprMutator {
     return UpdateTensorAccess(load);
   }
 
-  UnchangedOr<Stmt> Mutate_(const TensorStoreNode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<Stmt> Mutate_(const TensorStoreObj* op, InplaceMode inplace_mode) final {
     auto value = Mutate(op->value, inplace_mode);
     auto indices =
         Mutate(op->indices, inplace_mode).as_or_throw<UnchangedOr<ffi::Array<PrimExpr>>>();
@@ -396,8 +396,8 @@ class VecAllocAccess : public StmtExprMutator {
       // flattening, the strides are not technically necessary, but
       // are updated for consistency.
 
-      auto type = ffi::make_object<TensorTypeNode>(
-          *node->dest.template as_or_throw<TensorVar>().ty().get());
+      auto type =
+          ffi::make_object<TensorTypeObj>(*node->dest.template as_or_throw<TensorVar>().ty().get());
       WidenLayout(type.get(), shape);
       type->shape = shape;
       buf =
@@ -428,7 +428,7 @@ class VecAllocAccess : public StmtExprMutator {
     } else {
       ffi::Array<PrimExpr> shape = tensor.shape();
       shape.Set(shape.size() - 1, analyzer_->Simplify(shape.back() * var_lanes_));
-      auto type = ffi::make_object<TensorTypeNode>(*tensor.ty().get());
+      auto type = ffi::make_object<TensorTypeObj>(*tensor.ty().get());
       WidenLayout(type.get(), shape);
       type->shape = shape;
       buf = TensorVar(tensor->name, TensorType(std::move(type)), tensor->loc);
@@ -440,11 +440,11 @@ class VecAllocAccess : public StmtExprMutator {
     return TensorLoad(buf, indices, node->loc);
   }
 
-  void WidenLayout(TensorTypeNode* type, const ffi::Array<PrimExpr>& shape) {
+  void WidenLayout(TensorTypeObj* type, const ffi::Array<PrimExpr>& shape) {
     if (!type->layout.has_value()) return;
     auto tile = type->layout.value().as_or_throw<TileLayout>();
     TVM_FFI_CHECK(
-        MatchShapeStridePattern(TensorType(ffi::make_object<TensorTypeNode>(*type))).has_value(),
+        MatchShapeStridePattern(TensorType(ffi::make_object<TensorTypeObj>(*type))).has_value(),
         ValueError)
         << "Vectorized allocation requires a regular memory layout";
     ffi::Array<Iter> shard;
@@ -458,7 +458,7 @@ class VecAllocAccess : public StmtExprMutator {
   }
 
   // tensor var
-  const VarNode* buf_;
+  const VarObj* buf_;
   // variable to be replaced
   Var var_;
   // the lanes.
@@ -483,7 +483,7 @@ class Vectorizer : public StmtExprMutator {
   // Rewriting may change vector dtypes and later request scalarization of the
   // original statement.  Keep the complete speculative traversal out of place.
   UnchangedOr<ffi::Any> Mutate(ffi::AnyView value, InplaceMode inplace_mode) final {
-    if (const auto* stmt = value.as<StmtNode>()) {
+    if (const auto* stmt = value.as<StmtObj>()) {
       TVM_FFI_ICHECK(!need_scalarize_);
       auto result = StmtExprMutator::Mutate(value, InplaceMode::kDisallow);
       if (need_scalarize_) {
@@ -495,45 +495,45 @@ class Vectorizer : public StmtExprMutator {
     return StmtExprMutator::Mutate(value, InplaceMode::kDisallow);
   }
 
-  UnchangedOr<Expr> Mutate_(const OpaqueExprNode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<Expr> Mutate_(const OpaqueExprObj* op, InplaceMode inplace_mode) final {
     TVM_FFI_THROW(InternalError) << "Do not have a default for " << op->GetTypeKey();
     TVM_FFI_UNREACHABLE();
   }
 
-  UnchangedOr<Expr> Mutate_(const TupleNode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<Expr> Mutate_(const TupleObj* op, InplaceMode inplace_mode) final {
     TVM_FFI_THROW(InternalError) << "Do not have a default for " << op->GetTypeKey();
     TVM_FFI_UNREACHABLE();
   }
 
-  UnchangedOr<Expr> Mutate_(const TupleGetItemNode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<Expr> Mutate_(const TupleGetItemObj* op, InplaceMode inplace_mode) final {
     TVM_FFI_THROW(InternalError) << "Do not have a default for " << op->GetTypeKey();
     TVM_FFI_UNREACHABLE();
   }
 
-  UnchangedOr<Expr> Mutate_(const TensorRegionNode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<Expr> Mutate_(const TensorRegionObj* op, InplaceMode inplace_mode) final {
     TVM_FFI_THROW(InternalError) << "Do not have a default for " << op->GetTypeKey();
     TVM_FFI_UNREACHABLE();
   }
 
-  UnchangedOr<Expr> Mutate_(const GlobalVarNode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<Expr> Mutate_(const GlobalVarObj* op, InplaceMode inplace_mode) final {
     TVM_FFI_THROW(InternalError) << "Do not have a default for " << op->GetTypeKey();
     TVM_FFI_UNREACHABLE();
   }
 
-  UnchangedOr<Expr> Mutate_(const OpNode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<Expr> Mutate_(const OpObj* op, InplaceMode inplace_mode) final {
     TVM_FFI_THROW(InternalError) << "Do not have a default for " << op->GetTypeKey();
     TVM_FFI_UNREACHABLE();
   }
 
-  UnchangedOr<PrimExpr> Mutate_(const prim::AddNode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<PrimExpr> Mutate_(const prim::AddObj* op, InplaceMode inplace_mode) final {
     return AddSubVec(op, [](PrimExpr a, PrimExpr b) { return a + b; }, inplace_mode);
   }
 
-  UnchangedOr<PrimExpr> Mutate_(const prim::SubNode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<PrimExpr> Mutate_(const prim::SubObj* op, InplaceMode inplace_mode) final {
     return AddSubVec(op, [](PrimExpr a, PrimExpr b) { return a - b; }, inplace_mode);
   }
 
-  UnchangedOr<PrimExpr> Mutate_(const prim::MulNode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<PrimExpr> Mutate_(const prim::MulObj* op, InplaceMode inplace_mode) final {
     auto a_update = this->Mutate(op->a, inplace_mode);
     bool a_unchanged = a_update.UnchangedOrSameAs(op->a);
     PrimExpr a = std::move(a_update).ValueOrUnchanged(op->a);
@@ -551,8 +551,8 @@ class Vectorizer : public StmtExprMutator {
             << "Fixed length and scalable vectors can't be mixed in multiplication.";
       }
       if (is_vec_a || is_vec_b) {
-        const prim::RampNode* b_ramp = b.as<prim::RampNode>();
-        const prim::RampNode* a_ramp = a.as<prim::RampNode>();
+        const prim::RampObj* b_ramp = b.as<prim::RampObj>();
+        const prim::RampObj* a_ramp = a.as<prim::RampObj>();
         if (a_ramp && b.ty().IsScalar() && analyzer_->CanProve(b > 0)) {
           PrimExpr lanes = a_ramp->lanes;
           return prim::Ramp(a_ramp->base * b, a_ramp->stride * b, lanes);
@@ -571,72 +571,72 @@ class Vectorizer : public StmtExprMutator {
     }
     return BinaryVec<prim::Mul>(op, inplace_mode);
   }
-  UnchangedOr<PrimExpr> Mutate_(const prim::DivNode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<PrimExpr> Mutate_(const prim::DivObj* op, InplaceMode inplace_mode) final {
     return BinaryVec<prim::Div>(op, inplace_mode);
   }
-  UnchangedOr<PrimExpr> Mutate_(const prim::ModNode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<PrimExpr> Mutate_(const prim::ModObj* op, InplaceMode inplace_mode) final {
     return BinaryVec<prim::Mod>(op, inplace_mode);
   }
-  UnchangedOr<PrimExpr> Mutate_(const prim::FloorDivNode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<PrimExpr> Mutate_(const prim::FloorDivObj* op, InplaceMode inplace_mode) final {
     return BinaryVec<prim::FloorDiv>(op, inplace_mode);
   }
-  UnchangedOr<PrimExpr> Mutate_(const prim::FloorModNode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<PrimExpr> Mutate_(const prim::FloorModObj* op, InplaceMode inplace_mode) final {
     return BinaryVec<prim::FloorMod>(op, inplace_mode);
   }
-  UnchangedOr<PrimExpr> Mutate_(const prim::MinNode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<PrimExpr> Mutate_(const prim::MinObj* op, InplaceMode inplace_mode) final {
     return BinaryVec<prim::Min>(op, inplace_mode);
   }
-  UnchangedOr<PrimExpr> Mutate_(const prim::MaxNode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<PrimExpr> Mutate_(const prim::MaxObj* op, InplaceMode inplace_mode) final {
     return BinaryVec<prim::Max>(op, inplace_mode);
   }
-  UnchangedOr<PrimExpr> Mutate_(const prim::EQNode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<PrimExpr> Mutate_(const prim::EQObj* op, InplaceMode inplace_mode) final {
     return BinaryVec<prim::EQ>(op, inplace_mode);
   }
-  UnchangedOr<PrimExpr> Mutate_(const prim::NENode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<PrimExpr> Mutate_(const prim::NEObj* op, InplaceMode inplace_mode) final {
     return BinaryVec<prim::NE>(op, inplace_mode);
   }
-  UnchangedOr<PrimExpr> Mutate_(const prim::LTNode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<PrimExpr> Mutate_(const prim::LTObj* op, InplaceMode inplace_mode) final {
     return BinaryVec<prim::LT>(op, inplace_mode);
   }
-  UnchangedOr<PrimExpr> Mutate_(const prim::LENode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<PrimExpr> Mutate_(const prim::LEObj* op, InplaceMode inplace_mode) final {
     return BinaryVec<prim::LE>(op, inplace_mode);
   }
-  UnchangedOr<PrimExpr> Mutate_(const prim::GTNode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<PrimExpr> Mutate_(const prim::GTObj* op, InplaceMode inplace_mode) final {
     return BinaryVec<prim::GT>(op, inplace_mode);
   }
-  UnchangedOr<PrimExpr> Mutate_(const prim::GENode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<PrimExpr> Mutate_(const prim::GEObj* op, InplaceMode inplace_mode) final {
     return BinaryVec<prim::GE>(op, inplace_mode);
   }
-  UnchangedOr<PrimExpr> Mutate_(const prim::AndNode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<PrimExpr> Mutate_(const prim::AndObj* op, InplaceMode inplace_mode) final {
     return BinaryVec<prim::And>(op, inplace_mode);
   }
-  UnchangedOr<PrimExpr> Mutate_(const prim::OrNode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<PrimExpr> Mutate_(const prim::OrObj* op, InplaceMode inplace_mode) final {
     return BinaryVec<prim::Or>(op, inplace_mode);
   }
 
-  UnchangedOr<PrimExpr> Mutate_(const prim::LShiftNode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<PrimExpr> Mutate_(const prim::LShiftObj* op, InplaceMode inplace_mode) final {
     return BinaryVec<prim::LShift>(op, inplace_mode);
   }
-  UnchangedOr<PrimExpr> Mutate_(const prim::RShiftNode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<PrimExpr> Mutate_(const prim::RShiftObj* op, InplaceMode inplace_mode) final {
     return BinaryVec<prim::RShift>(op, inplace_mode);
   }
-  UnchangedOr<PrimExpr> Mutate_(const prim::BitwiseAndNode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<PrimExpr> Mutate_(const prim::BitwiseAndObj* op, InplaceMode inplace_mode) final {
     return BinaryVec<prim::BitwiseAnd>(op, inplace_mode);
   }
-  UnchangedOr<PrimExpr> Mutate_(const prim::BitwiseOrNode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<PrimExpr> Mutate_(const prim::BitwiseOrObj* op, InplaceMode inplace_mode) final {
     return BinaryVec<prim::BitwiseOr>(op, inplace_mode);
   }
-  UnchangedOr<PrimExpr> Mutate_(const prim::BitwiseXorNode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<PrimExpr> Mutate_(const prim::BitwiseXorObj* op, InplaceMode inplace_mode) final {
     return BinaryVec<prim::BitwiseXor>(op, inplace_mode);
   }
 
-  UnchangedOr<PrimExpr> Mutate_(const prim::BitwiseNotNode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<PrimExpr> Mutate_(const prim::BitwiseNotObj* op, InplaceMode inplace_mode) final {
     auto a = this->Mutate(op->a, inplace_mode);
     if (a.UnchangedOrSameAs(op->a)) return ffi::Unchanged();
     return prim::BitwiseNot(std::move(a).ValueOrUnchanged(op->a), op->loc);
   }
 
-  UnchangedOr<PrimExpr> Mutate_(const prim::NotNode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<PrimExpr> Mutate_(const prim::NotObj* op, InplaceMode inplace_mode) final {
     auto a_update = this->Mutate(op->a, inplace_mode);
     bool a_unchanged = a_update.UnchangedOrSameAs(op->a);
     PrimExpr a = std::move(a_update).ValueOrUnchanged(op->a);
@@ -647,7 +647,7 @@ class Vectorizer : public StmtExprMutator {
     }
   }
 
-  UnchangedOr<PrimExpr> Mutate_(const prim::RampNode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<PrimExpr> Mutate_(const prim::RampObj* op, InplaceMode inplace_mode) final {
     PrimExpr base = this->Mutate(op->base, inplace_mode).ValueOrUnchanged(op->base);
     PrimExpr stride = this->Mutate(op->stride, inplace_mode).ValueOrUnchanged(op->stride);
     TVM_FFI_ICHECK(!base.ty().IsScalableVector())
@@ -655,9 +655,9 @@ class Vectorizer : public StmtExprMutator {
     TVM_FFI_ICHECK(!stride.ty().IsScalableVector())
         << "Ramp stride with scalable dtype is not supported";
     if (base.ty().IsFixedLengthVector() && stride.ty().IsScalar()) {
-      TVM_FFI_ICHECK(op->lanes->IsInstance<IntImmNode>())
+      TVM_FFI_ICHECK(op->lanes->IsInstance<IntImmObj>())
           << "Vectorizing over existing scalable vectors is not supported.";
-      const prim::RampNode* base_ramp = base.as<prim::RampNode>();
+      const prim::RampObj* base_ramp = base.as<prim::RampObj>();
       int op_lanes = op->lanes.as_or_throw<IntImm>()->value.as<int>().value();
       int base_ramp_lanes = base_ramp->lanes.as_or_throw<IntImm>()->value.as<int>().value();
       if (analyzer_->CanProve(base_ramp->stride ==
@@ -676,7 +676,7 @@ class Vectorizer : public StmtExprMutator {
     return prim::Shuffle::Concat(elems);
   }
 
-  UnchangedOr<PrimExpr> Mutate_(const prim::BroadcastNode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<PrimExpr> Mutate_(const prim::BroadcastObj* op, InplaceMode inplace_mode) final {
     auto value_update = this->Mutate(op->value, inplace_mode);
     bool value_unchanged = value_update.UnchangedOrSameAs(op->value);
     PrimExpr value = std::move(value_update).ValueOrUnchanged(op->value);
@@ -691,7 +691,7 @@ class Vectorizer : public StmtExprMutator {
     }
   }
 
-  UnchangedOr<PrimExpr> Mutate_(const prim::SelectNode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<PrimExpr> Mutate_(const prim::SelectObj* op, InplaceMode inplace_mode) final {
     auto cond_update = this->Mutate(op->condition, inplace_mode);
     bool cond_unchanged = cond_update.UnchangedOrSameAs(op->condition);
     PrimExpr cond = std::move(cond_update).ValueOrUnchanged(op->condition);
@@ -715,7 +715,7 @@ class Vectorizer : public StmtExprMutator {
     }
   }
 
-  UnchangedOr<PrimExpr> Mutate_(const prim::CastNode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<PrimExpr> Mutate_(const prim::CastObj* op, InplaceMode inplace_mode) final {
     auto value_update = this->Mutate(op->value, inplace_mode);
     bool value_unchanged = value_update.UnchangedOrSameAs(op->value);
     PrimExpr value = std::move(value_update).ValueOrUnchanged(op->value);
@@ -734,7 +734,7 @@ class Vectorizer : public StmtExprMutator {
   }
 
   // If expr
-  PrimExpr MutateIfThenElseExpr_(const CallNode* op, InplaceMode inplace_mode) {
+  PrimExpr MutateIfThenElseExpr_(const CallObj* op, InplaceMode inplace_mode) {
     PrimExpr cond = this->Mutate(op->args[0].as_or_throw<PrimExpr>())
                         .ValueOrUnchanged(op->args[0].as_or_throw<PrimExpr>());
     if (cond.ty().IsScalableVector() || cond.ty().IsFixedLengthVector()) {
@@ -766,7 +766,7 @@ class Vectorizer : public StmtExprMutator {
     }
   }
   // Reinterpret expr
-  PrimExpr MutateReinterpretExpr_(const CallNode* op, InplaceMode inplace_mode) {
+  PrimExpr MutateReinterpretExpr_(const CallObj* op, InplaceMode inplace_mode) {
     TVM_FFI_ICHECK(op->op.same_as(tirx::reinterpret_op()));
     PrimExpr input = op->args[0].as_or_throw<PrimExpr>();
     PrimExpr value = this->Mutate(input).ValueOrUnchanged(input);
@@ -790,7 +790,7 @@ class Vectorizer : public StmtExprMutator {
     }
   }
   // Call
-  UnchangedOr<Expr> Mutate_(const CallNode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<Expr> Mutate_(const CallObj* op, InplaceMode inplace_mode) final {
     auto optional_ret_ty = op->ty.as<PrimType>();
     if (!optional_ret_ty) {
       // Non-primitive calls are not vectorized themselves.  Visit their general Expr operands
@@ -820,7 +820,7 @@ class Vectorizer : public StmtExprMutator {
       ffi::Array<PrimExpr> fcd =
           MutateArray({op->args.back().as_or_throw<PrimExpr>()}, &lane, inplace_mode);
       PrimType dtype = GetTextureElementType(op->args[0]);
-      TVM_FFI_ICHECK(lane * dtype.bits() <= op->args[4].as<IntImmNode>()->value)
+      TVM_FFI_ICHECK(lane * dtype.bits() <= op->args[4].as<IntImmObj>()->value)
           << "Expected Data to be Read is lesser than or equal to Texture Load length";
 
       auto new_args = op->args;
@@ -833,7 +833,7 @@ class Vectorizer : public StmtExprMutator {
       ffi::Array<PrimExpr> value{op->args.back().as_or_throw<PrimExpr>()};
       ffi::Array<PrimExpr> mutated_value = MutateArray(value, &lane, inplace_mode);
       PrimType dtype = GetTextureElementType(op->args[0]);
-      TVM_FFI_ICHECK(lane * dtype.bits() == op->args[4].as<IntImmNode>()->value)
+      TVM_FFI_ICHECK(lane * dtype.bits() == op->args[4].as<IntImmObj>()->value)
           << "Expected Data to be Written equal to Texture Store length";
       ffi::Array<Expr> new_args = op->args;
       new_args.Set(new_args.size() - 1, mutated_value[0]);
@@ -892,7 +892,7 @@ class Vectorizer : public StmtExprMutator {
     }
   }
   // TensorLoad
-  UnchangedOr<PrimExpr> Mutate_(const TensorLoadNode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<PrimExpr> Mutate_(const TensorLoadObj* op, InplaceMode inplace_mode) final {
     auto load = ffi::GetRef<TensorLoad>(op);
 
     auto fmutate = [this](const PrimExpr& index) {
@@ -907,7 +907,7 @@ class Vectorizer : public StmtExprMutator {
     return load;
   }
   // Let
-  UnchangedOr<PrimExpr> Mutate_(const prim::LetNode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<PrimExpr> Mutate_(const prim::LetObj* op, InplaceMode inplace_mode) final {
     auto value_update = this->Mutate(op->value, inplace_mode);
     bool value_unchanged = value_update.UnchangedOrSameAs(op->value);
     PrimExpr value = std::move(value_update).ValueOrUnchanged(op->value);
@@ -939,9 +939,9 @@ class Vectorizer : public StmtExprMutator {
       }
     }
   }
-  UnchangedOr<PrimExpr> Mutate_(const prim::ShuffleNode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<PrimExpr> Mutate_(const prim::ShuffleObj* op, InplaceMode inplace_mode) final {
     TVM_FFI_ICHECK(op->vectors.size() == 1 && op->indices.size() == 1)
-        << "Cannot vectorize ShuffleNode with multiple vectors or indices: the vector size is "
+        << "Cannot vectorize ShuffleObj with multiple vectors or indices: the vector size is "
         << op->vectors.size() << " and the index size is " << op->indices.size();
     int lane_vectors = 0;
     int lane_indices = 0;
@@ -957,29 +957,29 @@ class Vectorizer : public StmtExprMutator {
     // Check that the indices satisfy the specific patterns.
     auto f_check_index = [this, op](const PrimExpr& index) {
       // Allowing Ramp(0, 1, var_lanes_)
-      if (const auto* ramp = index.as<prim::RampNode>()) {
-        if (ramp->base->IsInstance<IntImmNode>() && ramp->base.as_or_throw<IntImm>()->value == 0 &&
-            ramp->stride->IsInstance<IntImmNode>() &&
+      if (const auto* ramp = index.as<prim::RampObj>()) {
+        if (ramp->base->IsInstance<IntImmObj>() && ramp->base.as_or_throw<IntImm>()->value == 0 &&
+            ramp->stride->IsInstance<IntImmObj>() &&
             ramp->stride.as_or_throw<IntImm>()->value == 1 &&
-            ramp->lanes->IsInstance<IntImmNode>() &&
+            ramp->lanes->IsInstance<IntImmObj>() &&
             ramp->lanes.as_or_throw<IntImm>()->value == var_lanes_.as_or_throw<IntImm>()->value) {
           return true;
         }
       }
       // Allowing FloorMod(Ramp(0, 1, var_lanes_), Broadcast(op->vectors[0]->lanes, var_lanes_))
-      if (const auto* floordiv = index.as<prim::FloorModNode>()) {
-        if (const auto* ramp = floordiv->a.as<prim::RampNode>()) {
-          if (const auto* broadcast = floordiv->b.as<prim::BroadcastNode>()) {
-            if (ramp->base->IsInstance<IntImmNode>() &&
+      if (const auto* floordiv = index.as<prim::FloorModObj>()) {
+        if (const auto* ramp = floordiv->a.as<prim::RampObj>()) {
+          if (const auto* broadcast = floordiv->b.as<prim::BroadcastObj>()) {
+            if (ramp->base->IsInstance<IntImmObj>() &&
                 ramp->base.as_or_throw<IntImm>()->value == 0 &&
-                ramp->stride->IsInstance<IntImmNode>() &&
+                ramp->stride->IsInstance<IntImmObj>() &&
                 ramp->stride.as_or_throw<IntImm>()->value == 1 &&
-                ramp->lanes->IsInstance<IntImmNode>() &&
+                ramp->lanes->IsInstance<IntImmObj>() &&
                 ramp->lanes.as_or_throw<IntImm>()->value ==
                     var_lanes_.as_or_throw<IntImm>()->value &&
-                broadcast->value->IsInstance<IntImmNode>() &&
+                broadcast->value->IsInstance<IntImmObj>() &&
                 broadcast->value.as_or_throw<IntImm>()->value == op->vectors[0].ty().lanes() &&
-                broadcast->lanes->IsInstance<IntImmNode>() &&
+                broadcast->lanes->IsInstance<IntImmObj>() &&
                 broadcast->lanes.as_or_throw<IntImm>()->value ==
                     var_lanes_.as_or_throw<IntImm>()->value) {
               return true;
@@ -1015,7 +1015,7 @@ class Vectorizer : public StmtExprMutator {
     }
   }
   // TensorStore
-  UnchangedOr<Stmt> Mutate_(const TensorStoreNode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<Stmt> Mutate_(const TensorStoreObj* op, InplaceMode inplace_mode) final {
     auto store = ffi::GetRef<TensorStore>(op);
 
     auto fmutate = [this](const PrimExpr& index) {
@@ -1071,7 +1071,7 @@ class Vectorizer : public StmtExprMutator {
     return store;
   }
   // For
-  UnchangedOr<Stmt> Mutate_(const ForNode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<Stmt> Mutate_(const ForObj* op, InplaceMode inplace_mode) final {
     if (op->kind == ForKind::kVectorized) {
       LOG(WARNING) << "Detect vectorize inside vectorized loop, ignoring...";
     }
@@ -1091,7 +1091,7 @@ class Vectorizer : public StmtExprMutator {
     if (end_unchanged && step.same_as(op->step) && body_unchanged) {
       return ffi::Unchanged();
     } else {
-      auto n = ffi::make_object<ForNode>(*op);
+      auto n = ffi::make_object<ForObj>(*op);
       n->end = end;
       n->step = step;
       n->body = body;
@@ -1099,7 +1099,7 @@ class Vectorizer : public StmtExprMutator {
     }
   }
   // If
-  UnchangedOr<Stmt> Mutate_(const IfNode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<Stmt> Mutate_(const IfObj* op, InplaceMode inplace_mode) final {
     TVM_FFI_ICHECK(!op->condition.ty().IsScalableVector() &&
                    !op->condition.ty().IsFixedLengthVector());
     auto condition_update = this->Mutate(op->condition, inplace_mode);
@@ -1141,12 +1141,12 @@ class Vectorizer : public StmtExprMutator {
     }
   }
   // While
-  UnchangedOr<Stmt> Mutate_(const WhileNode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<Stmt> Mutate_(const WhileObj* op, InplaceMode inplace_mode) final {
     TVM_FFI_THROW(InternalError) << "A while loop inside a vectorized loop not supported.";
     TVM_FFI_UNREACHABLE();
   }
   // Bind
-  UnchangedOr<Stmt> Mutate_(const BindNode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<Stmt> Mutate_(const BindObj* op, InplaceMode inplace_mode) final {
     auto prim_value = op->value.as<PrimExpr>();
     if (!prim_value) {
       return StmtExprMutator::Mutate_(op, inplace_mode);
@@ -1300,8 +1300,8 @@ class Vectorizer : public StmtExprMutator {
       int b_lanes = GetLanesOrVScaleFactor(b.ty());
       int lanes = std::max(a_lanes, b_lanes);
       if (lanes != 1) {
-        const prim::RampNode* b_ramp = b.as<prim::RampNode>();
-        const prim::RampNode* a_ramp = a.as<prim::RampNode>();
+        const prim::RampObj* b_ramp = b.as<prim::RampObj>();
+        const prim::RampObj* a_ramp = a.as<prim::RampObj>();
         if (a.ty().IsScalar() && b_ramp) {
           return prim::Ramp(fcompute(a, b_ramp->base),
                             fcompute(IntImm(b_ramp->stride.ty(), 0), b_ramp->stride),
@@ -1326,11 +1326,11 @@ Stmt PreserveUnrollPolicy(Stmt body, const ffi::Map<ffi::String, ffi::Any>& anno
     ffi::Map<ffi::String, ffi::Any> policy;
 
     UnchangedOr<ffi::Any> Mutate(ffi::AnyView value, InplaceMode inplace_mode) final {
-      if (value.as<ExprNode>()) return ffi::Unchanged();
+      if (value.as<ExprObj>()) return ffi::Unchanged();
       return StmtExprMutator::Mutate(value, inplace_mode);
     }
 
-    UnchangedOr<Stmt> Mutate_(const ForNode* op, InplaceMode inplace_mode) final {
+    UnchangedOr<Stmt> Mutate_(const ForObj* op, InplaceMode inplace_mode) final {
       auto annotations = op->annotations;
       for (const auto& [key, value] : policy) {
         auto existing = annotations.Get(key);
@@ -1339,7 +1339,7 @@ Stmt PreserveUnrollPolicy(Stmt body, const ffi::Map<ffi::String, ffi::Any>& anno
         }
       }
       if (annotations.same_as(op->annotations)) return ffi::Unchanged();
-      auto copy = ffi::make_object<ForNode>(*op);
+      auto copy = ffi::make_object<ForObj>(*op);
       copy->annotations = std::move(annotations);
       return For(copy);
     }
@@ -1358,16 +1358,16 @@ class LoopVectorizer : public StmtExprMutator {
  public:
   using StmtExprMutator::Mutate;
   UnchangedOr<ffi::Any> Mutate(ffi::AnyView value, InplaceMode inplace_mode) final {
-    if (value.as<ExprNode>()) return ffi::Unchanged();
+    if (value.as<ExprObj>()) return ffi::Unchanged();
     return StmtExprMutator::Mutate(value, inplace_mode);
   }
 
   explicit LoopVectorizer(DictAttrs attrs) : target_(attrs.GetAttr(tvm::attr::kTarget)) {}
 
-  UnchangedOr<Stmt> Mutate_(const ForNode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<Stmt> Mutate_(const ForObj* op, InplaceMode inplace_mode) final {
     if (op->kind == ForKind::kVectorized) {
       PrimExpr extent = Range::GetExtentFromBeginEnd(op->begin, op->end);
-      auto* extent_as_int = extent.as<IntImmNode>();
+      auto* extent_as_int = extent.as<IntImmObj>();
 
       TVM_FFI_ICHECK(IsZero(op->begin));
       // General calls still have vectorization paths that query a compile-time
@@ -1400,7 +1400,7 @@ class LoopVectorizer : public StmtExprMutator {
   }
 
  private:
-  Stmt VectorizeFixedLoopForRVV(const ForNode* op, int64_t extent) {
+  Stmt VectorizeFixedLoopForRVV(const ForObj* op, int64_t extent) {
     // Match the existing TIRx scalable-vector convention.  LLVM/RVV still
     // selects the runtime vector length with vsetvli.
     static constexpr int kDefaultVScaleFactor = 4;
@@ -1441,15 +1441,15 @@ class VectorizeSkipper : public StmtExprMutator {
  public:
   using StmtExprMutator::Mutate;
   UnchangedOr<ffi::Any> Mutate(ffi::AnyView value, InplaceMode inplace_mode) final {
-    if (value.as<ExprNode>()) return ffi::Unchanged();
+    if (value.as<ExprObj>()) return ffi::Unchanged();
     return StmtExprMutator::Mutate(value, inplace_mode);
   }
 
-  UnchangedOr<Stmt> Mutate_(const ForNode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<Stmt> Mutate_(const ForObj* op, InplaceMode inplace_mode) final {
     Stmt stmt = StmtExprMutator::Mutate_(op, inplace_mode).ValueOrUnchanged(ffi::GetRef<Stmt>(op));
-    op = stmt.as<ForNode>();
+    op = stmt.as<ForObj>();
     if (op->kind == ForKind::kVectorized) {
-      auto copy = ffi::make_object<ForNode>(*op);
+      auto copy = ffi::make_object<ForObj>(*op);
       copy->kind = ForKind::kDefault;
       return For(copy);
     } else {

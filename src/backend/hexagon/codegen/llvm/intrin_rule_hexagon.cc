@@ -41,7 +41,7 @@ std::string tvm_qhl_ahf_sin = "tvm_vect_qhmath_hvx_sin_ahf";
 std::string tvm_qhl_ahf_pow = "tvm_vect_qhmath_hvx_pow_ahf";
 std::string tvm_qhl_ahf_sqrt = "tvm_vect_qhmath_hvx_sqrt_ahf";
 
-inline PrimExpr TVMExternCall(const CallNode* call, const std::string& fname) {
+inline PrimExpr TVMExternCall(const CallObj* call, const std::string& fname) {
   ffi::Array<Expr> new_args = {StringImm(fname)};
   for (PrimExpr arg : call->args.as_or_throw<ffi::Array<PrimExpr>>()) {
     new_args.push_back(arg);
@@ -53,7 +53,7 @@ inline PrimExpr TVMExternCall(const CallNode* call, const std::string& fname) {
 template <std::string& tvm_wrapper, unsigned id, int num_sign>
 inline PrimExpr DispatchTVMQHLWrapperFp16(const PrimExpr& e) {
   using namespace tirx;
-  const CallNode* call = e.as<CallNode>();
+  const CallObj* call = e.as<CallObj>();
   TVM_FFI_ICHECK(call != nullptr);
   ffi::Array<PrimExpr> new_args;
 #if ENABLE_QHL
@@ -115,7 +115,7 @@ void RegisterHexagonIntrinRules() {
 
   OpDef("prim.tanh")
       .set_attr<FLowerIntrinsic>("hexagon.FLowerIntrinsic", [](const PrimExpr& e) {
-    const CallNode* call = e.as<CallNode>();
+    const CallObj* call = e.as<CallObj>();
     TVM_FFI_ICHECK(call != nullptr);
     PrimExpr x = call->args[0].as_or_throw<PrimExpr>();
     PrimType x_ty = x.ty();
@@ -154,7 +154,7 @@ void RegisterHexagonIntrinRules() {
 
   OpDef("prim.tan")
       .set_attr<FLowerIntrinsic>("hexagon.FLowerIntrinsic", [](const PrimExpr& e) {
-    const CallNode* call = e.as<CallNode>();
+    const CallObj* call = e.as<CallObj>();
     TVM_FFI_ICHECK(call != nullptr);
     PrimExpr x = call->args[0].as_or_throw<PrimExpr>();
     PrimType x_ty = x.ty();
@@ -186,7 +186,7 @@ void RegisterHexagonIntrinRules() {
 
   OpDef("prim.sigmoid")
       .set_attr<FLowerIntrinsic>("hexagon.FLowerIntrinsic", [](const PrimExpr& e) {
-    const CallNode* call = e.as<CallNode>();
+    const CallObj* call = e.as<CallObj>();
     TVM_FFI_ICHECK(call != nullptr);
     PrimExpr x = call->args[0].as_or_throw<PrimExpr>();
     PrimType x_ty = x.ty();

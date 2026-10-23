@@ -48,10 +48,10 @@ using ffi::Array;
 using ffi::Tuple;
 
 /*! \brief Base object for tensor-program coordinate layouts. */
-class LayoutNode : public ffi::Object {
+class LayoutObj : public ffi::Object {
  public:
   static constexpr TVMFFISEqHashKind _type_s_eq_hash_kind = kTVMFFISEqHashKindTreeNode;
-  TVM_FFI_DECLARE_OBJECT_INFO("tirx.Layout", LayoutNode, ffi::Object);
+  TVM_FFI_DECLARE_OBJECT_INFO("tirx.Layout", LayoutObj, ffi::Object);
 };
 
 /*! \brief Managed reference to a tensor-program coordinate layout. */
@@ -79,14 +79,14 @@ class Layout : public ffi::ObjectRef {
   TVM_TIRX_DLL Layout Tile(const TileLayout& outer, const ffi::Array<PrimExpr>& outer_shape,
                            const ffi::Array<PrimExpr>& inner_shape) const;
 
-  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(Layout, ffi::ObjectRef, LayoutNode);
+  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(Layout, ffi::ObjectRef, LayoutObj);
 };
 
 // target, subscope, scope, iter -> fused_iter
 using FAxisFuser = ffi::TypedFunction<ffi::Optional<Iter>(Target, ThreadScope, ThreadScope, Iter)>;
 
 // Axis
-class AxisNode : public ffi::EnumObj {
+class AxisObj : public ffi::EnumObj {
  public:
   /*! \brief Check if the axis is a thread axis. */
   bool IsThreadAxis() const {
@@ -115,7 +115,7 @@ class AxisNode : public ffi::EnumObj {
   /*! \brief Get the fuser of the (thread) axis. */
   TVM_TIRX_DLL ffi::Optional<FAxisFuser> GetFuser() const;
 
-  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("tirx.Axis", AxisNode, ffi::EnumObj);
+  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("tirx.Axis", AxisObj, ffi::EnumObj);
 };
 
 class Axis : public ffi::Enum {
@@ -130,14 +130,14 @@ class Axis : public ffi::Enum {
    */
   TVM_TIRX_DLL static Axis Get(const ffi::String& name);
 
-  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(Axis, ffi::Enum, AxisNode);
+  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(Axis, ffi::Enum, AxisObj);
 };
 
-class IterNode : public ffi::Object {
+class IterObj : public ffi::Object {
  public:
-  explicit IterNode(ffi::UnsafeInit tag) : extent(tag), stride(tag), axis(tag) {}
+  explicit IterObj(ffi::UnsafeInit tag) : extent(tag), stride(tag), axis(tag) {}
 
-  IterNode(PrimExpr extent, PrimExpr stride, Axis axis)
+  IterObj(PrimExpr extent, PrimExpr stride, Axis axis)
       : extent(std::move(extent)), stride(std::move(stride)), axis(std::move(axis)) {}
 
   PrimExpr extent;
@@ -146,26 +146,26 @@ class IterNode : public ffi::Object {
 
   static void RegisterReflection() {
     namespace refl = tvm::ffi::reflection;
-    refl::ObjectDef<IterNode>()
-        .def_ro("extent", &IterNode::extent)
-        .def_ro("stride", &IterNode::stride)
-        .def_ro("axis", &IterNode::axis);
+    refl::ObjectDef<IterObj>()
+        .def_ro("extent", &IterObj::extent)
+        .def_ro("stride", &IterObj::stride)
+        .def_ro("axis", &IterObj::axis);
   }
 
   static constexpr TVMFFISEqHashKind _type_s_eq_hash_kind = kTVMFFISEqHashKindTreeNode;
-  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("tirx.Iter", IterNode, ffi::Object);
+  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("tirx.Iter", IterObj, ffi::Object);
 };
 
 class Iter : public ffi::ObjectRef {
  public:
   explicit Iter(PrimExpr extent, PrimExpr stride, Axis axis) {
-    auto n = ffi::make_object<IterNode>(std::move(extent), std::move(stride), std::move(axis));
+    auto n = ffi::make_object<IterObj>(std::move(extent), std::move(stride), std::move(axis));
     data_ = std::move(n);
   }
-  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(Iter, ffi::ObjectRef, IterNode);
+  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(Iter, ffi::ObjectRef, IterObj);
 };
 
-class TileLayoutNode : public LayoutNode {
+class TileLayoutObj : public LayoutObj {
  public:
   ffi::Array<Iter> shard;
   ffi::Array<Iter> replica;
@@ -173,13 +173,13 @@ class TileLayoutNode : public LayoutNode {
 
   static void RegisterReflection() {
     namespace refl = tvm::ffi::reflection;
-    refl::ObjectDef<TileLayoutNode>()
-        .def_ro("shard", &TileLayoutNode::shard)
-        .def_ro("replica", &TileLayoutNode::replica)
-        .def_ro("offset", &TileLayoutNode::offset);
+    refl::ObjectDef<TileLayoutObj>()
+        .def_ro("shard", &TileLayoutObj::shard)
+        .def_ro("replica", &TileLayoutObj::replica)
+        .def_ro("offset", &TileLayoutObj::offset);
   }
 
-  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("tirx.TileLayout", TileLayoutNode, LayoutNode);
+  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("tirx.TileLayout", TileLayoutObj, LayoutObj);
 };
 
 class TileLayout : public Layout {
@@ -187,7 +187,7 @@ class TileLayout : public Layout {
   explicit TileLayout(ffi::Array<Iter> shard, ffi::Array<Iter> replica,
                       ffi::Map<Axis, PrimExpr> offset)
       : Layout(ffi::UnsafeInit{}) {
-    auto n = ffi::make_object<TileLayoutNode>();
+    auto n = ffi::make_object<TileLayoutObj>();
     n->shard = std::move(shard);
     n->replica = std::move(replica);
     n->offset = std::move(offset);
@@ -230,15 +230,15 @@ class TileLayout : public Layout {
   /*! \brief Get the default layout for the shape */
   TVM_TIRX_DLL static TileLayout DefaultLayout(ffi::Array<PrimExpr> shape);
 
-  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(TileLayout, Layout, TileLayoutNode);
-  TVM_DEFINE_OBJECT_REF_COW_METHOD(TileLayoutNode);
+  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(TileLayout, Layout, TileLayoutObj);
+  TVM_DEFINE_OBJECT_REF_COW_METHOD(TileLayoutObj);
 };
 
 // ComposeLayout
-class ComposeLayoutNode : public LayoutNode {
+class ComposeLayoutObj : public LayoutObj {
  public:
-  explicit ComposeLayoutNode(TileLayout tile_layout) : tile_layout(std::move(tile_layout)) {}
-  explicit ComposeLayoutNode(ffi::UnsafeInit) : tile_layout(ffi::UnsafeInit{}) {}
+  explicit ComposeLayoutObj(TileLayout tile_layout) : tile_layout(std::move(tile_layout)) {}
+  explicit ComposeLayoutObj(ffi::UnsafeInit) : tile_layout(ffi::UnsafeInit{}) {}
 
   int per_element;
   int swizzle_len;
@@ -252,17 +252,17 @@ class ComposeLayoutNode : public LayoutNode {
 
   static void RegisterReflection() {
     namespace refl = tvm::ffi::reflection;
-    refl::ObjectDef<ComposeLayoutNode>()
-        .def_ro("per_element", &ComposeLayoutNode::per_element)
-        .def_ro("swizzle_len", &ComposeLayoutNode::swizzle_len)
-        .def_ro("atom_len", &ComposeLayoutNode::atom_len)
-        .def_ro("swizzle_inner", &ComposeLayoutNode::swizzle_inner)
-        .def_ro("inner_mask", &ComposeLayoutNode::inner_mask)
-        .def_ro("outer_mask", &ComposeLayoutNode::outer_mask)
-        .def_ro("tile_layout", &ComposeLayoutNode::tile_layout);
+    refl::ObjectDef<ComposeLayoutObj>()
+        .def_ro("per_element", &ComposeLayoutObj::per_element)
+        .def_ro("swizzle_len", &ComposeLayoutObj::swizzle_len)
+        .def_ro("atom_len", &ComposeLayoutObj::atom_len)
+        .def_ro("swizzle_inner", &ComposeLayoutObj::swizzle_inner)
+        .def_ro("inner_mask", &ComposeLayoutObj::inner_mask)
+        .def_ro("outer_mask", &ComposeLayoutObj::outer_mask)
+        .def_ro("tile_layout", &ComposeLayoutObj::tile_layout);
   }
 
-  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("tirx.ComposeLayout", ComposeLayoutNode, LayoutNode);
+  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("tirx.ComposeLayout", ComposeLayoutObj, LayoutObj);
 };
 
 class ComposeLayout : public Layout {
@@ -270,8 +270,8 @@ class ComposeLayout : public Layout {
   TVM_TIRX_DLL explicit ComposeLayout(int per_element, int swizzle_len, int atom_len,
                                       TileLayout tile_layout, bool swizzle_inner = true);
 
-  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(ComposeLayout, Layout, ComposeLayoutNode);
-  TVM_DEFINE_OBJECT_REF_COW_METHOD(ComposeLayoutNode);
+  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(ComposeLayout, Layout, ComposeLayoutObj);
+  TVM_DEFINE_OBJECT_REF_COW_METHOD(ComposeLayoutObj);
 };
 
 }  // namespace tirx

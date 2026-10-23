@@ -68,7 +68,7 @@ class LayoutApplier : public StmtExprMutatorWithAnalyzer {
       TensorVar flattened = storage_lower->GetFlattenedTensor(tensor.value());
       TensorVar source = tensor.value();
       if (source.ty()->layout.has_value() && source.ty()->HasDefaultLayout(ana)) {
-        auto type = ffi::make_object<TensorTypeNode>(*source.ty().get());
+        auto type = ffi::make_object<TensorTypeObj>(*source.ty().get());
         type->layout = std::nullopt;
         source = TensorVar(source->name, TensorType(std::move(type)), source->loc);
       }
@@ -105,10 +105,10 @@ class LayoutApplier : public StmtExprMutatorWithAnalyzer {
     return any;
   }
 
-  UnchangedOr<Expr> Mutate_(const CallNode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<Expr> Mutate_(const CallObj* op, InplaceMode inplace_mode) final {
     if (op->op.same_as(tensor_data_ptr_op()) && op->args.size() == 1) {
       if (auto var = op->args[0].as<Var>();
-          var.has_value() && var.value()->ty.as<TensorTypeNode>()) {
+          var.has_value() && var.value()->ty.as<TensorTypeObj>()) {
         auto root_opt = tensor_aliases_.Get(var.value());
         TVM_FFI_ICHECK(root_opt.has_value())
             << "tensor_data_ptr projects " << var.value()->name
@@ -124,7 +124,7 @@ class LayoutApplier : public StmtExprMutatorWithAnalyzer {
     return StmtExprMutatorWithAnalyzer::Mutate_(op, inplace_mode);
   }
 
-  UnchangedOr<Stmt> Mutate_(const BindNode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<Stmt> Mutate_(const BindObj* op, InplaceMode inplace_mode) final {
     if (auto source = op->value.as<TensorVar>(); source.has_value()) {
       auto tensor = op->var.as_or_throw<TensorVar>();
       Call declaration(tensor.ty(), decl_tensor_op(), {source.value().data()}, {}, {tensor.ty()});
@@ -132,7 +132,7 @@ class LayoutApplier : public StmtExprMutatorWithAnalyzer {
       return MutateDeclTensor(binding.get(), declaration.get(), inplace_mode)
           .ValueOrUnchanged(binding);
     }
-    if (const auto* call = op->value.as<CallNode>(); call) {
+    if (const auto* call = op->value.as<CallObj>(); call) {
       if (call->op.same_as(alloc_tensor_op())) return MutateAllocTensor(op, call, inplace_mode);
       if (call->op.same_as(decl_tensor_op())) return MutateDeclTensor(op, call, inplace_mode);
       if (call->op.same_as(Op::Get("tirx.cuda.decl_tmem"))) {
@@ -150,7 +150,7 @@ class LayoutApplier : public StmtExprMutatorWithAnalyzer {
     return StmtExprMutatorWithAnalyzer::Mutate_(op, inplace_mode);
   }
 
-  UnchangedOr<Stmt> MutateAllocTensor(const BindNode* op, const CallNode* tensor_call,
+  UnchangedOr<Stmt> MutateAllocTensor(const BindObj* op, const CallObj* tensor_call,
                                       InplaceMode inplace_mode) {
     tensor_aliases_.Set(op->var, op->var);
     auto mutate = [this](TensorVar buf) { return GetFlattenedTensor(buf, /*is_alloc=*/true); };
@@ -166,7 +166,7 @@ class LayoutApplier : public StmtExprMutatorWithAnalyzer {
                 op->loc);
   }
 
-  UnchangedOr<Stmt> MutateDeclTensor(const BindNode* op, const CallNode* tensor_call,
+  UnchangedOr<Stmt> MutateDeclTensor(const BindObj* op, const CallObj* tensor_call,
                                      InplaceMode inplace_mode) {
     RegisterTensorAlias(op->var.as_or_throw<TensorVar>(), tensor_call->args[0]);
     auto data_result = Mutate(tensor_call->args[0], inplace_mode);
@@ -187,9 +187,9 @@ class LayoutApplier : public StmtExprMutatorWithAnalyzer {
       return mapped.as_or_throw<TensorVar>();
     }
     TensorVar flattened = buf;
-    ffi::ObjectPtr<TensorTypeNode> type;
+    ffi::ObjectPtr<TensorTypeObj> type;
     if (is_alloc) {
-      if (auto tile_layout = buf.ty()->layout.as<TileLayoutNode>()) {
+      if (auto tile_layout = buf.ty()->layout.as<TileLayoutObj>()) {
         // Allocation must cover the memory-axis span, including gaps, whether
         // or not the layout also distributes elements across threads.
         sym::Analyzer ana;
@@ -210,10 +210,10 @@ class LayoutApplier : public StmtExprMutatorWithAnalyzer {
           }
         }
         flattened = buf;
-        type = ffi::make_object<TensorTypeNode>(*flattened.ty().get());
+        type = ffi::make_object<TensorTypeObj>(*flattened.ty().get());
         type->shape = {ana->Simplify(mem_span)};
         type->layout = std::nullopt;
-      } else if (auto compose = buf.ty()->layout.as<ComposeLayoutNode>()) {
+      } else if (auto compose = buf.ty()->layout.as<ComposeLayoutObj>()) {
         // A swizzle permutes addresses, so the logical element count is not
         // the allocation footprint of a strided view. Round the underlying
         // memory span to a block whose upper bits the swizzle cannot change.
@@ -229,16 +229,16 @@ class LayoutApplier : public StmtExprMutatorWithAnalyzer {
           PrimExpr block = IntImm(mem_span.ty(), int64_t{1} << changed_bits);
           mem_span = floordiv(mem_span + block - 1, block) * block;
         }
-        type = ffi::make_object<TensorTypeNode>(*buf.ty().get());
+        type = ffi::make_object<TensorTypeObj>(*buf.ty().get());
         type->shape = {analyzer_->Simplify(mem_span)};
         type->layout = std::nullopt;
       } else {
         flattened = FlattenedTensor(buf, ffi::GetRef<sym::Analyzer>(analyzer_));
-        type = ffi::make_object<TensorTypeNode>(*flattened.ty().get());
+        type = ffi::make_object<TensorTypeObj>(*flattened.ty().get());
       }
     } else {
       flattened = FlattenedTensor(buf, ffi::GetRef<sym::Analyzer>(analyzer_));
-      type = ffi::make_object<TensorTypeNode>(*flattened.ty().get());
+      type = ffi::make_object<TensorTypeObj>(*flattened.ty().get());
     }
     // Remap variables the pass has already rebuilt (a shape may load from
     // another local tensor), then canonicalize.
@@ -275,7 +275,7 @@ class LayoutApplier : public StmtExprMutatorWithAnalyzer {
     return flattened;
   }
 
-  UnchangedOr<Stmt> Mutate_(const TensorStoreNode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<Stmt> Mutate_(const TensorStoreObj* op, InplaceMode inplace_mode) final {
     // Preserve the logical tensor until VisitTensorAccess linearizes its indices.
     auto value = Mutate(op->value, inplace_mode);
     auto indices =
@@ -289,7 +289,7 @@ class LayoutApplier : public StmtExprMutatorWithAnalyzer {
     return VisitTensorAccess(std::move(store));
   }
 
-  UnchangedOr<PrimExpr> Mutate_(const TensorLoadNode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<PrimExpr> Mutate_(const TensorLoadObj* op, InplaceMode inplace_mode) final {
     auto indices =
         Mutate(op->indices, inplace_mode).as_or_throw<UnchangedOr<ffi::Array<PrimExpr>>>();
     TensorLoad load = ffi::GetRef<TensorLoad>(op);
@@ -302,7 +302,7 @@ class LayoutApplier : public StmtExprMutatorWithAnalyzer {
   ffi::Array<PrimExpr> GetSimplifiedElemOffset(const TensorVar& tensor,
                                                const ffi::Array<PrimExpr>& indices) {
     if (tensor.ty()->layout.has_value()) {
-      if (auto tile = tensor.ty()->layout.value().as<TileLayoutNode>();
+      if (auto tile = tensor.ty()->layout.value().as<TileLayoutObj>();
           tile && ffi::GetRef<TileLayout>(tile).HasThreadAxis()) {
         LOG(FATAL) << "Cannot lower direct TensorLoad/TensorStore on a tensor with thread-axis "
                    << "layout: unable to verify that the coordinate matches the current thread. "
@@ -355,10 +355,10 @@ class LayoutApplier : public StmtExprMutatorWithAnalyzer {
  private:
   void RegisterTensorAlias(TensorVar tensor, const Expr& data) {
     Var root = tensor;
-    if (const auto* call = data.as<CallNode>();
+    if (const auto* call = data.as<CallObj>();
         call && call->op.same_as(tensor_data_ptr_op()) && call->args.size() == 1) {
       if (auto source = call->args[0].as<Var>();
-          source.has_value() && source.value()->ty.as<TensorTypeNode>()) {
+          source.has_value() && source.value()->ty.as<TensorTypeObj>()) {
         auto source_root = tensor_aliases_.Get(source.value());
         TVM_FFI_ICHECK(source_root.has_value())
             << "Tensor alias source " << source.value()->name

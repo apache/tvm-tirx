@@ -32,28 +32,28 @@ namespace tirx {
 
 namespace layout_details {
 
-void CheckWellFormed(const TileLayoutNode* layout);
-PrimExpr GetSize(const TileLayoutNode* layout, ffi::Optional<ffi::String> axis_name);
-PrimExpr GetSpan(const TileLayoutNode* layout, ffi::Optional<ffi::String> axis_name);
-ffi::Map<ffi::String, PrimExpr> Apply(const TileLayoutNode* layout, ffi::Array<PrimExpr> coord);
-ffi::Map<ffi::String, PrimExpr> Apply(const TileLayoutNode* layout, PrimExpr coord);
-ffi::Map<ffi::String, PrimExpr> Apply(const TileLayoutNode* layout,
+void CheckWellFormed(const TileLayoutObj* layout);
+PrimExpr GetSize(const TileLayoutObj* layout, ffi::Optional<ffi::String> axis_name);
+PrimExpr GetSpan(const TileLayoutObj* layout, ffi::Optional<ffi::String> axis_name);
+ffi::Map<ffi::String, PrimExpr> Apply(const TileLayoutObj* layout, ffi::Array<PrimExpr> coord);
+ffi::Map<ffi::String, PrimExpr> Apply(const TileLayoutObj* layout, PrimExpr coord);
+ffi::Map<ffi::String, PrimExpr> Apply(const TileLayoutObj* layout,
                                       const ffi::Array<PrimExpr>& coord,
                                       const ffi::Array<PrimExpr>& shape);
-Layout Canonicalize(const TileLayoutNode* layout);
-Layout Tile(const TileLayoutNode* layout, const TileLayout& outer,
+Layout Canonicalize(const TileLayoutObj* layout);
+Layout Tile(const TileLayoutObj* layout, const TileLayout& outer,
             const ffi::Array<PrimExpr>& outer_shape, const ffi::Array<PrimExpr>& inner_shape);
 
-void CheckWellFormed(const ComposeLayoutNode* layout);
-PrimExpr GetSize(const ComposeLayoutNode* layout, ffi::Optional<ffi::String> axis_name);
-PrimExpr GetSpan(const ComposeLayoutNode* layout, ffi::Optional<ffi::String> axis_name);
-ffi::Map<ffi::String, PrimExpr> Apply(const ComposeLayoutNode* layout, ffi::Array<PrimExpr> coord);
-ffi::Map<ffi::String, PrimExpr> Apply(const ComposeLayoutNode* layout, PrimExpr coord);
-ffi::Map<ffi::String, PrimExpr> Apply(const ComposeLayoutNode* layout,
+void CheckWellFormed(const ComposeLayoutObj* layout);
+PrimExpr GetSize(const ComposeLayoutObj* layout, ffi::Optional<ffi::String> axis_name);
+PrimExpr GetSpan(const ComposeLayoutObj* layout, ffi::Optional<ffi::String> axis_name);
+ffi::Map<ffi::String, PrimExpr> Apply(const ComposeLayoutObj* layout, ffi::Array<PrimExpr> coord);
+ffi::Map<ffi::String, PrimExpr> Apply(const ComposeLayoutObj* layout, PrimExpr coord);
+ffi::Map<ffi::String, PrimExpr> Apply(const ComposeLayoutObj* layout,
                                       const ffi::Array<PrimExpr>& coord,
                                       const ffi::Array<PrimExpr>& shape);
-Layout Canonicalize(const ComposeLayoutNode* layout);
-Layout Tile(const ComposeLayoutNode* layout, const TileLayout& outer,
+Layout Canonicalize(const ComposeLayoutObj* layout);
+Layout Tile(const ComposeLayoutObj* layout, const TileLayout& outer,
             const ffi::Array<PrimExpr>& outer_shape, const ffi::Array<PrimExpr>& inner_shape);
 
 }  // namespace layout_details

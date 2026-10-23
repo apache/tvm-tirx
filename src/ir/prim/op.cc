@@ -30,12 +30,12 @@ using prim::IsConstInt;
 using prim::MakeConst;
 using namespace prim::details;
 namespace {
-TVM_FFI_INLINE const PrimTypeNode* GetPrimTypeNode(const PrimExpr& expr) {
+TVM_FFI_INLINE const PrimTypeObj* GetPrimTypeObj(const PrimExpr& expr) {
   // Avoid PrimExpr::ty() ObjectRef materialization on binary operator hot paths.
   const auto* node = expr.get();
   TVM_FFI_DCHECK(node != nullptr);
-  TVM_FFI_DCHECK(!node->ExprNode::ty.as<MissingType>().has_value());
-  const auto* prim_ty = node->ExprNode::ty.as<PrimTypeNode>();
+  TVM_FFI_DCHECK(!node->ExprObj::ty.as<MissingType>().has_value());
+  const auto* prim_ty = node->ExprObj::ty.as<PrimTypeObj>();
   TVM_FFI_DCHECK(prim_ty != nullptr);
   return prim_ty;
 }
@@ -65,7 +65,7 @@ TVM_FFI_INLINE bool IsFloat4Type(const PrimType& ty) {
 
 // File-local helper: true if `expr` is a call to prim::vscale_op().
 bool IsVScaleCall(const PrimExpr& expr) {
-  if (const auto* call = expr.as<CallNode>()) {
+  if (const auto* call = expr.as<CallObj>()) {
     return call->op.same_as(prim::vscale_op());
   }
   return false;
@@ -152,8 +152,8 @@ PrimType PromoteBinaryOpType(PrimType lhs_ty, PrimType rhs_ty) {
 void BinaryOpMatchTypes(PrimExpr& lhs, PrimExpr& rhs, Location loc) {  // NOLINT(*)
   TVM_FFI_CHECK(lhs.defined(), ValueError) << "`lhs` is null in the binary operator";
   TVM_FFI_CHECK(rhs.defined(), ValueError) << "`rhs` is null in the binary operator";
-  const PrimTypeNode* lhs_ty_node = GetPrimTypeNode(lhs);
-  const PrimTypeNode* rhs_ty_node = GetPrimTypeNode(rhs);
+  const PrimTypeObj* lhs_ty_node = GetPrimTypeObj(lhs);
+  const PrimTypeObj* rhs_ty_node = GetPrimTypeObj(rhs);
   if (lhs_ty_node == rhs_ty_node || lhs_ty_node->dtype == rhs_ty_node->dtype) return;
 
   BroadcastToMatchLanes(lhs, rhs);
@@ -309,7 +309,7 @@ PrimExpr cast(PrimExpr value, PrimType t, Location loc) {
       << "Cannot cast an expression with the void sentinel type";
   // const fold IntImm as they are used in index computations
   if (dtype.IsScalar()) {
-    if (const IntImmNode* op = value.as<IntImmNode>()) {
+    if (const IntImmObj* op = value.as<IntImmObj>()) {
       if (dtype.MatchesCode(DLDataTypeCode::kDLInt, DLDataTypeCode::kDLUInt,
                             DLDataTypeCode::kDLBool)) {
         if (details::IsRepresentable(op->value, dtype)) return IntImm(dtype, op->value, op->loc);
@@ -327,7 +327,7 @@ PrimExpr cast(PrimExpr value, PrimType t, Location loc) {
           return FloatImm(dtype, source, op->loc);
         }
       }
-    } else if (const FloatImmNode* op = value.as<FloatImmNode>()) {
+    } else if (const FloatImmObj* op = value.as<FloatImmObj>()) {
       if (std::isfinite(op->value) &&
           (value.ty().MatchesElementType(DLDataTypeCode::kDLFloat, 16) ||
            value.ty().MatchesElementType(DLDataTypeCode::kDLBfloat, 16))) {
@@ -392,14 +392,14 @@ PrimExpr cast(PrimExpr value, PrimType t, Location loc) {
         lanes_match = value.ty().lanes() == dtype.lanes();
       }
       TVM_FFI_ICHECK(lanes_match);
-      if (const auto* broadcast = value.as<prim::BroadcastNode>()) {
+      if (const auto* broadcast = value.as<prim::BroadcastObj>()) {
         return prim::Broadcast(cast(broadcast->value, elem_ty, loc), broadcast->lanes, loc);
-      } else if (const auto* ramp = value.as<prim::RampNode>()) {
+      } else if (const auto* ramp = value.as<prim::RampObj>()) {
         // Casting a ramp's base and stride is valid only when every lane
         // remains the same integer in both types. In particular, widening
         // must not remove source overflow, and floating casts need not be affine.
-        const auto* base = ramp->base.as<IntImmNode>();
-        const auto* stride = ramp->stride.as<IntImmNode>();
+        const auto* base = ramp->base.as<IntImmObj>();
+        const auto* stride = ramp->stride.as<IntImmObj>();
         if (dtype.IsFixedLengthVector() && base && stride &&
             dtype.MatchesCode(DLDataTypeCode::kDLInt, DLDataTypeCode::kDLUInt)) {
           ffi::BigInt last = base->value + stride->value * (dtype.lanes() - 1);
@@ -432,7 +432,7 @@ inline bool ConstPowerHelper(ValueType val, int* shift) {
 }
 
 bool IsPowerOfTwoInt(const PrimExpr& x, int* shift) {
-  if (const auto* op = x.as<IntImmNode>()) {
+  if (const auto* op = x.as<IntImmObj>()) {
     return ConstPowerHelper(op->value, shift);
   } else {
     return false;
@@ -453,8 +453,8 @@ PrimExpr add(PrimExpr a, PrimExpr b, Location loc) {
 PrimExpr operator-(PrimExpr a) { return neg(a); }
 
 PrimExpr neg(PrimExpr a, Location loc) {
-  const IntImmNode* pa = a.as<IntImmNode>();
-  const FloatImmNode* fa = a.as<FloatImmNode>();
+  const IntImmObj* pa = a.as<IntImmObj>();
+  const FloatImmObj* fa = a.as<FloatImmObj>();
   if (pa) {
     ffi::BigInt value = -pa->value;
     if (prim::details::IsRepresentable(value, a.ty())) {
@@ -564,7 +564,7 @@ PrimExpr if_then_else(PrimExpr cond, PrimExpr true_value, PrimExpr false_value, 
   TVM_FFI_ICHECK(cond.ty().MatchesCode(DLDataTypeCode::kDLBool))
       << "if_then_else only accept the condition to be boolean type.";
   BinaryOpMatchTypes(true_value, false_value, loc);
-  if (const IntImmNode* op = cond.as<IntImmNode>()) {
+  if (const IntImmObj* op = cond.as<IntImmObj>()) {
     if (op->value != 0) {
       return true_value;
     } else {
@@ -788,7 +788,7 @@ PrimExpr bitwise_neg(PrimExpr a, Location loc) {
 
 PrimExpr prim::IntegerAbs(PrimExpr x, Location loc) {
   if (x.ty().MatchesCode(DLDataTypeCode::kDLInt)) {
-    if (const IntImmNode* px = x.as<IntImmNode>()) {
+    if (const IntImmObj* px = x.as<IntImmObj>()) {
       ffi::BigInt value = px->value < 0 ? -px->value : px->value;
       if (prim::details::IsRepresentable(value, x.ty())) {
         return IntImm(x.ty(), std::move(value), px->loc);
@@ -858,7 +858,7 @@ PrimExpr prim::ceil(PrimExpr x, Location loc) {
                          DLDataTypeCode::kDLBool)) {
     return x;
   }
-  const FloatImmNode* fx = x.as<FloatImmNode>();
+  const FloatImmObj* fx = x.as<FloatImmObj>();
   if (fx) return FloatImm(x.ty(), std::ceil(fx->value), fx->loc);
   return Call(x.ty(), prim::ceil_op(), {x}, {}, {}, loc).as_or_throw<PrimExpr>();
 }

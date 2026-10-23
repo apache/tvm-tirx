@@ -37,8 +37,8 @@ namespace tvm {
 namespace codegen {
 
 struct NKIInstructionCtx {
-  std::unordered_set<const VarNode*> tensorized_loop_vars;
-  std::unordered_map<const VarNode*, ffi::String> loopvar2dim;
+  std::unordered_set<const VarObj*> tensorized_loop_vars;
+  std::unordered_map<const VarObj*, ffi::String> loopvar2dim;
   bool is_matmul_input = false;
   int buffer_index = -1;
   int used_var_cnt = 0;
@@ -57,35 +57,35 @@ class CodeGenTrainium final : public CodeGenC {
   void AddFunction(const GlobalVar& gvar, const Function& func) final;
   void InitFuncState(const Function& f) final;
   std::string GetStorageScopeStr(const runtime::MemoryScope& scope);  // NOLINT(*)
-  void Dispatch_(const VarNode* op, std::ostream& os) final;          // NOLINT(*)
+  void Dispatch_(const VarObj* op, std::ostream& os) final;           // NOLINT(*)
   void PrintType(const PrimType& t, std::ostream& os) final;          // NOLINT(*)
-  void Dispatch_(const BindNode* op) final;
-  void DispatchAllocTensor(const BindNode* op, const CallNode* buffer_call);
-  void Dispatch_(const RegionStmtNode* op) final;                        // NOLINT(*)
-  void Dispatch_(const ForNode* op) final;                               // NOLINT(*)
-  void Dispatch_(const TensorStoreNode* op) final;                       // NOLINT(*)=
-  void Dispatch_(const EvaluateNode* op) final;                          // NOLINT(*)
-  std::string PrintIndices(const ffi::Array<PrimExpr>& indices);         // NOLINT(*)
-  void Dispatch_(const TensorLoadNode* op, std::ostream& os) final;      // NOLINT(*)
-  void Dispatch_(const CallNode* op, std::ostream& os) final;            // NOLINT(*)
-  void Dispatch_(const FloatImmNode* op, std::ostream& os) final;        // NOLINT(*)
-  void Dispatch_(const prim::CastNode* op, std::ostream& os) final;      // NOLINT(*)
-  void Dispatch_(const prim::FloorDivNode* op, std::ostream& os) final;  // NOLINT(*)
-  void Dispatch_(const prim::FloorModNode* op, std::ostream& os) final;  // NOLINT(*)
-  void DispatchDeclTensor(const BindNode* op, const CallNode* buffer_call);
-  void Dispatch_(const IfNode* op) final;                           // NOLINT(*)
-  void Dispatch_(const prim::AndNode* op, std::ostream& os) final;  // NOLINT(*)
-  void Dispatch_(const prim::OrNode* op, std::ostream& os) final;   // NOLINT(*)
+  void Dispatch_(const BindObj* op) final;
+  void DispatchAllocTensor(const BindObj* op, const CallObj* buffer_call);
+  void Dispatch_(const RegionStmtObj* op) final;                        // NOLINT(*)
+  void Dispatch_(const ForObj* op) final;                               // NOLINT(*)
+  void Dispatch_(const TensorStoreObj* op) final;                       // NOLINT(*)=
+  void Dispatch_(const EvaluateObj* op) final;                          // NOLINT(*)
+  std::string PrintIndices(const ffi::Array<PrimExpr>& indices);        // NOLINT(*)
+  void Dispatch_(const TensorLoadObj* op, std::ostream& os) final;      // NOLINT(*)
+  void Dispatch_(const CallObj* op, std::ostream& os) final;            // NOLINT(*)
+  void Dispatch_(const FloatImmObj* op, std::ostream& os) final;        // NOLINT(*)
+  void Dispatch_(const prim::CastObj* op, std::ostream& os) final;      // NOLINT(*)
+  void Dispatch_(const prim::FloorDivObj* op, std::ostream& os) final;  // NOLINT(*)
+  void Dispatch_(const prim::FloorModObj* op, std::ostream& os) final;  // NOLINT(*)
+  void DispatchDeclTensor(const BindObj* op, const CallObj* buffer_call);
+  void Dispatch_(const IfObj* op) final;                           // NOLINT(*)
+  void Dispatch_(const prim::AndObj* op, std::ostream& os) final;  // NOLINT(*)
+  void Dispatch_(const prim::OrObj* op, std::ostream& os) final;   // NOLINT(*)
 
  private:
   Target target_;
   NKIInstructionCtx ctx_;
   std::unordered_map<std::string, std::string> opcode_map_;
   std::unordered_map<TensorVar, std::string, ffi::ObjectPtrHash, ffi::ObjectPtrEqual> buffer_idmap_;
-  std::unordered_map<TensorVar, const VarNode*, ffi::ObjectPtrHash, ffi::ObjectPtrEqual>
+  std::unordered_map<TensorVar, const VarObj*, ffi::ObjectPtrHash, ffi::ObjectPtrEqual>
       buffer_data_varmap_;
-  std::unordered_map<const VarNode*, std::string> data_buffer_idmap_;
-  std::unordered_map<const VarNode*, TensorVar> data_decl_buffer_map_;
+  std::unordered_map<const VarObj*, std::string> data_buffer_idmap_;
+  std::unordered_map<const VarObj*, TensorVar> data_decl_buffer_map_;
   bool is_outermost_loop_ = true;
 };
 }  // namespace codegen

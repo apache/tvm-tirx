@@ -47,9 +47,9 @@ class IfHoister : public StmtExprMutator {
 
   UnchangedOr<ffi::Any> Mutate(ffi::AnyView input, InplaceMode inplace_mode) final {
     // Expressions are inspected only as whole If predicates, never split or hoisted.
-    if (input.as<ExprNode>()) return ffi::Unchanged();
-    if (input.as<StmtNode>() && !input.as<ForNode>() && !input.as<IfNode>() &&
-        !input.as<SeqStmtNode>()) {
+    if (input.as<ExprObj>()) return ffi::Unchanged();
+    if (input.as<StmtObj>() && !input.as<ForObj>() && !input.as<IfObj>() &&
+        !input.as<SeqStmtObj>()) {
       // Bindings, regions and unknown statements have no code-motion contract.
       // Hide outer loops and their variable depths while visiting this subtree;
       // active_loops_/split_in_nest_ still bound duplication of the enclosing nest.
@@ -70,10 +70,10 @@ class IfHoister : public StmtExprMutator {
     // Active destination loops, outermost first, within the current motion boundary.
     std::vector<LoopState*> loops;
     // Identity-based indices into loops for variables defined by those loops.
-    std::unordered_map<const VarNode*, size_t> loop_depths;
+    std::unordered_map<const VarObj*, size_t> loop_depths;
   };
 
-  UnchangedOr<Stmt> Mutate_(const SeqStmtNode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<Stmt> Mutate_(const SeqStmtObj* op, InplaceMode inplace_mode) final {
     // Sibling statements isolate loop placement; a singleton stays transparent.
     // An If inside one sibling must not move outside the loop executing all siblings.
     if (op->seq.size() == 1) return StmtExprMutator::Mutate_(op, inplace_mode);
@@ -86,22 +86,22 @@ class IfHoister : public StmtExprMutator {
     const auto& scope = scopes_.Current();
     // First loop the predicate can cross: loops [i, j, k] and i + j select index 2 (k).
     size_t destination = 0;
-    std::unordered_set<const ExprNode*> visited;
-    auto advance = [&](const ExprNode* op) -> ffi::Expected<ffi::WalkResult> {
+    std::unordered_set<const ExprObj*> visited;
+    auto advance = [&](const ExprObj* op) -> ffi::Expected<ffi::WalkResult> {
       // StructuralWalk visits occurrences. For Add(e, e), safety and dependencies
       // need checking only once per shared e, within this predicate's fixed scope.
       return visited.insert(op).second ? ffi::WalkResult::Advance() : ffi::WalkResult::Skip();
     };
-    auto division = [&](const ExprNode* op,
+    auto division = [&](const ExprObj* op,
                         const PrimExpr& divisor) -> ffi::Expected<ffi::WalkResult> {
       // Positive constant divisors exclude both zero and signed min / -1.
-      const auto* value = divisor.as<IntImmNode>();
+      const auto* value = divisor.as<IntImmObj>();
       if (!value || value->value <= 0) return ffi::WalkResult::Interrupt();
       return advance(op);
     };
     auto blocked = ffi::StructuralWalk<ffi::WalkOrder::kPreOrder>(
         condition,
-        [&](const VarNode* op) -> ffi::Expected<ffi::WalkResult> {
+        [&](const VarObj* op) -> ffi::Expected<ffi::WalkResult> {
           // Stay inside every referenced loop variable's definition. Other
           // variables remain in scope at every candidate destination.
           auto it = scope.loop_depths.find(op);
@@ -111,31 +111,31 @@ class IfHoister : public StmtExprMutator {
           // Variable types describe metadata, not evaluated predicate dependencies.
           return ffi::WalkResult::Skip();
         },
-        [](const TypeNode*) -> ffi::Expected<ffi::WalkResult> { return ffi::WalkResult::Skip(); },
-        [](const TensorLoadNode*) -> ffi::Expected<ffi::WalkResult> {
+        [](const TypeObj*) -> ffi::Expected<ffi::WalkResult> { return ffi::WalkResult::Skip(); },
+        [](const TensorLoadObj*) -> ffi::Expected<ffi::WalkResult> {
           // Memory reads can change across iterations or depend on an execution guard.
           return ffi::WalkResult::Interrupt();
         },
-        [&](const prim::DivNode* op) { return division(op, op->b); },
-        [&](const prim::ModNode* op) { return division(op, op->b); },
-        [&](const prim::FloorDivNode* op) { return division(op, op->b); },
-        [&](const prim::FloorModNode* op) { return division(op, op->b); },
-        [](const prim::LShiftNode*) -> ffi::Expected<ffi::WalkResult> {
+        [&](const prim::DivObj* op) { return division(op, op->b); },
+        [&](const prim::ModObj* op) { return division(op, op->b); },
+        [&](const prim::FloorDivObj* op) { return division(op, op->b); },
+        [&](const prim::FloorModObj* op) { return division(op, op->b); },
+        [](const prim::LShiftObj*) -> ffi::Expected<ffi::WalkResult> {
           // A shift count may be outside the defined range.
           return ffi::WalkResult::Interrupt();
         },
-        [](const prim::RShiftNode*) -> ffi::Expected<ffi::WalkResult> {
+        [](const prim::RShiftObj*) -> ffi::Expected<ffi::WalkResult> {
           // A shift count may be outside the defined range.
           return ffi::WalkResult::Interrupt();
         },
-        [&](const prim::CastNode* op) -> ffi::Expected<ffi::WalkResult> {
+        [&](const prim::CastObj* op) -> ffi::Expected<ffi::WalkResult> {
           // Floating-to-integer conversion may be undefined outside the integer range.
           if (ffi::GetRef<PrimExpr>(op).ty().MatchesCode(kDLInt, kDLUInt) &&
               !op->value.ty().MatchesCode(kDLInt, kDLUInt))
             return ffi::WalkResult::Interrupt();
           return advance(op);
         },
-        [&](const CallNode* op) -> ffi::Expected<ffi::WalkResult> {
+        [&](const CallObj* op) -> ffi::Expected<ffi::WalkResult> {
           // Even pure calls may trap; only the transparent likely hint is known safe.
           if (!op->op.same_as(prim::likely_op())) return ffi::WalkResult::Interrupt();
           return advance(op);
@@ -144,14 +144,14 @@ class IfHoister : public StmtExprMutator {
     return blocked.has_value() ? scope.loops.size() : destination;
   }
 
-  UnchangedOr<Stmt> Mutate_(const RegionStmtNode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<Stmt> Mutate_(const RegionStmtObj* op, InplaceMode inplace_mode) final {
     // Moving guards inside a thread launch can prevent later synchronization
     // insertion, even when the guards themselves are loop-invariant.
     if (op->op.same_as(launch_thread_op())) return ffi::Unchanged();
     return StmtExprMutator::Mutate_(op, inplace_mode);
   }
 
-  UnchangedOr<Stmt> Mutate_(const ForNode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<Stmt> Mutate_(const ForObj* op, InplaceMode inplace_mode) final {
     // Preserve the same synchronization boundary before thread-binding lowering.
     // Only ordinary serial loops permit code motion across their execution scope.
     // Hoisting must not suppress evaluation of an effectful loop header either.
@@ -166,7 +166,7 @@ class IfHoister : public StmtExprMutator {
     if (active_loops_++ == 0) split_in_nest_ = false;
     // Snapshot ancestors outside this loop so they do not require a false-path copy.
     LoopState loop{else_depth_, {}};
-    const VarNode* var = op->var.get();
+    const VarObj* var = op->var.get();
     // Register this destination and its variable together. An index in loops
     // identifies both where to wrap a lifted If and which variables it must avoid.
     scope.loop_depths[var] = scope.loops.size();
@@ -187,7 +187,7 @@ class IfHoister : public StmtExprMutator {
     return stmt;
   }
 
-  UnchangedOr<Stmt> Mutate_(const IfNode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<Stmt> Mutate_(const IfObj* op, InplaceMode inplace_mode) final {
     auto& scope = scopes_.Current();
     // Moving a one-sided inner If could otherwise skip this predicate's effects.
     if (!scope.loops.empty() && SideEffect(op->condition) > CallEffectKind::kReadState) {

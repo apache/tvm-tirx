@@ -44,7 +44,7 @@ void CallFFIKernelAttr::RegisterReflection() {
               refl::DefaultValue(ffi::Map<ffi::String, int64_t>()));
 }
 
-Type InferTypeStackAlloca(const CallNode* call) {
+Type InferTypeStackAlloca(const CallObj* call) {
   TVM_FFI_CHECK_GE(call->args.size(), 1U, ValueError) << "Stack allocation requires a dtype name";
   ffi::String dtype = call->args[0].as_or_throw<StringImm>()->value;
   if (dtype == "shape") return PtrType(PrimType::Int(64));

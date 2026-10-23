@@ -74,7 +74,7 @@ class ArgumentInfo : public ffi::ObjectRef {
 };
 
 /*! \brief Metadata for a canonical primitive operator invoked through Call. */
-class OpNode : public ExprNode {
+class OpObj : public ExprObj {
  private:
   // Dense process-local index into attribute columns; never serialized.
   uint32_t index_{0};
@@ -104,7 +104,7 @@ class OpNode : public ExprNode {
   TVM_TIRX_DLL static void RegisterReflection();
 
   static constexpr TVMFFISEqHashKind _type_s_eq_hash_kind = kTVMFFISEqHashKindUniqueInstance;
-  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("ir.Op", OpNode, ExprNode);
+  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("ir.Op", OpObj, ExprObj);
 
  private:
   friend class OpRegistry;
@@ -139,8 +139,8 @@ class OpNode : public ExprNode {
 class Op : public Expr {
  public:
   /*! \brief Construct a handle from a defined node. \param n The operator node. */
-  explicit Op(ffi::ObjectPtr<OpNode> n) : Expr(std::move(n)) {
-    TVM_FFI_CHECK(defined(), ValueError) << "Op expects a defined OpNode";
+  explicit Op(ffi::ObjectPtr<OpObj> n) : Expr(std::move(n)) {
+    TVM_FFI_CHECK(defined(), ValueError) << "Op expects a defined OpObj";
   }
 
   /*!
@@ -179,30 +179,30 @@ class Op : public Expr {
   TVM_TIRX_DLL static ffi::Array<ffi::String> ListNames();
 
   /*! \brief Validate a Call with this Op's callback, when one is registered. */
-  TVM_FFI_INLINE void Validate(const CallNode* call) const {
+  TVM_FFI_INLINE void Validate(const CallObj* call) const {
     const auto& validator = get()->validator;
     if (validator != nullptr) {
       if (TVM_FFI_PREDICT_FALSE(!call)) {
         ThrowInvalidCall(get());
       }
-      using View = ffi::reflection::NativeFunctionView<void(const CallNode*)>;
+      using View = ffi::reflection::NativeFunctionView<void(const CallObj*)>;
       // set_validator stores only an owning NativeFunction with this signature.
       ffi::details::AnyUnsafe::CopyFromAnyViewAfterCheck<View>(validator)
           .CallExpected(call)
           .value();
     }
   }
-  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(Op, Expr, OpNode);
+  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(Op, Expr, OpObj);
 
  private:
-  TVM_TIRX_DLL static void ThrowInvalidCall(const OpNode* op);
+  TVM_TIRX_DLL static void ThrowInvalidCall(const OpObj* op);
   TVM_TIRX_DLL static ffi::List<ffi::Any> GetAttrColumn(const ffi::String& attr_name);
 };
 
 namespace op_attr {
 /*! \brief Infer a Call's result type from its explicit inputs without builder state. */
 inline constexpr ffi::reflection::AttrKey<
-    ffi::reflection::NativeFunctionView<Type(const CallNode* call)>>
+    ffi::reflection::NativeFunctionView<Type(const CallObj* call)>>
     kInferType{"FInferType"};
 /*!
  * \brief An operator's result type independent of operands, attributes, and type arguments.
@@ -234,9 +234,9 @@ struct SignatureTrait {
 /*! \brief Shared inputs and indexes for a typed signature validation fold. */
 struct ValidateState {
   /*! \brief Call being validated. */
-  const CallNode* call;
+  const CallObj* call;
   /*! \brief Canonical operator and its current argument metadata. */
-  const OpNode* op;
+  const OpObj* op;
   /*! \brief Index of the next value argument after the upfront arity check. */
   size_t args_index = 0;
   /*! \brief Index of the next type argument after the upfront arity check. */
@@ -282,7 +282,7 @@ struct arg : SignatureTrait {
   explicit arg(ffi::String name, ffi::String doc = "")
       : name(std::move(name)), doc(std::move(doc)) {}
 
-  void CollectMetadata(OpNode* op) const {
+  void CollectMetadata(OpObj* op) const {
     auto info = ffi::make_object<ArgumentInfoObj>();
     info->name = name;
     info->doc = doc;
@@ -317,7 +317,7 @@ struct var_args : SignatureTrait {
   explicit var_args(ffi::String name, ffi::String doc = "")
       : name(std::move(name)), doc(std::move(doc)) {}
 
-  void CollectMetadata(OpNode* op) const {
+  void CollectMetadata(OpObj* op) const {
     auto info = ffi::make_object<ArgumentInfoObj>();
     info->name = name;
     info->doc = doc;
@@ -356,7 +356,7 @@ struct ty_arg : SignatureTrait {
   explicit ty_arg(ffi::String name, ffi::String doc = "")
       : name(std::move(name)), doc(std::move(doc)) {}
 
-  void CollectMetadata(OpNode* op) const {
+  void CollectMetadata(OpObj* op) const {
     auto info = ffi::make_object<ArgumentInfoObj>();
     info->name = name;
     info->doc = doc;
@@ -391,7 +391,7 @@ struct var_ty_args : SignatureTrait {
   explicit var_ty_args(ffi::String name, ffi::String doc = "")
       : name(std::move(name)), doc(std::move(doc)) {}
 
-  void CollectMetadata(OpNode* op) const {
+  void CollectMetadata(OpObj* op) const {
     auto info = ffi::make_object<ArgumentInfoObj>();
     info->name = name;
     info->doc = doc;
@@ -419,17 +419,17 @@ struct var_ty_args : SignatureTrait {
  * \brief Require Call.attrs to hold node type T and record its metadata.
  *
  * \code
- * OpDef("example.with_attrs").signature(sig::call_attrs<DictAttrsNode>());
- * // Call.attrs must contain a DictAttrsNode for this operator.
+ * OpDef("example.with_attrs").signature(sig::call_attrs<DictAttrsObj>());
+ * // Call.attrs must contain a DictAttrsObj for this operator.
  * \endcode
  */
 template <typename T>
 struct call_attrs : SignatureTrait {
-  static_assert(std::is_base_of_v<AttrsNode, T>, "call_attrs<T> expects an attribute node type");
+  static_assert(std::is_base_of_v<AttrsObj, T>, "call_attrs<T> expects an attribute node type");
   /*! \brief Contributes one required Call.attrs descriptor. */
   static constexpr size_t kCallAttrsCount = 1;
 
-  void CollectMetadata(OpNode* op) const {
+  void CollectMetadata(OpObj* op) const {
     uint32_t index = T::RuntimeTypeIndex();
     op->attrs_type_key = T::_type_key;
     op->attrs_type_index = index;
@@ -525,19 +525,19 @@ class OpDef {
    *         sig::var_args<PrimExpr>("rest"),
    *         sig::ty_arg("T"),
    *         sig::var_ty_args("Ts"),
-   *         sig::call_attrs<DictAttrsNode>());
+   *         sig::call_attrs<DictAttrsObj>());
    * \endcode
    */
   template <typename... Specs>
   OpDef& signature(const Specs&... specs) {
-    auto updated = ffi::make_object<OpNode>();
+    auto updated = ffi::make_object<OpObj>();
     (ApplySignatureTrait(updated.get(), specs), ...);
     if (op_->validator == nullptr) {
-      using View = ffi::reflection::NativeFunctionView<void(const CallNode*)>;
+      using View = ffi::reflection::NativeFunctionView<void(const CallObj*)>;
       set_validator(View::FromNative<&ValidateSignature<Specs...>>());
       get()->validator_is_custom = false;
     }
-    OpNode* target = get();
+    OpObj* target = get();
     target->args_info = std::move(updated->args_info);
     target->ty_args_info = std::move(updated->ty_args_info);
     target->var_args_info = std::move(updated->var_args_info);
@@ -591,7 +591,7 @@ class OpDef {
   /*!
    * \brief Register a validator that checks a Call with this operator.
    *
-   * The callback accepts a `const CallNode*` and reports invalid input by
+   * The callback accepts a `const CallObj*` and reports invalid input by
    * throwing or returning an `Expected<void>` error. A native function pointer
    * can be bound with NativeFunctionView::FromNative. A borrowed packed function
    * may also be passed while it remains alive for this call. The setter retains an owning
@@ -607,11 +607,11 @@ class OpDef {
    * \param override Whether to replace the current validator.
    * \return This builder.
    */
-  OpDef& set_validator(ffi::reflection::NativeFunctionView<void(const CallNode*)> validator,
+  OpDef& set_validator(ffi::reflection::NativeFunctionView<void(const CallObj*)> validator,
                        bool override = false) {
     TVM_FFI_CHECK(override || op_->validator == nullptr, ValueError)
         << "Validator of " << op_->name << " is already registered";
-    get()->validator = ffi::reflection::NativeFunction<void(const CallNode*)>::From(validator);
+    get()->validator = ffi::reflection::NativeFunction<void(const CallObj*)>::From(validator);
     get()->validator_is_custom = true;
     return *this;
   }
@@ -629,13 +629,13 @@ class OpDef {
 
  private:
   template <typename Spec>
-  static void ApplySignatureTrait(OpNode* op, const Spec& spec) {
+  static void ApplySignatureTrait(OpObj* op, const Spec& spec) {
     static_assert(std::is_base_of_v<sig::SignatureTrait, Spec>, "Unknown signature descriptor");
     spec.CollectMetadata(op);
   }
 
   template <typename... Specs>
-  TVM_FFI_INLINE static ffi::Expected<void> ValidateSignature(const CallNode* call) noexcept {
+  TVM_FFI_INLINE static ffi::Expected<void> ValidateSignature(const CallObj* call) noexcept {
     static_assert((std::is_base_of_v<sig::SignatureTrait, Specs> && ...),
                   "Unknown signature descriptor");
     constexpr size_t n_args = (size_t{0} + ... + Specs::kArgsCount);
@@ -645,7 +645,7 @@ class OpDef {
     constexpr size_t n_attrs = (size_t{0} + ... + Specs::kCallAttrsCount);
     static_assert(n_var_args <= 1 && n_var_ty_args <= 1 && n_attrs <= 1,
                   "Duplicate signature tail or call_attrs");
-    const OpNode* op = call ? call->op.as<OpNode>() : nullptr;
+    const OpObj* op = call ? call->op.as<OpObj>() : nullptr;
     if (TVM_FFI_PREDICT_FALSE(!op)) {
       return TVM_FFI_UNEXPECTED(TypeError) << "Invalid Op Call";
     }
@@ -680,7 +680,7 @@ class OpDef {
     return result;
   }
 
-  OpNode* get() { return const_cast<OpNode*>(op_.operator->()); }
+  OpObj* get() { return const_cast<OpObj*>(op_.operator->()); }
   TVM_TIRX_DLL void UpdateAttr(const ffi::String& attr_name, ffi::Any value, bool override);
   Op op_;
 };
@@ -735,7 +735,7 @@ class OpAttrMap {
    */
   ValueType get(const Expr& expr, ValueType def_value) const {
     TVM_FFI_ICHECK(expr.defined());
-    if (const auto* op = expr.as<OpNode>()) {
+    if (const auto* op = expr.as<OpObj>()) {
       return get(ffi::GetRef<Op>(op), def_value);
     }
     return def_value;

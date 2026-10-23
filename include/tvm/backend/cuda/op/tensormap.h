@@ -32,7 +32,7 @@ namespace backend {
 namespace cuda {
 
 /*! \brief Fixed encoding options for tensormap_encode_tiled. */
-struct TensorMapEncodeTiledAttr : public AttrsNode {
+struct TensorMapEncodeTiledAttr : public AttrsObj {
   DLDataType descriptor_dtype;
   int64_t rank;
   int64_t interleave;
@@ -43,7 +43,7 @@ struct TensorMapEncodeTiledAttr : public AttrsNode {
 
   static void RegisterReflection();
   TVM_FFI_DECLARE_OBJECT_INFO_FINAL("tirx.cuda.TensorMapEncodeTiledAttr", TensorMapEncodeTiledAttr,
-                                    AttrsNode);
+                                    AttrsObj);
 };
 
 /*!

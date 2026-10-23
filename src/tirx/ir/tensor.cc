@@ -55,7 +55,7 @@ namespace {
 
 PrimExpr SliceExtent(const PrimExpr& start, const PrimExpr& stop, const sym::Analyzer& analyzer) {
   PrimExpr extent = Range::GetExtentFromBeginEnd(start, stop);
-  if (const auto* add = stop.as<AddNode>();
+  if (const auto* add = stop.as<AddObj>();
       add && (extent.same_as(add->a) || extent.same_as(add->b))) {
     return extent;
   }
@@ -169,8 +169,8 @@ ffi::ObjectRef RealizeTensorRegionSubscript(Expr value, SubscriptSlice slice, Lo
 
 }  // namespace
 
-using IndexMod = prim::FloorModNode;
-using IndexDiv = prim::FloorDivNode;
+using IndexMod = prim::FloorModObj;
+using IndexDiv = prim::FloorDivObj;
 
 TVM_FFI_STATIC_INIT_BLOCK() {
   namespace refl = tvm::ffi::reflection;
@@ -179,10 +179,10 @@ TVM_FFI_STATIC_INIT_BLOCK() {
 
 TVM_FFI_STATIC_INIT_BLOCK() {
   namespace refl = tvm::ffi::reflection;
-  refl::TypeAttrDef<TensorTypeNode>().attr(tvm::type_attr::kExprSubscriptRealizeByTy,
-                                           RealizeTensorSubscript);
-  refl::TypeAttrDef<TensorRegionTypeNode>().attr(tvm::type_attr::kExprSubscriptRealizeByTy,
-                                                 RealizeTensorRegionSubscript);
+  refl::TypeAttrDef<TensorTypeObj>().attr(tvm::type_attr::kExprSubscriptRealizeByTy,
+                                          RealizeTensorSubscript);
+  refl::TypeAttrDef<TensorRegionTypeObj>().attr(tvm::type_attr::kExprSubscriptRealizeByTy,
+                                                RealizeTensorRegionSubscript);
 }
 
 ffi::Array<PrimExpr> SimplifyArray(sym::AnalyzerObj* ana, ffi::Array<PrimExpr> array) {
@@ -201,7 +201,7 @@ inline std::vector<const PrimExpr*> ExprSplitAddition(const PrimExpr& expr) {
   while (!split_buffer.empty()) {
     const PrimExpr* top_ele = split_buffer.top();
     split_buffer.pop();
-    auto expr_add_match = top_ele->as<prim::AddNode>();
+    auto expr_add_match = top_ele->as<prim::AddObj>();
     if (expr_add_match) {
       split_buffer.push(&expr_add_match->b);
       split_buffer.push(&expr_add_match->a);
@@ -225,13 +225,13 @@ inline ffi::Optional<PrimExpr> MergeMulModInner(sym::AnalyzerObj* analyzer,
                                                 const PrimExpr& mod_l_expr,
                                                 const PrimExpr& mod_r_expr) {
   using namespace tirx;
-  const prim::MulNode* mult_ptr = mult_expr.as<prim::MulNode>();
+  const prim::MulObj* mult_ptr = mult_expr.as<prim::MulObj>();
   if (!mult_ptr) return std::nullopt;
   PrimExpr mult_outer = mult_ptr->b;
   const PrimExpr* inner = &(mult_ptr->a);
   // 1. Calculate the outer multiplier
   while (true) {
-    mult_ptr = inner->as<prim::MulNode>();
+    mult_ptr = inner->as<prim::MulObj>();
     if (mult_ptr) {
       inner = &(mult_ptr->a);
       mult_outer = mult_ptr->b * mult_outer;
@@ -252,8 +252,8 @@ inline ffi::Optional<PrimExpr> MergeMulModInner(sym::AnalyzerObj* analyzer,
 
   while (true) {
     auto inner_div_ptr = search_ptr->as<IndexDiv>();
-    auto inner_mult_ptr = search_ptr->as<prim::MulNode>();
-    auto inner_add_ptr = search_ptr->as<prim::AddNode>();
+    auto inner_mult_ptr = search_ptr->as<prim::MulObj>();
+    auto inner_add_ptr = search_ptr->as<prim::AddObj>();
     if (!inner_div_ptr && !inner_mult_ptr && !inner_add_ptr) {
       return std::nullopt;
     } else if (inner_div_ptr) {
@@ -300,7 +300,7 @@ inline void MergeMulModInsertElements(const std::vector<const PrimExpr*>& eles,
   *has_mod = false;
   for (const PrimExpr* ele : eles) {
     auto mod_ptr = ele->as<IndexMod>();
-    auto mult_ptr = ele->as<prim::MulNode>();
+    auto mult_ptr = ele->as<prim::MulObj>();
     if (mod_ptr) {
       *has_mod = true;
       mod_exprs->emplace_back(std::make_pair(std::move(mod_ptr->a), std::move(mod_ptr->b)));
@@ -389,7 +389,7 @@ inline PrimExpr MergeMulMod(sym::AnalyzerObj* analyzer, const PrimExpr& base) {
 // The tensor offset in convention of number of elements of
 // original data ignoring number of lanes.
 // We also perform optimization to simplify the indexing expression.
-ffi::Array<PrimExpr> TensorTypeNode::ElemOffset(ffi::Array<PrimExpr> input_indices) const {
+ffi::Array<PrimExpr> TensorTypeObj::ElemOffset(ffi::Array<PrimExpr> input_indices) const {
   TVM_FFI_ICHECK_EQ(shape.size(), input_indices.size())
       << "TensorType is " << shape.size() << "-dimensional, cannot be indexed with the "
       << input_indices.size() << "-dimensional indices provided.";

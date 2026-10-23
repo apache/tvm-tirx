@@ -37,9 +37,9 @@ using namespace tvm::prim;
 using tvm::script::ir_builder::details::Namer;
 
 TVM_FFI_STATIC_INIT_BLOCK() {
-  Namer::vtable().SetDispatch<tvm::VarNode>(
+  Namer::vtable().SetDispatch<tvm::VarObj>(
       [](const ffi::ObjectRef& node, ffi::String name) -> void {
-        VarNode* var = const_cast<VarNode*>(node.as<VarNode>());
+        VarObj* var = const_cast<VarObj*>(node.as<VarObj>());
         var->name = name;
       });
 }
@@ -168,8 +168,8 @@ TVM_FFI_STATIC_INIT_BLOCK() {
 }
 
 TVM_FFI_STATIC_INIT_BLOCK() {
-  details::LocationAccessor::vtable().SetDispatch<tvm::StmtNode>(
-      [](const ffi::ObjectRef& obj) -> Location* { return &obj.as<tvm::StmtNode>()->loc; });
+  details::LocationAccessor::vtable().SetDispatch<tvm::StmtObj>(
+      [](const ffi::ObjectRef& obj) -> Location* { return &obj.as<tvm::StmtObj>()->loc; });
 }
 
 /*!
@@ -202,7 +202,7 @@ PrimType InferLoopVarDtype(const PrimExpr& start, const PrimExpr& stop,
  */
 PrimExpr ConvertLoopBound(const PrimExpr& e, const PrimType& var_ty) {
   if (e.ty() == var_ty) return e;
-  if (const auto* imm = e.as<IntImmNode>()) {
+  if (const auto* imm = e.as<IntImmObj>()) {
     return tvm::IntImm(var_ty, imm->value);
   }
   return tvm::prim::Cast(var_ty, e);
@@ -352,7 +352,7 @@ tvm::Stmt Evaluate(Expr value) {
 // Keep operator construction independent of builder state. Python API exposure
 // invokes this hook only after constructing and selecting its call.
 bool MaybeEmitVoidCall(Call call) {
-  const auto* prim_type = call->ty.as<PrimTypeNode>();
+  const auto* prim_type = call->ty.as<PrimTypeObj>();
   bool is_void = IsVoidType(call->ty) || (prim_type && ffi::GetRef<PrimType>(prim_type).IsVoid());
   if (!is_void || !IRBuilder::IsInScope()) return false;
   IRBuilder::Current()->AttachLoc(call);

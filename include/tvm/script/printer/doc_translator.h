@@ -113,7 +113,7 @@ using FDocTranslate = ffi::reflection::NativeFunctionView<ffi::Optional<ExprDoc>
  *                             const ffi::Object* destination) {
  *   ExprDoc rhs = LiteralDoc::Str("value", std::nullopt);
  *   if (!destination) return rhs;
- *   auto var = ffi::GetRef<Var>(static_cast<const VarNode*>(destination));
+ *   auto var = ffi::GetRef<Var>(static_cast<const VarObj*>(destination));
  *   IdDoc lhs(d->VarGetOrAllocId(var, true)->name);
  *   d->Emit(AssignDoc(lhs, rhs, std::nullopt), var);
  *   return std::nullopt;

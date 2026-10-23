@@ -37,11 +37,11 @@ int GetLanesOrVScaleFactor(const PrimType& ty) {
   return ty.IsScalableVector() ? ty.VScaleFactor() : ty.lanes();
 }
 
-TVM_FFI_INLINE const PrimTypeNode* GetPrimTypeNode(const PrimExpr& expr) {
+TVM_FFI_INLINE const PrimTypeObj* GetPrimTypeObj(const PrimExpr& expr) {
   const auto* node = expr.get();
   TVM_FFI_DCHECK(node != nullptr);
-  TVM_FFI_DCHECK(!node->ExprNode::ty.as<MissingType>().has_value());
-  const auto* prim_ty = node->ExprNode::ty.as<PrimTypeNode>();
+  TVM_FFI_DCHECK(!node->ExprObj::ty.as<MissingType>().has_value());
+  const auto* prim_ty = node->ExprObj::ty.as<PrimTypeObj>();
   TVM_FFI_DCHECK(prim_ty != nullptr);
   return prim_ty;
 }
@@ -102,8 +102,8 @@ TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> BinaryMaybeInplaceMutat
 TVM_FFI_INLINE ffi::Expected<ffi::Optional<ffi::VisitInterrupt>> CastVisit(
     ffi::StructuralVisitorObj* visitor, ffi::AnyView value) noexcept {
   // skips: PrimExpr types are always PrimType and remain unchanged in normal mutation.
-  const CastNode* self =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const CastNode>(value);
+  const CastObj* self =
+      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const CastObj>(value);
   TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(visitor->VisitExpected(self->value));
   return std::nullopt;
 }
@@ -111,14 +111,14 @@ TVM_FFI_INLINE ffi::Expected<ffi::Optional<ffi::VisitInterrupt>> CastVisit(
 TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> CastMutate(
     ffi::StructuralMutatorObj* mutator, ffi::AnyView value) noexcept {
   // skips: PrimExpr types are always PrimType and remain unchanged in normal mutation.
-  const CastNode* self =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const CastNode>(value);
+  const CastObj* self =
+      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const CastObj>(value);
   TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<PrimExpr>, mapped_value_u,
                                     mutator->MutateExpected(self->value));
   if (mapped_value_u.UnchangedOrSameAs(self->value)) {
     return ffi::Unchanged();
   }
-  ffi::ObjectPtr<CastNode> copy = ffi::make_object<CastNode>(*self);
+  ffi::ObjectPtr<CastObj> copy = ffi::make_object<CastObj>(*self);
   if (!mapped_value_u.IsUnchanged()) copy->value = std::move(mapped_value_u).ValueUnchecked();
   return ffi::Any(std::move(copy));
 }
@@ -126,8 +126,8 @@ TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> CastMutate(
 TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> CastMaybeInplaceMutate(
     ffi::StructuralMutatorObj* mutator, ffi::AnyView value) noexcept {
   // skips: PrimExpr types are always PrimType and remain unchanged in normal mutation.
-  CastNode* self = const_cast<CastNode*>(
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const CastNode>(value));
+  CastObj* self = const_cast<CastObj*>(
+      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const CastObj>(value));
   TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<PrimExpr>, mapped_value_u,
                                     mutator->MutateExpected(self->value, ffi::InplaceMode::kAllow));
   if (mapped_value_u.UnchangedOrSameAs(self->value)) {
@@ -140,8 +140,8 @@ TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> CastMaybeInplaceMutate(
 TVM_FFI_INLINE ffi::Expected<ffi::Optional<ffi::VisitInterrupt>> NotVisit(
     ffi::StructuralVisitorObj* visitor, ffi::AnyView value) noexcept {
   // skips: PrimExpr types are always PrimType and remain unchanged in normal mutation.
-  const NotNode* self =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const NotNode>(value);
+  const NotObj* self =
+      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const NotObj>(value);
   TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(visitor->VisitExpected(self->a));
   return std::nullopt;
 }
@@ -149,14 +149,14 @@ TVM_FFI_INLINE ffi::Expected<ffi::Optional<ffi::VisitInterrupt>> NotVisit(
 TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> NotMutate(
     ffi::StructuralMutatorObj* mutator, ffi::AnyView value) noexcept {
   // skips: PrimExpr types are always PrimType and remain unchanged in normal mutation.
-  const NotNode* self =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const NotNode>(value);
+  const NotObj* self =
+      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const NotObj>(value);
   TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<PrimExpr>, mapped_a_u,
                                     mutator->MutateExpected(self->a));
   if (mapped_a_u.UnchangedOrSameAs(self->a)) {
     return ffi::Unchanged();
   }
-  ffi::ObjectPtr<NotNode> copy = ffi::make_object<NotNode>(*self);
+  ffi::ObjectPtr<NotObj> copy = ffi::make_object<NotObj>(*self);
   if (!mapped_a_u.IsUnchanged()) copy->a = std::move(mapped_a_u).ValueUnchecked();
   return ffi::Any(std::move(copy));
 }
@@ -164,8 +164,8 @@ TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> NotMutate(
 TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> NotMaybeInplaceMutate(
     ffi::StructuralMutatorObj* mutator, ffi::AnyView value) noexcept {
   // skips: PrimExpr types are always PrimType and remain unchanged in normal mutation.
-  NotNode* self = const_cast<NotNode*>(
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const NotNode>(value));
+  NotObj* self = const_cast<NotObj*>(
+      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const NotObj>(value));
   TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<PrimExpr>, mapped_a_u,
                                     mutator->MutateExpected(self->a, ffi::InplaceMode::kAllow));
   if (mapped_a_u.UnchangedOrSameAs(self->a)) {
@@ -178,8 +178,8 @@ TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> NotMaybeInplaceMutate(
 TVM_FFI_INLINE ffi::Expected<ffi::Optional<ffi::VisitInterrupt>> BitwiseNotVisit(
     ffi::StructuralVisitorObj* visitor, ffi::AnyView value) noexcept {
   // skips: PrimExpr types are always PrimType and remain unchanged in normal mutation.
-  const BitwiseNotNode* self =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const BitwiseNotNode>(value);
+  const BitwiseNotObj* self =
+      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const BitwiseNotObj>(value);
   TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(visitor->VisitExpected(self->a));
   return std::nullopt;
 }
@@ -187,14 +187,14 @@ TVM_FFI_INLINE ffi::Expected<ffi::Optional<ffi::VisitInterrupt>> BitwiseNotVisit
 TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> BitwiseNotMutate(
     ffi::StructuralMutatorObj* mutator, ffi::AnyView value) noexcept {
   // skips: PrimExpr types are always PrimType and remain unchanged in normal mutation.
-  const BitwiseNotNode* self =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const BitwiseNotNode>(value);
+  const BitwiseNotObj* self =
+      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const BitwiseNotObj>(value);
   TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<PrimExpr>, mapped_a_u,
                                     mutator->MutateExpected(self->a));
   if (mapped_a_u.UnchangedOrSameAs(self->a)) {
     return ffi::Unchanged();
   }
-  ffi::ObjectPtr<BitwiseNotNode> copy = ffi::make_object<BitwiseNotNode>(*self);
+  ffi::ObjectPtr<BitwiseNotObj> copy = ffi::make_object<BitwiseNotObj>(*self);
   if (!mapped_a_u.IsUnchanged()) copy->a = std::move(mapped_a_u).ValueUnchecked();
   return ffi::Any(std::move(copy));
 }
@@ -202,8 +202,8 @@ TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> BitwiseNotMutate(
 TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> BitwiseNotMaybeInplaceMutate(
     ffi::StructuralMutatorObj* mutator, ffi::AnyView value) noexcept {
   // skips: PrimExpr types are always PrimType and remain unchanged in normal mutation.
-  BitwiseNotNode* self = const_cast<BitwiseNotNode*>(
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const BitwiseNotNode>(value));
+  BitwiseNotObj* self = const_cast<BitwiseNotObj*>(
+      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const BitwiseNotObj>(value));
   TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<PrimExpr>, mapped_a_u,
                                     mutator->MutateExpected(self->a, ffi::InplaceMode::kAllow));
   if (mapped_a_u.UnchangedOrSameAs(self->a)) {
@@ -216,8 +216,8 @@ TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> BitwiseNotMaybeInplaceM
 TVM_FFI_INLINE ffi::Expected<ffi::Optional<ffi::VisitInterrupt>> SelectVisit(
     ffi::StructuralVisitorObj* visitor, ffi::AnyView value) noexcept {
   // skips: PrimExpr types are always PrimType and remain unchanged in normal mutation.
-  const SelectNode* self =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const SelectNode>(value);
+  const SelectObj* self =
+      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const SelectObj>(value);
   TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(visitor->VisitExpected(self->condition));
   TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(visitor->VisitExpected(self->true_value));
   TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(visitor->VisitExpected(self->false_value));
@@ -227,8 +227,8 @@ TVM_FFI_INLINE ffi::Expected<ffi::Optional<ffi::VisitInterrupt>> SelectVisit(
 TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> SelectMutate(
     ffi::StructuralMutatorObj* mutator, ffi::AnyView value) noexcept {
   // skips: PrimExpr types are always PrimType and remain unchanged in normal mutation.
-  const SelectNode* self =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const SelectNode>(value);
+  const SelectObj* self =
+      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const SelectObj>(value);
   TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<PrimExpr>, mapped_condition_u,
                                     mutator->MutateExpected(self->condition));
   TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<PrimExpr>, mapped_true_value_u,
@@ -240,7 +240,7 @@ TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> SelectMutate(
       mapped_false_value_u.UnchangedOrSameAs(self->false_value)) {
     return ffi::Unchanged();
   }
-  ffi::ObjectPtr<SelectNode> copy = ffi::make_object<SelectNode>(*self);
+  ffi::ObjectPtr<SelectObj> copy = ffi::make_object<SelectObj>(*self);
   if (!mapped_condition_u.IsUnchanged())
     copy->condition = std::move(mapped_condition_u).ValueUnchecked();
   if (!mapped_true_value_u.IsUnchanged())
@@ -253,8 +253,8 @@ TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> SelectMutate(
 TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> SelectMaybeInplaceMutate(
     ffi::StructuralMutatorObj* mutator, ffi::AnyView value) noexcept {
   // skips: PrimExpr types are always PrimType and remain unchanged in normal mutation.
-  SelectNode* self = const_cast<SelectNode*>(
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const SelectNode>(value));
+  SelectObj* self = const_cast<SelectObj*>(
+      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const SelectObj>(value));
   TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(
       ffi::UnchangedOr<PrimExpr>, mapped_condition_u,
       mutator->MutateExpected(self->condition, ffi::InplaceMode::kAllow));
@@ -281,8 +281,8 @@ TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> SelectMaybeInplaceMutat
 TVM_FFI_INLINE ffi::Expected<ffi::Optional<ffi::VisitInterrupt>> LetVisit(
     ffi::StructuralVisitorObj* visitor, ffi::AnyView value) noexcept {
   // skips: PrimExpr types are always PrimType and remain unchanged in normal mutation.
-  const LetNode* self =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const LetNode>(value);
+  const LetObj* self =
+      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const LetObj>(value);
   TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(visitor->WithDefRegionKind(
       kTVMFFIDefRegionKindSimple, [&]() { return visitor->VisitExpected(self->var); }));
   TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(visitor->VisitExpected(self->value));
@@ -292,8 +292,8 @@ TVM_FFI_INLINE ffi::Expected<ffi::Optional<ffi::VisitInterrupt>> LetVisit(
 
 TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> LetMutate(
     ffi::StructuralMutatorObj* mutator, ffi::AnyView value) noexcept {
-  const LetNode* self =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const LetNode>(value);
+  const LetObj* self =
+      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const LetObj>(value);
   Type old_value_type = self->value->ty;
   TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<PrimExpr>, mapped_value_u,
                                     mutator->MutateExpected(self->value));
@@ -322,7 +322,7 @@ TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> LetMutate(
       new_body.same_as(self->body) && new_body->ty.same_as(self->ty)) {
     return ffi::Unchanged();
   }
-  ffi::ObjectPtr<LetNode> copy = ffi::make_object<LetNode>(*self);
+  ffi::ObjectPtr<LetObj> copy = ffi::make_object<LetObj>(*self);
   copy->var = std::move(new_var);
   copy->value = std::move(new_value);
   copy->body = std::move(new_body);
@@ -332,8 +332,8 @@ TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> LetMutate(
 
 TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> LetMaybeInplaceMutate(
     ffi::StructuralMutatorObj* mutator, ffi::AnyView value) noexcept {
-  LetNode* self = const_cast<LetNode*>(
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const LetNode>(value));
+  LetObj* self = const_cast<LetObj*>(
+      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const LetObj>(value));
   Type old_value_type = self->value->ty;
   TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<PrimExpr>, mapped_value_u,
                                     mutator->MutateExpected(self->value, ffi::InplaceMode::kAllow));
@@ -385,12 +385,12 @@ TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> LetMaybeInplaceMutate(
     using T = Name::ContainerType;                                                 \
     TVM_FFI_CHECK(a.defined(), ValueError) << "a is undefined\n";                  \
     TVM_FFI_CHECK(b.defined(), ValueError) << "b is undefined\n";                  \
-    const PrimTypeNode* a_ty = GetPrimTypeNode(a);                                 \
-    const PrimTypeNode* b_ty = GetPrimTypeNode(b);                                 \
+    const PrimTypeObj* a_ty = GetPrimTypeObj(a);                                   \
+    const PrimTypeObj* b_ty = GetPrimTypeObj(b);                                   \
     TVM_FFI_CHECK(a_ty->dtype == b_ty->dtype, TypeError)                           \
         << "mismatched types. " << a_ty->dtype << " vs. " << b_ty->dtype << "\n";  \
     ffi::ObjectPtr<T> node = ffi::make_object<T>(a, b);                            \
-    node->ExprNode::ty = a.get()->ExprNode::ty;                                    \
+    node->ExprObj::ty = a.get()->ExprObj::ty;                                      \
     node->loc = loc;                                                               \
     data_ = std::move(node);                                                       \
   }
@@ -400,8 +400,8 @@ TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> LetMaybeInplaceMutate(
     using T = Name::ContainerType;                                                          \
     TVM_FFI_CHECK(a.defined(), ValueError) << "a is undefined\n";                           \
     TVM_FFI_CHECK(b.defined(), ValueError) << "b is undefined\n";                           \
-    const PrimTypeNode* a_ty = GetPrimTypeNode(a);                                          \
-    const PrimTypeNode* b_ty = GetPrimTypeNode(b);                                          \
+    const PrimTypeObj* a_ty = GetPrimTypeObj(a);                                            \
+    const PrimTypeObj* b_ty = GetPrimTypeObj(b);                                            \
     TVM_FFI_CHECK(a_ty->dtype == b_ty->dtype, TypeError)                                    \
         << "mismatched types. " << a_ty->dtype << " vs. " << b_ty->dtype << "\n";           \
     TVM_FFI_CHECK(a.ty().MatchesCode(DLDataTypeCode::kDLInt, DLDataTypeCode::kDLUInt) ||    \
@@ -409,7 +409,7 @@ TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> LetMaybeInplaceMutate(
                   TypeError)                                                                \
         << #Name << " requires integer" << (AllowBool ? " or boolean" : "") << " operands"; \
     ffi::ObjectPtr<T> node = ffi::make_object<T>(a, b);                                     \
-    node->ExprNode::ty = a.get()->ExprNode::ty;                                             \
+    node->ExprObj::ty = a.get()->ExprObj::ty;                                               \
     node->loc = loc;                                                                        \
     data_ = std::move(node);                                                                \
   }
@@ -419,12 +419,12 @@ TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> LetMaybeInplaceMutate(
     using T = Name::ContainerType;                                                 \
     TVM_FFI_CHECK(a.defined(), ValueError) << "a is undefined\n";                  \
     TVM_FFI_CHECK(b.defined(), ValueError) << "b is undefined\n";                  \
-    const PrimTypeNode* a_ty = GetPrimTypeNode(a);                                 \
-    const PrimTypeNode* b_ty = GetPrimTypeNode(b);                                 \
+    const PrimTypeObj* a_ty = GetPrimTypeObj(a);                                   \
+    const PrimTypeObj* b_ty = GetPrimTypeObj(b);                                   \
     TVM_FFI_CHECK(a_ty->dtype == b_ty->dtype, TypeError)                           \
         << "mismatched types. " << a_ty->dtype << " vs. " << b_ty->dtype << "\n";  \
     ffi::ObjectPtr<T> node = ffi::make_object<T>(a, b);                            \
-    node->ExprNode::ty = PrimType(DLDataType{kDLBool, 8, a_ty->dtype.lanes});      \
+    node->ExprObj::ty = PrimType(DLDataType{kDLBool, 8, a_ty->dtype.lanes});       \
     node->loc = loc;                                                               \
     data_ = std::move(node);                                                       \
   }
@@ -433,7 +433,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
   namespace refl = tvm::ffi::reflection;
   refl::GlobalDef().def("prim.convert",
                         [](ffi::Variant<PrimExpr, ffi::Array<PrimExpr>> expr) { return expr; });
-  // Note: kRepr for VarNode is registered in script/printer/script_printer.cc.
+  // Note: kRepr for VarObj is registered in script/printer/script_printer.cc.
 }
 
 // Cast
@@ -441,16 +441,16 @@ Cast::Cast(PrimType ty, PrimExpr value, Location loc) : PrimExpr(ffi::UnsafeInit
   TVM_FFI_ICHECK(value.defined());
   PrimType value_expr_ty = value.ty();
   TVM_FFI_ICHECK_EQ(ty->dtype.lanes, value_expr_ty->dtype.lanes);
-  ffi::ObjectPtr<CastNode> node = ffi::make_object<CastNode>(value);
-  node->ExprNode::ty = std::move(ty);
+  ffi::ObjectPtr<CastObj> node = ffi::make_object<CastObj>(value);
+  node->ExprObj::ty = std::move(ty);
   node->loc = loc;
   data_ = std::move(node);
 }
 
 TVM_FFI_STATIC_INIT_BLOCK() {
   namespace refl = tvm::ffi::reflection;
-  CastNode::RegisterReflection();
-  refl::TypeAttrDef<CastNode>()
+  CastObj::RegisterReflection();
+  refl::TypeAttrDef<CastObj>()
       .attr(ffi::type_attr::kStructuralVisit, ffi::FStructuralVisit::FromNative<&CastVisit>())
       .attr(ffi::type_attr::kStructuralMutate, ffi::FStructuralMutate::FromNative<&CastMutate>())
       .attr(ffi::type_attr::kStructuralMaybeInplaceMutate,
@@ -465,16 +465,16 @@ TVM_DEFINE_BINOP_CONSTRUCTOR(Add);
 
 TVM_FFI_STATIC_INIT_BLOCK() {
   namespace refl = tvm::ffi::reflection;
-  AddNode::RegisterReflection();
+  AddObj::RegisterReflection();
   refl::GlobalDef().def("prim.Add",
                         [](PrimExpr a, PrimExpr b, Location loc) { return Add(a, b, loc); });
-  refl::TypeAttrDef<AddNode>()
+  refl::TypeAttrDef<AddObj>()
       .attr(ffi::type_attr::kStructuralVisit,
-            ffi::FStructuralVisit::FromNative<&BinaryVisit<AddNode>>())
+            ffi::FStructuralVisit::FromNative<&BinaryVisit<AddObj>>())
       .attr(ffi::type_attr::kStructuralMutate,
-            ffi::FStructuralMutate::FromNative<&BinaryMutate<AddNode>>())
+            ffi::FStructuralMutate::FromNative<&BinaryMutate<AddObj>>())
       .attr(ffi::type_attr::kStructuralMaybeInplaceMutate,
-            ffi::FStructuralMutate::FromNative<&BinaryMaybeInplaceMutate<AddNode>>());
+            ffi::FStructuralMutate::FromNative<&BinaryMaybeInplaceMutate<AddObj>>());
 }
 
 // LShift
@@ -482,16 +482,16 @@ TVM_DEFINE_BITWISE_CONSTRUCTOR(LShift, false);
 
 TVM_FFI_STATIC_INIT_BLOCK() {
   namespace refl = tvm::ffi::reflection;
-  LShiftNode::RegisterReflection();
+  LShiftObj::RegisterReflection();
   refl::GlobalDef().def("prim.LShift",
                         [](PrimExpr a, PrimExpr b, Location loc) { return LShift(a, b, loc); });
-  refl::TypeAttrDef<LShiftNode>()
+  refl::TypeAttrDef<LShiftObj>()
       .attr(ffi::type_attr::kStructuralVisit,
-            ffi::FStructuralVisit::FromNative<&BinaryVisit<LShiftNode>>())
+            ffi::FStructuralVisit::FromNative<&BinaryVisit<LShiftObj>>())
       .attr(ffi::type_attr::kStructuralMutate,
-            ffi::FStructuralMutate::FromNative<&BinaryMutate<LShiftNode>>())
+            ffi::FStructuralMutate::FromNative<&BinaryMutate<LShiftObj>>())
       .attr(ffi::type_attr::kStructuralMaybeInplaceMutate,
-            ffi::FStructuralMutate::FromNative<&BinaryMaybeInplaceMutate<LShiftNode>>());
+            ffi::FStructuralMutate::FromNative<&BinaryMaybeInplaceMutate<LShiftObj>>());
 }
 
 // RShift
@@ -499,16 +499,16 @@ TVM_DEFINE_BITWISE_CONSTRUCTOR(RShift, false);
 
 TVM_FFI_STATIC_INIT_BLOCK() {
   namespace refl = tvm::ffi::reflection;
-  RShiftNode::RegisterReflection();
+  RShiftObj::RegisterReflection();
   refl::GlobalDef().def("prim.RShift",
                         [](PrimExpr a, PrimExpr b, Location loc) { return RShift(a, b, loc); });
-  refl::TypeAttrDef<RShiftNode>()
+  refl::TypeAttrDef<RShiftObj>()
       .attr(ffi::type_attr::kStructuralVisit,
-            ffi::FStructuralVisit::FromNative<&BinaryVisit<RShiftNode>>())
+            ffi::FStructuralVisit::FromNative<&BinaryVisit<RShiftObj>>())
       .attr(ffi::type_attr::kStructuralMutate,
-            ffi::FStructuralMutate::FromNative<&BinaryMutate<RShiftNode>>())
+            ffi::FStructuralMutate::FromNative<&BinaryMutate<RShiftObj>>())
       .attr(ffi::type_attr::kStructuralMaybeInplaceMutate,
-            ffi::FStructuralMutate::FromNative<&BinaryMaybeInplaceMutate<RShiftNode>>());
+            ffi::FStructuralMutate::FromNative<&BinaryMaybeInplaceMutate<RShiftObj>>());
 }
 
 // BitwiseAnd
@@ -516,16 +516,16 @@ TVM_DEFINE_BITWISE_CONSTRUCTOR(BitwiseAnd, true);
 
 TVM_FFI_STATIC_INIT_BLOCK() {
   namespace refl = tvm::ffi::reflection;
-  BitwiseAndNode::RegisterReflection();
+  BitwiseAndObj::RegisterReflection();
   refl::GlobalDef().def("prim.BitwiseAnd",
                         [](PrimExpr a, PrimExpr b, Location loc) { return BitwiseAnd(a, b, loc); });
-  refl::TypeAttrDef<BitwiseAndNode>()
+  refl::TypeAttrDef<BitwiseAndObj>()
       .attr(ffi::type_attr::kStructuralVisit,
-            ffi::FStructuralVisit::FromNative<&BinaryVisit<BitwiseAndNode>>())
+            ffi::FStructuralVisit::FromNative<&BinaryVisit<BitwiseAndObj>>())
       .attr(ffi::type_attr::kStructuralMutate,
-            ffi::FStructuralMutate::FromNative<&BinaryMutate<BitwiseAndNode>>())
+            ffi::FStructuralMutate::FromNative<&BinaryMutate<BitwiseAndObj>>())
       .attr(ffi::type_attr::kStructuralMaybeInplaceMutate,
-            ffi::FStructuralMutate::FromNative<&BinaryMaybeInplaceMutate<BitwiseAndNode>>());
+            ffi::FStructuralMutate::FromNative<&BinaryMaybeInplaceMutate<BitwiseAndObj>>());
 }
 
 // BitwiseOr
@@ -533,16 +533,16 @@ TVM_DEFINE_BITWISE_CONSTRUCTOR(BitwiseOr, true);
 
 TVM_FFI_STATIC_INIT_BLOCK() {
   namespace refl = tvm::ffi::reflection;
-  BitwiseOrNode::RegisterReflection();
+  BitwiseOrObj::RegisterReflection();
   refl::GlobalDef().def("prim.BitwiseOr",
                         [](PrimExpr a, PrimExpr b, Location loc) { return BitwiseOr(a, b, loc); });
-  refl::TypeAttrDef<BitwiseOrNode>()
+  refl::TypeAttrDef<BitwiseOrObj>()
       .attr(ffi::type_attr::kStructuralVisit,
-            ffi::FStructuralVisit::FromNative<&BinaryVisit<BitwiseOrNode>>())
+            ffi::FStructuralVisit::FromNative<&BinaryVisit<BitwiseOrObj>>())
       .attr(ffi::type_attr::kStructuralMutate,
-            ffi::FStructuralMutate::FromNative<&BinaryMutate<BitwiseOrNode>>())
+            ffi::FStructuralMutate::FromNative<&BinaryMutate<BitwiseOrObj>>())
       .attr(ffi::type_attr::kStructuralMaybeInplaceMutate,
-            ffi::FStructuralMutate::FromNative<&BinaryMaybeInplaceMutate<BitwiseOrNode>>());
+            ffi::FStructuralMutate::FromNative<&BinaryMaybeInplaceMutate<BitwiseOrObj>>());
 }
 
 // BitwiseXor
@@ -550,16 +550,16 @@ TVM_DEFINE_BITWISE_CONSTRUCTOR(BitwiseXor, true);
 
 TVM_FFI_STATIC_INIT_BLOCK() {
   namespace refl = tvm::ffi::reflection;
-  BitwiseXorNode::RegisterReflection();
+  BitwiseXorObj::RegisterReflection();
   refl::GlobalDef().def("prim.BitwiseXor",
                         [](PrimExpr a, PrimExpr b, Location loc) { return BitwiseXor(a, b, loc); });
-  refl::TypeAttrDef<BitwiseXorNode>()
+  refl::TypeAttrDef<BitwiseXorObj>()
       .attr(ffi::type_attr::kStructuralVisit,
-            ffi::FStructuralVisit::FromNative<&BinaryVisit<BitwiseXorNode>>())
+            ffi::FStructuralVisit::FromNative<&BinaryVisit<BitwiseXorObj>>())
       .attr(ffi::type_attr::kStructuralMutate,
-            ffi::FStructuralMutate::FromNative<&BinaryMutate<BitwiseXorNode>>())
+            ffi::FStructuralMutate::FromNative<&BinaryMutate<BitwiseXorObj>>())
       .attr(ffi::type_attr::kStructuralMaybeInplaceMutate,
-            ffi::FStructuralMutate::FromNative<&BinaryMaybeInplaceMutate<BitwiseXorNode>>());
+            ffi::FStructuralMutate::FromNative<&BinaryMaybeInplaceMutate<BitwiseXorObj>>());
 }
 
 // Sub
@@ -567,16 +567,16 @@ TVM_DEFINE_BINOP_CONSTRUCTOR(Sub);
 
 TVM_FFI_STATIC_INIT_BLOCK() {
   namespace refl = tvm::ffi::reflection;
-  SubNode::RegisterReflection();
+  SubObj::RegisterReflection();
   refl::GlobalDef().def("prim.Sub",
                         [](PrimExpr a, PrimExpr b, Location loc) { return Sub(a, b, loc); });
-  refl::TypeAttrDef<SubNode>()
+  refl::TypeAttrDef<SubObj>()
       .attr(ffi::type_attr::kStructuralVisit,
-            ffi::FStructuralVisit::FromNative<&BinaryVisit<SubNode>>())
+            ffi::FStructuralVisit::FromNative<&BinaryVisit<SubObj>>())
       .attr(ffi::type_attr::kStructuralMutate,
-            ffi::FStructuralMutate::FromNative<&BinaryMutate<SubNode>>())
+            ffi::FStructuralMutate::FromNative<&BinaryMutate<SubObj>>())
       .attr(ffi::type_attr::kStructuralMaybeInplaceMutate,
-            ffi::FStructuralMutate::FromNative<&BinaryMaybeInplaceMutate<SubNode>>());
+            ffi::FStructuralMutate::FromNative<&BinaryMaybeInplaceMutate<SubObj>>());
 }
 
 // Mul
@@ -584,16 +584,16 @@ TVM_DEFINE_BINOP_CONSTRUCTOR(Mul);
 
 TVM_FFI_STATIC_INIT_BLOCK() {
   namespace refl = tvm::ffi::reflection;
-  MulNode::RegisterReflection();
+  MulObj::RegisterReflection();
   refl::GlobalDef().def("prim.Mul",
                         [](PrimExpr a, PrimExpr b, Location loc) { return Mul(a, b, loc); });
-  refl::TypeAttrDef<MulNode>()
+  refl::TypeAttrDef<MulObj>()
       .attr(ffi::type_attr::kStructuralVisit,
-            ffi::FStructuralVisit::FromNative<&BinaryVisit<MulNode>>())
+            ffi::FStructuralVisit::FromNative<&BinaryVisit<MulObj>>())
       .attr(ffi::type_attr::kStructuralMutate,
-            ffi::FStructuralMutate::FromNative<&BinaryMutate<MulNode>>())
+            ffi::FStructuralMutate::FromNative<&BinaryMutate<MulObj>>())
       .attr(ffi::type_attr::kStructuralMaybeInplaceMutate,
-            ffi::FStructuralMutate::FromNative<&BinaryMaybeInplaceMutate<MulNode>>());
+            ffi::FStructuralMutate::FromNative<&BinaryMaybeInplaceMutate<MulObj>>());
 }
 
 // Div
@@ -601,16 +601,16 @@ TVM_DEFINE_BINOP_CONSTRUCTOR(Div);
 
 TVM_FFI_STATIC_INIT_BLOCK() {
   namespace refl = tvm::ffi::reflection;
-  DivNode::RegisterReflection();
+  DivObj::RegisterReflection();
   refl::GlobalDef().def("prim.Div",
                         [](PrimExpr a, PrimExpr b, Location loc) { return Div(a, b, loc); });
-  refl::TypeAttrDef<DivNode>()
+  refl::TypeAttrDef<DivObj>()
       .attr(ffi::type_attr::kStructuralVisit,
-            ffi::FStructuralVisit::FromNative<&BinaryVisit<DivNode>>())
+            ffi::FStructuralVisit::FromNative<&BinaryVisit<DivObj>>())
       .attr(ffi::type_attr::kStructuralMutate,
-            ffi::FStructuralMutate::FromNative<&BinaryMutate<DivNode>>())
+            ffi::FStructuralMutate::FromNative<&BinaryMutate<DivObj>>())
       .attr(ffi::type_attr::kStructuralMaybeInplaceMutate,
-            ffi::FStructuralMutate::FromNative<&BinaryMaybeInplaceMutate<DivNode>>());
+            ffi::FStructuralMutate::FromNative<&BinaryMaybeInplaceMutate<DivObj>>());
 }
 
 // Mod
@@ -618,16 +618,16 @@ TVM_DEFINE_BINOP_CONSTRUCTOR(Mod);
 
 TVM_FFI_STATIC_INIT_BLOCK() {
   namespace refl = tvm::ffi::reflection;
-  ModNode::RegisterReflection();
+  ModObj::RegisterReflection();
   refl::GlobalDef().def("prim.Mod",
                         [](PrimExpr a, PrimExpr b, Location loc) { return Mod(a, b, loc); });
-  refl::TypeAttrDef<ModNode>()
+  refl::TypeAttrDef<ModObj>()
       .attr(ffi::type_attr::kStructuralVisit,
-            ffi::FStructuralVisit::FromNative<&BinaryVisit<ModNode>>())
+            ffi::FStructuralVisit::FromNative<&BinaryVisit<ModObj>>())
       .attr(ffi::type_attr::kStructuralMutate,
-            ffi::FStructuralMutate::FromNative<&BinaryMutate<ModNode>>())
+            ffi::FStructuralMutate::FromNative<&BinaryMutate<ModObj>>())
       .attr(ffi::type_attr::kStructuralMaybeInplaceMutate,
-            ffi::FStructuralMutate::FromNative<&BinaryMaybeInplaceMutate<ModNode>>());
+            ffi::FStructuralMutate::FromNative<&BinaryMaybeInplaceMutate<ModObj>>());
 }
 
 // FloorDiv
@@ -635,16 +635,16 @@ TVM_DEFINE_BINOP_CONSTRUCTOR(FloorDiv);
 
 TVM_FFI_STATIC_INIT_BLOCK() {
   namespace refl = tvm::ffi::reflection;
-  FloorDivNode::RegisterReflection();
+  FloorDivObj::RegisterReflection();
   refl::GlobalDef().def("prim.FloorDiv",
                         [](PrimExpr a, PrimExpr b, Location loc) { return FloorDiv(a, b, loc); });
-  refl::TypeAttrDef<FloorDivNode>()
+  refl::TypeAttrDef<FloorDivObj>()
       .attr(ffi::type_attr::kStructuralVisit,
-            ffi::FStructuralVisit::FromNative<&BinaryVisit<FloorDivNode>>())
+            ffi::FStructuralVisit::FromNative<&BinaryVisit<FloorDivObj>>())
       .attr(ffi::type_attr::kStructuralMutate,
-            ffi::FStructuralMutate::FromNative<&BinaryMutate<FloorDivNode>>())
+            ffi::FStructuralMutate::FromNative<&BinaryMutate<FloorDivObj>>())
       .attr(ffi::type_attr::kStructuralMaybeInplaceMutate,
-            ffi::FStructuralMutate::FromNative<&BinaryMaybeInplaceMutate<FloorDivNode>>());
+            ffi::FStructuralMutate::FromNative<&BinaryMaybeInplaceMutate<FloorDivObj>>());
 }
 
 // FloorMod
@@ -652,16 +652,16 @@ TVM_DEFINE_BINOP_CONSTRUCTOR(FloorMod);
 
 TVM_FFI_STATIC_INIT_BLOCK() {
   namespace refl = tvm::ffi::reflection;
-  FloorModNode::RegisterReflection();
+  FloorModObj::RegisterReflection();
   refl::GlobalDef().def("prim.FloorMod",
                         [](PrimExpr a, PrimExpr b, Location loc) { return FloorMod(a, b, loc); });
-  refl::TypeAttrDef<FloorModNode>()
+  refl::TypeAttrDef<FloorModObj>()
       .attr(ffi::type_attr::kStructuralVisit,
-            ffi::FStructuralVisit::FromNative<&BinaryVisit<FloorModNode>>())
+            ffi::FStructuralVisit::FromNative<&BinaryVisit<FloorModObj>>())
       .attr(ffi::type_attr::kStructuralMutate,
-            ffi::FStructuralMutate::FromNative<&BinaryMutate<FloorModNode>>())
+            ffi::FStructuralMutate::FromNative<&BinaryMutate<FloorModObj>>())
       .attr(ffi::type_attr::kStructuralMaybeInplaceMutate,
-            ffi::FStructuralMutate::FromNative<&BinaryMaybeInplaceMutate<FloorModNode>>());
+            ffi::FStructuralMutate::FromNative<&BinaryMaybeInplaceMutate<FloorModObj>>());
 }
 
 // Min
@@ -669,16 +669,16 @@ TVM_DEFINE_BINOP_CONSTRUCTOR(Min);
 
 TVM_FFI_STATIC_INIT_BLOCK() {
   namespace refl = tvm::ffi::reflection;
-  MinNode::RegisterReflection();
+  MinObj::RegisterReflection();
   refl::GlobalDef().def("prim.Min",
                         [](PrimExpr a, PrimExpr b, Location loc) { return Min(a, b, loc); });
-  refl::TypeAttrDef<MinNode>()
+  refl::TypeAttrDef<MinObj>()
       .attr(ffi::type_attr::kStructuralVisit,
-            ffi::FStructuralVisit::FromNative<&BinaryVisit<MinNode>>())
+            ffi::FStructuralVisit::FromNative<&BinaryVisit<MinObj>>())
       .attr(ffi::type_attr::kStructuralMutate,
-            ffi::FStructuralMutate::FromNative<&BinaryMutate<MinNode>>())
+            ffi::FStructuralMutate::FromNative<&BinaryMutate<MinObj>>())
       .attr(ffi::type_attr::kStructuralMaybeInplaceMutate,
-            ffi::FStructuralMutate::FromNative<&BinaryMaybeInplaceMutate<MinNode>>());
+            ffi::FStructuralMutate::FromNative<&BinaryMaybeInplaceMutate<MinObj>>());
 }
 
 // Max
@@ -686,16 +686,16 @@ TVM_DEFINE_BINOP_CONSTRUCTOR(Max);
 
 TVM_FFI_STATIC_INIT_BLOCK() {
   namespace refl = tvm::ffi::reflection;
-  MaxNode::RegisterReflection();
+  MaxObj::RegisterReflection();
   refl::GlobalDef().def("prim.Max",
                         [](PrimExpr a, PrimExpr b, Location loc) { return Max(a, b, loc); });
-  refl::TypeAttrDef<MaxNode>()
+  refl::TypeAttrDef<MaxObj>()
       .attr(ffi::type_attr::kStructuralVisit,
-            ffi::FStructuralVisit::FromNative<&BinaryVisit<MaxNode>>())
+            ffi::FStructuralVisit::FromNative<&BinaryVisit<MaxObj>>())
       .attr(ffi::type_attr::kStructuralMutate,
-            ffi::FStructuralMutate::FromNative<&BinaryMutate<MaxNode>>())
+            ffi::FStructuralMutate::FromNative<&BinaryMutate<MaxObj>>())
       .attr(ffi::type_attr::kStructuralMaybeInplaceMutate,
-            ffi::FStructuralMutate::FromNative<&BinaryMaybeInplaceMutate<MaxNode>>());
+            ffi::FStructuralMutate::FromNative<&BinaryMaybeInplaceMutate<MaxObj>>());
 }
 
 // EQ
@@ -703,16 +703,16 @@ TVM_DEFINE_CMPOP_CONSTRUCTOR(EQ);
 
 TVM_FFI_STATIC_INIT_BLOCK() {
   namespace refl = tvm::ffi::reflection;
-  EQNode::RegisterReflection();
+  EQObj::RegisterReflection();
   refl::GlobalDef().def("prim.EQ",
                         [](PrimExpr a, PrimExpr b, Location loc) { return EQ(a, b, loc); });
-  refl::TypeAttrDef<EQNode>()
+  refl::TypeAttrDef<EQObj>()
       .attr(ffi::type_attr::kStructuralVisit,
-            ffi::FStructuralVisit::FromNative<&BinaryVisit<EQNode>>())
+            ffi::FStructuralVisit::FromNative<&BinaryVisit<EQObj>>())
       .attr(ffi::type_attr::kStructuralMutate,
-            ffi::FStructuralMutate::FromNative<&BinaryMutate<EQNode>>())
+            ffi::FStructuralMutate::FromNative<&BinaryMutate<EQObj>>())
       .attr(ffi::type_attr::kStructuralMaybeInplaceMutate,
-            ffi::FStructuralMutate::FromNative<&BinaryMaybeInplaceMutate<EQNode>>());
+            ffi::FStructuralMutate::FromNative<&BinaryMaybeInplaceMutate<EQObj>>());
 }
 
 // NE
@@ -720,16 +720,16 @@ TVM_DEFINE_CMPOP_CONSTRUCTOR(NE);
 
 TVM_FFI_STATIC_INIT_BLOCK() {
   namespace refl = tvm::ffi::reflection;
-  NENode::RegisterReflection();
+  NEObj::RegisterReflection();
   refl::GlobalDef().def("prim.NE",
                         [](PrimExpr a, PrimExpr b, Location loc) { return NE(a, b, loc); });
-  refl::TypeAttrDef<NENode>()
+  refl::TypeAttrDef<NEObj>()
       .attr(ffi::type_attr::kStructuralVisit,
-            ffi::FStructuralVisit::FromNative<&BinaryVisit<NENode>>())
+            ffi::FStructuralVisit::FromNative<&BinaryVisit<NEObj>>())
       .attr(ffi::type_attr::kStructuralMutate,
-            ffi::FStructuralMutate::FromNative<&BinaryMutate<NENode>>())
+            ffi::FStructuralMutate::FromNative<&BinaryMutate<NEObj>>())
       .attr(ffi::type_attr::kStructuralMaybeInplaceMutate,
-            ffi::FStructuralMutate::FromNative<&BinaryMaybeInplaceMutate<NENode>>());
+            ffi::FStructuralMutate::FromNative<&BinaryMaybeInplaceMutate<NEObj>>());
 }
 
 // LT
@@ -737,16 +737,16 @@ TVM_DEFINE_CMPOP_CONSTRUCTOR(LT);
 
 TVM_FFI_STATIC_INIT_BLOCK() {
   namespace refl = tvm::ffi::reflection;
-  LTNode::RegisterReflection();
+  LTObj::RegisterReflection();
   refl::GlobalDef().def("prim.LT",
                         [](PrimExpr a, PrimExpr b, Location loc) { return LT(a, b, loc); });
-  refl::TypeAttrDef<LTNode>()
+  refl::TypeAttrDef<LTObj>()
       .attr(ffi::type_attr::kStructuralVisit,
-            ffi::FStructuralVisit::FromNative<&BinaryVisit<LTNode>>())
+            ffi::FStructuralVisit::FromNative<&BinaryVisit<LTObj>>())
       .attr(ffi::type_attr::kStructuralMutate,
-            ffi::FStructuralMutate::FromNative<&BinaryMutate<LTNode>>())
+            ffi::FStructuralMutate::FromNative<&BinaryMutate<LTObj>>())
       .attr(ffi::type_attr::kStructuralMaybeInplaceMutate,
-            ffi::FStructuralMutate::FromNative<&BinaryMaybeInplaceMutate<LTNode>>());
+            ffi::FStructuralMutate::FromNative<&BinaryMaybeInplaceMutate<LTObj>>());
 }
 
 // LE
@@ -754,16 +754,16 @@ TVM_DEFINE_CMPOP_CONSTRUCTOR(LE);
 
 TVM_FFI_STATIC_INIT_BLOCK() {
   namespace refl = tvm::ffi::reflection;
-  LENode::RegisterReflection();
+  LEObj::RegisterReflection();
   refl::GlobalDef().def("prim.LE",
                         [](PrimExpr a, PrimExpr b, Location loc) { return LE(a, b, loc); });
-  refl::TypeAttrDef<LENode>()
+  refl::TypeAttrDef<LEObj>()
       .attr(ffi::type_attr::kStructuralVisit,
-            ffi::FStructuralVisit::FromNative<&BinaryVisit<LENode>>())
+            ffi::FStructuralVisit::FromNative<&BinaryVisit<LEObj>>())
       .attr(ffi::type_attr::kStructuralMutate,
-            ffi::FStructuralMutate::FromNative<&BinaryMutate<LENode>>())
+            ffi::FStructuralMutate::FromNative<&BinaryMutate<LEObj>>())
       .attr(ffi::type_attr::kStructuralMaybeInplaceMutate,
-            ffi::FStructuralMutate::FromNative<&BinaryMaybeInplaceMutate<LENode>>());
+            ffi::FStructuralMutate::FromNative<&BinaryMaybeInplaceMutate<LEObj>>());
 }
 
 // GT
@@ -771,16 +771,16 @@ TVM_DEFINE_CMPOP_CONSTRUCTOR(GT);
 
 TVM_FFI_STATIC_INIT_BLOCK() {
   namespace refl = tvm::ffi::reflection;
-  GTNode::RegisterReflection();
+  GTObj::RegisterReflection();
   refl::GlobalDef().def("prim.GT",
                         [](PrimExpr a, PrimExpr b, Location loc) { return GT(a, b, loc); });
-  refl::TypeAttrDef<GTNode>()
+  refl::TypeAttrDef<GTObj>()
       .attr(ffi::type_attr::kStructuralVisit,
-            ffi::FStructuralVisit::FromNative<&BinaryVisit<GTNode>>())
+            ffi::FStructuralVisit::FromNative<&BinaryVisit<GTObj>>())
       .attr(ffi::type_attr::kStructuralMutate,
-            ffi::FStructuralMutate::FromNative<&BinaryMutate<GTNode>>())
+            ffi::FStructuralMutate::FromNative<&BinaryMutate<GTObj>>())
       .attr(ffi::type_attr::kStructuralMaybeInplaceMutate,
-            ffi::FStructuralMutate::FromNative<&BinaryMaybeInplaceMutate<GTNode>>());
+            ffi::FStructuralMutate::FromNative<&BinaryMaybeInplaceMutate<GTObj>>());
 }
 
 // GE
@@ -788,16 +788,16 @@ TVM_DEFINE_CMPOP_CONSTRUCTOR(GE);
 
 TVM_FFI_STATIC_INIT_BLOCK() {
   namespace refl = tvm::ffi::reflection;
-  GENode::RegisterReflection();
+  GEObj::RegisterReflection();
   refl::GlobalDef().def("prim.GE",
                         [](PrimExpr a, PrimExpr b, Location loc) { return GE(a, b, loc); });
-  refl::TypeAttrDef<GENode>()
+  refl::TypeAttrDef<GEObj>()
       .attr(ffi::type_attr::kStructuralVisit,
-            ffi::FStructuralVisit::FromNative<&BinaryVisit<GENode>>())
+            ffi::FStructuralVisit::FromNative<&BinaryVisit<GEObj>>())
       .attr(ffi::type_attr::kStructuralMutate,
-            ffi::FStructuralMutate::FromNative<&BinaryMutate<GENode>>())
+            ffi::FStructuralMutate::FromNative<&BinaryMutate<GEObj>>())
       .attr(ffi::type_attr::kStructuralMaybeInplaceMutate,
-            ffi::FStructuralMutate::FromNative<&BinaryMaybeInplaceMutate<GENode>>());
+            ffi::FStructuralMutate::FromNative<&BinaryMaybeInplaceMutate<GEObj>>());
 }
 
 // And
@@ -810,24 +810,24 @@ And::And(PrimExpr a, PrimExpr b, Location loc) : PrimExpr(ffi::UnsafeInit{}) {
   TVM_FFI_ICHECK(b_ty.MatchesCode(DLDataTypeCode::kDLBool));
   TVM_FFI_CHECK(a_ty == b_ty, TypeError) << "mismatched types";
 
-  ffi::ObjectPtr<AndNode> node = ffi::make_object<AndNode>(a, b);
-  node->ExprNode::ty = PrimType(DLDataType{kDLBool, 8, a_ty->dtype.lanes});
+  ffi::ObjectPtr<AndObj> node = ffi::make_object<AndObj>(a, b);
+  node->ExprObj::ty = PrimType(DLDataType{kDLBool, 8, a_ty->dtype.lanes});
   node->loc = loc;
   data_ = std::move(node);
 }
 
 TVM_FFI_STATIC_INIT_BLOCK() {
   namespace refl = tvm::ffi::reflection;
-  AndNode::RegisterReflection();
+  AndObj::RegisterReflection();
   refl::GlobalDef().def("prim.And",
                         [](PrimExpr a, PrimExpr b, Location loc) { return And(a, b, loc); });
-  refl::TypeAttrDef<AndNode>()
+  refl::TypeAttrDef<AndObj>()
       .attr(ffi::type_attr::kStructuralVisit,
-            ffi::FStructuralVisit::FromNative<&BinaryVisit<AndNode>>())
+            ffi::FStructuralVisit::FromNative<&BinaryVisit<AndObj>>())
       .attr(ffi::type_attr::kStructuralMutate,
-            ffi::FStructuralMutate::FromNative<&BinaryMutate<AndNode>>())
+            ffi::FStructuralMutate::FromNative<&BinaryMutate<AndObj>>())
       .attr(ffi::type_attr::kStructuralMaybeInplaceMutate,
-            ffi::FStructuralMutate::FromNative<&BinaryMaybeInplaceMutate<AndNode>>());
+            ffi::FStructuralMutate::FromNative<&BinaryMaybeInplaceMutate<AndObj>>());
 }
 
 // Or
@@ -840,24 +840,24 @@ Or::Or(PrimExpr a, PrimExpr b, Location loc) : PrimExpr(ffi::UnsafeInit{}) {
   TVM_FFI_ICHECK(b_ty.MatchesCode(DLDataTypeCode::kDLBool));
   TVM_FFI_CHECK(a_ty == b_ty, TypeError) << "mismatched types";
 
-  ffi::ObjectPtr<OrNode> node = ffi::make_object<OrNode>(a, b);
-  node->ExprNode::ty = PrimType(DLDataType{kDLBool, 8, a_ty->dtype.lanes});
+  ffi::ObjectPtr<OrObj> node = ffi::make_object<OrObj>(a, b);
+  node->ExprObj::ty = PrimType(DLDataType{kDLBool, 8, a_ty->dtype.lanes});
   node->loc = loc;
   data_ = std::move(node);
 }
 
 TVM_FFI_STATIC_INIT_BLOCK() {
   namespace refl = tvm::ffi::reflection;
-  OrNode::RegisterReflection();
+  OrObj::RegisterReflection();
   refl::GlobalDef().def("prim.Or",
                         [](PrimExpr a, PrimExpr b, Location loc) { return Or(a, b, loc); });
-  refl::TypeAttrDef<OrNode>()
+  refl::TypeAttrDef<OrObj>()
       .attr(ffi::type_attr::kStructuralVisit,
-            ffi::FStructuralVisit::FromNative<&BinaryVisit<OrNode>>())
+            ffi::FStructuralVisit::FromNative<&BinaryVisit<OrObj>>())
       .attr(ffi::type_attr::kStructuralMutate,
-            ffi::FStructuralMutate::FromNative<&BinaryMutate<OrNode>>())
+            ffi::FStructuralMutate::FromNative<&BinaryMutate<OrObj>>())
       .attr(ffi::type_attr::kStructuralMaybeInplaceMutate,
-            ffi::FStructuralMutate::FromNative<&BinaryMaybeInplaceMutate<OrNode>>());
+            ffi::FStructuralMutate::FromNative<&BinaryMaybeInplaceMutate<OrObj>>());
 }
 
 // Not
@@ -866,16 +866,16 @@ Not::Not(PrimExpr a, Location loc) : PrimExpr(ffi::UnsafeInit{}) {
   PrimType a_ty = a.ty();
   TVM_FFI_ICHECK(a_ty.MatchesCode(DLDataTypeCode::kDLBool));
 
-  ffi::ObjectPtr<NotNode> node = ffi::make_object<NotNode>(a);
-  node->ExprNode::ty = PrimType(DLDataType{kDLBool, 8, a_ty->dtype.lanes});
+  ffi::ObjectPtr<NotObj> node = ffi::make_object<NotObj>(a);
+  node->ExprObj::ty = PrimType(DLDataType{kDLBool, 8, a_ty->dtype.lanes});
   node->loc = loc;
   data_ = std::move(node);
 }
 
 TVM_FFI_STATIC_INIT_BLOCK() {
   namespace refl = tvm::ffi::reflection;
-  NotNode::RegisterReflection();
-  refl::TypeAttrDef<NotNode>()
+  NotObj::RegisterReflection();
+  refl::TypeAttrDef<NotObj>()
       .attr(ffi::type_attr::kStructuralVisit, ffi::FStructuralVisit::FromNative<&NotVisit>())
       .attr(ffi::type_attr::kStructuralMutate, ffi::FStructuralMutate::FromNative<&NotMutate>())
       .attr(ffi::type_attr::kStructuralMaybeInplaceMutate,
@@ -893,16 +893,16 @@ BitwiseNot::BitwiseNot(PrimExpr a, Location loc) : PrimExpr(ffi::UnsafeInit{}) {
                 TypeError)
       << "BitwiseNot requires an integer or boolean operand";
 
-  ffi::ObjectPtr<BitwiseNotNode> node = ffi::make_object<BitwiseNotNode>(a);
-  node->ExprNode::ty = a_ty;
+  ffi::ObjectPtr<BitwiseNotObj> node = ffi::make_object<BitwiseNotObj>(a);
+  node->ExprObj::ty = a_ty;
   node->loc = loc;
   data_ = std::move(node);
 }
 
 TVM_FFI_STATIC_INIT_BLOCK() {
   namespace refl = tvm::ffi::reflection;
-  BitwiseNotNode::RegisterReflection();
-  refl::TypeAttrDef<BitwiseNotNode>()
+  BitwiseNotObj::RegisterReflection();
+  refl::TypeAttrDef<BitwiseNotObj>()
       .attr(ffi::type_attr::kStructuralVisit, ffi::FStructuralVisit::FromNative<&BitwiseNotVisit>())
       .attr(ffi::type_attr::kStructuralMutate,
             ffi::FStructuralMutate::FromNative<&BitwiseNotMutate>())
@@ -929,17 +929,16 @@ Select::Select(PrimExpr condition, PrimExpr true_value, PrimExpr false_value, Lo
       << "mismatched types. "
       << "False type: " << false_ty->dtype << "; True type: " << true_ty->dtype;
 
-  ffi::ObjectPtr<SelectNode> node =
-      ffi::make_object<SelectNode>(condition, true_value, false_value);
-  node->ExprNode::ty = true_ty;
+  ffi::ObjectPtr<SelectObj> node = ffi::make_object<SelectObj>(condition, true_value, false_value);
+  node->ExprObj::ty = true_ty;
   node->loc = loc;
   data_ = std::move(node);
 }
 
 TVM_FFI_STATIC_INIT_BLOCK() {
   namespace refl = tvm::ffi::reflection;
-  SelectNode::RegisterReflection();
-  refl::TypeAttrDef<SelectNode>()
+  SelectObj::RegisterReflection();
+  refl::TypeAttrDef<SelectObj>()
       .attr(ffi::type_attr::kStructuralVisit, ffi::FStructuralVisit::FromNative<&SelectVisit>())
       .attr(ffi::type_attr::kStructuralMutate, ffi::FStructuralMutate::FromNative<&SelectMutate>())
       .attr(ffi::type_attr::kStructuralMaybeInplaceMutate,
@@ -956,16 +955,16 @@ Let::Let(Var var, PrimExpr value, PrimExpr body, Location loc) : PrimExpr(ffi::U
   TVM_FFI_ICHECK(body.defined());
   TVM_FFI_ICHECK(value.ty() == var->ty.as_or_throw<PrimType>());
 
-  ffi::ObjectPtr<LetNode> node = ffi::make_object<LetNode>(var, value, body);
-  node->ExprNode::ty = body.ty();
+  ffi::ObjectPtr<LetObj> node = ffi::make_object<LetObj>(var, value, body);
+  node->ExprObj::ty = body.ty();
   node->loc = loc;
   data_ = std::move(node);
 }
 
 TVM_FFI_STATIC_INIT_BLOCK() {
   namespace refl = tvm::ffi::reflection;
-  LetNode::RegisterReflection();
-  refl::TypeAttrDef<LetNode>()
+  LetObj::RegisterReflection();
+  refl::TypeAttrDef<LetObj>()
       .attr(ffi::type_attr::kStructuralVisit, ffi::FStructuralVisit::FromNative<&LetVisit>())
       .attr(ffi::type_attr::kStructuralMutate, ffi::FStructuralMutate::FromNative<&LetMutate>())
       .attr(ffi::type_attr::kStructuralMaybeInplaceMutate,

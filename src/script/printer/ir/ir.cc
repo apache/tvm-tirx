@@ -39,7 +39,7 @@ namespace {
 ffi::Optional<ExprDoc> IRModuleDocTranslate(DocTranslatorObj* d, ffi::AnyView input,
                                             const ffi::Object* destination) {
   const auto* mod =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const IRModuleNode>(input);
+      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const IRModuleObj>(input);
   TVM_FFI_CHECK(destination == nullptr, TypeError)
       << "printer statement-only node cannot fulfill a destination";
   ffi::String module_name = d->GetExtraConfig<ffi::String>("ir.module_name", "Module");
@@ -109,7 +109,7 @@ ffi::Optional<ExprDoc> IRModuleDocTranslate(DocTranslatorObj* d, ffi::AnyView in
 
 TVM_FFI_STATIC_INIT_BLOCK() {
   RegisterNamespaceAlias("ir.prefix", "I");
-  ffi::reflection::TypeAttrDef<IRModuleNode>().attr(
+  ffi::reflection::TypeAttrDef<IRModuleObj>().attr(
       tvm::script::printer::type_attr::kDocTranslate.name,
       FDocTranslate::FromNative<&IRModuleDocTranslate>());
 }
@@ -117,12 +117,12 @@ TVM_FFI_STATIC_INIT_BLOCK() {
 ffi::Optional<ExprDoc> DictAttrsDocTranslate(DocTranslatorObj* d, ffi::AnyView input,
                                              const ffi::Object*) {
   const auto* attrs =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const DictAttrsNode>(input);
+      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const DictAttrsObj>(input);
   return d->Translate(attrs->dict).value();
 }
 
 TVM_FFI_STATIC_INIT_BLOCK() {
-  ffi::reflection::TypeAttrDef<DictAttrsNode>().attr(
+  ffi::reflection::TypeAttrDef<DictAttrsObj>().attr(
       tvm::script::printer::type_attr::kDocTranslate.name,
       FDocTranslate::FromNative<&DictAttrsDocTranslate>());
 }
@@ -130,40 +130,39 @@ TVM_FFI_STATIC_INIT_BLOCK() {
 ffi::Optional<ExprDoc> GlobalVarDocTranslate(DocTranslatorObj* d, ffi::AnyView input,
                                              const ffi::Object*) {
   const auto* var =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const GlobalVarNode>(input);
+      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const GlobalVarObj>(input);
   return GlobalReference(d, var->name_hint);
 }
 
 TVM_FFI_STATIC_INIT_BLOCK() {
-  ffi::reflection::TypeAttrDef<GlobalVarNode>().attr(
+  ffi::reflection::TypeAttrDef<GlobalVarObj>().attr(
       tvm::script::printer::type_attr::kDocTranslate.name,
       FDocTranslate::FromNative<&GlobalVarDocTranslate>());
 }
 
 ffi::Optional<ExprDoc> OpDocTranslate(DocTranslatorObj*, ffi::AnyView input, const ffi::Object*) {
-  const auto* op = ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const OpNode>(input);
+  const auto* op = ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const OpObj>(input);
   return NamespaceDoc("ir")->Attr("Op")->Attr("get")->Call(
       {LiteralDoc::Str(op->name, std::nullopt)});
 }
 
 TVM_FFI_STATIC_INIT_BLOCK() {
-  ffi::reflection::TypeAttrDef<OpNode>().attr(tvm::script::printer::type_attr::kDocTranslate.name,
-                                              FDocTranslate::FromNative<&OpDocTranslate>());
+  ffi::reflection::TypeAttrDef<OpObj>().attr(tvm::script::printer::type_attr::kDocTranslate.name,
+                                             FDocTranslate::FromNative<&OpDocTranslate>());
 }
 
 ffi::Optional<ExprDoc> RangeDocTranslate(DocTranslatorObj* d, ffi::AnyView input,
                                          const ffi::Object*) {
   const auto* range =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const RangeNode>(input);
+      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const RangeObj>(input);
   ExprDoc min = d->Translate(range->begin).value();
   ExprDoc end = d->Translate(range->begin + range->extent).value();
   return NamespaceDoc("ir")->Attr("Range")->Call({min, end});
 }
 
 TVM_FFI_STATIC_INIT_BLOCK() {
-  ffi::reflection::TypeAttrDef<RangeNode>().attr(
-      tvm::script::printer::type_attr::kDocTranslate.name,
-      FDocTranslate::FromNative<&RangeDocTranslate>());
+  ffi::reflection::TypeAttrDef<RangeObj>().attr(tvm::script::printer::type_attr::kDocTranslate.name,
+                                                FDocTranslate::FromNative<&RangeDocTranslate>());
 }
 
 }  // namespace

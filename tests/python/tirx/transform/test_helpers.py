@@ -346,7 +346,7 @@ def test_filter_removes_global_var_map():
 
     This test is to guard against hidden state in the IRModule that
     remains after filtering.  Previously, this was observed in the
-    `IRModuleNode::global_var_map_`, which retained entries of
+    `IRModuleObj::global_var_map_`, which retained entries of
     filtered-out functions.
     """
 

@@ -103,7 +103,7 @@ bool IsIketOp(const ffi::ObjectRef& value) {
          op.value().same_as(backend::cuda::iket_sentinel_token_op());
 }
 
-bool IsTokenProducer(const CallNode* call) {
+bool IsTokenProducer(const CallObj* call) {
   return call->op.same_as(backend::cuda::iket_range_start_op()) ||
          call->op.same_as(backend::cuda::iket_sentinel_token_op());
 }
@@ -146,10 +146,10 @@ bool IsValidUTF8(const std::string& value) {
   return true;
 }
 
-std::string GetName(const CallNode* call, size_t index = 0) {
+std::string GetName(const CallObj* call, size_t index = 0) {
   TVM_FFI_CHECK(call->args.size() > index, ValueError)
       << call->op.as<Op>().value()->name << " requires a literal event name";
-  const auto* name = call->args[index].as<StringImmNode>();
+  const auto* name = call->args[index].as<StringImmObj>();
   TVM_FFI_CHECK(name != nullptr, TypeError)
       << call->op.as<Op>().value()->name << " requires a string-literal event name";
   std::string result = name->value;
@@ -238,8 +238,8 @@ bool Is64BitPayload(PayloadType type) {
 
 bool IsScalarTensorAccess(const TensorVar& tensor, const ffi::Array<PrimExpr>& indices) {
   if (tensor.shape().size() != 1 || indices.size() != 1) return false;
-  const auto* extent = tensor.shape()[0].as<IntImmNode>();
-  const auto* index = indices[0].as<IntImmNode>();
+  const auto* extent = tensor.shape()[0].as<IntImmObj>();
+  const auto* index = indices[0].as<IntImmObj>();
   return extent && extent->value == 1 && index && index->value == 0;
 }
 
@@ -282,7 +282,7 @@ class AnnotationCollector : public StmtExprVisitor {
   bool has_payload_calls{false};
 
  private:
-  void AddDeclaration(DeclarationKind kind, const CallNode* call) {
+  void AddDeclaration(DeclarationKind kind, const CallObj* call) {
     std::string name = GetName(call);
     TVM_FFI_CHECK(call->args.size() == 1 || call->args.size() == 2, TypeError)
         << call->op.as<Op>().value()->name << " expects a name and optional payload";
@@ -311,7 +311,7 @@ class AnnotationCollector : public StmtExprVisitor {
     }
   }
 
-  ffi::Optional<VisitInterrupt> Visit_(const CallNode* call) final {
+  ffi::Optional<VisitInterrupt> Visit_(const CallObj* call) final {
     if (!IsIketOp(call->op)) {
       return StmtExprVisitor::Visit_(call);
     }
@@ -357,7 +357,7 @@ class AnnotationCollector : public StmtExprVisitor {
   std::unordered_map<std::string, DeclarationKind> declaration_kinds_;
 };
 
-using TokenTensorSet = std::unordered_set<const VarNode*>;
+using TokenTensorSet = std::unordered_set<const VarObj*>;
 
 class TokenTensorCollector : public StmtExprVisitor {
  public:
@@ -366,11 +366,11 @@ class TokenTensorCollector : public StmtExprVisitor {
   bool changed{false};
 
  private:
-  ffi::Optional<VisitInterrupt> Visit_(const TensorStoreNode* store) final {
+  ffi::Optional<VisitInterrupt> Visit_(const TensorStoreObj* store) final {
     bool is_token_value = false;
-    if (const auto* call = store->value.as<CallNode>()) {
+    if (const auto* call = store->value.as<CallObj>()) {
       is_token_value = IsTokenProducer(call);
-    } else if (const auto* load = store->value.as<TensorLoadNode>()) {
+    } else if (const auto* load = store->value.as<TensorLoadObj>()) {
       is_token_value = tensors_->count(load->source.as_or_throw<tvm::tirx::TensorVar>().get());
     }
     if (is_token_value && tensors_->insert(store->dest.as_or_throw<TensorVar>().get()).second)
@@ -392,7 +392,7 @@ TokenTensorSet CollectTokenTensors(const Stmt& body) {
   return tensors;
 }
 
-using TokenDeclarationMap = std::unordered_map<const VarNode*, std::set<DeclarationKey>>;
+using TokenDeclarationMap = std::unordered_map<const VarObj*, std::set<DeclarationKey>>;
 
 class TokenDeclarationCollector : public StmtExprVisitor {
  public:
@@ -402,11 +402,11 @@ class TokenDeclarationCollector : public StmtExprVisitor {
   bool changed{false};
 
  private:
-  ffi::Optional<VisitInterrupt> Visit_(const TensorStoreNode* store) final {
+  ffi::Optional<VisitInterrupt> Visit_(const TensorStoreObj* store) final {
     std::set<DeclarationKey> possible;
-    if (const auto* call = store->value.as<CallNode>(); call && IsTokenProducer(call)) {
+    if (const auto* call = store->value.as<CallObj>(); call && IsTokenProducer(call)) {
       possible.insert(DeclarationKey{DeclarationKind::kRange, GetName(call)});
-    } else if (const auto* load = store->value.as<TensorLoadNode>()) {
+    } else if (const auto* load = store->value.as<TensorLoadObj>()) {
       auto it = declarations_->find(load->source.as_or_throw<tvm::tirx::TensorVar>().get());
       if (it != declarations_->end()) possible = it->second;
     }
@@ -440,11 +440,11 @@ class RangeEndSchemaVerifier : public StmtExprVisitor {
       : token_declarations_(token_declarations), declarations_(declarations) {}
 
  private:
-  ffi::Optional<VisitInterrupt> Visit_(const CallNode* call) final {
+  ffi::Optional<VisitInterrupt> Visit_(const CallObj* call) final {
     if (!call->op.same_as(backend::cuda::iket_range_end_op())) {
       return StmtExprVisitor::Visit_(call);
     }
-    const auto* token = call->args[0].as<TensorLoadNode>();
+    const auto* token = call->args[0].as<TensorLoadObj>();
     TVM_FFI_ICHECK(token != nullptr);
     auto possible_it = token_declarations_.find(token->source.as_or_throw<TensorVar>().get());
     TVM_FFI_ICHECK(possible_it != token_declarations_.end());
@@ -495,7 +495,7 @@ class TokenVerifier : public StmtExprVisitor {
   explicit TokenVerifier(const TokenTensorSet& token_tensors) : token_tensors_(token_tensors) {}
 
  private:
-  ffi::Optional<VisitInterrupt> Visit_(const TensorStoreNode* store) final {
+  ffi::Optional<VisitInterrupt> Visit_(const TensorStoreObj* store) final {
     static const auto scope_local = runtime::MemoryScope::Get("local");
     if (!token_tensors_.count(store->dest.as_or_throw<TensorVar>().get())) {
       return StmtExprVisitor::Visit_(store);
@@ -510,12 +510,12 @@ class TokenVerifier : public StmtExprVisitor {
                   ValueError)
         << "IKET RangeToken must use element zero of a local uint32[1] tensor";
     bool valid_value = false;
-    if (const auto* call = store->value.as<CallNode>()) {
+    if (const auto* call = store->value.as<CallObj>()) {
       valid_value = IsTokenProducer(call);
       allow_producer_ = valid_value;
       TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(Visit(store->value));
       allow_producer_ = false;
-    } else if (const auto* load = store->value.as<TensorLoadNode>()) {
+    } else if (const auto* load = store->value.as<TensorLoadObj>()) {
       valid_value = token_tensors_.count(load->source.as_or_throw<tvm::tirx::TensorVar>().get());
       allow_token_load_ = valid_value;
       TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(Visit(store->value));
@@ -529,7 +529,7 @@ class TokenVerifier : public StmtExprVisitor {
     return std::nullopt;
   }
 
-  ffi::Optional<VisitInterrupt> Visit_(const TensorLoadNode* load) final {
+  ffi::Optional<VisitInterrupt> Visit_(const TensorLoadObj* load) final {
     if (token_tensors_.count(load->source.as_or_throw<tvm::tirx::TensorVar>().get())) {
       TVM_FFI_CHECK(allow_token_load_, ValueError)
           << "RangeToken may only be assigned or passed directly to range_end";
@@ -537,7 +537,7 @@ class TokenVerifier : public StmtExprVisitor {
     return StmtExprVisitor::Visit_(load);
   }
 
-  ffi::Optional<VisitInterrupt> Visit_(const CallNode* call) final {
+  ffi::Optional<VisitInterrupt> Visit_(const CallObj* call) final {
     if (IsTokenProducer(call)) {
       TVM_FFI_CHECK(allow_producer_, ValueError)
           << "range_start and sentinel_token results must be assigned to a RangeToken";
@@ -551,7 +551,7 @@ class TokenVerifier : public StmtExprVisitor {
     }
     if (call->op.same_as(backend::cuda::iket_range_end_op())) {
       TVM_FFI_CHECK_GE(call->args.size(), 1, TypeError) << "range_end requires a RangeToken";
-      const auto* token = call->args[0].as<TensorLoadNode>();
+      const auto* token = call->args[0].as<TensorLoadObj>();
       TVM_FFI_CHECK(
           token != nullptr && token_tensors_.count(token->source.as_or_throw<TensorVar>().get()),
           ValueError)
@@ -579,28 +579,28 @@ class StripIket : public StmtExprMutator {
  private:
   using StmtExprMutator::Mutate_;
 
-  UnchangedOr<Stmt> Mutate_(const BindNode* alloc, InplaceMode inplace_mode) final {
-    if (const auto* call = alloc->value.as<CallNode>(); call &&
-                                                        call->op.same_as(tirx::alloc_tensor_op()) &&
-                                                        token_tensors_.count(alloc->var.get())) {
+  UnchangedOr<Stmt> Mutate_(const BindObj* alloc, InplaceMode inplace_mode) final {
+    if (const auto* call = alloc->value.as<CallObj>(); call &&
+                                                       call->op.same_as(tirx::alloc_tensor_op()) &&
+                                                       token_tensors_.count(alloc->var.get())) {
       return Evaluate(0);
     }
     return StmtExprMutator::Mutate_(alloc, inplace_mode);
   }
 
-  UnchangedOr<Stmt> Mutate_(const TensorStoreNode* store, InplaceMode inplace_mode) final {
+  UnchangedOr<Stmt> Mutate_(const TensorStoreObj* store, InplaceMode inplace_mode) final {
     if (token_tensors_.count(store->dest.as_or_throw<TensorVar>().get())) return Evaluate(0);
     return StmtExprMutator::Mutate_(store, inplace_mode);
   }
 
-  UnchangedOr<Stmt> Mutate_(const EvaluateNode* evaluate, InplaceMode inplace_mode) final {
-    if (const auto* call = evaluate->value.as<CallNode>(); call && IsIketOp(call->op)) {
+  UnchangedOr<Stmt> Mutate_(const EvaluateObj* evaluate, InplaceMode inplace_mode) final {
+    if (const auto* call = evaluate->value.as<CallObj>(); call && IsIketOp(call->op)) {
       return Evaluate(0);
     }
     return StmtExprMutator::Mutate_(evaluate, inplace_mode);
   }
 
-  UnchangedOr<Expr> Mutate_(const CallNode* call, InplaceMode inplace_mode) final {
+  UnchangedOr<Expr> Mutate_(const CallObj* call, InplaceMode inplace_mode) final {
     if (call->op.same_as(backend::cuda::iket_range_start_op()) ||
         call->op.same_as(backend::cuda::iket_sentinel_token_op())) {
       return IntImm(PrimType::UInt(32), 0);
@@ -617,23 +617,23 @@ class RemoveStrippedIketNoOps : public StmtExprMutator {
     return SideEffect(condition) > CallEffectKind::kReadState ? Evaluate(condition) : Evaluate(0);
   }
 
-  UnchangedOr<Stmt> Mutate_(const ForNode* loop, InplaceMode inplace_mode) final {
+  UnchangedOr<Stmt> Mutate_(const ForObj* loop, InplaceMode inplace_mode) final {
     auto result = StmtExprMutator::Mutate_(loop, inplace_mode);
-    if (!result.IsUnchanged()) loop = ffi::AnyView(result).as<ForNode>();
+    if (!result.IsUnchanged()) loop = ffi::AnyView(result).as<ForObj>();
     if (loop->body->seq.empty()) return loop->body;
     return result;
   }
 
-  UnchangedOr<Stmt> Mutate_(const WhileNode* loop, InplaceMode inplace_mode) final {
+  UnchangedOr<Stmt> Mutate_(const WhileObj* loop, InplaceMode inplace_mode) final {
     auto result = StmtExprMutator::Mutate_(loop, inplace_mode);
-    if (!result.IsUnchanged()) loop = ffi::AnyView(result).as<WhileNode>();
+    if (!result.IsUnchanged()) loop = ffi::AnyView(result).as<WhileObj>();
     if (loop->body->seq.empty()) return loop->body;
     return result;
   }
 
-  UnchangedOr<Stmt> Mutate_(const IfNode* branch, InplaceMode inplace_mode) final {
+  UnchangedOr<Stmt> Mutate_(const IfObj* branch, InplaceMode inplace_mode) final {
     auto result = StmtExprMutator::Mutate_(branch, inplace_mode);
-    if (!result.IsUnchanged()) branch = ffi::AnyView(result).as<IfNode>();
+    if (!result.IsUnchanged()) branch = ffi::AnyView(result).as<IfObj>();
     if (!branch->else_case.has_value()) {
       if (branch->then_case->seq.empty()) return PreserveConditionEffects(branch->condition);
       return result;
@@ -1087,7 +1087,7 @@ class InstrumentOfficialKernel : public StmtExprMutator {
  private:
   using StmtExprMutator::Mutate_;
 
-  const Declaration& Lookup(DeclarationKind kind, const CallNode* call) const {
+  const Declaration& Lookup(DeclarationKind kind, const CallObj* call) const {
     DeclarationKey key{kind, GetName(call)};
     auto it = info_.declarations.find(key);
     TVM_FFI_ICHECK(it != info_.declarations.end()) << "Missing official IKET declaration";
@@ -1114,8 +1114,8 @@ class InstrumentOfficialKernel : public StmtExprMutator {
     return payload;
   }
 
-  UnchangedOr<Stmt> Mutate_(const EvaluateNode* evaluate, InplaceMode inplace_mode) final {
-    if (const auto* call = evaluate->value.as<CallNode>();
+  UnchangedOr<Stmt> Mutate_(const EvaluateObj* evaluate, InplaceMode inplace_mode) final {
+    if (const auto* call = evaluate->value.as<CallObj>();
         call && call->op.same_as(backend::cuda::iket_range_end_op())) {
       PrimExpr token =
           Mutate(call->args[0]).ValueOrUnchanged(call->args[0]).as_or_throw<PrimExpr>();
@@ -1131,7 +1131,7 @@ class InstrumentOfficialKernel : public StmtExprMutator {
     return StmtExprMutator::Mutate_(evaluate, inplace_mode);
   }
 
-  UnchangedOr<Expr> Mutate_(const CallNode* call, InplaceMode inplace_mode) final {
+  UnchangedOr<Expr> Mutate_(const CallObj* call, InplaceMode inplace_mode) final {
     if (call->op.same_as(backend::cuda::iket_range_start_op())) {
       const Declaration& declaration = Lookup(DeclarationKind::kRange, call);
       PrimExpr event_id = IntImm(PrimType::UInt(32), declaration.event_id);
@@ -1198,7 +1198,7 @@ bool IketEnabled(const IRModule& module) {
 IRModule LowerIketImpl(IRModule module) {
   if (!IketEnabled(module)) {
     for (const auto& [global_var, base_function] : module->functions) {
-      const auto* function_node = base_function.as<FunctionNode>();
+      const auto* function_node = base_function.as<FunctionObj>();
       if (!function_node || !function_node->body.has_value()) continue;
       Function function = ffi::GetRef<Function>(function_node);
       auto collector = ffi::make_object<AnnotationCollector>();
@@ -1229,7 +1229,7 @@ IRModule LowerIketImpl(IRModule module) {
 
   std::vector<KernelIketInfo> kernels;
   for (const auto& [global_var, base_function] : module->functions) {
-    const auto* function_node = base_function.as<FunctionNode>();
+    const auto* function_node = base_function.as<FunctionObj>();
     if (!function_node || !function_node->body.has_value()) continue;
     Function function = ffi::GetRef<Function>(function_node);
     auto collector = ffi::make_object<AnnotationCollector>();

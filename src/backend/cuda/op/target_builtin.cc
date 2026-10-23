@@ -42,14 +42,14 @@ namespace builtin {
 namespace {
 void RegisterDeviceIntrinsics();
 
-Type InferTypeMovSreg(const CallNode* call) {
+Type InferTypeMovSreg(const CallObj* call) {
   TVM_FFI_CHECK(!call->args.empty(), TypeError) << "mov_sreg expects a bit width";
-  const auto* bits = call->args[0].as<IntImmNode>();
+  const auto* bits = call->args[0].as<IntImmObj>();
   TVM_FFI_CHECK(bits, TypeError) << "mov_sreg expects a constant bit width";
   return PrimType::Int(static_cast<int64_t>(bits->value));
 }
 
-Type InferTypeDeclTmem(const CallNode* call) {
+Type InferTypeDeclTmem(const CallObj* call) {
   static const auto scope_tmem = runtime::MemoryScope::Get("tmem");
   TVM_FFI_CHECK_EQ(call->args.size(), 1U, ValueError) << "decl_tmem expects one address operand";
   TVM_FFI_CHECK_EQ(call->ty_args.size(), 1U, ValueError)
@@ -65,16 +65,16 @@ Type InferTypeDeclTmem(const CallNode* call) {
   return type;
 }
 
-void ValidateDeclTmem(const CallNode* call) {
+void ValidateDeclTmem(const CallObj* call) {
   Type inferred = InferTypeDeclTmem(call);
   TVM_FFI_CHECK(ffi::StructuralEqual()(call->ty, inferred), TypeError)
       << "decl_tmem result must match its TensorType argument";
   TVM_FFI_CHECK(!call->attrs.has_value(), ValueError) << "decl_tmem does not accept attributes";
 }
 
-Type InferTypeCudaAxis(const CallNode* call) {
+Type InferTypeCudaAxis(const CallObj* call) {
   TVM_FFI_CHECK_EQ(call->args.size(), 1U, ValueError);
-  const auto* axis = call->args[0].as<StringImmNode>();
+  const auto* axis = call->args[0].as<StringImmObj>();
   TVM_FFI_CHECK(axis && (axis->value == "x" || axis->value == "y" || axis->value == "z"),
                 ValueError)
       << "CUDA index axis must be x, y, or z";
@@ -82,7 +82,7 @@ Type InferTypeCudaAxis(const CallNode* call) {
 }
 
 template <size_t N>
-static Type InferTypeReturnArgType(const CallNode* call) {
+static Type InferTypeReturnArgType(const CallObj* call) {
   TVM_FFI_CHECK_GT(call->args.size(), N, ValueError)
       << "Return type inference requires argument " << N;
   return call->args[N]->ty;
@@ -100,7 +100,7 @@ void RegisterCudaTargetBuiltins() {
                  sig::ty_arg<TensorType>("tensor_type"))
       .set_native_fn_attr<&InferTypeDeclTmem>(tvm::op_attr::kInferType)
       .set_validator(ffi::reflection::NativeFunctionView<void(
-                         const CallNode*)>::FromNative<&ValidateDeclTmem>(),
+                         const CallObj*)>::FromNative<&ValidateDeclTmem>(),
                      true)
       .set_attr(tvm::op_attr::kCallEffectKind, CallEffectKind::kPure);
 

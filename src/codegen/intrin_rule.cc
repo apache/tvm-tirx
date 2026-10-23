@@ -151,7 +151,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
 
 PrimExpr DispatchFastErf(const PrimExpr& e) {
   DLOG(WARNING) << "fast_erf will be used instead of erf";
-  const CallNode* call = e.as<CallNode>();
+  const CallObj* call = e.as<CallObj>();
   TVM_FFI_ICHECK(call != nullptr);
   TVM_FFI_ICHECK_EQ(call->args.size(), 1);
   PrimExpr arg = call->args[0].as_or_throw<PrimExpr>();
@@ -166,7 +166,7 @@ PrimExpr DispatchFastErf(const PrimExpr& e) {
 
 PrimExpr DispatchNumericallyStableTanh(const PrimExpr& e) {
   using tvm::prim::MakeConst;
-  const CallNode* call = e.as<CallNode>();
+  const CallObj* call = e.as<CallObj>();
   TVM_FFI_ICHECK(call != nullptr);
   PrimExpr x = call->args[0].as_or_throw<PrimExpr>();
   PrimType x_ty = x.ty();
@@ -193,7 +193,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
   // clang-format off
   OpDef("prim.rsqrt")
       .set_attr<FLegalize>("default.FLegalize", [](const PrimExpr& e) -> PrimExpr {
-    const CallNode* call = e.as<CallNode>();
+    const CallObj* call = e.as<CallObj>();
     TVM_FFI_ICHECK(call != nullptr);
     PrimExpr arg = call->args[0].as_or_throw<PrimExpr>();
     auto one = MakeConst(arg.ty(), 1);
@@ -202,7 +202,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
 
   OpDef("prim.sigmoid")
       .set_attr<FLegalize>("default.FLegalize", [](const PrimExpr& e) -> PrimExpr {
-    const CallNode* call = e.as<CallNode>();
+    const CallObj* call = e.as<CallObj>();
     TVM_FFI_ICHECK(call != nullptr);
     PrimExpr arg = call->args[0].as_or_throw<PrimExpr>();
     auto one = MakeConst(arg.ty(), 1);

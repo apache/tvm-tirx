@@ -34,7 +34,7 @@ namespace spirv {
 // num_signature means number of arguments used to query signature
 template <unsigned id>
 PrimExpr CallGLSLIntrin(PrimExpr e, const ffi::Array<PrimExpr>& args) {
-  const CallNode* call = e.as<CallNode>();
+  const CallObj* call = e.as<CallObj>();
   TVM_FFI_ICHECK(call != nullptr);
   ffi::Array<PrimExpr> cargs;
   // intrin id.
@@ -49,7 +49,7 @@ PrimExpr CallGLSLIntrin(PrimExpr e, const ffi::Array<PrimExpr>& args) {
 
 template <unsigned id>
 PrimExpr CallGLSLIntrin(PrimExpr e) {
-  const CallNode* call = e.as<CallNode>();
+  const CallObj* call = e.as<CallObj>();
   TVM_FFI_ICHECK(call != nullptr);
   ffi::Array<PrimExpr> args = call->args.as_or_throw<ffi::Array<PrimExpr>>();
   return CallGLSLIntrin<id>(e, args);
@@ -161,7 +161,7 @@ void RegisterVulkanLegalizeRules() {
   // clang-format off
   OpDef("prim.clz")
       .set_attr<FLegalize>("vulkan.FLegalize", [](const PrimExpr& e) -> PrimExpr {
-    const CallNode* call = e.as<CallNode>();
+    const CallObj* call = e.as<CallObj>();
     TVM_FFI_ICHECK(call != nullptr);
     TVM_FFI_ICHECK_EQ(call->args.size(), 1);
     PrimExpr arg = call->args[0].as_or_throw<PrimExpr>();

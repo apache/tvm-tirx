@@ -49,7 +49,7 @@ using AccessPath = ffi::reflection::AccessPath;
  *
  * \sa Doc
  */
-class DocNode : public ffi::Object {
+class DocObj : public ffi::Object {
  public:
   /*!
    * \brief The list of object paths of the source IR node.
@@ -62,25 +62,25 @@ class DocNode : public ffi::Object {
 
   static void RegisterReflection() {
     namespace refl = tvm::ffi::reflection;
-    refl::ObjectDef<DocNode>().def_rw("source_paths", &DocNode::source_paths);
+    refl::ObjectDef<DocObj>().def_rw("source_paths", &DocObj::source_paths);
   }
 
   static constexpr bool _type_mutable = true;
 
-  TVM_FFI_DECLARE_OBJECT_INFO("script.printer.Doc", DocNode, ffi::Object);
+  TVM_FFI_DECLARE_OBJECT_INFO("script.printer.Doc", DocObj, ffi::Object);
 };
 
 /*!
- * \brief Reference type of DocNode.
+ * \brief Reference type of DocObj.
  *
- * \sa DocNode
+ * \sa DocObj
  */
 class Doc : public ffi::ObjectRef {
  protected:
   Doc() = default;
 
  public:
-  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(Doc, ffi::ObjectRef, DocNode);
+  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(Doc, ffi::ObjectRef, DocObj);
 };
 
 class ExprDoc;
@@ -90,7 +90,7 @@ class ExprDoc;
  *
  * \sa ExprDoc
  */
-class ExprDocNode : public DocNode {
+class ExprDocObj : public DocObj {
  public:
   /*!
    * \brief Create a doc representing attribute access on the current ExprDoc
@@ -122,15 +122,15 @@ class ExprDocNode : public DocNode {
 
   static void RegisterReflection() {
     namespace refl = tvm::ffi::reflection;
-    refl::ObjectDef<ExprDocNode>();
+    refl::ObjectDef<ExprDocObj>();
   }
-  TVM_FFI_DECLARE_OBJECT_INFO("script.printer.ExprDoc", ExprDocNode, DocNode);
+  TVM_FFI_DECLARE_OBJECT_INFO("script.printer.ExprDoc", ExprDocObj, DocObj);
 };
 
 /*!
- * \brief Reference type of ExprDocNode.
+ * \brief Reference type of ExprDocObj.
  *
- * \sa ExprDocNode
+ * \sa ExprDocObj
  */
 class ExprDoc : public Doc {
  protected:
@@ -143,12 +143,12 @@ class ExprDoc : public Doc {
    */
   TVM_TIRX_DLL ExprDoc operator[](ffi::Array<Doc> indices) const;
 
-  explicit ExprDoc(ffi::ObjectPtr<ExprDocNode> data) : Doc(ffi::UnsafeInit{}) {
+  explicit ExprDoc(ffi::ObjectPtr<ExprDocObj> data) : Doc(ffi::UnsafeInit{}) {
     TVM_FFI_ICHECK(data != nullptr);
     data_ = std::move(data);
   }
 
-  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(ExprDoc, Doc, ExprDocNode);
+  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(ExprDoc, Doc, ExprDocObj);
 };
 
 /*!
@@ -156,7 +156,7 @@ class ExprDoc : public Doc {
  *
  * \sa StmtDoc
  */
-class StmtDocNode : public DocNode {
+class StmtDocObj : public DocObj {
  public:
   /*!
    * \brief The comment of this doc.
@@ -170,22 +170,22 @@ class StmtDocNode : public DocNode {
 
   static void RegisterReflection() {
     namespace refl = tvm::ffi::reflection;
-    refl::ObjectDef<StmtDocNode>().def_rw("comment", &StmtDocNode::comment);
+    refl::ObjectDef<StmtDocObj>().def_rw("comment", &StmtDocObj::comment);
   }
-  TVM_FFI_DECLARE_OBJECT_INFO("script.printer.StmtDoc", StmtDocNode, DocNode);
+  TVM_FFI_DECLARE_OBJECT_INFO("script.printer.StmtDoc", StmtDocObj, DocObj);
 };
 
 /*!
- * \brief Reference type of StmtDocNode.
+ * \brief Reference type of StmtDocObj.
  *
- * \sa StmtDocNode
+ * \sa StmtDocObj
  */
 class StmtDoc : public Doc {
  protected:
   StmtDoc() = default;
 
  public:
-  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(StmtDoc, Doc, StmtDocNode);
+  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(StmtDoc, Doc, StmtDocObj);
 };
 
 /*!
@@ -194,21 +194,21 @@ class StmtDoc : public Doc {
  * list of StmtDoc.
  * \sa StmtBlockDoc
  */
-class StmtBlockDocNode : public DocNode {
+class StmtBlockDocObj : public DocObj {
  public:
   /*! \brief The list of statements. */
   ffi::Array<StmtDoc> stmts;
 
   static void RegisterReflection() {
     namespace refl = tvm::ffi::reflection;
-    refl::ObjectDef<StmtBlockDocNode>().def_ro("stmts", &StmtBlockDocNode::stmts);
+    refl::ObjectDef<StmtBlockDocObj>().def_ro("stmts", &StmtBlockDocObj::stmts);
   }
-  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("script.printer.StmtBlockDoc", StmtBlockDocNode, DocNode);
+  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("script.printer.StmtBlockDoc", StmtBlockDocObj, DocObj);
 };
 
 /*!
- * \brief Reference type of StmtBlockDocNode.
- * \sa StmtBlockDocNode
+ * \brief Reference type of StmtBlockDocObj.
+ * \sa StmtBlockDocObj
  */
 class StmtBlockDoc : public Doc {
  public:
@@ -217,7 +217,7 @@ class StmtBlockDoc : public Doc {
    * \param stmts The list of statements.
    */
   TVM_TIRX_DLL explicit StmtBlockDoc(ffi::Array<StmtDoc> stmts);
-  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(StmtBlockDoc, Doc, StmtBlockDocNode);
+  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(StmtBlockDoc, Doc, StmtBlockDocObj);
 };
 
 /*!
@@ -225,7 +225,7 @@ class StmtBlockDoc : public Doc {
  *
  * \sa LiteralDoc
  */
-class LiteralDocNode : public ExprDocNode {
+class LiteralDocObj : public ExprDocObj {
  public:
   /*!
    * \brief the internal representation of the literal value.
@@ -240,15 +240,15 @@ class LiteralDocNode : public ExprDocNode {
 
   static void RegisterReflection() {
     namespace refl = tvm::ffi::reflection;
-    refl::ObjectDef<LiteralDocNode>().def_ro("value", &LiteralDocNode::value);
+    refl::ObjectDef<LiteralDocObj>().def_ro("value", &LiteralDocObj::value);
   }
-  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("script.printer.LiteralDoc", LiteralDocNode, ExprDocNode);
+  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("script.printer.LiteralDoc", LiteralDocObj, ExprDocObj);
 };
 
 /*!
- * \brief Reference type of LiteralDocNode.
+ * \brief Reference type of LiteralDocObj.
  *
- * \sa LiteralDocNode
+ * \sa LiteralDocObj
  */
 class LiteralDoc : public ExprDoc {
  protected:
@@ -325,7 +325,7 @@ class LiteralDoc : public ExprDoc {
     return LiteralDoc::Str(os.str(), p);
   }
 
-  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(LiteralDoc, ExprDoc, LiteralDocNode);
+  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(LiteralDoc, ExprDoc, LiteralDocObj);
 };
 
 /*!
@@ -333,22 +333,22 @@ class LiteralDoc : public ExprDoc {
  *
  * \sa ExprStringDoc
  */
-class ExprStringDocNode : public ExprDocNode {
+class ExprStringDocObj : public ExprDocObj {
  public:
   /*! \brief The expression to render as a string. */
   ExprDoc value{ffi::UnsafeInit()};
 
   static void RegisterReflection() {
     namespace refl = tvm::ffi::reflection;
-    refl::ObjectDef<ExprStringDocNode>().def_ro("value", &ExprStringDocNode::value);
+    refl::ObjectDef<ExprStringDocObj>().def_ro("value", &ExprStringDocObj::value);
   }
-  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("script.printer.ExprStringDoc", ExprStringDocNode, ExprDocNode);
+  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("script.printer.ExprStringDoc", ExprStringDocObj, ExprDocObj);
 };
 
 /*!
- * \brief Reference type of ExprStringDocNode.
+ * \brief Reference type of ExprStringDocObj.
  *
- * \sa ExprStringDocNode
+ * \sa ExprStringDocObj
  */
 class ExprStringDoc : public ExprDoc {
  public:
@@ -359,7 +359,7 @@ class ExprStringDoc : public ExprDoc {
    */
   TVM_TIRX_DLL explicit ExprStringDoc(ExprDoc value, const ffi::Optional<AccessPath>& object_path);
 
-  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(ExprStringDoc, ExprDoc, ExprStringDocNode);
+  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(ExprStringDoc, ExprDoc, ExprStringDocObj);
 };
 
 /*!
@@ -367,22 +367,22 @@ class ExprStringDoc : public ExprDoc {
  *
  * \sa IdDoc
  */
-class IdDocNode : public ExprDocNode {
+class IdDocObj : public ExprDocObj {
  public:
   /*! \brief The name of the identifier */
   ffi::String name;
 
   static void RegisterReflection() {
     namespace refl = tvm::ffi::reflection;
-    refl::ObjectDef<IdDocNode>().def_ro("name", &IdDocNode::name);
+    refl::ObjectDef<IdDocObj>().def_ro("name", &IdDocObj::name);
   }
-  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("script.printer.IdDoc", IdDocNode, ExprDocNode);
+  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("script.printer.IdDoc", IdDocObj, ExprDocObj);
 };
 
 /*!
- * \brief Reference type of IdDocNode.
+ * \brief Reference type of IdDocObj.
  *
- * \sa IdDocNode
+ * \sa IdDocObj
  */
 class IdDoc : public ExprDoc {
  public:
@@ -392,7 +392,7 @@ class IdDoc : public ExprDoc {
    */
   TVM_TIRX_DLL explicit IdDoc(ffi::String name);
   explicit IdDoc(std::nullptr_t) : ExprDoc(nullptr) {}
-  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(IdDoc, ExprDoc, IdDocNode);
+  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(IdDoc, ExprDoc, IdDocObj);
 };
 
 /*!
@@ -400,7 +400,7 @@ class IdDoc : public ExprDoc {
  *
  * \sa AttrAccessDoc
  */
-class AttrAccessDocNode : public ExprDocNode {
+class AttrAccessDocObj : public ExprDocObj {
  public:
   /*! \brief The target expression to be accessed */
   ExprDoc value{ffi::UnsafeInit()};
@@ -409,17 +409,17 @@ class AttrAccessDocNode : public ExprDocNode {
 
   static void RegisterReflection() {
     namespace refl = tvm::ffi::reflection;
-    refl::ObjectDef<AttrAccessDocNode>()
-        .def_ro("value", &AttrAccessDocNode::value)
-        .def_ro("name", &AttrAccessDocNode::name);
+    refl::ObjectDef<AttrAccessDocObj>()
+        .def_ro("value", &AttrAccessDocObj::value)
+        .def_ro("name", &AttrAccessDocObj::name);
   }
-  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("script.printer.AttrAccessDoc", AttrAccessDocNode, ExprDocNode);
+  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("script.printer.AttrAccessDoc", AttrAccessDocObj, ExprDocObj);
 };
 
 /*!
- * \brief Reference type of AttrAccessDocNode.
+ * \brief Reference type of AttrAccessDocObj.
  *
- * \sa AttrAccessDocNode
+ * \sa AttrAccessDocObj
  */
 class AttrAccessDoc : public ExprDoc {
  public:
@@ -429,7 +429,7 @@ class AttrAccessDoc : public ExprDoc {
    * \param name The name of attribute to access.
    */
   TVM_TIRX_DLL explicit AttrAccessDoc(ExprDoc value, ffi::String name);
-  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(AttrAccessDoc, ExprDoc, AttrAccessDocNode);
+  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(AttrAccessDoc, ExprDoc, AttrAccessDocObj);
 };
 
 /*!
@@ -437,7 +437,7 @@ class AttrAccessDoc : public ExprDoc {
  *
  * \sa IndexDoc
  */
-class IndexDocNode : public ExprDocNode {
+class IndexDocObj : public ExprDocObj {
  public:
   /*! \brief The container value to be accessed */
   ExprDoc value{ffi::UnsafeInit()};
@@ -452,17 +452,17 @@ class IndexDocNode : public ExprDocNode {
 
   static void RegisterReflection() {
     namespace refl = tvm::ffi::reflection;
-    refl::ObjectDef<IndexDocNode>()
-        .def_ro("value", &IndexDocNode::value)
-        .def_ro("indices", &IndexDocNode::indices);
+    refl::ObjectDef<IndexDocObj>()
+        .def_ro("value", &IndexDocObj::value)
+        .def_ro("indices", &IndexDocObj::indices);
   }
-  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("script.printer.IndexDoc", IndexDocNode, ExprDocNode);
+  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("script.printer.IndexDoc", IndexDocObj, ExprDocObj);
 };
 
 /*!
- * \brief Reference type of IndexDocNode.
+ * \brief Reference type of IndexDocObj.
  *
- * \sa IndexDocNode
+ * \sa IndexDocObj
  */
 class IndexDoc : public ExprDoc {
  public:
@@ -472,7 +472,7 @@ class IndexDoc : public ExprDoc {
    * \param indices The indices to access.
    */
   TVM_TIRX_DLL explicit IndexDoc(ExprDoc value, ffi::Array<Doc> indices);
-  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(IndexDoc, ExprDoc, IndexDocNode);
+  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(IndexDoc, ExprDoc, IndexDocObj);
 };
 
 /*!
@@ -480,7 +480,7 @@ class IndexDoc : public ExprDoc {
  *
  * \sa CallDoc
  */
-class CallDocNode : public ExprDocNode {
+class CallDocObj : public ExprDocObj {
  public:
   /*! \brief The callee of this function call */
   ExprDoc callee{ffi::UnsafeInit()};
@@ -498,19 +498,19 @@ class CallDocNode : public ExprDocNode {
 
   static void RegisterReflection() {
     namespace refl = tvm::ffi::reflection;
-    refl::ObjectDef<CallDocNode>()
-        .def_ro("callee", &CallDocNode::callee)
-        .def_ro("args", &CallDocNode::args)
-        .def_ro("kwargs_keys", &CallDocNode::kwargs_keys)
-        .def_ro("kwargs_values", &CallDocNode::kwargs_values);
+    refl::ObjectDef<CallDocObj>()
+        .def_ro("callee", &CallDocObj::callee)
+        .def_ro("args", &CallDocObj::args)
+        .def_ro("kwargs_keys", &CallDocObj::kwargs_keys)
+        .def_ro("kwargs_values", &CallDocObj::kwargs_values);
   }
-  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("script.printer.CallDoc", CallDocNode, ExprDocNode);
+  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("script.printer.CallDoc", CallDocObj, ExprDocObj);
 };
 
 /*!
- * \brief Reference type of CallDocNode.
+ * \brief Reference type of CallDocObj.
  *
- * \sa CallDocNode
+ * \sa CallDocObj
  */
 class CallDoc : public ExprDoc {
  public:
@@ -523,7 +523,7 @@ class CallDoc : public ExprDoc {
    */
   TVM_TIRX_DLL CallDoc(ExprDoc callee, ffi::Array<ExprDoc> args,
                        ffi::Array<ffi::String> kwargs_keys, ffi::Array<ExprDoc> kwargs_values);
-  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(CallDoc, ExprDoc, CallDocNode);
+  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(CallDoc, ExprDoc, CallDocObj);
 };
 
 /*!
@@ -534,7 +534,7 @@ class CallDoc : public ExprDoc {
  *
  * \sa OperationDoc
  */
-class OperationDocNode : public ExprDocNode {
+class OperationDocObj : public ExprDocObj {
  public:
   enum class Kind : int32_t {
     // Unary operators
@@ -582,17 +582,17 @@ class OperationDocNode : public ExprDocNode {
 
   static void RegisterReflection() {
     namespace refl = tvm::ffi::reflection;
-    refl::ObjectDef<OperationDocNode>()
-        .def_ro("kind", &OperationDocNode::kind)
-        .def_ro("operands", &OperationDocNode::operands);
+    refl::ObjectDef<OperationDocObj>()
+        .def_ro("kind", &OperationDocObj::kind)
+        .def_ro("operands", &OperationDocObj::operands);
   }
-  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("script.printer.OperationDoc", OperationDocNode, ExprDocNode);
+  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("script.printer.OperationDoc", OperationDocObj, ExprDocObj);
 };
 
 /*!
- * \brief Reference type of OperationDocNode.
+ * \brief Reference type of OperationDocObj.
  *
- * \sa OperationDocNode
+ * \sa OperationDocObj
  */
 class OperationDoc : public ExprDoc {
  public:
@@ -601,8 +601,8 @@ class OperationDoc : public ExprDoc {
    * \param kind The kind of operation.
    * \param operands Operands of this expression.
    */
-  TVM_TIRX_DLL explicit OperationDoc(OperationDocNode::Kind kind, ffi::Array<ExprDoc> operands);
-  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(OperationDoc, ExprDoc, OperationDocNode);
+  TVM_TIRX_DLL explicit OperationDoc(OperationDocObj::Kind kind, ffi::Array<ExprDoc> operands);
+  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(OperationDoc, ExprDoc, OperationDocObj);
 };
 
 /*!
@@ -613,7 +613,7 @@ class OperationDoc : public ExprDoc {
  *
  * \sa LambdaDoc
  */
-class LambdaDocNode : public ExprDocNode {
+class LambdaDocObj : public ExprDocObj {
  public:
   /*! \brief The arguments of this anonymous function */
   ffi::Array<IdDoc> args;
@@ -622,17 +622,17 @@ class LambdaDocNode : public ExprDocNode {
 
   static void RegisterReflection() {
     namespace refl = tvm::ffi::reflection;
-    refl::ObjectDef<LambdaDocNode>()
-        .def_ro("args", &LambdaDocNode::args)
-        .def_ro("body", &LambdaDocNode::body);
+    refl::ObjectDef<LambdaDocObj>()
+        .def_ro("args", &LambdaDocObj::args)
+        .def_ro("body", &LambdaDocObj::body);
   }
-  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("script.printer.LambdaDoc", LambdaDocNode, ExprDocNode);
+  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("script.printer.LambdaDoc", LambdaDocObj, ExprDocObj);
 };
 
 /*!
- * \brief Reference type of LambdaDocNode.
+ * \brief Reference type of LambdaDocObj.
  *
- * \sa LambdaDocNode
+ * \sa LambdaDocObj
  */
 class LambdaDoc : public ExprDoc {
  public:
@@ -642,7 +642,7 @@ class LambdaDoc : public ExprDoc {
    * \param body Body expression of this function.
    */
   TVM_TIRX_DLL explicit LambdaDoc(ffi::Array<IdDoc> args, ExprDoc body);
-  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(LambdaDoc, ExprDoc, LambdaDocNode);
+  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(LambdaDoc, ExprDoc, LambdaDocObj);
 };
 
 /*!
@@ -650,35 +650,35 @@ class LambdaDoc : public ExprDoc {
  *
  * \sa TupleDoc
  */
-class TupleDocNode : public ExprDocNode {
+class TupleDocObj : public ExprDocObj {
  public:
   /*! \brief Elements of tuple */
   ffi::Array<ExprDoc> elements;
 
   static void RegisterReflection() {
     namespace refl = tvm::ffi::reflection;
-    refl::ObjectDef<TupleDocNode>().def_ro("elements", &TupleDocNode::elements);
+    refl::ObjectDef<TupleDocObj>().def_ro("elements", &TupleDocObj::elements);
   }
-  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("script.printer.TupleDoc", TupleDocNode, ExprDocNode);
+  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("script.printer.TupleDoc", TupleDocObj, ExprDocObj);
 };
 
 /*!
- * \brief Reference type of TupleDocNode.
+ * \brief Reference type of TupleDocObj.
  *
- * \sa TupleDocNode
+ * \sa TupleDocObj
  */
 class TupleDoc : public ExprDoc {
  public:
   /*!
    * \brief Create an empty TupleDoc
    */
-  TupleDoc() : ExprDoc(ffi::make_object<TupleDocNode>()) {}
+  TupleDoc() : ExprDoc(ffi::make_object<TupleDocObj>()) {}
   /*!
    * \brief Constructor of TupleDoc
    * \param elements Elements of tuple.
    */
   TVM_TIRX_DLL explicit TupleDoc(ffi::Array<ExprDoc> elements);
-  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(TupleDoc, ExprDoc, TupleDocNode);
+  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(TupleDoc, ExprDoc, TupleDocObj);
 };
 
 /*!
@@ -686,35 +686,35 @@ class TupleDoc : public ExprDoc {
  *
  * \sa AttrAccessDoc
  */
-class ListDocNode : public ExprDocNode {
+class ListDocObj : public ExprDocObj {
  public:
   /*! \brief Elements of list */
   ffi::Array<ExprDoc> elements;
 
   static void RegisterReflection() {
     namespace refl = tvm::ffi::reflection;
-    refl::ObjectDef<ListDocNode>().def_ro("elements", &ListDocNode::elements);
+    refl::ObjectDef<ListDocObj>().def_ro("elements", &ListDocObj::elements);
   }
-  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("script.printer.ListDoc", ListDocNode, ExprDocNode);
+  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("script.printer.ListDoc", ListDocObj, ExprDocObj);
 };
 
 /*!
- * \brief Reference type of ListDocNode.
+ * \brief Reference type of ListDocObj.
  *
- * \sa ListDocNode
+ * \sa ListDocObj
  */
 class ListDoc : public ExprDoc {
  public:
   /*!
    * \brief Create an empty ListDoc
    */
-  ListDoc() : ExprDoc(ffi::make_object<ListDocNode>()) {}
+  ListDoc() : ExprDoc(ffi::make_object<ListDocObj>()) {}
   /*!
    * \brief Constructor of ListDoc
    * \param elements Elements of list.
    */
   TVM_TIRX_DLL explicit ListDoc(ffi::Array<ExprDoc> elements);
-  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(ListDoc, ExprDoc, ListDocNode);
+  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(ListDoc, ExprDoc, ListDocObj);
 };
 
 /*!
@@ -722,7 +722,7 @@ class ListDoc : public ExprDoc {
  *
  * \sa AttrAccessDoc
  */
-class DictDocNode : public ExprDocNode {
+class DictDocObj : public ExprDocObj {
  public:
   /*! \brief keys of dictionary */
   ffi::Array<ExprDoc> keys;
@@ -736,31 +736,31 @@ class DictDocNode : public ExprDocNode {
 
   static void RegisterReflection() {
     namespace refl = tvm::ffi::reflection;
-    refl::ObjectDef<DictDocNode>()
-        .def_ro("keys", &DictDocNode::keys)
-        .def_ro("values", &DictDocNode::values);
+    refl::ObjectDef<DictDocObj>()
+        .def_ro("keys", &DictDocObj::keys)
+        .def_ro("values", &DictDocObj::values);
   }
-  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("script.printer.DictDoc", DictDocNode, ExprDocNode);
+  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("script.printer.DictDoc", DictDocObj, ExprDocObj);
 };
 
 /*!
- * \brief Reference type of DictDocNode.
+ * \brief Reference type of DictDocObj.
  *
- * \sa DictDocNode
+ * \sa DictDocObj
  */
 class DictDoc : public ExprDoc {
  public:
   /*!
    * \brief Create an empty dictionary
    */
-  DictDoc() : ExprDoc(ffi::make_object<DictDocNode>()) {}
+  DictDoc() : ExprDoc(ffi::make_object<DictDocObj>()) {}
   /*!
    * \brief Constructor of DictDoc
    * \param keys Keys of dictionary.
    * \param values Values of dictionary, must have same length as `keys`.
    */
   TVM_TIRX_DLL explicit DictDoc(ffi::Array<ExprDoc> keys, ffi::Array<ExprDoc> values);
-  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(DictDoc, ExprDoc, DictDocNode);
+  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(DictDoc, ExprDoc, DictDocObj);
 };
 
 /*!
@@ -770,7 +770,7 @@ class DictDoc : public ExprDoc {
  *
  * \sa AttrAccessDoc
  */
-class SliceDocNode : public DocNode {
+class SliceDocObj : public DocObj {
  public:
   /*! \brief The start of slice */
   ffi::Optional<ExprDoc> start;
@@ -781,18 +781,18 @@ class SliceDocNode : public DocNode {
 
   static void RegisterReflection() {
     namespace refl = tvm::ffi::reflection;
-    refl::ObjectDef<SliceDocNode>()
-        .def_ro("start", &SliceDocNode::start)
-        .def_ro("stop", &SliceDocNode::stop)
-        .def_ro("step", &SliceDocNode::step);
+    refl::ObjectDef<SliceDocObj>()
+        .def_ro("start", &SliceDocObj::start)
+        .def_ro("stop", &SliceDocObj::stop)
+        .def_ro("step", &SliceDocObj::step);
   }
-  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("script.printer.SliceDoc", SliceDocNode, DocNode);
+  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("script.printer.SliceDoc", SliceDocObj, DocObj);
 };
 
 /*!
- * \brief Reference type of SliceDocNode.
+ * \brief Reference type of SliceDocObj.
  *
- * \sa SliceDocNode
+ * \sa SliceDocObj
  */
 class SliceDoc : public Doc {
  public:
@@ -804,7 +804,7 @@ class SliceDoc : public Doc {
    */
   TVM_TIRX_DLL explicit SliceDoc(ffi::Optional<ExprDoc> start, ffi::Optional<ExprDoc> stop,
                                  ffi::Optional<ExprDoc> step);
-  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(SliceDoc, Doc, SliceDocNode);
+  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(SliceDoc, Doc, SliceDocObj);
 };
 
 /*!
@@ -812,7 +812,7 @@ class SliceDoc : public Doc {
  *
  * \sa AssignDoc
  */
-class AssignDocNode : public StmtDocNode {
+class AssignDocObj : public StmtDocObj {
  public:
   /*! \brief The left hand side of the assignment */
   ExprDoc lhs{ffi::UnsafeInit()};
@@ -827,16 +827,16 @@ class AssignDocNode : public StmtDocNode {
 
   static void RegisterReflection() {
     namespace refl = tvm::ffi::reflection;
-    refl::ObjectDef<AssignDocNode>()
-        .def_ro("lhs", &AssignDocNode::lhs)
-        .def_ro("rhs", &AssignDocNode::rhs)
-        .def_ro("annotation", &AssignDocNode::annotation);
+    refl::ObjectDef<AssignDocObj>()
+        .def_ro("lhs", &AssignDocObj::lhs)
+        .def_ro("rhs", &AssignDocObj::rhs)
+        .def_ro("annotation", &AssignDocObj::annotation);
   }
-  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("script.printer.AssignDoc", AssignDocNode, StmtDocNode);
+  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("script.printer.AssignDoc", AssignDocObj, StmtDocObj);
 };
 
 /*!
- * \brief Reference type of AssignDocNode.
+ * \brief Reference type of AssignDocObj.
  *
  * \sa AssignDoc
  */
@@ -850,7 +850,7 @@ class AssignDoc : public StmtDoc {
    */
   TVM_TIRX_DLL explicit AssignDoc(ExprDoc lhs, ffi::Optional<ExprDoc> rhs,
                                   ffi::Optional<ExprDoc> annotation);
-  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(AssignDoc, StmtDoc, AssignDocNode);
+  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(AssignDoc, StmtDoc, AssignDocObj);
 };
 
 /*!
@@ -858,7 +858,7 @@ class AssignDoc : public StmtDoc {
  *
  * \sa IfDoc
  */
-class IfDocNode : public StmtDocNode {
+class IfDocObj : public StmtDocObj {
  public:
   /*! \brief The predicate of the if-then-else statement. */
   ExprDoc predicate{ffi::UnsafeInit()};
@@ -869,18 +869,18 @@ class IfDocNode : public StmtDocNode {
 
   static void RegisterReflection() {
     namespace refl = tvm::ffi::reflection;
-    refl::ObjectDef<IfDocNode>()
-        .def_ro("predicate", &IfDocNode::predicate)
-        .def_ro("then_branch", &IfDocNode::then_branch)
-        .def_ro("else_branch", &IfDocNode::else_branch);
+    refl::ObjectDef<IfDocObj>()
+        .def_ro("predicate", &IfDocObj::predicate)
+        .def_ro("then_branch", &IfDocObj::then_branch)
+        .def_ro("else_branch", &IfDocObj::else_branch);
   }
-  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("script.printer.IfDoc", IfDocNode, StmtDocNode);
+  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("script.printer.IfDoc", IfDocObj, StmtDocObj);
 };
 
 /*!
- * \brief Reference type of IfDocNode.
+ * \brief Reference type of IfDocObj.
  *
- * \sa IfDocNode
+ * \sa IfDocObj
  */
 class IfDoc : public StmtDoc {
  public:
@@ -892,7 +892,7 @@ class IfDoc : public StmtDoc {
    */
   TVM_TIRX_DLL explicit IfDoc(ExprDoc predicate, ffi::Array<StmtDoc> then_branch,
                               ffi::Optional<ffi::Array<StmtDoc>> else_branch);
-  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(IfDoc, StmtDoc, IfDocNode);
+  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(IfDoc, StmtDoc, IfDocObj);
 };
 
 /*!
@@ -900,7 +900,7 @@ class IfDoc : public StmtDoc {
  *
  * \sa WhileDoc
  */
-class WhileDocNode : public StmtDocNode {
+class WhileDocObj : public StmtDocObj {
  public:
   /*! \brief The predicate of the while statement. */
   ExprDoc predicate{ffi::UnsafeInit()};
@@ -909,17 +909,17 @@ class WhileDocNode : public StmtDocNode {
 
   static void RegisterReflection() {
     namespace refl = tvm::ffi::reflection;
-    refl::ObjectDef<WhileDocNode>()
-        .def_ro("predicate", &WhileDocNode::predicate)
-        .def_ro("body", &WhileDocNode::body);
+    refl::ObjectDef<WhileDocObj>()
+        .def_ro("predicate", &WhileDocObj::predicate)
+        .def_ro("body", &WhileDocObj::body);
   }
-  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("script.printer.WhileDoc", WhileDocNode, StmtDocNode);
+  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("script.printer.WhileDoc", WhileDocObj, StmtDocObj);
 };
 
 /*!
- * \brief Reference type of WhileDocNode.
+ * \brief Reference type of WhileDocObj.
  *
- * \sa WhileDocNode
+ * \sa WhileDocObj
  */
 class WhileDoc : public StmtDoc {
  public:
@@ -929,7 +929,7 @@ class WhileDoc : public StmtDoc {
    * \param body The body of the while statement.
    */
   TVM_TIRX_DLL explicit WhileDoc(ExprDoc predicate, ffi::Array<StmtDoc> body);
-  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(WhileDoc, StmtDoc, WhileDocNode);
+  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(WhileDoc, StmtDoc, WhileDocObj);
 };
 
 /*!
@@ -937,20 +937,20 @@ class WhileDoc : public StmtDoc {
  *
  * \sa BreakDoc
  */
-class BreakDocNode : public StmtDocNode {
+class BreakDocObj : public StmtDocObj {
  public:
   static void RegisterReflection() {
     namespace refl = tvm::ffi::reflection;
-    refl::ObjectDef<BreakDocNode>();
+    refl::ObjectDef<BreakDocObj>();
   }
 
-  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("script.printer.BreakDoc", BreakDocNode, StmtDocNode);
+  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("script.printer.BreakDoc", BreakDocObj, StmtDocObj);
 };
 
 /*!
- * \brief Reference type of BreakDocNode.
+ * \brief Reference type of BreakDocObj.
  *
- * \sa BreakDocNode
+ * \sa BreakDocObj
  */
 class BreakDoc : public StmtDoc {
  public:
@@ -958,7 +958,7 @@ class BreakDoc : public StmtDoc {
    * \brief Constructor of BreakDoc.
    */
   TVM_TIRX_DLL explicit BreakDoc();
-  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(BreakDoc, StmtDoc, BreakDocNode);
+  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(BreakDoc, StmtDoc, BreakDocObj);
 };
 
 /*!
@@ -966,20 +966,20 @@ class BreakDoc : public StmtDoc {
  *
  * \sa ContinueDoc
  */
-class ContinueDocNode : public StmtDocNode {
+class ContinueDocObj : public StmtDocObj {
  public:
   static void RegisterReflection() {
     namespace refl = tvm::ffi::reflection;
-    refl::ObjectDef<ContinueDocNode>();
+    refl::ObjectDef<ContinueDocObj>();
   }
 
-  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("script.printer.ContinueDoc", ContinueDocNode, StmtDocNode);
+  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("script.printer.ContinueDoc", ContinueDocObj, StmtDocObj);
 };
 
 /*!
- * \brief Reference type of ContinueDocNode.
+ * \brief Reference type of ContinueDocObj.
  *
- * \sa ContinueDocNode
+ * \sa ContinueDocObj
  */
 class ContinueDoc : public StmtDoc {
  public:
@@ -987,7 +987,7 @@ class ContinueDoc : public StmtDoc {
    * \brief Constructor of ContinueDoc.
    */
   TVM_TIRX_DLL explicit ContinueDoc();
-  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(ContinueDoc, StmtDoc, ContinueDocNode);
+  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(ContinueDoc, StmtDoc, ContinueDocObj);
 };
 
 /*!
@@ -999,7 +999,7 @@ class ContinueDoc : public StmtDoc {
  *
  * \sa ForDoc
  */
-class ForDocNode : public StmtDocNode {
+class ForDocObj : public StmtDocObj {
  public:
   /*! \brief The left hand side of the assignment of iterating variable. */
   ExprDoc lhs{ffi::UnsafeInit()};
@@ -1010,18 +1010,18 @@ class ForDocNode : public StmtDocNode {
 
   static void RegisterReflection() {
     namespace refl = tvm::ffi::reflection;
-    refl::ObjectDef<ForDocNode>()
-        .def_ro("lhs", &ForDocNode::lhs)
-        .def_ro("rhs", &ForDocNode::rhs)
-        .def_ro("body", &ForDocNode::body);
+    refl::ObjectDef<ForDocObj>()
+        .def_ro("lhs", &ForDocObj::lhs)
+        .def_ro("rhs", &ForDocObj::rhs)
+        .def_ro("body", &ForDocObj::body);
   }
-  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("script.printer.ForDoc", ForDocNode, StmtDocNode);
+  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("script.printer.ForDoc", ForDocObj, StmtDocObj);
 };
 
 /*!
- * \brief Reference type of ForDocNode.
+ * \brief Reference type of ForDocObj.
  *
- * \sa ForDocNode
+ * \sa ForDocObj
  */
 class ForDoc : public StmtDoc {
  public:
@@ -1032,7 +1032,7 @@ class ForDoc : public StmtDoc {
    * \param body The body of the for statement.
    */
   TVM_TIRX_DLL explicit ForDoc(ExprDoc lhs, ExprDoc rhs, ffi::Array<StmtDoc> body);
-  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(ForDoc, StmtDoc, ForDocNode);
+  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(ForDoc, StmtDoc, ForDocObj);
 };
 
 /*!
@@ -1045,7 +1045,7 @@ class ForDoc : public StmtDoc {
  *
  * \sa ScopeDoc
  */
-class ScopeDocNode : public StmtDocNode {
+class ScopeDocObj : public StmtDocObj {
  public:
   /*! \brief The name of the scoped variable. */
   ffi::Optional<ExprDoc> lhs{std::nullopt};
@@ -1058,19 +1058,19 @@ class ScopeDocNode : public StmtDocNode {
 
   static void RegisterReflection() {
     namespace refl = tvm::ffi::reflection;
-    refl::ObjectDef<ScopeDocNode>()
-        .def_ro("lhs", &ScopeDocNode::lhs)
-        .def_ro("rhs", &ScopeDocNode::rhs)
-        .def_ro("body", &ScopeDocNode::body)
-        .def_ro("allow_concise_scoping", &ScopeDocNode::allow_concise_scoping);
+    refl::ObjectDef<ScopeDocObj>()
+        .def_ro("lhs", &ScopeDocObj::lhs)
+        .def_ro("rhs", &ScopeDocObj::rhs)
+        .def_ro("body", &ScopeDocObj::body)
+        .def_ro("allow_concise_scoping", &ScopeDocObj::allow_concise_scoping);
   }
-  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("script.printer.ScopeDoc", ScopeDocNode, StmtDocNode);
+  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("script.printer.ScopeDoc", ScopeDocObj, StmtDocObj);
 };
 
 /*!
- * \brief Reference type of ScopeDocNode.
+ * \brief Reference type of ScopeDocObj.
  *
- * \sa ScopeDocNode
+ * \sa ScopeDocObj
  */
 class ScopeDoc : public StmtDoc {
  public:
@@ -1091,7 +1091,7 @@ class ScopeDoc : public StmtDoc {
    */
   TVM_TIRX_DLL explicit ScopeDoc(ExprDoc rhs, ffi::Array<StmtDoc> body);
 
-  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(ScopeDoc, StmtDoc, ScopeDocNode);
+  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(ScopeDoc, StmtDoc, ScopeDocObj);
 };
 
 /*!
@@ -1099,22 +1099,22 @@ class ScopeDoc : public StmtDoc {
  *
  * \sa ExprStmtDoc
  */
-class ExprStmtDocNode : public StmtDocNode {
+class ExprStmtDocObj : public StmtDocObj {
  public:
   /*! \brief The expression represented by this doc. */
   ExprDoc expr{ffi::UnsafeInit()};
 
   static void RegisterReflection() {
     namespace refl = tvm::ffi::reflection;
-    refl::ObjectDef<ExprStmtDocNode>().def_ro("expr", &ExprStmtDocNode::expr);
+    refl::ObjectDef<ExprStmtDocObj>().def_ro("expr", &ExprStmtDocObj::expr);
   }
-  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("script.printer.ExprStmtDoc", ExprStmtDocNode, StmtDocNode);
+  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("script.printer.ExprStmtDoc", ExprStmtDocObj, StmtDocObj);
 };
 
 /*!
- * \brief Reference type of ExprStmtDocNode.
+ * \brief Reference type of ExprStmtDocObj.
  *
- * \sa ExprStmtDocNode
+ * \sa ExprStmtDocObj
  */
 class ExprStmtDoc : public StmtDoc {
  public:
@@ -1123,7 +1123,7 @@ class ExprStmtDoc : public StmtDoc {
    * \param expr The expression represented by this doc.
    */
   TVM_TIRX_DLL explicit ExprStmtDoc(ExprDoc expr);
-  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(ExprStmtDoc, StmtDoc, ExprStmtDocNode);
+  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(ExprStmtDoc, StmtDoc, ExprStmtDocObj);
 };
 
 /*!
@@ -1131,7 +1131,7 @@ class ExprStmtDoc : public StmtDoc {
  *
  * \sa AssertDoc
  */
-class AssertDocNode : public StmtDocNode {
+class AssertDocObj : public StmtDocObj {
  public:
   /*! \brief The expression to test. */
   ExprDoc test{ffi::UnsafeInit()};
@@ -1140,17 +1140,17 @@ class AssertDocNode : public StmtDocNode {
 
   static void RegisterReflection() {
     namespace refl = tvm::ffi::reflection;
-    refl::ObjectDef<AssertDocNode>()
-        .def_ro("test", &AssertDocNode::test)
-        .def_ro("msg", &AssertDocNode::msg);
+    refl::ObjectDef<AssertDocObj>()
+        .def_ro("test", &AssertDocObj::test)
+        .def_ro("msg", &AssertDocObj::msg);
   }
-  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("script.printer.AssertDoc", AssertDocNode, StmtDocNode);
+  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("script.printer.AssertDoc", AssertDocObj, StmtDocObj);
 };
 
 /*!
- * \brief Reference type of AssertDocNode.
+ * \brief Reference type of AssertDocObj.
  *
- * \sa AssertDocNode
+ * \sa AssertDocObj
  */
 class AssertDoc : public StmtDoc {
  public:
@@ -1160,7 +1160,7 @@ class AssertDoc : public StmtDoc {
    * \param msg The optional error message when assertion failed.
    */
   TVM_TIRX_DLL explicit AssertDoc(ExprDoc test, ffi::Optional<ExprDoc> msg = std::nullopt);
-  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(AssertDoc, StmtDoc, AssertDocNode);
+  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(AssertDoc, StmtDoc, AssertDocObj);
 };
 
 /*!
@@ -1168,22 +1168,22 @@ class AssertDoc : public StmtDoc {
  *
  * \sa ReturnDoc
  */
-class ReturnDocNode : public StmtDocNode {
+class ReturnDocObj : public StmtDocObj {
  public:
   /*! \brief The value to return. */
   ExprDoc value{ffi::UnsafeInit()};
 
   static void RegisterReflection() {
     namespace refl = tvm::ffi::reflection;
-    refl::ObjectDef<ReturnDocNode>().def_ro("value", &ReturnDocNode::value);
+    refl::ObjectDef<ReturnDocObj>().def_ro("value", &ReturnDocObj::value);
   }
-  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("script.printer.ReturnDoc", ReturnDocNode, StmtDocNode);
+  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("script.printer.ReturnDoc", ReturnDocObj, StmtDocObj);
 };
 
 /*!
- * \brief Reference type of ReturnDocNode.
+ * \brief Reference type of ReturnDocObj.
  *
- * \sa ReturnDocNode
+ * \sa ReturnDocObj
  */
 class ReturnDoc : public StmtDoc {
  public:
@@ -1192,7 +1192,7 @@ class ReturnDoc : public StmtDoc {
    * \param value The value to return.
    */
   TVM_TIRX_DLL explicit ReturnDoc(ExprDoc value);
-  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(ReturnDoc, StmtDoc, ReturnDocNode);
+  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(ReturnDoc, StmtDoc, ReturnDocObj);
 };
 
 /*!
@@ -1200,7 +1200,7 @@ class ReturnDoc : public StmtDoc {
  *
  * \sa FunctionDoc
  */
-class FunctionDocNode : public StmtDocNode {
+class FunctionDocObj : public StmtDocObj {
  public:
   /*! \brief The name of function. */
   IdDoc name{ffi::UnsafeInit{}};
@@ -1229,21 +1229,21 @@ class FunctionDocNode : public StmtDocNode {
 
   static void RegisterReflection() {
     namespace refl = tvm::ffi::reflection;
-    refl::ObjectDef<FunctionDocNode>()
-        .def_ro("name", &FunctionDocNode::name)
-        .def_ro("args", &FunctionDocNode::args)
-        .def_ro("decorators", &FunctionDocNode::decorators)
-        .def_ro("return_type", &FunctionDocNode::return_type)
-        .def_ro("body", &FunctionDocNode::body)
-        .def_ro("type_params", &FunctionDocNode::type_params);
+    refl::ObjectDef<FunctionDocObj>()
+        .def_ro("name", &FunctionDocObj::name)
+        .def_ro("args", &FunctionDocObj::args)
+        .def_ro("decorators", &FunctionDocObj::decorators)
+        .def_ro("return_type", &FunctionDocObj::return_type)
+        .def_ro("body", &FunctionDocObj::body)
+        .def_ro("type_params", &FunctionDocObj::type_params);
   }
-  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("script.printer.FunctionDoc", FunctionDocNode, StmtDocNode);
+  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("script.printer.FunctionDoc", FunctionDocObj, StmtDocObj);
 };
 
 /*!
- * \brief Reference type of FunctionDocNode.
+ * \brief Reference type of FunctionDocObj.
  *
- * \sa FunctionDocNode
+ * \sa FunctionDocObj
  */
 class FunctionDoc : public StmtDoc {
  public:
@@ -1260,7 +1260,7 @@ class FunctionDoc : public StmtDoc {
                                     ffi::Array<ExprDoc> decorators,
                                     ffi::Optional<ExprDoc> return_type, ffi::Array<StmtDoc> body,
                                     ffi::Array<Doc> type_params = {});
-  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(FunctionDoc, StmtDoc, FunctionDocNode);
+  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(FunctionDoc, StmtDoc, FunctionDocObj);
 };
 
 /*!
@@ -1268,7 +1268,7 @@ class FunctionDoc : public StmtDoc {
  *
  * \sa ClassDoc
  */
-class ClassDocNode : public StmtDocNode {
+class ClassDocObj : public StmtDocObj {
  public:
   /*! \brief The name of class. */
   IdDoc name{ffi::UnsafeInit{}};
@@ -1279,18 +1279,18 @@ class ClassDocNode : public StmtDocNode {
 
   static void RegisterReflection() {
     namespace refl = tvm::ffi::reflection;
-    refl::ObjectDef<ClassDocNode>()
-        .def_ro("name", &ClassDocNode::name)
-        .def_ro("decorators", &ClassDocNode::decorators)
-        .def_ro("body", &ClassDocNode::body);
+    refl::ObjectDef<ClassDocObj>()
+        .def_ro("name", &ClassDocObj::name)
+        .def_ro("decorators", &ClassDocObj::decorators)
+        .def_ro("body", &ClassDocObj::body);
   }
-  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("script.printer.ClassDoc", ClassDocNode, StmtDocNode);
+  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("script.printer.ClassDoc", ClassDocObj, StmtDocObj);
 };
 
 /*!
- * \brief Reference type of ClassDocNode.
+ * \brief Reference type of ClassDocObj.
  *
- * \sa ClassDocNode
+ * \sa ClassDocObj
  */
 class ClassDoc : public StmtDoc {
  public:
@@ -1302,7 +1302,7 @@ class ClassDoc : public StmtDoc {
    */
   TVM_TIRX_DLL explicit ClassDoc(IdDoc name, ffi::Array<ExprDoc> decorators,
                                  ffi::Array<StmtDoc> body);
-  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(ClassDoc, StmtDoc, ClassDocNode);
+  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(ClassDoc, StmtDoc, ClassDocObj);
 };
 
 /*!
@@ -1310,24 +1310,24 @@ class ClassDoc : public StmtDoc {
  *
  * \sa CommentDoc
  */
-class CommentDocNode : public StmtDocNode {
+class CommentDocObj : public StmtDocObj {
  public:
   static void RegisterReflection() {
     namespace refl = tvm::ffi::reflection;
-    refl::ObjectDef<CommentDocNode>();
+    refl::ObjectDef<CommentDocObj>();
   }
-  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("script.printer.CommentDoc", CommentDocNode, StmtDocNode);
+  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("script.printer.CommentDoc", CommentDocObj, StmtDocObj);
 };
 
 /*!
- * \brief Reference type of CommentDocNode.
+ * \brief Reference type of CommentDocObj.
  *
- * \sa CommentDocNode
+ * \sa CommentDocObj
  */
 class CommentDoc : public StmtDoc {
  public:
   TVM_TIRX_DLL explicit CommentDoc(ffi::String comment);
-  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(CommentDoc, StmtDoc, CommentDocNode);
+  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(CommentDoc, StmtDoc, CommentDocObj);
 };
 
 /*!
@@ -1335,24 +1335,24 @@ class CommentDoc : public StmtDoc {
  *
  * \sa DocStringDoc
  */
-class DocStringDocNode : public StmtDocNode {
+class DocStringDocObj : public StmtDocObj {
  public:
   static void RegisterReflection() {
     namespace refl = tvm::ffi::reflection;
-    refl::ObjectDef<DocStringDocNode>();
+    refl::ObjectDef<DocStringDocObj>();
   }
-  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("script.printer.DocStringDoc", DocStringDocNode, StmtDocNode);
+  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("script.printer.DocStringDoc", DocStringDocObj, StmtDocObj);
 };
 
 /*!
- * \brief Reference type of DocStringDocNode.
+ * \brief Reference type of DocStringDocObj.
  *
- * \sa DocStringDocNode
+ * \sa DocStringDocObj
  */
 class DocStringDoc : public StmtDoc {
  public:
   TVM_TIRX_DLL explicit DocStringDoc(ffi::String docs);
-  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(DocStringDoc, StmtDoc, DocStringDocNode);
+  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(DocStringDoc, StmtDoc, DocStringDocObj);
 };
 
 /*!
@@ -1360,16 +1360,16 @@ class DocStringDoc : public StmtDoc {
  *
  * The renderer resolves the configured alias without remapping ordinary identifiers.
  */
-class NamespaceDocNode : public ExprDocNode {
+class NamespaceDocObj : public ExprDocObj {
  public:
   /*! \brief The namespace name before alias resolution. */
   ffi::String canonical_name;
 
   static void RegisterReflection() {
-    ffi::reflection::ObjectDef<NamespaceDocNode>().def_ro("canonical_name",
-                                                          &NamespaceDocNode::canonical_name);
+    ffi::reflection::ObjectDef<NamespaceDocObj>().def_ro("canonical_name",
+                                                         &NamespaceDocObj::canonical_name);
   }
-  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("script.printer.NamespaceDoc", NamespaceDocNode, ExprDocNode);
+  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("script.printer.NamespaceDoc", NamespaceDocObj, ExprDocObj);
 };
 
 /*!
@@ -1382,7 +1382,7 @@ class NamespaceDoc : public ExprDoc {
    * \param canonical_name The namespace name before alias resolution.
    */
   TVM_TIRX_DLL explicit NamespaceDoc(ffi::String canonical_name);
-  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(NamespaceDoc, ExprDoc, NamespaceDocNode);
+  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(NamespaceDoc, ExprDoc, NamespaceDocObj);
 };
 
 }  // namespace printer

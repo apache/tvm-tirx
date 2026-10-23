@@ -81,7 +81,7 @@ class Int32DTypeNarrower : public IndexDataTypeNormalizer {
 
   bool ShouldClampShiftAmounts() const final { return true; }
 
-  UnchangedOr<PrimExpr> Mutate_(const IntImmNode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<PrimExpr> Mutate_(const IntImmObj* op, InplaceMode inplace_mode) final {
     // ignore the enabled condition and always rewrite i64
     if (op->ty.as_or_throw<PrimType>() == PrimType::Int(64)) {
       TVM_FFI_ICHECK_LE(op->value, prim::max_value(target_data_type_).as_or_throw<IntImm>()->value);
@@ -90,14 +90,14 @@ class Int32DTypeNarrower : public IndexDataTypeNormalizer {
     return ffi::Unchanged();
   }
 
-  UnchangedOr<Stmt> Mutate_(const BindNode* op, InplaceMode inplace_mode) final {
-    if (const auto* call = op->value.as<CallNode>();
+  UnchangedOr<Stmt> Mutate_(const BindObj* op, InplaceMode inplace_mode) final {
+    if (const auto* call = op->value.as<CallObj>();
         call && call->op.same_as(tirx::alloc_tensor_op()))
       return MutateAllocTensor(op, inplace_mode);
     return IndexDataTypeNormalizer::Mutate_(op, inplace_mode);
   }
 
-  UnchangedOr<Stmt> MutateAllocTensor(const BindNode* op, InplaceMode inplace_mode) {
+  UnchangedOr<Stmt> MutateAllocTensor(const BindObj* op, InplaceMode inplace_mode) {
     auto result = IndexDataTypeNormalizer::Mutate_(op, inplace_mode);
     auto alloc = std::move(result).ValueOrUnchanged(ffi::GetRef<Stmt>(op)).as_or_throw<Bind>();
     CheckAllocatedTensor(alloc->var.as_or_throw<TensorVar>());

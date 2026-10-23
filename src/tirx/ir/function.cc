@@ -34,8 +34,8 @@ namespace {
 TVM_FFI_INLINE ffi::Expected<ffi::Optional<ffi::VisitInterrupt>> FunctionVisit(
     ffi::StructuralVisitorObj* visitor, ffi::AnyView value) noexcept {
   // skips: attrs (metadata), ty (derived from the function signature)
-  const FunctionNode* self =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const FunctionNode>(value);
+  const FunctionObj* self =
+      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const FunctionObj>(value);
   TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(visitor->WithDefRegionKind(
       kTVMFFIDefRegionKindPattern, [&]() { return visitor->VisitExpected(self->params); }));
   TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(visitor->VisitExpected(self->ret_type));
@@ -46,8 +46,8 @@ TVM_FFI_INLINE ffi::Expected<ffi::Optional<ffi::VisitInterrupt>> FunctionVisit(
 TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> FunctionMutate(
     ffi::StructuralMutatorObj* mutator, ffi::AnyView value) noexcept {
   // skips: attrs (metadata), ty (derived from the function signature)
-  const FunctionNode* self =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const FunctionNode>(value);
+  const FunctionObj* self =
+      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const FunctionObj>(value);
   TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<ffi::Array<Var>>, mapped_params,
                                     mutator->WithDefRegionKind(kTVMFFIDefRegionKindPattern, [&]() {
                                       return mutator->MutateExpected(self->params);
@@ -61,7 +61,7 @@ TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> FunctionMutate(
       (mapped_body.IsUnchanged() || ffi::AnyView(mapped_body).same_as(self->body))) {
     return ffi::Unchanged();
   }
-  ffi::ObjectPtr<FunctionNode> copy = ffi::make_object<FunctionNode>(*self);
+  ffi::ObjectPtr<FunctionObj> copy = ffi::make_object<FunctionObj>(*self);
   copy->params = std::move(mapped_params).ValueOrUnchanged(std::move(copy->params));
   copy->ret_type = std::move(mapped_ret_type).ValueOrUnchanged(std::move(copy->ret_type));
   if (!mapped_body.IsUnchanged()) {
@@ -77,8 +77,8 @@ TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> FunctionMutate(
 TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> FunctionMaybeInplaceMutate(
     ffi::StructuralMutatorObj* mutator, ffi::AnyView value) noexcept {
   // skips: attrs (metadata), ty (derived from the function signature)
-  FunctionNode* self = const_cast<FunctionNode*>(
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const FunctionNode>(value));
+  FunctionObj* self = const_cast<FunctionObj*>(
+      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const FunctionObj>(value));
   TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<ffi::Array<Var>>, mapped_params,
                                     mutator->WithDefRegionKind(kTVMFFIDefRegionKindPattern, [&]() {
                                       return mutator->MutateExpected(self->params,
@@ -116,7 +116,7 @@ Function::Function(ffi::Array<tvm::Var> params, ffi::Optional<SeqStmt> body, Typ
     ret_type = VoidType();
   }
 
-  auto n = ffi::make_object<FunctionNode>();
+  auto n = ffi::make_object<FunctionObj>();
   n->params = std::move(params);
   n->body = std::move(body);
   n->ret_type = std::move(ret_type);
@@ -152,8 +152,8 @@ Function RenewDef(Function func) {
 
 TVM_FFI_STATIC_INIT_BLOCK() {
   namespace refl = tvm::ffi::reflection;
-  FunctionNode::RegisterReflection();
-  refl::TypeAttrDef<FunctionNode>()
+  FunctionObj::RegisterReflection();
+  refl::TypeAttrDef<FunctionObj>()
       .attr(ffi::type_attr::kStructuralVisit, ffi::FStructuralVisit::FromNative<&FunctionVisit>())
       .attr(ffi::type_attr::kStructuralMutate,
             ffi::FStructuralMutate::FromNative<&FunctionMutate>())
@@ -167,7 +167,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
   refl::GlobalDef().def("tirx.RenewDef", RenewDef);
 }
 
-FuncType FunctionNode::func_type_annotation() const {
+FuncType FunctionObj::func_type_annotation() const {
   ffi::Array<Type> param_types;
   for (auto param : this->params) {
     param_types.push_back(param->ty);

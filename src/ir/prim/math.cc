@@ -34,13 +34,13 @@ namespace prim {
 using namespace prim::details;
 
 template <size_t N>
-static Type InferTypeReturnArgType(const CallNode* call) {
+static Type InferTypeReturnArgType(const CallObj* call) {
   TVM_FFI_CHECK_GT(call->args.size(), N, ValueError)
       << "Return type inference requires argument " << N;
   return call->args[N]->ty;
 }
 
-Type InferTypeIsNaN(const CallNode* call) {
+Type InferTypeIsNaN(const CallObj* call) {
   TVM_FFI_CHECK_GE(call->args.size(), 1U, ValueError) << "prim.isnan expects one argument";
   PrimType input = call->args[0]->ty.as_or_throw<PrimType>();
   if (input.IsScalableVector()) {
@@ -260,7 +260,7 @@ PrimExpr pow(PrimExpr x, PrimExpr y, Location loc) {
 
   // If we detect pow(x, 3), suggest using x * x * x
   if (y.ty().MatchesCode(DLDataTypeCode::kDLInt)) {
-    const IntImmNode* px = y.as<IntImmNode>();
+    const IntImmObj* px = y.as<IntImmObj>();
     if (px) {
       if (px->value >= 3) {
         LOG(WARNING)
@@ -270,7 +270,7 @@ PrimExpr pow(PrimExpr x, PrimExpr y, Location loc) {
       }
     }
   } else if (y.ty().MatchesCode(DLDataTypeCode::kDLFloat)) {
-    const FloatImmNode* fx = y.as<FloatImmNode>();
+    const FloatImmObj* fx = y.as<FloatImmObj>();
     if (fx) {
       if (fx->value >= 3.0) {
         LOG(WARNING)
@@ -289,7 +289,7 @@ PrimExpr abs(PrimExpr x, Location loc) {
   if (x.ty().MatchesCode(DLDataTypeCode::kDLInt)) {
     return prim::IntegerAbs(x, loc);
   } else if (x.ty().MatchesCode(DLDataTypeCode::kDLFloat, DLDataTypeCode::kDLBfloat)) {
-    const FloatImmNode* fx = x.as<FloatImmNode>();
+    const FloatImmObj* fx = x.as<FloatImmObj>();
     if (fx) {
       return FloatImm(x.ty(), std::fabs(fx->value), fx->loc);
     }
@@ -336,7 +336,7 @@ PrimExpr floor(PrimExpr x, Location loc) {
                          DLDataTypeCode::kDLBool)) {
     return x;
   }
-  const FloatImmNode* fx = x.as<FloatImmNode>();
+  const FloatImmObj* fx = x.as<FloatImmObj>();
   if (fx) return FloatImm(x.ty(), std::floor(fx->value), fx->loc);
   static const Op floor_op = Op::Get("prim.floor");
   return Call(x.ty(), floor_op, {x}, {}, {}, loc).as_or_throw<PrimExpr>();
@@ -347,7 +347,7 @@ PrimExpr round(PrimExpr x, Location loc) {
                          DLDataTypeCode::kDLBool)) {
     return x;
   }
-  const FloatImmNode* fx = x.as<FloatImmNode>();
+  const FloatImmObj* fx = x.as<FloatImmObj>();
   if (fx) return FloatImm(x.ty(), std::nearbyint(fx->value), fx->loc);
   static const Op round_op = Op::Get("prim.round");
   return Call(x.ty(), round_op, {x}, {}, {}, loc).as_or_throw<PrimExpr>();
@@ -358,7 +358,7 @@ PrimExpr nearbyint(PrimExpr x, Location loc) {
                          DLDataTypeCode::kDLBool)) {
     return x;
   }
-  const FloatImmNode* fx = x.as<FloatImmNode>();
+  const FloatImmObj* fx = x.as<FloatImmObj>();
   if (fx) return FloatImm(x.ty(), std::nearbyint(fx->value), fx->loc);
   static const Op nearbyint_op = Op::Get("prim.nearbyint");
   return Call(x.ty(), nearbyint_op, {x}, {}, {}, loc).as_or_throw<PrimExpr>();
@@ -369,7 +369,7 @@ PrimExpr trunc(PrimExpr x, Location loc) {
                          DLDataTypeCode::kDLBool)) {
     return x;
   }
-  const FloatImmNode* fx = x.as<FloatImmNode>();
+  const FloatImmObj* fx = x.as<FloatImmObj>();
   if (fx) {
     return FloatImm(x.ty(), (fx->value < 0 ? std::ceil(fx->value) : std::floor(fx->value)),
                     fx->loc);

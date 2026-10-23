@@ -154,7 +154,7 @@ and `clang-format`. CUDA launch changes also check generated files.
 - Follow `.clang-format`: Google style, 100 columns, pointer-left (`int* ptr`).
 - Keep declarations and implementations in their owning IR, runtime, or backend layer.
 - Header guards follow the existing `TVM_<PATH>_H_` pattern.
-- IR objects use a `FooNode` data class and a `Foo` reference wrapper.
+- IR objects use a `FooObj` data class and a `Foo` reference wrapper.
   Declare runtime type information with `TVM_FFI_DECLARE_OBJECT_INFO` or its
   final variant, and expose fields through `ffi::reflection::ObjectDef`.
 - Use the existing TVM FFI error and reference-management conventions.

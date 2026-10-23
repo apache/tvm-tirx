@@ -45,14 +45,14 @@ class CodeGenX86_64 final : public CodeGenCPU {
  public:
   using CodeGenCPU::Dispatch_;
 
-  llvm::Value* Dispatch_(const prim::CastNode* op) override;
+  llvm::Value* Dispatch_(const prim::CastObj* op) override;
 
  private:
   llvm::Value* CallVectorIntrin(llvm::Intrinsic::ID id, size_t intrin_lanes, llvm::Type* result_ty,
                                 const std::vector<llvm::Value*>& args);
 };
 
-llvm::Value* CodeGenX86_64::Dispatch_(const prim::CastNode* op) {
+llvm::Value* CodeGenX86_64::Dispatch_(const prim::CastObj* op) {
   // LLVM does not automatically generate the correct instruction sequences for
   // half -> float conversion (i.e. using AVX2/AVX-512 vectorized variants of
   // vcvtph2ps), so we explicitly generate them ourselves.

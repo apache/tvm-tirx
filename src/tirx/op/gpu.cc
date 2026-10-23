@@ -32,7 +32,7 @@ namespace tvm {
 namespace tirx {
 
 template <size_t N>
-static Type InferTypeReturnArgType(const CallNode* call) {
+static Type InferTypeReturnArgType(const CallObj* call) {
   TVM_FFI_CHECK_GT(call->args.size(), N, ValueError)
       << "Return type inference requires argument " << N;
   return call->args[N]->ty;

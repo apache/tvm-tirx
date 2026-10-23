@@ -83,15 +83,15 @@ class CodeGenNVPTX : public CodeGenLLVM {
                    llvm::ValueAsMetadata::get(ConstInt32(1))}));
   }
 
-  void Dispatch_(const BindNode* op) final {
-    if (const auto* call = op->value.as<CallNode>();
+  void Dispatch_(const BindObj* op) final {
+    if (const auto* call = op->value.as<CallObj>();
         call && call->op.same_as(tirx::alloc_tensor_op())) {
       return DispatchAllocTensor(op, call);
     }
     CodeGenLLVM::Dispatch_(op);
   }
 
-  void DispatchAllocTensor(const BindNode* op, const CallNode* buffer_call) {
+  void DispatchAllocTensor(const BindObj* op, const CallObj* buffer_call) {
     static const auto scope_shared_dyn = runtime::MemoryScope::Get("shared.dyn");
     static const auto scope_local = runtime::MemoryScope::Get("local");
     static const auto scope_shared = runtime::MemoryScope::Get("shared");
@@ -113,7 +113,7 @@ class CodeGenNVPTX : public CodeGenLLVM {
                                  llvm::GlobalValue::ExternalLinkage);
     } else {
       // Compute constant_size from buffer shape
-      const IntImmNode* dim_imm = shape->fields[0].as<IntImmNode>();
+      const IntImmObj* dim_imm = shape->fields[0].as<IntImmObj>();
       TVM_FFI_ICHECK(dim_imm) << "Can only handle constant size stack allocation in GPU";
       size_t constant_size = dim_imm->value.as<size_t>().value();
       TVM_FFI_ICHECK_GT(constant_size, 0)
@@ -194,8 +194,8 @@ class CodeGenNVPTX : public CodeGenLLVM {
     return this->CreateCast(PrimType::Int(32), var.ty(), result);
   }
 
-  llvm::Value* CreateStorageSync(const CallNode* op) final {
-    const std::string& sync = op->args[0].as<StringImmNode>()->value;
+  llvm::Value* CreateStorageSync(const CallObj* op) final {
+    const std::string& sync = op->args[0].as<StringImmObj>()->value;
     if (sync == "warp") {
       // TODO(tqchen) warp sync in CUDA9
       return nullptr;
@@ -238,7 +238,7 @@ class CodeGenNVPTX : public CodeGenLLVM {
     CodeGenLLVM::Optimize();
   }
 
-  llvm::Value* CreateIntrinsic(const CallNode* op) override;
+  llvm::Value* CreateIntrinsic(const CallObj* op) override;
 
  protected:
   void InitTarget() final {
@@ -250,7 +250,7 @@ class CodeGenNVPTX : public CodeGenLLVM {
 
 // Check if this is a warp shuffle intrinsic call and match its
 // corresponding nvvm intrinsic. Return true if the match is successful.
-static bool GetWarpShuffleIntrinsic(const CallNode* op, llvm::Intrinsic::ID* id) {
+static bool GetWarpShuffleIntrinsic(const CallObj* op, llvm::Intrinsic::ID* id) {
   // Only 32 bit data type is supported.
   PrimType op_ty = op->ty.as_or_throw<PrimType>();
   if (op_ty.IsFixedLengthVector() || op_ty.bits() != 32) {
@@ -280,7 +280,7 @@ static bool GetWarpShuffleIntrinsic(const CallNode* op, llvm::Intrinsic::ID* id)
   return true;
 }
 
-llvm::Value* CodeGenNVPTX::CreateIntrinsic(const CallNode* op) {
+llvm::Value* CodeGenNVPTX::CreateIntrinsic(const CallObj* op) {
   const ffi::Array<Expr>& args = op->args;
   llvm::Intrinsic::ID id = llvm::Intrinsic::not_intrinsic;
   if (GetWarpShuffleIntrinsic(op, &id)) {

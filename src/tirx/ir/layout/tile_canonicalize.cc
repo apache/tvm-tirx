@@ -119,7 +119,7 @@ TileLayout FuseAxesByScope(TileLayout layout) {
   return result;
 }
 
-Layout layout_details::Canonicalize(const TileLayoutNode* layout) {
+Layout layout_details::Canonicalize(const TileLayoutObj* layout) {
   // 0. Remove unit iters in shard
   TileLayout res = RemoveUnitIters(ffi::GetRef<TileLayout>(layout));
   // 1. Remove zero offset

@@ -40,7 +40,7 @@ namespace {
 ffi::Optional<ExprDoc> CallDocTranslate(DocTranslatorObj* d, ffi::AnyView input,
                                         const ffi::Object* destination) {
   const auto* call =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const CallNode>(input);
+      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const CallObj>(input);
   if (auto op = call->op.as<Op>();
       op && Op::HasAttrMap(tvm::script::printer::op_attr::kDocTranslateOpCall)) {
     static const auto& overrides =
@@ -65,14 +65,14 @@ ffi::Optional<ExprDoc> CallDocTranslate(DocTranslatorObj* d, ffi::AnyView input,
 }
 
 TVM_FFI_STATIC_INIT_BLOCK() {
-  ffi::reflection::TypeAttrDef<CallNode>().attr(tvm::script::printer::type_attr::kDocTranslate.name,
-                                                FDocTranslate::FromNative<&CallDocTranslate>());
+  ffi::reflection::TypeAttrDef<CallObj>().attr(tvm::script::printer::type_attr::kDocTranslate.name,
+                                               FDocTranslate::FromNative<&CallDocTranslate>());
 }
 
 }  // namespace
 }  // namespace details
 
-ffi::Optional<ExprDoc> StandardCallDocTranslate(DocTranslatorObj* d, const CallNode* call) {
+ffi::Optional<ExprDoc> StandardCallDocTranslate(DocTranslatorObj* d, const CallObj* call) {
   auto maybe_op = call->op.as<Op>();
   if (!maybe_op) return std::nullopt;
   const Op& op = maybe_op.value();
@@ -93,7 +93,7 @@ ffi::Optional<ExprDoc> StandardCallDocTranslate(DocTranslatorObj* d, const CallN
     values.push_back(ListDoc(types));
   }
   bool default_attrs = false;
-  if (call->attrs.has_value() && call->attrs.value().as<DictAttrsNode>()) {
+  if (call->attrs.has_value() && call->attrs.value().as<DictAttrsObj>()) {
     default_attrs = call->attrs.value().as_or_throw<DictAttrs>()->dict.empty();
     if (!default_attrs) {
       keys.push_back("attrs");

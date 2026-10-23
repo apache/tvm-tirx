@@ -46,7 +46,7 @@ inline ffi::Optional<Var> GetBufferDataVar(const ffi::Any& data) {
   if (auto var = data.as<Var>()) {
     return var;
   }
-  if (const auto* call = data.as<CallNode>();
+  if (const auto* call = data.as<CallObj>();
       call && call->op.same_as(tirx::tensor_data_ptr_op()) && call->args.size() == 1) {
     return call->args[0].as<Var>();
   }
@@ -63,13 +63,13 @@ class ThreadAllreduceBuilder final : public StmtExprMutator {
         warp_size_(target->GetAttr<int64_t>("thread_warp_size", 1).value()),
         max_num_threads_(target->GetAttr<int64_t>("max_num_threads", -1).value()) {
     for (const Var& param : params) {
-      if (param->ty.as<TensorTypeNode>()) {
+      if (param->ty.as<TensorTypeObj>()) {
         tensor_aliases_.Set(param, param);
       }
     }
   }
 
-  UnchangedOr<Stmt> Mutate_(const RegionStmtNode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<Stmt> Mutate_(const RegionStmtObj* op, InplaceMode inplace_mode) final {
     if (!op->op.same_as(tirx::launch_thread_op()) ||
         op->args[0].as_or_throw<StringImm>()->value.starts_with("vthread")) {
       return StmtExprMutator::Mutate_(op, inplace_mode);
@@ -80,31 +80,31 @@ class ThreadAllreduceBuilder final : public StmtExprMutator {
     return result;
   }
 
-  UnchangedOr<Stmt> Mutate_(const EvaluateNode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<Stmt> Mutate_(const EvaluateObj* op, InplaceMode inplace_mode) final {
     Stmt stmt = StmtExprMutator::Mutate_(op, inplace_mode).ValueOrUnchanged(ffi::GetRef<Stmt>(op));
-    op = stmt.as<EvaluateNode>();
-    const CallNode* call = op->value.as<CallNode>();
+    op = stmt.as<EvaluateObj>();
+    const CallObj* call = op->value.as<CallObj>();
     if (call && call->op.same_as(tirx::gpu_thread_allreduce_op())) {
       return MakeAllreduce(call);
     } else {
       return stmt;
     }
   }
-  UnchangedOr<Stmt> Mutate_(const BindNode* op, InplaceMode inplace_mode) final {
-    if (const auto* call = op->value.as<CallNode>(); call) {
+  UnchangedOr<Stmt> Mutate_(const BindObj* op, InplaceMode inplace_mode) final {
+    if (const auto* call = op->value.as<CallObj>(); call) {
       if (call->op.same_as(tirx::alloc_tensor_op())) return MutateAllocTensor(op, inplace_mode);
       if (call->op.same_as(tirx::decl_tensor_op())) return MutateDeclTensor(op, call, inplace_mode);
     }
     return StmtExprMutator::Mutate_(op, inplace_mode);
   }
 
-  UnchangedOr<Stmt> MutateAllocTensor(const BindNode* op, InplaceMode inplace_mode) {
+  UnchangedOr<Stmt> MutateAllocTensor(const BindObj* op, InplaceMode inplace_mode) {
     tensor_aliases_.Set(op->var, op->var);
     // In flat IR, alloc_remap_ may not yet be populated when this AllocTensor is visited
     // (the remap is set up by MakeAllreduce which runs during Evaluate visit
     // that appears later in the sequence). We record the original data pointer and
     // attempt the remap; if it's not ready, the post-processing pass will handle it.
-    const VarNode* orig_data_ptr = op->var.get();
+    const VarObj* orig_data_ptr = op->var.get();
     auto node = StmtExprMutator::Mutate_(op, inplace_mode)
                     .ValueOrUnchanged(ffi::GetRef<Stmt>(op))
                     .as_or_throw<Bind>();
@@ -124,7 +124,7 @@ class ThreadAllreduceBuilder final : public StmtExprMutator {
    * \return The remapped statement(s).
    */
   Stmt RemapAllocTensor(Bind node, const TensorVar& replacement) {
-    const CallNode* call = node->value.as<CallNode>();
+    const CallObj* call = node->value.as<CallObj>();
     DictAttrs annotations = call->attrs.value().as_or_throw<DictAttrs>();
     static const auto shared = runtime::MemoryScope::Get("shared");
     if (replacement.scope() == shared) {
@@ -147,7 +147,7 @@ class ThreadAllreduceBuilder final : public StmtExprMutator {
     return std::nullopt;
   }
 
-  UnchangedOr<Stmt> MutateDeclTensor(const BindNode* op, const CallNode* tensor_call,
+  UnchangedOr<Stmt> MutateDeclTensor(const BindObj* op, const CallObj* tensor_call,
                                      InplaceMode inplace_mode) {
     RegisterTensorAlias(op->var.as_or_throw<TensorVar>(), tensor_call->args[0]);
     // Remap declarations only after the complete traversal has populated the
@@ -156,8 +156,8 @@ class ThreadAllreduceBuilder final : public StmtExprMutator {
     return StmtExprMutator::Mutate_(op, inplace_mode);
   }
 
-  UnchangedOr<PrimExpr> Mutate_(const TensorLoadNode* op, InplaceMode inplace_mode) final {
-    const VarNode* allocation =
+  UnchangedOr<PrimExpr> Mutate_(const TensorLoadObj* op, InplaceMode inplace_mode) final {
+    const VarObj* allocation =
         GetAllocationKey(op->source.as_or_throw<tvm::tirx::TensorVar>().get());
     if (auto it = load_remap_.find(allocation); it != load_remap_.end()) {
       for (const auto& index : op->indices) {
@@ -177,14 +177,14 @@ class ThreadAllreduceBuilder final : public StmtExprMutator {
     return load;
   }
 
-  UnchangedOr<Stmt> Mutate_(const TensorStoreNode* op, InplaceMode inplace_mode) final {
-    const VarNode* allocation = GetAllocationKey(op->dest.as_or_throw<TensorVar>().get());
+  UnchangedOr<Stmt> Mutate_(const TensorStoreObj* op, InplaceMode inplace_mode) final {
+    const VarObj* allocation = GetAllocationKey(op->dest.as_or_throw<TensorVar>().get());
     TensorStore store = StmtExprMutator::Mutate_(op, inplace_mode)
                             .ValueOrUnchanged(ffi::GetRef<Stmt>(op))
                             .as_or_throw<TensorStore>();
 
     if (auto it = load_remap_.find(allocation); it != load_remap_.end()) {
-      const auto* replacement = it->second.as<TensorLoadNode>();
+      const auto* replacement = it->second.as<TensorLoadObj>();
       TVM_FFI_ICHECK(replacement);
       for (const auto& index : store->indices) {
         TVM_FFI_ICHECK(IsZero(index));
@@ -217,23 +217,23 @@ class ThreadAllreduceBuilder final : public StmtExprMutator {
     for (const PrimExpr& value : lhs) arguments.push_back(value);
     for (const PrimExpr& value : rhs) arguments.push_back(value);
     Expr result = combiner->Apply(arguments);
-    const auto* tuple = result.as<tvm::TupleNode>();
+    const auto* tuple = result.as<tvm::TupleObj>();
     ffi::Array<Expr> fields = tuple ? tuple->fields : ffi::Array<Expr>{result};
     return fields.Map([](const Expr& value) { return value.as_or_throw<PrimExpr>(); });
   }
 
   // make allreduce.
-  Stmt MakeAllreduce(const CallNode* call) {
+  Stmt MakeAllreduce(const CallObj* call) {
     static const auto shared_scope = runtime::MemoryScope::Get("shared");
     LambdaExpr combiner = call->args[0].as_or_throw<LambdaExpr>();
-    const auto* inits_tuple = call->args[1].as<tvm::TupleNode>();
+    const auto* inits_tuple = call->args[1].as<tvm::TupleObj>();
     ffi::Array<Expr> inits = inits_tuple ? inits_tuple->fields : ffi::Array<Expr>{call->args[1]};
-    const auto* inputs_tuple = call->args[2].as<tvm::TupleNode>();
+    const auto* inputs_tuple = call->args[2].as<tvm::TupleObj>();
     ffi::Array<Expr> inputs = inputs_tuple ? inputs_tuple->fields : ffi::Array<Expr>{call->args[2]};
-    const auto* destinations_tuple = call->args[4].as<tvm::TupleNode>();
+    const auto* destinations_tuple = call->args[4].as<tvm::TupleObj>();
     ffi::Array<Expr> destinations =
         destinations_tuple ? destinations_tuple->fields : ffi::Array<Expr>{call->args[4]};
-    const auto* thread_axes_tuple = call->args[5].as<tvm::TupleNode>();
+    const auto* thread_axes_tuple = call->args[5].as<tvm::TupleObj>();
     ffi::Array<Expr> thread_axes =
         thread_axes_tuple ? thread_axes_tuple->fields : ffi::Array<Expr>{call->args[5]};
     size_t size = inputs.size();
@@ -255,31 +255,31 @@ class ThreadAllreduceBuilder final : public StmtExprMutator {
       PrimExpr arg = destinations[idx].as_or_throw<PrimExpr>();
       // Loads from boolean tensors may have cast nodes inserted by
       // earlier passes.
-      if (auto cast = arg.as<CastNode>()) {
+      if (auto cast = arg.as<CastObj>()) {
         arg = cast->value;
       }
       tensors.push_back(arg.as_or_throw<TensorLoad>()->source.as_or_throw<tvm::tirx::TensorVar>());
     }
 
-    std::unordered_set<const VarNode*> reduce_set;
+    std::unordered_set<const VarObj*> reduce_set;
     for (const Expr& axis : thread_axes) {
       auto var = axis.as<PrimVar>();
-      const VarNode* v = var.has_value() ? var.value().get() : nullptr;
+      const VarObj* v = var.has_value() ? var.value().get() : nullptr;
       // The simply optimization replace a iteration variable with a constant
       // when extent of the iteration is 1. As thread indexes always start from 0,
       // we can just ignore this variable in this case.
       if (v) {
         reduce_set.insert(v);
       } else {
-        TVM_FFI_ICHECK(axis.as<IntImmNode>() && axis.as<IntImmNode>()->value == 0)
-            << "Reduction thread axis should be a VarNode or zero IntImmNode";
+        TVM_FFI_ICHECK(axis.as<IntImmObj>() && axis.as<IntImmObj>()->value == 0)
+            << "Reduction thread axis should be a VarObj or zero IntImmObj";
       }
     }
 
     size_t nmatch = 0;
     std::vector<ThreadEntry> vred, vpar;
     std::map<int, std::pair<ThreadEntry, bool>> thread_axes_by_dim;
-    for (const RegionStmtNode* launch : thread_extents_) {
+    for (const RegionStmtObj* launch : thread_extents_) {
       ThreadEntry e;
       PrimVar var = launch->body_params[0].as_or_throw<PrimVar>();
       ffi::String tag = launch->args[0].as_or_throw<StringImm>()->value;
@@ -290,7 +290,7 @@ class ThreadAllreduceBuilder final : public StmtExprMutator {
       TVM_FFI_ICHECK_LE(e.scope.rank, 1);
       TVM_FFI_ICHECK_GE(e.scope.dim_index, 0) << "vthread do not work with cross thread reduction";
       if (e.scope.rank == 1) {
-        const auto* ptr = launch->args[1].as_or_throw<PrimExpr>().as<IntImmNode>();
+        const auto* ptr = launch->args[1].as_or_throw<PrimExpr>().as<IntImmObj>();
         TVM_FFI_ICHECK(ptr) << "Need constant extent for reduce set " << var;
         e.extent = ptr->value.as<int>().value();
         bool is_reduce = reduce_set.count(var.get());
@@ -472,7 +472,7 @@ class ThreadAllreduceBuilder final : public StmtExprMutator {
 
       // Write back allreduce results and update existing allocations.
       for (size_t i = 0; i < size; ++i) {
-        const VarNode* alloc_key = GetAllocationKey(tensors[i].get());
+        const VarObj* alloc_key = GetAllocationKey(tensors[i].get());
         TVM_FFI_ICHECK(!load_remap_.count(alloc_key));
         TensorVar buf =
             reduce_results[i].as_or_throw<TensorLoad>()->source.as_or_throw<tvm::tirx::TensorVar>();
@@ -511,7 +511,7 @@ class ThreadAllreduceBuilder final : public StmtExprMutator {
       seq.emplace_back(MakeBufAllreduce(combiner, dtypes, shared_bufs, reduce_index, group_index,
                                         reduce_extent, group_extent, contiguous_reduce_extent));
       for (size_t idx = 0; idx < size; ++idx) {
-        const VarNode* alloc_key = GetAllocationKey(tensors[idx].get());
+        const VarObj* alloc_key = GetAllocationKey(tensors[idx].get());
         TVM_FFI_ICHECK(!load_remap_.count(alloc_key));
         PrimExpr pred =
             prim::MakeConst(PrimType::Bool(static_cast<int16_t>(dtypes[idx].lanes())), true);
@@ -890,7 +890,7 @@ class ThreadAllreduceBuilder final : public StmtExprMutator {
   void RegisterTensorAlias(TensorVar tensor, const Expr& data) {
     Var root = tensor;
     if (auto source = GetBufferDataVar(data);
-        source.has_value() && source.value()->ty.as<TensorTypeNode>()) {
+        source.has_value() && source.value()->ty.as<TensorTypeObj>()) {
       auto source_root = tensor_aliases_.Get(source.value());
       TVM_FFI_ICHECK(source_root.has_value()) << "Tensor alias source " << source.value()->name
                                               << " must be registered before its DeclTensor alias";
@@ -910,15 +910,15 @@ class ThreadAllreduceBuilder final : public StmtExprMutator {
   bool need_warp_shuffle_mask_;
 
   // surrounding scope of thread extent.
-  std::vector<const RegionStmtNode*> thread_extents_;
+  std::vector<const RegionStmtObj*> thread_extents_;
   // The load remap
-  std::unordered_map<const VarNode*, PrimExpr> load_remap_;
+  std::unordered_map<const VarObj*, PrimExpr> load_remap_;
   // Internal analyzer
   sym::Analyzer analyzer_;
 
  public:
-  const VarNode* GetAllocationKey(const VarNode* tensor) const {
-    if (tensor->ty.as<TensorTypeNode>()) {
+  const VarObj* GetAllocationKey(const VarObj* tensor) const {
+    if (tensor->ty.as<TensorTypeObj>()) {
       Var var = ffi::GetRef<Var>(tensor);
       return tensor_aliases_.Get(var).value_or(var).get();
     }
@@ -927,11 +927,11 @@ class ThreadAllreduceBuilder final : public StmtExprMutator {
 
   // These members are public for post-processing by DeferredRemapper.
   // Allocate remap
-  std::unordered_map<const VarNode*, TensorVar> alloc_remap_;
+  std::unordered_map<const VarObj*, TensorVar> alloc_remap_;
   // TensorVar remap
-  std::unordered_map<const VarNode*, Var> allreduce_var_remap_;
+  std::unordered_map<const VarObj*, Var> allreduce_var_remap_;
   // Pending AllocTensor original data pointers (for flat IR deferred remapping)
-  std::vector<const VarNode*> pending_alloc_tensors_;
+  std::vector<const VarObj*> pending_alloc_tensors_;
   // Physical roots of tensor aliases, flattened at each declaration.
   ffi::Map<Var, Var> tensor_aliases_;
 };
@@ -949,42 +949,42 @@ class DeferredRemapper : public StmtExprMutator {
   using StmtExprMutator::Mutate;
   using StmtExprMutator::Mutate_;
 
-  DeferredRemapper(const std::unordered_map<const VarNode*, TensorVar>& alloc_remap,
-                   const std::unordered_map<const VarNode*, Var>& var_remap,
+  DeferredRemapper(const std::unordered_map<const VarObj*, TensorVar>& alloc_remap,
+                   const std::unordered_map<const VarObj*, Var>& var_remap,
                    const ffi::Map<Var, Var>& tensor_aliases,
-                   const std::vector<const VarNode*>& pending)
+                   const std::vector<const VarObj*>& pending)
       : alloc_remap_(alloc_remap),
         allreduce_var_remap_(var_remap),
         tensor_aliases_(tensor_aliases) {
-    for (const VarNode* ptr : pending) {
+    for (const VarObj* ptr : pending) {
       pending_set_.insert(ptr);
     }
   }
 
   bool HasPendingRemaps() const {
-    for (const VarNode* ptr : pending_set_) {
+    for (const VarObj* ptr : pending_set_) {
       if (alloc_remap_.count(ptr)) return true;
     }
     return false;
   }
 
-  UnchangedOr<Stmt> Mutate_(const BindNode* op, InplaceMode inplace_mode) final {
-    if (const auto* call = op->value.as<CallNode>(); call) {
+  UnchangedOr<Stmt> Mutate_(const BindObj* op, InplaceMode inplace_mode) final {
+    if (const auto* call = op->value.as<CallObj>(); call) {
       if (call->op.same_as(tirx::alloc_tensor_op())) return MutateAllocTensor(op, inplace_mode);
       if (call->op.same_as(tirx::decl_tensor_op())) return MutateDeclTensor(op, inplace_mode);
     }
     return StmtExprMutator::Mutate_(op, inplace_mode);
   }
 
-  UnchangedOr<Stmt> MutateAllocTensor(const BindNode* op, InplaceMode inplace_mode) {
+  UnchangedOr<Stmt> MutateAllocTensor(const BindObj* op, InplaceMode inplace_mode) {
     auto node = StmtExprMutator::Mutate_(op, inplace_mode)
                     .ValueOrUnchanged(ffi::GetRef<Stmt>(op))
                     .as_or_throw<Bind>();
-    const VarNode* data_ptr = op->var.get();
+    const VarObj* data_ptr = op->var.get();
     if (pending_set_.count(data_ptr)) {
       if (auto it = alloc_remap_.find(data_ptr); it != alloc_remap_.end()) {
         const TensorVar& replacement = it->second;
-        const CallNode* call = node->value.as<CallNode>();
+        const CallObj* call = node->value.as<CallObj>();
         DictAttrs annotations = call->attrs.value().as_or_throw<DictAttrs>();
         static const auto shared = runtime::MemoryScope::Get("shared");
         if (replacement.scope() == shared) {
@@ -1001,8 +1001,8 @@ class DeferredRemapper : public StmtExprMutator {
     return node;
   }
 
-  UnchangedOr<Stmt> MutateDeclTensor(const BindNode* op, InplaceMode inplace_mode) {
-    const VarNode* root = tensor_aliases_.Get(op->var).value_or(op->var).get();
+  UnchangedOr<Stmt> MutateDeclTensor(const BindObj* op, InplaceMode inplace_mode) {
+    const VarObj* root = tensor_aliases_.Get(op->var).value_or(op->var).get();
     if (pending_set_.count(root) && alloc_remap_.count(root)) {
       return Evaluate(0);
     }
@@ -1010,7 +1010,7 @@ class DeferredRemapper : public StmtExprMutator {
                     .ValueOrUnchanged(ffi::GetRef<Stmt>(op))
                     .as_or_throw<Bind>();
     if (auto new_buf = GetRemappedTensor(node->var.as_or_throw<TensorVar>())) {
-      const CallNode* call = node->value.as<CallNode>();
+      const CallObj* call = node->value.as<CallObj>();
       return Bind(new_buf.value(),
                   Call(new_buf.value().ty(), tirx::decl_tensor_op(), {call->args[0]}, call->attrs,
                        {new_buf.value().ty()}, call->loc),
@@ -1028,10 +1028,10 @@ class DeferredRemapper : public StmtExprMutator {
     return std::nullopt;
   }
 
-  const std::unordered_map<const VarNode*, TensorVar>& alloc_remap_;
-  const std::unordered_map<const VarNode*, Var>& allreduce_var_remap_;
+  const std::unordered_map<const VarObj*, TensorVar>& alloc_remap_;
+  const std::unordered_map<const VarObj*, Var>& allreduce_var_remap_;
   const ffi::Map<Var, Var>& tensor_aliases_;
-  std::unordered_set<const VarNode*> pending_set_;
+  std::unordered_set<const VarObj*> pending_set_;
 };
 
 Function LowerThreadAllreduce(Function f) {

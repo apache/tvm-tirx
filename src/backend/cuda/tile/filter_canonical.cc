@@ -35,7 +35,7 @@ namespace tvm::backend::cuda {
 
 namespace {
 
-bool IsPtxElectSyncCall(const CallNode* call) {
+bool IsPtxElectSyncCall(const CallObj* call) {
   static const Op ptx_elect_sync_op = Op::Get("tirx.cuda.elect_sync");
   return call->op.same_as(ptx_elect_sync_op);
 }
@@ -47,7 +47,7 @@ bool IsPtxElectSyncCall(const CallNode* call) {
 // the inner expression is what we need to classify.
 PrimExpr StripCast(const PrimExpr& expr) {
   PrimExpr cur = expr;
-  while (const auto* cast = cur.as<prim::CastNode>()) {
+  while (const auto* cast = cur.as<prim::CastObj>()) {
     cur = cast->value;
   }
   return cur;
@@ -59,12 +59,12 @@ PrimExpr StripCast(const PrimExpr& expr) {
 // pass-internal helpers do.
 void FlattenConjuncts(const PrimExpr& pred, std::vector<PrimExpr>* out) {
   PrimExpr stripped = StripCast(pred);
-  if (const auto* and_node = stripped.as<prim::AndNode>()) {
+  if (const auto* and_node = stripped.as<prim::AndObj>()) {
     FlattenConjuncts(and_node->a, out);
     FlattenConjuncts(and_node->b, out);
     return;
   }
-  if (const auto* and_node = stripped.as<prim::BitwiseAndNode>()) {
+  if (const auto* and_node = stripped.as<prim::BitwiseAndObj>()) {
     FlattenConjuncts(and_node->a, out);
     FlattenConjuncts(and_node->b, out);
     return;
@@ -131,23 +131,23 @@ bool TryParseCompareAtom(const PrimExpr& expr, const ScopeIdPredicate& is_scope_
   // Decode op + (lhs, rhs). The five comparison node types map to CmpOp.
   CmpOp op;
   PrimExpr lhs{ffi::UnsafeInit{}}, rhs{ffi::UnsafeInit{}};
-  if (const auto* eq = expr.as<prim::EQNode>()) {
+  if (const auto* eq = expr.as<prim::EQObj>()) {
     op = CmpOp::kEq;
     lhs = eq->a;
     rhs = eq->b;
-  } else if (const auto* lt = expr.as<prim::LTNode>()) {
+  } else if (const auto* lt = expr.as<prim::LTObj>()) {
     op = CmpOp::kLT;
     lhs = lt->a;
     rhs = lt->b;
-  } else if (const auto* le = expr.as<prim::LENode>()) {
+  } else if (const auto* le = expr.as<prim::LEObj>()) {
     op = CmpOp::kLE;
     lhs = le->a;
     rhs = le->b;
-  } else if (const auto* gt = expr.as<prim::GTNode>()) {
+  } else if (const auto* gt = expr.as<prim::GTObj>()) {
     op = CmpOp::kGT;
     lhs = gt->a;
     rhs = gt->b;
-  } else if (const auto* ge = expr.as<prim::GENode>()) {
+  } else if (const auto* ge = expr.as<prim::GEObj>()) {
     op = CmpOp::kGE;
     lhs = ge->a;
     rhs = ge->b;
@@ -157,12 +157,12 @@ bool TryParseCompareAtom(const PrimExpr& expr, const ScopeIdPredicate& is_scope_
 
   // Identify the var side and the const side. Reject if both sides are vars
   // or both are constants -- neither shape is in the canonical grammar.
-  const VarNode* var_node = lhs.as<VarNode>();
-  const IntImmNode* imm_node = rhs.as<IntImmNode>();
+  const VarObj* var_node = lhs.as<VarObj>();
+  const IntImmObj* imm_node = rhs.as<IntImmObj>();
   bool mirrored = false;
   if (var_node == nullptr || imm_node == nullptr) {
-    var_node = rhs.as<VarNode>();
-    imm_node = lhs.as<IntImmNode>();
+    var_node = rhs.as<VarObj>();
+    imm_node = lhs.as<IntImmObj>();
     mirrored = true;
   }
   if (var_node == nullptr || imm_node == nullptr) return false;
@@ -189,7 +189,7 @@ bool TryParseCompareAtom(const PrimExpr& expr, const ScopeIdPredicate& is_scope_
 // Composed forms like `elect_sync() != 0` or `not elect_sync()` are NOT
 // accepted -- the canonical grammar requires a bare elect_sync call.
 bool TryParseElectSyncAtom(const PrimExpr& expr, FilterAtom* out) {
-  const auto* call = expr.as<CallNode>();
+  const auto* call = expr.as<CallObj>();
   if (call == nullptr) return false;
   if (!IsPtxElectSyncCall(call)) return false;
   out->kind = FilterAtomKind::kElectSync;

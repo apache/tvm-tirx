@@ -187,7 +187,7 @@ class PConstWithTypeLike : public Pattern<PConstWithTypeLike<TA>> {
   void InitMatch_() const {}
 
   bool Match_(const ffi::ObjectRef& node) const {
-    if (const IntImmNode* ptr = node.as<IntImmNode>()) {
+    if (const IntImmObj* ptr = node.as<IntImmObj>()) {
       return ptr->value == value_;
     } else {
       return false;
@@ -276,7 +276,7 @@ class PNotExpr : public Pattern<PNotExpr<TA>> {
   void InitMatch_() const { value_.InitMatch_(); }
 
   bool Match_(const ffi::ObjectRef& node) const {
-    if (const prim::NotNode* ptr = node.as<prim::NotNode>()) {
+    if (const prim::NotObj* ptr = node.as<prim::NotObj>()) {
       if (!value_.Match_(ptr->a)) return false;
       return true;
     } else {
@@ -307,7 +307,7 @@ class PBitwiseNotExpr : public Pattern<PBitwiseNotExpr<TA>> {
   void InitMatch_() const { value_.InitMatch_(); }
 
   bool Match_(const ffi::ObjectRef& node) const {
-    if (const prim::BitwiseNotNode* ptr = node.as<prim::BitwiseNotNode>()) {
+    if (const prim::BitwiseNotObj* ptr = node.as<prim::BitwiseNotObj>()) {
       if (!value_.Match_(ptr->a)) return false;
       return true;
     } else {
@@ -346,7 +346,7 @@ class PSelectExpr : public Pattern<PSelectExpr<TCond, TA, TB>> {
   }
 
   bool Match_(const ffi::ObjectRef& node) const {
-    if (const prim::SelectNode* ptr = node.as<prim::SelectNode>()) {
+    if (const prim::SelectObj* ptr = node.as<prim::SelectObj>()) {
       if (!condition_.Match_(ptr->condition)) return false;
       if (!true_value_.Match_(ptr->true_value)) return false;
       if (!false_value_.Match_(ptr->false_value)) return false;
@@ -403,7 +403,7 @@ class PCastExpr : public Pattern<PCastExpr<DType, TA>> {
   }
 
   bool Match_(const ffi::ObjectRef& node) const {
-    if (const prim::CastNode* ptr = node.as<prim::CastNode>()) {
+    if (const prim::CastObj* ptr = node.as<prim::CastObj>()) {
       if (!dtype_.Match_(ptr->ty.as_or_throw<PrimType>()->dtype)) return false;
       if (!value_.Match_(ptr->value)) return false;
       return true;
@@ -454,7 +454,7 @@ class PRampExpr : public Pattern<PRampExpr<TBase, TStride, TLanes>> {
   }
 
   bool Match_(const ffi::ObjectRef& node) const {
-    if (const prim::RampNode* ptr = node.as<prim::RampNode>()) {
+    if (const prim::RampObj* ptr = node.as<prim::RampObj>()) {
       if (!base_.Match_(ptr->base)) return false;
       if (!stride_.Match_(ptr->stride)) return false;
       if (!lanes_.Match_(ptr->lanes)) return false;
@@ -516,7 +516,7 @@ class PBroadcastExpr : public Pattern<PBroadcastExpr<TA, TLanes>> {
   }
 
   bool Match_(const ffi::ObjectRef& node) const {
-    if (const prim::BroadcastNode* ptr = node.as<prim::BroadcastNode>()) {
+    if (const prim::BroadcastObj* ptr = node.as<prim::BroadcastObj>()) {
       if (!value_.Match_(ptr->value)) return false;
       if (!lanes_.Match_(ptr->lanes)) return false;
       return true;
@@ -580,10 +580,10 @@ struct PCallExprInitMatchFunctor {
 };
 
 struct PCallExprMatchFunctor {
-  const CallNode* call_;
+  const CallObj* call_;
   bool matched_{true};
 
-  explicit PCallExprMatchFunctor(const CallNode* call) : call_(call) {}
+  explicit PCallExprMatchFunctor(const CallObj* call) : call_(call) {}
 
   template <typename T>
   void operator()(size_t i, const T& pattern) {
@@ -619,7 +619,7 @@ class PCallExpr : public Pattern<PCallExpr<Op, TArgs...>> {
   }
 
   bool Match_(const ffi::ObjectRef& node) const {
-    if (const CallNode* ptr = node.as<CallNode>()) {
+    if (const CallObj* ptr = node.as<CallObj>()) {
       if (ptr->args.size() != sizeof...(TArgs)) return false;
       if (!ptr->op.same_as(Op::GetOp())) return false;
       details::PCallExprMatchFunctor fmatch(ptr);

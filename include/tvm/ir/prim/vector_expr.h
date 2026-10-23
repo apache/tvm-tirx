@@ -39,11 +39,11 @@ namespace prim {
  *  - ramp(0, 1, 3) = [0, 1, 2]
  *  - ramp(1, 2, 4) = [1, 3, 5, 7]
  */
-class RampNode : public ExprNode {
+class RampObj : public ExprObj {
  public:
-  RampNode(PrimExpr base, PrimExpr stride, PrimExpr lanes)
+  RampObj(PrimExpr base, PrimExpr stride, PrimExpr lanes)
       : base(std::move(base)), stride(std::move(stride)), lanes(std::move(lanes)) {}
-  explicit RampNode(ffi::UnsafeInit tag) : base(tag), stride(tag), lanes(tag) {}
+  explicit RampObj(ffi::UnsafeInit tag) : base(tag), stride(tag), lanes(tag) {}
 
   /*! \brief The base value. */
   PrimExpr base;
@@ -53,34 +53,33 @@ class RampNode : public ExprNode {
   PrimExpr lanes;
   static void RegisterReflection() {
     namespace refl = tvm::ffi::reflection;
-    refl::ObjectDef<RampNode>()
-        .def_ro("base", &RampNode::base)
-        .def_ro("stride", &RampNode::stride)
-        .def_ro("lanes", &RampNode::lanes);
+    refl::ObjectDef<RampObj>()
+        .def_ro("base", &RampObj::base)
+        .def_ro("stride", &RampObj::stride)
+        .def_ro("lanes", &RampObj::lanes);
   }
-  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("prim.Ramp", RampNode, ExprNode);
+  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("prim.Ramp", RampObj, ExprObj);
 };
 
 /*!
- * \brief Managed reference to RampNode
- * \sa RampNode
+ * \brief Managed reference to RampObj
+ * \sa RampObj
  */
 class Ramp : public PrimExpr {
  public:
   TVM_TIRX_DLL Ramp(PrimExpr base, PrimExpr stride, PrimExpr lanes, Location loc = UnknownLoc());
-  explicit Ramp(ffi::ObjectPtr<RampNode> node) : PrimExpr(std::move(node)) {}
+  explicit Ramp(ffi::ObjectPtr<RampObj> node) : PrimExpr(std::move(node)) {}
 
-  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(Ramp, PrimExpr, RampNode);
+  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(Ramp, PrimExpr, RampObj);
   static constexpr bool _type_container_is_exact = true;
-  TVM_DEFINE_OBJECT_REF_COW_METHOD(RampNode);
+  TVM_DEFINE_OBJECT_REF_COW_METHOD(RampObj);
 };
 
 /*! \brief Create a vector where all the elements are value. */
-class BroadcastNode : public ExprNode {
+class BroadcastObj : public ExprObj {
  public:
-  BroadcastNode(PrimExpr value, PrimExpr lanes)
-      : value(std::move(value)), lanes(std::move(lanes)) {}
-  explicit BroadcastNode(ffi::UnsafeInit tag) : value(tag), lanes(tag) {}
+  BroadcastObj(PrimExpr value, PrimExpr lanes) : value(std::move(value)), lanes(std::move(lanes)) {}
+  explicit BroadcastObj(ffi::UnsafeInit tag) : value(tag), lanes(tag) {}
 
   /*! \brief The base value. */
   PrimExpr value;
@@ -88,25 +87,25 @@ class BroadcastNode : public ExprNode {
   PrimExpr lanes;
   static void RegisterReflection() {
     namespace refl = tvm::ffi::reflection;
-    refl::ObjectDef<BroadcastNode>()
-        .def_ro("value", &BroadcastNode::value)
-        .def_ro("lanes", &BroadcastNode::lanes);
+    refl::ObjectDef<BroadcastObj>()
+        .def_ro("value", &BroadcastObj::value)
+        .def_ro("lanes", &BroadcastObj::lanes);
   }
-  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("prim.Broadcast", BroadcastNode, ExprNode);
+  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("prim.Broadcast", BroadcastObj, ExprObj);
 };
 
 /*!
- * \brief Managed reference to BroadcastNode
- * \sa BroadcastNode
+ * \brief Managed reference to BroadcastObj
+ * \sa BroadcastObj
  */
 class Broadcast : public PrimExpr {
  public:
   TVM_TIRX_DLL Broadcast(PrimExpr value, PrimExpr lanes, Location loc = UnknownLoc());
-  explicit Broadcast(ffi::ObjectPtr<BroadcastNode> node) : PrimExpr(std::move(node)) {}
+  explicit Broadcast(ffi::ObjectPtr<BroadcastObj> node) : PrimExpr(std::move(node)) {}
 
-  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(Broadcast, PrimExpr, BroadcastNode);
+  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(Broadcast, PrimExpr, BroadcastObj);
   static constexpr bool _type_container_is_exact = true;
-  TVM_DEFINE_OBJECT_REF_COW_METHOD(BroadcastNode);
+  TVM_DEFINE_OBJECT_REF_COW_METHOD(BroadcastObj);
 };
 
 /*!
@@ -114,7 +113,7 @@ class Broadcast : public PrimExpr {
  *  vec = concat(vectors)
  *  result = (vec[indices[0]], vec[indices[1]] ...)
  */
-class ShuffleNode : public ExprNode {
+class ShuffleObj : public ExprObj {
  public:
   /*! \brief the input vectors. */
   ffi::Array<PrimExpr> vectors;
@@ -122,16 +121,16 @@ class ShuffleNode : public ExprNode {
   ffi::Array<PrimExpr> indices;
   static void RegisterReflection() {
     namespace refl = tvm::ffi::reflection;
-    refl::ObjectDef<ShuffleNode>()
-        .def_ro("vectors", &ShuffleNode::vectors)
-        .def_ro("indices", &ShuffleNode::indices);
+    refl::ObjectDef<ShuffleObj>()
+        .def_ro("vectors", &ShuffleObj::vectors)
+        .def_ro("indices", &ShuffleObj::indices);
   }
-  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("prim.Shuffle", ShuffleNode, ExprNode);
+  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("prim.Shuffle", ShuffleObj, ExprObj);
 };
 
 /*!
- * \brief Managed reference to ShuffleNode
- * \sa ShuffleNode
+ * \brief Managed reference to ShuffleObj
+ * \sa ShuffleObj
  */
 class Shuffle : public PrimExpr {
  public:
@@ -140,11 +139,11 @@ class Shuffle : public PrimExpr {
   TVM_TIRX_DLL static PrimExpr Concat(ffi::Array<PrimExpr> vectors, Location loc = UnknownLoc());
   TVM_TIRX_DLL static PrimExpr ExtractElement(PrimExpr vector, int index,
                                               Location loc = UnknownLoc());
-  explicit Shuffle(ffi::ObjectPtr<ShuffleNode> node) : PrimExpr(std::move(node)) {}
+  explicit Shuffle(ffi::ObjectPtr<ShuffleObj> node) : PrimExpr(std::move(node)) {}
 
-  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(Shuffle, PrimExpr, ShuffleNode);
+  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(Shuffle, PrimExpr, ShuffleObj);
   static constexpr bool _type_container_is_exact = true;
-  TVM_DEFINE_OBJECT_REF_COW_METHOD(ShuffleNode);
+  TVM_DEFINE_OBJECT_REF_COW_METHOD(ShuffleObj);
 };
 
 }  // namespace prim

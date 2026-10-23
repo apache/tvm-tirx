@@ -41,7 +41,7 @@ namespace {
 ffi::Optional<ExprDoc> TensorTypeDocTranslate(DocTranslatorObj* d, ffi::AnyView input,
                                               const ffi::Object*) {
   const auto* tensor =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const tirx::TensorTypeNode>(input);
+      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const tirx::TensorTypeObj>(input);
   // The tensor type constructor normalizes these fields.
   // Keep the explicit type constructor when that normalization would change the IR.
   if (tensor->data_alignment <= 0) {
@@ -58,12 +58,12 @@ ffi::Optional<ExprDoc> TensorTypeDocTranslate(DocTranslatorObj* d, ffi::AnyView 
   ffi::Array<ExprDoc> shape;
   for (const PrimExpr& dim : tensor->shape) {
     // Python integer shape inputs use the shared PrimExpr conversion (int32).
-    if (const auto* imm = dim.as<IntImmNode>();
+    if (const auto* imm = dim.as<IntImmObj>();
         imm && imm->ty.as_or_throw<PrimType>()->dtype == PrimType::Int(32)->dtype) {
       ExprDoc literal = LiteralDoc::Int(ffi::GetRef<IntImm>(imm), std::nullopt);
       d->RecordOrigin(literal, dim);
       shape.push_back(literal);
-    } else if (dim.as<IntImmNode>()) {
+    } else if (dim.as<IntImmObj>()) {
       shape.push_back(d->WithExtraStateScope<bool>("ir.explicit_value_type", true,
                                                    [&] { return d->Translate(dim).value(); }));
     } else {
@@ -90,7 +90,7 @@ ffi::Optional<ExprDoc> TensorTypeDocTranslate(DocTranslatorObj* d, ffi::AnyView 
 }
 
 TVM_FFI_STATIC_INIT_BLOCK() {
-  ffi::reflection::TypeAttrDef<tirx::TensorTypeNode>().attr(
+  ffi::reflection::TypeAttrDef<tirx::TensorTypeObj>().attr(
       tvm::script::printer::type_attr::kDocTranslate.name,
       FDocTranslate::FromNative<&TensorTypeDocTranslate>());
 }
@@ -102,7 +102,7 @@ namespace {
 ffi::Optional<ExprDoc> TensorStoreDocTranslate(DocTranslatorObj* d, ffi::AnyView input,
                                                const ffi::Object* destination) {
   const auto* store =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const TensorStoreNode>(input);
+      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const TensorStoreObj>(input);
   TVM_FFI_CHECK(destination == nullptr, TypeError)
       << "printer statement-only node cannot fulfill a destination";
   ExprDoc tensor = d->Translate(store->dest).value();
@@ -113,7 +113,7 @@ ffi::Optional<ExprDoc> TensorStoreDocTranslate(DocTranslatorObj* d, ffi::AnyView
 }
 
 TVM_FFI_STATIC_INIT_BLOCK() {
-  ffi::reflection::TypeAttrDef<TensorStoreNode>().attr(
+  ffi::reflection::TypeAttrDef<TensorStoreObj>().attr(
       tvm::script::printer::type_attr::kDocTranslate.name,
       FDocTranslate::FromNative<&TensorStoreDocTranslate>());
 }
@@ -121,7 +121,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
 ffi::Optional<ExprDoc> IterDocTranslate(DocTranslatorObj* d, ffi::AnyView input,
                                         const ffi::Object*) {
   const auto* iter =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const tirx::IterNode>(input);
+      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const tirx::IterObj>(input);
   ExprDoc axis = LiteralDoc::Str(iter->axis.name(), std::nullopt);
   d->RecordOrigin(axis, iter->axis);
   return NamespaceDoc("tirx")->Attr("Iter")->Call(
@@ -129,7 +129,7 @@ ffi::Optional<ExprDoc> IterDocTranslate(DocTranslatorObj* d, ffi::AnyView input,
 }
 
 TVM_FFI_STATIC_INIT_BLOCK() {
-  ffi::reflection::TypeAttrDef<tirx::IterNode>().attr(
+  ffi::reflection::TypeAttrDef<tirx::IterObj>().attr(
       tvm::script::printer::type_attr::kDocTranslate.name,
       FDocTranslate::FromNative<&IterDocTranslate>());
 }
@@ -137,7 +137,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
 ffi::Optional<ExprDoc> TileLayoutDocTranslate(DocTranslatorObj* d, ffi::AnyView input,
                                               const ffi::Object*) {
   const auto* layout =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const tirx::TileLayoutNode>(input);
+      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const tirx::TileLayoutObj>(input);
   auto iters = [&](const ffi::Array<tirx::Iter>& source) {
     ffi::Array<ExprDoc> docs;
     for (const tirx::Iter& iter : source) {
@@ -166,7 +166,7 @@ ffi::Optional<ExprDoc> TileLayoutDocTranslate(DocTranslatorObj* d, ffi::AnyView 
 }
 
 TVM_FFI_STATIC_INIT_BLOCK() {
-  ffi::reflection::TypeAttrDef<tirx::TileLayoutNode>().attr(
+  ffi::reflection::TypeAttrDef<tirx::TileLayoutObj>().attr(
       tvm::script::printer::type_attr::kDocTranslate.name,
       FDocTranslate::FromNative<&TileLayoutDocTranslate>());
 }
@@ -174,7 +174,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
 ffi::Optional<ExprDoc> ComposeLayoutDocTranslate(DocTranslatorObj* d, ffi::AnyView input,
                                                  const ffi::Object*) {
   const auto* layout =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const tirx::ComposeLayoutNode>(
+      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const tirx::ComposeLayoutObj>(
           input);
   ffi::Array<ffi::String> keys;
   ffi::Array<ExprDoc> values;
@@ -193,7 +193,7 @@ ffi::Optional<ExprDoc> ComposeLayoutDocTranslate(DocTranslatorObj* d, ffi::AnyVi
 }
 
 TVM_FFI_STATIC_INIT_BLOCK() {
-  ffi::reflection::TypeAttrDef<tirx::ComposeLayoutNode>().attr(
+  ffi::reflection::TypeAttrDef<tirx::ComposeLayoutObj>().attr(
       tvm::script::printer::type_attr::kDocTranslate.name,
       FDocTranslate::FromNative<&ComposeLayoutDocTranslate>());
 }

@@ -47,15 +47,15 @@ uint32_t PackDataTypeKey(DLDataType dtype) {
          static_cast<uint32_t>(dtype.lanes);
 }
 
-ffi::ObjectPtr<PrimTypeNode> GetCachedPrimTypeNode(DLDataType dtype) {
-  thread_local std::unordered_map<uint32_t, ffi::ObjectPtr<PrimTypeNode>> cache;
+ffi::ObjectPtr<PrimTypeObj> GetCachedPrimTypeObj(DLDataType dtype) {
+  thread_local std::unordered_map<uint32_t, ffi::ObjectPtr<PrimTypeObj>> cache;
   uint32_t key = PackDataTypeKey(dtype);
   auto it = cache.find(key);
   if (it != cache.end()) {
     return it->second;
   }
 
-  ffi::ObjectPtr<PrimTypeNode> node = ffi::make_object<PrimTypeNode>();
+  ffi::ObjectPtr<PrimTypeObj> node = ffi::make_object<PrimTypeObj>();
   node->dtype = dtype;
   return cache.emplace(key, std::move(node)).first->second;
 }
@@ -126,8 +126,8 @@ TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> PrimTypeMaybeInplaceMut
 TVM_FFI_INLINE ffi::Expected<ffi::Optional<ffi::VisitInterrupt>> PtrTypeVisit(
     ffi::StructuralVisitorObj* visitor, ffi::AnyView value) noexcept {
   // skips: scope (canonical enum identity)
-  const PtrTypeNode* self =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const PtrTypeNode>(value);
+  const PtrTypeObj* self =
+      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const PtrTypeObj>(value);
   TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(visitor->VisitExpected(self->element_type));
   return std::nullopt;
 }
@@ -135,14 +135,14 @@ TVM_FFI_INLINE ffi::Expected<ffi::Optional<ffi::VisitInterrupt>> PtrTypeVisit(
 TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> PtrTypeMutate(
     ffi::StructuralMutatorObj* mutator, ffi::AnyView value) noexcept {
   // skips: scope (canonical enum identity)
-  const PtrTypeNode* self =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const PtrTypeNode>(value);
+  const PtrTypeObj* self =
+      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const PtrTypeObj>(value);
   TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<Type>, mapped_element_type_u,
                                     mutator->MutateExpected(self->element_type));
   if (mapped_element_type_u.UnchangedOrSameAs(self->element_type)) {
     return ffi::Unchanged();
   }
-  ffi::ObjectPtr<PtrTypeNode> copy = ffi::make_object<PtrTypeNode>(*self);
+  ffi::ObjectPtr<PtrTypeObj> copy = ffi::make_object<PtrTypeObj>(*self);
   if (!mapped_element_type_u.IsUnchanged())
     copy->element_type = std::move(mapped_element_type_u).ValueUnchecked();
   return ffi::Any(std::move(copy));
@@ -151,8 +151,8 @@ TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> PtrTypeMutate(
 TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> PtrTypeMaybeInplaceMutate(
     ffi::StructuralMutatorObj* mutator, ffi::AnyView value) noexcept {
   // skips: scope (canonical enum identity)
-  PtrTypeNode* self = const_cast<PtrTypeNode*>(
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const PtrTypeNode>(value));
+  PtrTypeObj* self = const_cast<PtrTypeObj*>(
+      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const PtrTypeObj>(value));
   TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(
       ffi::UnchangedOr<Type>, mapped_element_type_u,
       mutator->MutateExpected(self->element_type, ffi::InplaceMode::kAllow));
@@ -164,8 +164,8 @@ TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> PtrTypeMaybeInplaceMuta
 
 TVM_FFI_INLINE ffi::Expected<ffi::Optional<ffi::VisitInterrupt>> FuncTypeVisit(
     ffi::StructuralVisitorObj* visitor, ffi::AnyView value) noexcept {
-  const FuncTypeNode* self =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const FuncTypeNode>(value);
+  const FuncTypeObj* self =
+      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const FuncTypeObj>(value);
   TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(visitor->VisitExpected(self->arg_types));
   TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(visitor->VisitExpected(self->ret_type));
   return std::nullopt;
@@ -173,8 +173,8 @@ TVM_FFI_INLINE ffi::Expected<ffi::Optional<ffi::VisitInterrupt>> FuncTypeVisit(
 
 TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> FuncTypeMutate(
     ffi::StructuralMutatorObj* mutator, ffi::AnyView value) noexcept {
-  const FuncTypeNode* self =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const FuncTypeNode>(value);
+  const FuncTypeObj* self =
+      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const FuncTypeObj>(value);
   TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<ffi::Array<Type>>, mapped_arg_types_u,
                                     mutator->MutateExpected(self->arg_types));
   TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<Type>, mapped_ret_type_u,
@@ -183,7 +183,7 @@ TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> FuncTypeMutate(
       mapped_ret_type_u.UnchangedOrSameAs(self->ret_type)) {
     return ffi::Unchanged();
   }
-  ffi::ObjectPtr<FuncTypeNode> copy = ffi::make_object<FuncTypeNode>(*self);
+  ffi::ObjectPtr<FuncTypeObj> copy = ffi::make_object<FuncTypeObj>(*self);
   if (!mapped_arg_types_u.IsUnchanged())
     copy->arg_types = std::move(mapped_arg_types_u).ValueUnchecked();
   if (!mapped_ret_type_u.IsUnchanged())
@@ -193,8 +193,8 @@ TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> FuncTypeMutate(
 
 TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> FuncTypeMaybeInplaceMutate(
     ffi::StructuralMutatorObj* mutator, ffi::AnyView value) noexcept {
-  FuncTypeNode* self = const_cast<FuncTypeNode*>(
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const FuncTypeNode>(value));
+  FuncTypeObj* self = const_cast<FuncTypeObj*>(
+      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const FuncTypeObj>(value));
   TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(
       ffi::UnchangedOr<ffi::Array<Type>>, mapped_arg_types_u,
       mutator->MutateExpected(self->arg_types, ffi::InplaceMode::kAllow));
@@ -212,30 +212,30 @@ TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> FuncTypeMaybeInplaceMut
 
 TVM_FFI_INLINE ffi::Expected<ffi::Optional<ffi::VisitInterrupt>> TupleTypeVisit(
     ffi::StructuralVisitorObj* visitor, ffi::AnyView value) noexcept {
-  const TupleTypeNode* self =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const TupleTypeNode>(value);
+  const TupleTypeObj* self =
+      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const TupleTypeObj>(value);
   TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(visitor->VisitExpected(self->fields));
   return std::nullopt;
 }
 
 TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> TupleTypeMutate(
     ffi::StructuralMutatorObj* mutator, ffi::AnyView value) noexcept {
-  const TupleTypeNode* self =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const TupleTypeNode>(value);
+  const TupleTypeObj* self =
+      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const TupleTypeObj>(value);
   TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<ffi::Array<Type>>, mapped_fields_u,
                                     mutator->MutateExpected(self->fields));
   if (mapped_fields_u.UnchangedOrSameAs(self->fields)) {
     return ffi::Unchanged();
   }
-  ffi::ObjectPtr<TupleTypeNode> copy = ffi::make_object<TupleTypeNode>(*self);
+  ffi::ObjectPtr<TupleTypeObj> copy = ffi::make_object<TupleTypeObj>(*self);
   if (!mapped_fields_u.IsUnchanged()) copy->fields = std::move(mapped_fields_u).ValueUnchecked();
   return ffi::Any(std::move(copy));
 }
 
 TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> TupleTypeMaybeInplaceMutate(
     ffi::StructuralMutatorObj* mutator, ffi::AnyView value) noexcept {
-  TupleTypeNode* self = const_cast<TupleTypeNode*>(
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const TupleTypeNode>(value));
+  TupleTypeObj* self = const_cast<TupleTypeObj*>(
+      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const TupleTypeObj>(value));
   TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(
       ffi::UnchangedOr<ffi::Array<Type>>, mapped_fields_u,
       mutator->MutateExpected(self->fields, ffi::InplaceMode::kAllow));
@@ -251,8 +251,8 @@ Type Type::Missing() { return MissingType(); }
 
 TVM_FFI_STATIC_INIT_BLOCK() {
   namespace refl = tvm::ffi::reflection;
-  TypeNode::RegisterReflection();
-  refl::TypeAttrDef<TypeNode>()
+  TypeObj::RegisterReflection();
+  refl::TypeAttrDef<TypeObj>()
       .attr(ffi::type_attr::kStructuralVisit, ffi::FStructuralVisit::FromNative<&TypeVisit>())
       .attr(ffi::type_attr::kStructuralMutate, ffi::FStructuralMutate::FromNative<&TypeMutate>())
       .attr(ffi::type_attr::kStructuralMaybeInplaceMutate,
@@ -260,14 +260,14 @@ TVM_FFI_STATIC_INIT_BLOCK() {
 }
 
 MissingType::MissingType() : Type(ffi::UnsafeInit{}) {
-  static const auto singleton = ffi::make_object<MissingTypeNode>();
+  static const auto singleton = ffi::make_object<MissingTypeObj>();
   data_ = singleton;
 }
 
 TVM_FFI_STATIC_INIT_BLOCK() {
   namespace refl = tvm::ffi::reflection;
-  MissingTypeNode::RegisterReflection();
-  refl::TypeAttrDef<MissingTypeNode>()
+  MissingTypeObj::RegisterReflection();
+  refl::TypeAttrDef<MissingTypeObj>()
       .attr(ffi::type_attr::kStructuralVisit, ffi::FStructuralVisit::FromNative<&TypeVisit>())
       .attr(ffi::type_attr::kStructuralMutate, ffi::FStructuralMutate::FromNative<&TypeMutate>())
       .attr(ffi::type_attr::kStructuralMaybeInplaceMutate,
@@ -276,14 +276,14 @@ TVM_FFI_STATIC_INIT_BLOCK() {
 }
 
 NoneType::NoneType() : Type(ffi::UnsafeInit{}) {
-  static const auto singleton = ffi::make_object<NoneTypeNode>();
+  static const auto singleton = ffi::make_object<NoneTypeObj>();
   data_ = singleton;
 }
 
 TVM_FFI_STATIC_INIT_BLOCK() {
   namespace refl = tvm::ffi::reflection;
-  NoneTypeNode::RegisterReflection();
-  refl::TypeAttrDef<NoneTypeNode>()
+  NoneTypeObj::RegisterReflection();
+  refl::TypeAttrDef<NoneTypeObj>()
       .attr(ffi::type_attr::kStructuralVisit, ffi::FStructuralVisit::FromNative<&TypeVisit>())
       .attr(ffi::type_attr::kStructuralMutate, ffi::FStructuralMutate::FromNative<&TypeMutate>())
       .attr(ffi::type_attr::kStructuralMaybeInplaceMutate,
@@ -292,15 +292,15 @@ TVM_FFI_STATIC_INIT_BLOCK() {
 }
 
 AnyType::AnyType(Location loc) : Type(ffi::UnsafeInit{}) {
-  ffi::ObjectPtr<AnyTypeNode> n = ffi::make_object<AnyTypeNode>();
+  ffi::ObjectPtr<AnyTypeObj> n = ffi::make_object<AnyTypeObj>();
   n->loc = loc;
   data_ = std::move(n);
 }
 
 TVM_FFI_STATIC_INIT_BLOCK() {
   namespace refl = tvm::ffi::reflection;
-  AnyTypeNode::RegisterReflection();
-  refl::TypeAttrDef<AnyTypeNode>()
+  AnyTypeObj::RegisterReflection();
+  refl::TypeAttrDef<AnyTypeObj>()
       .attr(ffi::type_attr::kStructuralVisit, ffi::FStructuralVisit::FromNative<&TypeVisit>())
       .attr(ffi::type_attr::kStructuralMutate, ffi::FStructuralMutate::FromNative<&TypeMutate>())
       .attr(ffi::type_attr::kStructuralMaybeInplaceMutate,
@@ -309,14 +309,14 @@ TVM_FFI_STATIC_INIT_BLOCK() {
 }
 
 TensorRegionType::TensorRegionType() : Type(ffi::UnsafeInit{}) {
-  static const auto singleton = ffi::make_object<TensorRegionTypeNode>();
+  static const auto singleton = ffi::make_object<TensorRegionTypeObj>();
   data_ = singleton;
 }
 
 TVM_FFI_STATIC_INIT_BLOCK() {
   namespace refl = tvm::ffi::reflection;
-  TensorRegionTypeNode::RegisterReflection();
-  refl::TypeAttrDef<TensorRegionTypeNode>()
+  TensorRegionTypeObj::RegisterReflection();
+  refl::TypeAttrDef<TensorRegionTypeObj>()
       .attr(ffi::type_attr::kStructuralVisit, ffi::FStructuralVisit::FromNative<&TypeVisit>())
       .attr(ffi::type_attr::kStructuralMutate, ffi::FStructuralMutate::FromNative<&TypeMutate>())
       .attr(ffi::type_attr::kStructuralMaybeInplaceMutate,
@@ -324,12 +324,12 @@ TVM_FFI_STATIC_INIT_BLOCK() {
   refl::GlobalDef().def("ir.TensorRegionType", []() { return TensorRegionType(); });
 }
 
-OpaqueType::OpaqueType() : Type(ffi::UnsafeInit{}) { data_ = ffi::make_object<OpaqueTypeNode>(); }
+OpaqueType::OpaqueType() : Type(ffi::UnsafeInit{}) { data_ = ffi::make_object<OpaqueTypeObj>(); }
 
 TVM_FFI_STATIC_INIT_BLOCK() {
   namespace refl = tvm::ffi::reflection;
-  OpaqueTypeNode::RegisterReflection();
-  refl::TypeAttrDef<OpaqueTypeNode>()
+  OpaqueTypeObj::RegisterReflection();
+  refl::TypeAttrDef<OpaqueTypeObj>()
       .attr(ffi::type_attr::kStructuralVisit, ffi::FStructuralVisit::FromNative<&OpaqueTypeVisit>())
       .attr(ffi::type_attr::kStructuralMutate,
             ffi::FStructuralMutate::FromNative<&OpaqueTypeMutate>())
@@ -345,7 +345,7 @@ PrimType::PrimType(DLDataType dtype) : Type(ffi::UnsafeInit{}) {
   bool is_void = is_opaque_handle && dtype.bits == 0 && dtype.lanes == 0;
   TVM_FFI_CHECK(!is_opaque_handle || is_void, TypeError)
       << "PrimType cannot represent an opaque pointer; use PtrType::VoidPtrType()";
-  data_ = GetCachedPrimTypeNode(dtype);
+  data_ = GetCachedPrimTypeObj(dtype);
 }
 
 PrimType::PrimType(DLDataTypeCode code, int bits, int lanes)
@@ -354,8 +354,8 @@ PrimType::PrimType(DLDataTypeCode code, int bits, int lanes)
 
 TVM_FFI_STATIC_INIT_BLOCK() {
   namespace refl = tvm::ffi::reflection;
-  PrimTypeNode::RegisterReflection();
-  refl::TypeAttrDef<PrimTypeNode>()
+  PrimTypeObj::RegisterReflection();
+  refl::TypeAttrDef<PrimTypeObj>()
       .native_fn_attr<&PrimTypeAnyHash>(ffi::type_attr::kAnyHash)
       .native_fn_attr<&PrimTypeAnyEqual>(ffi::type_attr::kAnyEqual)
       .attr(ffi::type_attr::kStructuralVisit, ffi::FStructuralVisit::FromNative<&PrimTypeVisit>())
@@ -411,12 +411,12 @@ PrimType PrimType::ScalableVector(DLDataTypeCode code, int bits, int lanes) {
   return PrimType(ScalableVectorDType(code, bits, lanes));
 }
 
-StringType::StringType() : Type(ffi::UnsafeInit{}) { data_ = ffi::make_object<StringTypeNode>(); }
+StringType::StringType() : Type(ffi::UnsafeInit{}) { data_ = ffi::make_object<StringTypeObj>(); }
 
 TVM_FFI_STATIC_INIT_BLOCK() {
   namespace refl = tvm::ffi::reflection;
-  StringTypeNode::RegisterReflection();
-  refl::TypeAttrDef<StringTypeNode>()
+  StringTypeObj::RegisterReflection();
+  refl::TypeAttrDef<StringTypeObj>()
       .attr(ffi::type_attr::kStructuralVisit, ffi::FStructuralVisit::FromNative<&TypeVisit>())
       .attr(ffi::type_attr::kStructuralMutate, ffi::FStructuralMutate::FromNative<&TypeMutate>())
       .attr(ffi::type_attr::kStructuralMaybeInplaceMutate,
@@ -428,7 +428,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
 PtrType::PtrType(Type element_type, runtime::MemoryScope scope) : Type(ffi::UnsafeInit{}) {
   TVM_FFI_ICHECK(!element_type.as<MissingType>().has_value())
       << "PtrType element_type cannot be Type::Missing()";
-  ffi::ObjectPtr<PtrTypeNode> n = ffi::make_object<PtrTypeNode>();
+  ffi::ObjectPtr<PtrTypeObj> n = ffi::make_object<PtrTypeObj>();
   n->scope = std::move(scope);
   n->element_type = std::move(element_type);
   data_ = std::move(n);
@@ -436,8 +436,8 @@ PtrType::PtrType(Type element_type, runtime::MemoryScope scope) : Type(ffi::Unsa
 
 TVM_FFI_STATIC_INIT_BLOCK() {
   namespace refl = tvm::ffi::reflection;
-  PtrTypeNode::RegisterReflection();
-  refl::TypeAttrDef<PtrTypeNode>()
+  PtrTypeObj::RegisterReflection();
+  refl::TypeAttrDef<PtrTypeObj>()
       .attr(ffi::type_attr::kStructuralVisit, ffi::FStructuralVisit::FromNative<&PtrTypeVisit>())
       .attr(ffi::type_attr::kStructuralMutate, ffi::FStructuralMutate::FromNative<&PtrTypeMutate>())
       .attr(ffi::type_attr::kStructuralMaybeInplaceMutate,
@@ -454,7 +454,7 @@ PtrType PtrType::VoidPtrType(runtime::MemoryScope scope) {
 
 FuncType::FuncType(tvm::ffi::Array<Type> arg_types, Type ret_type, Location loc)
     : Type(ffi::UnsafeInit{}) {
-  ffi::ObjectPtr<FuncTypeNode> n = ffi::make_object<FuncTypeNode>();
+  ffi::ObjectPtr<FuncTypeObj> n = ffi::make_object<FuncTypeObj>();
   n->arg_types = std::move(arg_types);
   n->ret_type = std::move(ret_type);
   n->loc = loc;
@@ -463,8 +463,8 @@ FuncType::FuncType(tvm::ffi::Array<Type> arg_types, Type ret_type, Location loc)
 
 TVM_FFI_STATIC_INIT_BLOCK() {
   namespace refl = tvm::ffi::reflection;
-  FuncTypeNode::RegisterReflection();
-  refl::TypeAttrDef<FuncTypeNode>()
+  FuncTypeObj::RegisterReflection();
+  refl::TypeAttrDef<FuncTypeObj>()
       .attr(ffi::type_attr::kStructuralVisit, ffi::FStructuralVisit::FromNative<&FuncTypeVisit>())
       .attr(ffi::type_attr::kStructuralMutate,
             ffi::FStructuralMutate::FromNative<&FuncTypeMutate>())
@@ -477,7 +477,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
 }
 
 TupleType::TupleType(ffi::Array<Type> fields, Location loc) : Type(ffi::UnsafeInit{}) {
-  ffi::ObjectPtr<TupleTypeNode> n = ffi::make_object<TupleTypeNode>();
+  ffi::ObjectPtr<TupleTypeObj> n = ffi::make_object<TupleTypeObj>();
   n->fields = std::move(fields);
   n->loc = loc;
   data_ = std::move(n);
@@ -485,8 +485,8 @@ TupleType::TupleType(ffi::Array<Type> fields, Location loc) : Type(ffi::UnsafeIn
 
 TVM_FFI_STATIC_INIT_BLOCK() {
   namespace refl = tvm::ffi::reflection;
-  TupleTypeNode::RegisterReflection();
-  refl::TypeAttrDef<TupleTypeNode>()
+  TupleTypeObj::RegisterReflection();
+  refl::TypeAttrDef<TupleTypeObj>()
       .attr(ffi::type_attr::kStructuralVisit, ffi::FStructuralVisit::FromNative<&TupleTypeVisit>())
       .attr(ffi::type_attr::kStructuralMutate,
             ffi::FStructuralMutate::FromNative<&TupleTypeMutate>())

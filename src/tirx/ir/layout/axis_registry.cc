@@ -38,12 +38,12 @@ ffi::ObjectPtr<ffi::Object> CreateAxis(const std::string& name) {
 const ffi::EnumState& AxisEnumState() {
   static refl::TypeAttrColumn state_column(ffi::type_attr::kEnumState);
   static ffi::EnumState state =
-      ffi::Any(state_column[AxisNode::_GetOrAllocRuntimeTypeIndex()]).as_or_throw<ffi::EnumState>();
+      ffi::Any(state_column[AxisObj::_GetOrAllocRuntimeTypeIndex()]).as_or_throw<ffi::EnumState>();
   return state;
 }
 
 template <typename T>
-ffi::Optional<T> AxisAttr(const AxisNode* axis, const char* key) {
+ffi::Optional<T> AxisAttr(const AxisObj* axis, const char* key) {
   const ffi::EnumState& state = AxisEnumState();
   auto column = state->attrs.Get(ffi::String(key));
   if (!column) return std::nullopt;
@@ -52,25 +52,25 @@ ffi::Optional<T> AxisAttr(const AxisNode* axis, const char* key) {
   return value.value().cast<T>();
 }
 
-ffi::Optional<ffi::String> AxisNode::GetBackend() const {
+ffi::Optional<ffi::String> AxisObj::GetBackend() const {
   return AxisAttr<ffi::String>(this, "backend");
 }
 
-ffi::Optional<ThreadScope> AxisNode::GetScope() const {
+ffi::Optional<ThreadScope> AxisObj::GetScope() const {
   return AxisAttr<ThreadScope>(this, "scope");
 }
 
-ffi::Optional<ThreadScope> AxisNode::GetSubscope() const {
+ffi::Optional<ThreadScope> AxisObj::GetSubscope() const {
   return AxisAttr<ThreadScope>(this, "subscope");
 }
 
-ffi::Optional<FAxisFuser> AxisNode::GetFuser() const { return AxisAttr<FAxisFuser>(this, "fuser"); }
+ffi::Optional<FAxisFuser> AxisObj::GetFuser() const { return AxisAttr<FAxisFuser>(this, "fuser"); }
 
 TVM_FFI_STATIC_INIT_BLOCK() {
-  refl::ObjectDef<AxisNode>(refl::init(false));
-  refl::TypeAttrDef<AxisNode>()
+  refl::ObjectDef<AxisObj>(refl::init(false));
+  refl::TypeAttrDef<AxisObj>()
       .def(tvm::ffi::type_attr::kDataToJson.name,
-           [](const AxisNode* node) -> ffi::String { return node->_str_index; })
+           [](const AxisObj* node) -> ffi::String { return node->_str_index; })
       .def(tvm::ffi::type_attr::kDataFromJson.name,
            [](const ffi::String& name) -> Axis { return Axis::Get(name); });
 
@@ -88,12 +88,12 @@ Axis Axis::Get(const ffi::String& name) {
   const ffi::EnumState& state = AxisEnumState();
   auto existing = state->indexes.Get(ffi::Any(name));
   if (!existing) {
-    refl::EnumDef<AxisNode>(name.c_str());
+    refl::EnumDef<AxisObj>(name.c_str());
     existing = state->indexes.Get(ffi::Any(name));
   }
   return existing.value().as_or_throw<Axis>();
 }
 
-TVM_FFI_STATIC_INIT_BLOCK() { refl::EnumDef<AxisNode>("m").set_attr("thread", false); }
+TVM_FFI_STATIC_INIT_BLOCK() { refl::EnumDef<AxisObj>("m").set_attr("thread", false); }
 }  // namespace tirx
 }  // namespace tvm

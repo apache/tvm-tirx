@@ -222,7 +222,7 @@ class OperationKind(IntEnum):
     """
     This enum represents the kind of operation (operator) in OperationDoc
 
-    It's mirrored from OperationDocNode::Kind at include/tvm/script/printer/doc.h
+    It's mirrored from OperationDocObj::Kind at include/tvm/script/printer/doc.h
     """
 
     # The name convention follows https://docs.python.org/3/library/ast.html

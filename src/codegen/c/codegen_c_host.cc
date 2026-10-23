@@ -193,7 +193,7 @@ void CodeGenCHost::PrintType(const PrimType& type, std::ostream& os) {  // NOLIN
   TVM_FFI_THROW(InternalError) << "Cannot convert type " << type->dtype << " to C type";
 }
 
-void CodeGenCHost::Dispatch_(const prim::BroadcastNode* op, std::ostream& os) {  // NOLINT(*)
+void CodeGenCHost::Dispatch_(const prim::BroadcastObj* op, std::ostream& os) {  // NOLINT(*)
   std::string v = PrintExpr(op->value);
   int lanes = op->ty.as_or_throw<PrimType>().lanes();
   os << "((";
@@ -225,12 +225,12 @@ void CodeGenCHost::PrintGetFuncFromBackend(const std::string& func_name,
   this->stream << "}\n";
 }
 
-void CodeGenCHost::PrintCallPacked(const CallNode* op) {
-  const StringImmNode* func_name = op->args[0].as<StringImmNode>();
+void CodeGenCHost::PrintCallPacked(const CallObj* op) {
+  const StringImmObj* func_name = op->args[0].as<StringImmObj>();
   TVM_FFI_ICHECK(func_name != nullptr)
       << "call_[c]packed_lowered expects first argument as function name";
-  int64_t begin = static_cast<int64_t>(op->args[2].as<IntImmNode>()->value);
-  int64_t end = static_cast<int64_t>(op->args[3].as<IntImmNode>()->value);
+  int64_t begin = static_cast<int64_t>(op->args[2].as<IntImmObj>()->value);
+  int64_t end = static_cast<int64_t>(op->args[3].as<IntImmObj>()->value);
   int64_t num_args = end - begin;
   TVM_FFI_ICHECK_GE(num_args, 0);
 
@@ -271,8 +271,8 @@ void CodeGenCHost::PrintCallPacked(const CallNode* op) {
   this->stream << "}\n";
 }
 
-std::string CodeGenCHost::GetPackedName(const CallNode* op) {
-  const StringImmNode* s = op->args[0].as<StringImmNode>();
+std::string CodeGenCHost::GetPackedName(const CallObj* op) {
+  const StringImmObj* s = op->args[0].as<StringImmObj>();
   TVM_FFI_ICHECK(s != nullptr) << "call_packed_lowered expects first argument as function name";
   std::string func_name = s->value;
   std::string packed_func_name = func_name + "_packed";
@@ -288,11 +288,11 @@ std::string CodeGenCHost::GetPackedName(const CallNode* op) {
   return unique_name;
 }
 
-void CodeGenCHost::Dispatch_(const CallNode* op, std::ostream& os) {  // NOLINT(*)
+void CodeGenCHost::Dispatch_(const CallObj* op, std::ostream& os) {  // NOLINT(*)
   if (op->op.same_as(tirx::stack_alloca_op())) {
     std::string stack_name = name_supply_->FreshName("stack");
-    const std::string& type = op->args[0].as<StringImmNode>()->value;
-    const IntImmNode* num = op->args[1].as<IntImmNode>();
+    const std::string& type = op->args[0].as<StringImmObj>()->value;
+    const IntImmObj* num = op->args[1].as<IntImmObj>();
     TVM_FFI_ICHECK(num != nullptr);
     static_assert(alignof(TVMFFIAny) % alignof(DLTensor) == 0, "invariant");
     size_t count = num->value.as<size_t>().value();
@@ -324,7 +324,7 @@ void CodeGenCHost::Dispatch_(const CallNode* op, std::ostream& os) {  // NOLINT(
   }
 }
 
-void CodeGenCHost::Dispatch_(const AssertStmtNode* op) {  // NOLINT(*)
+void CodeGenCHost::Dispatch_(const AssertStmtObj* op) {  // NOLINT(*)
   if (emit_asserts_) {
     std::string cond = PrintExpr(op->condition);
     PrintIndent();
@@ -350,11 +350,11 @@ void CodeGenCHost::Dispatch_(const AssertStmtNode* op) {  // NOLINT(*)
   }
 }
 
-void CodeGenCHost::Dispatch_(const prim::MinNode* op, std::ostream& os) {  // NOLINT(*)
+void CodeGenCHost::Dispatch_(const prim::MinObj* op, std::ostream& os) {  // NOLINT(*)
   PrintTernaryCondExpr(op, "<", os);
 }
 
-void CodeGenCHost::Dispatch_(const prim::MaxNode* op, std::ostream& os) {  // NOLINT(*)
+void CodeGenCHost::Dispatch_(const prim::MaxObj* op, std::ostream& os) {  // NOLINT(*)
   PrintTernaryCondExpr(op, ">", os);
 }
 
@@ -383,7 +383,7 @@ ffi::Module BuildCHost(IRModule mod, Target target) {
 
   std::vector<std::pair<GlobalVar, Function>> funcs;
   for (auto [gvar, base_func] : mod->functions) {
-    TVM_FFI_ICHECK(base_func->IsInstance<FunctionNode>()) << "CodegenCHost: Can only take Function";
+    TVM_FFI_ICHECK(base_func->IsInstance<FunctionObj>()) << "CodegenCHost: Can only take Function";
     auto function = base_func.as_or_throw<Function>();
     funcs.push_back({gvar, function});
   }

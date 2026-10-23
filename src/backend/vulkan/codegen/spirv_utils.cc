@@ -124,7 +124,7 @@ std::pair<std::unordered_map<std::string, runtime::SPIRVShader>, std::string> Lo
   CodeGenSPIRV cg(target);
 
   for (auto kv : mod->functions) {
-    TVM_FFI_ICHECK(kv.second->IsInstance<FunctionNode>()) << "CodeGenSPIRV: Can only take Function";
+    TVM_FFI_ICHECK(kv.second->IsInstance<FunctionObj>()) << "CodeGenSPIRV: Can only take Function";
     auto func = kv.second.as<Function>();
     TVM_FFI_ICHECK(func);
     Function f = func.value();

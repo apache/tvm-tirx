@@ -87,7 +87,7 @@ class VarLocalAccessMarker : public StmtExprVisitor {
   explicit VarLocalAccessMarker(std::unordered_set<Var>* var_touched_local)
       : var_touched_local_(var_touched_local) {}
 
-  ffi::Optional<VisitInterrupt> Visit_(const VarNode* op) final {
+  ffi::Optional<VisitInterrupt> Visit_(const VarObj* op) final {
     var_touched_local_->insert(ffi::GetRef<Var>(op));
     return std::nullopt;
   }
@@ -111,7 +111,7 @@ class LoopUnroller : public StmtExprMutator {
     unroll_policy_.Current() = {auto_max_step, explicit_unroll};
   }
 
-  UnchangedOr<Stmt> Mutate_(const ForNode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<Stmt> Mutate_(const ForObj* op, InplaceMode inplace_mode) final {
     auto parent_policy = unroll_policy_.Current();
     return unroll_policy_.WithNewScope([&]() {
       auto& policy = unroll_policy_.Current();
@@ -128,23 +128,23 @@ class LoopUnroller : public StmtExprMutator {
     });
   }
 
-  UnchangedOr<Stmt> RewriteLoop(const ForNode* op, InplaceMode inplace_mode) {
+  UnchangedOr<Stmt> RewriteLoop(const ForObj* op, InplaceMode inplace_mode) {
     // Post order so we can collect more information
     int loop_control_count = loop_control_count_;
     auto result = StmtExprMutator::Mutate_(op, inplace_mode);
     if (!result.IsUnchanged()) {
-      op = ffi::AnyView(result).as<ForNode>();
+      op = ffi::AnyView(result).as<ForObj>();
       if (!op->unique()) {
         inplace_mode = InplaceMode::kDisallow;
       }
     }
     if (op->annotations.count(tvm::tirx::attr::kAutoUnrollMaxStep.name) ||
         op->annotations.count(tvm::tirx::attr::kUnrollExplicit.name)) {
-      ForNode* node;
+      ForObj* node;
       if (inplace_mode == InplaceMode::kAllow) {
-        node = const_cast<ForNode*>(op);
+        node = const_cast<ForObj*>(op);
       } else {
-        auto copy = ffi::make_object<ForNode>(*op);
+        auto copy = ffi::make_object<ForObj>(*op);
         node = copy.get();
         result = For(std::move(copy));
       }
@@ -157,10 +157,10 @@ class LoopUnroller : public StmtExprMutator {
       ++normal_loop_depth_;
       if (op->kind == ForKind::kUnrolled) {
         if (inplace_mode == InplaceMode::kAllow) {
-          const_cast<ForNode*>(op)->kind = ForKind::kDefault;
+          const_cast<ForObj*>(op)->kind = ForKind::kDefault;
           return result;
         }
-        auto node = ffi::make_object<ForNode>(*op);
+        auto node = ffi::make_object<ForObj>(*op);
         node->kind = ForKind::kDefault;
         return For(std::move(node));
       }
@@ -201,10 +201,10 @@ class LoopUnroller : public StmtExprMutator {
       if (auto_unroll) {
         if (op->kind != ForKind::kUnrolled) {
           if (inplace_mode == InplaceMode::kAllow) {
-            const_cast<ForNode*>(op)->kind = ForKind::kUnrolled;
+            const_cast<ForObj*>(op)->kind = ForKind::kUnrolled;
             return result;
           }
-          auto n = ffi::make_object<ForNode>(*op);
+          auto n = ffi::make_object<ForObj>(*op);
           n->kind = ForKind::kUnrolled;
           return For(n);
         }
@@ -213,7 +213,7 @@ class LoopUnroller : public StmtExprMutator {
     }
   }
 
-  UnchangedOr<PrimExpr> Mutate_(const TensorLoadNode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<PrimExpr> Mutate_(const TensorLoadObj* op, InplaceMode inplace_mode) final {
     static const auto scope_local = runtime::MemoryScope::Get("local");
     static const auto scope_warp = runtime::MemoryScope::Get("warp");
 
@@ -229,7 +229,7 @@ class LoopUnroller : public StmtExprMutator {
     return ffi::Unchanged();
   }
 
-  UnchangedOr<Stmt> Mutate_(const TensorStoreNode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<Stmt> Mutate_(const TensorStoreObj* op, InplaceMode inplace_mode) final {
     static const auto scope_local = runtime::MemoryScope::Get("local");
     static const auto scope_warp = runtime::MemoryScope::Get("warp");
 
@@ -246,22 +246,22 @@ class LoopUnroller : public StmtExprMutator {
     return StmtExprMutator::Mutate_(op, inplace_mode);
   }
 
-  UnchangedOr<Stmt> Mutate_(const BreakNode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<Stmt> Mutate_(const BreakObj* op, InplaceMode inplace_mode) final {
     ++loop_control_count_;
     return ffi::Unchanged();
   }
 
-  UnchangedOr<Stmt> Mutate_(const ContinueNode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<Stmt> Mutate_(const ContinueObj* op, InplaceMode inplace_mode) final {
     ++loop_control_count_;
     return ffi::Unchanged();
   }
 
-  UnchangedOr<Stmt> Mutate_(const EvaluateNode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<Stmt> Mutate_(const EvaluateObj* op, InplaceMode inplace_mode) final {
     ++step_count_;
     return StmtExprMutator::Mutate_(op, inplace_mode);
   }
 
-  UnchangedOr<Stmt> Mutate_(const SeqStmtNode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<Stmt> Mutate_(const SeqStmtObj* op, InplaceMode inplace_mode) final {
     ffi::Array<Stmt> seq;
     bool changed = false;
     for (Stmt child : op->seq) {
@@ -282,7 +282,7 @@ class LoopUnroller : public StmtExprMutator {
     return SeqStmt(seq, op->loc);
   }
 
-  Stmt Unroll(const ForNode* op) {
+  Stmt Unroll(const ForObj* op) {
     int value = GetExtent(op);
     // For loop must have a constant integer extent
     TVM_FFI_ICHECK_NE(value, -1) << "loop doesn't have a constant integer extent";
@@ -308,10 +308,10 @@ class LoopUnroller : public StmtExprMutator {
 
  private:
   // returns the extent of the loop if it's a constant integer, otherwise return -1
-  int GetExtent(const ForNode* op) {
+  int GetExtent(const ForObj* op) {
     // constant folding.
     PrimExpr extent = analyzer_->Simplify(Range::GetExtentFromBeginEnd(op->begin, op->end));
-    const IntImmNode* v1 = extent.as<IntImmNode>();
+    const IntImmObj* v1 = extent.as<IntImmObj>();
     int value = -1;
     // integers that do not fit in int32_t are treated as symbolic,
     // as it's impossible to unroll such large loops

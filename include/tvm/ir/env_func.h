@@ -109,7 +109,7 @@ class TypedEnvFunc;
 /*!
  * \anchor TypedEnvFuncAnchor
  * \brief A typed version of EnvFunc.
- * It is backed by a GlobalFuncNode internally.
+ * It is backed by an EnvFuncObj internally.
  *
  * \tparam R The return value of the function.
  * \tparam Args The argument signature of the function.

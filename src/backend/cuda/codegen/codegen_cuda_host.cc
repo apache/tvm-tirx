@@ -124,7 +124,7 @@ class CodeGenCUDAHost : public CodeGenCHost {
   }
 
   void PrintType(const Type& type, std::ostream& os) override {
-    if (type.as<tirx::TensorMapTypeNode>()) {
+    if (type.as<tirx::TensorMapTypeObj>()) {
       os << "CUtensorMap";
     } else if (auto prim = type.as<PrimType>();
                prim && prim->IsScalar() && prim->MatchesElementType(kDLBfloat, 16)) {
@@ -169,11 +169,11 @@ class CodeGenCUDAHost : public CodeGenCHost {
 
   ffi::Array<ffi::String> GetFunctionNames() { return function_names_; }
 
-  void Dispatch_(const BindNode* op) override {
+  void Dispatch_(const BindObj* op) override {
     // C accepts the implicit void* conversion emitted for descriptor handles;
     // the CUDA translation unit is C++, which requires an explicit cast.
-    auto* ptr = op->var->ty.as<PtrTypeNode>();
-    if (print_ssa_form_ || !ptr || !ptr->element_type.as<tirx::TensorMapTypeNode>()) {
+    auto* ptr = op->var->ty.as<PtrTypeObj>();
+    if (print_ssa_form_ || !ptr || !ptr->element_type.as<tirx::TensorMapTypeObj>()) {
       CodeGenC::Dispatch_(op);
       return;
     }
@@ -183,7 +183,7 @@ class CodeGenCUDAHost : public CodeGenCHost {
            << ");\n";
   }
 
-  void Dispatch_(const CallNode* op, std::ostream& os) override {
+  void Dispatch_(const CallObj* op, std::ostream& os) override {
     if (op->op.same_as(tirx::stack_alloca_op()) &&
         op->args[0].as_or_throw<StringImm>()->value == "tensormap") {
       auto count = op->args[1].as_or_throw<IntImm>()->value.as<int64_t>();
@@ -246,9 +246,9 @@ class CodeGenCUDAHost : public CodeGenCHost {
     const auto* attr =
         (op->attrs.has_value() ? op->attrs.value().as<tirx::CallFFIKernelAttr>() : nullptr);
     TVM_FFI_CHECK(attr, ValueError) << "cuda_host kernel calls require CallFFIKernelAttr";
-    TVM_FFI_CHECK(!op->args.empty() && op->args[0].as<StringImmNode>(), ValueError)
+    TVM_FFI_CHECK(!op->args.empty() && op->args[0].as<StringImmObj>(), ValueError)
         << "cuda_host kernel calls require a string kernel symbol";
-    const auto& symbol = op->args[0].as<StringImmNode>()->value;
+    const auto& symbol = op->args[0].as<StringImmObj>()->value;
 
     tvm_cuda_launch::PackedLaunchPlan plan(attr->launch_fields, attr->launch_params,
                                            attr->kernel_attrs);
@@ -265,16 +265,16 @@ class CodeGenCUDAHost : public CodeGenCHost {
     for (size_t i = 1; i < op->args.size(); ++i) {
       std::string value = PrintExpr(op->args[i]);
       if (i < launch_begin) {
-        if (auto* ptr = op->args[i]->ty.as<PtrTypeNode>()) {
-          if (ptr->element_type.as<tirx::TensorMapTypeNode>()) value = "*(" + value + ")";
+        if (auto* ptr = op->args[i]->ty.as<PtrTypeObj>()) {
+          if (ptr->element_type.as<tirx::TensorMapTypeObj>()) value = "*(" + value + ")";
         }
       }
       std::string name = name_supply_->FreshName("cuda_arg");
       PrintIndent();
       Type type = op->args[i]->ty;
       if (i < launch_begin) {
-        if (auto* ptr = type.as<PtrTypeNode>()) {
-          if (ptr->element_type.as<tirx::TensorMapTypeNode>()) type = ptr->element_type;
+        if (auto* ptr = type.as<PtrTypeObj>()) {
+          if (ptr->element_type.as<tirx::TensorMapTypeObj>()) type = ptr->element_type;
         }
       }
       PrintType(type, stream);
@@ -311,7 +311,7 @@ class CodeGenCUDAHost : public CodeGenCHost {
             setter = "SetFloat";
             break;
           case tvm_cuda_launch::ValueKind::kHandle:
-            TVM_FFI_CHECK(type.as<PtrTypeNode>(), ValueError)
+            TVM_FFI_CHECK(type.as<PtrTypeObj>(), ValueError)
                 << "CUDA launch field " << info.name << " requires a host pointer/handle";
             setter = "SetHandle";
             value = "const_cast<void*>(static_cast<const void*>(" + value + "))";
@@ -355,7 +355,7 @@ class CodeGenCUDAHost : public CodeGenCHost {
     if (allow_unloading) stream << ", true";
     stream << ") != 0) return -1;\n";
   }
-  void PrintTensorMapEncode(const CallNode* op) {
+  void PrintTensorMapEncode(const CallObj* op) {
     const auto* attr =
         (op->attrs.has_value() ? op->attrs.value().as<backend::cuda::TensorMapEncodeTiledAttr>()
                                : nullptr);

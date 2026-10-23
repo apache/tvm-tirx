@@ -24,44 +24,44 @@ namespace tvm {
 namespace {
 
 // This source type deliberately has no dependency on a tensor dialect.
-class LoadSourceTypeNode : public TypeNode {
+class LoadSourceTypeObj : public TypeObj {
  public:
-  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("test.LoadSourceType", LoadSourceTypeNode, TypeNode);
+  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("test.LoadSourceType", LoadSourceTypeObj, TypeObj);
 };
 
-class InvalidLoadSourceTypeNode : public TypeNode {
+class InvalidLoadSourceTypeObj : public TypeObj {
  public:
-  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("test.InvalidLoadSourceType", InvalidLoadSourceTypeNode,
-                                    TypeNode);
+  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("test.InvalidLoadSourceType", InvalidLoadSourceTypeObj,
+                                    TypeObj);
 };
 
-PrimType InferTestLoad(const TensorLoadNode* load) {
-  EXPECT_TRUE(load->source->ty.as<LoadSourceTypeNode>());
+PrimType InferTestLoad(const TensorLoadObj* load) {
+  EXPECT_TRUE(load->source->ty.as<LoadSourceTypeObj>());
   EXPECT_TRUE(load->loc.same_as(load->source->loc));
   TVM_FFI_CHECK(!load->indices.empty(), ValueError) << "test load requires an index";
-  int64_t bits = load->indices[0].as<IntImmNode>()->value.as<int64_t>().value();
+  int64_t bits = load->indices[0].as<IntImmObj>()->value.as<int64_t>().value();
   TVM_FFI_CHECK(bits > 0, ValueError) << "test load inference failed";
   return PrimType::Int(bits);
 }
 
 TVM_FFI_STATIC_INIT_BLOCK() {
   namespace refl = ffi::reflection;
-  refl::ObjectDef<LoadSourceTypeNode>();
-  refl::ObjectDef<InvalidLoadSourceTypeNode>();
+  refl::ObjectDef<LoadSourceTypeObj>();
+  refl::ObjectDef<InvalidLoadSourceTypeObj>();
   // A packed hook can return an arbitrary value; native hooks must obey their
   // non-nullable PrimType return contract before entering the native ABI.
-  refl::TypeAttrDef<InvalidLoadSourceTypeNode>().attr(
+  refl::TypeAttrDef<InvalidLoadSourceTypeObj>().attr(
       type_attr::kTensorLoadInferType.name,
-      ffi::Function::FromTyped([](const TensorLoadNode* load) -> ffi::Any {
+      ffi::Function::FromTyped([](const TensorLoadObj* load) -> ffi::Any {
         if (load->indices.empty()) return Type::Missing();
         return nullptr;
       }));
-  refl::TypeAttrDef<LoadSourceTypeNode>().native_fn_attr<&InferTestLoad>(
+  refl::TypeAttrDef<LoadSourceTypeObj>().native_fn_attr<&InferTestLoad>(
       type_attr::kTensorLoadInferType);
 }
 
 Var LoadSource() {
-  return Var("source", ffi::GetRef<Type>(ffi::make_object<LoadSourceTypeNode>().get()),
+  return Var("source", ffi::GetRef<Type>(ffi::make_object<LoadSourceTypeObj>().get()),
              SourceLoc(SourceName::Get("tensor_load"), 1, 2, 1, 3));
 }
 
@@ -71,7 +71,7 @@ TEST(TensorLoad, SourceTypeInference) {
   EXPECT_TRUE(load->source.same_as(source));
   EXPECT_TRUE(load->loc.same_as(source->loc));
   EXPECT_EQ(load.ty(), PrimType::Int(16));
-  // The same VarNode class with another type cannot use this hook.
+  // The same VarObj class with another type cannot use this hook.
   EXPECT_THROW(TensorLoad(Var("scalar", PrimType::Int(32)), {}), ffi::Error);
 }
 
@@ -82,7 +82,7 @@ TEST(TensorLoad, InferenceFailures) {
   EXPECT_THROW(TensorLoad(Expr(ffi::UnsafeInit{}), {}), ffi::Error);
   EXPECT_THROW(TensorLoad(Var("missing", Type::Missing()), {}), ffi::Error);
   Var invalid_source("invalid",
-                     ffi::GetRef<Type>(ffi::make_object<InvalidLoadSourceTypeNode>().get()));
+                     ffi::GetRef<Type>(ffi::make_object<InvalidLoadSourceTypeObj>().get()));
   EXPECT_THROW(TensorLoad(invalid_source, {}), ffi::Error);
   EXPECT_THROW(TensorLoad(invalid_source, {IntImm::Int32(0)}), ffi::Error);
 }
@@ -96,7 +96,7 @@ TEST(TensorLoad, ExplicitTypeBypassesInference) {
   EXPECT_TRUE(load->source.same_as(source));
   EXPECT_TRUE(load->loc.same_as(source->loc));
   EXPECT_THROW(TensorLoad::Unchecked(PrimType(ffi::UnsafeInit{}), source, {}), ffi::Error);
-  auto untyped = ffi::make_object<TensorLoadNode>(source);
+  auto untyped = ffi::make_object<TensorLoadObj>(source);
   EXPECT_THROW(TensorLoad(std::move(untyped)), ffi::Error);
 }
 
@@ -105,7 +105,7 @@ class ReplaceLoadType : public ExprMutator {
   using ExprMutator::Mutate;
   explicit ReplaceLoadType(Type replacement) : replacement_(std::move(replacement)) {}
   UnchangedOr<ffi::Any> Mutate(ffi::AnyView value, InplaceMode inplace_mode) override {
-    if (value.as<PrimTypeNode>()) return ffi::Any(replacement_);
+    if (value.as<PrimTypeObj>()) return ffi::Any(replacement_);
     return ExprMutator::Mutate(value, inplace_mode);
   }
 

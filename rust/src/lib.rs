@@ -107,7 +107,7 @@
 //!
 //! /// The type of a pair of values.
 //! #[rs_class("my_ext.PairType", final)]
-//! pub struct PairTypeNode {
+//! pub struct PairTypeObj {
 //!     base: TypeObj,
 //!     pub first: Type,
 //!     pub second: Type,
@@ -116,18 +116,18 @@
 //!     pub note: tvm_ffi::String,
 //! }
 //!
-//! def_object_ref!(pub PairType, Type, PairTypeNode);
+//! def_object_ref!(pub PairType, Type, PairTypeObj);
 //!
 //! impl PairType {
 //!     pub fn new(first: impl Into<Type>, second: impl Into<Type>) -> Self {
-//!         PairTypeNode::new(TypeObj::new(Location::unknown()), first, second, "").into()
+//!         PairTypeObj::new(TypeObj::new(Location::unknown()), first, second, "").into()
 //!     }
 //! }
 //!
 //! fn main() {
 //!     let pair = PairType::new(PrimType::int(32), PrimType::float(32));
 //!     let ty: Type = pair.into(); // an `ir.Type` that C++ sees as `my_ext.PairType`
-//!     assert!(ty.as_node::<PairTypeNode>().is_some());
+//!     assert!(ty.as_node::<PairTypeObj>().is_some());
 //! }
 //! ```
 //!

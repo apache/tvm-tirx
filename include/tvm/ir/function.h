@@ -91,7 +91,7 @@ enum class LinkageType : int {
  *
  * \sa BaseFunc
  */
-class BaseFuncNode : public ExprNode {
+class BaseFuncObj : public ExprObj {
  public:
   /*! \brief Additional attributes storing the meta-data */
   DictAttrs attrs;
@@ -188,22 +188,22 @@ class BaseFuncNode : public ExprNode {
 
   static void RegisterReflection() {
     namespace refl = tvm::ffi::reflection;
-    refl::ObjectDef<BaseFuncNode>().def_ro("attrs", &BaseFuncNode::attrs);
+    refl::ObjectDef<BaseFuncObj>().def_ro("attrs", &BaseFuncObj::attrs);
   }
 
   static constexpr const uint32_t _type_child_slots = 2;
-  TVM_FFI_DECLARE_OBJECT_INFO("ir.BaseFunc", BaseFuncNode, ExprNode);
+  TVM_FFI_DECLARE_OBJECT_INFO("ir.BaseFunc", BaseFuncObj, ExprObj);
 };
 
 /*!
- * \brief Managed reference to BaseFuncNode.
- * \sa BaseFuncNode
+ * \brief Managed reference to BaseFuncObj.
+ * \sa BaseFuncObj
  */
 class BaseFunc : public Expr {
  public:
-  explicit BaseFunc(ffi::ObjectPtr<BaseFuncNode> node) : Expr(std::move(node)) {}
+  explicit BaseFunc(ffi::ObjectPtr<BaseFuncObj> node) : Expr(std::move(node)) {}
 
-  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(BaseFunc, Expr, BaseFuncNode);
+  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(BaseFunc, Expr, BaseFuncObj);
 };
 
 /*!
@@ -261,7 +261,7 @@ inline constexpr ffi::reflection::AttrKey<ffi::String> kScriptNamespace{"script.
 
 }  // namespace attr
 
-inline LinkageType BaseFuncNode::GetLinkageType() const {
+inline LinkageType BaseFuncObj::GetLinkageType() const {
   if (GetAttr(tvm::attr::kGlobalSymbol))
     return LinkageType::kExternal;
   else

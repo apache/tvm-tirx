@@ -117,7 +117,7 @@ fn types_agree_with_cpp() {
 
 /// A pair of types with a tag, defined in Rust.
 #[rs_class("testing.rust.PairType", final)]
-pub struct PairTypeNode {
+pub struct PairTypeObj {
     base: TypeObj,
     /// The first element.
     pub lhs: Type,
@@ -129,11 +129,11 @@ pub struct PairTypeNode {
     pub note: FfiString,
 }
 
-def_object_ref!(pub PairType, Type, PairTypeNode);
+def_object_ref!(pub PairType, Type, PairTypeObj);
 
 impl PairType {
     /// A copy with the fields `edit` assigns replaced (C++ `CopyOnWrite()`).
-    fn with(&self, edit: impl FnOnce(&mut PairTypeNode)) -> Self {
+    fn with(&self, edit: impl FnOnce(&mut PairTypeObj)) -> Self {
         let mut node = self.shallow_copy();
         edit(&mut node);
         node.into()
@@ -141,7 +141,7 @@ impl PairType {
 }
 
 fn pair(lhs: Type, rhs: Type, tag: i64, note: &str) -> PairType {
-    PairTypeNode::new(TypeObj::new(Location::unknown()), lhs, rhs, tag, note).into()
+    PairTypeObj::new(TypeObj::new(Location::unknown()), lhs, rhs, tag, note).into()
 }
 
 fn int_float_pair(tag: i64, note: &str) -> PairType {
@@ -172,9 +172,9 @@ where
 fn rust_type_registers_under_ir_type_with_its_fields_reflected() {
     let _serial = serial();
     // The first use registers the type and its reflection.
-    assert_type_contract::<PairTypeNode, TypeObj>(true);
+    assert_type_contract::<PairTypeObj, TypeObj>(true);
 
-    let info = runtime_type_info::<PairTypeNode>();
+    let info = runtime_type_info::<PairTypeObj>();
     let metadata = unsafe { &*info.metadata };
     assert_eq!(metadata.structural_eq_hash_kind, 1, "TreeNode, as every ir.Type");
     let fields: Vec<(String, i64, i64)> = (0..info.num_fields as usize)
@@ -186,10 +186,10 @@ fn rust_type_registers_under_ir_type_with_its_fields_reflected() {
     assert_eq!(
         fields,
         vec![
-            ("lhs".to_string(), offset_of!(PairTypeNode, lhs) as i64, 0),
-            ("rhs".to_string(), offset_of!(PairTypeNode, rhs) as i64, 0),
-            ("tag".to_string(), offset_of!(PairTypeNode, tag) as i64, 0),
-            ("note".to_string(), offset_of!(PairTypeNode, note) as i64, 1 << 3),
+            ("lhs".to_string(), offset_of!(PairTypeObj, lhs) as i64, 0),
+            ("rhs".to_string(), offset_of!(PairTypeObj, rhs) as i64, 0),
+            ("tag".to_string(), offset_of!(PairTypeObj, tag) as i64, 0),
+            ("note".to_string(), offset_of!(PairTypeObj, note) as i64, 1 << 3),
         ]
     );
 }
@@ -199,7 +199,7 @@ fn rust_type_reflection_reads_own_and_inherited_fields() {
     let _serial = serial();
     let value = int_float_pair(7, "seven");
     let get = |field: &str| -> Any {
-        FieldGetter::new(PairTypeNode::type_index(), field).unwrap().get_any(&*value).unwrap()
+        FieldGetter::new(PairTypeObj::type_index(), field).unwrap().get_any(&*value).unwrap()
     };
     assert!(Type::try_from(get("lhs")).unwrap().same_as(&value.lhs));
     assert!(Type::try_from(get("rhs")).unwrap().same_as(&value.rhs));
@@ -303,9 +303,9 @@ fn rust_type_converts_through_any_and_the_type_hierarchy() {
     let _serial = serial();
     let value = int_float_pair(1, "");
     let as_type: Type = value.clone().into();
-    assert!(as_type.as_node::<PairTypeNode>().is_some());
+    assert!(as_type.as_node::<PairTypeObj>().is_some());
     let any = Any::from(as_type);
-    assert_eq!(any.type_index(), PairTypeNode::type_index());
+    assert_eq!(any.type_index(), PairTypeObj::type_index());
     let back = PairType::try_from(any).unwrap();
     assert!(back.same_as(&value));
 }
@@ -315,7 +315,7 @@ fn rust_type_of_a_variable_takes_part_in_ir() {
     let _serial = serial();
     // The type of a variable, as `PrimType` or `TupleType` is one.
     let x = Var::new("x", int_float_pair(7, "seven"), UNKNOWN_LOC);
-    assert_eq!(x.ty.as_node::<PairTypeNode>().unwrap().tag, 7);
+    assert_eq!(x.ty.as_node::<PairTypeObj>().unwrap().tag, 7);
     assert!(structural_equal(&x.ty, &int_float_pair(7, "other")));
     assert!(!structural_equal(&x.ty, &int_float_pair(8, "seven")));
 
@@ -324,7 +324,7 @@ fn rust_type_of_a_variable_takes_part_in_ir() {
     let copy = global("ffi.DeepCopy").call_packed(&[AnyView::from(&stmt)]).unwrap();
     let copy = Evaluate::try_from(copy).unwrap();
     let copied = copy.value.as_node::<VarObj>().unwrap();
-    let ty = copied.ty.as_node::<PairTypeNode>().unwrap();
+    let ty = copied.ty.as_node::<PairTypeObj>().unwrap();
     assert_eq!((ty.tag, ty.note.as_str()), (7, "seven"));
     assert!(structural_equal(&copied.ty, &x.ty));
 }

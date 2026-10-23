@@ -29,7 +29,7 @@ namespace tirx {
 
 namespace {
 
-PrimType InferTensorLoadType(const TensorLoadNode* load) {
+PrimType InferTensorLoadType(const TensorLoadObj* load) {
   TensorVar tensor = load->source.as_or_throw<TensorVar>();
   const auto& indices = load->indices;
   TVM_FFI_ICHECK_EQ(tensor.shape().size(), indices.size())
@@ -70,7 +70,7 @@ PrimType InferTensorLoadType(const TensorLoadNode* load) {
 
 TVM_FFI_STATIC_INIT_BLOCK() {
   namespace refl = tvm::ffi::reflection;
-  refl::TypeAttrDef<TensorTypeNode>().native_fn_attr<&InferTensorLoadType>(
+  refl::TypeAttrDef<TensorTypeObj>().native_fn_attr<&InferTensorLoadType>(
       type_attr::kTensorLoadInferType);
 }
 

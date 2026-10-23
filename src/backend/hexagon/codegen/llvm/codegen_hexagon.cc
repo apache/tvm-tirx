@@ -84,8 +84,8 @@ class CodeGenHexagon final : public CodeGenCPU {
   void InitTarget() final;
 
   using CodeGenCPU::Dispatch_;
-  llvm::Value* Dispatch_(const TensorLoadNode* op) override;
-  llvm::Value* CreateIntrinsic(const CallNode* op) override;
+  llvm::Value* Dispatch_(const TensorLoadObj* op) override;
+  llvm::Value* CreateIntrinsic(const CallObj* op) override;
 
   llvm::Value* CreateCallExtern(Type ret_type, ffi::String global_symbol,
                                 const ffi::Array<Expr>& args, bool skip_first_arg) override;
@@ -203,9 +203,9 @@ llvm::Value* CodeGenHexagon::CreateCallExtern(Type ret_type, ffi::String global_
   return CodeGenCPU::CreateCallExtern(ret_type, global_symbol, args, skip_first_arg);
 }
 
-llvm::Value* CodeGenHexagon::Dispatch_(const TensorLoadNode* op) {
+llvm::Value* CodeGenHexagon::Dispatch_(const TensorLoadObj* op) {
   // Check if we can generate a vector lookup.
-  if (!op->indices[0].as<prim::RampNode>()) {
+  if (!op->indices[0].as<prim::RampObj>()) {
     if (auto* vlut = VectorLookupLoad(op->source.as_or_throw<tvm::tirx::TensorVar>(),
                                       op->ty.as_or_throw<PrimType>(), op->indices)) {
       return vlut;
@@ -214,7 +214,7 @@ llvm::Value* CodeGenHexagon::Dispatch_(const TensorLoadNode* op) {
   return CodeGenCPU::Dispatch_(op);
 }
 
-llvm::Value* CodeGenHexagon::CreateIntrinsic(const CallNode* op) {
+llvm::Value* CodeGenHexagon::CreateIntrinsic(const CallObj* op) {
   return CodeGenCPU::CreateIntrinsic(op);
 }
 
@@ -321,7 +321,7 @@ llvm::Value* CodeGenHexagon::VectorLookupLoad(TensorVar buffer, PrimType buffer_
   if (buffer_type.bits() != 8) return nullptr;
 
   int table_elem_count =
-      sym::Analyzer()->Simplify(buffer.shape()[0]).as<IntImmNode>()->value.as<int>().value();
+      sym::Analyzer()->Simplify(buffer.shape()[0]).as<IntImmObj>()->value.as<int>().value();
   if (table_elem_count <= 0 || table_elem_count > 256) return nullptr;
 
   auto int32 = PrimType::Int(32);
@@ -473,7 +473,7 @@ ffi::Module BuildHexagon(IRModule mod, Target target) {
   std::string entry_func;
 
   for (auto kv : mod->functions) {
-    if (!kv.second->IsInstance<FunctionNode>()) {
+    if (!kv.second->IsInstance<FunctionObj>()) {
       // (@jroesch): we relax constraints here, relax functions will just be ignored.
       DLOG(INFO) << "Can only lower IR Module with Functions, but got " << kv.second->GetTypeKey();
       continue;

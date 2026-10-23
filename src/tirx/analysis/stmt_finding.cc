@@ -24,16 +24,16 @@
 namespace tvm {
 namespace tirx {
 
-const FunctionNode* FindEntryFunc(const IRModule& mod, GlobalVar* result_g_var) {
+const FunctionObj* FindEntryFunc(const IRModule& mod, GlobalVar* result_g_var) {
   ffi::Optional<GlobalVar> result, last_gvar;
   // Priority 1: Function marked as `tirx::attr::kIsEntryFunc.name`
   int num_function = 0;
-  const tirx::FunctionNode* main_func = nullptr;
-  const tirx::FunctionNode* last_func = nullptr;
+  const tirx::FunctionObj* main_func = nullptr;
+  const tirx::FunctionObj* last_func = nullptr;
   for (const auto& kv : mod->functions) {
     GlobalVar gv = kv.first;
     BaseFunc base_func = kv.second;
-    if (const auto* func = base_func.as<tirx::FunctionNode>()) {
+    if (const auto* func = base_func.as<tirx::FunctionObj>()) {
       last_func = func;
       last_gvar = gv;
       if (func->HasNonzeroAttr(tvm::tirx::attr::kIsEntryFunc.name)) {

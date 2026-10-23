@@ -31,9 +31,9 @@
 namespace tvm {
 namespace tirx {
 
-static ffi::Array<Var> RegionNoBodyParams(const CallNode*) { return {}; }
+static ffi::Array<Var> RegionNoBodyParams(const CallObj*) { return {}; }
 
-ffi::Array<Var> LaunchThreadBodyParams(const CallNode* call) {
+ffi::Array<Var> LaunchThreadBodyParams(const CallObj* call) {
   auto tag = call->args[0].as_or_throw<StringImm>();
   PrimType dtype = call->args[1].as_or_throw<IntExpr>().ty();
   TVM_FFI_CHECK(!tag->value.empty(), ValueError)
@@ -43,7 +43,7 @@ ffi::Array<Var> LaunchThreadBodyParams(const CallNode* call) {
   return {PrimVar("", dtype)};
 }
 
-void ValidateBuiltinRegion(const RegionStmtNode* region) {
+void ValidateBuiltinRegion(const RegionStmtObj* region) {
   TVM_FFI_CHECK(region->result_vars.empty() && region->attrs->dict.empty(), ValueError)
       << region->op->name << " expects no results or attributes";
 }
@@ -60,13 +60,13 @@ TVM_FFI_STATIC_INIT_BLOCK() {
       .set_native_fn_attr<&ValidateBuiltinRegion>(tvm::op_attr::kRegionValidate);
 }
 
-void ValidateDeviceScopeRegion(const RegionStmtNode* region) {
+void ValidateDeviceScopeRegion(const RegionStmtObj* region) {
   TVM_FFI_CHECK(region->result_vars.empty(), ValueError)
       << region->op->name << " expects no results";
 }
 TVM_FFI_STATIC_INIT_BLOCK() {
   OpDef("tirx.device_scope", "Internal host/device splitting boundary.")
-      .signature(sig::var_args<Expr>("launch_values"), sig::call_attrs<DictAttrsNode>())
+      .signature(sig::var_args<Expr>("launch_values"), sig::call_attrs<DictAttrsObj>())
       .set_native_fn_attr<&RegionNoBodyParams>(tvm::op_attr::kRegionGetBodyParams)
       .set_native_fn_attr<&ValidateDeviceScopeRegion>(tvm::op_attr::kRegionValidate);
 }
@@ -76,7 +76,7 @@ const Op& device_entry_op() {
   return op;
 }
 
-void ValidateDeviceEntry(const RegionStmtNode* region) {
+void ValidateDeviceEntry(const RegionStmtObj* region) {
   TVM_FFI_CHECK(region->result_vars.empty() && region->body_params.empty(), ValueError)
       << "device_entry expects no results or body parameters";
   if (auto fields = region->attrs->dict.Get(tvm::backend::cuda::attr::kLaunchFields.name)) {
@@ -91,7 +91,7 @@ void ValidateDeviceEntry(const RegionStmtNode* region) {
 
 TVM_FFI_STATIC_INIT_BLOCK() {
   OpDef("tirx.device_entry", "Enter a device kernel with independent launch configuration.")
-      .signature(sig::var_args("launch_values"), sig::call_attrs<DictAttrsNode>())
+      .signature(sig::var_args("launch_values"), sig::call_attrs<DictAttrsObj>())
       .set_native_fn_attr<&RegionNoBodyParams>(tvm::op_attr::kRegionGetBodyParams)
       .set_native_fn_attr<&ValidateDeviceEntry>(tvm::op_attr::kRegionValidate);
 }

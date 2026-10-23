@@ -63,7 +63,7 @@ class LinearEqDetector : public tvm::ExprFunctor<LinearEqEntry(const Expr&, cons
     return true;
   }
 
-  LinearEqEntry Dispatch_(const prim::AddNode* op, const PrimExpr& e) final {
+  LinearEqEntry Dispatch_(const prim::AddObj* op, const PrimExpr& e) final {
     if (fail_) return LinearEqEntry();
     LinearEqEntry a = Dispatch(op->a, op->a);
     LinearEqEntry b = Dispatch(op->b, op->b);
@@ -73,7 +73,7 @@ class LinearEqDetector : public tvm::ExprFunctor<LinearEqEntry(const Expr&, cons
     return ret;
   }
 
-  LinearEqEntry Dispatch_(const prim::SubNode* op, const PrimExpr& e) final {
+  LinearEqEntry Dispatch_(const prim::SubObj* op, const PrimExpr& e) final {
     if (fail_) return LinearEqEntry();
     LinearEqEntry a = Dispatch(op->a, op->a);
     LinearEqEntry b = Dispatch(op->b, op->b);
@@ -83,7 +83,7 @@ class LinearEqDetector : public tvm::ExprFunctor<LinearEqEntry(const Expr&, cons
     return ret;
   }
 
-  LinearEqEntry Dispatch_(const prim::MulNode* op, const PrimExpr& e) final {
+  LinearEqEntry Dispatch_(const prim::MulObj* op, const PrimExpr& e) final {
     if (fail_) return LinearEqEntry();
     LinearEqEntry a = Dispatch(op->a, op->a);
     LinearEqEntry b = Dispatch(op->b, op->b);
@@ -99,7 +99,7 @@ class LinearEqDetector : public tvm::ExprFunctor<LinearEqEntry(const Expr&, cons
     ret.coeff = MulCombine(a.base, b.coeff);
     return ret;
   }
-  LinearEqEntry Dispatch_(const VarNode* op, const PrimExpr& e) final {
+  LinearEqEntry Dispatch_(const VarObj* op, const PrimExpr& e) final {
     LinearEqEntry ret;
     if (op == var_.get()) {
       PrimType dtype = op->ty.as_or_throw<PrimType>();
@@ -160,8 +160,8 @@ ffi::Array<PrimExpr> DetectLinearEquation(const PrimExpr& e, const ffi::Array<Pr
     base = std::move(ret.base).value();
   }
 
-  std::unordered_set<const VarNode*> vset;
-  auto vset_contains = [&](const VarNode* node) { return vset.count(node) != 0; };
+  std::unordered_set<const VarObj*> vset;
+  auto vset_contains = [&](const VarObj* node) { return vset.count(node) != 0; };
   auto walkfn = [&](const Var& var) -> ffi::Expected<ffi::WalkResult> {
     return vset_contains(var.get()) ? ffi::WalkResult::Interrupt(ffi::VisitInterrupt(var))
                                     : ffi::WalkResult::Advance();
@@ -179,13 +179,12 @@ ffi::Array<PrimExpr> DetectLinearEquation(const PrimExpr& e, const ffi::Array<Pr
 }
 
 // Detect clip condition as min max value
-bool DetectClipBound(const PrimExpr& cond,
-                     std::unordered_map<const VarNode*, IntervalEntry>* bmap) {
+bool DetectClipBound(const PrimExpr& cond, std::unordered_map<const VarObj*, IntervalEntry>* bmap) {
   int flag = 0;
   ffi::Optional<PrimVar> var;
   auto fvisit = [&bmap, &flag, &var](const Var& v) -> ffi::Expected<ffi::WalkResult> {
     if (auto prim_var = v.as<PrimVar>()) {
-      const VarNode* var_node = prim_var->get();
+      const VarObj* var_node = prim_var->get();
       if (bmap->count(var_node)) {
         if (flag == 0) {
           var = *prim_var;
@@ -204,21 +203,21 @@ bool DetectClipBound(const PrimExpr& cond,
   // canonical form: exp >= 0
   bool is_eq = false;
   PrimExpr canonical{ffi::UnsafeInit{}};
-  if (const prim::LTNode* op = cond.as<prim::LTNode>()) {
+  if (const prim::LTObj* op = cond.as<prim::LTObj>()) {
     PrimType a_ty = op->a.ty();
     if (!a_ty.MatchesCode(DLDataTypeCode::kDLInt)) return false;
     canonical = op->b - op->a - prim::MakeConst(a_ty, 1);
-  } else if (const prim::LENode* op = cond.as<prim::LENode>()) {
+  } else if (const prim::LEObj* op = cond.as<prim::LEObj>()) {
     if (!op->a.ty().MatchesCode(DLDataTypeCode::kDLInt)) return false;
     canonical = op->b - op->a;
-  } else if (const prim::GTNode* op = cond.as<prim::GTNode>()) {
+  } else if (const prim::GTObj* op = cond.as<prim::GTObj>()) {
     PrimType a_ty = op->a.ty();
     if (!a_ty.MatchesCode(DLDataTypeCode::kDLInt)) return false;
     canonical = op->a - op->b - prim::MakeConst(a_ty, 1);
-  } else if (const prim::GENode* op = cond.as<prim::GENode>()) {
+  } else if (const prim::GEObj* op = cond.as<prim::GEObj>()) {
     if (!op->a.ty().MatchesCode(DLDataTypeCode::kDLInt)) return false;
     canonical = op->a - op->b;
-  } else if (const prim::EQNode* op = cond.as<prim::EQNode>()) {
+  } else if (const prim::EQObj* op = cond.as<prim::EQObj>()) {
     if (!op->a.ty().MatchesCode(DLDataTypeCode::kDLInt)) return false;
     canonical = op->a - op->b;
     is_eq = true;
@@ -282,8 +281,8 @@ ffi::Array<ffi::Optional<PrimExpr>> DetectClipBound(const PrimExpr& e,
                                                     const ffi::Array<PrimVar>& vars) {
   std::vector<PrimExpr> splits;
   sym::Analyzer analyzer;
-  SplitCommExpr<prim::AndNode>(analyzer->Simplify(e), &splits);
-  std::unordered_map<const VarNode*, IntervalEntry> rmap;
+  SplitCommExpr<prim::AndObj>(analyzer->Simplify(e), &splits);
+  std::unordered_map<const VarObj*, IntervalEntry> rmap;
   for (PrimVar v : vars) {
     rmap[v.get()] = IntervalEntry();
   }

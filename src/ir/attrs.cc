@@ -26,8 +26,8 @@
 
 namespace tvm {
 
-TVM_FFI_STATIC_INIT_BLOCK() { DictAttrsNode::RegisterReflection(); }
+TVM_FFI_STATIC_INIT_BLOCK() { DictAttrsObj::RegisterReflection(); }
 
-TVM_FFI_STATIC_INIT_BLOCK() { tvm::ffi::reflection::ObjectDef<AttrsNode>(); }
+TVM_FFI_STATIC_INIT_BLOCK() { tvm::ffi::reflection::ObjectDef<AttrsObj>(); }
 
 }  // namespace tvm

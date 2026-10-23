@@ -627,9 +627,9 @@ void DocPrinter::PrintDoc(const Doc& doc) {
 
   static const auto dispatch = []() {
     ObjectFunctor<void(const ffi::ObjectRef&, DocPrinter*)> table;
-#define TVM_SCRIPT_PRINT_DISPATCH(DocType)                                                   \
-  table.SetDispatch<DocType##Node>([](const ffi::ObjectRef& obj, DocPrinter* self) {         \
-    self->PrintTypedDoc(ffi::GetRef<DocType>(static_cast<const DocType##Node*>(obj.get()))); \
+#define TVM_SCRIPT_PRINT_DISPATCH(DocType)                                                  \
+  table.SetDispatch<DocType##Obj>([](const ffi::ObjectRef& obj, DocPrinter* self) {         \
+    self->PrintTypedDoc(ffi::GetRef<DocType>(static_cast<const DocType##Obj*>(obj.get()))); \
   });
     TVM_SCRIPT_PRINT_DISPATCH(LiteralDoc);
     TVM_SCRIPT_PRINT_DISPATCH(ExprStringDoc);
@@ -781,9 +781,9 @@ enum class ExprPrecedence : int32_t {
 };
 
 ExprPrecedence GetExprPrecedence(const ExprDoc& doc) {
-  // Key is the value of OperationDocNode::Kind
+  // Key is the value of OperationDocObj::Kind
   static const std::vector<ExprPrecedence> op_kind_precedence = []() {
-    using OpKind = OperationDocNode::Kind;
+    using OpKind = OperationDocObj::Kind;
     std::map<OpKind, ExprPrecedence> raw_table = {
         {OpKind::kUSub, ExprPrecedence::kUnary},
         {OpKind::kInvert, ExprPrecedence::kUnary},
@@ -821,20 +821,20 @@ ExprPrecedence GetExprPrecedence(const ExprDoc& doc) {
 
   // Key is the type index of Doc
   static const std::unordered_map<uint32_t, ExprPrecedence> doc_type_precedence = {
-      {LiteralDocNode::RuntimeTypeIndex(), ExprPrecedence::kIdentity},
-      {ExprStringDocNode::RuntimeTypeIndex(), ExprPrecedence::kIdentity},
-      {IdDocNode::RuntimeTypeIndex(), ExprPrecedence::kIdentity},
-      {NamespaceDocNode::RuntimeTypeIndex(), ExprPrecedence::kIdentity},
-      {AttrAccessDocNode::RuntimeTypeIndex(), ExprPrecedence::kIdentity},
-      {IndexDocNode::RuntimeTypeIndex(), ExprPrecedence::kIdentity},
-      {CallDocNode::RuntimeTypeIndex(), ExprPrecedence::kIdentity},
-      {LambdaDocNode::RuntimeTypeIndex(), ExprPrecedence::kLambda},
-      {TupleDocNode::RuntimeTypeIndex(), ExprPrecedence::kIdentity},
-      {ListDocNode::RuntimeTypeIndex(), ExprPrecedence::kIdentity},
-      {DictDocNode::RuntimeTypeIndex(), ExprPrecedence::kIdentity},
+      {LiteralDocObj::RuntimeTypeIndex(), ExprPrecedence::kIdentity},
+      {ExprStringDocObj::RuntimeTypeIndex(), ExprPrecedence::kIdentity},
+      {IdDocObj::RuntimeTypeIndex(), ExprPrecedence::kIdentity},
+      {NamespaceDocObj::RuntimeTypeIndex(), ExprPrecedence::kIdentity},
+      {AttrAccessDocObj::RuntimeTypeIndex(), ExprPrecedence::kIdentity},
+      {IndexDocObj::RuntimeTypeIndex(), ExprPrecedence::kIdentity},
+      {CallDocObj::RuntimeTypeIndex(), ExprPrecedence::kIdentity},
+      {LambdaDocObj::RuntimeTypeIndex(), ExprPrecedence::kLambda},
+      {TupleDocObj::RuntimeTypeIndex(), ExprPrecedence::kIdentity},
+      {ListDocObj::RuntimeTypeIndex(), ExprPrecedence::kIdentity},
+      {DictDocObj::RuntimeTypeIndex(), ExprPrecedence::kIdentity},
   };
 
-  if (const auto* op_doc = doc.as<OperationDocNode>()) {
+  if (const auto* op_doc = doc.as<OperationDocObj>()) {
     size_t kind = static_cast<int>(op_doc->kind);
     TVM_FFI_CHECK_LT(kind, op_kind_precedence.size(), ValueError) << "Invalid operation: " << kind;
     ExprPrecedence precedence = op_kind_precedence[kind];
@@ -891,7 +891,7 @@ class PythonDocPrinter : public DocPrinter {
 
  private:
   /*! \brief Borrowed tuple whose parentheses are omitted during the active print call. */
-  const TupleDocNode* unparenthesized_tuple_{nullptr};
+  const TupleDocObj* unparenthesized_tuple_{nullptr};
   /*! \brief Whether that tuple's singleton comma is supplied by the surrounding syntax. */
   bool omit_tuple_singleton_comma_{false};
 
@@ -1080,14 +1080,14 @@ void PythonDocPrinter::PrintTypedDoc(const LiteralDoc& doc) {
   const ffi::Any& value = doc->value;
   if (value == nullptr) {
     output_ << "None";
-  } else if (const auto* int_imm = value.as<IntImmNode>()) {
+  } else if (const auto* int_imm = value.as<IntImmObj>()) {
     PrimType int_ty = int_imm->ty.as_or_throw<PrimType>();
     if (int_ty.MatchesCode(DLDataTypeCode::kDLBool)) {
       output_ << (int_imm->value ? "True" : "False");
     } else {
       output_ << int_imm->value;
     }
-  } else if (const auto* float_imm = value.as<FloatImmNode>()) {
+  } else if (const auto* float_imm = value.as<FloatImmObj>()) {
     // TODO(yelite): Make float number printing roundtrippable
     if (std::isinf(float_imm->value) || std::isnan(float_imm->value)) {
       output_ << '"' << float_imm->value << '"';
@@ -1150,9 +1150,9 @@ void PythonDocPrinter::PrintTypedDoc(const IndexDoc& doc) {
   }
 }
 
-const std::string OperatorToString(OperationDocNode::Kind operation_kind) {
+const std::string OperatorToString(OperationDocObj::Kind operation_kind) {
   static const std::vector<std::string> op_kind2str = []() {
-    using OpKind = OperationDocNode::Kind;
+    using OpKind = OperationDocObj::Kind;
     std::map<OpKind, std::string> raw_table = {
         {OpKind::kUSub, "-"},       //
         {OpKind::kInvert, "~"},     //
@@ -1181,7 +1181,7 @@ const std::string OperatorToString(OperationDocNode::Kind operation_kind) {
     };
 
     std::vector<std::string> table;
-    table.resize(static_cast<int>(OperationDocNode::Kind::kSpecialEnd) + 1);
+    table.resize(static_cast<int>(OperationDocObj::Kind::kSpecialEnd) + 1);
 
     for (const auto& kv : raw_table) {
       table[static_cast<int>(kv.first)] = kv.second;
@@ -1193,13 +1193,13 @@ const std::string OperatorToString(OperationDocNode::Kind operation_kind) {
   auto op_index = static_cast<int>(operation_kind);
   TVM_FFI_ICHECK_LT(op_index, op_kind2str.size());
   const std::string str = op_kind2str[op_index];
-  TVM_FFI_ICHECK(!str.empty()) << "OperationDocNode::Kind " << static_cast<int>(operation_kind)
+  TVM_FFI_ICHECK(!str.empty()) << "OperationDocObj::Kind " << static_cast<int>(operation_kind)
                                << " cannot be converted to operator token in Python directly.";
   return str;
 }
 
 void PythonDocPrinter::PrintTypedDoc(const OperationDoc& doc) {
-  using OpKind = OperationDocNode::Kind;
+  using OpKind = OperationDocObj::Kind;
   if (doc->kind < OpKind::kUnaryEnd) {
     // Unary Operators
     TVM_FFI_ICHECK_EQ(doc->operands.size(), 1);
@@ -1229,8 +1229,7 @@ void PythonDocPrinter::PrintTypedDoc(const OperationDoc& doc) {
     output_ << " else ";
     PrintChildExprConservatively(doc->operands[2], doc);
   } else {
-    TVM_FFI_THROW(InternalError) << "Unknown OperationDocNode::Kind "
-                                 << static_cast<int>(doc->kind);
+    TVM_FFI_THROW(InternalError) << "Unknown OperationDocObj::Kind " << static_cast<int>(doc->kind);
     throw;
   }
 }
@@ -1339,9 +1338,9 @@ void PythonDocPrinter::PrintTypedDoc(const StmtBlockDoc& doc) {
 
 void PythonDocPrinter::PrintAssignment(const ExprDoc& lhs, const ffi::Optional<ExprDoc>& rhs,
                                        const ffi::Optional<ExprDoc>& annotation) {
-  const TupleDocNode* outer_tuple = unparenthesized_tuple_;
+  const TupleDocObj* outer_tuple = unparenthesized_tuple_;
   bool outer_comma = omit_tuple_singleton_comma_;
-  unparenthesized_tuple_ = lhs.as<TupleDocNode>();
+  unparenthesized_tuple_ = lhs.as<TupleDocObj>();
   omit_tuple_singleton_comma_ = true;
   PrintDoc(lhs);
   unparenthesized_tuple_ = outer_tuple;
@@ -1353,7 +1352,7 @@ void PythonDocPrinter::PrintAssignment(const ExprDoc& lhs, const ffi::Optional<E
   }
   if (rhs) {
     output_ << " = ";
-    if (const auto* tuple = rhs.as<TupleDocNode>(); tuple && tuple->elements.size() > 1) {
+    if (const auto* tuple = rhs.as<TupleDocObj>(); tuple && tuple->elements.size() > 1) {
       unparenthesized_tuple_ = tuple;
     }
     PrintDoc(rhs.value());
@@ -1397,8 +1396,8 @@ void PythonDocPrinter::PrintTypedDoc(const ContinueDoc& doc) { output_ << "conti
 void PythonDocPrinter::PrintTypedDoc(const ForDoc& doc) {
   MaybePrintCommenMultiLines(doc, true);
   output_ << "for ";
-  const TupleDocNode* outer_tuple = unparenthesized_tuple_;
-  unparenthesized_tuple_ = doc->lhs.as<TupleDocNode>();
+  const TupleDocObj* outer_tuple = unparenthesized_tuple_;
+  unparenthesized_tuple_ = doc->lhs.as<TupleDocObj>();
   PrintDoc(doc->lhs);
   unparenthesized_tuple_ = outer_tuple;
   output_ << " in ";
@@ -1525,10 +1524,10 @@ void CollectAnnotationTargets(ffi::AnyView value, ffi::Optional<StmtDoc> enclosi
   const ffi::Object* object = value.as<ffi::Object>();
   if (!object || !active->insert(object).second) return;
   if (auto stmt = value.as<StmtDoc>();
-      stmt && !value.as<StmtBlockDocNode>() && !(function_parameter && value.as<AssignDocNode>())) {
+      stmt && !value.as<StmtBlockDocObj>() && !(function_parameter && value.as<AssignDocObj>())) {
     enclosing = stmt.value();
   }
-  if (auto doc = value.as<DocNode>(); doc && enclosing.has_value()) {
+  if (auto doc = value.as<DocObj>(); doc && enclosing.has_value()) {
     for (const AccessPath& path : doc->source_paths) {
       targets->emplace_back(path, enclosing.value());
     }
@@ -1571,8 +1570,8 @@ void AttachAnnotations(const Doc& root, const ffi::Map<AccessPath, ffi::String>&
     for (const auto& [path, stmt] : targets) {
       if (path->depth != deepest || !path->IsPrefixOf(requested)) continue;
       if (!attached[stmt.get()].insert(std::string(message)).second) continue;
-      bool inline_comment = stmt.as<AssignDocNode>() || stmt.as<ExprStmtDocNode>() ||
-                            stmt.as<AssertDocNode>() || stmt.as<ReturnDocNode>();
+      bool inline_comment = stmt.as<AssignDocObj>() || stmt.as<ExprStmtDocObj>() ||
+                            stmt.as<AssertDocObj>() || stmt.as<ReturnDocObj>();
       std::string text = message;
       if (inline_comment) {
         // Diagnostic requests may converge on one visible statement. Keep

@@ -53,7 +53,7 @@ ffi::Optional<ExprDoc> NoneTypeDocTranslate(DocTranslatorObj*, ffi::AnyView, con
 }
 
 TVM_FFI_STATIC_INIT_BLOCK() {
-  ffi::reflection::TypeAttrDef<NoneTypeNode>().attr(
+  ffi::reflection::TypeAttrDef<NoneTypeObj>().attr(
       tvm::script::printer::type_attr::kDocTranslate.name,
       FDocTranslate::FromNative<&NoneTypeDocTranslate>());
 }
@@ -80,7 +80,7 @@ bool HasPrimTypeShorthand(const PrimType& type) {
 ffi::Optional<ExprDoc> IntImmDocTranslate(DocTranslatorObj* d, ffi::AnyView input,
                                           const ffi::Object*) {
   const auto* imm =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const IntImmNode>(input);
+      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const IntImmObj>(input);
   DLDataType dtype = imm->ty.as_or_throw<PrimType>()->dtype;
   ExprDoc value = LiteralDoc::Int(ffi::GetRef<IntImm>(imm), std::nullopt);
   DLDataType default_dtype =
@@ -97,7 +97,7 @@ ffi::Optional<ExprDoc> IntImmDocTranslate(DocTranslatorObj* d, ffi::AnyView inpu
 }
 
 TVM_FFI_STATIC_INIT_BLOCK() {
-  ffi::reflection::TypeAttrDef<IntImmNode>().attr(
+  ffi::reflection::TypeAttrDef<IntImmObj>().attr(
       tvm::script::printer::type_attr::kDocTranslate.name,
       FDocTranslate::FromNative<&IntImmDocTranslate>());
 }
@@ -105,7 +105,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
 ffi::Optional<ExprDoc> FloatImmDocTranslate(DocTranslatorObj* d, ffi::AnyView input,
                                             const ffi::Object*) {
   const auto* imm =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const FloatImmNode>(input);
+      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const FloatImmObj>(input);
   DLDataType dtype = imm->ty.as_or_throw<PrimType>()->dtype;
   DLDataType default_dtype =
       ffi::StringToDLDataType(d->GetExtraConfig<ffi::String>("ir.float_dtype", "void"));
@@ -125,7 +125,7 @@ ffi::Optional<ExprDoc> FloatImmDocTranslate(DocTranslatorObj* d, ffi::AnyView in
 }
 
 TVM_FFI_STATIC_INIT_BLOCK() {
-  ffi::reflection::TypeAttrDef<FloatImmNode>().attr(
+  ffi::reflection::TypeAttrDef<FloatImmObj>().attr(
       tvm::script::printer::type_attr::kDocTranslate.name,
       FDocTranslate::FromNative<&FloatImmDocTranslate>());
 }
@@ -133,7 +133,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
 ffi::Optional<ExprDoc> PrimTypeDocTranslate(DocTranslatorObj*, ffi::AnyView input,
                                             const ffi::Object*) {
   const auto* ty =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const PrimTypeNode>(input);
+      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const PrimTypeObj>(input);
   PrimType type = ffi::GetRef<PrimType>(ty);
   // Other widths and fixed or scalable vectors have no exported TIRx shorthand.
   if (HasPrimTypeShorthand(type)) {
@@ -145,7 +145,7 @@ ffi::Optional<ExprDoc> PrimTypeDocTranslate(DocTranslatorObj*, ffi::AnyView inpu
 }
 
 TVM_FFI_STATIC_INIT_BLOCK() {
-  ffi::reflection::TypeAttrDef<PrimTypeNode>().attr(
+  ffi::reflection::TypeAttrDef<PrimTypeObj>().attr(
       tvm::script::printer::type_attr::kDocTranslate.name,
       FDocTranslate::FromNative<&PrimTypeDocTranslate>());
 }
@@ -153,7 +153,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
 ffi::Optional<ExprDoc> PtrTypeDocTranslate(DocTranslatorObj* d, ffi::AnyView input,
                                            const ffi::Object*) {
   const auto* ty =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const PtrTypeNode>(input);
+      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const PtrTypeObj>(input);
   return d->WithExtraStateScope<bool>("ir.explicit_value_type", true, [&]() -> ExprDoc {
     ffi::Array<ExprDoc> args{d->Translate(ty->element_type).value()};
     if (ty->scope != runtime::MemoryScope::Global()) {
@@ -164,7 +164,7 @@ ffi::Optional<ExprDoc> PtrTypeDocTranslate(DocTranslatorObj* d, ffi::AnyView inp
 }
 
 TVM_FFI_STATIC_INIT_BLOCK() {
-  ffi::reflection::TypeAttrDef<PtrTypeNode>().attr(
+  ffi::reflection::TypeAttrDef<PtrTypeObj>().attr(
       tvm::script::printer::type_attr::kDocTranslate.name,
       FDocTranslate::FromNative<&PtrTypeDocTranslate>());
 }
@@ -177,7 +177,7 @@ ffi::Optional<ExprDoc> TensorRegionTypeDocTranslate(DocTranslatorObj*, ffi::AnyV
 }
 
 TVM_FFI_STATIC_INIT_BLOCK() {
-  ffi::reflection::TypeAttrDef<TensorRegionTypeNode>().attr(
+  ffi::reflection::TypeAttrDef<TensorRegionTypeObj>().attr(
       tvm::script::printer::type_attr::kDocTranslate.name,
       FDocTranslate::FromNative<&TensorRegionTypeDocTranslate>());
 }
@@ -185,7 +185,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
 ffi::Optional<ExprDoc> TupleTypeDocTranslate(DocTranslatorObj* d, ffi::AnyView input,
                                              const ffi::Object*) {
   const auto* ty =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const TupleTypeNode>(input);
+      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const TupleTypeObj>(input);
   ExprDoc callee = NamespaceDoc("ir")->Attr("Tuple");
   ffi::Array<ExprDoc> fields;
   for (const Type& field : ty->fields) fields.push_back(d->Translate(field).value());
@@ -193,7 +193,7 @@ ffi::Optional<ExprDoc> TupleTypeDocTranslate(DocTranslatorObj* d, ffi::AnyView i
 }
 
 TVM_FFI_STATIC_INIT_BLOCK() {
-  ffi::reflection::TypeAttrDef<TupleTypeNode>().attr(
+  ffi::reflection::TypeAttrDef<TupleTypeObj>().attr(
       tvm::script::printer::type_attr::kDocTranslate.name,
       FDocTranslate::FromNative<&TupleTypeDocTranslate>());
 }

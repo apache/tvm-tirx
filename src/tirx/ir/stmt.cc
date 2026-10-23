@@ -100,7 +100,7 @@ void ValidateTensorStore(const Expr& dest, const ffi::Array<PrimExpr>& indices,
 
 TVM_FFI_STATIC_INIT_BLOCK() {
   namespace refl = ffi::reflection;
-  refl::TypeAttrDef<TensorTypeNode>().native_fn_attr<&ValidateTensorStore>(
+  refl::TypeAttrDef<TensorTypeObj>().native_fn_attr<&ValidateTensorStore>(
       type_attr::kTensorStoreValidateByTy);
 }
 

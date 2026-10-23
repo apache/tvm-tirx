@@ -60,12 +60,12 @@ class DeviceRegionAnnotater : public StmtExprMutator {
   using StmtExprMutator::Mutate;
   using StmtExprMutator::Mutate_;
   UnchangedOr<ffi::Any> Mutate(ffi::AnyView input, InplaceMode inplace_mode) override {
-    if (input.as<ExprNode>()) return ffi::Unchanged();
+    if (input.as<ExprObj>()) return ffi::Unchanged();
     return StmtExprMutator::Mutate(input, inplace_mode);
   }
   explicit DeviceRegionAnnotater(Target device_target) : device_target_(device_target) {}
 
-  UnchangedOr<Stmt> Mutate_(const RegionStmtNode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<Stmt> Mutate_(const RegionStmtObj* op, InplaceMode inplace_mode) final {
     static const Op device_scope = Op::Get("tirx.device_scope");
     if (op->op.same_as(device_scope)) {
       if (op->attrs->dict.count(tvm::attr::kTarget.name)) return ffi::Unchanged();
@@ -106,7 +106,7 @@ Function AnnotateDeviceRegionsForSplit(Function func) {
 
 // Launch operands belong to the host region, independently of device captures.
 Stmt MakeCudaKernelLaunch(const GlobalVar& symbol, Function* func, ffi::Array<Expr> args,
-                          const RegionStmtNode* region);
+                          const RegionStmtObj* region);
 
 // Host/device function extraction
 
@@ -115,14 +115,14 @@ class HostDeviceSplitter : public StmtExprMutator {
   using StmtExprMutator::Mutate;
   using StmtExprMutator::Mutate_;
   UnchangedOr<ffi::Any> Mutate(ffi::AnyView input, InplaceMode inplace_mode) override {
-    if (input.as<ExprNode>()) return ffi::Unchanged();
+    if (input.as<ExprObj>()) return ffi::Unchanged();
     return StmtExprMutator::Mutate(input, inplace_mode);
   }
   explicit HostDeviceSplitter(IRModule* device_mod, std::function<GlobalVar()> var_supply,
                               Function cur_func)
       : device_mod_(device_mod), var_supply_(var_supply), cur_func_(cur_func) {}
 
-  UnchangedOr<Stmt> Mutate_(const RegionStmtNode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<Stmt> Mutate_(const RegionStmtObj* op, InplaceMode inplace_mode) final {
     static const Op device_scope = Op::Get("tirx.device_scope");
     if (op->op.same_as(device_scope)) {
       auto target = op->attrs->dict.Get(tvm::attr::kTarget.name);
@@ -137,7 +137,7 @@ class HostDeviceSplitter : public StmtExprMutator {
   class KernelBodyRewriter : public StmtExprMutator {
    public:
     using StmtExprMutator::Mutate_;
-    UnchangedOr<Stmt> Mutate_(const RegionStmtNode* op, InplaceMode inplace_mode) final {
+    UnchangedOr<Stmt> Mutate_(const RegionStmtObj* op, InplaceMode inplace_mode) final {
       static const Op device_scope = Op::Get("tirx.device_scope");
       if (op->op.same_as(device_scope)) {
         return Mutate(op->body, inplace_mode).ValueOrUnchanged(op->body);
@@ -146,7 +146,7 @@ class HostDeviceSplitter : public StmtExprMutator {
     }
   };
 
-  Stmt SplitDeviceFunc(Stmt body, Target device_target, const RegionStmtNode* region) {
+  Stmt SplitDeviceFunc(Stmt body, Target device_target, const RegionStmtObj* region) {
     auto [params,
           tensors_to_declare] = [&]() -> std::tuple<ffi::Array<Var>, ffi::Array<TensorVar>> {
       ffi::Array<Var> undefined = UndefinedVars(body);
@@ -160,7 +160,7 @@ class HostDeviceSplitter : public StmtExprMutator {
       std::sort(params.begin(), params.end(), [](const Var& a, const Var& b) {
         auto sort_key = [](const Var& var) {
           bool is_handle =
-              var->ty.as<PtrTypeNode>() != nullptr || var->ty.as<TensorTypeNode>() != nullptr;
+              var->ty.as<PtrTypeObj>() != nullptr || var->ty.as<TensorTypeObj>() != nullptr;
           return std::tuple{
               !is_handle,
               var->name,
@@ -179,7 +179,7 @@ class HostDeviceSplitter : public StmtExprMutator {
     ffi::Map<Var, Var> tensor_data_params;
     auto kernel_rewriter = ffi::make_object<KernelBodyRewriter>();
     for (const Var& param : params) {
-      if (param->ty.as<TensorTypeNode>()) {
+      if (param->ty.as<TensorTypeObj>()) {
         TensorVar tensor = param.as_or_throw<TensorVar>();
         TensorVar kernel_tensor(tensor->name, tensor.ty(), tensor->loc);
         Var data_param(tensor->name + "_ptr", tensor.ty()->DataPtrType());
@@ -320,7 +320,7 @@ class DeviceInfoCollector : public StmtExprVisitor {
   explicit DeviceInfoCollector(Target target) : info_(std::move(target)) {}
 
   ffi::Optional<VisitInterrupt> Visit(ffi::AnyView value) override {
-    if (value.as<ExprNode>()) return std::nullopt;
+    if (value.as<ExprObj>()) return std::nullopt;
     return StmtExprVisitor::Visit(value);
   }
   static KernelInfo Collect(const GlobalVar& gvar, const Function& func,
@@ -355,7 +355,7 @@ class DeviceInfoCollector : public StmtExprVisitor {
     }
     // Dynamic shared memory remains the final legacy launch operand.
     if (!collector->dyn_shmem_size.has_value() && collector->inferred_shmem_size_.has_value()) {
-      const auto* inferred = collector->inferred_shmem_size_.value().as<IntImmNode>();
+      const auto* inferred = collector->inferred_shmem_size_.value().as<IntImmObj>();
       TVM_FFI_ICHECK(allow_placeholder || !(inferred && inferred->value == 0))
           << "Function " << gvar->name_hint
           << " allocates dynamic shared memory with a placeholder extent but does not declare "
@@ -399,8 +399,8 @@ class DeviceInfoCollector : public StmtExprVisitor {
     return extent.value();
   }
 
-  ffi::Optional<VisitInterrupt> Visit_(const BindNode* op) final {
-    if (const auto* call = op->value.as<CallNode>(); call && call->op.same_as(alloc_tensor_op()))
+  ffi::Optional<VisitInterrupt> Visit_(const BindObj* op) final {
+    if (const auto* call = op->value.as<CallObj>(); call && call->op.same_as(alloc_tensor_op()))
       return DispatchAllocTensor(op, call);
     // Track Bind definitions so that launch extents and
     // dyn_shmem_size expressions that reference locally-bound
@@ -423,7 +423,7 @@ class DeviceInfoCollector : public StmtExprVisitor {
     return StmtExprVisitor::Visit_(op);
   }
 
-  ffi::Optional<VisitInterrupt> Visit_(const RegionStmtNode* op) final {
+  ffi::Optional<VisitInterrupt> Visit_(const RegionStmtObj* op) final {
     if (op->op.same_as(tirx::launch_thread_op()) &&
         std::string(op->args[0].as_or_throw<StringImm>()->value).rfind("vthread", 0) != 0) {
       ffi::String thread_tag = op->args[0].as_or_throw<StringImm>()->value;
@@ -451,7 +451,7 @@ class DeviceInfoCollector : public StmtExprVisitor {
     return result;
   }
 
-  ffi::Optional<VisitInterrupt> DispatchAllocTensor(const BindNode* op, const CallNode* call) {
+  ffi::Optional<VisitInterrupt> DispatchAllocTensor(const BindObj* op, const CallObj* call) {
     static const auto scope_shared_dyn = runtime::MemoryScope::Get("shared.dyn");
 
     runtime::MemoryScope scope = call->ty_args[0].as_or_throw<TensorType>()->scope;
@@ -515,8 +515,8 @@ class ReturnRemover : public StmtExprMutator {
   explicit ReturnRemover(bool remove) : remove_(remove) {}
 
  private:
-  UnchangedOr<Stmt> Mutate_(const ReturnNode* op, InplaceMode inplace_mode) override {
-    auto as_int = op->value.as<IntImmNode>();
+  UnchangedOr<Stmt> Mutate_(const ReturnObj* op, InplaceMode inplace_mode) override {
+    auto as_int = op->value.as<IntImmObj>();
     TVM_FFI_ICHECK(as_int && as_int->value == 0)
         << "Device kernel may only contain a successful return, return 0";
     return remove_ ? Evaluate(0) : ffi::GetRef<Stmt>(op);
@@ -527,7 +527,7 @@ class ReturnRemover : public StmtExprMutator {
 
 class GlobalVarCallCollector : public StmtExprVisitor {
  public:
-  static std::unordered_set<const GlobalVarNode*> Collect(const IRModule& mod) {
+  static std::unordered_set<const GlobalVarObj*> Collect(const IRModule& mod) {
     auto collector = ffi::make_object<GlobalVarCallCollector>();
     for (const auto& [gvar, base_func] : mod->functions) {
       if (auto function = base_func.as<Function>()) {
@@ -540,20 +540,20 @@ class GlobalVarCallCollector : public StmtExprVisitor {
  private:
   using Parent = StmtExprVisitor;
 
-  ffi::Optional<VisitInterrupt> Visit_(const CallNode* op) final {
-    if (auto* gvar = op->op.as<GlobalVarNode>()) {
+  ffi::Optional<VisitInterrupt> Visit_(const CallObj* op) final {
+    if (auto* gvar = op->op.as<GlobalVarObj>()) {
       called_gvars_.insert(gvar);
     }
     return Parent::Visit_(op);
   }
 
-  std::unordered_set<const GlobalVarNode*> called_gvars_;
+  std::unordered_set<const GlobalVarObj*> called_gvars_;
 };
 
 }  // namespace
 
 Stmt MakeCudaKernelLaunch(const GlobalVar& symbol, Function* func, ffi::Array<Expr> args,
-                          const RegionStmtNode* region) {
+                          const RegionStmtObj* region) {
   auto fields = region->attrs->dict.at(tvm::backend::cuda::attr::kLaunchFields.name)
                     .as_or_throw<ffi::Array<ffi::String>>();
   ffi::Array<Expr> values = region->args;
@@ -604,7 +604,7 @@ Stmt MakeCudaKernelLaunch(const GlobalVar& symbol, Function* func, ffi::Array<Ex
           sym::Analyzer analyzer;
           auto value = analyzer->Simplify(values[i].as_or_throw<PrimExpr>());
           // Zero denotes a dynamic dimension; never emit static launch bounds for it.
-          dimension = value.as<IntImmNode>() ? value : IntImm::Int32(0);
+          dimension = value.as<IntImmObj>() ? value : IntImm::Int32(0);
         }
       }
       dimensions.push_back(dimension);
@@ -634,7 +634,7 @@ class DeviceKernelMutator : public StmtExprMutator {
   using StmtExprMutator::Mutate_;
   using Parent = StmtExprMutator;
 
-  explicit DeviceKernelMutator(std::unordered_map<const GlobalVarNode*, KernelInfo> device_info_map)
+  explicit DeviceKernelMutator(std::unordered_map<const GlobalVarObj*, KernelInfo> device_info_map)
       : device_info_map_(std::move(device_info_map)) {}
 
   Function RewriteKernelLaunchSite(const GlobalVar& gvar, Function func) {
@@ -707,18 +707,18 @@ class DeviceKernelMutator : public StmtExprMutator {
   }
 
  private:
-  UnchangedOr<Expr> Mutate_(const CallNode* op, InplaceMode inplace_mode) override {
+  UnchangedOr<Expr> Mutate_(const CallObj* op, InplaceMode inplace_mode) override {
     auto node = Parent::Mutate_(op, inplace_mode)
                     .ValueOrUnchanged(ffi::GetRef<Expr>(op))
                     .as_or_throw<Call>();
 
-    auto* gvar = op->op.as<GlobalVarNode>();
+    auto* gvar = op->op.as<GlobalVarObj>();
     if (!gvar) return node;
 
     auto it = device_info_map_.find(gvar);
     TVM_FFI_ICHECK(it != device_info_map_.end())
-        << "CallNode attempted subroutine call to " << gvar->name_hint << ", but "
-        << gvar->name_hint << " did not appear within the IRModule";
+        << "CallObj attempted subroutine call to " << gvar->name_hint << ", but " << gvar->name_hint
+        << " did not appear within the IRModule";
     const KernelInfo& dev_info = it->second;
 
     auto callee_target = dev_info.target;
@@ -786,7 +786,7 @@ class DeviceKernelMutator : public StmtExprMutator {
     }
 
     TVM_FFI_ICHECK(dev_info.launch_params.defined())
-        << "CallNode attempted kernel launch to " << gvar->name_hint << " on target "
+        << "CallObj attempted kernel launch to " << gvar->name_hint << " on target "
         << dev_info.target << ", but subroutine " << gvar->name_hint
         << " did not have the tvm::tirx::attr::kKernelLaunchParams.name attribute "
         << "required for cross-target kernel launch";
@@ -842,15 +842,15 @@ class DeviceKernelMutator : public StmtExprMutator {
   // host-to-host subroutine calls are not misrouted through the
   // device kernel-launch ABI.
   ffi::Optional<Target> current_caller_host_target_;
-  std::unordered_map<const GlobalVarNode*, KernelInfo> device_info_map_;
-  std::unordered_set<const GlobalVarNode*> device_kernel_launch_;
-  std::unordered_set<const GlobalVarNode*> extern_function_call_;
+  std::unordered_map<const GlobalVarObj*, KernelInfo> device_info_map_;
+  std::unordered_set<const GlobalVarObj*> device_kernel_launch_;
+  std::unordered_set<const GlobalVarObj*> extern_function_call_;
 };
 
 IRModule LowerDeviceKernelLaunches(IRModule mod) {
   auto mutator = [&mod]() {
-    std::unordered_set<const GlobalVarNode*> called_gvars = GlobalVarCallCollector::Collect(mod);
-    std::unordered_map<const GlobalVarNode*, KernelInfo> device_info_map;
+    std::unordered_set<const GlobalVarObj*> called_gvars = GlobalVarCallCollector::Collect(mod);
+    std::unordered_map<const GlobalVarObj*, KernelInfo> device_info_map;
     for (const auto& [gvar, base_func] : mod->functions) {
       if (called_gvars.count(gvar.get())) {
         if (auto function = base_func.as<Function>()) {
@@ -864,7 +864,7 @@ IRModule LowerDeviceKernelLaunches(IRModule mod) {
   {
     IRModule updates;
     for (const auto& [gvar, base_func] : mod->functions) {
-      if (auto* ptr = base_func.as<FunctionNode>()) {
+      if (auto* ptr = base_func.as<FunctionObj>()) {
         auto function = mutator->RewriteKernelLaunchSite(gvar, ffi::GetRef<Function>(ptr));
         if (!function.same_as(base_func)) {
           updates->Add(gvar, function);
@@ -880,7 +880,7 @@ IRModule LowerDeviceKernelLaunches(IRModule mod) {
   {
     IRModule updates;
     for (const auto& [gvar, base_func] : mod->functions) {
-      if (auto* ptr = base_func.as<FunctionNode>()) {
+      if (auto* ptr = base_func.as<FunctionObj>()) {
         auto function = mutator->UpdateKernelAttributes(gvar, ffi::GetRef<Function>(ptr));
         if (!function.same_as(base_func)) {
           updates->Add(gvar, function);

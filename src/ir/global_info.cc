@@ -28,7 +28,7 @@ namespace tvm {
 
 TVM_FFI_STATIC_INIT_BLOCK() {
   namespace refl = tvm::ffi::reflection;
-  refl::ObjectDef<GlobalInfoNode>();
+  refl::ObjectDef<GlobalInfoObj>();
 }
 
 }  // namespace tvm

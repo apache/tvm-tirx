@@ -71,10 +71,10 @@ class CodeGenCPU : public CodeGenLLVM {
   void AddFunction(const GlobalVar& gvar, const Function& f) override;
   void AddMainFunction(const std::string& entry_func_name) override;
   std::unique_ptr<llvm::Module> Finish() override;
-  void Dispatch_(const AssertStmtNode* op) override;
-  void Dispatch_(const RegionStmtNode* op) override;
-  void Dispatch_(const ForNode* op) override;
-  llvm::Value* CreateIntrinsic(const CallNode* op) override;
+  void Dispatch_(const AssertStmtObj* op) override;
+  void Dispatch_(const RegionStmtObj* op) override;
+  void Dispatch_(const ForObj* op) override;
+  llvm::Value* CreateIntrinsic(const CallObj* op) override;
   llvm::Value* CreateCallExtern(Type ret_type, ffi::String global_symbol,
                                 const ffi::Array<Expr>& args, bool skip_first_arg) override;
 
@@ -133,7 +133,7 @@ class CodeGenCPU : public CodeGenLLVM {
                                std::string struct_name = "");
   TypedPointer CreateStructRefPtr(Type type, llvm::Value* buffer, llvm::Value* index, int kind);
   void UnpackClosureData(TypedPointer cdata, const ffi::Array<Var>& fields,
-                         std::unordered_map<const VarNode*, llvm::Value*>* vmap);
+                         std::unordered_map<const VarObj*, llvm::Value*>* vmap);
   // Make packed call.
   struct PackedCall {
     llvm::Value* ret_value;
@@ -143,11 +143,11 @@ class CodeGenCPU : public CodeGenLLVM {
   PackedCall MakeCallPackedLowered(const ffi::Array<Expr>& args, const Type& r_type,
                                    const int64_t begin, const int64_t end, bool use_string_lookup);
   // create call into tvm packed function.
-  llvm::Value* CreateCallPacked(const CallNode* op);
+  llvm::Value* CreateCallPacked(const CallObj* op);
   // Create parallel launch
   void CreateParallelLaunch(const Stmt& body, int num_task, std::string name = "");
   // Create a new compute scope.
-  void CreateComputeScope(const RegionStmtNode* op);
+  void CreateComputeScope(const RegionStmtObj* op);
   // Check if the call to packed function is successful
   // if not directly finalize function and pass on return code.
   // return the end block after the check

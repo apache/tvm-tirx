@@ -258,7 +258,7 @@ void LLVMModuleObj::Init(const IRModule& mod, const Target& target) {
   ffi::Optional<ffi::String> system_lib_prefix = mod->GetAttr(tvm::attr::kSystemLibPrefix);
 
   for (auto kv : mod->functions) {
-    if (!kv.second->IsInstance<tirx::FunctionNode>()) {
+    if (!kv.second->IsInstance<tirx::FunctionObj>()) {
       DLOG(INFO) << "Can only lower IR Module with Functions, but got " << kv.second->GetTypeKey();
       continue;
     }

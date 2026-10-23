@@ -79,52 +79,52 @@ class CodeGenSPIRV : public tvm::ExprFunctor<spirv::Value(const Expr&)>,
   spirv::Value MakeValue(const PrimExpr& e) { return Dispatch(e); }
   spirv::Value MakeValue(const Expr& e) { return Dispatch(e); }
   // override codegen
-  spirv::Value Dispatch_(const VarNode* op) override;
-  spirv::Value Dispatch_(const prim::CastNode* op) override;
-  spirv::Value Dispatch_(const IntImmNode* op) override;
-  spirv::Value Dispatch_(const FloatImmNode* op) override;
-  spirv::Value Dispatch_(const StringImmNode* op) override;
-  spirv::Value Dispatch_(const prim::AddNode* op) override;
-  spirv::Value Dispatch_(const prim::SubNode* op) override;
-  spirv::Value Dispatch_(const prim::MulNode* op) override;
-  spirv::Value Dispatch_(const prim::DivNode* op) override;
-  spirv::Value Dispatch_(const prim::ModNode* op) override;
-  spirv::Value Dispatch_(const prim::MinNode* op) override;
-  spirv::Value Dispatch_(const prim::MaxNode* op) override;
-  spirv::Value Dispatch_(const prim::LTNode* op) override;
-  spirv::Value Dispatch_(const prim::LENode* op) override;
-  spirv::Value Dispatch_(const prim::GTNode* op) override;
-  spirv::Value Dispatch_(const prim::GENode* op) override;
-  spirv::Value Dispatch_(const prim::EQNode* op) override;
-  spirv::Value Dispatch_(const prim::NENode* op) override;
-  spirv::Value Dispatch_(const prim::AndNode* op) override;
-  spirv::Value Dispatch_(const prim::OrNode* op) override;
-  spirv::Value Dispatch_(const prim::NotNode* op) override;
-  spirv::Value Dispatch_(const prim::LShiftNode* op) override;
-  spirv::Value Dispatch_(const prim::RShiftNode* op) override;
-  spirv::Value Dispatch_(const prim::BitwiseAndNode* op) override;
-  spirv::Value Dispatch_(const prim::BitwiseOrNode* op) override;
-  spirv::Value Dispatch_(const prim::BitwiseXorNode* op) override;
-  spirv::Value Dispatch_(const prim::BitwiseNotNode* op) override;
-  spirv::Value Dispatch_(const prim::SelectNode* op) override;
-  spirv::Value Dispatch_(const prim::LetNode* op) override;
-  spirv::Value Dispatch_(const CallNode* op) override;
-  spirv::Value Dispatch_(const prim::RampNode* op) override;
-  spirv::Value Dispatch_(const prim::BroadcastNode* op) override;
-  spirv::Value Dispatch_(const TensorLoadNode* op) override;
-  spirv::Value Dispatch_(const prim::ShuffleNode* op) override;
+  spirv::Value Dispatch_(const VarObj* op) override;
+  spirv::Value Dispatch_(const prim::CastObj* op) override;
+  spirv::Value Dispatch_(const IntImmObj* op) override;
+  spirv::Value Dispatch_(const FloatImmObj* op) override;
+  spirv::Value Dispatch_(const StringImmObj* op) override;
+  spirv::Value Dispatch_(const prim::AddObj* op) override;
+  spirv::Value Dispatch_(const prim::SubObj* op) override;
+  spirv::Value Dispatch_(const prim::MulObj* op) override;
+  spirv::Value Dispatch_(const prim::DivObj* op) override;
+  spirv::Value Dispatch_(const prim::ModObj* op) override;
+  spirv::Value Dispatch_(const prim::MinObj* op) override;
+  spirv::Value Dispatch_(const prim::MaxObj* op) override;
+  spirv::Value Dispatch_(const prim::LTObj* op) override;
+  spirv::Value Dispatch_(const prim::LEObj* op) override;
+  spirv::Value Dispatch_(const prim::GTObj* op) override;
+  spirv::Value Dispatch_(const prim::GEObj* op) override;
+  spirv::Value Dispatch_(const prim::EQObj* op) override;
+  spirv::Value Dispatch_(const prim::NEObj* op) override;
+  spirv::Value Dispatch_(const prim::AndObj* op) override;
+  spirv::Value Dispatch_(const prim::OrObj* op) override;
+  spirv::Value Dispatch_(const prim::NotObj* op) override;
+  spirv::Value Dispatch_(const prim::LShiftObj* op) override;
+  spirv::Value Dispatch_(const prim::RShiftObj* op) override;
+  spirv::Value Dispatch_(const prim::BitwiseAndObj* op) override;
+  spirv::Value Dispatch_(const prim::BitwiseOrObj* op) override;
+  spirv::Value Dispatch_(const prim::BitwiseXorObj* op) override;
+  spirv::Value Dispatch_(const prim::BitwiseNotObj* op) override;
+  spirv::Value Dispatch_(const prim::SelectObj* op) override;
+  spirv::Value Dispatch_(const prim::LetObj* op) override;
+  spirv::Value Dispatch_(const CallObj* op) override;
+  spirv::Value Dispatch_(const prim::RampObj* op) override;
+  spirv::Value Dispatch_(const prim::BroadcastObj* op) override;
+  spirv::Value Dispatch_(const TensorLoadObj* op) override;
+  spirv::Value Dispatch_(const prim::ShuffleObj* op) override;
   // stmt
-  void Dispatch_(const TensorStoreNode* op) override;
-  void Dispatch_(const ForNode* op) override;
-  void Dispatch_(const WhileNode* op) override;
-  void Dispatch_(const IfNode* op) override;
-  void DispatchDeclTensor(const BindNode* op, const CallNode* buffer_call);
-  void DispatchAllocTensor(const BindNode* op, const CallNode* buffer_call);
-  void Dispatch_(const RegionStmtNode* op) override;
-  void Dispatch_(const AssertStmtNode* op) override;
-  void Dispatch_(const BindNode* op) override;
-  void Dispatch_(const SeqStmtNode* op) override;
-  void Dispatch_(const EvaluateNode* op) override;
+  void Dispatch_(const TensorStoreObj* op) override;
+  void Dispatch_(const ForObj* op) override;
+  void Dispatch_(const WhileObj* op) override;
+  void Dispatch_(const IfObj* op) override;
+  void DispatchDeclTensor(const BindObj* op, const CallObj* buffer_call);
+  void DispatchAllocTensor(const BindObj* op, const CallObj* buffer_call);
+  void Dispatch_(const RegionStmtObj* op) override;
+  void Dispatch_(const AssertStmtObj* op) override;
+  void Dispatch_(const BindObj* op) override;
+  void Dispatch_(const SeqStmtObj* op) override;
+  void Dispatch_(const EvaluateObj* op) override;
 
  protected:
   /*! \brief Storage information for a buffer */
@@ -199,11 +199,11 @@ class CodeGenSPIRV : public tvm::ExprFunctor<spirv::Value(const Expr&)>,
   spirv::Value GetThreadIndex(const PrimVar& var, const ffi::String& thread_tag,
                               const PrimExpr& extent);
 
-  spirv::Value CreateStorageSync(const CallNode* op);
+  spirv::Value CreateStorageSync(const CallObj* op);
   void Scalarize(const PrimExpr& e, std::function<void(int i, spirv::Value v)> f);
 
-  spirv::SType GetFragmentSType(const VarNode* buffer, const PrimType& dtype);
-  PrimType GetElementDataType(const VarNode* buffer);
+  spirv::SType GetFragmentSType(const VarObj* buffer, const PrimType& dtype);
+  PrimType GetElementDataType(const VarObj* buffer);
 
   // SPIRV-related capabilities of the target
   SPIRVSupport spirv_support_;
@@ -227,12 +227,12 @@ class CodeGenSPIRV : public tvm::ExprFunctor<spirv::Value(const Expr&)>,
   PrimType boolean_storage_type_{PrimType::Int(8)};
 
   // the storage scope of allocation
-  std::unordered_map<const VarNode*, StorageInfo> storage_info_;
+  std::unordered_map<const VarObj*, StorageInfo> storage_info_;
 
   // The definition of local variable.
   /*! \brief Extents of physical thread axes in the current function. */
   std::unordered_map<std::string, PrimExpr> thread_extents_;
-  std::unordered_map<const VarNode*, spirv::Value> var_map_;
+  std::unordered_map<const VarObj*, spirv::Value> var_map_;
 
   // The analyzer.
   sym::Analyzer analyzer_;
@@ -241,13 +241,13 @@ class CodeGenSPIRV : public tvm::ExprFunctor<spirv::Value(const Expr&)>,
   prim::ExprDeepEqual deep_equal_;
 
   // binding of let variables. Enables duplicate var defs that map to same value
-  std::unordered_map<Var, const prim::LetNode*> let_binding_;
+  std::unordered_map<Var, const prim::LetObj*> let_binding_;
 
   // Running total of the number of bytes of shared memory used.
   // Checked against the max_shared_memory_per_group
   size_t shared_memory_bytes_used_{0};
 
-  std::unordered_map<const VarNode*, FragmentInfo> fragment_info_;
+  std::unordered_map<const VarObj*, FragmentInfo> fragment_info_;
 };
 
 }  // namespace codegen

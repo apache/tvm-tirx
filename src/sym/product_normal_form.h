@@ -54,10 +54,10 @@ inline void UnpackReduction(const PrimExpr& value, FLeaf fleaf) {
  */
 template <typename FLeaf>
 inline void UnpackSum(const PrimExpr& value, FLeaf fleaf, int sign = 1) {
-  if (const prim::AddNode* node = value.as<prim::AddNode>()) {
+  if (const prim::AddObj* node = value.as<prim::AddObj>()) {
     UnpackSum(node->a, fleaf, sign);
     UnpackSum(node->b, fleaf, sign);
-  } else if (const prim::SubNode* node = value.as<prim::SubNode>()) {
+  } else if (const prim::SubObj* node = value.as<prim::SubObj>()) {
     UnpackSum(node->a, fleaf, sign);
     UnpackSum(node->b, fleaf, -sign);
   } else {
@@ -82,14 +82,14 @@ inline PrimExpr MulAndNormalize(const PrimExpr& lhs, const PrimExpr& rhs) {
   PrimType lhs_ty = lhs.ty();
   PrimExpr res = IntImm(lhs_ty, 1);
   auto fcollect = [&](PrimExpr val) {
-    if (const auto* intimm = val.as<IntImmNode>()) {
+    if (const auto* intimm = val.as<IntImmObj>()) {
       cscale *= intimm->value;
     } else {
       res = res * val;
     }
   };
-  UnpackReduction<prim::MulNode>(lhs, fcollect);
-  UnpackReduction<prim::MulNode>(rhs, fcollect);
+  UnpackReduction<prim::MulObj>(lhs, fcollect);
+  UnpackReduction<prim::MulObj>(rhs, fcollect);
   if (cscale != 1) {
     res = res * IntImm(res.ty(), cscale);
   }

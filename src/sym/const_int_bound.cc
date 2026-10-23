@@ -131,7 +131,7 @@ class ConstIntBoundAnalyzer::Impl final
     var_map_[var] = info;
   }
 
-  Entry Dispatch_(const prim::LetNode* op) final {
+  Entry Dispatch_(const prim::LetObj* op) final {
     auto it = var_map_.find(op->var);
     // if the var has not been binded, update the info.
     if (it == var_map_.end()) {
@@ -150,7 +150,7 @@ class ConstIntBoundAnalyzer::Impl final
 
   // Override visitor behaviors
   Entry DispatchDefault_(const ffi::Object* op) final {
-    return Everything(static_cast<const ExprNode*>(op)->ty.as_or_throw<PrimType>());
+    return Everything(static_cast<const ExprObj*>(op)->ty.as_or_throw<PrimType>());
   }
 
   Entry Dispatch(const Expr& expr) final {
@@ -179,7 +179,7 @@ class ConstIntBoundAnalyzer::Impl final
     return res;
   }
 
-  Entry Dispatch_(const prim::RampNode* op) final {
+  Entry Dispatch_(const prim::RampObj* op) final {
     // op = {base + i * stride | 0 <= i < lanes}
     // Entry(op) = Union(Entry(base + i * stride) | 0 <= i < lanes)
     // Note that `base + i * stride` is linear w.r.t. `i`
@@ -189,9 +189,9 @@ class ConstIntBoundAnalyzer::Impl final
     return Union(a, b);
   }
 
-  Entry Dispatch_(const prim::BroadcastNode* op) final { return Dispatch(op->value); }
+  Entry Dispatch_(const prim::BroadcastObj* op) final { return Dispatch(op->value); }
 
-  Entry Dispatch_(const prim::CastNode* op) final {
+  Entry Dispatch_(const prim::CastObj* op) final {
     Entry a;
 
     // int(ceil(log2(cast(n,"float64")))) is used as the
@@ -232,14 +232,14 @@ class ConstIntBoundAnalyzer::Impl final
     return divisor;
   }
 
-  Entry Dispatch_(const IntImmNode* op) final {
+  Entry Dispatch_(const IntImmObj* op) final {
     if (op->value >= kPosInf) return MakeBound(kPosInf - 1, kPosInf);
     if (op->value <= kNegInf) return MakeBound(kNegInf, kNegInf + 1);
     int64_t value = static_cast<int64_t>(op->value);
     return MakeBound(value, value);
   }
 
-  Entry Dispatch_(const prim::AddNode* op) final {
+  Entry Dispatch_(const prim::AddObj* op) final {
     Entry a = Dispatch(op->a);
     Entry b = Dispatch(op->b);
     Entry ret;
@@ -249,7 +249,7 @@ class ConstIntBoundAnalyzer::Impl final
     return ret;
   }
 
-  Entry Dispatch_(const prim::SubNode* op) final {
+  Entry Dispatch_(const prim::SubObj* op) final {
     Entry a = Dispatch(op->a);
     Entry b = Dispatch(op->b);
     Entry ret;
@@ -259,19 +259,19 @@ class ConstIntBoundAnalyzer::Impl final
     return ret;
   }
 
-  Entry Dispatch_(const prim::MulNode* op) final {
+  Entry Dispatch_(const prim::MulObj* op) final {
     Entry a = Dispatch(op->a);
     Entry b = Dispatch(op->b);
     return BinaryOpBoundary(a, b, InfAwareMul);
   }
 
-  Entry Dispatch_(const prim::DivNode* op) final {
+  Entry Dispatch_(const prim::DivObj* op) final {
     Entry a = Dispatch(op->a);
     Entry b = AssumeNoZeroDivisor(Dispatch(op->b));
     return HandleDivision(a, b, op->ty.as_or_throw<PrimType>(), InfAwareDiv);
   }
 
-  Entry Dispatch_(const prim::ModNode* op) final {
+  Entry Dispatch_(const prim::ModObj* op) final {
     Entry a = Dispatch(op->a);
     Entry b = AssumeNoZeroDivisor(Dispatch(op->b));
 
@@ -361,13 +361,13 @@ class ConstIntBoundAnalyzer::Impl final
     }
   }
 
-  Entry Dispatch_(const prim::FloorDivNode* op) final {
+  Entry Dispatch_(const prim::FloorDivObj* op) final {
     Entry a = Dispatch(op->a);
     Entry b = AssumeNoZeroDivisor(Dispatch(op->b));
     return HandleDivision(a, b, op->ty.as_or_throw<PrimType>(), InfAwareFloorDiv);
   }
 
-  Entry Dispatch_(const prim::FloorModNode* op) final {
+  Entry Dispatch_(const prim::FloorModObj* op) final {
     /* let a / b = x + y, where x is integer, y \in [0, 1)
      * floormod(a, b) = a - floordiv(a, b) * b
      * floordiv(a, b) = x
@@ -449,7 +449,7 @@ class ConstIntBoundAnalyzer::Impl final
     }
   }
 
-  Entry Dispatch_(const prim::MinNode* op) final {
+  Entry Dispatch_(const prim::MinObj* op) final {
     Entry a = Dispatch(op->a);
     Entry b = Dispatch(op->b);
     Entry ret;
@@ -458,7 +458,7 @@ class ConstIntBoundAnalyzer::Impl final
     return ret;
   }
 
-  Entry Dispatch_(const prim::MaxNode* op) final {
+  Entry Dispatch_(const prim::MaxObj* op) final {
     Entry a = Dispatch(op->a);
     Entry b = Dispatch(op->b);
     Entry ret;
@@ -467,13 +467,13 @@ class ConstIntBoundAnalyzer::Impl final
     return ret;
   }
 
-  Entry Dispatch_(const prim::SelectNode* op) final {
+  Entry Dispatch_(const prim::SelectObj* op) final {
     Entry a = Dispatch(op->true_value);
     Entry b = Dispatch(op->false_value);
     return Union(a, b);
   }
 
-  Entry Dispatch_(const VarNode* op) final {
+  Entry Dispatch_(const VarObj* op) final {
     Var v = ffi::GetRef<Var>(op);
     auto it = var_map_.find(v);
     if (it != var_map_.end()) {
@@ -483,7 +483,7 @@ class ConstIntBoundAnalyzer::Impl final
     }
   }
 
-  Entry Dispatch_(const prim::LShiftNode* op) final {
+  Entry Dispatch_(const prim::LShiftObj* op) final {
     Entry a = Dispatch(op->a);
     Entry b = Dispatch(op->b);
 
@@ -497,13 +497,13 @@ class ConstIntBoundAnalyzer::Impl final
     return BinaryOpBoundary(a, b, InfAwareLeftShift);
   }
 
-  Entry Dispatch_(const prim::RShiftNode* op) final {
+  Entry Dispatch_(const prim::RShiftObj* op) final {
     Entry a = Dispatch(op->a);
     Entry b = Dispatch(op->b);
     return BinaryOpBoundary(a, b, InfAwareRightShift);
   }
 
-  Entry Dispatch_(const prim::BitwiseAndNode* op) final {
+  Entry Dispatch_(const prim::BitwiseAndObj* op) final {
     Entry a = Dispatch(op->a);
     Entry b = Dispatch(op->b);
     // handle positive index case.
@@ -626,7 +626,7 @@ class ConstIntBoundAnalyzer::Impl final
       return kNegInf;
     }
     if (y == kPosInf || y == kNegInf) return y;
-    if (WillOverflow<prim::AddNode>(x, y, kNegInf, kPosInf)) {
+    if (WillOverflow<prim::AddObj>(x, y, kNegInf, kPosInf)) {
       if (x > 0) return kPosInf;
       return kNegInf;
     }
@@ -639,7 +639,7 @@ class ConstIntBoundAnalyzer::Impl final
    * \return the result.
    */
   static int64_t InfAwareMul(int64_t x, int64_t y) {
-    if (!WillOverflow<prim::MulNode>(x, y, kNegInf, kPosInf)) return x * y;
+    if (!WillOverflow<prim::MulObj>(x, y, kNegInf, kPosInf)) return x * y;
     if ((x > 0 && y > 0) || (x < 0 && y < 0)) return kPosInf;
     return kNegInf;
   }
@@ -804,7 +804,7 @@ class ConstIntBoundAnalyzer::Impl final
       // If the conditional is comparing two integers, do not assign a
       // value to them.
       if (auto min = min_value.as<int64_t>(), max = max_value.as<int64_t>();
-          min.has_value() && max.has_value() && !expr->IsInstance<IntImmNode>()) {
+          min.has_value() && max.has_value() && !expr->IsInstance<IntImmObj>()) {
         info.push_back(BoundInfo(expr, MakeBound(*min, *max)));
       }
     };
@@ -835,14 +835,14 @@ class ConstIntBoundAnalyzer::Impl final
    * This expression is used as the implementation of
    * topi.math.ceil_log2, and can appear in iteration bounds.
    */
-  static ffi::Optional<PrimExpr> FindCeilLog2Arg(const prim::CastNode* op) {
+  static ffi::Optional<PrimExpr> FindCeilLog2Arg(const prim::CastObj* op) {
     static const Op& ceil_op = prim::ceil_op();
     static const Op& log2_op = prim::log2_op();
     if (op->ty.as_or_throw<PrimType>().code() == DLDataTypeCode::kDLInt) {
-      if (auto as_call = op->value.as<CallNode>()) {
+      if (auto as_call = op->value.as<CallObj>()) {
         if (as_call->op.same_as(ceil_op)) {
           PrimExpr ceil_arg = as_call->args[0].as_or_throw<PrimExpr>();
-          if (auto arg_call = ceil_arg.as<CallNode>()) {
+          if (auto arg_call = ceil_arg.as<CallObj>()) {
             if (arg_call->op.same_as(log2_op)) {
               PrimExpr log_arg = arg_call->args[0].as_or_throw<PrimExpr>();
               return log_arg;
@@ -856,10 +856,10 @@ class ConstIntBoundAnalyzer::Impl final
 
   /*! \brief Propagate constraints through ceil(log2(arg))
    *
-   * Helper function for CastNode visitor
+   * Helper function for CastObj visitor
    */
   Entry CeilLog2Bounds(PrimExpr arg) {
-    if (auto as_float = arg.as<FloatImmNode>()) {
+    if (auto as_float = arg.as<FloatImmObj>()) {
       // A cast from int to float may have already been simplified
       // out.  Normally we don't inspect floating-point arguments, but here we can
       int64_t val = std::ceil(std::log2(as_float->value));

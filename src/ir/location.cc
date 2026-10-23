@@ -32,14 +32,14 @@
 
 namespace tvm {
 
-ffi::ObjectPtr<SourceNameNode> GetSourceNameNode(const ffi::String& name) {
+ffi::ObjectPtr<SourceNameObj> GetSourceNameObj(const ffi::String& name) {
   // always return pointer as the reference can change as map re-allocate.
   // or use another level of indirection by creating a unique_ptr
-  static std::unordered_map<ffi::String, ffi::ObjectPtr<SourceNameNode>> source_map;
+  static std::unordered_map<ffi::String, ffi::ObjectPtr<SourceNameObj>> source_map;
 
   auto sn = source_map.find(name);
   if (sn == source_map.end()) {
-    ffi::ObjectPtr<SourceNameNode> n = ffi::make_object<SourceNameNode>();
+    ffi::ObjectPtr<SourceNameObj> n = ffi::make_object<SourceNameObj>();
     source_map[name] = n;
     n->name = std::move(name);
     return n;
@@ -48,26 +48,26 @@ ffi::ObjectPtr<SourceNameNode> GetSourceNameNode(const ffi::String& name) {
   }
 }
 
-ffi::ObjectPtr<SourceNameNode> GetSourceNameNodeByStr(const std::string& name) {
-  return GetSourceNameNode(name);
+ffi::ObjectPtr<SourceNameObj> GetSourceNameObjByStr(const std::string& name) {
+  return GetSourceNameObj(name);
 }
 
 SourceName SourceName::Get(const ffi::String& name) {
-  return SourceName(ffi::UnsafeInit{}, GetSourceNameNode(name));
+  return SourceName(ffi::UnsafeInit{}, GetSourceNameObj(name));
 }
 
 TVM_FFI_STATIC_INIT_BLOCK() {
   namespace refl = tvm::ffi::reflection;
-  SourceNameNode::RegisterReflection();
-  // overrride SourceNameNode to serialization mechanism
-  refl::TypeAttrDef<SourceNameNode>()
+  SourceNameObj::RegisterReflection();
+  // overrride SourceNameObj to serialization mechanism
+  refl::TypeAttrDef<SourceNameObj>()
       .def(tvm::ffi::type_attr::kDataToJson.name,
-           [](const SourceNameNode* node) {
+           [](const SourceNameObj* node) {
              // simply save as the string
              return node->name;
            })
       .def(tvm::ffi::type_attr::kDataFromJson.name, SourceName::Get);
-  refl::TypeAttrDef<SourceNameNode>().def(
+  refl::TypeAttrDef<SourceNameObj>().def(
       ffi::type_attr::kRepr.name, [](SourceName sn, ffi::Function) -> ffi::String {
         std::ostringstream os;
         os << "SourceName(" << sn->name << ", " << static_cast<const void*>(sn.get()) << ")";
@@ -79,8 +79,8 @@ TVM_FFI_STATIC_INIT_BLOCK() {
 
 namespace {
 
-const ffi::ObjectPtr<UnknownLocNode>& UnknownLocation() {
-  static const auto unknown = ffi::make_object<UnknownLocNode>();
+const ffi::ObjectPtr<UnknownLocObj>& UnknownLocation() {
+  static const auto unknown = ffi::make_object<UnknownLocObj>();
   return unknown;
 }
 
@@ -91,7 +91,7 @@ UnknownLoc::UnknownLoc() : Location(ffi::UnsafeInit{}) { data_ = UnknownLocation
 SourceLoc::SourceLoc(SourceName source_name, int start_line, int start_column, int end_line,
                      int end_column)
     : Location(ffi::UnsafeInit{}) {
-  auto n = ffi::make_object<SourceLocNode>(std::move(source_name));
+  auto n = ffi::make_object<SourceLocObj>(std::move(source_name));
   n->start_line = start_line;
   n->start_column = start_column;
   n->end_line = end_line;
@@ -108,7 +108,7 @@ SourceLoc SourceLoc::Merge(const SourceLoc& other) const {
 }
 
 CallSiteLoc::CallSiteLoc(Location callee, Location caller) : Location(ffi::UnsafeInit{}) {
-  auto n = ffi::make_object<CallSiteLocNode>();
+  auto n = ffi::make_object<CallSiteLocObj>();
   n->callee = std::move(callee);
   n->caller = std::move(caller);
   data_ = std::move(n);
@@ -116,16 +116,16 @@ CallSiteLoc::CallSiteLoc(Location callee, Location caller) : Location(ffi::Unsaf
 
 TVM_FFI_STATIC_INIT_BLOCK() {
   namespace refl = tvm::ffi::reflection;
-  LocationNode::RegisterReflection();
-  UnknownLocNode::RegisterReflection();
-  SourceLocNode::RegisterReflection();
-  CallSiteLocNode::RegisterReflection();
-  refl::TypeAttrDef<UnknownLocNode>()
+  LocationObj::RegisterReflection();
+  UnknownLocObj::RegisterReflection();
+  SourceLocObj::RegisterReflection();
+  CallSiteLocObj::RegisterReflection();
+  refl::TypeAttrDef<UnknownLocObj>()
       .def(ffi::type_attr::kRepr.name,
            [](UnknownLoc, ffi::Function) -> ffi::String { return "UnknownLoc()"; })
-      .def(ffi::type_attr::kDataToJson.name, [](const UnknownLocNode*) { return nullptr; })
+      .def(ffi::type_attr::kDataToJson.name, [](const UnknownLocObj*) { return nullptr; })
       .def(ffi::type_attr::kDataFromJson.name, [](ffi::AnyView) { return UnknownLoc(); });
-  refl::TypeAttrDef<SourceLocNode>().def(
+  refl::TypeAttrDef<SourceLocObj>().def(
       ffi::type_attr::kRepr.name, [](SourceLoc loc, ffi::Function fn_repr) -> ffi::String {
         std::ostringstream os;
         os << "SourceLoc(" << fn_repr(ffi::AnyView(loc->source_name)).cast<ffi::String>() << ", "
@@ -133,7 +133,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
            << loc->end_column << ")";
         return os.str();
       });
-  refl::TypeAttrDef<CallSiteLocNode>().def(
+  refl::TypeAttrDef<CallSiteLocObj>().def(
       ffi::type_attr::kRepr.name, [](CallSiteLoc loc, ffi::Function fn_repr) -> ffi::String {
         return "CallSiteLoc(" + fn_repr(loc->callee).cast<ffi::String>() + ", " +
                fn_repr(loc->caller).cast<ffi::String>() + ")";

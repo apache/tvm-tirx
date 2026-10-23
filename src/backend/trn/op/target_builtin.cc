@@ -39,7 +39,7 @@ namespace tirx {
 namespace builtin {
 
 namespace {
-static ffi::Array<Var> RegionNoBodyParams(const CallNode*) { return {}; }
+static ffi::Array<Var> RegionNoBodyParams(const CallObj*) { return {}; }
 
 void RegisterNKIIntrinsicAliases();
 }  // namespace

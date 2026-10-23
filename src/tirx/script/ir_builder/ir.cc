@@ -200,16 +200,16 @@ Var Ptr(PrimType dtype, runtime::MemoryScope storage_scope = {}) {
 using tvm::script::ir_builder::details::Namer;
 
 TVM_FFI_STATIC_INIT_BLOCK() {
-  Namer::vtable().SetDispatch<TensorLoadNode>(
+  Namer::vtable().SetDispatch<TensorLoadObj>(
       [](const ffi::ObjectRef& node, ffi::String name) -> void {
         using namespace tvm::tirx;
-        TensorLoadNode* tensor = const_cast<TensorLoadNode*>(node.as<TensorLoadNode>());
+        TensorLoadObj* tensor = const_cast<TensorLoadObj*>(node.as<TensorLoadObj>());
         Namer::Name(tensor->source.as_or_throw<tvm::tirx::TensorVar>(), name);
       });
 }
 
 TVM_FFI_STATIC_INIT_BLOCK() {
-  Namer::vtable().SetDispatch<tvm::tirx::TileLayoutNode>(
+  Namer::vtable().SetDispatch<tvm::tirx::TileLayoutObj>(
       [](const ffi::ObjectRef& node, ffi::String name) -> void {
 
       });

@@ -118,8 +118,8 @@ TVM_DECLARE_LOGICAL_OP(prim::Not);
  * \param op The operation node, used to extract dtype and other properties
  * \note this can possibly relax the set.
  */
-template <typename Op, typename OpNode>
-inline IntervalSet Combine(AnalyzerObj* analyzer, IntervalSet a, IntervalSet b, const OpNode* op) {
+template <typename Op, typename OpObj>
+inline IntervalSet Combine(AnalyzerObj* analyzer, IntervalSet a, IntervalSet b, const OpObj* op) {
   PrimType dtype = op->ty.template as_or_throw<PrimType>();
   if (a->IsSinglePoint() && b->IsSinglePoint()) {
     PrimExpr expr{ffi::UnsafeInit{}};
@@ -142,7 +142,7 @@ inline IntervalSet Combine(AnalyzerObj* analyzer, IntervalSet a, IntervalSet b, 
 
 template <>
 inline IntervalSet Combine<prim::Add>(AnalyzerObj* analyer, IntervalSet a, IntervalSet b,
-                                      const prim::AddNode* /* op */) {
+                                      const prim::AddObj* /* op */) {
   if (a->IsSinglePoint() && b->IsSinglePoint()) {
     return IntervalSet::SinglePoint(a->min_value + b->min_value);
   }
@@ -157,7 +157,7 @@ inline IntervalSet Combine<prim::Add>(AnalyzerObj* analyer, IntervalSet a, Inter
 
 template <>
 inline IntervalSet Combine<prim::Sub>(AnalyzerObj* analyer, IntervalSet a, IntervalSet b,
-                                      const prim::SubNode* /* op */) {
+                                      const prim::SubObj* /* op */) {
   if (a->IsSinglePoint() && b->IsSinglePoint()) {
     return IntervalSet::SinglePoint(a->min_value - b->min_value);
   }
@@ -172,7 +172,7 @@ inline IntervalSet Combine<prim::Sub>(AnalyzerObj* analyer, IntervalSet a, Inter
 
 template <>
 inline IntervalSet Combine<prim::Mul>(AnalyzerObj* analyzer, IntervalSet a, IntervalSet b,
-                                      const prim::MulNode* /* op */) {
+                                      const prim::MulObj* /* op */) {
   if (a->IsSinglePoint() && b->IsSinglePoint()) {
     return IntervalSet::SinglePoint(a->min_value * b->min_value);
   }
@@ -205,7 +205,7 @@ inline IntervalSet Combine<prim::Mul>(AnalyzerObj* analyzer, IntervalSet a, Inte
 
 template <>
 inline IntervalSet Combine<prim::Div>(AnalyzerObj* analyzer, IntervalSet a, IntervalSet b,
-                                      const prim::DivNode* /* op */) {
+                                      const prim::DivObj* /* op */) {
   if (a->IsSinglePoint() && b->IsSinglePoint()) {
     return IntervalSet::SinglePoint(a->min_value / b->min_value);
   }
@@ -238,7 +238,7 @@ inline IntervalSet Combine<prim::Div>(AnalyzerObj* analyzer, IntervalSet a, Inte
 
 template <>
 inline IntervalSet Combine<prim::Mod>(AnalyzerObj* analyzer, IntervalSet a, IntervalSet b,
-                                      const prim::ModNode* op) {
+                                      const prim::ModObj* op) {
   if (a->IsSinglePoint() && b->IsSinglePoint()) {
     return IntervalSet::SinglePoint(truncmod(a->min_value, b->min_value));
   }
@@ -267,7 +267,7 @@ inline IntervalSet Combine<prim::Mod>(AnalyzerObj* analyzer, IntervalSet a, Inte
 
 template <>
 inline IntervalSet Combine<prim::FloorDiv>(AnalyzerObj* analyzer, IntervalSet a, IntervalSet b,
-                                           const prim::FloorDivNode* /* op */) {
+                                           const prim::FloorDivObj* /* op */) {
   if (a->IsSinglePoint() && b->IsSinglePoint()) {
     return IntervalSet::SinglePoint(floordiv(a->min_value, b->min_value));
   }
@@ -304,7 +304,7 @@ inline IntervalSet Combine<prim::FloorDiv>(AnalyzerObj* analyzer, IntervalSet a,
 
 template <>
 inline IntervalSet Combine<prim::FloorMod>(AnalyzerObj* analyzer, IntervalSet a, IntervalSet b,
-                                           const prim::FloorModNode* op) {
+                                           const prim::FloorModObj* op) {
   if (a->IsSinglePoint() && b->IsSinglePoint()) {
     return IntervalSet::SinglePoint(floormod(a->min_value, b->min_value));
   }
@@ -317,7 +317,7 @@ inline IntervalSet Combine<prim::FloorMod>(AnalyzerObj* analyzer, IntervalSet a,
       TVM_FFI_THROW(InternalError) << "Modular by zero in CombineInterval Mod";
     }
     if (analyzer->CanProveGreaterEqual(divisor, 0)) {
-      if (divisor.as<IntImmNode>()) {
+      if (divisor.as<IntImmObj>()) {
         // a mod b = a - (a / b) * b if a_max / b == a_min / b
         auto qmax = a->HasUpperBound() ? floordiv(a->max_value, divisor) : prim::pos_inf();
         auto qmin = a->HasLowerBound() ? floordiv(a->min_value, divisor) : prim::neg_inf();
@@ -368,7 +368,7 @@ inline IntervalSet Combine<prim::FloorMod>(AnalyzerObj* analyzer, IntervalSet a,
 
 template <>
 inline IntervalSet Combine<prim::Max>(AnalyzerObj* analzyer, IntervalSet a, IntervalSet b,
-                                      const prim::MaxNode* /* op */) {
+                                      const prim::MaxObj* /* op */) {
   if (a->IsSinglePoint() && b->IsSinglePoint()) {
     return IntervalSet::SinglePoint(max(a->min_value, b->min_value));
   }
@@ -379,7 +379,7 @@ inline IntervalSet Combine<prim::Max>(AnalyzerObj* analzyer, IntervalSet a, Inte
 
 template <>
 inline IntervalSet Combine<prim::Min>(AnalyzerObj* analzyer, IntervalSet a, IntervalSet b,
-                                      const prim::MinNode* /* op */) {
+                                      const prim::MinObj* /* op */) {
   if (a->IsSinglePoint() && b->IsSinglePoint()) {
     return IntervalSet::SinglePoint(min(a->min_value, b->min_value));
   }
@@ -422,11 +422,11 @@ class IntervalSetEvaluator : public tvm::ExprFunctor<IntervalSet(const Expr&)> {
     return IntervalSet(min_set->min_value, max_set->max_value);
   }
 
-  IntervalSet Dispatch_(const IntImmNode* op) final {
+  IntervalSet Dispatch_(const IntImmObj* op) final {
     return IntervalSet::SinglePoint(ffi::GetRef<PrimExpr>(op));
   }
 
-  IntervalSet Dispatch_(const VarNode* op) final {
+  IntervalSet Dispatch_(const VarObj* op) final {
     Var var = ffi::GetRef<Var>(op);
 
     auto it = dom_map_.find(var);
@@ -484,45 +484,45 @@ class IntervalSetEvaluator : public tvm::ExprFunctor<IntervalSet(const Expr&)> {
     return relaxed;
   }
 
-  IntervalSet Dispatch_(const prim::AddNode* op) final { return VisitBinaryExpr_<prim::Add>(op); }
+  IntervalSet Dispatch_(const prim::AddObj* op) final { return VisitBinaryExpr_<prim::Add>(op); }
 
-  IntervalSet Dispatch_(const prim::SubNode* op) final { return VisitBinaryExpr_<prim::Sub>(op); }
+  IntervalSet Dispatch_(const prim::SubObj* op) final { return VisitBinaryExpr_<prim::Sub>(op); }
 
-  IntervalSet Dispatch_(const prim::MulNode* op) final { return VisitBinaryExpr_<prim::Mul>(op); }
+  IntervalSet Dispatch_(const prim::MulObj* op) final { return VisitBinaryExpr_<prim::Mul>(op); }
 
-  IntervalSet Dispatch_(const prim::DivNode* op) final { return VisitBinaryExpr_<prim::Div>(op); }
+  IntervalSet Dispatch_(const prim::DivObj* op) final { return VisitBinaryExpr_<prim::Div>(op); }
 
-  IntervalSet Dispatch_(const prim::ModNode* op) final { return VisitBinaryExpr_<prim::Mod>(op); }
+  IntervalSet Dispatch_(const prim::ModObj* op) final { return VisitBinaryExpr_<prim::Mod>(op); }
 
-  IntervalSet Dispatch_(const prim::FloorDivNode* op) final {
+  IntervalSet Dispatch_(const prim::FloorDivObj* op) final {
     return VisitBinaryExpr_<prim::FloorDiv>(op);
   }
 
-  IntervalSet Dispatch_(const prim::FloorModNode* op) final {
+  IntervalSet Dispatch_(const prim::FloorModObj* op) final {
     return VisitBinaryExpr_<prim::FloorMod>(op);
   }
 
-  IntervalSet Dispatch_(const prim::MinNode* op) final { return VisitBinaryExpr_<prim::Min>(op); }
+  IntervalSet Dispatch_(const prim::MinObj* op) final { return VisitBinaryExpr_<prim::Min>(op); }
 
-  IntervalSet Dispatch_(const prim::MaxNode* op) final { return VisitBinaryExpr_<prim::Max>(op); }
+  IntervalSet Dispatch_(const prim::MaxObj* op) final { return VisitBinaryExpr_<prim::Max>(op); }
 
-  IntervalSet Dispatch_(const prim::EQNode* op) final { return VisitBinaryExpr_<prim::EQ>(op); }
+  IntervalSet Dispatch_(const prim::EQObj* op) final { return VisitBinaryExpr_<prim::EQ>(op); }
 
-  IntervalSet Dispatch_(const prim::NENode* op) final { return VisitBinaryExpr_<prim::NE>(op); }
+  IntervalSet Dispatch_(const prim::NEObj* op) final { return VisitBinaryExpr_<prim::NE>(op); }
 
-  IntervalSet Dispatch_(const prim::LTNode* op) final { return VisitBinaryExpr_<prim::LT>(op); }
+  IntervalSet Dispatch_(const prim::LTObj* op) final { return VisitBinaryExpr_<prim::LT>(op); }
 
-  IntervalSet Dispatch_(const prim::LENode* op) final { return VisitBinaryExpr_<prim::LE>(op); }
+  IntervalSet Dispatch_(const prim::LEObj* op) final { return VisitBinaryExpr_<prim::LE>(op); }
 
-  IntervalSet Dispatch_(const prim::GTNode* op) final { return VisitBinaryExpr_<prim::GT>(op); }
+  IntervalSet Dispatch_(const prim::GTObj* op) final { return VisitBinaryExpr_<prim::GT>(op); }
 
-  IntervalSet Dispatch_(const prim::GENode* op) final { return VisitBinaryExpr_<prim::GE>(op); }
+  IntervalSet Dispatch_(const prim::GEObj* op) final { return VisitBinaryExpr_<prim::GE>(op); }
 
-  IntervalSet Dispatch_(const prim::AndNode* op) final { return VisitBinaryExpr_<prim::And>(op); }
+  IntervalSet Dispatch_(const prim::AndObj* op) final { return VisitBinaryExpr_<prim::And>(op); }
 
-  IntervalSet Dispatch_(const prim::OrNode* op) final { return VisitBinaryExpr_<prim::Or>(op); }
+  IntervalSet Dispatch_(const prim::OrObj* op) final { return VisitBinaryExpr_<prim::Or>(op); }
 
-  IntervalSet Dispatch_(const prim::RampNode* op) final {
+  IntervalSet Dispatch_(const prim::RampObj* op) final {
     TVM_FFI_ICHECK(eval_vec_);
     // Unsigned ramp addition can wrap, so its endpoints need not be monotone.
     if (op->base.ty().MatchesCode(DLDataTypeCode::kDLUInt)) return IntervalSet::Everything();
@@ -531,7 +531,7 @@ class IntervalSetEvaluator : public tvm::ExprFunctor<IntervalSet(const Expr&)> {
     if (stride.Match(op->stride)) {
       PrimType t = op->base.ty();
       const ffi::BigInt& vstride = stride.Eval()->value;
-      if (op->lanes->IsInstance<IntImmNode>()) {
+      if (op->lanes->IsInstance<IntImmObj>()) {
         int lanes = op->lanes.as_or_throw<IntImm>()->value.as<int>().value();
         ffi::BigInt span = vstride * (lanes - 1);
         ffi::BigInt limit = ffi::BigInt(1) << (t.bits() - 1);
@@ -539,13 +539,13 @@ class IntervalSetEvaluator : public tvm::ExprFunctor<IntervalSet(const Expr&)> {
         if (vstride > 0) {
           PrimExpr stride_expr = prim::MakeConst(t, span);
           auto add_op = prim::Add(op->base, stride_expr);
-          auto add_node = add_op.as<prim::AddNode>();
+          auto add_node = add_op.as<prim::AddObj>();
           return Combine<prim::Add>(analyzer_, base, IntervalSet(IntImm(t, 0), stride_expr),
                                     add_node);
         } else {
           PrimExpr stride_expr = prim::MakeConst(t, span);
           auto add_op = prim::Add(op->base, stride_expr);
-          auto add_node = add_op.as<prim::AddNode>();
+          auto add_node = add_op.as<prim::AddObj>();
           return Combine<prim::Add>(analyzer_, base, IntervalSet(stride_expr, IntImm(t, 0)),
                                     add_node);
         }
@@ -555,18 +555,18 @@ class IntervalSetEvaluator : public tvm::ExprFunctor<IntervalSet(const Expr&)> {
     return IntervalSet::Everything();
   }
 
-  IntervalSet Dispatch_(const prim::BroadcastNode* op) final {
+  IntervalSet Dispatch_(const prim::BroadcastObj* op) final {
     TVM_FFI_ICHECK(eval_vec_);
     return Dispatch(op->value);
   }
 
-  IntervalSet Dispatch_(const prim::SelectNode* op) final {
+  IntervalSet Dispatch_(const prim::SelectObj* op) final {
     IntervalSet true_set = this->Eval(op->true_value);
     IntervalSet false_set = this->Eval(op->false_value);
     return Union(analyzer_, false_set, true_set);
   }
 
-  IntervalSet Dispatch_(const prim::CastNode* op) final {
+  IntervalSet Dispatch_(const prim::CastObj* op) final {
     IntervalSet value_set = this->Eval(op->value);
     // short cut for the int set.
     if (value_set->min_value.same_as(value_set->max_value)) {
@@ -583,7 +583,7 @@ class IntervalSetEvaluator : public tvm::ExprFunctor<IntervalSet(const Expr&)> {
     return IntervalSet(min_value, max_value);
   }
 
-  IntervalSet Dispatch_(const TensorLoadNode* op) final {
+  IntervalSet Dispatch_(const TensorLoadObj* op) final {
     PrimType op_ty = op->ty.as_or_throw<PrimType>();
     if (!op_ty.MatchesCode(DLDataTypeCode::kDLInt, DLDataTypeCode::kDLUInt)) {
       DLOG(WARNING) << "cannot evaluate set TensorLoad which loads from a " << op_ty->dtype
@@ -605,7 +605,7 @@ class IntervalSetEvaluator : public tvm::ExprFunctor<IntervalSet(const Expr&)> {
     return IntervalSet::SinglePoint(ffi::GetRef<PrimExpr>(op));
   }
 
-  IntervalSet Dispatch_(const CallNode* op) final { return IntervalSet::Everything(); }
+  IntervalSet Dispatch_(const CallObj* op) final { return IntervalSet::Everything(); }
 
   IntervalSet DispatchDefault_(const ffi::Object* op) final {
     DLOG(WARNING) << "cannot evaluate set type " << op->GetTypeKey();
@@ -633,9 +633,9 @@ class IntervalSetEvaluator : public tvm::ExprFunctor<IntervalSet(const Expr&)> {
   int recur_depth_{0};
   // Memo of fully-relaxed interval sets per variable, to avoid exponential
   // re-expansion of diamond-shaped variable dependencies.
-  std::unordered_map<const VarNode*, IntervalSet> relax_memo_;
+  std::unordered_map<const VarObj*, IntervalSet> relax_memo_;
   // Variables currently being relaxed, used to break cyclic dependencies.
-  std::unordered_set<const VarNode*> relax_in_progress_;
+  std::unordered_set<const VarObj*> relax_in_progress_;
   // analyzer
   AnalyzerObj* analyzer_;
   const ffi::Map<Var, IntSet>& dom_map_;

@@ -58,7 +58,7 @@ class BackendConfigBinder : public StmtExprMutator {
   }
 
  private:
-  UnchangedOr<Stmt> Mutate_(const RegionStmtNode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<Stmt> Mutate_(const RegionStmtObj* op, InplaceMode inplace_mode) final {
     if (op->op->name != "tirx.device_entry" && op->op->name != "tirx.device_scope") {
       return StmtExprMutator::Mutate_(op, inplace_mode);
     }
@@ -109,12 +109,12 @@ class DeviceHelperSpecializer : public StmtExprMutator {
     return func;
   }
 
-  std::unordered_set<const GlobalVarNode*> originals;
+  std::unordered_set<const GlobalVarObj*> originals;
 
  private:
   using StmtExprMutator::Mutate_;
 
-  UnchangedOr<Stmt> Mutate_(const RegionStmtNode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<Stmt> Mutate_(const RegionStmtObj* op, InplaceMode inplace_mode) final {
     if (op->op->name != "tirx.device_entry") {
       return StmtExprMutator::Mutate_(op, inplace_mode);
     }
@@ -138,7 +138,7 @@ class DeviceHelperSpecializer : public StmtExprMutator {
     return result;
   }
 
-  UnchangedOr<Expr> Mutate_(const CallNode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<Expr> Mutate_(const CallObj* op, InplaceMode inplace_mode) final {
     auto result =
         StmtExprMutator::Mutate_(op, inplace_mode).ValueOrUnchanged(ffi::GetRef<Expr>(op));
     auto call = result.as_or_throw<Call>();
@@ -185,7 +185,7 @@ class DeviceHelperSpecializer : public StmtExprMutator {
 class HelperCallCollector : public StmtExprVisitor {
  public:
   std::vector<GlobalVar> calls;
-  ffi::Optional<VisitInterrupt> Visit_(const CallNode* op) final {
+  ffi::Optional<VisitInterrupt> Visit_(const CallObj* op) final {
     if (auto gv = op->op.as<GlobalVar>()) calls.push_back(gv.value());
     return StmtExprVisitor::Visit_(op);
   }
@@ -196,7 +196,7 @@ Pass SpecializeEntryHelpers() {
     IRModule result({}, mod->attrs, mod->global_infos);
     UniqueNameSupply names(mod->functions.begin(), mod->functions.end(),
                            [](const auto& kv) { return kv.first->name_hint; });
-    std::unordered_set<const GlobalVarNode*> originals;
+    std::unordered_set<const GlobalVarObj*> originals;
     for (auto [gv, base] : mod->functions) {
       auto func = base.as<Function>();
       auto target = func ? func.value()->GetAttr(tvm::attr::kTarget) : std::nullopt;
@@ -209,7 +209,7 @@ Pass SpecializeEntryHelpers() {
         result->Add(gv, base);
       }
     }
-    std::unordered_set<const GlobalVarNode*> reachable;
+    std::unordered_set<const GlobalVarObj*> reachable;
     std::vector<GlobalVar> pending;
     for (auto [gv, base] : result->functions) {
       if (!originals.count(gv.get())) pending.push_back(gv);

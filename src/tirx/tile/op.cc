@@ -30,17 +30,17 @@
 
 namespace tvm::tirx::tile {
 
-struct ScopeAttrs : public AttrsNode {
+struct ScopeAttrs : public AttrsObj {
   ScopeAttrs() : scope(ffi::UnsafeInit{}) {}
   ThreadScope scope;
   static void RegisterReflection() {
     namespace refl = ffi::reflection;
     refl::ObjectDef<ScopeAttrs>().def_ro("scope", &ScopeAttrs::scope);
   }
-  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("tirx.tensor.ScopeAttrs", ScopeAttrs, AttrsNode);
+  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("tirx.tensor.ScopeAttrs", ScopeAttrs, AttrsObj);
 };
 
-struct TrnAttrs : public AttrsNode {
+struct TrnAttrs : public AttrsObj {
   TrnAttrs() : scope(ffi::UnsafeInit{}) {}
   ThreadScope scope;
   ffi::Optional<int64_t> max_inst_size;
@@ -65,10 +65,10 @@ struct TrnAttrs : public AttrsNode {
         .def_ro("negate", &TrnAttrs::negate, refl::DefaultValue(false))
         .def_ro("reverse1", &TrnAttrs::reverse1, refl::DefaultValue(false));
   }
-  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("tirx.tensor.TrnAttrs", TrnAttrs, AttrsNode);
+  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("tirx.tensor.TrnAttrs", TrnAttrs, AttrsObj);
 };
 
-ffi::Expected<void> ValidateTensorInstruction(const CallNode* call,
+ffi::Expected<void> ValidateTensorInstruction(const CallObj* call,
                                               const ffi::Function& validator) noexcept try {
   auto op = call->op.as_or_throw<Op>();
   TVM_FFI_CHECK_EQ(call->args.size(), op->args_info.size(), TypeError)
@@ -91,8 +91,8 @@ void ConfigureTensorInstruction(Op op, ffi::Function validator) {
       << "Tensor instruction " << op->name << " already has a custom validator";
   TVM_FFI_CHECK(validator != nullptr, ValueError)
       << "Tensor instruction " << op->name << " requires a non-null validator";
-  ffi::TypedFunction<ffi::Expected<void>(const CallNode*)> composed(
-      [validator = std::move(validator)](const CallNode* call) {
+  ffi::TypedFunction<ffi::Expected<void>(const CallObj*)> composed(
+      [validator = std::move(validator)](const CallObj* call) {
         return ValidateTensorInstruction(call, validator);
       });
   OpDef(op->name).set_validator(composed, true);
