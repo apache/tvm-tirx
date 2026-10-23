@@ -48,19 +48,22 @@ def test_min_max(target, dtype, lanes):
     def main(A: T.Tensor((n,), dtype), B: T.Tensor((n,), dtype), C: T.Tensor((14, n), dtype)):
         for outer in range(n // extent):
             i = outer if T.constexpr(lanes == 1) else T.ramp(outer * extent, 1, extent)
+            # Rows 0-4: min(a, b), min(0, a), min(a, 0), min(NaN, a), min(a, NaN).
             C[0, i] = T.min(A[i], B[i])
             C[1, i] = T.min(T.cast(0, dtype), A[i])
             C[2, i] = T.min(A[i], T.cast(0, dtype))
             C[3, i] = T.min(T.cast(nan, dtype), A[i])
             C[4, i] = T.min(A[i], T.cast(nan, dtype))
+            # Rows 5-9: max with the same operand pairs.
             C[5, i] = T.max(A[i], B[i])
             C[6, i] = T.max(T.cast(0, dtype), A[i])
             C[7, i] = T.max(A[i], T.cast(0, dtype))
             C[8, i] = T.max(T.cast(nan, dtype), A[i])
             C[9, i] = T.max(A[i], T.cast(nan, dtype))
-            # Parenthesization of both the general and constant ternaries.
+            # Rows 10-11: parentheses for general and constant max inside arithmetic.
             C[10, i] = T.max(A[i], B[i]) + T.cast(1, dtype)
             C[11, i] = T.max(T.cast(0, dtype), A[i]) + T.cast(1, dtype)
+            # Rows 12-13: positive and negative infinity constants.
             C[12, i] = T.min(A[i], T.cast(infinity, dtype))
             C[13, i] = T.max(A[i], T.cast(-infinity, dtype))
 
@@ -72,7 +75,7 @@ def test_min_max(target, dtype, lanes):
         comparisons = [
             line for line in compiled.mod.inspect_source("ll").splitlines() if " fcmp " in line
         ]
-        # The same kernel checks general and simplified constant comparisons.
+        # Check predicate presence and scalar/vector types across the kernel.
         assert {line.split(" fcmp ")[1].split()[0] for line in comparisons} == {
             "olt",
             "ogt",
@@ -80,7 +83,12 @@ def test_min_max(target, dtype, lanes):
             "ugt",
             "uno",
         }
-        llvm_type = "<vscale x 4 x float>" if scalable else "<4 x float>" if lanes == 4 else "float"
+        if scalable:
+            llvm_type = "<vscale x 4 x float>"
+        elif lanes == 1:
+            llvm_type = "float"
+        else:
+            llvm_type = f"<{lanes} x float>"
         assert all(f" {llvm_type} " in line for line in comparisons)
     if scalable:
         return  # Cross-compile SVE; execution requires SVE hardware.
@@ -92,11 +100,16 @@ def test_min_max(target, dtype, lanes):
     compiled(tvm_tirx.runtime.tensor(a), tvm_tirx.runtime.tensor(b), out)
 
     zero, nan_array = np.zeros_like(a), np.full_like(a, np.nan)
-    expected = []
-    for compare in (np.less, np.greater):
-        for lhs, rhs in ((a, b), (zero, a), (a, zero), (nan_array, a), (a, nan_array)):
-            expected.append(np.where(compare(lhs, rhs) | np.isnan(lhs), lhs, rhs))
-    expected.extend([expected[5] + np.ones_like(a), expected[6] + np.ones_like(a)])
+    operand_pairs = ((a, b), (zero, a), (a, zero), (nan_array, a), (a, nan_array))
+    expected_by_op = {}
+    for name, compare in (("min", np.less), ("max", np.greater)):
+        expected_by_op[name] = [
+            np.where(compare(lhs, rhs) | np.isnan(lhs), lhs, rhs) for lhs, rhs in operand_pairs
+        ]
+    expected = expected_by_op["min"] + expected_by_op["max"]
+    max_ab, max_zero_a = expected_by_op["max"][:2]
+    expected.extend([max_ab + np.ones_like(a), max_zero_a + np.ones_like(a)])
+    # min(a, +Inf) and max(a, -Inf) both preserve a, including NaNs and signed zero.
     expected.extend([a, a])
     expected = np.asarray(expected, dtype=np_dtype)
     got = out.numpy()

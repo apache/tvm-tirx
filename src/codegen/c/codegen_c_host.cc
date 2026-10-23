@@ -356,11 +356,20 @@ void CodeGenCHost::Dispatch_(const AssertStmtNode* op) {  // NOLINT(*)
 void CodeGenCHost::Dispatch_(const FloatImmNode* op, std::ostream& os) {  // NOLINT(*)
   if (std::isfinite(op->value)) {
     CodeGenC::Dispatch_(op, os);
-  } else {
-    os << "((";
-    PrintType(op->ty.as_or_throw<PrimType>(), os);
-    os << ")" << (std::isnan(op->value) ? "NAN" : op->value < 0 ? "-INFINITY" : "INFINITY") << ")";
+    return;
   }
+
+  const char* literal;
+  if (std::isnan(op->value)) {
+    literal = "NAN";
+  } else if (op->value < 0) {
+    literal = "-INFINITY";
+  } else {
+    literal = "INFINITY";
+  }
+  os << "((";
+  PrintType(op->ty.as_or_throw<PrimType>(), os);
+  os << ")" << literal << ")";
 }
 
 void CodeGenCHost::Dispatch_(const prim::MinNode* op, std::ostream& os) {  // NOLINT(*)
@@ -375,37 +384,40 @@ void CodeGenCHost::PrintMinMax(const PrimExpr& lhs, const PrimExpr& rhs, bool is
                                std::ostream& os) {  // NOLINT(*)
   std::ostringstream temp_lhs;
   Dispatch(lhs, temp_lhs);
-  std::string lhs_id = SSAGetID(temp_lhs.str(), lhs.ty());
+  std::string lhs_value = "(" + SSAGetID(temp_lhs.str(), lhs.ty()) + ")";
   std::ostringstream temp_rhs;
   Dispatch(rhs, temp_rhs);
-  std::string rhs_id = SSAGetID(temp_rhs.str(), rhs.ty());
+  std::string rhs_value = "(" + SSAGetID(temp_rhs.str(), rhs.ty()) + ")";
   PrimType dtype = lhs.ty().as_or_throw<PrimType>();
   FloatNaNStatus lhs_nan_status = GetFloatNaNStatus(lhs);
   FloatNaNStatus rhs_nan_status = GetFloatNaNStatus(rhs);
   const char* compare = is_min ? "<" : ">";
   const char* take_rhs_compare = is_min ? ">=" : "<=";
 
-  if (!dtype.MatchesCode(DLDataTypeCode::kDLFloat)) {
-    os << "((" << lhs_id << ") " << compare << " (" << rhs_id << ") ? (" << lhs_id << ") : ("
-       << rhs_id << "))";
+  std::string condition;
+  std::string true_value = lhs_value;
+  std::string false_value = rhs_value;
+  if (!dtype.MatchesCode(DLDataTypeCode::kDLFloat) ||
+      lhs_nan_status == FloatNaNStatus::kKnownNotNaN) {
+    // Integers and a known non-NaN lhs need only the strict comparison.
+    condition = lhs_value + " " + compare + " " + rhs_value;
   } else if (lhs_nan_status == FloatNaNStatus::kKnownNaN) {
-    os << "(" << lhs_id << ")";
-  } else if (lhs_nan_status == FloatNaNStatus::kKnownNotNaN) {
-    // No lhs NaN check is needed; a NaN rhs makes the comparison false.
-    os << "((" << lhs_id << ") " << compare << " (" << rhs_id << ") ? (" << lhs_id << ") : ("
-       << rhs_id << "))";
+    os << lhs_value;
+    return;
   } else if (rhs_nan_status == FloatNaNStatus::kKnownNaN) {
     // isnan(lhs) ? lhs : rhs: select lhs only if it is also NaN.
-    os << "((" << lhs_id << ") != (" << lhs_id << ") ? (" << lhs_id << ") : (" << rhs_id << "))";
+    condition = lhs_value + " != " + lhs_value;
   } else if (rhs_nan_status == FloatNaNStatus::kKnownNotNaN) {
     // For min: lhs >= rhs ? rhs : lhs. A NaN lhs makes >= false and is kept.
-    os << "((" << lhs_id << ") " << take_rhs_compare << " (" << rhs_id << ") ? (" << rhs_id
-       << ") : (" << lhs_id << "))";
+    condition = lhs_value + " " + take_rhs_compare + " " + rhs_value;
+    true_value = rhs_value;
+    false_value = lhs_value;
   } else {
     // For min: (lhs < rhs || isnan(lhs)) ? lhs : rhs. Max uses > instead.
-    os << "(((" << lhs_id << ") " << compare << " (" << rhs_id << ") || (" << lhs_id << ") != ("
-       << lhs_id << ")) ? (" << lhs_id << ") : (" << rhs_id << "))";
+    condition = "(" + lhs_value + " " + compare + " " + rhs_value + ") || (" + lhs_value +
+                " != " + lhs_value + ")";
   }
+  os << "((" << condition << ") ? " << true_value << " : " << false_value << ")";
 }
 
 ffi::Module BuildCHost(IRModule mod, Target target) {
