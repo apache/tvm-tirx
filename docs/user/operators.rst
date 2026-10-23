@@ -1,0 +1,98 @@
+..  Licensed to the Apache Software Foundation (ASF) under one
+    or more contributor license agreements.  See the NOTICE file
+    distributed with this work for additional information
+    regarding copyright ownership.  The ASF licenses this file
+    to you under the Apache License, Version 2.0 (the
+    "License"); you may not use this file except in compliance
+    with the License.  You may obtain a copy of the License at
+
+..    http://www.apache.org/licenses/LICENSE-2.0
+
+..  Unless required by applicable law or agreed to in writing,
+    software distributed under the License is distributed on an
+    "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+    KIND, either express or implied.  See the License for the
+    specific language governing permissions and limitations
+    under the License.
+
+Operators and Calls
+===================
+
+``ir.Op`` represents a registered operation, such as ``prim.exp``. An ``ir.Call``
+records an invocation with its own arguments and result type. Both are
+expressions; multiple calls can refer to the same operator.
+
+Operators
+---------
+
+An operator's registration describes the arguments it accepts and can supply
+effect information, type inference, and validation rules. These properties are
+shared by all calls to that operator.
+``ir.Op.get(name)`` retrieves the registered object by name.
+
+Some computations use dedicated expression nodes instead: ``ir.prim.Add`` stores
+its operands in ``a`` and ``b``, while ``prim.exp`` uses a ``Call`` referring to
+an ``Op``. Both forms represent computations with typed results.
+
+Calls
+-----
+
+A ``Call`` inherits ``ty`` and ``loc`` from ``ir.Expr`` and adds these fields:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 25 75
+
+   * - Field
+     - Meaning
+   * - ``op``
+     - The callee: a registered operator or another function-valued expression.
+   * - ``args``
+     - Value arguments in calling order.
+   * - ``ty_args``
+     - Explicit type arguments, empty by default.
+   * - ``attrs``
+     - Attributes for this invocation, or None. A dictionary becomes
+       ``ir.DictAttrs``.
+
+``ty_args`` supplies types as inputs to the operation; ``ty`` describes its
+result. Call attributes belong to one invocation, while the operator's
+registration supplies the rules used to interpret them.
+
+For example, this call applies the registered exponential operator to a float32
+constant:
+
+.. literalinclude:: examples/foundations.py
+   :language: python
+   :start-after: # begin call contract
+   :end-before: # end call contract
+   :prepend: from tvm_tirx import ir
+
+The call records a computation for later compilation. Calls to function objects
+and global references use the same node; :doc:`objects_and_functions` explains
+those callees.
+
+Types and Validation
+--------------------
+
+Construction infers the result type when ``ty`` is omitted or None. For an
+``Op``, it uses the registered fixed return type if available, otherwise the
+type-inference callback. A call to another callee with an ``ir.FuncType`` uses
+that signature's return type. Without an applicable rule, the result is
+``MissingType``. An explicit type, including ``MissingType``, bypasses inference.
+
+Construction can reject inputs during inference, but does not run the
+operator's validator. ``call.validate()`` runs that validator if one is
+registered, returning None on success and raising an exception on failure.
+For example, the ``prim.exp`` validator rejects a call with no arguments.
+``validate()`` performs no checks for a non-operator callee or an operator
+without a validator.
+
+After changing a call's inputs, a transformation must also keep its result type
+consistent. ``ir.reinfer_type(call)`` computes the type from the current inputs;
+it leaves ``call.ty`` unchanged and does not run validation. Validation alone
+does not generally establish agreement between the stored and inferred types.
+
+See :doc:`/reference/python/ir` for the complete operator and call APIs. The
+:download:`foundations.py <examples/foundations.py>` example includes runnable
+calls, re-inference, and validation failures.

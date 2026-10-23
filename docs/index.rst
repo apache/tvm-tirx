@@ -23,9 +23,15 @@ Table of Contents
 
 .. toctree::
    :maxdepth: 1
-   :caption: Programming Guide
+   :caption: IR Walkthrough
+   :titlesonly:
 
-   user/index
+   user/core_api
+   user/foundations
+   user/operators
+   user/statements
+   user/objects_and_functions
+   user/programs
 
 .. toctree::
    :maxdepth: 1
