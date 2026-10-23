@@ -90,6 +90,64 @@ also use variables and arithmetic.
 
 .. _user-ir-var:
 
+.. _user-ir-register-type:
+
+Register New Types
+------------------
+
+tvm-tirx support to register new types in Rust and Python to extend TIRx,
+without modifying C++ code.
+
+A new type is a subclass of ``ir.Type`` registered under its own key. Its
+fields are reflected like those of the built-in types, so structural
+comparison, printing, and other IR tools work on it without additional code.
+In Python, define it with ``tvm_ffi.dataclasses.py_class``; in Rust, with
+``tvm_ffi::rs_class`` and ``tvm_ffi::def_object_ref!``.
+
+For example, this type describes a pair of values by the types of its two
+components. In Python, the fields are annotated class attributes, and the
+constructor takes them in order:
+
+.. code-block:: python
+
+   from tvm_ffi.dataclasses import py_class
+   from tvm_tirx import ir
+
+
+   @py_class("my_ext.PairType")
+   class PairType(ir.Type):
+       first: ir.Type
+       second: ir.Type
+
+
+   pair = ir.Var("p", PairType(ir.PrimType("int32"), ir.PrimType("float32")))
+
+In Rust, the object struct starts with the ``TypeObj`` it extends, and the
+generated ``new`` for ``PairTypeObj`` takes that parent object and then the
+fields:
+
+.. code-block:: rust
+
+   use tvm_tirx::ir::{Location, Type, TypeObj};
+   use tvm_tirx::tvm_ffi::{self, def_object_ref, rs_class};
+
+   #[rs_class("my_ext.PairType", final)]
+   pub struct PairTypeObj {
+       base: TypeObj,
+       pub first: Type,
+       pub second: Type,
+   }
+
+   def_object_ref!(pub PairType, Type, PairTypeObj);
+
+   impl PairType {
+       pub fn new(first: impl Into<Type>, second: impl Into<Type>) -> Self {
+           PairTypeObj::new(TypeObj::new(Location::unknown()), first, second).into()
+       }
+   }
+
+Then these new types can be used as built-in types as well.
+
 Expressions
 -----------
 
