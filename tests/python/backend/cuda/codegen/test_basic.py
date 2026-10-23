@@ -791,308 +791,135 @@ def test_vectorized_intrin1(*, backend_config):
         run_test(*func, "float16")
 
 
-def _min_max_nan_module(op, dt, n=8, vectorize=False):
+def _min_max_module(dtype, form, n=12):
+    # One kernel per (dtype, form) computes a 15-row matrix (2 rows for int32), the
+    # shape of the host side's test (#31): rows 0-4 min of (A,B), (0,A), (A,0), (nan,A),
+    # (A,nan); 5-9 the same for max; 10-11 max(A,B)+1 and max(0,A)+1 (the ternary must
+    # stay parenthesized before "+"); 12 chained C=0; C=max(C,3); C=max(C,2) (a stale
+    # cached read of C gives 2); 13-14 min(A,+inf), max(A,-inf). The constants are
+    # FloatImms built outside the kernel (-inf as its own: a negated float16 FloatImm is
+    # not folded): scalar takes codegen's constant fast paths (NaN constant inline,
+    # constant rhs as a reversed non-strict compare), vec4 the per-lane "||" path.
+    is_float = dtype != "int32"
+    rows = 15 if is_float else 2
+    zero, one = T.cast(0, dtype), T.cast(1, dtype)
+    nan = T.cast(float("nan"), dtype) if is_float else None
+    inf = T.cast(float("inf"), dtype) if is_float else None
+    ninf = T.cast(float("-inf"), dtype) if is_float else None
+
     @I.ir_module
     class Module:
         @T.function
-        def main(A: T.Tensor((n,), dt), B: T.Tensor((n,), dt), C: T.Tensor((n,), dt)):
+        def main(A: T.Tensor((n,), dtype), B: T.Tensor((n,), dtype), C: T.Tensor((rows, n), dtype)):
             T.func_attr({"tirx.noalias": True})
-            with T.launch_thread("blockIdx.x", 2) as i0:
-                if T.constexpr(vectorize):
+            if T.constexpr(form == "vec4"):
+                with T.launch_thread("blockIdx.x", n // 4) as i0:
                     for i1 in T.vectorized(4):
-                        C[i0 * 4 + i1] = (
-                            T.max(A[i0 * 4 + i1], B[i0 * 4 + i1])
-                            if T.constexpr(op == "max")
-                            else T.min(A[i0 * 4 + i1], B[i0 * 4 + i1])
-                        )
-                else:
-                    with T.launch_thread("threadIdx.x", 4) as i1:
-                        C[i0 * 4 + i1] = (
-                            T.max(A[i0 * 4 + i1], B[i0 * 4 + i1])
-                            if T.constexpr(op == "max")
-                            else T.min(A[i0 * 4 + i1], B[i0 * 4 + i1])
-                        )
+                        if T.constexpr(is_float):
+                            C[0, i0 * 4 + i1] = T.min(A[i0 * 4 + i1], B[i0 * 4 + i1])
+                            C[1, i0 * 4 + i1] = T.min(zero, A[i0 * 4 + i1])
+                            C[2, i0 * 4 + i1] = T.min(A[i0 * 4 + i1], zero)
+                            C[3, i0 * 4 + i1] = T.min(nan, A[i0 * 4 + i1])
+                            C[4, i0 * 4 + i1] = T.min(A[i0 * 4 + i1], nan)
+                            C[5, i0 * 4 + i1] = T.max(A[i0 * 4 + i1], B[i0 * 4 + i1])
+                            C[6, i0 * 4 + i1] = T.max(zero, A[i0 * 4 + i1])
+                            C[7, i0 * 4 + i1] = T.max(A[i0 * 4 + i1], zero)
+                            C[8, i0 * 4 + i1] = T.max(nan, A[i0 * 4 + i1])
+                            C[9, i0 * 4 + i1] = T.max(A[i0 * 4 + i1], nan)
+                            C[10, i0 * 4 + i1] = T.max(A[i0 * 4 + i1], B[i0 * 4 + i1]) + one
+                            C[11, i0 * 4 + i1] = T.max(zero, A[i0 * 4 + i1]) + one
+                            C[12, i0 * 4 + i1] = zero
+                            C[12, i0 * 4 + i1] = T.max(C[12, i0 * 4 + i1], T.cast(3, dtype))
+                            C[12, i0 * 4 + i1] = T.max(C[12, i0 * 4 + i1], T.cast(2, dtype))
+                            C[13, i0 * 4 + i1] = T.min(A[i0 * 4 + i1], inf)
+                            C[14, i0 * 4 + i1] = T.max(A[i0 * 4 + i1], ninf)
+                        else:
+                            C[0, i0 * 4 + i1] = T.min(A[i0 * 4 + i1], B[i0 * 4 + i1])
+                            C[1, i0 * 4 + i1] = T.max(A[i0 * 4 + i1], B[i0 * 4 + i1])
+            else:
+                with T.launch_thread("threadIdx.x", n) as i:
+                    if T.constexpr(is_float):
+                        C[0, i] = T.min(A[i], B[i])
+                        C[1, i] = T.min(zero, A[i])
+                        C[2, i] = T.min(A[i], zero)
+                        C[3, i] = T.min(nan, A[i])
+                        C[4, i] = T.min(A[i], nan)
+                        C[5, i] = T.max(A[i], B[i])
+                        C[6, i] = T.max(zero, A[i])
+                        C[7, i] = T.max(A[i], zero)
+                        C[8, i] = T.max(nan, A[i])
+                        C[9, i] = T.max(A[i], nan)
+                        C[10, i] = T.max(A[i], B[i]) + one
+                        C[11, i] = T.max(zero, A[i]) + one
+                        C[12, i] = zero
+                        C[12, i] = T.max(C[12, i], T.cast(3, dtype))
+                        C[12, i] = T.max(C[12, i], T.cast(2, dtype))
+                        C[13, i] = T.min(A[i], inf)
+                        C[14, i] = T.max(A[i], ninf)
+                    else:
+                        C[0, i] = T.min(A[i], B[i])
+                        C[1, i] = T.max(A[i], B[i])
 
     return Module
 
 
-# Same data as apache/tvm#20054. The NaN payloads are written into the float32
-# bit pattern; the fp16/bf16 arms use explicit NaN codes for the NaN lanes and
-# the same finite values narrowed losslessly.
-A_F32 = np.array([0.0, 1.0, 0.0, 0.0, -0.0, 3.0, 2.0, -5.0], dtype="float32")
-B_F32 = np.array([1.0, 0.0, 0.0, -0.0, 0.0, 2.0, 2.0, -4.0], dtype="float32")
-A_F32.view("uint32")[[0, 2]] = 0x7FC00011
-B_F32.view("uint32")[[1, 2]] = 0x7FC00022
-
-
-def _nan_preserving_expected(a, b, op):
-    cmp = a < b if op == "min" else a > b
-    return np.where(cmp | np.isnan(a), a, b)
-
-
 @pytest.mark.gpu
 @pytest.mark.skipif(not env.has_cuda(), reason="need cuda")
-@pytest.mark.parametrize("op", ["min", "max"])
 @pytest.mark.parametrize("form", ["scalar", "vec4"])
-@pytest.mark.parametrize("dt", ["float32", "float64", "float16", "bfloat16"])
-def test_min_max_nan_preserving_cuda(op, dt, form, *, backend_config):
-    n = 8
-    vectorize = form == "vec4"
-    if dt == "float32":
-        a_np, b_np = A_F32, B_F32
-    else:
-        a_np = np.array([np.nan, 1.0, np.nan, 0.0, -0.0, 3.0, 2.0, -5.0], dtype=dt)
-        b_np = np.array([1.0, np.nan, np.nan, -0.0, 0.0, 2.0, 2.0, -4.0], dtype=dt)
-
+@pytest.mark.parametrize("dtype", ["float32", "float64", "float16", "bfloat16", "int32"])
+def test_min_max_nan_preserving_cuda(dtype, form, *, backend_config):
+    n = 12
+    is_float = dtype != "int32"
     mod = tvm_tirx.tirx.compile(
-        _min_max_nan_module(op, dt, n, vectorize=vectorize),
-        target={"kind": "cuda", "backend_config": backend_config},
+        _min_max_module(dtype, form, n), target={"kind": "cuda", "backend_config": backend_config}
     )
-    a = tvm_tirx.runtime.tensor(a_np, tvm_tirx.cuda(0))
-    b = tvm_tirx.runtime.tensor(b_np, tvm_tirx.cuda(0))
-    c = tvm_tirx.runtime.empty((n,), dt, tvm_tirx.cuda(0))
-
-    def run_and_check():
-        mod(a, b, c)
-        got = c.numpy()
-        expected = _nan_preserving_expected(a_np, b_np, op)
-        if dt == "float64":
-            np.testing.assert_array_equal(got.view("uint64"), expected.view("uint64"))
-        elif dt == "float32":
-            np.testing.assert_array_equal(got.view("uint32"), expected.view("uint32"))
-        else:
-            np.testing.assert_array_equal(got.view("uint16"), expected.view("uint16"))
-
-    tvm_tirx.testing.run_with_gpu_lock(run_and_check)
-
-
-@pytest.mark.gpu
-@pytest.mark.skipif(not env.has_cuda(), reason="need cuda")
-def test_min_max_composite_expression_cuda(*, backend_config):
-    # The ternary must survive a compound expression on the general path (C) and
-    # on the constant fast path (D): without its outer parentheses,
-    # x + cond ? a : b parses as (x + cond) ? a : b. The addition normalizes NaN
-    # payloads, so NaN lanes assert isnan and finite lanes bitwise.
-    n = 8
-
-    @I.ir_module
-    class Module:
-        @T.function
-        def main(
-            A: T.Tensor((n,), "float32"),
-            B: T.Tensor((n,), "float32"),
-            C: T.Tensor((n,), "float32"),
-            D: T.Tensor((n,), "float32"),
-        ):
-            T.func_attr({"tirx.noalias": True})
-            with T.launch_thread("threadIdx.x", n) as i:
-                C[i] = T.max(A[i], B[i]) + T.float32(1.0)
-                D[i] = T.max(T.float32(0.0), B[i]) + T.float32(1.0)
-
-    mod = tvm_tirx.tirx.compile(Module, target={"kind": "cuda", "backend_config": backend_config})
-    a = tvm_tirx.runtime.tensor(A_F32, tvm_tirx.cuda(0))
-    b = tvm_tirx.runtime.tensor(B_F32, tvm_tirx.cuda(0))
-    c = tvm_tirx.runtime.empty((n,), "float32", tvm_tirx.cuda(0))
-    d = tvm_tirx.runtime.empty((n,), "float32", tvm_tirx.cuda(0))
-
-    def check(got, expected):
-        nan_lanes = np.isnan(expected)
-        assert np.isnan(got[nan_lanes]).all(), got
-        np.testing.assert_array_equal(
-            got.view("uint32")[~nan_lanes], expected.view("uint32")[~nan_lanes]
-        )
-
-    def run_and_check():
-        mod(a, b, c, d)
-        check(c.numpy(), _nan_preserving_expected(A_F32, B_F32, "max") + np.float32(1.0))
-        zeros = np.zeros(n, dtype="float32")
-        check(d.numpy(), np.where(zeros > B_F32, zeros, B_F32) + np.float32(1.0))
-
-    tvm_tirx.testing.run_with_gpu_lock(run_and_check)
-
-
-@pytest.mark.gpu
-@pytest.mark.skipif(not env.has_cuda(), reason="need cuda")
-def test_min_max_chained_statements_cuda(*, backend_config):
-    # C[v] = max(C[v], A[v]); C[v] = max(C[v], B[v]): the second statement must not
-    # reuse the first one's read of C across the write (a text-keyed SSA cache
-    # would). That broke warp allreduce, which repeats red_buf[0] = max(red_buf[0],
-    # shuffle_down(...)). C starts at 0 and a > b per lane, so a stale read gives b.
-    n = 8
-    c0_np = np.zeros(n, dtype="float32")
-    a_np = np.array([5.0, 9.0, 3.0, 7.0, 1.0, 8.0, 4.0, 6.0], dtype="float32")
-    b_np = np.array([1.0, 2.0, 2.0, 1.0, 0.0, 3.0, 2.0, 5.0], dtype="float32")
-
-    @I.ir_module
-    class Module:
-        @T.function
-        def main(
-            A: T.Tensor((n,), "float32"),
-            B: T.Tensor((n,), "float32"),
-            C: T.Tensor((n,), "float32"),
-        ):
-            T.func_attr({"tirx.noalias": True})
-            with T.launch_thread("threadIdx.x", n) as i:
-                C[i] = T.max(C[i], A[i])
-                C[i] = T.max(C[i], B[i])
-
-    mod = tvm_tirx.tirx.compile(Module, target={"kind": "cuda", "backend_config": backend_config})
-    a = tvm_tirx.runtime.tensor(a_np, tvm_tirx.cuda(0))
-    b = tvm_tirx.runtime.tensor(b_np, tvm_tirx.cuda(0))
-    c = tvm_tirx.runtime.tensor(c0_np, tvm_tirx.cuda(0))
-
-    def run_and_check():
-        mod(a, b, c)
-        expected = np.maximum(np.maximum(c0_np, a_np), b_np)
-        np.testing.assert_array_equal(c.numpy(), expected)
-
-    tvm_tirx.testing.run_with_gpu_lock(run_and_check)
-
-
-CONST_OTHER = np.array([np.nan, -0.0, 0.0, -1.0, 1.0, np.inf, -np.inf, 2.0], dtype="float32")
-
-
-# The eight scalar constant-operand cases from apache/tvm#20054's
-# test_min_max_float_imm_operand, plus two representative vec4 cases.
-_FLOAT_IMM_CASES = [
-    (op, side, nan, "scalar")
-    for op in ("min", "max")
-    for side in ("lhs", "rhs")
-    for nan in (False, True)
-] + [("min", "lhs", False, "vec4"), ("max", "rhs", True, "vec4")]
-
-
-@pytest.mark.gpu
-@pytest.mark.skipif(not env.has_cuda(), reason="need cuda")
-@pytest.mark.parametrize("op,const_side,const_nan,form", _FLOAT_IMM_CASES)
-def test_min_max_float_imm_operand_cuda(op, const_side, const_nan, form, *, backend_config):
-    # The constant is written inline as T.float32(const_val) so that it reaches
-    # codegen as a FloatImm.
-    # scalar: lanes == 1, so codegen takes the constant fast path, none of
-    #   whose forms emits the "||" of the general ternary.
-    # vec4: VectorizeLoop turns the literal into Broadcast(FloatImm, 4); the fast
-    #   path is scalar-only, so this form checks a broadcast constant on the
-    #   per-lane general path.
-    n = 8
-    const_val = float("nan") if const_nan else 0.0
-    # B carries a NaN lane so the (NaN B, finite constant) branch is exercised.
-    b_np = CONST_OTHER.copy()
-    b_np[0] = np.float32("nan")
-
-    @I.ir_module
-    class Module:
-        @T.function
-        def main(B: T.Tensor((n,), "float32"), C: T.Tensor((n,), "float32")):
-            T.func_attr({"tirx.noalias": True})
-            if T.constexpr(form == "scalar" and const_side == "lhs"):
-                with T.launch_thread("threadIdx.x", n) as i:
-                    C[i] = (
-                        T.min(T.float32(const_val), B[i])
-                        if T.constexpr(op == "min")
-                        else T.max(T.float32(const_val), B[i])
-                    )
-            elif T.constexpr(form == "scalar"):
-                with T.launch_thread("threadIdx.x", n) as i:
-                    C[i] = (
-                        T.min(B[i], T.float32(const_val))
-                        if T.constexpr(op == "min")
-                        else T.max(B[i], T.float32(const_val))
-                    )
-            elif T.constexpr(const_side == "lhs"):
-                with T.launch_thread("blockIdx.x", 2) as i0:
-                    for i1 in T.vectorized(4):
-                        C[i0 * 4 + i1] = (
-                            T.min(T.float32(const_val), B[i0 * 4 + i1])
-                            if T.constexpr(op == "min")
-                            else T.max(T.float32(const_val), B[i0 * 4 + i1])
-                        )
-            else:
-                with T.launch_thread("blockIdx.x", 2) as i0:
-                    for i1 in T.vectorized(4):
-                        C[i0 * 4 + i1] = (
-                            T.min(B[i0 * 4 + i1], T.float32(const_val))
-                            if T.constexpr(op == "min")
-                            else T.max(B[i0 * 4 + i1], T.float32(const_val))
-                        )
-
-    mod = tvm_tirx.tirx.compile(Module, target={"kind": "cuda", "backend_config": backend_config})
-
-    # The CUDA header emitted before the kernel contains "||" in preprocessor
-    # lines, so only the text from the kernel declaration on is checked.
+    # The CUDA header before the kernel has "||" in preprocessor lines, so the text is
+    # checked from the kernel declaration on. float never falls back to bare min()/max()
+    # (the general rows emit "||", the constant NaN rows CUDART_NAN_F, a scalar constant
+    # rhs the reversed non-strict compare); int32 keeps the base min()/max() path.
     src = mod.mod.imports[0].inspect_source()
     kernel = src[src.index("__global__") :]
-    if form == "scalar":
-        assert "||" not in kernel, kernel
-        if const_nan and const_side == "lhs":
-            # the constant NaN is the result: no select at all
-            assert "?" not in kernel, kernel
-            assert "CUDART_NAN_F" in kernel, kernel
-        elif const_nan:
-            # rhs NaN: only the (a != a) test is left
-            assert "!=" in kernel, kernel
-        else:
-            # non-NaN constant: an ordered compare only, no NaN test
-            assert "!=" not in kernel, kernel
-            if const_side == "lhs":
-                assert (" < " if op == "min" else " > ") in kernel, kernel
-            else:
-                assert (" >= " if op == "min" else " <= ") in kernel, kernel
+    if dtype == "float32":
+        assert "||" in kernel and "CUDART_NAN_F" in kernel, kernel
+        assert "min(" not in kernel and "max(" not in kernel, kernel
+        if form == "scalar":
+            assert " >= " in kernel or " <= " in kernel, kernel
+    elif not is_float:
+        assert "min(" in kernel and "max(" in kernel, kernel
+
+    if is_float:
+        inf = np.inf
+        a_np = np.array([np.nan, 1, np.nan, 0.0, -0.0, 3, 2, -5, inf, -inf, 1, -1], dtype=dtype)
+        b_np = np.array([1, np.nan, np.nan, -0.0, 0.0, 2, 2, -4, 1, 1, inf, -inf], dtype=dtype)
+        zero, nan = np.zeros(n, dtype=dtype), np.full(n, np.nan, dtype=dtype)
+        pairs = [(a_np, b_np), (zero, a_np), (a_np, zero), (nan, a_np), (a_np, nan)]
+        rows = [
+            np.where(cmp(x, y) | np.isnan(x), x, y)
+            for cmp in (np.less, np.greater)
+            for x, y in pairs
+        ]
+        rows += [rows[5] + 1, rows[6] + 1, np.full(n, 3, dtype=dtype), a_np, a_np]
     else:
-        assert "||" in kernel, kernel
-
-    b = tvm_tirx.runtime.tensor(b_np, tvm_tirx.cuda(0))
-    c = tvm_tirx.runtime.empty((n,), "float32", tvm_tirx.cuda(0))
-
-    def run_and_check():
-        mod(b, c)
-        got = c.numpy()
-        const_np = np.full(n, const_val, dtype="float32")
-        if const_side == "lhs":
-            lhs_np, rhs_np = const_np, b_np
-        else:
-            lhs_np, rhs_np = b_np, const_np
-        cmp = lhs_np < rhs_np if op == "min" else lhs_np > rhs_np
-        take_lhs = cmp | np.isnan(lhs_np)
-        expected = np.where(take_lhs, lhs_np, rhs_np)
-        # The contract is NaN propagation, not the NaN payload: a constant NaN is
-        # emitted as CUDART_NAN_F, and nvcc may lower the compare-select to a
-        # min/max instruction that returns the canonical NaN (seen on sm_89 for
-        # min(c, B) and max(B, c): 0x7FFFFFFF where B held 0x7FC00033). NaN lanes
-        # are checked with isnan; every finite lane, including the sign of zero,
-        # bitwise.
-        nan_lanes = np.isnan(expected)
-        assert np.isnan(got[nan_lanes]).all(), got
-        assert not np.isnan(got[~nan_lanes]).any(), got
-        np.testing.assert_array_equal(
-            got.view("uint32")[~nan_lanes], expected.view("uint32")[~nan_lanes]
-        )
-
-    tvm_tirx.testing.run_with_gpu_lock(run_and_check)
-
-
-@pytest.mark.gpu
-@pytest.mark.skipif(not env.has_cuda(), reason="need cuda")
-@pytest.mark.parametrize("op", ["min", "max"])
-def test_min_max_int_vector_cuda(op, *, backend_config):
-    # Integer min/max keeps the base codegen path, including the per-lane
-    # vector expansion: lanes=4 must compile and match numpy bitwise.
-    n = 8
-    dt = "int32"
-    a_np = np.array([3, -5, 7, 0, -1, 9, 2, -8], dtype=dt)
-    b_np = np.array([1, 9, -2, 4, -3, 9, 5, -8], dtype=dt)
-
-    mod = tvm_tirx.tirx.compile(
-        _min_max_nan_module(op, dt, n, vectorize=True),
-        target={"kind": "cuda", "backend_config": backend_config},
-    )
+        a_np = np.array([3, -5, 7, 0, -1, 9, 2, -8, 4, 4, -2, 0], dtype=dtype)
+        b_np = np.array([1, 9, -2, 4, -3, 9, 5, -8, 0, -4, -2, 1], dtype=dtype)
+        rows = [np.minimum(a_np, b_np), np.maximum(a_np, b_np)]
+    expected = np.stack(rows)
     a = tvm_tirx.runtime.tensor(a_np, tvm_tirx.cuda(0))
     b = tvm_tirx.runtime.tensor(b_np, tvm_tirx.cuda(0))
-    c = tvm_tirx.runtime.empty((n,), dt, tvm_tirx.cuda(0))
+    c = tvm_tirx.runtime.empty(expected.shape, dtype, tvm_tirx.cuda(0))
 
     def run_and_check():
         mod(a, b, c)
-        expected = np.minimum(a_np, b_np) if op == "min" else np.maximum(a_np, b_np)
-        np.testing.assert_array_equal(c.numpy(), expected)
+        got = c.numpy()
+        if not is_float:
+            np.testing.assert_array_equal(got, expected)
+            return
+        # NaN lanes are checked with isnan (CUDART_NAN_F and a min/max instruction
+        # normalize the payload); every finite lane, including the sign of zero, bitwise.
+        nan_mask = np.isnan(expected)
+        np.testing.assert_array_equal(np.isnan(got), nan_mask)
+        bits = {2: "uint16", 4: "uint32", 8: "uint64"}[expected.dtype.itemsize]
+        np.testing.assert_array_equal(got.view(bits)[~nan_mask], expected.view(bits)[~nan_mask])
 
     tvm_tirx.testing.run_with_gpu_lock(run_and_check)
 
