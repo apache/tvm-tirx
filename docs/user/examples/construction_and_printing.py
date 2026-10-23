@@ -14,13 +14,9 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-# TVMScript resolves parameter references inside tensor annotations.
-# ruff: noqa: F821
-"""Construct IR with TVMScript and builder frames, then print and parse it."""
+"""Construct the same increment function with TVMScript and builder frames."""
 
 # begin construction imports
-from __future__ import annotations
-
 from tvm_tirx import ir
 from tvm_tirx.script import from_source
 from tvm_tirx.script import ir as I
@@ -33,17 +29,9 @@ from tvm_tirx.tirx.script import ir_builder as B
 
 # begin script function
 @T.function
-def main(
-    n: T.int64,
-    A: T.Tensor((2 * n, 128), "int32"),
-    C: T.Tensor((2 * n, 128), "int32"),
-) -> T.void:
-    for i, j in T.grid(2 * n, T.int64(128)):
-        value = A[i, j] + 1
-        if i < n:
-            C[i, j] = value
-        else:
-            C[i, j] = value + 2
+def main(x: T.int32) -> T.int32:
+    result = x + 1
+    return result
 
 
 # end script function definition
@@ -57,12 +45,17 @@ class ScriptModule:
 
 # end script module definition
 
-# begin grid pair
-with IRBuilder() as loop_builder:
-    with B.grid((B.int64(2), B.int32(3))) as index:
-        B.evaluate(index)
-loop = loop_builder.get()
-# end loop construction
+# begin builder function
+with IRBuilder() as builder:
+    with B.function_():
+        B.func_name_("main")
+        x = B.arg_("x", B.int32)
+        B.func_ret_type_(ir.PrimType("int32"))
+        result = B.bind_(x + B.int32(1), name="result")
+        B.return_(result)
+built = builder.get()
+# end builder function
+ir.assert_structural_equal(main, built)
 
 # begin function source round trip
 function_text = main.script()
@@ -71,5 +64,4 @@ ir.assert_structural_equal(main, restored_function)
 # end function source round trip
 
 assert ScriptModule["main"].same_as(main)
-assert int(loop.begin) == 2 and int(loop.end) == 5
 print("Construction and printing examples passed.")

@@ -14,34 +14,31 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-"""Build, serialize, and execute a function with a branch and nested loops."""
+"""Assemble an integer increment function from expressions and statements."""
 
-import numpy as np
-
-from tvm_tirx import ir, runtime, tirx
+from tvm_tirx import ir, tirx
 
 # begin statement values
-n = ir.Var("n", "int64")
-A = ir.Var("A", tirx.TensorType((2 * n, 128), "int32"))
-C = ir.Var("C", A.ty)
-i = ir.Var("i", "int64")
-j = ir.Var("j", "int64")
-value = ir.Var("value", "int32")
+x = ir.Var("x", "int32")
+added = x + 1
 # end statement values
 
 # begin statements
-binding = ir.Bind(value, A[i, j] + 1)
-branch = ir.If(
-    i < n,
-    ir.TensorStore(C, [i, j], value),
-    ir.TensorStore(C, [i, j], value + 2),
-)
-inner = ir.For(j, 0, 128, 1, ir.ForKind.DEFAULT, [binding, branch])
-body = ir.For(i, 0, 2 * n, 1, ir.ForKind.DEFAULT, inner)
+result = ir.Var("result", added.ty)
+body = ir.SeqStmt([ir.Bind(result, added), ir.Return(result)])
 # end statements
 
+# begin branch
+branch = ir.If(x > 0, ir.Return(added), ir.Return(x))
+# end branch
+
+# begin loop
+i = ir.Var("i", "int32")
+loop = ir.For(i, 0, 4, 1, ir.ForKind.DEFAULT, ir.Evaluate(i))
+# end loop
+
 # begin function construction
-function = tirx.Function([n, A, C], body, ret_type=ir.PrimType("void"))
+function = tirx.Function([x], body, ret_type=x.ty)
 # end function construction
 
 # begin module construction
@@ -50,28 +47,26 @@ entry = ir.GlobalVar("main")
 module = ir.IRModule({entry: function})
 # end module construction
 
+# begin global call
+global_call = ir.Call(entry, [ir.const(3, "int32")], ty=function.ret_type)
+# end global call
+
 # begin module serialization
 restored = ir.load_json(ir.save_json(module))
 ir.assert_structural_equal(module, restored)
 # end module serialization
 
+assert global_call.ty == x.ty
 assert module[entry].same_as(module["main"])
 assert tirx.analysis.check_well_formed(module)
+assert tirx.analysis.check_well_formed(tirx.Function([x], branch, ret_type=x.ty))
 variant = module.clone()
 variant["main"] = function.with_attr("example.note", "clone")
 assert "example.note" not in module["main"].attrs
 
-# A loop variable is unavailable after its loop.
-escaped = function.with_body([body, ir.Evaluate(i)])
+escaped = tirx.Function([], [loop, ir.Evaluate(i)])
 assert not tirx.analysis.check_well_formed(escaped, assert_mode=False)
-
 executable = tirx.compile(module, target="llvm")
-for n_value in (1, 3):
-    source = np.arange(2 * n_value * 128, dtype="int32").reshape(2 * n_value, 128)
-    output = runtime.empty(source.shape, "int32")
-    executable(n_value, runtime.tensor(source), output)
-    expected = source + 1
-    expected[n_value:] += 2
-    np.testing.assert_array_equal(output.numpy(), expected)
-
-print("Statement, function, and numerical examples passed.")
+for value in (-2, 0, 3):
+    assert executable(value) == value + 1
+print("Statement, function, and execution examples passed.")

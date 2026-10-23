@@ -57,8 +57,9 @@ All type objects carry a ``loc`` field for source information, defaulting to
      - A tensor's shape, element type, and storage properties
      - ``shape``, ``dtype``, ``scope``, ``data_alignment``, ``layout``
 
-Types can contain other types: tuple fields, pointer element types, and
-function signatures refer to further ``ir.Type`` objects. For example:
+For a function that adds one to an int32 input, both the argument and result
+have the same primitive type. ``FuncType`` combines those types into a
+signature:
 
 .. literalinclude:: examples/types_and_expressions.py
    :language: python
@@ -66,9 +67,10 @@ function signatures refer to further ``ir.Type`` objects. For example:
    :end-before: # end composite type
    :prepend: from tvm_tirx import ir, tirx
 
-``signature`` describes a function taking one int64 argument and returning an
-int64 result. Use ``==`` to compare type structure and ``same_as`` to compare
-object identity.
+``signature.arg_types`` contains ``integer_type``, and ``signature.ret_type``
+refers to that same type. Tuple fields and pointer element types similarly
+refer to other type objects. Use ``==`` to compare type structure and
+``same_as`` to compare object identity.
 
 .. _user-tensor-type:
 
@@ -88,7 +90,8 @@ also use variables and arithmetic.
 Expressions
 -----------
 
-All expressions share two fields:
+With the input and result types described, expressions can represent the
+parameter and the addition itself. All expressions share two fields:
 
 * ``ty``: an ``ir.Type`` describing the expression's result. ``ir.MissingType``
   marks type information that has not yet been supplied or computed.
@@ -110,8 +113,8 @@ Concrete expression classes add fields for their stored values or operands:
    * - ``ir.IntImm``
      - An integer constant
      - ``value``
-   * - ``ir.prim.Mul``
-     - A multiplication
+   * - ``ir.prim.Add``
+     - An addition
      - ``a``, ``b``
    * - ``ir.Call``
      - A call
@@ -127,33 +130,36 @@ representation.
 
 .. _user-ir-const:
 
-For example, ``ir.Var`` creates a variable and ``ir.const`` creates a constant
-expression. Multiplying them constructs a ``Mul`` with two expression operands:
+To describe ``x + 1``, create a variable with the integer type above and a
+constant of that type. Adding them constructs an ``Add`` expression:
 
 .. literalinclude:: examples/types_and_expressions.py
    :language: python
    :start-after: # begin scalar expressions
    :end-before: # end scalar expressions
 
-``n`` is a ``Var`` and ``extent`` is a ``Mul``. Both carry
-``ir.PrimType("int64")`` in their ``ty`` field. Reuse the same variable object
-when a symbol appears in several places: another ``ir.Var("n", "int64")`` is a
-distinct symbol, even with the same name.
+``x`` is a ``Var`` and ``added`` is an ``Add``. Both carry ``integer_type`` in
+their ``ty`` field. Reuse the same variable object when a symbol appears in
+several places: another ``ir.Var("x", integer_type)`` is a distinct symbol,
+even with the same name.
 
-A tensor variable uses the same ``ir.Var`` class, with a ``TensorType`` in its
-``ty`` field. Using ``extent`` from above:
+A tensor variable follows the same pattern, with a ``TensorType`` in its
+``ty`` field. Its shape can reuse the integer expressions described above:
 
 .. literalinclude:: examples/types_and_expressions.py
    :language: python
    :start-after: # begin tensor expressions
    :end-before: # end tensor expressions
 
-The first dimension stores ``extent``, the multiplication expression using
-``n``. That same variable can appear in loop bounds and indices. The element
-load ``x[0, 0]`` has type ``ir.PrimType("float32")``.
+The first dimension stores the expression ``2*n``. The same ``n`` can appear
+in loop bounds and indices. The element load ``tensor[0, 0]`` is another
+expression, with type ``ir.PrimType("float32")``.
 
 The symbol ``n`` has a known int64 type even though its value is not yet known.
 Constructing these types and expressions does not allocate tensor storage.
+
+Calls use this same expression and type interface. :doc:`operators` introduces
+their callees and arguments.
 
 See :class:`~tvm_tirx.tirx.TensorType` for the complete constructor and storage
 options, and :doc:`/reference/python/ir` for expression and type APIs. The

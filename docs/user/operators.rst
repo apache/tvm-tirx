@@ -18,17 +18,17 @@
 Operators and Calls
 ===================
 
-``ir.Op`` represents a registered operation, such as ``prim.exp``. An ``ir.Call``
-records an invocation with its own arguments and result type. Both are
-expressions; multiple calls can refer to the same operator.
+The addition in :doc:`foundations` stores its operands directly in an ``Add``.
+A call represents a computation through a callee and arguments instead.
+For a registered operation such as ``prim.exp``, the callee is an ``ir.Op``;
+``ir.Call`` records each invocation. Both objects are expressions.
 
 Operators
 ---------
 
-An operator's registration describes the arguments it accepts and can supply
-effect information, type inference, and validation rules. These properties are
-shared by all calls to that operator.
-``ir.Op.get(name)`` retrieves the registered object by name.
+An operator's registration describes accepted arguments and can supply effect
+information, type inference, and validation rules. Calls to the operator share
+these properties. Retrieve the registered object with ``ir.Op.get(name)``.
 
 For example, ``prim.exp`` declares one argument named ``x`` and is a pure
 operation. Both properties can be inspected on the registered object:
@@ -39,14 +39,12 @@ operation. Both properties can be inspected on the registered object:
    :end-before: # end operator lookup
    :prepend: from tvm_tirx import ir
 
-Some computations use dedicated expression nodes instead: ``ir.prim.Add`` stores
-its operands in ``a`` and ``b``, while ``prim.exp`` uses a ``Call`` referring to
-an ``Op``. Both forms represent computations with typed results.
-
 Calls
 -----
 
-A ``Call`` inherits ``ty`` and ``loc`` from ``ir.Expr`` and adds these fields:
+The operator describes ``prim.exp`` in general. A ``Call`` combines it with the
+inputs for one invocation. It inherits ``ty`` and ``loc`` from ``ir.Expr`` and
+adds these fields:
 
 .. list-table::
    :header-rows: 1
@@ -91,15 +89,16 @@ references that can be used as callees.
 Types and Validation
 --------------------
 
-Construction infers the result type when ``ty`` is omitted or None. For an
-``Op``, it uses the registered fixed return type if available, otherwise the
-type-inference callback. A call to another callee with an ``ir.FuncType`` uses
+The examples omit ``ty``, so construction derives the result type from the
+callee. For an ``Op``, it uses the registered fixed return type if available,
+otherwise the type-inference callback. A call to another callee with an ``ir.FuncType`` uses
 that signature's return type. Without an applicable rule, the result is
 ``MissingType``. An explicit type, including ``MissingType``, bypasses inference.
 
-Construction can reject inputs during inference, but does not run the
-operator's validator. ``call.validate()`` runs that validator if one is
-registered, returning None on success and raising an exception on failure.
+The operator's argument contract is checked separately by its validator.
+Construction can reject inputs during inference, but does not run that
+validator. ``call.validate()`` runs it if one is registered, returning None on
+success and raising an exception on failure.
 ``validate()`` performs no checks for a non-operator callee or an operator
 without a validator.
 
@@ -124,6 +123,9 @@ inference rules to the current inputs and returns a type without modifying
 The stored ``provisional.ty`` remains missing; ``inferred`` is float32.
 A transformation must keep the inputs and stored result type consistent;
 validation alone does not generally establish their agreement.
+
+These calls describe values, just as ``added`` does in :doc:`foundations`.
+:doc:`statements` shows how expressions become part of a function body.
 
 See :doc:`/reference/python/ir` for the complete operator and call APIs. The
 :download:`operators_and_calls.py <examples/operators_and_calls.py>` example includes runnable

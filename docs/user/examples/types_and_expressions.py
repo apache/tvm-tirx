@@ -14,12 +14,12 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-"""Construct types, scalar expressions, and a symbolic tensor variable."""
+"""Describe an integer addition and a tensor using the shared type system."""
 
 from tvm_tirx import ir, tirx
 
 # begin composite type
-integer_type = ir.PrimType("int64")
+integer_type = ir.PrimType("int32")
 signature = ir.FuncType([integer_type], integer_type)
 # end composite type
 
@@ -28,20 +28,18 @@ tile_type = tirx.TensorType((8, 128), "float32")
 # end constant tensor type
 
 # begin scalar expressions
-n = ir.Var("n", "int64")
-two = ir.const(2, "int64")
-extent = two * n
+x = ir.Var("x", integer_type)
+added = x + ir.const(1, integer_type)
 # end scalar expressions
 
 # begin tensor expressions
-tensor_type = tirx.TensorType((extent, 128), "float32")
-x = ir.Var("X", tensor_type)
-element = x[0, 0]
+n = ir.Var("n", "int64")
+tensor_type = tirx.TensorType((2 * n, 128), "float32")
+tensor = ir.Var("A", tensor_type)
+element = tensor[0, 0]
 # end tensor expressions
 
-assert signature.arg_types[0] == signature.ret_type == integer_type
-assert tile_type.dtype == ir.PrimType("float32")
-assert extent.ty == n.ty == integer_type
-assert x.ty.shape[0].same_as(extent)
-assert element.ty == ir.PrimType("float32")
+assert signature.arg_types[0] == signature.ret_type == added.ty == x.ty
+assert tile_type.dtype == element.ty == ir.PrimType("float32")
+assert tensor.ty.shape[0].b.same_as(n)
 print("Type and expression examples passed.")

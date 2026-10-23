@@ -18,39 +18,36 @@
 IR Construction and Printing
 ============================
 
-The IR objects introduced in the preceding chapters can be assembled with
-constructors or builder APIs, or produced by parsing TVMScript. Printing gives
-those objects a source representation for inspection and editing.
+The preceding chapters assembled an increment function from individual IR
+objects. TVMScript and builder frames provide other ways to assemble those same
+objects. Keeping the function unchanged makes their relationship visible in
+the resulting IR.
 
 TVMScript
 ---------
 
-TVMScript uses Python source syntax to describe IR. The ``@T.function`` decorator
-parses a function definition and returns a ``tirx.Function``. Put the following
-imports at the top of a Python source file:
+TVMScript describes IR with Python source syntax. The ``@T.function`` decorator
+parses a definition and returns a ``tirx.Function``. Put these imports in a
+Python source file so the decorator can recover the function's text:
 
 .. literalinclude:: examples/construction_and_printing.py
    :language: python
    :start-after: # begin construction imports
    :end-before: # end script imports
 
-Deferred annotations let the parser resolve ``n`` in later tensor parameter
-types. The source file also lets the decorator recover the function's text.
-The program from :doc:`statements` and :doc:`objects_and_functions` can then be
-written as:
+The increment function can then be written directly:
 
 .. literalinclude:: examples/construction_and_printing.py
    :language: python
    :start-after: # begin script function
    :end-before: # end script function definition
 
-The annotations define the parameter types, ``T.grid`` creates nested loops,
-and the assignment to ``value`` creates a binding. The branch bodies contain
-tensor stores. These constructs produce the IR objects introduced in the
-preceding chapters.
+The annotations provide the parameter and return types. Assigning to ``result``
+creates the ``Bind`` from :doc:`statements`, and ``return`` creates its
+``Return``. The result is a function containing the same two-statement body.
 
-``@I.ir_module`` builds a module from a class. It accepts existing functions as
-members:
+To give that function a module entry, ``@I.ir_module`` accepts it as a class
+member:
 
 .. literalinclude:: examples/construction_and_printing.py
    :language: python
@@ -64,13 +61,10 @@ between member functions.
 Builder Contexts
 ----------------
 
-The parser rewrites supported syntax into builder calls and executes those calls
-during construction. Builder frames collect parameters and statements, then
-assemble an IR object when their scopes finish. The resulting tensor
-computations execute later, when the compiled program runs.
-
-Python code can enter the same frames directly. For example, a loop frame
-collects its body and produces an ``ir.For``:
+The decorator constructs these objects by translating source syntax into
+builder calls. Frames collect the function's parameters and statements, then
+assemble the function when their scopes finish. Python code can enter these
+same frames directly:
 
 .. code-block:: python
 
@@ -79,24 +73,25 @@ collects its body and produces an ``ir.For``:
 
 .. literalinclude:: examples/construction_and_printing.py
    :language: python
-   :start-after: # begin grid pair
-   :end-before: # end loop construction
+   :start-after: # begin builder function
+   :end-before: # end builder function
 
-``IRBuilder`` owns the construction context, and ``get()`` retrieves the result.
-Here ``B.grid`` takes a ``(start, extent)`` pair, so the loop has ``begin=2`` and
-exclusive ``end=5``. ``B.evaluate`` emits a statement into its body.
+``B.arg_`` and ``B.func_ret_type_`` supply the signature; ``B.bind_`` and
+``B.return_`` collect the body. ``builder.get()`` retrieves the completed
+function. The example checks that ``built`` and the TVMScript ``main`` are
+structurally equal. A surrounding ``B.ir_module`` frame can collect functions
+into a module. See :doc:`/reference/python/tirx.script.ir_builder` for the frame
+APIs.
 
-Similarly, ``B.function_`` collects a function's parameters and body, while
-``B.ir_module`` collects functions. Nesting these frames constructs a complete
-program. See
-:doc:`/reference/python/tirx.script.ir_builder` for the frame APIs.
+Both routes run Python during construction. The represented addition executes
+later, when the function is compiled and called.
 
 Parsing and Printing
 --------------------
 
-``script()`` returns TVMScript as a string; ``show()`` displays it with syntax
-highlighting. ``from_source`` parses text into IR. For example, this round trip
-checks the reconstructed function against the original:
+Once either route has produced IR, ``script()`` turns it back into TVMScript.
+It returns a string; ``show()`` displays it with syntax highlighting.
+``from_source`` parses that text, closing the loop from source to IR and back:
 
 .. literalinclude:: examples/construction_and_printing.py
    :language: python
@@ -107,10 +102,10 @@ The printer emits namespace imports as comments by default. ``extra_vars``
 supplies those bindings to the parser; source text does not inherit its caller's
 local variables. Alternatively,
 ``main.script(extra_config={"ir.comment_imports": False})`` includes executable
-imports. Printing may normalize loop syntax and symbolic declarations, so a
-round trip preserves IR structure rather than the original source spelling.
+imports. Printing may normalize source spelling, while the structural check
+compares the reconstructed program.
 
 See :func:`~tvm_tirx.script.parser.from_source` and
 :doc:`/reference/python/script.printer` for parsing and formatting options.
-The :download:`construction_and_printing.py <examples/construction_and_printing.py>` example checks
-TVMScript construction, a builder loop, and a source round trip.
+The :download:`construction_and_printing.py <examples/construction_and_printing.py>`
+example checks both construction routes and the source round trip.

@@ -49,3 +49,8 @@ The following diagram shows the main IR classes and how they relate to one anoth
    │   ├── ir.For                       Loops
    │   └── ir.TensorStore               Tensor writes
    └── ir.IRModule                     Global function definitions
+
+A function that returns ``x + 1`` brings these families together: a type
+describes its input and result, expressions describe the addition, and
+statements form its body. The following chapters construct that function and
+place it in a module, starting with :doc:`foundations`.
