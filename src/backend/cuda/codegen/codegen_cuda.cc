@@ -73,12 +73,13 @@ TVM_FFI_INLINE bool IsPackedFloat(const PrimType& ty) {
   return IsFloat8(ty) || IsFloat6(ty) || IsFloat4(ty);
 }
 
-// Constant-operand handling for min/max, same semantics as apache/tvm
-// #20054's min_max_utils.h (host side). A constant NaN operand is printed
-// directly; a constant non-NaN operand lets the ternary skip its NaN clause
-// (an ordered compare against a constant is never NaN). Scalar constants
-// only: a vector constant (Broadcast of a FloatImm) takes the general
-// per-lane path.
+// Constant-operand classification for min/max, the same classification as
+// the host side's min_max_utils.h (#31), scalar FloatImm only here. A
+// constant NaN lhs is the result (the rhs is still bound and evaluated); a
+// constant NaN rhs keeps the lhs on any comparison outcome; a constant
+// non-NaN operand lets the ternary skip its NaN clause (an ordered compare
+// against a constant is never NaN). A vector constant (Broadcast of a
+// FloatImm) takes the general per-lane path.
 TVM_FFI_INLINE const FloatImmObj* AsFloatImm(const PrimExpr& e) { return e.as<FloatImmObj>(); }
 
 // NaN-preserving min/max is emitted for float, half and bfloat16: the C
@@ -769,69 +770,47 @@ void CodeGenCUDA::PrintMinMaxNanPreservingImpl(const T* op, const char* opstr,
     this->CodeGenC::Dispatch_(op, os);
     return;
   }
-  // Constant-operand fast paths, matching #20054's min_max_utils.h. A
-  // constant NaN operand is printed as-is; a constant non-NaN operand lets
-  // the ternary drop its NaN clause. The constant side is not SSA-bound.
+  if (op_ty.lanes() > 1) {
+    this->PrintVecBinaryOpNanPreserving(std::string(opstr), op_ty, op->a, op->b, cmp, os);
+    return;
+  }
+  // Bind both operands once (SSAGetID, in the expression's own scope: the
+  // same binding the host side and PrintVecBinaryOp use), then reference the
+  // temporaries: the expressions must not be re-evaluated per clause. Both
+  // are bound before the constant classification below, so a constant NaN
+  // lhs still evaluates the rhs and only the select is dropped. A
+  // float32/float64 constant comes back from SSAGetID as itself (PrintConst
+  // registers its text with MarkConst); a float16/bfloat16 constant is
+  // wrapped in a conversion call that is not registered and gets a temporary
+  // like any other operand. The bindings live in their own scope so a later
+  // statement that prints the same text (e.g.
+  // `red_buf[0] = max(red_buf[0], shuffle_down(...))` repeated by warp
+  // reduction) does not hit the cache and read the pre-write value.
+  int ssa_scope = BeginScope();
+  std::string va = SSAGetID(PrintExpr(op->a), op->a.ty());
+  std::string vb = SSAGetID(PrintExpr(op->b), op->b.ty());
   const FloatImmObj* ca = AsFloatImm(op->a);
   const FloatImmObj* cb = AsFloatImm(op->b);
-  if (op_ty.lanes() == 1 && (ca != nullptr || cb != nullptr)) {
-    if (ca != nullptr && std::isnan(ca->value)) {
-      // a constant NaN lhs is the result: print it directly.
-      this->PrintExpr(op->a, os);
-      return;
-    }
-    int ssa_scope = BeginScope();
-    if (cb != nullptr && std::isnan(cb->value)) {
-      // rhs is a constant NaN: keep a on any comparison outcome. a is bound
-      // once and referenced in both clauses.
-      std::string va = SSAGetID(PrintExpr(op->a), op->a.ty());
-      os << "((" << va << " != " << va << ") ? " << va << " : ";
-      PrintConst(cb, os, this);
-      os << ")";
-      EndScope(ssa_scope);
-      return;
-    }
-    if (ca != nullptr) {
-      // lhs is a constant non-NaN: ordered compare, b's NaN makes the compare
-      // false and b is kept. b bound once.
-      std::string vb = SSAGetID(PrintExpr(op->b), op->b.ty());
-      os << "((";
-      PrintConst(ca, os, this);
-      os << ' ' << cmp << ' ' << vb << ") ? ";
-      PrintConst(ca, os, this);
-      os << " : " << vb << ")";
-      EndScope(ssa_scope);
-      return;
-    }
-    {
-      // rhs is a constant non-NaN: reverse to a non-strict compare so a's NaN
-      // makes the compare false and a is kept; ties take b. a bound once.
-      std::string va = SSAGetID(PrintExpr(op->a), op->a.ty());
-      const char* rcmp = (cmp[0] == '<') ? ">=" : "<=";
-      os << "((" << va << ' ' << rcmp << ' ';
-      PrintConst(cb, os, this);
-      os << ") ? ";
-      PrintConst(cb, os, this);
-      os << " : " << va << ')';
-      EndScope(ssa_scope);
-      return;
-    }
-  }
-  if (op_ty.lanes() == 1) {
-    // Bind both operands once (SSA), then reference the temporaries: the
-    // expressions must not be re-evaluated per clause. The bindings live in
-    // their own scope so a later statement that prints the same text (e.g.
-    // `red_buf[0] = max(red_buf[0], shuffle_down(...))` repeated by warp
-    // reduction) does not hit the cache and read the pre-write value.
-    int ssa_scope = BeginScope();
-    std::string va = this->SSAGetID(this->PrintExpr(op->a), op->a.ty());
-    std::string vb = this->SSAGetID(this->PrintExpr(op->b), op->b.ty());
-    os << "(((" << va << ' ' << cmp << ' ' << vb << ") || (" << va << " != " << va << ")) ? " << va
-       << " : " << vb << ")";
-    EndScope(ssa_scope);
+  if (ca != nullptr && std::isnan(ca->value)) {
+    // a constant NaN lhs is the result; the rhs stays bound above.
+    os << va;
+  } else if (ca != nullptr) {
+    // lhs is a constant non-NaN: ordered compare, b's NaN makes the compare
+    // false and b is kept.
+    os << "((" << va << ' ' << cmp << ' ' << vb << ") ? " << va << " : " << vb << ')';
+  } else if (cb != nullptr && std::isnan(cb->value)) {
+    // rhs is a constant NaN: keep a on any comparison outcome.
+    os << "((" << va << " != " << va << ") ? " << va << " : " << vb << ')';
+  } else if (cb != nullptr) {
+    // rhs is a constant non-NaN: reverse to a non-strict compare so a's NaN
+    // makes the compare false and a is kept; ties take b.
+    const char* rcmp = (cmp[0] == '<') ? ">=" : "<=";
+    os << "((" << va << ' ' << rcmp << ' ' << vb << ") ? " << vb << " : " << va << ')';
   } else {
-    this->PrintVecBinaryOpNanPreserving(std::string(opstr), op_ty, op->a, op->b, cmp, os);
+    os << "(((" << va << ' ' << cmp << ' ' << vb << ") || (" << va << " != " << va << ")) ? " << va
+       << " : " << vb << ')';
   }
+  EndScope(ssa_scope);
 }
 
 void CodeGenCUDA::Dispatch_(const prim::MinObj* op, std::ostream& os) {  // NOLINT(*)
