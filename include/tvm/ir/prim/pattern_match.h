@@ -28,33 +28,35 @@
  *
  * The code below shows how to use the pattern matcher.
  *
- * \code
+ * \rst
+ * .. code-block:: cpp
  *
- *  // max(x + z, y + z) => max(x, y) + z
- *  tvm::PVar<PrimExpr> x, y, z;
  *
- *  // The following code tries to match the declared pattern.
- *  // Match will fill the result of match into PVar if successful.
- *  // Note that z occurs twice in the pattern,
- *  // an equality check is performed to ensure each occurance of z
- *  // is equivalent to each other.
- *  if (max(x + z, y + z).Match(expr)) {
- *    // Eval evaluates a pattern with the current matched value.
- *    // The filled value is valid until the next call to Match.
- *    return (max(x, y) + z).Eval();
- *  }
+ *    // max(x + z, y + z) => max(x, y) + z
+ *    tvm::PVar<PrimExpr> x, y, z;
  *
- *  tvm::PrimVar tx("tx"), ty("ty");
- *  tvm::PVar<IntImm> c;
- *  tvm::PVar<Var> v;
- *  // We can match integer and Var, both of which are
- *  // special case container of Expr
- *  TVM_FFI_ICHECK((v * c).Match(tx * 3));
- *  TVM_FFI_ICHECK_EQ(c.Eval()->value, 3);
- *  // cannot match c to ty
- *  TVM_FFI_ICHECK(!(v * c).Match(tx * ty));
+ *    // The following code tries to match the declared pattern.
+ *    // Match will fill the result of match into PVar if successful.
+ *    // Note that z occurs twice in the pattern,
+ *    // an equality check is performed to ensure each occurance of z
+ *    // is equivalent to each other.
+ *    if (max(x + z, y + z).Match(expr)) {
+ *      // Eval evaluates a pattern with the current matched value.
+ *      // The filled value is valid until the next call to Match.
+ *      return (max(x, y) + z).Eval();
+ *    }
  *
- * \endcode
+ *    tvm::PrimVar tx("tx"), ty("ty");
+ *    tvm::PVar<IntImm> c;
+ *    tvm::PVar<Var> v;
+ *    // We can match integer and Var, both of which are
+ *    // special case container of Expr
+ *    TVM_FFI_ICHECK((v * c).Match(tx * 3));
+ *    TVM_FFI_ICHECK_EQ(c.Eval()->value, 3);
+ *    // cannot match c to ty
+ *    TVM_FFI_ICHECK(!(v * c).Match(tx * ty));
+ *
+ * \endrst
  *
  * \note The pattern matcher is not threadsafe,
  *       do not use the same PVar in multiple threads.
@@ -369,7 +371,7 @@ class PSelectExpr : public Pattern<PSelectExpr<TCond, TA, TB>> {
  *
  * \param condition The condition expression.
  * \param true_value The value when condition is true.
- * \param true_value The value when condition is false.
+ * \param false_value The value when condition is false.
  *
  * \return The result pattern.
  *
@@ -651,7 +653,7 @@ struct PIfThenElseOp {
  *
  * \param cond The condition expression.
  * \param true_value The value when condition is true.
- * \param true_value The value when condition is false.
+ * \param false_value The value when condition is false.
  *
  * \return The result pattern.
  *

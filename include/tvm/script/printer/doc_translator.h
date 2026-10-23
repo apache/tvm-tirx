@@ -413,8 +413,8 @@ inline ffi::Array<StmtDoc> ToStmtDocArray(const ffi::List<Doc>& docs) {
 class DocTranslator : public ffi::ObjectRef {
  public:
   /*!
-   * \brief Retain a translation context.
-   * \param n The context object.
+   * \brief Initialize a reference to a translation context.
+   * \param tag The unsafe-initialization tag.
    */
   TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(DocTranslator, ffi::ObjectRef, DocTranslatorObj);
 };

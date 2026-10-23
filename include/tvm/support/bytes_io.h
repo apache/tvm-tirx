@@ -43,8 +43,10 @@ namespace support {
  */
 class BytesInStream : public Stream {
  public:
+  /// \cond Doxygen_Suppress
   using Stream::Read;
   using Stream::Write;
+  /// \endcond
 
   BytesInStream(const void* data, size_t size)
       : data_(reinterpret_cast<const char*>(data)), size_(size), pos_(0) {}
@@ -77,8 +79,10 @@ class BytesInStream : public Stream {
  */
 class BytesOutStream : public Stream {
  public:
+  /// \cond Doxygen_Suppress
   using Stream::Read;
   using Stream::Write;
+  /// \endcond
 
   explicit BytesOutStream(std::string* buffer) : buffer_(buffer) {}
 

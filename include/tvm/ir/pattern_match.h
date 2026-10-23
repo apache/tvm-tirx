@@ -21,18 +21,20 @@
  * \file tvm/ir/pattern_match.h
  * \brief Shared expression-template pattern and capture protocol.
  *
- * \code
- * #include <tvm/ir/prim/pattern_match.h>
+ * \rst
+ * .. code-block:: cpp
  *
- * void MatchMultiplyAdd(const tvm::PrimExpr& expr) {
- *   tvm::PVar<tvm::PrimExpr> a, b, c;
- *   if ((a * b + c).Match(expr)) {
- *     tvm::PrimExpr lhs = a.Eval();
- *     tvm::PrimExpr rhs = b.Eval();
- *     tvm::PrimExpr addend = c.Eval();
+ *   #include <tvm/ir/prim/pattern_match.h>
+ *
+ *   void MatchMultiplyAdd(const tvm::PrimExpr& expr) {
+ *     tvm::PVar<tvm::PrimExpr> a, b, c;
+ *     if ((a * b + c).Match(expr)) {
+ *       tvm::PrimExpr lhs = a.Eval();
+ *       tvm::PrimExpr rhs = b.Eval();
+ *       tvm::PrimExpr addend = c.Eval();
+ *     }
  *   }
- * }
- * \endcode
+ * \endrst
  */
 #ifndef TVM_IR_PATTERN_MATCH_H_
 #define TVM_IR_PATTERN_MATCH_H_

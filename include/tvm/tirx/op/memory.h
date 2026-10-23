@@ -58,7 +58,7 @@ TVM_TIRX_DLL const Op& reinterpret_op();
 /*!
  * \brief perform reinterpret cast value to type.
  *
- * \param t the target type.
+ * \param target_ty The target type.
  * \param value The value
  * \param loc The location of this operation in the source.
  * \return The result expression.

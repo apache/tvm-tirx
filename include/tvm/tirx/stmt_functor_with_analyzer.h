@@ -46,7 +46,9 @@ class TVM_TIRX_DLL StmtExprVisitorWithAnalyzer : public StmtExprVisitor {
 
   PrimExpr Simplify(const PrimExpr& expr) { return analyzer_->Simplify(expr); }
 
+  /// \cond Doxygen_Suppress
   using StmtExprVisitor::Visit_;
+  /// \endcond
 
   ffi::Optional<VisitInterrupt> Visit_(const ForNode* op);
   ffi::Optional<VisitInterrupt> Visit_(const BindNode* op);
@@ -89,7 +91,9 @@ class TVM_TIRX_DLL StmtExprVisitorWithAnalyzer : public StmtExprVisitor {
 class TVM_TIRX_DLL StmtExprMutatorWithAnalyzer : public StmtExprMutator {
  public:
   using StmtExprMutator::Mutate;
+  /// \cond Doxygen_Suppress
   using StmtExprMutator::Mutate_;
+  /// \endcond
   explicit StmtExprMutatorWithAnalyzer(const sym::Analyzer& analyzer)
       : StmtExprMutatorWithAnalyzer(analyzer.get()) {}
   explicit StmtExprMutatorWithAnalyzer(sym::AnalyzerObj* analyzer)
@@ -139,7 +143,7 @@ class TVM_TIRX_DLL StmtExprMutatorWithAnalyzer : public StmtExprMutator {
   ffi::Array<PrimExpr> iter_predicates_;
   /*!
    * \brief Run callback while trying to record iter predicate
-   * \param conditon Condition to be checked.
+   * \param condition Condition to be checked.
    * \param callback The callback to be called.
    */
   template <typename FLambda>

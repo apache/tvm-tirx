@@ -519,7 +519,7 @@ class CallDoc : public ExprDoc {
    * \param callee The callee of this function call.
    * \param args The positional arguments.
    * \param kwargs_keys Keys of keyword arguments.
-   * \param kwargs_values Values of keyword arguments, must have the same length as `kwargs_keys.
+   * \param kwargs_values Values of keyword arguments, must have the same length as `kwargs_keys`.
    */
   TVM_TIRX_DLL CallDoc(ExprDoc callee, ffi::Array<ExprDoc> args,
                        ffi::Array<ffi::String> kwargs_keys, ffi::Array<ExprDoc> kwargs_values);

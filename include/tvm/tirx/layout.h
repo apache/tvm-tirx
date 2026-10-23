@@ -47,13 +47,14 @@ class Iter;
 using ffi::Array;
 using ffi::Tuple;
 
-// Base class for layout
+/*! \brief Base object for tensor-program coordinate layouts. */
 class LayoutNode : public ffi::Object {
  public:
   static constexpr TVMFFISEqHashKind _type_s_eq_hash_kind = kTVMFFISEqHashKindTreeNode;
   TVM_FFI_DECLARE_OBJECT_INFO("tirx.Layout", LayoutNode, ffi::Object);
 };
 
+/*! \brief Managed reference to a tensor-program coordinate layout. */
 class Layout : public ffi::ObjectRef {
  public:
   /*! \brief Verify if the layout is well-formed */
