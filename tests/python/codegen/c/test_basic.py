@@ -16,6 +16,7 @@
 # under the License.
 
 import numpy as np
+import pytest
 
 import tvm_tirx
 import tvm_tirx.testing
@@ -296,6 +297,63 @@ def test_if_then_else_avoids_extraneous_parentheses():
     loaded["main"](a, b)
     tvm_tirx.testing.assert_allclose(
         b.numpy(), np.where(np.arange(8) == 0, 1, np.arange(8)).astype("int32")
+    )
+
+
+@pytest.mark.parametrize("dtype", ["float32", "float64"])
+def test_min_max_nan_preserving(dtype):
+    n = 12
+    nan = float("nan")
+    infinity = float("inf")
+
+    @T.function
+    def main(A: T.Tensor((n,), dtype), B: T.Tensor((n,), dtype), C: T.Tensor((14, n), dtype)):
+        for i in range(n):
+            # Rows 0-4: min(a, b), min(0, a), min(a, 0), min(NaN, a), min(a, NaN).
+            C[0, i] = T.min(A[i], B[i])
+            C[1, i] = T.min(T.cast(0, dtype), A[i])
+            C[2, i] = T.min(A[i], T.cast(0, dtype))
+            C[3, i] = T.min(T.cast(nan, dtype), A[i])
+            C[4, i] = T.min(A[i], T.cast(nan, dtype))
+            # Rows 5-9: max with the same operand pairs.
+            C[5, i] = T.max(A[i], B[i])
+            C[6, i] = T.max(T.cast(0, dtype), A[i])
+            C[7, i] = T.max(A[i], T.cast(0, dtype))
+            C[8, i] = T.max(T.cast(nan, dtype), A[i])
+            C[9, i] = T.max(A[i], T.cast(nan, dtype))
+            # Rows 10-11: parentheses for general and constant max inside arithmetic.
+            C[10, i] = T.max(A[i], B[i]) + T.cast(1, dtype)
+            C[11, i] = T.max(T.cast(0, dtype), A[i]) + T.cast(1, dtype)
+            # Rows 12-13: positive and negative infinity constants.
+            C[12, i] = T.min(A[i], T.cast(infinity, dtype))
+            C[13, i] = T.max(A[i], T.cast(-infinity, dtype))
+
+    compiled = tvm_tirx.tirx.compile(main, target="c")
+    a = np.array([np.nan, 1, np.nan, 0.0, -0.0, 3, 2, -5, np.inf, -np.inf, 1, -1], dtype=dtype)
+    b = np.array([1, np.nan, np.nan, -0.0, 0.0, 2, 2, -4, 1, 1, np.inf, -np.inf], dtype=dtype)
+    out = tvm_tirx.runtime.empty((14, n), dtype)
+    compiled(tvm_tirx.runtime.tensor(a), tvm_tirx.runtime.tensor(b), out)
+
+    zero, nan_array = np.zeros_like(a), np.full_like(a, np.nan)
+    operand_pairs = ((a, b), (zero, a), (a, zero), (nan_array, a), (a, nan_array))
+    expected_by_op = {}
+    for name, compare in (("min", np.less), ("max", np.greater)):
+        expected_by_op[name] = [
+            np.where(compare(lhs, rhs) | np.isnan(lhs), lhs, rhs) for lhs, rhs in operand_pairs
+        ]
+    expected = expected_by_op["min"] + expected_by_op["max"]
+    max_ab, max_zero_a = expected_by_op["max"][:2]
+    expected.extend([max_ab + np.ones_like(a), max_zero_a + np.ones_like(a)])
+    # min(a, +Inf) and max(a, -Inf) both preserve a, including NaNs and signed zero.
+    expected.extend([a, a])
+    expected = np.asarray(expected, dtype=dtype)
+    got = out.numpy()
+    nan_mask = np.isnan(expected)
+    np.testing.assert_array_equal(np.isnan(got), nan_mask)
+    # NaN payloads may be canonicalized; preserve exact non-NaN values and signed zero.
+    uint_dtype = f"uint{a.dtype.itemsize * 8}"
+    np.testing.assert_array_equal(
+        got.view(uint_dtype)[~nan_mask], expected.view(uint_dtype)[~nan_mask]
     )
 
 
