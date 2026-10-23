@@ -29,28 +29,121 @@ together. The IR can be extended with custom operators and types, and its
 existing interfaces can be used to build custom analyses, transformation passes,
 and backends.
 
-The following diagram shows the main IR classes and how they relate to one another.
+The following tree lists the shared IR object types and their built-in tensor,
+symbolic-analysis, and backend extensions. Indentation shows registered
+inheritance. Names are registration keys; ``prim.*`` classes are available
+under ``ir.prim`` in Python.
 
 .. code-block:: text
 
    TVM FFI object system
-   ├── ir.Expr                         Expressions
-   │   ├── ir.Var                      Variables
-   │   ├── ir.Call                     Calls
-   │   └── ir.BaseFunc                  Function definitions
-   │       └── tirx.Function            Tensor-program functions
-   ├── ir.Type                         Types
-   │   ├── ir.PrimType                  Scalar and vector types
-   │   ├── ir.FuncType                  Function signatures
-   │   └── tirx.TensorType              Tensor types
-   ├── ir.Stmt                         Statements
-   │   ├── ir.Bind                      Bindings
-   │   ├── ir.If                        Branches
-   │   ├── ir.For                       Loops
-   │   └── ir.TensorStore               Tensor writes
-   └── ir.IRModule                     Global function definitions
-
-A function that returns ``x + 1`` brings these families together: a type
-describes its input and result, expressions describe the addition, and
-statements form its body. The following chapters construct that function and
-place it in a module, starting with :doc:`foundations`.
+   ├── ir.Expr                                         Expressions
+   │   ├── ir.Constant                                 Literal constants
+   │   │   ├── ir.IntImm                               Integer constants
+   │   │   ├── ir.FloatImm                             Floating-point constants
+   │   │   ├── ir.StringImm                            String constants
+   │   │   ├── ir.DataTypeImm                          Dtype constants
+   │   │   └── ir.GenericConst                         Constants with arbitrary payloads
+   │   ├── ir.Var                                      Local variables
+   │   ├── ir.GlobalVar                                Global function references
+   │   ├── ir.Tuple                                    Tuple construction
+   │   ├── ir.TupleGetItem                             Tuple field access
+   │   ├── ir.Call                                     Calls
+   │   ├── ir.Op                                       Registered operators
+   │   ├── ir.TensorLoad                               Tensor element reads
+   │   ├── ir.TensorRegion                             Tensor regions
+   │   ├── ir.BaseFunc                                 Function definitions
+   │   │   └── tirx.Function                           Tensor-program functions
+   │   ├── ir.StagingExpr                              Expressions removed during compilation
+   │   │   └── ir.LambdaExpr                           Construction-time lambdas
+   │   ├── ir.OpaqueExpr                               Opaque construction-time expressions
+   │   ├── prim.Cast                                   Dtype conversion
+   │   ├── prim.Add                                    Addition
+   │   ├── prim.Sub                                    Subtraction
+   │   ├── prim.Mul                                    Multiplication
+   │   ├── prim.Div                                    Division
+   │   ├── prim.Mod                                    Remainder
+   │   ├── prim.FloorDiv                               Floor division
+   │   ├── prim.FloorMod                               Floor remainder
+   │   ├── prim.Min                                    Minimum
+   │   ├── prim.Max                                    Maximum
+   │   ├── prim.LShift                                 Left bit shift
+   │   ├── prim.RShift                                 Right bit shift
+   │   ├── prim.BitwiseAnd                             Bitwise AND
+   │   ├── prim.BitwiseOr                              Bitwise OR
+   │   ├── prim.BitwiseXor                             Bitwise XOR
+   │   ├── prim.BitwiseNot                             Bitwise NOT
+   │   ├── prim.EQ                                     Equal
+   │   ├── prim.NE                                     Not equal
+   │   ├── prim.LT                                     Less than
+   │   ├── prim.LE                                     Less than or equal
+   │   ├── prim.GT                                     Greater than
+   │   ├── prim.GE                                     Greater than or equal
+   │   ├── prim.And                                    Logical AND
+   │   ├── prim.Or                                     Logical OR
+   │   ├── prim.Not                                    Logical NOT
+   │   ├── prim.Select                                 Conditional value selection
+   │   ├── prim.Let                                    Expression-local binding
+   │   ├── prim.Ramp                                   Vector arithmetic progression
+   │   ├── prim.Broadcast                              Scalar broadcast to vector lanes
+   │   ├── prim.Shuffle                                Vector lane selection
+   │   ├── sym.IterMapExpr                             Iterator mapping expressions
+   │   │   ├── sym.IterSplitExpr                       Iterator splitting
+   │   │   └── sym.IterSumExpr                         Sums of iterator expressions
+   │   └── sym.CanonicalExpr                           Internal simplifier expressions
+   │       ├── sym.SplitExpr                           Internal split expressions
+   │       └── sym.SumExpr                             Internal sum expressions
+   ├── ir.Type                                         Types
+   │   ├── ir.MissingType                              Unresolved type information
+   │   ├── ir.NoneType                                 The type of None
+   │   ├── ir.AnyType                                  Any value
+   │   ├── ir.OpaqueType                               Opaque construction-time types
+   │   ├── ir.PrimType                                 Scalar and vector dtypes
+   │   ├── ir.StringType                               String values
+   │   ├── ir.PtrType                                  Pointer types
+   │   ├── ir.TupleType                                Tuple field types
+   │   ├── ir.FuncType                                 Function signatures
+   │   ├── ir.TensorRegionType                         Tensor region values
+   │   ├── tirx.TensorType                             Tensor types
+   │   └── tirx.TensorMapType                          Tensor map types
+   ├── ir.Stmt                                         Statements
+   │   ├── ir.SeqStmt                                  Statement sequences
+   │   ├── ir.Bind                                     Variable definitions
+   │   ├── ir.RegionStmt                               Operator-defined lexical regions
+   │   ├── ir.AssertStmt                               Program assertions
+   │   ├── ir.TensorStore                              Tensor element writes
+   │   ├── ir.Evaluate                                 Evaluation with an unused result
+   │   ├── ir.If                                       Conditional branches
+   │   ├── ir.For                                      Counted loops
+   │   ├── ir.While                                    Conditional loops
+   │   ├── ir.Return                                   Function returns
+   │   ├── ir.Break                                    Loop exits
+   │   └── ir.Continue                                 Next loop iterations
+   ├── ir.IRModule                                     Global function definitions
+   ├── ir.Attrs                                        Structured attributes
+   │   ├── ir.DictAttrs                                Named attribute maps
+   │   ├── tirx.CallFFIKernelAttr                       FFI kernel call attributes
+   │   ├── tirx.tensor.ScopeAttrs                      Tensor instruction scopes
+   │   ├── tirx.tensor.TrnAttrs                        Tensor instruction attributes
+   │   ├── tirx.cuda.TensorMapEncodeTiledAttr           CUDA tensor map encoding attributes
+   │   ├── tirx.cuda.TCGen05InstrDescriptorAttrs         CUDA instruction descriptors
+   │   └── tirx.cuda.TCGen05InstrDescriptorBlockScaledAttrs  Block-scaled CUDA descriptors
+   ├── ir.Location                                     Source locations
+   │   ├── ir.UnknownLoc                               Unavailable source information
+   │   ├── ir.SourceLoc                                Source ranges
+   │   └── ir.CallSiteLoc                              Callee and caller locations
+   ├── ir.SourceName                                   Source identifiers
+   ├── ir.Range                                        Begin and end bounds
+   ├── ir.ArgumentInfo                                 Operator argument descriptions
+   ├── ir.GlobalInfo                                   Module-level metadata
+   ├── ir.EnvFunc                                      Named global function references
+   ├── ir.UniqueNameSupply                             Unique-name generation
+   ├── tirx.Layout                                     Index-to-axis mappings
+   │   ├── tirx.TileLayout                             Tile layouts
+   │   └── tirx.ComposeLayout                          Composed layouts
+   ├── tirx.Iter                                       Layout iterators
+   ├── tirx.IndexMap                                   Index transformations
+   ├── sym.IterMark                                    Iterator source and extent
+   └── ffi.Enum                                        Registered enumeration objects
+       ├── tirx.Axis                                   Layout axis identities
+       └── tirx.ThreadScope                            Execution scope identities
