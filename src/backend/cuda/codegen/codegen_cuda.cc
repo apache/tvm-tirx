@@ -1620,9 +1620,9 @@ inline void PrintConst(const FloatImmObj* op, std::ostream& os, CodeGenCUDA* p) 
   PrimType op_ty = op->ty.as_or_throw<PrimType>();
   // Type code is kBFloat
   if (op_ty.MatchesElementType(DLDataTypeCode::kDLBfloat, 16)) {
-    os << "__float2bfloat16_rn";
-    os << '(' << std::hexfloat << op->value << 'f';
-    os << "/*" << std::scientific << op->value << "*/";
+    os << "__float2bfloat16_rn" << '(';
+    FloatImm const_f32 = FloatImm(PrimType::Float(32), op->value);
+    PrintConst(const_f32.get(), os, p);
     os << ')';
     return;
   }
