@@ -151,21 +151,15 @@ under ``ir.prim`` in Python.
 Choose a Chapter
 ----------------
 
-.. list-table::
-   :header-rows: 1
-   :widths: 65 35
+The following chapters explain how to work with each part of the IR:
 
-   * - Goal
-     - Chapter
-   * - Describe values, computations, and their types, including symbolic tensor
-       shapes.
-     - :doc:`types_and_expressions`
-   * - Build statement bodies with bindings, tensor writes, branches, and loops.
-     - :doc:`statements_and_control_flow`
-   * - Inspect registered operators, construct calls, and use type inference and
-       validation.
-     - :doc:`operators_and_calls`
-   * - Define functions, organize them in modules, and manage global references.
-     - :doc:`functions_and_modules`
-   * - Write TVMScript, generate program variants, and print or parse IR.
-     - :doc:`printing_and_parsing`
+* To understand how values, computations, and tensor shapes are represented,
+  see :doc:`types_and_expressions`.
+* To build statement bodies with bindings, tensor writes, branches, and loops,
+  see :doc:`statements_and_control_flow`.
+* To work with registered operators and function calls, see
+  :doc:`operators_and_calls`.
+* To define functions and organize them into modules, see
+  :doc:`functions_and_modules`.
+* To write or generate TVMScript and print or parse IR, see
+  :doc:`printing_and_parsing`.
