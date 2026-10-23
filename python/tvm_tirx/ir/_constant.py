@@ -84,4 +84,10 @@ def const(value, ty=None, loc: Location = UNKNOWN_LOC, *, dtype=None) -> "Expr":
             ty = "float32"
         else:
             raise TypeError(f"Cannot infer a constant type from {type(value).__name__}")
+    if isinstance(value, np.bool_):
+        value = bool(value)
+    elif isinstance(value, np.integer):
+        value = int(value)
+    elif isinstance(value, np.floating):
+        value = float(value)
     return _ffi_api._const(value, ty, loc)

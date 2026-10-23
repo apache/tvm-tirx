@@ -1095,13 +1095,13 @@ def test_subroutine_call():
 def test_call_packed_returning_void():
     """Allow codegen of PackedFunc calls returning void
 
-    The LLVM codegen uses the CallNode's dtype to cast the return type
+    The LLVM codegen uses the CallObj's dtype to cast the return type
     of the PackedFunc into the appropriate LLVM output type.  However,
     there is no runtime dtype value for a void return.  When the return type
     of a PackedFunc is void, the generated code should not attempt to
     read the return value.
 
-    While `T.call_packed()` will produce a CallNode with an output
+    While `T.call_packed()` will produce a CallObj with an output
     dtype of "int32", the use of other return types is valid in TIR.
     This test case uses `T.Call` directly to allow an explicit dtype
     for the packed function call.
@@ -1128,7 +1128,7 @@ def test_call_packed_without_string_arg():
 
     Even if the invalid TIR is constructed, this should throw an
     exception to exit cleanly.  Previously, use of
-    `args[0].as<StringImmNode>()` without a null check resulted in
+    `args[0].as<StringImmObj>()` without a null check resulted in
     a segfault during codegen.
     """
 

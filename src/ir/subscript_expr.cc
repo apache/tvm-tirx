@@ -31,14 +31,14 @@ namespace tvm {
 TVM_FFI_STATIC_INIT_BLOCK() {
   namespace refl = tvm::ffi::reflection;
   refl::EnsureTypeAttrColumn(tvm::type_attr::kExprSubscriptRealizeByTy);
-  refl::TypeAttrDef<TupleTypeNode>().attr(
+  refl::TypeAttrDef<TupleTypeObj>().attr(
       tvm::type_attr::kExprSubscriptRealizeByTy,
       [](Expr value, SubscriptSlice slice, Location loc) -> ffi::ObjectRef {
         TVM_FFI_CHECK_EQ(slice.size(), 1, IndexError)
             << "A tuple expression requires exactly one index";
         auto index = slice[0].as<PrimExpr>();
         TVM_FFI_CHECK(index.has_value(), TypeError) << "A tuple expression requires a point index";
-        const auto* imm = index.value().as<IntImmNode>();
+        const auto* imm = index.value().as<IntImmObj>();
         TVM_FFI_CHECK(imm != nullptr, TypeError)
             << "A tuple expression requires a constant integer index";
         return TupleGetItem(value, imm->value.as<int>().value(), loc);

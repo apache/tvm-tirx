@@ -75,28 +75,28 @@ class NoOpCallVerifier : public StmtExprVisitor {
       return std::nullopt;
     }
     if (auto expr = value.as<Expr>(); expr && !GlobalVTable()->CanDispatch(value)) {
-      if (value.as<OpaqueExprNode>() || value.as<VarNode>()) return std::nullopt;
+      if (value.as<OpaqueExprObj>() || value.as<VarObj>()) return std::nullopt;
       TVM_FFI_VISIT_THROW(TypeError, expr.value())
           << "Unsupported non-primitive TIR expression " << expr.value()->GetTypeKey();
     }
     return StmtExprVisitor::Visit(value);
   }
 
-  Result Visit_(const CallNode* call) final {
+  Result Visit_(const CallObj* call) final {
     if (auto op = call->op.as<Op>(); op && Op::HasAttrMap(tile::op_attr::kTileOpDispatch)) {
       static const auto& dispatchers = Op::GetAttrMap(tile::op_attr::kTileOpDispatch);
       valid_ &= !dispatchers.count(op.value());
     }
-    if (call->op.as<GlobalVar>() || call->op.as<OpaqueExprNode>()) this->Visit(call->op);
+    if (call->op.as<GlobalVar>() || call->op.as<OpaqueExprObj>()) this->Visit(call->op);
     return this->Visit(call->args);
   }
 
-  Result Visit_(const BindNode* op) override {
+  Result Visit_(const BindObj* op) override {
     this->Visit(op->value);
     return this->Visit(op->var->ty);
   }
 
-  Result Visit_(const RegionStmtNode* op) override {
+  Result Visit_(const RegionStmtObj* op) override {
     this->Visit(op->args);
     this->Visit(op->attrs);
     for (const auto& param : op->body_params) this->Visit(param->ty);
@@ -105,7 +105,7 @@ class NoOpCallVerifier : public StmtExprVisitor {
     return std::nullopt;
   }
 
-  Result Visit_(const ForNode* op) override {
+  Result Visit_(const ForObj* op) override {
     this->Visit(op->begin);
     this->Visit(op->end);
     this->Visit(op->step);
@@ -113,44 +113,44 @@ class NoOpCallVerifier : public StmtExprVisitor {
     return this->Visit(op->body);
   }
 
-  Result Visit_(const prim::LetNode* op) override {
+  Result Visit_(const prim::LetObj* op) override {
     this->Visit(op->value);
     this->Visit(op->var->ty);
     return this->Visit(op->body);
   }
 
-  Result Visit_(const LambdaExprNode* op) {
+  Result Visit_(const LambdaExprObj* op) {
     this->Visit(op->ty);
     for (const auto& var : op->vars) this->Visit(var->ty);
     return this->Visit(op->body);
   }
 
-  Result Visit_(const TensorLoadNode* op) override { return this->Visit(op->indices); }
+  Result Visit_(const TensorLoadObj* op) override { return this->Visit(op->indices); }
 
-  Result Visit_(const TensorStoreNode* op) override {
+  Result Visit_(const TensorStoreObj* op) override {
     this->Visit(op->value);
     return this->Visit(op->indices);
   }
 
-  Result Visit_(const TensorRegionNode* op) override {
+  Result Visit_(const TensorRegionObj* op) override {
     if (!op->source.as<TensorVar>()) this->Visit(op->source);
     return this->Visit(op->region);
   }
 
-  Result Visit_(const prim::RampNode* op) override {
+  Result Visit_(const prim::RampObj* op) override {
     this->Visit(op->base);
     this->Visit(op->stride);
     return this->Visit(op->lanes);
   }
 
-  Result Visit_(const prim::BroadcastNode* op) override {
+  Result Visit_(const prim::BroadcastObj* op) override {
     this->Visit(op->value);
     return this->Visit(op->lanes);
   }
 
-  Result Visit_(const GenericConstNode* op) override { return std::nullopt; }
+  Result Visit_(const GenericConstObj* op) override { return std::nullopt; }
 
-  Result Visit_(const AssertStmtNode* op) override {
+  Result Visit_(const AssertStmtObj* op) override {
     this->Visit(op->condition);
     this->Visit(op->error_kind);
     return this->Visit(op->message_parts);
@@ -160,7 +160,7 @@ class NoOpCallVerifier : public StmtExprVisitor {
     static const VTable table = [] {
       VTable table;
       StmtExprVisitor::InitVTable(&table);
-      SetDispatch<NoOpCallVerifier, LambdaExprNode>(&table);
+      SetDispatch<NoOpCallVerifier, LambdaExprObj>(&table);
       table.Finalize();
       return table;
     }();
@@ -211,8 +211,8 @@ class TileDispatcher : public StmtExprMutator {
     }
 
    private:
-    UnchangedOr<Stmt> Mutate_(const EvaluateNode* op, InplaceMode inplace_mode) final {
-      const auto* call = op->value.as<CallNode>();
+    UnchangedOr<Stmt> Mutate_(const EvaluateObj* op, InplaceMode inplace_mode) final {
+      const auto* call = op->value.as<CallObj>();
       if (call != nullptr && call->op.same_as(tirx::kernel_replace_point_op())) {
         return body_;
       }
@@ -222,14 +222,14 @@ class TileDispatcher : public StmtExprMutator {
     Stmt body_;
   };
 
-  UnchangedOr<Stmt> Mutate_(const RegionStmtNode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<Stmt> Mutate_(const RegionStmtObj* op, InplaceMode inplace_mode) final {
     if (op->op.same_as(tirx::device_entry_op())) {
       return ProcessDeviceEntry(op);
     }
     return StmtExprMutator::Mutate_(op, inplace_mode);
   }
 
-  Stmt ProcessDeviceEntry(const RegionStmtNode* entry_node) {
+  Stmt ProcessDeviceEntry(const RegionStmtObj* entry_node) {
     Stmt body_to_visit = entry_node->body;
     Target saved_target = target_;
     if (auto target = entry_node->attrs->dict.Get(tvm::attr::kTarget.name)) {
@@ -311,7 +311,7 @@ class TileDispatcher : public StmtExprMutator {
     return res;
   }
 
-  UnchangedOr<Stmt> Mutate_(const SeqStmtNode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<Stmt> Mutate_(const SeqStmtObj* op, InplaceMode inplace_mode) final {
     Stmt stmt = StmtExprMutator::Mutate_(op, inplace_mode).ValueOrUnchanged(ffi::GetRef<Stmt>(op));
     if (post_tensor_def_stmts_.empty()) {
       return stmt;
@@ -323,8 +323,8 @@ class TileDispatcher : public StmtExprMutator {
     bool changed = false;
     for (const Stmt& s : seq->seq) {
       rebuilt.push_back(s);
-      if (const auto* bind = s.as<BindNode>()) {
-        if (const auto* call = bind->value.as<CallNode>();
+      if (const auto* bind = s.as<BindObj>()) {
+        if (const auto* call = bind->value.as<CallObj>();
             call && (call->op.same_as(tirx::alloc_tensor_op()) ||
                      (call->op.same_as(tirx::decl_tensor_op()) ||
                       call->op.same_as(Op::Get("tirx.cuda.decl_tmem"))))) {
@@ -339,15 +339,15 @@ class TileDispatcher : public StmtExprMutator {
     return SeqStmt(rebuilt, seq->loc);
   }
 
-  UnchangedOr<Stmt> Mutate_(const BindNode* op, InplaceMode inplace_mode) final {
-    if (const auto* call = op->value.as<CallNode>(); call) {
+  UnchangedOr<Stmt> Mutate_(const BindObj* op, InplaceMode inplace_mode) final {
+    if (const auto* call = op->value.as<CallObj>(); call) {
       if (call->op.same_as(tirx::alloc_tensor_op())) return MutateAllocTensor(op, inplace_mode);
       if ((call->op.same_as(tirx::decl_tensor_op()) ||
            call->op.same_as(Op::Get("tirx.cuda.decl_tmem"))))
         return MutateDeclTensor(op, inplace_mode);
     }
     Stmt stmt = StmtExprMutator::Mutate_(op, inplace_mode).ValueOrUnchanged(ffi::GetRef<Stmt>(op));
-    const auto* bind = stmt.as<BindNode>();
+    const auto* bind = stmt.as<BindObj>();
     TVM_FFI_ICHECK(bind);
     if (auto value = bind->value.as<PrimExpr>()) {
       if (cuda_analysis_) cuda_analysis_->Bind(bind->var, value.value());
@@ -360,7 +360,7 @@ class TileDispatcher : public StmtExprMutator {
     return stmt;
   }
 
-  UnchangedOr<Stmt> Mutate_(const ForNode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<Stmt> Mutate_(const ForObj* op, InplaceMode inplace_mode) final {
     // Collect the loop variables
     auto loop_var = op->var.as_or_throw<Var>();
     TVM_FFI_ICHECK(!var_range_map_.count(loop_var)) << "Internal Error: Duplicate loop variable";
@@ -380,10 +380,10 @@ class TileDispatcher : public StmtExprMutator {
                            const ffi::Optional<Expr>& data) {
     Var root = new_var;
     if (data.has_value()) {
-      if (const auto* call = data.value().as<CallNode>();
+      if (const auto* call = data.value().as<CallObj>();
           call && call->op.same_as(tirx::tensor_data_ptr_op()) && call->args.size() == 1) {
         if (auto src = call->args[0].as<Var>();
-            src.has_value() && src.value()->ty.as<TensorTypeNode>()) {
+            src.has_value() && src.value()->ty.as<TensorTypeObj>()) {
           root = StorageRootOf(src.value());
         }
       }
@@ -414,10 +414,10 @@ class TileDispatcher : public StmtExprMutator {
         const std::unordered_map<Var, Var, ffi::ObjectPtrHash, ffi::ObjectPtrEqual>& tensor_root)
         : tensor_root_(tensor_root) {}
 
-    UnchangedOr<Expr> Mutate_(const CallNode* op, InplaceMode inplace_mode) final {
+    UnchangedOr<Expr> Mutate_(const CallObj* op, InplaceMode inplace_mode) final {
       if (op->op.same_as(tirx::tensor_data_ptr_op()) && op->args.size() == 1) {
         if (auto var = op->args[0].as<Var>();
-            var.has_value() && var.value()->ty.as<TensorTypeNode>()) {
+            var.has_value() && var.value()->ty.as<TensorTypeObj>()) {
           auto it = tensor_root_.find(var.value());
           if (it != tensor_root_.end() && !it->second.same_as(var.value())) {
             return it->second.as_or_throw<TensorVar>().data();
@@ -430,10 +430,10 @@ class TileDispatcher : public StmtExprMutator {
     const std::unordered_map<Var, Var, ffi::ObjectPtrHash, ffi::ObjectPtrEqual>& tensor_root_;
   };
 
-  UnchangedOr<Stmt> MutateAllocTensor(const BindNode* op, InplaceMode inplace_mode) {
+  UnchangedOr<Stmt> MutateAllocTensor(const BindObj* op, InplaceMode inplace_mode) {
     TensorVar old_tensor = op->var.as_or_throw<TensorVar>();
     Stmt stmt = StmtExprMutator::Mutate_(op, inplace_mode).ValueOrUnchanged(ffi::GetRef<Stmt>(op));
-    op = stmt.as<BindNode>();
+    op = stmt.as<BindObj>();
     TVM_FFI_ICHECK(op);
     RegisterStorageRoot(old_tensor, op->var, std::nullopt);
 
@@ -442,12 +442,12 @@ class TileDispatcher : public StmtExprMutator {
     return SeqStmt(seq);
   }
 
-  UnchangedOr<Stmt> MutateDeclTensor(const BindNode* op, InplaceMode inplace_mode) {
+  UnchangedOr<Stmt> MutateDeclTensor(const BindObj* op, InplaceMode inplace_mode) {
     TensorVar old_tensor = op->var.as_or_throw<TensorVar>();
     Stmt stmt = StmtExprMutator::Mutate_(op, inplace_mode).ValueOrUnchanged(ffi::GetRef<Stmt>(op));
-    op = stmt.as<BindNode>();
+    op = stmt.as<BindObj>();
     TVM_FFI_ICHECK(op);
-    const auto* tensor_call = op->value.as<CallNode>();
+    const auto* tensor_call = op->value.as<CallObj>();
     RegisterStorageRoot(old_tensor, op->var, tensor_call->args[0]);
 
     std::vector<Stmt> seq{stmt};
@@ -455,7 +455,7 @@ class TileDispatcher : public StmtExprMutator {
     return SeqStmt(seq);
   }
 
-  UnchangedOr<Stmt> Mutate_(const IfNode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<Stmt> Mutate_(const IfObj* op, InplaceMode inplace_mode) final {
     int pushed_ctx = cuda_analysis_ ? cuda_analysis_->PushPredicate(op->condition) : 0;
     PrimExpr new_cond =
         cuda_analysis_ ? cuda_analysis_->RewritePredicate(op->condition) : op->condition;
@@ -476,8 +476,8 @@ class TileDispatcher : public StmtExprMutator {
     return If(new_cond, then_case, else_case);
   }
 
-  UnchangedOr<Stmt> Mutate_(const EvaluateNode* stmt, InplaceMode inplace_mode) final {
-    const auto* op = stmt->value.as<CallNode>();
+  UnchangedOr<Stmt> Mutate_(const EvaluateObj* stmt, InplaceMode inplace_mode) final {
+    const auto* op = stmt->value.as<CallObj>();
     if (!op || !op->op.as<Op>() || !Op::HasAttrMap(tile::op_attr::kTileOpDispatch)) {
       return StmtExprMutator::Mutate_(stmt, inplace_mode);
     }
@@ -530,7 +530,7 @@ class TileDispatcher : public StmtExprMutator {
 
   // --- Scope-id resolution at kernel scope ----------------------------------
 
-  void PrepareCudaLaunchParams(const RegionStmtNode* entry) {
+  void PrepareCudaLaunchParams(const RegionStmtObj* entry) {
     TVM_FFI_CHECK(target_->kind->name == "cuda", ValueError)
         << "CUDA LaunchConfig requires a CUDA target";
     auto fields = entry->attrs->dict.at(tvm::backend::cuda::attr::kLaunchFields.name)
@@ -557,7 +557,7 @@ class TileDispatcher : public StmtExprMutator {
       auto it = launch_params_.find(std::string("clusterCtaIdx.") + axis);
       if (it == launch_params_.end()) continue;
       PrimExpr extent = it->second.get<1>();
-      variable_cluster_ |= !extent.as<IntImmNode>();
+      variable_cluster_ |= !extent.as<IntImmObj>();
       for (size_t i = 0; i < fields.size(); ++i) {
         if (fields[i] == std::string("preferred_cluster.") + axis) {
           auto preferred = entry->args[i].as_or_throw<PrimExpr>();

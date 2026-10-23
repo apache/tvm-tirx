@@ -31,10 +31,10 @@ class AssertSkipper : public StmtExprMutator {
   using StmtExprMutator::Mutate;
   using StmtExprMutator::Mutate_;
   UnchangedOr<ffi::Any> Mutate(ffi::AnyView input, InplaceMode inplace_mode) override {
-    if (input.as<ExprNode>()) return ffi::Unchanged();
+    if (input.as<ExprObj>()) return ffi::Unchanged();
     return StmtExprMutator::Mutate(input, inplace_mode);
   }
-  UnchangedOr<Stmt> Mutate_(const AssertStmtNode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<Stmt> Mutate_(const AssertStmtObj* op, InplaceMode inplace_mode) final {
     // AssertStmt is a leaf — just remove it.
     return Evaluate(0);
   }

@@ -232,8 +232,8 @@ class Z3Prover::Impl final : tvm::ExprFunctor<z3::expr(const Expr&)> {
     }
   }
 
-  /// @brief Create a Free z3 expression from a primitive-valued ExprNode.
-  z3::expr Create(const ExprNode* op) {
+  /// @brief Create a Free z3 expression from a primitive-valued ExprObj.
+  z3::expr Create(const ExprObj* op) {
     // Expression translation only happens with a live solver: every public
     // entry point that can reach a visitor materializes first.
     TVM_FFI_ICHECK(solver.has_value());
@@ -327,34 +327,34 @@ class Z3Prover::Impl final : tvm::ExprFunctor<z3::expr(const Expr&)> {
       return true;
     }
     auto checkTrivilCmp = [this](const PrimExpr& lhs, const PrimExpr& rhs) {
-      if (IsFreeNode(lhs) && rhs->IsInstance<IntImmNode>()) {
+      if (IsFreeNode(lhs) && rhs->IsInstance<IntImmObj>()) {
         return true;
       }
-      if (IsFreeNode(rhs) && lhs->IsInstance<IntImmNode>()) {
+      if (IsFreeNode(rhs) && lhs->IsInstance<IntImmObj>()) {
         return true;
       }
       if (IsFreeNode(lhs) && IsFreeNode(rhs)) {
         return true;
       }
       // cast(free_var, 'xxx') == constant
-      if (auto cast = lhs.as<prim::CastNode>()) {
-        if (IsFreeNode(cast->value) && rhs->IsInstance<IntImmNode>()) {
+      if (auto cast = lhs.as<prim::CastObj>()) {
+        if (IsFreeNode(cast->value) && rhs->IsInstance<IntImmObj>()) {
           return true;
         }
       }
       // constant == cast(free_var, 'xxx')
-      if (auto cast = rhs.as<prim::CastNode>()) {
-        if (IsFreeNode(cast->value) && lhs->IsInstance<IntImmNode>()) {
+      if (auto cast = rhs.as<prim::CastObj>()) {
+        if (IsFreeNode(cast->value) && lhs->IsInstance<IntImmObj>()) {
           return true;
         }
       }
       return false;
     };
-    if (auto eq = expr.as<prim::EQNode>()) {
+    if (auto eq = expr.as<prim::EQObj>()) {
       auto lhs = eq->a;
       auto rhs = eq->b;
       return checkTrivilCmp(lhs, rhs);
-    } else if (auto ne = expr.as<prim::NENode>()) {
+    } else if (auto ne = expr.as<prim::NEObj>()) {
       auto lhs = ne->a;
       auto rhs = ne->b;
       return checkTrivilCmp(lhs, rhs);
@@ -424,7 +424,7 @@ class Z3Prover::Impl final : tvm::ExprFunctor<z3::expr(const Expr&)> {
     //    instead of adding an unsat constraint, we just skip the range constraint to leave it a
     //    free var
     //
-    //    NOTE: begin + extent builds a fresh AddNode that is not folded, so we must
+    //    NOTE: begin + extent builds a fresh AddObj that is not folded, so we must
     //    test IsConstInt on begin and extent individually and add the two constants
     //    in C++. Otherwise this fast path is never taken and we always emit the more expensive
     //    symbolic constraint below.
@@ -731,19 +731,19 @@ class Z3Prover::Impl final : tvm::ExprFunctor<z3::expr(const Expr&)> {
       return false;
     }
     // Keep the conservative shortcut used when bitwise operations were calls.
-    return e->IsInstance<CallNode>() || e->IsInstance<prim::LShiftNode>() ||
-           e->IsInstance<prim::RShiftNode>() || e->IsInstance<prim::BitwiseAndNode>() ||
-           e->IsInstance<prim::BitwiseOrNode>() || e->IsInstance<prim::BitwiseXorNode>() ||
-           e->IsInstance<prim::BitwiseNotNode>() || e->IsInstance<TensorLoadNode>() ||
-           (e->IsInstance<prim::CastNode>() &&
+    return e->IsInstance<CallObj>() || e->IsInstance<prim::LShiftObj>() ||
+           e->IsInstance<prim::RShiftObj>() || e->IsInstance<prim::BitwiseAndObj>() ||
+           e->IsInstance<prim::BitwiseOrObj>() || e->IsInstance<prim::BitwiseXorObj>() ||
+           e->IsInstance<prim::BitwiseNotObj>() || e->IsInstance<TensorLoadObj>() ||
+           (e->IsInstance<prim::CastObj>() &&
             !IsZ3SupportedExpr(e.as_or_throw<prim::Cast>()->value.get()));
   }
 
   /// @brief Check if the expression type is supported by z3 integer operations.
-  static bool IsZ3SupportedExpr(const ExprNode* expr) {
+  static bool IsZ3SupportedExpr(const ExprObj* expr) {
     TVM_FFI_DCHECK(expr != nullptr);
-    TVM_FFI_DCHECK(!expr->ExprNode::ty.as<MissingType>().has_value());
-    PrimType prim_ty = expr->ExprNode::ty.as_or_throw<PrimType>();
+    TVM_FFI_DCHECK(!expr->ExprObj::ty.as<MissingType>().has_value());
+    PrimType prim_ty = expr->ExprObj::ty.as_or_throw<PrimType>();
     return (prim_ty->dtype.code == static_cast<uint8_t>(DLDataTypeCode::kDLInt) ||
             prim_ty->dtype.code == static_cast<uint8_t>(DLDataTypeCode::kDLUInt) ||
             prim_ty->dtype.code == static_cast<uint8_t>(DLDataTypeCode::kDLBool)) &&
@@ -771,7 +771,7 @@ class Z3Prover::Impl final : tvm::ExprFunctor<z3::expr(const Expr&)> {
   }
 
   /// @brief Helper function to visit binary arithmetic operations
-  z3::expr VisitArith(Z3BinOp signed_op, const ExprNode* op, const PrimExpr& a, const PrimExpr& b) {
+  z3::expr VisitArith(Z3BinOp signed_op, const ExprObj* op, const PrimExpr& a, const PrimExpr& b) {
     if (IsZ3SupportedExpr(a.get()) && IsZ3SupportedExpr(b.get())) {
       return signed_op(VisitInt(a), VisitInt(b));
     } else {
@@ -779,13 +779,13 @@ class Z3Prover::Impl final : tvm::ExprFunctor<z3::expr(const Expr&)> {
     }
   }
 
-  z3::expr Dispatch_(const prim::LetNode* op) override {
+  z3::expr Dispatch_(const prim::LetObj* op) override {
     if (IsZ3SupportedExpr(op->var.get())) {
       MemoPut(op->var.as_or_throw<PrimExpr>(), VisitInt(op->value));
     }
     return Dispatch(op->body);
   }
-  z3::expr Dispatch_(const prim::CastNode* op) override {
+  z3::expr Dispatch_(const prim::CastObj* op) override {
     // if the inner dtype is valid, we just visit it
     if (IsZ3SupportedExpr(op->value.get()) && IsZ3SupportedExpr(op)) {
       return VisitInt(op->value);
@@ -794,14 +794,14 @@ class Z3Prover::Impl final : tvm::ExprFunctor<z3::expr(const Expr&)> {
       return Create(op);
     }
   }
-  z3::expr Dispatch_(const VarNode* op) override { return Create(op); }
-  z3::expr Dispatch_(const TensorLoadNode* op) override { return Create(op); }
-  z3::expr Dispatch_(const prim::MinNode* op) override {
+  z3::expr Dispatch_(const VarObj* op) override { return Create(op); }
+  z3::expr Dispatch_(const TensorLoadObj* op) override { return Create(op); }
+  z3::expr Dispatch_(const prim::MinObj* op) override {
     auto a = VisitInt(op->a);
     auto b = VisitInt(op->b);
     return z3::ite(a < b, a, b);
   }
-  z3::expr Dispatch_(const prim::MaxNode* op) override {
+  z3::expr Dispatch_(const prim::MaxObj* op) override {
     auto a = VisitInt(op->a);
     auto b = VisitInt(op->b);
     return z3::ite(a > b, a, b);
@@ -826,74 +826,74 @@ class Z3Prover::Impl final : tvm::ExprFunctor<z3::expr(const Expr&)> {
   static z3::expr floormod(const z3::expr& a, const z3::expr& b) {
     return z3::ite(b > 0, a % b, -((-a) % b));
   }
-  z3::expr Dispatch_(const prim::AddNode* op) override {
+  z3::expr Dispatch_(const prim::AddObj* op) override {
     return VisitArith(z3::operator+, op, op->a, op->b);
   }
-  z3::expr Dispatch_(const prim::SubNode* op) override {
+  z3::expr Dispatch_(const prim::SubObj* op) override {
     return VisitArith(z3::operator-, op, op->a, op->b);
   }
-  z3::expr Dispatch_(const prim::MulNode* op) override {
+  z3::expr Dispatch_(const prim::MulObj* op) override {
     return VisitArith(z3::operator*, op, op->a, op->b);
   }
-  z3::expr Dispatch_(const prim::DivNode* op) override {
+  z3::expr Dispatch_(const prim::DivObj* op) override {
     return VisitArith(truncdiv, op, op->a, op->b);
   }
-  z3::expr Dispatch_(const prim::ModNode* op) override {
+  z3::expr Dispatch_(const prim::ModObj* op) override {
     return VisitArith(truncmod, op, op->a, op->b);
   }
-  z3::expr Dispatch_(const prim::FloorDivNode* op) override {
+  z3::expr Dispatch_(const prim::FloorDivObj* op) override {
     return VisitArith(floordiv, op, op->a, op->b);
   }
-  z3::expr Dispatch_(const prim::FloorModNode* op) override {
+  z3::expr Dispatch_(const prim::FloorModObj* op) override {
     return VisitArith(floormod, op, op->a, op->b);
   }
-  z3::expr Dispatch_(const prim::EQNode* op) override {
+  z3::expr Dispatch_(const prim::EQObj* op) override {
     return VisitArith(z3::operator==, op, op->a, op->b);
   }
-  z3::expr Dispatch_(const prim::NENode* op) override {
+  z3::expr Dispatch_(const prim::NEObj* op) override {
     return VisitArith(z3::operator!=, op, op->a, op->b);
   }
-  z3::expr Dispatch_(const prim::LTNode* op) override {
+  z3::expr Dispatch_(const prim::LTObj* op) override {
     return VisitArith(z3::operator<, op, op->a, op->b);
   }
-  z3::expr Dispatch_(const prim::LENode* op) override {
+  z3::expr Dispatch_(const prim::LEObj* op) override {
     return VisitArith(z3::operator<=, op, op->a, op->b);
   }
-  z3::expr Dispatch_(const prim::GTNode* op) override {
+  z3::expr Dispatch_(const prim::GTObj* op) override {
     return VisitArith(z3::operator>, op, op->a, op->b);
   }
-  z3::expr Dispatch_(const prim::GENode* op) override {
+  z3::expr Dispatch_(const prim::GEObj* op) override {
     return VisitArith(z3::operator>=, op, op->a, op->b);
   }
-  z3::expr Dispatch_(const prim::AndNode* op) override {
+  z3::expr Dispatch_(const prim::AndObj* op) override {
     return VisitBool(op->a) && VisitBool(op->b);
   }
-  z3::expr Dispatch_(const prim::OrNode* op) override {
+  z3::expr Dispatch_(const prim::OrObj* op) override {
     return VisitBool(op->a) || VisitBool(op->b);
   }
-  z3::expr Dispatch_(const prim::NotNode* op) override { return !VisitBool(op->a); }
-  z3::expr Dispatch_(const prim::SelectNode* op) override {
+  z3::expr Dispatch_(const prim::NotObj* op) override { return !VisitBool(op->a); }
+  z3::expr Dispatch_(const prim::SelectObj* op) override {
     return z3::ite(VisitBool(op->condition), VisitInt(op->true_value), VisitInt(op->false_value));
   }
-  z3::expr Dispatch_(const IntImmNode* op) override { return IntegerValue(*ctx, op->value); }
+  z3::expr Dispatch_(const IntImmObj* op) override { return IntegerValue(*ctx, op->value); }
 
-  z3::expr Dispatch_(const prim::BitwiseAndNode* op) override {
+  z3::expr Dispatch_(const prim::BitwiseAndObj* op) override {
     return VisitBitwiseOp(z3::operator&, op, op->a, op->b);
   }
-  z3::expr Dispatch_(const prim::BitwiseOrNode* op) override {
+  z3::expr Dispatch_(const prim::BitwiseOrObj* op) override {
     return VisitBitwiseOp(z3::operator|, op, op->a, op->b);
   }
-  z3::expr Dispatch_(const prim::BitwiseXorNode* op) override {
+  z3::expr Dispatch_(const prim::BitwiseXorObj* op) override {
     return VisitBitwiseOp(z3::operator^, op, op->a, op->b);
   }
-  z3::expr Dispatch_(const prim::LShiftNode* op) override {
+  z3::expr Dispatch_(const prim::LShiftObj* op) override {
     return VisitShiftOp(z3::shl, op, op->a, op->b);
   }
-  z3::expr Dispatch_(const prim::RShiftNode* op) override {
+  z3::expr Dispatch_(const prim::RShiftObj* op) override {
     return VisitShiftOp(z3::ashr, op, op->a, op->b);
   }
 
-  z3::expr Dispatch_(const CallNode* op) override {
+  z3::expr Dispatch_(const CallObj* op) override {
     if (op->op.same_as(prim::if_then_else_op()) && op->args.size() == 3 &&
         IsZ3SupportedExpr(op->args[1].get()) && IsZ3SupportedExpr(op->args[2].get())) {
       // tir.if_then_else(cond, a, b) is a select-like ternary.
@@ -907,7 +907,7 @@ class Z3Prover::Impl final : tvm::ExprFunctor<z3::expr(const Expr&)> {
   }
 
   /// @brief Helper function to visit binary bitwise operations
-  z3::expr VisitBitwiseOp(z3::expr (*op_func)(const z3::expr&, const z3::expr&), const ExprNode* op,
+  z3::expr VisitBitwiseOp(z3::expr (*op_func)(const z3::expr&, const z3::expr&), const ExprObj* op,
                           const PrimExpr& a, const PrimExpr& b) {
     unsigned bit_width = std::max(a.ty().bits(), b.ty().bits());
 
@@ -920,7 +920,7 @@ class Z3Prover::Impl final : tvm::ExprFunctor<z3::expr(const Expr&)> {
   }
 
   /// @brief Helper function to visit unary bitwise not operation
-  z3::expr Dispatch_(const prim::BitwiseNotNode* op) override {
+  z3::expr Dispatch_(const prim::BitwiseNotObj* op) override {
     const PrimExpr& a = op->a;
 
     if (IsZ3SupportedExpr(a.get())) {
@@ -935,7 +935,7 @@ class Z3Prover::Impl final : tvm::ExprFunctor<z3::expr(const Expr&)> {
   }
 
   /// @brief Helper function to visit shift operations
-  z3::expr VisitShiftOp(z3::expr (*op_func)(const z3::expr&, const z3::expr&), const ExprNode* op,
+  z3::expr VisitShiftOp(z3::expr (*op_func)(const z3::expr&, const z3::expr&), const ExprObj* op,
                         const PrimExpr& a, const PrimExpr& b) {
     // Shift operations require integer types for both operands
     if (IsZ3SupportedExpr(a.get()) && IsZ3SupportedExpr(b.get())) {
@@ -964,7 +964,7 @@ class Z3Prover::Impl final : tvm::ExprFunctor<z3::expr(const Expr&)> {
     // have already failed. An unsupported node must not crash the build, so we
     // model it as a fresh unconstrained free variable, which keeps the proof
     // sound (it can only make CanProve more conservative).
-    return Create(static_cast<const ExprNode*>(op));
+    return Create(static_cast<const ExprObj*>(op));
   }
 };
 

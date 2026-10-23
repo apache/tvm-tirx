@@ -37,7 +37,7 @@ namespace intrin {
 using tirx::FLowerIntrinsic;
 
 template <size_t N>
-static Type InferTypeReturnArgType(const CallNode* call) {
+static Type InferTypeReturnArgType(const CallObj* call) {
   TVM_FFI_CHECK_GT(call->args.size(), N, ValueError)
       << "Return type inference requires argument " << N;
   return call->args[N]->ty;
@@ -155,7 +155,7 @@ struct CUDAWarpIntrinsic {
 };
 
 static PrimExpr DispatchCUDAWarpActiveMask(const PrimExpr& e) {
-  const CallNode* call = e.as<CallNode>();
+  const CallObj* call = e.as<CallObj>();
   static const Op cuda_active_mask_op = Op::Get("tirx.cuda.__activemask");
   ffi::Array<PrimExpr> args = call->args.as_or_throw<ffi::Array<PrimExpr>>();
   return Call(e.ty(), cuda_active_mask_op, args).as_or_throw<PrimExpr>();
@@ -163,7 +163,7 @@ static PrimExpr DispatchCUDAWarpActiveMask(const PrimExpr& e) {
 
 template <typename T>
 static PrimExpr DispatchCUDAShuffle(const PrimExpr& e) {
-  const CallNode* call = e.as<CallNode>();
+  const CallObj* call = e.as<CallObj>();
   TVM_FFI_ICHECK(call != nullptr);
   TVM_FFI_ICHECK_EQ(call->args.size(), 5);  // mask, value, warp_id, width, warp_size
   ffi::Array<PrimExpr> cuda_args{

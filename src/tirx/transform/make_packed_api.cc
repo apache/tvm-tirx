@@ -55,12 +55,12 @@ class ReturnRewriter : public StmtExprMutator {
   using StmtExprMutator::Mutate;
   using StmtExprMutator::Mutate_;
   UnchangedOr<ffi::Any> Mutate(ffi::AnyView input, InplaceMode inplace_mode) override {
-    if (input.as<ExprNode>()) return ffi::Unchanged();
+    if (input.as<ExprObj>()) return ffi::Unchanged();
     return StmtExprMutator::Mutate(input, inplace_mode);
   }
   explicit ReturnRewriter(Var ret_var) : ret_var_(ret_var) {}
 
-  UnchangedOr<Stmt> Mutate_(const ForNode* node, InplaceMode inplace_mode) override {
+  UnchangedOr<Stmt> Mutate_(const ForObj* node, InplaceMode inplace_mode) override {
     // Unannotated single-iteration loops execute without a threadpool launch.
     bool is_parallel = node->kind == ForKind::kParallel &&
                        !(prim::IsOne(Range::GetExtentFromBeginEnd(node->begin, node->end)) &&
@@ -72,7 +72,7 @@ class ReturnRewriter : public StmtExprMutator {
     return ret;
   }
 
-  UnchangedOr<Stmt> Mutate_(const RegionStmtNode* node, InplaceMode inplace_mode) override {
+  UnchangedOr<Stmt> Mutate_(const RegionStmtObj* node, InplaceMode inplace_mode) override {
     bool is_parallel = node->op.same_as(tirx::parallel_launch_op());
     if (is_parallel) in_parallel_ += 1;
     auto ret = StmtExprMutator::Mutate_(node, inplace_mode);
@@ -80,7 +80,7 @@ class ReturnRewriter : public StmtExprMutator {
     return ret;
   }
 
-  UnchangedOr<Stmt> Mutate_(const ReturnNode* node, InplaceMode inplace_mode) override {
+  UnchangedOr<Stmt> Mutate_(const ReturnObj* node, InplaceMode inplace_mode) override {
     TVM_FFI_ICHECK_EQ(in_parallel_, 0) << "Return cannot be used in parallel scope.";
     return WriteToOut(this->Mutate(node->value, inplace_mode).ValueOrUnchanged(node->value));
   }
@@ -95,7 +95,7 @@ class ReturnRewriter : public StmtExprMutator {
     ConvertedInfo info{-1, val};
 
     // convert val's data type to FFI data type, return type code
-    if (val->ty.as<PtrTypeNode>()) {
+    if (val->ty.as<PtrTypeObj>()) {
       info.type_index = ffi::TypeIndex::kTVMFFIOpaquePtr;
       info.expr = val;
       return info;
@@ -166,12 +166,12 @@ class SubroutineCallRewriter : public StmtExprMutator {
       : packed_func_methods(packed_func_methods) {}
 
  private:
-  UnchangedOr<Expr> Mutate_(const CallNode* op, InplaceMode inplace_mode) override {
+  UnchangedOr<Expr> Mutate_(const CallObj* op, InplaceMode inplace_mode) override {
     auto node = StmtExprMutator::Mutate_(op, inplace_mode)
                     .ValueOrUnchanged(ffi::GetRef<Expr>(op))
                     .as_or_throw<Call>();
 
-    if (auto* gvar_ptr = node->op.as<GlobalVarNode>()) {
+    if (auto* gvar_ptr = node->op.as<GlobalVarObj>()) {
       auto gvar = ffi::GetRef<GlobalVar>(gvar_ptr);
       if (auto symbol = packed_func_methods.Get(gvar)) {
         ffi::Array<Expr> cpacked_args;
@@ -336,7 +336,7 @@ Pass MakePackedAPI() {
       }
     }
 
-    IRModuleNode* mptr = mod.CopyOnWrite();
+    IRModuleObj* mptr = mod.CopyOnWrite();
     IRModule updates;
 
     for (const auto& [gvar, base_func] : mptr->functions) {

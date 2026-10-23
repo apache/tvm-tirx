@@ -27,6 +27,7 @@
 use std::ops::Deref;
 use tvm_ffi::Object;
 use tvm_ffi::ObjectArc;
+use tvm_ffi::ShallowCopy;
 // tvm-ffi-stubgen(end)
 
 // tvm-ffi-stubgen(begin): object/ir.GlobalInfo
@@ -57,7 +58,7 @@ impl Deref for GlobalInfo {
 }
 
 impl GlobalInfoObj {
-    pub(crate) fn new() -> Self {
+    pub fn new() -> Self {
         let base = Object::new();
         Self { base }
     }
@@ -68,6 +69,12 @@ impl GlobalInfo {
     pub fn new() -> Self {
         let obj = GlobalInfoObj::new();
         Self { base: ObjectArc::new(obj) }
+    }
+}
+
+impl ShallowCopy for GlobalInfoObj {
+    fn shallow_copy(&self) -> Self {
+        Self { base: ShallowCopy::shallow_copy(&self.base) }
     }
 }
 // tvm-ffi-stubgen(end)

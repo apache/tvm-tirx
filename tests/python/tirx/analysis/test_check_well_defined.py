@@ -49,7 +49,7 @@ def test_error_for_out_of_scope_usage():
 
     With flat Bind semantics, Bind vars are visible to all subsequent
     siblings in the same SeqStmt. True out-of-scope usage occurs when
-    the Bind is inside a child scope (e.g., ForNode body) and the
+    the Bind is inside a child scope (e.g., ForObj body) and the
     variable is used outside that scope.
     """
     i = tvm_tirx.tirx.Var("i", "int32")

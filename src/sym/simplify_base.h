@@ -49,19 +49,19 @@ class SimplifierBase : public tvm::ExprMutator {
 
   using Parent::Mutate_;
 
-  UnchangedOr<Expr> Mutate_(const OpaqueExprNode* op, InplaceMode inplace_mode) override {
+  UnchangedOr<Expr> Mutate_(const OpaqueExprObj* op, InplaceMode inplace_mode) override {
     return ffi::Unchanged();
   }
 
-  UnchangedOr<Expr> Mutate_(const VarNode* op, InplaceMode inplace_mode) override {
+  UnchangedOr<Expr> Mutate_(const VarObj* op, InplaceMode inplace_mode) override {
     return ffi::Unchanged();
   }
-  UnchangedOr<Expr> Mutate_(const TupleNode* op, InplaceMode inplace_mode) override;
-  UnchangedOr<Expr> Mutate_(const TupleGetItemNode* op, InplaceMode inplace_mode) override;
-  UnchangedOr<PrimExpr> Mutate_(const TensorLoadNode* op, InplaceMode inplace_mode) override;
-  UnchangedOr<Expr> Mutate_(const CallNode* op, InplaceMode inplace_mode) override;
-  UnchangedOr<PrimExpr> Mutate_(const prim::LetNode* op, InplaceMode inplace_mode) override;
-  UnchangedOr<PrimExpr> Mutate_(const prim::SelectNode* op, InplaceMode inplace_mode) override;
+  UnchangedOr<Expr> Mutate_(const TupleObj* op, InplaceMode inplace_mode) override;
+  UnchangedOr<Expr> Mutate_(const TupleGetItemObj* op, InplaceMode inplace_mode) override;
+  UnchangedOr<PrimExpr> Mutate_(const TensorLoadObj* op, InplaceMode inplace_mode) override;
+  UnchangedOr<Expr> Mutate_(const CallObj* op, InplaceMode inplace_mode) override;
+  UnchangedOr<PrimExpr> Mutate_(const prim::LetObj* op, InplaceMode inplace_mode) override;
+  UnchangedOr<PrimExpr> Mutate_(const prim::SelectObj* op, InplaceMode inplace_mode) override;
 
  protected:
   AnalyzerObj* analyzer_;

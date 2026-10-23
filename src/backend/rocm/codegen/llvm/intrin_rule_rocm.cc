@@ -44,10 +44,10 @@ inline PrimExpr DispatchPureExternOCML(const PrimExpr& e) {
   // NOTE: OCML dispatch fails to work properly with vectorization, and thus should be used with
   // extreme caution.
   using namespace tirx;
-  const CallNode* call = e.as<CallNode>();
+  const CallObj* call = e.as<CallObj>();
   TVM_FFI_ICHECK(call != nullptr);
 
-  const OpNode* op = call->op.as<OpNode>();
+  const OpObj* op = call->op.as<OpObj>();
   TVM_FFI_ICHECK(op != nullptr);
   std::string name = op->name;
   TVM_FFI_ICHECK(name.substr(0, 5) == "tirx." || name.substr(0, 5) == "prim.")
@@ -67,7 +67,7 @@ inline PrimExpr DispatchPureExternOCML(const PrimExpr& e) {
 
 inline PrimExpr DispatchShuffle(const PrimExpr& e) {
   using namespace tirx;
-  const CallNode* call = e.as<CallNode>();
+  const CallObj* call = e.as<CallObj>();
   TVM_FFI_ICHECK(call != nullptr);
   TVM_FFI_ICHECK_EQ(call->args.size(), 5);  // mask, value, warp_id, width, warp_size
   ffi::Array<PrimExpr> args = call->args.as_or_throw<ffi::Array<PrimExpr>>();

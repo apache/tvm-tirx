@@ -27,7 +27,7 @@
 //! [`super::op`].
 
 // `custom-new` reserves `new` for a constructor with the C++ one's semantics (operand type checks
-// and the derived result type); the generated `from_complete_fields` allocates the fields as given.
+// and the derived result type); the generated `from_fields` allocates the fields as given.
 // tvm-ffi-stubgen(custom-new): prim.Cast
 // tvm-ffi-stubgen(custom-new): prim.LShift
 // tvm-ffi-stubgen(custom-new): prim.RShift
@@ -127,8 +127,12 @@ impl CastObj {
 
 impl Cast {
     /// Lossless complete-field allocation.
-    pub fn from_complete_fields(loc: Location, ty: Type, value: Expr) -> Self {
-        let obj = CastObj::new(loc, ty, value);
+    pub fn from_fields(
+        loc: impl Into<Location>,
+        ty: impl Into<Type>,
+        value: impl Into<Expr>,
+    ) -> Self {
+        let obj = CastObj::new(loc.into(), ty.into(), value.into());
         Self { base: ObjectArc::new(obj) }
     }
 }
@@ -182,8 +186,13 @@ impl LShiftObj {
 
 impl LShift {
     /// Lossless complete-field allocation.
-    pub fn from_complete_fields(loc: Location, ty: Type, a: Expr, b: Expr) -> Self {
-        let obj = LShiftObj::new(loc, ty, a, b);
+    pub fn from_fields(
+        loc: impl Into<Location>,
+        ty: impl Into<Type>,
+        a: impl Into<Expr>,
+        b: impl Into<Expr>,
+    ) -> Self {
+        let obj = LShiftObj::new(loc.into(), ty.into(), a.into(), b.into());
         Self { base: ObjectArc::new(obj) }
     }
 }
@@ -237,8 +246,13 @@ impl RShiftObj {
 
 impl RShift {
     /// Lossless complete-field allocation.
-    pub fn from_complete_fields(loc: Location, ty: Type, a: Expr, b: Expr) -> Self {
-        let obj = RShiftObj::new(loc, ty, a, b);
+    pub fn from_fields(
+        loc: impl Into<Location>,
+        ty: impl Into<Type>,
+        a: impl Into<Expr>,
+        b: impl Into<Expr>,
+    ) -> Self {
+        let obj = RShiftObj::new(loc.into(), ty.into(), a.into(), b.into());
         Self { base: ObjectArc::new(obj) }
     }
 }
@@ -292,8 +306,13 @@ impl BitwiseAndObj {
 
 impl BitwiseAnd {
     /// Lossless complete-field allocation.
-    pub fn from_complete_fields(loc: Location, ty: Type, a: Expr, b: Expr) -> Self {
-        let obj = BitwiseAndObj::new(loc, ty, a, b);
+    pub fn from_fields(
+        loc: impl Into<Location>,
+        ty: impl Into<Type>,
+        a: impl Into<Expr>,
+        b: impl Into<Expr>,
+    ) -> Self {
+        let obj = BitwiseAndObj::new(loc.into(), ty.into(), a.into(), b.into());
         Self { base: ObjectArc::new(obj) }
     }
 }
@@ -347,8 +366,13 @@ impl BitwiseOrObj {
 
 impl BitwiseOr {
     /// Lossless complete-field allocation.
-    pub fn from_complete_fields(loc: Location, ty: Type, a: Expr, b: Expr) -> Self {
-        let obj = BitwiseOrObj::new(loc, ty, a, b);
+    pub fn from_fields(
+        loc: impl Into<Location>,
+        ty: impl Into<Type>,
+        a: impl Into<Expr>,
+        b: impl Into<Expr>,
+    ) -> Self {
+        let obj = BitwiseOrObj::new(loc.into(), ty.into(), a.into(), b.into());
         Self { base: ObjectArc::new(obj) }
     }
 }
@@ -402,8 +426,13 @@ impl BitwiseXorObj {
 
 impl BitwiseXor {
     /// Lossless complete-field allocation.
-    pub fn from_complete_fields(loc: Location, ty: Type, a: Expr, b: Expr) -> Self {
-        let obj = BitwiseXorObj::new(loc, ty, a, b);
+    pub fn from_fields(
+        loc: impl Into<Location>,
+        ty: impl Into<Type>,
+        a: impl Into<Expr>,
+        b: impl Into<Expr>,
+    ) -> Self {
+        let obj = BitwiseXorObj::new(loc.into(), ty.into(), a.into(), b.into());
         Self { base: ObjectArc::new(obj) }
     }
 }
@@ -456,8 +485,8 @@ impl BitwiseNotObj {
 
 impl BitwiseNot {
     /// Lossless complete-field allocation.
-    pub fn from_complete_fields(loc: Location, ty: Type, a: Expr) -> Self {
-        let obj = BitwiseNotObj::new(loc, ty, a);
+    pub fn from_fields(loc: impl Into<Location>, ty: impl Into<Type>, a: impl Into<Expr>) -> Self {
+        let obj = BitwiseNotObj::new(loc.into(), ty.into(), a.into());
         Self { base: ObjectArc::new(obj) }
     }
 }
@@ -511,8 +540,13 @@ impl AddObj {
 
 impl Add {
     /// Lossless complete-field allocation.
-    pub fn from_complete_fields(loc: Location, ty: Type, a: Expr, b: Expr) -> Self {
-        let obj = AddObj::new(loc, ty, a, b);
+    pub fn from_fields(
+        loc: impl Into<Location>,
+        ty: impl Into<Type>,
+        a: impl Into<Expr>,
+        b: impl Into<Expr>,
+    ) -> Self {
+        let obj = AddObj::new(loc.into(), ty.into(), a.into(), b.into());
         Self { base: ObjectArc::new(obj) }
     }
 }
@@ -566,8 +600,13 @@ impl SubObj {
 
 impl Sub {
     /// Lossless complete-field allocation.
-    pub fn from_complete_fields(loc: Location, ty: Type, a: Expr, b: Expr) -> Self {
-        let obj = SubObj::new(loc, ty, a, b);
+    pub fn from_fields(
+        loc: impl Into<Location>,
+        ty: impl Into<Type>,
+        a: impl Into<Expr>,
+        b: impl Into<Expr>,
+    ) -> Self {
+        let obj = SubObj::new(loc.into(), ty.into(), a.into(), b.into());
         Self { base: ObjectArc::new(obj) }
     }
 }
@@ -621,8 +660,13 @@ impl MulObj {
 
 impl Mul {
     /// Lossless complete-field allocation.
-    pub fn from_complete_fields(loc: Location, ty: Type, a: Expr, b: Expr) -> Self {
-        let obj = MulObj::new(loc, ty, a, b);
+    pub fn from_fields(
+        loc: impl Into<Location>,
+        ty: impl Into<Type>,
+        a: impl Into<Expr>,
+        b: impl Into<Expr>,
+    ) -> Self {
+        let obj = MulObj::new(loc.into(), ty.into(), a.into(), b.into());
         Self { base: ObjectArc::new(obj) }
     }
 }
@@ -676,8 +720,13 @@ impl DivObj {
 
 impl Div {
     /// Lossless complete-field allocation.
-    pub fn from_complete_fields(loc: Location, ty: Type, a: Expr, b: Expr) -> Self {
-        let obj = DivObj::new(loc, ty, a, b);
+    pub fn from_fields(
+        loc: impl Into<Location>,
+        ty: impl Into<Type>,
+        a: impl Into<Expr>,
+        b: impl Into<Expr>,
+    ) -> Self {
+        let obj = DivObj::new(loc.into(), ty.into(), a.into(), b.into());
         Self { base: ObjectArc::new(obj) }
     }
 }
@@ -731,8 +780,13 @@ impl ModObj {
 
 impl Mod {
     /// Lossless complete-field allocation.
-    pub fn from_complete_fields(loc: Location, ty: Type, a: Expr, b: Expr) -> Self {
-        let obj = ModObj::new(loc, ty, a, b);
+    pub fn from_fields(
+        loc: impl Into<Location>,
+        ty: impl Into<Type>,
+        a: impl Into<Expr>,
+        b: impl Into<Expr>,
+    ) -> Self {
+        let obj = ModObj::new(loc.into(), ty.into(), a.into(), b.into());
         Self { base: ObjectArc::new(obj) }
     }
 }
@@ -786,8 +840,13 @@ impl FloorDivObj {
 
 impl FloorDiv {
     /// Lossless complete-field allocation.
-    pub fn from_complete_fields(loc: Location, ty: Type, a: Expr, b: Expr) -> Self {
-        let obj = FloorDivObj::new(loc, ty, a, b);
+    pub fn from_fields(
+        loc: impl Into<Location>,
+        ty: impl Into<Type>,
+        a: impl Into<Expr>,
+        b: impl Into<Expr>,
+    ) -> Self {
+        let obj = FloorDivObj::new(loc.into(), ty.into(), a.into(), b.into());
         Self { base: ObjectArc::new(obj) }
     }
 }
@@ -841,8 +900,13 @@ impl FloorModObj {
 
 impl FloorMod {
     /// Lossless complete-field allocation.
-    pub fn from_complete_fields(loc: Location, ty: Type, a: Expr, b: Expr) -> Self {
-        let obj = FloorModObj::new(loc, ty, a, b);
+    pub fn from_fields(
+        loc: impl Into<Location>,
+        ty: impl Into<Type>,
+        a: impl Into<Expr>,
+        b: impl Into<Expr>,
+    ) -> Self {
+        let obj = FloorModObj::new(loc.into(), ty.into(), a.into(), b.into());
         Self { base: ObjectArc::new(obj) }
     }
 }
@@ -896,8 +960,13 @@ impl MinObj {
 
 impl Min {
     /// Lossless complete-field allocation.
-    pub fn from_complete_fields(loc: Location, ty: Type, a: Expr, b: Expr) -> Self {
-        let obj = MinObj::new(loc, ty, a, b);
+    pub fn from_fields(
+        loc: impl Into<Location>,
+        ty: impl Into<Type>,
+        a: impl Into<Expr>,
+        b: impl Into<Expr>,
+    ) -> Self {
+        let obj = MinObj::new(loc.into(), ty.into(), a.into(), b.into());
         Self { base: ObjectArc::new(obj) }
     }
 }
@@ -951,8 +1020,13 @@ impl MaxObj {
 
 impl Max {
     /// Lossless complete-field allocation.
-    pub fn from_complete_fields(loc: Location, ty: Type, a: Expr, b: Expr) -> Self {
-        let obj = MaxObj::new(loc, ty, a, b);
+    pub fn from_fields(
+        loc: impl Into<Location>,
+        ty: impl Into<Type>,
+        a: impl Into<Expr>,
+        b: impl Into<Expr>,
+    ) -> Self {
+        let obj = MaxObj::new(loc.into(), ty.into(), a.into(), b.into());
         Self { base: ObjectArc::new(obj) }
     }
 }
@@ -1006,8 +1080,13 @@ impl EQObj {
 
 impl EQ {
     /// Lossless complete-field allocation.
-    pub fn from_complete_fields(loc: Location, ty: Type, a: Expr, b: Expr) -> Self {
-        let obj = EQObj::new(loc, ty, a, b);
+    pub fn from_fields(
+        loc: impl Into<Location>,
+        ty: impl Into<Type>,
+        a: impl Into<Expr>,
+        b: impl Into<Expr>,
+    ) -> Self {
+        let obj = EQObj::new(loc.into(), ty.into(), a.into(), b.into());
         Self { base: ObjectArc::new(obj) }
     }
 }
@@ -1061,8 +1140,13 @@ impl NEObj {
 
 impl NE {
     /// Lossless complete-field allocation.
-    pub fn from_complete_fields(loc: Location, ty: Type, a: Expr, b: Expr) -> Self {
-        let obj = NEObj::new(loc, ty, a, b);
+    pub fn from_fields(
+        loc: impl Into<Location>,
+        ty: impl Into<Type>,
+        a: impl Into<Expr>,
+        b: impl Into<Expr>,
+    ) -> Self {
+        let obj = NEObj::new(loc.into(), ty.into(), a.into(), b.into());
         Self { base: ObjectArc::new(obj) }
     }
 }
@@ -1116,8 +1200,13 @@ impl LTObj {
 
 impl LT {
     /// Lossless complete-field allocation.
-    pub fn from_complete_fields(loc: Location, ty: Type, a: Expr, b: Expr) -> Self {
-        let obj = LTObj::new(loc, ty, a, b);
+    pub fn from_fields(
+        loc: impl Into<Location>,
+        ty: impl Into<Type>,
+        a: impl Into<Expr>,
+        b: impl Into<Expr>,
+    ) -> Self {
+        let obj = LTObj::new(loc.into(), ty.into(), a.into(), b.into());
         Self { base: ObjectArc::new(obj) }
     }
 }
@@ -1171,8 +1260,13 @@ impl LEObj {
 
 impl LE {
     /// Lossless complete-field allocation.
-    pub fn from_complete_fields(loc: Location, ty: Type, a: Expr, b: Expr) -> Self {
-        let obj = LEObj::new(loc, ty, a, b);
+    pub fn from_fields(
+        loc: impl Into<Location>,
+        ty: impl Into<Type>,
+        a: impl Into<Expr>,
+        b: impl Into<Expr>,
+    ) -> Self {
+        let obj = LEObj::new(loc.into(), ty.into(), a.into(), b.into());
         Self { base: ObjectArc::new(obj) }
     }
 }
@@ -1226,8 +1320,13 @@ impl GTObj {
 
 impl GT {
     /// Lossless complete-field allocation.
-    pub fn from_complete_fields(loc: Location, ty: Type, a: Expr, b: Expr) -> Self {
-        let obj = GTObj::new(loc, ty, a, b);
+    pub fn from_fields(
+        loc: impl Into<Location>,
+        ty: impl Into<Type>,
+        a: impl Into<Expr>,
+        b: impl Into<Expr>,
+    ) -> Self {
+        let obj = GTObj::new(loc.into(), ty.into(), a.into(), b.into());
         Self { base: ObjectArc::new(obj) }
     }
 }
@@ -1281,8 +1380,13 @@ impl GEObj {
 
 impl GE {
     /// Lossless complete-field allocation.
-    pub fn from_complete_fields(loc: Location, ty: Type, a: Expr, b: Expr) -> Self {
-        let obj = GEObj::new(loc, ty, a, b);
+    pub fn from_fields(
+        loc: impl Into<Location>,
+        ty: impl Into<Type>,
+        a: impl Into<Expr>,
+        b: impl Into<Expr>,
+    ) -> Self {
+        let obj = GEObj::new(loc.into(), ty.into(), a.into(), b.into());
         Self { base: ObjectArc::new(obj) }
     }
 }
@@ -1336,8 +1440,13 @@ impl AndObj {
 
 impl And {
     /// Lossless complete-field allocation.
-    pub fn from_complete_fields(loc: Location, ty: Type, a: Expr, b: Expr) -> Self {
-        let obj = AndObj::new(loc, ty, a, b);
+    pub fn from_fields(
+        loc: impl Into<Location>,
+        ty: impl Into<Type>,
+        a: impl Into<Expr>,
+        b: impl Into<Expr>,
+    ) -> Self {
+        let obj = AndObj::new(loc.into(), ty.into(), a.into(), b.into());
         Self { base: ObjectArc::new(obj) }
     }
 }
@@ -1391,8 +1500,13 @@ impl OrObj {
 
 impl Or {
     /// Lossless complete-field allocation.
-    pub fn from_complete_fields(loc: Location, ty: Type, a: Expr, b: Expr) -> Self {
-        let obj = OrObj::new(loc, ty, a, b);
+    pub fn from_fields(
+        loc: impl Into<Location>,
+        ty: impl Into<Type>,
+        a: impl Into<Expr>,
+        b: impl Into<Expr>,
+    ) -> Self {
+        let obj = OrObj::new(loc.into(), ty.into(), a.into(), b.into());
         Self { base: ObjectArc::new(obj) }
     }
 }
@@ -1445,8 +1559,8 @@ impl NotObj {
 
 impl Not {
     /// Lossless complete-field allocation.
-    pub fn from_complete_fields(loc: Location, ty: Type, a: Expr) -> Self {
-        let obj = NotObj::new(loc, ty, a);
+    pub fn from_fields(loc: impl Into<Location>, ty: impl Into<Type>, a: impl Into<Expr>) -> Self {
+        let obj = NotObj::new(loc.into(), ty.into(), a.into());
         Self { base: ObjectArc::new(obj) }
     }
 }
@@ -1507,14 +1621,20 @@ impl SelectObj {
 
 impl Select {
     /// Lossless complete-field allocation.
-    pub fn from_complete_fields(
-        loc: Location,
-        ty: Type,
-        condition: Expr,
-        true_value: Expr,
-        false_value: Expr,
+    pub fn from_fields(
+        loc: impl Into<Location>,
+        ty: impl Into<Type>,
+        condition: impl Into<Expr>,
+        true_value: impl Into<Expr>,
+        false_value: impl Into<Expr>,
     ) -> Self {
-        let obj = SelectObj::new(loc, ty, condition, true_value, false_value);
+        let obj = SelectObj::new(
+            loc.into(),
+            ty.into(),
+            condition.into(),
+            true_value.into(),
+            false_value.into(),
+        );
         Self { base: ObjectArc::new(obj) }
     }
 }
@@ -1569,14 +1689,14 @@ impl LetObj {
 
 impl Let {
     /// Lossless complete-field allocation.
-    pub fn from_complete_fields(
-        loc: Location,
-        ty: Type,
-        var: Var,
-        value: Expr,
-        body: Expr,
+    pub fn from_fields(
+        loc: impl Into<Location>,
+        ty: impl Into<Type>,
+        var: impl Into<Var>,
+        value: impl Into<Expr>,
+        body: impl Into<Expr>,
     ) -> Self {
-        let obj = LetObj::new(loc, ty, var, value, body);
+        let obj = LetObj::new(loc.into(), ty.into(), var.into(), value.into(), body.into());
         Self { base: ObjectArc::new(obj) }
     }
 }
@@ -1599,7 +1719,7 @@ impl Cast {
             let (lhs, rhs) = (ty.dtype.lanes, value_dtype.lanes);
             return Err(support::compare_failed(tvm_ffi::INTERNAL_ERROR, condition, lhs, rhs, ""));
         }
-        Ok(Self::from_complete_fields(loc.into(), ty.into(), value))
+        Ok(Self::from_fields(loc.into(), ty, value))
     }
 }
 
@@ -1667,7 +1787,7 @@ macro_rules! binary_new {
                 ) -> Result<Self> {
                     let (a, b) = (a.into(), b.into());
                     let ty = binary_type(stringify!($node), $operands, &a, &b)?;
-                    Ok(Self::from_complete_fields(loc.into(), ty, a, b))
+                    Ok(Self::from_fields(loc.into(), ty, a, b))
                 }
             }
         )+
@@ -1738,7 +1858,7 @@ impl And {
     pub fn new(a: impl Into<Expr>, b: impl Into<Expr>, loc: impl Into<Location>) -> Result<Self> {
         let (a, b) = (a.into(), b.into());
         let ty = logical_type(&a, &b)?;
-        Ok(Self::from_complete_fields(loc.into(), ty, a, b))
+        Ok(Self::from_fields(loc.into(), ty, a, b))
     }
 }
 
@@ -1747,7 +1867,7 @@ impl Or {
     pub fn new(a: impl Into<Expr>, b: impl Into<Expr>, loc: impl Into<Location>) -> Result<Self> {
         let (a, b) = (a.into(), b.into());
         let ty = logical_type(&a, &b)?;
-        Ok(Self::from_complete_fields(loc.into(), ty, a, b))
+        Ok(Self::from_fields(loc.into(), ty, a, b))
     }
 }
 
@@ -1761,7 +1881,7 @@ impl BitwiseNot {
             let message = "BitwiseNot requires an integer or boolean operand";
             return Err(support::check_failed(tvm_ffi::TYPE_ERROR, condition, message));
         }
-        Ok(Self::from_complete_fields(loc.into(), a.ty.clone(), a))
+        Ok(Self::from_fields(loc.into(), a.ty.clone(), a))
     }
 }
 
@@ -1774,7 +1894,7 @@ impl Not {
             let condition = "a_ty.MatchesCode(DLDataTypeCode::kDLBool)";
             return Err(support::check_failed(tvm_ffi::INTERNAL_ERROR, condition, ""));
         }
-        Ok(Self::from_complete_fields(loc.into(), bool_type(a_dtype)?.into(), a))
+        Ok(Self::from_fields(loc.into(), bool_type(a_dtype)?, a))
     }
 }
 
@@ -1823,7 +1943,7 @@ impl Select {
             ));
         }
         let ty = true_value.ty.clone();
-        Ok(Self::from_complete_fields(loc.into(), ty, condition, true_value, false_value))
+        Ok(Self::from_fields(loc.into(), ty, condition, true_value, false_value))
     }
 }
 
@@ -1851,6 +1971,6 @@ impl Let {
             return Err(support::check_failed(tvm_ffi::INTERNAL_ERROR, condition, ""));
         }
         let ty = body.ty.clone();
-        Ok(Self::from_complete_fields(loc.into(), ty, var, value, body))
+        Ok(Self::from_fields(loc.into(), ty, var, value, body))
     }
 }

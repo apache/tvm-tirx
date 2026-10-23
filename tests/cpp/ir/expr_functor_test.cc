@@ -25,34 +25,34 @@
 namespace tvm {
 namespace {
 
-class PairExprNode : public ExprNode {
+class PairExprObj : public ExprObj {
  public:
   Expr left{ffi::UnsafeInit{}};
   Expr right{ffi::UnsafeInit{}};
   static void RegisterReflection() {
-    ffi::reflection::ObjectDef<PairExprNode>()
-        .def_ro("left", &PairExprNode::left)
-        .def_ro("right", &PairExprNode::right);
+    ffi::reflection::ObjectDef<PairExprObj>()
+        .def_ro("left", &PairExprObj::left)
+        .def_ro("right", &PairExprObj::right);
   }
-  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("test.NativePairExpr", PairExprNode, ExprNode);
+  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("test.NativePairExpr", PairExprObj, ExprObj);
 };
 class PairExpr : public Expr {
  public:
   PairExpr(Expr left, Expr right) : Expr(ffi::UnsafeInit{}) {
-    auto node = ffi::make_object<PairExprNode>();
+    auto node = ffi::make_object<PairExprObj>();
     node->left = std::move(left);
     node->right = std::move(right);
     data_ = std::move(node);
   }
-  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(PairExpr, Expr, PairExprNode);
+  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(PairExpr, Expr, PairExprObj);
 };
-TVM_FFI_STATIC_INIT_BLOCK() { PairExprNode::RegisterReflection(); }
+TVM_FFI_STATIC_INIT_BLOCK() { PairExprObj::RegisterReflection(); }
 
 class Collect : public ExprVisitor {
  public:
   using ExprVisitor::Visit_;
   std::vector<int64_t> values;
-  ffi::Optional<VisitInterrupt> Visit_(const IntImmNode* node) override {
+  ffi::Optional<VisitInterrupt> Visit_(const IntImmObj* node) override {
     values.push_back(node->value.as<int64_t>().value());
     return std::nullopt;
   }
@@ -65,14 +65,14 @@ TEST(ExprVisitor, StructuralFallback) {
   ASSERT_TRUE(result.is_ok());
   EXPECT_FALSE(result.value().has_value());
   EXPECT_EQ(visitor->values, (std::vector<int64_t>{1, 2}));
-  EXPECT_EQ(pair->left.as<IntImmNode>()->value, 1);
-  EXPECT_EQ(pair->right.as<IntImmNode>()->value, 2);
+  EXPECT_EQ(pair->left.as<IntImmObj>()->value, 1);
+  EXPECT_EQ(pair->right.as<IntImmObj>()->value, 2);
 }
 
 class Rewrite : public ExprMutator {
  public:
   using ExprMutator::Mutate_;
-  UnchangedOr<PrimExpr> Mutate_(const IntImmNode* node, InplaceMode inplace_mode) override {
+  UnchangedOr<PrimExpr> Mutate_(const IntImmObj* node, InplaceMode inplace_mode) override {
     return IntImm::Int32(node->value + 1);
   }
 };
@@ -83,19 +83,19 @@ TEST(ExprMutator, StructuralFallback) {
   auto result = mutator->MutateExpected(pair).value();
   ASSERT_FALSE(result.IsUnchanged());
   auto replacement = std::move(result).ValueUnchecked();
-  const auto* changed = replacement.as<PairExprNode>();
+  const auto* changed = replacement.as<PairExprObj>();
   ASSERT_NE(changed, nullptr);
-  EXPECT_EQ(changed->left.as<IntImmNode>()->value, 2);
-  EXPECT_EQ(changed->right.as<IntImmNode>()->value, 3);
-  EXPECT_EQ(pair->left.as<IntImmNode>()->value, 1);
-  EXPECT_EQ(pair->right.as<IntImmNode>()->value, 2);
+  EXPECT_EQ(changed->left.as<IntImmObj>()->value, 2);
+  EXPECT_EQ(changed->right.as<IntImmObj>()->value, 3);
+  EXPECT_EQ(pair->left.as<IntImmObj>()->value, 1);
+  EXPECT_EQ(pair->right.as<IntImmObj>()->value, 2);
 }
 
 class ThrowNativeError : public ExprMutator {
  public:
   using ExprMutator::Mutate_;
   ffi::Error error{"ValueError", "native mutation error", ""};
-  UnchangedOr<PrimExpr> Mutate_(const IntImmNode*, InplaceMode) override { throw error; }
+  UnchangedOr<PrimExpr> Mutate_(const IntImmObj*, InplaceMode) override { throw error; }
 };
 
 TEST(ExprMutator, NativeErrorContextThroughStructuralFallback) {
@@ -109,7 +109,7 @@ TEST(ExprMutator, NativeErrorContextThroughStructuralFallback) {
   ASSERT_TRUE(context.has_value());
   const auto& pattern = context.value()->reverse_visit_pattern;
   ASSERT_EQ(pattern.size(), 3);
-  EXPECT_TRUE(pattern[0].same_as(sum.as<prim::AddNode>()->a));
+  EXPECT_TRUE(pattern[0].same_as(sum.as<prim::AddObj>()->a));
   EXPECT_TRUE(pattern[1].same_as(sum));
   EXPECT_TRUE(pattern[2].same_as(pair));
 }

@@ -45,44 +45,44 @@ class CodeGenOpenCL final : public CodeGenC {
   void PrintFuncPrefix(std::ostream& os) final;                                   // NOLINT(*)
   void PreFunctionBody(const Function& f) final;                                  // NOLINT(*)
   void BindThreadIndex(const PrimVar& var, const ffi::String& thread_tag) final;  // NOLINT(*)
-  void PrintStorageQualifier(const VarNode* var, std::ostream& os) final;
+  void PrintStorageQualifier(const VarObj* var, std::ostream& os) final;
   void PrintStorageScope(const runtime::MemoryScope& scope, std::ostream& os) final;  // NOLINT(*)
-  void PrintStorageSync(const CallNode* op) final;                                    // NOLINT(*)
+  void PrintStorageSync(const CallObj* op) final;                                     // NOLINT(*)
   using CodeGenC::PrintType;
   void PrintType(const PrimType& t, std::ostream& os) final;  // NOLINT(*)
   void PrintType(const Type& type, std::ostream& os) final;   // NOLINT(*)
-  std::string GetVecLoad(const PrimType& t, const VarNode* buffer, PrimExpr base) final;
-  void PrintVecStore(const VarNode* buffer, const PrimType& t, PrimExpr base,
+  std::string GetVecLoad(const PrimType& t, const VarObj* buffer, PrimExpr base) final;
+  void PrintVecStore(const VarObj* buffer, const PrimType& t, PrimExpr base,
                      const std::string& value) final;  // NOLINT(*)
   void PrintVecElemLoadExpr(const PrimType& t, int i, const std::string& value,
                             std::ostream& os) final;  // NOLINT(*)
   // the address of load/store
-  void PrintVecAddr(const VarNode* buffer, const PrimType& t, PrimExpr base,
+  void PrintVecAddr(const VarObj* buffer, const PrimType& t, PrimExpr base,
                     std::ostream& os);                       // NOLINT(*)
   void PrintRestrict(const Var& v, std::ostream& os) final;  // NOLINT(*)
   std::string CastFromTo(std::string value, const PrimType& from,
-                         const PrimType& target) final;                          // NOLINT(*)
-  std::string CastTo(std::string value, const PrimType& target);                 // NOLINT(*)
-  void SetTextureScope(const std::unordered_map<const VarNode*, std::string>&);  // NOLINT(*)
+                         const PrimType& target) final;                         // NOLINT(*)
+  std::string CastTo(std::string value, const PrimType& target);                // NOLINT(*)
+  void SetTextureScope(const std::unordered_map<const VarObj*, std::string>&);  // NOLINT(*)
 
   // overload visitor
-  void Dispatch_(const BindNode* op) final;
-  void DispatchAllocTensor(const BindNode* op, const CallNode* buffer_call);
-  void Dispatch_(const prim::BroadcastNode* op, std::ostream& os) final;  // NOLINT(*)
-  void Dispatch_(const prim::RampNode* op, std::ostream& os) final;       // NOLINT(*)
-  void Dispatch_(const CallNode* op, std::ostream& os) final;             // NOLINT(*)
-  void Dispatch_(const FloatImmNode* op, std::ostream& os) final;         // NOLINT(*)
+  void Dispatch_(const BindObj* op) final;
+  void DispatchAllocTensor(const BindObj* op, const CallObj* buffer_call);
+  void Dispatch_(const prim::BroadcastObj* op, std::ostream& os) final;  // NOLINT(*)
+  void Dispatch_(const prim::RampObj* op, std::ostream& os) final;       // NOLINT(*)
+  void Dispatch_(const CallObj* op, std::ostream& os) final;             // NOLINT(*)
+  void Dispatch_(const FloatImmObj* op, std::ostream& os) final;         // NOLINT(*)
 
   // overload min and max to avoid ambiguous call errors
-  void Dispatch_(const prim::MinNode* op, std::ostream& os) final;
-  void Dispatch_(const prim::MaxNode* op, std::ostream& os) final;
-  void Dispatch_(const prim::AndNode* op, std::ostream& os) final;
-  void Dispatch_(const prim::OrNode* op, std::ostream& os) final;
-  void Dispatch_(const prim::SelectNode* op, std::ostream& os) final;
-  void Dispatch_(const prim::ModNode* op, std::ostream& os) final;
+  void Dispatch_(const prim::MinObj* op, std::ostream& os) final;
+  void Dispatch_(const prim::MaxObj* op, std::ostream& os) final;
+  void Dispatch_(const prim::AndObj* op, std::ostream& os) final;
+  void Dispatch_(const prim::OrObj* op, std::ostream& os) final;
+  void Dispatch_(const prim::SelectObj* op, std::ostream& os) final;
+  void Dispatch_(const prim::ModObj* op, std::ostream& os) final;
 
  private:
-  std::unordered_map<const VarNode*, std::string> texture_access_qualifiers_;
+  std::unordered_map<const VarObj*, std::string> texture_access_qualifiers_;
   // whether enable fp16 and fp64 extension
   bool enable_fp16_{false};
   bool enable_fp64_{false};

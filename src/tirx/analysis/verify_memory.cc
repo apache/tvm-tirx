@@ -74,13 +74,13 @@ class MemoryAccessVerifier final : public StmtExprVisitor {
   /// Visitor implementation
   //@{
 
-  ffi::Optional<VisitInterrupt> Visit_(const BindNode* op) final {
+  ffi::Optional<VisitInterrupt> Visit_(const BindObj* op) final {
     // Book keep definitions
     defs_.insert_or_assign(op->var.get(), op->value);
     return StmtExprVisitor::Visit_(op);
   }
 
-  ffi::Optional<VisitInterrupt> Visit_(const RegionStmtNode* op) final {
+  ffi::Optional<VisitInterrupt> Visit_(const RegionStmtObj* op) final {
     bool is_device_region = op->op.same_as(Op::Get("tirx.device_scope"));
     bool is_thread_region =
         op->op.same_as(tirx::launch_thread_op()) &&
@@ -99,17 +99,17 @@ class MemoryAccessVerifier final : public StmtExprVisitor {
     return std::nullopt;
   }
 
-  ffi::Optional<VisitInterrupt> Visit_(const TensorLoadNode* op) final {
+  ffi::Optional<VisitInterrupt> Visit_(const TensorLoadObj* op) final {
     HandleLoadStoreToVariable(op->source.as_or_throw<tvm::tirx::TensorVar>());
     return StmtExprVisitor::Visit_(op);
   }
 
-  ffi::Optional<VisitInterrupt> Visit_(const TensorStoreNode* op) final {
+  ffi::Optional<VisitInterrupt> Visit_(const TensorStoreObj* op) final {
     HandleLoadStoreToVariable(op->dest.as_or_throw<TensorVar>());
     return StmtExprVisitor::Visit_(op);
   }
 
-  ffi::Optional<VisitInterrupt> Visit_(const CallNode* op) final {
+  ffi::Optional<VisitInterrupt> Visit_(const CallObj* op) final {
     if ((op->op.same_as(tirx::masked_load_op()) || op->op.same_as(tirx::masked_store_op())) &&
         !op->args.empty()) {
       HandleLoadStoreToVariable(op->args[0].as_or_throw<Var>());
@@ -119,10 +119,10 @@ class MemoryAccessVerifier final : public StmtExprVisitor {
   //@}
 
   /// Check if the value of a Variable comes from function argument.
-  bool IsFromFunctionArgs(const VarNode* var) const {
-    const VarNode* V = var;
+  bool IsFromFunctionArgs(const VarObj* var) const {
+    const VarObj* V = var;
     for (const Var& param : func_->params) {
-      if (param->ty.as<TensorTypeNode>() && V == param.get()) return true;
+      if (param->ty.as<TensorTypeObj>() && V == param.get()) return true;
     }
 
     while (true) {
@@ -133,9 +133,9 @@ class MemoryAccessVerifier final : public StmtExprVisitor {
       // Get the first argument of abi_field_get, and continue.
       const auto& iter = defs_.find(V);
       if (iter == defs_.end()) return false;
-      const CallNode* C = iter->second.as<const CallNode>();
+      const CallObj* C = iter->second.as<const CallObj>();
       if (!C || !C->op.same_as(tirx::abi_field_get_op())) return false;
-      V = C->args[0].as<VarNode>();
+      V = C->args[0].as<VarObj>();
     }
     return false;
   }
@@ -178,9 +178,9 @@ class MemoryAccessVerifier final : public StmtExprVisitor {
   bool in_thread_env_{false};
   std::vector<ffi::String> errs_;
   //@}
-  tirx::Function func_;                            ///< Function to be verified.
-  int dev_type_{kDLCPU};                           ///< Device type
-  std::unordered_map<const VarNode*, Expr> defs_;  ///< Variable definitions
+  tirx::Function func_;                           ///< Function to be verified.
+  int dev_type_{kDLCPU};                          ///< Device type
+  std::unordered_map<const VarObj*, Expr> defs_;  ///< Variable definitions
 };
 }  // namespace
 

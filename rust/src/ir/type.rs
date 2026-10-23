@@ -29,7 +29,7 @@
 //! siblings, as C++ writes `PrimType::Int(32)`.
 
 // `custom-new` reserves `new` for a constructor with the C++ one's semantics (defaults, the shared
-// `MissingType`, `NoneType` and `TensorRegionType` nodes); the generated `from_complete_fields`
+// `MissingType`, `NoneType` and `TensorRegionType` nodes); the generated `from_fields`
 // allocates the fields as given.
 // tvm-ffi-stubgen(custom-new): ir.MissingType
 // tvm-ffi-stubgen(custom-new): ir.NoneType
@@ -61,6 +61,7 @@ use tvm_ffi::Object;
 use tvm_ffi::ObjectArc;
 use tvm_ffi::ObjectRefCore;
 use tvm_ffi::Result;
+use tvm_ffi::ShallowCopy;
 use tvm_ffi::VALUE_ERROR;
 // tvm-ffi-stubgen(end)
 
@@ -93,7 +94,7 @@ impl Deref for Type {
 }
 
 impl TypeObj {
-    pub(crate) fn new(loc: Location) -> Self {
+    pub fn new(loc: Location) -> Self {
         let base = Object::new();
         Self { base, loc }
     }
@@ -101,9 +102,15 @@ impl TypeObj {
 
 impl Type {
     /// Lossless complete-field allocation.
-    pub fn new(loc: Location) -> Self {
-        let obj = TypeObj::new(loc);
+    pub fn new(loc: impl Into<Location>) -> Self {
+        let obj = TypeObj::new(loc.into());
         Self { base: ObjectArc::new(obj) }
+    }
+}
+
+impl ShallowCopy for TypeObj {
+    fn shallow_copy(&self) -> Self {
+        Self { base: ShallowCopy::shallow_copy(&self.base), loc: Clone::clone(&self.loc) }
     }
 }
 // tvm-ffi-stubgen(end)
@@ -152,8 +159,8 @@ impl MissingTypeObj {
 
 impl MissingType {
     /// Lossless complete-field allocation.
-    pub fn from_complete_fields(loc: Location) -> Self {
-        let obj = MissingTypeObj::new(loc);
+    pub fn from_fields(loc: impl Into<Location>) -> Self {
+        let obj = MissingTypeObj::new(loc.into());
         Self { base: ObjectArc::new(obj) }
     }
 }
@@ -218,8 +225,8 @@ impl NoneTypeObj {
 
 impl NoneType {
     /// Lossless complete-field allocation.
-    pub fn from_complete_fields(loc: Location) -> Self {
-        let obj = NoneTypeObj::new(loc);
+    pub fn from_fields(loc: impl Into<Location>) -> Self {
+        let obj = NoneTypeObj::new(loc.into());
         Self { base: ObjectArc::new(obj) }
     }
 }
@@ -283,8 +290,8 @@ impl AnyTypeObj {
 
 impl AnyType {
     /// Lossless complete-field allocation.
-    pub fn new(loc: Location) -> Self {
-        let obj = AnyTypeObj::new(loc);
+    pub fn new(loc: impl Into<Location>) -> Self {
+        let obj = AnyTypeObj::new(loc.into());
         Self { base: ObjectArc::new(obj) }
     }
 }
@@ -338,8 +345,8 @@ impl TensorRegionTypeObj {
 
 impl TensorRegionType {
     /// Lossless complete-field allocation.
-    pub fn from_complete_fields(loc: Location) -> Self {
-        let obj = TensorRegionTypeObj::new(loc);
+    pub fn from_fields(loc: impl Into<Location>) -> Self {
+        let obj = TensorRegionTypeObj::new(loc.into());
         Self { base: ObjectArc::new(obj) }
     }
 }
@@ -404,8 +411,8 @@ impl OpaqueTypeObj {
 
 impl OpaqueType {
     /// Lossless complete-field allocation.
-    pub fn new(loc: Location) -> Self {
-        let obj = OpaqueTypeObj::new(loc);
+    pub fn new(loc: impl Into<Location>) -> Self {
+        let obj = OpaqueTypeObj::new(loc.into());
         Self { base: ObjectArc::new(obj) }
     }
 }
@@ -461,8 +468,8 @@ impl PrimTypeObj {
 
 impl PrimType {
     /// Lossless complete-field allocation.
-    pub fn new(loc: Location, dtype: DLDataType) -> Self {
-        let obj = PrimTypeObj::new(loc, dtype);
+    pub fn new(loc: impl Into<Location>, dtype: impl Into<DLDataType>) -> Self {
+        let obj = PrimTypeObj::new(loc.into(), dtype.into());
         Self { base: ObjectArc::new(obj) }
     }
 }
@@ -588,8 +595,8 @@ impl StringTypeObj {
 
 impl StringType {
     /// Lossless complete-field allocation.
-    pub fn new(loc: Location) -> Self {
-        let obj = StringTypeObj::new(loc);
+    pub fn new(loc: impl Into<Location>) -> Self {
+        let obj = StringTypeObj::new(loc.into());
         Self { base: ObjectArc::new(obj) }
     }
 }
@@ -646,8 +653,12 @@ impl PtrTypeObj {
 
 impl PtrType {
     /// Lossless complete-field allocation.
-    pub fn from_complete_fields(loc: Location, element_type: Type, scope: MemoryScope) -> Self {
-        let obj = PtrTypeObj::new(loc, element_type, scope);
+    pub fn from_fields(
+        loc: impl Into<Location>,
+        element_type: impl Into<Type>,
+        scope: impl Into<MemoryScope>,
+    ) -> Self {
+        let obj = PtrTypeObj::new(loc.into(), element_type.into(), scope.into());
         Self { base: ObjectArc::new(obj) }
     }
 }
@@ -665,7 +676,7 @@ impl PtrType {
             let message = "PtrType element_type cannot be Type::Missing()";
             return Err(support::check_failed(tvm_ffi::INTERNAL_ERROR, condition, message));
         }
-        Ok(Self::from_complete_fields(UnknownLoc::new().into(), element_type, scope.clone()))
+        Ok(Self::from_fields(UnknownLoc::new(), element_type, scope.clone()))
     }
 }
 
@@ -714,8 +725,8 @@ impl TupleTypeObj {
 
 impl TupleType {
     /// Lossless complete-field allocation.
-    pub fn from_complete_fields(loc: Location, fields: Array<Type>) -> Self {
-        let obj = TupleTypeObj::new(loc, fields);
+    pub fn from_fields(loc: impl Into<Location>, fields: impl Into<Array<Type>>) -> Self {
+        let obj = TupleTypeObj::new(loc.into(), fields.into());
         Self { base: ObjectArc::new(obj) }
     }
 }
@@ -730,7 +741,7 @@ impl TupleType {
         loc: impl Into<Location>,
     ) -> Self {
         let fields = fields.into_iter().map(Into::into).collect::<Array<Type>>();
-        Self::from_complete_fields(loc.into(), fields)
+        Self::from_fields(loc.into(), fields)
     }
 }
 
@@ -780,8 +791,12 @@ impl FuncTypeObj {
 
 impl FuncType {
     /// Lossless complete-field allocation.
-    pub fn from_complete_fields(loc: Location, arg_types: Array<Type>, ret_type: Type) -> Self {
-        let obj = FuncTypeObj::new(loc, arg_types, ret_type);
+    pub fn from_fields(
+        loc: impl Into<Location>,
+        arg_types: impl Into<Array<Type>>,
+        ret_type: impl Into<Type>,
+    ) -> Self {
+        let obj = FuncTypeObj::new(loc.into(), arg_types.into(), ret_type.into());
         Self { base: ObjectArc::new(obj) }
     }
 }
@@ -796,6 +811,6 @@ impl FuncType {
         ret_type: impl Into<Type>,
     ) -> Self {
         let arg_types = arg_types.into_iter().map(Into::into).collect::<Array<Type>>();
-        Self::from_complete_fields(UnknownLoc::new().into(), arg_types, ret_type.into())
+        Self::from_fields(UnknownLoc::new(), arg_types, ret_type.into())
     }
 }

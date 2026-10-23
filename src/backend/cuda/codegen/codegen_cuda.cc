@@ -190,12 +190,12 @@ void CodeGenCUDA::PrintFunctionPrefix(const Function& func, std::ostream& os) {
 class ThreadIdxExtractor : public tirx::StmtExprVisitor {
  public:
   ffi::Optional<VisitInterrupt> Visit(ffi::AnyView value) override {
-    if (value.as<tvm::ExprNode>()) return std::nullopt;
+    if (value.as<tvm::ExprObj>()) return std::nullopt;
     return StmtExprVisitor::Visit(value);
   }
 
  private:
-  ffi::Optional<VisitInterrupt> Visit_(const RegionStmtNode* op) final {
+  ffi::Optional<VisitInterrupt> Visit_(const RegionStmtObj* op) final {
     if (op->op.same_as(tirx::launch_thread_op())) {
       TVM_FFI_CHECK(!op->args[0].as_or_throw<StringImm>()->value.starts_with("vthread"), ValueError)
           << "Virtual thread launches must be lowered before code generation";
@@ -325,7 +325,7 @@ void CodeGenCUDA::PrintExtraAttrs(const Function& f, std::ostream& os) {
       << "Required block size cannot be combined with maximum registers";
   if (required_block_size_) {
     for (size_t i = 0; i < launch_dimensions_.size(); ++i) {
-      const auto* dim = launch_dimensions_[i].as<IntImmNode>();
+      const auto* dim = launch_dimensions_[i].as<IntImmObj>();
       TVM_FFI_ICHECK(dim) << "Required block size requires static thread and cluster dimensions";
       TVM_FFI_ICHECK_EQ(dim->value, (*required_block_size_)[i])
           << "Required block size must agree with declared launch extents";
@@ -342,7 +342,7 @@ void CodeGenCUDA::PrintExtraAttrs(const Function& f, std::ostream& os) {
   sym::Analyzer analyzer;
   PrimExpr threads =
       analyzer->Simplify(launch_dimensions_[0] * launch_dimensions_[1] * launch_dimensions_[2]);
-  const auto* count = threads.as<IntImmNode>();
+  const auto* count = threads.as<IntImmObj>();
   TVM_FFI_CHECK(!min_blocks_per_sm_ || (count && count->value > 0), ValueError)
       << "min_blocks_per_sm requires static block dimensions";
   if (count && count->value > 0 && (count->value != 1 || min_blocks_per_sm_)) {
@@ -355,13 +355,13 @@ void CodeGenCUDA::PrintExtraAttrs(const Function& f, std::ostream& os) {
   }
 }
 
-void CodeGenCUDA::Dispatch_(const ReturnNode* op) {
+void CodeGenCUDA::Dispatch_(const ReturnObj* op) {
   if (!in_kernel_launch_) {
     // __device__ subroutines return real values.
     CodeGenC::Dispatch_(op);
     return;
   }
-  const auto* value = op->value.as<IntImmNode>();
+  const auto* value = op->value.as<IntImmObj>();
   TVM_FFI_ICHECK(value && value->value == 0)
       << "CUDA device kernel may only contain a successful early return, return 0";
   PrintIndent();
@@ -386,7 +386,7 @@ std::string CodeGenCUDA::Finish() {
   return CodeGenC::Finish();
 }
 
-void CodeGenCUDA::Dispatch_(const ForNode* op) {
+void CodeGenCUDA::Dispatch_(const ForObj* op) {
   // Materialize the loop bounds before emitting an unroll pragma.  PrintExpr
   // may introduce temporaries (for example, for a Select expression).  CUDA
   // requires #pragma unroll to immediately precede the loop it controls; if
@@ -407,7 +407,7 @@ void CodeGenCUDA::Dispatch_(const ForNode* op) {
     stream << "#pragma unroll";
     if (auto count = (*it).second.as<int64_t>()) {
       stream << " " << count.value();
-    } else if (const auto* count = (*it).second.as<IntImmNode>()) {
+    } else if (const auto* count = (*it).second.as<IntImmObj>()) {
       stream << " " << count->value;
     }
     stream << "\n";
@@ -430,7 +430,7 @@ void CodeGenCUDA::Dispatch_(const ForNode* op) {
   stream << "}\n";
 }
 
-void CodeGenCUDA::Dispatch_(const WhileNode* op) {
+void CodeGenCUDA::Dispatch_(const WhileObj* op) {
   PrintIndent();
   // Match CodeGenC: dynamic-trip-count loops must not be unrolled.
   stream << "#pragma unroll 1\n";
@@ -885,8 +885,8 @@ void CodeGenCUDA::PrintVecElemStore(const std::string& vec, const PrimType& t, i
   }
 }
 
-void CodeGenCUDA::PrintStorageSync(const CallNode* op) {
-  const std::string& sync = op->args[0].as<StringImmNode>()->value;
+void CodeGenCUDA::PrintStorageSync(const CallObj* op) {
+  const std::string& sync = op->args[0].as<StringImmObj>()->value;
   if (sync == "warp") {
     // DO nothing.
   } else if (sync == "shared" || sync == "shared.dyn") {
@@ -942,7 +942,7 @@ void CodeGenCUDA::AddUtilFunction(const std::string& func_name, const std::strin
   this->util_funcs_.insert({func_name, code});
 }
 
-void CodeGenCUDA::Dispatch_(const prim::CastNode* op, std::ostream& os) {
+void CodeGenCUDA::Dispatch_(const prim::CastObj* op, std::ostream& os) {
   PrimType from_ty = op->value.ty();
   PrimType target_ty = op->ty.as_or_throw<PrimType>();
   TVM_FFI_ICHECK_EQ(target_ty.lanes(), from_ty.lanes());
@@ -1033,7 +1033,7 @@ void CodeGenCUDA::PrintCallExtern(Type ret_type, ffi::String global_symbol,
           if (auto prim_type = arg_type.as<PrimType>()) {
             PrintVecElemLoad(sargs[j], prim_type.value(), i, scall);
           } else {
-            TVM_FFI_ICHECK(arg_type.as<PtrTypeNode>());
+            TVM_FFI_ICHECK(arg_type.as<PtrTypeObj>());
             scall << sargs[j];
           }
         }
@@ -1047,8 +1047,8 @@ void CodeGenCUDA::PrintCallExtern(Type ret_type, ffi::String global_symbol,
   }
 }
 
-void CodeGenCUDA::Dispatch_(const CallNode* op, std::ostream& os) {
-  if (auto intrinsic = op->op.as<OpNode>()) {
+void CodeGenCUDA::Dispatch_(const CallObj* op, std::ostream& os) {
+  if (auto intrinsic = op->op.as<OpObj>()) {
     const std::string name(intrinsic->name);
     const char* vector = nullptr;
     if (name == "tirx.cuda.block_idx") vector = "blockIdx";
@@ -1077,15 +1077,15 @@ void CodeGenCUDA::Dispatch_(const CallNode* op, std::ostream& os) {
     }
   }
 
-  auto print_cuda_func_call = [&](const CallNode* op, std::ostream& os) {
+  auto print_cuda_func_call = [&](const CallObj* op, std::ostream& os) {
     TVM_FFI_ICHECK_GE(op->args.size(), 2U);
     size_t num_args = op->args.size() - 2;
     std::vector<std::string> args;
     for (size_t i = 1; i < num_args + 1; i++) {
       args.push_back(this->PrintExpr(op->args[i]));
     }
-    std::string source_code = op->args[num_args + 1].as<StringImmNode>()->value;
-    std::string func_name = op->args[0].as<StringImmNode>()->value;
+    std::string source_code = op->args[num_args + 1].as<StringImmObj>()->value;
+    std::string func_name = op->args[0].as<StringImmObj>()->value;
     os << func_name << "(";
     for (size_t i = 0; i < num_args; i++) {
       const auto& arg = args[i];
@@ -1124,10 +1124,10 @@ void CodeGenCUDA::Dispatch_(const CallNode* op, std::ostream& os) {
     // template encoded at address 0): emit C++-style reinterpret_cast<T*>(...)
     // to match the encoded template. Runtime pointer reinterprets fall through
     // to CodeGenC, which emits the C-style (T*)... cast.
-    if (op->ty.as<PtrTypeNode>() && op->args[0].as<IntImmNode>()) {
+    if (op->ty.as<PtrTypeObj>() && op->args[0].as<IntImmObj>()) {
       os << "reinterpret_cast<";
-      if (const auto* pt = op->ty.as<PtrTypeNode>()) {
-        if (const auto* et = pt->element_type.as<PrimTypeNode>()) {
+      if (const auto* pt = op->ty.as<PtrTypeObj>()) {
+        if (const auto* et = pt->element_type.as<PrimTypeObj>()) {
           this->PrintType(ffi::GetRef<PrimType>(et), os);
         } else {
           os << "void";
@@ -1139,7 +1139,7 @@ void CodeGenCUDA::Dispatch_(const CallNode* op, std::ostream& os) {
     auto tgt_prim_type = op->ty.as<PrimType>();
     auto src_prim_type = op->args[0]->ty.as<PrimType>();
 
-    if (op->args[0]->ty.as<PtrTypeNode>() && tgt_prim_type && tgt_prim_type.value().IsScalar() &&
+    if (op->args[0]->ty.as<PtrTypeObj>() && tgt_prim_type && tgt_prim_type.value().IsScalar() &&
         tgt_prim_type.value().MatchesCode(DLDataTypeCode::kDLUInt, DLDataTypeCode::kDLInt) &&
         tgt_prim_type.value().bits() == 64) {
       os << "reinterpret_cast<";
@@ -1239,14 +1239,14 @@ void CodeGenCUDA::Dispatch_(const CallNode* op, std::ostream& os) {
   }
 }
 
-void CodeGenCUDA::Dispatch_(const BindNode* op) {
-  if (const auto* call = op->value.as<CallNode>(); call) {
+void CodeGenCUDA::Dispatch_(const BindObj* op) {
+  if (const auto* call = op->value.as<CallObj>(); call) {
     if (call->op.same_as(tirx::alloc_tensor_op())) return DispatchAllocTensor(op, call);
   }
   CodeGenC::Dispatch_(op);
 }
 
-void CodeGenCUDA::DispatchAllocTensor(const BindNode* op, const CallNode* buffer_call) {
+void CodeGenCUDA::DispatchAllocTensor(const BindObj* op, const CallObj* buffer_call) {
   static const auto scope_shared_dyn = runtime::MemoryScope::Get("shared.dyn");
   static const auto scope_shared = runtime::MemoryScope::Get("shared");
   tvm::Tuple shape = tvm::Tuple(buffer_call->ty_args[0].as_or_throw<tirx::TensorType>()->shape);
@@ -1273,7 +1273,7 @@ void CodeGenCUDA::DispatchAllocTensor(const BindNode* op, const CallNode* buffer
     // Compute constant_size from buffer shape
     size_t constant_size = 1;
     for (const auto& dim : shape->fields) {
-      const IntImmNode* dim_imm = dim.as<IntImmNode>();
+      const IntImmObj* dim_imm = dim.as<IntImmObj>();
       TVM_FFI_ICHECK(dim_imm) << "Can only handle constant size stack allocation for now";
       constant_size *= dim_imm->value.as<size_t>().value();
     }
@@ -1294,12 +1294,12 @@ void CodeGenCUDA::DispatchAllocTensor(const BindNode* op, const CallNode* buffer
   }
 }
 
-void CodeGenCUDA::Dispatch_(const EvaluateNode* op) {
+void CodeGenCUDA::Dispatch_(const EvaluateObj* op) {
   if (auto value = op->value.as<PrimExpr>(); value && IsConstInt(value.value())) return;
   CodeGenC::Dispatch_(op);
 }
 
-void CodeGenCUDA::Dispatch_(const prim::RampNode* op, std::ostream& os) {
+void CodeGenCUDA::Dispatch_(const prim::RampObj* op, std::ostream& os) {
   PrimType op_ty = op->ty.as_or_throw<PrimType>();
   int lanes = op_ty.lanes();
   if (lanes <= 4) {
@@ -1334,13 +1334,13 @@ void CodeGenCUDA::Dispatch_(const prim::RampNode* op, std::ostream& os) {
   os << sret;
 }
 
-void CodeGenCUDA::Dispatch_(const prim::BroadcastNode* op, std::ostream& os) {  // NOLINT(*)
+void CodeGenCUDA::Dispatch_(const prim::BroadcastObj* op, std::ostream& os) {  // NOLINT(*)
   PrimType op_ty = op->ty.as_or_throw<PrimType>();
   int lanes = op_ty.lanes();
   if ((op_ty.MatchesCode(DLDataTypeCode::kDLInt, DLDataTypeCode::kDLUInt)) && op_ty.bits() == 8 &&
       lanes == 4) {
     // make_int8x4
-    const auto* imm = op->value.as<IntImmNode>();
+    const auto* imm = op->value.as<IntImmObj>();
     auto p = imm ? imm->value.as<int64_t>() : std::nullopt;
     TVM_FFI_ICHECK(p.has_value());
     int64_t v = *p & 0xFF;
@@ -1407,7 +1407,7 @@ void CodeGenCUDA::Dispatch_(const prim::BroadcastNode* op, std::ostream& os) {  
 
   if ((op_ty.MatchesCode(DLDataTypeCode::kDLInt, DLDataTypeCode::kDLUInt)) && op_ty.bits() == 4) {
     bool fail = false;
-    const auto* imm = op->value.as<IntImmNode>();
+    const auto* imm = op->value.as<IntImmObj>();
     auto p = imm ? imm->value.as<int64_t>() : std::nullopt;
     TVM_FFI_ICHECK(p.has_value());
     int64_t v = *p & 0xF;
@@ -1459,7 +1459,7 @@ void CodeGenCUDA::Dispatch_(const prim::BroadcastNode* op, std::ostream& os) {  
   os << ')';
 }
 
-void CodeGenCUDA::Dispatch_(const prim::SelectNode* op, std::ostream& os) {
+void CodeGenCUDA::Dispatch_(const prim::SelectObj* op, std::ostream& os) {
   PrimType op_ty = op->ty.as_or_throw<PrimType>();
   // Non-vector cases.
   if (!op_ty.IsFixedLengthVector()) {
@@ -1499,7 +1499,7 @@ void CodeGenCUDA::Dispatch_(const prim::SelectNode* op, std::ostream& os) {
   os << r_var;
 }
 
-inline void PrintConst(const FloatImmNode* op, std::ostream& os, CodeGenCUDA* p) {  // NOLINT(*)
+inline void PrintConst(const FloatImmObj* op, std::ostream& os, CodeGenCUDA* p) {  // NOLINT(*)
   PrimType op_ty = op->ty.as_or_throw<PrimType>();
   // Type code is kBFloat
   if (op_ty.MatchesElementType(DLDataTypeCode::kDLBfloat, 16)) {
@@ -1568,11 +1568,11 @@ inline void PrintConst(const FloatImmNode* op, std::ostream& os, CodeGenCUDA* p)
   }
 }
 
-void CodeGenCUDA::Dispatch_(const FloatImmNode* op, std::ostream& os) {  // NOLINT(*)
+void CodeGenCUDA::Dispatch_(const FloatImmObj* op, std::ostream& os) {  // NOLINT(*)
   PrintConst(op, os, this);
 }
 
-void CodeGenCUDA::HandleVolatileLoads(const std::string& value, const TensorLoadNode* op,
+void CodeGenCUDA::HandleVolatileLoads(const std::string& value, const TensorLoadObj* op,
                                       std::ostream& os) {
   // Cast away volatile qualifier for fp16 types. That is, only loads and
   // stores are volatile. The loaded objects are not marked as volatile.
@@ -1656,7 +1656,7 @@ ffi::Module BuildCUDA(IRModule mod, Target target) {
 
   ffi::Map<GlobalVar, Function> functions;
   for (auto [gvar, base_func] : mod->functions) {
-    TVM_FFI_ICHECK(base_func->IsInstance<FunctionNode>()) << "CodeGenCUDA: Can only take Function";
+    TVM_FFI_ICHECK(base_func->IsInstance<FunctionObj>()) << "CodeGenCUDA: Can only take Function";
     auto function = base_func.as_or_throw<Function>();
     CallingConv calling_conv =
         function->GetAttr(tvm::attr::kCallingConv, CallingConv::kDefault).value();

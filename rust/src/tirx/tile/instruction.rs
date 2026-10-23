@@ -97,8 +97,8 @@ impl ScopeAttrsObj {
 
 impl ScopeAttrs {
     /// Lossless complete-field allocation.
-    pub fn new(scope: ThreadScope) -> Self {
-        let obj = ScopeAttrsObj::new(scope);
+    pub fn new(scope: impl Into<ThreadScope>) -> Self {
+        let obj = ScopeAttrsObj::new(scope.into());
         Self { base: ObjectArc::new(obj) }
     }
 }
@@ -170,24 +170,24 @@ impl TrnAttrsObj {
 impl TrnAttrs {
     /// Lossless complete-field allocation.
     pub fn new(
-        scope: ThreadScope,
-        max_inst_size: Optional<i64>,
-        opcode: String,
-        reduce_op: String,
-        op0: String,
-        op1: String,
-        axes: Array<i64>,
+        scope: impl Into<ThreadScope>,
+        max_inst_size: impl Into<Optional<i64>>,
+        opcode: impl Into<String>,
+        reduce_op: impl Into<String>,
+        op0: impl Into<String>,
+        op1: impl Into<String>,
+        axes: impl Into<Array<i64>>,
         negate: bool,
         reverse1: bool,
     ) -> Self {
         let obj = TrnAttrsObj::new(
-            scope,
-            max_inst_size,
-            opcode,
-            reduce_op,
-            op0,
-            op1,
-            axes,
+            scope.into(),
+            max_inst_size.into(),
+            opcode.into(),
+            reduce_op.into(),
+            op0.into(),
+            op1.into(),
+            axes.into(),
             negate,
             reverse1,
         );

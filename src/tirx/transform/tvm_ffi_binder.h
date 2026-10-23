@@ -95,7 +95,7 @@ class TVMFFIABIBuilder {
   /*! \brief Result of Finalize(): definition map and three statement sequences. */
   struct Result {
     /*! \brief Var -> VarDefInfo map for defined variables. */
-    std::unordered_map<const VarNode*, VarDefInfo> var_defs;
+    std::unordered_map<const VarObj*, VarDefInfo> var_defs;
     /*! \brief Variable definitions (Binds, shape/strides DeclTensors). */
     std::vector<Stmt> init_nest;
     /*! \brief Validation checks (all AssertStmts). */
@@ -381,10 +381,10 @@ class TVMFFIABIBuilder {
 
   /*! \brief Non-variable shapes, processed after all bare dimensions have been bound. */
   std::vector<PendingIntExpr> pending_int_exprs_;
-  /*! \brief The definition map: VarNode* -> VarDefInfo (value + first_def_path). */
-  std::unordered_map<const VarNode*, VarDefInfo> var_defs_;
+  /*! \brief The definition map: VarObj* -> VarDefInfo (value + first_def_path). */
+  std::unordered_map<const VarObj*, VarDefInfo> var_defs_;
   /*! \brief Decoded shape expressions for diagnostics of inferred variables. */
-  std::unordered_map<const VarNode*, std::string> shape_var_exprs_;
+  std::unordered_map<const VarObj*, std::string> shape_var_exprs_;
   /*! \brief Variable definitions: Binds, shape/strides DeclTensors. */
   std::vector<Stmt> init_nest_;
   /*! \brief Validation checks: all AssertStmts. */
@@ -404,7 +404,7 @@ class TVMFFIABIBuilder {
   /*! \brief The function parameters. */
   ffi::Array<Var> params_;
   /*! \brief Raw packed-ABI handles decoded for tensor-typed parameters. */
-  std::unordered_map<const VarNode*, Var> tensor_handles_;
+  std::unordered_map<const VarObj*, Var> tensor_handles_;
   /*! \brief The packed args variable. */
   Var v_packed_args_;
   /*! \brief The expected device type expression. */

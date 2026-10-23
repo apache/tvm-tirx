@@ -119,7 +119,7 @@ IRModule FunctionPassObj::operator()(IRModule mod, const PassContext& pass_ctx) 
   TVM_FFI_ICHECK(mod.defined());
   std::vector<GlobalVar> deleted_list;
 
-  IRModuleNode* mod_ptr = mod.CopyOnWrite();
+  IRModuleObj* mod_ptr = mod.CopyOnWrite();
   auto* func_dict = mod_ptr->functions.CopyOnWrite();
   // directly loop over the underlying dict
   for (auto& kv : *func_dict) {
@@ -137,7 +137,7 @@ IRModule FunctionPassObj::operator()(IRModule mod, const PassContext& pass_ctx) 
     }
   }
 
-  // Automatic removal of None.  This uses IRModuleNode::Remove
+  // Automatic removal of None.  This uses IRModuleObj::Remove
   // instead of manipulating func_dict directly, to ensure that both
   // the function map and the global_var_map_ are correctly updated.
   for (const auto& gv : deleted_list) {

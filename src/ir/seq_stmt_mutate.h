@@ -32,8 +32,8 @@ namespace tvm {
 namespace detail {
 
 inline bool IsSeqStmtNoOp(ffi::AnyView stmt) {
-  const auto* evaluate = stmt.as<EvaluateNode>();
-  const auto* value = evaluate == nullptr ? nullptr : evaluate->value.as<IntImmNode>();
+  const auto* evaluate = stmt.as<EvaluateObj>();
+  const auto* value = evaluate == nullptr ? nullptr : evaluate->value.as<IntImmObj>();
   return value != nullptr && value->value == 0;
 }
 
@@ -58,7 +58,7 @@ inline size_t SeqStmtCompactNop(ffi::Any* begin, size_t current_size) {
 inline void SeqStmtExpandNested(ffi::Any* begin, size_t current_size, size_t target_size) {
   size_t write = target_size;
   for (size_t read = current_size; read-- > 0;) {
-    if (const auto* nested = begin[read].as<SeqStmtNode>()) {
+    if (const auto* nested = begin[read].as<SeqStmtObj>()) {
       for (size_t i = nested->seq.size(); i-- > 0;) {
         begin[--write] = ffi::Any(nested->seq[i]);
       }
@@ -72,7 +72,7 @@ inline void SeqStmtExpandNested(ffi::Any* begin, size_t current_size, size_t tar
 }
 
 template <typename MutateElement>
-auto MutateSeqStmtChanged(MutateElement& mutate_element, const SeqStmtNode* self, size_t index,
+auto MutateSeqStmtChanged(MutateElement& mutate_element, const SeqStmtObj* self, size_t index,
                           Stmt mapped, ffi::InplaceMode inplace_mode)
     -> decltype(mutate_element(ffi::AnyView(), ffi::InplaceMode::kDisallow)) {
   const size_t size = self->seq.size();
@@ -83,7 +83,7 @@ auto MutateSeqStmtChanged(MutateElement& mutate_element, const SeqStmtNode* self
     if (IsSeqStmtNoOp(stmt)) {
       return;
     }
-    if (const auto* nested = stmt.as<SeqStmtNode>()) {
+    if (const auto* nested = stmt.as<SeqStmtObj>()) {
       for (const Stmt& child : nested->seq) {
         results.emplace_back(child);
       }
@@ -106,16 +106,16 @@ auto MutateSeqStmtChanged(MutateElement& mutate_element, const SeqStmtNode* self
   ffi::Array<Stmt> seq(std::make_move_iterator(results.begin()),
                        std::make_move_iterator(results.end()));
   if (inplace_mode == ffi::InplaceMode::kAllow) {
-    const_cast<SeqStmtNode*>(self)->seq = std::move(seq);
+    const_cast<SeqStmtObj*>(self)->seq = std::move(seq);
     return ffi::Unchanged();
   }
-  ffi::ObjectPtr<SeqStmtNode> copy = ffi::make_object<SeqStmtNode>(*self);
+  ffi::ObjectPtr<SeqStmtObj> copy = ffi::make_object<SeqStmtObj>(*self);
   copy->seq = std::move(seq);
   return Stmt(std::move(copy));
 }
 
 template <typename MutateElement>
-auto MutateSeqStmtRaw(MutateElement& mutate_element, const SeqStmtNode* self,
+auto MutateSeqStmtRaw(MutateElement& mutate_element, const SeqStmtObj* self,
                       ffi::InplaceMode inplace_mode)
     -> decltype(mutate_element(ffi::AnyView(), ffi::InplaceMode::kDisallow)) {
   const size_t size = self->seq.size();
@@ -132,7 +132,7 @@ auto MutateSeqStmtRaw(MutateElement& mutate_element, const SeqStmtNode* self,
       return MutateSeqStmtChanged(mutate_element, self, i, std::move(mapped).ValueUnchecked(),
                                   inplace_mode);
     }
-    if (IsSeqStmtNoOp(self->seq[i]) || self->seq[i].as<SeqStmtNode>()) {
+    if (IsSeqStmtNoOp(self->seq[i]) || self->seq[i].as<SeqStmtObj>()) {
       return MutateSeqStmtChanged(mutate_element, self, i, self->seq[i], inplace_mode);
     }
   }
@@ -140,9 +140,9 @@ auto MutateSeqStmtRaw(MutateElement& mutate_element, const SeqStmtNode* self,
 }
 
 template <typename MutateElement>
-auto MaybeInplaceMutateSeqStmtRaw(MutateElement& mutate_element, const SeqStmtNode* op)
+auto MaybeInplaceMutateSeqStmtRaw(MutateElement& mutate_element, const SeqStmtObj* op)
     -> decltype(mutate_element(ffi::AnyView(), ffi::InplaceMode::kDisallow)) {
-  SeqStmtNode* self = const_cast<SeqStmtNode*>(op);
+  SeqStmtObj* self = const_cast<SeqStmtObj*>(op);
   // The engine establishes ownership of the SeqStmt, but seq is a field and needs its own check.
   if (!self->seq.unique()) {
     return MutateSeqStmtRaw(mutate_element, self, ffi::InplaceMode::kAllow);
@@ -172,7 +172,7 @@ auto MaybeInplaceMutateSeqStmtRaw(MutateElement& mutate_element, const SeqStmtNo
       ++delete_count;
       continue;
     }
-    if (const auto* nested = slots[i].as<SeqStmtNode>()) {
+    if (const auto* nested = slots[i].as<SeqStmtObj>()) {
       has_nested = true;
       if (nested->seq.empty()) {
         slots[i] = ffi::Any();
@@ -201,7 +201,7 @@ auto MaybeInplaceMutateSeqStmtRaw(MutateElement& mutate_element, const SeqStmtNo
       if (slots[i].type_index() == ffi::TypeIndex::kTVMFFINone) {
         continue;
       }
-      if (const auto* nested = slots[i].as<SeqStmtNode>()) {
+      if (const auto* nested = slots[i].as<SeqStmtObj>()) {
         for (const Stmt& child : nested->seq) {
           results.emplace_back(child);
         }
@@ -218,7 +218,7 @@ auto MaybeInplaceMutateSeqStmtRaw(MutateElement& mutate_element, const SeqStmtNo
 }
 
 template <typename MutateElement>
-auto MutateSeqStmt(const SeqStmtNode* self, ffi::InplaceMode inplace_mode,
+auto MutateSeqStmt(const SeqStmtObj* self, ffi::InplaceMode inplace_mode,
                    MutateElement mutate_element)
     -> decltype(mutate_element(ffi::AnyView(), ffi::InplaceMode::kDisallow)) {
   if (inplace_mode == ffi::InplaceMode::kAllow) {

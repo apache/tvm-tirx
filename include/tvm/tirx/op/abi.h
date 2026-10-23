@@ -166,7 +166,7 @@ TVM_TIRX_DLL const Op& stack_make_dltensor_op();
 TVM_TIRX_DLL const Op& call_packed_op();
 
 /*! \brief Launch metadata for call_ffi_kernel. */
-struct CallFFIKernelAttr : public AttrsNode {
+struct CallFFIKernelAttr : public AttrsObj {
   /*!
    * \brief Ordered launch tags describing the suffix of the call arguments.
    *
@@ -183,7 +183,7 @@ struct CallFFIKernelAttr : public AttrsNode {
   ffi::Map<ffi::String, int64_t> kernel_attrs;
 
   static void RegisterReflection();
-  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("tirx.CallFFIKernelAttr", CallFFIKernelAttr, AttrsNode);
+  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("tirx.CallFFIKernelAttr", CallFFIKernelAttr, AttrsObj);
 };
 
 /*!

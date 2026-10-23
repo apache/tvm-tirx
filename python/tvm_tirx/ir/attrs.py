@@ -94,7 +94,7 @@ def make_node(type_key, /, **kwargs):
 
     Note
     ----
-    If the created node is instance of AttrsNode, then
+    If the created node is instance of AttrsObj, then
     the creator function will also run bound checks and
     default value setup as supported by Attrs.
 

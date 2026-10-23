@@ -36,13 +36,13 @@ namespace codegen {
 
 inline PrimExpr DispatchPureExternLibDevice(const PrimExpr& e) {
   using namespace tirx;
-  const CallNode* call = e.as<CallNode>();
+  const CallObj* call = e.as<CallObj>();
   TVM_FFI_ICHECK(call != nullptr);
   PrimType call_ty = call->ty.as_or_throw<PrimType>();
   TVM_FFI_ICHECK(call_ty.bits() == 32 || call_ty.bits() == 64)
       << "Only support float32 or float64.";
 
-  const OpNode* op = call->op.as<OpNode>();
+  const OpObj* op = call->op.as<OpObj>();
   TVM_FFI_ICHECK(op != nullptr);
   std::string name = op->name;
   TVM_FFI_ICHECK(name.substr(0, 5) == "tirx." || name.substr(0, 5) == "prim.")
@@ -72,7 +72,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
       .set_attr<FLowerIntrinsic>("nvptx.FLowerIntrinsic", [](const PrimExpr& e) -> PrimExpr {
         // Redirect to nearbyint (ties-to-even) to match constant-folding semantics.
         using namespace tirx;
-        const CallNode* call = e.as<CallNode>();
+        const CallObj* call = e.as<CallObj>();
         TVM_FFI_ICHECK(call != nullptr);
         static const Op nearbyint_op = Op::Get("prim.nearbyint");
         auto new_call = Call(call->ty.as_or_throw<PrimType>(), nearbyint_op, call->args)

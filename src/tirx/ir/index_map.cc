@@ -39,11 +39,11 @@ namespace tvm {
 namespace tirx {
 using namespace tvm::prim;
 
-TVM_FFI_STATIC_INIT_BLOCK() { IndexMapNode::RegisterReflection(); }
+TVM_FFI_STATIC_INIT_BLOCK() { IndexMapObj::RegisterReflection(); }
 
 IndexMap::IndexMap(ffi::Array<PrimVar> initial_indices, ffi::Array<PrimExpr> final_indices,
                    ffi::Optional<IndexMap> inverse_index_map) {
-  auto n = ffi::make_object<IndexMapNode>();
+  auto n = ffi::make_object<IndexMapObj>();
   n->initial_indices = std::move(initial_indices);
   n->final_indices = std::move(final_indices);
   if (inverse_index_map.has_value()) {
@@ -187,13 +187,13 @@ IndexMap IndexMap::Inverse(ffi::Array<Range> initial_ranges, const sym::Analyzer
   return inverse;
 }
 
-ffi::Array<PrimExpr> IndexMapNode::MapIndices(const ffi::Array<PrimExpr>& indices) const {
+ffi::Array<PrimExpr> IndexMapObj::MapIndices(const ffi::Array<PrimExpr>& indices) const {
   sym::Analyzer analyzer;
   return MapIndices(indices, analyzer);
 }
 
-ffi::Array<PrimExpr> IndexMapNode::MapIndices(const ffi::Array<PrimExpr>& indices,
-                                              const sym::Analyzer& analyzer) const {
+ffi::Array<PrimExpr> IndexMapObj::MapIndices(const ffi::Array<PrimExpr>& indices,
+                                             const sym::Analyzer& analyzer) const {
   sym::AnalyzerObj* analyzer_ptr = analyzer.get();
   TVM_FFI_ICHECK_EQ(indices.size(), initial_indices.size());
 
@@ -211,13 +211,13 @@ ffi::Array<PrimExpr> IndexMapNode::MapIndices(const ffi::Array<PrimExpr>& indice
   return output;
 }
 
-ffi::Array<Range> IndexMapNode::MapRanges(const ffi::Array<Range>& ranges) const {
+ffi::Array<Range> IndexMapObj::MapRanges(const ffi::Array<Range>& ranges) const {
   sym::Analyzer analyzer;
   return MapRanges(ranges, analyzer);
 }
 
-ffi::Array<Range> IndexMapNode::MapRanges(const ffi::Array<Range>& ranges,
-                                          const sym::Analyzer& analyzer) const {
+ffi::Array<Range> IndexMapObj::MapRanges(const ffi::Array<Range>& ranges,
+                                         const sym::Analyzer& analyzer) const {
   sym::AnalyzerObj* analyzer_ptr = analyzer.get();
   TVM_FFI_ICHECK_EQ(ranges.size(), initial_indices.size());
 
@@ -282,13 +282,13 @@ ffi::Array<Range> IndexMapNode::MapRanges(const ffi::Array<Range>& ranges,
   return output;
 }
 
-ffi::Array<PrimExpr> IndexMapNode::MapShape(const ffi::Array<PrimExpr>& shape) const {
+ffi::Array<PrimExpr> IndexMapObj::MapShape(const ffi::Array<PrimExpr>& shape) const {
   sym::Analyzer analyzer;
   return MapShape(shape, analyzer);
 }
 
-ffi::Array<PrimExpr> IndexMapNode::MapShape(const ffi::Array<PrimExpr>& shape,
-                                            const sym::Analyzer& analyzer) const {
+ffi::Array<PrimExpr> IndexMapObj::MapShape(const ffi::Array<PrimExpr>& shape,
+                                           const sym::Analyzer& analyzer) const {
   TVM_FFI_ICHECK_EQ(shape.size(), initial_indices.size());
 
   ffi::Array<Range> ranges;
@@ -306,7 +306,7 @@ ffi::Array<PrimExpr> IndexMapNode::MapShape(const ffi::Array<PrimExpr>& shape,
   return output;
 }
 
-ffi::Tensor IndexMapNode::MapTensor(ffi::Tensor arr_src) const {
+ffi::Tensor IndexMapObj::MapTensor(ffi::Tensor arr_src) const {
   TVM_FFI_ICHECK(arr_src.defined());
   sym::Analyzer analyzer;
   auto shape = arr_src.shape();
@@ -323,7 +323,7 @@ ffi::Tensor IndexMapNode::MapTensor(ffi::Tensor arr_src) const {
 
   std::vector<int64_t> dst_shape_int;
   for (size_t i = 0; i < dst_shape.size(); ++i) {
-    dst_shape_int.push_back(static_cast<int64_t>(dst_shape[i].as<IntImmNode>()->value));
+    dst_shape_int.push_back(static_cast<int64_t>(dst_shape[i].as<IntImmObj>()->value));
   }
 
   auto elem_bytes = (arr_src.dtype().bits / 8) * arr_src.dtype().lanes;
@@ -351,7 +351,7 @@ ffi::Tensor IndexMapNode::MapTensor(ffi::Tensor arr_src) const {
     auto mul_factor = size_1d;
     for (size_t j = 0; j < dst_indices.size(); ++j) {
       mul_factor /= dst_shape_int[j];
-      dst_linear_index += dst_indices[j].as<IntImmNode>()->value * mul_factor;
+      dst_linear_index += dst_indices[j].as<IntImmObj>()->value * mul_factor;
     }
     std::copy(bytes_src.begin() + i * elem_bytes, bytes_src.begin() + (i + 1) * elem_bytes,
               bytes_dst.begin() + static_cast<int64_t>(dst_linear_index) * elem_bytes);
@@ -367,7 +367,7 @@ IndexMap IndexMap::RenameVariables(
   std::unordered_set<std::string> used_names;
   ffi::Map<Var, Var> var_remap;
   UniqueNameSupply name_supply;
-  const IndexMapNode* n = this->get();
+  const IndexMapObj* n = this->get();
   if (f_name_map != nullptr) {
     // Collect variables with pre-defined names provided by f_name_map.
     std::unordered_set<const ffi::Object*> visited;
@@ -460,7 +460,7 @@ std::string IndexMap2PythonLambdaExpr(const ffi::Array<PrimVar>& initial_indices
   return oss.str();
 }
 
-ffi::String IndexMapNode::ToPythonString(
+ffi::String IndexMapObj::ToPythonString(
     const ffi::TypedFunction<ffi::Optional<ffi::String>(const Var& var)>& f_name_map) const {
   auto index_map = ffi::GetRef<IndexMap>(this).RenameVariables(f_name_map);
   std::string lambda_expr =

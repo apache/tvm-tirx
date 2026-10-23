@@ -41,6 +41,6 @@ fn logging_pass(name: &str, log: &Log) -> ModulePass {
             log.lock().unwrap().push(entry.clone());
             Ok(module)
         },
-        PassInfo::new(0, name.into()),
+        PassInfo::new(0, name),
     )
 }

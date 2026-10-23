@@ -44,7 +44,7 @@ class CodeGenMetal final : public CodeGenC {
   void AddFunction(const GlobalVar& gvar, const Function& func) final;
   void InitFuncState(const Function& f) final;
   void PrintStorageScope(const runtime::MemoryScope& scope, std::ostream& os) final;  // NOLINT(*)
-  void PrintStorageSync(const CallNode* op) final;                                    // NOLINT(*)
+  void PrintStorageSync(const CallObj* op) final;                                     // NOLINT(*)
   void PrintType(const PrimType& t, std::ostream& os) final;                          // NOLINT(*)
   void BindThreadIndex(const PrimVar& var, const ffi::String& thread_tag) final;      // NOLINT(*)
   // print load of single element
@@ -54,19 +54,19 @@ class CodeGenMetal final : public CodeGenC {
   void PrintVecElemStore(const std::string& vec, const PrimType& t, int i,
                          const std::string& value) final;
   // overload visitor
-  void Dispatch_(const BindNode* op) final;  // NOLINT(*)
-  void DispatchAllocTensor(const BindNode* op, const CallNode* buffer_call);
-  void Dispatch_(const prim::SelectNode* op, std::ostream& os) final;     // NOLINT(*)
-  void Dispatch_(const prim::BroadcastNode* op, std::ostream& os) final;  // NOLINT(*)
-  void Dispatch_(const CallNode* op, std::ostream& os) final;             // NOLINT(*)
-  void Dispatch_(const FloatImmNode* op, std::ostream& os) final;         // NOLINT(*)
+  void Dispatch_(const BindObj* op) final;  // NOLINT(*)
+  void DispatchAllocTensor(const BindObj* op, const CallObj* buffer_call);
+  void Dispatch_(const prim::SelectObj* op, std::ostream& os) final;     // NOLINT(*)
+  void Dispatch_(const prim::BroadcastObj* op, std::ostream& os) final;  // NOLINT(*)
+  void Dispatch_(const CallObj* op, std::ostream& os) final;             // NOLINT(*)
+  void Dispatch_(const FloatImmObj* op, std::ostream& os) final;         // NOLINT(*)
 
   // reuse parent's function.
   using CodeGenC::PrintType;
 
  private:
   sym::Analyzer analyzer_;
-  std::unordered_map<const VarNode*, std::string> simdgroup_dtype_;
+  std::unordered_map<const VarObj*, std::string> simdgroup_dtype_;
   int thread_index_bits_{32};
   int thread_work_dim_{0};
   Target target_;

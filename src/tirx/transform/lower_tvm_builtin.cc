@@ -227,7 +227,7 @@ class BuiltinLower : public StmtExprMutator {
   }
 
   UnchangedOr<ffi::Any> Mutate(ffi::AnyView input, InplaceMode inplace_mode) final {
-    if (!input.as<StmtNode>()) return StmtExprMutator::Mutate(input, inplace_mode);
+    if (!input.as<StmtObj>()) return StmtExprMutator::Mutate(input, inplace_mode);
     // Allocate space to hold preparation statements for this statement.
     prep_seq_stack_.emplace_back(std::vector<Stmt>());
 
@@ -260,10 +260,10 @@ class BuiltinLower : public StmtExprMutator {
     }
   }
 
-  UnchangedOr<Stmt> Mutate_(const BindNode* op, InplaceMode inplace_mode) final {
-    if (const auto* call = op->value.as<CallNode>(); call && call->op.same_as(alloc_tensor_op()))
+  UnchangedOr<Stmt> Mutate_(const BindObj* op, InplaceMode inplace_mode) final {
+    if (const auto* call = op->value.as<CallObj>(); call && call->op.same_as(alloc_tensor_op()))
       return MutateAllocTensor(op, inplace_mode);
-    if (const CallNode* call = op->value.as<CallNode>()) {
+    if (const CallObj* call = op->value.as<CallObj>()) {
       if (call->op.same_as(backend::opencl::nd_mem_alloc_with_scope_op())) {
         return MakeNdMemAllocWithScope(op, call);
       }
@@ -271,12 +271,12 @@ class BuiltinLower : public StmtExprMutator {
     return StmtExprMutator::Mutate_(op, inplace_mode);
   }
 
-  UnchangedOr<Stmt> MutateAllocTensor(const BindNode* op, InplaceMode inplace_mode) {
+  UnchangedOr<Stmt> MutateAllocTensor(const BindObj* op, InplaceMode inplace_mode) {
     // Lower AllocTensor to device allocate when needed.
     // AllocTensor is flat (no body). Visit tensor fields via base class.
     Stmt stmt = StmtExprMutator::Mutate_(op, inplace_mode).ValueOrUnchanged(ffi::GetRef<Stmt>(op));
-    op = stmt.as<BindNode>();
-    const auto* tensor_call = op->value.as<CallNode>();
+    op = stmt.as<BindObj>();
+    const auto* tensor_call = op->value.as<CallObj>();
     tvm::Tuple shape = tvm::Tuple(tensor_call->ty_args[0].as_or_throw<TensorType>()->shape);
     DLDataType dtype = tensor_call->ty_args[0].as_or_throw<TensorType>()->dtype->dtype;
     PrimType element_type(dtype);
@@ -285,7 +285,7 @@ class BuiltinLower : public StmtExprMutator {
       return stmt;
     }
     int64_t nbytes = GetVectorBytes(element_type);
-    if (const auto* dev_type = device_type_.as<IntImmNode>();
+    if (const auto* dev_type = device_type_.as<IntImmObj>();
         dev_type && dev_type->value == kDLCPU) {
       if (scope == runtime::MemoryScope::Global()) {
         auto constant_size = op->var->ty.as_or_throw<TensorType>()->ConstantAllocationSize();
@@ -334,7 +334,7 @@ class BuiltinLower : public StmtExprMutator {
     return SeqStmt({alloc_bind, alloc_nullptr_check});
   }
 
-  UnchangedOr<Stmt> Mutate_(const RegionStmtNode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<Stmt> Mutate_(const RegionStmtObj* op, InplaceMode inplace_mode) final {
     if (op->op.same_as(device_context_op())) {
       PrimExpr device_type = this->Mutate(op->args[0], inplace_mode)
                                  .ValueOrUnchanged(op->args[0])
@@ -364,7 +364,7 @@ class BuiltinLower : public StmtExprMutator {
     });
   }
 
-  UnchangedOr<Stmt> Mutate_(const ForNode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<Stmt> Mutate_(const ForObj* op, InplaceMode inplace_mode) final {
     auto begin_result = this->Mutate(op->begin, inplace_mode);
     bool begin_unchanged = begin_result.UnchangedOrSameAs(op->begin);
     PrimExpr begin = std::move(begin_result).ValueOrUnchanged(op->begin);
@@ -387,14 +387,14 @@ class BuiltinLower : public StmtExprMutator {
       return ffi::Unchanged();
     } else {
       if (inplace_mode == InplaceMode::kAllow) {
-        auto* n = const_cast<ForNode*>(op);
+        auto* n = const_cast<ForObj*>(op);
         n->begin = std::move(begin);
         n->end = std::move(end);
         n->step = step;
         n->body = std::move(body);
         return ffi::Unchanged();
       }
-      auto n = ffi::make_object<ForNode>(*op);
+      auto n = ffi::make_object<ForObj>(*op);
       n->begin = std::move(begin);
       n->end = std::move(end);
       n->step = step;
@@ -403,7 +403,7 @@ class BuiltinLower : public StmtExprMutator {
     }
   }
 
-  UnchangedOr<Stmt> Mutate_(const IfNode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<Stmt> Mutate_(const IfObj* op, InplaceMode inplace_mode) final {
     auto condition_result = this->Mutate(op->condition, inplace_mode);
     bool condition_unchanged = condition_result.UnchangedOrSameAs(op->condition);
     PrimExpr condition = std::move(condition_result).ValueOrUnchanged(op->condition);
@@ -427,7 +427,7 @@ class BuiltinLower : public StmtExprMutator {
     return If(condition, then_case, else_case, op->loc);
   }
 
-  UnchangedOr<Expr> Mutate_(const CallNode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<Expr> Mutate_(const CallObj* op, InplaceMode inplace_mode) final {
     if (op->op.same_as(backend::cuda::tensormap_encode_tiled_op()) && !preserve_ffi_kernel_) {
       const auto* attr =
           (op->attrs.has_value() ? op->attrs.value().as<backend::cuda::TensorMapEncodeTiledAttr>()
@@ -467,7 +467,7 @@ class BuiltinLower : public StmtExprMutator {
     TVM_FFI_ICHECK(device_type_) << "Method " << method_name << " requires the device type, "
                                  << "but occurred outside of a \"device_context\" region";
 
-    auto as_int = device_type_.as<IntImmNode>();
+    auto as_int = device_type_.as<IntImmObj>();
     TVM_FFI_ICHECK(as_int) << "Method " << method_name
                            << " requires the device type to be a DLDeviceType enum value, "
                            << "but was instead the expression " << device_type_ << " with type "
@@ -478,7 +478,7 @@ class BuiltinLower : public StmtExprMutator {
   }
 
   // call shape
-  Expr MakeShape(const CallNode* op) {
+  Expr MakeShape(const CallObj* op) {
     // if args.size() == 0, it represents a scalar shape ()
     TVM_FFI_ICHECK(!alloca_scope_.empty());
     auto& scope = alloca_scope_.back();
@@ -490,7 +490,7 @@ class BuiltinLower : public StmtExprMutator {
     scope.run_sizes.shape_stack += op->args.size();
     Expr expr = StmtExprMutator::Mutate_(op, InplaceMode::kDisallow)
                     .ValueOrUnchanged(ffi::GetRef<Expr>(op));
-    op = expr.as<CallNode>();
+    op = expr.as<CallObj>();
     // no need to perform any store for a scalar shape
     for (size_t i = 0; i < op->args.size(); ++i) {
       prep_seq.emplace_back(
@@ -502,7 +502,7 @@ class BuiltinLower : public StmtExprMutator {
     return Call(scope.stack_shape.value().ty()->DataPtrType(), address_of_op(), {load});
   }
   // make array
-  Expr MakeArray(const CallNode* op) {
+  Expr MakeArray(const CallObj* op) {
     TVM_FFI_ICHECK(!alloca_scope_.empty());
     auto& scope = alloca_scope_.back();
     auto& prep_seq = prep_seq_stack_.back();
@@ -511,7 +511,7 @@ class BuiltinLower : public StmtExprMutator {
     scope.run_sizes.array_stack += 1;
     Expr expr = StmtExprMutator::Mutate_(op, InplaceMode::kDisallow)
                     .ValueOrUnchanged(ffi::GetRef<Expr>(op));
-    op = expr.as<CallNode>();
+    op = expr.as<CallObj>();
 
     prep_seq.emplace_back(Evaluate(
         Call(PrimType::Int(32), tirx::abi_field_set_op(),
@@ -583,10 +583,10 @@ class BuiltinLower : public StmtExprMutator {
   void SetPackedArg(Expr arg, const Var& args_stack, size_t stack_offset,
                     std::vector<Stmt>* prep_seq) {
     int arg_type_index;
-    if (arg.as<StringImmNode>()) {
+    if (arg.as<StringImmObj>()) {
       arg_type_index = ffi::TypeIndex::kTVMFFIRawStr;
       arg = tirx::reinterpret(PtrType::VoidPtrType(), std::move(arg));
-    } else if (arg->ty.as<PtrTypeNode>()) {
+    } else if (arg->ty.as<PtrTypeObj>()) {
       arg_type_index = IsArrayHandle(arg) ? ffi::TypeIndex::kTVMFFIDLTensorPtr
                                           : ffi::TypeIndex::kTVMFFIOpaquePtr;
     } else {
@@ -650,7 +650,7 @@ class BuiltinLower : public StmtExprMutator {
    * \param name_offset The beginning of function name and call packed section.
    * \param lowered_packed_op The target lowered op.
    */
-  Call MakeCallPackedGeneric(const CallNode* op, size_t name_offset, const Op& lowered_packed_op) {
+  Call MakeCallPackedGeneric(const CallObj* op, size_t name_offset, const Op& lowered_packed_op) {
     auto& scope = alloca_scope_.back();
     auto& prep_seq = prep_seq_stack_.back();
 
@@ -668,11 +668,11 @@ class BuiltinLower : public StmtExprMutator {
     // Specially handle the tensor packed intrinsic
     Expr expr = StmtExprMutator::Mutate_(op, InplaceMode::kDisallow)
                     .ValueOrUnchanged(ffi::GetRef<Expr>(op));
-    op = expr.as<CallNode>();
+    op = expr.as<CallObj>();
 
     for (size_t i = 0; i < num_args; ++i) {
       const Expr& arg = op->args[args_begin + i];
-      TVM_FFI_CHECK(arg.as<PrimExpr>() || arg->ty.as<PtrTypeNode>() || arg.as<StringImmNode>(),
+      TVM_FFI_CHECK(arg.as<PrimExpr>() || arg->ty.as<PtrTypeObj>() || arg.as<StringImmObj>(),
                     TypeError)
           << "Packed call argument must have a primitive, pointer, or string type, but got "
           << arg->ty;
@@ -707,13 +707,13 @@ class BuiltinLower : public StmtExprMutator {
     return Call(op->ty, lowered_packed_op, packed_args);
   }
 
-  Stmt MakeNdMemAllocWithScope(const BindNode* let, const CallNode* call) {
+  Stmt MakeNdMemAllocWithScope(const BindObj* let, const CallObj* call) {
     TVM_FFI_ICHECK(device_type_) << "Unknown device type in current IR";
     TVM_FFI_ICHECK(device_id_) << "Unknown device id in current IR";
     Stmt throw_last_error =
         Evaluate(Call(PrimType::Int(32), throw_last_error_op(), {}).as_or_throw<PrimExpr>());
 
-    const auto* dtype_node = let->var->ty.as<PtrTypeNode>()->element_type.as<PrimTypeNode>();
+    const auto* dtype_node = let->var->ty.as<PtrTypeObj>()->element_type.as<PrimTypeObj>();
     TVM_FFI_ICHECK(dtype_node);
     PrimType dtype = ffi::GetRef<PrimType>(dtype_node);
 
@@ -754,9 +754,9 @@ class BuiltinLower : public StmtExprMutator {
  private:
   bool IsArrayHandle(const Expr& arg) {
     // specially set array handle.
-    if (const CallNode* buf = arg.as<CallNode>()) {
+    if (const CallObj* buf = arg.as<CallObj>()) {
       if (buf->op.same_as(abi_field_get_op()) &&
-          buf->args[2].as<IntImmNode>()->value == kDLTensorAddr) {
+          buf->args[2].as<IntImmObj>()->value == kDLTensorAddr) {
         return true;
       }
     }

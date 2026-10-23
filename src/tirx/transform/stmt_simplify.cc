@@ -53,14 +53,14 @@ class StmtSimplifier : public StmtExprMutatorWithAnalyzer {
 
   UnchangedOr<ffi::Any> Mutate(ffi::AnyView input, InplaceMode inplace_mode) final;
 
-  UnchangedOr<Stmt> Mutate_(const ForNode* op, InplaceMode inplace_mode) final;
+  UnchangedOr<Stmt> Mutate_(const ForObj* op, InplaceMode inplace_mode) final;
 
-  UnchangedOr<Stmt> Mutate_(const BindNode* op, InplaceMode inplace_mode) override;
+  UnchangedOr<Stmt> Mutate_(const BindObj* op, InplaceMode inplace_mode) override;
 
-  UnchangedOr<Stmt> Mutate_(const IfNode* op, InplaceMode inplace_mode) override;
+  UnchangedOr<Stmt> Mutate_(const IfObj* op, InplaceMode inplace_mode) override;
 
   // eliminate useless stores
-  UnchangedOr<Stmt> Mutate_(const TensorStoreNode* op, InplaceMode inplace_mode) override;
+  UnchangedOr<Stmt> Mutate_(const TensorStoreObj* op, InplaceMode inplace_mode) override;
 
  private:
   bool ArrayDeepEqual(const ffi::Array<PrimExpr>& lhs, const ffi::Array<PrimExpr>& rhs);
@@ -116,28 +116,28 @@ UnchangedOr<ffi::Any> StmtSimplifier::Mutate(ffi::AnyView input, InplaceMode inp
   return Parent::Mutate(input, inplace_mode);
 }
 
-UnchangedOr<Stmt> StmtSimplifier::Mutate_(const ForNode* op, InplaceMode inplace_mode) {
+UnchangedOr<Stmt> StmtSimplifier::Mutate_(const ForObj* op, InplaceMode inplace_mode) {
   analyzer_->Bind(op->var, Range(op->begin, op->end));
   With<sym::ConstraintContext> ctx1(analyzer_, op->var >= op->begin);
   With<sym::ConstraintContext> ctx2(analyzer_, static_cast<PrimExpr>(op->var) < op->end);
   return Parent::Mutate_(op, inplace_mode);
 }
 
-UnchangedOr<Stmt> StmtSimplifier::Mutate_(const BindNode* op, InplaceMode inplace_mode) {
-  if (const auto* call = op->value.as<CallNode>()) {
+UnchangedOr<Stmt> StmtSimplifier::Mutate_(const BindObj* op, InplaceMode inplace_mode) {
+  if (const auto* call = op->value.as<CallObj>()) {
     // Preserve tensor type metadata; only declaration data is simplified.
     if (call->op.same_as(tirx::alloc_tensor_op())) return ffi::Unchanged();
     if (call->op.same_as(tirx::decl_tensor_op())) {
       // The Call and its arguments may be shared even when the Bind is writable.
       auto data = this->Mutate(call->args[0], InplaceMode::kDisallow);
       if (data.UnchangedOrSameAs(call->args[0])) return ffi::Unchanged();
-      auto value = ffi::make_object<CallNode>(*call);
+      auto value = ffi::make_object<CallObj>(*call);
       value->args.Set(0, std::move(data).ValueUnchecked());
       if (inplace_mode == InplaceMode::kAllow) {
-        const_cast<BindNode*>(op)->value = Expr(std::move(value));
+        const_cast<BindObj*>(op)->value = Expr(std::move(value));
         return ffi::Unchanged();
       }
-      auto copy = ffi::make_object<BindNode>(*op);
+      auto copy = ffi::make_object<BindObj>(*op);
       copy->value = Expr(std::move(value));
       return Stmt(std::move(copy));
     }
@@ -155,7 +155,7 @@ UnchangedOr<Stmt> StmtSimplifier::Mutate_(const BindNode* op, InplaceMode inplac
   if (SideEffect(value) <= CallEffectKind::kPure) {
     analyzer_->Bind(op->var, value);
     // Record the binding so we can substitute it into assert conditions
-    // (see Mutate_(const AssertStmtNode*, InplaceMode)).  Under SSA each var is
+    // (see Mutate_(const AssertStmtObj*, InplaceMode)).  Under SSA each var is
     // bound exactly once, so the map grows monotonically without key
     // conflicts.  No scope-based cleanup is needed because vars bound
     // in inner scopes are only referenced within those scopes; stale
@@ -167,17 +167,17 @@ UnchangedOr<Stmt> StmtSimplifier::Mutate_(const BindNode* op, InplaceMode inplac
     return ffi::Unchanged();
   } else {
     if (inplace_mode == InplaceMode::kAllow) {
-      auto* n = const_cast<BindNode*>(op);
+      auto* n = const_cast<BindObj*>(op);
       n->value = std::move(value);
       return ffi::Unchanged();
     }
-    auto n = ffi::make_object<BindNode>(*op);
+    auto n = ffi::make_object<BindObj>(*op);
     n->value = std::move(value);
     return Stmt(n);
   }
 }
 
-UnchangedOr<Stmt> StmtSimplifier::Mutate_(const IfNode* op, InplaceMode inplace_mode) {
+UnchangedOr<Stmt> StmtSimplifier::Mutate_(const IfObj* op, InplaceMode inplace_mode) {
   if (ffi::Optional<bool> cond = ProveCondition(op->condition)) {
     if (cond.value()) {
       return this->Mutate(op->then_case, inplace_mode).ValueOrUnchanged(op->then_case);
@@ -192,11 +192,11 @@ UnchangedOr<Stmt> StmtSimplifier::Mutate_(const IfNode* op, InplaceMode inplace_
   }
 }
 
-UnchangedOr<Stmt> StmtSimplifier::Mutate_(const TensorStoreNode* op, InplaceMode inplace_mode) {
+UnchangedOr<Stmt> StmtSimplifier::Mutate_(const TensorStoreObj* op, InplaceMode inplace_mode) {
   TensorStore store = Parent::Mutate_(op, inplace_mode)
                           .ValueOrUnchanged(ffi::GetRef<Stmt>(op))
                           .as_or_throw<TensorStore>();
-  if (const TensorLoadNode* load = store->value.as<TensorLoadNode>()) {
+  if (const TensorLoadObj* load = store->value.as<TensorLoadObj>()) {
     TensorVar tensor = load->source.as_or_throw<tvm::tirx::TensorVar>();
     if (tensor.same_as(store->dest.as_or_throw<TensorVar>()) &&
         ArrayDeepEqual(load->indices, store->indices)) {
@@ -227,7 +227,7 @@ ffi::Optional<bool> StmtSimplifier::ProveCondition(PrimExpr condition) const {
   condition = ffi::StructuralMap<ffi::WalkOrder::kPreOrder>(condition, f_substitute)
                   .as_or_throw<PrimExpr>();
   condition = analyzer_->Simplify(condition);
-  if (const auto* as_int = condition.as<IntImmNode>()) {
+  if (const auto* as_int = condition.as<IntImmObj>()) {
     return as_int->value != 0;
   } else {
     return std::nullopt;

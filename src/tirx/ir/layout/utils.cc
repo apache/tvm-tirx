@@ -62,7 +62,7 @@ std::vector<PrimExpr> GetDefaultStrides(const ffi::Array<PrimExpr>& data, PrimEx
   // Python preserves the shape's dtype). Otherwise int64-shaped tensors
   // get int32 strides and structurally differ from parser output.
   PrimExpr current_stride = initial_stride;
-  if (const auto* imm = current_stride.as<IntImmNode>()) {
+  if (const auto* imm = current_stride.as<IntImmObj>()) {
     current_stride = IntImm(data[0].ty(), imm->value);
   }
   for (int i = static_cast<int>(n) - 1; i >= 0; --i) {

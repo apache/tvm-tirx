@@ -33,19 +33,19 @@ CallEffectKind SideEffect(const Expr& expr) {
   CallEffectKind kind = CallEffectKind::kPure;
   ffi::StructuralVisit(
       expr,
-      [&](const CallNode* node,
+      [&](const CallObj* node,
           ffi::StructuralVisitorObj* visitor) -> ffi::Expected<ffi::Optional<ffi::VisitInterrupt>> {
         auto effect = effects.get(node->op, CallEffectKind::kOpaque);
         kind = std::max(kind, std::min(effect, CallEffectKind::kUpdateState));
         if (kind == CallEffectKind::kUpdateState) return ffi::VisitInterrupt();
         return visitor->DefaultVisitExpected(node);
       },
-      [&](const TensorLoadNode* node,
+      [&](const TensorLoadObj* node,
           ffi::StructuralVisitorObj* visitor) -> ffi::Expected<ffi::Optional<ffi::VisitInterrupt>> {
         kind = std::max(kind, CallEffectKind::kReadState);
         return visitor->DefaultVisitExpected(node);
       },
-      [](const TypeNode*,
+      [](const TypeObj*,
          ffi::StructuralVisitorObj*) -> ffi::Expected<ffi::Optional<ffi::VisitInterrupt>> {
         // Effects describe evaluated expressions, not expressions embedded in types.
         return std::nullopt;

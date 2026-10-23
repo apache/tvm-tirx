@@ -33,7 +33,7 @@ constexpr double kMaxFloat16 = 65504.0;
 
 // 2^127 * (1 + 127/128)
 // See https://en.wikipedia.org/wiki/Bfloat16_floating-point_format
-constexpr double kMaxBFloat16 = 3.895313892515354759047080037148786688e38;
+constexpr double kMaxBFloat16 = 0x1.fep127;
 
 // 2^15 * (1 + 3/4)
 // See https://arxiv.org/pdf/2209.05433.pdf

@@ -38,10 +38,10 @@ TEST(OpSignature, MetadataAndValidator) {
   OpDef def("test.op_signature.typed", "A synthetic signature.");
   def.signature(sig::arg("value", "The input."), sig::arg<PrimExpr>("index"),
                 sig::var_args<PrimExpr>("rest", "Remaining indices."), sig::ty_arg<PrimType>("T"),
-                sig::var_ty_args<PrimType>("Ts", "More types."), sig::call_attrs<DictAttrsNode>());
+                sig::var_ty_args<PrimType>("Ts", "More types."), sig::call_attrs<DictAttrsObj>());
   Op op = def.op();
-  EXPECT_EQ(op->attrs_type_key, DictAttrsNode::_type_key);
-  EXPECT_EQ(op->attrs_type_index, DictAttrsNode::RuntimeTypeIndex());
+  EXPECT_EQ(op->attrs_type_key, DictAttrsObj::_type_key);
+  EXPECT_EQ(op->attrs_type_index, DictAttrsObj::RuntimeTypeIndex());
 
   Expr ordinary = Var("value", AnyType());
   PrimExpr index = PrimVar("index");
@@ -78,7 +78,7 @@ TEST(OpSignature, MetadataAndValidator) {
   EXPECT_EQ(ValidationError(op, Call(AnyType(), op, {ordinary, index}, std::nullopt, {scalar})),
             "Op `test.op_signature.typed`: Call.attrs expected `ir.DictAttrs`, got None");
   EXPECT_EQ(ValidationError(op, Call(AnyType(), op, {ordinary, index},
-                                     Attrs(ffi::make_object<AttrsNode>()), {scalar})),
+                                     Attrs(ffi::make_object<AttrsObj>()), {scalar})),
             "Op `test.op_signature.typed`: Call.attrs expected `ir.DictAttrs`, got `ir.Attrs`");
 
   ffi::Any non_expr(ffi::String("text"));
@@ -91,7 +91,7 @@ TEST(OpSignature, MetadataAndValidator) {
   EXPECT_NO_THROW(op.Validate(minimum.get()));
   EXPECT_NO_THROW(OpDef(op->name).add_arg("legacy", ""));
   EXPECT_NO_THROW(OpDef(op->name).add_ty_arg("legacy_type", ""));
-  EXPECT_NO_THROW(OpDef(op->name).attrs_type<AttrsNode>());
+  EXPECT_NO_THROW(OpDef(op->name).attrs_type<AttrsObj>());
 }
 
 TEST(OpSignature, DefaultsAndRepeatedRegistration) {
@@ -131,8 +131,8 @@ TEST(OpSignature, DefaultsAndRepeatedRegistration) {
 
   OpDef manual("test.op_signature.manual_hook");
   int manual_calls = 0;
-  ffi::TypedFunction<ffi::Expected<void>(const CallNode*)> manual_hook(
-      [&](const CallNode*) -> ffi::Expected<void> {
+  ffi::TypedFunction<ffi::Expected<void>(const CallObj*)> manual_hook(
+      [&](const CallObj*) -> ffi::Expected<void> {
         ++manual_calls;
         return {};
       });
@@ -143,8 +143,8 @@ TEST(OpSignature, DefaultsAndRepeatedRegistration) {
   Call manual_call(AnyType(), manual.op(), {Var("x", AnyType())});
   manual.op().Validate(manual_call.get());
   EXPECT_EQ(manual_calls, 1);
-  ffi::TypedFunction<ffi::Expected<void>(const CallNode*)> failing_hook(
-      [](const CallNode*) -> ffi::Expected<void> {
+  ffi::TypedFunction<ffi::Expected<void>(const CallObj*)> failing_hook(
+      [](const CallObj*) -> ffi::Expected<void> {
         return TVM_FFI_UNEXPECTED(TypeError) << "packed validator rejected Call";
       });
   manual.set_validator(failing_hook, true);

@@ -122,7 +122,7 @@ class TensorFlattener : public StmtExprMutatorWithAnalyzer {
     }
 
     // Fold view: rewrite the geometry's expression leaves.
-    auto view_type = ffi::make_object<TensorTypeNode>(*buf.ty().get());
+    auto view_type = ffi::make_object<TensorTypeObj>(*buf.ty().get());
     auto mutate_expr = [this](const PrimExpr& expr) { return Mutate(expr).ValueOrUnchanged(expr); };
     view_type->shape = view_type->shape.Map(mutate_expr);
     if (view_type->layout.has_value()) {
@@ -136,7 +136,7 @@ class TensorFlattener : public StmtExprMutatorWithAnalyzer {
     // elem_offset, so the husk keeps neither.
     auto flat = FlattenedTensor(fold_view, ffi::GetRef<sym::Analyzer>(analyzer_),
                                 /*fold_origin=*/true);
-    auto type = ffi::make_object<TensorTypeNode>(*flat.ty().get());
+    auto type = ffi::make_object<TensorTypeObj>(*flat.ty().get());
     for (size_t i = 0; i < type->shape.size(); ++i) {
       type->shape.Set(i, analyzer_->canonical_simplify(type->shape[i]));
     }
@@ -164,15 +164,15 @@ class TensorFlattener : public StmtExprMutatorWithAnalyzer {
     return it->second;
   }
 
-  UnchangedOr<Stmt> Mutate_(const BindNode* op, InplaceMode inplace_mode) final {
-    if (const auto* call = op->value.as<CallNode>(); call) {
+  UnchangedOr<Stmt> Mutate_(const BindObj* op, InplaceMode inplace_mode) final {
+    if (const auto* call = op->value.as<CallObj>(); call) {
       if (call->op.same_as(alloc_tensor_op())) return MutateAllocTensor(op, call, inplace_mode);
       if (call->op.same_as(decl_tensor_op())) return MutateDeclTensor(op, call, inplace_mode);
     }
     return StmtExprMutatorWithAnalyzer::Mutate_(op, inplace_mode);
   }
 
-  UnchangedOr<Stmt> MutateAllocTensor(const BindNode* op, const CallNode* tensor_call,
+  UnchangedOr<Stmt> MutateAllocTensor(const BindObj* op, const CallObj* tensor_call,
                                       InplaceMode inplace_mode) {
     const FlatInfo& info = Define(op->var.as_or_throw<TensorVar>());
     ffi::Array<Expr> args = tensor_call->args;
@@ -190,13 +190,13 @@ class TensorFlattener : public StmtExprMutatorWithAnalyzer {
                 op->loc);
   }
 
-  UnchangedOr<Stmt> MutateDeclTensor(const BindNode* op, const CallNode* tensor_call,
+  UnchangedOr<Stmt> MutateDeclTensor(const BindObj* op, const CallObj* tensor_call,
                                      InplaceMode inplace_mode) {
     Expr data = tensor_call->args[0];
     bool is_extern_tensor_source = false;
-    if (const auto* call = tensor_call->args[0].as<CallNode>();
+    if (const auto* call = tensor_call->args[0].as<CallObj>();
         call && call->op.same_as(tensor_data_ptr_op()) && call->args.size() == 1) {
-      if (const auto* var = call->args[0].as<VarNode>(); var && var->ty.as<TensorTypeNode>()) {
+      if (const auto* var = call->args[0].as<VarObj>(); var && var->ty.as<TensorTypeObj>()) {
         is_extern_tensor_source =
             extern_tensors_.count(ffi::GetRef<Var>(var).as_or_throw<TensorVar>());
       }
@@ -215,7 +215,7 @@ class TensorFlattener : public StmtExprMutatorWithAnalyzer {
                 op->loc);
   }
 
-  UnchangedOr<Stmt> Mutate_(const TensorStoreNode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<Stmt> Mutate_(const TensorStoreObj* op, InplaceMode inplace_mode) final {
     // The tensor and its indices must be flattened together by VisitTensorAccess.
     auto value = Mutate(op->value, inplace_mode);
     auto indices =
@@ -229,7 +229,7 @@ class TensorFlattener : public StmtExprMutatorWithAnalyzer {
     return VisitTensorAccess(std::move(store), op->dest.as_or_throw<TensorVar>());
   }
 
-  UnchangedOr<PrimExpr> Mutate_(const TensorLoadNode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<PrimExpr> Mutate_(const TensorLoadObj* op, InplaceMode inplace_mode) final {
     auto indices =
         Mutate(op->indices, inplace_mode).as_or_throw<UnchangedOr<ffi::Array<PrimExpr>>>();
     TensorLoad load = ffi::GetRef<TensorLoad>(op);
@@ -239,7 +239,7 @@ class TensorFlattener : public StmtExprMutatorWithAnalyzer {
     return VisitTensorAccess(std::move(load), op->source.as_or_throw<TensorVar>());
   }
 
-  UnchangedOr<Expr> Mutate_(const CallNode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<Expr> Mutate_(const CallObj* op, InplaceMode inplace_mode) final {
     if (op->op.same_as(masked_load_op()) || op->op.same_as(masked_store_op())) {
       bool is_load = op->op.same_as(masked_load_op());
       TensorVar original = op->args[0].as_or_throw<TensorVar>();
@@ -261,7 +261,7 @@ class TensorFlattener : public StmtExprMutatorWithAnalyzer {
     }
     if (op->op.same_as(tensor_data_ptr_op()) && op->args.size() == 1) {
       if (auto var = op->args[0].as<Var>()) {
-        if (var.value()->ty.as<TensorTypeNode>()) {
+        if (var.value()->ty.as<TensorTypeObj>()) {
           TensorVar original = var.value().as_or_throw<TensorVar>();
           tensors_used_.insert(original);
           return Lookup(original).flattened.data();

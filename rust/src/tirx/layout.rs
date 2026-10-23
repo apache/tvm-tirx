@@ -156,8 +156,8 @@ impl IterObj {
 
 impl Iter {
     /// Lossless complete-field allocation.
-    pub fn new(extent: Expr, stride: Expr, axis: Axis) -> Self {
-        let obj = IterObj::new(extent, stride, axis);
+    pub fn new(extent: impl Into<Expr>, stride: impl Into<Expr>, axis: impl Into<Axis>) -> Self {
+        let obj = IterObj::new(extent.into(), stride.into(), axis.into());
         Self { base: ObjectArc::new(obj) }
     }
 }

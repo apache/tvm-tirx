@@ -81,7 +81,7 @@ TVM_TIRX_DLL ExprDoc AddMetadata(DocTranslatorObj* d, ffi::Any value);
  * \return The explicit constructor Doc.
  */
 TVM_TIRX_DLL ExprDoc
-RawCallDocTranslate(DocTranslatorObj* d, const CallNode* call,
+RawCallDocTranslate(DocTranslatorObj* d, const CallObj* call,
                     ffi::Optional<ffi::Array<ExprDoc>> translated_args = std::nullopt);
 
 /*!
@@ -91,7 +91,7 @@ RawCallDocTranslate(DocTranslatorObj* d, const CallNode* call,
  * \return The call Doc, or nullopt for a non-Op callee.
  */
 TVM_TIRX_DLL ffi::Optional<ExprDoc> StandardCallDocTranslate(DocTranslatorObj* d,
-                                                             const CallNode* call);
+                                                             const CallObj* call);
 
 }  // namespace printer
 }  // namespace script

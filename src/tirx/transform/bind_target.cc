@@ -67,8 +67,8 @@ class FunctionClassifierVisitor : public StmtExprVisitor {
    *         - Set of GlobalVarNodes called from device code
    * \note A single function can be called by both host and device contexts.
    */
-  static std::tuple<std::unordered_set<const GlobalVarNode*>,
-                    std::unordered_set<const GlobalVarNode*>>
+  static std::tuple<std::unordered_set<const GlobalVarObj*>,
+                    std::unordered_set<const GlobalVarObj*>>
   GetFunctionCallers(const IRModule& mod) {
     auto visitor = ffi::make_object<FunctionClassifierVisitor>();
 
@@ -76,7 +76,7 @@ class FunctionClassifierVisitor : public StmtExprVisitor {
     // since they represent the entry points where host/device calls originate
     for (const auto& [gvar, func] : mod->functions) {
       bool is_externally_exposed = func->GetAttr(tvm::attr::kGlobalSymbol).has_value();
-      const auto* function = func.as<FunctionNode>();
+      const auto* function = func.as<FunctionObj>();
 
       if (is_externally_exposed && function != nullptr) {
         visitor->Visit(function->body);
@@ -89,8 +89,8 @@ class FunctionClassifierVisitor : public StmtExprVisitor {
  private:
   using StmtExprVisitor::Visit_;
 
-  ffi::Optional<VisitInterrupt> Visit_(const CallNode* op) final {
-    const auto* global_var = op->op.as<GlobalVarNode>();
+  ffi::Optional<VisitInterrupt> Visit_(const CallObj* op) final {
+    const auto* global_var = op->op.as<GlobalVarObj>();
     if (global_var != nullptr) {
       // Classify the call based on current scope
       if (is_under_gpu_scope_) {
@@ -102,7 +102,7 @@ class FunctionClassifierVisitor : public StmtExprVisitor {
     return StmtExprVisitor::Visit_(op);
   }
 
-  ffi::Optional<VisitInterrupt> Visit_(const RegionStmtNode* op) final {
+  ffi::Optional<VisitInterrupt> Visit_(const RegionStmtObj* op) final {
     if (!op->op.same_as(tirx::launch_thread_op()) && !op->op.same_as(tirx::device_entry_op()))
       return StmtExprVisitor::Visit_(op);
     TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(Visit(op->args));
@@ -117,9 +117,9 @@ class FunctionClassifierVisitor : public StmtExprVisitor {
   /*! \brief Whether the current statement is under a GPU scope */
   bool is_under_gpu_scope_ = false;
   /*! \brief Set of functions called from host code */
-  std::unordered_set<const GlobalVarNode*> host_called_global_vars_;
+  std::unordered_set<const GlobalVarObj*> host_called_global_vars_;
   /*! \brief Set of functions called from device code */
-  std::unordered_set<const GlobalVarNode*> device_called_global_vars_;
+  std::unordered_set<const GlobalVarObj*> device_called_global_vars_;
 };
 
 /*!
@@ -159,7 +159,7 @@ class CallSubstitutor : public StmtExprMutator {
   }
 
  private:
-  UnchangedOr<Expr> Mutate_(const CallNode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<Expr> Mutate_(const CallObj* op, InplaceMode inplace_mode) final {
     auto call = StmtExprMutator::Mutate_(op, inplace_mode)
                     .ValueOrUnchanged(ffi::GetRef<Expr>(op))
                     .as_or_throw<Call>();
@@ -175,7 +175,7 @@ class CallSubstitutor : public StmtExprMutator {
     return call;
   }
 
-  UnchangedOr<Stmt> Mutate_(const RegionStmtNode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<Stmt> Mutate_(const RegionStmtObj* op, InplaceMode inplace_mode) final {
     if (!op->op.same_as(tirx::launch_thread_op()) && !op->op.same_as(tirx::device_entry_op()))
       return StmtExprMutator::Mutate_(op, inplace_mode);
     auto args =
@@ -240,7 +240,7 @@ IRModule BindTarget(IRModule mod, const Target& target) {
                                 [](const auto& kv) { return kv.first->name_hint; });
 
   for (auto [gvar, func] : mod->functions) {
-    const auto* function_node = func.as<FunctionNode>();
+    const auto* function_node = func.as<FunctionObj>();
     if (function_node == nullptr) {
       // Skip non-Function entries
       continue;
@@ -315,7 +315,7 @@ IRModule BindTarget(IRModule mod, const Target& target) {
     auto substitutor = ffi::make_object<CallSubstitutor>(host_function_replacements);
 
     for (auto [gvar, func] : mod->functions) {
-      const auto* function = func.as<FunctionNode>();
+      const auto* function = func.as<FunctionObj>();
       if (function == nullptr) {
         continue;
       }

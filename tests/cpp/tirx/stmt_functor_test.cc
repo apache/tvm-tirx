@@ -25,16 +25,16 @@ namespace tvm {
 namespace tirx {
 namespace {
 
-class ExtensionStmtNode : public StmtNode {
+class ExtensionStmtObj : public StmtObj {
  public:
   static constexpr uint32_t _type_child_slots = 1;
-  TVM_FFI_DECLARE_OBJECT_INFO("test.ExtensionStmt", ExtensionStmtNode, StmtNode);
+  TVM_FFI_DECLARE_OBJECT_INFO("test.ExtensionStmt", ExtensionStmtObj, StmtObj);
 };
 
-class ChildExtensionStmtNode : public ExtensionStmtNode {
+class ChildExtensionStmtObj : public ExtensionStmtObj {
  public:
-  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("test.ChildExtensionStmt", ChildExtensionStmtNode,
-                                    ExtensionStmtNode);
+  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("test.ChildExtensionStmt", ChildExtensionStmtObj,
+                                    ExtensionStmtObj);
 };
 
 using ForwardFunctor = StmtFunctor<int(const Stmt&, std::unique_ptr<int>, int&)>;
@@ -44,11 +44,11 @@ class ExtendedFunctor : public ForwardFunctor {
   using ForwardFunctor::Dispatch_;
   ExtendedFunctor() : ForwardFunctor(Table()) {}
 
-  int Dispatch_(const EvaluateNode*, std::unique_ptr<int> value, int& count) override {
+  int Dispatch_(const EvaluateObj*, std::unique_ptr<int> value, int& count) override {
     ++count;
     return *value;
   }
-  virtual int Dispatch_(const ExtensionStmtNode*, std::unique_ptr<int> value, int& count) {
+  virtual int Dispatch_(const ExtensionStmtObj*, std::unique_ptr<int> value, int& count) {
     ++count;
     return *value + 10;
   }
@@ -62,7 +62,7 @@ class ExtendedFunctor : public ForwardFunctor {
     static const VTable table = [] {
       VTable table;
       ForwardFunctor::InitVTable(&table);
-      SetDispatch<ExtendedFunctor, ExtensionStmtNode>(&table);
+      SetDispatch<ExtendedFunctor, ExtensionStmtObj>(&table);
       table.Finalize();
       return table;
     }();
@@ -78,9 +78,9 @@ TEST(StmtFunctor, ExtendedTableForwardingAndAncestorDispatch) {
   EXPECT_EQ(value, nullptr);
   EXPECT_EQ(calls, 1);
 
-  Stmt extension(ffi::make_object<ExtensionStmtNode>());
+  Stmt extension(ffi::make_object<ExtensionStmtObj>());
   EXPECT_EQ(functor.Dispatch(extension, std::make_unique<int>(4), calls), 14);
-  Stmt child(ffi::make_object<ChildExtensionStmtNode>());
+  Stmt child(ffi::make_object<ChildExtensionStmtObj>());
   EXPECT_EQ(functor(child, std::make_unique<int>(5), calls), 15);
   EXPECT_EQ(calls, 3);
 
@@ -99,7 +99,7 @@ TEST(StmtFunctor, EntryPointLifetimeAndNoRecursion) {
     explicit Functor(bool* destroyed) : destroyed_(destroyed) {}
     ~Functor() override { *destroyed_ = true; }
     int Dispatch(const Stmt& node) override { return 10 + StmtFunctor::Dispatch(node); }
-    int Dispatch_(const SeqStmtNode*) override { return 2; }
+    int Dispatch_(const SeqStmtObj*) override { return 2; }
 
    private:
     bool* destroyed_;
@@ -118,7 +118,7 @@ TEST(StmtFunctor, EntryPointLifetimeAndNoRecursion) {
 TEST(StmtFunctor, ReferenceResult) {
   class Functor : public StmtFunctor<int&(const Stmt&, int&)> {
    public:
-    int& Dispatch_(const EvaluateNode*, int& value) override { return value; }
+    int& Dispatch_(const EvaluateObj*, int& value) override { return value; }
   };
   Functor functor;
   int value = 3;

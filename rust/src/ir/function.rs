@@ -45,6 +45,7 @@ use tvm_ffi::Map;
 use tvm_ffi::ObjectArc;
 use tvm_ffi::RValueRef;
 use tvm_ffi::Result;
+use tvm_ffi::ShallowCopy;
 use tvm_ffi::String;
 // tvm-ffi-stubgen(end)
 
@@ -84,7 +85,7 @@ impl Deref for BaseFuncObj {
 }
 
 impl BaseFuncObj {
-    pub(crate) fn new(loc: Location, ty: Type, attrs: DictAttrs) -> Self {
+    pub fn new(loc: Location, ty: Type, attrs: DictAttrs) -> Self {
         let base = ExprObj::new(loc, ty);
         Self { base, attrs }
     }
@@ -92,9 +93,15 @@ impl BaseFuncObj {
 
 impl BaseFunc {
     /// Lossless complete-field allocation.
-    pub fn new(loc: Location, ty: Type, attrs: DictAttrs) -> Self {
-        let obj = BaseFuncObj::new(loc, ty, attrs);
+    pub fn new(loc: impl Into<Location>, ty: impl Into<Type>, attrs: impl Into<DictAttrs>) -> Self {
+        let obj = BaseFuncObj::new(loc.into(), ty.into(), attrs.into());
         Self { base: ObjectArc::new(obj) }
+    }
+}
+
+impl ShallowCopy for BaseFuncObj {
+    fn shallow_copy(&self) -> Self {
+        Self { base: ShallowCopy::shallow_copy(&self.base), attrs: Clone::clone(&self.attrs) }
     }
 }
 

@@ -176,7 +176,7 @@ class CSEPlanner : public StmtExprVisitor {
     /*! \brief Distance from root (root = 0). */
     int depth;
     /*!
-     * \brief The statement that created this scope (e.g. ForNode).
+     * \brief The statement that created this scope (e.g. ForObj).
      *
      * Null for the root scope. Used as the insertion point when a CSE
      * binding must be placed before the scope.
@@ -268,7 +268,7 @@ class CSEPlanner : public StmtExprVisitor {
    * \return true if the expression is a Call or TensorLoad.
    */
   static bool IsForbiddenNode(const PrimExpr& expr) {
-    return (expr.as<CallNode>() != nullptr || expr.as<TensorLoadNode>() != nullptr);
+    return (expr.as<CallObj>() != nullptr || expr.as<TensorLoadObj>() != nullptr);
   }
 
   /*!
@@ -286,12 +286,12 @@ class CSEPlanner : public StmtExprVisitor {
    * \return true if the expression can participate in CSE.
    */
   static bool IsEligible(const PrimExpr& expr) {
-    if (expr.as<IntImmNode>() || expr.as<FloatImmNode>() || expr.as<StringImmNode>() ||
-        expr.as<VarNode>()) {
+    if (expr.as<IntImmObj>() || expr.as<FloatImmObj>() || expr.as<StringImmObj>() ||
+        expr.as<VarObj>()) {
       return false;
     }
     if (IsForbiddenNode(expr)) return false;
-    if (expr.as<prim::RampNode>() || expr.as<prim::BroadcastNode>()) return false;
+    if (expr.as<prim::RampObj>() || expr.as<prim::BroadcastObj>()) return false;
     // Reject bool-typed expressions. Boolean predicates almost always feed an
     // if / Select / assert, where reading the condition inline is clearer than
     // going through a `cse_v: bool = (a < b)` temporary, and where downstream
@@ -353,7 +353,7 @@ class CSEPlanner : public StmtExprVisitor {
    * \brief Allocate a new child scope in the scope tree.
    *
    * \param parent The parent scope ID.
-   * \param creator_stmt The statement that creates this scope (e.g. ForNode).
+   * \param creator_stmt The statement that creates this scope (e.g. ForObj).
    *                     Stored for later use as an insertion point.
    * \return The ID of the newly allocated scope.
    */
@@ -489,46 +489,46 @@ class CSEPlanner : public StmtExprVisitor {
     RecordExpr(ffi::GetRef<PrimExpr>(op), {op->a, op->b});            \
     return std::nullopt;                                              \
   }
-  CSE_VISIT_BINARY(prim::AddNode)
-  CSE_VISIT_BINARY(prim::SubNode)
-  CSE_VISIT_BINARY(prim::MulNode)
-  CSE_VISIT_BINARY(prim::DivNode)
-  CSE_VISIT_BINARY(prim::ModNode)
-  CSE_VISIT_BINARY(prim::FloorDivNode)
-  CSE_VISIT_BINARY(prim::FloorModNode)
-  CSE_VISIT_BINARY(prim::MinNode)
-  CSE_VISIT_BINARY(prim::MaxNode)
-  CSE_VISIT_BINARY(prim::EQNode)
-  CSE_VISIT_BINARY(prim::NENode)
-  CSE_VISIT_BINARY(prim::LTNode)
-  CSE_VISIT_BINARY(prim::LENode)
-  CSE_VISIT_BINARY(prim::GTNode)
-  CSE_VISIT_BINARY(prim::GENode)
-  CSE_VISIT_BINARY(prim::AndNode)
-  CSE_VISIT_BINARY(prim::OrNode)
-  CSE_VISIT_BINARY(prim::LShiftNode)
-  CSE_VISIT_BINARY(prim::RShiftNode)
-  CSE_VISIT_BINARY(prim::BitwiseAndNode)
-  CSE_VISIT_BINARY(prim::BitwiseOrNode)
-  CSE_VISIT_BINARY(prim::BitwiseXorNode)
+  CSE_VISIT_BINARY(prim::AddObj)
+  CSE_VISIT_BINARY(prim::SubObj)
+  CSE_VISIT_BINARY(prim::MulObj)
+  CSE_VISIT_BINARY(prim::DivObj)
+  CSE_VISIT_BINARY(prim::ModObj)
+  CSE_VISIT_BINARY(prim::FloorDivObj)
+  CSE_VISIT_BINARY(prim::FloorModObj)
+  CSE_VISIT_BINARY(prim::MinObj)
+  CSE_VISIT_BINARY(prim::MaxObj)
+  CSE_VISIT_BINARY(prim::EQObj)
+  CSE_VISIT_BINARY(prim::NEObj)
+  CSE_VISIT_BINARY(prim::LTObj)
+  CSE_VISIT_BINARY(prim::LEObj)
+  CSE_VISIT_BINARY(prim::GTObj)
+  CSE_VISIT_BINARY(prim::GEObj)
+  CSE_VISIT_BINARY(prim::AndObj)
+  CSE_VISIT_BINARY(prim::OrObj)
+  CSE_VISIT_BINARY(prim::LShiftObj)
+  CSE_VISIT_BINARY(prim::RShiftObj)
+  CSE_VISIT_BINARY(prim::BitwiseAndObj)
+  CSE_VISIT_BINARY(prim::BitwiseOrObj)
+  CSE_VISIT_BINARY(prim::BitwiseXorObj)
 #undef CSE_VISIT_BINARY
 
-  ffi::Optional<VisitInterrupt> Visit_(const prim::BitwiseNotNode* op) override {
+  ffi::Optional<VisitInterrupt> Visit_(const prim::BitwiseNotObj* op) override {
     TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(StmtExprVisitor::Visit_(op));
     RecordExpr(ffi::GetRef<PrimExpr>(op), {op->a});
     return std::nullopt;
   }
-  ffi::Optional<VisitInterrupt> Visit_(const prim::NotNode* op) override {
+  ffi::Optional<VisitInterrupt> Visit_(const prim::NotObj* op) override {
     TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(StmtExprVisitor::Visit_(op));
     RecordExpr(ffi::GetRef<PrimExpr>(op), {op->a});
     return std::nullopt;
   }
-  ffi::Optional<VisitInterrupt> Visit_(const prim::CastNode* op) override {
+  ffi::Optional<VisitInterrupt> Visit_(const prim::CastObj* op) override {
     TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(StmtExprVisitor::Visit_(op));
     RecordExpr(ffi::GetRef<PrimExpr>(op), {op->value});
     return std::nullopt;
   }
-  ffi::Optional<VisitInterrupt> Visit_(const prim::SelectNode* op) override {
+  ffi::Optional<VisitInterrupt> Visit_(const prim::SelectObj* op) override {
     TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(StmtExprVisitor::Visit_(op));
     RecordExpr(ffi::GetRef<PrimExpr>(op), {op->condition, op->true_value, op->false_value});
     return std::nullopt;
@@ -542,7 +542,7 @@ class CSEPlanner : public StmtExprVisitor {
    * extracting expressions that may reference the Let-bound variable
    * to a position before the containing statement where it is undefined.
    */
-  ffi::Optional<VisitInterrupt> Visit_(const prim::LetNode* op) override {
+  ffi::Optional<VisitInterrupt> Visit_(const prim::LetObj* op) override {
     TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(Visit(op->value));
     ++let_depth_;
     TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(Visit(op->body));
@@ -569,7 +569,7 @@ class CSEPlanner : public StmtExprVisitor {
   }
 
   /*! \brief For loops: bounds in parent scope, body in child scope. */
-  ffi::Optional<VisitInterrupt> Visit_(const ForNode* op) override {
+  ffi::Optional<VisitInterrupt> Visit_(const ForObj* op) override {
     TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(Visit(op->begin));
     TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(Visit(op->end));
     TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(Visit(op->step));
@@ -588,7 +588,7 @@ class CSEPlanner : public StmtExprVisitor {
    * Each branch gets its own scope so that expressions appearing in only
    * one branch are not hoisted above the If.
    */
-  ffi::Optional<VisitInterrupt> Visit_(const IfNode* op) override {
+  ffi::Optional<VisitInterrupt> Visit_(const IfObj* op) override {
     TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(Visit(op->condition));
     int saved = current_scope_;
     Stmt stmt = ffi::GetRef<Stmt>(op);
@@ -603,7 +603,7 @@ class CSEPlanner : public StmtExprVisitor {
   }
 
   /*! \brief While loops: condition in parent scope, body in child scope. */
-  ffi::Optional<VisitInterrupt> Visit_(const WhileNode* op) override {
+  ffi::Optional<VisitInterrupt> Visit_(const WhileObj* op) override {
     TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(Visit(op->condition));
     int saved = current_scope_;
     current_scope_ = AllocScope(saved, ffi::GetRef<Stmt>(op));
@@ -613,7 +613,7 @@ class CSEPlanner : public StmtExprVisitor {
   }
 
   /*! \brief Region inputs belong to the parent and the body is a child scope. */
-  ffi::Optional<VisitInterrupt> Visit_(const RegionStmtNode* op) override {
+  ffi::Optional<VisitInterrupt> Visit_(const RegionStmtObj* op) override {
     TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(Visit(op->args));
     TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(Visit(op->attrs));
     // Unknown operations can impose their own execution policy. Preserve them
@@ -798,7 +798,7 @@ class CSERewriter : public StmtExprMutator {
       auto it = expr_remap_.find(prim_expr.value());
       if (it != expr_remap_.end()) return it->second;
     }
-    auto* stmt_node = input.as<StmtNode>();
+    auto* stmt_node = input.as<StmtObj>();
     if (!stmt_node) return StmtExprMutator::Mutate(input, inplace_mode);
     auto it = insert_before_.find(ffi::GetRef<Stmt>(stmt_node));
     auto result = StmtExprMutator::Mutate(input, inplace_mode);
@@ -808,7 +808,7 @@ class CSERewriter : public StmtExprMutator {
     if (materialized_.insert(stmt_node).second) {
       new_stmts = ffi::Array<Stmt>(it->second.begin(), it->second.end());
     } else {
-      std::unordered_map<const VarNode*, PrimExpr> remap;
+      std::unordered_map<const VarObj*, PrimExpr> remap;
       auto lookup = [&remap](
                         const Var& v,
                         TVMFFIDefRegionKind kind) -> ffi::Expected<ffi::UnchangedOr<ffi::Any>> {
@@ -818,7 +818,7 @@ class CSERewriter : public StmtExprMutator {
         return ffi::Unchanged();
       };
       for (const Stmt& s : it->second) {
-        const BindNode* bind = s.as<BindNode>();
+        const BindObj* bind = s.as<BindObj>();
         TVM_FFI_ICHECK(bind != nullptr);
         // Deeper Bind values may reference shallower cse vars of this same
         // insertion point; route them through the fresh vars as well.
@@ -834,7 +834,7 @@ class CSERewriter : public StmtExprMutator {
     return SeqStmt(new_stmts);
   }
 
-  UnchangedOr<Stmt> Mutate_(const RegionStmtNode* op, InplaceMode inplace_mode) override {
+  UnchangedOr<Stmt> Mutate_(const RegionStmtObj* op, InplaceMode inplace_mode) override {
     if (opaque_body_ || op->op.same_as(tirx::launch_thread_op()))
       return StmtExprMutator::Mutate_(op, inplace_mode);
     // Match the planner's opaque boundary: only operands outside the body
@@ -863,7 +863,7 @@ class CSERewriter : public StmtExprMutator {
   /*! \brief Plan: expressions to replace with CSE vars. */
   ExprRemapTable expr_remap_;
   /*! \brief Insertion targets whose plan has already been materialized once. */
-  std::unordered_set<const StmtNode*> materialized_;
+  std::unordered_set<const StmtObj*> materialized_;
 };
 
 // ============================================================================

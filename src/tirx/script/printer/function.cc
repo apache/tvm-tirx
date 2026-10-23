@@ -41,7 +41,7 @@ namespace details {
 
 namespace {
 
-void PrintFunction(DocTranslatorObj* d, const tirx::FunctionNode* func, ExprDoc decorator) {
+void PrintFunction(DocTranslatorObj* d, const tirx::FunctionObj* func, ExprDoc decorator) {
   auto bound_name = d->GetOrCreateExtraState<ffi::Optional<ffi::String>>("ir.function_name");
   // A nested function must not inherit the enclosing module member's binding.
   d->WithExtraStateScope<ffi::Optional<ffi::String>>("ir.function_name", std::nullopt, [&]() {
@@ -51,7 +51,7 @@ void PrintFunction(DocTranslatorObj* d, const tirx::FunctionNode* func, ExprDoc 
       FunctionDoc doc(ffi::UnsafeInit{});
       {
         ffi::Array<AssignDoc> args;
-        std::unordered_set<const VarNode*> signature_symbols;
+        std::unordered_set<const VarObj*> signature_symbols;
         for (const Var& var : func->params) {
           ffi::StructuralWalk<ffi::WalkOrder::kPreOrder>(
               var->ty, [&](const Var& symbol) -> ffi::Expected<ffi::WalkResult> {
@@ -135,7 +135,7 @@ void PrintFunction(DocTranslatorObj* d, const tirx::FunctionNode* func, ExprDoc 
         auto pending = d->GetImplicitDefs();
         if (!module.has_value()) {
           for (const auto& [var, signature_id] : signature_candidates) {
-            if (!pending.count(var) || !var->ty.as<PrimTypeNode>()) continue;
+            if (!pending.count(var) || !var->ty.as<PrimTypeObj>()) continue;
             IdDoc id = VarDoc(d, var);
             if (var->ty.as_or_throw<PrimType>()->dtype == (DLDataType{kDLInt, 32, 1})) {
               doc->type_params.push_back(id);
@@ -155,7 +155,7 @@ void PrintFunction(DocTranslatorObj* d, const tirx::FunctionNode* func, ExprDoc 
 ffi::Optional<ExprDoc> TirxFunctionDocTranslate(DocTranslatorObj* d, ffi::AnyView input,
                                                 const ffi::Object* destination) {
   const auto* func =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const tirx::FunctionNode>(input);
+      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const tirx::FunctionObj>(input);
   TVM_FFI_CHECK(destination == nullptr, TypeError)
       << "printer statement-only node cannot fulfill a destination";
   auto construction_namespace = func->GetAttr(tvm::attr::kScriptNamespace).value_or("tirx");
@@ -165,7 +165,7 @@ ffi::Optional<ExprDoc> TirxFunctionDocTranslate(DocTranslatorObj* d, ffi::AnyVie
 
 TVM_FFI_STATIC_INIT_BLOCK() {
   RegisterNamespaceAlias("tirx.prefix", "T");
-  ffi::reflection::TypeAttrDef<tirx::FunctionNode>().attr(
+  ffi::reflection::TypeAttrDef<tirx::FunctionObj>().attr(
       tvm::script::printer::type_attr::kDocTranslate.name,
       FDocTranslate::FromNative<&TirxFunctionDocTranslate>());
 }

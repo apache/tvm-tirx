@@ -100,13 +100,17 @@ impl CallFFIKernelAttrObj {
 impl CallFFIKernelAttr {
     /// Lossless complete-field allocation.
     pub fn new(
-        launch_params: Array<String>,
-        launch_fields: Array<String>,
+        launch_params: impl Into<Array<String>>,
+        launch_fields: impl Into<Array<String>>,
         num_kernel_args: i64,
-        kernel_attrs: Map<String, i64>,
+        kernel_attrs: impl Into<Map<String, i64>>,
     ) -> Self {
-        let obj =
-            CallFFIKernelAttrObj::new(launch_params, launch_fields, num_kernel_args, kernel_attrs);
+        let obj = CallFFIKernelAttrObj::new(
+            launch_params.into(),
+            launch_fields.into(),
+            num_kernel_args,
+            kernel_attrs.into(),
+        );
         Self { base: ObjectArc::new(obj) }
     }
 }

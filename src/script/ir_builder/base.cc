@@ -36,8 +36,8 @@ bool PositionLessEqual(int lhs_line, int lhs_column, int rhs_line, int rhs_colum
 }
 
 bool Contains(const Location& outer, const Location& inner) {
-  const auto* outer_source = outer.as<SourceLocNode>();
-  const auto* inner_source = inner.as<SourceLocNode>();
+  const auto* outer_source = outer.as<SourceLocObj>();
+  const auto* inner_source = inner.as<SourceLocObj>();
   if (!outer_source || !inner_source ||
       !outer_source->source_name.same_as(inner_source->source_name)) {
     return false;
@@ -53,10 +53,10 @@ bool SameLocation(const Location& lhs, const Location& rhs) {
 }
 
 void AppendNormalizedLoc(const Location& loc, std::vector<Location>* normalized) {
-  if (loc.as<UnknownLocNode>()) {
+  if (loc.as<UnknownLocObj>()) {
     return;
   }
-  if (const auto* call_site = loc.as<CallSiteLocNode>()) {
+  if (const auto* call_site = loc.as<CallSiteLocObj>()) {
     // Stored node/frame context can repeat the active caller prefix.  Merge
     // overlapping chains before appending their distinct definition locations.
     std::vector<Location> nested;
@@ -158,7 +158,7 @@ Location IRBuilderObj::ResolveLoc(Location location) const {
 
 ffi::ObjectRef IRBuilderObj::AttachLoc(ffi::ObjectRef obj, Location loc) const {
   loc = ComposeLoc(ResolveLoc(), loc);
-  if (!loc.as<UnknownLocNode>() && obj.defined()) {
+  if (!loc.as<UnknownLocObj>() && obj.defined()) {
     if (Location* target = details::LocationAccessor::vtable()(obj)) {
       *target = ComposeLoc(loc, *target);
     }
@@ -211,8 +211,8 @@ LocationAccessor::FType& LocationAccessor::vtable() {
 TVM_FFI_STATIC_INIT_BLOCK() {
   LocationAccessor::vtable()
       .SetDispatch<ffi::Object>([](const ffi::ObjectRef&) -> Location* { return nullptr; })
-      .SetDispatch<ExprNode>(
-          [](const ffi::ObjectRef& obj) -> Location* { return &obj.as<ExprNode>()->loc; })
+      .SetDispatch<ExprObj>(
+          [](const ffi::ObjectRef& obj) -> Location* { return &obj.as<ExprObj>()->loc; })
       .SetDispatch<IRBuilderFrameObj>(
           [](const ffi::ObjectRef& obj) -> Location* { return &obj.as<IRBuilderFrameObj>()->loc; });
 }

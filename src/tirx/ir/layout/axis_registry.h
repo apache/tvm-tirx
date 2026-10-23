@@ -35,7 +35,7 @@ class AxisDef {
   AxisDef& set_attr(const char* name, T value) {
     ffi::reflection::TypeAttrColumn column(ffi::type_attr::kEnumState);
     auto state =
-        ffi::Any(column[AxisNode::_GetOrAllocRuntimeTypeIndex()]).as_or_throw<ffi::EnumState>();
+        ffi::Any(column[AxisObj::_GetOrAllocRuntimeTypeIndex()]).as_or_throw<ffi::EnumState>();
     ffi::String key(name);
     auto attrs = state->attrs;
     auto values = attrs.Get(key).value_or(ffi::Dict<ffi::ObjectRef, ffi::Any>());

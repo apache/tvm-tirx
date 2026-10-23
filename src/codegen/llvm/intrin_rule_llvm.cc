@@ -129,7 +129,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
   OpDef("prim.exp10")
       .set_attr<FLegalize>("llvm.FLegalize", [](const PrimExpr& e) -> PrimExpr {
     using tvm::prim::MakeConst;
-    const CallNode* call = e.as<CallNode>();
+    const CallObj* call = e.as<CallObj>();
     TVM_FFI_ICHECK(call != nullptr);
     PrimExpr x = call->args[0].as_or_throw<PrimExpr>();
     PrimExpr ln10 = MakeConst(x.ty(), 2.302585093);
@@ -139,7 +139,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
 
   OpDef("prim.tan")
       .set_attr<FLegalize>("llvm.FLegalize", [](const PrimExpr& e) -> PrimExpr {
-    const CallNode* call = e.as<CallNode>();
+    const CallObj* call = e.as<CallObj>();
     TVM_FFI_ICHECK(call != nullptr);
     PrimExpr x = call->args[0].as_or_throw<PrimExpr>();
     PrimExpr tan_x = sin(x) / cos(x);
@@ -149,7 +149,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
   OpDef("prim.asin")
       .set_attr<FLegalize>("llvm.FLegalize", [](const PrimExpr& e) -> PrimExpr {
     using namespace intrin;
-    const CallNode* call = e.as<CallNode>();
+    const CallObj* call = e.as<CallObj>();
     TVM_FFI_ICHECK(call != nullptr);
     return ::tvm::codegen::intrin::DispatchPureExtern<::tvm::codegen::intrin::FloatSuffix>(e);
   });
@@ -157,7 +157,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
   OpDef("prim.acos")
       .set_attr<FLegalize>("llvm.FLegalize", [](const PrimExpr& e) -> PrimExpr {
     using namespace intrin;
-    const CallNode* call = e.as<CallNode>();
+    const CallObj* call = e.as<CallObj>();
     TVM_FFI_ICHECK(call != nullptr) << "Invalid call node in acos legalization";
     return ::tvm::codegen::intrin::DispatchPureExtern<::tvm::codegen::intrin::FloatSuffix>(e);
   });
@@ -165,7 +165,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
   OpDef("prim.atanh")
       .set_attr<FLegalize>("llvm.FLegalize", [](const PrimExpr& e) -> PrimExpr {
     using tvm::prim::MakeConst;
-    const CallNode* call = e.as<CallNode>();
+    const CallObj* call = e.as<CallObj>();
     TVM_FFI_ICHECK(call != nullptr) << "Invalid call node in atanh legalization";
     PrimExpr x = call->args[0].as_or_throw<PrimExpr>();
     PrimType x_ty = x.ty();
@@ -175,7 +175,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
 
   OpDef("prim.clz")
       .set_attr<FLegalize>("llvm.FLegalize", [](const PrimExpr& e) -> PrimExpr {
-    const CallNode* call = e.as<CallNode>();
+    const CallObj* call = e.as<CallObj>();
     TVM_FFI_ICHECK(call != nullptr);
     TVM_FFI_ICHECK_EQ(call->args.size(), 1);
     ffi::Array<PrimExpr> cargs;

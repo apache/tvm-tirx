@@ -107,15 +107,15 @@ class BoundDeducer : public tvm::ExprFunctor<void(const Expr&)> {
     return expr_map_.at(e).GetSignType();
   }
 
-  void Dispatch_(const VarNode* op) final {}
+  void Dispatch_(const VarObj* op) final {}
 
-  void Dispatch_(const prim::AddNode* op) final {
+  void Dispatch_(const prim::AddObj* op) final {
     bool left = op->a.get() == path_[iter_];
     result_ -= left ? op->b : op->a;
     this->Dispatch(left ? op->a : op->b);
   }
 
-  void Dispatch_(const prim::SubNode* op) final {
+  void Dispatch_(const prim::SubObj* op) final {
     bool left = op->a.get() == path_[iter_];
     if (left) {
       result_ += op->b;
@@ -127,7 +127,7 @@ class BoundDeducer : public tvm::ExprFunctor<void(const Expr&)> {
     this->Dispatch(left ? op->a : op->b);
   }
 
-  void Dispatch_(const prim::MulNode* op) final {
+  void Dispatch_(const prim::MulObj* op) final {
     bool left = op->a.get() == path_[iter_];
     PrimExpr operand = left ? op->b : op->a;
     PrimExpr target_var = left ? op->a : op->b;
@@ -169,7 +169,7 @@ class BoundDeducer : public tvm::ExprFunctor<void(const Expr&)> {
     this->Dispatch(left ? op->a : op->b);
   }
 
-  void Dispatch_(const prim::FloorDivNode* op) final {
+  void Dispatch_(const prim::FloorDivObj* op) final {
     if (op->b.get() == path_[iter_]) {
       // Skip cases where the var is divisor.
       success_ = false;
@@ -269,7 +269,7 @@ CompareOp BoundDeducer::ReverseOp(CompareOp comp_op) {
 
 void BoundDeducer::Transform() {
   // We will ensure to set expr_ such that it contains target_
-  if (const prim::LTNode* op = expr_.as<prim::LTNode>()) {
+  if (const prim::LTObj* op = expr_.as<prim::LTObj>()) {
     if (GetPath(target_, op->a).empty()) {
       // a < b -> b >= a + 1
       comp_op = kGreater;
@@ -281,7 +281,7 @@ void BoundDeducer::Transform() {
       expr_ = op->a;
       result_ = op->b - 1;
     }
-  } else if (const prim::LENode* op = expr_.as<prim::LENode>()) {
+  } else if (const prim::LEObj* op = expr_.as<prim::LEObj>()) {
     if (GetPath(target_, op->a).empty()) {
       // a <= b -> b >= a
       comp_op = kGreater;
@@ -292,7 +292,7 @@ void BoundDeducer::Transform() {
       expr_ = op->a;
       result_ = op->b;
     }
-  } else if (const prim::GTNode* op = expr_.as<prim::GTNode>()) {
+  } else if (const prim::GTObj* op = expr_.as<prim::GTObj>()) {
     if (GetPath(target_, op->a).empty()) {
       // a > b -> b <= a - 1
       comp_op = kLess;
@@ -304,7 +304,7 @@ void BoundDeducer::Transform() {
       expr_ = op->a;
       result_ = op->b + 1;
     }
-  } else if (const prim::GENode* op = expr_.as<prim::GENode>()) {
+  } else if (const prim::GEObj* op = expr_.as<prim::GEObj>()) {
     if (GetPath(target_, op->a).empty()) {
       // a >= b -> b <= a
       comp_op = kLess;
@@ -315,7 +315,7 @@ void BoundDeducer::Transform() {
       expr_ = op->a;
       result_ = op->b;
     }
-  } else if (const prim::EQNode* op = expr_.as<prim::EQNode>()) {
+  } else if (const prim::EQObj* op = expr_.as<prim::EQObj>()) {
     comp_op = kEqual;
     if (GetPath(target_, op->a).empty()) {
       // if the b == a -> a == b

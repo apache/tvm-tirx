@@ -88,8 +88,8 @@ impl ArgumentInfoObj {
 
 impl ArgumentInfo {
     /// Lossless complete-field allocation.
-    pub fn new(name: String, doc: String) -> Self {
-        let obj = ArgumentInfoObj::new(name, doc);
+    pub fn new(name: impl Into<String>, doc: impl Into<String>) -> Self {
+        let obj = ArgumentInfoObj::new(name.into(), doc.into());
         Self { base: ObjectArc::new(obj) }
     }
 }
@@ -99,7 +99,7 @@ impl ArgumentInfo {
 ///
 /// Hand-written (the block is `skip`ped): `attrs_type_index`, `validator`, and
 /// `validator_is_custom` are not reflected, so the generator can only emit an opaque
-/// view of `OpNode`. Keep the members in step with `OpNode` in `include/tvm/ir/op.h`.
+/// view of `OpObj`. Keep the members in step with `OpObj` in `include/tvm/ir/op.h`.
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.Op"]

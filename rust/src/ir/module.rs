@@ -98,12 +98,17 @@ impl IRModuleObj {
 impl IRModule {
     /// Lossless complete-field allocation.
     pub fn new(
-        functions: Map<GlobalVar, BaseFunc>,
-        attrs: DictAttrs,
-        global_infos: Map<String, Array<GlobalInfo>>,
-        global_var_map: Map<String, GlobalVar>,
+        functions: impl Into<Map<GlobalVar, BaseFunc>>,
+        attrs: impl Into<DictAttrs>,
+        global_infos: impl Into<Map<String, Array<GlobalInfo>>>,
+        global_var_map: impl Into<Map<String, GlobalVar>>,
     ) -> Self {
-        let obj = IRModuleObj::new(functions, attrs, global_infos, global_var_map);
+        let obj = IRModuleObj::new(
+            functions.into(),
+            attrs.into(),
+            global_infos.into(),
+            global_var_map.into(),
+        );
         Self { base: ObjectArc::new(obj) }
     }
 }

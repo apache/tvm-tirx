@@ -48,25 +48,25 @@ class CodeGenARM final : public CodeGenCPU {
     native_vector_bits_ = 16 * 8;
     CodeGenCPU::InitTarget();
   }
-  llvm::Value* CreateIntrinsic(const CallNode* op) override;
+  llvm::Value* CreateIntrinsic(const CallObj* op) override;
 
  private:
-  PrimExpr ARMPopcount(const CallNode* op);
+  PrimExpr ARMPopcount(const CallObj* op);
 };
 
-llvm::Value* CodeGenARM::CreateIntrinsic(const CallNode* op) {
+llvm::Value* CodeGenARM::CreateIntrinsic(const CallObj* op) {
   if (op->op.same_as(builtin_call_llvm_intrin_) || op->op.same_as(builtin_call_llvm_pure_intrin_)) {
     llvm::Intrinsic::ID id = static_cast<llvm::Intrinsic::ID>(
         op->args[0].as_or_throw<IntImm>()->value.as<unsigned>().value());
     if (id == llvm::Intrinsic::ctpop) {
       PrimExpr e = ARMPopcount(op);
-      return CodeGenCPU::CreateIntrinsic(e.as<CallNode>());
+      return CodeGenCPU::CreateIntrinsic(e.as<CallObj>());
     }
   }
   return CodeGenCPU::CreateIntrinsic(op);
 }
 
-PrimExpr CodeGenARM::ARMPopcount(const CallNode* call) {
+PrimExpr CodeGenARM::ARMPopcount(const CallObj* call) {
   using namespace tirx;
   PrimExpr e = call->args[1].as_or_throw<PrimExpr>();
   PrimType call_ty = call->ty.as_or_throw<PrimType>();
@@ -99,7 +99,7 @@ PrimExpr CodeGenARM::ARMPopcount(const CallNode* call) {
   // Interpret input as vector of 8bit values
   PrimExpr input8 = tirx::reinterpret(uint8_type, e);
   // Popcount 8bit->8bit
-  const CallNode* c0 = input8.as<CallNode>();
+  const CallObj* c0 = input8.as<CallObj>();
   TVM_FFI_ICHECK(c0 != nullptr);
   ffi::Array<PrimExpr> vcnt8_args;
   vcnt8_args.push_back(IntImm(PrimType::UInt(32), ctpop_id));

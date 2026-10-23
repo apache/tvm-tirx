@@ -32,23 +32,23 @@ void AddToParent(tvm::Stmt stmt, Location loc) {
   IRBuilder builder = IRBuilder::Current();
   // A deferred frame owns its location even when that location is undefined.
   // Preserve an existing body location when flattening returns the body itself.
-  if (stmt.defined() && stmt->loc.as<UnknownLocNode>()) stmt->loc = std::move(loc);
+  if (stmt.defined() && stmt->loc.as<UnknownLocObj>()) stmt->loc = std::move(loc);
   if (builder->frames.empty()) {
     if (!builder->result.has_value()) {
-      if (stmt.as<tvm::SeqStmtNode>()) {
+      if (stmt.as<tvm::SeqStmtObj>()) {
         auto normalized = tvm::SeqStmt(stmt);
-        if (normalized->loc.as<UnknownLocNode>()) normalized->loc = stmt->loc;
+        if (normalized->loc.as<UnknownLocObj>()) normalized->loc = stmt->loc;
         builder->result = std::move(normalized);
       } else {
         builder->result = std::move(stmt);
       }
       return;
     }
-    TVM_FFI_CHECK(builder->result.as<tvm::StmtNode>(), ValueError)
+    TVM_FFI_CHECK(builder->result.as<tvm::StmtObj>(), ValueError)
         << "Builder.result has already been set";
     ffi::Array<tvm::Stmt> incoming = tvm::SeqStmt(stmt)->seq;
     if (incoming.empty()) return;
-    if (builder->result.as<tvm::SeqStmtNode>()) {
+    if (builder->result.as<tvm::SeqStmtObj>()) {
       // Move the builder's ownership so unobserved results can grow in place.
       // Copy-on-write preserves sequences and arrays retained by callers.
       auto sequence = std::move(builder->result).value().as_or_throw<tvm::SeqStmt>();
@@ -167,7 +167,7 @@ void ForFrameObj::SetNames(
     TVM_FFI_CHECK(!targets[i].empty(), ValueError) << "Loop variable names must be nonempty";
   }
   for (size_t i = 0; i < targets.size(); ++i) {
-    const_cast<tvm::VarNode*>(vars[i].get())->name = targets[i];
+    const_cast<tvm::VarObj*>(vars[i].get())->name = targets[i];
   }
 }
 

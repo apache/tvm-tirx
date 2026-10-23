@@ -40,7 +40,7 @@ class PrimExprSizeCounter : public StmtExprVisitor {
 
  private:
   ffi::Optional<VisitInterrupt> Visit(ffi::AnyView expr) final {
-    if (expr.as<ExprNode>()) counter_++;
+    if (expr.as<ExprObj>()) counter_++;
     return StmtExprVisitor::Visit(expr);
   }
 

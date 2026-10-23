@@ -25,7 +25,7 @@
 //! [`TensorType::new`].
 
 // `custom-new` reserves `new` for a constructor with the C++ one's semantics (defaults); the
-// generated `from_complete_fields` allocates the fields as given.
+// generated `from_fields` allocates the fields as given.
 // tvm-ffi-stubgen(custom-new): tirx.TensorType
 
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
@@ -112,15 +112,22 @@ impl TensorTypeObj {
 
 impl TensorType {
     /// Lossless complete-field allocation.
-    pub fn from_complete_fields(
-        loc: Location,
-        dtype: PrimType,
-        scope: MemoryScope,
-        shape: Array<Expr>,
+    pub fn from_fields(
+        loc: impl Into<Location>,
+        dtype: impl Into<PrimType>,
+        scope: impl Into<MemoryScope>,
+        shape: impl Into<Array<Expr>>,
         data_alignment: i32,
-        layout: Option<Layout>,
+        layout: impl Into<Option<Layout>>,
     ) -> Self {
-        let obj = TensorTypeObj::new(loc, dtype, scope, shape, data_alignment, layout);
+        let obj = TensorTypeObj::new(
+            loc.into(),
+            dtype.into(),
+            scope.into(),
+            shape.into(),
+            data_alignment,
+            layout.into(),
+        );
         Self { base: ObjectArc::new(obj) }
     }
 }
@@ -166,7 +173,7 @@ impl TensorType {
             true => alloc_alignment()?,
             false => data_alignment,
         };
-        Ok(Self::from_complete_fields(
+        Ok(Self::from_fields(
             loc.into(),
             dtype.into(),
             scope.into(),

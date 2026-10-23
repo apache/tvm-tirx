@@ -42,7 +42,7 @@ namespace tvm {
  * \code
  *   ScopeStack<WithGroup<ConstraintContext>> constraints;
  *
- *   // In VisitStmt_(ForNode):
+ *   // In VisitStmt_(ForObj):
  *   return constraints.WithNewScope([&]() -> Stmt {
  *     constraints.Current().Emplace(analyzer, condition);
  *     return StmtExprMutator::VisitStmt_(op);

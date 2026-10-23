@@ -60,15 +60,15 @@ class CodeGenCHost : public CodeGenC {
   void PrintFuncPrefix(std::ostream& os) final;                  // NOLINT(*)
 
   // overload visitor functions
-  void Dispatch_(const prim::BroadcastNode* op, std::ostream& os) final;  // NOLINT(*)
-  void Dispatch_(const CallNode* op, std::ostream& os) override;          // NOLINT(*)
-  void Dispatch_(const FloatImmNode* op, std::ostream& os) final;         // NOLINT(*)
+  void Dispatch_(const prim::BroadcastObj* op, std::ostream& os) final;  // NOLINT(*)
+  void Dispatch_(const CallObj* op, std::ostream& os) override;          // NOLINT(*)
+  void Dispatch_(const FloatImmObj* op, std::ostream& os) final;         // NOLINT(*)
   // overload min and max to use the ternary operator, so we don't rely on the
   // standard library implementations
-  void Dispatch_(const prim::MinNode* op, std::ostream& os) final;  // NOLINT(*)
-  void Dispatch_(const prim::MaxNode* op, std::ostream& os) final;  // NOLINT(*)
+  void Dispatch_(const prim::MinObj* op, std::ostream& os) final;  // NOLINT(*)
+  void Dispatch_(const prim::MaxObj* op, std::ostream& os) final;  // NOLINT(*)
 
-  void Dispatch_(const AssertStmtNode* op) final;  // NOLINT(*)
+  void Dispatch_(const AssertStmtObj* op) final;  // NOLINT(*)
 
   void GenerateForwardFunctionDeclarations(ffi::String global_symbol,
                                            const ffi::Array<Type>& arg_types,
@@ -93,9 +93,9 @@ class CodeGenCHost : public CodeGenC {
   /*! \brief whether to generate the entry function if encountered */
   bool has_main_func_ = false;
 
-  std::string GetPackedName(const CallNode* op);
+  std::string GetPackedName(const CallObj* op);
   void PrintGetFuncFromBackend(const std::string& func_name, const std::string& packed_func_name);
-  void PrintCallPacked(const CallNode* op);
+  void PrintCallPacked(const CallObj* op);
   /*!
    * \brief Print min/max, propagating floating-point NaNs and selecting rhs on ties.
    * Forces the operands to be in SSA form.

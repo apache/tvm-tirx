@@ -25,7 +25,7 @@
 //! [`renew_def`] gives its variables fresh definitions.
 
 // `custom-new` reserves `new` for a constructor with the C++ one's semantics (`ty` derived from the
-// signature); the generated `from_complete_fields` allocates the fields as given.
+// signature); the generated `from_fields` allocates the fields as given.
 // tvm-ffi-stubgen(custom-new): tirx.Function
 
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
@@ -111,15 +111,22 @@ impl FunctionObj {
 
 impl Function {
     /// Lossless complete-field allocation.
-    pub fn from_complete_fields(
-        loc: Location,
-        ty: Type,
-        attrs: DictAttrs,
-        params: Array<Var>,
-        ret_type: Type,
-        body: Option<SeqStmt>,
+    pub fn from_fields(
+        loc: impl Into<Location>,
+        ty: impl Into<Type>,
+        attrs: impl Into<DictAttrs>,
+        params: impl Into<Array<Var>>,
+        ret_type: impl Into<Type>,
+        body: impl Into<Option<SeqStmt>>,
     ) -> Self {
-        let obj = FunctionObj::new(loc, ty, attrs, params, ret_type, body);
+        let obj = FunctionObj::new(
+            loc.into(),
+            ty.into(),
+            attrs.into(),
+            params.into(),
+            ret_type.into(),
+            body.into(),
+        );
         Self { base: ObjectArc::new(obj) }
     }
 }
@@ -146,14 +153,7 @@ impl Function {
         };
         let param_types = params.iter().map(|param| param.ty.clone()).collect::<Vec<Type>>();
         let ty = FuncType::new(param_types, ret_type.clone());
-        Self::from_complete_fields(
-            loc.into(),
-            ty.into(),
-            attrs.into(),
-            params,
-            ret_type,
-            body.cloned(),
-        )
+        Self::from_fields(loc.into(), ty, attrs.into(), params, ret_type, body.cloned())
     }
 }
 

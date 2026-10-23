@@ -22,6 +22,7 @@ from collections.abc import Callable
 from types import ModuleType
 from typing import ClassVar
 
+import numpy as np
 import tvm_ffi
 
 from tvm_tirx.ir.location import UNKNOWN_LOC, Location
@@ -122,7 +123,8 @@ class PrimType(Type):
         self.__init_handle_by_constructor__(_ffi_api.PrimType, dtype)
 
     def __call__(self, expr=None):
-        """Create a fresh variable, or convert a primitive expression to this type."""
+        """Create a variable, construct a typed literal, or cast an expression."""
+        from ._constant import const
         from .expr import Var
         from .prim import _ffi_api as prim_ffi_api
 
@@ -130,6 +132,8 @@ class PrimType(Type):
             return Var("", self)
         if isinstance(expr, str) and str(self.dtype) not in ("bool", "void", ""):
             expr = float(expr)
+        if isinstance(expr, int | float | np.integer | np.floating | np.bool_):
+            return const(expr, self, UNKNOWN_LOC)
         return prim_ffi_api._cast(expr, self, UNKNOWN_LOC)
 
     def __getitem__(self, shape):

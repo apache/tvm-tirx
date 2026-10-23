@@ -67,7 +67,7 @@ fn module_and_sequential_passes() {
         |_module, _ctx| {
             Err(tvm_tirx::tvm_ffi::Error::new(tvm_tirx::tvm_ffi::VALUE_ERROR, "refused", ""))
         },
-        PassInfo::new(0, "failing".into()),
+        PassInfo::new(0, "failing"),
     );
     assert!(Pass::from(&failing).run(empty_module()).is_err());
 

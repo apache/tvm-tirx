@@ -42,10 +42,10 @@ namespace tvm {
  *
  * \code
  *   ObjectFunctor<std::string(const ffi::ObjectRef& n, std::string prefix)> tostr;
- *   tostr.SetDispatch<prim::AddNode>([](const ffi::ObjectRef& op, std::string prefix) {
+ *   tostr.SetDispatch<prim::AddObj>([](const ffi::ObjectRef& op, std::string prefix) {
  *     return prefix + "Add";
  *   });
- *   tostr.SetDispatch<IntImmNode>([](const ffi::ObjectRef& op, std::string prefix) {
+ *   tostr.SetDispatch<IntImmObj>([](const ffi::ObjectRef& op, std::string prefix) {
  *     return prefix + "IntImm";
  *   });
  *
@@ -73,8 +73,8 @@ namespace tvm {
  *
  *   TVM_FFI_STATIC_INIT_BLOCK() {
  *     Printer::vtable()
- *         .SetDispatch<prim::AddNode>([](const ffi::ObjectRef&) { return std::string("Add"); })
- *         .SetDispatch<IntImmNode>([](const ffi::ObjectRef&) { return std::string("IntImm"); });
+ *         .SetDispatch<prim::AddObj>([](const ffi::ObjectRef&) { return std::string("Add"); })
+ *         .SetDispatch<IntImmObj>([](const ffi::ObjectRef&) { return std::string("IntImm"); });
  *   }
  * \endcode
  *

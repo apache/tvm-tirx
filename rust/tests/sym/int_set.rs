@@ -93,7 +93,7 @@ fn int_sets() {
 fn region_bounds() {
     let x = var("x");
     let var_dom = Map::from_iter([(x.clone(), range(0, 16))]);
-    let region = [Range::from_complete_fields(x.clone().into(), int32(1), Location::unknown())];
+    let region = [Range::from_fields(x.clone(), int32(1), Location::unknown())];
     let predicate = Expr::from(true);
 
     let lower = estimate_region_lower_bound(region.clone(), &var_dom, &predicate, None).unwrap();

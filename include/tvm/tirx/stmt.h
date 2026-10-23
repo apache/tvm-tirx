@@ -32,8 +32,8 @@ namespace tirx {
 /*! \brief Whether stmt is undefined, an integer Evaluate, or an empty sequence. */
 inline bool IsNoOp(const Stmt& stmt) {
   if (!stmt.defined()) return true;
-  if (const auto* op = stmt.as<EvaluateNode>()) return op->value.as<IntImmNode>() != nullptr;
-  if (const auto* op = stmt.as<SeqStmtNode>()) return op->seq.empty();
+  if (const auto* op = stmt.as<EvaluateObj>()) return op->value.as<IntImmObj>() != nullptr;
+  if (const auto* op = stmt.as<SeqStmtObj>()) return op->seq.empty();
   return false;
 }
 

@@ -49,8 +49,8 @@ namespace {
 ffi::Optional<ExprDoc> IndexMapDocTranslate(DocTranslatorObj* d, ffi::AnyView input,
                                             const ffi::Object*) {
   const auto* map =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const tirx::IndexMapNode>(input);
-  auto translate_lambda = [&](const tirx::IndexMapNode* node) -> ExprDoc {
+      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const tirx::IndexMapObj>(input);
+  auto translate_lambda = [&](const tirx::IndexMapObj* node) -> ExprDoc {
     ffi::Array<IdDoc> vars;
     for (const PrimVar& var : node->initial_indices) vars.push_back(VarDoc(d, var));
     ffi::Array<ExprDoc> values;
@@ -59,7 +59,7 @@ ffi::Optional<ExprDoc> IndexMapDocTranslate(DocTranslatorObj* d, ffi::AnyView in
   };
   ExprDoc forward = translate_lambda(map);
   if (map->inverse_index_map.has_value()) {
-    const auto* inverse = map->inverse_index_map.value().as<tirx::IndexMapNode>();
+    const auto* inverse = map->inverse_index_map.value().as<tirx::IndexMapObj>();
     TVM_FFI_CHECK(inverse, TypeError) << "IndexMap inverse must be an IndexMap";
     return NamespaceDoc("tirx")
         ->Attr("index_map")
@@ -69,7 +69,7 @@ ffi::Optional<ExprDoc> IndexMapDocTranslate(DocTranslatorObj* d, ffi::AnyView in
 }
 
 TVM_FFI_STATIC_INIT_BLOCK() {
-  ffi::reflection::TypeAttrDef<tirx::IndexMapNode>().attr(
+  ffi::reflection::TypeAttrDef<tirx::IndexMapObj>().attr(
       tvm::script::printer::type_attr::kDocTranslate.name,
       FDocTranslate::FromNative<&IndexMapDocTranslate>());
 }
@@ -77,7 +77,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
 ffi::Optional<ExprDoc> LLVMIntrinsicDocTranslate(DocTranslatorObj* d, ffi::AnyView input,
                                                  const ffi::Object*) {
   const auto* call =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const CallNode>(input);
+      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const CallObj>(input);
   if (call->attrs.has_value() || !call->ty_args.empty() || call->args.empty() ||
       !call->ty.as<PrimType>()) {
     return RawCallDocTranslate(d, call);
@@ -85,10 +85,10 @@ ffi::Optional<ExprDoc> LLVMIntrinsicDocTranslate(DocTranslatorObj* d, ffi::AnyVi
   // The LLVM convenience builders reject direct region operands. Keep their
   // raw Call representation while ordinary tuple operands recurse normally.
   if (std::any_of(call->args.begin(), call->args.end(),
-                  [](const Expr& arg) { return arg.as<TensorRegionNode>() != nullptr; })) {
+                  [](const Expr& arg) { return arg.as<TensorRegionObj>() != nullptr; })) {
     return RawCallDocTranslate(d, call);
   }
-  const auto* id = call->args[0].as<IntImmNode>();
+  const auto* id = call->args[0].as<IntImmObj>();
   // The named constructor uses an int32 intrinsic identifier. Other stored
   // representations retain their exact operand type through the full Call.
   if (!id || !ffi::StructuralEqual()(id->ty, PrimType::Int(32)))
@@ -124,17 +124,17 @@ TVM_FFI_STATIC_INIT_BLOCK() {
   }
 }
 
-bool IsPTXAddressCall(const CallNode* call) {
+bool IsPTXAddressCall(const CallObj* call) {
   auto op = call->op.as<Op>();
   return op && op.value()->name == "tirx.ptx.addr";
 }
 
-ffi::Optional<ExprDoc> ConsumedPTXAddressDocTranslate(DocTranslatorObj* d, const CallNode* call) {
+ffi::Optional<ExprDoc> ConsumedPTXAddressDocTranslate(DocTranslatorObj* d, const CallObj* call) {
   if (call->args.size() != 2 || call->attrs.has_value() || !call->ty_args.empty())
     return std::nullopt;
   const Expr& base = call->args[0];
   const Expr& offset = call->args[1];
-  if (const auto* nested = base.as<CallNode>(); nested && IsPTXAddressCall(nested)) {
+  if (const auto* nested = base.as<CallObj>(); nested && IsPTXAddressCall(nested)) {
     return std::nullopt;
   }
   if ((!base->ty.as<PtrType>() && !ffi::StructuralEqual()(base->ty, PrimType::UInt(32))) ||
@@ -148,7 +148,7 @@ ffi::Optional<ExprDoc> ConsumedPTXAddressDocTranslate(DocTranslatorObj* d, const
        offset_type.value().bits() != 32 && offset_type.value().bits() != 64)) {
     return std::nullopt;
   }
-  if (const auto* value = offset.as<IntImmNode>();
+  if (const auto* value = offset.as<IntImmObj>();
       value && (!ffi::StructuralEqual()(offset->ty, PrimType::Int(32)) ||
                 value->value < std::numeric_limits<int32_t>::min() ||
                 value->value > std::numeric_limits<int32_t>::max())) {
@@ -167,7 +167,7 @@ namespace {
 ffi::Optional<ExprDoc> TensorDataPtrDocTranslate(DocTranslatorObj* d, ffi::AnyView input,
                                                  const ffi::Object*) {
   const auto* call =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const CallNode>(input);
+      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const CallObj>(input);
   if (call->attrs.has_value() || !call->ty_args.empty() || call->args.size() != 1)
     return RawCallDocTranslate(d, call);
   return d->Translate(call->args[0]).value()->Attr("data");
@@ -178,7 +178,7 @@ ffi::Optional<ExprDoc> TensorDataPtrDocTranslate(DocTranslatorObj* d, ffi::AnyVi
 ffi::Optional<ExprDoc> PTXCallDocTranslate(DocTranslatorObj* d, ffi::AnyView input,
                                            const ffi::Object*) {
   const auto* call =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const CallNode>(input);
+      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const CallObj>(input);
   if (IsPTXAddressCall(call) || call->attrs.has_value() || !call->ty_args.empty() ||
       !ffi::StructuralEqual()(call->ty, PrimType::Void()))
     return RawCallDocTranslate(d, call);
@@ -189,15 +189,15 @@ ffi::Optional<ExprDoc> PTXCallDocTranslate(DocTranslatorObj* d, ffi::AnyView inp
   ffi::Array<ExprDoc> args;
   for (const Expr& arg : call->args) {
     ExprDoc value = d->Translate(arg).value();
-    if (const auto* string = arg.as<StringImmNode>()) {
+    if (const auto* string = arg.as<StringImmObj>()) {
       value = LiteralDoc::Str(string->value, std::nullopt);
-    } else if (const auto* address = arg.as<CallNode>(); address && IsPTXAddressCall(address)) {
+    } else if (const auto* address = arg.as<CallObj>(); address && IsPTXAddressCall(address)) {
       auto translated = ConsumedPTXAddressDocTranslate(d, address);
       if (!translated) return RawCallDocTranslate(d, call);
       value = translated.value();
-    } else if (arg.as<IntImmNode>() && ffi::StructuralEqual()(arg->ty, PrimType::Int(32))) {
+    } else if (arg.as<IntImmObj>() && ffi::StructuralEqual()(arg->ty, PrimType::Int(32))) {
       value = NamespaceDoc("tirx")->Attr("int32")->Call({value});
-    } else if (arg->ty.as<MissingType>() || arg.as<TensorRegionNode>()) {
+    } else if (arg->ty.as<MissingType>() || arg.as<TensorRegionObj>()) {
       return RawCallDocTranslate(d, call);
     }
     args.push_back(value);
@@ -221,13 +221,13 @@ TVM_FFI_STATIC_INIT_BLOCK() {
 
 TVM_FFI_STATIC_INIT_BLOCK() {
   using script::printer::RegisterScriptRepr;
-  RegisterScriptRepr<tirx::TensorTypeNode>();
-  RegisterScriptRepr<tirx::ComposeLayoutNode>();
+  RegisterScriptRepr<tirx::TensorTypeObj>();
+  RegisterScriptRepr<tirx::ComposeLayoutObj>();
   RegisterScriptRepr<tirx::ThreadScopeObj>();
-  RegisterScriptRepr<tirx::IndexMapNode>();
-  RegisterScriptRepr<tirx::IterNode>();
-  RegisterScriptRepr<tirx::FunctionNode>();
-  RegisterScriptRepr<tirx::TileLayoutNode>();
+  RegisterScriptRepr<tirx::IndexMapObj>();
+  RegisterScriptRepr<tirx::IterObj>();
+  RegisterScriptRepr<tirx::FunctionObj>();
+  RegisterScriptRepr<tirx::TileLayoutObj>();
 }
 
 }  // namespace tvm

@@ -34,7 +34,7 @@ namespace intrin {
 using tirx::FLowerIntrinsic;
 
 template <size_t N>
-static Type InferTypeReturnArgType(const CallNode* call) {
+static Type InferTypeReturnArgType(const CallObj* call) {
   TVM_FFI_CHECK_GT(call->args.size(), N, ValueError)
       << "Return type inference requires argument " << N;
   return call->args[N]->ty;
@@ -58,7 +58,7 @@ struct MetalWarpIntrinsic {
 
 template <typename T>
 static PrimExpr DispatchMetalShuffle(const PrimExpr& e) {
-  const CallNode* call = e.as<CallNode>();
+  const CallObj* call = e.as<CallObj>();
   TVM_FFI_ICHECK(call != nullptr);
   TVM_FFI_ICHECK_EQ(call->args.size(), 5);  // mask, value, warp_id, width, warp_size
   ffi::Array<PrimExpr> metal_args{call->args[1].as_or_throw<PrimExpr>(),
@@ -86,7 +86,7 @@ void RegisterMetalIntrinRules() {
   OpDef("prim.round")
       .set_attr<FLowerIntrinsic>("metal.FLowerIntrinsic", [](const PrimExpr& e) -> PrimExpr {
         // Metal's rint() uses ties-to-even, matching constant-folding semantics.
-        const CallNode* call = e.as<CallNode>();
+        const CallObj* call = e.as<CallObj>();
         TVM_FFI_ICHECK(call != nullptr);
         ffi::Array<Expr> new_args = {StringImm("rint")};
         for (const PrimExpr& arg : call->args.as_or_throw<ffi::Array<PrimExpr>>()) {

@@ -27,11 +27,10 @@
 namespace tvm::tirx {
 namespace {
 
-static_assert(std::is_same_v<decltype(std::declval<TensorVar>().operator->()), const VarNode*>);
+static_assert(std::is_same_v<decltype(std::declval<TensorVar>().operator->()), const VarObj*>);
 static_assert(std::is_same_v<decltype(std::declval<TensorVar>().ty()), TensorType>);
 static_assert(std::is_same_v<decltype(DefaultIndexType()), PrimType>);
-static_assert(
-    std::is_same_v<decltype(std::declval<TensorTypeNode>().DefaultIndexType()), PrimType>);
+static_assert(std::is_same_v<decltype(std::declval<TensorTypeObj>().DefaultIndexType()), PrimType>);
 
 TEST(TensorVar, CheckedViewPreservesOrdinaryVariableIdentity) {
   TensorType type({IntImm(PrimType::Int(32), 16)}, PrimType::Float(16));
@@ -52,20 +51,20 @@ TEST(TensorVar, CheckedViewPreservesOrdinaryVariableIdentity) {
   Var scalar("scalar", PrimType::Int(32));
   EXPECT_THROW((void)scalar.as_or_throw<TensorVar>(), ffi::Error);
   EXPECT_THROW((void)TensorVar(scalar), ffi::Error);
-  auto scalar_copy = ffi::make_object<VarNode>(*scalar.get());
+  auto scalar_copy = ffi::make_object<VarObj>(*scalar.get());
   EXPECT_THROW((void)TensorVar(std::move(scalar_copy)), ffi::Error);
 }
 
 TEST(TensorVar, RebuiltTypeRetainsMetadataWithFreshIdentity) {
   TensorVar original("A", TensorType({16}));
-  auto copied_type = ffi::make_object<TensorTypeNode>(*original.ty().get());
+  auto copied_type = ffi::make_object<TensorTypeObj>(*original.ty().get());
   copied_type->shape = {8};
   TensorVar rebuilt(original->name, TensorType(std::move(copied_type)), original->loc);
   EXPECT_FALSE(original.same_as(rebuilt));
   EXPECT_FALSE(original.ty().same_as(rebuilt.ty()));
   EXPECT_TRUE(original != rebuilt);
-  EXPECT_EQ(original.shape()[0].as<IntImmNode>()->value, 16);
-  EXPECT_EQ(rebuilt.shape()[0].as<IntImmNode>()->value, 8);
+  EXPECT_EQ(original.shape()[0].as<IntImmObj>()->value, 16);
+  EXPECT_EQ(rebuilt.shape()[0].as<IntImmObj>()->value, 8);
   EXPECT_EQ(rebuilt->name, original->name);
   EXPECT_TRUE(rebuilt->loc.same_as(original->loc));
   EXPECT_EQ(rebuilt.ty()->data_alignment, runtime::kAllocAlignment);

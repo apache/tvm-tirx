@@ -53,7 +53,7 @@ class CodeGenWebGPU final : public CodeGenC {
   using CodeGenC::AddFunction;
   runtime::FunctionInfo AddFunction(const Function& f, bool skip_readonly_decl);  // NOLINT(*)
   void InitFuncState(const Function& f) final;
-  void PrintStorageSync(const CallNode* op) final;  // NOLINT(*)
+  void PrintStorageSync(const CallObj* op) final;  // NOLINT(*)
   using CodeGenC::PrintType;
   void PrintType(const PrimType& t, std::ostream& os) final;                      // NOLINT(*)
   void BindThreadIndex(const PrimVar& var, const ffi::String& thread_tag) final;  // NOLINT(*)
@@ -67,28 +67,28 @@ class CodeGenWebGPU final : public CodeGenC {
                          const std::string& value) final;
 
   // overload visitor
-  void Dispatch_(const prim::BroadcastNode* op, std::ostream& os) final;  // NOLINT(*)
-  void Dispatch_(const CallNode* op, std::ostream& os) final;             // NOLINT(*)
-  void Dispatch_(const TensorLoadNode* op, std::ostream& os) final;       // NOLINT(*)
-  void Dispatch_(const prim::CastNode* op, std::ostream& os) final;       // NOLINT(*)
-  void Dispatch_(const prim::LShiftNode* op, std::ostream& os) final;     // NOLINT(*)
-  void Dispatch_(const prim::RShiftNode* op, std::ostream& os) final;     // NOLINT(*)
-  void Dispatch_(const prim::SelectNode* op, std::ostream& os) final;     // NOLINT(*)
-  void Dispatch_(const prim::LetNode* op, std::ostream& os) final;        // NOLINT(*)
-  void Dispatch_(const FloatImmNode* op, std::ostream& os) final;         // NOLINT(*)
-  void Dispatch_(const IntImmNode* op, std::ostream& os) final;           // NOLINT(*)
+  void Dispatch_(const prim::BroadcastObj* op, std::ostream& os) final;  // NOLINT(*)
+  void Dispatch_(const CallObj* op, std::ostream& os) final;             // NOLINT(*)
+  void Dispatch_(const TensorLoadObj* op, std::ostream& os) final;       // NOLINT(*)
+  void Dispatch_(const prim::CastObj* op, std::ostream& os) final;       // NOLINT(*)
+  void Dispatch_(const prim::LShiftObj* op, std::ostream& os) final;     // NOLINT(*)
+  void Dispatch_(const prim::RShiftObj* op, std::ostream& os) final;     // NOLINT(*)
+  void Dispatch_(const prim::SelectObj* op, std::ostream& os) final;     // NOLINT(*)
+  void Dispatch_(const prim::LetObj* op, std::ostream& os) final;        // NOLINT(*)
+  void Dispatch_(const FloatImmObj* op, std::ostream& os) final;         // NOLINT(*)
+  void Dispatch_(const IntImmObj* op, std::ostream& os) final;           // NOLINT(*)
 
   // stmt printing
-  void Dispatch_(const RegionStmtNode* op) final;
-  void Dispatch_(const BindNode* op) final;
-  void Dispatch_(const TensorStoreNode* op) final;
-  void Dispatch_(const ForNode* op) final;
-  void DispatchAllocTensor(const BindNode* op, const CallNode* buffer_call);
-  void DispatchDeclTensor(const BindNode* op, const CallNode* buffer_call);
-  void Dispatch_(const AssertStmtNode* op) final;
-  void Dispatch_(const WhileNode* op) final;
-  void Dispatch_(const BreakNode* op) final;
-  void Dispatch_(const ContinueNode* op) final;
+  void Dispatch_(const RegionStmtObj* op) final;
+  void Dispatch_(const BindObj* op) final;
+  void Dispatch_(const TensorStoreObj* op) final;
+  void Dispatch_(const ForObj* op) final;
+  void DispatchAllocTensor(const BindObj* op, const CallObj* buffer_call);
+  void DispatchDeclTensor(const BindObj* op, const CallObj* buffer_call);
+  void Dispatch_(const AssertStmtObj* op) final;
+  void Dispatch_(const WhileObj* op) final;
+  void Dispatch_(const BreakObj* op) final;
+  void Dispatch_(const ContinueObj* op) final;
 
  private:
   sym::Analyzer analyzer_;

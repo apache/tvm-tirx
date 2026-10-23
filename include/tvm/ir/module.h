@@ -59,7 +59,7 @@ class IRModule;
  *  but we mutate the Module while optimizing programs.
  * \sa IRModule
  */
-class IRModuleNode : public ffi::Object {
+class IRModuleObj : public ffi::Object {
  public:
   /*! \brief A map from ids to all global functions. */
   ffi::Map<GlobalVar, BaseFunc> functions;
@@ -150,22 +150,22 @@ class IRModuleNode : public ffi::Object {
    */
   bool HasNonzeroAttr(const std::string& attr_key) const { return attrs.HasNonzeroAttr(attr_key); }
 
-  IRModuleNode() = default;
+  IRModuleObj() = default;
 
   static void RegisterReflection() {
     namespace refl = tvm::ffi::reflection;
-    refl::ObjectDef<IRModuleNode>()
-        .def_ro("functions", &IRModuleNode::functions)
-        .def_ro("global_var_map_", &IRModuleNode::global_var_map_)
-        .def_ro("attrs", &IRModuleNode::attrs)
-        .def_ro("global_infos", &IRModuleNode::global_infos);
+    refl::ObjectDef<IRModuleObj>()
+        .def_ro("functions", &IRModuleObj::functions)
+        .def_ro("global_var_map_", &IRModuleObj::global_var_map_)
+        .def_ro("attrs", &IRModuleObj::attrs)
+        .def_ro("global_infos", &IRModuleObj::global_infos);
     // register custom structural equal and hash.
-    refl::TypeAttrDef<IRModuleNode>()
-        .def(tvm::ffi::type_attr::kSEqual.name, &IRModuleNode::SEqual)
-        .def(tvm::ffi::type_attr::kSHash.name, &IRModuleNode::SHash);
+    refl::TypeAttrDef<IRModuleObj>()
+        .def(tvm::ffi::type_attr::kSEqual.name, &IRModuleObj::SEqual)
+        .def(tvm::ffi::type_attr::kSHash.name, &IRModuleObj::SHash);
   }
 
-  TVM_TIRX_DLL bool SEqual(const IRModuleNode* other,
+  TVM_TIRX_DLL bool SEqual(const IRModuleObj* other,
                            ffi::TypedFunction<bool(AnyView, AnyView, bool, AnyView)> equal) const;
   TVM_TIRX_DLL int64_t SHash(int64_t init_hash,
                              ffi::TypedFunction<int64_t(AnyView, int64_t, bool)> hash) const;
@@ -277,15 +277,15 @@ class IRModuleNode : public ffi::Object {
 
   static constexpr TVMFFISEqHashKind _type_s_eq_hash_kind = kTVMFFISEqHashKindTreeNode;
 
-  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("ir.IRModule", IRModuleNode, ffi::Object);
+  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("ir.IRModule", IRModuleObj, ffi::Object);
 
  private:
   friend class IRModule;
 };
 
 /*!
- * \brief Managed reference class to IRModuleNode.
- * \sa IRModuleNode
+ * \brief Managed reference class to IRModuleObj.
+ * \sa IRModuleObj
  */
 class IRModule : public ffi::ObjectRef {
  public:
@@ -303,7 +303,7 @@ class IRModule : public ffi::ObjectRef {
   /*! \brief default constructor */
   IRModule() : IRModule(ffi::Map<GlobalVar, BaseFunc>({})) {}
   /*! \brief Checked pointer construction required by ffi::RValueRef. */
-  explicit IRModule(ffi::ObjectPtr<IRModuleNode> n) : ffi::ObjectRef(std::move(n)) {
+  explicit IRModule(ffi::ObjectPtr<IRModuleObj> n) : ffi::ObjectRef(std::move(n)) {
     TVM_FFI_ICHECK(data_ != nullptr);
   }
   /*!
@@ -311,10 +311,10 @@ class IRModule : public ffi::ObjectRef {
    */
   explicit IRModule(ffi::UnsafeInit tag) : ffi::ObjectRef(tag) {}
   /*! \return mutable pointers to the node. */
-  IRModuleNode* operator->() const {
+  IRModuleObj* operator->() const {
     auto* ptr = get_mutable();
     TVM_FFI_ICHECK(ptr != nullptr);
-    return static_cast<IRModuleNode*>(ptr);
+    return static_cast<IRModuleObj*>(ptr);
   }
 
   /*!
@@ -325,19 +325,19 @@ class IRModule : public ffi::ObjectRef {
                                         const ffi::Map<GlobalVar, BaseFunc>& global_funcs = {});
 
   /*! \brief Declare the container type. */
-  using ContainerType = IRModuleNode;
+  using ContainerType = IRModuleObj;
 
   // allow copy on write.
-  TVM_DEFINE_OBJECT_REF_COW_METHOD(IRModuleNode);
+  TVM_DEFINE_OBJECT_REF_COW_METHOD(IRModuleObj);
 };
 
-inline void IRModuleNode::Update(const IRModule& mod) {
+inline void IRModuleObj::Update(const IRModule& mod) {
   for (auto pair : mod->functions) {
     this->AddUnchecked(pair.first, pair.second);
   }
 }
 
-inline IRModule IRModuleNode::ShallowCopy() {
+inline IRModule IRModuleObj::ShallowCopy() {
   return IRModule(this->functions, this->attrs, this->global_infos);
 }
 

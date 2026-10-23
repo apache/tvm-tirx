@@ -36,16 +36,16 @@ namespace {
 // `multiplier * vscale()` or `vscale() * multiplier`, nullopt otherwise.
 std::optional<int> ExtractVscaleFactor(const PrimExpr& lanes) {
   auto is_vscale = [](const PrimExpr& e) -> bool {
-    if (const auto* call = e.as<CallNode>()) {
+    if (const auto* call = e.as<CallObj>()) {
       return call->op.same_as(prim::vscale_op());
     }
     return false;
   };
-  if (const auto* mul = lanes.as<MulNode>()) {
-    if (const auto* imm = mul->a.as<IntImmNode>(); imm && is_vscale(mul->b)) {
+  if (const auto* mul = lanes.as<MulObj>()) {
+    if (const auto* imm = mul->a.as<IntImmObj>(); imm && is_vscale(mul->b)) {
       return imm->value.as<int>();
     }
-    if (const auto* imm = mul->b.as<IntImmNode>(); imm && is_vscale(mul->a)) {
+    if (const auto* imm = mul->b.as<IntImmObj>(); imm && is_vscale(mul->a)) {
       return imm->value.as<int>();
     }
   }
@@ -55,8 +55,8 @@ std::optional<int> ExtractVscaleFactor(const PrimExpr& lanes) {
 TVM_FFI_INLINE ffi::Expected<ffi::Optional<ffi::VisitInterrupt>> RampVisit(
     ffi::StructuralVisitorObj* visitor, ffi::AnyView value) noexcept {
   // skips: PrimExpr types are always PrimType and remain unchanged in normal mutation.
-  const RampNode* self =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const RampNode>(value);
+  const RampObj* self =
+      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const RampObj>(value);
   TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(visitor->VisitExpected(self->base));
   TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(visitor->VisitExpected(self->stride));
   TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(visitor->VisitExpected(self->lanes));
@@ -66,8 +66,8 @@ TVM_FFI_INLINE ffi::Expected<ffi::Optional<ffi::VisitInterrupt>> RampVisit(
 TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> RampMutate(
     ffi::StructuralMutatorObj* mutator, ffi::AnyView value) noexcept {
   // skips: PrimExpr types are always PrimType and remain unchanged in normal mutation.
-  const RampNode* self =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const RampNode>(value);
+  const RampObj* self =
+      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const RampObj>(value);
   TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<PrimExpr>, mapped_base_u,
                                     mutator->MutateExpected(self->base));
   TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<PrimExpr>, mapped_stride_u,
@@ -79,7 +79,7 @@ TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> RampMutate(
       mapped_lanes_u.UnchangedOrSameAs(self->lanes)) {
     return ffi::Unchanged();
   }
-  ffi::ObjectPtr<RampNode> copy = ffi::make_object<RampNode>(*self);
+  ffi::ObjectPtr<RampObj> copy = ffi::make_object<RampObj>(*self);
   if (!mapped_base_u.IsUnchanged()) copy->base = std::move(mapped_base_u).ValueUnchecked();
   if (!mapped_stride_u.IsUnchanged()) copy->stride = std::move(mapped_stride_u).ValueUnchecked();
   if (!mapped_lanes_u.IsUnchanged()) copy->lanes = std::move(mapped_lanes_u).ValueUnchecked();
@@ -89,8 +89,8 @@ TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> RampMutate(
 TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> RampMaybeInplaceMutate(
     ffi::StructuralMutatorObj* mutator, ffi::AnyView value) noexcept {
   // skips: PrimExpr types are always PrimType and remain unchanged in normal mutation.
-  RampNode* self = const_cast<RampNode*>(
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const RampNode>(value));
+  RampObj* self = const_cast<RampObj*>(
+      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const RampObj>(value));
   TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<PrimExpr>, mapped_base_u,
                                     mutator->MutateExpected(self->base, ffi::InplaceMode::kAllow));
   TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(
@@ -112,8 +112,8 @@ TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> RampMaybeInplaceMutate(
 TVM_FFI_INLINE ffi::Expected<ffi::Optional<ffi::VisitInterrupt>> BroadcastVisit(
     ffi::StructuralVisitorObj* visitor, ffi::AnyView value) noexcept {
   // skips: PrimExpr types are always PrimType and remain unchanged in normal mutation.
-  const BroadcastNode* self =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const BroadcastNode>(value);
+  const BroadcastObj* self =
+      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const BroadcastObj>(value);
   TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(visitor->VisitExpected(self->value));
   TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(visitor->VisitExpected(self->lanes));
   return std::nullopt;
@@ -122,8 +122,8 @@ TVM_FFI_INLINE ffi::Expected<ffi::Optional<ffi::VisitInterrupt>> BroadcastVisit(
 TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> BroadcastMutate(
     ffi::StructuralMutatorObj* mutator, ffi::AnyView value) noexcept {
   // skips: PrimExpr types are always PrimType and remain unchanged in normal mutation.
-  const BroadcastNode* self =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const BroadcastNode>(value);
+  const BroadcastObj* self =
+      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const BroadcastObj>(value);
   TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<PrimExpr>, mapped_value_u,
                                     mutator->MutateExpected(self->value));
   TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<PrimExpr>, mapped_lanes_u,
@@ -132,7 +132,7 @@ TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> BroadcastMutate(
       mapped_lanes_u.UnchangedOrSameAs(self->lanes)) {
     return ffi::Unchanged();
   }
-  ffi::ObjectPtr<BroadcastNode> copy = ffi::make_object<BroadcastNode>(*self);
+  ffi::ObjectPtr<BroadcastObj> copy = ffi::make_object<BroadcastObj>(*self);
   if (!mapped_value_u.IsUnchanged()) copy->value = std::move(mapped_value_u).ValueUnchecked();
   if (!mapped_lanes_u.IsUnchanged()) copy->lanes = std::move(mapped_lanes_u).ValueUnchecked();
   return ffi::Any(std::move(copy));
@@ -141,8 +141,8 @@ TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> BroadcastMutate(
 TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> BroadcastMaybeInplaceMutate(
     ffi::StructuralMutatorObj* mutator, ffi::AnyView value) noexcept {
   // skips: PrimExpr types are always PrimType and remain unchanged in normal mutation.
-  BroadcastNode* self = const_cast<BroadcastNode*>(
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const BroadcastNode>(value));
+  BroadcastObj* self = const_cast<BroadcastObj*>(
+      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const BroadcastObj>(value));
   TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<PrimExpr>, mapped_value_u,
                                     mutator->MutateExpected(self->value, ffi::InplaceMode::kAllow));
   TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<PrimExpr>, mapped_lanes_u,
@@ -159,8 +159,8 @@ TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> BroadcastMaybeInplaceMu
 TVM_FFI_INLINE ffi::Expected<ffi::Optional<ffi::VisitInterrupt>> ShuffleVisit(
     ffi::StructuralVisitorObj* visitor, ffi::AnyView value) noexcept {
   // skips: PrimExpr types are always PrimType and remain unchanged in normal mutation.
-  const ShuffleNode* self =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const ShuffleNode>(value);
+  const ShuffleObj* self =
+      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const ShuffleObj>(value);
   TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(visitor->VisitExpected(self->vectors));
   TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(visitor->VisitExpected(self->indices));
   return std::nullopt;
@@ -169,8 +169,8 @@ TVM_FFI_INLINE ffi::Expected<ffi::Optional<ffi::VisitInterrupt>> ShuffleVisit(
 TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> ShuffleMutate(
     ffi::StructuralMutatorObj* mutator, ffi::AnyView value) noexcept {
   // skips: PrimExpr types are always PrimType and remain unchanged in normal mutation.
-  const ShuffleNode* self =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const ShuffleNode>(value);
+  const ShuffleObj* self =
+      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const ShuffleObj>(value);
   TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<ffi::Array<PrimExpr>>, mapped_vectors_u,
                                     mutator->MutateExpected(self->vectors));
   TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<ffi::Array<PrimExpr>>, mapped_indices_u,
@@ -179,7 +179,7 @@ TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> ShuffleMutate(
       mapped_indices_u.UnchangedOrSameAs(self->indices)) {
     return ffi::Unchanged();
   }
-  ffi::ObjectPtr<ShuffleNode> copy = ffi::make_object<ShuffleNode>(*self);
+  ffi::ObjectPtr<ShuffleObj> copy = ffi::make_object<ShuffleObj>(*self);
   if (!mapped_vectors_u.IsUnchanged()) copy->vectors = std::move(mapped_vectors_u).ValueUnchecked();
   if (!mapped_indices_u.IsUnchanged()) copy->indices = std::move(mapped_indices_u).ValueUnchecked();
   return ffi::Any(std::move(copy));
@@ -188,8 +188,8 @@ TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> ShuffleMutate(
 TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> ShuffleMaybeInplaceMutate(
     ffi::StructuralMutatorObj* mutator, ffi::AnyView value) noexcept {
   // skips: PrimExpr types are always PrimType and remain unchanged in normal mutation.
-  ShuffleNode* self = const_cast<ShuffleNode*>(
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const ShuffleNode>(value));
+  ShuffleObj* self = const_cast<ShuffleObj*>(
+      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const ShuffleObj>(value));
   TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(
       ffi::UnchangedOr<ffi::Array<PrimExpr>>, mapped_vectors_u,
       mutator->MutateExpected(self->vectors, ffi::InplaceMode::kAllow));
@@ -219,19 +219,19 @@ Ramp::Ramp(PrimExpr base, PrimExpr stride, PrimExpr lanes, Location loc)
     stride = prim::cast(stride, base_ty);
   }
 
-  ffi::ObjectPtr<RampNode> node = ffi::make_object<RampNode>(base, stride, lanes);
-  auto* lanes_as_int = lanes.as<IntImmNode>();
+  ffi::ObjectPtr<RampObj> node = ffi::make_object<RampObj>(base, stride, lanes);
+  auto* lanes_as_int = lanes.as<IntImmObj>();
   if (lanes_as_int) {
     int lanes = lanes_as_int->value.as<int>().value();
     TVM_FFI_ICHECK_GT(lanes, 1);
-    node->ExprNode::ty = base_ty.WithLanes(lanes);
+    node->ExprObj::ty = base_ty.WithLanes(lanes);
     // Stick to int32 lanes for fixed length vectors
     node->lanes = lanes;
   } else { /* scalable vector */
     std::optional<int> vscale_factor = ExtractVscaleFactor(lanes);
     TVM_FFI_ICHECK(vscale_factor) << "Invalid expression for scalable lanes " << lanes;
 
-    node->ExprNode::ty =
+    node->ExprObj::ty =
         PrimType::ScalableVector(base_ty.code(), base_ty.bits(), vscale_factor.value());
     lanes = Mul(Call(PrimType::Int(32), prim::vscale_op(), {}).as_or_throw<PrimExpr>(),
                 vscale_factor.value());
@@ -243,8 +243,8 @@ Ramp::Ramp(PrimExpr base, PrimExpr stride, PrimExpr lanes, Location loc)
 
 TVM_FFI_STATIC_INIT_BLOCK() {
   namespace refl = tvm::ffi::reflection;
-  RampNode::RegisterReflection();
-  refl::TypeAttrDef<RampNode>()
+  RampObj::RegisterReflection();
+  refl::TypeAttrDef<RampObj>()
       .attr(ffi::type_attr::kStructuralVisit, ffi::FStructuralVisit::FromNative<&RampVisit>())
       .attr(ffi::type_attr::kStructuralMutate, ffi::FStructuralMutate::FromNative<&RampMutate>())
       .attr(ffi::type_attr::kStructuralMaybeInplaceMutate,
@@ -260,19 +260,19 @@ Broadcast::Broadcast(PrimExpr value, PrimExpr lanes, Location loc) : PrimExpr(ff
   PrimType value_ty = value.ty();
   TVM_FFI_ICHECK(value_ty.IsScalar());
 
-  ffi::ObjectPtr<BroadcastNode> node = ffi::make_object<BroadcastNode>(value, lanes);
-  auto* lanes_int = lanes.as<IntImmNode>();
+  ffi::ObjectPtr<BroadcastObj> node = ffi::make_object<BroadcastObj>(value, lanes);
+  auto* lanes_int = lanes.as<IntImmObj>();
   if (lanes_int) {
     int lanes = lanes_int->value.as<int>().value();
     TVM_FFI_ICHECK_GT(lanes, 1);
-    node->ExprNode::ty = value_ty.WithLanes(lanes);
+    node->ExprObj::ty = value_ty.WithLanes(lanes);
     // Stick to int32 lanes for fixed length vectors
     node->lanes = lanes;
   } else { /* scalable vector */
     std::optional<int> vscale_factor = ExtractVscaleFactor(lanes);
     TVM_FFI_ICHECK(vscale_factor) << "Invalid expression for scalable lanes " << lanes;
 
-    node->ExprNode::ty =
+    node->ExprObj::ty =
         PrimType::ScalableVector(value_ty.code(), value_ty.bits(), vscale_factor.value());
     lanes = Mul(Call(PrimType::Int(32), prim::vscale_op(), {}).as_or_throw<PrimExpr>(),
                 vscale_factor.value());
@@ -284,8 +284,8 @@ Broadcast::Broadcast(PrimExpr value, PrimExpr lanes, Location loc) : PrimExpr(ff
 
 TVM_FFI_STATIC_INIT_BLOCK() {
   namespace refl = tvm::ffi::reflection;
-  BroadcastNode::RegisterReflection();
-  refl::TypeAttrDef<BroadcastNode>()
+  BroadcastObj::RegisterReflection();
+  refl::TypeAttrDef<BroadcastObj>()
       .attr(ffi::type_attr::kStructuralVisit, ffi::FStructuralVisit::FromNative<&BroadcastVisit>())
       .attr(ffi::type_attr::kStructuralMutate,
             ffi::FStructuralMutate::FromNative<&BroadcastMutate>())
@@ -313,8 +313,8 @@ Shuffle::Shuffle(ffi::Array<PrimExpr> vectors, ffi::Array<PrimExpr> indices, Loc
   }
   TVM_FFI_ICHECK_LE(indices.size(), static_cast<size_t>(total_lanes));
 
-  ffi::ObjectPtr<ShuffleNode> node = ffi::make_object<ShuffleNode>();
-  node->ExprNode::ty = base_type.WithLanes(static_cast<int>(indices.size()));
+  ffi::ObjectPtr<ShuffleObj> node = ffi::make_object<ShuffleObj>();
+  node->ExprObj::ty = base_type.WithLanes(static_cast<int>(indices.size()));
   node->vectors = std::move(vectors);
   node->indices = std::move(indices);
   node->loc = loc;
@@ -323,8 +323,8 @@ Shuffle::Shuffle(ffi::Array<PrimExpr> vectors, ffi::Array<PrimExpr> indices, Loc
 
 TVM_FFI_STATIC_INIT_BLOCK() {
   namespace refl = tvm::ffi::reflection;
-  ShuffleNode::RegisterReflection();
-  refl::TypeAttrDef<ShuffleNode>()
+  ShuffleObj::RegisterReflection();
+  refl::TypeAttrDef<ShuffleObj>()
       .attr(ffi::type_attr::kStructuralVisit, ffi::FStructuralVisit::FromNative<&ShuffleVisit>())
       .attr(ffi::type_attr::kStructuralMutate, ffi::FStructuralMutate::FromNative<&ShuffleMutate>())
       .attr(ffi::type_attr::kStructuralMaybeInplaceMutate,

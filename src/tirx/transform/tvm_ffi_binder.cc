@@ -77,7 +77,7 @@ TVMFFIABIBuilder::TVMFFIABIBuilder(const ffi::String& func_name, const ffi::Arra
       param_names_[static_cast<int>(i)] = buf_name;
     } else {
       os << param->name << ": ";
-      if (const auto* prim_type = param->ty.as<PrimTypeNode>()) {
+      if (const auto* prim_type = param->ty.as<PrimTypeObj>()) {
         os << prim_type->dtype;
       } else {
         os << param->ty;
@@ -174,7 +174,7 @@ int TVMFFIABIBuilder::GetParamIndex(const ffi::reflection::AccessPath& path) con
 bool TVMFFIABIBuilder::BindScalar(const PrimExpr& arg, const PrimExpr& value,
                                   const ffi::reflection::AccessPath& path, bool with_lets) {
   TVM_FFI_ICHECK(arg.ty() == value.ty());
-  if (arg.as<VarNode>()) {
+  if (arg.as<VarObj>()) {
     Var v_arg = arg.as_or_throw<Var>();
     auto it = var_defs_.find(v_arg.get());
     if (it == var_defs_.end()) {
@@ -239,36 +239,36 @@ bool TVMFFIABIBuilder::TryBindLinearIntExpr(const PrimExpr& arg, const PrimExpr&
   PrimExpr offset = IntImm(arg.ty(), 0);
 
   // Remove the constant offset, if present.
-  if (const auto* add = var.as<AddNode>()) {
-    if (add->b.as<IntImmNode>()) {
+  if (const auto* add = var.as<AddObj>()) {
+    if (add->b.as<IntImmObj>()) {
       var = add->a;
       offset = add->b;
-    } else if (add->a.as<IntImmNode>()) {
+    } else if (add->a.as<IntImmObj>()) {
       var = add->b;
       offset = add->a;
     } else {
       return false;
     }
-  } else if (const auto* sub = var.as<SubNode>()) {
-    if (!sub->b.as<IntImmNode>()) return false;
+  } else if (const auto* sub = var.as<SubObj>()) {
+    if (!sub->b.as<IntImmObj>()) return false;
     var = sub->a;
     offset = -sub->b;
   }
 
   // Remove the constant factor; the remainder must be a variable.
-  if (const auto* mul = var.as<MulNode>()) {
-    if (mul->b.as<IntImmNode>()) {
+  if (const auto* mul = var.as<MulObj>()) {
+    if (mul->b.as<IntImmObj>()) {
       var = mul->a;
       factor = mul->b;
-    } else if (mul->a.as<IntImmNode>()) {
+    } else if (mul->a.as<IntImmObj>()) {
       var = mul->b;
       factor = mul->a;
     } else {
       return false;
     }
   }
-  if (!var.as<VarNode>() || arg.same_as(var) || IsZero(factor) ||
-      var_defs_.count(var.as<VarNode>())) {
+  if (!var.as<VarObj>() || arg.same_as(var) || IsZero(factor) ||
+      var_defs_.count(var.as<VarObj>())) {
     return false;
   }
 
@@ -291,7 +291,7 @@ bool TVMFFIABIBuilder::TryBindLinearIntExpr(const PrimExpr& arg, const PrimExpr&
     decoded_expr += " // " + factor_text;
   }
   BindScalar(var, truncdiv(delta, factor), path, true);
-  shape_var_exprs_.emplace(var.as<VarNode>(), std::move(decoded_expr));
+  shape_var_exprs_.emplace(var.as<VarObj>(), std::move(decoded_expr));
   return true;
 }
 
@@ -345,39 +345,39 @@ bool TVMFFIABIBuilder::BindPointer(const Var& arg, const Expr& value,
  */
 class ExprPathRenderer : public ExprFunctor<std::string(const Expr&)> {
  public:
-  using FVarName = std::function<std::string(const VarNode*)>;
+  using FVarName = std::function<std::string(const VarObj*)>;
   explicit ExprPathRenderer(FVarName f_var_name) : f_var_name_(std::move(f_var_name)) {}
 
  protected:
-  std::string Dispatch_(const VarNode* op) final { return f_var_name_(op); }
-  std::string Dispatch_(const IntImmNode* op) final {
+  std::string Dispatch_(const VarObj* op) final { return f_var_name_(op); }
+  std::string Dispatch_(const IntImmObj* op) final {
     std::ostringstream os;
     os << op->value;
     return os.str();
   }
-  std::string Dispatch_(const FloatImmNode* op) final {
+  std::string Dispatch_(const FloatImmObj* op) final {
     std::ostringstream os;
     os << op->value;
     return os.str();
   }
-  std::string Dispatch_(const prim::CastNode* op) final { return Dispatch(op->value); }
-  std::string Dispatch_(const prim::AddNode* op) final { return BinOp(op->a, " + ", op->b); }
-  std::string Dispatch_(const prim::SubNode* op) final { return BinOp(op->a, " - ", op->b); }
-  std::string Dispatch_(const prim::MulNode* op) final { return BinOp(op->a, " * ", op->b); }
-  std::string Dispatch_(const prim::DivNode* op) final { return BinOp(op->a, " / ", op->b); }
-  std::string Dispatch_(const prim::ModNode* op) final { return BinOp(op->a, " % ", op->b); }
-  std::string Dispatch_(const prim::FloorDivNode* op) final {
+  std::string Dispatch_(const prim::CastObj* op) final { return Dispatch(op->value); }
+  std::string Dispatch_(const prim::AddObj* op) final { return BinOp(op->a, " + ", op->b); }
+  std::string Dispatch_(const prim::SubObj* op) final { return BinOp(op->a, " - ", op->b); }
+  std::string Dispatch_(const prim::MulObj* op) final { return BinOp(op->a, " * ", op->b); }
+  std::string Dispatch_(const prim::DivObj* op) final { return BinOp(op->a, " / ", op->b); }
+  std::string Dispatch_(const prim::ModObj* op) final { return BinOp(op->a, " % ", op->b); }
+  std::string Dispatch_(const prim::FloorDivObj* op) final {
     return FuncOp("floordiv", op->a, op->b);
   }
-  std::string Dispatch_(const prim::FloorModNode* op) final {
+  std::string Dispatch_(const prim::FloorModObj* op) final {
     return FuncOp("floormod", op->a, op->b);
   }
-  std::string Dispatch_(const prim::MinNode* op) final { return FuncOp("min", op->a, op->b); }
-  std::string Dispatch_(const prim::MaxNode* op) final { return FuncOp("max", op->a, op->b); }
+  std::string Dispatch_(const prim::MinObj* op) final { return FuncOp("min", op->a, op->b); }
+  std::string Dispatch_(const prim::MaxObj* op) final { return FuncOp("max", op->a, op->b); }
   // Fallback: use operator<< for unhandled expression types.
   std::string DispatchDefault_(const ffi::Object* op) final {
     std::ostringstream os;
-    os << ffi::GetRef<Expr>(static_cast<const ExprNode*>(op));
+    os << ffi::GetRef<Expr>(static_cast<const ExprObj*>(op));
     return os.str();
   }
 
@@ -398,7 +398,7 @@ class ExprPathRenderer : public ExprFunctor<std::string(const Expr&)> {
 void TVMFFIABIBuilder::RenderPendingAsserts() {
   if (pending_const_asserts_.empty()) return;
 
-  ExprPathRenderer renderer([this](const VarNode* v) -> std::string {
+  ExprPathRenderer renderer([this](const VarObj* v) -> std::string {
     if (auto inferred = shape_var_exprs_.find(v); inferred != shape_var_exprs_.end()) {
       return "(" + inferred->second + ")";
     }
@@ -462,14 +462,14 @@ Expr TVMFFIABIBuilder::LoadTVMFFIAnyUnionValue(const Var& v_packed_args, int par
     }
     return res;
   }
-  TVM_FFI_CHECK(arg_type.as<PtrTypeNode>(), TypeError)
+  TVM_FFI_CHECK(arg_type.as<PtrTypeObj>(), TypeError)
       << "Packed union values must have primitive or pointer type, but got " << arg_type;
   return Call(std::move(arg_type), tirx::abi_field_get_op(), call_args);
 }
 
 Expr TVMFFIABIBuilder::DecodeParamOpaqueHandle(int param_index, const PrimExpr& type_index) {
   // ── Type check: accept handle-like types ───────────────────
-  std::string expected_type = params_[param_index]->ty.as<TensorTypeNode>() ? "Tensor" : "pointer";
+  std::string expected_type = params_[param_index]->ty.as<TensorTypeObj>() ? "Tensor" : "pointer";
   EmitTypeIndexCheck(param_index,
                      type_index == ffi::TypeIndex::kTVMFFINone ||
                          type_index == ffi::TypeIndex::kTVMFFIOpaquePtr ||
@@ -538,14 +538,14 @@ void TVMFFIABIBuilder::DecodeParam(int param_index) {
   ffi::reflection::AccessPath param_path =
       ffi::reflection::AccessPath::Root()->Extend(AccessStep::ArrayItem(param_index));
 
-  if (param->ty.as<NoneTypeNode>()) {
+  if (param->ty.as<NoneTypeObj>()) {
     // A None parameter still occupies an ABI slot, even when the body ignores it.
     EmitTypeIndexCheck(param_index,
                        type_index.as_or_throw<PrimExpr>() == ffi::TypeIndex::kTVMFFINone, "None");
     return;
   }
 
-  if (param->ty.as<TensorTypeNode>()) {
+  if (param->ty.as<TensorTypeObj>()) {
     Var handle(param->name + ".handle", PtrType::VoidPtrType());
     Expr handle_value = DecodeParamOpaqueHandle(param_index, type_index.as_or_throw<PrimExpr>());
     BindPointer(handle, handle_value, param_path, true);
@@ -553,7 +553,7 @@ void TVMFFIABIBuilder::DecodeParam(int param_index) {
     return;
   }
 
-  if (param->ty.as<PtrTypeNode>()) {
+  if (param->ty.as<PtrTypeObj>()) {
     Expr handle_value = DecodeParamOpaqueHandle(param_index, type_index.as_or_throw<PrimExpr>());
     Expr pointer_value = Call(param->ty, tirx::reinterpret_op(), {handle_value});
     BindPointer(param, pointer_value, param_path, true);
@@ -774,7 +774,7 @@ Expr TVMFFIABIBuilder::DecodeParamDLTensor(const TensorVar& tensor, const PrimEx
     ffi::reflection::AccessPath shape_k_path = param_path->Attr(ffi::String("shape"))->ArrayItem(k);
     PrimExpr shape = tensor.shape()[k];
     PrimExpr value = cast(LoadInt64ArrayElem(shape_ptr, k), shape.ty());
-    if (shape.as<VarNode>()) {
+    if (shape.as<VarObj>()) {
       BindScalar(shape, value, shape_k_path, true);
     } else {
       pending_int_exprs_.push_back({shape, value, shape_k_path});
@@ -794,7 +794,7 @@ Expr TVMFFIABIBuilder::DecodeParamDLTensor(const TensorVar& tensor, const PrimEx
   // ── Section: byte_offset ─────────────────────────────────────
   int data_bytes = static_cast<int>(tensor.dtype().StorageBytes());
   ffi::reflection::AccessPath byte_offset_path = param_path->Attr(ffi::String("byte_offset"));
-  if (const auto* const_offset = elem_offset.as<IntImmNode>()) {
+  if (const auto* const_offset = elem_offset.as<IntImmObj>()) {
     BindScalar(IntImm(PrimType::UInt(64), const_offset->value * data_bytes),
                Call(PrimType::UInt(64), tirx::abi_field_get_op(),
                     {handle, IntImm::Int32(0), IntImm::Int32(tirx::kDLTensorByteOffset)})
@@ -810,7 +810,7 @@ Expr TVMFFIABIBuilder::DecodeParamDLTensor(const TensorVar& tensor, const PrimEx
                "ValueError", "Tensor byte offset must be divisible by its element size");
     PrimExpr runtime_origin =
         cast(byte_offset / MakeConst(PrimType::UInt(64), data_bytes), elem_offset.ty());
-    if (elem_offset.as<VarNode>()) {
+    if (elem_offset.as<VarObj>()) {
       BindScalar(elem_offset, runtime_origin, byte_offset_path, true);
     } else {
       // Linear offsets bind in element units, after byte-offset conversion.
@@ -826,7 +826,7 @@ Expr TVMFFIABIBuilder::DecodeParamDLTensor(const TensorVar& tensor, const PrimEx
              {handle, IntImm::Int32(0), IntImm::Int32(tirx::kDLTensorDeviceType)})
             .as_or_throw<PrimExpr>();
     // Use custom assertion for device_type to show human-readable device name
-    if (const auto* const_dt = device_type_.as<IntImmNode>()) {
+    if (const auto* const_dt = device_type_.as<IntImmObj>()) {
       PrimExpr cond = analyzer_->Simplify(IntImm::Int32(const_dt->value) == actual_device_type);
       if (!IsOne(cond)) {
         std::string device_name = runtime::DLDeviceType2Str(const_dt->value.as<int>().value());

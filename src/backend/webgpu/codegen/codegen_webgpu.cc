@@ -98,7 +98,7 @@ class WebGPUWorkgroupInfoCollector : public StmtExprVisitor {
     if (auto var = data.as<Var>()) {
       return var;
     }
-    if (const auto* call = data.as<CallNode>();
+    if (const auto* call = data.as<CallObj>();
         call && call->op.same_as(tirx::tensor_data_ptr_op()) && call->args.size() == 1) {
       return call->args[0].as<Var>();
     }
@@ -110,25 +110,25 @@ class WebGPUWorkgroupInfoCollector : public StmtExprVisitor {
     return it == buffer_aliases_.end() ? buffer_var : it->second;
   }
 
-  ffi::Optional<VisitInterrupt> Visit_(const VarNode* op) final {
+  ffi::Optional<VisitInterrupt> Visit_(const VarObj* op) final {
     TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(StmtExprVisitor::Visit_(op));
     Var buffer_var = ffi::GetRef<Var>(op);
-    if (buffer_var->ty.as<PtrTypeNode>()) {
+    if (buffer_var->ty.as<PtrTypeObj>()) {
       info_.write_access_set.insert(buffer_var);
     }
 
     return std::nullopt;
   }
 
-  ffi::Optional<VisitInterrupt> Visit_(const TensorStoreNode* op) final {
+  ffi::Optional<VisitInterrupt> Visit_(const TensorStoreObj* op) final {
     TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(StmtExprVisitor::Visit_(op));
     info_.write_access_set.insert(ResolveBuffer(op->dest.as_or_throw<TensorVar>()));
 
     return std::nullopt;
   }
 
-  ffi::Optional<VisitInterrupt> Visit_(const BindNode* op) final {
-    if (const auto* call = op->value.as<CallNode>();
+  ffi::Optional<VisitInterrupt> Visit_(const BindObj* op) final {
+    if (const auto* call = op->value.as<CallObj>();
         call && call->op.same_as(tirx::decl_tensor_op())) {
       if (auto source = GetBufferDataVar(call->args[0])) {
         buffer_aliases_.insert_or_assign(op->var.get(), ResolveBuffer(source.value()));
@@ -138,7 +138,7 @@ class WebGPUWorkgroupInfoCollector : public StmtExprVisitor {
     return StmtExprVisitor::Visit_(op);
   }
 
-  ffi::Optional<VisitInterrupt> Visit_(const RegionStmtNode* op) final {
+  ffi::Optional<VisitInterrupt> Visit_(const RegionStmtObj* op) final {
     if (op->op.same_as(tirx::launch_thread_op())) {
       TVM_FFI_CHECK(!op->args[0].as_or_throw<StringImm>()->value.starts_with("vthread"), ValueError)
           << "Virtual thread launches must be lowered before code generation";
@@ -151,7 +151,7 @@ class WebGPUWorkgroupInfoCollector : public StmtExprVisitor {
       TVM_FFI_ICHECK_GE(ts.dim_index, 0);
       TVM_FFI_ICHECK_LT(ts.dim_index, 3);
       if (ts.rank == 1) {
-        auto* sizeptr = extent.as<IntImmNode>();
+        auto* sizeptr = extent.as<IntImmObj>();
         TVM_FFI_ICHECK(sizeptr) << "CodeGenWebGPU: only allows constant thread group size "
                                 << " get " << extent;
         info_.workgroup_size[ts.dim_index] = sizeptr->value.as<uint32_t>().value();
@@ -170,7 +170,7 @@ class WebGPUWorkgroupInfoCollector : public StmtExprVisitor {
   WebGPUWorkGroupInfo info_;
   sym::Analyzer analyzer_;
   std::unordered_map<std::string, PrimExpr> thread_extents_;
-  std::unordered_map<const VarNode*, Var> buffer_aliases_;
+  std::unordered_map<const VarObj*, Var> buffer_aliases_;
 };
 
 std::string CodeGenWebGPU::Finish() {
@@ -190,7 +190,7 @@ void CodeGenWebGPU::InitFuncState(const Function& f) {
   workgroup_memory_bytes_ = 0;
   // analyze the data;
   for (Var arg : f->params) {
-    if (arg->ty.as<PtrTypeNode>()) {
+    if (arg->ty.as<PtrTypeObj>()) {
       alloc_storage_scope_[arg.get()] = runtime::MemoryScope::Global();
     }
   }
@@ -251,9 +251,9 @@ runtime::FunctionInfo CodeGenWebGPU::AddFunction(const Function& f, bool skip_re
   os_param_access << "paramWriteAccess:[";
   // setup buffer argumemts
   for (Var arg : f->params) {
-    if (auto* ptr = arg->ty.as<PtrTypeNode>()) {
+    if (auto* ptr = arg->ty.as<PtrTypeObj>()) {
       runtime_arg_types.push_back(kRuntimeOpaqueHandleType);
-      auto* prim = ptr->element_type.as<PrimTypeNode>();
+      auto* prim = ptr->element_type.as<PrimTypeObj>();
       TVM_FFI_ICHECK(prim)
           << "All handles passed to the CodeGenWebGPU must have a type_annotation as a "
              "PtrType, "
@@ -263,7 +263,7 @@ runtime::FunctionInfo CodeGenWebGPU::AddFunction(const Function& f, bool skip_re
           << "WebGPU storage buffers must have a concrete primitive element type";
       if (value_storage_type.MatchesCode(DLDataTypeCode::kDLBool)) {
         // We need a physically addressable buffer type to support boolean tensors.
-        // The loaded byte is cast to bool inside the LoadNode visitor below.
+        // The loaded byte is cast to bool inside the TensorLoadObj visitor below.
         value_storage_type = boolean_storage_type_.WithLanes(value_storage_type.lanes());
       }
       std::string vid = AllocVarID(arg.get());
@@ -362,7 +362,7 @@ runtime::FunctionInfo CodeGenWebGPU::AddFunction(const Function& f, bool skip_re
                                std::move(func_launch_param_tags), {});
 }
 
-void CodeGenWebGPU::Dispatch_(const RegionStmtNode* op) {
+void CodeGenWebGPU::Dispatch_(const RegionStmtObj* op) {
   if (op->op.same_as(tirx::launch_thread_op())) {
     TVM_FFI_CHECK(!op->args[0].as_or_throw<StringImm>()->value.starts_with("vthread"), ValueError)
         << "Virtual thread launches must be lowered before code generation";
@@ -438,8 +438,8 @@ void CodeGenWebGPU::PrintType(const PrimType& t, std::ostream& os) {  // NOLINT(
   }
 }
 
-void CodeGenWebGPU::PrintStorageSync(const CallNode* op) {
-  const std::string& sync = op->args[0].as<StringImmNode>()->value;
+void CodeGenWebGPU::PrintStorageSync(const CallObj* op) {
+  const std::string& sync = op->args[0].as<StringImmObj>()->value;
   if (sync == "warp") {
     this->PrintIndent();
     this->stream << "workgroupBarrier();\n";
@@ -471,7 +471,7 @@ void CodeGenWebGPU::PrintVecElemStore(const std::string& vec, const PrimType& t,
   stream << vec << "[" << i << "] = " << value << ";\n";
 }
 
-void CodeGenWebGPU::Dispatch_(const prim::BroadcastNode* op, std::ostream& os) {  // NOLINT(*)
+void CodeGenWebGPU::Dispatch_(const prim::BroadcastObj* op, std::ostream& os) {  // NOLINT(*)
   std::string v = PrintExpr(op->value);
   int lanes = op->ty.as_or_throw<PrimType>().lanes();
   PrintType(op->ty.as_or_throw<PrimType>(), os);
@@ -487,7 +487,7 @@ PrimExpr CodeGenWebGPU::EnforceU32(PrimExpr value) {
   return cast(value, PrimType::UInt(32, value.ty().lanes()));
 }
 
-void CodeGenWebGPU::Dispatch_(const prim::LShiftNode* op, std::ostream& os) {  // NOLINT(*)
+void CodeGenWebGPU::Dispatch_(const prim::LShiftObj* op, std::ostream& os) {  // NOLINT(*)
   os << '(';
   this->PrintExpr(op->a, os);
   os << "<<";
@@ -496,7 +496,7 @@ void CodeGenWebGPU::Dispatch_(const prim::LShiftNode* op, std::ostream& os) {  /
   os << ')';
 }
 
-void CodeGenWebGPU::Dispatch_(const prim::RShiftNode* op, std::ostream& os) {  // NOLINT(*)
+void CodeGenWebGPU::Dispatch_(const prim::RShiftObj* op, std::ostream& os) {  // NOLINT(*)
   os << '(';
   this->PrintExpr(op->a, os);
   os << ">>";
@@ -505,7 +505,7 @@ void CodeGenWebGPU::Dispatch_(const prim::RShiftNode* op, std::ostream& os) {  /
   os << ')';
 }
 
-void CodeGenWebGPU::Dispatch_(const CallNode* op, std::ostream& os) {  // NOLINT(*)
+void CodeGenWebGPU::Dispatch_(const CallObj* op, std::ostream& os) {  // NOLINT(*)
   TVM_FFI_ICHECK(!op->op.same_as(tirx::masked_load_op()))
       << "Predicated buffer load is not supported.";
   TVM_FFI_ICHECK(!op->op.same_as(tirx::masked_store_op()))
@@ -555,17 +555,17 @@ void CodeGenWebGPU::Dispatch_(const CallNode* op, std::ostream& os) {  // NOLINT
   }
 }
 
-void CodeGenWebGPU::Dispatch_(const prim::CastNode* op, std::ostream& os) {  // NOLINT(*)
+void CodeGenWebGPU::Dispatch_(const prim::CastObj* op, std::ostream& os) {  // NOLINT(*)
   PrintType(op->ty.as_or_throw<PrimType>(), os);
   os << "(" << PrintExpr(op->value) << ")";
 }
 
-void CodeGenWebGPU::Dispatch_(const prim::SelectNode* op, std::ostream& os) {  // NOLINT(*)
+void CodeGenWebGPU::Dispatch_(const prim::SelectObj* op, std::ostream& os) {  // NOLINT(*)
   os << "select(" << PrintExpr(op->false_value) << ", " << PrintExpr(op->true_value) << ", "
      << PrintExpr(op->condition) << ")";
 }
 
-void CodeGenWebGPU::Dispatch_(const prim::LetNode* op, std::ostream& os) {  // NOLINT(*)
+void CodeGenWebGPU::Dispatch_(const prim::LetObj* op, std::ostream& os) {  // NOLINT(*)
   // use ssa form.
   if (print_ssa_form_) {
     std::string value = PrintExpr(op->value);
@@ -580,13 +580,13 @@ void CodeGenWebGPU::Dispatch_(const prim::LetNode* op, std::ostream& os) {  // N
   }
   os << PrintExpr(op->body);
   // Pop the defined var from var_idmap when exiting its scope.
-  // We do this because it is hard to completely avoid a same LetNode appearing
+  // We do this because it is hard to completely avoid a same LetObj appearing
   // at different places.
   bool removed = var_idmap_.erase(op->var.get());
   TVM_FFI_ICHECK(removed);
 }
 
-void CodeGenWebGPU::Dispatch_(const IntImmNode* op, std::ostream& os) {  // NOLINT(*)
+void CodeGenWebGPU::Dispatch_(const IntImmObj* op, std::ostream& os) {  // NOLINT(*)
   TVM_FFI_ICHECK_LE(op->ty.as_or_throw<PrimType>().bits(), 32)
       << "WebGPU does not support integer immediate type " << op->ty;
   if (op->ty.as_or_throw<PrimType>().bits() == 32) {
@@ -605,7 +605,7 @@ void CodeGenWebGPU::Dispatch_(const IntImmNode* op, std::ostream& os) {  // NOLI
   }
 }
 
-void CodeGenWebGPU::Dispatch_(const FloatImmNode* op, std::ostream& os) {  // NOLINT(*)
+void CodeGenWebGPU::Dispatch_(const FloatImmObj* op, std::ostream& os) {  // NOLINT(*)
   std::ostringstream temp;
   temp << std::scientific << op->value;
   if (op->ty.as_or_throw<PrimType>().bits() == 32) {
@@ -622,7 +622,7 @@ void CodeGenWebGPU::Dispatch_(const FloatImmNode* op, std::ostream& os) {  // NO
   os << temp.str();
 }
 
-void CodeGenWebGPU::Dispatch_(const TensorLoadNode* op, std::ostream& os) {  // NOLINT(*)
+void CodeGenWebGPU::Dispatch_(const TensorLoadObj* op, std::ostream& os) {  // NOLINT(*)
   // NOTE: direct impl of load/store for correctness
   // Each printing stmt must stand on their own after all preprocessing steps
   // to ensure correctness in the case of nested-expression
@@ -682,8 +682,8 @@ void CodeGenWebGPU::Dispatch_(const TensorLoadNode* op, std::ostream& os) {  // 
   }
 }
 
-void CodeGenWebGPU::Dispatch_(const BindNode* op) {
-  if (const auto* call = op->value.as<CallNode>(); call) {
+void CodeGenWebGPU::Dispatch_(const BindObj* op) {
+  if (const auto* call = op->value.as<CallObj>(); call) {
     if (call->op.same_as(tirx::alloc_tensor_op())) return DispatchAllocTensor(op, call);
     if (call->op.same_as(tirx::decl_tensor_op())) return DispatchDeclTensor(op, call);
   }
@@ -706,7 +706,7 @@ void CodeGenWebGPU::Dispatch_(const BindNode* op) {
   }
 }
 
-void CodeGenWebGPU::Dispatch_(const TensorStoreNode* op) {
+void CodeGenWebGPU::Dispatch_(const TensorStoreObj* op) {
   TVM_FFI_ICHECK_EQ(op->indices.size(), 1) << "Store to non-flat memory not supported.";
 
   PrimType value_ty = op->value.ty();
@@ -766,12 +766,12 @@ void CodeGenWebGPU::Dispatch_(const TensorStoreNode* op) {
   }
 }
 
-void CodeGenWebGPU::DispatchDeclTensor(const BindNode* op, const CallNode* buffer_call) {
+void CodeGenWebGPU::DispatchDeclTensor(const BindObj* op, const CallObj* buffer_call) {
   Expr data = buffer_call->args[0];
-  const VarNode* source = data.as<VarNode>();
-  if (const auto* call = data.as<CallNode>();
+  const VarObj* source = data.as<VarObj>();
+  if (const auto* call = data.as<CallObj>();
       call && call->op.same_as(tirx::tensor_data_ptr_op()) && call->args.size() == 1) {
-    source = call->args[0].as<VarNode>();
+    source = call->args[0].as<VarObj>();
   }
   TVM_FFI_CHECK(source && var_idmap_.count(source), ValueError)
       << "WebGPU tensor views require a named storage array";
@@ -781,7 +781,7 @@ void CodeGenWebGPU::DispatchDeclTensor(const BindNode* op, const CallNode* buffe
   var_idmap_[op->var.get()] = GetVarID(source);
 }
 
-void CodeGenWebGPU::DispatchAllocTensor(const BindNode* op, const CallNode* buffer_call) {
+void CodeGenWebGPU::DispatchAllocTensor(const BindObj* op, const CallObj* buffer_call) {
   static const auto scope_shared = runtime::MemoryScope::Get("shared");
   static const auto scope_shared_dyn = runtime::MemoryScope::Get("shared.dyn");
   static const auto scope_local = runtime::MemoryScope::Get("local");
@@ -793,12 +793,12 @@ void CodeGenWebGPU::DispatchAllocTensor(const BindNode* op, const CallNode* buff
   std::string vid = AllocVarID(buffer.get());
   size_t constant_size = 1;
   for (const auto& dim : shape->fields) {
-    const auto* dim_imm = dim.as<IntImmNode>();
+    const auto* dim_imm = dim.as<IntImmObj>();
     int64_t dim_size = dim_imm ? static_cast<int64_t>(dim_imm->value)
                                : analyzer_->const_int_bound(dim.as_or_throw<PrimExpr>())->max_value;
     if (dim_imm == nullptr) {
       PrimExpr dtype_max_value = max_value(dim->ty.as_or_throw<PrimType>());
-      const auto* dtype_max = dtype_max_value.as<IntImmNode>();
+      const auto* dtype_max = dtype_max_value.as<IntImmObj>();
       // An integer dtype's intrinsic maximum is not a program-derived allocation bound.
       TVM_FFI_ICHECK(dtype_max && dim_size < dtype_max->value)
           << "WebGPU allocation extent requires a finite compile-time upper bound, but got " << dim;
@@ -849,7 +849,7 @@ void CodeGenWebGPU::DispatchAllocTensor(const BindNode* op, const CallNode* buff
   }
 }
 
-void CodeGenWebGPU::Dispatch_(const ForNode* op) {
+void CodeGenWebGPU::Dispatch_(const ForObj* op) {
   std::string begin_str = PrintExpr(op->begin);
   std::string end_str = PrintExpr(op->end);
   std::string step_str = op->HasTrivialStep() ? "" : PrintExpr(op->step);
@@ -871,11 +871,11 @@ void CodeGenWebGPU::Dispatch_(const ForNode* op) {
   stream << "}\n";
 }
 
-void CodeGenWebGPU::Dispatch_(const AssertStmtNode* op) {
+void CodeGenWebGPU::Dispatch_(const AssertStmtObj* op) {
   // skip assert — AssertStmt is a leaf, nothing to emit.
 }
 
-void CodeGenWebGPU::Dispatch_(const WhileNode* op) {
+void CodeGenWebGPU::Dispatch_(const WhileObj* op) {
   PrintIndent();
   stream << "while (true) {\n";
   int while_scope = BeginScope();
@@ -888,12 +888,12 @@ void CodeGenWebGPU::Dispatch_(const WhileNode* op) {
   stream << "}\n";
 }
 
-void CodeGenWebGPU::Dispatch_(const BreakNode* op) {
+void CodeGenWebGPU::Dispatch_(const BreakObj* op) {
   PrintIndent();
   stream << "break;\n";
 }
 
-void CodeGenWebGPU::Dispatch_(const ContinueNode* op) {
+void CodeGenWebGPU::Dispatch_(const ContinueObj* op) {
   PrintIndent();
   stream << "continue;\n";
 }
@@ -919,8 +919,7 @@ ffi::Module BuildWebGPU(IRModule mod, Target target) {
 
   for (auto kv : mod->functions) {
     CodeGenWebGPU cg(target);
-    TVM_FFI_ICHECK(kv.second->IsInstance<FunctionNode>())
-        << "CodeGenWebGPU: Can only take Function";
+    TVM_FFI_ICHECK(kv.second->IsInstance<FunctionObj>()) << "CodeGenWebGPU: Can only take Function";
     auto f = kv.second.as_or_throw<Function>();
     auto calling_conv = f->GetAttr(tvm::attr::kCallingConv);
     TVM_FFI_ICHECK(calling_conv.has_value())

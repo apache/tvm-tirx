@@ -43,15 +43,15 @@ namespace codegen {
 
 namespace {
 
-const VarNode* TryUnwrapTextureVar(const Expr& texture) {
-  if (const auto* var = texture.as<VarNode>()) {
+const VarObj* TryUnwrapTextureVar(const Expr& texture) {
+  if (const auto* var = texture.as<VarObj>()) {
     return var;
   }
-  if (const auto* call = texture.as<CallNode>();
+  if (const auto* call = texture.as<CallObj>();
       call && call->op.same_as(tirx::tensor_data_ptr_op())) {
     TVM_FFI_ICHECK_EQ(call->args.size(), 1U);
-    const auto* buffer = call->args[0].as<VarNode>();
-    TVM_FFI_ICHECK(buffer && buffer->ty.as<TensorTypeNode>())
+    const auto* buffer = call->args[0].as<VarObj>();
+    TVM_FFI_ICHECK(buffer && buffer->ty.as<TensorTypeObj>())
         << "tensor_data_ptr expects a Var with TensorType";
     return buffer;
   }
@@ -59,15 +59,15 @@ const VarNode* TryUnwrapTextureVar(const Expr& texture) {
 }
 
 struct TextureArgument {
-  const VarNode* var;
-  const PtrTypeNode* pointer_type;
+  const VarObj* var;
+  const PtrTypeObj* pointer_type;
 };
 
 TextureArgument UnwrapTextureArgument(const Expr& texture) {
   const auto* var = TryUnwrapTextureVar(texture);
   TVM_FFI_ICHECK(var)
       << "Texture arguments must be a pointer Var or a tensor_data_ptr(TensorVar) projection";
-  const auto* pointer_type = texture->ty.as<PtrTypeNode>();
+  const auto* pointer_type = texture->ty.as<PtrTypeObj>();
   TVM_FFI_ICHECK(pointer_type) << "Texture arguments must have PtrType";
   TVM_FFI_ICHECK(runtime::IsTextureStorage(pointer_type->scope))
       << "Texture intrinsics only support texture buffers";
@@ -82,9 +82,9 @@ class InferTextureAccess : public StmtExprVisitor {
   static constexpr const uint8_t kWriteAccess = 2;
 
   InferTextureAccess() {}
-  std::unordered_map<const VarNode*, std::string> Infer(const Stmt& n) {
+  std::unordered_map<const VarObj*, std::string> Infer(const Stmt& n) {
     StmtExprVisitor::Visit(n);
-    std::unordered_map<const VarNode*, std::string> storage_scope_qualifiers;
+    std::unordered_map<const VarObj*, std::string> storage_scope_qualifiers;
     for (auto& texture : var_access_map_) {
       if (texture.second == kReadAccess) {
         storage_scope_qualifiers.insert({texture.first, "texture_read"});
@@ -96,23 +96,23 @@ class InferTextureAccess : public StmtExprVisitor {
     }
     return storage_scope_qualifiers;
   }
-  ffi::Optional<VisitInterrupt> Visit_(const BindNode* op) final {
-    if (const auto* call = op->value.as<CallNode>();
+  ffi::Optional<VisitInterrupt> Visit_(const BindObj* op) final {
+    if (const auto* call = op->value.as<CallObj>();
         call && call->op.same_as(tirx::decl_tensor_op())) {
-      if (const VarNode* source = TryUnwrapTextureVar(call->args[0])) {
+      if (const VarObj* source = TryUnwrapTextureVar(call->args[0])) {
         auto it = buffer_data_map_.find(source);
         buffer_data_map_[op->var.get()] = it == buffer_data_map_.end() ? source : it->second;
       }
     }
     return StmtExprVisitor::Visit_(op);
   }
-  ffi::Optional<VisitInterrupt> Visit_(const CallNode* op) final {
+  ffi::Optional<VisitInterrupt> Visit_(const CallObj* op) final {
     if (op->op.same_as(backend::opencl::texture2d_load_op())) {
-      const VarNode* texture = UnwrapTextureArgument(op->args[0]).var;
+      const VarObj* texture = UnwrapTextureArgument(op->args[0]).var;
       auto it = buffer_data_map_.find(texture);
       var_access_map_[it == buffer_data_map_.end() ? texture : it->second] |= kReadAccess;
     } else if (op->op.same_as(backend::opencl::texture2d_store_op())) {
-      const VarNode* texture = UnwrapTextureArgument(op->args[0]).var;
+      const VarObj* texture = UnwrapTextureArgument(op->args[0]).var;
       auto it = buffer_data_map_.find(texture);
       var_access_map_[it == buffer_data_map_.end() ? texture : it->second] |= kWriteAccess;
     }
@@ -120,8 +120,8 @@ class InferTextureAccess : public StmtExprVisitor {
   }
 
  private:
-  std::unordered_map<const VarNode*, uint8_t> var_access_map_;
-  std::unordered_map<const VarNode*, const VarNode*> buffer_data_map_;
+  std::unordered_map<const VarObj*, uint8_t> var_access_map_;
+  std::unordered_map<const VarObj*, const VarObj*> buffer_data_map_;
 };
 
 CodeGenOpenCL::CodeGenOpenCL() {
@@ -136,7 +136,7 @@ void CodeGenOpenCL::InitFuncState(const Function& f) {
     this->SetTextureScope(ffi::make_object<InferTextureAccess>()->Infer(f->body.value()));
   }
   for (Var arg : f->params) {
-    auto ptr_type = arg->ty.as<PtrTypeNode>();
+    auto ptr_type = arg->ty.as<PtrTypeObj>();
     if (ptr_type && runtime::IsTextureStorage(ptr_type->scope)) {
       // Storage scope qualifiers for textures are inferred
       // and set prior to function codegen.
@@ -152,7 +152,7 @@ void CodeGenOpenCL::PrintFuncPrefix(std::ostream& os) { os << "__kernel "; }
 
 void CodeGenOpenCL::PreFunctionBody(const Function& f) {
   for (Var arg : f->params) {
-    auto ptr_type = arg->ty.as<PtrTypeNode>();
+    auto ptr_type = arg->ty.as<PtrTypeObj>();
     if (ptr_type && runtime::IsTextureStorage(ptr_type->scope)) {
       this->stream << "  const sampler_t image_sampler = "
                       "CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP | CLK_FILTER_NEAREST;\n";
@@ -327,9 +327,9 @@ void CodeGenOpenCL::PrintType(const PrimType& t, std::ostream& os) {  // NOLINT(
 }
 
 void CodeGenOpenCL::PrintType(const Type& type, std::ostream& os) {  // NOLINT(*)
-  if (auto* ptr = type.as<PrimTypeNode>()) {
+  if (auto* ptr = type.as<PrimTypeObj>()) {
     return PrintType(ffi::GetRef<PrimType>(ptr), os);
-  } else if (auto* ptr = type.as<PtrTypeNode>()) {
+  } else if (auto* ptr = type.as<PtrTypeObj>()) {
     if (runtime::IsTextureStorage(ptr->scope)) {
       os << "image2d_array_t";
     } else {
@@ -343,9 +343,9 @@ void CodeGenOpenCL::PrintType(const Type& type, std::ostream& os) {  // NOLINT(*
   }
 }
 
-void CodeGenOpenCL::PrintVecAddr(const VarNode* buffer, const PrimType& t, PrimExpr base,
+void CodeGenOpenCL::PrintVecAddr(const VarObj* buffer, const PrimType& t, PrimExpr base,
                                  std::ostream& os) {  // NOLINT(*)
-  const VarNode* buffer_var = buffer;
+  const VarObj* buffer_var = buffer;
   PrimType elem_type = t.WithLanes(1);
   if (!HandleTypeMatch(buffer_var, elem_type)) {
     os << '(';
@@ -359,7 +359,7 @@ void CodeGenOpenCL::PrintVecAddr(const VarNode* buffer, const PrimType& t, PrimE
   os << GetVarID(buffer_var) << " + ";
   PrintExpr(base, os);
 }
-std::string CodeGenOpenCL::GetVecLoad(const PrimType& t, const VarNode* buffer, PrimExpr base) {
+std::string CodeGenOpenCL::GetVecLoad(const PrimType& t, const VarObj* buffer, PrimExpr base) {
   std::ostringstream os;
   os << "vload" << t.lanes() << "(0, ";
   PrintVecAddr(buffer, t, base, os);
@@ -367,7 +367,7 @@ std::string CodeGenOpenCL::GetVecLoad(const PrimType& t, const VarNode* buffer, 
   return os.str();
 }
 
-void CodeGenOpenCL::PrintVecStore(const VarNode* buffer, const PrimType& t, PrimExpr base,
+void CodeGenOpenCL::PrintVecStore(const VarObj* buffer, const PrimType& t, PrimExpr base,
                                   const std::string& value) {
   this->PrintIndent();
   stream << "vstore" << t.lanes() << "(" << value << ", 0, ";
@@ -401,8 +401,8 @@ void CodeGenOpenCL::PrintVecElemLoadExpr(const PrimType& t, int i, const std::st
   return;
 }
 
-void CodeGenOpenCL::PrintStorageSync(const CallNode* op) {
-  const std::string& sync = op->args[0].as<StringImmNode>()->value;
+void CodeGenOpenCL::PrintStorageSync(const CallObj* op) {
+  const std::string& sync = op->args[0].as<StringImmObj>()->value;
   if (sync == "warp") {
     this->PrintIndent();
     this->stream << "barrier(CLK_LOCAL_MEM_FENCE);\n";
@@ -414,7 +414,7 @@ void CodeGenOpenCL::PrintStorageSync(const CallNode* op) {
   }
 }
 
-void CodeGenOpenCL::PrintStorageQualifier(const VarNode* var, std::ostream& os) {
+void CodeGenOpenCL::PrintStorageQualifier(const VarObj* var, std::ostream& os) {
   if (auto it = texture_access_qualifiers_.find(var); it != texture_access_qualifiers_.end()) {
     if (it->second == "texture_read") os << "__read_only ";
     if (it->second == "texture_write") os << "__write_only ";
@@ -437,7 +437,7 @@ void CodeGenOpenCL::PrintStorageScope(const runtime::MemoryScope& scope,
 
 void CodeGenOpenCL::PrintRestrict(const Var& v, std::ostream& os) {
   // Apply restrict qualifer for non-texture types only
-  if (auto* ptr = v->ty.as<PtrTypeNode>()) {
+  if (auto* ptr = v->ty.as<PtrTypeObj>()) {
     if (!runtime::IsTextureStorage(ptr->scope)) {
       os << ' ' << restrict_keyword_;
     }
@@ -467,21 +467,21 @@ std::string CodeGenOpenCL::CastTo(std::string value, const PrimType& target) {
   }
 }
 
-void CodeGenOpenCL::Dispatch_(const BindNode* op) {
-  if (const auto* call = op->value.as<CallNode>(); call) {
+void CodeGenOpenCL::Dispatch_(const BindObj* op) {
+  if (const auto* call = op->value.as<CallObj>(); call) {
     if (call->op.same_as(tirx::alloc_tensor_op())) return DispatchAllocTensor(op, call);
   }
   CodeGenC::Dispatch_(op);
 }
 
-void CodeGenOpenCL::DispatchAllocTensor(const BindNode* op, const CallNode* buffer_call) {
+void CodeGenOpenCL::DispatchAllocTensor(const BindObj* op, const CallObj* buffer_call) {
   tvm::Tuple shape = tvm::Tuple(buffer_call->ty_args[0].as_or_throw<tirx::TensorType>()->shape);
   DLDataType dtype = buffer_call->ty_args[0].as_or_throw<tirx::TensorType>()->dtype->dtype;
   TensorVar buffer = op->var.as_or_throw<TensorVar>();
   // Compute constant_size from buffer shape
   size_t constant_size = 1;
   for (const auto& dim : shape->fields) {
-    const IntImmNode* dim_imm = dim.as<IntImmNode>();
+    const IntImmObj* dim_imm = dim.as<IntImmObj>();
     TVM_FFI_ICHECK(dim_imm) << "Can only handle constant size stack allocation for now";
     constant_size *= dim_imm->value.as<size_t>().value();
   }
@@ -489,10 +489,10 @@ void CodeGenOpenCL::DispatchAllocTensor(const BindNode* op, const CallNode* buff
   CodeGenC::DispatchAllocTensor(op, buffer_call);
 }
 
-void CodeGenOpenCL::Dispatch_(const CallNode* op, std::ostream& os) {
+void CodeGenOpenCL::Dispatch_(const CallObj* op, std::ostream& os) {
   if (op->op.same_as(tirx::address_of_op())) {
     // Overload tvm_address_of to add storage scope (e.g. __global).
-    const TensorLoadNode* load = op->args[0].as<TensorLoadNode>();
+    const TensorLoadObj* load = op->args[0].as<TensorLoadObj>();
     TVM_FFI_ICHECK(op->args.size() == 1 && load);
     TVM_FFI_ICHECK_EQ(load->indices.size(), 1)
         << "CodeGenOpenCL only supports flat memory allocations.";
@@ -572,11 +572,11 @@ void CodeGenOpenCL::Dispatch_(const CallNode* op, std::ostream& os) {
     ss << "))))";
 
     std::string rhs = SSAGetID(ss.str(), op_ty.WithLanes(data_lanes));
-    if (auto ramp = op->args.back().as<prim::RampNode>()) {
-      const auto* base = ramp->base.as<IntImmNode>();
-      const auto* lanes_imm = ramp->lanes.as<IntImmNode>();
+    if (auto ramp = op->args.back().as<prim::RampObj>()) {
+      const auto* base = ramp->base.as<IntImmObj>();
+      const auto* lanes_imm = ramp->lanes.as<IntImmObj>();
       auto lanes = lanes_imm ? lanes_imm->value.as<int>() : std::nullopt;
-      const auto* stride = ramp->stride.as<IntImmNode>();
+      const auto* stride = ramp->stride.as<IntImmObj>();
       if (base && lanes.has_value() && stride && base->value == 0 && *lanes == data_lanes &&
           stride->value == 1) {
         os << rhs;
@@ -621,7 +621,7 @@ void CodeGenOpenCL::Dispatch_(const CallNode* op, std::ostream& os) {
   }
 }
 
-void CodeGenOpenCL::Dispatch_(const prim::BroadcastNode* op, std::ostream& os) {  // NOLINT(*)
+void CodeGenOpenCL::Dispatch_(const prim::BroadcastObj* op, std::ostream& os) {  // NOLINT(*)
   std::string v = PrintExpr(op->value);
   int lanes = op->ty.as_or_throw<PrimType>().lanes();
   os << "((";
@@ -634,7 +634,7 @@ void CodeGenOpenCL::Dispatch_(const prim::BroadcastNode* op, std::ostream& os) {
   os << "))";
 }
 
-void CodeGenOpenCL::Dispatch_(const prim::RampNode* op, std::ostream& os) {  // NOLINT(*)
+void CodeGenOpenCL::Dispatch_(const prim::RampObj* op, std::ostream& os) {  // NOLINT(*)
   os << "((";
   PrintType(op->ty.as_or_throw<PrimType>(), os);
   os << ")(";
@@ -647,7 +647,7 @@ void CodeGenOpenCL::Dispatch_(const prim::RampNode* op, std::ostream& os) {  // 
   os << "))";
 }
 
-void CodeGenOpenCL::Dispatch_(const FloatImmNode* op, std::ostream& os) {  // NOLINT(*)
+void CodeGenOpenCL::Dispatch_(const FloatImmObj* op, std::ostream& os) {  // NOLINT(*)
   if (std::isinf(op->value)) {
     if (op->value < 0) {
       os << "-";
@@ -677,15 +677,15 @@ inline void PrintBinaryExpr(const T* op, const char* opstr, std::ostream& os, Co
   }
 }
 
-void CodeGenOpenCL::Dispatch_(const prim::MinNode* op, std::ostream& os) {
+void CodeGenOpenCL::Dispatch_(const prim::MinObj* op, std::ostream& os) {
   PrintBinaryExpr(op, "min", os, this);
 }
 
-void CodeGenOpenCL::Dispatch_(const prim::MaxNode* op, std::ostream& os) {
+void CodeGenOpenCL::Dispatch_(const prim::MaxObj* op, std::ostream& os) {
   PrintBinaryExpr(op, "max", os, this);
 }
 
-void CodeGenOpenCL::Dispatch_(const prim::ModNode* op, std::ostream& os) {  // NOLINT(*)
+void CodeGenOpenCL::Dispatch_(const prim::ModObj* op, std::ostream& os) {  // NOLINT(*)
   std::string opstr;
   PrimType op_ty = op->ty.as_or_throw<PrimType>();
   if (op_ty.MatchesCode(DLDataTypeCode::kDLInt, DLDataTypeCode::kDLUInt)) {
@@ -715,7 +715,7 @@ void CodeGenOpenCL::Dispatch_(const prim::ModNode* op, std::ostream& os) {  // N
   }
 }
 
-void CodeGenOpenCL::Dispatch_(const prim::AndNode* op, std::ostream& os) {
+void CodeGenOpenCL::Dispatch_(const prim::AndObj* op, std::ostream& os) {
   std::ostringstream oss;
   os << "(";
   this->PrintExpr(op->a, oss);
@@ -727,7 +727,7 @@ void CodeGenOpenCL::Dispatch_(const prim::AndNode* op, std::ostream& os) {
   os << ")";
 }
 
-void CodeGenOpenCL::Dispatch_(const prim::OrNode* op, std::ostream& os) {
+void CodeGenOpenCL::Dispatch_(const prim::OrObj* op, std::ostream& os) {
   std::ostringstream oss;
   os << "(";
   this->PrintExpr(op->a, oss);
@@ -739,7 +739,7 @@ void CodeGenOpenCL::Dispatch_(const prim::OrNode* op, std::ostream& os) {
   os << ")";
 }
 
-void CodeGenOpenCL::Dispatch_(const prim::SelectNode* op, std::ostream& os) {
+void CodeGenOpenCL::Dispatch_(const prim::SelectObj* op, std::ostream& os) {
   PrimType op_ty = op->ty.as_or_throw<PrimType>();
   std::ostringstream oss;
   os << "select(";
@@ -761,7 +761,7 @@ void CodeGenOpenCL::Dispatch_(const prim::SelectNode* op, std::ostream& os) {
 }
 
 void CodeGenOpenCL::SetTextureScope(
-    const std::unordered_map<const VarNode*, std::string>& scope) {  // NOLINT(*)
+    const std::unordered_map<const VarObj*, std::string>& scope) {  // NOLINT(*)
   for (auto& texture : scope) {
     texture_access_qualifiers_.insert(texture);
   }
@@ -772,8 +772,7 @@ ffi::Module BuildOpenCL(IRModule mod, Target target) {
 
   ffi::Map<GlobalVar, Function> functions;
   for (auto [gvar, base_func] : mod->functions) {
-    TVM_FFI_ICHECK(base_func->IsInstance<FunctionNode>())
-        << "CodeGenOpenCL: Can only take Function";
+    TVM_FFI_ICHECK(base_func->IsInstance<FunctionObj>()) << "CodeGenOpenCL: Can only take Function";
     auto function = base_func.as_or_throw<Function>();
     auto calling_conv = function->GetAttr(tvm::attr::kCallingConv);
     TVM_FFI_ICHECK(calling_conv.has_value())

@@ -75,8 +75,8 @@ impl TensorMapTypeObj {
 
 impl TensorMapType {
     /// Lossless complete-field allocation.
-    pub fn new(loc: Location) -> Self {
-        let obj = TensorMapTypeObj::new(loc);
+    pub fn new(loc: impl Into<Location>) -> Self {
+        let obj = TensorMapTypeObj::new(loc.into());
         Self { base: ObjectArc::new(obj) }
     }
 }

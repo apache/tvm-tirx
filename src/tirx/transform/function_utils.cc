@@ -38,7 +38,7 @@ transform::Pass AnnotateEntryFunc() {
     if (mod->functions.size() == 1) {
       auto [gvar, base_func] = *mod->functions.begin();
       if (!base_func->HasNonzeroAttr(tvm::tirx::attr::kIsEntryFunc.name)) {
-        if (auto ptr = base_func.as<FunctionNode>()) {
+        if (auto ptr = base_func.as<FunctionObj>()) {
           mod->Update(
               gvar, WithAttr(ffi::GetRef<Function>(ptr), tvm::tirx::attr::kIsEntryFunc.name, true));
         }
@@ -53,7 +53,7 @@ transform::Pass AnnotateEntryFunc() {
     for (const auto& [gvar, base_func] : mod->functions) {
       bool is_external = base_func->GetAttr(tvm::attr::kGlobalSymbol).has_value();
       if (is_external) {
-        if (auto ptr = base_func.as<FunctionNode>()) {
+        if (auto ptr = base_func.as<FunctionObj>()) {
           with_annotations->Add(
               gvar, WithAttr(ffi::GetRef<Function>(ptr), tvm::tirx::attr::kIsEntryFunc.name, true));
         } else {

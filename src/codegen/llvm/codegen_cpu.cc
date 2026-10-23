@@ -383,7 +383,7 @@ CodeGenLLVM::TypedPointer CodeGenCPU::CreateStructRefPtr(Type type, llvm::Value*
       buf = builder_->CreatePointerCast(buf, llvmGetPointerTo(t_tvm_ffi_any_, 0));
       // field 2 is the union value
       buf = builder_->CreateInBoundsGEP(t_tvm_ffi_any_, buf, {index, ConstInt32(2)});
-      if (type.as<PtrTypeNode>()) {
+      if (type.as<PtrTypeObj>()) {
         buf = builder_->CreatePointerCast(buf, llvmGetPointerTo(t_void_p_, 0));
         return TypedPointer(t_void_p_, buf);
       }
@@ -520,7 +520,7 @@ llvm::BasicBlock* CodeGenCPU::CheckCallSuccess(llvm::Value* retcode) {
   return end_block;
 }
 
-void CodeGenCPU::CreateComputeScope(const RegionStmtNode* op) {
+void CodeGenCPU::CreateComputeScope(const RegionStmtObj* op) {
   EmitDebugLocation(op);
   /*! \brief maintain states that should be guarded when step into compute scope */
   struct ComputeScopeStates {
@@ -547,8 +547,8 @@ void CodeGenCPU::CreateComputeScope(const RegionStmtNode* op) {
 
     llvm::Function* function_{nullptr};
     llvm::DISubprogram* di_subprogram_{nullptr};
-    std::unordered_map<const VarNode*, llvm::Value*> var_map_;
-    std::unordered_map<const VarNode*, StorageInfo> alloc_storage_info_;
+    std::unordered_map<const VarObj*, llvm::Value*> var_map_;
+    std::unordered_map<const VarObj*, StorageInfo> alloc_storage_info_;
     std::vector<std::pair<llvm::BasicBlock*, llvm::BasicBlock*>> loop_frame_jump_tgts_;
     sym::Analyzer analyzer_{sym::Analyzer()};
     CodeGenCPU* parent_;
@@ -571,7 +571,7 @@ void CodeGenCPU::CreateComputeScope(const RegionStmtNode* op) {
   // $xxx_compute_ functions are not global. They should be marked as static (via InternalLinkage)
   // to call them correctly on MIPS platform (CALL16 issue)
   // Linkage ld Error: CALL16 reloc at 0x290 not against global symbol
-  const auto* value = op->args[0].as<StringImmNode>();
+  const auto* value = op->args[0].as<StringImmObj>();
   llvm::Function* fcompute = llvm::Function::Create(ftype, llvm::Function::InternalLinkage,
                                                     MakeStringRef(value->value), module_.get());
   SetComputeScopeAttributes(fcompute);
@@ -589,7 +589,7 @@ void CodeGenCPU::CreateComputeScope(const RegionStmtNode* op) {
     llvm::Argument* v = &(*it);
     const Var& var = vargs[idx];
     var_map_[var.get()] = v;
-    if ((var->ty.as<PtrTypeNode>() || var->ty.as<TensorTypeNode>()) &&
+    if ((var->ty.as<PtrTypeObj>() || var->ty.as<TensorTypeObj>()) &&
         !alias_var_set_.count(var.get())) {
       // set non alias.
       fcompute->addParamAttr(idx, llvm::Attribute::NoAlias);
@@ -609,7 +609,7 @@ void CodeGenCPU::CreateComputeScope(const RegionStmtNode* op) {
 
   function_ = fcompute;
   ffi::Array<Type> debug_param_types = vargs.Map([](const Var& var) -> Type {
-    if (const auto* buffer_type = var->ty.as<TensorTypeNode>()) {
+    if (const auto* buffer_type = var->ty.as<TensorTypeObj>()) {
       // Compute-scope captures use their physical LLVM pointer values.
       return buffer_type->DataPtrType();
     }
@@ -653,7 +653,7 @@ CodeGenLLVM::TypedPointer CodeGenCPU::PackClosureData(const ffi::Array<Var>& vfi
 }
 
 void CodeGenCPU::UnpackClosureData(TypedPointer cdata, const ffi::Array<Var>& vfields,
-                                   std::unordered_map<const VarNode*, llvm::Value*>* vmap) {
+                                   std::unordered_map<const VarObj*, llvm::Value*>* vmap) {
   for (size_t i = 0; i < vfields.size(); ++i) {
     llvm::Type* field_type = cdata.type->getStructElementType(i);
     llvm::Value* field_addr =
@@ -688,7 +688,7 @@ void CodeGenCPU::CreateParallelLaunch(const Stmt& body, int num_task, std::strin
   llvm::Value* penv = &(*it++);
   cdata.addr = builder_->CreatePointerCast(&(*it++), cdata.addr->getType());
   // setup new variable map, swap it with current var context.
-  std::unordered_map<const VarNode*, llvm::Value*> new_vmap;
+  std::unordered_map<const VarObj*, llvm::Value*> new_vmap;
   UnpackClosureData(cdata, vfields, &new_vmap);
   // setup parallel env
   ParallelEnv par_env;
@@ -794,7 +794,7 @@ CodeGenCPU::PackedCall CodeGenCPU::MakeCallPackedLowered(const ffi::Array<Expr>&
                                                          const Type& r_type, const int64_t begin,
                                                          const int64_t end, bool use_env_lookup) {
   std::string func_name = [&]() {
-    auto ptr = args[0].as<StringImmNode>();
+    auto ptr = args[0].as<StringImmObj>();
     TVM_FFI_ICHECK(ptr) << "Expected first argument of Call to be "
                         << "a string containing the callee's name, "
                         << "but instead contained " << args[0];
@@ -847,7 +847,7 @@ CodeGenCPU::PackedCall CodeGenCPU::MakeCallPackedLowered(const ffi::Array<Expr>&
       if (prim_r_type) {
         return DTypeToLLVMType(tirx::APIType(prim_r_type.value()));
       }
-      TVM_FFI_ICHECK(r_type.as<PtrTypeNode>())
+      TVM_FFI_ICHECK(r_type.as<PtrTypeObj>())
           << "Packed calls may return only primitive or pointer types, but got " << r_type;
       return t_void_p_;
     }();
@@ -874,12 +874,12 @@ CodeGenCPU::PackedCall CodeGenCPU::MakeCallPackedLowered(const ffi::Array<Expr>&
   return pc;
 }
 
-llvm::Value* CodeGenCPU::CreateCallPacked(const CallNode* op) {
+llvm::Value* CodeGenCPU::CreateCallPacked(const CallObj* op) {
   TVM_FFI_ICHECK_EQ(op->args.size(), 4U);
   bool use_string_lookup = op->op.same_as(tirx::call_packed_lowered_op());
   PackedCall pc = MakeCallPackedLowered(
-      op->args, op->ty, static_cast<int64_t>(op->args[2].as<IntImmNode>()->value),
-      static_cast<int64_t>(op->args[3].as<IntImmNode>()->value), use_string_lookup);
+      op->args, op->ty, static_cast<int64_t>(op->args[2].as<IntImmObj>()->value),
+      static_cast<int64_t>(op->args[3].as<IntImmObj>()->value), use_string_lookup);
   return pc.ret_value;
 }
 
@@ -1009,7 +1009,7 @@ void CodeGenCPU::AddStartupFunction() {
   }
 }
 
-llvm::Value* CodeGenCPU::CreateIntrinsic(const CallNode* op) {
+llvm::Value* CodeGenCPU::CreateIntrinsic(const CallObj* op) {
   const ffi::Array<Expr>& args = op->args;
   if (op->op.same_as(tirx::call_packed_lowered_op())) {
     return CreateCallPacked(op);
@@ -1039,7 +1039,7 @@ llvm::Value* CodeGenCPU::CreateIntrinsic(const CallNode* op) {
     Type op_type = op->ty;
     TypedPointer ref = CreateStructRefPtr(op_type, MakeValue(args[0]), MakeValue(args[1]), kind);
     if (kind == tirx::kDLTensorAddr) {
-      TVM_FFI_ICHECK(op_type.as<PtrTypeNode>())
+      TVM_FFI_ICHECK(op_type.as<PtrTypeObj>())
           << "The address of a DLTensor must have pointer type, but got " << op_type;
       return builder_->CreatePointerCast(ref.addr, GetLLVMType(op_type));
     }
@@ -1051,7 +1051,7 @@ llvm::Value* CodeGenCPU::CreateIntrinsic(const CallNode* op) {
         struct_value = CreateCast(PrimType::Int(64), prim_type.value(), struct_value);
       }
     } else {
-      TVM_FFI_ICHECK(op_type.as<PtrTypeNode>())
+      TVM_FFI_ICHECK(op_type.as<PtrTypeObj>())
           << "Struct fields must have primitive or pointer type, but got " << op_type;
       llvm::Type* target = GetLLVMType(op_type);
       TVM_FFI_ICHECK(struct_value->getType()->isPointerTy());
@@ -1087,7 +1087,7 @@ llvm::Value* CodeGenCPU::CreateIntrinsic(const CallNode* op) {
     TVM_FFI_ICHECK_EQ(args.size(), 2U);
     std::string type = args[0].as<StringImm>().value()->value;
     return WithFunctionEntry([&]() -> llvm::AllocaInst* {
-      const auto* imm = args[1].as_or_throw<PrimExpr>().as<IntImmNode>();
+      const auto* imm = args[1].as_or_throw<PrimExpr>().as<IntImmObj>();
       auto pval = imm ? imm->value.as<int64_t>() : std::nullopt;
       TVM_FFI_ICHECK(pval.has_value()) << "require stack alloca to contain constant value";
       llvm::Value* num = ConstInt32(*pval);
@@ -1110,7 +1110,7 @@ llvm::Value* CodeGenCPU::CreateIntrinsic(const CallNode* op) {
   }
 }
 
-void CodeGenCPU::Dispatch_(const AssertStmtNode* op) {
+void CodeGenCPU::Dispatch_(const AssertStmtObj* op) {
   EmitDebugLocation(op);
   llvm::Value* cond = MakeValue(op->condition);
   llvm::LLVMContext* ctx = llvm_target_->GetContext();
@@ -1146,7 +1146,7 @@ void CodeGenCPU::Dispatch_(const AssertStmtNode* op) {
   CodeGenLLVM::Dispatch_(op);
 }
 
-void CodeGenCPU::Dispatch_(const RegionStmtNode* op) {
+void CodeGenCPU::Dispatch_(const RegionStmtObj* op) {
   EmitDebugLocation(op);
   if (op->op.same_as(tirx::compute_scope_op())) {
     CreateComputeScope(op);
@@ -1157,14 +1157,14 @@ void CodeGenCPU::Dispatch_(const RegionStmtNode* op) {
   }
 }
 
-void CodeGenCPU::Dispatch_(const ForNode* op) {
+void CodeGenCPU::Dispatch_(const ForObj* op) {
   EmitDebugLocation(op);
   // A single iteration needs no nested threadpool launch.  Keep an explicit
   // parallel_launch region's first loop distributed across its existing tasks.
   if (op->kind == ForKind::kParallel && IsOne(Range::GetExtentFromBeginEnd(op->begin, op->end)) &&
       op->HasTrivialStep() && op->annotations.empty() &&
       (parallel_env_.penv == nullptr || parallel_env_.in_parallel_loop)) {
-    auto serial = ffi::make_object<ForNode>(*op);
+    auto serial = ffi::make_object<ForObj>(*op);
     serial->kind = ForKind::kDefault;
     CodeGenLLVM::Dispatch_(serial.get());
     return;
@@ -1177,7 +1177,7 @@ void CodeGenCPU::Dispatch_(const ForNode* op) {
     TVM_FFI_ICHECK(op->HasTrivialStep())
         << "Parallel launch require canonical loop with trivial loop step";
     if (parallel_env_.penv == nullptr) {
-      auto copy_node = For(ffi::make_object<ForNode>(*op));
+      auto copy_node = For(ffi::make_object<ForObj>(*op));
       CreateParallelLaunch(copy_node, 0, std::string("loop_parallel_") + op->var->name.c_str());
     } else {
       // already in parallel env.

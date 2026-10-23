@@ -58,9 +58,9 @@ class CodeGenCUDA final : public CodeGenC {
   void PrintFunctionSignature(const ffi::String& function_name, const Function& func,
                               std::ostream& os) final;
   void PrintExtraAttrs(const Function& f, std::ostream& os) final;  // NOLINT(*)
-  void Dispatch_(const ForNode* op) final;
-  void Dispatch_(const WhileNode* op) final;
-  void PrintStorageSync(const CallNode* op) final;
+  void Dispatch_(const ForObj* op) final;
+  void Dispatch_(const WhileObj* op) final;
+  void PrintStorageSync(const CallObj* op) final;
   void PrintStorageScope(const runtime::MemoryScope& scope, std::ostream& os) final;  // NOLINT(*)
   using CodeGenC::PrintType;
   void PrintVecBinaryOp(const std::string& op, const PrimType& t, PrimExpr lhs, PrimExpr rhs,
@@ -77,16 +77,16 @@ class CodeGenCUDA final : public CodeGenC {
   std::string CastFromTo(std::string value, const PrimType& from, const PrimType& target) final;
   void AddUtilFunction(const std::string& name, const std::string& code);
   // overload visitor
-  void Dispatch_(const prim::RampNode* op, std::ostream& os) final;       // NOLINT(*)
-  void Dispatch_(const prim::SelectNode* op, std::ostream& os) final;     // NOLINT(*)
-  void Dispatch_(const prim::BroadcastNode* op, std::ostream& os) final;  // NOLINT(*)
-  void Dispatch_(const FloatImmNode* op, std::ostream& os) final;
-  void Dispatch_(const CallNode* op, std::ostream& os) final;
-  void Dispatch_(const prim::CastNode* op, std::ostream& os) final;
-  void Dispatch_(const EvaluateNode* op) final;
-  void Dispatch_(const ReturnNode* op) final;
-  void Dispatch_(const BindNode* op) final;
-  void DispatchAllocTensor(const BindNode* op, const CallNode* buffer_call);
+  void Dispatch_(const prim::RampObj* op, std::ostream& os) final;       // NOLINT(*)
+  void Dispatch_(const prim::SelectObj* op, std::ostream& os) final;     // NOLINT(*)
+  void Dispatch_(const prim::BroadcastObj* op, std::ostream& os) final;  // NOLINT(*)
+  void Dispatch_(const FloatImmObj* op, std::ostream& os) final;
+  void Dispatch_(const CallObj* op, std::ostream& os) final;
+  void Dispatch_(const prim::CastObj* op, std::ostream& os) final;
+  void Dispatch_(const EvaluateObj* op) final;
+  void Dispatch_(const ReturnObj* op) final;
+  void Dispatch_(const BindObj* op) final;
+  void DispatchAllocTensor(const BindObj* op, const CallObj* buffer_call);
 
   // Target
   Target target;
@@ -105,7 +105,7 @@ class CodeGenCUDA final : public CodeGenC {
   std::optional<std::array<int64_t, 6>> required_block_size_;
 
   // Handle volatile loads
-  void HandleVolatileLoads(const std::string& value, const TensorLoadNode* op,
+  void HandleVolatileLoads(const std::string& value, const TensorLoadObj* op,
                            std::ostream& os) final;
 
   // Whether scope such as "__shared__" or "__constant__"  is part of type.
@@ -139,7 +139,7 @@ class CodeGenCUDA final : public CodeGenC {
   // The name prefix of the cuda::barrier::arrival_token array in registers
   const std::string cuda_barrier_arrival_token_name_ = "cubar_tok";
 
-  friend void PrintConst(const FloatImmNode* op, std::ostream& os, CodeGenCUDA* p);
+  friend void PrintConst(const FloatImmObj* op, std::ostream& os, CodeGenCUDA* p);
 };
 
 }  // namespace codegen

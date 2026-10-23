@@ -76,70 +76,64 @@ inline bool IsIndexType(DLDataType type) {
          (type.bits == 32 || type.bits == 64) && type.lanes == 1;
 }
 
-inline bool IsIndexTypedExpr(const ExprNode* expr) {
+inline bool IsIndexTypedExpr(const ExprObj* expr) {
   TVM_FFI_DCHECK(expr != nullptr);
-  TVM_FFI_DCHECK(!expr->ExprNode::ty.as<MissingType>().has_value());
-  const auto* prim_ty = expr->ExprNode::ty.as<PrimTypeNode>();
+  TVM_FFI_DCHECK(!expr->ExprObj::ty.as<MissingType>().has_value());
+  const auto* prim_ty = expr->ExprObj::ty.as<PrimTypeObj>();
   TVM_FFI_DCHECK(prim_ty != nullptr);
   return IsIndexType(prim_ty->dtype);
 }
 
 inline bool IsIndexTypedExpr(const PrimExpr& expr) { return IsIndexTypedExpr(expr.get()); }
 
-/*! \brief Normalize exact arithmetic to the result's integer width. */
-inline ffi::BigInt GetFoldResult(ffi::BigInt value, const PrimType& dtype) {
-  bool is_signed = dtype.MatchesCode(DLDataTypeCode::kDLInt);
-  if (auto small = value.as<int64_t>(); small.has_value()) {
-    if (dtype.bits() >= 64 && (is_signed || *small >= 0)) return value;
-    if (dtype.bits() < 64) {
-      uint64_t bits = static_cast<uint64_t>(*small) & ((uint64_t{1} << dtype.bits()) - 1);
-      int64_t result = static_cast<int64_t>(bits);
-      if (is_signed) {
-        int64_t sign_bit = int64_t{1} << (dtype.bits() - 1);
-        result = (result ^ sign_bit) - sign_bit;
-      }
-      return ffi::BigInt(result);
+/*! \brief Whether an exact integer is a valid literal of the given scalar type. */
+inline bool IsRepresentable(const ffi::BigInt& value, const PrimType& dtype) {
+  if (!dtype.IsScalar() || dtype.bits() <= 0) return false;
+  if (auto small = value.as<int64_t>()) {
+    if (dtype.MatchesCode(DLDataTypeCode::kDLUInt)) {
+      return *small >= 0 &&
+             (dtype.bits() >= 63 || static_cast<uint64_t>(*small) < (uint64_t{1} << dtype.bits()));
     }
+    if (dtype.MatchesCode(DLDataTypeCode::kDLBool) ||
+        (dtype.MatchesCode(DLDataTypeCode::kDLInt) && dtype.bits() == 1)) {
+      return *small == 0 || *small == 1;
+    }
+    if (dtype.MatchesCode(DLDataTypeCode::kDLInt)) {
+      if (dtype.bits() >= 64) return true;
+      int64_t limit = int64_t{1} << (dtype.bits() - 1);
+      return *small >= -limit && *small < limit;
+    }
+    return false;
   }
-  ffi::BigInt modulus = ffi::BigInt(1) << dtype.bits();
-  value &= modulus - 1;
-  if (is_signed && value >= (modulus >> 1)) value -= modulus;
-  return value;
+  if (dtype.MatchesCode(DLDataTypeCode::kDLUInt)) {
+    return value >= 0 && value < (ffi::BigInt(1) << dtype.bits());
+  }
+  if (dtype.MatchesCode(DLDataTypeCode::kDLInt) && dtype.bits() > 1) {
+    ffi::BigInt limit = ffi::BigInt(1) << (dtype.bits() - 1);
+    return value >= -limit && value < limit;
+  }
+  return false;
 }
 
-/*! \brief Helper to get fp32 const folding result repr in double. */
-inline double GetFoldResultDoubleRepr(float x) {
-  double res = static_cast<double>(x);
-  if (std::isinf(res) || std::isnan(res)) {
-    return res;
-  }
-  // certain platform (eg, on gcc7-i386) do the folding arithmetic
-  // on float and write back to double is optimized to double
-  // precision arithmetic, this is legal and we check the output
-  // range thus to ensure consistency when the float result is inf.
-  if (res < std::numeric_limits<float>::lowest()) {
-    LOG(WARNING) << "underlying float value overflow";
-    return -std::numeric_limits<double>::infinity();
-  } else if (res > std::numeric_limits<float>::max()) {
-    LOG(WARNING) << "underlying float value overflow";
-    return std::numeric_limits<double>::infinity();
-  }
-  return res;
+/*! \brief Check float32 range, allowing rounding and supported special values. */
+inline bool IsInFloat32Range(double value) {
+  return !std::isfinite(value) || (value >= std::numeric_limits<float>::lowest() &&
+                                   value <= std::numeric_limits<float>::max());
 }
 
 }  // namespace details
 
-#define TVM_PRIM_CONST_PROPAGATION(BODY)         \
-  using tvm::FloatImmNode;                       \
-  const IntImmNode* pa = a.as<IntImmNode>();     \
-  const IntImmNode* pb = b.as<IntImmNode>();     \
-  const FloatImmNode* fa = a.as<FloatImmNode>(); \
-  const FloatImmNode* fb = b.as<FloatImmNode>(); \
+#define TVM_PRIM_CONST_PROPAGATION(BODY)       \
+  using tvm::FloatImmObj;                      \
+  const IntImmObj* pa = a.as<IntImmObj>();     \
+  const IntImmObj* pb = b.as<IntImmObj>();     \
+  const FloatImmObj* fa = a.as<FloatImmObj>(); \
+  const FloatImmObj* fb = b.as<FloatImmObj>(); \
   BODY;
 
 #define TVM_PRIM_INDEX_CONST_PROPAGATION(BODY)                                                  \
-  const IntImmNode* pa = a.as<IntImmNode>();                                                    \
-  const IntImmNode* pb = b.as<IntImmNode>();                                                    \
+  const IntImmObj* pa = a.as<IntImmObj>();                                                      \
+  const IntImmObj* pb = b.as<IntImmObj>();                                                      \
   if (::tvm::prim::details::IsIndexTypedExpr(a) && ::tvm::prim::details::IsIndexTypedExpr(b)) { \
     BODY;                                                                                       \
   }
@@ -151,14 +145,18 @@ inline ffi::Optional<PrimExpr> TryConstFold<prim::Add>(PrimExpr a, PrimExpr b) {
     PrimType result_ty = a.ty();
     if (pa && pb) {
       ffi::BigInt res = pa->value + pb->value;
-      return IntImm(result_ty, details::GetFoldResult(res, result_ty));
+      if (!details::IsRepresentable(res, result_ty)) return std::nullopt;
+      return IntImm(result_ty, std::move(res));
     }
     if (pa && pa->value == 0) return b;
     if (pb && pb->value == 0) return a;
     if (fa && fb) {
       if (result_ty.bits() == 32) {
-        return FloatImm(result_ty, details::GetFoldResultDoubleRepr(static_cast<float>(fa->value) +
-                                                                    static_cast<float>(fb->value)));
+        float lhs = static_cast<float>(fa->value);
+        float rhs = static_cast<float>(fb->value);
+        // Check before rounding can turn a finite overflow into infinity.
+        if (!details::IsInFloat32Range(static_cast<double>(lhs) + rhs)) return std::nullopt;
+        return FloatImm(result_ty, static_cast<float>(lhs + rhs));
       } else if (result_ty.bits() == 64) {
         return FloatImm(result_ty, fa->value + fb->value);
       }
@@ -172,22 +170,20 @@ inline ffi::Optional<PrimExpr> TryConstFold<prim::Add>(PrimExpr a, PrimExpr b) {
 template <>
 inline ffi::Optional<PrimExpr> TryConstFold<prim::Sub>(PrimExpr a, PrimExpr b) {
   TVM_PRIM_CONST_PROPAGATION({
-    TVM_FFI_ICHECK(!((pa && pa->ty.as_or_throw<PrimType>().MatchesCode(DLDataTypeCode::kDLUInt) &&
-                      pa->value == 0U) &&
-                     (pb && pb->ty.as_or_throw<PrimType>().MatchesCode(DLDataTypeCode::kDLUInt) &&
-                      pb->value > 0U)))
-        << "Checked failed. Minuend 's value is 0U and it's dtype is uint "
-        << "while Subtrahend's dtype is uint; which will cause a negative uint";
     PrimType result_ty = a.ty();
     if (pa && pb) {
       ffi::BigInt res = pa->value - pb->value;
-      return IntImm(result_ty, details::GetFoldResult(res, result_ty));
+      if (!details::IsRepresentable(res, result_ty)) return std::nullopt;
+      return IntImm(result_ty, std::move(res));
     }
     if (pb && pb->value == 0) return a;
     if (fa && fb) {
       if (result_ty.bits() == 32) {
-        return FloatImm(result_ty, details::GetFoldResultDoubleRepr(static_cast<float>(fa->value) -
-                                                                    static_cast<float>(fb->value)));
+        float lhs = static_cast<float>(fa->value);
+        float rhs = static_cast<float>(fb->value);
+        // Check before rounding can turn a finite overflow into infinity.
+        if (!details::IsInFloat32Range(static_cast<double>(lhs) - rhs)) return std::nullopt;
+        return FloatImm(result_ty, static_cast<float>(lhs - rhs));
       } else if (result_ty.bits() == 64) {
         return FloatImm(result_ty, fa->value - fb->value);
       }
@@ -203,7 +199,8 @@ inline ffi::Optional<PrimExpr> TryConstFold<prim::Mul>(PrimExpr a, PrimExpr b) {
     PrimType result_ty = a.ty();
     if (pa && pb) {
       ffi::BigInt res = pa->value * pb->value;
-      return IntImm(result_ty, details::GetFoldResult(res, result_ty));
+      if (!details::IsRepresentable(res, result_ty)) return std::nullopt;
+      return IntImm(result_ty, std::move(res));
     }
     if (pa) {
       if (pa->value == 1) return b;
@@ -215,8 +212,11 @@ inline ffi::Optional<PrimExpr> TryConstFold<prim::Mul>(PrimExpr a, PrimExpr b) {
     }
     if (fa && fb) {
       if (result_ty.bits() == 32) {
-        return FloatImm(result_ty, details::GetFoldResultDoubleRepr(static_cast<float>(fa->value) *
-                                                                    static_cast<float>(fb->value)));
+        float lhs = static_cast<float>(fa->value);
+        float rhs = static_cast<float>(fb->value);
+        // Check before rounding can turn a finite overflow into infinity.
+        if (!details::IsInFloat32Range(static_cast<double>(lhs) * rhs)) return std::nullopt;
+        return FloatImm(result_ty, static_cast<float>(lhs * rhs));
       } else if (result_ty.bits() == 64) {
         return FloatImm(result_ty, fa->value * fb->value);
       }
@@ -242,7 +242,8 @@ inline ffi::Optional<PrimExpr> TryConstFold<prim::Div>(PrimExpr a, PrimExpr b) {
       // NOTE: this will assumes truc div.
       TVM_FFI_ICHECK_NE(pb->value, 0) << "Divide by zero";
       ffi::BigInt res = pa->value / pb->value;
-      return IntImm(result_ty, details::GetFoldResult(res, result_ty));
+      if (!details::IsRepresentable(res, result_ty)) return std::nullopt;
+      return IntImm(result_ty, std::move(res));
     }
     if (pa) {
       if (pa->value == 0) return a;
@@ -254,8 +255,11 @@ inline ffi::Optional<PrimExpr> TryConstFold<prim::Div>(PrimExpr a, PrimExpr b) {
     if (fa && fb) {
       TVM_FFI_ICHECK_NE(fb->value, 0) << "Divide by zero";
       if (result_ty.bits() == 32) {
-        return FloatImm(result_ty, details::GetFoldResultDoubleRepr(static_cast<float>(fa->value) /
-                                                                    static_cast<float>(fb->value)));
+        float lhs = static_cast<float>(fa->value);
+        float rhs = static_cast<float>(fb->value);
+        // Check before rounding can turn a finite overflow into infinity.
+        if (!details::IsInFloat32Range(static_cast<double>(lhs) / rhs)) return std::nullopt;
+        return FloatImm(result_ty, static_cast<float>(lhs / rhs));
       } else if (result_ty.bits() == 64) {
         return FloatImm(result_ty, fa->value / fb->value);
       }
@@ -276,7 +280,8 @@ inline ffi::Optional<PrimExpr> TryConstFold<prim::Mod>(PrimExpr a, PrimExpr b) {
     if (pa && pb) {
       TVM_FFI_ICHECK_NE(pb->value, 0) << "Divide by zero";
       ffi::BigInt res = pa->value % pb->value;
-      return IntImm(result_ty, details::GetFoldResult(res, result_ty));
+      if (!details::IsRepresentable(res, result_ty)) return std::nullopt;
+      return IntImm(result_ty, std::move(res));
     }
     if (pa) {
       if (pa->value == 0) return a;
@@ -289,7 +294,9 @@ inline ffi::Optional<PrimExpr> TryConstFold<prim::Mod>(PrimExpr a, PrimExpr b) {
   // Fold wide literals without enabling symbolic index rewrites for their type.
   if (pa && pb && a.ty().bits() >= 64) {
     TVM_FFI_ICHECK_NE(pb->value, 0) << "Divide by zero";
-    return IntImm(a.ty(), details::GetFoldResult(pa->value % pb->value, a.ty()));
+    ffi::BigInt res = pa->value % pb->value;
+    if (!details::IsRepresentable(res, a.ty())) return std::nullopt;
+    return IntImm(a.ty(), std::move(res));
   }
   return std::nullopt;
 }
@@ -301,7 +308,8 @@ inline ffi::Optional<PrimExpr> TryConstFold<prim::FloorDiv>(PrimExpr a, PrimExpr
     if (pa && pb) {
       TVM_FFI_ICHECK_NE(pb->value, 0) << "Divide by zero";
       ffi::BigInt res = ffi::floordiv(pa->value, pb->value);
-      return IntImm(result_ty, details::GetFoldResult(res, result_ty));
+      if (!details::IsRepresentable(res, result_ty)) return std::nullopt;
+      return IntImm(result_ty, std::move(res));
     }
     if (pa) {
       if (pa->value == 0) return a;
@@ -312,9 +320,11 @@ inline ffi::Optional<PrimExpr> TryConstFold<prim::FloorDiv>(PrimExpr a, PrimExpr
     }
     if (fa && fb && fb->value != 0) {
       if (result_ty.bits() == 32) {
-        return FloatImm(
-            result_ty, details::GetFoldResultDoubleRepr(std::floor(static_cast<float>(fa->value) /
-                                                                   static_cast<float>(fb->value))));
+        float lhs = static_cast<float>(fa->value);
+        float rhs = static_cast<float>(fb->value);
+        if (!details::IsInFloat32Range(static_cast<double>(lhs) / rhs)) return std::nullopt;
+        float quotient = lhs / rhs;
+        return FloatImm(result_ty, std::floor(quotient));
       } else if (result_ty.bits() == 64) {
         return FloatImm(result_ty, std::floor(fa->value / fb->value));
       } else {
@@ -337,7 +347,8 @@ inline ffi::Optional<PrimExpr> TryConstFold<prim::FloorMod>(PrimExpr a, PrimExpr
     if (pa && pb) {
       TVM_FFI_ICHECK_NE(pb->value, 0) << "Divide by zero";
       ffi::BigInt res = ffi::floormod(pa->value, pb->value);
-      return IntImm(result_ty, details::GetFoldResult(res, result_ty));
+      if (!details::IsRepresentable(res, result_ty)) return std::nullopt;
+      return IntImm(result_ty, std::move(res));
     }
     if (pa) {
       if (pa->value == 0) return a;
@@ -350,7 +361,9 @@ inline ffi::Optional<PrimExpr> TryConstFold<prim::FloorMod>(PrimExpr a, PrimExpr
   // Fold wide literals without enabling symbolic index rewrites for their type.
   if (pa && pb && (a.ty().bits() >= 64 || a.ty().MatchesCode(DLDataTypeCode::kDLUInt))) {
     TVM_FFI_ICHECK_NE(pb->value, 0) << "Divide by zero";
-    return IntImm(a.ty(), details::GetFoldResult(ffi::floormod(pa->value, pb->value), a.ty()));
+    ffi::BigInt res = ffi::floormod(pa->value, pb->value);
+    if (!details::IsRepresentable(res, a.ty())) return std::nullopt;
+    return IntImm(a.ty(), std::move(res));
   }
   return std::nullopt;
 }
@@ -433,8 +446,8 @@ inline ffi::Optional<PrimExpr> TryConstFold<prim::NE>(PrimExpr a, PrimExpr b) {
 
 template <>
 inline ffi::Optional<PrimExpr> TryConstFold<prim::And>(PrimExpr a, PrimExpr b) {
-  const IntImmNode* pa = a.as<IntImmNode>();
-  const IntImmNode* pb = b.as<IntImmNode>();
+  const IntImmObj* pa = a.as<IntImmObj>();
+  const IntImmObj* pb = b.as<IntImmObj>();
   if (pa && pa->value) return b;
   if (pa && !pa->value) return a;
   if (pb && pb->value) return a;
@@ -444,8 +457,8 @@ inline ffi::Optional<PrimExpr> TryConstFold<prim::And>(PrimExpr a, PrimExpr b) {
 
 template <>
 inline ffi::Optional<PrimExpr> TryConstFold<prim::Or>(PrimExpr a, PrimExpr b) {
-  const IntImmNode* pa = a.as<IntImmNode>();
-  const IntImmNode* pb = b.as<IntImmNode>();
+  const IntImmObj* pa = a.as<IntImmObj>();
+  const IntImmObj* pb = b.as<IntImmObj>();
   if (pa && pa->value) return a;
   if (pa && !pa->value) return b;
   if (pb && pb->value) return b;
@@ -455,7 +468,7 @@ inline ffi::Optional<PrimExpr> TryConstFold<prim::Or>(PrimExpr a, PrimExpr b) {
 
 template <>
 inline ffi::Optional<PrimExpr> TryConstFold<prim::Not>(PrimExpr a) {
-  const IntImmNode* pa = a.as<IntImmNode>();
+  const IntImmObj* pa = a.as<IntImmObj>();
   if (pa) {
     return IntImm::Bool(!(pa->value));
   }

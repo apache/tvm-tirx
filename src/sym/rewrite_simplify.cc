@@ -44,7 +44,7 @@ namespace tvm {
 namespace sym {
 
 namespace {
-TVM_FFI_INLINE bool IsVectorExpr(const ExprNode* expr) {
+TVM_FFI_INLINE bool IsVectorExpr(const ExprObj* expr) {
   PrimType ty = expr->ty.as_or_throw<PrimType>();
   return ty.IsScalableVector() || ty.IsFixedLengthVector();
 }
@@ -190,7 +190,7 @@ CompareResult RewriteSimplifier::Impl::TryCompare(const PrimExpr& x, int64_t val
   // For stronger comparison proof that is out of the recursive simplifcation
   // consider look at analyzer::CanProveStrong
   PrimExpr diff = Mutate(x).ValueOrUnchanged(x);
-  if (const auto* ptr = diff.as<IntImmNode>()) {
+  if (const auto* ptr = diff.as<IntImmObj>()) {
     if (ptr->value == val) {
       return CompareResult::kEQ;
     } else if (ptr->value > val) {
@@ -245,11 +245,11 @@ void RewriteSimplifier::Impl::Update(const Var& var, const PrimExpr& info, bool 
   var_map_.insert_or_assign(var, info);
 }
 
-UnchangedOr<PrimExpr> RewriteSimplifier::Impl::Mutate_(const prim::AddNode* op,
+UnchangedOr<PrimExpr> RewriteSimplifier::Impl::Mutate_(const prim::AddObj* op,
                                                        InplaceMode inplace_mode) {
   PrimExpr ret =
       SimplifierBase::Mutate_(op, inplace_mode).ValueOrUnchanged(ffi::GetRef<PrimExpr>(op));
-  op = ret.as<prim::AddNode>();
+  op = ret.as<prim::AddObj>();
   if (auto const_res = TryConstFold<prim::Add>(op->a, op->b)) return *std::move(const_res);
   // Pattern var to match any expression
   PVar<PrimExpr> x, y, z, b1, b2, s1, s2;
@@ -393,11 +393,11 @@ std::function<void()> RewriteSimplifier::Impl::EnterConstraint(const PrimExpr& c
   return frecover;
 }
 
-UnchangedOr<PrimExpr> RewriteSimplifier::Impl::Mutate_(const prim::SubNode* op,
+UnchangedOr<PrimExpr> RewriteSimplifier::Impl::Mutate_(const prim::SubObj* op,
                                                        InplaceMode inplace_mode) {
   PrimExpr ret =
       SimplifierBase::Mutate_(op, inplace_mode).ValueOrUnchanged(ffi::GetRef<PrimExpr>(op));
-  op = ret.as<prim::SubNode>();
+  op = ret.as<prim::SubObj>();
   if (auto const_res = TryConstFold<prim::Sub>(op->a, op->b)) return *std::move(const_res);
   // Pattern var to match any expression
   PVar<PrimExpr> x, y, z, b1, b2, s1, s2;
@@ -584,11 +584,11 @@ UnchangedOr<PrimExpr> RewriteSimplifier::Impl::Mutate_(const prim::SubNode* op,
   return ret;
 }
 
-UnchangedOr<PrimExpr> RewriteSimplifier::Impl::Mutate_(const prim::MulNode* op,
+UnchangedOr<PrimExpr> RewriteSimplifier::Impl::Mutate_(const prim::MulObj* op,
                                                        InplaceMode inplace_mode) {
   PrimExpr ret =
       SimplifierBase::Mutate_(op, inplace_mode).ValueOrUnchanged(ffi::GetRef<PrimExpr>(op));
-  op = ret.as<prim::MulNode>();
+  op = ret.as<prim::MulObj>();
   if (auto const_res = TryConstFold<prim::Mul>(op->a, op->b)) return *std::move(const_res);
   // Pattern var to match any expression
   PVar<PrimExpr> x, y, z, b1, b2, s1, s2;
@@ -625,11 +625,11 @@ UnchangedOr<PrimExpr> RewriteSimplifier::Impl::Mutate_(const prim::MulNode* op,
   return ret;
 }
 
-UnchangedOr<PrimExpr> RewriteSimplifier::Impl::Mutate_(const prim::DivNode* op,
+UnchangedOr<PrimExpr> RewriteSimplifier::Impl::Mutate_(const prim::DivObj* op,
                                                        InplaceMode inplace_mode) {
   PrimExpr ret =
       SimplifierBase::Mutate_(op, inplace_mode).ValueOrUnchanged(ffi::GetRef<PrimExpr>(op));
-  op = ret.as<prim::DivNode>();
+  op = ret.as<prim::DivObj>();
   if (auto const_res = TryConstFold<prim::Div>(op->a, op->b)) return *std::move(const_res);
   // Pattern var to match any expression
   PVar<PrimExpr> x, y, z, b1;
@@ -652,7 +652,7 @@ UnchangedOr<PrimExpr> RewriteSimplifier::Impl::Mutate_(const prim::DivNode* op,
         return ramp(div(b1, c2), div(c1, c2), lanes).Eval();
       }
       // If all possible indices in ramp are the same.
-      if (const auto* lanes_int = lanes.Eval().as<IntImmNode>();
+      if (const auto* lanes_int = lanes.Eval().as<IntImmObj>();
           lanes_int && CanProveGreaterEqual(b1.Eval(), 0)) {
         ModularSet bmod = analyzer_->modular_set(b1.Eval());
         ffi::BigInt ramp_min = bmod->base / c2val;
@@ -669,15 +669,9 @@ UnchangedOr<PrimExpr> RewriteSimplifier::Impl::Mutate_(const prim::DivNode* op,
     // We adopt the default C division uses truncation instead of floordiv.
     // This means most rules need to check non-negativeness of the operands.
 
-    // TryConstFold doesn't work for negative cases because it is also used by legacy
-    // parts of tvm which still assume euclidean div. In this simplifier we assume that the division
-    // is truncated, so perform const folding again.
-    // NOTE: trunc div required
-    if (truncdiv(c1, c2).Match(ret)) {
-      ffi::BigInt c1val = c1.Eval()->value;
-      ffi::BigInt c2val = c2.Eval()->value;
-      return IntImm(op->ty.as_or_throw<PrimType>(), (c1val / c2val));
-    }
+    // TryConstFold already handles truncation for both signs. A declined
+    // literal division has an unrepresentable result and must remain typed.
+    if (truncdiv(c1, c2).Match(ret)) return ret;
 
     // while it is always true for trunc div
     // restrict to common case(positive div)
@@ -781,11 +775,11 @@ UnchangedOr<PrimExpr> RewriteSimplifier::Impl::Mutate_(const prim::DivNode* op,
   return ret;
 }
 
-UnchangedOr<PrimExpr> RewriteSimplifier::Impl::Mutate_(const prim::ModNode* op,
+UnchangedOr<PrimExpr> RewriteSimplifier::Impl::Mutate_(const prim::ModObj* op,
                                                        InplaceMode inplace_mode) {
   PrimExpr ret =
       SimplifierBase::Mutate_(op, inplace_mode).ValueOrUnchanged(ffi::GetRef<PrimExpr>(op));
-  op = ret.as<prim::ModNode>();
+  op = ret.as<prim::ModObj>();
   if (auto const_res = TryConstFold<prim::Mod>(op->a, op->b)) return *std::move(const_res);
 
   // Pattern var to match any expression
@@ -812,7 +806,7 @@ UnchangedOr<PrimExpr> RewriteSimplifier::Impl::Mutate_(const prim::ModNode* op,
       // If all possible indices in ramp are the same.
       if (CanProveGreaterEqual(b1.Eval(), 0)) {
         ModularSet bmod = analyzer_->modular_set(b1.Eval());
-        if (const auto* lanes_int = lanes.Eval().as<IntImmNode>()) {
+        if (const auto* lanes_int = lanes.Eval().as<IntImmObj>()) {
           ffi::BigInt ramp_min = bmod->base / c2val;
           ffi::BigInt ramp_max = (bmod->base + (lanes_int->value - 1) * c1val) / c2val;
           if (bmod->coeff % c2val == 0 && ramp_min == ramp_max) {
@@ -870,11 +864,11 @@ UnchangedOr<PrimExpr> RewriteSimplifier::Impl::Mutate_(const prim::ModNode* op,
   return ret;
 }
 
-UnchangedOr<PrimExpr> RewriteSimplifier::Impl::Mutate_(const prim::FloorDivNode* op,
+UnchangedOr<PrimExpr> RewriteSimplifier::Impl::Mutate_(const prim::FloorDivObj* op,
                                                        InplaceMode inplace_mode) {
   PrimExpr ret =
       SimplifierBase::Mutate_(op, inplace_mode).ValueOrUnchanged(ffi::GetRef<PrimExpr>(op));
-  op = ret.as<prim::FloorDivNode>();
+  op = ret.as<prim::FloorDivObj>();
   if (auto const_res = TryConstFold<prim::FloorDiv>(op->a, op->b)) return *std::move(const_res);
   // Pattern var to match any expression
   PVar<PrimExpr> x, y, z, b1;
@@ -897,7 +891,7 @@ UnchangedOr<PrimExpr> RewriteSimplifier::Impl::Mutate_(const prim::FloorDivNode*
         return ramp(floordiv(b1, c2), floordiv(c1, c2), lanes).Eval();
       }
       // If all possible indices in ramp are the same.
-      if (const auto* lanes_int = lanes.Eval().as<IntImmNode>()) {
+      if (const auto* lanes_int = lanes.Eval().as<IntImmObj>()) {
         ModularSet bmod = analyzer_->modular_set(b1.Eval());
         ffi::BigInt ramp_min = floordiv(bmod->base, c2val);
         ffi::BigInt ramp_max = floordiv(bmod->base + (lanes_int->value - 1) * c1val, c2val);
@@ -1072,11 +1066,11 @@ UnchangedOr<PrimExpr> RewriteSimplifier::Impl::Mutate_(const prim::FloorDivNode*
   return ret;
 }
 
-UnchangedOr<PrimExpr> RewriteSimplifier::Impl::Mutate_(const prim::FloorModNode* op,
+UnchangedOr<PrimExpr> RewriteSimplifier::Impl::Mutate_(const prim::FloorModObj* op,
                                                        InplaceMode inplace_mode) {
   PrimExpr ret =
       SimplifierBase::Mutate_(op, inplace_mode).ValueOrUnchanged(ffi::GetRef<PrimExpr>(op));
-  op = ret.as<prim::FloorModNode>();
+  op = ret.as<prim::FloorModObj>();
   if (auto const_res = TryConstFold<prim::FloorMod>(op->a, op->b)) return *std::move(const_res);
 
   // Pattern var to match any expression
@@ -1102,7 +1096,7 @@ UnchangedOr<PrimExpr> RewriteSimplifier::Impl::Mutate_(const prim::FloorModNode*
       }
       // If all possible indices in ramp are the same.
       ModularSet bmod = analyzer_->modular_set(b1.Eval());
-      if (const auto* lanes_int = lanes.Eval().as<IntImmNode>()) {
+      if (const auto* lanes_int = lanes.Eval().as<IntImmObj>()) {
         ffi::BigInt ramp_min = floordiv(bmod->base, c2val);
         ffi::BigInt ramp_max = floordiv(bmod->base + (lanes_int->value - 1) * c1val, c2val);
         if (ramp_min == ramp_max) {
@@ -1240,11 +1234,11 @@ UnchangedOr<PrimExpr> RewriteSimplifier::Impl::Mutate_(const prim::FloorModNode*
   return ret;
 }
 
-UnchangedOr<PrimExpr> RewriteSimplifier::Impl::Mutate_(const prim::MinNode* op,
+UnchangedOr<PrimExpr> RewriteSimplifier::Impl::Mutate_(const prim::MinObj* op,
                                                        InplaceMode inplace_mode) {
   PrimExpr ret =
       SimplifierBase::Mutate_(op, inplace_mode).ValueOrUnchanged(ffi::GetRef<PrimExpr>(op));
-  op = ret.as<prim::MinNode>();
+  op = ret.as<prim::MinObj>();
   if (auto const_res = TryConstFold<prim::Min>(op->a, op->b)) return *std::move(const_res);
 
   // Pattern var to match any expression
@@ -1419,11 +1413,11 @@ UnchangedOr<PrimExpr> RewriteSimplifier::Impl::Mutate_(const prim::MinNode* op,
   return ret;
 }
 
-UnchangedOr<PrimExpr> RewriteSimplifier::Impl::Mutate_(const prim::MaxNode* op,
+UnchangedOr<PrimExpr> RewriteSimplifier::Impl::Mutate_(const prim::MaxObj* op,
                                                        InplaceMode inplace_mode) {
   PrimExpr ret =
       SimplifierBase::Mutate_(op, inplace_mode).ValueOrUnchanged(ffi::GetRef<PrimExpr>(op));
-  op = ret.as<prim::MaxNode>();
+  op = ret.as<prim::MaxObj>();
   if (auto const_res = TryConstFold<prim::Max>(op->a, op->b)) return *std::move(const_res);
 
   // Pattern var to match any expression
@@ -1623,7 +1617,7 @@ ffi::Optional<PrimExpr> RewriteSimplifier::Impl::TryMatchLiteralConstraint(
   return std::nullopt;
 }
 
-UnchangedOr<PrimExpr> RewriteSimplifier::Impl::Mutate_(const prim::EQNode* op,
+UnchangedOr<PrimExpr> RewriteSimplifier::Impl::Mutate_(const prim::EQObj* op,
                                                        InplaceMode inplace_mode) {
   // The qualified native hook preserves EQ; primitive children use unchecked category-preserving
   // results.
@@ -1671,7 +1665,7 @@ PrimExpr RewriteSimplifier::Impl::ApplyRewriteRules(prim::EQ ret, InplaceMode in
     TVM_TRY_RECURSIVE_REWRITE(x * y == 0, x == 0 || y == 0);
     TVM_TRY_REWRITE(x == x, ctrue);
   } else {
-    // Mimic the cancellation rules for SubNode.  For Index datatypes,
+    // Mimic the cancellation rules for SubObj.  For Index datatypes,
     // we skip the check for side effects.
     //
     // These simplifications do not preserve NaN/Inf that may occur in
@@ -1684,11 +1678,11 @@ PrimExpr RewriteSimplifier::Impl::ApplyRewriteRules(prim::EQ ret, InplaceMode in
   return ret;
 }
 
-UnchangedOr<PrimExpr> RewriteSimplifier::Impl::Mutate_(const prim::NENode* op,
+UnchangedOr<PrimExpr> RewriteSimplifier::Impl::Mutate_(const prim::NEObj* op,
                                                        InplaceMode inplace_mode) {
   PrimExpr ret =
       SimplifierBase::Mutate_(op, inplace_mode).ValueOrUnchanged(ffi::GetRef<PrimExpr>(op));
-  op = ret.as<prim::NENode>();
+  op = ret.as<prim::NEObj>();
 
   if (auto const_res = TryConstFold<prim::NE>(op->a, op->b)) return *std::move(const_res);
   if (auto match = TryMatchLiteralConstraint(ret)) return match.value();
@@ -1723,11 +1717,11 @@ UnchangedOr<PrimExpr> RewriteSimplifier::Impl::Mutate_(const prim::NENode* op,
                            inplace_mode);
 }
 
-UnchangedOr<PrimExpr> RewriteSimplifier::Impl::Mutate_(const prim::LENode* op,
+UnchangedOr<PrimExpr> RewriteSimplifier::Impl::Mutate_(const prim::LEObj* op,
                                                        InplaceMode inplace_mode) {
   PrimExpr ret =
       SimplifierBase::Mutate_(op, inplace_mode).ValueOrUnchanged(ffi::GetRef<PrimExpr>(op));
-  op = ret.as<prim::LENode>();
+  op = ret.as<prim::LEObj>();
 
   if (auto const_res = TryConstFold<prim::LE>(op->a, op->b)) return *std::move(const_res);
   if (auto match = TryMatchLiteralConstraint(ret)) return match.value();
@@ -1740,7 +1734,7 @@ UnchangedOr<PrimExpr> RewriteSimplifier::Impl::Mutate_(const prim::LENode* op,
   ret = ApplyRewriteRules(prim::Not(ApplyRewriteRules(prim::LT(op->b, op->a), inplace_mode)),
                           inplace_mode);
 
-  if (auto op = ret.as<prim::LENode>(); op && IsIndexTypedExpr(op->a)) {
+  if (auto op = ret.as<prim::LEObj>(); op && IsIndexTypedExpr(op->a)) {
     CompareResult result = TryCompare(op->a, op->b);
     if (result == CompareResult::kLE || result == CompareResult::kLT ||
         result == CompareResult::kEQ) {
@@ -1769,19 +1763,19 @@ UnchangedOr<PrimExpr> RewriteSimplifier::Impl::Mutate_(const prim::LENode* op,
   return ret;
 }
 
-UnchangedOr<PrimExpr> RewriteSimplifier::Impl::Mutate_(const prim::GTNode* op,
+UnchangedOr<PrimExpr> RewriteSimplifier::Impl::Mutate_(const prim::GTObj* op,
                                                        InplaceMode inplace_mode) {
   PrimExpr expr = op->b < op->a;
   return Mutate(expr, inplace_mode).ValueOrUnchanged(expr);
 }
 
-UnchangedOr<PrimExpr> RewriteSimplifier::Impl::Mutate_(const prim::GENode* op,
+UnchangedOr<PrimExpr> RewriteSimplifier::Impl::Mutate_(const prim::GEObj* op,
                                                        InplaceMode inplace_mode) {
   PrimExpr expr = op->b <= op->a;
   return Mutate(expr, inplace_mode).ValueOrUnchanged(expr);
 }
 
-UnchangedOr<PrimExpr> RewriteSimplifier::Impl::Mutate_(const prim::LTNode* op,
+UnchangedOr<PrimExpr> RewriteSimplifier::Impl::Mutate_(const prim::LTObj* op,
                                                        InplaceMode inplace_mode) {
   // The qualified native hook preserves LT; primitive children use unchecked category-preserving
   // results.
@@ -1961,7 +1955,7 @@ PrimExpr RewriteSimplifier::Impl::ApplyRewriteRules(prim::LT ret, InplaceMode in
   return ret;
 }
 
-UnchangedOr<PrimExpr> RewriteSimplifier::Impl::Mutate_(const prim::NotNode* op,
+UnchangedOr<PrimExpr> RewriteSimplifier::Impl::Mutate_(const prim::NotObj* op,
                                                        InplaceMode inplace_mode) {
   // The qualified native hook preserves Not; primitive children use unchecked category-preserving
   // results.
@@ -1994,12 +1988,12 @@ PrimExpr RewriteSimplifier::Impl::ApplyRewriteRules(prim::Not ret, InplaceMode i
   return ret;
 }
 
-UnchangedOr<PrimExpr> RewriteSimplifier::Impl::Mutate_(const prim::AndNode* op,
+UnchangedOr<PrimExpr> RewriteSimplifier::Impl::Mutate_(const prim::AndObj* op,
                                                        InplaceMode inplace_mode) {
   PrimExpr ret =
       SimplifierBase::Mutate_(op, inplace_mode).ValueOrUnchanged(ffi::GetRef<PrimExpr>(op));
 
-  op = ret.as<prim::AndNode>();
+  op = ret.as<prim::AndObj>();
 
   if (auto const_res = TryConstFold<prim::And>(op->a, op->b)) return *std::move(const_res);
   if (auto match = TryMatchLiteralConstraint(ret)) return match.value();
@@ -2097,14 +2091,14 @@ UnchangedOr<PrimExpr> RewriteSimplifier::Impl::Mutate_(const prim::AndNode* op,
   return ret;
 }
 
-UnchangedOr<PrimExpr> RewriteSimplifier::Impl::Mutate_(const prim::OrNode* op,
+UnchangedOr<PrimExpr> RewriteSimplifier::Impl::Mutate_(const prim::OrObj* op,
                                                        InplaceMode inplace_mode) {
   PrimExpr orig = ffi::GetRef<PrimExpr>(op);
 
   PrimExpr ret =
       SimplifierBase::Mutate_(op, inplace_mode).ValueOrUnchanged(ffi::GetRef<PrimExpr>(op));
 
-  op = ret.as<prim::OrNode>();
+  op = ret.as<prim::OrObj>();
   if (auto const_res = TryConstFold<prim::Or>(op->a, op->b)) return *std::move(const_res);
   if (auto match = TryMatchLiteralConstraint(ret)) return match.value();
 
@@ -2153,11 +2147,11 @@ UnchangedOr<PrimExpr> RewriteSimplifier::Impl::Mutate_(const prim::OrNode* op,
   return ret;
 }
 
-UnchangedOr<PrimExpr> RewriteSimplifier::Impl::Mutate_(const prim::SelectNode* op,
+UnchangedOr<PrimExpr> RewriteSimplifier::Impl::Mutate_(const prim::SelectObj* op,
                                                        InplaceMode inplace_mode) {
   PrimExpr ret =
       SimplifierBase::Mutate_(op, inplace_mode).ValueOrUnchanged(ffi::GetRef<PrimExpr>(op));
-  op = ret.as<prim::SelectNode>();
+  op = ret.as<prim::SelectObj>();
   if (op == nullptr) return ret;
   // Pattern var to match any expression
   PVar<PrimExpr> x, y;
@@ -2165,64 +2159,64 @@ UnchangedOr<PrimExpr> RewriteSimplifier::Impl::Mutate_(const prim::SelectNode* o
   return ret;
 }
 
-UnchangedOr<PrimExpr> RewriteSimplifier::Impl::Mutate_(const prim::BitwiseAndNode* op,
+UnchangedOr<PrimExpr> RewriteSimplifier::Impl::Mutate_(const prim::BitwiseAndObj* op,
                                                        InplaceMode inplace_mode) {
   PrimExpr ret =
       SimplifierBase::Mutate_(op, inplace_mode).ValueOrUnchanged(ffi::GetRef<PrimExpr>(op));
-  op = ret.as<prim::BitwiseAndNode>();
-  if (op && op->a.as<IntImmNode>() && op->b.as<IntImmNode>()) {
+  op = ret.as<prim::BitwiseAndObj>();
+  if (op && op->a.as<IntImmObj>() && op->b.as<IntImmObj>()) {
     return op->a & op->b;
   }
   return ret;
 }
 
-UnchangedOr<PrimExpr> RewriteSimplifier::Impl::Mutate_(const prim::BitwiseOrNode* op,
+UnchangedOr<PrimExpr> RewriteSimplifier::Impl::Mutate_(const prim::BitwiseOrObj* op,
                                                        InplaceMode inplace_mode) {
   PrimExpr ret =
       SimplifierBase::Mutate_(op, inplace_mode).ValueOrUnchanged(ffi::GetRef<PrimExpr>(op));
-  op = ret.as<prim::BitwiseOrNode>();
-  if (op && op->a.as<IntImmNode>() && op->b.as<IntImmNode>()) {
+  op = ret.as<prim::BitwiseOrObj>();
+  if (op && op->a.as<IntImmObj>() && op->b.as<IntImmObj>()) {
     return op->a | op->b;
   }
   return ret;
 }
 
-UnchangedOr<PrimExpr> RewriteSimplifier::Impl::Mutate_(const prim::BitwiseXorNode* op,
+UnchangedOr<PrimExpr> RewriteSimplifier::Impl::Mutate_(const prim::BitwiseXorObj* op,
                                                        InplaceMode inplace_mode) {
   PrimExpr ret =
       SimplifierBase::Mutate_(op, inplace_mode).ValueOrUnchanged(ffi::GetRef<PrimExpr>(op));
-  op = ret.as<prim::BitwiseXorNode>();
-  if (op && op->a.as<IntImmNode>() && op->b.as<IntImmNode>()) {
+  op = ret.as<prim::BitwiseXorObj>();
+  if (op && op->a.as<IntImmObj>() && op->b.as<IntImmObj>()) {
     return op->a ^ op->b;
   }
   return ret;
 }
 
-UnchangedOr<PrimExpr> RewriteSimplifier::Impl::Mutate_(const prim::LShiftNode* op,
+UnchangedOr<PrimExpr> RewriteSimplifier::Impl::Mutate_(const prim::LShiftObj* op,
                                                        InplaceMode inplace_mode) {
   PrimExpr ret =
       SimplifierBase::Mutate_(op, inplace_mode).ValueOrUnchanged(ffi::GetRef<PrimExpr>(op));
-  op = ret.as<prim::LShiftNode>();
-  if (op && op->a.as<IntImmNode>() && op->b.as<IntImmNode>()) {
+  op = ret.as<prim::LShiftObj>();
+  if (op && op->a.as<IntImmObj>() && op->b.as<IntImmObj>()) {
     // The operator overload eagerly folds constant operands.
     return op->a << op->b;
   }
   return ret;
 }
 
-UnchangedOr<PrimExpr> RewriteSimplifier::Impl::Mutate_(const prim::RShiftNode* op,
+UnchangedOr<PrimExpr> RewriteSimplifier::Impl::Mutate_(const prim::RShiftObj* op,
                                                        InplaceMode inplace_mode) {
   PrimExpr ret =
       SimplifierBase::Mutate_(op, inplace_mode).ValueOrUnchanged(ffi::GetRef<PrimExpr>(op));
-  op = ret.as<prim::RShiftNode>();
-  if (op && op->a.as<IntImmNode>() && op->b.as<IntImmNode>()) {
+  op = ret.as<prim::RShiftObj>();
+  if (op && op->a.as<IntImmObj>() && op->b.as<IntImmObj>()) {
     // The operator overload eagerly folds constant operands.
     return op->a >> op->b;
   }
   return ret;
 }
 
-UnchangedOr<Expr> RewriteSimplifier::Impl::Mutate_(const CallNode* op, InplaceMode inplace_mode) {
+UnchangedOr<Expr> RewriteSimplifier::Impl::Mutate_(const CallObj* op, InplaceMode inplace_mode) {
   // add condition context to if_then_else
   Expr expr = SimplifierBase::Mutate_(op, inplace_mode).ValueOrUnchanged(ffi::GetRef<Expr>(op));
   auto opt_ret = expr.as<PrimExpr>();
@@ -2230,7 +2224,7 @@ UnchangedOr<Expr> RewriteSimplifier::Impl::Mutate_(const CallNode* op, InplaceMo
     return expr;
   }
   PrimExpr ret = opt_ret.value();
-  op = ret.as<CallNode>();
+  op = ret.as<CallObj>();
   if (op == nullptr) return ret;
 
   if (op->op.same_as(prim::likely_op()) && prim::IsConstInt(op->args[0].as_or_throw<PrimExpr>())) {
@@ -2242,17 +2236,17 @@ UnchangedOr<Expr> RewriteSimplifier::Impl::Mutate_(const CallNode* op, InplaceMo
   PrimType ret_ty = op->ty.as_or_throw<PrimType>();
   if (op->op.same_as(ceil_op)) {
     PrimExpr ceil_arg = op->args[0].as_or_throw<PrimExpr>();
-    if (auto arg_int = op->args[0].as<IntImmNode>()) {
+    if (auto arg_int = op->args[0].as<IntImmObj>()) {
       return prim::cast(IntImm(arg_int->ty.as_or_throw<PrimType>(), arg_int->value), ret_ty);
-    } else if (auto arg_float = ceil_arg.as<FloatImmNode>()) {
+    } else if (auto arg_float = ceil_arg.as<FloatImmObj>()) {
       return prim::cast(
           FloatImm(arg_float->ty.as_or_throw<PrimType>(), std::ceil(arg_float->value)), ret_ty);
-    } else if (auto arg_call = ceil_arg.as<CallNode>()) {
+    } else if (auto arg_call = ceil_arg.as<CallObj>()) {
       // ceil(log2(cast(n,"float64"))) is used as the implementation of
       // topi.math.ceil_log2, and appears in iteration bounds.
       if (arg_call->op.same_as(log2_op)) {
         PrimExpr log_arg = arg_call->args[0].as_or_throw<PrimExpr>();
-        if (auto as_float = log_arg.as<FloatImmNode>()) {
+        if (auto as_float = log_arg.as<FloatImmObj>()) {
           // ceil(log2(n)) can be simplified, and should produce the
           // same integer result regardless of the target's rounding
           // conventions.
@@ -2261,7 +2255,7 @@ UnchangedOr<Expr> RewriteSimplifier::Impl::Mutate_(const CallNode* op, InplaceMo
       }
     }
   } else if (op->op.same_as(clz_op)) {
-    if (const auto* arg_int = op->args[0].as<IntImmNode>()) {
+    if (const auto* arg_int = op->args[0].as<IntImmObj>()) {
       int bits = arg_int->ty.as_or_throw<PrimType>().bits();
       if (arg_int->value == 0) return IntImm(ret_ty, bits);
       for (int i = bits - 1; i >= 0; --i) {
@@ -2287,7 +2281,7 @@ UnchangedOr<Expr> RewriteSimplifier::Impl::Mutate_(const CallNode* op, InplaceMo
     PrimExpr cond = op->args[0].as_or_throw<PrimExpr>();
     PrimExpr then_expr = op->args[1].as_or_throw<PrimExpr>();
     PrimExpr else_expr = op->args[2].as_or_throw<PrimExpr>();
-    const CallNode* inner_call = then_expr.as<CallNode>();
+    const CallObj* inner_call = then_expr.as<CallObj>();
     if (inner_call != nullptr && inner_call->op.same_as(prim::if_then_else_op())) {
       PrimExpr inner_cond = inner_call->args[0].as_or_throw<PrimExpr>();
       PrimExpr inner_then_expr = inner_call->args[1].as_or_throw<PrimExpr>();
@@ -2305,7 +2299,7 @@ UnchangedOr<Expr> RewriteSimplifier::Impl::Mutate_(const CallNode* op, InplaceMo
   return ret;
 }
 
-UnchangedOr<Expr> RewriteSimplifier::Impl::Mutate_(const VarNode* op, InplaceMode inplace_mode) {
+UnchangedOr<Expr> RewriteSimplifier::Impl::Mutate_(const VarObj* op, InplaceMode inplace_mode) {
   Var var = ffi::GetRef<Var>(op);
   auto prim_var = var.as<PrimVar>();
   if (!prim_var) {
@@ -2328,15 +2322,15 @@ UnchangedOr<Expr> RewriteSimplifier::Impl::Mutate_(const VarNode* op, InplaceMod
   return ffi::Unchanged();
 }
 
-UnchangedOr<PrimExpr> RewriteSimplifier::Impl::Mutate_(const prim::CastNode* op,
+UnchangedOr<PrimExpr> RewriteSimplifier::Impl::Mutate_(const prim::CastObj* op,
                                                        InplaceMode inplace_mode) {
   PrimExpr ret =
       SimplifierBase::Mutate_(op, inplace_mode).ValueOrUnchanged(ffi::GetRef<PrimExpr>(op));
-  op = ret.as<prim::CastNode>();
+  op = ret.as<prim::CastObj>();
   return prim::cast(op->value, ret.ty());
 }
 
-bool RewriteSimplifier::Impl::CanInlineLet(const prim::LetNode* op) {
+bool RewriteSimplifier::Impl::CanInlineLet(const prim::LetObj* op) {
   // Only inline trivial bindings to avoid deep expression explosion
   // when we need let to construct complicated expressions.
   if (prim::IsConstNumber(op->value)) return true;
@@ -2344,7 +2338,7 @@ bool RewriteSimplifier::Impl::CanInlineLet(const prim::LetNode* op) {
   return false;
 }
 
-UnchangedOr<PrimExpr> RewriteSimplifier::Impl::Mutate_(const prim::LetNode* op,
+UnchangedOr<PrimExpr> RewriteSimplifier::Impl::Mutate_(const prim::LetObj* op,
                                                        InplaceMode inplace_mode) {
   PrimExpr value = Mutate(op->value, inplace_mode).ValueOrUnchanged(op->value);
   if (CanInlineLet(op)) {

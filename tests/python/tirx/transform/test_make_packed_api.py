@@ -387,7 +387,7 @@ def test_internal_subroutine_call():
     compute_scope = _find_compute_scope(after["main"])
     subroutine_call_op = compute_scope.body[0].value.op
     assert isinstance(subroutine_call_op, tvm_tirx.ir.GlobalVar), (
-        f"The main function's CallNode should use the subroutine's GlobalVar as the operation, "
+        f"The main function's CallObj should use the subroutine's GlobalVar as the operation, "
         f"but instead has an operation of type {subroutine_call_op}"
     )
 
@@ -546,7 +546,7 @@ def test_subroutine_call_to_externally_visible_subroutine():
         isinstance(subroutine_call_op, tvm_tirx.ir.Op)
         and subroutine_call_op.name == "tirx.call_cpacked"
     ), (
-        f"The main function's CallNode should be lowered to the builtin 'tirx.call_cpacked', "
+        f"The main function's CallObj should be lowered to the builtin 'tirx.call_cpacked', "
         f"but instead has an operation of type {subroutine_call_op}"
     )
 

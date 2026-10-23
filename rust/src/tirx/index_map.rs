@@ -92,11 +92,15 @@ impl IndexMapObj {
 impl IndexMap {
     /// Lossless complete-field allocation.
     pub fn new(
-        initial_indices: Array<Var>,
-        final_indices: Array<Expr>,
-        inverse_index_map: Option<ObjectRef>,
+        initial_indices: impl Into<Array<Var>>,
+        final_indices: impl Into<Array<Expr>>,
+        inverse_index_map: impl Into<Option<ObjectRef>>,
     ) -> Self {
-        let obj = IndexMapObj::new(initial_indices, final_indices, inverse_index_map);
+        let obj = IndexMapObj::new(
+            initial_indices.into(),
+            final_indices.into(),
+            inverse_index_map.into(),
+        );
         Self { base: ObjectArc::new(obj) }
     }
 }

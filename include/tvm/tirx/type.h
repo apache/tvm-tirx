@@ -51,15 +51,15 @@ inline PrimType DefaultIndexType() {
 /*!
  * \brief Structural type of a TIRx tensor variable.
  *
- * A tensor value is an ordinary VarNode whose ExprNode::ty is TensorType.
+ * A tensor value is an ordinary VarObj whose ExprObj::ty is TensorType.
  * TensorType owns the immutable access contract.  The physical pointer is
  * deliberately not stored here; it is obtained with tensor_data_ptr(TensorVar)
  * and is bound by the surrounding tensor definition.
  */
-class TensorTypeNode : public TypeNode {
+class TensorTypeObj : public TypeObj {
  public:
-  explicit TensorTypeNode(ffi::UnsafeInit) {}
-  TensorTypeNode() = default;
+  explicit TensorTypeObj(ffi::UnsafeInit) {}
+  TensorTypeObj() = default;
 
   /*! \brief dtype in the content of the tensor */
   PrimType dtype = PrimType::Void();
@@ -79,13 +79,13 @@ class TensorTypeNode : public TypeNode {
 
   static void RegisterReflection() {
     namespace refl = tvm::ffi::reflection;
-    refl::ObjectDef<TensorTypeNode>()
-        .def_ro("shape", &TensorTypeNode::shape, refl::AttachFieldFlag::SEqHashDefSimple())
-        .def_ro("dtype", &TensorTypeNode::dtype)
-        .def_ro("scope", &TensorTypeNode::scope, refl::DefaultValue(runtime::MemoryScope::Global()))
-        .def_ro("data_alignment", &TensorTypeNode::data_alignment,
+    refl::ObjectDef<TensorTypeObj>()
+        .def_ro("shape", &TensorTypeObj::shape, refl::AttachFieldFlag::SEqHashDefSimple())
+        .def_ro("dtype", &TensorTypeObj::dtype)
+        .def_ro("scope", &TensorTypeObj::scope, refl::DefaultValue(runtime::MemoryScope::Global()))
+        .def_ro("data_alignment", &TensorTypeObj::data_alignment,
                 refl::DefaultValue(static_cast<int>(runtime::kAllocAlignment)))
-        .def_ro("layout", &TensorTypeNode::layout, refl::DefaultValue(nullptr));
+        .def_ro("layout", &TensorTypeObj::layout, refl::DefaultValue(nullptr));
   }
 
   /*!
@@ -123,11 +123,11 @@ class TensorTypeNode : public TypeNode {
    */
   TVM_TIRX_DLL ffi::Array<PrimExpr> ElemOffset(ffi::Array<PrimExpr> index) const;
 
-  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("tirx.TensorType", TensorTypeNode, TypeNode);
+  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("tirx.TensorType", TensorTypeObj, TypeObj);
 };
 
 /*!
- * \brief Managed reference to TensorTypeNode.
+ * \brief Managed reference to TensorTypeObj.
  */
 class TensorType : public Type {
  public:
@@ -135,9 +135,9 @@ class TensorType : public Type {
                           runtime::MemoryScope scope = {}, int data_alignment = 0,
                           ffi::Optional<Layout> layout = std::nullopt, Location loc = UnknownLoc());
 
-  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(TensorType, Type, TensorTypeNode);
+  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(TensorType, Type, TensorTypeObj);
 
-  explicit TensorType(ffi::ObjectPtr<TensorTypeNode> n) : Type(ffi::UnsafeInit{}) {
+  explicit TensorType(ffi::ObjectPtr<TensorTypeObj> n) : Type(ffi::UnsafeInit{}) {
     TVM_FFI_ICHECK(n != nullptr);
     data_ = std::move(n);
   }
@@ -167,7 +167,7 @@ MatchShapeStridePattern(const TensorType& tensor) {
       stride = stride * tensor->shape[i - 1];
     }
   } else {
-    const auto* tile = tensor->layout.as<TileLayoutNode>();
+    const auto* tile = tensor->layout.as<TileLayoutObj>();
     if (!tile || !tile->replica.empty() || tile->shard.size() != tensor->shape.size()) {
       return std::nullopt;
     }
@@ -190,24 +190,24 @@ MatchShapeStridePattern(const TensorType& tensor) {
  * \brief The type of tensor map.
  * \sa TensorMapType
  */
-class TensorMapTypeNode : public TypeNode {
+class TensorMapTypeObj : public TypeObj {
  public:
   static void RegisterReflection() {
     namespace refl = tvm::ffi::reflection;
-    refl::ObjectDef<TensorMapTypeNode>();
+    refl::ObjectDef<TensorMapTypeObj>();
   }
-  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("tirx.TensorMapType", TensorMapTypeNode, TypeNode);
+  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("tirx.TensorMapType", TensorMapTypeObj, TypeObj);
 };
 
 /*!
- * \brief Managed reference to TensorMapTypeNode.
- * \sa TensorMapTypeNode
+ * \brief Managed reference to TensorMapTypeObj.
+ * \sa TensorMapTypeObj
  */
 class TensorMapType : public Type {
  public:
   TVM_TIRX_DLL TensorMapType(Location loc = UnknownLoc());
 
-  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(TensorMapType, Type, TensorMapTypeNode);
+  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(TensorMapType, Type, TensorMapTypeObj);
 };
 
 }  // namespace tvm::tirx

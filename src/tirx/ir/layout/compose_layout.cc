@@ -29,7 +29,7 @@ using namespace tvm::prim;
 
 namespace {
 
-PrimExpr ApplyFullSwizzle(const ComposeLayoutNode* layout, const PrimExpr& m) {
+PrimExpr ApplyFullSwizzle(const ComposeLayoutObj* layout, const PrimExpr& m) {
   auto swizzle = [&](const PrimExpr& x) -> PrimExpr {
     if (layout->swizzle_inner) {
       return x ^ ((x & layout->outer_mask) >> layout->atom_len);
@@ -77,7 +77,7 @@ void CollectOffsetTerms(const PrimExpr& expr, int sign, std::vector<PrimExpr>* d
                         int64_t* constant, bool* valid, const sym::Analyzer& analyzer) {
   if (!*valid) return;
   PrimExpr simplified = analyzer->Simplify(expr);
-  if (const auto* imm = simplified.as<IntImmNode>()) {
+  if (const auto* imm = simplified.as<IntImmObj>()) {
     int64_t signed_value;
     auto value = imm->value.as<int64_t>();
     if (!value.has_value() || !MulWithoutOverflow(*value, sign, &signed_value) ||
@@ -86,12 +86,12 @@ void CollectOffsetTerms(const PrimExpr& expr, int sign, std::vector<PrimExpr>* d
     }
     return;
   }
-  if (const auto* add = simplified.as<prim::AddNode>()) {
+  if (const auto* add = simplified.as<prim::AddObj>()) {
     CollectOffsetTerms(add->a, sign, dynamic_terms, constant, valid, analyzer);
     CollectOffsetTerms(add->b, sign, dynamic_terms, constant, valid, analyzer);
     return;
   }
-  if (const auto* sub = simplified.as<prim::SubNode>()) {
+  if (const auto* sub = simplified.as<prim::SubObj>()) {
     CollectOffsetTerms(sub->a, sign, dynamic_terms, constant, valid, analyzer);
     CollectOffsetTerms(sub->b, -sign, dynamic_terms, constant, valid, analyzer);
     return;
@@ -106,16 +106,16 @@ void CollectOffsetTerms(const PrimExpr& expr, int sign, std::vector<PrimExpr>* d
 std::optional<PrimExpr> DivideExactTerm(const PrimExpr& term, int64_t divisor,
                                         const sym::Analyzer& analyzer) {
   PrimExpr simplified = analyzer->Simplify(term);
-  if (const auto* imm = simplified.as<IntImmNode>()) {
+  if (const auto* imm = simplified.as<IntImmObj>()) {
     if (imm->value % divisor != 0) return std::nullopt;
     return IntImm(simplified.ty(), imm->value / divisor);
   }
 
-  if (const auto* mul = simplified.as<prim::MulNode>()) {
-    const IntImmNode* factor = mul->a.as<IntImmNode>();
+  if (const auto* mul = simplified.as<prim::MulObj>()) {
+    const IntImmObj* factor = mul->a.as<IntImmObj>();
     PrimExpr value = mul->b;
     if (factor == nullptr) {
-      factor = mul->b.as<IntImmNode>();
+      factor = mul->b.as<IntImmObj>();
       value = mul->a;
     }
     if (factor != nullptr && factor->value >= 0 && factor->value % divisor == 0) {
@@ -130,7 +130,7 @@ std::optional<PrimExpr> DivideExactTerm(const PrimExpr& term, int64_t divisor,
   return analyzer->Simplify(floordiv(simplified, scale));
 }
 
-ffi::Map<ffi::String, PrimExpr> ApplyStructured(const ComposeLayoutNode* layout,
+ffi::Map<ffi::String, PrimExpr> ApplyStructured(const ComposeLayoutObj* layout,
                                                 const TileLayout& tile,
                                                 ffi::Array<PrimExpr> coord) {
   // Normalize the bounded TileLayout terms as m = B + D + K, where B is a
@@ -193,11 +193,11 @@ ffi::Map<ffi::String, PrimExpr> ApplyStructured(const ComposeLayoutNode* layout,
     const Iter& iter = tile->shard[i];
     if (analyzer->CanProveEqual(iter->extent, 1)) continue;
     PrimExpr simplified_stride = analyzer->Simplify(iter->stride);
-    const auto* stride_imm = simplified_stride.as<IntImmNode>();
+    const auto* stride_imm = simplified_stride.as<IntImmObj>();
     auto stride = stride_imm ? stride_imm->value.as<int64_t>() : std::nullopt;
     if (!stride.has_value() || *stride < 0) return fallback();
     PrimExpr term = analyzer->Simplify(coord[i] * iter->stride);
-    if (const auto* imm = term.as<IntImmNode>()) {
+    if (const auto* imm = term.as<IntImmObj>()) {
       auto value = imm->value.as<int64_t>();
       if (!value.has_value() || !add_constant(*value)) return fallback();
       continue;
@@ -207,7 +207,7 @@ ffi::Map<ffi::String, PrimExpr> ApplyStructured(const ComposeLayoutNode* layout,
       continue;
     }
     PrimExpr simplified_extent = analyzer->Simplify(iter->extent);
-    const auto* extent_imm = simplified_extent.as<IntImmNode>();
+    const auto* extent_imm = simplified_extent.as<IntImmObj>();
     auto extent = extent_imm ? extent_imm->value.as<int64_t>() : std::nullopt;
     if (!extent.has_value() || *extent <= 0) return fallback();
     int64_t term_max;
@@ -303,7 +303,7 @@ ffi::Map<ffi::String, PrimExpr> ApplyStructured(const ComposeLayoutNode* layout,
 ComposeLayout::ComposeLayout(int per_element, int swizzle_len, int atom_len, TileLayout tile_layout,
                              bool swizzle_inner)
     : Layout(ffi::UnsafeInit{}) {
-  auto n = ffi::make_object<ComposeLayoutNode>(std::move(tile_layout));
+  auto n = ffi::make_object<ComposeLayoutObj>(std::move(tile_layout));
   n->per_element = per_element;
   n->swizzle_len = swizzle_len;
   n->atom_len = atom_len;
@@ -323,7 +323,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
   });
 }
 
-void layout_details::CheckWellFormed(const ComposeLayoutNode* layout) {
+void layout_details::CheckWellFormed(const ComposeLayoutObj* layout) {
   TVM_FFI_CHECK(layout->per_element >= 0 && layout->swizzle_len >= 0 &&
                     layout->atom_len >= layout->swizzle_len,
                 ValueError)
@@ -332,26 +332,26 @@ void layout_details::CheckWellFormed(const ComposeLayoutNode* layout) {
   layout->tile_layout.CheckWellFormed();
 }
 
-PrimExpr layout_details::GetSize(const ComposeLayoutNode* layout,
+PrimExpr layout_details::GetSize(const ComposeLayoutObj* layout,
                                  ffi::Optional<ffi::String> axis_name) {
   TVM_FFI_ICHECK(!axis_name.has_value())
       << "ValueError: axis_name is not supported for compose layout";
   return layout->tile_layout.GetSize(axis_name);
 }
 
-PrimExpr layout_details::GetSpan(const ComposeLayoutNode* layout,
+PrimExpr layout_details::GetSpan(const ComposeLayoutObj* layout,
                                  ffi::Optional<ffi::String> axis_name) {
   TVM_FFI_ICHECK(!axis_name.has_value())
       << "ValueError: axis_name is not supported for compose layout";
   return layout->tile_layout.GetSpan(axis_name);
 }
 
-ffi::Map<ffi::String, PrimExpr> layout_details::Apply(const ComposeLayoutNode* layout,
+ffi::Map<ffi::String, PrimExpr> layout_details::Apply(const ComposeLayoutObj* layout,
                                                       ffi::Array<PrimExpr> coord) {
   return ApplyStructured(layout, layout->tile_layout, std::move(coord));
 }
 
-ffi::Map<ffi::String, PrimExpr> layout_details::Apply(const ComposeLayoutNode* layout,
+ffi::Map<ffi::String, PrimExpr> layout_details::Apply(const ComposeLayoutObj* layout,
                                                       PrimExpr coord) {
   auto res = layout->tile_layout.Apply(coord);
   TVM_FFI_ICHECK(res.size() == 1 && res.find("m") != res.end());
@@ -371,7 +371,7 @@ ffi::Map<ffi::String, PrimExpr> layout_details::Apply(const ComposeLayoutNode* l
       {"m", analyzer->Simplify((f(floordiv(m, base)) << layout->per_element) + floormod(m, base))}};
 }
 
-ffi::Map<ffi::String, PrimExpr> layout_details::Apply(const ComposeLayoutNode* layout,
+ffi::Map<ffi::String, PrimExpr> layout_details::Apply(const ComposeLayoutObj* layout,
                                                       const ffi::Array<PrimExpr>& coord,
                                                       const ffi::Array<PrimExpr>& shape) {
   TVM_FFI_ICHECK_EQ(coord.size(), shape.size())
@@ -405,13 +405,13 @@ ffi::Map<ffi::String, PrimExpr> layout_details::Apply(const ComposeLayoutNode* l
   return ApplyStructured(layout, grouped_tile, std::move(shard_coord));
 }
 
-Layout layout_details::Canonicalize(const ComposeLayoutNode* layout) {
+Layout layout_details::Canonicalize(const ComposeLayoutObj* layout) {
   auto tile_normalized = layout->tile_layout.Canonicalize().as<TileLayout>().value();
   return ComposeLayout(layout->per_element, layout->swizzle_len, layout->atom_len, tile_normalized,
                        layout->swizzle_inner);
 }
 
-Layout layout_details::Tile(const ComposeLayoutNode* layout, const TileLayout& outer,
+Layout layout_details::Tile(const ComposeLayoutObj* layout, const TileLayout& outer,
                             const ffi::Array<PrimExpr>& outer_shape,
                             const ffi::Array<PrimExpr>& inner_shape) {
   // A bare swizzle (ComposeLayout with a trivial tile) carries only the swizzle

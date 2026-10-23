@@ -56,7 +56,7 @@ class SplitPatternReNormalizer : public StmtExprMutatorWithAnalyzer {
   explicit SplitPatternReNormalizer(const Analyzer& analyzer)
       : StmtExprMutatorWithAnalyzer(analyzer) {}
 
-  UnchangedOr<PrimExpr> Mutate_(const prim::FloorDivNode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<PrimExpr> Mutate_(const prim::FloorDivObj* op, InplaceMode inplace_mode) final {
     PrimExpr a = Mutate(op->a, inplace_mode).ValueOrUnchanged(op->a);
     PrimExpr b = Mutate(op->b, inplace_mode).ValueOrUnchanged(op->b);
     PrimExpr ret = floordiv(a, b);
@@ -144,22 +144,22 @@ class SplitPatternReNormalizer : public StmtExprMutatorWithAnalyzer {
     return ret;
   }
 
-  UnchangedOr<PrimExpr> Mutate_(const prim::LENode* op, InplaceMode inplace_mode) {
+  UnchangedOr<PrimExpr> Mutate_(const prim::LEObj* op, InplaceMode inplace_mode) {
     PrimExpr rewritten = prim::Not(op->b < op->a);
     return Mutate(rewritten, inplace_mode).ValueOrUnchanged(std::move(rewritten));
   }
 
-  UnchangedOr<PrimExpr> Mutate_(const prim::GTNode* op, InplaceMode inplace_mode) {
+  UnchangedOr<PrimExpr> Mutate_(const prim::GTObj* op, InplaceMode inplace_mode) {
     PrimExpr rewritten = op->b < op->a;
     return Mutate(rewritten, inplace_mode).ValueOrUnchanged(std::move(rewritten));
   }
 
-  UnchangedOr<PrimExpr> Mutate_(const prim::GENode* op, InplaceMode inplace_mode) {
+  UnchangedOr<PrimExpr> Mutate_(const prim::GEObj* op, InplaceMode inplace_mode) {
     PrimExpr rewritten = prim::Not(op->a < op->b);
     return Mutate(rewritten, inplace_mode).ValueOrUnchanged(std::move(rewritten));
   }
 
-  UnchangedOr<PrimExpr> Mutate_(const prim::LTNode* op, InplaceMode inplace_mode) {
+  UnchangedOr<PrimExpr> Mutate_(const prim::LTObj* op, InplaceMode inplace_mode) {
     PrimExpr a = Mutate(op->a, inplace_mode).ValueOrUnchanged(op->a);
     PrimExpr b = Mutate(op->b, inplace_mode).ValueOrUnchanged(op->b);
     PrimExpr ret = prim::LT(a, b);
@@ -169,11 +169,11 @@ class SplitPatternReNormalizer : public StmtExprMutatorWithAnalyzer {
     PVar<IntImm> c1, c2;
     // x < c2 <=> x/c2 < 1 <=> floor(x / c2) < 1
     TRY_RECURSIVE_REWRITE_IF(x < c2, floordiv(x, c2) < 1,
-                             c2.Eval()->value > 0 && !x.Eval().as<VarNode>());  // NOLINT
+                             c2.Eval()->value > 0 && !x.Eval().as<VarObj>());  // NOLINT
     return ret;
   }
 
-  UnchangedOr<PrimExpr> Mutate_(const prim::NotNode* op, InplaceMode inplace_mode) {
+  UnchangedOr<PrimExpr> Mutate_(const prim::NotObj* op, InplaceMode inplace_mode) {
     PrimExpr ret = StmtExprMutatorWithAnalyzer::Mutate_(op, inplace_mode)
                        .ValueOrUnchanged(ffi::GetRef<PrimExpr>(op));
     // Pattern var to match any expression
@@ -186,7 +186,7 @@ class SplitPatternReNormalizer : public StmtExprMutatorWithAnalyzer {
     return ret;
   }
 
-  UnchangedOr<Stmt> Mutate_(const ForNode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<Stmt> Mutate_(const ForObj* op, InplaceMode inplace_mode) final {
     analyzer_->Bind(op->var, Range(op->begin, op->end));
     With<ConstraintContext> ctx1(analyzer_, op->var >= op->begin);
     With<ConstraintContext> ctx2(analyzer_, static_cast<PrimExpr>(op->var) < op->end);

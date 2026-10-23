@@ -42,7 +42,7 @@ class Bind(Stmt):
     explicit ``T.Bind(var, value)`` when constructing a binding for an existing
     variable. Bind has no body field.
     The bound variable is visible in all subsequent statements
-    within the same enclosing scope (SeqStmt, ForNode.body, etc.).
+    within the same enclosing scope (SeqStmt, ForObj.body, etc.).
 
     Parameters
     ----------

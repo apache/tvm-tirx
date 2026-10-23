@@ -84,8 +84,8 @@ impl PassInfoObj {
 
 impl PassInfo {
     /// Lossless complete-field allocation.
-    pub fn new(opt_level: i32, name: String) -> Self {
-        let obj = PassInfoObj::new(opt_level, name);
+    pub fn new(opt_level: i32, name: impl Into<String>) -> Self {
+        let obj = PassInfoObj::new(opt_level, name.into());
         Self { base: ObjectArc::new(obj) }
     }
 }
@@ -170,12 +170,18 @@ impl PassContext {
     /// Lossless complete-field allocation.
     pub fn new(
         opt_level: i32,
-        required_pass: Array<String>,
-        disabled_pass: Array<String>,
-        config: Map<String, Any>,
-        instruments: Array<PassInstrument>,
+        required_pass: impl Into<Array<String>>,
+        disabled_pass: impl Into<Array<String>>,
+        config: impl Into<Map<String, Any>>,
+        instruments: impl Into<Array<PassInstrument>>,
     ) -> Self {
-        let obj = PassContextObj::new(opt_level, required_pass, disabled_pass, config, instruments);
+        let obj = PassContextObj::new(
+            opt_level,
+            required_pass.into(),
+            disabled_pass.into(),
+            config.into(),
+            instruments.into(),
+        );
         Self { base: ObjectArc::new(obj) }
     }
 }

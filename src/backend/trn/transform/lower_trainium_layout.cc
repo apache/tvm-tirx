@@ -44,7 +44,7 @@
 namespace tvm {
 namespace tirx {
 
-static bool IsTrainiumLayout(const TileLayoutNode* layout) {
+static bool IsTrainiumLayout(const TileLayoutObj* layout) {
   if (layout == nullptr) {
     return false;
   }
@@ -71,8 +71,8 @@ class TrainiumLayoutApplier : public tirx::StmtExprMutatorWithAnalyzer {
       if (tensor.value().ty()->layout.has_value() ||
           tensor.value().scope() == runtime::MemoryScope::Global()) {
         TensorVar flattened = storage_lower->GetFlattenedTensor(tensor.value());
-        auto type = ffi::make_object<TensorTypeNode>(*tensor.value().ty().get());
-        if (const auto* tile = type->layout.as<TileLayoutNode>()) {
+        auto type = ffi::make_object<TensorTypeObj>(*tensor.value().ty().get());
+        if (const auto* tile = type->layout.as<TileLayoutObj>()) {
           // Trainium's physical axes are embedded in the lowered indices. Ordinary
           // memory strides still define the parameter ABI, even when they are static.
           // Retain symbolic physical geometry that may define parameter variables.
@@ -81,7 +81,7 @@ class TrainiumLayoutApplier : public tirx::StmtExprMutatorWithAnalyzer {
               std::any_of(tile->shard.begin(), tile->shard.end(),
                           [](const Iter& iter) { return iter->axis->IsMemoryAxis(); });
           for (const auto& iter : tile->shard) {
-            static_geometry &= iter->extent.as<IntImmNode>() && iter->stride.as<IntImmNode>();
+            static_geometry &= iter->extent.as<IntImmObj>() && iter->stride.as<IntImmObj>();
           }
           bool lower_layout = static_geometry || type->HasDefaultLayout(ana);
           for (const auto& [axis, offset] : tile->offset) {
@@ -125,8 +125,8 @@ class TrainiumLayoutApplier : public tirx::StmtExprMutatorWithAnalyzer {
     return any;
   }
 
-  UnchangedOr<Stmt> Mutate_(const BindNode* op, InplaceMode inplace_mode) final {
-    if (const auto* call = op->value.as<CallNode>();
+  UnchangedOr<Stmt> Mutate_(const BindObj* op, InplaceMode inplace_mode) final {
+    if (const auto* call = op->value.as<CallObj>();
         call && call->op.same_as(tirx::alloc_tensor_op())) {
       TensorVar original_tensor = op->var.as_or_throw<TensorVar>();
       ffi::Array<Expr> args = call->args;
@@ -146,7 +146,7 @@ class TrainiumLayoutApplier : public tirx::StmtExprMutatorWithAnalyzer {
           Call(tensor.ty(), tirx::alloc_tensor_op(), args, call->attrs, {tensor.ty()}, call->loc),
           op->loc);
     }
-    if (const auto* call = op->value.as<CallNode>();
+    if (const auto* call = op->value.as<CallObj>();
         call && call->op.same_as(tirx::decl_tensor_op())) {
       TensorVar original_tensor = op->var.as_or_throw<TensorVar>();
       Expr original_data = call->args[0];
@@ -171,9 +171,9 @@ class TrainiumLayoutApplier : public tirx::StmtExprMutatorWithAnalyzer {
     if (mapped.type_index() != ffi::TypeIndex::kTVMFFINone) {
       return std::move(mapped).as_or_throw<UnchangedOr<TensorVar>>().ValueOrUnchanged(buf);
     }
-    auto trn_layout = buf.ty()->layout.as<TileLayoutNode>();
+    auto trn_layout = buf.ty()->layout.as<TileLayoutObj>();
     TensorVar flattened = buf;
-    ffi::ObjectPtr<TensorTypeNode> type;
+    ffi::ObjectPtr<TensorTypeObj> type;
     if (IsTrainiumLayout(trn_layout)) {
       const Layout& layout = buf.ty()->layout.value();
       ffi::Array<PrimExpr> new_shape =
@@ -183,11 +183,11 @@ class TrainiumLayoutApplier : public tirx::StmtExprMutatorWithAnalyzer {
                                         : ffi::Array<PrimExpr>{layout.GetSize(ffi::String("P")),
                                                                layout.GetSpan(ffi::String("F"))};
       flattened = buf;
-      type = ffi::make_object<TensorTypeNode>(*flattened.ty().get());
+      type = ffi::make_object<TensorTypeObj>(*flattened.ty().get());
       type->shape = new_shape;
       type->layout = std::nullopt;
     } else if (is_alloc) {
-      if (auto tile_layout = buf.ty()->layout.as<TileLayoutNode>();
+      if (auto tile_layout = buf.ty()->layout.as<TileLayoutObj>();
           tile_layout && ffi::GetRef<TileLayout>(tile_layout).HasThreadAxis()) {
         sym::Analyzer ana;
         PrimExpr mem_span = IntImm::Int32(1);
@@ -207,16 +207,16 @@ class TrainiumLayoutApplier : public tirx::StmtExprMutatorWithAnalyzer {
           }
         }
         flattened = buf;
-        type = ffi::make_object<TensorTypeNode>(*flattened.ty().get());
+        type = ffi::make_object<TensorTypeObj>(*flattened.ty().get());
         type->shape = {ana->Simplify(mem_span)};
         type->layout = std::nullopt;
       } else {
         flattened = FlattenedTensor(buf, ffi::GetRef<sym::Analyzer>(analyzer_));
-        type = ffi::make_object<TensorTypeNode>(*flattened.ty().get());
+        type = ffi::make_object<TensorTypeObj>(*flattened.ty().get());
       }
     } else {
       flattened = FlattenedTensor(buf, ffi::GetRef<sym::Analyzer>(analyzer_), /*fold_origin=*/true);
-      type = ffi::make_object<TensorTypeNode>(*flattened.ty().get());
+      type = ffi::make_object<TensorTypeObj>(*flattened.ty().get());
     }
     if (flattened.dtype()->dtype == DLDataType{kDLBool, 8, 1}) {
       type->dtype = PrimType::Int(8);
@@ -231,7 +231,7 @@ class TrainiumLayoutApplier : public tirx::StmtExprMutatorWithAnalyzer {
     return flattened;
   }
 
-  UnchangedOr<Stmt> Mutate_(const TensorStoreNode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<Stmt> Mutate_(const TensorStoreObj* op, InplaceMode inplace_mode) final {
     // Index conversion needs the original logical layout after the parent remaps the tensor.
     TensorVar logical_tensor = op->dest.as_or_throw<TensorVar>();
     TensorStore store = StmtExprMutator::Mutate_(op, inplace_mode)
@@ -252,7 +252,7 @@ class TrainiumLayoutApplier : public tirx::StmtExprMutatorWithAnalyzer {
     return std::move(store);
   }
 
-  UnchangedOr<PrimExpr> Mutate_(const TensorLoadNode* op, InplaceMode inplace_mode) final {
+  UnchangedOr<PrimExpr> Mutate_(const TensorLoadObj* op, InplaceMode inplace_mode) final {
     TensorVar logical_tensor = op->source.as_or_throw<TensorVar>();
     PrimType load_ty = op->ty.as_or_throw<PrimType>();
     bool load_returns_bool = load_ty.MatchesCode(DLDataTypeCode::kDLBool);
@@ -264,7 +264,7 @@ class TrainiumLayoutApplier : public tirx::StmtExprMutatorWithAnalyzer {
       TVM_FFI_ICHECK_EQ(load->source.as_or_throw<tvm::tirx::TensorVar>().dtype()->dtype,
                         (DLDataType{kDLInt, 8, 1}))
           << "Expected int8 backing array for boolean tensor";
-      load.CopyOnWrite()->ExprNode::ty = PrimType::Int(8);
+      load.CopyOnWrite()->ExprObj::ty = PrimType::Int(8);
       return tvm::prim::cast(load, PrimType::Bool());
     } else {
       return std::move(load);
@@ -279,7 +279,7 @@ class TrainiumLayoutApplier : public tirx::StmtExprMutatorWithAnalyzer {
       layout = StmtExprMutator::Mutate(ffi::AnyView(layout), InplaceMode::kDisallow)
                    .ValueOrUnchanged(layout)
                    .as_or_throw<Layout>();
-      auto tile_layout = layout.as<TileLayoutNode>();
+      auto tile_layout = layout.as<TileLayoutObj>();
       if (IsTrainiumLayout(tile_layout)) {
         auto coord = layout.Apply(indices, tensor.shape());
         std::vector<PrimExpr> res;

@@ -39,7 +39,7 @@ namespace {
 ffi::Optional<ExprDoc> ForDocTranslate(DocTranslatorObj* d, ffi::AnyView input,
                                        const ffi::Object* destination) {
   const auto* loop =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const ForNode>(input);
+      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const ForObj>(input);
   TVM_FFI_CHECK(destination == nullptr, TypeError)
       << "printer statement-only node cannot fulfill a destination";
   ffi::String method;
@@ -125,8 +125,8 @@ ffi::Optional<ExprDoc> ForDocTranslate(DocTranslatorObj* d, ffi::AnyView input,
 }
 
 TVM_FFI_STATIC_INIT_BLOCK() {
-  ffi::reflection::TypeAttrDef<ForNode>().attr(tvm::script::printer::type_attr::kDocTranslate.name,
-                                               FDocTranslate::FromNative<&ForDocTranslate>());
+  ffi::reflection::TypeAttrDef<ForObj>().attr(tvm::script::printer::type_attr::kDocTranslate.name,
+                                              FDocTranslate::FromNative<&ForDocTranslate>());
 }
 
 }  // namespace

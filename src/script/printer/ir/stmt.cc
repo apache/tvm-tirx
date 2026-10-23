@@ -36,7 +36,7 @@ namespace {
 ffi::Optional<ExprDoc> BindDocTranslate(DocTranslatorObj* d, ffi::AnyView input,
                                         const ffi::Object* destination) {
   const auto* stmt =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const BindNode>(input);
+      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const BindObj>(input);
   TVM_FFI_CHECK(destination == nullptr, TypeError)
       << "printer statement-only node cannot fulfill a destination";
   d->VarGetOrAllocId(stmt->var, false);
@@ -48,7 +48,7 @@ ffi::Optional<ExprDoc> BindDocTranslate(DocTranslatorObj* d, ffi::AnyView input,
   if (!rhs.has_value()) return std::nullopt;
   ffi::Optional<ExprDoc> annotation = std::nullopt;
   // An explicit result type argument already exposes the binding type.
-  const auto* call = stmt->value.as<CallNode>();
+  const auto* call = stmt->value.as<CallObj>();
   bool explicit_type =
       call && call->ty_args.size() == 1 && ffi::StructuralEqual()(stmt->var->ty, call->ty_args[0]);
   if (!existing && !explicit_type) {
@@ -60,14 +60,14 @@ ffi::Optional<ExprDoc> BindDocTranslate(DocTranslatorObj* d, ffi::AnyView input,
 }
 
 TVM_FFI_STATIC_INIT_BLOCK() {
-  ffi::reflection::TypeAttrDef<BindNode>().attr(tvm::script::printer::type_attr::kDocTranslate.name,
-                                                FDocTranslate::FromNative<&BindDocTranslate>());
+  ffi::reflection::TypeAttrDef<BindObj>().attr(tvm::script::printer::type_attr::kDocTranslate.name,
+                                               FDocTranslate::FromNative<&BindDocTranslate>());
 }
 
 ffi::Optional<ExprDoc> ReturnDocTranslate(DocTranslatorObj* d, ffi::AnyView input,
                                           const ffi::Object* destination) {
   const auto* stmt =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const ReturnNode>(input);
+      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const ReturnObj>(input);
   TVM_FFI_CHECK(destination == nullptr, TypeError)
       << "printer statement-only node cannot fulfill a destination";
   d->Emit(ReturnDoc(d->Translate(stmt->value).value()), ffi::GetRef<ffi::ObjectRef>(stmt));
@@ -75,7 +75,7 @@ ffi::Optional<ExprDoc> ReturnDocTranslate(DocTranslatorObj* d, ffi::AnyView inpu
 }
 
 TVM_FFI_STATIC_INIT_BLOCK() {
-  ffi::reflection::TypeAttrDef<ReturnNode>().attr(
+  ffi::reflection::TypeAttrDef<ReturnObj>().attr(
       tvm::script::printer::type_attr::kDocTranslate.name,
       FDocTranslate::FromNative<&ReturnDocTranslate>());
 }
@@ -83,7 +83,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
 ffi::Optional<ExprDoc> AssertStmtDocTranslate(DocTranslatorObj* d, ffi::AnyView input,
                                               const ffi::Object* destination) {
   const auto* stmt =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const AssertStmtNode>(input);
+      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const AssertStmtObj>(input);
   TVM_FFI_CHECK(destination == nullptr, TypeError)
       << "printer statement-only node cannot fulfill a destination";
   ffi::Array<ExprDoc> parts;
@@ -98,7 +98,7 @@ ffi::Optional<ExprDoc> AssertStmtDocTranslate(DocTranslatorObj* d, ffi::AnyView 
 }
 
 TVM_FFI_STATIC_INIT_BLOCK() {
-  ffi::reflection::TypeAttrDef<AssertStmtNode>().attr(
+  ffi::reflection::TypeAttrDef<AssertStmtObj>().attr(
       tvm::script::printer::type_attr::kDocTranslate.name,
       FDocTranslate::FromNative<&AssertStmtDocTranslate>());
 }
@@ -106,7 +106,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
 ffi::Optional<ExprDoc> WhileDocTranslate(DocTranslatorObj* d, ffi::AnyView input,
                                          const ffi::Object* destination) {
   const auto* stmt =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const WhileNode>(input);
+      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const WhileObj>(input);
   TVM_FFI_CHECK(destination == nullptr, TypeError)
       << "printer statement-only node cannot fulfill a destination";
   d->Emit(WhileDoc(d->Translate(stmt->condition).value(), Body(stmt->body, d)),
@@ -115,15 +115,14 @@ ffi::Optional<ExprDoc> WhileDocTranslate(DocTranslatorObj* d, ffi::AnyView input
 }
 
 TVM_FFI_STATIC_INIT_BLOCK() {
-  ffi::reflection::TypeAttrDef<WhileNode>().attr(
-      tvm::script::printer::type_attr::kDocTranslate.name,
-      FDocTranslate::FromNative<&WhileDocTranslate>());
+  ffi::reflection::TypeAttrDef<WhileObj>().attr(tvm::script::printer::type_attr::kDocTranslate.name,
+                                                FDocTranslate::FromNative<&WhileDocTranslate>());
 }
 
 ffi::Optional<ExprDoc> BreakDocTranslate(DocTranslatorObj* d, ffi::AnyView input,
                                          const ffi::Object* destination) {
   const auto* stmt =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const BreakNode>(input);
+      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const BreakObj>(input);
   TVM_FFI_CHECK(destination == nullptr, TypeError)
       << "printer statement-only node cannot fulfill a destination";
   d->Emit(BreakDoc(), ffi::GetRef<ffi::ObjectRef>(stmt));
@@ -131,15 +130,14 @@ ffi::Optional<ExprDoc> BreakDocTranslate(DocTranslatorObj* d, ffi::AnyView input
 }
 
 TVM_FFI_STATIC_INIT_BLOCK() {
-  ffi::reflection::TypeAttrDef<BreakNode>().attr(
-      tvm::script::printer::type_attr::kDocTranslate.name,
-      FDocTranslate::FromNative<&BreakDocTranslate>());
+  ffi::reflection::TypeAttrDef<BreakObj>().attr(tvm::script::printer::type_attr::kDocTranslate.name,
+                                                FDocTranslate::FromNative<&BreakDocTranslate>());
 }
 
 ffi::Optional<ExprDoc> ContinueDocTranslate(DocTranslatorObj* d, ffi::AnyView input,
                                             const ffi::Object* destination) {
   const auto* stmt =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const ContinueNode>(input);
+      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const ContinueObj>(input);
   TVM_FFI_CHECK(destination == nullptr, TypeError)
       << "printer statement-only node cannot fulfill a destination";
   d->Emit(ContinueDoc(), ffi::GetRef<ffi::ObjectRef>(stmt));
@@ -147,15 +145,14 @@ ffi::Optional<ExprDoc> ContinueDocTranslate(DocTranslatorObj* d, ffi::AnyView in
 }
 
 TVM_FFI_STATIC_INIT_BLOCK() {
-  ffi::reflection::TypeAttrDef<ContinueNode>().attr(
+  ffi::reflection::TypeAttrDef<ContinueObj>().attr(
       tvm::script::printer::type_attr::kDocTranslate.name,
       FDocTranslate::FromNative<&ContinueDocTranslate>());
 }
 
 ffi::Optional<ExprDoc> IfDocTranslate(DocTranslatorObj* d, ffi::AnyView input,
                                       const ffi::Object* destination) {
-  const auto* stmt =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const IfNode>(input);
+  const auto* stmt = ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const IfObj>(input);
   TVM_FFI_CHECK(destination == nullptr, TypeError)
       << "printer statement-only node cannot fulfill a destination";
   ExprDoc condition = d->Translate(stmt->condition).value();
@@ -167,8 +164,8 @@ ffi::Optional<ExprDoc> IfDocTranslate(DocTranslatorObj* d, ffi::AnyView input,
 }
 
 TVM_FFI_STATIC_INIT_BLOCK() {
-  ffi::reflection::TypeAttrDef<IfNode>().attr(tvm::script::printer::type_attr::kDocTranslate.name,
-                                              FDocTranslate::FromNative<&IfDocTranslate>());
+  ffi::reflection::TypeAttrDef<IfObj>().attr(tvm::script::printer::type_attr::kDocTranslate.name,
+                                             FDocTranslate::FromNative<&IfDocTranslate>());
 }
 
 }  // namespace

@@ -174,7 +174,7 @@ class ModularSetAnalyzer::Impl final
   // Override visitor behaviors
   Entry DispatchDefault_(const ffi::Object* op) final { return Everything(); }
 
-  Entry Dispatch_(const prim::LetNode* op) final {
+  Entry Dispatch_(const prim::LetObj* op) final {
     auto it = var_map_.find(op->var);
     // if the var has not been binded, update the info.
     if (it == var_map_.end()) {
@@ -187,28 +187,28 @@ class ModularSetAnalyzer::Impl final
     }
   }
 
-  Entry Dispatch_(const prim::CastNode* op) final { return Dispatch(op->value); }
+  Entry Dispatch_(const prim::CastObj* op) final { return Dispatch(op->value); }
 
-  Entry Dispatch_(const IntImmNode* op) final {
+  Entry Dispatch_(const IntImmObj* op) final {
     if (auto value = op->value.as<int64_t>(); value.has_value()) return Entry(0, *value);
     return Everything();
   }
 
-  Entry Dispatch_(const prim::AddNode* op) final {
+  Entry Dispatch_(const prim::AddObj* op) final {
     Entry a = Dispatch(op->a);
     Entry b = Dispatch(op->b);
     int64_t coeff = std::gcd(a.coeff, b.coeff);
     return Entry(coeff, a.base + b.base);
   }
 
-  Entry Dispatch_(const prim::SubNode* op) final {
+  Entry Dispatch_(const prim::SubObj* op) final {
     Entry a = Dispatch(op->a);
     Entry b = Dispatch(op->b);
     int64_t coeff = std::gcd(a.coeff, b.coeff);
     return Entry(coeff, a.base - b.base);
   }
 
-  Entry Dispatch_(const prim::MulNode* op) final {
+  Entry Dispatch_(const prim::MulObj* op) final {
     Entry a = Dispatch(op->a);
     Entry b = Dispatch(op->b);
     // Simplification rule, x, y, z are in Z
@@ -239,7 +239,7 @@ class ModularSetAnalyzer::Impl final
     return Everything();
   }
 
-  Entry Dispatch_(const prim::DivNode* op) final {
+  Entry Dispatch_(const prim::DivObj* op) final {
     Entry b = Dispatch(op->b);
     if (b.is_const()) {
       return DivByConst(op->a, b.base, false);
@@ -247,7 +247,7 @@ class ModularSetAnalyzer::Impl final
     return Everything();
   }
 
-  Entry Dispatch_(const prim::FloorDivNode* op) final {
+  Entry Dispatch_(const prim::FloorDivObj* op) final {
     Entry b = Dispatch(op->b);
     if (b.is_const()) {
       return DivByConst(op->a, b.base, true);
@@ -255,19 +255,19 @@ class ModularSetAnalyzer::Impl final
     return Everything();
   }
 
-  Entry Dispatch_(const prim::MinNode* op) final {
+  Entry Dispatch_(const prim::MinObj* op) final {
     Entry a = Dispatch(op->a);
     Entry b = Dispatch(op->b);
     return Union(a, b);
   }
 
-  Entry Dispatch_(const prim::MaxNode* op) final {
+  Entry Dispatch_(const prim::MaxObj* op) final {
     Entry a = Dispatch(op->a);
     Entry b = Dispatch(op->b);
     return Union(a, b);
   }
 
-  Entry Dispatch_(const prim::SelectNode* op) final {
+  Entry Dispatch_(const prim::SelectObj* op) final {
     Entry a = Dispatch(op->true_value);
     Entry b = Dispatch(op->false_value);
     return Union(a, b);
@@ -284,7 +284,7 @@ class ModularSetAnalyzer::Impl final
     return Everything();
   }
 
-  Entry Dispatch_(const prim::FloorModNode* op) final {
+  Entry Dispatch_(const prim::FloorModObj* op) final {
     Entry b = Dispatch(op->b);
     if (b.is_const()) {
       return ModByConst(op->a, b.base, true);
@@ -292,7 +292,7 @@ class ModularSetAnalyzer::Impl final
     return Everything();
   }
 
-  Entry Dispatch_(const prim::ModNode* op) final {
+  Entry Dispatch_(const prim::ModObj* op) final {
     Entry b = Dispatch(op->b);
     if (b.is_const()) {
       return ModByConst(op->a, b.base, false);
@@ -300,7 +300,7 @@ class ModularSetAnalyzer::Impl final
     return Everything();
   }
 
-  Entry Dispatch_(const VarNode* op) final {
+  Entry Dispatch_(const VarObj* op) final {
     Var v = ffi::GetRef<Var>(op);
     auto it = var_map_.find(v);
     if (it != var_map_.end()) {
@@ -310,7 +310,7 @@ class ModularSetAnalyzer::Impl final
     }
   }
 
-  Entry Dispatch_(const prim::LShiftNode* op) final {
+  Entry Dispatch_(const prim::LShiftObj* op) final {
     Entry a = Dispatch(op->a);
     Entry b = Dispatch(op->b);
     if (b.is_const()) {
@@ -319,7 +319,7 @@ class ModularSetAnalyzer::Impl final
     return Everything();
   }
 
-  Entry Dispatch_(const prim::RShiftNode* op) final {
+  Entry Dispatch_(const prim::RShiftObj* op) final {
     Entry b = Dispatch(op->b);
     // a c x  / c -> a x
     if (b.is_const()) {
@@ -328,7 +328,7 @@ class ModularSetAnalyzer::Impl final
     return Everything();
   }
 
-  Entry Dispatch_(const prim::BitwiseAndNode* op) final {
+  Entry Dispatch_(const prim::BitwiseAndObj* op) final {
     Entry b = Dispatch(op->b);
     if (b.is_const() && b.base >= 0 && b.base < std::numeric_limits<int64_t>::max()) {
       int shift;

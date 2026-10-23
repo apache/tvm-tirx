@@ -25,7 +25,7 @@
 //! caller). [`Location::unknown`] and [`SourceName::get`] wrap the native constructors.
 
 // `custom-new` reserves `new` for a constructor with the native one's semantics (the shared
-// `UnknownLoc` instance); the generated `from_complete_fields` allocates the fields as given.
+// `UnknownLoc` instance); the generated `from_fields` allocates the fields as given.
 // tvm-ffi-stubgen(custom-new): ir.UnknownLoc
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
@@ -38,6 +38,7 @@ use std::ops::Deref;
 use tvm_ffi::Object;
 use tvm_ffi::ObjectArc;
 use tvm_ffi::Result;
+use tvm_ffi::ShallowCopy;
 use tvm_ffi::String;
 // tvm-ffi-stubgen(end)
 
@@ -79,8 +80,8 @@ impl SourceNameObj {
 
 impl SourceName {
     /// Lossless complete-field allocation.
-    pub fn new(name: String) -> Self {
-        let obj = SourceNameObj::new(name);
+    pub fn new(name: impl Into<String>) -> Self {
+        let obj = SourceNameObj::new(name.into());
         Self { base: ObjectArc::new(obj) }
     }
 }
@@ -121,7 +122,7 @@ impl Deref for Location {
 }
 
 impl LocationObj {
-    pub(crate) fn new() -> Self {
+    pub fn new() -> Self {
         let base = Object::new();
         Self { base }
     }
@@ -132,6 +133,12 @@ impl Location {
     pub fn new() -> Self {
         let obj = LocationObj::new();
         Self { base: ObjectArc::new(obj) }
+    }
+}
+
+impl ShallowCopy for LocationObj {
+    fn shallow_copy(&self) -> Self {
+        Self { base: ShallowCopy::shallow_copy(&self.base) }
     }
 }
 // tvm-ffi-stubgen(end)
@@ -180,7 +187,7 @@ impl UnknownLocObj {
 
 impl UnknownLoc {
     /// Lossless complete-field allocation.
-    pub fn from_complete_fields() -> Self {
+    pub fn from_fields() -> Self {
         let obj = UnknownLocObj::new();
         Self { base: ObjectArc::new(obj) }
     }
@@ -281,13 +288,14 @@ impl SourceLocObj {
 impl SourceLoc {
     /// Lossless complete-field allocation.
     pub fn new(
-        source_name: SourceName,
+        source_name: impl Into<SourceName>,
         start_line: i32,
         start_column: i32,
         end_line: i32,
         end_column: i32,
     ) -> Self {
-        let obj = SourceLocObj::new(source_name, start_line, start_column, end_line, end_column);
+        let obj =
+            SourceLocObj::new(source_name.into(), start_line, start_column, end_line, end_column);
         Self { base: ObjectArc::new(obj) }
     }
 }
@@ -343,8 +351,8 @@ impl CallSiteLocObj {
 
 impl CallSiteLoc {
     /// Lossless complete-field allocation.
-    pub fn new(callee: Location, caller: Location) -> Self {
-        let obj = CallSiteLocObj::new(callee, caller);
+    pub fn new(callee: impl Into<Location>, caller: impl Into<Location>) -> Self {
+        let obj = CallSiteLocObj::new(callee.into(), caller.into());
         Self { base: ObjectArc::new(obj) }
     }
 }

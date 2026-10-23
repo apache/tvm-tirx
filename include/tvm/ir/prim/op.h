@@ -751,7 +751,8 @@ TVM_TIRX_DLL PrimExpr max_value(PrimType dtype, Location loc = UnknownLoc());
  * \param loc The location of this operation in the source.
  * \return The result expression.
  * \note This function may return value if the type is the same. Constant folding
- * uses MakeConst for scalar and vector constants.
+ * is limited to supported conversions whose results fit the destination type.
+ * Use MakeConst to construct typed literals directly.
  */
 TVM_TIRX_DLL PrimExpr cast(PrimExpr value, PrimType t, Location loc = UnknownLoc());
 /*! \brief Construct integer absolute value; floating absolute value belongs to TIRX. */
@@ -1012,31 +1013,31 @@ inline bool IsPositiveConst(const PrimExpr& a);
 inline bool IsNegativeConst(const PrimExpr& a);
 
 // Inline constant predicate implementations.
-inline bool IsConstInt(const PrimExpr& x) { return x.as<IntImmNode>() != nullptr; }
+inline bool IsConstInt(const PrimExpr& x) { return x.as<IntImmObj>() != nullptr; }
 
 inline bool IsConstNumber(const PrimExpr& x) {
-  if (x.as<IntImmNode>()) {
+  if (x.as<IntImmObj>()) {
     return true;
-  } else if (x.as<FloatImmNode>()) {
+  } else if (x.as<FloatImmObj>()) {
     return true;
-  } else if (const auto* op = x.as<prim::BroadcastNode>()) {
-    return (op->value->IsInstance<IntImmNode>() || op->value->IsInstance<FloatImmNode>());
+  } else if (const auto* op = x.as<prim::BroadcastObj>()) {
+    return (op->value->IsInstance<IntImmObj>() || op->value->IsInstance<FloatImmObj>());
   }
   return false;
 }
 
 inline bool IsPositiveConst(const PrimExpr& a) {
-  const auto* as_int = a.as<IntImmNode>();
+  const auto* as_int = a.as<IntImmObj>();
   return as_int && as_int->value > 0;
 }
 
 inline bool IsNegativeConst(const PrimExpr& a) {
-  const auto* as_int = a.as<IntImmNode>();
+  const auto* as_int = a.as<IntImmObj>();
   return as_int && as_int->value < 0;
 }
 
 inline bool IsConstInt(const PrimExpr& x, int64_t value) {
-  const auto* as_int = x.as<IntImmNode>();
+  const auto* as_int = x.as<IntImmObj>();
   return as_int && as_int->value == value;
 }
 

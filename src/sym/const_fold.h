@@ -32,7 +32,6 @@ namespace tvm {
 namespace sym {
 
 using prim::TryConstFold;
-using prim::details::GetFoldResultDoubleRepr;
 using prim::details::IsIndexType;
 using prim::details::IsIndexTypedExpr;
 

@@ -26,7 +26,7 @@
 //! checks the operands and derives the vector type.
 
 // `custom-new` reserves `new` for a constructor with the C++ one's semantics (operand checks and the
-// derived vector type); the generated `from_complete_fields` allocates the fields as given.
+// derived vector type); the generated `from_fields` allocates the fields as given.
 // tvm-ffi-stubgen(custom-new): prim.Ramp
 // tvm-ffi-stubgen(custom-new): prim.Broadcast
 // tvm-ffi-stubgen(custom-new): prim.Shuffle
@@ -125,14 +125,14 @@ impl RampObj {
 
 impl Ramp {
     /// Lossless complete-field allocation.
-    pub fn from_complete_fields(
-        loc: Location,
-        ty: Type,
-        base_: Expr,
-        stride: Expr,
-        lanes: Expr,
+    pub fn from_fields(
+        loc: impl Into<Location>,
+        ty: impl Into<Type>,
+        base_: impl Into<Expr>,
+        stride: impl Into<Expr>,
+        lanes: impl Into<Expr>,
     ) -> Self {
-        let obj = RampObj::new(loc, ty, base_, stride, lanes);
+        let obj = RampObj::new(loc.into(), ty.into(), base_.into(), stride.into(), lanes.into());
         Self { base: ObjectArc::new(obj) }
     }
 }
@@ -186,8 +186,13 @@ impl BroadcastObj {
 
 impl Broadcast {
     /// Lossless complete-field allocation.
-    pub fn from_complete_fields(loc: Location, ty: Type, value: Expr, lanes: Expr) -> Self {
-        let obj = BroadcastObj::new(loc, ty, value, lanes);
+    pub fn from_fields(
+        loc: impl Into<Location>,
+        ty: impl Into<Type>,
+        value: impl Into<Expr>,
+        lanes: impl Into<Expr>,
+    ) -> Self {
+        let obj = BroadcastObj::new(loc.into(), ty.into(), value.into(), lanes.into());
         Self { base: ObjectArc::new(obj) }
     }
 }
@@ -241,13 +246,13 @@ impl ShuffleObj {
 
 impl Shuffle {
     /// Lossless complete-field allocation.
-    pub fn from_complete_fields(
-        loc: Location,
-        ty: Type,
-        vectors: Array<Expr>,
-        indices: Array<Expr>,
+    pub fn from_fields(
+        loc: impl Into<Location>,
+        ty: impl Into<Type>,
+        vectors: impl Into<Array<Expr>>,
+        indices: impl Into<Array<Expr>>,
     ) -> Self {
-        let obj = ShuffleObj::new(loc, ty, vectors, indices);
+        let obj = ShuffleObj::new(loc.into(), ty.into(), vectors.into(), indices.into());
         Self { base: ObjectArc::new(obj) }
     }
 }
@@ -279,8 +284,8 @@ impl Ramp {
             false => cast_scalar(stride, base_dtype)?,
         };
         let (dtype, lanes) = vector_lanes(base_dtype, lanes)?;
-        let ty = PrimType::from_dtype(dtype)?.into();
-        Ok(Self::from_complete_fields(loc.into(), ty, base, stride, lanes))
+        let ty = PrimType::from_dtype(dtype)?;
+        Ok(Self::from_fields(loc.into(), ty, base, stride, lanes))
     }
 }
 
@@ -298,8 +303,8 @@ impl Broadcast {
             return Err(support::check_failed(tvm_ffi::INTERNAL_ERROR, "value_ty.IsScalar()", ""));
         }
         let (dtype, lanes) = vector_lanes(value_dtype, lanes)?;
-        let ty = PrimType::from_dtype(dtype)?.into();
-        Ok(Self::from_complete_fields(loc.into(), ty, value, lanes))
+        let ty = PrimType::from_dtype(dtype)?;
+        Ok(Self::from_fields(loc.into(), ty, value, lanes))
     }
 }
 
@@ -347,7 +352,7 @@ impl Shuffle {
             ));
         }
         let ty = PrimType::from_dtype(with_lanes(base_dtype, indices.len() as u16))?;
-        Ok(Self::from_complete_fields(loc.into(), ty.into(), vectors, indices))
+        Ok(Self::from_fields(loc.into(), ty, vectors, indices))
     }
 }
 

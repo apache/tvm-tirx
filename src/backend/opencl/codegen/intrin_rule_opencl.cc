@@ -35,7 +35,7 @@ using tirx::FLowerIntrinsic;
 // There is no warp shuffle instruction in standard OpenCL.  When shuffle is used, assume Intel's
 // shuffle extension.
 static PrimExpr DispatchIntelShuffle(const PrimExpr& e) {
-  const CallNode* call = e.as<CallNode>();
+  const CallObj* call = e.as<CallObj>();
   TVM_FFI_ICHECK(call != nullptr);
   TVM_FFI_ICHECK_EQ(call->args.size(), 5);  // mask, value, warp_id, width, warp_size
   sym::Analyzer analyzer;
@@ -72,7 +72,7 @@ void RegisterOpenCLIntrinRules() {
   OpDef("prim.round")
       .set_attr<FLowerIntrinsic>("opencl.FLowerIntrinsic", [](const PrimExpr& e) -> PrimExpr {
         // OpenCL's rint() uses ties-to-even, matching constant-folding semantics.
-        const CallNode* call = e.as<CallNode>();
+        const CallObj* call = e.as<CallObj>();
         TVM_FFI_ICHECK(call != nullptr);
         ffi::Array<Expr> new_args = {StringImm("rint")};
         for (const PrimExpr& arg : call->args.as_or_throw<ffi::Array<PrimExpr>>()) {

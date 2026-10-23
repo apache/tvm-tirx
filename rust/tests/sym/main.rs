@@ -50,7 +50,7 @@ fn var(name: &str) -> Var {
 }
 
 fn range(begin: i64, extent: i64) -> Range {
-    Range::from_complete_fields(int32(begin), int32(extent), Location::unknown())
+    Range::from_fields(int32(begin), int32(extent), Location::unknown())
 }
 
 struct Fixture {

@@ -88,7 +88,7 @@ void AnalyzerObj::MarkGlobalNonNegValue(const PrimExpr& value) {
   PrimExpr symbol_scale = prim::MakeConst(value_ty, 0);
 
   auto fcollect_sum = [&](PrimExpr val, int sign) {
-    if (const auto* intimm = val.as<IntImmNode>()) {
+    if (const auto* intimm = val.as<IntImmObj>()) {
       offset += intimm->value * sign;
     } else {
       if (sign > 0) {
@@ -104,13 +104,13 @@ void AnalyzerObj::MarkGlobalNonNegValue(const PrimExpr& value) {
   ffi::BigInt cscale = 1;
   PrimExpr symbol = prim::MakeConst(value_ty, 1);
   auto fcollect_prod = [&](PrimExpr val) {
-    if (const auto* intimm = val.as<IntImmNode>()) {
+    if (const auto* intimm = val.as<IntImmObj>()) {
       cscale *= intimm->value;
     } else {
       symbol = symbol * val;
     }
   };
-  UnpackReduction<prim::MulNode>(symbol_scale, fcollect_prod);
+  UnpackReduction<prim::MulObj>(symbol_scale, fcollect_prod);
   if (cscale <= 0) return;
   // override the constant int bound by marking it as non-negative
   // NOTE: there might be future opportunities of more bound hint
@@ -162,7 +162,7 @@ void ConstraintContext::ExitWithScope() {
 }
 
 bool AnalyzerObj::CanProveGreaterEqual(const PrimExpr& expr, int64_t lower_bound) {
-  if (const auto* ptr = expr.as<IntImmNode>()) {
+  if (const auto* ptr = expr.as<IntImmObj>()) {
     return ptr->value >= lower_bound;
   }
   auto bd = this->const_int_bound(this->rewrite_simplify(expr));
@@ -171,7 +171,7 @@ bool AnalyzerObj::CanProveGreaterEqual(const PrimExpr& expr, int64_t lower_bound
 }
 
 bool AnalyzerObj::CanProveLess(const PrimExpr& expr, int64_t upper_bound) {
-  if (const auto* ptr = expr.as<IntImmNode>()) {
+  if (const auto* ptr = expr.as<IntImmObj>()) {
     return ptr->value < upper_bound;
   }
   auto bd = this->const_int_bound(this->rewrite_simplify(expr));
@@ -180,14 +180,15 @@ bool AnalyzerObj::CanProveLess(const PrimExpr& expr, int64_t upper_bound) {
 }
 
 bool AnalyzerObj::CanProveEqual(const PrimExpr& lhs, const PrimExpr& rhs) {
-  const auto* clhs = lhs.as<IntImmNode>();
-  const auto* crhs = rhs.as<IntImmNode>();
+  const auto* clhs = lhs.as<IntImmObj>();
+  const auto* crhs = rhs.as<IntImmObj>();
   if (clhs && crhs) return clhs->value == crhs->value;
   if (prim::is_pos_inf(lhs) || prim::is_neg_inf(lhs) || prim::is_pos_inf(rhs) ||
       prim::is_neg_inf(rhs)) {
     return lhs.same_as(rhs);
   }
-  return CanProve(lhs - rhs == 0);
+  PrimExpr difference = lhs - rhs;
+  return CanProve(difference == prim::MakeConst(difference.ty(), 0));
 }
 
 bool AnalyzerObj::CanProveLessEqualThanSymbolicShapeValue(const PrimExpr& lhs,
@@ -199,11 +200,11 @@ bool AnalyzerObj::CanProveLessEqualThanSymbolicShapeValue(const PrimExpr& lhs,
   // so 32 * n => cscale = 32
   ffi::BigInt cscale = 1;
   auto fcollect = [&](const PrimExpr& expr) {
-    if (auto* ptr = expr.as<IntImmNode>()) {
+    if (auto* ptr = expr.as<IntImmObj>()) {
       cscale *= ptr->value;
     }
   };
-  UnpackReduction<prim::MulNode>(shape, fcollect);
+  UnpackReduction<prim::MulObj>(shape, fcollect);
   cscale = cscale < 0 ? -cscale : cscale;
   int value_bits = shape.ty().bits() - shape.ty().MatchesCode(DLDataTypeCode::kDLInt);
   if (cscale >= (ffi::BigInt(1) << value_bits)) return false;
@@ -214,11 +215,11 @@ bool AnalyzerObj::CanProveLessEqualThanSymbolicShapeValue(const PrimExpr& lhs,
 
 bool AnalyzerObj::CanProve(const PrimExpr& expr, ProofStrength strength) {
   // Avoid potentially expensive simplification unless required.
-  if (const auto* ptr = expr.as<IntImmNode>()) {
+  if (const auto* ptr = expr.as<IntImmObj>()) {
     return ptr->value != 0;
   }
   PrimExpr simplified = Simplify(expr);
-  const auto* as_int = simplified.as<IntImmNode>();
+  const auto* as_int = simplified.as<IntImmObj>();
   if (as_int && as_int->value != 0) return true;
   if (strength >= ProofStrength::kSymbolicBound) {
     // NOTE: we intentionally only pattern match common bound predicate i < bound
@@ -228,19 +229,19 @@ bool AnalyzerObj::CanProve(const PrimExpr& expr, ProofStrength strength) {
     // This strategy can only be called from top-level and not from sub-analyzers.
     ffi::Optional<PrimExpr> pos_diff;
     int lower_bound = 0;
-    if (const auto* ptr_lt = expr.as<prim::LTNode>()) {
+    if (const auto* ptr_lt = expr.as<prim::LTObj>()) {
       pos_diff = ptr_lt->b - ptr_lt->a;
       lower_bound = 1;
     }
-    if (const auto* ptr_le = expr.as<prim::LENode>()) {
+    if (const auto* ptr_le = expr.as<prim::LEObj>()) {
       pos_diff = ptr_le->b - ptr_le->a;
       lower_bound = 0;
     }
-    if (const auto* ptr_gt = expr.as<prim::GTNode>()) {
+    if (const auto* ptr_gt = expr.as<prim::GTObj>()) {
       pos_diff = ptr_gt->a - ptr_gt->b;
       lower_bound = 1;
     }
-    if (const auto* ptr_ge = expr.as<prim::GENode>()) {
+    if (const auto* ptr_ge = expr.as<prim::GEObj>()) {
       pos_diff = ptr_ge->a - ptr_ge->b;
       lower_bound = 0;
     }

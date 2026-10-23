@@ -177,55 +177,55 @@ class CodeGenC : public tvm::ExprFunctor<void(const Expr&, std::ostream&)>,
   void PrintFunctionParameters(const Function& func, std::ostream& os);
 
   // expression
-  void Dispatch_(const VarNode* op, std::ostream& os) override;               // NOLINT(*)
-  void Dispatch_(const TensorLoadNode* op, std::ostream& os) override;        // NOLINT(*)
-  void Dispatch_(const prim::LetNode* op, std::ostream& os) override;         // NOLINT(*)
-  void Dispatch_(const CallNode* op, std::ostream& os) override;              // NOLINT(*)
-  void Dispatch_(const prim::AddNode* op, std::ostream& os) override;         // NOLINT(*)
-  void Dispatch_(const prim::SubNode* op, std::ostream& os) override;         // NOLINT(*)
-  void Dispatch_(const prim::MulNode* op, std::ostream& os) override;         // NOLINT(*)
-  void Dispatch_(const prim::DivNode* op, std::ostream& os) override;         // NOLINT(*)
-  void Dispatch_(const prim::ModNode* op, std::ostream& os) override;         // NOLINT(*)
-  void Dispatch_(const prim::MinNode* op, std::ostream& os) override;         // NOLINT(*)
-  void Dispatch_(const prim::MaxNode* op, std::ostream& os) override;         // NOLINT(*)
-  void Dispatch_(const prim::EQNode* op, std::ostream& os) override;          // NOLINT(*)
-  void Dispatch_(const prim::NENode* op, std::ostream& os) override;          // NOLINT(*)
-  void Dispatch_(const prim::LTNode* op, std::ostream& os) override;          // NOLINT(*)
-  void Dispatch_(const prim::LENode* op, std::ostream& os) override;          // NOLINT(*)
-  void Dispatch_(const prim::GTNode* op, std::ostream& os) override;          // NOLINT(*)
-  void Dispatch_(const prim::GENode* op, std::ostream& os) override;          // NOLINT(*)
-  void Dispatch_(const prim::AndNode* op, std::ostream& os) override;         // NOLINT(*)
-  void Dispatch_(const prim::OrNode* op, std::ostream& os) override;          // NOLINT(*)
-  void Dispatch_(const prim::CastNode* op, std::ostream& os) override;        // NOLINT(*)
-  void Dispatch_(const prim::NotNode* op, std::ostream& os) override;         // NOLINT(*)
-  void Dispatch_(const prim::LShiftNode* op, std::ostream& os) override;      // NOLINT(*)
-  void Dispatch_(const prim::RShiftNode* op, std::ostream& os) override;      // NOLINT(*)
-  void Dispatch_(const prim::BitwiseAndNode* op, std::ostream& os) override;  // NOLINT(*)
-  void Dispatch_(const prim::BitwiseOrNode* op, std::ostream& os) override;   // NOLINT(*)
-  void Dispatch_(const prim::BitwiseXorNode* op, std::ostream& os) override;  // NOLINT(*)
-  void Dispatch_(const prim::BitwiseNotNode* op, std::ostream& os) override;  // NOLINT(*)
-  void Dispatch_(const prim::SelectNode* op, std::ostream& os) override;      // NOLINT(*)
-  void Dispatch_(const prim::RampNode* op, std::ostream& os) override;        // NOLINT(*)
-  void Dispatch_(const prim::ShuffleNode* op, std::ostream& os) override;     // NOLINT(*)
-  void Dispatch_(const prim::BroadcastNode* op, std::ostream& os) override;   // NOLINT(*)
-  void Dispatch_(const IntImmNode* op, std::ostream& os) override;            // NOLINT(*)
-  void Dispatch_(const FloatImmNode* op, std::ostream& os) override;          // NOLINT(*)
-  void Dispatch_(const StringImmNode* op, std::ostream& os) override;         // NOLINT(*)
+  void Dispatch_(const VarObj* op, std::ostream& os) override;               // NOLINT(*)
+  void Dispatch_(const TensorLoadObj* op, std::ostream& os) override;        // NOLINT(*)
+  void Dispatch_(const prim::LetObj* op, std::ostream& os) override;         // NOLINT(*)
+  void Dispatch_(const CallObj* op, std::ostream& os) override;              // NOLINT(*)
+  void Dispatch_(const prim::AddObj* op, std::ostream& os) override;         // NOLINT(*)
+  void Dispatch_(const prim::SubObj* op, std::ostream& os) override;         // NOLINT(*)
+  void Dispatch_(const prim::MulObj* op, std::ostream& os) override;         // NOLINT(*)
+  void Dispatch_(const prim::DivObj* op, std::ostream& os) override;         // NOLINT(*)
+  void Dispatch_(const prim::ModObj* op, std::ostream& os) override;         // NOLINT(*)
+  void Dispatch_(const prim::MinObj* op, std::ostream& os) override;         // NOLINT(*)
+  void Dispatch_(const prim::MaxObj* op, std::ostream& os) override;         // NOLINT(*)
+  void Dispatch_(const prim::EQObj* op, std::ostream& os) override;          // NOLINT(*)
+  void Dispatch_(const prim::NEObj* op, std::ostream& os) override;          // NOLINT(*)
+  void Dispatch_(const prim::LTObj* op, std::ostream& os) override;          // NOLINT(*)
+  void Dispatch_(const prim::LEObj* op, std::ostream& os) override;          // NOLINT(*)
+  void Dispatch_(const prim::GTObj* op, std::ostream& os) override;          // NOLINT(*)
+  void Dispatch_(const prim::GEObj* op, std::ostream& os) override;          // NOLINT(*)
+  void Dispatch_(const prim::AndObj* op, std::ostream& os) override;         // NOLINT(*)
+  void Dispatch_(const prim::OrObj* op, std::ostream& os) override;          // NOLINT(*)
+  void Dispatch_(const prim::CastObj* op, std::ostream& os) override;        // NOLINT(*)
+  void Dispatch_(const prim::NotObj* op, std::ostream& os) override;         // NOLINT(*)
+  void Dispatch_(const prim::LShiftObj* op, std::ostream& os) override;      // NOLINT(*)
+  void Dispatch_(const prim::RShiftObj* op, std::ostream& os) override;      // NOLINT(*)
+  void Dispatch_(const prim::BitwiseAndObj* op, std::ostream& os) override;  // NOLINT(*)
+  void Dispatch_(const prim::BitwiseOrObj* op, std::ostream& os) override;   // NOLINT(*)
+  void Dispatch_(const prim::BitwiseXorObj* op, std::ostream& os) override;  // NOLINT(*)
+  void Dispatch_(const prim::BitwiseNotObj* op, std::ostream& os) override;  // NOLINT(*)
+  void Dispatch_(const prim::SelectObj* op, std::ostream& os) override;      // NOLINT(*)
+  void Dispatch_(const prim::RampObj* op, std::ostream& os) override;        // NOLINT(*)
+  void Dispatch_(const prim::ShuffleObj* op, std::ostream& os) override;     // NOLINT(*)
+  void Dispatch_(const prim::BroadcastObj* op, std::ostream& os) override;   // NOLINT(*)
+  void Dispatch_(const IntImmObj* op, std::ostream& os) override;            // NOLINT(*)
+  void Dispatch_(const FloatImmObj* op, std::ostream& os) override;          // NOLINT(*)
+  void Dispatch_(const StringImmObj* op, std::ostream& os) override;         // NOLINT(*)
   // statment
-  void Dispatch_(const BindNode* op) override;
-  void Dispatch_(const TensorStoreNode* op) override;
-  void Dispatch_(const ForNode* op) override;
-  void Dispatch_(const WhileNode* op) override;
-  void Dispatch_(const ReturnNode* op) override;
-  void Dispatch_(const BreakNode* op) override;
-  void Dispatch_(const ContinueNode* op) override;
-  void Dispatch_(const IfNode* op) override;
-  void DispatchAllocTensor(const BindNode* op, const CallNode* buffer_call);
-  void Dispatch_(const RegionStmtNode* op) override;
-  void Dispatch_(const AssertStmtNode* op) override;
-  void Dispatch_(const EvaluateNode* op) override;
-  void Dispatch_(const SeqStmtNode* op) override;
-  void DispatchDeclTensor(const BindNode* op, const CallNode* buffer_call);
+  void Dispatch_(const BindObj* op) override;
+  void Dispatch_(const TensorStoreObj* op) override;
+  void Dispatch_(const ForObj* op) override;
+  void Dispatch_(const WhileObj* op) override;
+  void Dispatch_(const ReturnObj* op) override;
+  void Dispatch_(const BreakObj* op) override;
+  void Dispatch_(const ContinueObj* op) override;
+  void Dispatch_(const IfObj* op) override;
+  void DispatchAllocTensor(const BindObj* op, const CallObj* buffer_call);
+  void Dispatch_(const RegionStmtObj* op) override;
+  void Dispatch_(const AssertStmtObj* op) override;
+  void Dispatch_(const EvaluateObj* op) override;
+  void Dispatch_(const SeqStmtObj* op) override;
+  void DispatchDeclTensor(const BindObj* op, const CallObj* buffer_call);
 
   /*!
    * \brief Print expr representing the thread tag
@@ -233,17 +233,17 @@ class CodeGenC : public tvm::ExprFunctor<void(const Expr&, std::ostream&)>,
    * \param thread_tag The hardware thread axis.
    */
   virtual void BindThreadIndex(const PrimVar& var, const ffi::String& thread_tag);  // NOLINT(*)
-  virtual void PrintStorageQualifier(const VarNode* var, std::ostream& os);
+  virtual void PrintStorageQualifier(const VarObj* var, std::ostream& os);
   virtual void PrintStorageScope(const runtime::MemoryScope& scope, std::ostream& os);  // NOLINT(*)
-  virtual void PrintStorageSync(const CallNode* op);                                    // NOLINT(*)
+  virtual void PrintStorageSync(const CallObj* op);                                     // NOLINT(*)
   // Binary vector op.
   virtual void PrintVecBinaryOp(const std::string& op, const PrimType& op_type, PrimExpr lhs,
                                 PrimExpr rhs,
                                 std::ostream& os);  // NOLINT(*)
   // print vector load
-  virtual std::string GetVecLoad(const PrimType& t, const VarNode* buffer, PrimExpr base);
+  virtual std::string GetVecLoad(const PrimType& t, const VarObj* buffer, PrimExpr base);
   // print vector store
-  virtual void PrintVecStore(const VarNode* buffer, const PrimType& t, PrimExpr base,
+  virtual void PrintVecStore(const VarObj* buffer, const PrimType& t, PrimExpr base,
                              const std::string& value);  // NOLINT(*)
   // print load of single element
   virtual void PrintVecElemLoad(const std::string& vec, const PrimType& t, int i,
@@ -271,7 +271,7 @@ class CodeGenC : public tvm::ExprFunctor<void(const Expr&, std::ostream&)>,
   // Print reference to struct location
   std::string GetStructRef(const Type& t, const Expr& buffer, const PrimExpr& index, int kind);
   // Print reference to a buffer as type t in index.
-  virtual std::string GetBufferRef(const PrimType& t, const VarNode* buffer, PrimExpr index);
+  virtual std::string GetBufferRef(const PrimType& t, const VarObj* buffer, PrimExpr index);
 
   /*!
    * \brief Handle volatile loads.
@@ -281,7 +281,7 @@ class CodeGenC : public tvm::ExprFunctor<void(const Expr&, std::ostream&)>,
    * does not implement volatile member functions. CUDA codegen will cast
    * away volatile qualifier from CUDA __half types.
    */
-  virtual void HandleVolatileLoads(const std::string& value, const TensorLoadNode* op,
+  virtual void HandleVolatileLoads(const std::string& value, const TensorLoadObj* op,
                                    std::ostream& os) {
     // By default, do nothing but print the loaded value.
     os << value;
@@ -324,13 +324,13 @@ class CodeGenC : public tvm::ExprFunctor<void(const Expr&, std::ostream&)>,
    * \param buf_var The buffer variable.
    * \param t The type to be checked.
    */
-  bool HandleTypeMatch(const VarNode* buf_var, const PrimType& t) const;
+  bool HandleTypeMatch(const VarObj* buf_var, const PrimType& t) const;
   /*!
    * \brief Register the data type of buf_var
    * \param buf_var The buffer variable.
    * \param t The type to be checked.
    */
-  void RegisterHandleType(const VarNode* buf_var, const PrimType& t);
+  void RegisterHandleType(const VarObj* buf_var, const PrimType& t);
   /*!
    * \brief Register a typed pointer produced by explicit pointer-offset intrinsics.
    *
@@ -345,20 +345,20 @@ class CodeGenC : public tvm::ExprFunctor<void(const Expr&, std::ostream&)>,
   void ReserveKeywordsAsUnique();
 
   /*! \brief Check if buf_var is volatile or not. */
-  bool IsVolatile(const VarNode* buf_var) const { return volatile_buf_.count(buf_var) != 0; }
+  bool IsVolatile(const VarObj* buf_var) const { return volatile_buf_.count(buf_var) != 0; }
   /*! \brief Mark buf_var as volatile. */
-  void MarkVolatile(const VarNode* buf_var) { volatile_buf_.insert(buf_var); }
+  void MarkVolatile(const VarObj* buf_var) { volatile_buf_.insert(buf_var); }
 
   /*! \brief restrict keyword */
   std::string restrict_keyword_{""};
   /*! \brief Extents of physical thread axes in the current function. */
   std::unordered_map<std::string, PrimExpr> thread_extents_;
   /*! \brief the storage scope of allocation */
-  std::unordered_map<const VarNode*, runtime::MemoryScope> alloc_storage_scope_;
+  std::unordered_map<const VarObj*, runtime::MemoryScope> alloc_storage_scope_;
   /*! \brief the data type of allocated buffers */
-  std::unordered_map<const VarNode*, PrimType> handle_data_type_;
+  std::unordered_map<const VarObj*, PrimType> handle_data_type_;
   /*! \brief Handle vars whose address_of(buffer[index]) should print as ptr + index. */
-  std::unordered_set<const VarNode*> pointer_offset_vars_;
+  std::unordered_set<const VarObj*> pointer_offset_vars_;
   /*! \brief Record of ops that have pre-defined global symbol. */
   decltype(Op::GetAttrMap(tvm::tirx::op_attr::kGlobalSymbol)) op_attr_global_symbol_ =
       Op::GetAttrMap(tvm::tirx::op_attr::kGlobalSymbol);
@@ -373,13 +373,13 @@ class CodeGenC : public tvm::ExprFunctor<void(const Expr&, std::ostream&)>,
 
  private:
   /*! \brief set of volatile buf access */
-  std::unordered_set<const VarNode*> volatile_buf_;
+  std::unordered_set<const VarObj*> volatile_buf_;
 
   // deep comparison of PrimExpr
   prim::ExprDeepEqual deep_equal_;
 
   // binding of let variables. Enables duplicate var defs that map to same value
-  std::unordered_map<Var, const prim::LetNode*> let_binding_;
+  std::unordered_map<Var, const prim::LetObj*> let_binding_;
 
   /* \brief Map of GlobalVar to their symbol.
    *

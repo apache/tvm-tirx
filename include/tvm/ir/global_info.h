@@ -33,20 +33,20 @@ namespace tvm {
  * \brief GlobalInfo are globally static object that are referred by the IR itself.
  *        Base node for all global info that can appear in the IR
  */
-class GlobalInfoNode : public ffi::Object {
+class GlobalInfoObj : public ffi::Object {
  public:
   static constexpr TVMFFISEqHashKind _type_s_eq_hash_kind = kTVMFFISEqHashKindTreeNode;
 
-  TVM_FFI_DECLARE_OBJECT_INFO("ir.GlobalInfo", GlobalInfoNode, ffi::Object);
+  TVM_FFI_DECLARE_OBJECT_INFO("ir.GlobalInfo", GlobalInfoObj, ffi::Object);
 };
 
 /*!
- * \brief Managed reference to GlobalInfoNode.
- * \sa GlobalInfoNode
+ * \brief Managed reference to GlobalInfoObj.
+ * \sa GlobalInfoObj
  */
 class GlobalInfo : public ffi::ObjectRef {
  public:
-  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(GlobalInfo, ffi::ObjectRef, GlobalInfoNode);
+  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(GlobalInfo, ffi::ObjectRef, GlobalInfoObj);
 };
 
 }  // namespace tvm

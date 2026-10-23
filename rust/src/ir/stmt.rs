@@ -26,7 +26,7 @@
 //! as C++ converts it.
 
 // `custom-new` reserves `new` for a constructor with the C++ one's semantics (defaults, implicit
-// conversions, validation); the generated `from_complete_fields` allocates the fields as given.
+// conversions, validation); the generated `from_fields` allocates the fields as given.
 // tvm-ffi-stubgen(custom-new): ir.Bind
 // tvm-ffi-stubgen(custom-new): ir.AssertStmt
 // tvm-ffi-stubgen(custom-new): ir.For
@@ -81,6 +81,7 @@ use tvm_ffi::Object;
 use tvm_ffi::ObjectArc;
 use tvm_ffi::ObjectRefCore;
 use tvm_ffi::Result;
+use tvm_ffi::ShallowCopy;
 use tvm_ffi::String;
 use tvm_ffi::tvm_ffi_sys::TVMFFITypeIndex;
 // tvm-ffi-stubgen(end)
@@ -114,7 +115,7 @@ impl Deref for Stmt {
 }
 
 impl StmtObj {
-    pub(crate) fn new(loc: Location) -> Self {
+    pub fn new(loc: Location) -> Self {
         let base = Object::new();
         Self { base, loc }
     }
@@ -122,9 +123,15 @@ impl StmtObj {
 
 impl Stmt {
     /// Lossless complete-field allocation.
-    pub fn new(loc: Location) -> Self {
-        let obj = StmtObj::new(loc);
+    pub fn new(loc: impl Into<Location>) -> Self {
+        let obj = StmtObj::new(loc.into());
         Self { base: ObjectArc::new(obj) }
+    }
+}
+
+impl ShallowCopy for StmtObj {
+    fn shallow_copy(&self) -> Self {
+        Self { base: ShallowCopy::shallow_copy(&self.base), loc: Clone::clone(&self.loc) }
     }
 }
 // tvm-ffi-stubgen(end)
@@ -175,8 +182,12 @@ impl BindObj {
 
 impl Bind {
     /// Lossless complete-field allocation.
-    pub fn from_complete_fields(loc: Location, var: Var, value: Expr) -> Self {
-        let obj = BindObj::new(loc, var, value);
+    pub fn from_fields(
+        loc: impl Into<Location>,
+        var: impl Into<Var>,
+        value: impl Into<Expr>,
+    ) -> Self {
+        let obj = BindObj::new(loc.into(), var.into(), value.into());
         Self { base: ObjectArc::new(obj) }
     }
 }
@@ -197,7 +208,7 @@ impl Bind {
             let condition = "ffi::StructuralEqual()(value->ty, var->ty)";
             return Err(support::check_failed(tvm_ffi::INTERNAL_ERROR, condition, ""));
         }
-        Ok(Self::from_complete_fields(loc.into(), var, value))
+        Ok(Self::from_fields(loc.into(), var, value))
     }
 }
 
@@ -253,13 +264,18 @@ impl AssertStmtObj {
 
 impl AssertStmt {
     /// Lossless complete-field allocation.
-    pub fn from_complete_fields(
-        loc: Location,
-        condition: Expr,
-        error_kind: StringImm,
-        message_parts: Array<StringImm>,
+    pub fn from_fields(
+        loc: impl Into<Location>,
+        condition: impl Into<Expr>,
+        error_kind: impl Into<StringImm>,
+        message_parts: impl Into<Array<StringImm>>,
     ) -> Self {
-        let obj = AssertStmtObj::new(loc, condition, error_kind, message_parts);
+        let obj = AssertStmtObj::new(
+            loc.into(),
+            condition.into(),
+            error_kind.into(),
+            message_parts.into(),
+        );
         Self { base: ObjectArc::new(obj) }
     }
 }
@@ -288,7 +304,7 @@ impl AssertStmt {
             let check = "condition_ty.MatchesCode(DLDataTypeCode::kDLBool)";
             return Err(support::check_failed(tvm_ffi::INTERNAL_ERROR, check, &message));
         }
-        Ok(Self::from_complete_fields(loc.into(), condition, error_kind, message_parts))
+        Ok(Self::from_fields(loc.into(), condition, error_kind, message_parts))
     }
 }
 
@@ -352,17 +368,26 @@ impl ForObj {
 
 impl For {
     /// Lossless complete-field allocation.
-    pub fn from_complete_fields(
-        loc: Location,
-        var: Var,
-        begin: Expr,
-        end: Expr,
-        step: Expr,
+    pub fn from_fields(
+        loc: impl Into<Location>,
+        var: impl Into<Var>,
+        begin: impl Into<Expr>,
+        end: impl Into<Expr>,
+        step: impl Into<Expr>,
         kind: i32,
-        body: SeqStmt,
-        annotations: Map<String, Any>,
+        body: impl Into<SeqStmt>,
+        annotations: impl Into<Map<String, Any>>,
     ) -> Self {
-        let obj = ForObj::new(loc, var, begin, end, step, kind, body, annotations);
+        let obj = ForObj::new(
+            loc.into(),
+            var.into(),
+            begin.into(),
+            end.into(),
+            step.into(),
+            kind,
+            body.into(),
+            annotations.into(),
+        );
         Self { base: ObjectArc::new(obj) }
     }
 }
@@ -472,16 +497,7 @@ impl For {
         same_type(&end, "var.ty() == end.ty()")?;
         let step = promote(step)?;
         same_type(&step, "var.ty() == step.ty()")?;
-        Ok(Self::from_complete_fields(
-            loc.into(),
-            var,
-            begin,
-            end,
-            step,
-            kind as i32,
-            body,
-            annotations,
-        ))
+        Ok(Self::from_fields(loc.into(), var, begin, end, step, kind as i32, body, annotations))
     }
 }
 
@@ -542,8 +558,12 @@ impl WhileObj {
 
 impl While {
     /// Lossless complete-field allocation.
-    pub fn new(loc: Location, condition: Expr, body: SeqStmt) -> Self {
-        let obj = WhileObj::new(loc, condition, body);
+    pub fn new(
+        loc: impl Into<Location>,
+        condition: impl Into<Expr>,
+        body: impl Into<SeqStmt>,
+    ) -> Self {
+        let obj = WhileObj::new(loc.into(), condition.into(), body.into());
         Self { base: ObjectArc::new(obj) }
     }
 }
@@ -617,13 +637,13 @@ impl TensorStoreObj {
 
 impl TensorStore {
     /// Lossless complete-field allocation.
-    pub fn from_complete_fields(
-        loc: Location,
-        dest: Expr,
-        indices: Array<Expr>,
-        value: Expr,
+    pub fn from_fields(
+        loc: impl Into<Location>,
+        dest: impl Into<Expr>,
+        indices: impl Into<Array<Expr>>,
+        value: impl Into<Expr>,
     ) -> Self {
-        let obj = TensorStoreObj::new(loc, dest, indices, value);
+        let obj = TensorStoreObj::new(loc.into(), dest.into(), indices.into(), value.into());
         Self { base: ObjectArc::new(obj) }
     }
 }
@@ -663,7 +683,7 @@ impl TensorStore {
             let message = "Packed hook result type mismatch";
             return Err(tvm_ffi::Error::new(tvm_ffi::TYPE_ERROR, message, ""));
         }
-        Ok(Self::from_complete_fields(loc.into(), dest, indices, value))
+        Ok(Self::from_fields(loc.into(), dest, indices, value))
     }
 }
 
@@ -725,16 +745,24 @@ impl RegionStmtObj {
 
 impl RegionStmt {
     /// Lossless complete-field allocation.
-    pub fn from_complete_fields(
-        loc: Location,
-        op: Op,
-        args: Array<Expr>,
-        body_params: Array<Var>,
-        attrs: DictAttrs,
-        body: SeqStmt,
-        result_vars: Array<Var>,
+    pub fn from_fields(
+        loc: impl Into<Location>,
+        op: impl Into<Op>,
+        args: impl Into<Array<Expr>>,
+        body_params: impl Into<Array<Var>>,
+        attrs: impl Into<DictAttrs>,
+        body: impl Into<SeqStmt>,
+        result_vars: impl Into<Array<Var>>,
     ) -> Self {
-        let obj = RegionStmtObj::new(loc, op, args, body_params, attrs, body, result_vars);
+        let obj = RegionStmtObj::new(
+            loc.into(),
+            op.into(),
+            args.into(),
+            body_params.into(),
+            attrs.into(),
+            body.into(),
+            result_vars.into(),
+        );
         Self { base: ObjectArc::new(obj) }
     }
 }
@@ -790,8 +818,7 @@ impl RegionStmt {
                 return Err(support::check_failed(tvm_ffi::VALUE_ERROR, condition, message));
             }
         }
-        let region =
-            Self::from_complete_fields(loc.into(), op, args, body_params, attrs, body, result_vars);
+        let region = Self::from_fields(loc.into(), op, args, body_params, attrs, body, result_vars);
         if let Some(validate) = support::NativeHook::of_op(&region.op, "FRegionValidate")? {
             validate.call_void(&region)?;
         }
@@ -810,10 +837,10 @@ fn region_body_params(op: &Op, args: &Array<Expr>, attrs: &DictAttrs) -> Result<
         );
         return Err(support::check_failed(tvm_ffi::VALUE_ERROR, "IsRegionOp(op)", &message));
     };
-    let signature = Call::from_complete_fields(
-        UnknownLoc::new().into(),
-        MissingType::new().into(),
-        op.clone().into(),
+    let signature = Call::from_fields(
+        UnknownLoc::new(),
+        MissingType::new(),
+        op.clone(),
         args.clone(),
         Some(attrs.clone().into()),
         Array::new(vec![]),
@@ -888,8 +915,8 @@ impl SeqStmtObj {
 
 impl SeqStmt {
     /// Lossless complete-field allocation.
-    pub fn from_complete_fields(loc: Location, seq: Array<Stmt>) -> Self {
-        let obj = SeqStmtObj::new(loc, seq);
+    pub fn from_fields(loc: impl Into<Location>, seq: impl Into<Array<Stmt>>) -> Self {
+        let obj = SeqStmtObj::new(loc.into(), seq.into());
         Self { base: ObjectArc::new(obj) }
     }
 }
@@ -902,7 +929,7 @@ impl SeqStmt {
     /// (C++ `SeqStmt(seq, loc)`).
     pub fn new(seq: impl IntoIterator<Item = impl Into<Stmt>>, loc: impl Into<Location>) -> Self {
         let seq = seq.into_iter().map(Into::into).collect::<Array<Stmt>>();
-        Self::from_complete_fields(loc.into(), flatten(seq))
+        Self::from_fields(loc.into(), flatten(seq))
     }
 }
 
@@ -938,7 +965,7 @@ fn into_body(stmt: Stmt) -> Result<SeqStmt> {
         return Ok(tvm_ffi::ObjectRefCast::try_cast(stmt).expect("a SeqStmt"));
     }
     let loc = stmt.loc.clone();
-    Ok(SeqStmt::from_complete_fields(loc, flatten(Array::new(vec![stmt]))))
+    Ok(SeqStmt::from_fields(loc, flatten(Array::new(vec![stmt]))))
 }
 
 // tvm-ffi-stubgen(begin): object/ir.If
@@ -993,13 +1020,13 @@ impl IfObj {
 
 impl If {
     /// Lossless complete-field allocation.
-    pub fn from_complete_fields(
-        loc: Location,
-        condition: Expr,
-        then_case: SeqStmt,
-        else_case: Option<SeqStmt>,
+    pub fn from_fields(
+        loc: impl Into<Location>,
+        condition: impl Into<Expr>,
+        then_case: impl Into<SeqStmt>,
+        else_case: impl Into<Option<SeqStmt>>,
     ) -> Self {
-        let obj = IfObj::new(loc, condition, then_case, else_case);
+        let obj = IfObj::new(loc.into(), condition.into(), then_case.into(), else_case.into());
         Self { base: ObjectArc::new(obj) }
     }
 }
@@ -1020,7 +1047,7 @@ impl If {
         support::prim_dtype(&condition)?;
         let then_case = into_body(then_case.into())?;
         let else_case = else_case.map(|stmt| into_body(stmt.clone())).transpose()?;
-        Ok(Self::from_complete_fields(loc.into(), condition, then_case, else_case))
+        Ok(Self::from_fields(loc.into(), condition, then_case, else_case))
     }
 }
 
@@ -1069,8 +1096,8 @@ impl EvaluateObj {
 
 impl Evaluate {
     /// Lossless complete-field allocation.
-    pub fn from_complete_fields(loc: Location, value: Expr) -> Self {
-        let obj = EvaluateObj::new(loc, value);
+    pub fn from_fields(loc: impl Into<Location>, value: impl Into<Expr>) -> Self {
+        let obj = EvaluateObj::new(loc.into(), value.into());
         Self { base: ObjectArc::new(obj) }
     }
 }
@@ -1081,7 +1108,7 @@ tvm_ffi::impl_object_upcast!(Evaluate => Stmt);
 impl Evaluate {
     /// Evaluate `value` for its side effects (C++ `Evaluate(value, loc)`).
     pub fn new(value: impl Into<Expr>, loc: impl Into<Location>) -> Self {
-        Self::from_complete_fields(loc.into(), value.into())
+        Self::from_fields(loc.into(), value.into())
     }
 }
 
@@ -1129,8 +1156,8 @@ impl BreakObj {
 
 impl Break {
     /// Lossless complete-field allocation.
-    pub fn new(loc: Location) -> Self {
-        let obj = BreakObj::new(loc);
+    pub fn new(loc: impl Into<Location>) -> Self {
+        let obj = BreakObj::new(loc.into());
         Self { base: ObjectArc::new(obj) }
     }
 }
@@ -1185,8 +1212,8 @@ impl ReturnObj {
 
 impl Return {
     /// Lossless complete-field allocation.
-    pub fn from_complete_fields(loc: Location, value: Expr) -> Self {
-        let obj = ReturnObj::new(loc, value);
+    pub fn from_fields(loc: impl Into<Location>, value: impl Into<Expr>) -> Self {
+        let obj = ReturnObj::new(loc.into(), value.into());
         Self { base: ObjectArc::new(obj) }
     }
 }
@@ -1197,7 +1224,7 @@ tvm_ffi::impl_object_upcast!(Return => Stmt);
 impl Return {
     /// Return `value` from the enclosing function (C++ `Return(value, loc)`).
     pub fn new(value: impl Into<Expr>, loc: impl Into<Location>) -> Self {
-        Self::from_complete_fields(loc.into(), value.into())
+        Self::from_fields(loc.into(), value.into())
     }
 }
 
@@ -1245,8 +1272,8 @@ impl ContinueObj {
 
 impl Continue {
     /// Lossless complete-field allocation.
-    pub fn new(loc: Location) -> Self {
-        let obj = ContinueObj::new(loc);
+    pub fn new(loc: impl Into<Location>) -> Self {
+        let obj = ContinueObj::new(loc.into());
         Self { base: ObjectArc::new(obj) }
     }
 }

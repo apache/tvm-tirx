@@ -131,11 +131,11 @@ impl IterMapResultObj {
 impl IterMapResult {
     /// Lossless complete-field allocation.
     pub fn new(
-        indices: Array<IterSumExpr>,
-        errors: Array<String>,
-        padding_predicate: Option<Expr>,
+        indices: impl Into<Array<IterSumExpr>>,
+        errors: impl Into<Array<String>>,
+        padding_predicate: impl Into<Option<Expr>>,
     ) -> Self {
-        let obj = IterMapResultObj::new(indices, errors, padding_predicate);
+        let obj = IterMapResultObj::new(indices.into(), errors.into(), padding_predicate.into());
         Self { base: ObjectArc::new(obj) }
     }
 }
@@ -180,8 +180,8 @@ impl IterMarkObj {
 
 impl IterMark {
     /// Lossless complete-field allocation.
-    pub fn new(source: Expr, extent: Expr) -> Self {
-        let obj = IterMarkObj::new(source, extent);
+    pub fn new(source: impl Into<Expr>, extent: impl Into<Expr>) -> Self {
+        let obj = IterMarkObj::new(source.into(), extent.into());
         Self { base: ObjectArc::new(obj) }
     }
 }

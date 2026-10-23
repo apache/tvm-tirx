@@ -127,7 +127,7 @@ fn iter_maps() {
     let inverse = inverse_affine_iter_map([detected_index], [output]).unwrap();
     assert_eq!(inverse.len(), 2);
 
-    let mark = IterMark::new(x.clone().into(), int32(4));
+    let mark = IterMark::new(x.clone(), int32(4));
     let split = IterSplitExpr::new(mark, int32(1), int32(4), int32(1)).unwrap();
     assert!(analyzer.can_prove_equal(split.scale().unwrap(), int32(1)).unwrap());
     let sum = IterSumExpr::new([split], int32(0));

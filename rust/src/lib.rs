@@ -72,7 +72,7 @@
 //! as given, without the checks, defaults or derived fields of the native constructor. Where the
 //! native constructor does more than that (`ir::prim::Add` checks its operand types,
 //! `tirx::Function` derives its type from the signature), `new` is reserved for a constructor with
-//! those semantics, and the allocation of the fields as given is `from_complete_fields`. The IR
+//! those semantics, and the allocation of the fields as given is `from_fields`. The IR
 //! constructors are written in Rust after the C++ ones, with the same checks, defaults, derived
 //! fields and errors; they call into C++ only for the nodes C++ shares (`UnknownLoc`,
 //! `MissingType` and the `PrimType` of each dtype, fetched once per thread), for the hooks an
@@ -90,6 +90,50 @@
 //! parsing a string.
 //! The unknown location is [`ir::UNKNOWN_LOC`] as a constructor argument and
 //! [`ir::Location::unknown`] as a value.
+//!
+//! # Defining a type in Rust
+//!
+//! [`tvm_ffi::rs_class`] defines a new IR type, a type of expressions as [`ir::PrimType`] and
+//! [`ir::TupleType`] are, from its object struct, whose first field `base` is the [`ir::TypeObj`]
+//! it extends, which holds the location. It registers the type under `ir.Type` with the
+//! reflection of every other field, so that the C++ structural equality and hashing, deep copy,
+//! `repr`, the TVMScript printer and Python see the fields as they see a C++ type's.
+//! [`tvm_ffi::def_object_ref`] defines the reference, which converts into [`ir::Type`]. The
+//! object's `new` takes the `TypeObj`, then the fields in order:
+//!
+//! ```no_run
+//! use tvm_tirx::ir::{Location, PrimType, Type, TypeObj};
+//! use tvm_tirx::tvm_ffi::{self, def_object_ref, rs_class, ObjectRefCore};
+//!
+//! /// The type of a pair of values.
+//! #[rs_class("my_ext.PairType", final)]
+//! pub struct PairTypeObj {
+//!     base: TypeObj,
+//!     pub first: Type,
+//!     pub second: Type,
+//!     /// Not part of structural equality or hashing.
+//!     #[reflect(seq_hash_ignore)]
+//!     pub note: tvm_ffi::String,
+//! }
+//!
+//! def_object_ref!(pub PairType, Type, PairTypeObj);
+//!
+//! impl PairType {
+//!     pub fn new(first: impl Into<Type>, second: impl Into<Type>) -> Self {
+//!         PairTypeObj::new(TypeObj::new(Location::unknown()), first, second, "").into()
+//!     }
+//! }
+//!
+//! fn main() {
+//!     let pair = PairType::new(PrimType::int(32), PrimType::float(32));
+//!     let ty: Type = pair.into(); // an `ir.Type` that C++ sees as `my_ext.PairType`
+//!     assert!(ty.as_node::<PairTypeObj>().is_some());
+//! }
+//! ```
+//!
+//! The generated code names `tvm_ffi`, which `use tvm_tirx::tvm_ffi` brings into scope in a crate
+//! that depends only on `tvm-tirx`. The parent's object must have a public `new` and implement
+//! `ShallowCopy`; the bindings generate both for a complete type that is not final, as `ir.Type`.
 //!
 //! # Generated and hand-written code
 //!
@@ -114,11 +158,9 @@
 //! tvm-ffi-stubgen rust/src --target rust --dlls build/lib/libtvm_tirx_compiler.so
 //! ```
 //!
-//! `tvm-ffi-stubgen` comes with the `tvm_ffi` Python package, which must be tvm-ffi `f45854e` or
-//! later: that stubgen names a generated type by the module of its file (`crate::ir::expr::Expr`).
-//! The older one of `3rdparty/tvm-ffi`, and of the `.venv` it installs, names it by its type key
-//! and reports the files that use another module as stale. The blocks are formatted as rustfmt
-//! formats them, so `cargo fmt --check` and `tvm-ffi-stubgen --check` agree.
+//! `tvm-ffi-stubgen` comes with the `tvm_ffi` Python package, which must be the one of
+//! `3rdparty/tvm-ffi`: the blocks are what its generator emits. The blocks are formatted as
+//! rustfmt formats them, so `cargo fmt --check` and `tvm-ffi-stubgen --check` agree.
 //!
 //! # Tests
 //!

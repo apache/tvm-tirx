@@ -53,10 +53,10 @@ enum class FloatNaNStatus {
  *         constant; FloatNaNStatus::kUnknown otherwise.
  */
 inline FloatNaNStatus GetFloatNaNStatus(const PrimExpr& expr) {
-  const FloatImmNode* value = expr.as<FloatImmNode>();
-  if (const auto* broadcast = expr.as<prim::BroadcastNode>()) {
+  const FloatImmObj* value = expr.as<FloatImmObj>();
+  if (const auto* broadcast = expr.as<prim::BroadcastObj>()) {
     // Recognize uniform vector constants, including scalable broadcasts.
-    value = broadcast->value.as<FloatImmNode>();
+    value = broadcast->value.as<FloatImmObj>();
   }
   if (value == nullptr) {
     return FloatNaNStatus::kUnknown;

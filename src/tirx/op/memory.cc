@@ -32,7 +32,7 @@ namespace tvm {
 namespace tirx {
 
 template <size_t DataIndex, int ElementIndex>
-Type InferTypePointerOffset(const CallNode* call) {
+Type InferTypePointerOffset(const CallObj* call) {
   TVM_FFI_CHECK_GT(call->args.size(), DataIndex, ValueError);
   Type element_type = PrimType::Void();
   if constexpr (ElementIndex >= 0) {
@@ -44,9 +44,9 @@ Type InferTypePointerOffset(const CallNode* call) {
   return PtrType(element_type, pointer ? pointer.value()->scope : runtime::MemoryScope::Global());
 }
 
-Type InferTypeAddressOf(const CallNode* call) {
+Type InferTypeAddressOf(const CallObj* call) {
   TVM_FFI_CHECK_GE(call->args.size(), 1U, ValueError) << "Address type requires an object";
-  if (const auto* load = call->args[0].as<TensorLoadNode>()) {
+  if (const auto* load = call->args[0].as<TensorLoadObj>()) {
     return load->source.as_or_throw<TensorVar>().ty()->DataPtrType();
   }
   Var variable = call->args[0].as_or_throw<Var>();
@@ -57,7 +57,7 @@ Type InferTypeAddressOf(const CallNode* call) {
   return PtrType(variable->ty.as_or_throw<PrimType>());
 }
 
-Type InferTypeMaskedLoad(const CallNode* call) {
+Type InferTypeMaskedLoad(const CallObj* call) {
   TVM_FFI_CHECK_GE(call->args.size(), 2U, ValueError)
       << "Masked load type requires a tensor and index operands";
   TensorVar tensor = call->args[0].as_or_throw<TensorVar>();
@@ -69,7 +69,7 @@ Type InferTypeMaskedLoad(const CallNode* call) {
   return TensorLoad(tensor, indices).ty();
 }
 
-ffi::Expected<Type> InferTypeTensorDataPtr(const CallNode* call) noexcept try {
+ffi::Expected<Type> InferTypeTensorDataPtr(const CallObj* call) noexcept try {
   TVM_FFI_CHECK_EQ(call->args.size(), 1U, ValueError)
       << "tirx.tensor_data_ptr expects one TensorVar argument";
   Type inferred = call->args[0].as_or_throw<TensorVar>().ty()->DataPtrType();
@@ -83,7 +83,7 @@ ffi::Expected<Type> InferTypeTensorDataPtr(const CallNode* call) noexcept try {
 
 // Allocation and declaration share the complete, explicit tensor type argument.
 template <bool is_alloc>
-Type InferTypeTensor(const CallNode* call) {
+Type InferTypeTensor(const CallObj* call) {
   TVM_FFI_CHECK_EQ(call->ty_args.size(), 1U, ValueError)
       << "Tensor allocation and declaration require exactly one TensorType argument";
   auto type = call->ty_args[0].as_or_throw<TensorType>();
@@ -102,12 +102,12 @@ Type InferTypeTensor(const CallNode* call) {
 }
 
 template <bool is_alloc>
-void ValidateTensorProducer(const CallNode* call) {
+void ValidateTensorProducer(const CallObj* call) {
   Type inferred = InferTypeTensor<is_alloc>(call);
   TVM_FFI_CHECK(ffi::StructuralEqual()(call->ty, inferred), TypeError)
       << "Tensor producer result must match its TensorType argument";
   if constexpr (is_alloc) {
-    TVM_FFI_CHECK(!call->attrs.has_value() || call->attrs.as<DictAttrsNode>(), ValueError)
+    TVM_FFI_CHECK(!call->attrs.has_value() || call->attrs.as<DictAttrsObj>(), ValueError)
         << "alloc_tensor annotations must be DictAttrs";
   } else {
     TVM_FFI_CHECK(!call->attrs.has_value(), ValueError) << "decl_tensor does not accept attributes";
@@ -120,8 +120,8 @@ const Op& reinterpret_op() {
 }
 
 Expr reinterpret(Type target_ty, Expr value, Location loc) {
-  if (value.as<StringImmNode>()) {
-    TVM_FFI_CHECK(target_ty.as<PtrTypeNode>(), TypeError)
+  if (value.as<StringImmObj>()) {
+    TVM_FFI_CHECK(target_ty.as<PtrTypeObj>(), TypeError)
         << "String reinterpret requires a pointer target, but got " << target_ty;
     return Call(std::move(target_ty), tirx::reinterpret_op(), {std::move(value)}, {}, {},
                 std::move(loc));
@@ -141,7 +141,7 @@ Expr reinterpret(Type target_ty, Expr value, Location loc) {
             << "Reinterpret requires size match " << target_prim << " vs " << value_dtype;
       }
     } else {
-      TVM_FFI_CHECK(value->ty.as<PtrTypeNode>(), TypeError)
+      TVM_FFI_CHECK(value->ty.as<PtrTypeObj>(), TypeError)
           << "Reinterpret source must be PrimType or PtrType, but got " << value->ty;
       TVM_FFI_CHECK(
           target_dtype.value().IsScalar() && target_dtype.value().bits() == 64 &&
@@ -151,7 +151,7 @@ Expr reinterpret(Type target_ty, Expr value, Location loc) {
           << target_dtype.value();
     }
   } else {
-    TVM_FFI_CHECK(target_ty.as<PtrTypeNode>(), TypeError)
+    TVM_FFI_CHECK(target_ty.as<PtrTypeObj>(), TypeError)
         << "Reinterpret target must be PrimType or PtrType, but got " << target_ty;
     if (auto source_dtype = value->ty.as<PrimType>()) {
       TVM_FFI_CHECK(
@@ -161,7 +161,7 @@ Expr reinterpret(Type target_ty, Expr value, Location loc) {
           << "Pointer reinterpret requires a scalar 64-bit integer source, but got "
           << source_dtype.value();
     } else {
-      TVM_FFI_CHECK(value->ty.as<PtrTypeNode>(), TypeError)
+      TVM_FFI_CHECK(value->ty.as<PtrTypeObj>(), TypeError)
           << "Reinterpret source must be PrimType or PtrType, but got " << value->ty;
     }
   }
@@ -317,11 +317,11 @@ TVM_FFI_STATIC_INIT_BLOCK() {
   OpDef("tirx.alloc_tensor")
       .set_native_fn_attr<&InferTypeTensor<true>>(tvm::op_attr::kInferType)
       .set_validator(ffi::reflection::NativeFunctionView<void(
-                         const CallNode*)>::FromNative<&ValidateTensorProducer<true>>(),
+                         const CallObj*)>::FromNative<&ValidateTensorProducer<true>>(),
                      true)
       .signature(sig::var_args<tvm::Tuple>("placement", "Optional producer-owned placement."),
                  sig::ty_arg<TensorType>("tensor_type"))
-      .set_attrs_type_key(DictAttrsNode::_type_key)
+      .set_attrs_type_key(DictAttrsObj::_type_key)
       .set_attr(tvm::op_attr::kCallEffectKind, CallEffectKind::kOpaque);
 }
 
@@ -334,7 +334,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
   OpDef("tirx.decl_tensor")
       .set_native_fn_attr<&InferTypeTensor<false>>(tvm::op_attr::kInferType)
       .set_validator(ffi::reflection::NativeFunctionView<void(
-                         const CallNode*)>::FromNative<&ValidateTensorProducer<false>>(),
+                         const CallObj*)>::FromNative<&ValidateTensorProducer<false>>(),
                      true)
       .signature(sig::arg("data", "The existing data pointer."),
                  sig::ty_arg<TensorType>("tensor_type"))

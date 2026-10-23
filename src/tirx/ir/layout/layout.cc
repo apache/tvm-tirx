@@ -26,10 +26,10 @@ namespace {
 
 template <typename F>
 decltype(auto) DispatchLayout(const Layout& layout, F&& f) {
-  if (const auto* tile = layout.as<TileLayoutNode>()) {
+  if (const auto* tile = layout.as<TileLayoutObj>()) {
     return f(tile);
   }
-  if (const auto* compose = layout.as<ComposeLayoutNode>()) {
+  if (const auto* compose = layout.as<ComposeLayoutObj>()) {
     return f(compose);
   }
   TVM_FFI_THROW(TypeError) << "Unsupported layout type: " << layout->GetTypeKey();

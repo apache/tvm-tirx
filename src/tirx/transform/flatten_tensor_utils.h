@@ -65,7 +65,7 @@ TVM_FFI_INLINE TensorVar FlattenedTensor(const TensorVar& tensor,
   if (!analyzer.has_value()) analyzer = sym::Analyzer();
   const auto& ana = analyzer.value();
   ffi::Array<PrimExpr> output_shape{1};
-  const auto* tile = tensor.ty()->layout.as<TileLayoutNode>();
+  const auto* tile = tensor.ty()->layout.as<TileLayoutObj>();
   bool explicit_strides = tile && MatchShapeStridePattern(tensor.ty()).has_value();
   if (explicit_strides) {
     // Preserve the outer stride footprint and cover every addressed element.
@@ -87,7 +87,7 @@ TVM_FFI_INLINE TensorVar FlattenedTensor(const TensorVar& tensor,
     }
   } else if (tile) {
     output_shape.Set(0, ana->Simplify(tensor.ty()->layout.value().GetSpan(ffi::String("m"))));
-  } else if (const auto* compose = tensor.ty()->layout.as<ComposeLayoutNode>()) {
+  } else if (const auto* compose = tensor.ty()->layout.as<ComposeLayoutObj>()) {
     PrimExpr span = compose->tile_layout.GetSpan(ffi::String("m"));
     if (compose->tile_layout.IsTrivial()) {
       span = IntImm(tensor.ty()->DefaultIndexType(), 1);

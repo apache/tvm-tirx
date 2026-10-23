@@ -70,8 +70,8 @@ impl EnvFuncObj {
 
 impl EnvFunc {
     /// Lossless complete-field allocation.
-    pub fn new(name: String, func: Function) -> Self {
-        let obj = EnvFuncObj::new(name, func);
+    pub fn new(name: impl Into<String>, func: impl Into<Function>) -> Self {
+        let obj = EnvFuncObj::new(name.into(), func.into());
         Self { base: ObjectArc::new(obj) }
     }
 }

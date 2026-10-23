@@ -23,7 +23,7 @@
  *  This module enables declaration of named attributes
  *  which support default value setup and bound checking.
  *
- * \sa AttrsNode
+ * \sa AttrsObj
  */
 #ifndef TVM_IR_ATTRS_H_
 #define TVM_IR_ATTRS_H_
@@ -47,52 +47,52 @@ namespace tvm {
  * \brief Base class of all attribute class
  * \sa Attrs
  */
-class AttrsNode : public ffi::Object {
+class AttrsObj : public ffi::Object {
  public:
   static constexpr TVMFFISEqHashKind _type_s_eq_hash_kind = kTVMFFISEqHashKindTreeNode;
-  TVM_FFI_DECLARE_OBJECT_INFO("ir.Attrs", AttrsNode, ffi::Object);
+  TVM_FFI_DECLARE_OBJECT_INFO("ir.Attrs", AttrsObj, ffi::Object);
 };
 
 /*!
- * \brief Managed reference to AttrsNode.
- * \sa AttrsNode
+ * \brief Managed reference to AttrsObj.
+ * \sa AttrsObj
  */
 class Attrs : public ffi::ObjectRef {
  public:
-  explicit Attrs(ffi::ObjectPtr<AttrsNode> n) : ffi::ObjectRef(ffi::UnsafeInit{}) {
+  explicit Attrs(ffi::ObjectPtr<AttrsObj> n) : ffi::ObjectRef(ffi::UnsafeInit{}) {
     TVM_FFI_ICHECK(n != nullptr);
     data_ = std::move(n);
   }
 
-  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(Attrs, ffi::ObjectRef, AttrsNode);
+  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(Attrs, ffi::ObjectRef, AttrsObj);
 };
 
 /*!
  * \brief Specialized attribute type that is backed by a map.
- *  The DictAttrsNode implements the Attrs behavior,
+ *  The DictAttrsObj implements the Attrs behavior,
  *  its fields are directly accessible via object.field_name
  *  like other normal nodes.
  */
-class DictAttrsNode : public AttrsNode {
+class DictAttrsObj : public AttrsObj {
  public:
   /*! \brief internal attrs map */
   ffi::Map<ffi::String, ffi::Any> dict;
 
   static void RegisterReflection() {
     namespace rfl = ffi::reflection;
-    rfl::ObjectDef<DictAttrsNode>().def_ro("dict", &DictAttrsNode::dict);
+    rfl::ObjectDef<DictAttrsObj>().def_ro("dict", &DictAttrsObj::dict);
   }
 
   // type info
-  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("ir.DictAttrs", DictAttrsNode, AttrsNode);
+  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("ir.DictAttrs", DictAttrsObj, AttrsObj);
 };
 
 /*!
- * \brief Managed reference to DictAttrsNode
- * \sa DictAttrsNode.
+ * \brief Managed reference to DictAttrsObj
+ * \sa DictAttrsObj.
  *
  * \note DictAttrs is NOTNULLABLE: every instance must hold a backing
- *       DictAttrsNode. The class enforces this end-to-end by:
+ *       DictAttrsObj. The class enforces this end-to-end by:
  *       - the default constructor (no args) allocating an empty backing,
  *       - the copy/move ctors and assignments leaving the moved-from
  *         instance in a defined-but-empty state rather than null,
@@ -108,13 +108,13 @@ class DictAttrsNode : public AttrsNode {
 class DictAttrs : public Attrs {
  public:
   /*!
-   * \brief Construct a DictAttrs backed by DictAttrsNode.
+   * \brief Construct a DictAttrs backed by DictAttrsObj.
    *
    * The no-argument form constructs an empty (but always defined) DictAttrs.
    * \param dict The attributes.
    */
   explicit DictAttrs(ffi::Map<ffi::String, Any> dict = {}) : Attrs(ffi::UnsafeInit{}) {
-    ffi::ObjectPtr<DictAttrsNode> n = ffi::make_object<DictAttrsNode>();
+    ffi::ObjectPtr<DictAttrsObj> n = ffi::make_object<DictAttrsObj>();
     n->dict = std::move(dict);
     data_ = std::move(n);
   }
@@ -126,7 +126,7 @@ class DictAttrs : public Attrs {
    */
   DictAttrs(DictAttrs&& other) noexcept : Attrs(ffi::UnsafeInit{}) {
     data_ = std::move(other.data_);
-    other.data_ = ffi::make_object<DictAttrsNode>();
+    other.data_ = ffi::make_object<DictAttrsObj>();
   }
 
   /*!
@@ -137,7 +137,7 @@ class DictAttrs : public Attrs {
   DictAttrs& operator=(DictAttrs&& other) noexcept {
     if (this != &other) {
       data_ = std::move(other.data_);
-      other.data_ = ffi::make_object<DictAttrsNode>();
+      other.data_ = ffi::make_object<DictAttrsObj>();
     }
     return *this;
   }
@@ -171,7 +171,7 @@ class DictAttrs : public Attrs {
   ffi::Optional<TObjectRef> GetAttr(
       const std::string& attr_key,
       ffi::Optional<TObjectRef> default_value = ffi::Optional<TObjectRef>(std::nullopt)) const {
-    const DictAttrsNode* node = get();
+    const DictAttrsObj* node = get();
     auto it = node->dict.find(attr_key);
     if (it != node->dict.end()) {
       return (*it).second.cast<TObjectRef>();
@@ -231,12 +231,12 @@ class DictAttrs : public Attrs {
   // above so the moved-from instance stays defined-but-empty).
   explicit DictAttrs(::tvm::ffi::UnsafeInit tag) : Attrs(tag) {}
   using __PtrType =
-      std::conditional_t<DictAttrsNode::_type_mutable, DictAttrsNode*, const DictAttrsNode*>;
+      std::conditional_t<DictAttrsObj::_type_mutable, DictAttrsObj*, const DictAttrsObj*>;
   __PtrType operator->() const { return static_cast<__PtrType>(data_.get()); }
   __PtrType get() const { return static_cast<__PtrType>(data_.get()); }
   static constexpr bool _type_is_nullable = false;
-  using ContainerType = DictAttrsNode;
-  TVM_DEFINE_OBJECT_REF_COW_METHOD(DictAttrsNode);
+  using ContainerType = DictAttrsObj;
+  TVM_DEFINE_OBJECT_REF_COW_METHOD(DictAttrsObj);
 };
 
 /*!

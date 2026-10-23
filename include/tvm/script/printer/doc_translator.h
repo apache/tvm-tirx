@@ -113,7 +113,7 @@ using FDocTranslate = ffi::reflection::NativeFunctionView<ffi::Optional<ExprDoc>
  *                             const ffi::Object* destination) {
  *   ExprDoc rhs = LiteralDoc::Str("value", std::nullopt);
  *   if (!destination) return rhs;
- *   auto var = ffi::GetRef<Var>(static_cast<const VarNode*>(destination));
+ *   auto var = ffi::GetRef<Var>(static_cast<const VarObj*>(destination));
  *   IdDoc lhs(d->VarGetOrAllocId(var, true)->name);
  *   d->Emit(AssignDoc(lhs, rhs, std::nullopt), var);
  *   return std::nullopt;
@@ -413,8 +413,8 @@ inline ffi::Array<StmtDoc> ToStmtDocArray(const ffi::List<Doc>& docs) {
 class DocTranslator : public ffi::ObjectRef {
  public:
   /*!
-   * \brief Retain a translation context.
-   * \param n The context object.
+   * \brief Initialize a reference to a translation context.
+   * \param tag The unsafe-initialization tag.
    */
   TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(DocTranslator, ffi::ObjectRef, DocTranslatorObj);
 };

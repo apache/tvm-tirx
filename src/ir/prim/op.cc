@@ -22,6 +22,7 @@
 
 #include <cmath>
 
+#include "../../support/limits.h"
 #include "op_utils.h"
 
 namespace tvm {
@@ -29,12 +30,12 @@ using prim::IsConstInt;
 using prim::MakeConst;
 using namespace prim::details;
 namespace {
-TVM_FFI_INLINE const PrimTypeNode* GetPrimTypeNode(const PrimExpr& expr) {
+TVM_FFI_INLINE const PrimTypeObj* GetPrimTypeObj(const PrimExpr& expr) {
   // Avoid PrimExpr::ty() ObjectRef materialization on binary operator hot paths.
   const auto* node = expr.get();
   TVM_FFI_DCHECK(node != nullptr);
-  TVM_FFI_DCHECK(!node->ExprNode::ty.as<MissingType>().has_value());
-  const auto* prim_ty = node->ExprNode::ty.as<PrimTypeNode>();
+  TVM_FFI_DCHECK(!node->ExprObj::ty.as<MissingType>().has_value());
+  const auto* prim_ty = node->ExprObj::ty.as<PrimTypeObj>();
   TVM_FFI_DCHECK(prim_ty != nullptr);
   return prim_ty;
 }
@@ -64,7 +65,7 @@ TVM_FFI_INLINE bool IsFloat4Type(const PrimType& ty) {
 
 // File-local helper: true if `expr` is a call to prim::vscale_op().
 bool IsVScaleCall(const PrimExpr& expr) {
-  if (const auto* call = expr.as<CallNode>()) {
+  if (const auto* call = expr.as<CallObj>()) {
     return call->op.same_as(prim::vscale_op());
   }
   return false;
@@ -151,8 +152,8 @@ PrimType PromoteBinaryOpType(PrimType lhs_ty, PrimType rhs_ty) {
 void BinaryOpMatchTypes(PrimExpr& lhs, PrimExpr& rhs, Location loc) {  // NOLINT(*)
   TVM_FFI_CHECK(lhs.defined(), ValueError) << "`lhs` is null in the binary operator";
   TVM_FFI_CHECK(rhs.defined(), ValueError) << "`rhs` is null in the binary operator";
-  const PrimTypeNode* lhs_ty_node = GetPrimTypeNode(lhs);
-  const PrimTypeNode* rhs_ty_node = GetPrimTypeNode(rhs);
+  const PrimTypeObj* lhs_ty_node = GetPrimTypeObj(lhs);
+  const PrimTypeObj* rhs_ty_node = GetPrimTypeObj(rhs);
   if (lhs_ty_node == rhs_ty_node || lhs_ty_node->dtype == rhs_ty_node->dtype) return;
 
   BroadcastToMatchLanes(lhs, rhs);
@@ -214,7 +215,7 @@ PrimExpr max_value(PrimType value_ty, Location loc) {
       return FloatImm(value_ty, 65504.0, loc);
     }
   } else if (IsBFloat16Type(dtype)) {
-    return FloatImm(value_ty, std::numeric_limits<float>::max(), loc);
+    return FloatImm(value_ty, support::kMaxBFloat16, loc);
   } else if (IsFloat8Type(dtype)) {
     // according to https://arxiv.org/pdf/2209.05433.pdf
     if (dtype.code() == DLDataTypeCode::kDLFloat8_e5m2) {
@@ -268,7 +269,7 @@ PrimExpr min_value(PrimType value_ty, Location loc) {
       return FloatImm(value_ty, -65504.0, loc);
     }
   } else if (IsBFloat16Type(dtype)) {
-    return FloatImm(value_ty, std::numeric_limits<float>::lowest(), loc);
+    return FloatImm(value_ty, -support::kMaxBFloat16, loc);
   } else if (IsFloat8Type(dtype)) {
     // according to https://arxiv.org/pdf/2209.05433.pdf
     if (dtype.code() == DLDataTypeCode::kDLFloat8_e5m2) {
@@ -308,25 +309,70 @@ PrimExpr cast(PrimExpr value, PrimType t, Location loc) {
       << "Cannot cast an expression with the void sentinel type";
   // const fold IntImm as they are used in index computations
   if (dtype.IsScalar()) {
-    if (const IntImmNode* op = value.as<IntImmNode>()) {
-      return MakeConst(dtype, op->value, op->loc);
-    } else if (const FloatImmNode* op = value.as<FloatImmNode>()) {
-      return MakeConst(dtype, op->value, op->loc);
+    if (const IntImmObj* op = value.as<IntImmObj>()) {
+      if (dtype.MatchesCode(DLDataTypeCode::kDLInt, DLDataTypeCode::kDLUInt,
+                            DLDataTypeCode::kDLBool)) {
+        if (details::IsRepresentable(op->value, dtype)) return IntImm(dtype, op->value, op->loc);
+      } else if (dtype.MatchesElementType(DLDataTypeCode::kDLFloat, 32)) {
+        if (auto small = op->value.as<int64_t>()) {
+          return FloatImm(dtype, static_cast<float>(*small), op->loc);
+        }
+      } else if (dtype.MatchesElementType(DLDataTypeCode::kDLFloat, 16) ||
+                 dtype.MatchesElementType(DLDataTypeCode::kDLBfloat, 16)) {
+        double source = static_cast<double>(op->value);
+        double limit = dtype.MatchesCode(DLDataTypeCode::kDLBfloat) ? support::kMaxBFloat16
+                                                                    : support::kMaxFloat16;
+        // Keep the integer exact until the destination performs its rounding.
+        if (source >= -limit && source <= limit && ffi::BigInt(source) == op->value) {
+          return FloatImm(dtype, source, op->loc);
+        }
+      }
+    } else if (const FloatImmObj* op = value.as<FloatImmObj>()) {
+      if (std::isfinite(op->value) &&
+          (value.ty().MatchesElementType(DLDataTypeCode::kDLFloat, 16) ||
+           value.ty().MatchesElementType(DLDataTypeCode::kDLBfloat, 16))) {
+        // FloatImm stores an unrounded double. Preserve the cast when using it
+        // directly would skip rounding in the source's 16-bit floating type.
+        bool is_bfloat = value.ty().MatchesCode(DLDataTypeCode::kDLBfloat);
+        int exponent;
+        std::frexp(op->value, &exponent);
+        int step = std::max(exponent - (is_bfloat ? 8 : 11), is_bfloat ? -133 : -24);
+        double scaled = std::ldexp(op->value, -step);
+        if (std::trunc(scaled) != scaled) return prim::Cast(std::move(t), value, loc);
+      }
+      double source = value.ty().MatchesElementType(DLDataTypeCode::kDLFloat, 32)
+                          ? static_cast<float>(op->value)
+                          : op->value;
+      if (dtype.MatchesCode(DLDataTypeCode::kDLInt, DLDataTypeCode::kDLUInt,
+                            DLDataTypeCode::kDLBool)) {
+        // Non-finite values cannot be converted to BigInt. Boolean casts also
+        // need to preserve nonzero testing rather than truncate a fraction.
+        if (std::isfinite(source) &&
+            (!dtype.MatchesCode(DLDataTypeCode::kDLBool) || source == 0 || source == 1)) {
+          ffi::BigInt result(source);
+          if (details::IsRepresentable(result, dtype)) {
+            return IntImm(dtype, std::move(result), op->loc);
+          }
+        }
+      } else if (dtype.MatchesElementType(DLDataTypeCode::kDLFloat, 32)) {
+        if (details::IsInFloat32Range(source)) {
+          return FloatImm(dtype, static_cast<float>(source), op->loc);
+        }
+      } else if (dtype.MatchesElementType(DLDataTypeCode::kDLFloat, 16) ||
+                 dtype.MatchesElementType(DLDataTypeCode::kDLBfloat, 16)) {
+        double limit = dtype.MatchesCode(DLDataTypeCode::kDLBfloat) ? support::kMaxBFloat16
+                                                                    : support::kMaxFloat16;
+        if (!std::isfinite(source) || (source >= -limit && source <= limit)) {
+          return FloatImm(dtype, source, op->loc);
+        }
+      }
     }
     return prim::Cast(std::move(t), value, loc);
   } else {
     PrimType elem_ty = dtype.WithLanes(1);
     if (!value.ty().IsScalableVector() && !value.ty().IsFixedLengthVector()) {
       // manually unroll cast
-      if (value.ty() != elem_ty) {
-        if (const IntImmNode* op = value.as<IntImmNode>()) {
-          value = MakeConst(elem_ty, op->value, op->loc);
-        } else if (const FloatImmNode* op = value.as<FloatImmNode>()) {
-          value = MakeConst(elem_ty, op->value, op->loc);
-        } else {
-          value = prim::Cast(elem_ty, value, loc);
-        }
-      }
+      value = cast(value, elem_ty, loc);
       if (dtype.IsScalableVector()) {
         return prim::Broadcast(
             value,
@@ -346,13 +392,24 @@ PrimExpr cast(PrimExpr value, PrimType t, Location loc) {
         lanes_match = value.ty().lanes() == dtype.lanes();
       }
       TVM_FFI_ICHECK(lanes_match);
-      if (const auto* broadcast = value.as<prim::BroadcastNode>()) {
+      if (const auto* broadcast = value.as<prim::BroadcastObj>()) {
         return prim::Broadcast(cast(broadcast->value, elem_ty, loc), broadcast->lanes, loc);
-      } else if (const auto* ramp = value.as<prim::RampNode>()) {
-        if (dtype.MatchesCode(DLDataTypeCode::kDLInt, DLDataTypeCode::kDLUInt)) {
-          // only cast to index data type can be folded to ramp
-          return prim::Ramp(cast(ramp->base, elem_ty, loc), cast(ramp->stride, elem_ty, loc),
-                            ramp->lanes, loc);
+      } else if (const auto* ramp = value.as<prim::RampObj>()) {
+        // Casting a ramp's base and stride is valid only when every lane
+        // remains the same integer in both types. In particular, widening
+        // must not remove source overflow, and floating casts need not be affine.
+        const auto* base = ramp->base.as<IntImmObj>();
+        const auto* stride = ramp->stride.as<IntImmObj>();
+        if (dtype.IsFixedLengthVector() && base && stride &&
+            dtype.MatchesCode(DLDataTypeCode::kDLInt, DLDataTypeCode::kDLUInt)) {
+          ffi::BigInt last = base->value + stride->value * (dtype.lanes() - 1);
+          if (details::IsRepresentable(base->value, elem_ty) &&
+              details::IsRepresentable(stride->value, elem_ty) &&
+              details::IsRepresentable(last, elem_ty) &&
+              details::IsRepresentable(last, ramp->base.ty())) {
+            return prim::Ramp(cast(ramp->base, elem_ty, loc), cast(ramp->stride, elem_ty, loc),
+                              ramp->lanes, loc);
+          }
         }
       }
       return prim::Cast(std::move(t), value, loc);
@@ -375,7 +432,7 @@ inline bool ConstPowerHelper(ValueType val, int* shift) {
 }
 
 bool IsPowerOfTwoInt(const PrimExpr& x, int* shift) {
-  if (const auto* op = x.as<IntImmNode>()) {
+  if (const auto* op = x.as<IntImmObj>()) {
     return ConstPowerHelper(op->value, shift);
   } else {
     return false;
@@ -396,14 +453,13 @@ PrimExpr add(PrimExpr a, PrimExpr b, Location loc) {
 PrimExpr operator-(PrimExpr a) { return neg(a); }
 
 PrimExpr neg(PrimExpr a, Location loc) {
-  const IntImmNode* pa = a.as<IntImmNode>();
-  const FloatImmNode* fa = a.as<FloatImmNode>();
+  const IntImmObj* pa = a.as<IntImmObj>();
+  const FloatImmObj* fa = a.as<FloatImmObj>();
   if (pa) {
     ffi::BigInt value = -pa->value;
-    if (a.ty().MatchesCode(DLDataTypeCode::kDLInt) && a.ty().bits() >= 64) {
-      value = prim::details::GetFoldResult(std::move(value), a.ty());
+    if (prim::details::IsRepresentable(value, a.ty())) {
+      return IntImm(a.ty(), std::move(value), loc);
     }
-    return IntImm(a.ty(), std::move(value), loc);
   }
   if (fa) return FloatImm(a.ty(), -fa->value, loc);
   return MakeConst(a.ty(), 0, loc) - a;
@@ -508,7 +564,7 @@ PrimExpr if_then_else(PrimExpr cond, PrimExpr true_value, PrimExpr false_value, 
   TVM_FFI_ICHECK(cond.ty().MatchesCode(DLDataTypeCode::kDLBool))
       << "if_then_else only accept the condition to be boolean type.";
   BinaryOpMatchTypes(true_value, false_value, loc);
-  if (const IntImmNode* op = cond.as<IntImmNode>()) {
+  if (const IntImmObj* op = cond.as<IntImmObj>()) {
     if (op->value != 0) {
       return true_value;
     } else {
@@ -651,8 +707,9 @@ PrimExpr left_shift(PrimExpr a, PrimExpr b, Location loc) {
           << result_ty;
     if (pa && pb) {
       ffi::BigInt value = pa->value << pb->value;
-      if (result_ty.bits() >= 64) value = prim::details::GetFoldResult(std::move(value), result_ty);
-      return IntImm(result_ty, std::move(value), loc);
+      if (prim::details::IsRepresentable(value, result_ty)) {
+        return IntImm(result_ty, std::move(value), loc);
+      }
     }
     if (pb) {
       if (pb->value == 0) return a;
@@ -731,10 +788,11 @@ PrimExpr bitwise_neg(PrimExpr a, Location loc) {
 
 PrimExpr prim::IntegerAbs(PrimExpr x, Location loc) {
   if (x.ty().MatchesCode(DLDataTypeCode::kDLInt)) {
-    if (const IntImmNode* px = x.as<IntImmNode>()) {
+    if (const IntImmObj* px = x.as<IntImmObj>()) {
       ffi::BigInt value = px->value < 0 ? -px->value : px->value;
-      if (x.ty().bits() >= 64) value = prim::details::GetFoldResult(std::move(value), x.ty());
-      return IntImm(x.ty(), std::move(value), px->loc);
+      if (prim::details::IsRepresentable(value, x.ty())) {
+        return IntImm(x.ty(), std::move(value), px->loc);
+      }
     }
     return Select(x >= MakeConst(x.ty(), 0), x, -x, loc);
   }
@@ -800,7 +858,7 @@ PrimExpr prim::ceil(PrimExpr x, Location loc) {
                          DLDataTypeCode::kDLBool)) {
     return x;
   }
-  const FloatImmNode* fx = x.as<FloatImmNode>();
+  const FloatImmObj* fx = x.as<FloatImmObj>();
   if (fx) return FloatImm(x.ty(), std::ceil(fx->value), fx->loc);
   return Call(x.ty(), prim::ceil_op(), {x}, {}, {}, loc).as_or_throw<PrimExpr>();
 }

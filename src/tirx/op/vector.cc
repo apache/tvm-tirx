@@ -32,7 +32,7 @@ namespace tvm {
 namespace tirx {
 
 template <bool Combine>
-Type InferTypeVectorPart(const CallNode* call) {
+Type InferTypeVectorPart(const CallObj* call) {
   TVM_FFI_CHECK_EQ(call->args.size(), Combine ? 2U : 1U, ValueError);
   PrimType input = call->args[0]->ty.as_or_throw<PrimType>();
   if constexpr (Combine) {

@@ -42,14 +42,14 @@ namespace sym {
 using namespace tvm::prim;
 
 TVM_FFI_STATIC_INIT_BLOCK() {
-  IterMarkNode::RegisterReflection();
-  IterSplitExprNode::RegisterReflection();
-  IterSumExprNode::RegisterReflection();
+  IterMarkObj::RegisterReflection();
+  IterSplitExprObj::RegisterReflection();
+  IterSumExprObj::RegisterReflection();
   IterMapResultObj::RegisterReflection();
 }
 
 IterMark::IterMark(PrimExpr source, PrimExpr extent) {
-  auto n = ffi::make_object<IterMarkNode>(std::move(source), std::move(extent));
+  auto n = ffi::make_object<IterMarkObj>(std::move(source), std::move(extent));
   data_ = std::move(n);
 }
 
@@ -63,16 +63,16 @@ TVM_FFI_STATIC_INIT_BLOCK() {
 
 IterSplitExpr::IterSplitExpr(IterMark source) : IterMapExpr(ffi::UnsafeInit{}) {
   auto one = prim::MakeConst(source->source.ty(), 1);
-  auto n = ffi::make_object<IterSplitExprNode>(source, one, source->extent, one);
-  n->ExprNode::ty = source->source.ty();
+  auto n = ffi::make_object<IterSplitExprObj>(source, one, source->extent, one);
+  n->ExprObj::ty = source->source.ty();
   n->source = std::move(source);
   data_ = std::move(n);
 }
 
 IterSplitExpr::IterSplitExpr(IterMark source, PrimExpr scale) : IterMapExpr(ffi::UnsafeInit{}) {
   auto one = prim::MakeConst(source->source.ty(), 1);
-  auto n = ffi::make_object<IterSplitExprNode>(source, one, source->extent, std::move(scale));
-  n->ExprNode::ty = source->source.ty();
+  auto n = ffi::make_object<IterSplitExprObj>(source, one, source->extent, std::move(scale));
+  n->ExprObj::ty = source->source.ty();
   n->source = std::move(source);
   data_ = std::move(n);
 }
@@ -80,9 +80,9 @@ IterSplitExpr::IterSplitExpr(IterMark source, PrimExpr scale) : IterMapExpr(ffi:
 IterSplitExpr::IterSplitExpr(IterMark source, PrimExpr lower_factor, PrimExpr extent,
                              PrimExpr scale)
     : IterMapExpr(ffi::UnsafeInit{}) {
-  auto n = ffi::make_object<IterSplitExprNode>(source, std::move(lower_factor), std::move(extent),
-                                               std::move(scale));
-  n->ExprNode::ty = source->source.ty();
+  auto n = ffi::make_object<IterSplitExprObj>(source, std::move(lower_factor), std::move(extent),
+                                              std::move(scale));
+  n->ExprObj::ty = source->source.ty();
   n->source = std::move(source);
   data_ = std::move(n);
 }
@@ -99,8 +99,8 @@ TVM_FFI_STATIC_INIT_BLOCK() {
 
 IterSumExpr::IterSumExpr(ffi::Array<IterSplitExpr> args, PrimExpr base)
     : IterMapExpr(ffi::UnsafeInit{}) {
-  auto n = ffi::make_object<IterSumExprNode>(std::move(base));
-  n->ExprNode::ty = n->base.ty();
+  auto n = ffi::make_object<IterSumExprObj>(std::move(base));
+  n->ExprObj::ty = n->base.ty();
   n->args = std::move(args);
   data_ = std::move(n);
 }
@@ -142,7 +142,7 @@ class IterMarkSplitCollector {
   void CollectInternal(const IterMark& mark) {
     if (visited_.count(mark)) return;
     visited_.insert(mark);
-    if (auto* op = mark->source.as<IterSumExprNode>()) {
+    if (auto* op = mark->source.as<IterSumExprObj>()) {
       for (IterSplitExpr split : op->args) {
         this->CollectInternal(split->source);
         mark2splits_[split->source].push_back(split);
@@ -325,7 +325,7 @@ class IterMapRewriter : public tvm::ExprMutator {
       // Unchanged introduces no IterMapExpr replacement, so the result guard is unnecessary.
       if (value_u.IsUnchanged()) return ffi::Unchanged();
       ffi::Any value = std::move(value_u).ValueUnchecked();
-      if (value.as<IterMapExprNode>()) {
+      if (value.as<IterMapExprObj>()) {
         ErrorLogger(this) << "IterMapExpr or subclasses should only result from qualified "
                           << "parent mutation in IterMapRewriter.  "
                           << "Indirect return occurred in " << input;
@@ -338,12 +338,12 @@ class IterMapRewriter : public tvm::ExprMutator {
     }
   }
 
-  UnchangedOr<Expr> Mutate_(const VarNode* op, InplaceMode inplace_mode) final;
-  UnchangedOr<PrimExpr> Mutate_(const prim::AddNode* op, InplaceMode inplace_mode) final;
-  UnchangedOr<PrimExpr> Mutate_(const prim::SubNode* op, InplaceMode inplace_mode) final;
-  UnchangedOr<PrimExpr> Mutate_(const prim::MulNode* op, InplaceMode inplace_mode) final;
-  UnchangedOr<PrimExpr> Mutate_(const prim::FloorDivNode* op, InplaceMode inplace_mode) final;
-  UnchangedOr<PrimExpr> Mutate_(const prim::FloorModNode* op, InplaceMode inplace_mode) final;
+  UnchangedOr<Expr> Mutate_(const VarObj* op, InplaceMode inplace_mode) final;
+  UnchangedOr<PrimExpr> Mutate_(const prim::AddObj* op, InplaceMode inplace_mode) final;
+  UnchangedOr<PrimExpr> Mutate_(const prim::SubObj* op, InplaceMode inplace_mode) final;
+  UnchangedOr<PrimExpr> Mutate_(const prim::MulObj* op, InplaceMode inplace_mode) final;
+  UnchangedOr<PrimExpr> Mutate_(const prim::FloorDivObj* op, InplaceMode inplace_mode) final;
+  UnchangedOr<PrimExpr> Mutate_(const prim::FloorModObj* op, InplaceMode inplace_mode) final;
 
  private:
   /* \brief Preprocessing common to both FloorDiv and FloorMod
@@ -742,7 +742,7 @@ class IterMapRewriter : public tvm::ExprMutator {
       // we need to note down the flattened form of constrained iterators
       // to check the validity of constraints, see also CheckConstraints()
       constrained_iters_flattened_.push_back(flattened_form);
-      IterSumExprNode* normalized_expr = expr.CopyOnWrite();
+      IterSumExprObj* normalized_expr = expr.CopyOnWrite();
       normalized_expr->args = ffi::Array<IterSplitExpr>({split});
       normalized_expr->base = base;
       return expr;
@@ -803,14 +803,14 @@ class IterMapRewriter : public tvm::ExprMutator {
       ffi::BigInt cscale = 1;
       PrimExpr res = IntImm(split.ty(), 1);
       auto fcollect = [&](PrimExpr val) {
-        if (const auto* intimm = val.as<IntImmNode>()) {
+        if (const auto* intimm = val.as<IntImmObj>()) {
           cscale *= intimm->value;
         } else {
           res = res * val;
           ++symbol_prod_count;
         }
       };
-      UnpackReduction<prim::MulNode>(split->scale, fcollect);
+      UnpackReduction<prim::MulObj>(split->scale, fcollect);
       if (cscale != 1) {
         res = res * IntImm(res.ty(), cscale);
       }
@@ -845,7 +845,7 @@ class IterMapRewriter : public tvm::ExprMutator {
     } else if (auto op = expr.as<IterSplitExpr>()) {
       return IterSumExpr({op.value()}, IntImm(expr.ty(), 0));
     } else {
-      TVM_FFI_ICHECK(!expr->IsInstance<IterMapExprNode>());
+      TVM_FFI_ICHECK(!expr->IsInstance<IterMapExprObj>());
       return IterSumExpr({}, expr);
     }
   }
@@ -873,7 +873,7 @@ class IterMapRewriter : public tvm::ExprMutator {
     for (int i = rbegin; i >= 0; --i) {
       if (skip_flag[i]) continue;
       if (match_source.has_value() && !match_source.same_as(expr->args[i]->source)) continue;
-      if (const auto* op = expr->args[i]->scale.as<IntImmNode>()) {
+      if (const auto* op = expr->args[i]->scale.as<IntImmObj>()) {
         if (base_index == -1 || op->value < min_const_scale) {
           min_const_scale = op->value;
           base_index = static_cast<int>(i);
@@ -895,7 +895,7 @@ class IterMapRewriter : public tvm::ExprMutator {
       if (match_source.has_value() && !match_source.same_as(expr->args[i]->source)) continue;
       int reduce_size = 0;
       auto fcollect = [&](const PrimExpr&) { ++reduce_size; };
-      UnpackReduction<prim::MulNode>(expr->args[i]->scale, fcollect);
+      UnpackReduction<prim::MulObj>(expr->args[i]->scale, fcollect);
       if (base_index == -1 || reduce_size < min_reduce_size) {
         min_reduce_size = reduce_size;
         base_index = static_cast<int>(i);
@@ -1242,7 +1242,7 @@ class IterMapRewriter : public tvm::ExprMutator {
   ffi::Optional<PrimExpr> SplitFloorDivConst(IterSplitExpr lhs, PrimExpr base, PrimExpr rhs);
   ffi::Optional<PrimExpr> SplitFloorModConst(IterSplitExpr lhs, PrimExpr base, PrimExpr rhs);
 
-  static void AddToLhs(IterSumExprNode* lhs, IterSplitExpr rhs, int sign) {
+  static void AddToLhs(IterSumExprObj* lhs, IterSplitExpr rhs, int sign) {
     prim::ExprDeepEqual equal;
     for (size_t i = 0; i < lhs->args.size(); ++i) {
       IterSplitExpr lvalue = lhs->args[i];
@@ -1265,7 +1265,7 @@ class IterMapRewriter : public tvm::ExprMutator {
     }
   }
 
-  static void AddToLhs(IterSumExprNode* lhs, const IterSumExpr& rhs, int sign) {
+  static void AddToLhs(IterSumExprObj* lhs, const IterSumExpr& rhs, int sign) {
     for (const auto& arg : rhs->args) {
       AddToLhs(lhs, arg, sign);
     }
@@ -1276,7 +1276,7 @@ class IterMapRewriter : public tvm::ExprMutator {
     }
   }
 
-  static void MulToLhs(IterSumExprNode* lhs, const PrimExpr& rhs) {
+  static void MulToLhs(IterSumExprObj* lhs, const PrimExpr& rhs) {
     for (size_t i = 0; i < lhs->args.size(); ++i) {
       IterSplitExpr lvalue = lhs->args[i];
       lvalue.CopyOnWrite()->scale *= rhs;
@@ -1298,49 +1298,47 @@ class IterConstraintSizeCounter : public tvm::ExprVisitor {
 
  private:
   ffi::Optional<VisitInterrupt> Visit(ffi::AnyView value) final {
-    if (value.as<ExprNode>()) ++count_;
+    if (value.as<ExprObj>()) ++count_;
     return tvm::ExprVisitor::Visit(value);
   }
 
-  ffi::Optional<VisitInterrupt> Visit_(const VarNode*) final { return std::nullopt; }
+  ffi::Optional<VisitInterrupt> Visit_(const VarObj*) final { return std::nullopt; }
 
-  ffi::Optional<VisitInterrupt> Visit_(const OpaqueExprNode*) final { return std::nullopt; }
+  ffi::Optional<VisitInterrupt> Visit_(const OpaqueExprObj*) final { return std::nullopt; }
 
-  ffi::Optional<VisitInterrupt> Visit_(const TupleNode* op) final {
-    return this->Visit(op->fields);
-  }
+  ffi::Optional<VisitInterrupt> Visit_(const TupleObj* op) final { return this->Visit(op->fields); }
 
-  ffi::Optional<VisitInterrupt> Visit_(const TupleGetItemNode* op) final {
+  ffi::Optional<VisitInterrupt> Visit_(const TupleGetItemObj* op) final {
     return this->Visit(op->tuple);
   }
 
-  ffi::Optional<VisitInterrupt> Visit_(const TensorLoadNode* op) final {
+  ffi::Optional<VisitInterrupt> Visit_(const TensorLoadObj* op) final {
     TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(this->Visit(op->source));
     return this->Visit(op->indices);
   }
 
-  ffi::Optional<VisitInterrupt> Visit_(const CallNode* op) final {
-    if (op->op.as<OpaqueExprNode>()) {
+  ffi::Optional<VisitInterrupt> Visit_(const CallObj* op) final {
+    if (op->op.as<OpaqueExprObj>()) {
       TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(this->Visit(op->op));
     }
     return this->Visit(op->args);
   }
 
-  ffi::Optional<VisitInterrupt> Visit_(const LetNode* op) final {
+  ffi::Optional<VisitInterrupt> Visit_(const LetObj* op) final {
     TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(this->Visit(op->value));
     return this->Visit(op->body);
   }
 
-  ffi::Optional<VisitInterrupt> Visit_(const RampNode* op) final {
+  ffi::Optional<VisitInterrupt> Visit_(const RampObj* op) final {
     TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(this->Visit(op->base));
     return this->Visit(op->stride);
   }
 
-  ffi::Optional<VisitInterrupt> Visit_(const BroadcastNode* op) final {
+  ffi::Optional<VisitInterrupt> Visit_(const BroadcastObj* op) final {
     return this->Visit(op->value);
   }
 
-  ffi::Optional<VisitInterrupt> Visit_(const ShuffleNode* op) final {
+  ffi::Optional<VisitInterrupt> Visit_(const ShuffleObj* op) final {
     TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(this->Visit(op->indices));
     return this->Visit(op->vectors);
   }
@@ -1377,7 +1375,7 @@ struct IterConstraint {
 bool MatchBoundConstraints(PrimExpr pred, ffi::Map<PrimVar, Range>* input_iters,
                            std::vector<IterConstraint>* result) {
   tvm::PVar<PrimExpr> lhs, rhs, rest;
-  std::unordered_set<const VarNode*> input_iter_nodes;
+  std::unordered_set<const VarObj*> input_iter_nodes;
   for (const auto& [var, _] : *input_iters) {
     input_iter_nodes.insert(var.get());
   }
@@ -1421,9 +1419,7 @@ bool MatchBoundConstraints(PrimExpr pred, ffi::Map<PrimVar, Range>* input_iters,
     }
     // determine iter and bound, if we can not distinguish them simply,
     // try divide (lhs - rhs) into itervar aware and itervar free parts
-    auto f_use_itervar = [&input_iter_nodes](const VarNode* v) {
-      return input_iter_nodes.count(v);
-    };
+    auto f_use_itervar = [&input_iter_nodes](const VarObj* v) { return input_iter_nodes.count(v); };
     auto walkfn = [&](const Var& var) -> ffi::Expected<ffi::WalkResult> {
       return f_use_itervar(var.get()) ? ffi::WalkResult::Interrupt(ffi::VisitInterrupt(var))
                                       : ffi::WalkResult::Advance();
@@ -1446,10 +1442,10 @@ bool MatchBoundConstraints(PrimExpr pred, ffi::Map<PrimVar, Range>* input_iters,
         rhs_expr = 0;
         std::function<void(const PrimExpr&, bool)> f_extract =
             [&lhs_expr, &rhs_expr, &walkfn, &f_extract](const PrimExpr& part, bool sign) {
-              if (const prim::AddNode* add = part.as<prim::AddNode>()) {
+              if (const prim::AddObj* add = part.as<prim::AddObj>()) {
                 f_extract(add->a, sign);
                 f_extract(add->b, sign);
-              } else if (const prim::SubNode* sub = part.as<prim::SubNode>()) {
+              } else if (const prim::SubObj* sub = part.as<prim::SubObj>()) {
                 f_extract(sub->a, sign);
                 f_extract(sub->b, !sign);
               } else if (ffi::StructuralWalk<ffi::WalkOrder::kPreOrder>(part, walkfn).has_value()) {
@@ -1508,7 +1504,7 @@ bool MatchBoundConstraints(PrimExpr pred, ffi::Map<PrimVar, Range>* input_iters,
 bool IterRangeSanityCheck(const ffi::Map<PrimVar, Range>& iter_ranges) {
   std::unordered_set<Var> iters;
   for (const auto& it : iter_ranges) iters.insert(it.first);
-  auto f = [&](const VarNode* var) { return iters.count(ffi::GetRef<Var>(var)); };
+  auto f = [&](const VarObj* var) { return iters.count(ffi::GetRef<Var>(var)); };
   auto walkfn = [&](const Var& var) -> ffi::Expected<ffi::WalkResult> {
     return f(var.get()) ? ffi::WalkResult::Interrupt(ffi::VisitInterrupt(var))
                         : ffi::WalkResult::Advance();
@@ -1650,7 +1646,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
       });
 }
 
-UnchangedOr<Expr> IterMapRewriter::Mutate_(const VarNode* op, InplaceMode inplace_mode) {
+UnchangedOr<Expr> IterMapRewriter::Mutate_(const VarObj* op, InplaceMode inplace_mode) {
   auto var = ffi::GetRef<Var>(op);
   auto it = var_map_.find(var);
   if (it != var_map_.end()) return it->second;
@@ -1658,7 +1654,7 @@ UnchangedOr<Expr> IterMapRewriter::Mutate_(const VarNode* op, InplaceMode inplac
   return ffi::Unchanged();
 }
 
-UnchangedOr<PrimExpr> IterMapRewriter::Mutate_(const prim::AddNode* op, InplaceMode inplace_mode) {
+UnchangedOr<PrimExpr> IterMapRewriter::Mutate_(const prim::AddObj* op, InplaceMode inplace_mode) {
   if (!IsIndexTypedExpr(op)) {
     return Parent::Mutate_(op, inplace_mode);
   }
@@ -1668,7 +1664,7 @@ UnchangedOr<PrimExpr> IterMapRewriter::Mutate_(const prim::AddNode* op, InplaceM
   // const folding
   if (auto const_res = TryConstFold<prim::Add>(a, b)) return std::move(const_res).value();
   // does not contain iter map.
-  if (!a->IsInstance<IterMapExprNode>() && !b->IsInstance<IterMapExprNode>()) {
+  if (!a->IsInstance<IterMapExprObj>() && !b->IsInstance<IterMapExprObj>()) {
     if (op->a.same_as(a) && op->b.same_as(b)) {
       // Reuse the original expression without passing it through the replacement guard.
       return ffi::Unchanged();
@@ -1680,7 +1676,7 @@ UnchangedOr<PrimExpr> IterMapRewriter::Mutate_(const prim::AddNode* op, InplaceM
   // canonical form simplification.
   IterSumExpr ret = ToIterSumExpr(a);
 
-  if (!b->IsInstance<IterMapExprNode>()) {
+  if (!b->IsInstance<IterMapExprObj>()) {
     ret.CopyOnWrite()->base += b;
   } else if (auto op = b.as<IterSumExpr>()) {
     AddToLhs(ret.CopyOnWrite(), op.value(), 1);
@@ -1692,7 +1688,7 @@ UnchangedOr<PrimExpr> IterMapRewriter::Mutate_(const prim::AddNode* op, InplaceM
   return ret;
 }
 
-UnchangedOr<PrimExpr> IterMapRewriter::Mutate_(const prim::SubNode* op, InplaceMode inplace_mode) {
+UnchangedOr<PrimExpr> IterMapRewriter::Mutate_(const prim::SubObj* op, InplaceMode inplace_mode) {
   if (!IsIndexTypedExpr(op)) {
     return Parent::Mutate_(op, inplace_mode);
   }
@@ -1704,7 +1700,7 @@ UnchangedOr<PrimExpr> IterMapRewriter::Mutate_(const prim::SubNode* op, InplaceM
   if (auto const_res = TryConstFold<prim::Sub>(a, b)) return std::move(const_res).value();
 
   // does not contain iter map.
-  if (!a->IsInstance<IterMapExprNode>() && !b->IsInstance<IterMapExprNode>()) {
+  if (!a->IsInstance<IterMapExprObj>() && !b->IsInstance<IterMapExprObj>()) {
     if (op->a.same_as(a) && op->b.same_as(b)) {
       // Reuse the original expression without passing it through the replacement guard.
       return ffi::Unchanged();
@@ -1716,7 +1712,7 @@ UnchangedOr<PrimExpr> IterMapRewriter::Mutate_(const prim::SubNode* op, InplaceM
   // canonical form simplification.
   IterSumExpr ret = ToIterSumExpr(a);
 
-  if (!b->IsInstance<IterMapExprNode>()) {
+  if (!b->IsInstance<IterMapExprObj>()) {
     ret.CopyOnWrite()->base -= b;
   } else if (auto op = b.as<IterSumExpr>()) {
     AddToLhs(ret.CopyOnWrite(), op.value(), -1);
@@ -1728,7 +1724,7 @@ UnchangedOr<PrimExpr> IterMapRewriter::Mutate_(const prim::SubNode* op, InplaceM
   return ret;
 }
 
-UnchangedOr<PrimExpr> IterMapRewriter::Mutate_(const prim::MulNode* op, InplaceMode inplace_mode) {
+UnchangedOr<PrimExpr> IterMapRewriter::Mutate_(const prim::MulObj* op, InplaceMode inplace_mode) {
   if (!IsIndexTypedExpr(op)) {
     return Parent::Mutate_(op, inplace_mode);
   }
@@ -1740,7 +1736,7 @@ UnchangedOr<PrimExpr> IterMapRewriter::Mutate_(const prim::MulNode* op, InplaceM
   if (auto const_res = TryConstFold<prim::Mul>(a, b)) return std::move(const_res).value();
 
   // does not contain iter map.
-  if (!a->IsInstance<IterMapExprNode>() && !b->IsInstance<IterMapExprNode>()) {
+  if (!a->IsInstance<IterMapExprObj>() && !b->IsInstance<IterMapExprObj>()) {
     if (op->a.same_as(a) && op->b.same_as(b)) {
       // Reuse the original expression without passing it through the replacement guard.
       return ffi::Unchanged();
@@ -1749,7 +1745,7 @@ UnchangedOr<PrimExpr> IterMapRewriter::Mutate_(const prim::MulNode* op, InplaceM
     }
   }
 
-  if (a->IsInstance<IterMapExprNode>() && b->IsInstance<IterMapExprNode>()) {
+  if (a->IsInstance<IterMapExprObj>() && b->IsInstance<IterMapExprObj>()) {
     // cannot multiply two iterators, mark as unresolved.
     ErrorLogger(this) << "Product of two iterators cannot be represented as an IterMap, "
                       << "occurs in " << ffi::GetRef<prim::Mul>(op);
@@ -1757,17 +1753,17 @@ UnchangedOr<PrimExpr> IterMapRewriter::Mutate_(const prim::MulNode* op, InplaceM
     return ffi::Unchanged();
   }
 
-  if (!a->IsInstance<IterMapExprNode>()) {
+  if (!a->IsInstance<IterMapExprObj>()) {
     std::swap(a, b);
   }
 
-  if (a->IsInstance<IterSumExprNode>()) {
+  if (a->IsInstance<IterSumExprObj>()) {
     IterSumExpr ret = std::move(a).as_or_throw<IterSumExpr>();
     MulToLhs(ret.CopyOnWrite(), b);
     return ret;
 
   } else {
-    TVM_FFI_ICHECK(a->IsInstance<IterSplitExprNode>());
+    TVM_FFI_ICHECK(a->IsInstance<IterSplitExprObj>());
     IterSplitExpr ret = std::move(a).as_or_throw<IterSplitExpr>();
     ret.CopyOnWrite()->scale *= b;
     return ret;
@@ -1776,10 +1772,10 @@ UnchangedOr<PrimExpr> IterMapRewriter::Mutate_(const prim::MulNode* op, InplaceM
 
 ffi::Optional<IterSumExpr> IterMapRewriter::PreprocessDividend(IterMapExpr dividend,
                                                                PrimExpr original_dividend) {
-  if (dividend->IsInstance<IterSplitExprNode>()) {
+  if (dividend->IsInstance<IterSplitExprObj>()) {
     auto split = dividend.as_or_throw<IterSplitExpr>();
     return IterSumExpr({split}, IntImm(split.ty(), 0));
-  } else if (dividend->IsInstance<IterSumExprNode>()) {
+  } else if (dividend->IsInstance<IterSumExprObj>()) {
     auto sum = dividend.as_or_throw<IterSumExpr>();
     if (sum->args.empty()) {
       return std::nullopt;
@@ -2046,7 +2042,7 @@ ffi::Optional<PrimExpr> IterMapRewriter::SplitFloorDivConst(IterSplitExpr lhs, P
   }
 }
 
-UnchangedOr<PrimExpr> IterMapRewriter::Mutate_(const prim::FloorDivNode* op,
+UnchangedOr<PrimExpr> IterMapRewriter::Mutate_(const prim::FloorDivObj* op,
                                                InplaceMode inplace_mode) {
   if (!IsIndexTypedExpr(op)) {
     return Parent::Mutate_(op, inplace_mode);
@@ -2059,7 +2055,7 @@ UnchangedOr<PrimExpr> IterMapRewriter::Mutate_(const prim::FloorDivNode* op,
   if (auto const_res = TryConstFold<prim::FloorDiv>(a, b)) return std::move(const_res).value();
 
   // does not contain iter map.
-  if (!a->IsInstance<IterMapExprNode>() && !b->IsInstance<IterMapExprNode>()) {
+  if (!a->IsInstance<IterMapExprObj>() && !b->IsInstance<IterMapExprObj>()) {
     if (op->a.same_as(a) && op->b.same_as(b)) {
       // Reuse the original expression without passing it through the replacement guard.
       return ffi::Unchanged();
@@ -2068,7 +2064,7 @@ UnchangedOr<PrimExpr> IterMapRewriter::Mutate_(const prim::FloorDivNode* op,
     }
   }
 
-  if (b->IsInstance<IterMapExprNode>()) {
+  if (b->IsInstance<IterMapExprObj>()) {
     // cannot divide an iterator, mark as unresolved.
     ErrorLogger(this) << "Cannot represent as an IterMap: the divisor in "
                       << ffi::GetRef<PrimExpr>(op) << " may not be an iterator";
@@ -2158,7 +2154,7 @@ ffi::Optional<PrimExpr> IterMapRewriter::SplitFloorModConst(IterSplitExpr lhs, P
                        /* scale = */ padded->scale);
 }
 
-UnchangedOr<PrimExpr> IterMapRewriter::Mutate_(const prim::FloorModNode* op,
+UnchangedOr<PrimExpr> IterMapRewriter::Mutate_(const prim::FloorModObj* op,
                                                InplaceMode inplace_mode) {
   if (!IsIndexTypedExpr(op)) {
     return Parent::Mutate_(op, inplace_mode);
@@ -2171,7 +2167,7 @@ UnchangedOr<PrimExpr> IterMapRewriter::Mutate_(const prim::FloorModNode* op,
   if (auto const_res = TryConstFold<prim::FloorMod>(a, b)) return std::move(const_res).value();
 
   // does not contain iter map.
-  if (!a->IsInstance<IterMapExprNode>() && !b->IsInstance<IterMapExprNode>()) {
+  if (!a->IsInstance<IterMapExprObj>() && !b->IsInstance<IterMapExprObj>()) {
     if (op->a.same_as(a) && op->b.same_as(b)) {
       // Reuse the original expression without passing it through the replacement guard.
       return ffi::Unchanged();
@@ -2180,7 +2176,7 @@ UnchangedOr<PrimExpr> IterMapRewriter::Mutate_(const prim::FloorModNode* op,
     }
   }
 
-  if (b->IsInstance<IterMapExprNode>()) {
+  if (b->IsInstance<IterMapExprObj>()) {
     // cannot mod an iterator, mark as unresolved.
     ErrorLogger(this) << "Cannot represent as an IterMap: the right-hand side of FloorMod in "
                       << ffi::GetRef<PrimExpr>(op) << " may not be an iterator";
@@ -2213,11 +2209,11 @@ class IterMapToExprNormalizer : public tvm::ExprMutator {
   explicit IterMapToExprNormalizer(AnalyzerObj* analyzer)
       : Parent(NativeVTable()), analyzer_(analyzer) {}
 
-  UnchangedOr<PrimExpr> Mutate_(const IterSplitExprNode* op, InplaceMode inplace_mode) {
+  UnchangedOr<PrimExpr> Mutate_(const IterSplitExprObj* op, InplaceMode inplace_mode) {
     return ConvertIterSplitExpr(ffi::GetRef<IterSplitExpr>(op), inplace_mode);
   }
 
-  UnchangedOr<PrimExpr> Mutate_(const IterSumExprNode* op, InplaceMode inplace_mode) {
+  UnchangedOr<PrimExpr> Mutate_(const IterSumExprObj* op, InplaceMode inplace_mode) {
     return ConvertIterSumExpr(ffi::GetRef<IterSumExpr>(op), inplace_mode);
   }
 
@@ -2226,8 +2222,8 @@ class IterMapToExprNormalizer : public tvm::ExprMutator {
     static const VTable table = [] {
       VTable table;
       Parent::InitVTable(&table);
-      SetDispatch<IterMapToExprNormalizer, IterSplitExprNode>(&table);
-      SetDispatch<IterMapToExprNormalizer, IterSumExprNode>(&table);
+      SetDispatch<IterMapToExprNormalizer, IterSplitExprObj>(&table);
+      SetDispatch<IterMapToExprNormalizer, IterSumExprObj>(&table);
       table.Finalize();
       return table;
     }();
@@ -2279,8 +2275,8 @@ class IterMapToExprNormalizer : public tvm::ExprMutator {
 };
 
 bool IterMapRewriter::CanProveDivisible(const PrimExpr& lhs, const PrimExpr& rhs) {
-  const auto* clhs = lhs.as<IntImmNode>();
-  const auto* crhs = rhs.as<IntImmNode>();
+  const auto* clhs = lhs.as<IntImmObj>();
+  const auto* crhs = rhs.as<IntImmObj>();
   if (crhs && crhs->value == 0) {
     return false;
   } else if (clhs && crhs) {
@@ -2708,10 +2704,10 @@ class InverseAffineIterMapTransformer {
   ffi::Map<Var, PrimExpr> operator()(const ffi::Array<IterSumExpr>& iter_map,
                                      const ffi::Array<PrimExpr>& outputs) {
     TVM_FFI_ICHECK(iter_map.size() == outputs.size());
-    std::vector<const IterMapExprNode*> post_dfs_order = ReverseTopologyOrder(iter_map);
+    std::vector<const IterMapExprObj*> post_dfs_order = ReverseTopologyOrder(iter_map);
 
     // initialize back propagation accumulator
-    for (const IterMapExprNode* node : post_dfs_order) {
+    for (const IterMapExprObj* node : post_dfs_order) {
       backprop_.Set(ffi::GetRef<IterMapExpr>(node), IntImm::Int32(0));
     }
     for (size_t i = 0; i < iter_map.size(); i++) {
@@ -2719,11 +2715,11 @@ class InverseAffineIterMapTransformer {
     }
 
     // run back propagation
-    for (const IterMapExprNode* node : post_dfs_order) {
-      if (node->IsInstance<IterSumExprNode>()) {
+    for (const IterMapExprObj* node : post_dfs_order) {
+      if (node->IsInstance<IterSumExprObj>()) {
         Visit_(ffi::GetRef<IterMapExpr>(node).as_or_throw<IterSumExpr>());
       } else {
-        TVM_FFI_ICHECK(node->IsInstance<IterSplitExprNode>());
+        TVM_FFI_ICHECK(node->IsInstance<IterSplitExprObj>());
         Visit_(ffi::GetRef<IterMapExpr>(node).as_or_throw<IterSplitExpr>());
       }
     }
@@ -2760,9 +2756,8 @@ class InverseAffineIterMapTransformer {
     }
   }
 
-  std::vector<const IterMapExprNode*> ReverseTopologyOrder(
-      const ffi::Array<IterSumExpr>& iter_map) {
-    std::vector<const IterMapExprNode*> post_dfs_order;
+  std::vector<const IterMapExprObj*> ReverseTopologyOrder(const ffi::Array<IterSumExpr>& iter_map) {
+    std::vector<const IterMapExprObj*> post_dfs_order;
     std::unordered_map<IterMapExpr, bool, ffi::ObjectPtrHash, ffi::ObjectPtrEqual> visited;
 
     std::function<void(const IterMapExpr&)> fvisit = [&](const IterMapExpr& expr) {
@@ -2770,12 +2765,12 @@ class InverseAffineIterMapTransformer {
         return;
       }
       visited[expr] = true;
-      if (const auto* sum_expr = expr.as<IterSumExprNode>()) {
+      if (const auto* sum_expr = expr.as<IterSumExprObj>()) {
         for (const IterSplitExpr& child : sum_expr->args) {
           fvisit(child);
         }
       } else {
-        const auto* split_expr = expr.as<IterSplitExprNode>();
+        const auto* split_expr = expr.as<IterSplitExprObj>();
         TVM_FFI_ICHECK(split_expr);
         if (auto source = split_expr->source->source.as<IterMapExpr>()) {
           fvisit(source.value());
@@ -2793,7 +2788,7 @@ class InverseAffineIterMapTransformer {
   void Visit_(const IterSplitExpr& iter_map_expr) {
     PrimExpr input = backprop_.at(iter_map_expr) * iter_map_expr->lower_factor;
     const IterMark& source = iter_map_expr->source;
-    if (source->source.as<IterSumExprNode>()) {
+    if (source->source.as<IterSumExprObj>()) {
       IterSumExpr source_expr = source->source.as_or_throw<IterSumExpr>();
       backprop_.Set(source_expr, backprop_.at(source_expr) + input);
     } else {

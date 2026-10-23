@@ -126,9 +126,9 @@ impl TCGen05InstrDescriptorAttrs {
     /// Lossless complete-field allocation.
     #[allow(non_snake_case)]
     pub fn new(
-        d_dtype: String,
-        a_dtype: String,
-        b_dtype: String,
+        d_dtype: impl Into<String>,
+        a_dtype: impl Into<String>,
+        b_dtype: impl Into<String>,
         M: i64,
         N: i64,
         K: i64,
@@ -141,9 +141,9 @@ impl TCGen05InstrDescriptorAttrs {
         is_sparse: bool,
     ) -> Self {
         let obj = TCGen05InstrDescriptorAttrsObj::new(
-            d_dtype,
-            a_dtype,
-            b_dtype,
+            d_dtype.into(),
+            a_dtype.into(),
+            b_dtype.into(),
             M,
             N,
             K,
@@ -255,11 +255,11 @@ impl TCGen05InstrDescriptorBlockScaledAttrs {
     /// Lossless complete-field allocation.
     #[allow(non_snake_case)]
     pub fn new(
-        d_dtype: String,
-        a_dtype: String,
-        b_dtype: String,
-        sfa_dtype: String,
-        sfb_dtype: String,
+        d_dtype: impl Into<String>,
+        a_dtype: impl Into<String>,
+        b_dtype: impl Into<String>,
+        sfa_dtype: impl Into<String>,
+        sfb_dtype: impl Into<String>,
         M: i64,
         N: i64,
         K: i64,
@@ -271,11 +271,11 @@ impl TCGen05InstrDescriptorBlockScaledAttrs {
         is_sparse: bool,
     ) -> Self {
         let obj = TCGen05InstrDescriptorBlockScaledAttrsObj::new(
-            d_dtype,
-            a_dtype,
-            b_dtype,
-            sfa_dtype,
-            sfb_dtype,
+            d_dtype.into(),
+            a_dtype.into(),
+            b_dtype.into(),
+            sfa_dtype.into(),
+            sfb_dtype.into(),
             M,
             N,
             K,
@@ -362,7 +362,7 @@ impl TensorMapEncodeTiledAttrObj {
 impl TensorMapEncodeTiledAttr {
     /// Lossless complete-field allocation.
     pub fn new(
-        descriptor_dtype: DLDataType,
+        descriptor_dtype: impl Into<DLDataType>,
         rank: i64,
         interleave: i64,
         swizzle: i64,
@@ -371,7 +371,7 @@ impl TensorMapEncodeTiledAttr {
         force_cu_dtype: i64,
     ) -> Self {
         let obj = TensorMapEncodeTiledAttrObj::new(
-            descriptor_dtype,
+            descriptor_dtype.into(),
             rank,
             interleave,
             swizzle,

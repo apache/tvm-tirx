@@ -34,9 +34,9 @@
 
 namespace tvm::tirx {
 
-bool TensorTypeNode::HasDefaultLayout(ffi::Optional<sym::Analyzer> analyzer) const {
+bool TensorTypeObj::HasDefaultLayout(ffi::Optional<sym::Analyzer> analyzer) const {
   if (!layout.has_value()) return true;
-  const auto* tile = layout.as<TileLayoutNode>();
+  const auto* tile = layout.as<TileLayoutObj>();
   if (!tile || !tile->replica.empty()) return false;
   static const Axis memory_axis = Axis::Get("m");
   for (const auto& iter : tile->shard) {
@@ -60,18 +60,18 @@ bool TensorTypeNode::HasDefaultLayout(ffi::Optional<sym::Analyzer> analyzer) con
   return ffi::GetRef<TileLayout>(tile).IsContiguous(std::move(analyzer));
 }
 
-bool TensorTypeNode::IsScalar(bool alloc_or_decl) const {
+bool TensorTypeObj::IsScalar(bool alloc_or_decl) const {
   // TODO(@bohan): logical scope is not considered
   return shape.size() == 1 && tvm::prim::IsOne(shape[0]) && data_alignment == 64 &&
          (!layout.has_value() ||
-          (layout.as<TileLayoutNode>() &&
+          (layout.as<TileLayoutObj>() &&
            layout.value().Canonicalize().as_or_throw<TileLayout>().IsTrivial()));
 }
 
-ffi::Optional<int64_t> TensorTypeNode::ConstantAllocationSize() const {
+ffi::Optional<int64_t> TensorTypeObj::ConstantAllocationSize() const {
   int64_t result = 1;
   for (const PrimExpr& extent : shape) {
-    const auto* size = extent.as<IntImmNode>();
+    const auto* size = extent.as<IntImmObj>();
     if (!size) return std::nullopt;
     auto product = (result * size->value).as<int64_t>();
     if (!product.has_value()) return std::nullopt;
@@ -100,8 +100,8 @@ TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> TensorMapTypeMaybeInpla
 TVM_FFI_INLINE ffi::Expected<ffi::Optional<ffi::VisitInterrupt>> TensorTypeVisit(
     ffi::StructuralVisitorObj* visitor, ffi::AnyView value) noexcept {
   // skips: scope, data_alignment
-  const TensorTypeNode* self =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const TensorTypeNode>(value);
+  const TensorTypeObj* self =
+      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const TensorTypeObj>(value);
   TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(visitor->VisitExpected(self->dtype));
   TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(visitor->VisitExpected(self->shape));
   TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(visitor->VisitExpected(self->layout));
@@ -111,8 +111,8 @@ TVM_FFI_INLINE ffi::Expected<ffi::Optional<ffi::VisitInterrupt>> TensorTypeVisit
 TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> TensorTypeMutate(
     ffi::StructuralMutatorObj* mutator, ffi::AnyView value) noexcept {
   // skips: scope, data_alignment
-  const TensorTypeNode* self =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const TensorTypeNode>(value);
+  const TensorTypeObj* self =
+      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const TensorTypeObj>(value);
   TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<PrimType>, mapped_dtype,
                                     mutator->MutateExpected(self->dtype));
   TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<ffi::Array<PrimExpr>>, mapped_shape,
@@ -123,7 +123,7 @@ TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> TensorTypeMutate(
       mapped_layout.UnchangedOrSameAs(self->layout)) {
     return ffi::Unchanged();
   }
-  ffi::ObjectPtr<TensorTypeNode> copy = ffi::make_object<TensorTypeNode>(*self);
+  ffi::ObjectPtr<TensorTypeObj> copy = ffi::make_object<TensorTypeObj>(*self);
   copy->dtype = std::move(mapped_dtype).ValueOrUnchanged(std::move(copy->dtype));
   copy->shape = std::move(mapped_shape).ValueOrUnchanged(std::move(copy->shape));
   copy->layout = std::move(mapped_layout).ValueOrUnchanged(std::move(copy->layout));
@@ -133,8 +133,8 @@ TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> TensorTypeMutate(
 TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> TensorTypeMaybeInplaceMutate(
     ffi::StructuralMutatorObj* mutator, ffi::AnyView value) noexcept {
   // skips: scope, data_alignment
-  TensorTypeNode* self = const_cast<TensorTypeNode*>(
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const TensorTypeNode>(value));
+  TensorTypeObj* self = const_cast<TensorTypeObj*>(
+      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const TensorTypeObj>(value));
   TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<PrimType>, mapped_dtype,
                                     mutator->MutateExpected(self->dtype, ffi::InplaceMode::kAllow));
   TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<ffi::Array<PrimExpr>>, mapped_shape,
@@ -157,7 +157,7 @@ TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> TensorTypeMaybeInplaceM
 TensorType::TensorType(ffi::Array<PrimExpr> shape, PrimType dtype, runtime::MemoryScope scope,
                        int data_alignment, ffi::Optional<Layout> layout, Location loc)
     : Type(ffi::UnsafeInit{}) {
-  auto n = ffi::make_object<TensorTypeNode>();
+  auto n = ffi::make_object<TensorTypeObj>();
   n->dtype = std::move(dtype);
   n->scope = std::move(scope);
   n->shape = std::move(shape);
@@ -170,12 +170,12 @@ TensorType::TensorType(ffi::Array<PrimExpr> shape, PrimType dtype, runtime::Memo
 
 TVM_FFI_STATIC_INIT_BLOCK() {
   namespace refl = tvm::ffi::reflection;
-  TensorTypeNode::RegisterReflection();
+  TensorTypeObj::RegisterReflection();
   refl::GlobalDef().def("tirx.TensorTypeHasDefaultLayout",
                         [](const TensorType& tensor, ffi::Optional<sym::Analyzer> analyzer) {
                           return tensor->HasDefaultLayout(std::move(analyzer));
                         });
-  refl::TypeAttrDef<TensorTypeNode>()
+  refl::TypeAttrDef<TensorTypeObj>()
       .attr(ffi::type_attr::kStructuralVisit, ffi::FStructuralVisit::FromNative<&TensorTypeVisit>())
       .attr(ffi::type_attr::kStructuralMutate,
             ffi::FStructuralMutate::FromNative<&TensorTypeMutate>())
@@ -191,15 +191,15 @@ TVM_FFI_STATIC_INIT_BLOCK() {
 }
 
 TensorMapType::TensorMapType(Location loc) : Type(ffi::UnsafeInit{}) {
-  ffi::ObjectPtr<TensorMapTypeNode> n = ffi::make_object<TensorMapTypeNode>();
+  ffi::ObjectPtr<TensorMapTypeObj> n = ffi::make_object<TensorMapTypeObj>();
   n->loc = loc;
   data_ = std::move(n);
 }
 
 TVM_FFI_STATIC_INIT_BLOCK() {
   namespace refl = tvm::ffi::reflection;
-  TensorMapTypeNode::RegisterReflection();
-  refl::TypeAttrDef<TensorMapTypeNode>()
+  TensorMapTypeObj::RegisterReflection();
+  refl::TypeAttrDef<TensorMapTypeObj>()
       .attr(ffi::type_attr::kStructuralVisit,
             ffi::FStructuralVisit::FromNative<&TensorMapTypeVisit>())
       .attr(ffi::type_attr::kStructuralMutate,

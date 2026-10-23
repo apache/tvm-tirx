@@ -70,7 +70,7 @@ ExprDoc GlobalReference(DocTranslatorObj* d, const ffi::String& name) {
 namespace {
 
 ExprDoc CallAttrsValue(DocTranslatorObj* d, const Attrs& attrs) {
-  if (attrs.as<DictAttrsNode>()) return d->Translate(attrs).value();
+  if (attrs.as<DictAttrsObj>()) return d->Translate(attrs).value();
   std::vector<std::pair<ffi::String, ffi::Any>> fields;
   ffi::reflection::ForEachFieldInfo(
       TVMFFIGetTypeInfo(attrs->type_index()), [&](const TVMFFIFieldInfo* field) {
@@ -130,7 +130,7 @@ IdDoc VarDoc(DocTranslatorObj* d, const Var& var, bool explicit_def) {
   return doc;
 }
 
-ExprDoc RawCallDocTranslate(DocTranslatorObj* d, const CallNode* call,
+ExprDoc RawCallDocTranslate(DocTranslatorObj* d, const CallObj* call,
                             ffi::Optional<ffi::Array<ExprDoc>> translated_args) {
   ffi::Optional<Op> op = call->op.as<Op>();
   ffi::Array<ExprDoc> args;
@@ -141,7 +141,7 @@ ExprDoc RawCallDocTranslate(DocTranslatorObj* d, const CallNode* call,
   }
   ExprDoc callee =
       op.has_value() ? LiteralDoc::Str(op.value()->name, std::nullopt)
-      : call->op.as<StringImmNode>()
+      : call->op.as<StringImmObj>()
           ? d->WithExtraStateScope<bool>("ir.explicit_value_type", true,
                                          [&] { return d->Translate(call->op).value(); })
           : d->Translate(call->op).value();

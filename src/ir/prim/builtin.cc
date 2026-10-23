@@ -40,7 +40,7 @@ TVM_DEFINE_CACHED_OP_GETTER(clz_op, "prim.clz")
 #undef TVM_DEFINE_CACHED_OP_GETTER
 
 template <size_t N>
-Type InferTypeReturnArgType(const CallNode* call) {
+Type InferTypeReturnArgType(const CallObj* call) {
   TVM_FFI_CHECK(call->args.size() > N, TypeError) << "Missing operand " << N;
   return call->args[N]->ty;
 }
