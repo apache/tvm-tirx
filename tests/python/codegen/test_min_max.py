@@ -35,7 +35,7 @@ from tvm_tirx.testing import env
     ]
     + [("llvm", "float32", "scalable")],
 )
-def test_min_max(target, dtype, lanes, tmp_path):
+def test_min_max(target, dtype, lanes):
     if target == "llvm" and not env.has_llvm():
         pytest.skip("need llvm")
     scalable = lanes == "scalable"
@@ -64,10 +64,10 @@ def test_min_max(target, dtype, lanes, tmp_path):
             C[12, i] = T.min(A[i], T.cast(infinity, dtype))
             C[13, i] = T.max(A[i], T.cast(-infinity, dtype))
 
-    build_target = {"kind": "llvm", "opt-level": 0} if target == "llvm" else target
+    compile_target = {"kind": "llvm", "opt-level": 0} if target == "llvm" else target
     if scalable:
-        build_target.update(mtriple="aarch64-linux-gnu", mattr=["+sve"])
-    compiled = tvm_tirx.tirx.compile(main, target=build_target)
+        compile_target.update(mtriple="aarch64-linux-gnu", mattr=["+sve"])
+    compiled = tvm_tirx.tirx.compile(main, target=compile_target)
     if target == "llvm" and dtype == "float32":
         comparisons = [
             line for line in compiled.mod.inspect_source("ll").splitlines() if " fcmp " in line
@@ -85,14 +85,11 @@ def test_min_max(target, dtype, lanes, tmp_path):
     if scalable:
         return  # Cross-compile SVE; execution requires SVE hardware.
 
-    library = str(tmp_path / "min_max.so")
-    compiled.export_library(library)
-    executable = tvm_tirx.runtime.load_module(library)
     np_dtype = pytest.importorskip("ml_dtypes").bfloat16 if dtype == "bfloat16" else dtype
     a = np.array([np.nan, 1, np.nan, 0.0, -0.0, 3, 2, -5, np.inf, -np.inf, 1, -1], dtype=np_dtype)
     b = np.array([1, np.nan, np.nan, -0.0, 0.0, 2, 2, -4, 1, 1, np.inf, -np.inf], dtype=np_dtype)
     out = tvm_tirx.runtime.empty((14, n), dtype)
-    executable(tvm_tirx.runtime.tensor(a), tvm_tirx.runtime.tensor(b), out)
+    compiled(tvm_tirx.runtime.tensor(a), tvm_tirx.runtime.tensor(b), out)
 
     zero, nan_array = np.zeros_like(a), np.full_like(a, np.nan)
     expected = []
