@@ -1170,6 +1170,27 @@ def test_call_extern_returning_void():
     tvm_tirx.compile(Module, target="llvm")
 
 
+@pytest.mark.skipif(not env.has_llvm(), reason="need llvm")
+def test_masked_load_non_unit_stride():
+    @I.ir_module
+    class Module:
+        @T.function
+        def main(
+            A: T.Tensor((3,), "float32"),
+            B: T.Tensor((2,), "float32"),
+        ):
+            B[T.Ramp(0, 1, 2)] = T.call_intrin(
+                "tirx.masked_load",
+                A,
+                T.Ramp(0, 2, 2),
+                T.Broadcast(T.bool(True), 2),
+                ty="float32x2",
+            )
+
+    with tvm_tirx.target.Target("llvm"):
+        tvm_tirx.tirx.compile(Module)
+
+
 def test_invalid_volatile_masked_buffer_load():
     @I.ir_module
     class Module:

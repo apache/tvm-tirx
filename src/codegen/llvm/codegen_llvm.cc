@@ -1873,6 +1873,12 @@ void CodeGenLLVM::BufferAccessHelper(
     llvm::Value* predicate_value = nullptr;
     if (predicate.has_value()) {
       predicate_value = MakeValue(predicate.value());
+
+      PrimType predicate_dtype(predicate.value().ty()->dtype);
+      int predicate_lanes = predicate_dtype.lanes();
+      if (last_index_lanes > 1 && predicate_lanes == last_index_lanes) {
+        predicate_value = builder_->CreateExtractElement(predicate_value, i);
+      }
     }
 
     TypedPointer buffer_ptr =
@@ -1948,9 +1954,28 @@ llvm::Value* CodeGenLLVM::CreateMaskedLoad(const CallObj* op) {
                      int alignment, bool is_volatile) {
         TVM_FFI_ICHECK(!is_volatile)
             << "The masked load intrinsic does not support declaring load as volatile.";
-        llvm::Instruction* value = builder_->CreateMaskedLoad(buffer_ptr.type, buffer_ptr.addr,
-                                                              llvm::Align(alignment), predicate);
-        loads.push_back(value);
+
+        if (predicate->getType()->isVectorTy()) {
+          llvm::Instruction* value = builder_->CreateMaskedLoad(buffer_ptr.type, buffer_ptr.addr,
+                                                                llvm::Align(alignment), predicate);
+          loads.push_back(value);
+          return value;
+        }
+
+        llvm::Type* vector_type = llvm::FixedVectorType::get(buffer_ptr.type, 1);
+        llvm::Type* mask_vector_type = llvm::FixedVectorType::get(predicate->getType(), 1);
+
+        llvm::Value* mask = llvm::UndefValue::get(mask_vector_type);
+        mask = builder_->CreateInsertElement(mask, predicate, ConstInt32(0));
+
+        llvm::Instruction* value =
+            builder_->CreateMaskedLoad(vector_type, buffer_ptr.addr, llvm::Align(alignment), mask,
+                                       llvm::UndefValue::get(vector_type));
+
+        llvm::Value* scalar = builder_->CreateExtractElement(value, ConstInt32(0));
+        loads.push_back(scalar);
+
+        // Return the memory-access instruction so AddAliasInfo attaches TBAA to it.
         return value;
       };
   BufferAccessHelper(buffer, indices, predicate, access_dtype, make_load);
