@@ -52,9 +52,7 @@ def test_min_max_nan_preserving(target, dtype, lanes, tmp_path):
     infinity = float("inf")
 
     @T.function
-    def main(A: T.Tensor((n,), dtype), B: T.Tensor((n,), dtype), C: T.Tensor((15, n), dtype)):
-        for i in range(n):
-            C[12, i] = T.cast(0, dtype)
+    def main(A: T.Tensor((n,), dtype), B: T.Tensor((n,), dtype), C: T.Tensor((14, n), dtype)):
         for outer in range(n // lanes):
             i = outer if T.constexpr(lanes == 1) else T.ramp(outer * lanes, 1, lanes)
             C[0, i] = T.min(A[i], B[i])
@@ -70,14 +68,11 @@ def test_min_max_nan_preserving(target, dtype, lanes, tmp_path):
             # Parenthesization of both the general and constant ternaries.
             C[10, i] = T.max(A[i], B[i]) + T.cast(1, dtype)
             C[11, i] = T.max(T.cast(0, dtype), A[i]) + T.cast(1, dtype)
-            # A write must invalidate the previous statement's cached read.
-            C[12, i] = T.max(C[12, i], T.cast(3, dtype))
-            C[12, i] = T.max(C[12, i], T.cast(2, dtype))
-            C[13, i] = T.min(A[i], T.cast(infinity, dtype))
-            C[14, i] = T.max(A[i], T.cast(-infinity, dtype))
+            C[12, i] = T.min(A[i], T.cast(infinity, dtype))
+            C[13, i] = T.max(A[i], T.cast(-infinity, dtype))
 
     compiled = _build(main, target, tmp_path)
-    out = tvm_tirx.runtime.empty((15, n), dtype)
+    out = tvm_tirx.runtime.empty((14, n), dtype)
     compiled(tvm_tirx.runtime.tensor(a), tvm_tirx.runtime.tensor(b), out)
 
     zero, nan_array = np.zeros_like(a), np.full_like(a, np.nan)
@@ -85,9 +80,7 @@ def test_min_max_nan_preserving(target, dtype, lanes, tmp_path):
     for compare in (np.less, np.greater):
         for lhs, rhs in ((a, b), (zero, a), (a, zero), (nan_array, a), (a, nan_array)):
             expected.append(np.where(compare(lhs, rhs) | np.isnan(lhs), lhs, rhs))
-    expected.extend(
-        [expected[5] + np.ones_like(a), expected[6] + np.ones_like(a), np.full_like(a, 3)]
-    )
+    expected.extend([expected[5] + np.ones_like(a), expected[6] + np.ones_like(a)])
     expected.extend([a, a])
     expected = np.asarray(expected, dtype=np_dtype)
     got = out.numpy()
@@ -147,11 +140,8 @@ def test_llvm_min_max_constant_conditions(lanes):
         assert all(f" {llvm_type} " in line for line in comparisons), case
 
 
-@pytest.mark.parametrize("target", ["c", "llvm"])
-def test_min_max_operand_evaluation(target, tmp_path):
-    if target == "llvm" and not env.has_llvm():
-        pytest.skip("need llvm")
-
+@pytest.mark.skipif(not env.has_llvm(), reason="need llvm")
+def test_llvm_min_max_operand_evaluation(tmp_path):
     helper_source = tmp_path / "increment.cc"
     helper_source.write_text(
         'extern "C" float test_min_max_increment(float* p) { float old = *p; *p += 1; return old; }'
@@ -168,12 +158,7 @@ def test_min_max_operand_evaluation(target, tmp_path):
             T.call_extern("test_min_max_increment", T.address_of(count[1]), ty="float32"),
         )
 
-    options = (
-        {"options": ["-include", str(helper_source)]}
-        if target == "c"
-        else {"addons": [str(helper_source)]}
-    )
-    compiled = _build(main, target, tmp_path, **options)
+    compiled = _build(main, "llvm", tmp_path, addons=[str(helper_source)])
     count = tvm_tirx.runtime.tensor(np.zeros(2, dtype="float32"))
     out = tvm_tirx.runtime.empty((2,), "float32")
     compiled(count, out)

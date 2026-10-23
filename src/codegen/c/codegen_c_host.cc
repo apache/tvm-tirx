@@ -375,17 +375,12 @@ template <typename T>
 inline void CodeGenCHost::PrintTernaryCondExpr(const T* op, const char* compare,
                                                const char* reverse_compare,
                                                std::ostream& os) {  // NOLINT(*)
-  int ssa_scope = BeginScope();
-  auto bind_operand = [&](const PrimExpr& operand) {
-    std::string value = PrintExpr(operand);
-    std::string name = name_supply_->FreshName("v_");
-    PrintIndent();
-    PrintSSAAssign(name, value, operand.ty());
-    return name;
-  };
-  // SSAGetID caches by source text and can merge distinct calls with effects.
-  std::string a_id = bind_operand(op->a);
-  std::string b_id = bind_operand(op->b);
+  std::ostringstream temp_a;
+  Dispatch(op->a, temp_a);
+  std::string a_id = SSAGetID(temp_a.str(), op->a.ty());
+  std::ostringstream temp_b;
+  Dispatch(op->b, temp_b);
+  std::string b_id = SSAGetID(temp_b.str(), op->b.ty());
   PrimType dtype = op->ty.template as_or_throw<PrimType>();
   ConstFloatKind a_kind = GetConstFloatKind(op->a);
   ConstFloatKind b_kind = GetConstFloatKind(op->b);
@@ -407,7 +402,6 @@ inline void CodeGenCHost::PrintTernaryCondExpr(const T* op, const char* compare,
     os << "(((" << a_id << ") " << compare << " (" << b_id << ") || (" << a_id << ") != (" << a_id
        << ")) ? (" << a_id << ") : (" << b_id << "))";
   }
-  EndScope(ssa_scope);
 }
 
 ffi::Module BuildCHost(IRModule mod, Target target) {

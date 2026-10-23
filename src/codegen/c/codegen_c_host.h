@@ -98,7 +98,7 @@ class CodeGenCHost : public CodeGenC {
   void PrintCallPacked(const CallNode* op);
   /*!
    * \brief Print ternary conditional operator implementing binary `op`
-   * Evaluates each operand occurrence once in a fresh temporary.
+   * Forces the operands to be in SSA form.
    * \param op binary operator being expressed
    * \param compare string representation of the strict comparison operator
    * \param reverse_compare string representation of the reverse non-strict comparison operator
