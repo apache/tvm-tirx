@@ -86,10 +86,6 @@ type can also be the callee:
    :start-after: # begin function call type
    :end-before: # end function call type
 
-Both examples construct call expressions for later compiler stages.
-:doc:`functions_and_modules` introduces function definitions and global
-references that can be used as callees.
-
 Types and Validation
 --------------------
 
@@ -127,11 +123,6 @@ inference rules to the current inputs and returns a type without modifying
 The stored ``provisional.ty`` remains missing; ``inferred`` is float32.
 A transformation must keep the inputs and stored result type consistent;
 validation alone does not generally establish their agreement.
-
-Calls can supply values to the statements introduced in
-:doc:`statements_and_control_flow`.
-:doc:`functions_and_modules` places a body in a function and introduces global
-references that can be used as callees.
 
 See :doc:`/reference/python/ir` for the complete operator and call APIs. The
 :download:`operators_and_calls.py <examples/operators_and_calls.py>` example includes runnable

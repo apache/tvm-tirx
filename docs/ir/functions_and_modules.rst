@@ -112,8 +112,7 @@ object graph for later inspection, save and reconstruct it as JSON:
 
 Structural comparison checks the representation, including corresponding bound
 variables. Loading requires the graph's object types to be registered in the
-receiving process. :doc:`printing_and_parsing` describes the source representation
-used to print and parse IR.
+receiving process.
 
 See :class:`~tvm_tirx.tirx.Function` and :class:`~tvm_tirx.ir.IRModule` for the
 complete APIs. The :download:`statements_and_functions.py <examples/statements_and_functions.py>`

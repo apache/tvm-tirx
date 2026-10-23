@@ -161,9 +161,6 @@ expression, with type ``ir.PrimType("float32")``.
 The symbol ``n`` has a known int64 type even though its value is not yet known.
 Constructing these types and expressions does not allocate tensor storage.
 
-:doc:`statements_and_control_flow` shows how expressions are used in variable
-bindings, returns, and tensor writes.
-
 See :class:`~tvm_tirx.tirx.TensorType` for the complete constructor and storage
 options, and :doc:`/reference/python/ir` for expression and type APIs. The
 :download:`types_and_expressions.py <examples/types_and_expressions.py>` example contains the

@@ -147,3 +147,25 @@ under ``ir.prim`` in Python.
    └── ffi.Enum                                        Registered enumeration objects
        ├── tirx.Axis                                   Layout axis identities
        └── tirx.ThreadScope                            Execution scope identities
+
+Choose a Chapter
+----------------
+
+.. list-table::
+   :header-rows: 1
+   :widths: 65 35
+
+   * - Goal
+     - Chapter
+   * - Describe values, computations, and their types, including symbolic tensor
+       shapes.
+     - :doc:`types_and_expressions`
+   * - Build statement bodies with bindings, tensor writes, branches, and loops.
+     - :doc:`statements_and_control_flow`
+   * - Inspect registered operators, construct calls, and use type inference and
+       validation.
+     - :doc:`operators_and_calls`
+   * - Define functions, organize them in modules, and manage global references.
+     - :doc:`functions_and_modules`
+   * - Write TVMScript, generate program variants, and print or parse IR.
+     - :doc:`printing_and_parsing`
