@@ -43,48 +43,6 @@ operation. Both properties can be inspected on the registered object:
    :end-before: # end operator lookup
    :prepend: from tvm_tirx import ir
 
-Register New Operators
-----------------------
-
-Registering new operators makes TIRx extensible: TIRx supports users to build
-on the installed package and add operators from the Rust side, while the C++
-core stays stable.
-
-New operators are defined in Rust ``register_ops!`` blocks. Each block contains
-one ``OpDef`` chain per operator, which supplies the registration described
-above: the name and documentation, an argument signature that generates the
-validator, a type-inference callback, and attributes such as the effect kind.
-A registered operator joins the same registry as the built-in operators, so
-Python, C++, and Rust code use it the same way.
-
-For example, this block registers ``my_ext.clamp``, which clamps an integer
-index to ``[0, bound)``. A call has the type of its index, and ``validate()``
-rejects arguments that are not integer expressions:
-
-.. code-block:: rust
-
-   use tvm_tirx::ir::op_attr::CALL_EFFECT_KIND;
-   use tvm_tirx::ir::sig::{self, IntExpr};
-   use tvm_tirx::ir::{CallEffectKind, CallObj, OpDef, Type};
-   use tvm_tirx::tvm_ffi::Result;
-
-   fn index_type(call: &CallObj) -> Result<Type> {
-       Ok(call.args.get(0)?.ty.clone())
-   }
-
-   tvm_tirx::register_ops! {
-       OpDef::new("my_ext.clamp", "Clamp an index to the range `[0, bound)`.")
-           .signature((
-               sig::arg::<IntExpr>("index", "The index."),
-               sig::arg::<IntExpr>("bound", "The exclusive upper bound."),
-           ))
-           .set_infer_type(index_type)
-           .set_attr(CALL_EFFECT_KIND, CallEffectKind::Pure);
-   }
-
-Once the operators are registered in Rust, they can be used as built-in operators
-on Python side.
-
 Calls
 -----
 
@@ -128,8 +86,10 @@ type can also be the callee:
    :start-after: # begin function call type
    :end-before: # end function call type
 
-Types and Validation
---------------------
+.. _types-and-validation:
+
+Type Inference and Validation
+-----------------------------
 
 The examples omit ``ty``, so construction derives the result type from the
 callee. For an ``Op``, it uses the registered fixed return type if available,
@@ -165,6 +125,48 @@ inference rules to the current inputs and returns a type without modifying
 The stored ``provisional.ty`` remains missing; ``inferred`` is float32.
 A transformation must keep the inputs and stored result type consistent;
 validation alone does not generally establish their agreement.
+
+Register New Operators
+----------------------
+
+Registering new operators makes TIRx extensible: TIRx supports users to build
+on the installed package and add operators from the Rust side, while the C++
+core stays stable.
+
+New operators are defined in Rust ``register_ops!`` blocks. Each block contains
+one ``OpDef`` chain per operator, which supplies the registration described
+above: the name and documentation, an argument signature that generates the
+validator, a type-inference callback, and attributes such as the effect kind.
+A registered operator joins the same registry as the built-in operators, so
+Python, C++, and Rust code use it the same way.
+
+For example, this block registers ``my_ext.clamp``, which clamps an integer
+index to ``[0, bound)``. A call has the type of its index, and ``validate()``
+rejects arguments that are not integer expressions:
+
+.. code-block:: rust
+
+   use tvm_tirx::ir::op_attr::CALL_EFFECT_KIND;
+   use tvm_tirx::ir::sig::{self, IntExpr};
+   use tvm_tirx::ir::{CallEffectKind, CallObj, OpDef, Type};
+   use tvm_tirx::tvm_ffi::Result;
+
+   fn index_type(call: &CallObj) -> Result<Type> {
+       Ok(call.args.get(0)?.ty.clone())
+   }
+
+   tvm_tirx::register_ops! {
+       OpDef::new("my_ext.clamp", "Clamp an index to the range `[0, bound)`.")
+           .signature((
+               sig::arg::<IntExpr>("index", "The index."),
+               sig::arg::<IntExpr>("bound", "The exclusive upper bound."),
+           ))
+           .set_infer_type(index_type)
+           .set_attr(CALL_EFFECT_KIND, CallEffectKind::Pure);
+   }
+
+Once the operators are registered in Rust, they can be used as built-in operators
+on Python side.
 
 See :doc:`/reference/python/ir` for the complete operator and call APIs. The
 :download:`operators_and_calls.py <examples/operators_and_calls.py>` example includes runnable
