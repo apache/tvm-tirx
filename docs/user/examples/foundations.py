@@ -99,6 +99,12 @@ signature = ir.FuncType([integer_type], integer_type)
 assert signature.arg_types[0].same_as(integer_type)
 assert signature.ret_type.same_as(integer_type)
 
+# begin constant tensor type
+tile_type = tirx.TensorType((8, 128), "float32")
+# end constant tensor type
+assert tile_type.dtype == ir.PrimType("float32")
+assert tuple(int(dim) for dim in tile_type.shape) == (8, 128)
+
 # begin type states
 unresolved = ir.Var("unresolved", ir.Type.missing())
 assert isinstance(unresolved.ty, ir.MissingType)
@@ -247,8 +253,14 @@ assert mapped.same_as(n)
 assert isinstance(redundant, ir.prim.Add)
 # end map
 
-# begin call contract
+# begin operator lookup
 op = ir.Op.get("prim.exp")
+assert op.name == "prim.exp"
+assert [entry.name for entry in op.args_info] == ["x"]
+assert op.get_attr("TCallEffectKind") == ir.CallEffectKind.Pure
+# end operator lookup
+
+# begin call contract
 value = ir.const(1.0, "float32")
 call = ir.Call(op, [value])
 assert call.op.same_as(op)
@@ -261,24 +273,21 @@ assert ir.Call("prim.exp", [value]).op.same_as(op)
 assert call.validate() is None
 assert ir.reinfer_type(call) == ir.PrimType("float32")
 
-# begin operator metadata
-assert [entry.name for entry in op.args_info] == ["x"]
-assert op.get_attr("TCallEffectKind") == ir.CallEffectKind.Pure
-# end operator metadata
-
 # begin function call type
 signature = ir.FuncType([ir.PrimType("float32")], ir.PrimType("float32"))
 callee = ir.Var("f", signature)
 function_call = ir.Call(callee, [value])
 assert function_call.ty == signature.ret_type
-assert ir.reinfer_type(function_call) == signature.ret_type
 # end function call type
+assert ir.reinfer_type(function_call) == signature.ret_type
 
 # begin call type states
+# begin provisional call
 provisional = ir.Call(op, [value], ty=ir.Type.missing())
 assert isinstance(provisional.ty, ir.MissingType)
 assert ir.reinfer_type(provisional) == call.ty
 assert isinstance(provisional.ty, ir.MissingType)
+# end provisional call
 unknown_call = ir.Call(ir.GlobalVar("without_type"), [])
 assert isinstance(unknown_call.ty, ir.MissingType)
 assert isinstance(ir.reinfer_type(unknown_call), ir.MissingType)
@@ -287,11 +296,13 @@ assert unchecked_function_call.validate() is None
 # end call type states
 
 # begin invalid call
+# begin validation failure
 invalid = ir.Call(op, [], ty="float32")
 try:
     invalid.validate()
 except TypeError as error:
     assert "Call.args expected 1 argument, got 0" in str(error)
+# end validation failure
 else:
     raise AssertionError("Expected the operator's validator to reject the call")
 # end invalid call

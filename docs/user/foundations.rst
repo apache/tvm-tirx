@@ -15,13 +15,73 @@
     specific language governing permissions and limitations
     under the License.
 
-Expressions and Types
+.. _expressions-and-types:
+
+Types and Expressions
 =====================
 
-``ir.Expr`` represents a value or computation in a program, such as a variable,
-a constant, or an addition. ``ir.Type`` is the base class for objects describing
-the types of those values. Concrete types record a scalar's dtype, a tensor's
-shape and element type, or a function's argument and return types.
+``ir.Type`` is the base class for objects describing a scalar's dtype, a tensor's
+shape and element type, or a function's argument and return types. ``ir.Expr``
+represents a value or computation in a program and carries a type describing
+its result.
+
+.. _user-ir-type:
+.. _user-ir-prim-type:
+
+Types
+-----
+
+All type objects carry a ``loc`` field for source information, defaulting to
+``UnknownLoc``. Concrete types add fields describing the properties of values:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 30 35 35
+
+   * - Class
+     - Describes
+     - Additional fields
+   * - ``ir.PrimType``
+     - A scalar or vector dtype
+     - ``dtype``
+   * - ``ir.PtrType``
+     - A pointer's element type and memory scope
+     - ``element_type``, ``scope``
+   * - ``ir.TupleType``
+     - Ordered tuple field types
+     - ``fields``
+   * - ``ir.FuncType``
+     - Function argument and return types
+     - ``arg_types``, ``ret_type``
+   * - ``tirx.TensorType``
+     - A tensor's shape, element type, and storage properties
+     - ``shape``, ``dtype``, ``scope``, ``data_alignment``, ``layout``
+
+Types can contain other types: tuple fields, pointer element types, and
+function signatures refer to further ``ir.Type`` objects. For example:
+
+.. literalinclude:: examples/foundations.py
+   :language: python
+   :start-after: # begin composite type
+   :end-before: # end composite type
+   :prepend: from tvm_tirx import ir, tirx
+
+``signature`` describes a function taking one int64 argument and returning an
+int64 result. Use ``==`` to compare type structure and ``same_as`` to compare
+object identity.
+
+.. _user-tensor-type:
+
+The tensor layer adds ``tirx.TensorType`` as a subclass of ``ir.Type``. This type
+describes an ``(8, 128)`` tensor with float32 elements:
+
+.. literalinclude:: examples/foundations.py
+   :language: python
+   :start-after: # begin constant tensor type
+   :end-before: # end constant tensor type
+
+Its dimensions are integer expressions. Here they are constants; dimensions can
+also use variables and arithmetic.
 
 .. _user-ir-var:
 
@@ -30,7 +90,8 @@ Expressions
 
 All expressions share two fields:
 
-* ``ty``: an ``ir.Type`` describing the expression's result.
+* ``ty``: an ``ir.Type`` describing the expression's result. ``ir.MissingType``
+  marks type information that has not yet been supplied or computed.
 * ``loc``: an ``ir.Location`` recording source information for diagnostics.
   It defaults to ``UnknownLoc`` when no location is supplied.
 
@@ -73,63 +134,14 @@ expression. Multiplying them constructs a ``Mul`` with two expression operands:
    :language: python
    :start-after: # begin scalar expressions
    :end-before: # end scalar expressions
-   :prepend: from tvm_tirx import ir, tirx
 
 ``n`` is a ``Var`` and ``extent`` is a ``Mul``. Both carry
-``ir.PrimType("int64")`` in their ``ty`` field.
+``ir.PrimType("int64")`` in their ``ty`` field. Reuse the same variable object
+when a symbol appears in several places: another ``ir.Var("n", "int64")`` is a
+distinct symbol, even with the same name.
 
-Reuse the same variable object when a symbol appears in several places. Creating
-another ``ir.Var("n", "int64")`` creates a distinct symbol, even with the same
-name.
-
-.. _user-ir-type:
-.. _user-ir-prim-type:
-
-Types
------
-
-All type objects carry a ``loc`` field for source information, defaulting to
-``UnknownLoc``. Concrete types add fields describing the properties of values:
-
-.. list-table::
-   :header-rows: 1
-   :widths: 30 35 35
-
-   * - Class
-     - Describes
-     - Additional fields
-   * - ``ir.PrimType``
-     - A scalar or vector dtype
-     - ``dtype``
-   * - ``ir.PtrType``
-     - A pointer's element type and memory scope
-     - ``element_type``, ``scope``
-   * - ``ir.TupleType``
-     - Ordered tuple field types
-     - ``fields``
-   * - ``ir.FuncType``
-     - Function argument and return types
-     - ``arg_types``, ``ret_type``
-   * - ``tirx.TensorType``
-     - A tensor's shape, element type, and storage properties
-     - ``shape``, ``dtype``, ``scope``, ``data_alignment``, ``layout``
-
-Types can contain other types: tuple fields, pointer element types, and
-function signatures refer to further ``ir.Type`` objects. For example:
-
-.. literalinclude:: examples/foundations.py
-   :language: python
-   :start-after: # begin composite type
-   :end-before: # end composite type
-
-``signature`` describes a function taking one int64 argument and returning an
-int64 result. Use ``==`` to compare type structure and ``same_as`` to compare
-object identity.
-
-.. _user-tensor-type:
-
-The tensor layer adds ``tirx.TensorType`` as a subclass of ``ir.Type``. A tensor
-variable is an ordinary ``ir.Var`` whose ``ty`` refers to a ``TensorType``:
+A tensor variable uses the same ``ir.Var`` class, with a ``TensorType`` in its
+``ty`` field. Using ``extent`` from above:
 
 .. literalinclude:: examples/foundations.py
    :language: python
@@ -141,7 +153,6 @@ The first dimension stores ``extent``, the multiplication expression using
 load ``x[0, 0]`` has type ``ir.PrimType("float32")``.
 
 The symbol ``n`` has a known int64 type even though its value is not yet known.
-``ir.MissingType`` marks type information that has not been supplied or computed.
 Constructing these types and expressions does not allocate tensor storage.
 
 See :class:`~tvm_tirx.tirx.TensorType` for the complete constructor and storage

@@ -30,6 +30,15 @@ effect information, type inference, and validation rules. These properties are
 shared by all calls to that operator.
 ``ir.Op.get(name)`` retrieves the registered object by name.
 
+For example, ``prim.exp`` declares one argument named ``x`` and is a pure
+operation. Both properties can be inspected on the registered object:
+
+.. literalinclude:: examples/foundations.py
+   :language: python
+   :start-after: # begin operator lookup
+   :end-before: # end operator lookup
+   :prepend: from tvm_tirx import ir
+
 Some computations use dedicated expression nodes instead: ``ir.prim.Add`` stores
 its operands in ``a`` and ``b``, while ``prim.exp`` uses a ``Call`` referring to
 an ``Op``. Both forms represent computations with typed results.
@@ -66,11 +75,18 @@ constant:
    :language: python
    :start-after: # begin call contract
    :end-before: # end call contract
-   :prepend: from tvm_tirx import ir
 
-The call records a computation for later compilation. Calls to function objects
-and global references use the same node; :doc:`objects_and_functions` explains
-those callees.
+A function-valued expression can also be the callee. This variable has a
+signature accepting and returning float32:
+
+.. literalinclude:: examples/foundations.py
+   :language: python
+   :start-after: # begin function call type
+   :end-before: # end function call type
+
+Both examples construct call expressions for later compiler stages.
+:doc:`objects_and_functions` introduces function definitions and global
+references that can be used as callees.
 
 Types and Validation
 --------------------
@@ -84,14 +100,29 @@ that signature's return type. Without an applicable rule, the result is
 Construction can reject inputs during inference, but does not run the
 operator's validator. ``call.validate()`` runs that validator if one is
 registered, returning None on success and raising an exception on failure.
-For example, the ``prim.exp`` validator rejects a call with no arguments.
 ``validate()`` performs no checks for a non-operator callee or an operator
 without a validator.
 
-After changing a call's inputs, a transformation must also keep its result type
-consistent. ``ir.reinfer_type(call)`` computes the type from the current inputs;
-it leaves ``call.ty`` unchanged and does not run validation. Validation alone
-does not generally establish agreement between the stored and inferred types.
+For ``prim.exp``, an explicit result type lets the constructor record a call
+with no arguments. Validation then rejects the argument count:
+
+.. literalinclude:: examples/foundations.py
+   :language: python
+   :start-after: # begin validation failure
+   :end-before: # end validation failure
+
+To derive a result type later, use ``ir.reinfer_type``. It applies the same
+inference rules to the current inputs and returns a type without modifying
+``call.ty`` or running validation:
+
+.. literalinclude:: examples/foundations.py
+   :language: python
+   :start-after: # begin provisional call
+   :end-before: # end provisional call
+
+Here the stored type remains missing even though re-inference returns float32.
+A transformation must keep the inputs and stored result type consistent;
+validation alone does not generally establish their agreement.
 
 See :doc:`/reference/python/ir` for the complete operator and call APIs. The
 :download:`foundations.py <examples/foundations.py>` example includes runnable

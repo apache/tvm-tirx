@@ -18,13 +18,13 @@
 Statements and Control Flow
 ===========================
 
-Expressions describe values and computations. Statements organize their use:
-a statement can define a variable, write to a tensor, select a branch, or repeat
-a body. Together, statement sequences and nested bodies describe execution order
-and variable scope.
+Expressions describe values and computations. Statements place those
+computations in an execution order: they define variables, write to tensors,
+select branches, and repeat bodies. A function body combines these statements
+into sequences and nested scopes.
 
-Statement Structure
--------------------
+Statements and Sequences
+------------------------
 
 ``ir.Stmt`` is the base class for statements. All statements carry source
 information in ``loc``. Concrete classes add fields for their operands and
@@ -53,20 +53,22 @@ nested statements:
      - A program assertion
      - ``condition``, ``error_kind``, ``message_parts``
 
-Operands such as a binding's ``value`` or a store's ``indices`` are expressions.
-``Bind`` defines a variable for subsequent statements in the same scope; its
-variable and value must have structurally equal types. ``Evaluate`` can place an
-effectful call in a body, while ``TensorStore`` writes through a destination
-whose type supports stores.
+``SeqStmt`` puts these statements in execution order. Its ``seq`` field holds
+the sequence; nested sequences are flattened. This grouping does not introduce
+a scope of its own.
 
-``SeqStmt`` holds statements in execution order and flattens nested sequences.
-It does not introduce a scope of its own. Function and control-flow bodies are
-stored as ``SeqStmt`` objects, even when constructed from a single statement.
+The values used by statements are expressions. For example, a binding's
+``value`` can be an addition, and a store's ``indices`` can contain variables
+or arithmetic. ``Bind`` defines a variable from an expression's result for use
+by subsequent statements in the same scope. Its variable and value must have
+structurally equal types. ``TensorStore`` checks that the destination's type
+supports stores.
 
 Control Flow and Scope
 ----------------------
 
-Control-flow statements connect conditions and loop bounds to nested bodies:
+A sequence describes straight-line execution. To select or repeat statements,
+control-flow nodes contain their own body sequences:
 
 .. list-table::
    :header-rows: 1
@@ -85,17 +87,20 @@ Control-flow statements connect conditions and loop bounds to nested bodies:
      - Repeat while a condition is true
      - ``condition``, ``body``
 
-Conditions have boolean types. ``If`` requires an explicit ``else_case``
-argument; pass None when there is no else branch. ``For`` takes an exclusive
-``end`` and explicit ``step`` and ``kind`` arguments. Its variable, bounds, and
-step must have matching scalar integer types after conversion.
-``ForKind.DEFAULT`` denotes sequential execution; the other kinds permit
-parallel execution or request vectorization or unrolling. ``Break`` exits the
-enclosing loop, ``Continue`` starts its next iteration, and ``Return`` exits the
-function.
+``If`` and ``While`` use boolean conditions. ``If`` requires an explicit
+``else_case`` argument; pass None when there is no else branch. Each
+present branch is stored as a ``SeqStmt``, even when supplied as one statement.
 
-For example, the following values describe two tensors with shape ``(2*n, 128)``
-and the variables used to access them:
+``For`` and ``While`` similarly store their bodies as sequences. ``For`` takes
+an exclusive ``end`` and explicit ``step`` and ``kind`` arguments; its variable,
+bounds, and step must have matching scalar integer types after conversion.
+``ForKind.DEFAULT`` denotes sequential execution; the other kinds permit
+parallel execution or request vectorization or unrolling. Within a loop,
+``Break`` exits the loop and ``Continue`` starts its next iteration. ``Return``
+exits the enclosing function.
+
+The following body combines a binding, a branch, and two loops. First construct
+the tensor variables with shape ``(2*n, 128)`` and their indices:
 
 .. literalinclude:: examples/ir_structure.py
    :language: python
@@ -103,34 +108,36 @@ and the variables used to access them:
    :end-before: # end statement values
    :prepend: from tvm_tirx import ir, tirx
 
-A binding computes an element value, a branch selects its store, and two loops
-repeat that body over the tensor:
+The binding computes an element value, and the branch selects which value to
+store. The loops enclose both statements to cover all rows and columns:
 
 .. literalinclude:: examples/ir_structure.py
    :language: python
    :start-after: # begin statements
    :end-before: # end statements
 
-``body`` is an outer ``For`` whose body contains ``inner``. The inner loop's
-body contains ``binding`` followed by ``branch``. The first ``n`` rows receive
-``A + 1``; the remaining rows receive ``A + 3``.
+``body.body[0]`` is ``inner``. The inner loop's body contains ``binding``
+followed by ``branch``, so both branches can use ``value``. The program writes
+``A + 1`` to the first ``n`` rows of ``C`` and ``A + 3`` to the remaining rows.
 
-Each variable object has one definition, and its uses refer to that same
-object. Here the loops define ``i`` and ``j``, and the binding defines ``value``
-before both branches use it. A variable defined inside a branch or loop body
-cannot be used after that body.
+This nesting also determines variable scope. The loops define ``i`` and ``j``
+for their bodies, and the binding defines ``value`` for the rest of the inner
+body. Each variable object has one definition, and uses refer to that same
+object. A variable defined inside a branch or loop body cannot be used after
+that body.
 
-``ir.RegionStmt`` represents a registered operation with a lexical body. Its
-``op``, ``args``, and ``attrs`` describe the operation. ``body_params`` lists
-variables scoped to ``body``; ``result_vars`` lists variables defined for
-following statements. The :class:`~tvm_tirx.ir.RegionStmt` reference describes
-the required operator contract.
+The same scoping rule applies to ``ir.RegionStmt``, which lets a registered
+operation enclose a lexical body. Its ``args`` and ``attrs`` are evaluated in
+the enclosing scope; ``body_params`` introduces variables inside ``body``, and
+``result_vars`` introduces variables for following statements. The
+:class:`~tvm_tirx.ir.RegionStmt` reference describes the operator contract.
 
-Once statements are placed in a function or module,
-``tirx.analysis.check_well_formed`` checks variable definitions and scopes,
-tensor uses, and loop control. Invalid uses, such as a branch-local variable
-escaping its branch, raise ``RuntimeError`` by default; ``assert_mode=False``
-returns False instead. :doc:`objects_and_functions` completes this program.
+These definition and scope rules can be checked in a complete function or
+module with ``tirx.analysis.check_well_formed``. It checks variable and tensor
+uses and loop control. An invalid use, such as a branch-local variable escaping
+its branch, raises ``RuntimeError`` by default; ``assert_mode=False`` returns
+False instead. :doc:`objects_and_functions` places this body in a function and
+module.
 
 The :download:`ir_structure.py <examples/ir_structure.py>` example includes
 scope errors and numerical checks. See :doc:`/reference/python/ir` for statement
