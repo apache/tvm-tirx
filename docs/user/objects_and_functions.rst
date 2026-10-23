@@ -107,8 +107,8 @@ object graph for later inspection, save and reconstruct it as JSON:
 
 Structural comparison checks the representation, including corresponding bound
 variables. Loading requires the graph's object types to be registered in the
-receiving process. The next chapter, :doc:`programs`, constructs the same
-function through source syntax and builder frames and compares their IR.
+receiving process. :doc:`programs` describes the source representation used to
+print and parse IR.
 
 See :class:`~tvm_tirx.tirx.Function` and :class:`~tvm_tirx.ir.IRModule` for the
 complete APIs. The :download:`statements_and_functions.py <examples/statements_and_functions.py>`
