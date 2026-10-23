@@ -35,7 +35,8 @@ runs:
       channel-priority: strict
       environment-file: ci/wheel/build-environment.yaml
       auto-activate-base: false
-      miniforge-version: latest
+      # Miniforge 26.9.4-0 fails `conda init --all` on Windows; see IntelPython/dpnp#3119.
+      miniforge-version: "26.7.2-1"
       python-version: "3.10"
       conda-remove-defaults: true
   - uses: conda-incubator/setup-miniconda@v4.0.1
@@ -45,7 +46,7 @@ runs:
       channel-priority: strict
       environment-file: ci/wheel/build-environment.yaml
       auto-activate-base: false
-      miniforge-version: latest
+      miniforge-version: "26.7.2-1"
       use-only-tar-bz2: true
       python-version: "3.10"
       conda-remove-defaults: true

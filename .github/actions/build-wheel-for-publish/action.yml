@@ -68,14 +68,15 @@ runs:
       continue-on-error: true
       id: conda1
       with:
-        miniforge-version: latest
+        # Miniforge 26.9.4-0 fails `conda init --all` on Windows; see IntelPython/dpnp#3119.
+        miniforge-version: "26.7.2-1"
         conda-remove-defaults: true
 
     - name: Setup conda (retry with tar.bz2)
       if: steps.llvm-cache.outputs.cache-hit != 'true' && steps.conda1.outcome == 'failure'
       uses: conda-incubator/setup-miniconda@v4.0.1
       with:
-        miniforge-version: latest
+        miniforge-version: "26.7.2-1"
         use-only-tar-bz2: true
         conda-remove-defaults: true
 
