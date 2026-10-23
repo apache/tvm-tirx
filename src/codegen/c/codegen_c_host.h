@@ -97,16 +97,15 @@ class CodeGenCHost : public CodeGenC {
   void PrintGetFuncFromBackend(const std::string& func_name, const std::string& packed_func_name);
   void PrintCallPacked(const CallNode* op);
   /*!
-   * \brief Print ternary conditional operator implementing binary `op`
+   * \brief Print min/max, propagating floating-point NaNs and selecting rhs on ties.
    * Forces the operands to be in SSA form.
-   * \param op binary operator being expressed
-   * \param compare string representation of the strict comparison operator
-   * \param reverse_compare string representation of the reverse non-strict comparison operator
+   * \param lhs Left operand.
+   * \param rhs Right operand.
+   * \param is_min Whether to print min (true) or max (false).
    * \param os stream reference to print into
    */
-  template <typename T>
-  inline void PrintTernaryCondExpr(const T* op, const char* compare, const char* reverse_compare,
-                                   std::ostream& os);  // NOLINT(*)
+  void PrintMinMax(const PrimExpr& lhs, const PrimExpr& rhs, bool is_min,
+                   std::ostream& os);  // NOLINT(*)
 };
 
 }  // namespace codegen

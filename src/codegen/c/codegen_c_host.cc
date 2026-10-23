@@ -364,43 +364,47 @@ void CodeGenCHost::Dispatch_(const FloatImmNode* op, std::ostream& os) {  // NOL
 }
 
 void CodeGenCHost::Dispatch_(const prim::MinNode* op, std::ostream& os) {  // NOLINT(*)
-  PrintTernaryCondExpr(op, "<", ">=", os);
+  PrintMinMax(op->a, op->b, /*is_min=*/true, os);
 }
 
 void CodeGenCHost::Dispatch_(const prim::MaxNode* op, std::ostream& os) {  // NOLINT(*)
-  PrintTernaryCondExpr(op, ">", "<=", os);
+  PrintMinMax(op->a, op->b, /*is_min=*/false, os);
 }
 
-template <typename T>
-inline void CodeGenCHost::PrintTernaryCondExpr(const T* op, const char* compare,
-                                               const char* reverse_compare,
-                                               std::ostream& os) {  // NOLINT(*)
-  std::ostringstream temp_a;
-  Dispatch(op->a, temp_a);
-  std::string a_id = SSAGetID(temp_a.str(), op->a.ty());
-  std::ostringstream temp_b;
-  Dispatch(op->b, temp_b);
-  std::string b_id = SSAGetID(temp_b.str(), op->b.ty());
-  PrimType dtype = op->ty.template as_or_throw<PrimType>();
-  ConstFloatKind a_kind = GetConstFloatKind(op->a);
-  ConstFloatKind b_kind = GetConstFloatKind(op->b);
+void CodeGenCHost::PrintMinMax(const PrimExpr& lhs, const PrimExpr& rhs, bool is_min,
+                               std::ostream& os) {  // NOLINT(*)
+  std::ostringstream temp_lhs;
+  Dispatch(lhs, temp_lhs);
+  std::string lhs_id = SSAGetID(temp_lhs.str(), lhs.ty());
+  std::ostringstream temp_rhs;
+  Dispatch(rhs, temp_rhs);
+  std::string rhs_id = SSAGetID(temp_rhs.str(), rhs.ty());
+  PrimType dtype = lhs.ty().as_or_throw<PrimType>();
+  FloatNaNStatus lhs_nan_status = GetFloatNaNStatus(lhs);
+  FloatNaNStatus rhs_nan_status = GetFloatNaNStatus(rhs);
+  const char* compare = is_min ? "<" : ">";
+  const char* take_rhs_compare = is_min ? ">=" : "<=";
 
   if (!dtype.MatchesCode(DLDataTypeCode::kDLFloat)) {
-    os << "((" << a_id << ") " << compare << " (" << b_id << ") ? (" << a_id << ") : (" << b_id
-       << "))";
-  } else if (a_kind == ConstFloatKind::kNaN) {
-    os << "(" << a_id << ")";
-  } else if (a_kind == ConstFloatKind::kNonNaN) {
-    os << "((" << a_id << ") " << compare << " (" << b_id << ") ? (" << a_id << ") : (" << b_id
-       << "))";
-  } else if (b_kind == ConstFloatKind::kNaN) {
-    os << "((" << a_id << ") != (" << a_id << ") ? (" << a_id << ") : (" << b_id << "))";
-  } else if (b_kind == ConstFloatKind::kNonNaN) {
-    os << "((" << a_id << ") " << reverse_compare << " (" << b_id << ") ? (" << b_id << ") : ("
-       << a_id << "))";
+    os << "((" << lhs_id << ") " << compare << " (" << rhs_id << ") ? (" << lhs_id << ") : ("
+       << rhs_id << "))";
+  } else if (lhs_nan_status == FloatNaNStatus::kKnownNaN) {
+    os << "(" << lhs_id << ")";
+  } else if (lhs_nan_status == FloatNaNStatus::kKnownNotNaN) {
+    // No lhs NaN check is needed; a NaN rhs makes the comparison false.
+    os << "((" << lhs_id << ") " << compare << " (" << rhs_id << ") ? (" << lhs_id << ") : ("
+       << rhs_id << "))";
+  } else if (rhs_nan_status == FloatNaNStatus::kKnownNaN) {
+    // isnan(lhs) ? lhs : rhs: select lhs only if it is also NaN.
+    os << "((" << lhs_id << ") != (" << lhs_id << ") ? (" << lhs_id << ") : (" << rhs_id << "))";
+  } else if (rhs_nan_status == FloatNaNStatus::kKnownNotNaN) {
+    // For min: lhs >= rhs ? rhs : lhs. A NaN lhs makes >= false and is kept.
+    os << "((" << lhs_id << ") " << take_rhs_compare << " (" << rhs_id << ") ? (" << rhs_id
+       << ") : (" << lhs_id << "))";
   } else {
-    os << "(((" << a_id << ") " << compare << " (" << b_id << ") || (" << a_id << ") != (" << a_id
-       << ")) ? (" << a_id << ") : (" << b_id << "))";
+    // For min: (lhs < rhs || isnan(lhs)) ? lhs : rhs. Max uses > instead.
+    os << "(((" << lhs_id << ") " << compare << " (" << rhs_id << ") || (" << lhs_id << ") != ("
+       << lhs_id << ")) ? (" << lhs_id << ") : (" << rhs_id << "))";
   }
 }
 

@@ -1660,19 +1660,20 @@ llvm::Value* CodeGenLLVM::CreateMinMax(const PrimExpr& lhs, const PrimExpr& rhs,
 
   // LLVM comparisons and selects operate lane-wise on both fixed-length and
   // scalable vectors. BF16/FP8 computations are legalized before codegen.
-  ConstFloatKind a_kind = GetConstFloatKind(lhs);
-  ConstFloatKind b_kind = GetConstFloatKind(rhs);
-  if (a_kind == ConstFloatKind::kNaN) {
+  FloatNaNStatus lhs_nan_status = GetFloatNaNStatus(lhs);
+  FloatNaNStatus rhs_nan_status = GetFloatNaNStatus(rhs);
+  if (lhs_nan_status == FloatNaNStatus::kKnownNaN) {
     return a;
   }
 
   llvm::Value* take_a;
   auto ordered_cmp = is_min ? llvm::CmpInst::FCMP_OLT : llvm::CmpInst::FCMP_OGT;
-  if (a_kind == ConstFloatKind::kNonNaN) {
+  if (lhs_nan_status == FloatNaNStatus::kKnownNotNaN) {
     take_a = builder_->CreateFCmp(ordered_cmp, a, b);
-  } else if (b_kind == ConstFloatKind::kNaN) {
+  } else if (rhs_nan_status == FloatNaNStatus::kKnownNaN) {
+    // Select lhs only when it is also NaN; otherwise select the NaN rhs.
     take_a = builder_->CreateFCmpUNO(a, a);
-  } else if (b_kind == ConstFloatKind::kNonNaN) {
+  } else if (rhs_nan_status == FloatNaNStatus::kKnownNotNaN) {
     // An unordered strict comparison also selects a when a is NaN.
     take_a = builder_->CreateFCmp(is_min ? llvm::CmpInst::FCMP_ULT : llvm::CmpInst::FCMP_UGT, a, b);
   } else {

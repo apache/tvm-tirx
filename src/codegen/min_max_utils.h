@@ -31,23 +31,23 @@
 namespace tvm {
 namespace codegen {
 
-enum class ConstFloatKind {
-  kNotConst,
-  kNonNaN,
-  kNaN,
+// Compile-time NaN information from a FloatImm or Broadcast(FloatImm).
+enum class FloatNaNStatus {
+  kUnknown,
+  kKnownNaN,
+  kKnownNotNaN,
 };
 
-inline ConstFloatKind GetConstFloatKind(const PrimExpr& expr) {
+inline FloatNaNStatus GetFloatNaNStatus(const PrimExpr& expr) {
   const FloatImmNode* value = expr.as<FloatImmNode>();
   if (const auto* broadcast = expr.as<prim::BroadcastNode>()) {
-    // Vector constants are broadcasts of a scalar immediate, including
-    // fixed-length and scalable vectors.
+    // Recognize uniform vector constants, including scalable broadcasts.
     value = broadcast->value.as<FloatImmNode>();
   }
   if (value == nullptr) {
-    return ConstFloatKind::kNotConst;
+    return FloatNaNStatus::kUnknown;
   }
-  return std::isnan(value->value) ? ConstFloatKind::kNaN : ConstFloatKind::kNonNaN;
+  return std::isnan(value->value) ? FloatNaNStatus::kKnownNaN : FloatNaNStatus::kKnownNotNaN;
 }
 
 }  // namespace codegen
