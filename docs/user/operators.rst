@@ -124,8 +124,9 @@ The stored ``provisional.ty`` remains missing; ``inferred`` is float32.
 A transformation must keep the inputs and stored result type consistent;
 validation alone does not generally establish their agreement.
 
-These calls describe values, just as ``added`` does in :doc:`foundations`.
-:doc:`statements` shows how expressions become part of a function body.
+Calls can supply values to the statements introduced in :doc:`statements`.
+:doc:`objects_and_functions` places a body in a function and introduces global
+references that can be used as callees.
 
 See :doc:`/reference/python/ir` for the complete operator and call APIs. The
 :download:`operators_and_calls.py <examples/operators_and_calls.py>` example includes runnable

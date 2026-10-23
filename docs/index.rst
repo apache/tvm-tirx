@@ -28,8 +28,8 @@ Table of Contents
 
    user/core_api
    user/foundations
-   user/operators
    user/statements
+   user/operators
    user/objects_and_functions
    user/programs
 
