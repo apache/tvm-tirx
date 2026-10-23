@@ -20,10 +20,13 @@
 Types and Expressions
 =====================
 
-``ir.Type`` is the base class for objects describing a scalar's dtype, a tensor's
-shape and element type, or a function's argument and return types. ``ir.Expr``
-represents a value or computation in a program and carries a type describing
-its result.
+A compiler uses type information to check operations and guide transformations
+before a program runs. Types describe properties such as scalar dtypes, tensor
+shapes, and function signatures.
+
+``ir.Type`` is the base class for these descriptions. ``ir.Expr`` represents a
+program value or computation and carries a type describing its result, so
+compiler tools can inspect both a computation and its type information.
 
 .. _user-ir-type:
 .. _user-ir-prim-type:

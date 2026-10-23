@@ -18,9 +18,14 @@
 Functions and Modules
 =====================
 
-The body in :doc:`statements_and_control_flow` binds ``x + 1`` to ``result`` and
-returns it. A function gives that body an input parameter and a return type. A
-module then gives the function a global name that other IR can reference.
+A reusable computation needs an explicit calling interface: which values are
+inputs and what kind of result it produces. ``tirx.Function`` records that
+interface through parameters and a return type, alongside an optional statement
+body.
+
+``ir.IRModule`` groups function definitions under global names so they can be
+referenced by calls and processed together by compiler passes. It also holds
+metadata shared by the module.
 
 Functions
 ---------

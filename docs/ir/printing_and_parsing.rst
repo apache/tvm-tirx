@@ -20,10 +20,14 @@
 Printing and Parsing
 ====================
 
-TVMScript uses Python syntax to express IR. Function signatures, tensor shapes,
-symbolic dimensions, and control flow can be written together as source code.
-Parsing constructs the IR objects introduced in the preceding chapters;
-printing renders those objects back into TVMScript.
+Readable source makes it easier to inspect generated programs, edit examples,
+and compare IR before and after a transformation. TVMScript provides this source
+form using Python syntax.
+
+Printing renders IR objects as TVMScript, while parsing constructs them from
+source. Function signatures, tensor shapes, symbolic dimensions, and control
+flow can be written together. Python functions and script helpers also let you
+reuse construction logic to generate program variants.
 
 For example, this function increments every element of a float32 tensor with
 shape ``(2*n, 128)``. Save the code in a Python file so the decorator can inspect

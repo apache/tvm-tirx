@@ -18,9 +18,13 @@
 Statements and Control Flow
 ===========================
 
-An expression such as ``x + 1`` describes a value. Statements say how that value
-is used: bind it to a variable, return it, or store it in a tensor. A function
-body orders these actions and can select or repeat them with control flow.
+A program must specify how computed values are used and when actions such as
+tensor writes take place. Analyses and transformations need this information
+to track effects and determine where variables are available.
+
+Statements make these uses explicit by binding values, returning results, and
+writing tensors. Statement sequences specify execution order, while branches
+and loops select or repeat actions and introduce scopes for local variables.
 
 Statements and Sequences
 ------------------------

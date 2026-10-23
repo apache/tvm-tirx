@@ -18,10 +18,14 @@
 Operators and Calls
 ===================
 
-The addition in :doc:`types_and_expressions` stores its operands directly in an
-``Add``. A call represents a computation through a callee and arguments instead.
-For a registered operation such as ``prim.exp``, the callee is an ``ir.Op``;
-``ir.Call`` records each invocation. Both objects are expressions.
+A common call representation lets new operators reuse the existing IR structure
+and traversal tools. It keeps an operation's shared rules separate from the
+inputs and attributes of each invocation.
+
+``ir.Op`` identifies a registered operation such as ``prim.exp``, while
+``ir.Call`` records one invocation. Calls can also refer to function-valued
+expressions, including variables and global function references. Both ``Op``
+and ``Call`` are expressions.
 
 Operators
 ---------
