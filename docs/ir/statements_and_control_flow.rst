@@ -54,8 +54,8 @@ source information in ``loc`` and fields for its operands or nested bodies:
      - A program assertion
      - ``condition``, ``error_kind``, ``message_parts``
 
-To turn the addition from :doc:`foundations` into a body, first reconstruct its
-input and expression:
+To turn the addition from :doc:`types_and_expressions` into a body, first
+reconstruct its input and expression:
 
 .. literalinclude:: examples/statements_and_functions.py
    :language: python
@@ -139,7 +139,7 @@ variables inside ``body``, and ``result_vars`` introduces variables for followin
 statements. See :class:`~tvm_tirx.ir.RegionStmt` for the operator contract.
 
 To check these definition and scope rules, the body needs the context of a
-complete function or module. :doc:`objects_and_functions` supplies that context;
+complete function or module. :doc:`functions_and_modules` supplies that context;
 ``tirx.analysis.check_well_formed`` then checks variable and tensor uses and loop
 control. Invalid uses raise ``RuntimeError`` by default; ``assert_mode=False``
 returns False instead.

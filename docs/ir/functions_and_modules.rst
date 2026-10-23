@@ -18,9 +18,9 @@
 Functions and Modules
 =====================
 
-The body in :doc:`statements` binds ``x + 1`` to ``result`` and returns it. A
-function gives that body an input parameter and a return type. A module then
-gives the function a global name that other IR can reference.
+The body in :doc:`statements_and_control_flow` binds ``x + 1`` to ``result`` and
+returns it. A function gives that body an input parameter and a return type. A
+module then gives the function a global name that other IR can reference.
 
 Functions
 ---------
@@ -44,8 +44,8 @@ statement body:
    * - ``attrs``
      - Named function properties stored in ``ir.DictAttrs``.
 
-Using ``x`` and ``body`` from :doc:`statements` completes the increment
-function:
+Using ``x`` and ``body`` from :doc:`statements_and_control_flow` completes the
+increment function:
 
 .. literalinclude:: examples/statements_and_functions.py
    :language: python
@@ -54,9 +54,9 @@ function:
 
 ``x`` is now a parameter definition; ``result`` remains local to the body. The
 function's ``ty`` is ``ir.FuncType([x.ty], x.ty)``, matching the signature
-introduced in :doc:`foundations`. Construction derives this signature from the
-parameter and declared return types, without inferring a return type from the
-body. Passing None for ``body`` creates a declaration without an implementation.
+introduced in :doc:`types_and_expressions`. Construction derives this signature
+from the parameter and declared return types, without inferring a return type
+from the body. Passing None for ``body`` creates a declaration without an implementation.
 
 Modules
 -------
@@ -76,7 +76,7 @@ generation. These names need not match. String keys passed to the module
 constructor create global references automatically.
 
 The stored reference can now be used as a callee, connecting this definition to
-the calls introduced in :doc:`operators`:
+the calls introduced in :doc:`operators_and_calls`:
 
 .. literalinclude:: examples/statements_and_functions.py
    :language: python
@@ -107,8 +107,8 @@ object graph for later inspection, save and reconstruct it as JSON:
 
 Structural comparison checks the representation, including corresponding bound
 variables. Loading requires the graph's object types to be registered in the
-receiving process. :doc:`programs` describes the source representation used to
-print and parse IR.
+receiving process. :doc:`printing_and_parsing` describes the source representation
+used to print and parse IR.
 
 See :class:`~tvm_tirx.tirx.Function` and :class:`~tvm_tirx.ir.IRModule` for the
 complete APIs. The :download:`statements_and_functions.py <examples/statements_and_functions.py>`
