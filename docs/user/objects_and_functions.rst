@@ -53,7 +53,7 @@ Using the parameters and loop body from :doc:`statements`, this function writes
 its output to ``C`` and explicitly declares ``ir.PrimType("void")``, matching
 TVMScript's ``T.void``:
 
-.. literalinclude:: examples/ir_structure.py
+.. literalinclude:: examples/statements_and_functions.py
    :language: python
    :start-after: # begin function construction
    :end-before: # end function construction
@@ -78,7 +78,7 @@ and ``global_infos`` stores named arrays of ``ir.GlobalInfo`` metadata.
 
 This module installs the function under a global reference named ``main``:
 
-.. literalinclude:: examples/ir_structure.py
+.. literalinclude:: examples/statements_and_functions.py
    :language: python
    :start-after: # begin module construction
    :end-before: # end module construction
@@ -103,7 +103,7 @@ conflicts with the existing one.
 A module's object graph can be saved with ``ir.save_json`` and reconstructed
 with ``ir.load_json``. A structural comparison checks the round trip:
 
-.. literalinclude:: examples/ir_structure.py
+.. literalinclude:: examples/statements_and_functions.py
    :language: python
    :start-after: # begin module serialization
    :end-before: # end module serialization
@@ -113,5 +113,5 @@ variables; it does not prove numerical equivalence. JSON loading requires the
 object types used by the graph to be registered in the receiving process.
 
 See :class:`~tvm_tirx.tirx.Function` and :class:`~tvm_tirx.ir.IRModule` for the
-complete APIs. The :download:`ir_structure.py <examples/ir_structure.py>`
+complete APIs. The :download:`statements_and_functions.py <examples/statements_and_functions.py>`
 example also checks updates and scopes, then compiles and runs this module.

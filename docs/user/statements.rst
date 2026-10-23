@@ -102,7 +102,7 @@ exits the enclosing function.
 The following body combines a binding, a branch, and two loops. First construct
 the tensor variables with shape ``(2*n, 128)`` and their indices:
 
-.. literalinclude:: examples/ir_structure.py
+.. literalinclude:: examples/statements_and_functions.py
    :language: python
    :start-after: # begin statement values
    :end-before: # end statement values
@@ -111,7 +111,7 @@ the tensor variables with shape ``(2*n, 128)`` and their indices:
 The binding computes an element value, and the branch selects which value to
 store. The loops enclose both statements to cover all rows and columns:
 
-.. literalinclude:: examples/ir_structure.py
+.. literalinclude:: examples/statements_and_functions.py
    :language: python
    :start-after: # begin statements
    :end-before: # end statements
@@ -139,6 +139,6 @@ its branch, raises ``RuntimeError`` by default; ``assert_mode=False`` returns
 False instead. :doc:`objects_and_functions` places this body in a function and
 module.
 
-The :download:`ir_structure.py <examples/ir_structure.py>` example includes
+The :download:`statements_and_functions.py <examples/statements_and_functions.py>` example includes
 scope errors and numerical checks. See :doc:`/reference/python/ir` for statement
 constructors and :doc:`/reference/python/tirx.analysis` for verification APIs.

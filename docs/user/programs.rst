@@ -29,7 +29,7 @@ TVMScript uses Python source syntax to describe IR. The ``@T.function`` decorato
 parses a function definition and returns a ``tirx.Function``. Put the following
 imports at the top of a Python source file:
 
-.. literalinclude:: examples/ir_construction.py
+.. literalinclude:: examples/construction_and_printing.py
    :language: python
    :start-after: # begin construction imports
    :end-before: # end script imports
@@ -39,7 +39,7 @@ types. The source file also lets the decorator recover the function's text.
 The program from :doc:`statements` and :doc:`objects_and_functions` can then be
 written as:
 
-.. literalinclude:: examples/ir_construction.py
+.. literalinclude:: examples/construction_and_printing.py
    :language: python
    :start-after: # begin script function
    :end-before: # end script function definition
@@ -52,7 +52,7 @@ preceding chapters.
 ``@I.ir_module`` builds a module from a class. It accepts existing functions as
 members:
 
-.. literalinclude:: examples/ir_construction.py
+.. literalinclude:: examples/construction_and_printing.py
    :language: python
    :start-after: # begin script module
    :end-before: # end script module definition
@@ -77,7 +77,7 @@ collects its body and produces an ``ir.For``:
    from tvm_tirx.script.ir_builder import IRBuilder
    from tvm_tirx.tirx.script import ir_builder as B
 
-.. literalinclude:: examples/ir_construction.py
+.. literalinclude:: examples/construction_and_printing.py
    :language: python
    :start-after: # begin grid pair
    :end-before: # end loop construction
@@ -87,8 +87,8 @@ Here ``B.grid`` takes a ``(start, extent)`` pair, so the loop has ``begin=2`` an
 exclusive ``end=5``. ``B.evaluate`` emits a statement into its body.
 
 Similarly, ``B.function_`` collects a function's parameters and body, while
-``B.ir_module`` collects functions. The complete example constructs the tensor
-module using these frames and checks it against the TVMScript version. See
+``B.ir_module`` collects functions. Nesting these frames constructs a complete
+program. See
 :doc:`/reference/python/tirx.script.ir_builder` for the frame APIs.
 
 Parsing and Printing
@@ -98,11 +98,10 @@ Parsing and Printing
 highlighting. ``from_source`` parses text into IR. For example, this round trip
 checks the reconstructed function against the original:
 
-.. literalinclude:: examples/ir_construction.py
+.. literalinclude:: examples/construction_and_printing.py
    :language: python
    :start-after: # begin function source round trip
    :end-before: # end function source round trip
-   :prepend: function_text = main.script()
 
 The printer emits namespace imports as comments by default. ``extra_vars``
 supplies those bindings to the parser; source text does not inherit its caller's
@@ -113,5 +112,5 @@ round trip preserves IR structure rather than the original source spelling.
 
 See :func:`~tvm_tirx.script.parser.from_source` and
 :doc:`/reference/python/script.printer` for parsing and formatting options.
-The :download:`ir_construction.py <examples/ir_construction.py>` example checks
-both construction routes and source round trips.
+The :download:`construction_and_printing.py <examples/construction_and_printing.py>` example checks
+TVMScript construction, a builder loop, and a source round trip.

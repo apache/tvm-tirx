@@ -60,7 +60,7 @@ All type objects carry a ``loc`` field for source information, defaulting to
 Types can contain other types: tuple fields, pointer element types, and
 function signatures refer to further ``ir.Type`` objects. For example:
 
-.. literalinclude:: examples/foundations.py
+.. literalinclude:: examples/types_and_expressions.py
    :language: python
    :start-after: # begin composite type
    :end-before: # end composite type
@@ -75,7 +75,7 @@ object identity.
 The tensor layer adds ``tirx.TensorType`` as a subclass of ``ir.Type``. This type
 describes an ``(8, 128)`` tensor with float32 elements:
 
-.. literalinclude:: examples/foundations.py
+.. literalinclude:: examples/types_and_expressions.py
    :language: python
    :start-after: # begin constant tensor type
    :end-before: # end constant tensor type
@@ -130,7 +130,7 @@ representation.
 For example, ``ir.Var`` creates a variable and ``ir.const`` creates a constant
 expression. Multiplying them constructs a ``Mul`` with two expression operands:
 
-.. literalinclude:: examples/foundations.py
+.. literalinclude:: examples/types_and_expressions.py
    :language: python
    :start-after: # begin scalar expressions
    :end-before: # end scalar expressions
@@ -143,7 +143,7 @@ distinct symbol, even with the same name.
 A tensor variable uses the same ``ir.Var`` class, with a ``TensorType`` in its
 ``ty`` field. Using ``extent`` from above:
 
-.. literalinclude:: examples/foundations.py
+.. literalinclude:: examples/types_and_expressions.py
    :language: python
    :start-after: # begin tensor expressions
    :end-before: # end tensor expressions
@@ -157,5 +157,5 @@ Constructing these types and expressions does not allocate tensor storage.
 
 See :class:`~tvm_tirx.tirx.TensorType` for the complete constructor and storage
 options, and :doc:`/reference/python/ir` for expression and type APIs. The
-:download:`foundations.py <examples/foundations.py>` example contains the
+:download:`types_and_expressions.py <examples/types_and_expressions.py>` example contains the
 runnable code and additional API checks.

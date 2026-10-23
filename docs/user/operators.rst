@@ -33,7 +33,7 @@ shared by all calls to that operator.
 For example, ``prim.exp`` declares one argument named ``x`` and is a pure
 operation. Both properties can be inspected on the registered object:
 
-.. literalinclude:: examples/foundations.py
+.. literalinclude:: examples/operators_and_calls.py
    :language: python
    :start-after: # begin operator lookup
    :end-before: # end operator lookup
@@ -71,15 +71,15 @@ registration supplies the rules used to interpret them.
 For example, this call applies the registered exponential operator to a float32
 constant:
 
-.. literalinclude:: examples/foundations.py
+.. literalinclude:: examples/operators_and_calls.py
    :language: python
    :start-after: # begin call contract
    :end-before: # end call contract
 
-A function-valued expression can also be the callee. This variable has a
-signature accepting and returning float32:
+The call's ``ty`` is ``ir.PrimType("float32")``. A variable with a function
+type can also be the callee:
 
-.. literalinclude:: examples/foundations.py
+.. literalinclude:: examples/operators_and_calls.py
    :language: python
    :start-after: # begin function call type
    :end-before: # end function call type
@@ -106,24 +106,25 @@ without a validator.
 For ``prim.exp``, an explicit result type lets the constructor record a call
 with no arguments. Validation then rejects the argument count:
 
-.. literalinclude:: examples/foundations.py
+.. literalinclude:: examples/operators_and_calls.py
    :language: python
    :start-after: # begin validation failure
    :end-before: # end validation failure
+   :append: invalid.validate()  # raises TypeError: expected one argument
 
 To derive a result type later, use ``ir.reinfer_type``. It applies the same
 inference rules to the current inputs and returns a type without modifying
 ``call.ty`` or running validation:
 
-.. literalinclude:: examples/foundations.py
+.. literalinclude:: examples/operators_and_calls.py
    :language: python
    :start-after: # begin provisional call
    :end-before: # end provisional call
 
-Here the stored type remains missing even though re-inference returns float32.
+The stored ``provisional.ty`` remains missing; ``inferred`` is float32.
 A transformation must keep the inputs and stored result type consistent;
 validation alone does not generally establish their agreement.
 
 See :doc:`/reference/python/ir` for the complete operator and call APIs. The
-:download:`foundations.py <examples/foundations.py>` example includes runnable
+:download:`operators_and_calls.py <examples/operators_and_calls.py>` example includes runnable
 calls, re-inference, and validation failures.
