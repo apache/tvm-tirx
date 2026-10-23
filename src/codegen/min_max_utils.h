@@ -31,13 +31,27 @@
 namespace tvm {
 namespace codegen {
 
-// Compile-time NaN information from a FloatImm or Broadcast(FloatImm).
+/*! \brief Compile-time NaN information about an expression. */
 enum class FloatNaNStatus {
+  /*! \brief Whether the expression is NaN has not been determined. */
   kUnknown,
+  /*! \brief The scalar value or every vector lane is known to be NaN. */
   kKnownNaN,
+  /*! \brief The scalar value or every vector lane is known not to be NaN. */
   kKnownNotNaN,
 };
 
+/*!
+ * \brief Determine an expression's NaN status from floating-point constants.
+ *
+ * Recognizes a scalar FloatImm or a Broadcast of a FloatImm, including
+ * fixed-length and scalable broadcasts. Non-NaN constants include infinities.
+ * All other expression forms have unknown NaN status.
+ *
+ * \param expr The expression to classify.
+ * \return FloatNaNStatus::kKnownNaN or FloatNaNStatus::kKnownNotNaN for a recognized
+ *         constant; FloatNaNStatus::kUnknown otherwise.
+ */
 inline FloatNaNStatus GetFloatNaNStatus(const PrimExpr& expr) {
   const FloatImmNode* value = expr.as<FloatImmNode>();
   if (const auto* broadcast = expr.as<prim::BroadcastNode>()) {
