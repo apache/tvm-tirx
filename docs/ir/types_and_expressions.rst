@@ -20,13 +20,14 @@
 Types and Expressions
 =====================
 
-A compiler uses type information to check operations and guide transformations
-before a program runs. Types describe properties such as scalar dtypes, tensor
-shapes, and function signatures.
+Compiler analyses work with computations whose inputs may only be known at
+runtime. Dtypes, tensor shapes, and function signatures let them reason about
+how values can be used without evaluating the program.
 
-``ir.Type`` is the base class for these descriptions. ``ir.Expr`` represents a
-program value or computation and carries a type describing its result, so
-compiler tools can inspect both a computation and its type information.
+``ir.Type`` is the base class for these descriptions. ``ir.Expr`` represents
+program values and computations. Each expression carries a result type, so
+analyses and transformations can inspect a computation together with the
+properties of the value it produces.
 
 .. _user-ir-type:
 .. _user-ir-prim-type:

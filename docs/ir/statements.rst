@@ -20,13 +20,15 @@
 Statements
 ==========
 
-A program must specify how computed values are used and when actions such as
-tensor writes take place. Analyses and transformations need this information
-to track effects and determine where variables are available.
+Transformations that move or rewrite computations must account for execution
+order and variable scope. Moving a tensor read past a write can change the
+value it reads; moving an expression outside a loop can leave its index
+variable out of scope.
 
-Statements make these uses explicit by binding values, returning results, and
-writing tensors. Statement sequences specify execution order, while branches
-and loops select or repeat actions and introduce scopes for local variables.
+``ir.Stmt`` records how computations are used and organized, including bindings,
+tensor writes, returns, sequences, branches, and loops. This gives analyses and
+transformations an explicit structure for following control flow and checking
+variable uses.
 
 .. _statements-and-sequences:
 

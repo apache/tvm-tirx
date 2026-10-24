@@ -18,14 +18,14 @@
 Functions and Modules
 =====================
 
-A reusable computation needs an explicit calling interface: which values are
-inputs and what kind of result it produces. ``tirx.Function`` records that
-interface through parameters and a return type, alongside an optional statement
-body.
+Callers need to know which values a computation accepts and what result type
+to expect. Compiler passes also need to find the definition behind a global
+function reference.
 
-``ir.IRModule`` groups function definitions under global names so they can be
-referenced by calls and processed together by compiler passes. It also holds
-metadata shared by the module.
+``tirx.Function`` records the parameters, result type, and optional statement
+body of a computation. ``ir.IRModule`` maps global references to definitions, so
+passes can look up and update the functions used by a program. It also holds
+module-level metadata.
 
 Functions
 ---------

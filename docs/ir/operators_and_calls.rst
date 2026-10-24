@@ -18,21 +18,19 @@
 Operators and Calls
 ===================
 
-A common call representation lets new operators reuse the existing IR structure
-and traversal tools. It keeps an operation's shared rules separate from the
-inputs and attributes of each invocation.
+Calls to the same operator share rules about arguments, result types, and
+effects. Registering these rules once lets analyses and passes query them for
+any invocation.
 
-``ir.Op`` identifies a registered operation such as ``prim.exp``, while
-``ir.Call`` records one invocation. Calls can also refer to function-valued
-expressions, including variables and global function references. Both ``Op``
-and ``Call`` are expressions.
+``ir.Op`` identifies a registered operator; ``ir.Call`` records one invocation
+with its inputs and attributes. New operators can use this same call form,
+which also supports function-valued callees. Both ``Op`` and ``Call`` are
+expressions.
 
 Operators
 ---------
 
-An operator's registration describes accepted arguments and can supply effect
-information, type inference, and validation rules. Calls to the operator share
-these properties. Retrieve the registered object with ``ir.Op.get(name)``.
+Retrieve an operator from the registry with ``ir.Op.get(name)``.
 
 For example, ``prim.exp`` declares one argument named ``x`` and is a pure
 operation. Both properties can be inspected on the registered object:
