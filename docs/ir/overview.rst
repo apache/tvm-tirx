@@ -36,7 +36,7 @@ under ``ir.prim`` in Python.
 
 .. code-block:: text
 
-   TVM FFI object system
+   ffi.Object                                          TVM FFI base object
    ├── ir.Expr                                         Expressions
    │   ├── ir.Constant                                 Literal constants
    │   │   ├── ir.IntImm                               Integer constants
