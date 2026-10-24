@@ -42,23 +42,24 @@ tensor's shape and the loop bound refer to that same variable, keeping ``2*n``
 symbolic in both places. The loops and indexing construct IR; the tensor
 computation runs when the compiled function is called.
 
-An ordinary Python function can generate variations of this program. To reuse
-the element update across those variations, first separate its computation and
-tensor write into script helpers:
+Script helpers let generated functions reuse parts of a computation.
+An ``@T.inline`` helper can return an expression, while ``@T.macro`` inserts
+statements into the function being built. These helpers separate the element
+addition from the tensor write:
 
 .. literalinclude:: examples/printing_and_parsing.py
    :language: python
    :start-after: # begin script helpers
    :end-before: # end script helpers
 
-``@T.inline`` expands a helper and returns a value to its caller during
-construction. ``@T.macro`` emits a statement fragment into the caller's body;
-a return inside a macro would return from the enclosing IR function. Here,
-``ir.const(1, value.ty)`` creates the increment with the element's type, so the
-same helpers work with different element types.
+``increment`` constructs the addition, and ``increment_at`` writes its result
+back to the tensor. ``ir.const(1, value.ty)`` gives the constant the element's
+type, so the helpers also work with other element types.
 
-The factory can now choose a width and dtype and build a function using those
-helpers:
+An ordinary Python function can choose a shape and dtype, construct a
+``@T.function`` definition, and return the resulting ``tirx.Function``.
+Here, ``make_increment`` builds a function with the requested column count
+and element type:
 
 .. literalinclude:: examples/printing_and_parsing.py
    :language: python
@@ -69,9 +70,9 @@ helpers:
 has a fixed second dimension of 128 and float32 elements; ``narrow`` has a second
 dimension of 64 and float16 elements. Their first dimension remains ``2*n``,
 where ``n`` is an IR parameter supplied when the compiled function is called.
-The validation and function construction happen in Python; the generated loops
-describe the later tensor computation. Using Python to choose and assemble IR
-this way is metaprogramming.
+The width check and function construction run while ``make_increment``
+executes; the generated loops describe the later tensor computation.
+Generating IR with Python logic in this way is metaprogramming.
 
 Printing lets you inspect what this Python code generated:
 
@@ -80,54 +81,53 @@ Printing lets you inspect what this Python code generated:
    :start-after: # begin print generated function
    :end-before: # end print generated function
 
-``script()`` returns source text. The printed ``wide`` function contains the
-selected width and dtype, with the helpers expanded into the direct update
-``A[i, j] = A[i, j] + T.float32(1.0)``. The factory and helper calls have already
-done their work during construction. You can use the same view after a pass to
-inspect its result, or print smaller parts of the program:
+``script()`` returns source text. The printed ``wide`` function contains these
+loops, using the selected width and element type:
+
+.. code-block:: text
+
+   for i in range(T.int64(0), T.int64(2) * n):
+       for j in range(T.int64(0), T.int64(128)):
+           A[i, j] = A[i, j] + T.float32(1.0)
+
+The helper calls have expanded into an addition and a tensor write. The source
+also declares ``n`` with ``T.dynamic``, which creates a symbolic ``ir.Var`` for
+reuse in the signature and tensor shape. You can also print the result of a
+pass or smaller parts of a program:
 ``wide.params[1].ty.script()`` renders its tensor type, and
 ``wide.body[0].script()`` renders its outer loop.
 
-For interactive inspection, ``show()`` displays highlighted source. Its options
-can add line numbers and underline particular IR objects, such as the outer
-loop:
+For interactive inspection, ``wide.show()`` displays highlighted source.
+See :meth:`~tvm_tirx.tirx.Function.show` for options such as line numbers and
+underlining IR objects.
 
-.. literalinclude:: examples/printing_and_parsing.py
-   :language: python
-   :start-after: # begin diagnostic display
-   :end-before: # end diagnostic display
-
-The source string can then be parsed into a new function:
+``from_source`` parses a source string into a new IR object. Names used in
+the text must be supplied by its imports or the ``extra_vars`` dictionary.
+The printed source refers to ``T``, but its import is a comment by default,
+so this example supplies ``T`` through ``extra_vars``:
 
 .. literalinclude:: examples/printing_and_parsing.py
    :language: python
    :start-after: # begin printing and parsing
    :end-before: # end printing and parsing
 
-``from_source`` reads text using its imports and ``extra_vars``; it does not
-inherit the caller's local variables. Here, ``extra_vars`` supplies ``T``
-because the printer emits its import as a comment by default. For handwritten
-source, these bindings can also supply Python constants, type constructors,
-and script helpers. Pass ``filename`` when parsing saved text to use that name
-in parser diagnostics.
+The structural comparison checks that the reconstructed program has the same
+operations, types, and variable bindings. Its printed syntax can differ from
+the original: for example, ``T.grid`` becomes nested loops.
 
-The structural comparison checks the reconstructed program, including its
-types and variable bindings. The printed text may use explicit symbol
-declarations or nested loops in place of ``T.grid``.
-
-This workflow also applies to modules. ``@I.ir_module`` collects the generated
-functions as class members, allowing both variants to be printed and parsed
-together:
+The same process works for modules. ``@I.ir_module`` turns a class containing
+function definitions into an ``ir.IRModule``. Here it collects both generated
+variants, which can then be printed and parsed together:
 
 .. literalinclude:: examples/printing_and_parsing.py
    :language: python
    :start-after: # begin module round trip
    :end-before: # end module round trip
 
-To obtain source with executable imports, set ``ir.comment_imports`` to False.
-This is useful when saving the source to a file or parsing it in another
-process. The imports provide the namespaces, so this example needs no
-``extra_vars``:
+To include import statements in the printed text, set ``ir.comment_imports``
+to False. The parser can then resolve ``I`` and ``T`` from those imports,
+without ``extra_vars``. This is useful when saving the source for another
+process:
 
 .. literalinclude:: examples/printing_and_parsing.py
    :language: python

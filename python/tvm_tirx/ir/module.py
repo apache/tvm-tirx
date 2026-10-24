@@ -69,6 +69,13 @@ class IRModule(Node, Scriptable):
         self.__pyfuncs__ = {}
 
     def clone(self) -> "IRModule":
+        """Create a module object with the same functions and metadata.
+
+        The clone initially shares its function objects and other contents with
+        the original. Adding, replacing, or removing function-map entries on the
+        clone preserves the original module's entries. Contents are not
+        recursively copied.
+        """
         return _ffi_api.IRModuleClone(self)
 
     def functions_items(self):
@@ -130,12 +137,18 @@ class IRModule(Node, Scriptable):
         return _ffi_api.IRModuleContains(self, var)
 
     def update(self, other):
-        """Insert functions in another Module to current one.
+        """Insert function definitions from another module or dictionary in place.
+
+        Definitions are merged using their GlobalVar keys. A dictionary's
+        string keys create fresh GlobalVar objects; a fresh key with the same
+        name as an existing key raises RuntimeError. To replace an existing
+        definition, reuse its stored GlobalVar or use assignment by name.
 
         Parameters
         ----------
-        other: IRModule
-            The module to merge into the current Module.
+        other : IRModule or dict[GlobalVar or str, BaseFunc]
+            Function definitions to merge into this module. Module attributes
+            and global_infos are not merged.
         """
         if isinstance(other, dict):
             other = IRModule(other)

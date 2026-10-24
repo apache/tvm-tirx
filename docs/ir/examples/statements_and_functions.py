@@ -40,7 +40,8 @@ loop = ir.For(i, 0, 4, 1, ir.ForKind.DEFAULT, ir.Evaluate(i))
 # end loop
 
 # begin function construction
-function = tirx.Function([x], body, ret_type=x.ty)
+value = ir.Var("value", "int32")
+function = tirx.Function([value], ir.Return(value + 1), ret_type=value.ty)
 # end function construction
 
 # begin module construction
@@ -61,10 +62,13 @@ ir.assert_structural_equal(module, restored)
 assert global_call.ty == x.ty
 assert module[entry].same_as(module["main"])
 assert tirx.analysis.check_well_formed(module)
+assert tirx.analysis.check_well_formed(tirx.Function([x], body, ret_type=x.ty))
 assert tirx.analysis.check_well_formed(tirx.Function([x], branch, ret_type=x.ty))
+# begin module update
 variant = module.clone()
 variant["main"] = function.with_attr("example.note", "clone")
 assert "example.note" not in module["main"].attrs
+# end module update
 
 escaped = tirx.Function([], [loop, ir.Evaluate(i)])
 assert not tirx.analysis.check_well_formed(escaped, assert_mode=False)

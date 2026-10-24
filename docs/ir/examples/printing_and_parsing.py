@@ -80,7 +80,7 @@ wide.show(
 # end diagnostic display
 
 # begin printing and parsing
-restored = from_source(source, extra_vars={"T": T}, filename="wide.py")
+restored = from_source(source, extra_vars={"T": T})
 ir.assert_structural_equal(wide, restored)
 # end printing and parsing
 

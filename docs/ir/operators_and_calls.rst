@@ -25,14 +25,20 @@ validate arguments, and analyze effects across its calls.
 Operators
 ---------
 
-``ir.Op`` is an expression that identifies a registered operator. Its
-``args_info`` lists names and documentation for the required value arguments;
-a registered validator checks calls against the operator's argument
-requirements. Operator attributes record properties such as the effect kind.
-Retrieve the operator with ``ir.Op.get(name)``.
+``ir.Op`` is an expression that identifies a registered operator. The registry
+stores shared operator definitions, which can be retrieved by name with
+``ir.Op.get(name)``. An operator's ``args_info`` describes its required value
+arguments. A validator is a registered function that checks whether a call's
+arguments meet the operator's requirements.
 
-For example, ``prim.exp`` declares one argument named ``x`` and is a pure
-operation. Both properties can be inspected on the registered object:
+Operator attributes describe properties shared by all calls to that operator.
+The ``TCallEffectKind`` attribute records whether a call only computes a value
+or can read or change program state.
+
+``prim.exp`` computes the exponential of one input. It declares an argument
+named ``x`` and has the effect kind ``Pure``: it computes a value without
+reading or changing external state. Inspect these properties on the registered
+object:
 
 .. literalinclude:: examples/operators_and_calls.py
    :language: python
@@ -40,11 +46,16 @@ operation. Both properties can be inspected on the registered object:
    :end-before: # end operator lookup
    :prepend: from tvm_tirx import ir
 
+Here, ``argument_names`` is ``["x"]``, and ``effect`` equals
+``ir.CallEffectKind.Pure``. See :class:`~tvm_tirx.ir.Op` for the registration
+and attribute APIs.
+
 Calls
 -----
 
-``ir.Call`` stores the callee and inputs for an invocation. It inherits ``ty``
-and ``loc`` from ``ir.Expr`` and adds these fields:
+``ir.Call`` represents an invocation of an operator or function. The expression
+being called is its *callee*. A call inherits ``ty`` and ``loc`` from
+``ir.Expr`` and adds these fields:
 
 .. list-table::
    :header-rows: 1
@@ -74,32 +85,35 @@ constant:
    :start-after: # begin call contract
    :end-before: # end call contract
 
-The call's ``ty`` is ``ir.PrimType("float32")``. A variable with a function
-type can also be the callee:
+This constructs the IR for ``exp(1.0)``; its result type is
+``ir.PrimType("float32")``. The computation is performed when a program
+containing the call is compiled and executed.
+
+A function-valued variable can also be the callee. Here, ``f`` has a signature
+that takes one float32 value and returns a float32 value:
 
 .. literalinclude:: examples/operators_and_calls.py
    :language: python
    :start-after: # begin function call type
    :end-before: # end function call type
 
+``function_call`` represents ``f(1.0)``. The variable supplies a signature;
+the example does not provide an implementation of ``f``.
+
 .. _types-and-validation:
 
 Type Inference and Validation
 -----------------------------
 
-Type inference determines a call's result type from its callee and inputs.
-``ir.Call`` runs inference when ``ty`` is omitted. For an ``Op``, it uses the
-registered fixed return type if available, otherwise the type-inference
-callback. A call to another callee with an ``ir.FuncType`` uses that
-signature's return type. Without an applicable rule, the result is
-``MissingType``. An explicit type, including ``MissingType``, bypasses inference.
+Type inference determines a call's result type from the operator's registered
+rule or the callee's function signature. Omitting ``ty`` asks ``ir.Call`` to
+infer it; passing an explicit type stores that type instead. ``MissingType``
+marks a result whose type has not yet been determined.
 
-The operator's argument contract is checked separately by its validator.
-Construction can reject inputs during inference, but does not run that
-validator. ``call.validate()`` runs it if one is registered, returning None on
-success and raising an exception on failure.
-``validate()`` performs no checks for a non-operator callee or an operator
-without a validator.
+Validation checks whether the arguments meet the operator's requirements.
+The constructor does not run the registered validator; call
+``call.validate()`` explicitly to run it. Type inference can also reject
+inputs, but it is separate from this validation step.
 
 For ``prim.exp``, an explicit result type lets the constructor record a call
 with no arguments. Validation then rejects the argument count:
@@ -110,18 +124,18 @@ with no arguments. Validation then rejects the argument count:
    :end-before: # end validation failure
    :append: invalid.validate()  # raises TypeError: expected one argument
 
-To derive a result type later, use ``ir.reinfer_type``. It applies the same
-inference rules to the current inputs and returns a type without modifying
-``call.ty`` or running validation:
+When constructing or rewriting IR, a call can temporarily carry a missing
+result type. ``ir.reinfer_type`` derives the type from its current inputs:
 
 .. literalinclude:: examples/operators_and_calls.py
    :language: python
    :start-after: # begin provisional call
    :end-before: # end provisional call
 
-The stored ``provisional.ty`` remains missing; ``inferred`` is float32.
-A transformation must keep the inputs and stored result type consistent;
-validation alone does not generally establish their agreement.
+Here, ``inferred`` is ``ir.PrimType("float32")``. The function returns a type;
+it leaves ``provisional.ty`` unchanged. See :class:`~tvm_tirx.ir.Call` and
+:func:`~tvm_tirx.ir.reinfer_type` for the inference rules, and
+:meth:`~tvm_tirx.ir.Call.validate` for the validation contract.
 
 Register New Operators
 ----------------------
@@ -130,8 +144,8 @@ New operators can be added from a Rust extension without modifying the C++
 core.
 
 Use a ``register_ops!`` block with one ``OpDef`` chain per operator. Each chain
-supplies a name and documentation, an argument signature that generates the
-validator, a type-inference callback, and attributes such as the effect kind.
+supplies the operator's name, argument requirements, type-inference rule, and
+attributes.
 The operator joins the same registry as the built-in operators, so Python,
 C++, and Rust code can retrieve it.
 
@@ -160,6 +174,10 @@ expressions:
            .set_infer_type(index_type)
            .set_attr(CALL_EFFECT_KIND, CallEffectKind::Pure);
    }
+
+Here, ``.signature`` generates a validator from the ``IntExpr`` argument
+constraints. ``.set_infer_type`` registers ``index_type``, which returns the
+first argument's type. ``.set_attr`` records that the operation is pure.
 
 Once the extension is loaded and the operator is registered, Python can
 retrieve it with ``ir.Op.get("my_ext.clamp")`` and construct calls in the same
