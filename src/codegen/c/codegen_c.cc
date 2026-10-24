@@ -41,6 +41,7 @@
 #include <cctype>
 #include <iomanip>
 #include <limits>
+#include <utility>
 
 #include "codegen_params.h"
 
@@ -231,8 +232,10 @@ void CodeGenC::PrintExpr(const PrimExpr& n, std::ostream& os) {  // NOLINT(*)
 }
 
 std::string CodeGenC::SSAGetID(const Expr& expr) {
-  // Reads must also stay out of the cache: a store or call may change their value.
-  return SSAGetID(PrintExpr(expr), expr->ty, SideEffect(expr) == CallEffectKind::kPure);
+  std::string source = PrintExpr(expr);
+  bool can_reuse = SideEffect(expr) == CallEffectKind::kPure;
+  // Emit a declaration if needed; the caller prints the returned variable or literal.
+  return CodeGenSourceBase::SSAGetID(std::move(source), expr->ty, can_reuse);
 }
 
 void CodeGenC::PrintExpr(const Expr& n, std::ostream& os) {  // NOLINT(*)

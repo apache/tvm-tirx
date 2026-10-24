@@ -268,11 +268,11 @@ class CodeGenC : public tvm::ExprFunctor<void(const Expr&, std::ostream&)>,
  protected:
   using CodeGenSourceBase::SSAGetID;
   /*!
-   * \brief Evaluate an expression once and return its SSA variable or literal.
+   * \brief Emit an SSA binding when needed and return the variable or literal to print.
    * Only pure expressions may reuse an earlier binding. Reads and calls with
    * effects are evaluated separately on each invocation; repeat the returned
    * variable when one operand is needed more than once.
-   * \param expr The expression to evaluate.
+   * \param expr The expression to print.
    * \return The variable or literal holding the expression's value.
    */
   std::string SSAGetID(const Expr& expr);
