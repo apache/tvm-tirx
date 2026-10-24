@@ -31,22 +31,24 @@ determine result types without running the program.
 Types
 -----
 
-``ir.Type`` is the base class for type objects. All types inherit this field:
+``ir.Type`` is the base class for type objects. It defines a field named ``loc``,
+whose value is an ``ir.Location`` object:
 
 .. list-table::
    :header-rows: 1
    :widths: 15 25 60
 
    * - Field
-     - Type
+     - Value type
      - Meaning
    * - ``loc``
      - ``ir.Location``
      - Source information for diagnostics. Defaults to ``UnknownLoc`` and does
        not affect structural comparison.
 
-Concrete types add fields describing particular kinds of values. Common
-subclasses include:
+Concrete types inherit ``loc`` from ``ir.Type`` and add their own fields. For
+example, ``ir.PrimType`` adds ``dtype``, so a ``PrimType`` object has both
+``loc`` and ``dtype``. Common subclasses include:
 
 .. list-table::
    :header-rows: 1
@@ -105,15 +107,14 @@ Use ``==`` to compare type structure and ``same_as`` to compare object identity.
 Expressions
 -----------
 
-``ir.Expr`` is the base class for expression objects. All expressions inherit
-these fields:
+``ir.Expr`` is the base class for expression objects. It defines these fields:
 
 .. list-table::
    :header-rows: 1
    :widths: 15 25 60
 
    * - Field
-     - Type
+     - Value type
      - Meaning
    * - ``ty``
      - ``ir.Type``
@@ -124,8 +125,9 @@ these fields:
      - Source information for diagnostics. Defaults to ``UnknownLoc`` and does
        not affect structural comparison.
 
-Subclasses represent variables, constants, arithmetic operations, comparisons,
-calls, and tensor reads. Common classes add the following fields:
+Subclasses inherit ``ty`` and ``loc`` and add fields for their stored values or
+operands. These classes represent variables, constants, arithmetic operations,
+comparisons, calls, and tensor reads:
 
 .. list-table::
    :header-rows: 1

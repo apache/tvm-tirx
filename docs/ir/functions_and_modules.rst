@@ -34,7 +34,7 @@ shared by function definitions:
    :widths: 15 25 60
 
    * - Field
-     - Type
+     - Value type
      - Meaning
    * - ``attrs``
      - ``ir.DictAttrs``

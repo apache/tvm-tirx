@@ -30,23 +30,23 @@ preserve program behavior when moving or rewriting computations.
 Statement Nodes
 ---------------
 
-``ir.Stmt`` is the base class for statement objects. All statements inherit
-this field:
+``ir.Stmt`` is the base class for statement objects. It defines a field named
+``loc``, whose value is an ``ir.Location`` object:
 
 .. list-table::
    :header-rows: 1
    :widths: 15 25 60
 
    * - Field
-     - Type
+     - Value type
      - Meaning
    * - ``loc``
      - ``ir.Location``
      - Source information for diagnostics. Defaults to ``UnknownLoc`` and does
        not affect structural comparison.
 
-Subclasses add operands such as values and variables, or nested statement
-bodies. Common nodes include:
+Subclasses inherit ``loc`` and add operands such as values and variables, or
+nested statement bodies. Common nodes include:
 
 .. list-table::
    :header-rows: 1
