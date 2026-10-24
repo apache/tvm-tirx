@@ -14,7 +14,9 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-"""Describe an integer addition and a tensor using the shared type system."""
+"""Construct types, expressions, operator calls, and a custom type."""
+
+from tvm_ffi.dataclasses import py_class
 
 from tvm_tirx import ir, tirx
 
@@ -45,10 +47,23 @@ tensor = ir.Var("A", tensor_type)
 element = tensor[0, 0]
 # end tensor expressions
 
+
+# begin custom type
+@py_class("my_ext.PairType")
+class PairType(ir.Type):
+    first: ir.Type
+    second: ir.Type
+
+
+pair = ir.Var("p", PairType(ir.PrimType("int32"), ir.PrimType("float32")))
+# end custom type
+
 assert signature.arg_types[0] == signature.ret_type == added.ty == x.ty
 assert tile_type.dtype == element.ty == ir.PrimType("float32")
 assert tensor.ty.shape[0].b.same_as(n)
 assert exp_op.name == "prim.exp"
 assert exp_call.op.same_as(exp_op) and exp_call.args[0].same_as(value)
 assert exp_call.ty == ir.PrimType("float32")
+assert pair.ty.first == integer_type
+assert pair.ty.second == ir.PrimType("float32")
 print("Type and expression examples passed.")

@@ -227,19 +227,12 @@ For example, this type describes a pair of values by the types of its two
 components. In Python, the fields are annotated class attributes, and the
 constructor takes them in order:
 
-.. code-block:: python
-
-   from tvm_ffi.dataclasses import py_class
-   from tvm_tirx import ir
-
-
-   @py_class("my_ext.PairType")
-   class PairType(ir.Type):
-       first: ir.Type
-       second: ir.Type
-
-
-   pair = ir.Var("p", PairType(ir.PrimType("int32"), ir.PrimType("float32")))
+.. literalinclude:: examples/types_and_expressions.py
+   :language: python
+   :start-after: # begin custom type
+   :end-before: # end custom type
+   :prepend: from tvm_ffi.dataclasses import py_class
+             from tvm_tirx import ir
 
 In Rust, the object struct starts with the ``TypeObj`` it extends, and the
 generated ``new`` for ``PairTypeObj`` takes that parent object and then the
@@ -269,6 +262,7 @@ Once registered, the type can be assigned to variables and used inside other
 types, just like a built-in type.
 
 See :class:`~tvm_tirx.tirx.TensorType` for the complete constructor and storage
-options, and :doc:`/reference/python/ir` for expression and type APIs. The
-:download:`types_and_expressions.py <examples/types_and_expressions.py>` example contains the
-runnable code and additional API checks.
+options, and :doc:`/reference/python/ir` for expression and type APIs.
+Download :download:`types_and_expressions.py <examples/types_and_expressions.py>`
+for the Python examples in this chapter. With TIRx installed, run it with
+``python types_and_expressions.py``.
