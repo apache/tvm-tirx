@@ -83,16 +83,16 @@ def __getattr__(name: str):
 
 
 __all__ = [
-    "axis",  # noqa: F822 - Resolved lazily by __getattr__.
-    "layout",  # noqa: F822 - Resolved lazily by __getattr__.
-    "op",  # noqa: F822 - Resolved lazily by __getattr__.
-    "pipeline",  # noqa: F822 - Resolved lazily by __getattr__.
+    "axis",
+    "layout",
+    "op",
+    "pipeline",
     "register_backend",
-    "script",  # noqa: F822 - Resolved lazily by __getattr__.
+    "script",
     "script_namespace",
     "script_namespaces",
-    "target_tags",  # noqa: F822 - Resolved lazily by __getattr__.
-    "thread_scope",  # noqa: F822 - Resolved lazily by __getattr__.
-    "tile",  # noqa: F822 - Resolved lazily by __getattr__.
-    "transform",  # noqa: F822 - Resolved lazily by __getattr__.
+    "target_tags",
+    "thread_scope",
+    "tile",
+    "transform",
 ]

@@ -219,7 +219,7 @@ def native_attributes():
 
 
 def format_output(path, content):
-    """Use the same pinned formatters as pre-commit, without importing TVM."""
+    """Use the development environment's formatters, without importing TVM."""
     if path.suffix == ".py":
         for command in (
             ["ruff", "format", "--stdin-filename", str(path), "-"],

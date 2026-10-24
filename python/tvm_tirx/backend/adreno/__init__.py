@@ -36,4 +36,4 @@ def __getattr__(name: str):
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
-__all__ = ["register_backend", "target_tags"]  # noqa: F822 - Resolved lazily by __getattr__.
+__all__ = ["register_backend", "target_tags"]

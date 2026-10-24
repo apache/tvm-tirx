@@ -149,6 +149,10 @@ uv run --no-sync pre-commit run --all-files
 uv run --no-sync pre-commit run --files path/to/changed_file
 ```
 
+Ruff hooks and CUDA launch generation use the active development environment.
+Refresh the unpinned Ruff dependency with `uv pip install --upgrade --group lint`.
+CI installs the current lint tools before running the same hooks.
+
 Hooks include ASF headers, file types, whitespace, YAML/TOML checks, `ruff`,
 and `clang-format`. CUDA launch changes also check generated files.
 

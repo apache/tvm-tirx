@@ -162,9 +162,11 @@ def test_parser_attaches_loc_to_tile_op_call():
     func = tile_call
     call = _find_ir_node(
         func,
-        lambda node: isinstance(node, tvm_tirx.ir.Call)
-        and isinstance(node.op, tvm_tirx.ir.Op)
-        and node.op.name == "tirx.cuda.tile.apply",
+        lambda node: (
+            isinstance(node, tvm_tirx.ir.Call)
+            and isinstance(node.op, tvm_tirx.ir.Op)
+            and node.op.name == "tirx.cuda.tile.apply"
+        ),
     )
 
     assert _loc_range(call.loc) == _loc_range(source.to_loc(call_ast))

@@ -927,7 +927,7 @@ class CudaProfiler:
         profiler_buffer: T.Tensor,
         write_stride: int,
         num_groups: int,
-        default_leader: None | tvm_tirx.tirx.Expr | bool = None,
+        default_leader: tvm_tirx.tirx.Expr | bool | None = None,
         profiler_enabled: bool | tvm_tirx.tirx.Expr = True,
     ):
         self.buffer = profiler_buffer
@@ -951,7 +951,7 @@ class CudaProfiler:
             name="profiler_write_offset",
         )
 
-    def _leader(self, leader: None | tvm_tirx.tirx.Expr | bool):
+    def _leader(self, leader: tvm_tirx.tirx.Expr | bool | None):
         if leader is not None:
             if isinstance(leader, bool | np.bool_):
                 return T.bool(bool(leader))
@@ -972,7 +972,7 @@ class CudaProfiler:
             )
 
     @T.inline
-    def start(self, event_type: Enum, leader: None | tvm_tirx.tirx.Expr | bool = None):
+    def start(self, event_type: Enum, leader: tvm_tirx.tirx.Expr | bool | None = None):
         if self.profiler_enabled:
             T.cuda.timer_start(
                 event_type,
@@ -984,7 +984,7 @@ class CudaProfiler:
             )
 
     @T.inline
-    def end(self, event_type: Enum, leader: None | tvm_tirx.tirx.Expr | bool = None):
+    def end(self, event_type: Enum, leader: tvm_tirx.tirx.Expr | bool | None = None):
         if self.profiler_enabled:
             T.cuda.timer_end(
                 event_type,
@@ -996,7 +996,7 @@ class CudaProfiler:
             )
 
     @T.inline
-    def finalize(self, leader: None | tvm_tirx.tirx.Expr | bool = None):
+    def finalize(self, leader: tvm_tirx.tirx.Expr | bool | None = None):
         if self.profiler_enabled:
             T.cuda.timer_finalize(
                 self.buffer.data,

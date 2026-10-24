@@ -19,16 +19,16 @@
 from importlib import import_module
 
 __all__ = [
-    "BaseTileScheduler",  # noqa: F822 - Resolved lazily by __getattr__.
-    "ClusterPersistentScheduler2D",  # noqa: F822 - Resolved lazily by __getattr__.
-    "FlashAttentionLPTScheduler",  # noqa: F822 - Resolved lazily by __getattr__.
-    "FlashAttentionLinearScheduler",  # noqa: F822 - Resolved lazily by __getattr__.
-    "MBarrier",  # noqa: F822 - Resolved lazily by __getattr__.
-    "Pipeline",  # noqa: F822 - Resolved lazily by __getattr__.
-    "PipelineState",  # noqa: F822 - Resolved lazily by __getattr__.
-    "SMEMPool",  # noqa: F822 - Resolved lazily by __getattr__.
-    "TCGen05Bar",  # noqa: F822 - Resolved lazily by __getattr__.
-    "TMABar",  # noqa: F822 - Resolved lazily by __getattr__.
+    "BaseTileScheduler",
+    "ClusterPersistentScheduler2D",
+    "FlashAttentionLPTScheduler",
+    "FlashAttentionLinearScheduler",
+    "MBarrier",
+    "Pipeline",
+    "PipelineState",
+    "SMEMPool",
+    "TCGen05Bar",
+    "TMABar",
 ]
 
 _HELPER_MODULES = {

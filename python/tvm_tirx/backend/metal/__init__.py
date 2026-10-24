@@ -82,10 +82,10 @@ def __getattr__(name: str):
 
 
 __all__ = [
-    "op",  # noqa: F822 - Resolved lazily by __getattr__.
+    "op",
     "register_backend",
-    "script",  # noqa: F822 - Resolved lazily by __getattr__.
+    "script",
     "script_namespace",
     "script_namespaces",
-    "target_tags",  # noqa: F822 - Resolved lazily by __getattr__.
+    "target_tags",
 ]

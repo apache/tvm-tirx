@@ -73,7 +73,7 @@ test = [
   { include-group = "torch" },
   { include-group = "popen-pool" },
 ]
-lint = ["ruff==0.12.3", "pre-commit"]
+lint = ["ruff", "pre-commit", "clang-format==20.1.8"]
 dev = [{ include-group = "test" }, { include-group = "lint" }]
 docs = [
   "sphinx>=7",
@@ -194,10 +194,6 @@ select = [
   "UP",  # pyupgrade, https://docs.astral.sh/ruff/rules/#pyupgrade-up
   "RUF", # ruff, https://docs.astral.sh/ruff/rules/#ruff-specific-rules-ruf
 ]
-# Preview checks are selected explicitly so unrelated previews stay disabled.
-preview = true
-explicit-preview-rules = true
-extend-select = ["RUF043", "RUF059"]
 fixable = ["ALL"]
 unfixable = []
 

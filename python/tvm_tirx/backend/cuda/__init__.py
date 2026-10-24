@@ -123,22 +123,22 @@ def __getattr__(name: str):
 
 __all__ = [
     "BackendConfig",
-    "axis",  # noqa: F822 - Resolved lazily by __getattr__.
-    "codegen",  # noqa: F822 - Resolved lazily by __getattr__.
-    "cpp",  # noqa: F822 - Resolved lazily by __getattr__.
+    "axis",
+    "codegen",
+    "cpp",
     "export_cuda_host",
-    "iket",  # noqa: F822 - Resolved lazily by __getattr__.
-    "lang",  # noqa: F822 - Resolved lazily by __getattr__.
-    "launch",  # noqa: F822 - Resolved lazily by __getattr__.
-    "layout",  # noqa: F822 - Resolved lazily by __getattr__.
-    "op",  # noqa: F822 - Resolved lazily by __getattr__.
-    "ptx",  # noqa: F822 - Resolved lazily by __getattr__.
+    "iket",
+    "lang",
+    "launch",
+    "layout",
+    "op",
+    "ptx",
     "register_backend",
-    "script",  # noqa: F822 - Resolved lazily by __getattr__.
+    "script",
     "script_namespace",
     "script_namespaces",
-    "target_tags",  # noqa: F822 - Resolved lazily by __getattr__.
-    "thread_scope",  # noqa: F822 - Resolved lazily by __getattr__.
-    "tile",  # noqa: F822 - Resolved lazily by __getattr__.
-    "transform",  # noqa: F822 - Resolved lazily by __getattr__.
+    "target_tags",
+    "thread_scope",
+    "tile",
+    "transform",
 ]

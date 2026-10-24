@@ -92,9 +92,9 @@ def __getattr__(name):
 
 
 __all__ = [
-    "AnnotateKernelArguments",  # noqa: F822 - Resolved lazily by __getattr__.
+    "AnnotateKernelArguments",
     "LowerTIRx",
     "LowerTrainiumLayout",
-    "TrnNaiveAllocator",  # noqa: F822 - Resolved lazily by __getattr__.
-    "TrnPrivateTensorAlloc",  # noqa: F822 - Resolved lazily by __getattr__.
+    "TrnNaiveAllocator",
+    "TrnPrivateTensorAlloc",
 ]
