@@ -93,15 +93,9 @@ All types also inherit a ``loc`` field for source information, defaulting to
 Expressions
 -----------
 
-Variables, constants, arithmetic operations, calls, and tensor reads are all
-expressions. They share two fields defined by ``ir.Expr``:
-
-* ``ty``: an ``ir.Type`` describing the expression's result. ``ir.MissingType``
-  marks type information that has not yet been supplied or computed.
-* ``loc``: an ``ir.Location`` recording source information for diagnostics.
-  It defaults to ``UnknownLoc`` when no location is supplied.
-
-Concrete expression classes add fields for their stored values or operands:
+``ir.Expr`` is the base class for expression objects. Its subclasses represent
+variables, constants, arithmetic operations, comparisons, calls, and tensor
+reads. Each class stores the values or operands needed for that expression:
 
 .. list-table::
    :header-rows: 1
@@ -109,7 +103,7 @@ Concrete expression classes add fields for their stored values or operands:
 
    * - Class
      - Represents
-     - Additional fields
+     - Fields
    * - ``ir.Var``
      - A variable
      - ``name``
@@ -126,10 +120,12 @@ Concrete expression classes add fields for their stored values or operands:
      - A tensor element read
      - ``source``, ``indices``
 
-Operands are themselves expressions, so computations are built by connecting
-these objects. Their fields describe the computation; ``ty`` describes the
-result's type. Arithmetic and comparisons, calls, and tensor reads all use this
-representation.
+Operands are themselves expressions, so larger computations are built by
+connecting these objects.
+
+All expressions also carry a result type in ``ty`` and source information in
+``loc``. ``ir.MissingType`` marks a result type that has not yet been supplied
+or computed; ``loc`` defaults to ``UnknownLoc``.
 
 .. _user-ir-const:
 
@@ -166,13 +162,12 @@ Constructing these types and expressions does not allocate tensor storage.
 Register New Types
 ------------------
 
-tvm-tirx support to register new types in Rust and Python to extend TIRx,
-without modifying C++ code.
+New types can be added from Python or Rust without modifying the C++ core.
+Define a subclass of ``ir.Type`` and register it under its own key. Its
+reflected fields let structural comparison and printing handle it in the same
+way as built-in types.
 
-A new type is a subclass of ``ir.Type`` registered under its own key. Its
-fields are reflected like those of the built-in types, so structural
-comparison, printing, and other IR tools work on it without additional code.
-In Python, define it with ``tvm_ffi.dataclasses.py_class``; in Rust, with
+In Python, use ``tvm_ffi.dataclasses.py_class``; in Rust, use
 ``tvm_ffi::rs_class`` and ``tvm_ffi::def_object_ref!``.
 
 For example, this type describes a pair of values by the types of its two
@@ -217,7 +212,8 @@ fields:
        }
    }
 
-Then these new types can be used as built-in types as well.
+Once registered, the type can be assigned to variables and used inside other
+types, just like a built-in type.
 
 See :class:`~tvm_tirx.tirx.TensorType` for the complete constructor and storage
 options, and :doc:`/reference/python/ir` for expression and type APIs. The

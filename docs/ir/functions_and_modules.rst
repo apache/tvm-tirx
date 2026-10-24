@@ -18,21 +18,15 @@
 Functions and Modules
 =====================
 
-Callers need to know which values a computation accepts and what result type
-to expect. Compiler passes also need to find the definition behind a global
-function reference.
-
-``tirx.Function`` records the parameters, result type, and optional statement
-body of a computation. ``ir.IRModule`` maps global references to definitions, so
-passes can look up and update the functions used by a program. It also holds
-module-level metadata.
+Functions define callable computations with explicit inputs and results.
+Modules associate global references with function definitions, so compiler
+components can find and update the definitions used by a program.
 
 Functions
 ---------
 
 ``ir.BaseFunc`` is the shared base class for function definitions and is itself
-an expression. ``tirx.Function`` adds parameters, a return type, and an optional
-statement body:
+an expression. ``tirx.Function`` adds these fields:
 
 .. list-table::
    :header-rows: 1

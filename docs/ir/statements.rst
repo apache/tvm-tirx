@@ -20,24 +20,19 @@
 Statements
 ==========
 
-Transformations that move or rewrite computations must account for execution
-order and variable scope. Moving a tensor read past a write can change the
-value it reads; moving an expression outside a loop can leave its index
-variable out of scope.
-
-``ir.Stmt`` records how computations are used and organized, including bindings,
-tensor writes, returns, sequences, branches, and loops. This gives analyses and
-transformations an explicit structure for following control flow and checking
-variable uses.
+Statements describe actions such as binding variables, writing tensor elements,
+and returning values, along with the order and conditions under which those
+actions occur. This structure lets the compiler track variable scope and
+preserve program behavior when moving or rewriting computations.
 
 .. _statements-and-sequences:
 
 Statement Nodes
 ---------------
 
-``ir.Stmt`` is the shared base class for all statements, including sequences,
-branches, and loops. Each statement carries source information in ``loc`` and
-fields for its operands or nested bodies. Common statement nodes include:
+``ir.Stmt`` is the base class for statement objects. Its subclasses store
+operands such as values and variables, or nested statement bodies. Common
+nodes include:
 
 .. list-table::
    :header-rows: 1
@@ -45,7 +40,7 @@ fields for its operands or nested bodies. Common statement nodes include:
 
    * - Class
      - Represents
-     - Additional fields
+     - Fields
    * - ``ir.Bind``
      - A variable definition
      - ``var``, ``value``
@@ -53,7 +48,7 @@ fields for its operands or nested bodies. Common statement nodes include:
      - A function return
      - ``value``
    * - ``ir.TensorStore``
-     - A tensor element write
+     - A tensor element write; the destination type must support stores
      - ``dest``, ``indices``, ``value``
    * - ``ir.Evaluate``
      - Expression evaluation with its result discarded
@@ -62,9 +57,8 @@ fields for its operands or nested bodies. Common statement nodes include:
      - A program assertion
      - ``condition``, ``error_kind``, ``message_parts``
 
-``Bind`` defines a variable, ``Return`` supplies a function's result,
-``TensorStore`` writes a value to a destination whose type supports stores, and
-``Evaluate`` discards the result after evaluation.
+All statements also inherit a ``loc`` field for source information, defaulting to
+``UnknownLoc``.
 
 Statement Sequences
 -------------------

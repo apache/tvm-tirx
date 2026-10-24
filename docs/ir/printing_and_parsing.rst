@@ -20,14 +20,11 @@
 Printing and Parsing
 ====================
 
-Python functions can generate program variants, and compiler passes can change
-a program's structure. A readable copy of the resulting IR lets you check what
-was generated, compare pass results, and capture a program for debugging.
-
-Printing produces this view as TVMScript, using Python syntax for function
-signatures, symbolic shapes, and control flow. Parsing constructs IR from
-source, so a printed function or module can be edited and reused as compiler
-input.
+Printing turns IR into readable TVMScript so you can inspect generated programs,
+compare pass results, and save examples for debugging. Parsing reconstructs IR
+from source, allowing a printed program to be edited and reused as compiler
+input. TVMScript uses Python syntax to express function signatures, symbolic
+shapes, and control flow.
 
 For example, this function increments every element of a float32 tensor with
 shape ``(2*n, 128)``. Save the code in a Python file so the decorator can inspect

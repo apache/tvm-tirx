@@ -18,19 +18,16 @@
 Operators and Calls
 ===================
 
-Calls to the same operator share rules about arguments, result types, and
-effects. Registering these rules once lets analyses and passes query them for
-any invocation.
-
-``ir.Op`` identifies a registered operator; ``ir.Call`` records one invocation
-with its inputs and attributes. New operators can use this same call form,
-which also supports function-valued callees. Both ``Op`` and ``Call`` are
-expressions.
+Operators describe computations, while calls apply them to particular inputs.
+The compiler uses an operator's shared definition to infer result types,
+validate arguments, and analyze effects across its calls.
 
 Operators
 ---------
 
-Retrieve an operator from the registry with ``ir.Op.get(name)``.
+``ir.Op`` is an expression that identifies a registered operator. Its
+``args_info`` describes the required value arguments, and its attributes record
+properties such as the effect kind. Retrieve it with ``ir.Op.get(name)``.
 
 For example, ``prim.exp`` declares one argument named ``x`` and is a pure
 operation. Both properties can be inspected on the registered object:
@@ -44,9 +41,8 @@ operation. Both properties can be inspected on the registered object:
 Calls
 -----
 
-The operator describes ``prim.exp`` in general. A ``Call`` combines it with the
-inputs for one invocation. It inherits ``ty`` and ``loc`` from ``ir.Expr`` and
-adds these fields:
+``ir.Call`` stores the callee and inputs for an invocation. It inherits ``ty``
+and ``loc`` from ``ir.Expr`` and adds these fields:
 
 .. list-table::
    :header-rows: 1
@@ -89,10 +85,11 @@ type can also be the callee:
 Type Inference and Validation
 -----------------------------
 
-The examples omit ``ty``, so construction derives the result type from the
-callee. For an ``Op``, it uses the registered fixed return type if available,
-otherwise the type-inference callback. A call to another callee with an ``ir.FuncType`` uses
-that signature's return type. Without an applicable rule, the result is
+Type inference determines a call's result type from its callee and inputs.
+``ir.Call`` runs inference when ``ty`` is omitted. For an ``Op``, it uses the
+registered fixed return type if available, otherwise the type-inference
+callback. A call to another callee with an ``ir.FuncType`` uses that
+signature's return type. Without an applicable rule, the result is
 ``MissingType``. An explicit type, including ``MissingType``, bypasses inference.
 
 The operator's argument contract is checked separately by its validator.
@@ -127,16 +124,14 @@ validation alone does not generally establish their agreement.
 Register New Operators
 ----------------------
 
-Registering new operators makes TIRx extensible: TIRx supports users to build
-on the installed package and add operators from the Rust side, while the C++
-core stays stable.
+New operators can be added from a Rust extension without modifying the C++
+core.
 
-New operators are defined in Rust ``register_ops!`` blocks. Each block contains
-one ``OpDef`` chain per operator, which supplies the registration described
-above: the name and documentation, an argument signature that generates the
+Use a ``register_ops!`` block with one ``OpDef`` chain per operator. Each chain
+supplies a name and documentation, an argument signature that generates the
 validator, a type-inference callback, and attributes such as the effect kind.
-A registered operator joins the same registry as the built-in operators, so
-Python, C++, and Rust code use it the same way.
+The operator joins the same registry as the built-in operators, so Python,
+C++, and Rust code can retrieve it.
 
 For example, this block registers ``my_ext.clamp``, which clamps an integer
 index to ``[0, bound)``. A call has the type of its index, and ``validate()``
@@ -163,8 +158,9 @@ rejects arguments that are not integer expressions:
            .set_attr(CALL_EFFECT_KIND, CallEffectKind::Pure);
    }
 
-Once the operators are registered in Rust, they can be used as built-in operators
-on Python side.
+Once the extension is loaded and the operator is registered, Python can
+retrieve it with ``ir.Op.get("my_ext.clamp")`` and construct calls in the same
+way as for a built-in operator.
 
 See :doc:`/reference/python/ir` for the complete operator and call APIs. The
 :download:`operators_and_calls.py <examples/operators_and_calls.py>` example includes runnable
