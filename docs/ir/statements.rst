@@ -95,7 +95,8 @@ The shared statement classes are:
 Statement Sequences
 -------------------
 
-To put statements in execution order, construct an ``ir.SeqStmt``.
+A return that uses a bound variable must follow its definition.
+``ir.SeqStmt`` records the execution order of such statements.
 For example, consider a function that adds one to its input:
 
 .. code-block:: python
@@ -163,13 +164,14 @@ See :class:`~tvm_tirx.ir.ForKind` for the available execution kinds.
 
 ``Break`` exits a loop, and ``Continue`` starts its next iteration.
 
-These nested bodies also determine variable visibility. The loop defines ``i``
+Variable scope determines where a definition can be used. The loop defines ``i``
 inside its body; it cannot be used after the loop. Branch-local definitions
 similarly stay inside their branch. Each variable object has one definition,
 and its uses refer to that object.
 
-``ir.RegionStmt`` also contains a nested body, whose behavior is defined by
-the registered ``ir.Op`` in its ``op`` field. Inputs in ``args`` and ``attrs``
+``ir.RegionStmt`` lets an operator define how a nested body is executed without
+introducing a new statement class. Its ``op`` field refers to the registered
+``ir.Op`` that defines this behavior. Inputs in ``args`` and ``attrs``
 are evaluated in the enclosing scope. ``body_params`` defines variables
 visible within ``body``;
 ``result_vars`` defines variables available to subsequent statements in the

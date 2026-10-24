@@ -22,8 +22,10 @@ Types and Expressions
 
 Expressions describe program values and computations, and types describe
 properties of those values, such as dtypes, tensor shapes, and function
-signatures. The compiler uses this information to check operation inputs and
-determine result types without running the program.
+signatures. Making these properties explicit allows the compiler to check
+operation inputs and determine result types without running the program.
+The same information can guide optimizations that depend on a value's dtype
+or shape.
 
 .. _user-ir-type:
 .. _user-ir-prim-type:
@@ -31,7 +33,9 @@ determine result types without running the program.
 Types
 -----
 
-``ir.Type`` is the base class for type objects. It defines the following field:
+``ir.Type`` is the base class for type objects, giving analyses and
+transformations a common interface across different kinds of values.
+It defines the following field:
 
 .. list-table::
    :header-rows: 1
@@ -106,7 +110,9 @@ Use ``==`` to compare type structure and ``same_as`` to compare object identity.
 Expressions
 -----------
 
-``ir.Expr`` is the base class for expression objects. It defines these fields:
+Expression nodes make the inputs to a computation explicit, so analyses can
+inspect its operands and transformations can replace parts of the computation.
+``ir.Expr`` is the base class for these nodes. It defines these fields:
 
 .. list-table::
    :header-rows: 1
@@ -215,7 +221,9 @@ Constructing these types and expressions does not allocate tensor storage.
 Register New Types
 ------------------
 
-New types can be added from Python or Rust without modifying the C++ core.
+Custom types let extensions describe their own kinds of values and use them
+in existing IR variables and function signatures. New types can be added from
+Python or Rust without modifying the C++ core.
 Define a subclass of ``ir.Type`` and register it under its own key. Its
 reflected fields let structural comparison and printing handle it in the same
 way as built-in types.

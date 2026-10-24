@@ -21,6 +21,8 @@ Operators and Calls
 Operators describe computations, while calls apply them to particular inputs.
 The compiler uses an operator's shared definition to infer result types,
 validate arguments, and analyze effects across its calls.
+Custom operators use the same IR and registration interfaces as built-in
+operators, allowing new passes to analyze, transform, or lower their calls.
 
 Operators
 ---------
@@ -105,15 +107,16 @@ the example does not provide an implementation of ``f``.
 Type Inference and Validation
 -----------------------------
 
-Type inference determines a call's result type from the operator's registered
-rule or the callee's function signature. Omitting ``ty`` asks ``ir.Call`` to
-infer it; passing an explicit type stores that type instead. ``MissingType``
-marks a result whose type has not yet been determined.
+To avoid repeating type information at each call, ``ir.Call`` can infer its
+result type from the operator's registered rule or the callee's function
+signature. Omitting ``ty`` asks ``ir.Call`` to infer it; passing an explicit
+type stores that type instead. ``MissingType`` marks a result whose type has
+not yet been determined.
 
 Validation checks whether the arguments meet the operator's requirements.
-The constructor does not run the registered validator; call
-``call.validate()`` explicitly to run it. Type inference can also reject
-inputs, but it is separate from this validation step.
+It is separate from construction, so tools can assemble a call before
+checking its arguments with ``call.validate()``. Type inference can also
+reject inputs while computing the result type.
 
 For ``prim.exp``, an explicit result type lets the constructor record a call
 with no arguments. Validation then rejects the argument count:
@@ -140,8 +143,9 @@ it leaves ``provisional.ty`` unchanged. See :class:`~tvm_tirx.ir.Call` and
 Register New Operators
 ----------------------
 
-New operators can be added from a Rust extension without modifying the C++
-core.
+Registering an operator gives a custom computation an argument and result-type
+contract that calls and passes can share. New operators can be added from a
+Rust extension without modifying the C++ core.
 
 Use a ``register_ops!`` block with one ``OpDef`` chain per operator. Each chain
 supplies the operator's name, argument requirements, type-inference rule, and

@@ -18,9 +18,10 @@
 Functions and Modules
 =====================
 
-Functions define callable computations with explicit inputs and results.
-Modules associate global references with function definitions, so compiler
-components can find and update the definitions used by a program.
+Functions give computations an explicit input and result interface so they
+can be called and transformed as units. Modules group named function
+definitions, allowing compiler passes to find and update the definitions
+that calls refer to.
 
 Functions
 ---------
@@ -74,10 +75,10 @@ implementation.
 Modules
 -------
 
-``ir.GlobalVar`` is an expression that refers to a named function.
-``ir.IRModule`` stores the mapping from those references to their
-``ir.BaseFunc`` definitions. Place the increment function in a module under
-the name ``main``:
+``ir.IRModule`` maps ``ir.GlobalVar`` references to ``ir.BaseFunc`` definitions.
+Calls can use these references to identify a function, allowing a pass to
+replace its definition while retaining the reference. Place the increment
+function in a module under the name ``main``:
 
 .. literalinclude:: examples/statements_and_functions.py
    :language: python
