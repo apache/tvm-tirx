@@ -26,6 +26,10 @@ function(tvm_tirx_configure_target target)
   set_property(TARGET ${target} PROPERTY CXX_VISIBILITY_PRESET hidden)
   set_property(TARGET ${target} PROPERTY VISIBILITY_INLINES_HIDDEN ON)
 
+  if(MSVC)
+    target_compile_options(${target} PRIVATE "$<$<COMPILE_LANGUAGE:C,CXX>:/Zc:inline>")
+  endif()
+
   # Keep shared libraries relocatable within their installation directory.
   if(APPLE)
     set_target_properties(${target} PROPERTIES BUILD_RPATH "@loader_path" INSTALL_RPATH "@loader_path")
