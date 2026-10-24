@@ -28,7 +28,7 @@ Table of Contents
 
    ir/overview
    ir/types_and_expressions
-   ir/statements_and_control_flow
+   ir/statements
    ir/operators_and_calls
    ir/functions_and_modules
    ir/printing_and_parsing

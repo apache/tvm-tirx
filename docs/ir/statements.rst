@@ -15,8 +15,10 @@
     specific language governing permissions and limitations
     under the License.
 
-Statements and Control Flow
-===========================
+.. _statements-and-control-flow:
+
+Statements
+==========
 
 A program must specify how computed values are used and when actions such as
 tensor writes take place. Analyses and transformations need this information
@@ -26,11 +28,14 @@ Statements make these uses explicit by binding values, returning results, and
 writing tensors. Statement sequences specify execution order, while branches
 and loops select or repeat actions and introduce scopes for local variables.
 
-Statements and Sequences
-------------------------
+.. _statements-and-sequences:
 
-``ir.Stmt`` is the shared base class for statements. Each statement carries
-source information in ``loc`` and fields for its operands or nested bodies:
+Statement Nodes
+---------------
+
+``ir.Stmt`` is the shared base class for all statements, including sequences,
+branches, and loops. Each statement carries source information in ``loc`` and
+fields for its operands or nested bodies. Common statement nodes include:
 
 .. list-table::
    :header-rows: 1
@@ -39,9 +44,6 @@ source information in ``loc`` and fields for its operands or nested bodies:
    * - Class
      - Represents
      - Additional fields
-   * - ``ir.SeqStmt``
-     - An ordered statement sequence
-     - ``seq``
    * - ``ir.Bind``
      - A variable definition
      - ``var``, ``value``
@@ -58,8 +60,18 @@ source information in ``loc`` and fields for its operands or nested bodies:
      - A program assertion
      - ``condition``, ``error_kind``, ``message_parts``
 
-To turn the addition from :doc:`types_and_expressions` into a body, first
-reconstruct its input and expression:
+``Bind`` defines a variable, ``Return`` supplies a function's result,
+``TensorStore`` writes a value to a destination whose type supports stores, and
+``Evaluate`` discards the result after evaluation.
+
+Statement Sequences
+-------------------
+
+``ir.SeqStmt`` is itself a statement. Its ``seq`` field holds statements in
+execution order. Nested sequences are flattened, and a sequence introduces no
+scope of its own.
+
+For example, first create the expressions used by a small function body:
 
 .. literalinclude:: examples/statements_and_functions.py
    :language: python
@@ -67,8 +79,7 @@ reconstruct its input and expression:
    :end-before: # end statement values
    :prepend: from tvm_tirx import ir, tirx
 
-``Bind`` gives the addition's result a variable, and ``Return`` uses that
-variable. ``SeqStmt`` puts the two statements in execution order:
+A binding followed by a return forms a body that adds one to ``x``:
 
 .. literalinclude:: examples/statements_and_functions.py
    :language: python
@@ -76,13 +87,8 @@ variable. ``SeqStmt`` puts the two statements in execution order:
    :end-before: # end statements
 
 The binding defines ``result`` for subsequent statements in the same scope.
-Its variable and value must have structurally equal types. The return can then
-refer to that definition. A sequence flattens nested sequences and introduces
-no scope of its own.
-
-Other uses of an expression follow the same pattern: ``TensorStore`` writes it
-to a destination whose type supports stores, while ``Evaluate`` discards its
-result after evaluation.
+Its variable and value must have structurally equal types. The return refers
+to that same variable object.
 
 Control Flow and Scope
 ----------------------

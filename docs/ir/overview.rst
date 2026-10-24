@@ -156,7 +156,7 @@ The following chapters explain how to work with each part of the IR:
 * To understand how values, computations, and tensor shapes are represented,
   see :doc:`types_and_expressions`.
 * To build statement bodies with bindings, tensor writes, branches, and loops,
-  see :doc:`statements_and_control_flow`.
+  see :doc:`statements`.
 * To work with registered operators and function calls, see
   :doc:`operators_and_calls`.
 * To define functions and organize them into modules, see

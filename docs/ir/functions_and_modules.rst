@@ -49,7 +49,7 @@ statement body:
    * - ``attrs``
      - Named function properties stored in ``ir.DictAttrs``.
 
-Using ``x`` and ``body`` from :doc:`statements_and_control_flow` completes the
+Using ``x`` and ``body`` from :doc:`statements` completes the
 increment function:
 
 .. literalinclude:: examples/statements_and_functions.py
