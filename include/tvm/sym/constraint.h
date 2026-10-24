@@ -24,6 +24,7 @@
 #ifndef TVM_SYM_CONSTRAINT_H_
 #define TVM_SYM_CONSTRAINT_H_
 
+#include <tvm/ffi/cast.h>
 #include <tvm/ffi/container/list.h>
 #include <tvm/ir/expr.h>
 #include <tvm/ir/prim/expr.h>
@@ -177,6 +178,8 @@ class PredicateConstraint : public Constraint {
                                                 PredicateConstraintObj);
 };
 
+class ConstraintContext;
+
 /*!
  * \brief Tracks the constraints relevant to each point in a traversal.
  *
@@ -205,6 +208,21 @@ class ConstraintContextObj : public ffi::Object {
    * \brief Number of local entries; excludes captured ancestors.
    */
   int64_t LocalSize() const { return constraints_.size(); }
+
+  /*!
+   * \brief Captures the constraints currently visible in this context.
+   * Later additions to this context do not affect the returned context, which can
+   * be extended independently. Constraint objects and referenced expressions remain shared.
+   * For an existing integer expression x:
+   * \code
+   * sym::ConstraintContext context;
+   * context->Append(sym::PredicateConstraint(x >= 0));
+   * auto saved = context->Snapshot();
+   * context->Append(sym::PredicateConstraint(x < 16));
+   * // saved contains x >= 0; context contains both predicates.
+   * \endcode
+   */
+  ConstraintContext Snapshot() const;
 
   /*!
    * \brief Read constraints in inherited/local order.
@@ -284,6 +302,10 @@ class ConstraintContext : public ffi::ObjectRef {
   TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(ConstraintContext, ffi::ObjectRef,
                                                 ConstraintContextObj);
 };
+
+inline ConstraintContext ConstraintContextObj::Snapshot() const {
+  return ConstraintContext(ffi::GetRef<ConstraintContext>(this), LocalSize());
+}
 
 }  // namespace sym
 }  // namespace tvm

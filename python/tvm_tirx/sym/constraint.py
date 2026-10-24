@@ -115,6 +115,19 @@ class ConstraintContext(tvm_ffi.Object):
         """Return the local entry count, excluding captured ancestors."""
         return _ffi_api.ConstraintContextLocalSize(self)
 
+    def snapshot(self):
+        """Capture the constraints currently visible in this context.
+
+        Later additions to this context do not affect the returned context, which
+        can be extended independently. Constraint objects and expressions remain shared.
+
+        Returns
+        -------
+        ConstraintContext
+            A context containing the captured constraints.
+        """
+        return _ffi_api.ConstraintContextSnapshot(self)
+
     def __iter__(self):
         """Iterate ancestor-first, capturing the local bounds when iteration is requested.
 

@@ -58,6 +58,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
            })
       .def_method("sym.ConstraintContextAppend", &ConstraintContextObj::Append)
       .def_method("sym.ConstraintContextLocalSize", &ConstraintContextObj::LocalSize)
+      .def_method("sym.ConstraintContextSnapshot", &ConstraintContextObj::Snapshot)
       .def("sym.BindingConstraint",
            [](Var var, PrimExpr value) { return BindingConstraint(var, value); })
       .def("sym.RangeConstraint", [](Var var, Range range) { return RangeConstraint(var, range); })
