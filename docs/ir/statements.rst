@@ -74,28 +74,32 @@ nested statement bodies. Common nodes include:
 Statement Sequences
 -------------------
 
-``ir.SeqStmt`` is itself a statement. Its ``seq`` field holds statements in
-execution order. Nested sequences are flattened, and a sequence introduces no
-scope of its own.
+``ir.SeqStmt`` groups statements in execution order in its ``seq`` field.
+For example, consider a function that adds one to its input:
 
-For example, first create the expressions used by a small function body:
+.. code-block:: python
 
-.. literalinclude:: examples/statements_and_functions.py
-   :language: python
-   :start-after: # begin statement values
-   :end-before: # end statement values
-   :prepend: from tvm_tirx import ir, tirx
+   def increment(x):
+       result = x + 1
+       return result
 
-A binding followed by a return forms a body that adds one to ``x``:
+The following code constructs that function body as IR objects:
 
 .. literalinclude:: examples/statements_and_functions.py
    :language: python
    :start-after: # begin statements
    :end-before: # end statements
+   :prepend: from tvm_tirx import ir, tirx
 
-The binding defines ``result`` for subsequent statements in the same scope.
-Its variable and value must have structurally equal types. The return refers
-to that same variable object.
+The Python variable ``added`` holds the expression for ``x + 1``. ``ir.Var``
+creates the IR variable ``result``, and ``ir.Bind(result, added)`` defines it
+with that expression as its value. ``added.ty`` gives ``result`` the addition's
+``int32`` type. ``ir.Return(result)`` refers to the same variable, and
+``SeqStmt`` places the definition before the return.
+
+``SeqStmt`` is itself a statement. Nested sequences are flattened, and a
+sequence introduces no scope of its own. Variables defined by ``Bind`` are
+available to subsequent statements in the enclosing scope.
 
 Control Flow and Scope
 ----------------------

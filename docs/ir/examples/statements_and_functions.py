@@ -18,14 +18,16 @@
 
 from tvm_tirx import ir, tirx
 
-# begin statement values
+# begin statements
 x = ir.Var("x", "int32")
 added = x + 1
-# end statement values
-
-# begin statements
 result = ir.Var("result", added.ty)
-body = ir.SeqStmt([ir.Bind(result, added), ir.Return(result)])
+body = ir.SeqStmt(
+    [
+        ir.Bind(result, added),
+        ir.Return(result),
+    ]
+)
 # end statements
 
 # begin branch
