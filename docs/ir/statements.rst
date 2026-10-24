@@ -30,8 +30,8 @@ preserve program behavior when moving or rewriting computations.
 Statement Nodes
 ---------------
 
-``ir.Stmt`` is the base class for statement objects. It defines the following
-field:
+``ir.Stmt`` is the base class for all statement nodes, including sequences,
+branches, and loops. It defines the following field:
 
 .. list-table::
    :header-rows: 1
@@ -45,8 +45,8 @@ field:
      - Source information for diagnostics. Defaults to ``UnknownLoc`` and does
        not affect structural comparison.
 
-Subclasses inherit ``loc`` and add operands such as values and variables, or
-nested statement bodies. Common nodes include:
+Subclasses inherit ``loc`` and add fields for operands or nested statements.
+The shared statement classes are:
 
 .. list-table::
    :header-rows: 1
@@ -58,9 +58,6 @@ nested statement bodies. Common nodes include:
    * - ``ir.Bind``
      - A variable definition
      - ``var``, ``value``
-   * - ``ir.Return``
-     - A function return
-     - ``value``
    * - ``ir.TensorStore``
      - A tensor element write; the destination type must support stores
      - ``dest``, ``indices``, ``value``
@@ -70,11 +67,35 @@ nested statement bodies. Common nodes include:
    * - ``ir.AssertStmt``
      - A program assertion
      - ``condition``, ``error_kind``, ``message_parts``
+   * - ``ir.Return``
+     - A function return
+     - ``value``
+   * - ``ir.Break``
+     - Exit the current loop
+     - None
+   * - ``ir.Continue``
+     - Start the next loop iteration
+     - None
+   * - ``ir.SeqStmt``
+     - A sequence of statements in execution order
+     - ``seq``
+   * - ``ir.If``
+     - Select a branch
+     - ``condition``, ``then_case``, ``else_case``
+   * - ``ir.For``
+     - Repeat a body over an integer range
+     - ``var``, ``begin``, ``end``, ``step``, ``kind``, ``body``, ``annotations``
+   * - ``ir.While``
+     - Repeat while a condition is true
+     - ``condition``, ``body``
+   * - ``ir.RegionStmt``
+     - An operator-defined statement with a nested body
+     - ``op``, ``args``, ``attrs``, ``body_params``, ``body``, ``result_vars``
 
 Statement Sequences
 -------------------
 
-``ir.SeqStmt`` groups statements in execution order in its ``seq`` field.
+To put statements in execution order, construct an ``ir.SeqStmt``.
 For example, consider a function that adds one to its input:
 
 .. code-block:: python
@@ -97,32 +118,16 @@ with that expression as its value. ``added.ty`` gives ``result`` the addition's
 ``int32`` type. ``ir.Return(result)`` refers to the same variable, and
 ``SeqStmt`` places the definition before the return.
 
-``SeqStmt`` is itself a statement. Nested sequences are flattened, and a
-sequence introduces no scope of its own. Variables defined by ``Bind`` are
-available to subsequent statements in the enclosing scope.
+Nested sequences are flattened, and a sequence introduces no scope of its
+own. Variables defined by ``Bind`` are available to subsequent statements in
+the enclosing scope.
 
 Control Flow and Scope
 ----------------------
 
-``ir.If``, ``ir.For``, and ``ir.While`` are statement classes whose nested
-bodies are statement sequences. They select a branch or repeat a body:
-
-.. list-table::
-   :header-rows: 1
-   :widths: 20 35 45
-
-   * - Class
-     - Behavior
-     - Additional fields
-   * - ``ir.If``
-     - Select a branch
-     - ``condition``, ``then_case``, ``else_case``
-   * - ``ir.For``
-     - Repeat a body over an integer range
-     - ``var``, ``begin``, ``end``, ``step``, ``kind``, ``body``, ``annotations``
-   * - ``ir.While``
-     - Repeat while a condition is true
-     - ``condition``, ``body``
+``ir.If`` selects a branch to execute; ``ir.For`` and ``ir.While`` repeat a
+body. Their bodies are ``SeqStmt`` objects and can in turn contain branches
+and loops.
 
 For example, this branch returns the incremented value only for positive
 inputs. Both bodies are normalized to ``SeqStmt``:
@@ -154,10 +159,10 @@ inside its body; it cannot be used after the loop. Branch-local definitions
 similarly stay inside their branch. Each variable object has one definition,
 and its uses refer to that object.
 
-``ir.RegionStmt`` represents an operator-defined statement with a nested body.
-Its ``op`` field refers to the registered ``ir.Op`` that defines the statement's
-semantics. Inputs in ``args`` and ``attrs`` are evaluated in the enclosing
-scope. ``body_params`` defines variables visible within ``body``;
+``ir.RegionStmt`` also contains a nested body, whose behavior is defined by
+the registered ``ir.Op`` in its ``op`` field. Inputs in ``args`` and ``attrs``
+are evaluated in the enclosing scope. ``body_params`` defines variables
+visible within ``body``;
 ``result_vars`` defines variables available to subsequent statements in the
 enclosing sequence. See :class:`~tvm_tirx.ir.RegionStmt` for the operator
 contract.
