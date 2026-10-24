@@ -114,9 +114,14 @@ class AssertStmt(Stmt):
 class ForKind(IntEnum):
     """Execution semantics of a :class:`For` loop.
 
-    ``DEFAULT`` executes iterations sequentially; ``PARALLEL`` permits parallel
-    execution. ``VECTORIZED`` requests a vectorized body and ``UNROLLED`` requests
-    unrolling. Transformations must preserve the selected execution semantics.
+    * ``DEFAULT`` executes iterations in order, one after another.
+    * ``PARALLEL`` allows different iterations to run concurrently.
+    * ``VECTORIZED`` asks the compiler to combine iterations into vector
+      operations that process multiple elements at once.
+    * ``UNROLLED`` asks the compiler to expand the loop into repeated copies
+      of its body.
+
+    Transformations must preserve the selected execution semantics.
     """
 
     DEFAULT = 0  # Ordinary loop with sequential iteration semantics.

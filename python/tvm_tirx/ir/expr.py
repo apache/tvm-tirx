@@ -150,6 +150,10 @@ class GlobalVar(Expr):
     GlobalVar is used to refer to the global functions
     stored in the IRModule.
 
+    Each construction creates a distinct reference, even when names match.
+    Use ``module.get_global_var(name)`` to retrieve the stored reference when
+    constructing calls or replacing definitions.
+
     Parameters
     ----------
     name_hint: str
@@ -703,6 +707,11 @@ class Call(_CallableExprWithOp):
     contract explicitly after inputs are ready. Constructing a ``Call`` never
     emits a builder statement, including calls to allocation operators.
 
+    For an Op callee, a registered fixed return type takes precedence over its
+    type-inference callback. For another callee with a FuncType, inference uses
+    the signature's return type. Without an applicable rule, the result is
+    MissingType. An explicit ``ty``, including MissingType, bypasses inference.
+
     Parameters
     ----------
     op : Expr or str
@@ -759,15 +768,26 @@ class Call(_CallableExprWithOp):
         return ty, op, args, attrs, ty_args, loc
 
     def validate(self) -> None:
-        """Check the registered operator contract without changing this Call."""
+        """Run the registered operator's validator without changing this Call.
+
+        An Op callee with a validator invokes that validator; other callees and
+        operators without validators perform no checks. Success returns None,
+        and failed checks raise a diagnostic exception. The checks depend on the
+        registered validator and do not generally establish agreement between
+        the stored result type and the type implied by the inputs.
+        """
         _ffi_api.CallValidate(self)
 
 
 def reinfer_type(call: Call) -> "tvm_tirx.ir.Type":
     """Derive a Call's result type from its current inputs without changing the Call.
 
-    The operator must register a fixed return type or a context-free inference
-    rule. This does not invoke the operator's validator.
+    For an Op callee, a registered ``TFixedReturnType`` takes precedence over
+    ``FInferType``. For another callee whose type is a FuncType, the result is
+    that function type's return type. Without an applicable rule, this returns
+    MissingType. Inference errors propagate.
+
+    This does not invoke the operator's validator or overwrite ``call.ty``.
     """
     return _ffi_api.CallReinferType(call)
 

@@ -43,7 +43,9 @@ class Function(BaseFunc, Scriptable):
     body : Stmt or Sequence[Stmt] or None
         The function body, or None for a declaration without an implementation.
     ret_type : tvm_tirx.ir.Type, optional
-        The return type; defaults to MissingType until supplied or inferred.
+        The declared return type. Omitting it or supplying MissingType produces
+        an empty TupleType, the type returned by the C++ VoidType() helper.
+        Construction does not infer a return type from the body.
     attrs : tvm_tirx.ir.DictAttrs, optional
         Function attributes, empty by default.
     loc : Location, optional
@@ -90,7 +92,8 @@ class Function(BaseFunc, Scriptable):
             The new body, or None for a declaration.
 
         loc : Location, optional
-            The source location of the function.
+            The source location of the new function. Defaults to UNKNOWN_LOC;
+            pass ``loc=self.loc`` to preserve the original location.
 
         Returns
         -------
