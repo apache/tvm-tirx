@@ -99,12 +99,12 @@ class CodeGenSourceBase {
    */
   std::string GetVarID(const tvm::VarObj* v) const;
   /*!
-   * \brief Get the SSA ID corresponds to src
-   *  If necessary, generate new assignment
-   * \param src The source expression
+   * \brief Bind source text to an SSA variable, emitting an assignment if needed.
+   * \param src The source expression.
    * \param t The type of the expression.
+   * \param can_reuse Whether an earlier binding of this text may be reused.
    */
-  std::string SSAGetID(std::string src, const Type& t);
+  std::string SSAGetID(std::string src, const Type& t, bool can_reuse);
   /*!
    * \brief mark the beginning of a new scope
    * \return The scope id.

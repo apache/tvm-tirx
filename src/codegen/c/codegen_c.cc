@@ -222,12 +222,18 @@ std::string CodeGenC::Finish() {
 
 void CodeGenC::PrintExpr(const PrimExpr& n, std::ostream& os) {  // NOLINT(*)
   if (print_ssa_form_) {
-    std::ostringstream temp;
-    Dispatch(n, temp);
-    os << SSAGetID(temp.str(), n.ty());
+    os << SSAGetID(n);
   } else {
     Dispatch(n, os);
   }
+}
+
+std::string CodeGenC::SSAGetID(const Expr& expr) {
+  std::ostringstream value;
+  Dispatch(expr, value);
+  // Reads must also stay out of the cache: a store or call may change their value.
+  return CodeGenSourceBase::SSAGetID(value.str(), expr->ty,
+                                     SideEffect(expr) == CallEffectKind::kPure);
 }
 
 void CodeGenC::PrintExpr(const Expr& n, std::ostream& os) {  // NOLINT(*)
@@ -895,17 +901,14 @@ void CodeGenC::Dispatch_(const CallObj* op, std::ostream& os) {  // NOLINT(*)
                         source_dtype.lanes() * source_dtype.bits())
           << "reinterpret expects source and target to have the same number of bits";
       int ssa_scope = BeginScope();
-      std::string rhs = SSAGetID(PrintExpr(op->args[0]), source_dtype);
+      std::string rhs = SSAGetID(op->args[0]);
       os << "(*(";
       this->PrintType(target_dtype, os);
       os << " *)(&(" << rhs << ")))";
       EndScope(ssa_scope);
     } else if (op->op.same_as(prim::isnan_op())) {
-      os << "(";
-      this->PrintExpr(op->args[0], os);
-      os << " != ";
-      this->PrintExpr(op->args[0], os);
-      os << ")";
+      std::string value = SSAGetID(op->args[0]);
+      os << "(" << value << " != " << value << ")";
     } else if (op->op.same_as(tirx::gpu_thread_invariant_op())) {
       os << "(";
       this->PrintExpr(op->args[0], os);
@@ -1039,7 +1042,7 @@ void CodeGenC::Dispatch_(const TensorLoadObj* op, std::ostream& os) {  // NOLINT
       HandleVolatileLoads(ref, op, os);
     } else {
       std::ostringstream svalue_expr;
-      std::string sindex = SSAGetID(PrintExpr(index), index.ty());
+      std::string sindex = SSAGetID(index);
       std::string vid = GetVarID(buffer_var.get());
       PrimType elem_type = value_ty.WithLanes(1);
       for (int i = 0; i < lanes; ++i) {
@@ -1094,8 +1097,8 @@ void CodeGenC::Dispatch_(const TensorStoreObj* op) {
       int vec_scope = BeginScope();
 
       // store elements separately
-      std::string index = SSAGetID(PrintExpr(index_expr), index_expr.ty());
-      std::string value = SSAGetID(PrintExpr(op->value), op->value.ty());
+      std::string index = SSAGetID(index_expr);
+      std::string value = SSAGetID(op->value);
       std::string vid = GetVarID(buffer_var.get());
       for (int i = 0; i < value_ty.lanes(); ++i) {
         this->PrintIndent();
@@ -1159,14 +1162,15 @@ void CodeGenC::Dispatch_(const prim::LetObj* op, std::ostream& os) {  // NOLINT(
 }
 
 void CodeGenC::Dispatch_(const prim::RampObj* op, std::ostream& os) {  // NOLINT(*)
+  std::string base = SSAGetID(op->base);
+  std::string stride = SSAGetID(op->stride);
   // NOTE: C have comma expression so cannot use (int2)(v0, v1)
   // instead should use int2(v0, v1)
   PrintType(op->ty.as_or_throw<PrimType>(), os);
   int lanes = op->ty.as_or_throw<PrimType>().lanes();
   os << "(";
   for (int i = 0; i < lanes; i++) {
-    os << "(" << PrintExpr(op->base) << ")"
-       << "+(" << PrintExpr(op->stride) << "*" << i << ")";
+    os << "(" << base << ")+(" << stride << "*" << i << ")";
     if (i != lanes - 1) os << ", ";
   }
   os << ")";
@@ -1187,7 +1191,7 @@ void CodeGenC::Dispatch_(const prim::ShuffleObj* op, std::ostream& os) {  // NOL
   // print each elements
   if (op->vectors.size() > 1) {
     for (const PrimExpr& vec : op->vectors) {
-      std::string vec_value = this->PrintExpr(vec);
+      std::string vec_value = SSAGetID(vec);
       if (vec.ty().lanes() == 1) {
         concat_vec.push_back(vec_value);
       } else {
@@ -1202,7 +1206,7 @@ void CodeGenC::Dispatch_(const prim::ShuffleObj* op, std::ostream& os) {  // NOL
     }
   } else {
     // Extract elements from a single vector-type value.
-    std::string vec_value = "(" + this->PrintExpr(op->vectors[0]) + ")";
+    std::string vec_value = "(" + SSAGetID(op->vectors[0]) + ")";
     if (op->vectors[0].ty().lanes() == 1) {
       concat_vec.push_back(vec_value);
     } else {

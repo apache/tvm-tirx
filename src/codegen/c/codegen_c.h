@@ -266,6 +266,17 @@ class CodeGenC : public tvm::ExprFunctor<void(const Expr&, std::ostream&)>,
   }
 
  protected:
+  using CodeGenSourceBase::SSAGetID;
+  /*!
+   * \brief Evaluate an expression once and return its SSA variable or literal.
+   * Only pure expressions may reuse an earlier binding. Reads and calls with
+   * effects are evaluated separately on each invocation; repeat the returned
+   * variable when one operand is needed more than once.
+   * \param expr The expression to evaluate.
+   * \return The variable or literal holding the expression's value.
+   */
+  std::string SSAGetID(const Expr& expr);
+
   /*! \brief Print a C string literal with proper escaping of special chars. */
   void PrintEscapedCString(const std::string& str, std::ostream& os);
   // Print reference to struct location

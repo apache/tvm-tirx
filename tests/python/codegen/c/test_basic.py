@@ -190,6 +190,43 @@ def test_round():
     check_c()
 
 
+def test_expression_evaluation():
+    @I.ir_module
+    class Module:
+        @T.function(private=True)
+        def take(p: T.handle("float32")) -> T.float32:
+            P = T.decl_tensor(p, ty_args=[T.Tensor((1,), "float32", data=p)])
+            value = P[0]
+            P[0] = value + 1
+            return value
+
+        @T.function(private=True)
+        def check(p: T.handle("float32"), o: T.handle("float32")):
+            P = T.decl_tensor(p, ty_args=[T.Tensor((1,), "float32", data=p)])
+            Out = T.decl_tensor(o, ty_args=[T.Tensor((6,), "float32", data=o)])
+            # Distinct calls execute separately; a bound value is shared.
+            Out[0] = T.max(Module.take(p), Module.take(p))
+            Out[1] = T.cast(T.isnan(Module.take(p)), "float32")
+            value = Module.take(p)
+            Out[2] = T.max(value, value)
+            # A private helper has no ABI checks masking a live SSA cache.
+            Out[3] = T.max(P[0], T.float32(0))
+            P[0] = 8.0
+            Out[4] = T.max(P[0], T.float32(0))
+            Out[5] = T.max(T.float32("nan"), Module.take(p))
+
+        @T.function
+        def main(P: T.Tensor((1,), "float32"), Out: T.Tensor((6,), "float32")):
+            Module.check(P.data, Out.data)
+
+    executable = tvm_tirx.tirx.compile(Module, target="c")
+    counter = tvm_tirx.runtime.tensor(np.zeros(1, dtype="float32"))
+    output = tvm_tirx.runtime.empty((6,), "float32")
+    executable(counter, output)
+    np.testing.assert_array_equal(output.numpy(), [1, 0, 3, 4, 8, np.nan])
+    np.testing.assert_array_equal(counter.numpy(), [9])
+
+
 def test_subroutine_call():
     @I.ir_module
     class Module:

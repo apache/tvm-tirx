@@ -774,21 +774,11 @@ void CodeGenCUDA::PrintMinMaxNanPreservingImpl(const T* op, const char* opstr,
     this->PrintVecBinaryOpNanPreserving(std::string(opstr), op_ty, op->a, op->b, cmp, os);
     return;
   }
-  // Bind both operands once (SSAGetID, in the expression's own scope: the
-  // same binding the host side and PrintVecBinaryOp use), then reference the
-  // temporaries: the expressions must not be re-evaluated per clause. Both
-  // are bound before the constant classification below, so a constant NaN
-  // lhs still evaluates the rhs and only the select is dropped. A
-  // float32/float64 constant comes back from SSAGetID as itself (PrintConst
-  // registers its text with MarkConst); a float16/bfloat16 constant is
-  // wrapped in a conversion call that is not registered and gets a temporary
-  // like any other operand. The bindings live in their own scope so a later
-  // statement that prints the same text (e.g.
-  // `red_buf[0] = max(red_buf[0], shuffle_down(...))` repeated by warp
-  // reduction) does not hit the cache and read the pre-write value.
+  // Evaluate both operands before simplifying the result. Even a constant NaN
+  // lhs must preserve effects in the rhs; repeated clauses use the bound values.
   int ssa_scope = BeginScope();
-  std::string va = SSAGetID(PrintExpr(op->a), op->a.ty());
-  std::string vb = SSAGetID(PrintExpr(op->b), op->b.ty());
+  std::string va = SSAGetID(op->a);
+  std::string vb = SSAGetID(op->b);
   const FloatImmObj* ca = AsFloatImm(op->a);
   const FloatImmObj* cb = AsFloatImm(op->b);
   if (ca != nullptr && std::isnan(ca->value)) {
@@ -830,8 +820,8 @@ void CodeGenCUDA::PrintVecBinaryOpNanPreserving(const std::string& op, const Pri
   stream << ' ' << sret << ";\n";
   int ssa_scope = BeginScope();
   {
-    std::string vlhs = SSAGetID(PrintExpr(lhs), lhs.ty());
-    std::string vrhs = SSAGetID(PrintExpr(rhs), rhs.ty());
+    std::string vlhs = SSAGetID(lhs);
+    std::string vrhs = SSAGetID(rhs);
     for (int i = 0, lanes = t.lanes(); i < lanes; ++i) {
       std::ostringstream value_temp;
       value_temp << "((";
@@ -863,8 +853,8 @@ void CodeGenCUDA::PrintVecBinaryOp(const std::string& op, const PrimType& t, Pri
   int ssa_scope = BeginScope();
   {
     // Unpack into individual ops.
-    std::string vlhs = SSAGetID(PrintExpr(lhs), lhs.ty());
-    std::string vrhs = SSAGetID(PrintExpr(rhs), rhs.ty());
+    std::string vlhs = SSAGetID(lhs);
+    std::string vrhs = SSAGetID(rhs);
 
     for (int i = 0, lanes = t.lanes(); i < lanes; ++i) {
       std::ostringstream value_temp;
@@ -1087,7 +1077,7 @@ void CodeGenCUDA::Dispatch_(const prim::CastObj* op, std::ostream& os) {
   this->PrintType(target_ty, stream);
   stream << ' ' << sret << ";\n";
   {
-    std::string src = SSAGetID(PrintExpr(op->value), from_ty);
+    std::string src = SSAGetID(op->value);
     for (int i = 0, lanes = from_ty.lanes(); i < lanes; ++i) {
       std::ostringstream val;
       val << "(";
@@ -1136,7 +1126,7 @@ void CodeGenCUDA::PrintCallExtern(Type ret_type, ffi::String global_symbol,
       size_t arg_begin = static_cast<size_t>(skip_first_arg);
       for (size_t i = arg_begin; i < args.size(); ++i) {
         Expr arg = args[i];
-        std::string val = SSAGetID(PrintExpr(arg), arg->ty);
+        std::string val = SSAGetID(arg);
         sargs.push_back(std::move(val));
       }
 
@@ -1180,9 +1170,20 @@ void CodeGenCUDA::Dispatch_(const CallObj* op, std::ostream& os) {
 
   if (op->op.same_as(prim::isnan_op()) && op->ty.as_or_throw<PrimType>().lanes() > 1) {
     // CUDA vector comparisons do not produce a lane-wise boolean vector.
-    // Reuse the scalar comparison path for every lane, including packed half.
+    // Evaluate the input once, then compare each lane with itself.
     PrimExpr value = op->args[0].as_or_throw<PrimExpr>();
-    PrintVecBinaryOp("!=", op->ty.as_or_throw<PrimType>(), value, value, os);
+    std::string input = SSAGetID(value);
+    PrimType result_ty = op->ty.as_or_throw<PrimType>();
+    std::string result = name_supply_->FreshName("_");
+    PrintIndent();
+    PrintType(result_ty, stream);
+    stream << ' ' << result << ";\n";
+    for (int i = 0; i < result_ty.lanes(); ++i) {
+      std::ostringstream lane;
+      PrintVecElemLoad(input, value.ty(), i, lane);
+      PrintVecElemStore(result, result_ty, i, "(" + lane.str() + " != " + lane.str() + ")");
+    }
+    os << result;
     return;
   }
   if (auto opt_call_opt = op->op.as<Op>()) {
@@ -1293,7 +1294,7 @@ void CodeGenCUDA::Dispatch_(const CallObj* op, std::ostream& os) {
     if (lanes == 1) {
       // The case of lane=1 is same as the normal reinterpret,
       // except that we allow the src and dst dtype to have different number of bits.
-      std::string rhs = SSAGetID(PrintExpr(value), src_ty);
+      std::string rhs = SSAGetID(value);
       os << "(*(";
       this->PrintType(tgt_ty, os);
       os << " *)(&(" << rhs << ")))";
@@ -1420,11 +1421,12 @@ void CodeGenCUDA::Dispatch_(const prim::RampObj* op, std::ostream& os) {
   PrimType op_ty = op->ty.as_or_throw<PrimType>();
   int lanes = op_ty.lanes();
   if (lanes <= 4) {
+    std::string base = SSAGetID(op->base);
+    std::string stride = SSAGetID(op->stride);
     PrintVecConstructor(op_ty, os);
     os << "(";
     for (int i = 0; i < lanes; i++) {
-      os << "(" << PrintExpr(op->base) << ")"
-         << "+(" << PrintExpr(op->stride) << "*" << i << ")";
+      os << "(" << base << ")+(" << stride << "*" << i << ")";
       if (i != lanes - 1) os << ", ";
     }
     os << ")";
@@ -1439,8 +1441,8 @@ void CodeGenCUDA::Dispatch_(const prim::RampObj* op, std::ostream& os) {
   stream << ' ' << sret << ";\n";
   int ssa_scope = BeginScope();
   {
-    std::string vbase = SSAGetID(PrintExpr(op->base), op->base.ty());
-    std::string vstride = SSAGetID(PrintExpr(op->stride), op->stride.ty());
+    std::string vbase = SSAGetID(op->base);
+    std::string vstride = SSAGetID(op->stride);
     for (int i = 0; i < lanes; ++i) {
       std::ostringstream value_temp;
       value_temp << "(" << vbase << ")+(" << vstride << "*" << i << ")";
@@ -1471,7 +1473,7 @@ void CodeGenCUDA::Dispatch_(const prim::BroadcastObj* op, std::ostream& os) {  /
   }
 
   if (op_ty.MatchesElementType(DLDataTypeCode::kDLFloat, 16)) {
-    std::string v = PrintExpr(op->value);
+    std::string v = SSAGetID(op->value);
     PrintVecConstructor(op_ty, os);
     os << '(';
     if (lanes <= 4) {
@@ -1490,7 +1492,7 @@ void CodeGenCUDA::Dispatch_(const prim::BroadcastObj* op, std::ostream& os) {  /
   }
 
   if (op_ty.MatchesElementType(DLDataTypeCode::kDLBfloat, 16)) {
-    std::string v = PrintExpr(op->value);
+    std::string v = SSAGetID(op->value);
     PrintVecConstructor(op_ty, os);
     os << '(';
     if (lanes > 4) {
@@ -1510,7 +1512,7 @@ void CodeGenCUDA::Dispatch_(const prim::BroadcastObj* op, std::ostream& os) {  /
 
   if (IsFloat8(op_ty) || IsFloat4(op_ty)) {
     TVM_FFI_ICHECK(lanes == 1 || lanes == 2 || lanes == 4);
-    std::string v = PrintExpr(op->value);
+    std::string v = SSAGetID(op->value);
     // Implicit conversion from float back to fp8
     PrintType(op_ty, os);
     os << "(make_float" << lanes << "(";
@@ -1566,7 +1568,7 @@ void CodeGenCUDA::Dispatch_(const prim::BroadcastObj* op, std::ostream& os) {  /
     }
   }
 
-  std::string v = PrintExpr(op->value);
+  std::string v = SSAGetID(op->value);
   PrintVecConstructor(op_ty, os);
   os << '(';
   for (int i = 0; i < lanes; ++i) {
@@ -1593,9 +1595,9 @@ void CodeGenCUDA::Dispatch_(const prim::SelectObj* op, std::ostream& os) {
   this->PrintType(op_ty, stream);
   stream << ' ' << r_var << ";\n";
   {
-    std::string c_var = SSAGetID(PrintExpr(op->condition), op_ty);
-    std::string t_var = SSAGetID(PrintExpr(op->true_value), op_ty);
-    std::string f_var = SSAGetID(PrintExpr(op->false_value), op_ty);
+    std::string c_var = SSAGetID(op->condition);
+    std::string t_var = SSAGetID(op->true_value);
+    std::string f_var = SSAGetID(op->false_value);
 
     // The condition is stored as an ushort vector.
     int lanes = op_ty.lanes();

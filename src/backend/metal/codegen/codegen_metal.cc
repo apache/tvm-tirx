@@ -449,7 +449,7 @@ void CodeGenMetal::Dispatch_(const prim::SelectObj* op, std::ostream& os) {  // 
 }
 
 void CodeGenMetal::Dispatch_(const prim::BroadcastObj* op, std::ostream& os) {  // NOLINT(*)
-  std::string v = PrintExpr(op->value);
+  std::string v = SSAGetID(op->value);
   int lanes = op->ty.as_or_throw<PrimType>().lanes();
   PrintType(op->ty.as_or_throw<PrimType>(), os);
   os << "(";

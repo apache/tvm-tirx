@@ -516,7 +516,8 @@ void CodeGenOpenCL::Dispatch_(const CallObj* op, std::ostream& os) {
     std::stringstream ss;
     this->PrintExpr(op->args[5].as_or_throw<PrimExpr>(), ss);
     std::string value;
-    value = this->SSAGetID(ss.str(), buffer_type.WithLanes(channel_size / buffer_type.bits()));
+    value = this->SSAGetID(ss.str(), buffer_type.WithLanes(channel_size / buffer_type.bits()),
+                           SideEffect(op->args[5]) == CallEffectKind::kPure);
     if (channel_size == 64) {
       os << "write_imageh(";
     } else if (channel_size == 128) {
@@ -571,7 +572,8 @@ void CodeGenOpenCL::Dispatch_(const CallObj* op, std::ostream& os) {
     this->PrintExpr(IntImm::Int32(0), ss);
     ss << "))))";
 
-    std::string rhs = SSAGetID(ss.str(), op_ty.WithLanes(data_lanes));
+    // An earlier image read may precede a write to the same texture.
+    std::string rhs = SSAGetID(ss.str(), op_ty.WithLanes(data_lanes), /*can_reuse=*/false);
     if (auto ramp = op->args.back().as<prim::RampObj>()) {
       const auto* base = ramp->base.as<IntImmObj>();
       const auto* lanes_imm = ramp->lanes.as<IntImmObj>();
@@ -622,7 +624,7 @@ void CodeGenOpenCL::Dispatch_(const CallObj* op, std::ostream& os) {
 }
 
 void CodeGenOpenCL::Dispatch_(const prim::BroadcastObj* op, std::ostream& os) {  // NOLINT(*)
-  std::string v = PrintExpr(op->value);
+  std::string v = SSAGetID(op->value);
   int lanes = op->ty.as_or_throw<PrimType>().lanes();
   os << "((";
   PrintType(op->ty.as_or_throw<PrimType>(), os);
@@ -635,13 +637,14 @@ void CodeGenOpenCL::Dispatch_(const prim::BroadcastObj* op, std::ostream& os) { 
 }
 
 void CodeGenOpenCL::Dispatch_(const prim::RampObj* op, std::ostream& os) {  // NOLINT(*)
+  std::string base = SSAGetID(op->base);
+  std::string stride = SSAGetID(op->stride);
   os << "((";
   PrintType(op->ty.as_or_throw<PrimType>(), os);
   os << ")(";
   int lanes = op->ty.as_or_throw<PrimType>().lanes();
   for (int i = 0; i < lanes; i++) {
-    os << "(" << PrintExpr(op->base) << ")"
-       << "+(" << PrintExpr(op->stride) << "*" << i << ")";
+    os << "(" << base << ")+(" << stride << "*" << i << ")";
     if (i != lanes - 1) os << ", ";
   }
   os << "))";

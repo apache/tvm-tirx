@@ -34,13 +34,13 @@ void CodeGenSourceBase::ClearFuncState() {
   scope_mark_.clear();
 }
 
-std::string CodeGenSourceBase::SSAGetID(std::string src, const Type& t) {
+std::string CodeGenSourceBase::SSAGetID(std::string src, const Type& t, bool can_reuse) {
   TVM_FFI_ICHECK(t.as<PrimTypeObj>() || t.as<PtrTypeObj>())
       << "Cannot assign an SSA value of type " << t;
   if (name_supply_->ContainsName(src)) return src;
-  auto it = ssa_assign_map_.find(src);
-  if (it != ssa_assign_map_.end()) {
-    if (scope_mark_.at(it->second.scope_id)) {
+  if (can_reuse) {
+    auto it = ssa_assign_map_.find(src);
+    if (it != ssa_assign_map_.end() && scope_mark_.at(it->second.scope_id)) {
       return it->second.vid;
     }
   }
@@ -48,7 +48,7 @@ std::string CodeGenSourceBase::SSAGetID(std::string src, const Type& t) {
   // use v_ prefix so it works for most systems
   e.vid = name_supply_->FreshName("v_");
   e.scope_id = static_cast<int>(scope_mark_.size() - 1);
-  ssa_assign_map_[src] = e;
+  if (can_reuse) ssa_assign_map_[src] = e;
   this->PrintIndent();
   PrintSSAAssign(e.vid, src, t);
   return e.vid;
