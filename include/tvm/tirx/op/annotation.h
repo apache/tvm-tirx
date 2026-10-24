@@ -31,6 +31,14 @@ namespace tvm {
 namespace tirx {
 
 /*!
+ * \brief Assert a predicate remains true throughout its containing scope, including mutations.
+ *
+ * This void annotation records a scope-wide guarantee without a runtime check.
+ * args[0] is the boolean predicate. Constraint traversal records it with assume_always=true.
+ */
+TVM_TIRX_DLL const Op& assume_always_op();
+
+/*!
  * \brief Marker where a transform should replace generated kernel initialization.
  */
 TVM_TIRX_DLL const Op& kernel_replace_point_op();

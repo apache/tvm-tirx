@@ -156,6 +156,9 @@ def test_tir_op_call_assume():
     x = tirx.Var("x", ty="int32")
     expr = tirx.assume(cond=x)
     assert expr.op.name == "prim.assume"
+    always = tirx.assume_always(x > 0)
+    assert always.op.name == "tirx.assume_always"
+    assert always.ty == tvm_tirx.ir.PrimType("void")
 
 
 def test_tir_op_call_undef():

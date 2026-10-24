@@ -33,6 +33,7 @@
 #include <tvm/ir/prim/op.h>
 #include <tvm/runtime/memory_scope.h>
 #include <tvm/tirx/function.h>
+#include <tvm/tirx/op/annotation.h>
 #include <tvm/tirx/op/gpu.h>
 #include <tvm/tirx/op/memory.h>
 #include <tvm/tirx/op/region.h>
@@ -1490,7 +1491,7 @@ llvm::Value* CodeGenLLVM::CreateIntrinsic(const CallObj* op) {
     StorageInfo& info = alloc_storage_info_[root];
     info.alignment = std::max(info.alignment, alignment);
     return builder_->CreateAlignmentAssumption(*data_layout_, GetVarValue(tensor), alignment);
-  } else if (op->op.same_as(prim::assume_op())) {
+  } else if (op->op.same_as(prim::assume_op()) || op->op.same_as(tirx::assume_always_op())) {
     llvm::Value* cond = MakeValue(args[0]);
     return builder_->CreateAssumption(cond);
   } else if (op->op.same_as(tirx::gpu_thread_invariant_op())) {

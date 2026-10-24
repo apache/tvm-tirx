@@ -93,12 +93,19 @@ class StructuralVisitorWithConstraintContextObj : public ffi::StructuralVisitorO
    * - If, While, and lazy if_then_else add scalar boolean guards inside branches/bodies.
    * - For and thread launch add ranges in their bodies; Let adds a binding in its body.
    * - Binding values and loop bounds are visited before their facts are added.
-   * - Impure predicates/bounds and unknown or nonpositive loop steps add no facts.
+   * - Predicates retain their expressions (including likely). Only tirx.assume_always sets
+   *   assume_always=true, guaranteeing truth throughout the containing scope, including mutations.
+   * - Branch predicates, binding values, range bounds, and explicit assume_always predicates
+   *   are collected without effect filtering. Ordinary assertions require a pure condition.
+   *   Only known positive loop steps yield ranges.
    * - Binding values retain their original reads; eager Select adds no branch guards.
    * - Call and RegionStmt use tirx::op_attr hooks with the complete containing node.
    *   Unregistered Ops use ordinary Call descent or isolated RegionStmt body scopes.
    *
-   * No analyzer is created. Do not use one visitor for overlapping traversals.
+   * Semantic hooks assume well-formed IR. No analyzer is created. These expressions do not
+   * snapshot mutable reads: consumers need stable captured values or lifetime guarantees,
+   * invalidation, or skipped inference. An unchanged context does not imply unchanged memory.
+   * Do not use one visitor for overlapping traversals.
    */
   ffi::Expected<ffi::Optional<ffi::VisitInterrupt>> DefaultVisitExpected(
       ffi::AnyView value) noexcept;

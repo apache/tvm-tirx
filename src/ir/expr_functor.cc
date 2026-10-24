@@ -18,7 +18,20 @@
  */
 #include <tvm/ir/expr_functor.h>
 
+#include "expr_functor_impl.h"
+
 namespace tvm {
+
+// Generate ordinary virtual hooks that forward to the shared native default bodies.
+#define SHARED_DEFAULTS(Node, Result)                                            \
+  ffi::Optional<VisitInterrupt> ExprVisitor::Visit_(const Node* node) {          \
+    return details::VisitExprDefault(this, node);                                \
+  }                                                                              \
+  UnchangedOr<Result> ExprMutator::Mutate_(const Node* node, InplaceMode mode) { \
+    return details::MutateExprDefault(this, node, mode);                         \
+  }
+TVM_IR_SHARED_EXPR_NODES(SHARED_DEFAULTS)
+#undef SHARED_DEFAULTS
 
 void ExprVisitor::InitVTable(VTable* vtable) {
   ObjectVisitor::InitVTable(vtable);
@@ -68,38 +81,6 @@ void ExprVisitor::InitVTable(VTable* vtable) {
   SetDispatch<ExprVisitor, prim::ShuffleObj>(vtable);
 }
 
-ffi::Optional<VisitInterrupt> ExprVisitor::Visit_(const OpaqueExprObj* node) {
-  TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(this->Visit(node->ty));
-  return std::nullopt;
-}
-
-ffi::Optional<VisitInterrupt> ExprVisitor::Visit_(const TupleObj* node) {
-  TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(this->Visit(node->ty));
-  TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(this->Visit(node->fields));
-  return std::nullopt;
-}
-
-ffi::Optional<VisitInterrupt> ExprVisitor::Visit_(const TupleGetItemObj* node) {
-  // skips: index
-  TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(this->Visit(node->ty));
-  TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(this->Visit(node->tuple));
-  return std::nullopt;
-}
-
-ffi::Optional<VisitInterrupt> ExprVisitor::Visit_(const TensorLoadObj* node) {
-  TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(this->Visit(node->ty));
-  TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(this->Visit(node->source));
-  TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(this->Visit(node->indices));
-  return std::nullopt;
-}
-
-ffi::Optional<VisitInterrupt> ExprVisitor::Visit_(const TensorRegionObj* node) {
-  TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(this->Visit(node->ty));
-  TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(this->Visit(node->source));
-  TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(this->Visit(node->region));
-  return std::nullopt;
-}
-
 ffi::Optional<VisitInterrupt> ExprVisitor::Visit_(const VarObj* node) {
   // Primitive types have no children; dynamic type fields are visited.
   if (!node->ty.as<PrimTypeObj>()) {
@@ -113,8 +94,6 @@ ffi::Optional<VisitInterrupt> ExprVisitor::Visit_(const VarObj* node) {
   }
   return std::nullopt;
 }
-
-ffi::Optional<VisitInterrupt> ExprVisitor::Visit_(const GlobalVarObj* node) { return std::nullopt; }
 
 ffi::Optional<VisitInterrupt> ExprVisitor::Visit_(const CallObj* node) {
   // Skip constant attrs and primitive result types.
@@ -133,172 +112,8 @@ ffi::Optional<VisitInterrupt> ExprVisitor::Visit_(const CallObj* node) {
   return std::nullopt;
 }
 
-ffi::Optional<VisitInterrupt> ExprVisitor::Visit_(const GenericConstObj* node) {
-  return this->Visit(node->ty);
-}
-
-ffi::Optional<VisitInterrupt> ExprVisitor::Visit_(const IntImmObj* node) { return std::nullopt; }
-
-ffi::Optional<VisitInterrupt> ExprVisitor::Visit_(const FloatImmObj* node) { return std::nullopt; }
-
-ffi::Optional<VisitInterrupt> ExprVisitor::Visit_(const OpObj* node) { return std::nullopt; }
-
 ffi::Optional<VisitInterrupt> ExprVisitor::Visit_(const StringImmObj* node) { return std::nullopt; }
 ffi::Optional<VisitInterrupt> ExprVisitor::Visit_(const DataTypeImmObj* node) {
-  return std::nullopt;
-}
-
-ffi::Optional<VisitInterrupt> ExprVisitor::Visit_(const prim::CastObj* node) {
-  TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(this->Visit(node->value));
-  return std::nullopt;
-}
-
-ffi::Optional<VisitInterrupt> ExprVisitor::Visit_(const prim::AddObj* node) {
-  TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(this->Visit(node->a));
-  TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(this->Visit(node->b));
-  return std::nullopt;
-}
-
-ffi::Optional<VisitInterrupt> ExprVisitor::Visit_(const prim::LShiftObj* node) {
-  TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(this->Visit(node->a));
-  TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(this->Visit(node->b));
-  return std::nullopt;
-}
-
-ffi::Optional<VisitInterrupt> ExprVisitor::Visit_(const prim::RShiftObj* node) {
-  TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(this->Visit(node->a));
-  TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(this->Visit(node->b));
-  return std::nullopt;
-}
-
-ffi::Optional<VisitInterrupt> ExprVisitor::Visit_(const prim::BitwiseAndObj* node) {
-  TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(this->Visit(node->a));
-  TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(this->Visit(node->b));
-  return std::nullopt;
-}
-
-ffi::Optional<VisitInterrupt> ExprVisitor::Visit_(const prim::BitwiseOrObj* node) {
-  TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(this->Visit(node->a));
-  TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(this->Visit(node->b));
-  return std::nullopt;
-}
-
-ffi::Optional<VisitInterrupt> ExprVisitor::Visit_(const prim::BitwiseXorObj* node) {
-  TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(this->Visit(node->a));
-  TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(this->Visit(node->b));
-  return std::nullopt;
-}
-
-ffi::Optional<VisitInterrupt> ExprVisitor::Visit_(const prim::SubObj* node) {
-  TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(this->Visit(node->a));
-  TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(this->Visit(node->b));
-  return std::nullopt;
-}
-
-ffi::Optional<VisitInterrupt> ExprVisitor::Visit_(const prim::MulObj* node) {
-  TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(this->Visit(node->a));
-  TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(this->Visit(node->b));
-  return std::nullopt;
-}
-
-ffi::Optional<VisitInterrupt> ExprVisitor::Visit_(const prim::DivObj* node) {
-  TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(this->Visit(node->a));
-  TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(this->Visit(node->b));
-  return std::nullopt;
-}
-
-ffi::Optional<VisitInterrupt> ExprVisitor::Visit_(const prim::ModObj* node) {
-  TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(this->Visit(node->a));
-  TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(this->Visit(node->b));
-  return std::nullopt;
-}
-
-ffi::Optional<VisitInterrupt> ExprVisitor::Visit_(const prim::FloorDivObj* node) {
-  TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(this->Visit(node->a));
-  TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(this->Visit(node->b));
-  return std::nullopt;
-}
-
-ffi::Optional<VisitInterrupt> ExprVisitor::Visit_(const prim::FloorModObj* node) {
-  TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(this->Visit(node->a));
-  TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(this->Visit(node->b));
-  return std::nullopt;
-}
-
-ffi::Optional<VisitInterrupt> ExprVisitor::Visit_(const prim::MinObj* node) {
-  TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(this->Visit(node->a));
-  TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(this->Visit(node->b));
-  return std::nullopt;
-}
-
-ffi::Optional<VisitInterrupt> ExprVisitor::Visit_(const prim::MaxObj* node) {
-  TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(this->Visit(node->a));
-  TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(this->Visit(node->b));
-  return std::nullopt;
-}
-
-ffi::Optional<VisitInterrupt> ExprVisitor::Visit_(const prim::EQObj* node) {
-  TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(this->Visit(node->a));
-  TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(this->Visit(node->b));
-  return std::nullopt;
-}
-
-ffi::Optional<VisitInterrupt> ExprVisitor::Visit_(const prim::NEObj* node) {
-  TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(this->Visit(node->a));
-  TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(this->Visit(node->b));
-  return std::nullopt;
-}
-
-ffi::Optional<VisitInterrupt> ExprVisitor::Visit_(const prim::LTObj* node) {
-  TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(this->Visit(node->a));
-  TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(this->Visit(node->b));
-  return std::nullopt;
-}
-
-ffi::Optional<VisitInterrupt> ExprVisitor::Visit_(const prim::LEObj* node) {
-  TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(this->Visit(node->a));
-  TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(this->Visit(node->b));
-  return std::nullopt;
-}
-
-ffi::Optional<VisitInterrupt> ExprVisitor::Visit_(const prim::GTObj* node) {
-  TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(this->Visit(node->a));
-  TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(this->Visit(node->b));
-  return std::nullopt;
-}
-
-ffi::Optional<VisitInterrupt> ExprVisitor::Visit_(const prim::GEObj* node) {
-  TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(this->Visit(node->a));
-  TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(this->Visit(node->b));
-  return std::nullopt;
-}
-
-ffi::Optional<VisitInterrupt> ExprVisitor::Visit_(const prim::AndObj* node) {
-  TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(this->Visit(node->a));
-  TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(this->Visit(node->b));
-  return std::nullopt;
-}
-
-ffi::Optional<VisitInterrupt> ExprVisitor::Visit_(const prim::OrObj* node) {
-  TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(this->Visit(node->a));
-  TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(this->Visit(node->b));
-  return std::nullopt;
-}
-
-ffi::Optional<VisitInterrupt> ExprVisitor::Visit_(const prim::NotObj* node) {
-  TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(this->Visit(node->a));
-  return std::nullopt;
-}
-
-ffi::Optional<VisitInterrupt> ExprVisitor::Visit_(const prim::BitwiseNotObj* node) {
-  TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(this->Visit(node->a));
-  return std::nullopt;
-}
-
-ffi::Optional<VisitInterrupt> ExprVisitor::Visit_(const prim::SelectObj* node) {
-  TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(this->Visit(node->condition));
-  TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(this->Visit(node->true_value));
-  TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(this->Visit(node->false_value));
   return std::nullopt;
 }
 
@@ -307,25 +122,6 @@ ffi::Optional<VisitInterrupt> ExprVisitor::Visit_(const prim::LetObj* node) {
       kTVMFFIDefRegionKindSimple, [&]() { return this->Visit(node->var); }));
   TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(this->Visit(node->value));
   TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(this->Visit(node->body));
-  return std::nullopt;
-}
-
-ffi::Optional<VisitInterrupt> ExprVisitor::Visit_(const prim::RampObj* node) {
-  TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(this->Visit(node->base));
-  TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(this->Visit(node->stride));
-  TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(this->Visit(node->lanes));
-  return std::nullopt;
-}
-
-ffi::Optional<VisitInterrupt> ExprVisitor::Visit_(const prim::BroadcastObj* node) {
-  TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(this->Visit(node->value));
-  TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(this->Visit(node->lanes));
-  return std::nullopt;
-}
-
-ffi::Optional<VisitInterrupt> ExprVisitor::Visit_(const prim::ShuffleObj* node) {
-  TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(this->Visit(node->vectors));
-  TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(this->Visit(node->indices));
   return std::nullopt;
 }
 
@@ -377,104 +173,6 @@ void ExprMutator::InitVTable(VTable* vtable) {
   SetDispatch<ExprMutator, prim::ShuffleObj>(vtable);
 }
 
-UnchangedOr<Expr> ExprMutator::Mutate_(const OpaqueExprObj* node, InplaceMode inplace_mode) {
-  auto ty_u = Mutate(node->ty, inplace_mode).as_or_throw<UnchangedOr<Type>>();
-  if (ty_u.UnchangedOrSameAs(node->ty)) return ffi::Unchanged();
-  if (inplace_mode == InplaceMode::kAllow) {
-    auto* writable = const_cast<OpaqueExprObj*>(node);
-    if (!ty_u.IsUnchanged()) writable->ty = std::move(ty_u).ValueUnchecked();
-    return ffi::Unchanged();
-  }
-  auto copy = ffi::make_object<OpaqueExprObj>(*node);
-  if (!ty_u.IsUnchanged()) copy->ty = std::move(ty_u).ValueUnchecked();
-  return Expr(std::move(copy));
-}
-
-UnchangedOr<Expr> ExprMutator::Mutate_(const TupleObj* node, InplaceMode inplace_mode) {
-  auto ty_u = Mutate(node->ty, inplace_mode).as_or_throw<UnchangedOr<Type>>();
-  auto fields_u = Mutate(node->fields, inplace_mode).as_or_throw<UnchangedOr<ffi::Array<Expr>>>();
-  if (ty_u.UnchangedOrSameAs(node->ty) && fields_u.UnchangedOrSameAs(node->fields))
-    return ffi::Unchanged();
-  if (inplace_mode == InplaceMode::kAllow) {
-    auto* writable = const_cast<TupleObj*>(node);
-    if (!ty_u.IsUnchanged()) writable->ty = std::move(ty_u).ValueUnchecked();
-    if (!fields_u.IsUnchanged()) writable->fields = std::move(fields_u).ValueUnchecked();
-    return ffi::Unchanged();
-  }
-  auto copy = ffi::make_object<TupleObj>(*node);
-  if (!ty_u.IsUnchanged()) copy->ty = std::move(ty_u).ValueUnchecked();
-  if (!fields_u.IsUnchanged()) copy->fields = std::move(fields_u).ValueUnchecked();
-  return Expr(std::move(copy));
-}
-
-UnchangedOr<Expr> ExprMutator::Mutate_(const TupleGetItemObj* node, InplaceMode inplace_mode) {
-  auto ty_u = Mutate(node->ty, inplace_mode).as_or_throw<UnchangedOr<Type>>();
-  auto tuple_u = Mutate(node->tuple, inplace_mode);
-  if (ty_u.UnchangedOrSameAs(node->ty) && tuple_u.UnchangedOrSameAs(node->tuple))
-    return ffi::Unchanged();
-  if (inplace_mode == InplaceMode::kAllow) {
-    auto* writable = const_cast<TupleGetItemObj*>(node);
-    if (!ty_u.IsUnchanged()) writable->ty = std::move(ty_u).ValueUnchecked();
-    if (!tuple_u.IsUnchanged()) writable->tuple = std::move(tuple_u).ValueUnchecked();
-    return ffi::Unchanged();
-  }
-  auto copy = ffi::make_object<TupleGetItemObj>(*node);
-  if (!ty_u.IsUnchanged()) copy->ty = std::move(ty_u).ValueUnchecked();
-  if (!tuple_u.IsUnchanged()) copy->tuple = std::move(tuple_u).ValueUnchecked();
-  return Expr(std::move(copy));
-}
-
-UnchangedOr<PrimExpr> ExprMutator::Mutate_(const TensorLoadObj* node, InplaceMode inplace_mode) {
-  auto ty_u = Mutate(node->ty, inplace_mode).as_or_throw<UnchangedOr<Type>>();
-  Type result_ty = std::move(ty_u).ValueOrUnchanged(node->ty);
-  TVM_FFI_CHECK(result_ty.as<PrimTypeObj>(), TypeError)
-      << "TensorLoad requires a concrete PrimType";
-  auto source_u = Mutate(node->source, inplace_mode);
-  auto indices_u =
-      Mutate(node->indices, inplace_mode).as_or_throw<UnchangedOr<ffi::Array<PrimExpr>>>();
-  if (result_ty.same_as(node->ty) && source_u.UnchangedOrSameAs(node->source) &&
-      indices_u.UnchangedOrSameAs(node->indices))
-    return ffi::Unchanged();
-  if (inplace_mode == InplaceMode::kAllow) {
-    auto* writable = const_cast<TensorLoadObj*>(node);
-    writable->ty = std::move(result_ty);
-    if (!source_u.IsUnchanged()) writable->source = std::move(source_u).ValueUnchecked();
-    if (!indices_u.IsUnchanged()) writable->indices = std::move(indices_u).ValueUnchecked();
-    return ffi::Unchanged();
-  }
-  auto copy = ffi::make_object<TensorLoadObj>(*node);
-  copy->ty = std::move(result_ty);
-  if (!source_u.IsUnchanged()) copy->source = std::move(source_u).ValueUnchecked();
-  if (!indices_u.IsUnchanged()) copy->indices = std::move(indices_u).ValueUnchecked();
-  return PrimExpr(std::move(copy));
-}
-
-UnchangedOr<Expr> ExprMutator::Mutate_(const TensorRegionObj* node, InplaceMode inplace_mode) {
-  auto ty_u = Mutate(node->ty, inplace_mode).as_or_throw<UnchangedOr<Type>>();
-  auto source_u = Mutate(node->source, inplace_mode);
-  auto region_u = Mutate(node->region, inplace_mode).as_or_throw<UnchangedOr<ffi::Array<Range>>>();
-  if (ty_u.UnchangedOrSameAs(node->ty) && source_u.UnchangedOrSameAs(node->source) &&
-      region_u.UnchangedOrSameAs(node->region))
-    return ffi::Unchanged();
-  if (inplace_mode == InplaceMode::kAllow) {
-    auto* writable = const_cast<TensorRegionObj*>(node);
-    if (!ty_u.IsUnchanged()) writable->ty = std::move(ty_u).ValueUnchecked();
-    if (!source_u.IsUnchanged()) writable->source = std::move(source_u).ValueUnchecked();
-    if (!region_u.IsUnchanged()) writable->region = std::move(region_u).ValueUnchecked();
-    return ffi::Unchanged();
-  }
-  auto copy = ffi::make_object<TensorRegionObj>(*node);
-  if (!ty_u.IsUnchanged()) copy->ty = std::move(ty_u).ValueUnchecked();
-  if (!source_u.IsUnchanged()) copy->source = std::move(source_u).ValueUnchecked();
-  if (!region_u.IsUnchanged()) copy->region = std::move(region_u).ValueUnchecked();
-  return Expr(std::move(copy));
-}
-
-UnchangedOr<Expr> ExprMutator::Mutate_(const GlobalVarObj* node, InplaceMode inplace_mode) {
-  // Registry atoms and constant leaves do not descend into metadata or types.
-  return ffi::Unchanged();
-}
-
 UnchangedOr<Expr> ExprMutator::Mutate_(const CallObj* node, InplaceMode inplace_mode) {
   UnchangedOr<Type> ty_u = ffi::Unchanged();
   if (!node->ty.as<PrimTypeObj>()) {
@@ -524,33 +222,6 @@ UnchangedOr<Expr> ExprMutator::ReinferMutatedCallType(UnchangedOr<Expr> mutated,
   return Expr(std::move(copy));
 }
 
-UnchangedOr<Expr> ExprMutator::Mutate_(const GenericConstObj* node, InplaceMode inplace_mode) {
-  auto ty = Mutate(node->ty, inplace_mode).as_or_throw<UnchangedOr<Type>>();
-  if (ty.UnchangedOrSameAs(node->ty)) return ffi::Unchanged();
-  if (inplace_mode == InplaceMode::kAllow) {
-    const_cast<GenericConstObj*>(node)->ty = std::move(ty).ValueUnchecked();
-    return ffi::Unchanged();
-  }
-  auto copy = ffi::make_object<GenericConstObj>(*node);
-  copy->ty = std::move(ty).ValueUnchecked();
-  return Expr(std::move(copy));
-}
-
-UnchangedOr<PrimExpr> ExprMutator::Mutate_(const IntImmObj* node, InplaceMode inplace_mode) {
-  // Registry atoms and constant leaves do not descend into metadata or types.
-  return ffi::Unchanged();
-}
-
-UnchangedOr<PrimExpr> ExprMutator::Mutate_(const FloatImmObj* node, InplaceMode inplace_mode) {
-  // Registry atoms and constant leaves do not descend into metadata or types.
-  return ffi::Unchanged();
-}
-
-UnchangedOr<Expr> ExprMutator::Mutate_(const OpObj* node, InplaceMode inplace_mode) {
-  // Registry atoms and constant leaves do not descend into metadata or types.
-  return ffi::Unchanged();
-}
-
 UnchangedOr<Expr> ExprMutator::Mutate_(const StringImmObj* node, InplaceMode inplace_mode) {
   // Registry atoms and constant leaves do not descend into metadata or types.
   return ffi::Unchanged();
@@ -558,111 +229,6 @@ UnchangedOr<Expr> ExprMutator::Mutate_(const StringImmObj* node, InplaceMode inp
 UnchangedOr<Expr> ExprMutator::Mutate_(const DataTypeImmObj* node, InplaceMode inplace_mode) {
   // Registry atoms and constant leaves do not descend into metadata or types.
   return ffi::Unchanged();
-}
-
-UnchangedOr<PrimExpr> ExprMutator::Mutate_(const prim::CastObj* node, InplaceMode inplace_mode) {
-  auto value_u = Mutate(node->value, inplace_mode);
-  if (value_u.UnchangedOrSameAs(node->value)) return ffi::Unchanged();
-  if (inplace_mode == InplaceMode::kAllow) {
-    auto* writable = const_cast<prim::CastObj*>(node);
-    if (!value_u.IsUnchanged()) writable->value = std::move(value_u).ValueUnchecked();
-    return ffi::Unchanged();
-  }
-  auto copy = ffi::make_object<prim::CastObj>(*node);
-  if (!value_u.IsUnchanged()) copy->value = std::move(value_u).ValueUnchecked();
-  return PrimExpr(std::move(copy));
-}
-
-#define TVM_IR_BINARY_MUTATE_IMPL(Name)                                                            \
-  UnchangedOr<PrimExpr> ExprMutator::Mutate_(const prim::Name##Obj* node,                          \
-                                             InplaceMode inplace_mode) {                           \
-    auto a_u = Mutate(node->a, inplace_mode);                                                      \
-    auto b_u = Mutate(node->b, inplace_mode);                                                      \
-    if (a_u.UnchangedOrSameAs(node->a) && b_u.UnchangedOrSameAs(node->b)) return ffi::Unchanged(); \
-    if (inplace_mode == InplaceMode::kAllow) {                                                     \
-      auto* writable = const_cast<prim::Name##Obj*>(node);                                         \
-      if (!a_u.IsUnchanged()) writable->a = std::move(a_u).ValueUnchecked();                       \
-      if (!b_u.IsUnchanged()) writable->b = std::move(b_u).ValueUnchecked();                       \
-      return ffi::Unchanged();                                                                     \
-    }                                                                                              \
-    auto copy = ffi::make_object<prim::Name##Obj>(*node);                                          \
-    if (!a_u.IsUnchanged()) copy->a = std::move(a_u).ValueUnchecked();                             \
-    if (!b_u.IsUnchanged()) copy->b = std::move(b_u).ValueUnchecked();                             \
-    return PrimExpr(std::move(copy));                                                              \
-  }
-TVM_IR_BINARY_MUTATE_IMPL(Add)
-TVM_IR_BINARY_MUTATE_IMPL(LShift)
-TVM_IR_BINARY_MUTATE_IMPL(RShift)
-TVM_IR_BINARY_MUTATE_IMPL(BitwiseAnd)
-TVM_IR_BINARY_MUTATE_IMPL(BitwiseOr)
-TVM_IR_BINARY_MUTATE_IMPL(BitwiseXor)
-TVM_IR_BINARY_MUTATE_IMPL(Sub)
-TVM_IR_BINARY_MUTATE_IMPL(Mul)
-TVM_IR_BINARY_MUTATE_IMPL(Div)
-TVM_IR_BINARY_MUTATE_IMPL(Mod)
-TVM_IR_BINARY_MUTATE_IMPL(FloorDiv)
-TVM_IR_BINARY_MUTATE_IMPL(FloorMod)
-TVM_IR_BINARY_MUTATE_IMPL(Min)
-TVM_IR_BINARY_MUTATE_IMPL(Max)
-TVM_IR_BINARY_MUTATE_IMPL(EQ)
-TVM_IR_BINARY_MUTATE_IMPL(NE)
-TVM_IR_BINARY_MUTATE_IMPL(LT)
-TVM_IR_BINARY_MUTATE_IMPL(LE)
-TVM_IR_BINARY_MUTATE_IMPL(GT)
-TVM_IR_BINARY_MUTATE_IMPL(GE)
-TVM_IR_BINARY_MUTATE_IMPL(And)
-TVM_IR_BINARY_MUTATE_IMPL(Or)
-#undef TVM_IR_BINARY_MUTATE_IMPL
-
-UnchangedOr<PrimExpr> ExprMutator::Mutate_(const prim::NotObj* node, InplaceMode inplace_mode) {
-  auto a_u = Mutate(node->a, inplace_mode);
-  if (a_u.UnchangedOrSameAs(node->a)) return ffi::Unchanged();
-  if (inplace_mode == InplaceMode::kAllow) {
-    auto* writable = const_cast<prim::NotObj*>(node);
-    if (!a_u.IsUnchanged()) writable->a = std::move(a_u).ValueUnchecked();
-    return ffi::Unchanged();
-  }
-  auto copy = ffi::make_object<prim::NotObj>(*node);
-  if (!a_u.IsUnchanged()) copy->a = std::move(a_u).ValueUnchecked();
-  return PrimExpr(std::move(copy));
-}
-
-UnchangedOr<PrimExpr> ExprMutator::Mutate_(const prim::BitwiseNotObj* node,
-                                           InplaceMode inplace_mode) {
-  auto a_u = Mutate(node->a, inplace_mode);
-  if (a_u.UnchangedOrSameAs(node->a)) return ffi::Unchanged();
-  if (inplace_mode == InplaceMode::kAllow) {
-    auto* writable = const_cast<prim::BitwiseNotObj*>(node);
-    if (!a_u.IsUnchanged()) writable->a = std::move(a_u).ValueUnchecked();
-    return ffi::Unchanged();
-  }
-  auto copy = ffi::make_object<prim::BitwiseNotObj>(*node);
-  if (!a_u.IsUnchanged()) copy->a = std::move(a_u).ValueUnchecked();
-  return PrimExpr(std::move(copy));
-}
-
-UnchangedOr<PrimExpr> ExprMutator::Mutate_(const prim::SelectObj* node, InplaceMode inplace_mode) {
-  auto condition_u = Mutate(node->condition, inplace_mode);
-  auto true_value_u = Mutate(node->true_value, inplace_mode);
-  auto false_value_u = Mutate(node->false_value, inplace_mode);
-  if (condition_u.UnchangedOrSameAs(node->condition) &&
-      true_value_u.UnchangedOrSameAs(node->true_value) &&
-      false_value_u.UnchangedOrSameAs(node->false_value))
-    return ffi::Unchanged();
-  if (inplace_mode == InplaceMode::kAllow) {
-    auto* writable = const_cast<prim::SelectObj*>(node);
-    if (!condition_u.IsUnchanged()) writable->condition = std::move(condition_u).ValueUnchecked();
-    if (!true_value_u.IsUnchanged())
-      writable->true_value = std::move(true_value_u).ValueUnchecked();
-    if (!false_value_u.IsUnchanged())
-      writable->false_value = std::move(false_value_u).ValueUnchecked();
-    return ffi::Unchanged();
-  }
-  auto copy = ffi::make_object<prim::SelectObj>(*node);
-  if (!condition_u.IsUnchanged()) copy->condition = std::move(condition_u).ValueUnchecked();
-  if (!true_value_u.IsUnchanged()) copy->true_value = std::move(true_value_u).ValueUnchecked();
-  if (!false_value_u.IsUnchanged()) copy->false_value = std::move(false_value_u).ValueUnchecked();
-  return PrimExpr(std::move(copy));
 }
 
 UnchangedOr<PrimExpr> ExprMutator::Mutate_(const prim::LetObj* node, InplaceMode inplace_mode) {
@@ -700,64 +266,6 @@ UnchangedOr<PrimExpr> ExprMutator::Mutate_(const prim::LetObj* node, InplaceMode
   copy->value = std::move(value);
   copy->body = std::move(body);
   copy->ty = copy->body->ty;
-  return PrimExpr(std::move(copy));
-}
-
-UnchangedOr<PrimExpr> ExprMutator::Mutate_(const prim::RampObj* node, InplaceMode inplace_mode) {
-  auto base_u = Mutate(node->base, inplace_mode);
-  auto stride_u = Mutate(node->stride, inplace_mode);
-  auto lanes_u = Mutate(node->lanes, inplace_mode);
-  if (base_u.UnchangedOrSameAs(node->base) && stride_u.UnchangedOrSameAs(node->stride) &&
-      lanes_u.UnchangedOrSameAs(node->lanes))
-    return ffi::Unchanged();
-  if (inplace_mode == InplaceMode::kAllow) {
-    auto* writable = const_cast<prim::RampObj*>(node);
-    if (!base_u.IsUnchanged()) writable->base = std::move(base_u).ValueUnchecked();
-    if (!stride_u.IsUnchanged()) writable->stride = std::move(stride_u).ValueUnchecked();
-    if (!lanes_u.IsUnchanged()) writable->lanes = std::move(lanes_u).ValueUnchecked();
-    return ffi::Unchanged();
-  }
-  auto copy = ffi::make_object<prim::RampObj>(*node);
-  if (!base_u.IsUnchanged()) copy->base = std::move(base_u).ValueUnchecked();
-  if (!stride_u.IsUnchanged()) copy->stride = std::move(stride_u).ValueUnchecked();
-  if (!lanes_u.IsUnchanged()) copy->lanes = std::move(lanes_u).ValueUnchecked();
-  return PrimExpr(std::move(copy));
-}
-
-UnchangedOr<PrimExpr> ExprMutator::Mutate_(const prim::BroadcastObj* node,
-                                           InplaceMode inplace_mode) {
-  auto value_u = Mutate(node->value, inplace_mode);
-  auto lanes_u = Mutate(node->lanes, inplace_mode);
-  if (value_u.UnchangedOrSameAs(node->value) && lanes_u.UnchangedOrSameAs(node->lanes))
-    return ffi::Unchanged();
-  if (inplace_mode == InplaceMode::kAllow) {
-    auto* writable = const_cast<prim::BroadcastObj*>(node);
-    if (!value_u.IsUnchanged()) writable->value = std::move(value_u).ValueUnchecked();
-    if (!lanes_u.IsUnchanged()) writable->lanes = std::move(lanes_u).ValueUnchecked();
-    return ffi::Unchanged();
-  }
-  auto copy = ffi::make_object<prim::BroadcastObj>(*node);
-  if (!value_u.IsUnchanged()) copy->value = std::move(value_u).ValueUnchecked();
-  if (!lanes_u.IsUnchanged()) copy->lanes = std::move(lanes_u).ValueUnchecked();
-  return PrimExpr(std::move(copy));
-}
-
-UnchangedOr<PrimExpr> ExprMutator::Mutate_(const prim::ShuffleObj* node, InplaceMode inplace_mode) {
-  auto vectors_u =
-      Mutate(node->vectors, inplace_mode).as_or_throw<UnchangedOr<ffi::Array<PrimExpr>>>();
-  auto indices_u =
-      Mutate(node->indices, inplace_mode).as_or_throw<UnchangedOr<ffi::Array<PrimExpr>>>();
-  if (vectors_u.UnchangedOrSameAs(node->vectors) && indices_u.UnchangedOrSameAs(node->indices))
-    return ffi::Unchanged();
-  if (inplace_mode == InplaceMode::kAllow) {
-    auto* writable = const_cast<prim::ShuffleObj*>(node);
-    if (!vectors_u.IsUnchanged()) writable->vectors = std::move(vectors_u).ValueUnchecked();
-    if (!indices_u.IsUnchanged()) writable->indices = std::move(indices_u).ValueUnchecked();
-    return ffi::Unchanged();
-  }
-  auto copy = ffi::make_object<prim::ShuffleObj>(*node);
-  if (!vectors_u.IsUnchanged()) copy->vectors = std::move(vectors_u).ValueUnchecked();
-  if (!indices_u.IsUnchanged()) copy->indices = std::move(indices_u).ValueUnchecked();
   return PrimExpr(std::move(copy));
 }
 
