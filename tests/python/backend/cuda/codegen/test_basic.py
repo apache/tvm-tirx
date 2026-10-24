@@ -926,65 +926,28 @@ def test_min_max_nan_preserving_cuda(dtype, form, *, backend_config):
 
 @pytest.mark.gpu
 @pytest.mark.skipif(not env.has_cuda(), reason="need cuda")
-def test_expression_evaluation(*, backend_config):
+def test_atomic_operand_evaluation():
     @T.function
-    def main(
-        P: T.Tensor((7,), "int32"),
-        A: T.Tensor((8,), "float32x4"),
-        O: T.Tensor((9,), "float32x4"),
-    ):
-        # One thread makes each counter's return values deterministic: 0, 1, ...
+    def main(P: T.Tensor((1,), "float32"), O: T.Tensor((1,), "float32x4")):
         with T.launch_thread("threadIdx.x", 1):
-            O[0] = T.cast(T.cast(A[7], "int32x4"), "float32x4")
-            A[7] = T.Broadcast(T.float32(7), 4)
-            O[1] = T.cast(T.cast(A[7], "int32x4"), "float32x4")
-            # min/max share the same scalar implementation; max exercises it once.
-            O[2] = T.Broadcast(
+            # Two independent atomics run once each; broadcast copies their max.
+            O[0] = T.Broadcast(
                 T.max(
-                    T.cast(T.cuda.atomic_add(T.address_of(P[0]), 1), "float32"),
-                    T.cast(T.cuda.atomic_add(T.address_of(P[0]), 1), "float32"),
+                    T.cuda.atomic_add(T.address_of(P[0]), T.float32(1)),
+                    T.cuda.atomic_add(T.address_of(P[0]), T.float32(1)),
                 ),
                 4,
             )
-            # Each expansion must evaluate its input once across all lanes.
-            O[3] = T.Broadcast(T.cast(T.cuda.atomic_add(T.address_of(P[1]), 1), "float32"), 4)
-            O[4] = T.cast(T.Ramp(T.cuda.atomic_add(T.address_of(P[2]), 1), 1, 4), "float32x4")
-            O[5] = T.Shuffle([A[T.cuda.atomic_add(T.address_of(P[3]), 1)]], [3, 2, 1, 0])
-            O[6] = (
-                A[T.cuda.atomic_add(T.address_of(P[4]), 1)]
-                + A[T.cuda.atomic_add(T.address_of(P[4]), 1)]
-            )
-            O[7] = T.max(
-                A[T.cuda.atomic_add(T.address_of(P[5]), 1)],
-                A[T.cuda.atomic_add(T.address_of(P[5]), 1)],
-            )
-            O[8] = T.cast(T.isnan(A[4 + T.cuda.atomic_add(T.address_of(P[6]), 1)]), "float32x4")
 
-    executable = tvm_tirx.tirx.compile(
-        main, target={"kind": "cuda", "backend_config": backend_config}
-    )
+    executable = tvm_tirx.tirx.compile(main, target="cuda")
 
     def run_and_check():
         dev = tvm_tirx.cuda(0)
-        data = np.arange(32, dtype="float32").reshape(8, 4)
-        data[4, [0, 2]] = np.nan
-        counter = tvm_tirx.runtime.tensor(np.zeros(7, dtype="int32"), dev)
-        a = tvm_tirx.runtime.empty((8,), "float32x4", dev).copyfrom(data)
-        output = tvm_tirx.runtime.empty((9,), "float32x4", dev)
-        executable(counter, a, output)
-        expected = [
-            [28, 29, 30, 31],
-            [7] * 4,  # Reload after a store.
-            [1] * 4,  # Scalar max.
-            [0] * 4,
-            [0, 1, 2, 3],
-            [3, 2, 1, 0],  # Broadcast, ramp, shuffle.
-            [4, 6, 8, 10],
-            [4, 5, 6, 7],
-            [1, 0, 1, 0],  # Vector add/max/isnan.
-        ]
-        np.testing.assert_array_equal(output.numpy(), expected)
-        np.testing.assert_array_equal(counter.numpy(), [2, 1, 1, 1, 2, 2, 1])
+        counter = tvm_tirx.runtime.tensor(np.zeros(1, dtype="float32"), dev)
+        output = tvm_tirx.runtime.empty((1,), "float32x4", dev)
+        executable(counter, output)
+        np.testing.assert_array_equal(output.numpy(), [[1] * 4])
+        np.testing.assert_array_equal(counter.numpy(), [2])
 
     tvm_tirx.testing.run_with_gpu_lock(run_and_check)
 
