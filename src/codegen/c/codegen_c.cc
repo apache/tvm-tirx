@@ -222,18 +222,17 @@ std::string CodeGenC::Finish() {
 
 void CodeGenC::PrintExpr(const PrimExpr& n, std::ostream& os) {  // NOLINT(*)
   if (print_ssa_form_) {
-    os << SSAGetID(n);
+    std::ostringstream temp;
+    Dispatch(n, temp);
+    os << SSAGetID(temp.str(), n.ty(), SideEffect(n) == CallEffectKind::kPure);
   } else {
     Dispatch(n, os);
   }
 }
 
 std::string CodeGenC::SSAGetID(const Expr& expr) {
-  std::ostringstream value;
-  Dispatch(expr, value);
   // Reads must also stay out of the cache: a store or call may change their value.
-  return CodeGenSourceBase::SSAGetID(value.str(), expr->ty,
-                                     SideEffect(expr) == CallEffectKind::kPure);
+  return SSAGetID(PrintExpr(expr), expr->ty, SideEffect(expr) == CallEffectKind::kPure);
 }
 
 void CodeGenC::PrintExpr(const Expr& n, std::ostream& os) {  // NOLINT(*)
