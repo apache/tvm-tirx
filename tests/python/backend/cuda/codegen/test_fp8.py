@@ -14,9 +14,7 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-# ruff: noqa: F401, F841
 
-from itertools import product
 
 import numpy as np
 import pytest
@@ -175,7 +173,6 @@ def test_fp8_vector_conversions(native_dtype, promoted_dtype, numpytype):
     mod = _create_mod(native_dtype, promoted_dtype)
     target = "cuda"
     fadd = tvm_tirx.tirx.compile(mod, target=target).mod
-    cuda_src = fadd.imports[0].inspect_source()
     dev = tvm_tirx.cuda(0)
 
     if "x" in native_dtype:
@@ -218,8 +215,8 @@ def test_half_broadcast(bcast_length):
         class Module:
             @T.function
             def main(a: T.Tensor((), dtype), vec: T.Tensor((bcast_length,), dtype)):
-                with T.launch_thread("blockIdx.x", 1) as i_0:
-                    with T.launch_thread("threadIdx.x", 1) as i_1:
+                with T.launch_thread("blockIdx.x", 1) as i_0:  # noqa: F841 - The parser emits this named IR binding.
+                    with T.launch_thread("threadIdx.x", 1) as i_1:  # noqa: F841 - The parser emits this named IR binding.
                         vec[0:bcast_length] = T.broadcast(a[()], bcast_length)
 
         return Module
@@ -256,7 +253,7 @@ def test_half_misaligned_vector_load(vector_length):
     def vector_load(
         A: T.Tensor((length,), dtype), B: T.Tensor((length // vector_length,), vec_dtype)
     ):
-        with T.launch_thread("blockIdx.x", 1) as b:
+        with T.launch_thread("blockIdx.x", 1) as b:  # noqa: F841 - The parser emits this named IR binding.
             with T.launch_thread("threadIdx.x", length // vector_length) as i:
                 vec_index = T.ramp((i + 1) * vector_length - 1, -1, vector_length)
                 B[i] = A[vec_index]
@@ -442,7 +439,6 @@ class TestFP8e4x4QuantDequantScale(BaseFP8E4M3QuantScaleOnly):
         weight_np = np.random.uniform(-100, 100, weight_shape).astype(model_dtype)
         weight = tvm_tirx.runtime.tensor(weight_np, device=dev)
         quant_weight, scales = quant(weight)
-        quant_weight_np, scales_np = quant_weight.numpy(), scales.numpy()
 
         dequant_weight = dequant(quant_weight, scales)
         dequant_weight_np = dequant_weight.numpy()
@@ -492,7 +488,7 @@ def test_copy(dtype, vec_len):
                 B[tx, i] = A[tx, i]
 
     mod = tvm_tirx.IRModule({"main": func})
-    rtmod = tvm_tirx.tirx.compile(mod, target="cuda")
+    tvm_tirx.tirx.compile(mod, target="cuda")
 
 
 num_experts = 8

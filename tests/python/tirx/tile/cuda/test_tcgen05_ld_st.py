@@ -931,7 +931,6 @@ def _run_load_test(shape: str, rep: int, dtype: str):
     # configs whose K_cols_fp32 exceeds 128 we split the stage into multiple
     # chunks of CHUNK_FP32 fp32 cols each.
     CHUNK_FP32 = 128
-    chunk_elem = CHUNK_FP32 * elem_per_32b
     num_chunks = tmem_col_width_32b // CHUNK_FP32 if tmem_col_width_32b > CHUNK_FP32 else 1
     chunk_width_32b = tmem_col_width_32b if num_chunks == 1 else CHUNK_FP32
     chunk_width_elem = chunk_width_32b * elem_per_32b
@@ -942,9 +941,6 @@ def _run_load_test(shape: str, rep: int, dtype: str):
     if stage_width_elem % VEC_LEN != 0:
         pytest.skip(f"stage_width_elem {stage_width_elem} % VEC_LEN {VEC_LEN} != 0")
 
-    g_layout = TileLayout(
-        S[(128, stage_width_elem // VEC_LEN, VEC_LEN) : (stage_width_elem, VEC_LEN, 1)]
-    )
     chunk_view = TileLayout(S[(128, chunk_width_elem) : (1 @ axis_tid_in_wg, 1)])
     # Preserve the original register allocation; _atom_words only reorganizes
     # its logical axes for the instruction explicitly selected below.
@@ -1666,10 +1662,10 @@ def test_copy_tmem2reg_async(dtype, width_32b):
 
         T.device_entry(launch=T.cuda.LaunchConfig(grid=(2,), block=(128,)))
         warp_id = T.cuda.warp_id()
-        cta_id = T.cuda.block_idx("x")
+        cta_id = T.cuda.block_idx("x")  # noqa: F841 - The parser emits this named IR binding.
         wg_id = T.cuda.warpgroup_id()
-        warp_id_in_wg = T.cuda.warp_in_warpgroup()
-        lane_id = T.cuda.lane_id()
+        warp_id_in_wg = T.cuda.warp_in_warpgroup()  # noqa: F841 - The parser emits this named IR binding.
+        lane_id = T.cuda.lane_id()  # noqa: F841 - The parser emits this named IR binding.
         tid_in_wg = T.cuda.thread_idx("x")
 
         tmem_addr = T.alloc_shared([1], "uint32", layout="default")

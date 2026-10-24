@@ -25,5 +25,5 @@ from ._ffi_api import (
     test_raise_error,
 )
 from .locking import run_with_gpu_lock
-from .utils import *
+from .utils import *  # noqa: F403 - Re-export the public namespace.
 from . import env

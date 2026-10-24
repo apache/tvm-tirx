@@ -46,8 +46,8 @@ def test_break_continue1():
     def func(A: T.Tensor((10,), 'int32')):
 
         T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(32,)))
-        cta_id = T.cuda.block_idx('x')
-        tid = T.cuda.thread_idx('x')
+        cta_id = T.cuda.block_idx('x')  # noqa: F841 - The parser emits this named IR binding.
+        tid = T.cuda.thread_idx('x')  # noqa: F841 - The parser emits this named IR binding.
         for i in T.serial(10):
             if i == 2:
                 continue
@@ -68,8 +68,8 @@ def test_break_continue2():
     def func(A: T.Tensor((9,), 'int32')):
 
         T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(32,)))
-        cta_id = T.cuda.block_idx('x')
-        tid = T.cuda.thread_idx('x')
+        cta_id = T.cuda.block_idx('x')  # noqa: F841 - The parser emits this named IR binding.
+        tid = T.cuda.thread_idx('x')  # noqa: F841 - The parser emits this named IR binding.
         idx = T.alloc_tensor(ty_args=[T.Tensor((1,), "int32", scope="local")])
         idx[0] = 0
         for i in T.serial(3):
@@ -95,8 +95,8 @@ def test_break_continue3():
     def func(A: T.Tensor((10,), 'int32')):
 
         T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(32,)))
-        cta_id = T.cuda.block_idx('x')
-        tid = T.cuda.thread_idx('x')
+        cta_id = T.cuda.block_idx('x')  # noqa: F841 - The parser emits this named IR binding.
+        tid = T.cuda.thread_idx('x')  # noqa: F841 - The parser emits this named IR binding.
         i = T.alloc_tensor(ty_args=[T.Tensor((1,), "int32", scope="local")])
         i[0] = 0
         while i[0] < 10:

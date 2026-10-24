@@ -332,7 +332,7 @@ def test_cluster_pattern_requires_launch_cluster():
         T.cuda.tile.apply(T.ptx[LD], r, A, scope="cluster")
 
     with tvm_tirx.target.Target({"kind": "cuda", "arch": "sm_100a"}):
-        with pytest.raises(RuntimeError, match="explicit LaunchConfig.cluster"):
+        with pytest.raises(RuntimeError, match=r"explicit LaunchConfig.cluster"):
             tvm_tirx.tirx.transform.TileDispatch()(tvm_tirx.IRModule({"main": kernel}))
 
 
@@ -390,5 +390,5 @@ def test_cuda_index_region_bounds(index, block, size, offset):
         if offset == 0:
             tvm_tirx.tirx.transform.TileDispatch()(tvm_tirx.IRModule({"main": kernel}))
         else:
-            with pytest.raises(RuntimeError, match="in bounds|exceeds tensor shape"):
+            with pytest.raises(RuntimeError, match=r"in bounds|exceeds tensor shape"):
                 tvm_tirx.tirx.transform.TileDispatch()(tvm_tirx.IRModule({"main": kernel}))

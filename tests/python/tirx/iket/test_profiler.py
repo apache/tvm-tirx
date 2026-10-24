@@ -666,13 +666,13 @@ def test_rejects_token_payload_schema_mismatch(kernel_func, message):
 
 
 def test_rejects_cross_kernel_payload_schema_conflicts():
-    with pytest.raises(TypeError, match="changes payload type.*across kernels"):
+    with pytest.raises(TypeError, match=r"changes payload type.*across kernels"):
         IketProfiler().compile(
             tvm_tirx.IRModule({"i32": schema_i32, "u32": schema_u32}),
             target=TARGET,
             tir_pipeline="tirx",
         )
-    with pytest.raises(ValueError, match="changes payload presence.*across kernels"):
+    with pytest.raises(ValueError, match=r"changes payload presence.*across kernels"):
         IketProfiler().compile(
             tvm_tirx.IRModule({"i32": schema_i32, "none": schema_no_payload}),
             target=TARGET,
@@ -713,7 +713,7 @@ def test_extended_declaration_limit(capfd):
     capfd.readouterr()
     assert "__iket_evt_decl_e0000_64_attrs" in source
     assert "__iket_evt_decl_e4031_4095_attrs" in source
-    with pytest.raises(ValueError, match="at most 4032.*got 4033"):
+    with pytest.raises(ValueError, match=r"at most 4032.*got 4033"):
         _compile(_many_marks(4033))
 
 

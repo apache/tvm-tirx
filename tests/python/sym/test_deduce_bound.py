@@ -14,8 +14,7 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-# ruff: noqa: F401, F841
-import pytest
+
 
 import tvm_tirx
 import tvm_tirx.testing
@@ -125,11 +124,9 @@ def test_check():
     a = tvm_tirx.tirx.Var("a", "int32")
     b = tvm_tirx.tirx.Var("b", "int32")
     c = tvm_tirx.tirx.Var("c", "int32")
-    d = tvm_tirx.tirx.Var("d", "int32")
 
     b_s = tvm_tirx.sym.IntervalSet(2, 3)
     c_s = tvm_tirx.sym.IntervalSet(5, 7)
-    d_s = tvm_tirx.sym.IntervalSet(-3, -1)
 
     # no compare operator
     res1 = tvm_tirx.sym.deduce_bound(a, a + b, {b: b_s}, {})

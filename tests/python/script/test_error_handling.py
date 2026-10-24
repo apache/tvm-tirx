@@ -25,7 +25,6 @@ import traceback
 import pytest
 
 # Script-local bindings are observed through the constructed IR.
-# ruff: noqa: F841
 from minilang import Value
 
 import tvm_tirx
@@ -156,13 +155,15 @@ def test_conditional_branches_require_matching_output_names(language):
         @M.function
         def main():
             if condition:
-                y = left
+                y = left  # noqa: F841 - The parser emits this named IR binding.
             else:
-                z = right
+                z = right  # noqa: F841 - The parser emits this named IR binding.
 
     error = caught.value
     lines, first = inspect.getsourcelines(test_conditional_branches_require_matching_output_names)
-    line = first + next(i for i, text in enumerate(lines) if text.strip() == "z = right")
+    line = first + next(
+        i for i, text in enumerate(lines) if text.partition("  # noqa:")[0].strip() == "z = right"
+    )
     assert (error.filename, error.lineno, error.end_lineno) == (__file__, line, line)
     assert (error.offset, error.end_offset) == (17, 26)
     assert not language.functions
@@ -346,11 +347,11 @@ def test_store_rhs_failure_precedes_target_evaluation(language):
 def test_namespace_rebinding_reports_source_location(language):
     # A fixed source namespace cannot become a local binding; the error must identify that target.
     M = language.M
-    with pytest.raises(SyntaxError, match="namespace|shadow|rebind") as caught:
+    with pytest.raises(SyntaxError, match=r"namespace|shadow|rebind") as caught:
 
         @M.function
         def main():
-            M = 1
+            M = 1  # noqa: F841 - The parser emits this named IR binding.
 
     error = caught.value
     lines, first = inspect.getsourcelines(test_namespace_rebinding_reports_source_location)
@@ -425,7 +426,7 @@ def test_reserved_captured_builtin_reports_its_use(language, name):
 @pytest.mark.parametrize("binding", ["alias, *other = M, 1, 2", "value = (alias := M)"])
 def test_local_namespace_alias_is_rejected(language, binding):
     source = "@M.function\ndef main():\n    " + binding
-    with pytest.raises(SyntaxError, match="namespace 'M'.*alias") as caught:
+    with pytest.raises(SyntaxError, match=r"namespace 'M'.*alias") as caught:
         entry.parse(source, {"M": language.M}, filename="alias.py")
     assert (caught.value.filename, caught.value.lineno) == ("alias.py", 3)
     assert source.splitlines()[2][caught.value.offset - 1] == "M"
@@ -444,7 +445,7 @@ def test_host_import_cannot_replace_reserved_names(language, prefix):
         if prefix.startswith("class")
         else "@M.function\ndef main():\n    pass"
     )
-    with pytest.raises(SyntaxError, match="'range'.*reserved") as caught:
+    with pytest.raises(SyntaxError, match=r"'range'.*reserved") as caught:
         entry.parse(
             source, {"M": language.M, "effect": lambda: effects.append(1)}, filename="import.py"
         )

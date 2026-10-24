@@ -319,7 +319,7 @@ def test_vectorize_let_if_then_else():
             T.func_attr({"target": simple_target})
             for i in T.vectorized(4):
                 if i < 2:
-                    result: T.let[T.int32] = T.if_then_else(i < 1, 1, 2)
+                    result: T.let[T.int32] = T.if_then_else(i < 1, 1, 2)  # noqa: F841 - The parser emits this named IR binding.
 
     @I.ir_module
     class After:
@@ -328,7 +328,7 @@ def test_vectorize_let_if_then_else():
             T.func_attr({"target": simple_target})
             for i_s in range(4):
                 if i_s < 2:
-                    result: T.let[T.int32] = T.if_then_else(i_s < 1, 1, 2)
+                    result: T.let[T.int32] = T.if_then_else(i_s < 1, 1, 2)  # noqa: F841 - The parser emits this named IR binding.
                     T.evaluate(0)
 
     mod = tvm_tirx.tirx.transform.VectorizeLoop()(Before)

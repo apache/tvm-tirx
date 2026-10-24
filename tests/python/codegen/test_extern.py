@@ -14,7 +14,7 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-# ruff: noqa: F841
+
 import numpy as np
 import pytest
 import tvm_ffi
@@ -29,7 +29,6 @@ from tvm_tirx.script import tirx as T
 def test_add_pipeline():
     """Test extern-style add pipeline with vectorized operations."""
     nn = 64
-    max_threads = 4
 
     # CPU version: serial loop with vectorized operations
     @I.ir_module

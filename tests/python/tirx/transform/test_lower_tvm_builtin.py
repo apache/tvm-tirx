@@ -162,7 +162,7 @@ def test_call_packed_return_non_i32():
         def packed_test(A: T.Tensor((2,), "float32")):
             T.func_attr({"target": T.target("llvm")})
             A[0] = T.call_intrin("tirx.call_packed", "testing.echo", T.float32(1.2), ty="float32")
-            duplicate = T.call_intrin("tirx.call_packed", "testing.echo", A.data, ty=A.data.ty)
+            duplicate = T.call_intrin("tirx.call_packed", "testing.echo", A.data, ty=A.data.ty)  # noqa: F841 - The parser emits this named IR binding.
             A[1] = T.float32(1.4)
 
     @I.ir_module
@@ -187,7 +187,7 @@ def test_call_packed_return_non_i32():
             T.abi_field_set(stack_ffi_any, 1, 13, 0)
             T.abi_field_set(stack_ffi_any, 1, 14, 0)
             T.abi_field_set(stack_ffi_any, 1, 15, T.int64(0))
-            duplicate: T.let[T.Ptr(T.PrimType("float32"))] = T.call_packed_lowered(
+            duplicate: T.let[T.Ptr(T.PrimType("float32"))] = T.call_packed_lowered(  # noqa: F841 - The parser emits this named IR binding.
                 "testing.echo", stack_ffi_any, 0, 1, ty=A.data.ty
             )
             A[1] = T.float32(1.3999999999999999)

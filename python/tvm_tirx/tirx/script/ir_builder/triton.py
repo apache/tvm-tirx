@@ -14,7 +14,7 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-# ruff: noqa: RUF005
+
 """Triton kernel integration with TIR"""
 
 from numbers import Integral
@@ -78,10 +78,11 @@ class TritonKernel(BaseKernel):
         assert kernel_metadata.num_ctas == 1, "Cluster is not supported"
         num_warps = kernel_metadata.num_warps
         grid = launch_args
-        launch_param_tags = ["threadIdx.x"] + ["blockIdx.x", "blockIdx.y", "blockIdx.z"][
-            : len(grid)
+        launch_param_tags = [
+            "threadIdx.x",
+            *["blockIdx.x", "blockIdx.y", "blockIdx.z"][: len(grid)],
         ]
-        launch_args = [num_warps * 32] + list(grid)
+        launch_args = [num_warps * 32, *grid]
         kernel_arg_types = []
         for arg in kernel_args:
             if isinstance(arg, int):

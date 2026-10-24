@@ -2059,7 +2059,7 @@ def test_descriptor_fill_rejects_invalid_format(case_id):
     box = (1, *kwargs["s_shape"]) if rank == 3 else kwargs["s_shape"]
     opcode = _store(rank) if kwargs.get("direction") == "s2g" else _load(rank)
     fill = "bogus" if case_id == "reject-unknown-oob" else 1
-    with pytest.raises(RuntimeError, match="invalid literal|floating-point"):
+    with pytest.raises(RuntimeError, match=r"invalid literal|floating-point"):
         _direct(
             opcode,
             g_shape=kwargs["g_shape"],
@@ -2570,5 +2570,7 @@ def test_native_compiler_rejects_unsupported_tma_target(arch, gather):
 
     # ISA target requirements belong to the PTX compiler, not another tile
     # registry's architecture policy. A wrong target must still fail to build.
-    with pytest.raises(Exception, match="(?i)(requires|require|unsupported|not supported|feature)"):
+    with pytest.raises(
+        Exception, match=r"(?i)(requires|require|unsupported|not supported|feature)"
+    ):
         _compile_module(kernel, arch=arch)

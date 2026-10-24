@@ -98,10 +98,10 @@ def test_tmem_alloc_dealloc_relinquish():
     @T.function
     def test_tmem(A: T.Tensor((16, 16), "float16")):
         T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(128,)))
-        cta_id = T.cuda.block_idx('x')
+        cta_id = T.cuda.block_idx('x')  # noqa: F841 - The parser emits this named IR binding.
         warp_id = T.cuda.warp_id()
-        lane_id = T.cuda.lane_id()
-        tid = T.cuda.thread_idx('x')
+        lane_id = T.cuda.lane_id()  # noqa: F841 - The parser emits this named IR binding.
+        tid = T.cuda.thread_idx('x')  # noqa: F841 - The parser emits this named IR binding.
         # tmem_addr = T.alloc_tensor(ty_args=[T.Tensor((1,), "uint32", scope="shared", align=8)])
         tmem_addr = T.shared_scalar("uint32")
 
@@ -309,10 +309,10 @@ def test_fence_before_after_thread_sync():
     @T.function
     def test_fence(A: T.Tensor((16, 16), "float16")):
         T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(128,)))
-        cta_id = T.cuda.block_idx('x')
-        warp_id = T.cuda.warp_id()
-        lane_id = T.cuda.lane_id()
-        tid = T.cuda.thread_idx('x')
+        cta_id = T.cuda.block_idx('x')  # noqa: F841 - The parser emits this named IR binding.
+        warp_id = T.cuda.warp_id()  # noqa: F841 - The parser emits this named IR binding.
+        lane_id = T.cuda.lane_id()  # noqa: F841 - The parser emits this named IR binding.
+        tid = T.cuda.thread_idx('x')  # noqa: F841 - The parser emits this named IR binding.
         T.ptx.tcgen05.fence__before_thread_sync()
         T.ptx.bar.sync(0, 32)
         T.ptx.tcgen05.fence__after_thread_sync()
@@ -338,9 +338,9 @@ def test_tcgen05_ld_st_roundtrip():
     @T.function
     def test_ld_st(A: T.Tensor((HEIGHT, WIDTH), "float32"), B: T.Tensor((HEIGHT, WIDTH), "float32")):  # noqa: E501
         T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(128,)))
-        cta_id = T.cuda.block_idx('x')
+        cta_id = T.cuda.block_idx('x')  # noqa: F841 - The parser emits this named IR binding.
         warp_id = T.cuda.warp_id()
-        lane_id = T.cuda.lane_id()
+        lane_id = T.cuda.lane_id()  # noqa: F841 - The parser emits this named IR binding.
         tx = T.cuda.thread_idx('x')
         reg = T.alloc_tensor(ty_args=[T.Tensor((WIDTH,), "float32", scope="local")])
         # tmem_addr = T.alloc_tensor(ty_args=[T.Tensor((1,), "uint32", scope="shared", align=8)])
@@ -418,9 +418,9 @@ def test_tcgen05_cp_ld_roundtrip():
     def test_cp_ld(A: T.Tensor((HEIGHT, WIDTH), dtype, layout=T.TileLayout(T.S[(HEIGHT, WIDTH // 4, 4) : (4, HEIGHT * 4, 1)])),  # noqa: E501
                    B: T.Tensor((HEIGHT, WIDTH), dtype, layout=T.TileLayout(T.S[(HEIGHT, WIDTH // 4, 4) : (4, HEIGHT * 4, 1)]))):  # noqa: E501
         T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(128,)))
-        cta_id = T.cuda.block_idx('x')
+        cta_id = T.cuda.block_idx('x')  # noqa: F841 - The parser emits this named IR binding.
         warp_id = T.cuda.warp_id()
-        lane_id = T.cuda.lane_id()
+        lane_id = T.cuda.lane_id()  # noqa: F841 - The parser emits this named IR binding.
         tx = T.cuda.thread_idx('x')
         A_smem = T.alloc_tensor(
             ty_args=[T.Tensor((HEIGHT, WIDTH), dtype, scope="shared", layout=A_layout)]
@@ -564,9 +564,9 @@ def test_tcgen05_mma_ss_no_tma(swizzle):
                            B: T.Tensor((N, K), b_type, layout=T.TileLayout(T.S[N, K])),
                            C: T.Tensor((M, N), d_type)):
         T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(128,)))
-        cta_id = T.cuda.block_idx('x')
+        cta_id = T.cuda.block_idx('x')  # noqa: F841 - The parser emits this named IR binding.
         warp_id = T.cuda.warp_id()
-        lane_id = T.cuda.lane_id()
+        lane_id = T.cuda.lane_id()  # noqa: F841 - The parser emits this named IR binding.
         tx = T.cuda.thread_idx('x')
         dyn = T.alloc_tensor(ty_args=[T.Tensor((dyn_smem_bytes,), "uint8", scope="shared")])
         tmem_addr = T.decl_scalar("uint32", dyn.data, scope="shared")

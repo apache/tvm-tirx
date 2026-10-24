@@ -15,6 +15,8 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+# ruff: noqa: E402
+# Namespace registration must precede dependent imports to break initialization cycles.
 # pylint: disable=unused-import, redefined-builtin
 """Tensor-level IR nodes, layouts, operators, analysis, and compilation."""
 

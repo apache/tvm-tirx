@@ -25,7 +25,6 @@ import pytest
 import tvm_ffi
 
 # Script-local bindings are observed through the constructed IR.
-# ruff: noqa: F841
 from minilang import Value
 
 import tvm_tirx
@@ -119,7 +118,7 @@ def test_ordinary_tuple_and_outer_branch_assignments_still_store(language):
         if M.value():
             a = first
         else:
-            a = second
+            a = second  # noqa: F841 - The parser emits this named IR binding.
         x = 0
         x = 1
         x += 2

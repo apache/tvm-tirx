@@ -14,13 +14,15 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-# ruff: noqa: F821, RUF012
 """Highlight printed TVM script."""
 
 import os
 import sys
 import warnings
-from typing import Any, Union
+from typing import TYPE_CHECKING, Any, ClassVar, Union
+
+if TYPE_CHECKING:
+    import pygments.style
 
 
 def cprint(
@@ -142,7 +144,7 @@ def _get_pygments_style(
         """A Jupyter-Notebook-like Pygments style configuration (aka. "light")"""
 
         background_color = ""
-        styles = {
+        styles: ClassVar[dict] = {
             Keyword: "bold #008000",
             Keyword.Type: "nobold #008000",
             Name.Function: "#0000FF",
@@ -159,7 +161,7 @@ def _get_pygments_style(
         """A VSCode-Dark-like Pygments style configuration (aka. "dark")"""
 
         background_color = ""
-        styles = {
+        styles: ClassVar[dict] = {
             Keyword: "bold #c586c0",
             Keyword.Type: "#82aaff",
             Keyword.Namespace: "#4ec9b0",
@@ -177,7 +179,7 @@ def _get_pygments_style(
         """The default style for terminal display with ANSI colors (aka. "ansi")"""
 
         background_color = ""
-        styles = {
+        styles: ClassVar[dict] = {
             Keyword: "bold ansigreen",
             Keyword.Type: "nobold ansigreen",
             Name.Class: "bold ansiblue",

@@ -14,7 +14,7 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-# ruff: noqa: F841
+
 import pytest
 import tvm_ffi
 
@@ -25,7 +25,7 @@ def test_dict_attrs():
     dattr = tvm_tirx.ir.make_node("ir.DictAttrs", x=1, y=10, name="xyz", padding=(0, 0))
     assert dattr.x == 1
     assert dattr.dict["x"] == 1
-    datrr = tvm_tirx.ir.load_json(tvm_tirx.ir.save_json(dattr))
+    dattr = tvm_tirx.ir.load_json(tvm_tirx.ir.save_json(dattr))
     assert dattr.name == "xyz"
     assert isinstance(dattr, tvm_tirx.ir.DictAttrs)
     assert "name" in dattr
@@ -159,7 +159,7 @@ def test_op_attr_map_lookup_without_value():
     assert unset not in attr_map
     assert attr_map.get(unset) is None
     assert attr_map.get(unset, 5) == 5
-    with pytest.raises(KeyError, match="test.attr_map_lookup.unset"):
+    with pytest.raises(KeyError, match=r"test.attr_map_lookup.unset"):
         attr_map[unset]
 
     # A non-Op expression has no attributes, as in C++ OpAttrMap::get(Expr, default).

@@ -83,7 +83,7 @@ def alloc_const_bias_trn(
     if isinstance(max_inst_size, int | IntImm) and int(max_inst_size) == -1:
         raise ValueError("Constant bias workspace allocation requires a finite max_inst_size")
     if bias_key in tensor_dict:
-        bias_alloc, bias_init_stmt = tensor_dict[bias_key]
+        bias_alloc, _bias_init_stmt = tensor_dict[bias_key]
         old_shape = bias_alloc.var.ty.shape
         new_shape = [max(par_size, old_shape[0]), max(max_inst_size, old_shape[1])]
         if new_shape[0] == old_shape[0] and new_shape[1] == old_shape[1]:

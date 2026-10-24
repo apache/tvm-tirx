@@ -217,9 +217,9 @@ def test_if_then_else():
 
 def test_llvm_intrin():
     with pytest.raises(ValueError, match=r"Unknown llvm intrinsic function llvm.dummy"):
-        a = tvm_tirx.tirx.call_llvm_intrin("llvm.dummy", ty="int32x4")
+        tvm_tirx.tirx.call_llvm_intrin("llvm.dummy", ty="int32x4")
     with pytest.raises(ValueError, match=r"Unknown llvm intrinsic function llvm.dummy"):
-        a = tvm_tirx.tirx.call_llvm_pure_intrin("llvm.dummy", ty="int32x4")
+        tvm_tirx.tirx.call_llvm_pure_intrin("llvm.dummy", ty="int32x4")
 
 
 if __name__ == "__main__":

@@ -14,7 +14,7 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-# ruff: noqa: F841
+
 import tvm_ffi
 
 import tvm_tirx
@@ -310,7 +310,6 @@ def test_complex_cases():
 def test_simplify_cast():
     ck = CanonicalChecker()
     tcast = tvm_tirx.tirx.Cast
-    fld = tvm_tirx.tirx.floordiv
     flm = tvm_tirx.tirx.floormod
     # cast(i + j + 1, i64) - cast(i, i64)
     i = tvm_tirx.tirx.Var("i", "int32")

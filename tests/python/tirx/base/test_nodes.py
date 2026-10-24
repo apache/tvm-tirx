@@ -63,7 +63,7 @@ def test_tir_const_dtype_inference():
 def test_make():
     x = tvm_tirx.tirx.const(1, "int32")
     y = tvm_tirx.tirx.Var("x", "int32")
-    z = x + y
+    assert isinstance(x + y, tvm_tirx.tirx.Add)
     assert isinstance(tvm_tirx.tirx.max(x, y), tvm_tirx.tirx.Max)
     assert isinstance(tvm_tirx.tirx.min(x, y), tvm_tirx.tirx.Min)
 
@@ -94,8 +94,9 @@ def test_ir2():
 
 def test_let():
     x = tvm_tirx.tirx.Var("x", "int32")
-    y = tvm_tirx.tirx.Var("y", "int32")
     stmt = tvm_tirx.ir.Bind(x, 10)
+    assert stmt.var.same_as(x)
+    assert stmt.value == 10
 
 
 def test_cast():
@@ -153,7 +154,7 @@ def test_any():
     y = tvm_tirx.tirx.Var("y", "int32")
     z = tvm_tirx.tirx.Var("z", "int32")
     try:
-        t = x or x
+        x or x
         assert False
     except ValueError:
         pass
@@ -176,7 +177,7 @@ def test_all():
     y = tvm_tirx.tirx.Var("y", "int32")
     z = tvm_tirx.tirx.Var("z", "int32")
     try:
-        t = x and x
+        x and x
         assert False
     except ValueError:
         pass

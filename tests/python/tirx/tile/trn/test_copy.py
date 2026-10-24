@@ -803,5 +803,5 @@ def test_tensor_copy_rejects_partition_transpose():
         )
         T.trn.tile.tensor_copy(b, a)
 
-    with target, pytest.raises(RuntimeError, match="identity|transpose"):
+    with target, pytest.raises(RuntimeError, match=r"identity|transpose"):
         tvm_tirx.backend.trn.transform.LowerTIRx()(tvm_tirx.IRModule({"main": copy}))

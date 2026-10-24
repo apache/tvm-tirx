@@ -31,7 +31,7 @@
 # specific language governing permissions and limitations
 # under the License.
 # pylint: disable=invalid-name
-# ruff: noqa: RUF012
+
 """Internal PopenWorker for PopenPool."""
 
 import logging
@@ -48,7 +48,7 @@ from tvm_tirx.support.popen_pool import StatusKind
 
 
 class TimeoutStatus:
-    __slot__ = ["status"]
+    __slots__ = ("status",)
 
     def __init__(self):
         self.status = StatusKind.RUNNING

@@ -282,12 +282,12 @@ def test_gemm_tcgen05_cta1_m64_packed_c_requires_explicit_weight_stationary():
 
 
 def test_gemm_tcgen05_dense_descI_rejected():
-    with pytest.raises(Exception, match="unknown operands.*descI"):
+    with pytest.raises(Exception, match=r"unknown operands.*descI"):
         _compile(_stage_fixture(descI=T.uint32(0x04410490)))
 
 
 def test_gemm_tcgen05_dense_descI_rejected_at_dispatch():
-    with pytest.raises(Exception, match="unknown operands.*descI"):
+    with pytest.raises(Exception, match=r"unknown operands.*descI"):
         _lower(_stage_fixture(descI=T.uint32(0x04410490)))
 
 
@@ -298,7 +298,7 @@ def test_gemm_smem_desc_modes_codegen(mode):
     assert len(_calls(src)) == 4
     assert "encode_matrix_descriptor" not in src
     assert "shfl.sync" not in src
-    with pytest.raises(Exception, match="unknown operands.*smem_desc"):
+    with pytest.raises(Exception, match=r"unknown operands.*smem_desc"):
         _lower(_stage_fixture(smem_desc=mode))
 
 
@@ -481,8 +481,6 @@ def _scale_fixture(split_n=False, lane_offsets=False):
         if split_n
         else "tcgen05.mma.cta_group::1.kind::mxf4nvf4.block_scale.scale_vec::4X"
     )
-
-    b_shape = (K, N // cta)
 
     @T.function
     def kernel():

@@ -685,7 +685,7 @@ def test_cuda_required_block_size_coexists_with_launch_bounds():
                 }
             )
             A = T.decl_tensor(A_ptr, ty_args=[T.Tensor((4,), T.float32)])
-            bx: T.let[T.int32] = T.cuda.block_idx("x")
+            bx: T.let[T.int32] = T.cuda.block_idx("x")  # noqa: F841 - The parser emits this named IR binding.
             tx: T.let[T.int32] = T.cuda.thread_idx("x")
             if tx == 0:
                 A[T.cuda.block_idx("x")] = T.float32(0.0)
@@ -761,11 +761,11 @@ def test_cuda_launch_preserves_singleton_cluster_dimensions():
                 }
             )
             A = T.decl_tensor(A_ptr, ty_args=[T.Tensor((1,), T.float32)])
-            with T.launch_thread("blockIdx.x", 4) as v:
-                with T.launch_thread("clusterCtaIdx.x", 1) as v_1:
-                    with T.launch_thread("clusterCtaIdx.y", 1) as v_2:
-                        with T.launch_thread("clusterCtaIdx.z", 1) as v_3:
-                            with T.launch_thread("threadIdx.x", 32) as v_4:
+            with T.launch_thread("blockIdx.x", 4) as v:  # noqa: F841 - The parser emits this named IR binding.
+                with T.launch_thread("clusterCtaIdx.x", 1) as v_1:  # noqa: F841 - The parser emits this named IR binding.
+                    with T.launch_thread("clusterCtaIdx.y", 1) as v_2:  # noqa: F841 - The parser emits this named IR binding.
+                        with T.launch_thread("clusterCtaIdx.z", 1) as v_3:  # noqa: F841 - The parser emits this named IR binding.
+                            with T.launch_thread("threadIdx.x", 32) as v_4:  # noqa: F841 - The parser emits this named IR binding.
                                 A[0] = T.float32(0.0)
 
     tvm_tirx.ir.assert_structural_equal(after, Expected)

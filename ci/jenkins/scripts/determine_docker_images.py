@@ -15,7 +15,6 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-# ruff: noqa: E501
 import argparse
 import configparser
 import datetime
@@ -54,7 +53,8 @@ def docker_api(url: str, use_pagination: bool = False) -> dict[str, Any]:
         reset = datetime.datetime.fromtimestamp(int(reset))
         reset = reset.isoformat()
     logging.info(
-        f"Docker API Rate Limit: {headers.get('x-ratelimit-remaining')} / {headers.get('x-ratelimit-limit')} (reset at {reset})"
+        f"Docker API Rate Limit: {headers.get('x-ratelimit-remaining')} / "
+        f"{headers.get('x-ratelimit-limit')} (reset at {reset})"
     )
     return r
 

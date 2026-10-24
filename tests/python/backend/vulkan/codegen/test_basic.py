@@ -14,7 +14,7 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-# ruff: noqa: E501, F841
+# ruff: noqa: E501
 
 import re
 
@@ -289,7 +289,7 @@ def test_vulkan_while_if():
 
     @T.function
     def while_if_gpu(A: T.Tensor((1,), "int32"), B: T.Tensor((1,), "int32")):
-        with T.launch_thread("blockIdx.x", 1) as bx:
+        with T.launch_thread("blockIdx.x", 1) as bx:  # noqa: F841 - The parser emits this named IR binding.
             iterations = T.alloc_tensor(ty_args=[T.Tensor((1,), "int32", scope="local")])
             iterations[0] = 0
             B[0] = 0
@@ -371,7 +371,7 @@ def test_vectorized_index_ramp():
         ):
             T.func_attr({"tirx.noalias": True})
 
-            bx = T.launch_thread("blockIdx.x", 1)
+            bx = T.launch_thread("blockIdx.x", 1)  # noqa: F841 - The parser emits this named IR binding.
             B[ramp_index] = A[ramp_index]
 
     f = tvm_tirx.tirx.compile(Module, target=target)
@@ -413,7 +413,7 @@ def test_vectorized_index_broadcast():
         ):
             T.func_attr({"tirx.noalias": True})
 
-            bx = T.launch_thread("blockIdx.x", 1)
+            bx = T.launch_thread("blockIdx.x", 1)  # noqa: F841 - The parser emits this named IR binding.
             B[ramp_index] = A[broadcast_index]
 
     f = tvm_tirx.tirx.compile(Module, target=target)
@@ -490,7 +490,7 @@ def test_cooperative_matrix(out_dtype):
             X_shared_wmma_matrix_a = T.alloc_tensor(ty_args=[T.Tensor((16, 32), "float16", scope="wmma.matrix_a")])
             W_shared_wmma_matrix_b = T.alloc_tensor(ty_args=[T.Tensor((32, 16), "float16", scope="wmma.matrix_b")])
             compute_wmma_accumulator = T.alloc_tensor(ty_args=[T.Tensor((16, 16), out_dtype, scope="wmma.accumulator")])
-            with T.launch_thread("blockIdx.x", 1) as i_0_j_0_fused:
+            with T.launch_thread("blockIdx.x", 1) as i_0_j_0_fused:  # noqa: F841 - The parser emits this named IR binding.
                 T.gpu_fill_fragment(compute_wmma_accumulator.data, 16, 16, 16, 0, T.float32(0.0))
                 for k_0 in range(2):
                     for fused_outer in range(2):
@@ -573,7 +573,7 @@ def test_codegen_static_shared_memory():
         def main(A: T.Tensor((128,), "float32"), B: T.Tensor((128,), "float32")):
             A_shared = T.alloc_tensor(ty_args=[T.Tensor((128,), "float32", scope="shared")])
 
-            with T.launch_thread("blockIdx.x", 1) as bx:
+            with T.launch_thread("blockIdx.x", 1) as bx:  # noqa: F841 - The parser emits this named IR binding.
                 with T.launch_thread("threadIdx.x", 128) as tx:
                     A_shared[tx] = A[tx]
                     B[tx] = A_shared[tx]

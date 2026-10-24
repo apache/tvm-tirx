@@ -129,11 +129,11 @@ def test_evaluate():
 def test_allocate():
     @T.function
     def func1():
-        a = T.alloc_tensor(ty_args=[T.Tensor((128, 128), "float32")])
+        a = T.alloc_tensor(ty_args=[T.Tensor((128, 128), "float32")])  # noqa: F841 - The parser emits this named IR binding.
 
     @T.function
     def func2():
-        a = T.alloc_tensor(ty_args=[T.Tensor((256, 128), "float32")])
+        a = T.alloc_tensor(ty_args=[T.Tensor((256, 128), "float32")])  # noqa: F841 - The parser emits this named IR binding.
 
     func1 = func1.with_attr("global_symbol", "main")
     func2 = func2.with_attr("global_symbol", "main")

@@ -127,7 +127,7 @@ def test_tir_return_annotation_does_not_define_symbolic_var():
 @pytest.mark.skipif(sys.version_info < (3, 12), reason="PEP 695 requires Python 3.12")
 def test_type_vars_roundtrip():
     M = T.dynamic("M")
-    UNUSED = T.dynamic("UNUSED")
+    UNUSED = T.dynamic("UNUSED")  # noqa: F841 - Keep this lexical-scope fixture for parser capture.
 
     @T.function(private=True)
     def func(A: T.Tensor((M, M * 2), "float32")):
@@ -239,7 +239,7 @@ def test_captured_shape_requires_concrete_symbols():
     n = T.dynamic("n")
     function = build((n, 16))
     assert function.params[0].ty.shape[0].same_as(n)
-    with pytest.raises(TypeError, match="Expected `Array<ir.PrimExpr>`"):
+    with pytest.raises(TypeError, match=r"Expected `Array<ir.PrimExpr>`"):
         build(("n", 16))
 
 

@@ -75,7 +75,6 @@ def _shared_scratch_copy_kernel(num_bytes: int):
     """Build shared → local scratch → shared copy kernel for ``num_bytes`` width."""
     spec = _SHARED_COPY_CASES[num_bytes]
     smem_dtype = spec["smem_dtype"]
-    tmp_dtype = spec["tmp_dtype"]
     nelems = spec["nelems"]
     fill_offset = spec.get("fill_offset")
     fill_value = spec.get("fill_value")

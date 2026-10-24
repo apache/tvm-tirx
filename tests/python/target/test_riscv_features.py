@@ -14,12 +14,11 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-# ruff: noqa: E501, F401
+# ruff: noqa: E501
 import pytest
 
-import tvm_tirx
 from tvm_tirx import codegen
-from tvm_tirx.codegen import llvm, target_has_features
+from tvm_tirx.codegen import llvm
 from tvm_tirx.target import Target
 
 LLVM_VERSION = codegen.llvm.version_major()

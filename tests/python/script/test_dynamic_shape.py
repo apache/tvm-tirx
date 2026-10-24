@@ -23,7 +23,6 @@ import sys
 import pytest
 
 # Script-local bindings are observed through the constructed IR.
-# ruff: noqa: F821
 from tvm_tirx.script.parser import entry
 
 
@@ -55,7 +54,7 @@ def test_signature_read_before_introduction_remains_unbound(language):
     with pytest.raises(NameError, match="name 'n' is not defined"):
 
         @M.function
-        def main(x: M.Tensor((n,), "float32")):
+        def main(x: M.Tensor((n,), "float32")):  # noqa: F821 - The parser supplies this symbolic dimension.
             return x
 
 
@@ -105,7 +104,7 @@ def test_external_symbol_does_not_introduce_same_named_python_binding(language):
 
         @M.function
         def main(x: M.Tensor((symbol, symbol))):
-            M.record(n)
+            M.record(n)  # noqa: F821 - The parser supplies this symbolic dimension.
 
 
 @pytest.mark.skipif(sys.version_info < (3, 12), reason="PEP 695 requires Python 3.12")

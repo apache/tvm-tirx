@@ -14,7 +14,7 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-# ruff: noqa: F841
+
 import pytest
 import tvm_ffi
 
@@ -238,7 +238,6 @@ def test_x86_target_features(min_llvm_version, tvm_target, x86_feature, is_suppo
     ##
 
     with Target(tvm_target):
-        mcpu = str(Target.current(False).attrs.get("mcpu", ""))
         # check for feature via the python api (current context target)
         assert target_has_features(x86_feature) == is_supported
         # check for feature via the python api (with explicit target)

@@ -15,7 +15,6 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-# ruff: noqa: E501
 
 import argparse
 import fnmatch
@@ -43,7 +42,10 @@ def match_any(f: str) -> str | None:
 
 
 if __name__ == "__main__":
-    help = "Exits with code 1 if a change only touched files, indicating that CI could be skipped for this changeset"
+    help = (
+        "Exits with code 1 if a change only touched files, "
+        "indicating that CI could be skipped for this changeset"
+    )
     parser = argparse.ArgumentParser(description=help)
     parser.add_argument("--files", help="(testing only) comma separated list of files to check")
     args = parser.parse_args()

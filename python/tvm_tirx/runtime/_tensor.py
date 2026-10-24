@@ -15,12 +15,10 @@
 # specific language governing permissions and limitations
 # under the License.
 # pylint: disable=invalid-name, unused-import, redefined-outer-name
-# ruff: noqa: F401, RUF005
+
 """Runtime Tensor API"""
 
 import ctypes
-import warnings
-from typing import Optional
 
 import numpy as np
 
@@ -31,8 +29,6 @@ except ImportError:
 
 import tvm_ffi
 from tvm_ffi import DLDeviceType
-
-from tvm_tirx.runtime import Device
 
 from . import _ffi_api
 
@@ -100,7 +96,7 @@ class Tensor(tvm_ffi.core.Tensor):
         t = tvm_ffi.dtype(self.dtype)
         shape, dtype = self.shape, self.dtype
         if t.lanes > 1:
-            shape = shape + (t.lanes,)
+            shape = (*shape, t.lanes)
             t = t.with_lanes(1)
             dtype = str(t)
 
@@ -159,7 +155,7 @@ class Tensor(tvm_ffi.core.Tensor):
         shape, dtype = self.shape, self.dtype
         old_dtype = dtype
         if t.lanes > 1:
-            shape = shape + (t.lanes,)
+            shape = (*shape, t.lanes)
             t = t.with_lanes(1)
             dtype = str(t)
         if dtype == "int4":

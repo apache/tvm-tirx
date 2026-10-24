@@ -67,12 +67,12 @@ def test_ptx_setmaxnreg(inc):
     @T.function
     def func(A: T.Tensor(1, "float32")):
         T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(128,)))
-        cta_id = T.cuda.block_idx('x')
-        tid = T.cuda.thread_idx('x')
+        cta_id = T.cuda.block_idx('x')  # noqa: F841 - The parser emits this named IR binding.
+        tid = T.cuda.thread_idx('x')  # noqa: F841 - The parser emits this named IR binding.
         T.ptx[f"setmaxnreg.{'inc' if T.constexpr(inc) else 'dec'}.sync.aligned.u32"](32)
         # fmt: on
 
-    src, mod = _get_source(func)
+    src, _mod = _get_source(func)
     assert "setmaxnreg" in src
     if inc:
         assert "inc" in src
@@ -88,7 +88,7 @@ def test_stmatrix_sync_aligned(trans):
     @T.function
     def func(A: T.Tensor((16, 16), "float16")):
         T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(32,)))
-        cta_id = T.cuda.block_idx('x')
+        cta_id = T.cuda.block_idx('x')  # noqa: F841 - The parser emits this named IR binding.
         tx = T.cuda.thread_idx('x')
         A_smem = T.alloc_tensor(ty_args=[T.Tensor((16, 16), "float16", scope="shared", align=16)])
         reg = T.alloc_tensor(ty_args=[T.Tensor((8,), "float16", scope="local")])
@@ -155,7 +155,7 @@ def test_ptx_stmatrix(trans, num):
     @T.function
     def main(A: T.Tensor((16, 16), "float16")):
         T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(32,)))
-        cta_id = T.cuda.block_idx('x')
+        cta_id = T.cuda.block_idx('x')  # noqa: F841 - The parser emits this named IR binding.
         tx = T.cuda.thread_idx('x')
         A_shared = T.alloc_shared([16, 16], "float16")
         if tx == 0:
@@ -230,7 +230,7 @@ def test_ptx_stmatrix_noncontiguous(trans, num):
     @T.function
     def main(A: T.Tensor((16, 16), "float16")):
         T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(32,)))
-        cta_id = T.cuda.block_idx('x')
+        cta_id = T.cuda.block_idx('x')  # noqa: F841 - The parser emits this named IR binding.
         tx = T.cuda.thread_idx('x')
         A_shared = T.alloc_shared([16, 16], "float16")
         if tx == 0:
@@ -297,12 +297,12 @@ def test_bar_arrive():
     @T.function
     def func(A: T.Tensor(1, "float32")):
         T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(128,)))
-        cta_id = T.cuda.block_idx('x')
-        tid = T.cuda.thread_idx('x')
+        cta_id = T.cuda.block_idx('x')  # noqa: F841 - The parser emits this named IR binding.
+        tid = T.cuda.thread_idx('x')  # noqa: F841 - The parser emits this named IR binding.
         T.ptx.bar.arrive(0, 128)
         # fmt: on
 
-    src, mod = _get_source(func)
+    src, _mod = _get_source(func)
     assert "tvm_builtin_ptx_bar_arrive_arrive((uint)0, (uint)128)" in src
     assert 'bar.arrive %0, %1;" :  : "r"(__a), "r"(__b) : "memory"' in src
 
@@ -314,12 +314,12 @@ def test_bar_sync():
     @T.function
     def func(A: T.Tensor(1, "float32")):
         T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(128,)))
-        cta_id = T.cuda.block_idx('x')
-        tid = T.cuda.thread_idx('x')
+        cta_id = T.cuda.block_idx('x')  # noqa: F841 - The parser emits this named IR binding.
+        tid = T.cuda.thread_idx('x')  # noqa: F841 - The parser emits this named IR binding.
         T.ptx.bar.sync(0, 128)
         # fmt: on
 
-    src, mod = _get_source(func)
+    src, _mod = _get_source(func)
     assert "tvm_builtin_ptx_bar_sync_count_sync((uint)0, (uint)128)" in src
     assert 'bar.sync %0, %1;" :  : "r"(__a), "r"(__b) : "memory"' in src
 
@@ -331,12 +331,12 @@ def test_barrier_sync_unaligned():
     @T.function
     def func(A: T.Tensor(1, "float32")):
         T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(128,)))
-        cta_id = T.cuda.block_idx('x')
-        tid = T.cuda.thread_idx('x')
+        cta_id = T.cuda.block_idx('x')  # noqa: F841 - The parser emits this named IR binding.
+        tid = T.cuda.thread_idx('x')  # noqa: F841 - The parser emits this named IR binding.
         T.ptx.barrier.sync(0, 128)
         # fmt: on
 
-    src, mod = _get_source(func)
+    src, _mod = _get_source(func)
     assert "tvm_builtin_ptx_barrier_sync_count_sync((uint)0, (uint)128)" in src
     assert 'barrier.sync %0, %1;" :  : "r"(__a), "r"(__b) : "memory"' in src
 
@@ -348,12 +348,12 @@ def test_fence_mbarrier_init_release_clsuter():
     @T.function
     def func(A: T.Tensor(1, "float32")):
         T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(128,)))
-        cta_id = T.cuda.block_idx('x')
-        tid = T.cuda.thread_idx('x')
+        cta_id = T.cuda.block_idx('x')  # noqa: F841 - The parser emits this named IR binding.
+        tid = T.cuda.thread_idx('x')  # noqa: F841 - The parser emits this named IR binding.
         T.ptx.fence.mbarrier_init.release.cluster()
         # fmt: on
 
-    src, mod = _get_source(func)
+    src, _mod = _get_source(func)
     assert "fence.mbarrier_init.release.cluster" in src
 
 
@@ -364,13 +364,13 @@ def test_ptx_elect_sync():
     @T.function
     def func(A: T.Tensor(1, "float32")):
         T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(128,)))
-        cta_id = T.cuda.block_idx('x')
+        cta_id = T.cuda.block_idx('x')  # noqa: F841 - The parser emits this named IR binding.
         tx = T.cuda.thread_idx('x')
         if (T.cuda.elect_sync()):
             A[tx] = tx
         # fmt: on
 
-    src, mod = _get_source(func)
+    src, _mod = _get_source(func)
     print(src)
     assert "elect.sync _|%%px, %1;" in src
     assert ".reg .b32 %%rx;" not in src
@@ -385,12 +385,12 @@ def test_ptx_fence(sem, scope):
     @T.function
     def func(A: T.Tensor(1, "float32")):
         T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(128,)))
-        cta_id = T.cuda.block_idx('x')
-        tid = T.cuda.thread_idx('x')
+        cta_id = T.cuda.block_idx('x')  # noqa: F841 - The parser emits this named IR binding.
+        tid = T.cuda.thread_idx('x')  # noqa: F841 - The parser emits this named IR binding.
         T.ptx[f"fence.{sem}.{scope}"]()
         # fmt: on
 
-    src, mod = _get_source(func)
+    src, _mod = _get_source(func)
     assert f"fence.{sem}.{scope};" in src
 
 
@@ -401,14 +401,14 @@ def test_fence_proxy_async():
     @T.function
     def func(A: T.Tensor(1, "float32")):
         T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(128,)))
-        cta_id = T.cuda.block_idx('x')
-        tid = T.cuda.thread_idx('x')
+        cta_id = T.cuda.block_idx('x')  # noqa: F841 - The parser emits this named IR binding.
+        tid = T.cuda.thread_idx('x')  # noqa: F841 - The parser emits this named IR binding.
         T.ptx.fence.proxy.async_.global_()
         T.ptx.fence.proxy.async_.shared__cta()
 
         # fmt: on
 
-    src, mod = _get_source(func)
+    src, _mod = _get_source(func)
     assert "fence.proxy.async.global" in src
     assert "fence.proxy.async.shared::cta" in src
 
@@ -451,7 +451,7 @@ def test_cp_async_bulk_tensor_global_to_shared_unicast(dtype, inputs):
             )
 
             T.device_entry()
-            with T.launch_thread("blockIdx.x", 1) as blockIdx:
+            with T.launch_thread("blockIdx.x", 1) as blockIdx:  # noqa: F841 - The parser emits this named IR binding.
                 with T.launch_thread("threadIdx.x", 128) as threadIdx:
                     bar = T.shared_scalar("uint64")
                     phase: T.int32
@@ -655,7 +655,7 @@ def test_cp_async_bulk_tensor_global_to_shared_swizzle(swizzle, dtype):
             )
 
             T.device_entry()
-            with T.launch_thread("blockIdx.x", 1) as blockIdx:
+            with T.launch_thread("blockIdx.x", 1) as blockIdx:  # noqa: F841 - The parser emits this named IR binding.
                 with T.launch_thread("threadIdx.x", 128) as threadIdx:
                     A_smem = T.alloc_tensor(
                         ty_args=[T.Tensor((total_elems,), dtype, scope="shared", align=128)]
@@ -993,7 +993,7 @@ def test_cp_async_bulk_tensor_shared_to_global(inputs):
             T.call_packed("runtime.cuTensorMapEncodeTiled", A_map, "float32", len(shape), A.data, *tma_args)  # noqa: E501
 
             T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(128,)))
-            cta_id = T.cuda.block_idx('x')
+            cta_id = T.cuda.block_idx('x')  # noqa: F841 - The parser emits this named IR binding.
             tx = T.cuda.thread_idx('x')
 
             A_smem = T.alloc_tensor(ty_args=[T.Tensor(elems, "float32", scope="shared", align=128)])
@@ -1085,7 +1085,7 @@ def test_wgmma_ss_nt():
             )
 
             T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(128,)))
-            cta_id = T.cuda.block_idx('x')
+            cta_id = T.cuda.block_idx('x')  # noqa: F841 - The parser emits this named IR binding.
             tx = T.cuda.thread_idx('x')  # A warpgroup is 128 threads
 
             A_smem = T.alloc_tensor(
@@ -1260,7 +1260,7 @@ def test_wgmma_rs_nt():
             )
 
             T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(128,)))
-            cta_id = T.cuda.block_idx('x')
+            cta_id = T.cuda.block_idx('x')  # noqa: F841 - The parser emits this named IR binding.
             tx = T.cuda.thread_idx('x')  # A warpgroup is 128 threads
 
             B_smem = T.alloc_tensor(
@@ -1403,14 +1403,14 @@ def test_mapa():
     def func(A: T.Tensor(1, "float32")):
         T.device_entry(launch=T.cuda.LaunchConfig(grid=(2,), block=(128,), cluster=(2,)))
         cbx = T.cuda.cluster_cta_id("x")
-        cta_id = T.cuda.block_idx("x")
+        cta_id = T.cuda.block_idx("x")  # noqa: F841 - The parser emits this named IR binding.
         tx = T.cuda.thread_idx("x")
         A_smem = T.alloc_tensor(ty_args=[T.Tensor([1], "uint32", scope="shared")])
         mapped = T.alloc_local([1], "uint64")
         if cbx == 0 and tx == 0:
             T.ptx.mapa.u64(mapped[0], A_smem.data, T.uint32(cbx))
 
-    src, mod = _get_source(func)
+    src, _mod = _get_source(func)
     print(src)
     assert "tvm_builtin_ptx_mapa_u64(" in src
 

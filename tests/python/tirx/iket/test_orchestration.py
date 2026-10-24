@@ -35,7 +35,7 @@ def _write_artifacts(output_dir: Path, postprocess: str, *, count: int = 1) -> N
     for index in range(count):
         if postprocess in ("json", "all"):
             (output_dir / f"iket_pid_{index}.trace.json").write_text(
-                '{"launches": [{"index": %d}]}' % index, encoding="utf-8"
+                f'{{"launches": [{{"index": {index}}}]}}', encoding="utf-8"
             )
         if postprocess in ("perfetto", "html", "all"):
             (output_dir / f"iket_pid_{index}.pftrace").write_bytes(b"perfetto")

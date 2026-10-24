@@ -73,7 +73,7 @@ test = [
   { include-group = "torch" },
   { include-group = "popen-pool" },
 ]
-lint = ["ruff", "pre-commit"]
+lint = ["ruff==0.12.3", "pre-commit"]
 dev = [{ include-group = "test" }, { include-group = "lint" }]
 docs = [
   "sphinx>=7",
@@ -194,22 +194,15 @@ select = [
   "UP",  # pyupgrade, https://docs.astral.sh/ruff/rules/#pyupgrade-up
   "RUF", # ruff, https://docs.astral.sh/ruff/rules/#ruff-specific-rules-ruf
 ]
-ignore = [
-  # pyupgrade (style preference or low-value)
-  "UP028", # yield-in-for-loop — sometimes clearer to keep
-  "UP030", # format-literals — minor
-  "UP031", # printf-string-formatting — style preference
-  # ruff (preview rules, not yet stable)
-  "RUF043", # pytest-raises-ambiguous-pattern
-  "RUF059", # unused-unpacked-variable
-]
+# Preview checks are selected explicitly so unrelated previews stay disabled.
+preview = true
+explicit-preview-rules = true
+extend-select = ["RUF043", "RUF059"]
 fixable = ["ALL"]
 unfixable = []
 
 [tool.ruff.lint.per-file-ignores]
-"__init__.py" = ["E402", "F401", "F403", "F405"]
-# TIRx parser and lowering tests intentionally retain unused IR bindings.
-"tests/python/tirx/**/*.py" = ["F841"]
+"__init__.py" = ["F401"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["tvm_tirx"]

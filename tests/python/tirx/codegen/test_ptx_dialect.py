@@ -1223,7 +1223,7 @@ def test_ptx_integer_arithmetic_dispatch():
 
     # `.sat` is a syntax line of its own, not a free qualifier: the check
     # rejects it where the ISA does not spell it.
-    with pytest.raises(ValueError, match="hi.s32"):
+    with pytest.raises(ValueError, match=r"hi.s32"):
 
         @T.function
         def sat_on_lo(out: T.Tensor((1,), "int32")):
@@ -1319,7 +1319,7 @@ def test_ptx_floating_point_dispatch():
     tvm_tirx.ir.assert_structural_equal(kernel, reparsed)
 
     # sqrt has no f64 approximation at any spelling, unlike rcp (9.7.3.14).
-    with pytest.raises(ValueError, match="only on the .f32 line"):
+    with pytest.raises(ValueError, match=r"only on the .f32 line"):
 
         @T.function
         def sqrt_approx_f64(out: T.Tensor((1,), "float64")):
@@ -1327,7 +1327,7 @@ def test_ptx_floating_point_dispatch():
             T.ptx.sqrt.approx.f64(out[0], T.float64(2.0))
 
     # ... and rcp's f64 approximation is unreachable without its mandatory .ftz.
-    with pytest.raises(ValueError, match="rcp.approx.ftz.f64"):
+    with pytest.raises(ValueError, match=r"rcp.approx.ftz.f64"):
 
         @T.function
         def rcp_approx_f64(out: T.Tensor((1,), "float64")):
@@ -1419,7 +1419,7 @@ def test_ptx_half_precision_dispatch():
             T.ptx.ex2.approx.bf16(out[0], T.uint16(0))
 
     # ... and the bf16 abs/neg lines spell no .ftz at all.
-    with pytest.raises(ValueError, match="takes no .ftz"):
+    with pytest.raises(ValueError, match=r"takes no .ftz"):
 
         @T.function
         def abs_bf16_ftz(out: T.Tensor((1,), "uint16")):
@@ -1470,7 +1470,7 @@ def test_ptx_mixed_precision_dispatch():
     tvm_tirx.ir.assert_structural_equal(kernel, reparsed)
 
     # The mixed line spells no .ftz, unlike the .f32 line it shares an entry with.
-    with pytest.raises(ValueError, match="takes no .ftz"):
+    with pytest.raises(ValueError, match=r"takes no .ftz"):
 
         @T.function
         def mixed_with_ftz(out: T.Tensor((1,), "float32")):
@@ -1478,7 +1478,7 @@ def test_ptx_mixed_precision_dispatch():
             T.ptx.add.rn.ftz.f32.f16(out[0], T.uint16(0), T.float32(0))
 
     # A converted source exists only on the .f32 line -- there is no f64 form.
-    with pytest.raises(ValueError, match="only exists on the .f32"):
+    with pytest.raises(ValueError, match=r"only exists on the .f32"):
 
         @T.function
         def mixed_f64(out: T.Tensor((1,), "float64")):
@@ -1571,7 +1571,7 @@ def test_ptx_comparison_selection_dispatch():
             T.ptx.setp.lt.b32(out[0], T.uint32(1), T.uint32(2))
 
     # .ftz applies only to .f32 comparisons ...
-    with pytest.raises(ValueError, match="only to .f32 comparisons"):
+    with pytest.raises(ValueError, match=r"only to .f32 comparisons"):
 
         @T.function
         def ftz_off_f32(out: T.Tensor((1,), "uint32")):
@@ -1710,7 +1710,7 @@ def test_ptx_half_comparison_dispatch():
             T.device_entry()
             T.ptx.set.eq.ftz.bf16.f32(out[0], T.float32(0), T.float32(0))
 
-    with pytest.raises(ValueError, match="spells no .ftz"):
+    with pytest.raises(ValueError, match=r"spells no .ftz"):
 
         @T.function
         def setp_ftz_bf16(out: T.Tensor((1,), "uint32")):
@@ -2011,7 +2011,7 @@ def test_ptx_data_movement_dispatch():
             T.ptx.multimem_ld_reduce.add.f16(v, A.ptr_to([0]))
 
     # `.acc::f32` raises an accumulation, so it needs something to accumulate.
-    with pytest.raises(ValueError, match="applies to .add"):
+    with pytest.raises(ValueError, match=r"applies to .add"):
 
         @T.function
         def acc_on_min(A: T.Tensor((1,), "uint32")):
@@ -2020,7 +2020,7 @@ def test_ptx_data_movement_dispatch():
             T.ptx.multimem_ld_reduce.min.acc__f32.f16x2(v, A.ptr_to([0]))
 
     # st.async's mmio line is system-scoped only.
-    with pytest.raises(ValueError, match="requires .sys"):
+    with pytest.raises(ValueError, match=r"requires .sys"):
 
         @T.function
         def mmio_gpu(A: T.Tensor((1,), "uint32")):
@@ -2388,7 +2388,7 @@ def test_ptx_tcgen05_mma_block_size_form():
     assert "tcgen05.mma.cta_group::1.kind::mxf4.block_scale.block32" in src
     _assert_ptxas_ok(src, arch="sm_100a")
 
-    with pytest.raises(ValueError, match="mxf4.*block32"):
+    with pytest.raises(ValueError, match=r"mxf4.*block32"):
 
         @T.function
         def invalid_mxf4_block16():
@@ -3691,7 +3691,7 @@ def test_ptx_helper_source_golden():
             {"op": "add", "noftz": "noftz", "vec": "v2", "type": "bf16"},
         ),
     ):
-        with pytest.raises(ValueError, match="bf16 atom bit-bucket destination.*withholds"):
+        with pytest.raises(ValueError, match=r"bf16 atom bit-bucket destination.*withholds"):
             tokens_for(TABLE[entry_name], **by_name)
     # red's half-word and packed vector syntax lines share this entry; the
     # conditional policy operand follows the value group.
@@ -4070,7 +4070,7 @@ def test_ptx_single_instruction_invariant():
     for entry in TABLE.values():
         raw = entry.raw_render is not None
         for tokens, dtypes, predicated, imms, sinks in renderings(entry):
-            opcode, helper, source = render_variant(entry, tokens, predicated, dtypes, imms, sinks)
+            opcode, _helper, source = render_variant(entry, tokens, predicated, dtypes, imms, sinks)
             asm_blocks = asm_re.findall(source)
             assert len(asm_blocks) == 1, f"{opcode}: {len(asm_blocks)} asm blocks, expected 1"
             if raw:
@@ -4313,7 +4313,7 @@ def test_ptxas_gate_rejects_invalid():
         "}\n"
     )
     source = "\n".join((_CERT_PRELUDE, _certification_kernel("f", bogus, 0)))
-    with pytest.raises(Exception, match="bogus|error"):
+    with pytest.raises(Exception, match=r"bogus|error"):
         _assert_ptxas_ok(source)
 
 

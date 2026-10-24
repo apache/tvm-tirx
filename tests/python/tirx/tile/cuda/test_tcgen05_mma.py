@@ -101,7 +101,7 @@ def test_gemm_tcgen05_cta_group_1(task):
     ) -> None:
         T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=1 * 4 * 32))
         warp_id = T.cuda.warp_id()
-        cta_id = T.cuda.block_idx("x")
+        cta_id = T.cuda.block_idx("x")  # noqa: F841 - The parser emits this named IR binding.
         wg_id = T.cuda.warpgroup_id()
         tid_in_wg = T.cuda.thread_in_warpgroup()
 
@@ -277,7 +277,7 @@ def test_gemm_tcgen05_cta_group_1_layout_f_m64():
     ) -> None:
         T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=4 * 32))
         warp_id = T.cuda.warp_id()
-        cta_id = T.cuda.block_idx("x")
+        cta_id = T.cuda.block_idx("x")  # noqa: F841 - The parser emits this named IR binding.
         wg_id = T.cuda.warpgroup_id()
         tid_in_wg = T.cuda.thread_in_warpgroup()
         lane_id = T.cuda.lane_id()
@@ -478,8 +478,6 @@ def test_gemm_tcgen05_cta_group_2(task):
     A_layout = mma_shared_layout(A_dtype, A_swizzle_mode, A_shape_per_cta)
     B_layout = mma_shared_layout(B_dtype, B_swizzle_mode, B_shape_per_cta)
 
-    r_smem_A_in = list(slice(0, A_shape_per_cta[i]) for i in range(len(A_shape_per_cta)))
-    r_smem_B_in = list(slice(0, B_shape_per_cta[i]) for i in range(len(B_shape_per_cta)))
     total_bytes = (
         functools.reduce(operator.mul, A_shape, 1) * A_elem_bytes
         + functools.reduce(operator.mul, B_shape, 1) * B_elem_bytes
@@ -495,8 +493,8 @@ def test_gemm_tcgen05_cta_group_2(task):
     ) -> None:
         T.device_entry(launch=T.cuda.LaunchConfig(grid=(2,), block=1 * 4 * 32, cluster=(2, 1)))
         warp_id = T.cuda.warp_id()
-        cbx, cby = (T.cuda.cluster_cta_id("x"), T.cuda.cluster_cta_id("y"))
-        cta_id = T.cuda.block_idx("x")
+        cbx, cby = (T.cuda.cluster_cta_id("x"), T.cuda.cluster_cta_id("y"))  # noqa: F841 - The parser emits this named IR binding.
+        cta_id = T.cuda.block_idx("x")  # noqa: F841 - The parser emits this named IR binding.
         wg_id = T.cuda.warpgroup_id()
         tid_in_wg = T.cuda.thread_in_warpgroup()
 
@@ -717,8 +715,8 @@ def test_gemm_tcgen05_cta_group_2_layout_b():
     ) -> None:
         T.device_entry(launch=T.cuda.LaunchConfig(grid=(2,), block=1 * 4 * 32, cluster=(2, 1)))
         warp_id = T.cuda.warp_id()
-        cbx, cby = (T.cuda.cluster_cta_id("x"), T.cuda.cluster_cta_id("y"))
-        cta_id = T.cuda.block_idx("x")
+        cbx, cby = (T.cuda.cluster_cta_id("x"), T.cuda.cluster_cta_id("y"))  # noqa: F841 - The parser emits this named IR binding.
+        cta_id = T.cuda.block_idx("x")  # noqa: F841 - The parser emits this named IR binding.
         wg_id = T.cuda.warpgroup_id()
         tid_in_wg = T.cuda.thread_in_warpgroup()
 
@@ -931,7 +929,7 @@ def test_gemm_tcgen05_cta_group_2_datapath_b_readback():
     ) -> None:
         T.device_entry(launch=T.cuda.LaunchConfig(grid=(2,), block=4 * 32, cluster=(2, 1)))
         warp_id = T.cuda.warp_id()
-        cbx, cby = (T.cuda.cluster_cta_id("x"), T.cuda.cluster_cta_id("y"))
+        cbx, cby = (T.cuda.cluster_cta_id("x"), T.cuda.cluster_cta_id("y"))  # noqa: F841 - The parser emits this named IR binding.
         wg_id = T.cuda.warpgroup_id()
         tid = T.cuda.thread_in_warpgroup()
 
@@ -1114,11 +1112,11 @@ def test_gemm_block_scaled_fp8_cta_group_1(task):
         (A_shape, A_dtype, A_region, A_swizzle_mode),
         (B_shape, B_dtype, B_region, B_swizzle_mode),
         SF_dtype,
-        transA,
-        transB,
+        _transA,
+        _transB,
     ) = task
 
-    M, K = A_shape
+    M, _K = A_shape
     N = B_shape[0]
     width = C_region[1][1] - C_region[1][0]
     assert C_shape[0] == 128
@@ -1176,7 +1174,7 @@ def test_gemm_block_scaled_fp8_cta_group_1(task):
     ) -> None:
         T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=1 * 4 * 32))
         warp_id = T.cuda.warp_id()
-        cta_id = T.cuda.block_idx("x")
+        cta_id = T.cuda.block_idx("x")  # noqa: F841 - The parser emits this named IR binding.
         wg_id = T.cuda.warpgroup_id()
         tid_in_wg = T.cuda.thread_in_warpgroup()
 
@@ -1457,8 +1455,6 @@ def test_gemm_block_scaled_fp8_cta_group_2(task):
     A_layout = mma_shared_layout(A_dtype, A_swizzle_mode, A_shape_per_cta)
     B_layout = mma_shared_layout(B_dtype, B_swizzle_mode, B_shape_per_cta)
 
-    r_smem_A_in = list(slice(0, A_shape_per_cta[i]) for i in range(len(A_shape_per_cta)))
-    r_smem_B_in = list(slice(0, B_shape_per_cta[i]) for i in range(len(B_shape_per_cta)))
     total_bytes = (
         functools.reduce(operator.mul, A_shape, 1) * A_elem_bytes
         + functools.reduce(operator.mul, B_shape, 1) * B_elem_bytes
@@ -1495,8 +1491,8 @@ def test_gemm_block_scaled_fp8_cta_group_2(task):
     ) -> None:
         T.device_entry(launch=T.cuda.LaunchConfig(grid=(2,), block=1 * 4 * 32, cluster=(2, 1)))
         warp_id = T.cuda.warp_id()
-        cbx, cby = (T.cuda.cluster_cta_id("x"), T.cuda.cluster_cta_id("y"))
-        cta_id = T.cuda.block_idx("x")
+        cbx, cby = (T.cuda.cluster_cta_id("x"), T.cuda.cluster_cta_id("y"))  # noqa: F841 - The parser emits this named IR binding.
+        cta_id = T.cuda.block_idx("x")  # noqa: F841 - The parser emits this named IR binding.
         wg_id = T.cuda.warpgroup_id()
         tid_in_wg = T.cuda.thread_in_warpgroup()
 
@@ -1871,7 +1867,7 @@ def test_gemm_block_scaled_nvfp4_cta_group_1():
     ) -> None:
         T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=1 * 4 * 32))
         warp_id = T.cuda.warp_id()
-        cta_id = T.cuda.block_idx("x")
+        cta_id = T.cuda.block_idx("x")  # noqa: F841 - The parser emits this named IR binding.
         wg_id = T.cuda.warpgroup_id()
         tid_in_wg = T.cuda.thread_in_warpgroup()
 
@@ -2195,8 +2191,8 @@ def test_gemm_block_scaled_nvfp4_cta_group_2():
     ) -> None:
         T.device_entry(launch=T.cuda.LaunchConfig(grid=(2,), block=1 * 4 * 32, cluster=(2, 1)))
         warp_id = T.cuda.warp_id()
-        cbx, cby = (T.cuda.cluster_cta_id("x"), T.cuda.cluster_cta_id("y"))
-        cta_id = T.cuda.block_idx("x")
+        cbx, cby = (T.cuda.cluster_cta_id("x"), T.cuda.cluster_cta_id("y"))  # noqa: F841 - The parser emits this named IR binding.
+        cta_id = T.cuda.block_idx("x")  # noqa: F841 - The parser emits this named IR binding.
         wg_id = T.cuda.warpgroup_id()
         tid_in_wg = T.cuda.thread_in_warpgroup()
 
@@ -2556,7 +2552,7 @@ def test_gemm_block_scaled_fp8_sf_id():
     ) -> None:
         T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=1 * 4 * 32))
         warp_id = T.cuda.warp_id()
-        cta_id = T.cuda.block_idx("x")
+        cta_id = T.cuda.block_idx("x")  # noqa: F841 - The parser emits this named IR binding.
         wg_id = T.cuda.warpgroup_id()
         tid_in_wg = T.cuda.thread_in_warpgroup()
 
@@ -3062,8 +3058,6 @@ def test_gemm_tcgen05_arbitrary_tiles(task, copy_perm, a_major, b_major):
         else mma_shared_layout(B_dtype, B_swizzle_mode, B_shape)
     )
 
-    r_gmem_A = list(slice(0, A_shape[i]) for i in range(len(A_shape)))
-    r_gmem_B = list(slice(0, B_shape[i]) for i in range(len(B_shape)))
     total_bytes = (
         functools.reduce(operator.mul, A_shape, 1) * A_elem_bytes
         + functools.reduce(operator.mul, B_shape, 1) * B_elem_bytes
@@ -3090,7 +3084,7 @@ def test_gemm_tcgen05_arbitrary_tiles(task, copy_perm, a_major, b_major):
         ag = A.permute(*copy_perm)
         T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=1 * 4 * 32))
         warp_id = T.cuda.warp_id()
-        cta_id = T.cuda.block_idx("x")
+        cta_id = T.cuda.block_idx("x")  # noqa: F841 - The parser emits this named IR binding.
         wg_id = T.cuda.warpgroup_id()
         tid_in_wg = T.cuda.thread_in_warpgroup()
 

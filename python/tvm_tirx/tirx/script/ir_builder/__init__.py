@@ -17,17 +17,18 @@
 """Concrete TIRx construction operations over the shared native IRBuilder stack."""
 
 from tvm_tirx.ir.type import _init_type_api
-from tvm_tirx.script.ir_builder import *
+from tvm_tirx.script.ir_builder import *  # noqa: F403 - Re-export the public namespace.
 from tvm_tirx.script.ir_builder import __all__ as _shared_exports
+from tvm_tirx.script.ir_builder import constexpr, dtype, dynamic
 
 from . import ir as _native
-from .ir import *
+from .ir import *  # noqa: F403 - Re-export the public namespace.
 from .ir import __all__ as _ir_exports
 from .ir import boolean as bool
-from .op import *
+from .op import *  # noqa: F403 - Re-export the public namespace.
 from .op import __all__ as _op_exports
 from .op import _get_script_namespace as __getattr__
-from .parser_protocol import *
+from .parser_protocol import *  # noqa: F403 - Re-export the public namespace.
 from .parser_protocol import __all__ as _protocol_exports
 from .utils import (
     frame_scope as frame_scope,

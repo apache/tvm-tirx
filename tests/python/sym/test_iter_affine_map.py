@@ -14,7 +14,7 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-# ruff: noqa: F841
+
 import pytest
 
 import tvm_tirx
@@ -91,7 +91,7 @@ def assert_iter_map_simplify(
     expect_dict, dom_map, predicate=True, check_level="surjective", simplify_trivial_iterators=True
 ):
     keys = list(expect_dict.keys())
-    imap = tvm_tirx.sym.detect_iter_map(
+    tvm_tirx.sym.detect_iter_map(
         keys,
         dom_map,
         predicate=predicate,
@@ -828,7 +828,6 @@ def test_subspace_divide_accepts_external_analyzer():
 def test_subspace_divide_trivial_iters():
     x = tvm_tirx.tirx.Var("x", "int32")
     y = tvm_tirx.tirx.Var("y", "int32")
-    z = tvm_tirx.tirx.Var("z", "int32")
 
     # trivial 1.1
     res = tvm_tirx.sym.subspace_divide(
@@ -1422,7 +1421,6 @@ def test_normalize_to_iter_sum():
     z = tvm_tirx.tirx.Var("z", "int64")
     a = tvm_tirx.tirx.Var("a", "int64")
     n = tvm_tirx.tirx.Var("n", "int64")
-    flm = tvm_tirx.tirx.floormod
 
     assert_normalize_to_iter_sum(
         z + ((y + x * 4 + 2) * n) + 3,

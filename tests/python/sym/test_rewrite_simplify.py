@@ -14,9 +14,10 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-# ruff: noqa: RUF012
+
 
 import inspect
+from typing import ClassVar
 
 import pytest
 import tvm_ffi
@@ -776,7 +777,7 @@ class TestDivIndex(BaseCompare):
         tvm_tirx.tirx.Var("y", "int32"),
         tvm_tirx.tirx.Var("z", "int32"),
     )
-    non_negative = [x >= 0, y >= 0, z >= 0]
+    non_negative: ClassVar[list] = [x >= 0, y >= 0, z >= 0]
 
     _test_case_params = (
         TestCase(tdiv(x, x), 1),

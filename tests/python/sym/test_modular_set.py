@@ -14,7 +14,7 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-# ruff: noqa: F841
+
 import pytest
 
 import tvm_tirx
@@ -55,7 +55,7 @@ def test_mul():
 
 def test_shift_left():
     analyzer = tvm_tirx.sym.Analyzer()
-    x, y = tvm_tirx.tirx.Var("x", "int32"), tvm_tirx.tirx.Var("y", "int32")
+    x = tvm_tirx.tirx.Var("x", "int32")
     m = analyzer.modular_set((x * 4 + 2) << 2)
     assert m.coeff == 16
     assert m.base == 8
@@ -71,7 +71,7 @@ def test_floormod():
 
 def test_div_shift():
     analyzer = tvm_tirx.sym.Analyzer()
-    x, y = tvm_tirx.tirx.Var("x", "int32"), tvm_tirx.tirx.Var("y", "int32")
+    x = tvm_tirx.tirx.Var("x", "int32")
     # not sure if x is non-negative
     tdiv = tvm_tirx.tirx.truncdiv
     m = analyzer.modular_set(tdiv(x * 4 + 2, 2))
@@ -94,7 +94,7 @@ def test_div_shift():
 
 def test_mod():
     analyzer = tvm_tirx.sym.Analyzer()
-    x, y = tvm_tirx.tirx.Var("x", "int32"), tvm_tirx.tirx.Var("y", "int32")
+    x = tvm_tirx.tirx.Var("x", "int32")
     tmod = tvm_tirx.tirx.truncmod
     fmod = tvm_tirx.tirx.floormod
     # not sure if x is non-negative

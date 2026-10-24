@@ -210,10 +210,10 @@ def __getattr__(name: str) -> Any:
 
 
 # Shared source entry points participate in the same opaque namespace boundary.
-from .parser import register_namespace as _register_namespace
+from .parser import register_namespace as _register_namespace  # noqa: E402
 
 _register_namespace("script", sys.modules[__name__])
 
 
 # Install the Script-owned display methods after the shared IR types exist.
-from . import printer
+from . import printer  # noqa: E402 - Import after namespace initialization.

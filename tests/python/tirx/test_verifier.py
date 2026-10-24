@@ -126,7 +126,7 @@ def test_host():
         T.call_packed("runtime.cuTensorMapEncodeTiled", A_map, "float32", 2, A.data, 16, 16, 64, 16, 16, 1, 1, 0, 0, 0, 0)  # noqa: E501
 
         T.device_entry()
-        with T.launch_thread("blockIdx.x", 1) as blockIdx:
+        with T.launch_thread("blockIdx.x", 1) as blockIdx:  # noqa: F841 - The parser emits this named IR binding.
             with T.launch_thread("threadIdx.x", 128) as threadIdx:
                 bar = T.alloc_tensor(ty_args=[T.Tensor((1,), "uint64", scope="shared", align=8)])
                 phase = T.alloc_tensor(ty_args=[T.Tensor((1,), "int32", scope="local")])
@@ -175,7 +175,7 @@ def test_preferred_cluster_validation():
         T.cuda.LaunchConfig(grid=8, block=128, preferred_cluster=2)
     with pytest.raises(ValueError, match="divisible"):
         T.cuda.LaunchConfig(grid=(8, 3), block=128, cluster=(2, 1), preferred_cluster=(2, 2))
-    with pytest.raises(ValueError, match="cluster.z"):
+    with pytest.raises(ValueError, match=r"cluster.z"):
         T.cuda.LaunchConfig(grid=(8, 4, 2), block=128, cluster=(2, 1), preferred_cluster=(2, 2, 2))
         # fmt: on
 

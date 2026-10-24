@@ -14,9 +14,10 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-# ruff: noqa: RUF012
+
 
 import contextlib
+from typing import ClassVar
 
 import pytest
 
@@ -143,10 +144,10 @@ class TestBoundsUsingReciprocals(BaseCompare):
     achieve its minimum while `A*B` simultaneously achieves its maximum.
     """
 
-    A, B, C = [tvm_tirx.tirx.Var(letter, "int64") for letter in "ABC"]
+    A, B, C = (tvm_tirx.tirx.Var(letter, "int64") for letter in "ABC")
 
-    symmetric_bounds = {A: (1, 4095), B: (1, 4095), C: (2048, 2048)}
-    asymmetric_bounds = {A: (1, 1024), B: (1, POS_INF), C: (2048, 2048)}
+    symmetric_bounds: ClassVar[dict] = {A: (1, 4095), B: (1, 4095), C: (2048, 2048)}
+    asymmetric_bounds: ClassVar[dict] = {A: (1, 1024), B: (1, POS_INF), C: (2048, 2048)}
 
     _test_case_params = (
         TestCase((A + B) * C - A * B, (2048, None), known_bounds=symmetric_bounds),

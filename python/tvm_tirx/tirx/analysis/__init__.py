@@ -17,4 +17,4 @@
 """Analyze tensor-level IR, including memory access, control flow, and well-formedness."""
 # pylint: disable=wildcard-import, invalid-name
 
-from .analysis import *
+from .analysis import *  # noqa: F403 - Re-export the public namespace.

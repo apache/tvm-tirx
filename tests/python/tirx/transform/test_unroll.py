@@ -162,8 +162,8 @@ def test_unroll_local_access():
     class Before:
         @T.function
         def main(B: T.Tensor((64,), "float32")):
-            with T.launch_thread("blockIdx.x", 4) as bx:
-                with T.launch_thread("threadIdx.x", 4) as tx:
+            with T.launch_thread("blockIdx.x", 4) as bx:  # noqa: F841 - The parser emits this named IR binding.
+                with T.launch_thread("threadIdx.x", 4) as tx:  # noqa: F841 - The parser emits this named IR binding.
                     A_local = T.alloc_tensor(ty_args=[T.Tensor((4,), "float32", scope="local")])
                     for i in T.serial(4):
                         A_local[i] = T.float32(i)
@@ -172,8 +172,8 @@ def test_unroll_local_access():
     class Expected:
         @T.function
         def main(B: T.Tensor((64,), "float32")):
-            with T.launch_thread("blockIdx.x", 4) as bx:
-                with T.launch_thread("threadIdx.x", 4) as tx:
+            with T.launch_thread("blockIdx.x", 4) as bx:  # noqa: F841 - The parser emits this named IR binding.
+                with T.launch_thread("threadIdx.x", 4) as tx:  # noqa: F841 - The parser emits this named IR binding.
                     A_local = T.alloc_tensor(ty_args=[T.Tensor((4,), "float32", scope="local")])
                     A_local[0] = T.float32(0)
                     A_local[1] = T.float32(1)

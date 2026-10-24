@@ -48,7 +48,7 @@ def test_selected_lowerer_reports_context_and_cause(monkeypatch):
     monkeypatch.setattr(SPECS[call.op.name], "lower", failing)
     context = SimpleNamespace(target=tvm_tirx.target.Target("cuda"), scope_kind="thread")
     with pytest.raises(
-        RuntimeError, match="op=tirx.cuda.tile.apply target=cuda scope=thread"
+        RuntimeError, match=r"op=tirx.cuda.tile.apply target=cuda scope=thread"
     ) as error:
         run_dispatch(call, context)
     assert "unsupported layout" in str(error.value)
@@ -180,7 +180,7 @@ def test_dispatch_requires_stmt_result():
     register_op_attr(
         call.op.name, "FTileOpDispatch", lambda call, context: Function([], Evaluate(0))
     )
-    with pytest.raises(TypeError, match="ir.Stmt"):
+    with pytest.raises(TypeError, match=r"ir.Stmt"):
         _lower(Evaluate(call))
 
 

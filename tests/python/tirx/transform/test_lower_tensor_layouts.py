@@ -49,7 +49,7 @@ def test_lower_view_get():
             out: T.Tensor(64, "float32", layout="default"),
         ) -> None:
             T.device_entry(launch=T.cuda.LaunchConfig(grid=(1, 1, 1), block=1 * 32))
-            bx, by, bz = (T.cuda.block_idx("x"), T.cuda.block_idx("y"), T.cuda.block_idx("z"))
+            bx, by, bz = (T.cuda.block_idx("x"), T.cuda.block_idx("y"), T.cuda.block_idx("z"))  # noqa: F841 - The parser emits this named IR binding.
             lane_id = T.cuda.lane_id()
             A = T.alloc_tensor(
                 ty_args=[T.Tensor([2], "float16", scope="local", layout=T.TileLayout(T.S[2:1]))]
@@ -82,12 +82,12 @@ def test_lower_view_get():
                 [1, 1, 1, 32, 1, 1],
                 attrs=_CTA_LAUNCH_ATTRS,
             ):
-                bx: T.let[T.int32] = 0
-                by: T.let[T.int32] = 0
-                bz: T.let[T.int32] = 0
-                lane_id: T.let[T.int32] = T.cuda.thread_idx("x") % 32
+                bx: T.let[T.int32] = 0  # noqa: F841 - The parser emits this named IR binding.
+                by: T.let[T.int32] = 0  # noqa: F841 - The parser emits this named IR binding.
+                bz: T.let[T.int32] = 0  # noqa: F841 - The parser emits this named IR binding.
+                lane_id: T.let[T.int32] = T.cuda.thread_idx("x") % 32  # noqa: F841 - The parser emits this named IR binding.
                 A = T.alloc_local((2,), "float16", layout=None)
-                B = T.decl_tensor(
+                B = T.decl_tensor(  # noqa: F841 - The parser emits this named IR binding.
                     A.data, ty_args=[T.Tensor((2,), "float16", scope="local", layout=None)]
                 )
                 A_local = T.decl_tensor(
@@ -95,7 +95,7 @@ def test_lower_view_get():
                 )
                 for i in T.vectorized(2):
                     A_local[i] = T.Cast("float16", in_buf_1[T.cuda.thread_idx("x") * 2 + i])
-                B_1 = T.decl_tensor(
+                B_1 = T.decl_tensor(  # noqa: F841 - The parser emits this named IR binding.
                     A.data, ty_args=[T.Tensor((2,), "float16", scope="local", layout=None)]
                 )
                 A_local_1 = T.decl_tensor(
@@ -128,9 +128,9 @@ def test_lower_view_get():
                 1,
                 attrs=_CTA_LAUNCH_ATTRS,
             ):
-                bx: T.let[T.int32] = 0
-                by: T.let[T.int32] = 0
-                bz: T.let[T.int32] = 0
+                bx: T.let[T.int32] = 0  # noqa: F841 - The parser emits this named IR binding.
+                by: T.let[T.int32] = 0  # noqa: F841 - The parser emits this named IR binding.
+                bz: T.let[T.int32] = 0  # noqa: F841 - The parser emits this named IR binding.
                 lane_id: T.let[T.int32] = T.cuda.thread_idx("x") % 32
                 A = T.alloc_tensor(
                     ty_args=[
@@ -209,7 +209,7 @@ def test_lower_view_get():
             out: T.Tensor((16, 16), "float32", layout="default"),
         ) -> None:
             T.device_entry(launch=T.cuda.LaunchConfig(grid=(1, 1, 1), block=1 * 32))
-            bx, by, bz = (T.cuda.block_idx("x"), T.cuda.block_idx("y"), T.cuda.block_idx("z"))
+            bx, by, bz = (T.cuda.block_idx("x"), T.cuda.block_idx("y"), T.cuda.block_idx("z"))  # noqa: F841 - The parser emits this named IR binding.
             lane_id = T.cuda.lane_id()
             atom = T.TileLayout(T.S[(1, 2) : (2, 1)])
             tile = T.TileLayout(T.S[(2, 2) : (2, 1)])
@@ -254,12 +254,12 @@ def test_lower_view_get():
                 [1, 1, 1, 32, 1, 1],
                 attrs=_CTA_LAUNCH_ATTRS,
             ):
-                bx: T.let[T.int32] = 0
-                by: T.let[T.int32] = 0
-                bz: T.let[T.int32] = 0
-                lane_id: T.let[T.int32] = T.cuda.thread_idx("x") % 32
+                bx: T.let[T.int32] = 0  # noqa: F841 - The parser emits this named IR binding.
+                by: T.let[T.int32] = 0  # noqa: F841 - The parser emits this named IR binding.
+                bz: T.let[T.int32] = 0  # noqa: F841 - The parser emits this named IR binding.
+                lane_id: T.let[T.int32] = T.cuda.thread_idx("x") % 32  # noqa: F841 - The parser emits this named IR binding.
                 A = T.alloc_local((8,), layout=None)
-                B = T.decl_tensor(
+                B = T.decl_tensor(  # noqa: F841 - The parser emits this named IR binding.
                     A.data, ty_args=[T.Tensor((8,), "float32", scope="local", layout=None)]
                 )
                 A_local = T.decl_tensor(
@@ -274,7 +274,7 @@ def test_lower_view_get():
                             + j
                             + T.cuda.thread_idx("x") % 4
                         ]
-                B_1 = T.decl_tensor(
+                B_1 = T.decl_tensor(  # noqa: F841 - The parser emits this named IR binding.
                     A.data, ty_args=[T.Tensor((8,), "float32", scope="local", layout=None)]
                 )
                 A_local_1 = T.decl_tensor(
@@ -309,9 +309,9 @@ def test_lower_view_get():
                 1,
                 attrs=_CTA_LAUNCH_ATTRS,
             ):
-                bx: T.let[T.int32] = 0
-                by: T.let[T.int32] = 0
-                bz: T.let[T.int32] = 0
+                bx: T.let[T.int32] = 0  # noqa: F841 - The parser emits this named IR binding.
+                by: T.let[T.int32] = 0  # noqa: F841 - The parser emits this named IR binding.
+                bz: T.let[T.int32] = 0  # noqa: F841 - The parser emits this named IR binding.
                 lane_id: T.let[T.int32] = T.cuda.thread_idx("x") % 32
                 A = T.alloc_tensor(
                     ty_args=[
@@ -409,7 +409,7 @@ def test_lower_view_get():
             out: T.Tensor((128, 128), "float32", layout="default"),
         ) -> None:
             T.device_entry(launch=T.cuda.LaunchConfig(grid=(1, 1, 1), block=2 * 128))
-            bx, by, bz = (T.cuda.block_idx("x"), T.cuda.block_idx("y"), T.cuda.block_idx("z"))
+            bx, by, bz = (T.cuda.block_idx("x"), T.cuda.block_idx("y"), T.cuda.block_idx("z"))  # noqa: F841 - The parser emits this named IR binding.
             wg_id = T.cuda.warpgroup_id()
             warp_id_in_wg = T.cuda.warp_in_warpgroup()
             lane_id = T.cuda.lane_id()
@@ -469,14 +469,14 @@ def test_lower_view_get():
                 warp_id_in_cta: T.let[T.int32] = T.gpu_warp_shuffle(
                     T.uint32(4294967295), T.cuda.thread_idx("x") // 32, 0, 32, 32
                 )
-                bx: T.let[T.int32] = 0
-                by: T.let[T.int32] = 0
-                bz: T.let[T.int32] = 0
-                wg_id: T.let[T.int32] = warp_id_in_cta // 4
-                warp_id_in_wg: T.let[T.int32] = warp_id_in_cta % 4
-                lane_id: T.let[T.int32] = T.cuda.thread_idx("x") % 32
+                bx: T.let[T.int32] = 0  # noqa: F841 - The parser emits this named IR binding.
+                by: T.let[T.int32] = 0  # noqa: F841 - The parser emits this named IR binding.
+                bz: T.let[T.int32] = 0  # noqa: F841 - The parser emits this named IR binding.
+                wg_id: T.let[T.int32] = warp_id_in_cta // 4  # noqa: F841 - The parser emits this named IR binding.
+                warp_id_in_wg: T.let[T.int32] = warp_id_in_cta % 4  # noqa: F841 - The parser emits this named IR binding.
+                lane_id: T.let[T.int32] = T.cuda.thread_idx("x") % 32  # noqa: F841 - The parser emits this named IR binding.
                 acc = T.alloc_local((64,), layout=None)
-                B = T.decl_tensor(
+                B = T.decl_tensor(  # noqa: F841 - The parser emits this named IR binding.
                     acc.data, ty_args=[T.Tensor((64,), "float32", scope="local", layout=None)]
                 )
                 acc_local = T.decl_tensor(
@@ -493,7 +493,7 @@ def test_lower_view_get():
                                 + T.cuda.thread_idx("x") % 4 * 2
                                 + vec
                             ]
-                B_1 = T.decl_tensor(
+                B_1 = T.decl_tensor(  # noqa: F841 - The parser emits this named IR binding.
                     acc.data, ty_args=[T.Tensor((64,), "float32", scope="local", layout=None)]
                 )
                 acc_local_1 = T.decl_tensor(
@@ -538,9 +538,9 @@ def test_lower_view_get():
                 warp_id_in_cta: T.let[T.int32] = T.gpu_warp_shuffle(
                     T.uint32(4294967295), T.cuda.thread_idx("x") // 32, 0, 32, 32
                 )
-                bx: T.let[T.int32] = 0
-                by: T.let[T.int32] = 0
-                bz: T.let[T.int32] = 0
+                bx: T.let[T.int32] = 0  # noqa: F841 - The parser emits this named IR binding.
+                by: T.let[T.int32] = 0  # noqa: F841 - The parser emits this named IR binding.
+                bz: T.let[T.int32] = 0  # noqa: F841 - The parser emits this named IR binding.
                 wg_id: T.let[T.int32] = warp_id_in_cta // 4
                 warp_id_in_wg: T.let[T.int32] = warp_id_in_cta % 4
                 lane_id: T.let[T.int32] = T.cuda.thread_idx("x") % 32
@@ -656,7 +656,7 @@ def test_lower_view_get():
             out: T.Tensor(64, "float32", layout="default"),
         ) -> None:
             T.device_entry(launch=T.cuda.LaunchConfig(grid=(1, 1, 1), block=1 * 32))
-            bx, by, bz = (T.cuda.block_idx("x"), T.cuda.block_idx("y"), T.cuda.block_idx("z"))
+            bx, by, bz = (T.cuda.block_idx("x"), T.cuda.block_idx("y"), T.cuda.block_idx("z"))  # noqa: F841 - The parser emits this named IR binding.
             lane_id = T.cuda.lane_id()
             A = T.alloc_tensor(
                 ty_args=[T.Tensor([2], "float16", scope="local", layout=T.TileLayout(T.S[2:1]))]
@@ -694,15 +694,15 @@ def test_lower_view_get():
                 [1, 1, 1, 32, 1, 1],
                 attrs=_CTA_LAUNCH_ATTRS,
             ):
-                bx: T.let[T.int32] = 0
-                by: T.let[T.int32] = 0
-                bz: T.let[T.int32] = 0
-                lane_id: T.let[T.int32] = T.cuda.thread_idx("x") % 32
+                bx: T.let[T.int32] = 0  # noqa: F841 - The parser emits this named IR binding.
+                by: T.let[T.int32] = 0  # noqa: F841 - The parser emits this named IR binding.
+                bz: T.let[T.int32] = 0  # noqa: F841 - The parser emits this named IR binding.
+                lane_id: T.let[T.int32] = T.cuda.thread_idx("x") % 32  # noqa: F841 - The parser emits this named IR binding.
                 A = T.alloc_local((2,), "float16", layout=None)
-                B = T.decl_tensor(
+                B = T.decl_tensor(  # noqa: F841 - The parser emits this named IR binding.
                     A.data, ty_args=[T.Tensor((2,), "float16", scope="local", layout=None)]
                 )
-                B_1 = T.decl_tensor(
+                B_1 = T.decl_tensor(  # noqa: F841 - The parser emits this named IR binding.
                     A.data, ty_args=[T.Tensor((2,), "float16", scope="local", layout=None)]
                 )
                 A_local = T.decl_tensor(
@@ -713,10 +713,10 @@ def test_lower_view_get():
                     A.data, ty_args=[T.Tensor((2,), "float16", scope="local", layout=None)]
                 )
                 A_local_1[1] = T.Cast("float16", in_buf_1[T.cuda.thread_idx("x") * 2 + 1])
-                B_2 = T.decl_tensor(
+                B_2 = T.decl_tensor(  # noqa: F841 - The parser emits this named IR binding.
                     A.data, ty_args=[T.Tensor((2,), "float16", scope="local", layout=None)]
                 )
-                B_3 = T.decl_tensor(
+                B_3 = T.decl_tensor(  # noqa: F841 - The parser emits this named IR binding.
                     A.data, ty_args=[T.Tensor((2,), "float16", scope="local", layout=None)]
                 )
                 A_local_2 = T.decl_tensor(
@@ -752,9 +752,9 @@ def test_lower_view_get():
                 1,
                 attrs=_CTA_LAUNCH_ATTRS,
             ):
-                bx: T.let[T.int32] = 0
-                by: T.let[T.int32] = 0
-                bz: T.let[T.int32] = 0
+                bx: T.let[T.int32] = 0  # noqa: F841 - The parser emits this named IR binding.
+                by: T.let[T.int32] = 0  # noqa: F841 - The parser emits this named IR binding.
+                bz: T.let[T.int32] = 0  # noqa: F841 - The parser emits this named IR binding.
                 lane_id: T.let[T.int32] = T.cuda.thread_idx("x") % 32
                 A = T.alloc_tensor(
                     ty_args=[
@@ -880,7 +880,7 @@ def test_lower_layout():
         @T.function(private=True)
         def main(A: T.Tensor((128, 32), "float16", layout="default")) -> None:
             T.device_entry(launch=T.cuda.LaunchConfig(grid=(1, 1, 1), block=(128,)))
-            bx, by, bz = (T.cuda.block_idx("x"), T.cuda.block_idx("y"), T.cuda.block_idx("z"))
+            bx, by, bz = (T.cuda.block_idx("x"), T.cuda.block_idx("y"), T.cuda.block_idx("z"))  # noqa: F841 - The parser emits this named IR binding.
             _lane = T.cuda.lane_id()
             tid = T.cuda.thread_idx("x")
             A_smem = T.alloc_tensor(
@@ -916,17 +916,17 @@ def test_lower_layout():
                 [1, 1, 1, 128, 1, 1],
                 attrs=_CTA_LAUNCH_ATTRS,
             ):
-                bx: T.let[T.int32] = 0
-                by: T.let[T.int32] = 0
-                bz: T.let[T.int32] = 0
+                bx: T.let[T.int32] = 0  # noqa: F841 - The parser emits this named IR binding.
+                by: T.let[T.int32] = 0  # noqa: F841 - The parser emits this named IR binding.
+                bz: T.let[T.int32] = 0  # noqa: F841 - The parser emits this named IR binding.
                 _lane: T.let[T.int32] = T.cuda.thread_idx("x") % 32
                 tid: T.let[T.int32] = T.cuda.thread_idx("x")
                 A_smem = T.alloc_shared((4096,), "float16", layout=None)
                 thread_col = 4
                 thread_row = 32
                 for tile in range(128 // thread_row):
-                    row = tile * thread_row + tid // thread_col
-                    col = tid % thread_col * 8
+                    row = tile * thread_row + tid // thread_col  # noqa: F841 - The parser emits this named IR binding.
+                    col = tid % thread_col * 8  # noqa: F841 - The parser emits this named IR binding.
                     for vec in T.vectorized(8):
                         # The swizzle lowers to its composition bindings rather than a
                         # folded closed form: compose_m is the flat element index, so
@@ -969,8 +969,8 @@ def test_lower_layout():
                 attrs=_CTA_LAUNCH_ATTRS,
             ):
                 bx: T.let[T.int32] = 0
-                by: T.let[T.int32] = 0
-                bz: T.let[T.int32] = 0
+                by: T.let[T.int32] = 0  # noqa: F841 - The parser emits this named IR binding.
+                bz: T.let[T.int32] = 0  # noqa: F841 - The parser emits this named IR binding.
                 _lane: T.let[T.int32] = T.cuda.thread_idx("x") % 32
                 tid: T.let[T.int32] = T.cuda.thread_idx("x")
                 A_smem = T.alloc_tensor(
@@ -1097,7 +1097,7 @@ def test_lower_cleanup_accepts_bool_elect_sync_else_path():
         def main(A: T.Tensor((32,), T.int32)):
             A_1 = T.decl_tensor(A.data, ty_args=[T.Tensor((32,), T.int32)])
             with T.device_scope(1, 1, 1, 32, 1, 1, attrs=_CTA_LAUNCH_ATTRS):
-                lane_id: T.let[T.int32] = T.cuda.thread_idx("x") % 32
+                lane_id: T.let[T.int32] = T.cuda.thread_idx("x") % 32  # noqa: F841 - The parser emits this named IR binding.
                 if T.cuda.elect_sync() != T.uint32(0):
                     A_1[T.cuda.thread_idx("x")] = 1
                 else:
@@ -1386,7 +1386,7 @@ def test_alloc_tensor_with_thread_axis_layout():
         @T.function(private=True)
         def main(out: T.Tensor((128, 4), "float32", layout="default")) -> None:
             T.device_entry(launch=T.cuda.LaunchConfig(grid=(1, 1, 1), block=1 * 128))
-            bx, by, bz = (T.cuda.block_idx("x"), T.cuda.block_idx("y"), T.cuda.block_idx("z"))
+            bx, by, bz = (T.cuda.block_idx("x"), T.cuda.block_idx("y"), T.cuda.block_idx("z"))  # noqa: F841 - The parser emits this named IR binding.
             warp_id = T.cuda.warp_in_warpgroup()
             lane_id = T.cuda.lane_id()
             reg_wg = T.alloc_tensor(
@@ -1418,11 +1418,11 @@ def test_alloc_tensor_with_thread_axis_layout():
                 warp_id_in_cta: T.let[T.int32] = T.gpu_warp_shuffle(
                     T.uint32(4294967295), T.cuda.thread_idx("x") // 32, 0, 32, 32
                 )
-                bx: T.let[T.int32] = 0
-                by: T.let[T.int32] = 0
-                bz: T.let[T.int32] = 0
-                warp_id: T.let[T.int32] = warp_id_in_cta % 4
-                lane_id: T.let[T.int32] = T.cuda.thread_idx("x") % 32
+                bx: T.let[T.int32] = 0  # noqa: F841 - The parser emits this named IR binding.
+                by: T.let[T.int32] = 0  # noqa: F841 - The parser emits this named IR binding.
+                bz: T.let[T.int32] = 0  # noqa: F841 - The parser emits this named IR binding.
+                warp_id: T.let[T.int32] = warp_id_in_cta % 4  # noqa: F841 - The parser emits this named IR binding.
+                lane_id: T.let[T.int32] = T.cuda.thread_idx("x") % 32  # noqa: F841 - The parser emits this named IR binding.
                 reg_wg = T.alloc_local((4,), layout=None)
                 reg = T.decl_tensor(
                     reg_wg.data, ty_args=[T.Tensor((4,), "float32", scope="local", layout=None)]
@@ -1452,9 +1452,9 @@ def test_alloc_tensor_with_thread_axis_layout():
                 warp_id_in_cta: T.let[T.int32] = T.gpu_warp_shuffle(
                     T.uint32(4294967295), T.cuda.thread_idx("x") // 32, 0, 32, 32
                 )
-                bx: T.let[T.int32] = 0
-                by: T.let[T.int32] = 0
-                bz: T.let[T.int32] = 0
+                bx: T.let[T.int32] = 0  # noqa: F841 - The parser emits this named IR binding.
+                by: T.let[T.int32] = 0  # noqa: F841 - The parser emits this named IR binding.
+                bz: T.let[T.int32] = 0  # noqa: F841 - The parser emits this named IR binding.
                 warp_id: T.let[T.int32] = warp_id_in_cta % 4
                 lane_id: T.let[T.int32] = T.cuda.thread_idx("x") % 32
                 reg_wg = T.alloc_tensor(

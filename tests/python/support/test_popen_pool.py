@@ -14,11 +14,10 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-# ruff: noqa: F401, F841
+
 """Test PopenPoolExecutor."""
 
 import os
-import time
 
 import psutil
 import pytest
@@ -87,8 +86,6 @@ def test_popen_worker_recycles():
 
 def test_popen_pool_executor():
     import tvm_ffi
-
-    import tvm_tirx
 
     pool = PopenPoolExecutor(max_workers=2, timeout=0.015)
     value1 = pool.submit(identity_after, 1, 100)
@@ -173,7 +170,7 @@ def test_popen_pool_executor_timeout():
     while not f1.done():
         pass
     try:
-        res = f1.result()
+        f1.result()
     except Exception as ex:
         assert isinstance(ex, TimeoutError)
 

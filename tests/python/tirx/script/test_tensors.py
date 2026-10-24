@@ -58,9 +58,9 @@ def test_roundtrip_layout():
     def test(_: T.Tensor((64,), 'float32', scope='global')) -> None:
 
         T.device_entry(launch=T.cuda.LaunchConfig(grid=(1, 1, 1), block=1 * 32))
-        bx, by, bz = (T.cuda.block_idx('x'), T.cuda.block_idx('y'), T.cuda.block_idx('z'))
-        warp_id = T.cuda.warp_id()
-        lane_id = T.cuda.lane_id()
+        bx, by, bz = (T.cuda.block_idx('x'), T.cuda.block_idx('y'), T.cuda.block_idx('z'))  # noqa: F841 - The parser emits this named IR binding.
+        warp_id = T.cuda.warp_id()  # noqa: F841 - The parser emits this named IR binding.
+        lane_id = T.cuda.lane_id()  # noqa: F841 - The parser emits this named IR binding.
         C = T.alloc_tensor(
             ty_args=[T.Tensor([128, 128], "float16", scope="shared", layout=get_layout3())]
         )
@@ -158,10 +158,10 @@ def test_roundtrip_tensor_view_get2():
     def test(out: T.Tensor(2, 'float32', scope='global')) -> None:
 
         T.device_entry(launch=T.cuda.LaunchConfig(grid=(32, 32, 1), block=(16, 8, 1)))
-        bx, by, bz = (T.cuda.block_idx('x'), T.cuda.block_idx('y'), T.cuda.block_idx('z'))
-        tx, ty, tz = (T.cuda.thread_idx('x'), T.cuda.thread_idx('y'), T.cuda.thread_idx('z'))
-        warp_id = T.cuda.warp_id()
-        lane_id = T.cuda.lane_id()
+        bx, by, bz = (T.cuda.block_idx('x'), T.cuda.block_idx('y'), T.cuda.block_idx('z'))  # noqa: F841 - The parser emits this named IR binding.
+        tx, ty, tz = (T.cuda.thread_idx('x'), T.cuda.thread_idx('y'), T.cuda.thread_idx('z'))  # noqa: F841 - The parser emits this named IR binding.
+        warp_id = T.cuda.warp_id()  # noqa: F841 - The parser emits this named IR binding.
+        lane_id = T.cuda.lane_id()  # noqa: F841 - The parser emits this named IR binding.
         A = T.alloc_tensor(ty_args=[T.Tensor([2,], "float16", scope="local")])
         A_layout = T.TileLayout(T.S[(1, 2) : (2, 1)])
         B_layout = A_layout.tile(L_LANE, (8, 4), (1, 2))
@@ -593,7 +593,7 @@ def test_tensor_physical_view_layout_overrides_roundtrip():
         B_custom[0, 0] = T.float32(2)
         # fmt: on
 
-    _, b_buf, b_storage, b_custom = _collect_tensors(func)
+    _, _b_buf, b_storage, b_custom = _collect_tensors(func)
     assert_structural_equal(b_storage.ty.layout, T.TileLayout(T.S[(2, 8, 2) : (2, 4, 1)]))
     assert not b_storage.ty.layout.is_trivial()
     assert not b_custom.ty.layout.is_trivial()
@@ -1165,7 +1165,6 @@ def test_tensor_sub_swizzle_commutation():
 
     a2, b2, c2, d2, e2, _ = _collect_tensors(func2)
     base2 = a2.layout.apply(0).get("m", 0)
-    shape2 = [2, 16, 8]
     for name, child, to_parent in [
         ("B", b2, lambda c: (c[0], 1, c[1])),
         ("C", c2, lambda c: (c[0], c[1], 1)),
@@ -1444,7 +1443,7 @@ def test_roundtrip_tmem_decl_tensor():
             addr_alias = T.decl_tensor(
                 addr.data, ty_args=[T.Tensor((1,), "uint32", scope="shared")]
             )
-            buf = T.cuda.decl_tmem(addr_alias[0], ty_args=[
+            buf = T.cuda.decl_tmem(addr_alias[0], ty_args=[  # noqa: F841 - The parser emits this named IR binding.
                 T.Tensor((64,), "float32", scope="tmem", layout=None),
             ])
     # fmt: on

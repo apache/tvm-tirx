@@ -14,7 +14,7 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-# ruff: noqa: E501, E731, E741, F841
+# ruff: noqa: E501, E741
 from __future__ import annotations
 
 import math
@@ -104,7 +104,7 @@ def test_llvm_intrin():
                 )
             )
 
-    fcode = tvm_tirx.tirx.compile(Module)
+    tvm_tirx.tirx.compile(Module)
 
 
 @pytest.mark.skipif(not env.has_llvm(), reason="need llvm")
@@ -116,7 +116,7 @@ def test_llvm_void_intrin():
             # Create an intrinsic that returns void.
             T.call_llvm_intrin("llvm.assume", T.bool(True), ty="void")
 
-    fcode = tvm_tirx.tirx.compile(Module)
+    tvm_tirx.tirx.compile(Module)
 
 
 @pytest.mark.skipif(not env.has_llvm(), reason="need llvm")
@@ -143,7 +143,7 @@ def test_llvm_overloaded_intrin():
         def main(A: T.Tensor((1, 1), "int32"), C: T.Tensor((1, 1), "int32")):
             C[0, 0] = T.call_llvm_pure_intrin("llvm.ctlz", A[0, 0], int1_zero, ty="int32")
 
-    f = tvm_tirx.tirx.compile(Module, target="llvm")
+    tvm_tirx.tirx.compile(Module, target="llvm")
 
 
 @pytest.mark.skipif(not env.has_llvm(), reason="need llvm")
@@ -155,7 +155,7 @@ def test_llvm_lookup_intrin():
             A_buf = T.decl_tensor(A, ty_args=[T.Tensor((1,), "uint8x8", data=A)])
             T.evaluate(T.call_llvm_pure_intrin("llvm.ctpop.v8i8", A_buf[0], ty="uint8x8"))
 
-    fcode = tvm_tirx.tirx.compile(Module, None)
+    tvm_tirx.tirx.compile(Module, None)
 
 
 @pytest.mark.skipif(not env.has_llvm(), reason="need llvm")
@@ -623,14 +623,22 @@ def test_llvm_div(start, end, dstart, dend, dtype, floor_div):
         _dend = tvm_tirx.tirx.const(dend, dtype)
 
         if start == end:
-            clipa = lambda x: _start
+
+            def clipa(x):
+                return _start
         else:
-            clipa = lambda x: T.min(_end, T.max(_start, x))
+
+            def clipa(x):
+                return T.min(_end, T.max(_start, x))
 
         if dstart == dend:
-            clipb = lambda x: _dstart
+
+            def clipb(x):
+                return _dstart
         else:
-            clipb = lambda x: T.min(_dend, T.max(_dstart, x))
+
+            def clipb(x):
+                return T.min(_dend, T.max(_dstart, x))
 
         @I.ir_module
         class Module:
@@ -921,7 +929,7 @@ def test_llvm_scalar_concat():
     # This will crash in LLVM codegen if CodeGenLLVM::CreateVecConcat doesn't convert
     # scalars to single-lane LLVM vectors.
     with tvm_tirx.ir.transform.PassContext(config={"tirx.disable_assert": True}):
-        m = tvm_tirx.tirx.compile(Module, target="llvm")
+        tvm_tirx.tirx.compile(Module, target="llvm")
 
 
 @pytest.mark.skipif(not env.has_llvm(), reason="need llvm")
@@ -1024,7 +1032,7 @@ def test_llvm_assume():
                 B_1 = T.decl_tensor(B.data, ty_args=[T.Tensor((14,), "int32", data=B.data)])
                 B_1[i] = A_1[i] * 2
 
-    m = tvm_tirx.tirx.compile(Module, target="llvm")
+    tvm_tirx.tirx.compile(Module, target="llvm")
 
 
 @pytest.mark.skipif(not env.has_llvm(), reason="need llvm")
@@ -1081,7 +1089,6 @@ def test_subroutine_call():
             A = T.decl_tensor(A_data, ty_args=[T.Tensor(1, "float32", data=A_data)])
             A[0] = 42.0
 
-    target = "llvm"
     dev = tvm_tirx.cpu()
 
     built = tvm_tirx.tirx.compile(Module)
@@ -1119,7 +1126,7 @@ def test_call_packed_returning_void():
 
     # Error occurred during build, as part of
     # CodeGenCPU::MakeCallPackedLowered.
-    built = tvm_tirx.tirx.compile(Module, target="llvm")
+    tvm_tirx.tirx.compile(Module, target="llvm")
 
 
 @pytest.mark.skipif(not env.has_llvm(), reason="need llvm")
@@ -1143,7 +1150,7 @@ def test_call_packed_without_string_arg():
             )
 
     with pytest.raises(RuntimeError):
-        built = tvm_tirx.tirx.compile(Module, target="llvm")
+        tvm_tirx.tirx.compile(Module, target="llvm")
 
 
 @pytest.mark.skipif(not env.has_llvm(), reason="need llvm")
@@ -1160,7 +1167,7 @@ def test_call_extern_returning_void():
                 ty="void",
             )
 
-    built = tvm_tirx.tirx.compile(Module, target="llvm")
+    tvm_tirx.tirx.compile(Module, target="llvm")
 
 
 def test_invalid_volatile_masked_buffer_load():

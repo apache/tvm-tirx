@@ -810,7 +810,7 @@ def test_cuda_gemm_mma_rejects_incompatible_instruction(a, b, c, d):
     """
     with pytest.raises(
         (RuntimeError, ValueError, KeyError, AssertionError),
-        match="mma|ptx instruction|packed into",
+        match=r"mma|ptx instruction|packed into",
     ):
         _lower(_build_dtypes(a, b, c, d))
 

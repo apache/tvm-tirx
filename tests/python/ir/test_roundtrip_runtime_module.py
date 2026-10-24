@@ -14,11 +14,9 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-# ruff: noqa: F401
+
 """Test roundtrip of runtime modules"""
 # pylint: disable=missing-docstring
-
-import pytest
 
 import tvm_tirx
 import tvm_tirx.testing

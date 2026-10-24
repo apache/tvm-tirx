@@ -73,7 +73,7 @@ def test_cast_thread_local(shape, A_dtype, B_dtype):
         B: T.Tensor(shape, B_dtype, layout=TileLayout(S[shape])),
     ) -> None:
         T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(256,)))
-        cta_id = T.cuda.block_idx("x")
+        cta_id = T.cuda.block_idx("x")  # noqa: F841 - The parser emits this named IR binding.
         tid = T.cuda.thread_idx("x")
         A_local = T.alloc_local(shape, dtype=A_dtype, layout=TileLayout(S[shape]))
         B_local = T.alloc_local(shape, dtype=B_dtype, layout=TileLayout(S[shape]))
@@ -140,8 +140,8 @@ def test_cast_warpgroup_local_view(A_dtype, B_dtype):
         B: T.Tensor(g_shape, B_dtype, layout=g_layout),
     ) -> None:
         T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=1 * 128))
-        cta_id = T.cuda.block_idx("x")
-        wg_id = T.cuda.warpgroup_id()
+        cta_id = T.cuda.block_idx("x")  # noqa: F841 - The parser emits this named IR binding.
+        wg_id = T.cuda.warpgroup_id()  # noqa: F841 - The parser emits this named IR binding.
         tid_in_wg = T.cuda.thread_in_warpgroup()
         reg_src = T.alloc_tensor(
             ty_args=[
@@ -213,7 +213,7 @@ def test_cast_cta_local_view(A_dtype, B_dtype):
         B: T.Tensor(g_shape, B_dtype, layout=g_layout),
     ) -> None:
         T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(N_THREADS,)))
-        cta_id = T.cuda.block_idx("x")
+        cta_id = T.cuda.block_idx("x")  # noqa: F841 - The parser emits this named IR binding.
         tx_var = T.cuda.thread_idx("x")
         reg_src = T.alloc_tensor(
             ty_args=[
@@ -290,8 +290,8 @@ def test_cast_warpgroup_src_layout_to_flat_uses_vec2_intrinsic(A_dtype, B_dtype)
         B: T.Tensor(g_shape, B_dtype, layout=g_layout),
     ) -> None:
         T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=1 * 128))
-        cta_id = T.cuda.block_idx("x")
-        wg_id = T.cuda.warpgroup_id()
+        cta_id = T.cuda.block_idx("x")  # noqa: F841 - The parser emits this named IR binding.
+        wg_id = T.cuda.warpgroup_id()  # noqa: F841 - The parser emits this named IR binding.
         tid = T.cuda.thread_in_warpgroup()
         for no in T.unroll(N_CHUNKS):
             reg_src = T.alloc_tensor(
@@ -437,7 +437,7 @@ def test_cast_local_view_sliced(A_dtype, B_dtype, slice_start, slice_end):
 def test_cast_mixed_axes_and_subregion(slice_start, slice_end):
     """Test cast with mixed axes and subregion."""
 
-    N_WARPS, LANES = 2, 32
+    N_WARPS = 2
     LOCAL_LEN = 4
     full_shape = (8, N_WARPS, 4, LOCAL_LEN)
     g_layout = TileLayout(S[full_shape])
@@ -458,7 +458,7 @@ def test_cast_mixed_axes_and_subregion(slice_start, slice_end):
         B: T.Tensor(full_shape, "float16", layout=g_layout),
     ) -> None:
         T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=N_WARPS * 32))
-        cta_id = T.cuda.block_idx("x")
+        cta_id = T.cuda.block_idx("x")  # noqa: F841 - The parser emits this named IR binding.
         warp_id = T.cuda.warp_id()
         lane_id = T.cuda.lane_id()
         reg_src = T.alloc_tensor(
@@ -524,7 +524,7 @@ def test_cast_validate_extent_mismatch_rejected():
         B: T.Tensor(view_shape, "float16", layout=g_layout),
     ) -> None:
         T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=2 * 32))
-        cta_id = T.cuda.block_idx("x")
+        cta_id = T.cuda.block_idx("x")  # noqa: F841 - The parser emits this named IR binding.
         warp_id = T.cuda.warp_id()
         lane_id = T.cuda.lane_id()
         reg_src = T.alloc_tensor(
@@ -555,7 +555,7 @@ def test_cast_validate_extent_mismatch_rejected():
         # span the full CTA), which fires first — either rejection is fine.
         with pytest.raises(
             Exception,
-            match="incorrect .* owner",
+            match=r"incorrect .* owner",
         ):
             tvm_tirx.tirx.compile(mod, target=target, pipeline="tirx")
 

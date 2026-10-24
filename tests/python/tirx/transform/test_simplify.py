@@ -37,7 +37,7 @@ def test_stmt_simplify():
     def expected(A: T.handle("float32"), C: T.handle("float32"), n: T.int32):
         A_ptr = T.decl_tensor(A, ty_args=[T.Tensor((10,), "float32", data=A)])
         C_ptr = T.decl_tensor(C, ty_args=[T.Tensor((10,), "float32", data=C)])
-        n_val: T.let[T.int32] = 10
+        n_val: T.let[T.int32] = 10  # noqa: F841 - The parser emits this named IR binding.
         for i in T.serial(10):
             A_ptr[i] = C_ptr[i]
 
@@ -60,9 +60,9 @@ def test_thread_extent_simplify():
     def expected(A: T.handle("float32"), C: T.handle("float32"), n: T.int32):
         A_ptr = T.decl_tensor(A, ty_args=[T.Tensor((10,), "float32", data=A)])
         C_ptr = T.decl_tensor(C, ty_args=[T.Tensor((10,), "float32", data=C)])
-        n_val: T.let[T.int32] = 10
+        n_val: T.let[T.int32] = 10  # noqa: F841 - The parser emits this named IR binding.
         with T.launch_thread("threadIdx.x", 10) as tx:
-            with T.launch_thread("threadIdx.y", 1) as ty:
+            with T.launch_thread("threadIdx.y", 1) as ty:  # noqa: F841 - The parser emits this named IR binding.
                 A_ptr[tx] = C_ptr[tx]
 
     after = _apply_simplify(before)
@@ -419,7 +419,7 @@ def test_prove_condition_using_let():
     @T.function(private=True)
     def expected(A: T.Tensor(4, "bool")):
         for i in T.serial(4):
-            condition: T.let[T.bool] = i < 3
+            condition: T.let[T.bool] = i < 3  # noqa: F841 - The parser emits this named IR binding.
             A[i] = i < 3
 
     after = _apply_simplify(before)
@@ -444,7 +444,7 @@ def test_prove_let_condition():
     @T.function(private=True)
     def expected(A: T.Tensor(4, "bool")):
         for i in T.serial(4):
-            condition: T.let[T.bool] = i < 3
+            condition: T.let[T.bool] = i < 3  # noqa: F841 - The parser emits this named IR binding.
             if i < 3:
                 A[i] = T.bool(True)
 
@@ -471,7 +471,7 @@ def test_prove_repeated_let_condition():
     @T.function(private=True)
     def expected(A: T.Tensor(4, "bool")):
         for i in T.serial(4):
-            condition: T.let[T.bool] = i < 3
+            condition: T.let[T.bool] = i < 3  # noqa: F841 - The parser emits this named IR binding.
             if i < 3:
                 A[i] = T.bool(True)
 
@@ -530,7 +530,7 @@ def test_left_ceil_log2_lower_bound():
     @T.function(private=True)
     def expected(A: T.Tensor(16, "float32")):
         for i in T.serial(16):
-            x: T.let[T.int32] = T.Cast(
+            x: T.let[T.int32] = T.Cast(  # noqa: F841 - The parser emits this named IR binding.
                 "int32",
                 T.ceil(T.log2(T.Cast("float64", i + 1025))),
             )
@@ -685,7 +685,7 @@ def test_most_restrictive_conditional():
     allow for later rewrites.  For example, if it is known that `a <= b`,
     then `a >= b` cannot be proven, but can be reduced to `a == b`.
     """
-    i, j, k = [T.dynamic(name, "int32") for name in "ijk"]
+    i, j, _k = [T.dynamic(name, "int32") for name in "ijk"]
     tir_int = T.int32(0)
 
     test_cases = [
@@ -831,7 +831,7 @@ def test_simplify_tensor_identity_well_formed():
 
     @T.function(private=True)
     def expected(A_ptr: T.handle("float32"), B_ptr: T.handle("float32"), n: T.int32):
-        n_val = n
+        n_val = n  # noqa: F841 - The parser emits this named IR binding.
         A = T.decl_tensor(A_ptr, ty_args=[T.Tensor([n], "float32", data=A_ptr)])
         B = T.decl_tensor(B_ptr, ty_args=[T.Tensor([n], "float32", data=B_ptr)])
         B[0] = A[0]

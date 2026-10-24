@@ -219,7 +219,7 @@ def test_continue_statement():
 
 def test_exception():
     with pytest.raises(TypeError):
-        x = tirx.Var(name=1, ty="int")
+        tirx.Var(name=1, ty="int")
 
 
 def test_eq_ops():

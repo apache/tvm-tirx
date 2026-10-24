@@ -14,7 +14,7 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-# ruff: noqa: E722
+
 """External kernel integration fro TIR"""
 
 import json
@@ -161,7 +161,7 @@ class SourceKernel(BaseKernel):  # pylint: disable=too-few-public-methods
             if source_path.is_file():
                 with open(source_path) as f:
                     source_code = f.read()
-        except:  # pylint: disable=bare-except
+        except Exception:
             pass
 
         from tvm_tirx.backend.cuda.compiler import compile_source

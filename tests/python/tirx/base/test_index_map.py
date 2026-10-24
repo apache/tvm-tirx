@@ -14,14 +14,14 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-# ruff: noqa: E741, F401
+# ruff: noqa: E741
 import numpy as np
 import pytest
 import tvm_ffi
 
 import tvm_tirx
 import tvm_tirx.testing
-from tvm_tirx.ir import IntImm, assert_structural_equal, const
+from tvm_tirx.ir import IntImm, assert_structural_equal
 from tvm_tirx.script import tirx as T
 from tvm_tirx.tirx import IndexMap, Var, floordiv, floormod
 

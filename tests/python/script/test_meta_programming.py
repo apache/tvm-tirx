@@ -22,7 +22,6 @@ import gc
 import weakref
 
 # Script-local bindings are observed through the constructed IR.
-# ruff: noqa: F841
 from contextlib import contextmanager
 from types import SimpleNamespace
 
@@ -210,7 +209,7 @@ def test_host_lambda_local_does_not_capture_optional_binding(language):
     @M.function
     def main():
         if I.constexpr(False):
-            x = 1
+            x = 1  # noqa: F841 - The parser emits this named IR binding.
         if I.constexpr((lambda x: x)(True)):
             M.record(222)
 
@@ -326,8 +325,8 @@ def test_unrelated_same_file_caller_does_not_supply_annotation_locals(language):
         return function
 
     def caller():
-        EXTENT = 99
-        VALUE = 99
+        EXTENT = 99  # noqa: F841 - Keep this lexical-scope fixture for parser capture.
+        VALUE = 99  # noqa: F841 - Keep this lexical-scope fixture for parser capture.
         return build()
 
     function = caller()
@@ -593,7 +592,7 @@ def test_macro_local_annotation_captures_definition_and_argument_names(
 ):
     M = language.M
     M.macro = entry.make_macro_decorator(M, namespace_path="M.macro")
-    MACRO_VALUE = 7
+    MACRO_VALUE = 7  # noqa: F841 - Keep this lexical-scope fixture for parser capture.
     observed = []
 
     def annotation(shape):

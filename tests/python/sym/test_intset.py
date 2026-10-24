@@ -14,7 +14,7 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-# ruff: noqa: F841
+
 import tvm_tirx
 import tvm_tirx.testing
 from tvm_tirx import tirx
@@ -141,7 +141,7 @@ def test_max_min():
 
 def test_select():
     ck = IntSetChecker()
-    x, y = tvm_tirx.tirx.Var("x", "int32"), tvm_tirx.tirx.Var("y", "int32")
+    x = tvm_tirx.tirx.Var("x", "int32")
     ck.verify(
         tvm_tirx.tirx.Select(x > 0, x - 1, x + 1), {x: tvm_tirx.sym.IntervalSet(0, 10)}, (-1, 11)
     )

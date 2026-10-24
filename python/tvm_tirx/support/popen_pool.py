@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 # pylint: disable=invalid-name
-# ruff: noqa: E731
+
 """Multiprocessing via Popen.
 
 This module provides a multi-processing pool backed by Popen.
@@ -459,8 +459,10 @@ class PopenPoolExecutor:
         future : concurrent.futures.Future
             A future that can be used to access the result.
         """
-        # pylint: disable=unnecessary-lambda
-        worker = lambda *args: self._worker_run(*args)
+
+        def worker(*args):
+            return self._worker_run(*args)
+
         return self._threadpool.submit(worker, fn, args, kwargs)
 
     def map_with_error_catching(self, fn, iterator):
@@ -479,5 +481,8 @@ class PopenPoolExecutor:
         out_iter : Iterator[MapResult]
             The result iterator.
         """
-        worker = lambda x: self._worker_run_with_error_catching(fn, (x,), None)
+
+        def worker(x):
+            return self._worker_run_with_error_catching(fn, (x,), None)
+
         return self._threadpool.map(worker, iterator)

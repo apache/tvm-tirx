@@ -14,13 +14,13 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-# ruff: noqa: F821
 """
 Tests to verify Python interactions with Target Parsing
 """
 
 import pytest
 
+import tvm_tirx.testing
 from tvm_tirx.target import Target
 
 

@@ -14,7 +14,6 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-# ruff: noqa: E741
 """Helper tool to check and fix ASF headers in source files tracked by git.
 
 Ported from tvm-ffi. Replaces the previous RAT-based check_asf_header.sh
@@ -268,10 +267,10 @@ def check_header(fname: str, header: str) -> bool:
     has_asf_header = False
     has_copyright = False
 
-    for i, l in enumerate(lines):
-        if l.find("Licensed to the Apache Software Foundation") != -1:
+    for i, line in enumerate(lines):
+        if line.find("Licensed to the Apache Software Foundation") != -1:
             has_asf_header = True
-        elif copyright_line(l):
+        elif copyright_line(line):
             has_copyright = True
 
     if has_asf_header and not has_copyright:
@@ -331,10 +330,10 @@ def add_header(fname: str, header: str) -> None:
     has_asf_header = False
     has_copyright = False
 
-    for i, l in enumerate(lines):
-        if l.find("Licensed to the Apache Software Foundation") != -1:
+    for i, line in enumerate(lines):
+        if line.find("Licensed to the Apache Software Foundation") != -1:
             has_asf_header = True
-        elif copyright_line(l):
+        elif copyright_line(line):
             has_copyright = True
             lines[i] = ""
 

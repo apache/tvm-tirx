@@ -102,7 +102,6 @@ def _build_warp_kernel(num, direction, trans, swizzle=False):
     r_layout = _r_layout_warp(num)
     s_layout = _maybe_wrap_swizzle(_s_layout_warp(num, trans), swizzle)
     s_shape = (8, 4, num, 2)
-    full = (slice(0, 8), slice(0, 4), slice(0, num), slice(0, 2))
     M, N = 8, num * 8
 
     def _coord(row, cp, t, w):
@@ -192,7 +191,6 @@ def _build_warpgroup_kernel(num, direction, trans, swizzle=False):
     r_layout = _r_layout_warpgroup(num)
     s_layout = _maybe_wrap_swizzle(_s_layout_warpgroup_or_cta(num, trans), swizzle)
     s_shape = (4, 8, 4, num, 2)
-    full = (slice(0, 4), slice(0, 8), slice(0, 4), slice(0, num), slice(0, 2))
     M, N = 32, num * 8
 
     def _coord(wid, row, cp, t, w):
@@ -285,7 +283,6 @@ def _build_cta_kernel(num, direction, trans, swizzle=False):
     r_layout = _r_layout_cta(num)
     s_layout = _maybe_wrap_swizzle(_s_layout_warpgroup_or_cta(num, trans), swizzle)
     s_shape = (4, 8, 4, num, 2)
-    full = (slice(0, 4), slice(0, 8), slice(0, 4), slice(0, num), slice(0, 2))
     M, N = 32, num * 8
 
     def _coord(wid, row, cp, t, w):

@@ -14,7 +14,7 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-# ruff: noqa: E501, F841
+# ruff: noqa: E501
 
 import re
 
@@ -119,12 +119,12 @@ def test_rvv_vscale_llvm_dbginfo(target):
         vec_A = T.call_llvm_intrin( 'llvm.riscv.vle', T.Broadcast(T.float32(0.0), T.vscale() * 4), A.ptr_to([0] * len(A.shape)), T.int64(8), ty='float32xvscalex4')
         vec_B = T.call_llvm_intrin( 'llvm.riscv.vle', T.Broadcast(T.float32(0.0), T.vscale() * 4), B.ptr_to([0] * len(B.shape)), T.int64(8), ty='float32xvscalex4')
         prod = T.call_llvm_intrin( 'llvm.riscv.vfmul', T.Broadcast(T.float32(0.0), T.vscale() * 4), vec_A, vec_B, T.uint64(7), T.uint64(8), ty='float32xvscalex4')
-        redsum = T.call_llvm_intrin( 'llvm.riscv.vfredusum', T.Broadcast(T.float32(0.0), T.vscale() * 2), prod, zero, T.uint64(7), T.uint64(8), ty='float32xvscalex2')
+        redsum = T.call_llvm_intrin( 'llvm.riscv.vfredusum', T.Broadcast(T.float32(0.0), T.vscale() * 2), prod, zero, T.uint64(7), T.uint64(8), ty='float32xvscalex2')  # noqa: F841 - The parser emits this named IR binding.
     # fmt: on
 
     # tvm.RuntimeError: Can't fetch the lanes of a scalable vector at a compile time.
     with tvm_tirx.target.Target(target):
-        f = tvm_tirx.tirx.compile(rvv_with_vscale, target).mod
+        tvm_tirx.tirx.compile(rvv_with_vscale, target).mod
 
 
 @pytest.mark.skipif(not env.has_llvm_min_version(14), reason="need llvm >= 14")

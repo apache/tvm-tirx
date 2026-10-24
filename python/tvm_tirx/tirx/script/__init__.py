@@ -72,6 +72,7 @@ def __getattr__(name: str) -> _Any:
     return getattr(_importlib.import_module("tvm_tirx.tirx.script.ir_builder"), name)
 
 
-from .jit import OptionalAnnotation as Optional
+# Resolve JIT annotations after the lazy dialect namespace is installed.
+from .jit import OptionalAnnotation as Optional  # noqa: E402
 
 globals().pop("jit", None)

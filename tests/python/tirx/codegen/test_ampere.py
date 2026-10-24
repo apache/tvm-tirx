@@ -96,7 +96,7 @@ def test_ptx_mma_m16n8k16(a_type, no_c_ptr):
         C: T.Tensor((16, 8), "float32"),
     ):
         T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(32,)))
-        cta_id = T.cuda.block_idx('x')
+        cta_id = T.cuda.block_idx('x')  # noqa: F841 - The parser emits this named IR binding.
         tx = T.cuda.thread_idx('x')
         D_local = T.alloc_local([4], "float32")
         A_local = T.alloc_local([8], a_type)
@@ -173,7 +173,7 @@ def test_ptx_mma_m16n8k8(a_type, no_c_ptr):
         C: T.Tensor((16, 8), "float32"),
     ):
         T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(32,)))
-        cta_id = T.cuda.block_idx('x')
+        cta_id = T.cuda.block_idx('x')  # noqa: F841 - The parser emits this named IR binding.
         tx = T.cuda.thread_idx('x')
         D_local = T.alloc_local([4], "float32")
         A_local = T.alloc_local([4], a_type)

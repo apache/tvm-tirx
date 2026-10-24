@@ -14,7 +14,6 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-# ruff: noqa: F821
 """Tests for ``@T.jit`` compile-time specialization."""
 
 from __future__ import annotations
@@ -35,9 +34,9 @@ from tvm_tirx.tirx.script.jit import JITFunction
 def test_int_constexpr_specializes_loop_bound():
     @T.jit(private=True)
     def add(
-        A: T.Tensor((N,), "int32"),
-        B: T.Tensor((N,), "int32"),
-        C: T.Tensor((N,), "int32"),
+        A: T.Tensor((N,), "int32"),  # noqa: F821 - The parser supplies this symbolic dimension.
+        B: T.Tensor((N,), "int32"),  # noqa: F821 - The parser supplies this symbolic dimension.
+        C: T.Tensor((N,), "int32"),  # noqa: F821 - The parser supplies this symbolic dimension.
         *,
         N: T.constexpr,
     ):
@@ -59,9 +58,9 @@ def test_int_constexpr_specializes_loop_bound():
 def test_constexpr_in_2d_tensor_shape():
     @T.jit(private=True)
     def matadd(
-        A: T.Tensor((M, K), "int32"),
-        B: T.Tensor((M, K), "int32"),
-        C: T.Tensor((M, K), "int32"),
+        A: T.Tensor((M, K), "int32"),  # noqa: F821 - The parser supplies this symbolic dimension.
+        B: T.Tensor((M, K), "int32"),  # noqa: F821 - The parser supplies this symbolic dimension.
+        C: T.Tensor((M, K), "int32"),  # noqa: F821 - The parser supplies this symbolic dimension.
         *,
         M: T.constexpr,
         K: T.constexpr,
@@ -86,8 +85,8 @@ def test_constexpr_in_2d_tensor_shape():
 def test_constexpr_in_body_expression():
     @T.jit(private=True)
     def scaled_copy(
-        A: T.Tensor((N,), "int32"),
-        B: T.Tensor((N,), "int32"),
+        A: T.Tensor((N,), "int32"),  # noqa: F821 - The parser supplies this symbolic dimension.
+        B: T.Tensor((N,), "int32"),  # noqa: F821 - The parser supplies this symbolic dimension.
         *,
         N: T.constexpr,
         SCALE: T.constexpr,
@@ -109,7 +108,7 @@ def test_constexpr_in_body_expression():
 def test_specialize_cache_returns_same_instance():
     @T.jit(private=True)
     def k(
-        A: T.Tensor((N,), "int32"),
+        A: T.Tensor((N,), "int32"),  # noqa: F821 - The parser supplies this symbolic dimension.
         *,
         N: T.constexpr,
     ):
@@ -124,7 +123,7 @@ def test_specialize_cache_returns_same_instance():
 def test_specialize_different_args_produce_different_funcs():
     @T.jit(private=True)
     def k(
-        A: T.Tensor((N,), "int32"),
+        A: T.Tensor((N,), "int32"),  # noqa: F821 - The parser supplies this symbolic dimension.
         *,
         N: T.constexpr,
     ):
@@ -137,7 +136,7 @@ def test_specialize_different_args_produce_different_funcs():
 def test_specialize_missing_constexpr_raises():
     @T.jit(private=True)
     def k(
-        A: T.Tensor((N,), "int32"),
+        A: T.Tensor((N,), "int32"),  # noqa: F821 - The parser supplies this symbolic dimension.
         *,
         N: T.constexpr,
         SCALE: T.constexpr,
@@ -152,7 +151,7 @@ def test_specialize_missing_constexpr_raises():
 def test_specialize_extra_kwarg_raises():
     @T.jit(private=True)
     def k(
-        A: T.Tensor((N,), "int32"),
+        A: T.Tensor((N,), "int32"),  # noqa: F821 - The parser supplies this symbolic dimension.
         *,
         N: T.constexpr,
     ):
@@ -166,7 +165,7 @@ def test_specialize_extra_kwarg_raises():
 def test_jit_kernel_with_nested_inline_helper():
     @T.jit(private=True)
     def k(
-        A: T.Tensor((N,), "int32"),
+        A: T.Tensor((N,), "int32"),  # noqa: F821 - The parser supplies this symbolic dimension.
         *,
         N: T.constexpr,
     ):
@@ -190,7 +189,7 @@ def test_jit_kernel_with_nested_inline_helper():
 def test_constexpr_default_value():
     @T.jit(private=True)
     def k(
-        A: T.Tensor((N,), "int32"),
+        A: T.Tensor((N,), "int32"),  # noqa: F821 - The parser supplies this symbolic dimension.
         *,
         N: T.constexpr,
         SCALE: T.constexpr = 7,
@@ -214,7 +213,7 @@ def test_constexpr_default_value():
 def test_specialize_returns_function():
     @T.jit(private=True)
     def k(
-        A: T.Tensor((N,), "int32"),
+        A: T.Tensor((N,), "int32"),  # noqa: F821 - The parser supplies this symbolic dimension.
         *,
         N: T.constexpr,
     ):
@@ -369,7 +368,7 @@ def test_standard_optional_annotations_are_specializable():
 
 
 def test_t_optional_is_restricted_to_jit():
-    with pytest.raises(TypeError, match="only supported by @T.jit"):
+    with pytest.raises(TypeError, match=r"only supported by @T.jit"):
 
         @T.function(private=True)
         def invalid(a: T.Optional(T.handle)):

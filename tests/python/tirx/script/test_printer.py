@@ -774,11 +774,8 @@ def test_printer_nvshmem_namespace():
 
 
 def test_printer_ptx_more():
-    r = tir.Var("r", "handle")
-    s = tir.Var("s", "handle")
     d = tir.Var("d", "handle")
     a = tir.Var("a", "handle")
-    b = tir.Var("b", "handle")
     _assert_namespace_print(
         cuda_op.tcgen05_encode_matrix_descriptor(d, a, 1, 2, 0),
         """
@@ -1092,7 +1089,6 @@ T.nki.affine_select(A[0], A[0], A[0], T.float32(1.0))""",
 
 
 def test_printer_ptx_mma_and_wgmma():
-    r = tir.Var("r", "handle")
     d = tir.Var("d", "handle")
     a = tir.Var("a", "handle")
     tir.Var("b", "handle")

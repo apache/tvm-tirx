@@ -14,8 +14,7 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-# ruff: noqa: E712, F401
-import ctypes
+# ruff: noqa: E712
 import math
 
 import numpy as np
@@ -23,10 +22,8 @@ import pytest
 
 import tvm_tirx
 import tvm_tirx.testing
-from tvm_tirx import tirx
 from tvm_tirx.script import ir as I
 from tvm_tirx.script import tirx as T
-from tvm_tirx.support import clang, utils
 
 
 def _unary_kernel(op, dtype="float32", out_dtype=None, gpu=False):

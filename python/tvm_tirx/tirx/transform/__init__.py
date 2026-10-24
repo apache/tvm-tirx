@@ -24,4 +24,4 @@ expected output and invocation.
 # pylint: disable=wildcard-import, invalid-name
 
 from .function_pass import function_pass, FunctionPass
-from .transform import *
+from .transform import *  # noqa: F403 - Re-export the public namespace.

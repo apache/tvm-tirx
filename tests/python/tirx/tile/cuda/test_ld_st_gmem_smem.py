@@ -298,7 +298,7 @@ def _reject_explicit_staging(g_shape, s_shape, g_layout, s_layout, start, word_d
         g_shape, s_shape, g_layout, s_layout, start, word_dtype, words
     )
     target = tvm_tirx.target.Target("cuda")
-    with target, pytest.raises(RuntimeError, match="consecutive elements|byte.aligned"):
+    with target, pytest.raises(RuntimeError, match=r"consecutive elements|byte.aligned"):
         tvm_tirx.tirx.transform.TileDispatch()(tvm_tirx.IRModule({"main": kernel}))
 
 

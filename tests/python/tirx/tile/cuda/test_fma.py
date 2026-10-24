@@ -211,7 +211,7 @@ def test_fma_warpgroup_thread_row_layout():
     ) -> None:
         T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=1 * 128))
         _bx = T.cuda.block_idx("x")
-        wg_id = T.cuda.warpgroup_id()
+        wg_id = T.cuda.warpgroup_id()  # noqa: F841 - The parser emits this named IR binding.
         tid = T.cuda.thread_in_warpgroup()
 
         reg = T.alloc_tensor(

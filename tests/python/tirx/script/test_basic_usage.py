@@ -355,9 +355,9 @@ def test_roundtrip_unary_inplace():
     @T.function
     def test(A: T.Tensor((128,), "float32", scope="global")) -> None:
         T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=1 * 32))
-        cta_id = T.cuda.block_idx('x')
-        warp_id = T.cuda.warp_id()
-        lane_id = T.cuda.lane_id()
+        cta_id = T.cuda.block_idx('x')  # noqa: F841 - The parser emits this named IR binding.
+        warp_id = T.cuda.warp_id()  # noqa: F841 - The parser emits this named IR binding.
+        lane_id = T.cuda.lane_id()  # noqa: F841 - The parser emits this named IR binding.
         T.cuda.tile.apply(T.ptx['ex2.approx.ftz.f32'], A[0:32], A[0:32], scope='warp')
         T.cuda.tile.apply(T.ptx['sqrt.rn.f32'], A[32:64], A[32:64], scope='warp')
         T.cuda.tile.apply(
@@ -403,9 +403,9 @@ def test_roundtrip_unary_different_dst_src():
         B: T.Tensor((128,), "float32", scope="global"),
     ) -> None:
         T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=1 * 32))
-        cta_id = T.cuda.block_idx('x')
-        warp_id = T.cuda.warp_id()
-        lane_id = T.cuda.lane_id()
+        cta_id = T.cuda.block_idx('x')  # noqa: F841 - The parser emits this named IR binding.
+        warp_id = T.cuda.warp_id()  # noqa: F841 - The parser emits this named IR binding.
+        lane_id = T.cuda.lane_id()  # noqa: F841 - The parser emits this named IR binding.
         T.cuda.tile.apply(T.ptx['ex2.approx.ftz.f32'], A[0:32], B[0:32], scope='warp')
         # fmt: on
 
@@ -774,9 +774,9 @@ def test_roundtrip_serial_unroll_false():
     def test(A: T.Tensor((128,), 'float32', scope='global')) -> None:
 
         T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=1 * 32))
-        cta_id = T.cuda.block_idx('x')
-        warp_id = T.cuda.warp_id()
-        lane_id = T.cuda.lane_id()
+        cta_id = T.cuda.block_idx('x')  # noqa: F841 - The parser emits this named IR binding.
+        warp_id = T.cuda.warp_id()  # noqa: F841 - The parser emits this named IR binding.
+        lane_id = T.cuda.lane_id()  # noqa: F841 - The parser emits this named IR binding.
         for _ in T.serial(10, unroll=False):
             T.cuda.tile.apply(T.ptx['mov.b32'], A[0:32], T.float32(0), scope='cta')
         # fmt: on
@@ -796,9 +796,9 @@ def test_roundtrip_serial_unroll_true():
     def test(A: T.Tensor((128,), 'float32', scope='global')) -> None:
 
         T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=1 * 32))
-        cta_id = T.cuda.block_idx('x')
-        warp_id = T.cuda.warp_id()
-        lane_id = T.cuda.lane_id()
+        cta_id = T.cuda.block_idx('x')  # noqa: F841 - The parser emits this named IR binding.
+        warp_id = T.cuda.warp_id()  # noqa: F841 - The parser emits this named IR binding.
+        lane_id = T.cuda.lane_id()  # noqa: F841 - The parser emits this named IR binding.
         for _ in T.serial(10, unroll=True):
             T.cuda.tile.apply(T.ptx['mov.b32'], A[0:32], T.float32(0), scope='cta')
         # fmt: on
@@ -818,9 +818,9 @@ def test_roundtrip_serial_unroll_count():
     def test(A: T.Tensor((128,), 'float32', scope='global')) -> None:
 
         T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=1 * 32))
-        cta_id = T.cuda.block_idx('x')
-        warp_id = T.cuda.warp_id()
-        lane_id = T.cuda.lane_id()
+        cta_id = T.cuda.block_idx('x')  # noqa: F841 - The parser emits this named IR binding.
+        warp_id = T.cuda.warp_id()  # noqa: F841 - The parser emits this named IR binding.
+        lane_id = T.cuda.lane_id()  # noqa: F841 - The parser emits this named IR binding.
         for _ in T.serial(10, unroll=2):
             T.cuda.tile.apply(T.ptx['mov.b32'], A[0:32], T.float32(0), scope='cta')
         # fmt: on
@@ -840,9 +840,9 @@ def test_roundtrip_serial_unroll_false_with_other_annotations():
     def test(A: T.Tensor((128,), 'float32', scope='global')) -> None:
 
         T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=1 * 32))
-        cta_id = T.cuda.block_idx('x')
-        warp_id = T.cuda.warp_id()
-        lane_id = T.cuda.lane_id()
+        cta_id = T.cuda.block_idx('x')  # noqa: F841 - The parser emits this named IR binding.
+        warp_id = T.cuda.warp_id()  # noqa: F841 - The parser emits this named IR binding.
+        lane_id = T.cuda.lane_id()  # noqa: F841 - The parser emits this named IR binding.
         for _ in T.serial(10, annotations={"tirx.disable_unroll": True, "custom": 42}):
             T.cuda.tile.apply(T.ptx['mov.b32'], A[0:32], T.float32(0), scope='cta')
         # fmt: on
@@ -1275,7 +1275,7 @@ def bool_argument():
 def bool_variable_annotation():
     @T.function
     def func() -> None:
-        a: T.let[T.bool] = T.call_extern("dummy", ty="bool")
+        a: T.let[T.bool] = T.call_extern("dummy", ty="bool")  # noqa: F841 - The parser emits this named IR binding.
         T.evaluate(0)
 
     return func
@@ -1340,8 +1340,8 @@ def elif_chain_with_else():
 def bind_var():
     @T.function
     def func():
-        x = 0
-        y = 0
+        x = 0  # noqa: F841 - The parser emits this named IR binding.
+        y = 0  # noqa: F841 - The parser emits this named IR binding.
         T.evaluate(0)
         T.evaluate(0)
 

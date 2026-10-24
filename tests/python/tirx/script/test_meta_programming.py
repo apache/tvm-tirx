@@ -33,14 +33,14 @@ def test_meta_class_constructor_rejects_unowned_resource():
     @T.meta_class
     class Bad:
         def __init__(self):
-            tmp = T.bind_(T.alloc_tensor(ty_args=[T.Tensor((1,), "int32", scope="local")]))
+            T.bind_(T.alloc_tensor(ty_args=[T.Tensor((1,), "int32", scope="local")]))
 
     with pytest.raises(ValueError):
 
         @T.function
         def test():
             T.device_entry()
-            bad = Bad()
+            bad = Bad()  # noqa: F841 - The parser emits this named IR binding.
 
 
 def test_meta_class_multiple_instances_preserve_owned_resources():
@@ -533,11 +533,11 @@ def test_var_capturing_order():
 
     @T.function
     def test_case():
-        k: T.let[T.int32] = b
+        k: T.let[T.int32] = b  # noqa: F841 - The parser emits this named IR binding.
 
     @T.function
     def func_ref():
-        k: T.let[T.int32] = 2
+        k: T.let[T.int32] = 2  # noqa: F841 - The parser emits this named IR binding.
         T.evaluate(0)
 
     tvm_tirx.ir.assert_structural_equal(

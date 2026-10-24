@@ -14,11 +14,10 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-# ruff: noqa: F401
+
 
 import tvm_tirx
 import tvm_tirx.testing
-from tvm_tirx import ir, tirx
 from tvm_tirx.script import ir as I
 from tvm_tirx.script import tirx as T
 
@@ -404,7 +403,7 @@ def test_shared_shape_var_in_tensor_params_and_alloc_tensor():
     class Before:
         @T.function(private=True)
         def main(A: T.Tensor((n,), "float32"), B: T.Tensor((n,), "float32")):
-            C = T.alloc_tensor(ty_args=[T.Tensor((n,), "float32")])
+            C = T.alloc_tensor(ty_args=[T.Tensor((n,), "float32")])  # noqa: F841 - The parser emits this named IR binding.
             T.evaluate(1)
 
     After = tvm_tirx.tirx.transform.ConvertSSA()(Before)
