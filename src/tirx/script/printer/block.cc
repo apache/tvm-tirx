@@ -29,14 +29,14 @@
 namespace tvm {
 namespace script {
 namespace printer {
-namespace details {
+namespace detail {
 
 namespace {
 
 ffi::Optional<ExprDoc> ThreadScopeDocTranslate(DocTranslatorObj*, ffi::AnyView input,
                                                const ffi::Object*) {
   const auto* scope =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const tirx::ThreadScopeObj>(input);
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const tirx::ThreadScopeObj>(input);
   return NamespaceDoc("tirx")
       ->Attr("ThreadScope")
       ->Call({LiteralDoc::Str(scope->name(), std::nullopt)});
@@ -50,7 +50,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
 
 }  // namespace
 
-}  // namespace details
+}  // namespace detail
 }  // namespace printer
 }  // namespace script
 }  // namespace tvm

@@ -44,8 +44,7 @@ namespace {
 template <typename TNode>
 TVM_FFI_INLINE ffi::Expected<ffi::Optional<ffi::VisitInterrupt>> ConstantVisit(
     ffi::StructuralVisitorObj* visitor, ffi::AnyView value) noexcept {
-  const TNode* self =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const TNode>(value);
+  const TNode* self = ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const TNode>(value);
   TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(visitor->VisitExpected(self->ty));
   return std::nullopt;
 }
@@ -53,7 +52,7 @@ TVM_FFI_INLINE ffi::Expected<ffi::Optional<ffi::VisitInterrupt>> ConstantVisit(
 TVM_FFI_INLINE ffi::Expected<ffi::Optional<ffi::VisitInterrupt>> DataTypeImmVisit(
     ffi::StructuralVisitorObj* visitor, ffi::AnyView value) noexcept {
   const DataTypeImmObj* self =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const DataTypeImmObj>(value);
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const DataTypeImmObj>(value);
   TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(visitor->VisitExpected(self->ty));
   TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(visitor->VisitExpected(self->value));
   return std::nullopt;
@@ -62,7 +61,7 @@ TVM_FFI_INLINE ffi::Expected<ffi::Optional<ffi::VisitInterrupt>> DataTypeImmVisi
 TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> DataTypeImmMutate(
     ffi::StructuralMutatorObj* mutator, ffi::AnyView value) noexcept {
   const DataTypeImmObj* self =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const DataTypeImmObj>(value);
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const DataTypeImmObj>(value);
   TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<Type>, mapped_ty,
                                     mutator->MutateExpected(self->ty));
   TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<DLDataType>, mapped_value,
@@ -79,7 +78,7 @@ TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> DataTypeImmMutate(
 TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> DataTypeImmMaybeInplaceMutate(
     ffi::StructuralMutatorObj* mutator, ffi::AnyView value) noexcept {
   DataTypeImmObj* self = const_cast<DataTypeImmObj*>(
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const DataTypeImmObj>(value));
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const DataTypeImmObj>(value));
   TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<Type>, mapped_ty,
                                     mutator->MutateExpected(self->ty, ffi::InplaceMode::kAllow));
   TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<DLDataType>, mapped_value,
@@ -92,8 +91,7 @@ TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> DataTypeImmMaybeInplace
 template <typename TNode>
 TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> ConstantMutate(
     ffi::StructuralMutatorObj* mutator, ffi::AnyView value) noexcept {
-  const TNode* self =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const TNode>(value);
+  const TNode* self = ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const TNode>(value);
   TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<Type>, mapped_ty,
                                     mutator->MutateExpected(self->ty));
   if (mapped_ty.UnchangedOrSameAs(self->ty)) return ffi::Unchanged();
@@ -106,7 +104,7 @@ template <typename TNode>
 TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> ConstantMaybeInplaceMutate(
     ffi::StructuralMutatorObj* mutator, ffi::AnyView value) noexcept {
   TNode* self = const_cast<TNode*>(
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const TNode>(value));
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const TNode>(value));
   TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<Type>, mapped_ty,
                                     mutator->MutateExpected(self->ty, ffi::InplaceMode::kAllow));
   if (!mapped_ty.UnchangedOrSameAs(self->ty)) {
@@ -118,7 +116,7 @@ TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> ConstantMaybeInplaceMut
 TVM_FFI_INLINE ffi::Expected<ffi::Optional<ffi::VisitInterrupt>> OpaqueExprVisit(
     ffi::StructuralVisitorObj* visitor, ffi::AnyView value) noexcept {
   const OpaqueExprObj* self =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const OpaqueExprObj>(value);
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const OpaqueExprObj>(value);
   TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(visitor->VisitExpected(self->ty));
   // Any None is Expected<Optional<VisitInterrupt>>'s successful empty value.
   return std::nullopt;
@@ -127,7 +125,7 @@ TVM_FFI_INLINE ffi::Expected<ffi::Optional<ffi::VisitInterrupt>> OpaqueExprVisit
 TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> OpaqueExprMutate(
     ffi::StructuralMutatorObj* mutator, ffi::AnyView value) noexcept {
   const OpaqueExprObj* self =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const OpaqueExprObj>(value);
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const OpaqueExprObj>(value);
   TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<Type>, mapped_ty_u,
                                     mutator->MutateExpected(self->ty));
   if (mapped_ty_u.UnchangedOrSameAs(self->ty)) {
@@ -141,7 +139,7 @@ TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> OpaqueExprMutate(
 TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> OpaqueExprMaybeInplaceMutate(
     ffi::StructuralMutatorObj* mutator, ffi::AnyView value) noexcept {
   OpaqueExprObj* self = const_cast<OpaqueExprObj*>(
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const OpaqueExprObj>(value));
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const OpaqueExprObj>(value));
   TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<Type>, mapped_ty_u,
                                     mutator->MutateExpected(self->ty, ffi::InplaceMode::kAllow));
   if (mapped_ty_u.UnchangedOrSameAs(self->ty)) {
@@ -154,7 +152,7 @@ TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> OpaqueExprMaybeInplaceM
 TVM_FFI_INLINE ffi::Expected<ffi::Optional<ffi::VisitInterrupt>> TensorLoadVisit(
     ffi::StructuralVisitorObj* visitor, ffi::AnyView value) noexcept {
   const TensorLoadObj* self =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const TensorLoadObj>(value);
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const TensorLoadObj>(value);
   TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(visitor->VisitExpected(self->ty));
   TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(visitor->VisitExpected(self->source));
   TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(visitor->VisitExpected(self->indices));
@@ -164,7 +162,7 @@ TVM_FFI_INLINE ffi::Expected<ffi::Optional<ffi::VisitInterrupt>> TensorLoadVisit
 TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> TensorLoadMutate(
     ffi::StructuralMutatorObj* mutator, ffi::AnyView value) noexcept {
   const TensorLoadObj* self =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const TensorLoadObj>(value);
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const TensorLoadObj>(value);
   TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<Type>, mapped_ty_u,
                                     mutator->MutateExpected(self->ty));
   Type result_ty = std::move(mapped_ty_u).ValueOrUnchanged(self->ty);
@@ -189,7 +187,7 @@ TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> TensorLoadMutate(
 TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> TensorLoadMaybeInplaceMutate(
     ffi::StructuralMutatorObj* mutator, ffi::AnyView value) noexcept {
   TensorLoadObj* self = const_cast<TensorLoadObj*>(
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const TensorLoadObj>(value));
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const TensorLoadObj>(value));
   TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<Type>, mapped_ty_u,
                                     mutator->MutateExpected(self->ty, ffi::InplaceMode::kAllow));
   Type result_ty = std::move(mapped_ty_u).ValueOrUnchanged(self->ty);
@@ -215,7 +213,7 @@ TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> TensorLoadMaybeInplaceM
 TVM_FFI_INLINE ffi::Expected<ffi::Optional<ffi::VisitInterrupt>> TensorRegionVisit(
     ffi::StructuralVisitorObj* visitor, ffi::AnyView value) noexcept {
   const TensorRegionObj* self =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const TensorRegionObj>(value);
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const TensorRegionObj>(value);
   TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(visitor->VisitExpected(self->ty));
   TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(visitor->VisitExpected(self->source));
   TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(visitor->VisitExpected(self->region));
@@ -225,7 +223,7 @@ TVM_FFI_INLINE ffi::Expected<ffi::Optional<ffi::VisitInterrupt>> TensorRegionVis
 TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> TensorRegionMutate(
     ffi::StructuralMutatorObj* mutator, ffi::AnyView value) noexcept {
   const TensorRegionObj* self =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const TensorRegionObj>(value);
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const TensorRegionObj>(value);
   TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<Type>, mapped_ty_u,
                                     mutator->MutateExpected(self->ty));
   TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<Expr>, mapped_source_u,
@@ -246,7 +244,7 @@ TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> TensorRegionMutate(
 TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> TensorRegionMaybeInplaceMutate(
     ffi::StructuralMutatorObj* mutator, ffi::AnyView value) noexcept {
   TensorRegionObj* self = const_cast<TensorRegionObj*>(
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const TensorRegionObj>(value));
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const TensorRegionObj>(value));
   TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<Type>, mapped_ty_u,
                                     mutator->MutateExpected(self->ty, ffi::InplaceMode::kAllow));
   TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(
@@ -268,7 +266,7 @@ TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> TensorRegionMaybeInplac
 TVM_FFI_INLINE ffi::Expected<ffi::Optional<ffi::VisitInterrupt>> TupleVisit(
     ffi::StructuralVisitorObj* visitor, ffi::AnyView value) noexcept {
   const TupleObj* self =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const TupleObj>(value);
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const TupleObj>(value);
   TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(visitor->VisitExpected(self->ty));
   TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(visitor->VisitExpected(self->fields));
   return std::nullopt;
@@ -277,7 +275,7 @@ TVM_FFI_INLINE ffi::Expected<ffi::Optional<ffi::VisitInterrupt>> TupleVisit(
 TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> TupleMutate(
     ffi::StructuralMutatorObj* mutator, ffi::AnyView value) noexcept {
   const TupleObj* self =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const TupleObj>(value);
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const TupleObj>(value);
   TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<Type>, mapped_ty_u,
                                     mutator->MutateExpected(self->ty));
   TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<ffi::Array<Expr>>, mapped_fields_u,
@@ -294,7 +292,7 @@ TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> TupleMutate(
 TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> TupleMaybeInplaceMutate(
     ffi::StructuralMutatorObj* mutator, ffi::AnyView value) noexcept {
   TupleObj* self = const_cast<TupleObj*>(
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const TupleObj>(value));
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const TupleObj>(value));
   TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<Type>, mapped_ty_u,
                                     mutator->MutateExpected(self->ty, ffi::InplaceMode::kAllow));
   TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(
@@ -312,7 +310,7 @@ TVM_FFI_INLINE ffi::Expected<ffi::Optional<ffi::VisitInterrupt>> TupleGetItemVis
     ffi::StructuralVisitorObj* visitor, ffi::AnyView value) noexcept {
   // skips: index
   const TupleGetItemObj* self =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const TupleGetItemObj>(value);
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const TupleGetItemObj>(value);
   TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(visitor->VisitExpected(self->ty));
   TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(visitor->VisitExpected(self->tuple));
   return std::nullopt;
@@ -322,7 +320,7 @@ TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> TupleGetItemMutate(
     ffi::StructuralMutatorObj* mutator, ffi::AnyView value) noexcept {
   // skips: index
   const TupleGetItemObj* self =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const TupleGetItemObj>(value);
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const TupleGetItemObj>(value);
   TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<Type>, mapped_ty_u,
                                     mutator->MutateExpected(self->ty));
   TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<Expr>, mapped_tuple_u,
@@ -340,7 +338,7 @@ TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> TupleGetItemMaybeInplac
     ffi::StructuralMutatorObj* mutator, ffi::AnyView value) noexcept {
   // skips: index
   TupleGetItemObj* self = const_cast<TupleGetItemObj*>(
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const TupleGetItemObj>(value));
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const TupleGetItemObj>(value));
   TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<Type>, mapped_ty_u,
                                     mutator->MutateExpected(self->ty, ffi::InplaceMode::kAllow));
   TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<Expr>, mapped_tuple_u,
@@ -392,7 +390,7 @@ TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> FloatImmMaybeInplaceMut
 TVM_FFI_INLINE ffi::Expected<ffi::Optional<ffi::VisitInterrupt>> RangeVisit(
     ffi::StructuralVisitorObj* visitor, ffi::AnyView value) noexcept {
   const RangeObj* self =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const RangeObj>(value);
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const RangeObj>(value);
   TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(visitor->VisitExpected(self->begin));
   TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(visitor->VisitExpected(self->extent));
   return std::nullopt;
@@ -401,7 +399,7 @@ TVM_FFI_INLINE ffi::Expected<ffi::Optional<ffi::VisitInterrupt>> RangeVisit(
 TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> RangeMutate(
     ffi::StructuralMutatorObj* mutator, ffi::AnyView value) noexcept {
   const RangeObj* self =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const RangeObj>(value);
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const RangeObj>(value);
   TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<PrimExpr>, mapped_begin_u,
                                     mutator->MutateExpected(self->begin));
   TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<PrimExpr>, mapped_extent_u,
@@ -419,7 +417,7 @@ TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> RangeMutate(
 TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> RangeMaybeInplaceMutate(
     ffi::StructuralMutatorObj* mutator, ffi::AnyView value) noexcept {
   RangeObj* self = const_cast<RangeObj*>(
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const RangeObj>(value));
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const RangeObj>(value));
   TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<PrimExpr>, mapped_begin_u,
                                     mutator->MutateExpected(self->begin, ffi::InplaceMode::kAllow));
   TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(
@@ -440,7 +438,7 @@ TVM_FFI_INLINE ffi::Expected<ffi::Optional<ffi::VisitInterrupt>> VarVisit(
     ffi::StructuralVisitorObj* visitor, ffi::AnyView value) noexcept {
   // skips: name
   const VarObj* self =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const VarObj>(value);
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const VarObj>(value);
   // A PrimType carries only a dtype, so it has nothing to visit.  Broad callbacks do not see this
   // skipped field; dynamically typed Vars still descend through the Type value.
   if (!self->ty.as<PrimTypeObj>()) {
@@ -460,10 +458,10 @@ TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> VarMutate(
     ffi::StructuralMutatorObj* mutator, ffi::AnyView value) noexcept {
   // skips: name
   const VarObj* self =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const VarObj>(value);
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const VarObj>(value);
   ffi::Expected<ffi::Any> remap_result = mutator->VarRemapGetExpected(value);
   TVM_FFI_S_MUTATE_MAYBE_EARLY_RETURN(remap_result);
-  if (ffi::details::ExpectedUnsafe::GetData(remap_result).type_index() !=
+  if (ffi::detail::ExpectedUnsafe::GetData(remap_result).type_index() !=
       ffi::TypeIndex::kTVMFFINone) {
     return std::move(remap_result);
   }
@@ -503,10 +501,10 @@ TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> VarMaybeInplaceMutate(
     ffi::StructuralMutatorObj* mutator, ffi::AnyView value) noexcept {
   // skips: name
   VarObj* self = const_cast<VarObj*>(
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const VarObj>(value));
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const VarObj>(value));
   ffi::Expected<ffi::Any> remap_result = mutator->VarRemapGetExpected(value);
   TVM_FFI_S_MUTATE_MAYBE_EARLY_RETURN(remap_result);
-  if (ffi::details::ExpectedUnsafe::GetData(remap_result).type_index() !=
+  if (ffi::detail::ExpectedUnsafe::GetData(remap_result).type_index() !=
       ffi::TypeIndex::kTVMFFINone) {
     return std::move(remap_result);
   }
@@ -565,7 +563,7 @@ TVM_FFI_INLINE ffi::Expected<ffi::Optional<ffi::VisitInterrupt>> CallVisit(
     ffi::StructuralVisitorObj* visitor, ffi::AnyView value) noexcept {
   // skips: attrs, constant metadata left untouched like the classic Expr functors.
   const CallObj* self =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const CallObj>(value);
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const CallObj>(value);
   // A PrimType carries only a dtype, so it has nothing to visit.  Broad callbacks do not see this
   // skipped field; dynamically typed Call results still descend through the Type value.
   if (!self->ty.as<PrimTypeObj>()) {
@@ -589,7 +587,7 @@ TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> CallMutate(
     ffi::StructuralMutatorObj* mutator, ffi::AnyView value) noexcept {
   // skips: attrs, constant metadata left untouched like the classic Expr functors.
   const CallObj* self =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const CallObj>(value);
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const CallObj>(value);
   // A PrimType carries only a dtype, so it has nothing to substitute.  Broad callbacks do not see
   // this skipped field; dynamically typed Call results still descend through the Type value.
   ffi::UnchangedOr<Type> mapped_ty_u = ffi::Unchanged();
@@ -633,7 +631,7 @@ TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> CallMaybeInplaceMutate(
     ffi::StructuralMutatorObj* mutator, ffi::AnyView value) noexcept {
   // skips: attrs, constant metadata left untouched like the classic Expr functors.
   CallObj* self = const_cast<CallObj*>(
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const CallObj>(value));
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const CallObj>(value));
   // A PrimType carries only a dtype, so it has nothing to substitute.  Broad callbacks do not see
   // this skipped field; dynamically typed Call results still descend through the Type value.
   ffi::UnchangedOr<Type> mapped_ty_u = ffi::Unchanged();

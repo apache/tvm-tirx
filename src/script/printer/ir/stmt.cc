@@ -25,7 +25,7 @@
 namespace tvm {
 namespace script {
 namespace printer {
-namespace details {
+namespace detail {
 
 ffi::Array<StmtDoc> Body(const Stmt& stmt, DocTranslatorObj* d) {
   return ToStmtDocArray(d->WithDocScope([&]() { d->Translate(stmt); }));
@@ -36,7 +36,7 @@ namespace {
 ffi::Optional<ExprDoc> BindDocTranslate(DocTranslatorObj* d, ffi::AnyView input,
                                         const ffi::Object* destination) {
   const auto* stmt =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const BindObj>(input);
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const BindObj>(input);
   TVM_FFI_CHECK(destination == nullptr, TypeError)
       << "printer statement-only node cannot fulfill a destination";
   d->VarGetOrAllocId(stmt->var, false);
@@ -67,7 +67,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
 ffi::Optional<ExprDoc> ReturnDocTranslate(DocTranslatorObj* d, ffi::AnyView input,
                                           const ffi::Object* destination) {
   const auto* stmt =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const ReturnObj>(input);
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const ReturnObj>(input);
   TVM_FFI_CHECK(destination == nullptr, TypeError)
       << "printer statement-only node cannot fulfill a destination";
   d->Emit(ReturnDoc(d->Translate(stmt->value).value()), ffi::GetRef<ffi::ObjectRef>(stmt));
@@ -83,7 +83,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
 ffi::Optional<ExprDoc> AssertStmtDocTranslate(DocTranslatorObj* d, ffi::AnyView input,
                                               const ffi::Object* destination) {
   const auto* stmt =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const AssertStmtObj>(input);
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const AssertStmtObj>(input);
   TVM_FFI_CHECK(destination == nullptr, TypeError)
       << "printer statement-only node cannot fulfill a destination";
   ffi::Array<ExprDoc> parts;
@@ -106,7 +106,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
 ffi::Optional<ExprDoc> WhileDocTranslate(DocTranslatorObj* d, ffi::AnyView input,
                                          const ffi::Object* destination) {
   const auto* stmt =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const WhileObj>(input);
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const WhileObj>(input);
   TVM_FFI_CHECK(destination == nullptr, TypeError)
       << "printer statement-only node cannot fulfill a destination";
   d->Emit(WhileDoc(d->Translate(stmt->condition).value(), Body(stmt->body, d)),
@@ -122,7 +122,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
 ffi::Optional<ExprDoc> BreakDocTranslate(DocTranslatorObj* d, ffi::AnyView input,
                                          const ffi::Object* destination) {
   const auto* stmt =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const BreakObj>(input);
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const BreakObj>(input);
   TVM_FFI_CHECK(destination == nullptr, TypeError)
       << "printer statement-only node cannot fulfill a destination";
   d->Emit(BreakDoc(), ffi::GetRef<ffi::ObjectRef>(stmt));
@@ -137,7 +137,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
 ffi::Optional<ExprDoc> ContinueDocTranslate(DocTranslatorObj* d, ffi::AnyView input,
                                             const ffi::Object* destination) {
   const auto* stmt =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const ContinueObj>(input);
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const ContinueObj>(input);
   TVM_FFI_CHECK(destination == nullptr, TypeError)
       << "printer statement-only node cannot fulfill a destination";
   d->Emit(ContinueDoc(), ffi::GetRef<ffi::ObjectRef>(stmt));
@@ -152,7 +152,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
 
 ffi::Optional<ExprDoc> IfDocTranslate(DocTranslatorObj* d, ffi::AnyView input,
                                       const ffi::Object* destination) {
-  const auto* stmt = ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const IfObj>(input);
+  const auto* stmt = ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const IfObj>(input);
   TVM_FFI_CHECK(destination == nullptr, TypeError)
       << "printer statement-only node cannot fulfill a destination";
   ExprDoc condition = d->Translate(stmt->condition).value();
@@ -169,7 +169,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
 }
 
 }  // namespace
-}  // namespace details
+}  // namespace detail
 }  // namespace printer
 }  // namespace script
 }  // namespace tvm

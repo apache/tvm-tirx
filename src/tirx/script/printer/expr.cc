@@ -42,14 +42,14 @@
 namespace tvm {
 namespace script {
 namespace printer {
-namespace details {
+namespace detail {
 
 namespace {
 
 ffi::Optional<ExprDoc> IndexMapDocTranslate(DocTranslatorObj* d, ffi::AnyView input,
                                             const ffi::Object*) {
   const auto* map =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const tirx::IndexMapObj>(input);
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const tirx::IndexMapObj>(input);
   auto translate_lambda = [&](const tirx::IndexMapObj* node) -> ExprDoc {
     ffi::Array<IdDoc> vars;
     for (const PrimVar& var : node->initial_indices) vars.push_back(VarDoc(d, var));
@@ -77,7 +77,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
 ffi::Optional<ExprDoc> LLVMIntrinsicDocTranslate(DocTranslatorObj* d, ffi::AnyView input,
                                                  const ffi::Object*) {
   const auto* call =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const CallObj>(input);
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const CallObj>(input);
   if (call->attrs.has_value() || !call->ty_args.empty() || call->args.empty() ||
       !call->ty.as<PrimType>()) {
     return RawCallDocTranslate(d, call);
@@ -167,7 +167,7 @@ namespace {
 ffi::Optional<ExprDoc> TensorDataPtrDocTranslate(DocTranslatorObj* d, ffi::AnyView input,
                                                  const ffi::Object*) {
   const auto* call =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const CallObj>(input);
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const CallObj>(input);
   if (call->attrs.has_value() || !call->ty_args.empty() || call->args.size() != 1)
     return RawCallDocTranslate(d, call);
   return d->Translate(call->args[0]).value()->Attr("data");
@@ -178,7 +178,7 @@ ffi::Optional<ExprDoc> TensorDataPtrDocTranslate(DocTranslatorObj* d, ffi::AnyVi
 ffi::Optional<ExprDoc> PTXCallDocTranslate(DocTranslatorObj* d, ffi::AnyView input,
                                            const ffi::Object*) {
   const auto* call =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const CallObj>(input);
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const CallObj>(input);
   if (IsPTXAddressCall(call) || call->attrs.has_value() || !call->ty_args.empty() ||
       !ffi::StructuralEqual()(call->ty, PrimType::Void()))
     return RawCallDocTranslate(d, call);
@@ -215,7 +215,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
 }
 
 }  // namespace
-}  // namespace details
+}  // namespace detail
 }  // namespace printer
 }  // namespace script
 

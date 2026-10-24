@@ -426,11 +426,11 @@ ffi::String RenderScript(const ffi::ObjectRef& obj, const PrinterConfig& config)
   if (config->path_to_underline.empty() && config->obj_to_underline.empty() &&
       config->path_to_annotate.empty() && config->obj_to_annotate.empty() &&
       !config->render_invisible_path_info) {
-    return details::RenderPythonScript(doc, config, header, {}, {});
+    return detail::RenderPythonScript(doc, config, header, {}, {});
   }
   MapDocPaths paths(obj, config);
   auto [underline_paths, annotations] = paths.Map(doc, origins);
-  return details::RenderPythonScript(doc, config, header, underline_paths, annotations);
+  return detail::RenderPythonScript(doc, config, header, underline_paths, annotations);
 }
 
 }  // namespace

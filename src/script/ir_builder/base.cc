@@ -159,7 +159,7 @@ Location IRBuilderObj::ResolveLoc(Location location) const {
 ffi::ObjectRef IRBuilderObj::AttachLoc(ffi::ObjectRef obj, Location loc) const {
   loc = ComposeLoc(ResolveLoc(), loc);
   if (!loc.as<UnknownLocObj>() && obj.defined()) {
-    if (Location* target = details::LocationAccessor::vtable()(obj)) {
+    if (Location* target = detail::LocationAccessor::vtable()(obj)) {
       *target = ComposeLoc(loc, *target);
     }
   }
@@ -201,7 +201,7 @@ bool IRBuilder::IsInScope() {
   return !stack->empty();
 }
 
-namespace details {
+namespace detail {
 
 LocationAccessor::FType& LocationAccessor::vtable() {
   static FType inst;
@@ -230,7 +230,7 @@ void Namer::Name(ffi::ObjectRef node, ffi::String name) {
   f(node, name);
 }
 
-}  // namespace details
+}  // namespace detail
 
 TVM_FFI_STATIC_INIT_BLOCK() {
   namespace refl = tvm::ffi::reflection;

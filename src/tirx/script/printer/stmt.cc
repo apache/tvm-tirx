@@ -37,14 +37,14 @@
 namespace tvm {
 namespace script {
 namespace printer {
-namespace details {
+namespace detail {
 
 namespace {
 
 ffi::Optional<ExprDoc> EvaluateDocTranslate(DocTranslatorObj* d, ffi::AnyView input,
                                             const ffi::Object* destination) {
   const auto* stmt =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const EvaluateObj>(input);
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const EvaluateObj>(input);
   TVM_FFI_CHECK(destination == nullptr, TypeError)
       << "printer statement-only node cannot fulfill a destination";
   ExprDoc value = d->Translate(stmt->value).value();
@@ -67,7 +67,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
 ffi::Optional<ExprDoc> SeqStmtDocTranslate(DocTranslatorObj* d, ffi::AnyView input,
                                            const ffi::Object* destination) {
   const auto* stmt =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const SeqStmtObj>(input);
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const SeqStmtObj>(input);
   TVM_FFI_CHECK(destination == nullptr, TypeError)
       << "printer statement-only node cannot fulfill a destination";
   for (const Stmt& child : stmt->seq) {
@@ -85,7 +85,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
 ffi::Optional<ExprDoc> RegionStmtDocTranslate(DocTranslatorObj* d, ffi::AnyView input,
                                               const ffi::Object* destination) {
   const auto* stmt =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const RegionStmtObj>(input);
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const RegionStmtObj>(input);
   TVM_FFI_CHECK(destination == nullptr, TypeError)
       << "printer statement-only node cannot fulfill a destination";
   TVM_FFI_CHECK(stmt->result_vars.empty(), ValueError)
@@ -127,7 +127,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
 
 }  // namespace
 
-}  // namespace details
+}  // namespace detail
 }  // namespace printer
 }  // namespace script
 }  // namespace tvm

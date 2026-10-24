@@ -34,14 +34,14 @@
 namespace tvm {
 namespace script {
 namespace printer {
-namespace details {
+namespace detail {
 
 namespace {
 
 ffi::Optional<ExprDoc> TensorTypeDocTranslate(DocTranslatorObj* d, ffi::AnyView input,
                                               const ffi::Object*) {
   const auto* tensor =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const tirx::TensorTypeObj>(input);
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const tirx::TensorTypeObj>(input);
   // The tensor type constructor normalizes these fields.
   // Keep the explicit type constructor when that normalization would change the IR.
   if (tensor->data_alignment <= 0) {
@@ -102,7 +102,7 @@ namespace {
 ffi::Optional<ExprDoc> TensorStoreDocTranslate(DocTranslatorObj* d, ffi::AnyView input,
                                                const ffi::Object* destination) {
   const auto* store =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const TensorStoreObj>(input);
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const TensorStoreObj>(input);
   TVM_FFI_CHECK(destination == nullptr, TypeError)
       << "printer statement-only node cannot fulfill a destination";
   ExprDoc tensor = d->Translate(store->dest).value();
@@ -121,7 +121,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
 ffi::Optional<ExprDoc> IterDocTranslate(DocTranslatorObj* d, ffi::AnyView input,
                                         const ffi::Object*) {
   const auto* iter =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const tirx::IterObj>(input);
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const tirx::IterObj>(input);
   ExprDoc axis = LiteralDoc::Str(iter->axis.name(), std::nullopt);
   d->RecordOrigin(axis, iter->axis);
   return NamespaceDoc("tirx")->Attr("Iter")->Call(
@@ -137,7 +137,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
 ffi::Optional<ExprDoc> TileLayoutDocTranslate(DocTranslatorObj* d, ffi::AnyView input,
                                               const ffi::Object*) {
   const auto* layout =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const tirx::TileLayoutObj>(input);
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const tirx::TileLayoutObj>(input);
   auto iters = [&](const ffi::Array<tirx::Iter>& source) {
     ffi::Array<ExprDoc> docs;
     for (const tirx::Iter& iter : source) {
@@ -174,7 +174,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
 ffi::Optional<ExprDoc> ComposeLayoutDocTranslate(DocTranslatorObj* d, ffi::AnyView input,
                                                  const ffi::Object*) {
   const auto* layout =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const tirx::ComposeLayoutObj>(
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const tirx::ComposeLayoutObj>(
           input);
   ffi::Array<ffi::String> keys;
   ffi::Array<ExprDoc> values;
@@ -200,7 +200,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
 
 }  // namespace
 
-}  // namespace details
+}  // namespace detail
 }  // namespace printer
 }  // namespace script
 }  // namespace tvm

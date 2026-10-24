@@ -31,7 +31,7 @@
 namespace tvm {
 namespace script {
 namespace printer {
-namespace details {
+namespace detail {
 
 void EmitVarDefinition(DocTranslatorObj* d, const Var& var, ExprDoc rhs) {
   // Only this type's referenced Vars must precede its declaration.
@@ -55,7 +55,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
 ffi::Optional<ExprDoc> LambdaExprDocTranslate(DocTranslatorObj* d, ffi::AnyView input,
                                               const ffi::Object*) {
   const auto* lambda =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const LambdaExprObj>(input);
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const LambdaExprObj>(input);
   return d->WithVarScope([&]() {
     ffi::Array<IdDoc> args;
     ffi::Array<ExprDoc> types;
@@ -99,7 +99,7 @@ namespace {
 ffi::Optional<ExprDoc> TensorRegionDocTranslate(DocTranslatorObj* d, ffi::AnyView input,
                                                 const ffi::Object*) {
   const auto* region =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const TensorRegionObj>(input);
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const TensorRegionObj>(input);
   bool indexable = region->ty.as<TensorRegionTypeObj>() && !region->region.empty();
   using Slice =
       ffi::Tuple<ffi::Optional<PrimExpr>, ffi::Optional<PrimExpr>, ffi::Optional<PrimExpr>>;
@@ -178,7 +178,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
 ffi::Optional<ExprDoc> TensorLoadDocTranslate(DocTranslatorObj* d, ffi::AnyView input,
                                               const ffi::Object*) {
   const auto* load =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const TensorLoadObj>(input);
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const TensorLoadObj>(input);
   return IndexDoc(d->Translate(load->source).value(), TensorIndices(d, load->indices));
 }
 
@@ -191,7 +191,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
 ffi::Optional<ExprDoc> TupleDocTranslate(DocTranslatorObj* d, ffi::AnyView input,
                                          const ffi::Object*) {
   const auto* tuple =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const TupleObj>(input);
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const TupleObj>(input);
   ffi::Array<ExprDoc> fields;
   for (const Expr& field : tuple->fields) fields.push_back(d->Translate(field).value());
   return TupleDoc(fields);
@@ -205,7 +205,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
 ffi::Optional<ExprDoc> TupleGetItemDocTranslate(DocTranslatorObj* d, ffi::AnyView input,
                                                 const ffi::Object*) {
   const auto* item =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const TupleGetItemObj>(input);
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const TupleGetItemObj>(input);
   return d->Translate(item->tuple).value()[{LiteralDoc::Int(item->index, std::nullopt)}];
 }
 
@@ -219,7 +219,7 @@ template <typename T, OperationDocObj::Kind kind,
           PrimExpr (*operation)(PrimExpr, PrimExpr, Location)>
 ffi::Optional<ExprDoc> BinaryOpDocTranslate(DocTranslatorObj* d, ffi::AnyView input,
                                             const ffi::Object*) {
-  const auto* node = ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const T>(input);
+  const auto* node = ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const T>(input);
   ExprDoc a = d->Translate(node->a).value();
   ExprDoc b = d->Translate(node->b).value();
   // Replay operator overloads before choosing sugar. Even one constant can
@@ -273,7 +273,7 @@ ExprDoc BinaryHelperDocTranslate(DocTranslatorObj* d, const T* node, const char*
 ffi::Optional<ExprDoc> BitwiseNotDocTranslate(DocTranslatorObj* d, ffi::AnyView input,
                                               const ffi::Object*) {
   const auto* node =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const prim::BitwiseNotObj>(input);
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const prim::BitwiseNotObj>(input);
   return UnaryOpDocTranslate<prim::BitwiseNotObj, OperationDocObj::Kind::kInvert, tvm::bitwise_neg>(
       d, node);
 }
@@ -287,7 +287,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
 ffi::Optional<ExprDoc> NotDocTranslate(DocTranslatorObj* d, ffi::AnyView input,
                                        const ffi::Object*) {
   const auto* node =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const prim::NotObj>(input);
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const prim::NotObj>(input);
   return UnaryOpDocTranslate<prim::NotObj, OperationDocObj::Kind::kNot, tvm::logical_not>(d, node);
 }
 
@@ -300,7 +300,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
 ffi::Optional<ExprDoc> StringImmDocTranslate(DocTranslatorObj* d, ffi::AnyView input,
                                              const ffi::Object*) {
   const auto* imm =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const StringImmObj>(input);
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const StringImmObj>(input);
   ExprDoc literal = LiteralDoc::Str(imm->value, std::nullopt);
   if (d->GetOrCreateExtraState<bool>("ir.explicit_value_type")) {
     return NamespaceDoc("ir")->Attr("StringImm")->Call({literal});
@@ -317,7 +317,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
 ffi::Optional<ExprDoc> CastDocTranslate(DocTranslatorObj* d, ffi::AnyView input,
                                         const ffi::Object*) {
   const auto* cast =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const prim::CastObj>(input);
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const prim::CastObj>(input);
   return NamespaceDoc("tirx")->Attr("Cast")->Call(
       {LiteralDoc::DataType(cast->ty.as_or_throw<PrimType>()->dtype, std::nullopt),
        d->Translate(cast->value).value()});
@@ -332,7 +332,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
 ffi::Optional<ExprDoc> SelectDocTranslate(DocTranslatorObj* d, ffi::AnyView input,
                                           const ffi::Object*) {
   const auto* node =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const prim::SelectObj>(input);
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const prim::SelectObj>(input);
   return NamespaceDoc("tirx")->Attr("Select")->Call({d->Translate(node->condition).value(),
                                                      d->Translate(node->true_value).value(),
                                                      d->Translate(node->false_value).value()});
@@ -347,7 +347,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
 ffi::Optional<ExprDoc> RampDocTranslate(DocTranslatorObj* d, ffi::AnyView input,
                                         const ffi::Object*) {
   const auto* node =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const prim::RampObj>(input);
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const prim::RampObj>(input);
   return NamespaceDoc("tirx")->Attr("Ramp")->Call({d->Translate(node->base).value(),
                                                    d->Translate(node->stride).value(),
                                                    d->Translate(node->lanes).value()});
@@ -362,7 +362,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
 ffi::Optional<ExprDoc> BroadcastDocTranslate(DocTranslatorObj* d, ffi::AnyView input,
                                              const ffi::Object*) {
   const auto* node =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const prim::BroadcastObj>(input);
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const prim::BroadcastObj>(input);
   return NamespaceDoc("tirx")
       ->Attr("Broadcast")
       ->Call({d->Translate(node->value).value(), d->Translate(node->lanes).value()});
@@ -377,7 +377,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
 ffi::Optional<ExprDoc> ShuffleDocTranslate(DocTranslatorObj* d, ffi::AnyView input,
                                            const ffi::Object*) {
   const auto* node =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const prim::ShuffleObj>(input);
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const prim::ShuffleObj>(input);
   ExprDoc vectors = d->Translate(node->vectors).value();
   ExprDoc indices = d->Translate(node->indices).value();
   d->RecordOrigin(vectors, node->vectors);
@@ -394,7 +394,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
 ffi::Optional<ExprDoc> LetDocTranslate(DocTranslatorObj* d, ffi::AnyView input,
                                        const ffi::Object*) {
   const auto* node =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const prim::LetObj>(input);
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const prim::LetObj>(input);
   ExprDoc value = d->Translate(node->value).value();
   IdDoc var = VarDoc(d, node->var);
   if (auto type = node->var->ty.as<PrimType>()) {
@@ -416,7 +416,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
 ffi::Optional<ExprDoc> DivDocTranslate(DocTranslatorObj* d, ffi::AnyView input,
                                        const ffi::Object* destination) {
   const auto* node =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const prim::DivObj>(input);
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const prim::DivObj>(input);
   PrimType a_type = node->a.ty();
   PrimType b_type = node->b.ty();
   if (a_type.MatchesCode(DLDataTypeCode::kDLInt, DLDataTypeCode::kDLUInt) &&
@@ -509,7 +509,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
 ffi::Optional<ExprDoc> ModDocTranslate(DocTranslatorObj* d, ffi::AnyView input,
                                        const ffi::Object*) {
   const auto* node =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const prim::ModObj>(input);
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const prim::ModObj>(input);
   return BinaryHelperDocTranslate<prim::ModObj, tvm::truncmod>(d, node, "truncmod");
 }
 
@@ -522,7 +522,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
 ffi::Optional<ExprDoc> MinDocTranslate(DocTranslatorObj* d, ffi::AnyView input,
                                        const ffi::Object*) {
   const auto* node =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const prim::MinObj>(input);
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const prim::MinObj>(input);
   return BinaryHelperDocTranslate<prim::MinObj, tvm::min>(d, node, "min");
 }
 
@@ -535,7 +535,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
 ffi::Optional<ExprDoc> MaxDocTranslate(DocTranslatorObj* d, ffi::AnyView input,
                                        const ffi::Object*) {
   const auto* node =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const prim::MaxObj>(input);
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const prim::MaxObj>(input);
   return BinaryHelperDocTranslate<prim::MaxObj, tvm::max>(d, node, "max");
 }
 
@@ -547,7 +547,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
 
 }  // namespace
 
-}  // namespace details
+}  // namespace detail
 
 ffi::Optional<ExprDoc> VarDocTranslate(DocTranslatorObj* d, ffi::AnyView input,
                                        const ffi::Object* destination) {
@@ -567,7 +567,7 @@ ffi::Optional<ExprDoc> VarDocTranslate(DocTranslatorObj* d, ffi::AnyView input,
       rhs = NamespaceDoc("ir")->Attr("Var")->Call(
           {LiteralDoc::Str(var->name, std::nullopt), d->Translate(var->ty).value()});
     }
-    details::EmitVarDefinition(d, var, rhs);
+    detail::EmitVarDefinition(d, var, rhs);
     return std::nullopt;
   }
   return IdDoc(id->name);

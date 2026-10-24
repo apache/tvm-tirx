@@ -33,14 +33,14 @@
 namespace tvm {
 namespace script {
 namespace printer {
-namespace details {
+namespace detail {
 
 namespace {
 
 ffi::Optional<ExprDoc> DataTypeImmDocTranslate(DocTranslatorObj*, ffi::AnyView input,
                                                const ffi::Object*) {
   const auto* imm =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const DataTypeImmObj>(input);
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const DataTypeImmObj>(input);
   return NamespaceDoc("tirx")->Attr("dtype")->Call(
       {LiteralDoc::DataType(imm->value, std::nullopt)});
 }
@@ -118,7 +118,7 @@ namespace {
 ffi::Optional<ExprDoc> ShapeDocTranslate(DocTranslatorObj*, ffi::AnyView input,
                                          const ffi::Object*) {
   const auto* shape =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const ffi::ShapeObj>(input);
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const ffi::ShapeObj>(input);
   ffi::Array<ExprDoc> dimensions;
   for (int64_t value : ffi::GetRef<ffi::Shape>(shape)) {
     dimensions.push_back(LiteralDoc::Int(value, std::nullopt));
@@ -134,7 +134,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
 
 }  // namespace
 
-}  // namespace details
+}  // namespace detail
 }  // namespace printer
 }  // namespace script
 }  // namespace tvm

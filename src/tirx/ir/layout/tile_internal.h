@@ -30,7 +30,7 @@
 namespace tvm {
 namespace tirx {
 
-namespace layout_details {
+namespace layout_detail {
 
 void CheckWellFormed(const TileLayoutObj* layout);
 PrimExpr GetSize(const TileLayoutObj* layout, ffi::Optional<ffi::String> axis_name);
@@ -56,7 +56,7 @@ Layout Canonicalize(const ComposeLayoutObj* layout);
 Layout Tile(const ComposeLayoutObj* layout, const TileLayout& outer,
             const ffi::Array<PrimExpr>& outer_shape, const ffi::Array<PrimExpr>& inner_shape);
 
-}  // namespace layout_details
+}  // namespace layout_detail
 
 // Group a tile layout's shard by a logical shape, returning the grouped layout and separators.
 std::pair<TileLayout, std::vector<int64_t>> Group(TileLayout layout,

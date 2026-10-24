@@ -32,7 +32,7 @@ namespace tvm {
 namespace script {
 namespace printer {
 
-namespace details {
+namespace detail {
 
 ffi::Array<StmtDoc> Body(const Stmt& stmt, DocTranslatorObj* d);
 ffi::Array<Doc> TensorIndices(DocTranslatorObj* d, const ffi::Array<PrimExpr>& indices,
@@ -45,7 +45,7 @@ void EmitVarDefinition(DocTranslatorObj* d, const Var& var, ExprDoc rhs);
 ExprDoc GlobalReference(DocTranslatorObj* d, const ffi::String& name);
 ExprDoc NamedCallCallee(const ffi::String& canonical_name);
 
-}  // namespace details
+}  // namespace detail
 }  // namespace printer
 }  // namespace script
 }  // namespace tvm

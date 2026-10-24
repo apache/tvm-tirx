@@ -101,7 +101,7 @@ TVM_FFI_INLINE ffi::Expected<ffi::Optional<ffi::VisitInterrupt>> TensorTypeVisit
     ffi::StructuralVisitorObj* visitor, ffi::AnyView value) noexcept {
   // skips: scope, data_alignment
   const TensorTypeObj* self =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const TensorTypeObj>(value);
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const TensorTypeObj>(value);
   TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(visitor->VisitExpected(self->dtype));
   TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(visitor->VisitExpected(self->shape));
   TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(visitor->VisitExpected(self->layout));
@@ -112,7 +112,7 @@ TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> TensorTypeMutate(
     ffi::StructuralMutatorObj* mutator, ffi::AnyView value) noexcept {
   // skips: scope, data_alignment
   const TensorTypeObj* self =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const TensorTypeObj>(value);
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const TensorTypeObj>(value);
   TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<PrimType>, mapped_dtype,
                                     mutator->MutateExpected(self->dtype));
   TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<ffi::Array<PrimExpr>>, mapped_shape,
@@ -134,7 +134,7 @@ TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> TensorTypeMaybeInplaceM
     ffi::StructuralMutatorObj* mutator, ffi::AnyView value) noexcept {
   // skips: scope, data_alignment
   TensorTypeObj* self = const_cast<TensorTypeObj*>(
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const TensorTypeObj>(value));
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const TensorTypeObj>(value));
   TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<PrimType>, mapped_dtype,
                                     mutator->MutateExpected(self->dtype, ffi::InplaceMode::kAllow));
   TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<ffi::Array<PrimExpr>>, mapped_shape,

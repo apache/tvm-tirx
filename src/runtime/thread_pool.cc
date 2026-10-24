@@ -117,7 +117,7 @@ class ParallelLauncher {
   // Signal that one job has finished.
   void SignalJobError(int task_id) {
     num_pending_.fetch_sub(1);
-    par_errors_[task_id] = tvm::ffi::details::MoveFromSafeCallRaised();
+    par_errors_[task_id] = tvm::ffi::detail::MoveFromSafeCallRaised();
     has_error_.store(true);
   }
   // Signal that one job has finished.

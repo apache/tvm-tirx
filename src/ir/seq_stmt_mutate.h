@@ -207,7 +207,7 @@ auto MaybeInplaceMutateSeqStmtRaw(MutateElement& mutate_element, const SeqStmtOb
         }
       } else {
         results.emplace_back(
-            ffi::details::AnyUnsafe::MoveFromAnyAfterCheck<Stmt>(std::move(slots[i])));
+            ffi::detail::AnyUnsafe::MoveFromAnyAfterCheck<Stmt>(std::move(slots[i])));
       }
     }
     self->seq = ffi::Array<Stmt>(std::make_move_iterator(results.begin()),

@@ -29,14 +29,14 @@
 namespace tvm {
 namespace script {
 namespace printer {
-namespace details {
+namespace detail {
 
 namespace {
 
 ffi::Optional<ExprDoc> TargetDocTranslate(DocTranslatorObj* d, ffi::AnyView input,
                                           const ffi::Object*) {
   const auto* target =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const TargetObj>(input);
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const TargetObj>(input);
   return NamespaceDoc("tirx")->Attr("target")->Call({d->Translate(target->ToConfig()).value()});
 }
 
@@ -48,7 +48,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
 
 }  // namespace
 
-}  // namespace details
+}  // namespace detail
 }  // namespace printer
 }  // namespace script
 }  // namespace tvm

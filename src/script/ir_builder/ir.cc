@@ -34,7 +34,7 @@ namespace ir {
 
 using namespace tvm::prim;
 
-using tvm::script::ir_builder::details::Namer;
+using tvm::script::ir_builder::detail::Namer;
 
 TVM_FFI_STATIC_INIT_BLOCK() {
   Namer::vtable().SetDispatch<tvm::VarObj>(
@@ -168,7 +168,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
 }
 
 TVM_FFI_STATIC_INIT_BLOCK() {
-  details::LocationAccessor::vtable().SetDispatch<tvm::StmtObj>(
+  detail::LocationAccessor::vtable().SetDispatch<tvm::StmtObj>(
       [](const ffi::ObjectRef& obj) -> Location* { return &obj.as<tvm::StmtObj>()->loc; });
 }
 

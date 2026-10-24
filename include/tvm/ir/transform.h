@@ -163,7 +163,7 @@ class PassContext : public ffi::ObjectRef {
           if (!opt_val.has_value()) {
             TVM_FFI_THROW(AttributeError)
                 << "Expect config " << key << " to have type " << type_key << ", but instead get "
-                << ffi::details::AnyUnsafe::GetMismatchTypeInfo<ValueType>(value);
+                << ffi::detail::AnyUnsafe::GetMismatchTypeInfo<ValueType>(value);
           }
           return *opt_val;
         }
@@ -177,7 +177,7 @@ class PassContext : public ffi::ObjectRef {
         if (!opt_val.has_value()) {
           TVM_FFI_THROW(AttributeError)
               << "Expect config " << key << " to have type " << type_str << ", but instead get "
-              << ffi::details::AnyUnsafe::GetMismatchTypeInfo<ValueType>(value);
+              << ffi::detail::AnyUnsafe::GetMismatchTypeInfo<ValueType>(value);
           TVM_FFI_UNREACHABLE();
         } else {
           return *opt_val;

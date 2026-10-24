@@ -31,7 +31,7 @@
 namespace tvm {
 namespace script {
 namespace printer {
-namespace details {
+namespace detail {
 
 // Semantic wrappers register their own Op hooks; ordinary calls use canonical exposure.
 
@@ -40,7 +40,7 @@ namespace {
 ffi::Optional<ExprDoc> CallDocTranslate(DocTranslatorObj* d, ffi::AnyView input,
                                         const ffi::Object* destination) {
   const auto* call =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const CallObj>(input);
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const CallObj>(input);
   if (auto op = call->op.as<Op>();
       op && Op::HasAttrMap(tvm::script::printer::op_attr::kDocTranslateOpCall)) {
     static const auto& overrides =
@@ -70,7 +70,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
 }
 
 }  // namespace
-}  // namespace details
+}  // namespace detail
 
 ffi::Optional<ExprDoc> StandardCallDocTranslate(DocTranslatorObj* d, const CallObj* call) {
   auto maybe_op = call->op.as<Op>();
@@ -141,7 +141,7 @@ ffi::Optional<ExprDoc> StandardCallDocTranslate(DocTranslatorObj* d, const CallO
     keys.push_back("ty");
     values.push_back(d->Translate(call->ty).value());
   }
-  return details::NamedCallCallee(op->name)->Call(args, keys, values);
+  return detail::NamedCallCallee(op->name)->Call(args, keys, values);
 }
 
 }  // namespace printer

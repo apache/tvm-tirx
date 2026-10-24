@@ -30,7 +30,7 @@ namespace tvm {
 namespace tirx {
 
 using namespace prim;
-using namespace prim::details;
+using namespace prim::detail;
 
 PrimExpr logaddexp(PrimExpr a, PrimExpr b, Location loc) {
   TVM_FFI_ICHECK(a.ty().MatchesCode(DLDataTypeCode::kDLFloat)) << a;

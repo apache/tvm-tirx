@@ -28,7 +28,7 @@
 namespace tvm {
 using prim::IsConstInt;
 using prim::MakeConst;
-using namespace prim::details;
+using namespace prim::detail;
 namespace {
 TVM_FFI_INLINE const PrimTypeObj* GetPrimTypeObj(const PrimExpr& expr) {
   // Avoid PrimExpr::ty() ObjectRef materialization on binary operator hot paths.
@@ -72,7 +72,7 @@ bool IsVScaleCall(const PrimExpr& expr) {
 }
 
 }  // namespace
-namespace prim::details {
+namespace prim::detail {
 void BroadcastToMatchLanes(PrimExpr& op_a, PrimExpr& op_b) {  // NOLINT(*)
   PrimType ty_a = op_a.ty();
   PrimType ty_b = op_b.ty();
@@ -184,7 +184,7 @@ void BinaryOpMatchTypes(PrimExpr& lhs, PrimExpr& rhs, Location loc) {  // NOLINT
   }
 }
 
-}  // namespace prim::details
+}  // namespace prim::detail
 namespace prim {
 // maximum and min limits
 PrimExpr max_value(PrimType value_ty, Location loc) {
@@ -312,7 +312,7 @@ PrimExpr cast(PrimExpr value, PrimType t, Location loc) {
     if (const IntImmObj* op = value.as<IntImmObj>()) {
       if (dtype.MatchesCode(DLDataTypeCode::kDLInt, DLDataTypeCode::kDLUInt,
                             DLDataTypeCode::kDLBool)) {
-        if (details::IsRepresentable(op->value, dtype)) return IntImm(dtype, op->value, op->loc);
+        if (detail::IsRepresentable(op->value, dtype)) return IntImm(dtype, op->value, op->loc);
       } else if (dtype.MatchesElementType(DLDataTypeCode::kDLFloat, 32)) {
         if (auto small = op->value.as<int64_t>()) {
           return FloatImm(dtype, static_cast<float>(*small), op->loc);
@@ -350,12 +350,12 @@ PrimExpr cast(PrimExpr value, PrimType t, Location loc) {
         if (std::isfinite(source) &&
             (!dtype.MatchesCode(DLDataTypeCode::kDLBool) || source == 0 || source == 1)) {
           ffi::BigInt result(source);
-          if (details::IsRepresentable(result, dtype)) {
+          if (detail::IsRepresentable(result, dtype)) {
             return IntImm(dtype, std::move(result), op->loc);
           }
         }
       } else if (dtype.MatchesElementType(DLDataTypeCode::kDLFloat, 32)) {
-        if (details::IsInFloat32Range(source)) {
+        if (detail::IsInFloat32Range(source)) {
           return FloatImm(dtype, static_cast<float>(source), op->loc);
         }
       } else if (dtype.MatchesElementType(DLDataTypeCode::kDLFloat, 16) ||
@@ -403,10 +403,10 @@ PrimExpr cast(PrimExpr value, PrimType t, Location loc) {
         if (dtype.IsFixedLengthVector() && base && stride &&
             dtype.MatchesCode(DLDataTypeCode::kDLInt, DLDataTypeCode::kDLUInt)) {
           ffi::BigInt last = base->value + stride->value * (dtype.lanes() - 1);
-          if (details::IsRepresentable(base->value, elem_ty) &&
-              details::IsRepresentable(stride->value, elem_ty) &&
-              details::IsRepresentable(last, elem_ty) &&
-              details::IsRepresentable(last, ramp->base.ty())) {
+          if (detail::IsRepresentable(base->value, elem_ty) &&
+              detail::IsRepresentable(stride->value, elem_ty) &&
+              detail::IsRepresentable(last, elem_ty) &&
+              detail::IsRepresentable(last, ramp->base.ty())) {
             return prim::Ramp(cast(ramp->base, elem_ty, loc), cast(ramp->stride, elem_ty, loc),
                               ramp->lanes, loc);
           }
@@ -457,7 +457,7 @@ PrimExpr neg(PrimExpr a, Location loc) {
   const FloatImmObj* fa = a.as<FloatImmObj>();
   if (pa) {
     ffi::BigInt value = -pa->value;
-    if (prim::details::IsRepresentable(value, a.ty())) {
+    if (prim::detail::IsRepresentable(value, a.ty())) {
       return IntImm(a.ty(), std::move(value), loc);
     }
   }
@@ -707,7 +707,7 @@ PrimExpr left_shift(PrimExpr a, PrimExpr b, Location loc) {
           << result_ty;
     if (pa && pb) {
       ffi::BigInt value = pa->value << pb->value;
-      if (prim::details::IsRepresentable(value, result_ty)) {
+      if (prim::detail::IsRepresentable(value, result_ty)) {
         return IntImm(result_ty, std::move(value), loc);
       }
     }
@@ -790,7 +790,7 @@ PrimExpr prim::IntegerAbs(PrimExpr x, Location loc) {
   if (x.ty().MatchesCode(DLDataTypeCode::kDLInt)) {
     if (const IntImmObj* px = x.as<IntImmObj>()) {
       ffi::BigInt value = px->value < 0 ? -px->value : px->value;
-      if (prim::details::IsRepresentable(value, x.ty())) {
+      if (prim::detail::IsRepresentable(value, x.ty())) {
         return IntImm(x.ty(), std::move(value), px->loc);
       }
     }

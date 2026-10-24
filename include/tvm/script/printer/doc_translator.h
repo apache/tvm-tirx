@@ -133,7 +133,7 @@ class DocTranslatorObj : public ffi::Object {
    */
   ffi::Optional<ExprDoc> Translate(ffi::AnyView value,
                                    const ffi::Optional<Var> bind_var = std::nullopt) {
-    auto result = ffi::details::ExpectedUnsafe::MoveFromTVMFFIAny<ffi::Optional<ExprDoc>>(
+    auto result = ffi::detail::ExpectedUnsafe::MoveFromTVMFFIAny<ffi::Optional<ExprDoc>>(
                       vtable_->translate(this, value,
                                          bind_var.has_value() ? bind_var.value().get() : nullptr))
                       .value();
@@ -161,7 +161,7 @@ class DocTranslatorObj : public ffi::Object {
    * \return The binding's IdDoc, with explicit definitions removed from pending entries.
    */
   IdDoc VarGetOrAllocId(const Var& var, bool explicit_def) {
-    return ffi::details::ExpectedUnsafe::MoveFromTVMFFIAny<IdDoc>(
+    return ffi::detail::ExpectedUnsafe::MoveFromTVMFFIAny<IdDoc>(
                vtable_->var_get_or_alloc_id(this, var, explicit_def))
         .value();
   }
@@ -171,7 +171,7 @@ class DocTranslatorObj : public ffi::Object {
    * \return The allocated identifier.
    */
   IdDoc AllocId(const ffi::String& hint) {
-    return ffi::details::ExpectedUnsafe::MoveFromTVMFFIAny<IdDoc>(vtable_->alloc_id(this, hint))
+    return ffi::detail::ExpectedUnsafe::MoveFromTVMFFIAny<IdDoc>(vtable_->alloc_id(this, hint))
         .value();
   }
   /*!
@@ -179,7 +179,7 @@ class DocTranslatorObj : public ffi::Object {
    * \return The live mutable dictionary of variables and their identifiers.
    */
   ffi::Dict<Var, IdDoc> GetImplicitDefs() {
-    return ffi::details::ExpectedUnsafe::MoveFromTVMFFIAny<ffi::Dict<Var, IdDoc>>(
+    return ffi::detail::ExpectedUnsafe::MoveFromTVMFFIAny<ffi::Dict<Var, IdDoc>>(
                vtable_->get_implicit_defs(this))
         .value();
   }
@@ -227,7 +227,7 @@ class DocTranslatorObj : public ffi::Object {
    * \brief Begin a lexical variable scope independent of Doc collection.
    */
   void BeginVarScope() {
-    ffi::details::ExpectedUnsafe::MoveFromTVMFFIAny<void>(vtable_->begin_var_scope(this)).value();
+    ffi::detail::ExpectedUnsafe::MoveFromTVMFFIAny<void>(vtable_->begin_var_scope(this)).value();
   }
   /*!
    * \brief End the latest naming region, retaining the root region.
@@ -236,7 +236,7 @@ class DocTranslatorObj : public ffi::Object {
    * shared by sibling functions.
    */
   void EndVarScope() {
-    ffi::details::ExpectedUnsafe::MoveFromTVMFFIAny<void>(vtable_->end_var_scope(this)).value();
+    ffi::detail::ExpectedUnsafe::MoveFromTVMFFIAny<void>(vtable_->end_var_scope(this)).value();
   }
   /*!
    * \brief Run a callback in a balanced lexical variable scope without collecting Docs.
@@ -251,7 +251,7 @@ class DocTranslatorObj : public ffi::Object {
     struct Scope {
       DocTranslatorObj* translator;
       ~Scope() {
-        ffi::details::ExpectedUnsafe::MoveFromTVMFFIAny<void>(
+        ffi::detail::ExpectedUnsafe::MoveFromTVMFFIAny<void>(
             translator->vtable_->end_var_scope(translator));
       }
     };

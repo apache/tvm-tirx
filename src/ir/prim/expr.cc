@@ -52,8 +52,7 @@ template <typename TNode>
 TVM_FFI_INLINE ffi::Expected<ffi::Optional<ffi::VisitInterrupt>> BinaryVisit(
     ffi::StructuralVisitorObj* visitor, ffi::AnyView value) noexcept {
   // skips: PrimExpr types are always PrimType and remain unchanged in normal mutation.
-  const TNode* self =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const TNode>(value);
+  const TNode* self = ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const TNode>(value);
   TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(visitor->VisitExpected(self->a));
   TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(visitor->VisitExpected(self->b));
   return std::nullopt;
@@ -63,8 +62,7 @@ template <typename TNode>
 TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> BinaryMutate(
     ffi::StructuralMutatorObj* mutator, ffi::AnyView value) noexcept {
   // skips: PrimExpr types are always PrimType and remain unchanged in normal mutation.
-  const TNode* self =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const TNode>(value);
+  const TNode* self = ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const TNode>(value);
   TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<PrimExpr>, a_u,
                                     mutator->MutateExpected(self->a));
   TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<PrimExpr>, b_u,
@@ -86,7 +84,7 @@ TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> BinaryMaybeInplaceMutat
     ffi::StructuralMutatorObj* mutator, ffi::AnyView value) noexcept {
   // skips: PrimExpr types are always PrimType and remain unchanged in normal mutation.
   TNode* self = const_cast<TNode*>(
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const TNode>(value));
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const TNode>(value));
   TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<PrimExpr>, a_u,
                                     mutator->MutateExpected(self->a, ffi::InplaceMode::kAllow));
   TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<PrimExpr>, b_u,
@@ -103,7 +101,7 @@ TVM_FFI_INLINE ffi::Expected<ffi::Optional<ffi::VisitInterrupt>> CastVisit(
     ffi::StructuralVisitorObj* visitor, ffi::AnyView value) noexcept {
   // skips: PrimExpr types are always PrimType and remain unchanged in normal mutation.
   const CastObj* self =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const CastObj>(value);
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const CastObj>(value);
   TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(visitor->VisitExpected(self->value));
   return std::nullopt;
 }
@@ -112,7 +110,7 @@ TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> CastMutate(
     ffi::StructuralMutatorObj* mutator, ffi::AnyView value) noexcept {
   // skips: PrimExpr types are always PrimType and remain unchanged in normal mutation.
   const CastObj* self =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const CastObj>(value);
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const CastObj>(value);
   TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<PrimExpr>, mapped_value_u,
                                     mutator->MutateExpected(self->value));
   if (mapped_value_u.UnchangedOrSameAs(self->value)) {
@@ -127,7 +125,7 @@ TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> CastMaybeInplaceMutate(
     ffi::StructuralMutatorObj* mutator, ffi::AnyView value) noexcept {
   // skips: PrimExpr types are always PrimType and remain unchanged in normal mutation.
   CastObj* self = const_cast<CastObj*>(
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const CastObj>(value));
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const CastObj>(value));
   TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<PrimExpr>, mapped_value_u,
                                     mutator->MutateExpected(self->value, ffi::InplaceMode::kAllow));
   if (mapped_value_u.UnchangedOrSameAs(self->value)) {
@@ -141,7 +139,7 @@ TVM_FFI_INLINE ffi::Expected<ffi::Optional<ffi::VisitInterrupt>> NotVisit(
     ffi::StructuralVisitorObj* visitor, ffi::AnyView value) noexcept {
   // skips: PrimExpr types are always PrimType and remain unchanged in normal mutation.
   const NotObj* self =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const NotObj>(value);
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const NotObj>(value);
   TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(visitor->VisitExpected(self->a));
   return std::nullopt;
 }
@@ -150,7 +148,7 @@ TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> NotMutate(
     ffi::StructuralMutatorObj* mutator, ffi::AnyView value) noexcept {
   // skips: PrimExpr types are always PrimType and remain unchanged in normal mutation.
   const NotObj* self =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const NotObj>(value);
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const NotObj>(value);
   TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<PrimExpr>, mapped_a_u,
                                     mutator->MutateExpected(self->a));
   if (mapped_a_u.UnchangedOrSameAs(self->a)) {
@@ -165,7 +163,7 @@ TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> NotMaybeInplaceMutate(
     ffi::StructuralMutatorObj* mutator, ffi::AnyView value) noexcept {
   // skips: PrimExpr types are always PrimType and remain unchanged in normal mutation.
   NotObj* self = const_cast<NotObj*>(
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const NotObj>(value));
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const NotObj>(value));
   TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<PrimExpr>, mapped_a_u,
                                     mutator->MutateExpected(self->a, ffi::InplaceMode::kAllow));
   if (mapped_a_u.UnchangedOrSameAs(self->a)) {
@@ -179,7 +177,7 @@ TVM_FFI_INLINE ffi::Expected<ffi::Optional<ffi::VisitInterrupt>> BitwiseNotVisit
     ffi::StructuralVisitorObj* visitor, ffi::AnyView value) noexcept {
   // skips: PrimExpr types are always PrimType and remain unchanged in normal mutation.
   const BitwiseNotObj* self =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const BitwiseNotObj>(value);
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const BitwiseNotObj>(value);
   TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(visitor->VisitExpected(self->a));
   return std::nullopt;
 }
@@ -188,7 +186,7 @@ TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> BitwiseNotMutate(
     ffi::StructuralMutatorObj* mutator, ffi::AnyView value) noexcept {
   // skips: PrimExpr types are always PrimType and remain unchanged in normal mutation.
   const BitwiseNotObj* self =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const BitwiseNotObj>(value);
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const BitwiseNotObj>(value);
   TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<PrimExpr>, mapped_a_u,
                                     mutator->MutateExpected(self->a));
   if (mapped_a_u.UnchangedOrSameAs(self->a)) {
@@ -203,7 +201,7 @@ TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> BitwiseNotMaybeInplaceM
     ffi::StructuralMutatorObj* mutator, ffi::AnyView value) noexcept {
   // skips: PrimExpr types are always PrimType and remain unchanged in normal mutation.
   BitwiseNotObj* self = const_cast<BitwiseNotObj*>(
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const BitwiseNotObj>(value));
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const BitwiseNotObj>(value));
   TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<PrimExpr>, mapped_a_u,
                                     mutator->MutateExpected(self->a, ffi::InplaceMode::kAllow));
   if (mapped_a_u.UnchangedOrSameAs(self->a)) {
@@ -217,7 +215,7 @@ TVM_FFI_INLINE ffi::Expected<ffi::Optional<ffi::VisitInterrupt>> SelectVisit(
     ffi::StructuralVisitorObj* visitor, ffi::AnyView value) noexcept {
   // skips: PrimExpr types are always PrimType and remain unchanged in normal mutation.
   const SelectObj* self =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const SelectObj>(value);
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const SelectObj>(value);
   TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(visitor->VisitExpected(self->condition));
   TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(visitor->VisitExpected(self->true_value));
   TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(visitor->VisitExpected(self->false_value));
@@ -228,7 +226,7 @@ TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> SelectMutate(
     ffi::StructuralMutatorObj* mutator, ffi::AnyView value) noexcept {
   // skips: PrimExpr types are always PrimType and remain unchanged in normal mutation.
   const SelectObj* self =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const SelectObj>(value);
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const SelectObj>(value);
   TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<PrimExpr>, mapped_condition_u,
                                     mutator->MutateExpected(self->condition));
   TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<PrimExpr>, mapped_true_value_u,
@@ -254,7 +252,7 @@ TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> SelectMaybeInplaceMutat
     ffi::StructuralMutatorObj* mutator, ffi::AnyView value) noexcept {
   // skips: PrimExpr types are always PrimType and remain unchanged in normal mutation.
   SelectObj* self = const_cast<SelectObj*>(
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const SelectObj>(value));
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const SelectObj>(value));
   TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(
       ffi::UnchangedOr<PrimExpr>, mapped_condition_u,
       mutator->MutateExpected(self->condition, ffi::InplaceMode::kAllow));
@@ -282,7 +280,7 @@ TVM_FFI_INLINE ffi::Expected<ffi::Optional<ffi::VisitInterrupt>> LetVisit(
     ffi::StructuralVisitorObj* visitor, ffi::AnyView value) noexcept {
   // skips: PrimExpr types are always PrimType and remain unchanged in normal mutation.
   const LetObj* self =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const LetObj>(value);
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const LetObj>(value);
   TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(visitor->WithDefRegionKind(
       kTVMFFIDefRegionKindSimple, [&]() { return visitor->VisitExpected(self->var); }));
   TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(visitor->VisitExpected(self->value));
@@ -293,7 +291,7 @@ TVM_FFI_INLINE ffi::Expected<ffi::Optional<ffi::VisitInterrupt>> LetVisit(
 TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> LetMutate(
     ffi::StructuralMutatorObj* mutator, ffi::AnyView value) noexcept {
   const LetObj* self =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const LetObj>(value);
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const LetObj>(value);
   Type old_value_type = self->value->ty;
   TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<PrimExpr>, mapped_value_u,
                                     mutator->MutateExpected(self->value));
@@ -333,7 +331,7 @@ TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> LetMutate(
 TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> LetMaybeInplaceMutate(
     ffi::StructuralMutatorObj* mutator, ffi::AnyView value) noexcept {
   LetObj* self = const_cast<LetObj*>(
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const LetObj>(value));
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const LetObj>(value));
   Type old_value_type = self->value->ty;
   TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<PrimExpr>, mapped_value_u,
                                     mutator->MutateExpected(self->value, ffi::InplaceMode::kAllow));

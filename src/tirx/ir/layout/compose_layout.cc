@@ -308,7 +308,7 @@ ComposeLayout::ComposeLayout(int per_element, int swizzle_len, int atom_len, Til
   n->swizzle_len = swizzle_len;
   n->atom_len = atom_len;
   n->swizzle_inner = swizzle_inner;
-  layout_details::CheckWellFormed(n.get());
+  layout_detail::CheckWellFormed(n.get());
   int swizzle_mask = (1 << swizzle_len) - 1;
   n->inner_mask = swizzle_mask;
   n->outer_mask = swizzle_mask << atom_len;
@@ -323,7 +323,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
   });
 }
 
-void layout_details::CheckWellFormed(const ComposeLayoutObj* layout) {
+void layout_detail::CheckWellFormed(const ComposeLayoutObj* layout) {
   TVM_FFI_CHECK(layout->per_element >= 0 && layout->swizzle_len >= 0 &&
                     layout->atom_len >= layout->swizzle_len,
                 ValueError)
@@ -332,27 +332,27 @@ void layout_details::CheckWellFormed(const ComposeLayoutObj* layout) {
   layout->tile_layout.CheckWellFormed();
 }
 
-PrimExpr layout_details::GetSize(const ComposeLayoutObj* layout,
-                                 ffi::Optional<ffi::String> axis_name) {
+PrimExpr layout_detail::GetSize(const ComposeLayoutObj* layout,
+                                ffi::Optional<ffi::String> axis_name) {
   TVM_FFI_ICHECK(!axis_name.has_value())
       << "ValueError: axis_name is not supported for compose layout";
   return layout->tile_layout.GetSize(axis_name);
 }
 
-PrimExpr layout_details::GetSpan(const ComposeLayoutObj* layout,
-                                 ffi::Optional<ffi::String> axis_name) {
+PrimExpr layout_detail::GetSpan(const ComposeLayoutObj* layout,
+                                ffi::Optional<ffi::String> axis_name) {
   TVM_FFI_ICHECK(!axis_name.has_value())
       << "ValueError: axis_name is not supported for compose layout";
   return layout->tile_layout.GetSpan(axis_name);
 }
 
-ffi::Map<ffi::String, PrimExpr> layout_details::Apply(const ComposeLayoutObj* layout,
-                                                      ffi::Array<PrimExpr> coord) {
+ffi::Map<ffi::String, PrimExpr> layout_detail::Apply(const ComposeLayoutObj* layout,
+                                                     ffi::Array<PrimExpr> coord) {
   return ApplyStructured(layout, layout->tile_layout, std::move(coord));
 }
 
-ffi::Map<ffi::String, PrimExpr> layout_details::Apply(const ComposeLayoutObj* layout,
-                                                      PrimExpr coord) {
+ffi::Map<ffi::String, PrimExpr> layout_detail::Apply(const ComposeLayoutObj* layout,
+                                                     PrimExpr coord) {
   auto res = layout->tile_layout.Apply(coord);
   TVM_FFI_ICHECK(res.size() == 1 && res.find("m") != res.end());
   auto m = res["m"];
@@ -371,9 +371,9 @@ ffi::Map<ffi::String, PrimExpr> layout_details::Apply(const ComposeLayoutObj* la
       {"m", analyzer->Simplify((f(floordiv(m, base)) << layout->per_element) + floormod(m, base))}};
 }
 
-ffi::Map<ffi::String, PrimExpr> layout_details::Apply(const ComposeLayoutObj* layout,
-                                                      const ffi::Array<PrimExpr>& coord,
-                                                      const ffi::Array<PrimExpr>& shape) {
+ffi::Map<ffi::String, PrimExpr> layout_detail::Apply(const ComposeLayoutObj* layout,
+                                                     const ffi::Array<PrimExpr>& coord,
+                                                     const ffi::Array<PrimExpr>& shape) {
   TVM_FFI_ICHECK_EQ(coord.size(), shape.size())
       << "ValueError: The size of coord and shape should be equal";
   auto grouped = TryGroup(layout->tile_layout, shape);
@@ -405,15 +405,15 @@ ffi::Map<ffi::String, PrimExpr> layout_details::Apply(const ComposeLayoutObj* la
   return ApplyStructured(layout, grouped_tile, std::move(shard_coord));
 }
 
-Layout layout_details::Canonicalize(const ComposeLayoutObj* layout) {
+Layout layout_detail::Canonicalize(const ComposeLayoutObj* layout) {
   auto tile_normalized = layout->tile_layout.Canonicalize().as<TileLayout>().value();
   return ComposeLayout(layout->per_element, layout->swizzle_len, layout->atom_len, tile_normalized,
                        layout->swizzle_inner);
 }
 
-Layout layout_details::Tile(const ComposeLayoutObj* layout, const TileLayout& outer,
-                            const ffi::Array<PrimExpr>& outer_shape,
-                            const ffi::Array<PrimExpr>& inner_shape) {
+Layout layout_detail::Tile(const ComposeLayoutObj* layout, const TileLayout& outer,
+                           const ffi::Array<PrimExpr>& outer_shape,
+                           const ffi::Array<PrimExpr>& inner_shape) {
   // A bare swizzle (ComposeLayout with a trivial tile) carries only the swizzle
   // period, not a tile matching `inner_shape`; substitute an identity tile over
   // the inner product first, matching the former SwizzleLayoutNode::Tile.

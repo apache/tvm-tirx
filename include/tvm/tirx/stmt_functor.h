@@ -233,8 +233,8 @@ class TVM_TIRX_DLL StmtExprMutator : public tvm::ExprMutator {
    */
   TVM_FFI_INLINE UnchangedOr<Stmt> Mutate(const Stmt& stmt,
                                           InplaceMode inplace_mode = InplaceMode::kDisallow) {
-    return ffi::details::UnchangedOrUnsafe::MoveFromTVMFFIAny<Stmt>(
-        ffi::details::UnchangedOrUnsafe::MoveToTVMFFIAny(Mutate(ffi::AnyView(stmt), inplace_mode)));
+    return ffi::detail::UnchangedOrUnsafe::MoveFromTVMFFIAny<Stmt>(
+        ffi::detail::UnchangedOrUnsafe::MoveToTVMFFIAny(Mutate(ffi::AnyView(stmt), inplace_mode)));
   }
 
   /*! \brief Mutate a scope body without collapsing its sequence container. */

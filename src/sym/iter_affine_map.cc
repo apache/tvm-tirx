@@ -20,7 +20,7 @@
 /*!
  * \file src/sym/iter_affine_map.cc
  */
-#include <tvm/ffi/base_details.h>
+#include <tvm/ffi/base_detail.h>
 #include <tvm/ffi/cast.h>
 #include <tvm/ffi/expected.h>
 #include <tvm/ffi/extra/structural_visit.h>
@@ -312,8 +312,8 @@ class IterMapRewriter : public tvm::ExprMutator {
   // Bypass only this entry override; the parent checks the target and descendants stay virtual.
   TVM_FFI_INLINE UnchangedOr<PrimExpr> DirectMutate(
       const PrimExpr& value, InplaceMode inplace_mode = InplaceMode::kDisallow) {
-    return ffi::details::UnchangedOrUnsafe::MoveFromTVMFFIAny<PrimExpr>(
-        ffi::details::UnchangedOrUnsafe::MoveToTVMFFIAny(
+    return ffi::detail::UnchangedOrUnsafe::MoveFromTVMFFIAny<PrimExpr>(
+        ffi::detail::UnchangedOrUnsafe::MoveToTVMFFIAny(
             Parent::Mutate(ffi::AnyView(value), inplace_mode)));
   }
 
@@ -333,7 +333,7 @@ class IterMapRewriter : public tvm::ExprMutator {
       }
       return value;
     } catch (ffi::Error& error) {
-      ffi::details::UpdateVisitErrorContext(error, input);
+      ffi::detail::UpdateVisitErrorContext(error, input);
       throw;
     }
   }
@@ -414,8 +414,8 @@ class IterMapRewriter : public tvm::ExprMutator {
       // for now only hash on source index.
       size_t hash = value->args.size();
       for (const IterSplitExpr& arg : value->args) {
-        hash = ffi::details::StableHashCombine(hash,
-                                               std::hash<const ffi::Object*>()(arg->source.get()));
+        hash = ffi::detail::StableHashCombine(hash,
+                                              std::hash<const ffi::Object*>()(arg->source.get()));
       }
       return hash;
     }

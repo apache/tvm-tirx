@@ -598,8 +598,8 @@ class CanonicalSimplifier::Impl : public RewriteSimplifier::Impl {
   // Bypass only this entry override; the parent checks the target and descendants stay virtual.
   TVM_FFI_INLINE UnchangedOr<PrimExpr> DirectMutate(
       const PrimExpr& value, InplaceMode inplace_mode = InplaceMode::kDisallow) {
-    return ffi::details::UnchangedOrUnsafe::MoveFromTVMFFIAny<PrimExpr>(
-        ffi::details::UnchangedOrUnsafe::MoveToTVMFFIAny(
+    return ffi::detail::UnchangedOrUnsafe::MoveFromTVMFFIAny<PrimExpr>(
+        ffi::detail::UnchangedOrUnsafe::MoveToTVMFFIAny(
             Rewriter::Mutate(ffi::AnyView(value), inplace_mode)));
   }
 
@@ -616,7 +616,7 @@ class CanonicalSimplifier::Impl : public RewriteSimplifier::Impl {
       }
       return expr;
     } catch (ffi::Error& error) {
-      ffi::details::UpdateVisitErrorContext(error, value);
+      ffi::detail::UpdateVisitErrorContext(error, value);
       throw;
     }
   }

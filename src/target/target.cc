@@ -219,7 +219,7 @@ ffi::ObjectPtr<TargetObj> TargetInternal::FromString(
   if (ffi::Optional<Target> target =
           TargetTagRegistry::Global()->Get(tag_or_config_or_target_str)) {
     Target value = target.value();
-    return ffi::details::ObjectUnsafe::ObjectPtrFromObjectRef<TargetObj>(value);
+    return ffi::detail::ObjectUnsafe::ObjectPtrFromObjectRef<TargetObj>(value);
   }
   if (!tag_or_config_or_target_str.empty() && tag_or_config_or_target_str.data()[0] == '{') {
     return TargetInternal::FromConfigString(tag_or_config_or_target_str);

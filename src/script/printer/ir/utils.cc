@@ -30,12 +30,12 @@
 namespace tvm {
 namespace script {
 namespace printer {
-namespace details {
+namespace detail {
 
 ffi::Optional<ExprDoc> InvokeDocHook(ffi::AnyView hook, DocTranslatorObj* d, ffi::AnyView input,
                                      const ffi::Object* destination) {
   if (hook.type_index() == ffi::TypeIndex::kTVMFFIOpaquePtr) {
-    return ffi::details::ExpectedUnsafe::MoveFromTVMFFIAny<ffi::Optional<ExprDoc>>(
+    return ffi::detail::ExpectedUnsafe::MoveFromTVMFFIAny<ffi::Optional<ExprDoc>>(
                reinterpret_cast<decltype(DocTranslatorVTable::translate)>(hook.cast<void*>())(
                    d, input, destination))
         .value();
@@ -100,7 +100,7 @@ ExprDoc CallAttrsValue(DocTranslatorObj* d, const Attrs& attrs) {
 
 // The explicit fallback retains every field, including typed attribute objects.
 
-}  // namespace details
+}  // namespace detail
 
 ExprDoc AddMetadata(DocTranslatorObj* d, ffi::Any value) {
   TVM_FFI_CHECK(value != nullptr, TypeError) << "Metadata cannot contain None";
@@ -149,7 +149,7 @@ ExprDoc RawCallDocTranslate(DocTranslatorObj* d, const CallObj* call,
   ffi::Array<ExprDoc> values;
   if (call->attrs.has_value()) {
     keys.push_back("attrs");
-    values.push_back(details::CallAttrsValue(d, call->attrs.value()));
+    values.push_back(detail::CallAttrsValue(d, call->attrs.value()));
   }
   if (!call->ty_args.empty()) {
     ffi::Array<ExprDoc> types;

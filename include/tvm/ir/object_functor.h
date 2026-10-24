@@ -242,11 +242,11 @@ class TVM_TIRX_DLL ObjectVisitor : public ffi::StructuralVisitorObj {
   virtual ffi::Optional<VisitInterrupt> Visit(ffi::AnyView value) {
     if (native_vtable_->CanDispatch(value)) {
       const auto* object =
-          ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const ffi::Object>(value);
+          ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const ffi::Object>(value);
       try {
         return (*native_vtable_)(object, this);
       } catch (ffi::Error& error) {
-        ffi::details::UpdateVisitErrorContext(error, ffi::GetRef<ffi::ObjectRef>(object));
+        ffi::detail::UpdateVisitErrorContext(error, ffi::GetRef<ffi::ObjectRef>(object));
         throw;
       }
     }
@@ -310,7 +310,7 @@ class TVM_TIRX_DLL ObjectVisitor : public ffi::StructuralVisitorObj {
       // DefaultVisitExpected does not name the current node; DefaultMutateExpected does.
       return ffi::StructuralVisitorObj::DefaultVisitExpected(value).value();
     } catch (ffi::Error& error) {
-      ffi::details::UpdateVisitErrorContext(error, value);
+      ffi::detail::UpdateVisitErrorContext(error, value);
       throw;
     }
   }
@@ -329,7 +329,7 @@ class TVM_TIRX_DLL ObjectVisitor : public ffi::StructuralVisitorObj {
   }
   static TVMFFIAny StructuralVTableVisitImpl(ffi::StructuralVisitorObj* self,
                                              ffi::AnyView value) noexcept {
-    return ffi::details::ExpectedUnsafe::MoveToTVMFFIAny(
+    return ffi::detail::ExpectedUnsafe::MoveToTVMFFIAny(
         static_cast<ObjectVisitor*>(self)->VisitExpected(value));
   }
 
@@ -386,7 +386,7 @@ class TVM_TIRX_DLL ObjectMutator : public ffi::StructuralMapEngineBase {
       try {
         return (*native_vtable_)(object, this, inplace_mode);
       } catch (ffi::Error& error) {
-        ffi::details::UpdateVisitErrorContext(error, ffi::GetRef<ffi::ObjectRef>(object));
+        ffi::detail::UpdateVisitErrorContext(error, ffi::GetRef<ffi::ObjectRef>(object));
         throw;
       }
     }
@@ -473,8 +473,8 @@ class TVM_TIRX_DLL ObjectMutator : public ffi::StructuralMapEngineBase {
   template <typename Self, typename Node>
   static UnchangedOr<ffi::Any> DispatchNode(const ffi::Object* node, ObjectMutator* self,
                                             InplaceMode inplace_mode) {
-    return ffi::details::UnchangedOrUnsafe::MoveFromTVMFFIAny<ffi::Any>(
-        ffi::details::UnchangedOrUnsafe::MoveToTVMFFIAny(
+    return ffi::detail::UnchangedOrUnsafe::MoveFromTVMFFIAny<ffi::Any>(
+        ffi::detail::UnchangedOrUnsafe::MoveToTVMFFIAny(
             static_cast<Self*>(self)->Mutate_(static_cast<const Node*>(node), inplace_mode)));
   }
 
@@ -497,22 +497,22 @@ class TVM_TIRX_DLL ObjectMutator : public ffi::StructuralMapEngineBase {
   }
   static TVMFFIAny StructuralVTableMutateImpl(ffi::StructuralMutatorObj* self,
                                               ffi::AnyView value) noexcept {
-    return ffi::details::ExpectedUnsafe::MoveToTVMFFIAny(
+    return ffi::detail::ExpectedUnsafe::MoveToTVMFFIAny(
         static_cast<ObjectMutator*>(self)->MutateExpected(value, InplaceMode::kDisallow));
   }
   static TVMFFIAny StructuralVTableMaybeInplaceMutateImpl(ffi::StructuralMutatorObj* self,
                                                           ffi::AnyView value) noexcept {
-    return ffi::details::ExpectedUnsafe::MoveToTVMFFIAny(
+    return ffi::detail::ExpectedUnsafe::MoveToTVMFFIAny(
         static_cast<ObjectMutator*>(self)->MutateExpected(value, InplaceMode::kAllow));
   }
   static TVMFFIAny StructuralVTableVarRemapGetImpl(ffi::StructuralMutatorObj* self,
                                                    ffi::AnyView key) noexcept {
-    return ffi::details::ExpectedUnsafe::MoveToTVMFFIAny(
+    return ffi::detail::ExpectedUnsafe::MoveToTVMFFIAny(
         static_cast<ObjectMutator*>(self)->VarRemapGetImpl(key));
   }
   static TVMFFIAny StructuralVTableVarRemapSetImpl(ffi::StructuralMutatorObj* self,
                                                    ffi::AnyView key, ffi::AnyView value) noexcept {
-    return ffi::details::ExpectedUnsafe::MoveToTVMFFIAny(
+    return ffi::detail::ExpectedUnsafe::MoveToTVMFFIAny(
         static_cast<ObjectMutator*>(self)->VarRemapSetImpl(key, value));
   }
 

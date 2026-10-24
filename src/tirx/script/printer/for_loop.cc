@@ -32,14 +32,13 @@
 namespace tvm {
 namespace script {
 namespace printer {
-namespace details {
+namespace detail {
 
 namespace {
 
 ffi::Optional<ExprDoc> ForDocTranslate(DocTranslatorObj* d, ffi::AnyView input,
                                        const ffi::Object* destination) {
-  const auto* loop =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const ForObj>(input);
+  const auto* loop = ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const ForObj>(input);
   TVM_FFI_CHECK(destination == nullptr, TypeError)
       << "printer statement-only node cannot fulfill a destination";
   ffi::String method;
@@ -131,7 +130,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
 
 }  // namespace
 
-}  // namespace details
+}  // namespace detail
 }  // namespace printer
 }  // namespace script
 }  // namespace tvm

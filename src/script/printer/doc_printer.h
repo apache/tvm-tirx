@@ -25,7 +25,7 @@
 namespace tvm {
 namespace script {
 namespace printer {
-namespace details {
+namespace detail {
 
 // Render a Doc with this invocation's recovered paths and statement annotations.
 ffi::String RenderPythonScript(Doc doc, const PrinterConfig& config,
@@ -33,7 +33,7 @@ ffi::String RenderPythonScript(Doc doc, const PrinterConfig& config,
                                const ffi::Array<AccessPath>& underline_paths,
                                const ffi::Map<AccessPath, ffi::String>& annotations);
 
-}  // namespace details
+}  // namespace detail
 }  // namespace printer
 }  // namespace script
 }  // namespace tvm

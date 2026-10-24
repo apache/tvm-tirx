@@ -187,9 +187,7 @@ class Op : public Expr {
       }
       using View = ffi::reflection::NativeFunctionView<void(const CallObj*)>;
       // set_validator stores only an owning NativeFunction with this signature.
-      ffi::details::AnyUnsafe::CopyFromAnyViewAfterCheck<View>(validator)
-          .CallExpected(call)
-          .value();
+      ffi::detail::AnyUnsafe::CopyFromAnyViewAfterCheck<View>(validator).CallExpected(call).value();
     }
   }
   TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(Op, Expr, OpObj);
@@ -243,7 +241,7 @@ struct ValidateState {
   size_t ty_args_index = 0;
 };
 
-namespace details {
+namespace detail {
 
 template <typename T>
 inline bool ReportTypeMismatch(ffi::Expected<void>* out, const ValidateState* state, bool type_arg,
@@ -265,7 +263,7 @@ inline bool ReportTypeMismatch(ffi::Expected<void>* out, const ValidateState* st
   return false;
 }
 
-}  // namespace details
+}  // namespace detail
 
 /*! \brief One value argument of type T, for example `sig::arg<PrimExpr>("index")`
  * for a required primitive index expression. */
@@ -293,8 +291,8 @@ struct arg : SignatureTrait {
     if constexpr (!std::is_same_v<T, Expr>) {
       ffi::AnyView value(state->call->args.GetArrayObj()->begin()[state->args_index]);
       if (TVM_FFI_PREDICT_FALSE(value == nullptr ||
-                                !ffi::details::AnyUnsafe::CheckAnyViewStrict<T>(value))) {
-        return details::ReportTypeMismatch<T>(out, state, false, state->args_index, value);
+                                !ffi::detail::AnyUnsafe::CheckAnyViewStrict<T>(value))) {
+        return detail::ReportTypeMismatch<T>(out, state, false, state->args_index, value);
       }
     }
     ++state->args_index;
@@ -330,8 +328,8 @@ struct var_args : SignatureTrait {
       for (; state->args_index != state->call->args.size(); ++state->args_index) {
         ffi::AnyView value(values[state->args_index]);
         if (TVM_FFI_PREDICT_FALSE(value == nullptr ||
-                                  !ffi::details::AnyUnsafe::CheckAnyViewStrict<T>(value))) {
-          return details::ReportTypeMismatch<T>(out, state, false, state->args_index, value);
+                                  !ffi::detail::AnyUnsafe::CheckAnyViewStrict<T>(value))) {
+          return detail::ReportTypeMismatch<T>(out, state, false, state->args_index, value);
         }
       }
     } else {
@@ -367,8 +365,8 @@ struct ty_arg : SignatureTrait {
     if constexpr (!std::is_same_v<T, Type>) {
       ffi::AnyView value(state->call->ty_args.GetArrayObj()->begin()[state->ty_args_index]);
       if (TVM_FFI_PREDICT_FALSE(value == nullptr ||
-                                !ffi::details::AnyUnsafe::CheckAnyViewStrict<T>(value))) {
-        return details::ReportTypeMismatch<T>(out, state, true, state->ty_args_index, value);
+                                !ffi::detail::AnyUnsafe::CheckAnyViewStrict<T>(value))) {
+        return detail::ReportTypeMismatch<T>(out, state, true, state->ty_args_index, value);
       }
     }
     ++state->ty_args_index;
@@ -404,8 +402,8 @@ struct var_ty_args : SignatureTrait {
       for (; state->ty_args_index != state->call->ty_args.size(); ++state->ty_args_index) {
         ffi::AnyView value(values[state->ty_args_index]);
         if (TVM_FFI_PREDICT_FALSE(value == nullptr ||
-                                  !ffi::details::AnyUnsafe::CheckAnyViewStrict<T>(value))) {
-          return details::ReportTypeMismatch<T>(out, state, true, state->ty_args_index, value);
+                                  !ffi::detail::AnyUnsafe::CheckAnyViewStrict<T>(value))) {
+          return detail::ReportTypeMismatch<T>(out, state, true, state->ty_args_index, value);
         }
       }
     } else {
@@ -438,7 +436,7 @@ struct call_attrs : SignatureTrait {
   static bool Validate(ValidateState* state, ffi::Expected<void>* out) {
     ffi::AnyView attrs(state->call->attrs);
     if (TVM_FFI_PREDICT_FALSE(!state->call->attrs.has_value() ||
-                              !ffi::details::AnyUnsafe::CheckAnyViewStrict<const T*>(attrs))) {
+                              !ffi::detail::AnyUnsafe::CheckAnyViewStrict<const T*>(attrs))) {
       TVMFFIAny raw = attrs.CopyToTVMFFIAny();
       std::string actual = state->call->attrs.has_value()
                                ? "`" + ffi::TypeTraits<const T*>::GetMismatchTypeInfo(&raw) + "`"

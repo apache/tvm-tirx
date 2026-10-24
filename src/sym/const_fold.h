@@ -32,8 +32,8 @@ namespace tvm {
 namespace sym {
 
 using prim::TryConstFold;
-using prim::details::IsIndexType;
-using prim::details::IsIndexTypedExpr;
+using prim::detail::IsIndexType;
+using prim::detail::IsIndexTypedExpr;
 
 }  // namespace sym
 }  // namespace tvm

@@ -39,14 +39,14 @@ TEST(BackendWorkspace, AllocAndFreeOnCPU) {
 TEST(BackendWorkspace, AllocFailureIsReportedThroughCAPI) {
   void* ptr = TVMBackendAllocWorkspace(kUnavailableDeviceType, 0, 64, kDLFloat, 32);
   EXPECT_EQ(ptr, nullptr);
-  ffi::Error error = ffi::details::MoveFromSafeCallRaised();
+  ffi::Error error = ffi::detail::MoveFromSafeCallRaised();
   EXPECT_FALSE(error.message().empty());
 }
 
 TEST(BackendWorkspace, FreeFailureIsReportedThroughCAPI) {
   int dummy = 0;
   EXPECT_EQ(TVMBackendFreeWorkspace(kUnavailableDeviceType, 0, &dummy), -1);
-  ffi::Error error = ffi::details::MoveFromSafeCallRaised();
+  ffi::Error error = ffi::detail::MoveFromSafeCallRaised();
   EXPECT_FALSE(error.message().empty());
 }
 

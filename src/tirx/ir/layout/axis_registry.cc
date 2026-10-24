@@ -32,7 +32,7 @@ namespace refl = tvm::ffi::reflection;
 /**************** Axis ****************/
 ffi::ObjectPtr<ffi::Object> CreateAxis(const std::string& name) {
   auto axis = Axis::Get(name);
-  return ffi::details::ObjectUnsafe::ObjectPtrFromObjectRef<ffi::Object>(axis);
+  return ffi::detail::ObjectUnsafe::ObjectPtrFromObjectRef<ffi::Object>(axis);
 }
 
 const ffi::EnumState& AxisEnumState() {

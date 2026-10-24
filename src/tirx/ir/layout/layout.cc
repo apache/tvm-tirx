@@ -38,43 +38,43 @@ decltype(auto) DispatchLayout(const Layout& layout, F&& f) {
 }  // namespace
 
 void Layout::CheckWellFormed() const {
-  DispatchLayout(*this, [](const auto* node) { layout_details::CheckWellFormed(node); });
+  DispatchLayout(*this, [](const auto* node) { layout_detail::CheckWellFormed(node); });
 }
 
 PrimExpr Layout::GetSize(ffi::Optional<ffi::String> axis_name) const {
   return DispatchLayout(*this,
-                        [&](const auto* node) { return layout_details::GetSize(node, axis_name); });
+                        [&](const auto* node) { return layout_detail::GetSize(node, axis_name); });
 }
 
 PrimExpr Layout::GetSpan(ffi::Optional<ffi::String> axis_name) const {
   return DispatchLayout(*this,
-                        [&](const auto* node) { return layout_details::GetSpan(node, axis_name); });
+                        [&](const auto* node) { return layout_detail::GetSpan(node, axis_name); });
 }
 
 ffi::Map<ffi::String, PrimExpr> Layout::Apply(ffi::Array<PrimExpr> coord) const {
   return DispatchLayout(
-      *this, [&](const auto* node) { return layout_details::Apply(node, std::move(coord)); });
+      *this, [&](const auto* node) { return layout_detail::Apply(node, std::move(coord)); });
 }
 
 ffi::Map<ffi::String, PrimExpr> Layout::Apply(PrimExpr coord) const {
   return DispatchLayout(
-      *this, [&](const auto* node) { return layout_details::Apply(node, std::move(coord)); });
+      *this, [&](const auto* node) { return layout_detail::Apply(node, std::move(coord)); });
 }
 
 ffi::Map<ffi::String, PrimExpr> Layout::Apply(const ffi::Array<PrimExpr>& coord,
                                               const ffi::Array<PrimExpr>& shape) const {
-  return DispatchLayout(
-      *this, [&](const auto* node) { return layout_details::Apply(node, coord, shape); });
+  return DispatchLayout(*this,
+                        [&](const auto* node) { return layout_detail::Apply(node, coord, shape); });
 }
 
 Layout Layout::Canonicalize() const {
-  return DispatchLayout(*this, [](const auto* node) { return layout_details::Canonicalize(node); });
+  return DispatchLayout(*this, [](const auto* node) { return layout_detail::Canonicalize(node); });
 }
 
 Layout Layout::Tile(const TileLayout& outer, const ffi::Array<PrimExpr>& outer_shape,
                     const ffi::Array<PrimExpr>& inner_shape) const {
   return DispatchLayout(*this, [&](const auto* node) {
-    return layout_details::Tile(node, outer, outer_shape, inner_shape);
+    return layout_detail::Tile(node, outer, outer_shape, inner_shape);
   });
 }
 

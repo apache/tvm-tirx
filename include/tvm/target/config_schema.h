@@ -219,7 +219,7 @@ class ConfigSchema {
       e.default_value = ffi::AnyView::CopyFromTVMFFIAny(info.default_value_or_factory);
       // Release the extra ref created by CopyToTVMFFIAny in Apply
       if (info.default_value_or_factory.type_index >= TVMFFITypeIndex::kTVMFFIStaticObjectBegin) {
-        ffi::details::ObjectUnsafe::DecRefObjectHandle(info.default_value_or_factory.v_obj);
+        ffi::detail::ObjectUnsafe::DecRefObjectHandle(info.default_value_or_factory.v_obj);
       }
     }
     return e;

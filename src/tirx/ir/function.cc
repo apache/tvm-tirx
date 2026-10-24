@@ -35,7 +35,7 @@ TVM_FFI_INLINE ffi::Expected<ffi::Optional<ffi::VisitInterrupt>> FunctionVisit(
     ffi::StructuralVisitorObj* visitor, ffi::AnyView value) noexcept {
   // skips: attrs (metadata), ty (derived from the function signature)
   const FunctionObj* self =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const FunctionObj>(value);
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const FunctionObj>(value);
   TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(visitor->WithDefRegionKind(
       kTVMFFIDefRegionKindPattern, [&]() { return visitor->VisitExpected(self->params); }));
   TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(visitor->VisitExpected(self->ret_type));
@@ -47,7 +47,7 @@ TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> FunctionMutate(
     ffi::StructuralMutatorObj* mutator, ffi::AnyView value) noexcept {
   // skips: attrs (metadata), ty (derived from the function signature)
   const FunctionObj* self =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const FunctionObj>(value);
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const FunctionObj>(value);
   TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<ffi::Array<Var>>, mapped_params,
                                     mutator->WithDefRegionKind(kTVMFFIDefRegionKindPattern, [&]() {
                                       return mutator->MutateExpected(self->params);
@@ -78,7 +78,7 @@ TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> FunctionMaybeInplaceMut
     ffi::StructuralMutatorObj* mutator, ffi::AnyView value) noexcept {
   // skips: attrs (metadata), ty (derived from the function signature)
   FunctionObj* self = const_cast<FunctionObj*>(
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const FunctionObj>(value));
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const FunctionObj>(value));
   TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<ffi::Array<Var>>, mapped_params,
                                     mutator->WithDefRegionKind(kTVMFFIDefRegionKindPattern, [&]() {
                                       return mutator->MutateExpected(self->params,

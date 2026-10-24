@@ -31,7 +31,7 @@
 namespace tvm {
 namespace script {
 namespace printer {
-namespace details {
+namespace detail {
 
 namespace {
 
@@ -80,7 +80,7 @@ bool HasPrimTypeShorthand(const PrimType& type) {
 ffi::Optional<ExprDoc> IntImmDocTranslate(DocTranslatorObj* d, ffi::AnyView input,
                                           const ffi::Object*) {
   const auto* imm =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const IntImmObj>(input);
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const IntImmObj>(input);
   DLDataType dtype = imm->ty.as_or_throw<PrimType>()->dtype;
   ExprDoc value = LiteralDoc::Int(ffi::GetRef<IntImm>(imm), std::nullopt);
   DLDataType default_dtype =
@@ -105,7 +105,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
 ffi::Optional<ExprDoc> FloatImmDocTranslate(DocTranslatorObj* d, ffi::AnyView input,
                                             const ffi::Object*) {
   const auto* imm =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const FloatImmObj>(input);
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const FloatImmObj>(input);
   DLDataType dtype = imm->ty.as_or_throw<PrimType>()->dtype;
   DLDataType default_dtype =
       ffi::StringToDLDataType(d->GetExtraConfig<ffi::String>("ir.float_dtype", "void"));
@@ -133,7 +133,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
 ffi::Optional<ExprDoc> PrimTypeDocTranslate(DocTranslatorObj*, ffi::AnyView input,
                                             const ffi::Object*) {
   const auto* ty =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const PrimTypeObj>(input);
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const PrimTypeObj>(input);
   PrimType type = ffi::GetRef<PrimType>(ty);
   // Other widths and fixed or scalable vectors have no exported TIRx shorthand.
   if (HasPrimTypeShorthand(type)) {
@@ -153,7 +153,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
 ffi::Optional<ExprDoc> PtrTypeDocTranslate(DocTranslatorObj* d, ffi::AnyView input,
                                            const ffi::Object*) {
   const auto* ty =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const PtrTypeObj>(input);
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const PtrTypeObj>(input);
   return d->WithExtraStateScope<bool>("ir.explicit_value_type", true, [&]() -> ExprDoc {
     ffi::Array<ExprDoc> args{d->Translate(ty->element_type).value()};
     if (ty->scope != runtime::MemoryScope::Global()) {
@@ -185,7 +185,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
 ffi::Optional<ExprDoc> TupleTypeDocTranslate(DocTranslatorObj* d, ffi::AnyView input,
                                              const ffi::Object*) {
   const auto* ty =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const TupleTypeObj>(input);
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const TupleTypeObj>(input);
   ExprDoc callee = NamespaceDoc("ir")->Attr("Tuple");
   ffi::Array<ExprDoc> fields;
   for (const Type& field : ty->fields) fields.push_back(d->Translate(field).value());
@@ -200,7 +200,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
 
 }  // namespace
 
-}  // namespace details
+}  // namespace detail
 }  // namespace printer
 }  // namespace script
 }  // namespace tvm

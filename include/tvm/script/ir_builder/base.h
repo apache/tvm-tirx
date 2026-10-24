@@ -268,7 +268,7 @@ class IRBuilder : public ffi::ObjectRef {
 
 ////////////////////////////// Details //////////////////////////////
 
-namespace details {
+namespace detail {
 
 /*! \brief Language variant extensible access to an object's mutable source location. */
 class LocationAccessor {
@@ -284,11 +284,11 @@ class Namer {
   TVM_TIRX_DLL static void Name(ffi::ObjectRef node, ffi::String name);
 };
 
-}  // namespace details
+}  // namespace detail
 
 template <class TObjectRef>
 inline TObjectRef IRBuilder::Name(ffi::String name, TObjectRef obj) {
-  details::Namer::Name(obj, name);
+  detail::Namer::Name(obj, name);
   return obj.template as_or_throw<TObjectRef>();
 }
 

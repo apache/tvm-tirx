@@ -217,13 +217,13 @@ class IntExpr : public PrimExpr {
   static constexpr bool _type_container_is_exact = false;
 };
 
-namespace ffi::details {
+namespace ffi::detail {
 // Array members require storage availability before the expression traits below are complete.
 template <>
 inline constexpr bool storage_enabled_v<Expr> = true;
 template <>
 inline constexpr bool storage_enabled_v<PrimExpr> = true;
-}  // namespace ffi::details
+}  // namespace ffi::detail
 
 /*! \brief Base node for literal constants. */
 class ConstantObj : public ExprObj {
@@ -1029,19 +1029,19 @@ struct TypeTraits<TypedExpr<ExpectedType>>
     : public ObjectRefTypeTraitsBase<TypedExpr<ExpectedType>> {
   TVM_FFI_INLINE static bool CheckAnyStrict(const TVMFFIAny* src) {
     if (src->type_index < TypeIndex::kTVMFFIStaticObjectBegin ||
-        !details::IsObjectInstance<ExprObj>(src->type_index)) {
+        !detail::IsObjectInstance<ExprObj>(src->type_index)) {
       return false;
     }
     // Non-owning: this only reads `ty`, and the owning form's incref/decref pair costs two
     // atomics per check on a path every typed field assignment takes.
-    const auto* expr = details::ObjectUnsafe::RawObjectPtrFromUnowned<ExprObj>(src->v_obj);
-    return details::AnyUnsafe::CheckAnyViewStrict<ExpectedType>(expr->ty);
+    const auto* expr = detail::ObjectUnsafe::RawObjectPtrFromUnowned<ExprObj>(src->v_obj);
+    return detail::AnyUnsafe::CheckAnyViewStrict<ExpectedType>(expr->ty);
   }
 
   TVM_FFI_INLINE static std::string GetMismatchTypeInfo(const TVMFFIAny* src) {
     if (src->type_index >= TypeIndex::kTVMFFIStaticObjectBegin && src->v_obj != nullptr &&
-        details::IsObjectInstance<ExprObj>(src->type_index)) {
-      const auto* expr = details::ObjectUnsafe::RawObjectPtrFromUnowned<ExprObj>(src->v_obj);
+        detail::IsObjectInstance<ExprObj>(src->type_index)) {
+      const auto* expr = detail::ObjectUnsafe::RawObjectPtrFromUnowned<ExprObj>(src->v_obj);
       if (expr->ty.defined()) {
         const auto* prim_ty = expr->ty.as<PrimTypeObj>();
         std::string ty =
@@ -1112,7 +1112,7 @@ struct TypeTraits<IntExpr> : public ObjectRefWithFallbackTraitsBase<IntExpr, int
 
   TVM_FFI_INLINE static bool CheckAnyStrict(const TVMFFIAny* src) {
     if (!Base::CheckAnyStrict(src)) return false;
-    const auto* expr = details::ObjectUnsafe::RawObjectPtrFromUnowned<ExprObj>(src->v_obj);
+    const auto* expr = detail::ObjectUnsafe::RawObjectPtrFromUnowned<ExprObj>(src->v_obj);
     const auto* ty = expr->ty.as<PrimTypeObj>();
     return ty != nullptr && ty->dtype.lanes == 1 &&
            (ty->dtype.code == kDLInt || ty->dtype.code == kDLUInt);
@@ -1148,14 +1148,14 @@ struct TypeTraits<PrimVar> : public ObjectRefTypeTraitsBase<PrimVar> {
       return false;
     }
     const auto* var = static_cast<const VarObj*>(
-        details::ObjectUnsafe::ObjectPtrFromUnowned<Object>(src->v_obj).get());
-    return details::AnyUnsafe::CheckAnyStrict<PrimType>(var->ExprObj::ty);
+        detail::ObjectUnsafe::ObjectPtrFromUnowned<Object>(src->v_obj).get());
+    return detail::AnyUnsafe::CheckAnyStrict<PrimType>(var->ExprObj::ty);
   }
 
   TVM_FFI_INLINE static std::optional<PrimVar> TryCastFromAnyView(const TVMFFIAny* src) {
     if (CheckAnyStrict(src)) {
-      return details::ObjectUnsafe::ObjectRefFromObjectPtr<PrimVar>(
-          details::ObjectUnsafe::ObjectPtrFromUnowned<VarObj>(src->v_obj));
+      return detail::ObjectUnsafe::ObjectRefFromObjectPtr<PrimVar>(
+          detail::ObjectUnsafe::ObjectPtrFromUnowned<VarObj>(src->v_obj));
     }
     return std::nullopt;
   }

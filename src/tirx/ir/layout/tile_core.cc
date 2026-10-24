@@ -38,7 +38,7 @@ namespace {
 TVM_FFI_INLINE ffi::Expected<ffi::Optional<ffi::VisitInterrupt>> IterVisit(
     ffi::StructuralVisitorObj* visitor, ffi::AnyView value) noexcept {
   const IterObj* self =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const IterObj>(value);
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const IterObj>(value);
   TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(visitor->VisitExpected(self->extent));
   TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(visitor->VisitExpected(self->stride));
   TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(visitor->VisitExpected(self->axis));
@@ -48,7 +48,7 @@ TVM_FFI_INLINE ffi::Expected<ffi::Optional<ffi::VisitInterrupt>> IterVisit(
 TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> IterMutate(
     ffi::StructuralMutatorObj* mutator, ffi::AnyView value) noexcept {
   const IterObj* self =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const IterObj>(value);
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const IterObj>(value);
   TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<PrimExpr>, mapped_extent,
                                     mutator->MutateExpected(self->extent));
   TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<PrimExpr>, mapped_stride,
@@ -69,7 +69,7 @@ TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> IterMutate(
 TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> IterMaybeInplaceMutate(
     ffi::StructuralMutatorObj* mutator, ffi::AnyView value) noexcept {
   IterObj* self = const_cast<IterObj*>(
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const IterObj>(value));
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const IterObj>(value));
   TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(
       ffi::UnchangedOr<PrimExpr>, mapped_extent,
       mutator->MutateExpected(self->extent, ffi::InplaceMode::kAllow));
@@ -91,7 +91,7 @@ TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> IterMaybeInplaceMutate(
 TVM_FFI_INLINE ffi::Expected<ffi::Optional<ffi::VisitInterrupt>> TileLayoutVisit(
     ffi::StructuralVisitorObj* visitor, ffi::AnyView value) noexcept {
   const TileLayoutObj* self =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const TileLayoutObj>(value);
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const TileLayoutObj>(value);
   TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(visitor->VisitExpected(self->shard));
   TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(visitor->VisitExpected(self->replica));
   TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(visitor->VisitExpected(self->offset));
@@ -101,7 +101,7 @@ TVM_FFI_INLINE ffi::Expected<ffi::Optional<ffi::VisitInterrupt>> TileLayoutVisit
 TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> TileLayoutMutate(
     ffi::StructuralMutatorObj* mutator, ffi::AnyView value) noexcept {
   const TileLayoutObj* self =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const TileLayoutObj>(value);
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const TileLayoutObj>(value);
   TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<ffi::Array<Iter>>, mapped_shard,
                                     mutator->MutateExpected(self->shard));
   TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<ffi::Array<Iter>>, mapped_replica,
@@ -124,7 +124,7 @@ TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> TileLayoutMutate(
 TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> TileLayoutMaybeInplaceMutate(
     ffi::StructuralMutatorObj* mutator, ffi::AnyView value) noexcept {
   TileLayoutObj* self = const_cast<TileLayoutObj*>(
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const TileLayoutObj>(value));
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const TileLayoutObj>(value));
   TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<ffi::Array<Iter>>, mapped_shard,
                                     mutator->MutateExpected(self->shard, ffi::InplaceMode::kAllow));
   TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(
@@ -181,14 +181,13 @@ TVM_FFI_STATIC_INIT_BLOCK() {
   });
 }
 
-void layout_details::CheckWellFormed(const TileLayoutObj* layout) {
+void layout_detail::CheckWellFormed(const TileLayoutObj* layout) {
   const auto tile = ffi::GetRef<TileLayout>(layout);
   TVM_FFI_CHECK(tile.GetScope().has_value() || !tile.HasThreadAxis(), ValueError)
       << "A tile layout with thread axes must have a connected scope";
 }
 
-PrimExpr layout_details::GetSize(const TileLayoutObj* layout,
-                                 ffi::Optional<ffi::String> axis_name) {
+PrimExpr layout_detail::GetSize(const TileLayoutObj* layout, ffi::Optional<ffi::String> axis_name) {
   auto filter = [&](const Iter& iter, PrimExpr acc) {
     if (!axis_name.has_value() || iter->axis.name() == axis_name.value()) {
       return acc * iter->extent;
@@ -202,8 +201,7 @@ PrimExpr layout_details::GetSize(const TileLayoutObj* layout,
   return res;
 }
 
-PrimExpr layout_details::GetSpan(const TileLayoutObj* layout,
-                                 ffi::Optional<ffi::String> axis_name) {
+PrimExpr layout_detail::GetSpan(const TileLayoutObj* layout, ffi::Optional<ffi::String> axis_name) {
   sym::Analyzer analyzer;
   PrimExpr result = 1;
   auto filter = [&](const Axis& axis) { return AxisMatchesFilter(axis, axis_name); };
@@ -220,13 +218,13 @@ PrimExpr layout_details::GetSpan(const TileLayoutObj* layout,
   return analyzer->Simplify(result);
 }
 
-ffi::Map<ffi::String, PrimExpr> layout_details::Apply(const TileLayoutObj* layout, PrimExpr coord) {
+ffi::Map<ffi::String, PrimExpr> layout_detail::Apply(const TileLayoutObj* layout, PrimExpr coord) {
   return Apply(layout, SplitCoord(coord, ffi::GetRef<TileLayout>(layout).GetShardShape()));
 }
 
-ffi::Map<ffi::String, PrimExpr> layout_details::Apply(const TileLayoutObj* layout,
-                                                      const ffi::Array<PrimExpr>& coord,
-                                                      const ffi::Array<PrimExpr>& shape) {
+ffi::Map<ffi::String, PrimExpr> layout_detail::Apply(const TileLayoutObj* layout,
+                                                     const ffi::Array<PrimExpr>& coord,
+                                                     const ffi::Array<PrimExpr>& shape) {
   TVM_FFI_ICHECK_EQ(coord.size(), shape.size())
       << "ValueError: The size of coord and shape should be equal";
   // Group-first path: if this layout can be regrouped by ``shape`` (the input
@@ -263,8 +261,8 @@ ffi::Map<ffi::String, PrimExpr> layout_details::Apply(const TileLayoutObj* layou
   return Apply(layout, FlattenCoord(coord, shape));
 }
 
-ffi::Map<ffi::String, PrimExpr> layout_details::Apply(const TileLayoutObj* layout,
-                                                      Array<PrimExpr> coord) {
+ffi::Map<ffi::String, PrimExpr> layout_detail::Apply(const TileLayoutObj* layout,
+                                                     Array<PrimExpr> coord) {
   sym::Analyzer analyzer;
   TVM_FFI_ICHECK_EQ(coord.size(), layout->shard.size())
       << "Coordinate size must match the number of shard axes";

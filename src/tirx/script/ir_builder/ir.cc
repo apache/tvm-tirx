@@ -69,7 +69,7 @@ FunctionFrame Function(bool is_private, bool persistent, bool is_declaration) {
 
 Var Arg(ffi::String name, Var var) {
   FunctionFrame frame = FindFunctionFrame("T.Arg");
-  details::Namer::Name(var, name);
+  detail::Namer::Name(var, name);
   frame->args.push_back(var);
   return var;
 }
@@ -197,7 +197,7 @@ Var Ptr(PrimType dtype, runtime::MemoryScope storage_scope = {}) {
   return tvm::Var("", type_annotation);
 }
 
-using tvm::script::ir_builder::details::Namer;
+using tvm::script::ir_builder::detail::Namer;
 
 TVM_FFI_STATIC_INIT_BLOCK() {
   Namer::vtable().SetDispatch<TensorLoadObj>(

@@ -37,7 +37,7 @@
 namespace tvm {
 namespace script {
 namespace printer {
-namespace details {
+namespace detail {
 
 namespace {
 
@@ -155,7 +155,7 @@ void PrintFunction(DocTranslatorObj* d, const tirx::FunctionObj* func, ExprDoc d
 ffi::Optional<ExprDoc> TirxFunctionDocTranslate(DocTranslatorObj* d, ffi::AnyView input,
                                                 const ffi::Object* destination) {
   const auto* func =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const tirx::FunctionObj>(input);
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const tirx::FunctionObj>(input);
   TVM_FFI_CHECK(destination == nullptr, TypeError)
       << "printer statement-only node cannot fulfill a destination";
   auto construction_namespace = func->GetAttr(tvm::attr::kScriptNamespace).value_or("tirx");
@@ -172,7 +172,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
 
 }  // namespace
 
-}  // namespace details
+}  // namespace detail
 }  // namespace printer
 }  // namespace script
 }  // namespace tvm

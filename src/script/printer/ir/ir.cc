@@ -32,14 +32,14 @@
 namespace tvm {
 namespace script {
 namespace printer {
-namespace details {
+namespace detail {
 
 namespace {
 
 ffi::Optional<ExprDoc> IRModuleDocTranslate(DocTranslatorObj* d, ffi::AnyView input,
                                             const ffi::Object* destination) {
   const auto* mod =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const IRModuleObj>(input);
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const IRModuleObj>(input);
   TVM_FFI_CHECK(destination == nullptr, TypeError)
       << "printer statement-only node cannot fulfill a destination";
   ffi::String module_name = d->GetExtraConfig<ffi::String>("ir.module_name", "Module");
@@ -117,7 +117,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
 ffi::Optional<ExprDoc> DictAttrsDocTranslate(DocTranslatorObj* d, ffi::AnyView input,
                                              const ffi::Object*) {
   const auto* attrs =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const DictAttrsObj>(input);
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const DictAttrsObj>(input);
   return d->Translate(attrs->dict).value();
 }
 
@@ -130,7 +130,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
 ffi::Optional<ExprDoc> GlobalVarDocTranslate(DocTranslatorObj* d, ffi::AnyView input,
                                              const ffi::Object*) {
   const auto* var =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const GlobalVarObj>(input);
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const GlobalVarObj>(input);
   return GlobalReference(d, var->name_hint);
 }
 
@@ -141,7 +141,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
 }
 
 ffi::Optional<ExprDoc> OpDocTranslate(DocTranslatorObj*, ffi::AnyView input, const ffi::Object*) {
-  const auto* op = ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const OpObj>(input);
+  const auto* op = ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const OpObj>(input);
   return NamespaceDoc("ir")->Attr("Op")->Attr("get")->Call(
       {LiteralDoc::Str(op->name, std::nullopt)});
 }
@@ -154,7 +154,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
 ffi::Optional<ExprDoc> RangeDocTranslate(DocTranslatorObj* d, ffi::AnyView input,
                                          const ffi::Object*) {
   const auto* range =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const RangeObj>(input);
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const RangeObj>(input);
   ExprDoc min = d->Translate(range->begin).value();
   ExprDoc end = d->Translate(range->begin + range->extent).value();
   return NamespaceDoc("ir")->Attr("Range")->Call({min, end});
@@ -167,7 +167,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
 
 }  // namespace
 
-}  // namespace details
+}  // namespace detail
 }  // namespace printer
 }  // namespace script
 }  // namespace tvm

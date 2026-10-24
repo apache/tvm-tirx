@@ -1591,7 +1591,7 @@ void AttachAnnotations(const Doc& root, const ffi::Map<AccessPath, ffi::String>&
 
 }  // namespace
 
-namespace details {
+namespace detail {
 
 ffi::String RenderPythonScript(Doc doc, const PrinterConfig& cfg,
                                const ffi::Array<ffi::Any>& header,
@@ -1615,13 +1615,13 @@ ffi::String RenderPythonScript(Doc doc, const PrinterConfig& cfg,
   return RenderInvisiblePathInfo(script, underline_paths, printer.GetVisiblePaths());
 }
 
-}  // namespace details
+}  // namespace detail
 
 TVM_FFI_STATIC_INIT_BLOCK() {
   namespace refl = tvm::ffi::reflection;
   refl::GlobalDef().def("script.printer.DocToPythonScript", [](Doc doc,
                                                                const PrinterConfig& config) {
-    return details::RenderPythonScript(std::move(doc), config, {}, config->path_to_underline, {});
+    return detail::RenderPythonScript(std::move(doc), config, {}, config->path_to_underline, {});
   });
 }
 
