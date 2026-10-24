@@ -32,6 +32,7 @@
 #include <tvm/sym/analyzer.h>
 #include <tvm/tirx/function.h>
 #include <tvm/tirx/op/abi.h>
+#include <tvm/tirx/op/annotation.h>
 #include <tvm/tirx/op/gpu.h>
 #include <tvm/tirx/op/memory.h>
 #include <tvm/tirx/op/region.h>
@@ -1500,8 +1501,8 @@ void CodeGenC::Dispatch_(const EvaluateObj* op) {
   if (auto value = op->value.as<PrimExpr>(); value && IsConstInt(value.value())) return;
   const CallObj* call = op->value.as<CallObj>();
   if (call) {
-    if (call->op.same_as(tirx::assume_aligned_op())) {
-      // Alignment facts do not require a runtime statement on C-family targets.
+    if (call->op.same_as(tirx::assume_aligned_op()) || call->op.same_as(tirx::assume_always_op())) {
+      // Assumption metadata does not require a runtime statement on C-family targets.
       return;
     }
     if (call->op.same_as(tirx::gpu_storage_sync_op())) {

@@ -688,6 +688,16 @@ def stack_make_dltensor(
     )
 
 
+def assume_always(predicate, *, ty=None, loc: Location = UNKNOWN_LOC):
+    """Guarantee a predicate throughout its containing scope, including mutations.
+
+    This void annotation performs no runtime check. Constraint traversal records
+    the predicate as written with ``assume_always=True``, even when it reads state.
+    The caller must ensure the guarantee remains valid across mutations.
+    """
+    return call_intrin("tirx.assume_always", predicate, loc=loc, ty=ty)
+
+
 def assume_aligned(tensor, alignment_bytes, *, ty=None, loc: Location = UNKNOWN_LOC):
     """Assume the tensor's base address is aligned to ``alignment_bytes``.
 

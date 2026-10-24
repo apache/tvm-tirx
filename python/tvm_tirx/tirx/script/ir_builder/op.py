@@ -555,6 +555,7 @@ gpu_warp_activemask = _auto_emit_void_call(_tir_op.gpu_warp_activemask)
 
 assume = _auto_emit_void_call(_tir_op.assume)
 assume_aligned = _auto_emit_void_call(_tir_op.assume_aligned)
+assume_always = _auto_emit_void_call(_tir_op.assume_always)
 
 
 undef = _auto_emit_void_call(_tir_op.undef)
@@ -795,6 +796,7 @@ __all__ = [
     "asinh",
     "assume",
     "assume_aligned",
+    "assume_always",
     "atan",
     "atan2",
     "atanh",

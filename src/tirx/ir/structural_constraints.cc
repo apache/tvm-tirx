@@ -29,50 +29,22 @@ namespace tvm {
 namespace tirx {
 namespace {
 template <typename Traversal>
-ffi::Expected<void> AddPredicate(Traversal* traversal, Expr condition, bool negate = false) {
-  try {
-    auto predicate = condition.as<PrimExpr>();
-    TVM_FFI_RET_CHECK(predicate.has_value() &&
-                          predicate.value().ty().MatchesCode(DLDataTypeCode::kDLBool) &&
-                          predicate.value().ty().IsScalar(),
-                      TypeError)
-        << "Constraint predicate must be a scalar boolean primitive expression";
-    if (const auto* call = condition.as<CallObj>(); call && call->op.same_as(prim::likely_op())) {
-      TVM_FFI_RET_CHECK(call->args.size() == 1, ValueError)
-          << "prim.likely must have one condition argument";
-      predicate = call->args[0].as<PrimExpr>();
-      TVM_FFI_RET_CHECK(predicate.has_value() &&
-                            predicate.value().ty().MatchesCode(DLDataTypeCode::kDLBool) &&
-                            predicate.value().ty().IsScalar(),
-                        TypeError)
-          << "Constraint predicate must be a scalar boolean primitive expression";
-    }
-    if (SideEffect(predicate.value()) <= CallEffectKind::kPure) {
-      traversal->AppendConstraint(
-          sym::PredicateConstraint(negate ? prim::Not(predicate.value()) : predicate.value()));
-    }
-    return {};
-  } catch (const ffi::Error& error) {
-    return ffi::Unexpected(error);
-  }
-}
-
-template <typename Traversal>
-ffi::Expected<void> RecordStatement(Traversal* traversal, ffi::AnyView value) {
+void RecordStatement(Traversal* traversal, ffi::AnyView value) {
   if (const auto* bind = value.as<BindObj>()) {
     if (auto rhs = bind->value.as<PrimExpr>()) {
       traversal->AppendConstraint(sym::BindingConstraint(bind->var, rhs.value()));
     }
   } else if (const auto* assertion = value.as<AssertStmtObj>()) {
-    return AddPredicate(traversal, assertion->condition);
+    if (SideEffect(assertion->condition) <= CallEffectKind::kPure) {
+      traversal->AppendConstraint(sym::PredicateConstraint(assertion->condition));
+    }
   } else if (const auto* seq = value.as<SeqStmtObj>()) {
     // A replacement sequence is flattened by the normal sequence helper. Record its output
     // facts without revisiting its already-transformed children.
     for (const auto& stmt : seq->seq) {
-      if (auto result = RecordStatement(traversal, stmt); result.is_err()) return result;
+      RecordStatement(traversal, stmt);
     }
   }
-  return {};
 }
 
 template <typename Traversal>
@@ -80,28 +52,8 @@ ffi::Expected<void> AddLoopRange(Traversal* traversal, PrimVar var, PrimExpr beg
                                  PrimExpr step) {
   try {
     const auto* stride = step.as<IntImmObj>();
-    if (stride && stride->value > 0 && SideEffect(begin) <= CallEffectKind::kPure &&
-        SideEffect(end) <= CallEffectKind::kPure) {
+    if (stride && stride->value > 0) {
       traversal->AppendConstraint(sym::RangeConstraint(var, Range(begin, end)));
-    }
-    return {};
-  } catch (const ffi::Error& error) {
-    return ffi::Unexpected(error);
-  }
-}
-
-template <typename Traversal>
-ffi::Expected<void> AddThreadRange(Traversal* traversal, const ffi::Array<Expr>& args,
-                                   const ffi::Array<Var>& body_params) {
-  try {
-    if (body_params.size() == 1 && args.size() == 2) {
-      auto extent = args[1].as<PrimExpr>();
-      TVM_FFI_RET_CHECK(extent.has_value(), TypeError)
-          << "Thread extent must be a primitive expression";
-      if (SideEffect(extent.value()) <= CallEffectKind::kPure) {
-        traversal->AppendConstraint(sym::RangeConstraint(
-            body_params[0], Range::FromMinExtent(IntImm(extent.value().ty(), 0), extent.value())));
-      }
     }
     return {};
   } catch (const ffi::Error& error) {
@@ -116,17 +68,13 @@ TVM_FFI_INLINE ffi::Expected<ffi::Optional<ffi::VisitInterrupt>> IfVisit(
   TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(visitor->VisitExpected(self->condition));
   auto result_then_case =
       visitor->WithConstraintScope([&]() -> ffi::Expected<ffi::Optional<ffi::VisitInterrupt>> {
-        if (auto result = AddPredicate(visitor, self->condition); result.is_err()) {
-          return ffi::Unexpected(std::move(result).error());
-        }
+        visitor->AppendConstraint(sym::PredicateConstraint(self->condition));
         return visitor->VisitExpected(self->then_case);
       });
   TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(result_then_case);
   auto result_else_case =
       visitor->WithConstraintScope([&]() -> ffi::Expected<ffi::Optional<ffi::VisitInterrupt>> {
-        if (auto result = AddPredicate(visitor, self->condition, true); result.is_err()) {
-          return ffi::Unexpected(std::move(result).error());
-        }
+        visitor->AppendConstraint(sym::PredicateConstraint(prim::Not(self->condition)));
         return visitor->VisitExpected(self->else_case);
       });
   TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(result_else_case);
@@ -145,17 +93,13 @@ TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> IfMutate(
   TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(
       ffi::UnchangedOr<Stmt>, mapped_then_case,
       mutator->WithConstraintScope([&]() -> ffi::Expected<ffi::UnchangedOr<ffi::Any>> {
-        if (auto result = AddPredicate(mutator, condition); result.is_err()) {
-          return ffi::Unexpected(std::move(result).error());
-        }
+        mutator->AppendConstraint(sym::PredicateConstraint(condition));
         return mutator->MutateExpected(self->then_case);
       }));
   TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(
       ffi::UnchangedOr<ffi::Optional<Stmt>>, mapped_else_case,
       mutator->WithConstraintScope([&]() -> ffi::Expected<ffi::UnchangedOr<ffi::Any>> {
-        if (auto result = AddPredicate(mutator, condition, true); result.is_err()) {
-          return ffi::Unexpected(std::move(result).error());
-        }
+        mutator->AppendConstraint(sym::PredicateConstraint(prim::Not(condition)));
         return mutator->MutateExpected(self->else_case);
       }));
   if (mapped_condition.UnchangedOrSameAs(self->condition) &&
@@ -189,17 +133,13 @@ TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> IfMaybeInplaceMutate(
   TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(
       ffi::UnchangedOr<Stmt>, mapped_then_case,
       mutator->WithConstraintScope([&]() -> ffi::Expected<ffi::UnchangedOr<ffi::Any>> {
-        if (auto result = AddPredicate(mutator, condition); result.is_err()) {
-          return ffi::Unexpected(std::move(result).error());
-        }
+        mutator->AppendConstraint(sym::PredicateConstraint(condition));
         return mutator->MutateExpected(self->then_case, ffi::InplaceMode::kAllow);
       }));
   TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(
       ffi::UnchangedOr<ffi::Optional<Stmt>>, mapped_else_case,
       mutator->WithConstraintScope([&]() -> ffi::Expected<ffi::UnchangedOr<ffi::Any>> {
-        if (auto result = AddPredicate(mutator, condition, true); result.is_err()) {
-          return ffi::Unexpected(std::move(result).error());
-        }
+        mutator->AppendConstraint(sym::PredicateConstraint(prim::Not(condition)));
         return mutator->MutateExpected(self->else_case, ffi::InplaceMode::kAllow);
       }));
   if (mapped_condition.UnchangedOrSameAs(self->condition) &&
@@ -349,9 +289,7 @@ TVM_FFI_INLINE ffi::Expected<ffi::Optional<ffi::VisitInterrupt>> WhileVisit(
   TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(visitor->VisitExpected(self->condition));
   auto result_body =
       visitor->WithConstraintScope([&]() -> ffi::Expected<ffi::Optional<ffi::VisitInterrupt>> {
-        if (auto result = AddPredicate(visitor, self->condition); result.is_err()) {
-          return ffi::Unexpected(std::move(result).error());
-        }
+        visitor->AppendConstraint(sym::PredicateConstraint(self->condition));
         return visitor->VisitExpected(self->body);
       });
   TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(result_body);
@@ -367,13 +305,9 @@ TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> WhileMutate(
   TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(
       ffi::UnchangedOr<Stmt>, mapped_body,
       mutator->WithConstraintScope([&]() -> ffi::Expected<ffi::UnchangedOr<ffi::Any>> {
-        if (auto result =
-                AddPredicate(mutator, (mapped_condition.IsUnchanged()
-                                           ? self->condition
+        mutator->AppendConstraint(sym::PredicateConstraint(
+            mapped_condition.IsUnchanged() ? self->condition
                                            : ffi::AnyView(mapped_condition).cast<PrimExpr>()));
-            result.is_err()) {
-          return ffi::Unexpected(std::move(result).error());
-        }
         return mutator->MutateExpected(self->body);
       }));
   if (mapped_condition.UnchangedOrSameAs(self->condition) &&
@@ -396,13 +330,9 @@ TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> WhileMaybeInplaceMutate
   TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(
       ffi::UnchangedOr<Stmt>, mapped_body,
       mutator->WithConstraintScope([&]() -> ffi::Expected<ffi::UnchangedOr<ffi::Any>> {
-        if (auto result =
-                AddPredicate(mutator, (mapped_condition.IsUnchanged()
-                                           ? self->condition
+        mutator->AppendConstraint(sym::PredicateConstraint(
+            mapped_condition.IsUnchanged() ? self->condition
                                            : ffi::AnyView(mapped_condition).cast<PrimExpr>()));
-            result.is_err()) {
-          return ffi::Unexpected(std::move(result).error());
-        }
         return mutator->MutateExpected(self->body, ffi::InplaceMode::kAllow);
       }));
   if (mapped_condition.UnchangedOrSameAs(self->condition) &&
@@ -520,362 +450,6 @@ TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> LetMaybeInplaceMutate(
   return ffi::Unchanged();
 }
 
-template <bool is_thread_launch>
-TVM_FFI_INLINE ffi::Expected<ffi::Optional<ffi::VisitInterrupt>> RegionStmtVisit(
-    StructuralVisitorWithConstraintContextObj* visitor, ffi::AnyView value) noexcept {
-  if constexpr (is_thread_launch) {
-    if (!value.as<RegionStmtObj>())
-      return visitor->ffi::StructuralVisitorObj::DefaultVisitExpected(value);
-  }
-  const RegionStmtObj* self =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const RegionStmtObj>(value);
-  TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(visitor->VisitExpected(self->attrs));
-  TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(visitor->VisitExpected(self->args));
-  TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(visitor->WithDefRegionKind(
-      kTVMFFIDefRegionKindSimple, [&]() { return visitor->VisitExpected(self->body_params); }));
-  auto result_body =
-      visitor->WithConstraintScope([&]() -> ffi::Expected<ffi::Optional<ffi::VisitInterrupt>> {
-        if constexpr (is_thread_launch) {
-          if (auto result = AddThreadRange(visitor, self->args, self->body_params);
-              result.is_err()) {
-            return ffi::Unexpected(std::move(result).error());
-          }
-        }
-        return visitor->VisitExpected(self->body);
-      });
-  TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(result_body);
-  return visitor->WithDefRegionKind(kTVMFFIDefRegionKindSimple,
-                                    [&]() { return visitor->VisitExpected(self->result_vars); });
-}
-
-template <bool is_thread_launch>
-TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> RegionStmtMutate(
-    StructuralMutatorWithConstraintContextObj* mutator, ffi::AnyView value) noexcept {
-  if constexpr (is_thread_launch) {
-    if (!value.as<RegionStmtObj>())
-      return mutator->ffi::StructuralMutatorObj::DefaultMutateExpected(value,
-                                                                       ffi::InplaceMode::kDisallow);
-  }
-  const RegionStmtObj* self =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const RegionStmtObj>(value);
-  TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<DictAttrs>, mapped_attrs,
-                                    mutator->MutateExpected(self->attrs));
-  TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<ffi::Array<Expr>>, mapped_args,
-                                    mutator->MutateExpected(self->args));
-  ffi::Array<Var> old_body_params = self->body_params;
-  TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<ffi::Array<Var>>, mapped_body_params,
-                                    mutator->WithDefRegionKind(kTVMFFIDefRegionKindSimple, [&]() {
-                                      return mutator->MutateExpected(self->body_params);
-                                    }));
-  TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(
-      ffi::UnchangedOr<Stmt>, mapped_body,
-      mutator->WithConstraintScope([&]() -> ffi::Expected<ffi::UnchangedOr<ffi::Any>> {
-        const auto& body_params = mapped_body_params.IsUnchanged()
-                                      ? self->body_params
-                                      : ffi::AnyView(mapped_body_params).cast<ffi::Array<Var>>();
-        if (body_params.size() != old_body_params.size()) {
-          return ffi::Unexpected(
-              ffi::Error("ValueError",
-                         "A region definition rewrite must preserve the number of parameters", ""));
-        }
-        for (size_t i = 0; i < body_params.size(); ++i) {
-          if (!body_params[i].same_as(old_body_params[i])) {
-            auto remap = mutator->VarRemapSetExpected(old_body_params[i], body_params[i]);
-            TVM_FFI_S_MUTATE_MAYBE_EARLY_RETURN(remap);
-          }
-        }
-        if constexpr (is_thread_launch) {
-          if (auto result = AddThreadRange(mutator,
-                                           mapped_args.IsUnchanged()
-                                               ? self->args
-                                               : ffi::AnyView(mapped_args).cast<ffi::Array<Expr>>(),
-                                           body_params);
-              result.is_err()) {
-            return ffi::Unexpected(std::move(result).error());
-          }
-        }
-        return mutator->MutateExpected(self->body);
-      }));
-  ffi::Array<Var> old_result_vars = self->result_vars;
-  TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<ffi::Array<Var>>, mapped_result_vars,
-                                    mutator->WithDefRegionKind(kTVMFFIDefRegionKindSimple, [&]() {
-                                      return mutator->MutateExpected(self->result_vars);
-                                    }));
-  const auto& result_vars = mapped_result_vars.IsUnchanged()
-                                ? self->result_vars
-                                : ffi::AnyView(mapped_result_vars).cast<ffi::Array<Var>>();
-  if (result_vars.size() != old_result_vars.size()) {
-    return ffi::Unexpected(ffi::Error(
-        "ValueError", "A region definition rewrite must preserve the number of results", ""));
-  }
-  for (size_t i = 0; i < result_vars.size(); ++i) {
-    if (!result_vars[i].same_as(old_result_vars[i])) {
-      auto remap = mutator->VarRemapSetExpected(old_result_vars[i], result_vars[i]);
-      TVM_FFI_S_MUTATE_MAYBE_EARLY_RETURN(remap);
-    }
-  }
-  if (mapped_args.UnchangedOrSameAs(self->args) && mapped_attrs.UnchangedOrSameAs(self->attrs) &&
-      mapped_body_params.UnchangedOrSameAs(self->body_params) &&
-      mapped_body.UnchangedOrSameAs(self->body) &&
-      mapped_result_vars.UnchangedOrSameAs(self->result_vars)) {
-    return ffi::Unchanged();
-  }
-  auto copy = ffi::make_object<RegionStmtObj>(*self);
-  if (!mapped_args.IsUnchanged()) copy->args = std::move(mapped_args).ValueUnchecked();
-  if (!mapped_attrs.IsUnchanged()) copy->attrs = std::move(mapped_attrs).ValueUnchecked();
-  if (!mapped_body_params.IsUnchanged())
-    copy->body_params = std::move(mapped_body_params).ValueUnchecked();
-  if (!mapped_body.IsUnchanged()) copy->body = SeqStmt(std::move(mapped_body).ValueUnchecked());
-  if (!mapped_result_vars.IsUnchanged())
-    copy->result_vars = std::move(mapped_result_vars).ValueUnchecked();
-  return ffi::Any(std::move(copy));
-}
-
-template <bool is_thread_launch>
-TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> RegionStmtMaybeInplaceMutate(
-    StructuralMutatorWithConstraintContextObj* mutator, ffi::AnyView value) noexcept {
-  if constexpr (is_thread_launch) {
-    if (!value.as<RegionStmtObj>())
-      return mutator->ffi::StructuralMutatorObj::DefaultMutateExpected(value,
-                                                                       ffi::InplaceMode::kAllow);
-  }
-  const RegionStmtObj* self =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const RegionStmtObj>(value);
-  TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<DictAttrs>, mapped_attrs,
-                                    mutator->MutateExpected(self->attrs, ffi::InplaceMode::kAllow));
-  TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<ffi::Array<Expr>>, mapped_args,
-                                    mutator->MutateExpected(self->args, ffi::InplaceMode::kAllow));
-  ffi::Array<Var> old_body_params = self->body_params;
-  TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<ffi::Array<Var>>, mapped_body_params,
-                                    mutator->WithDefRegionKind(kTVMFFIDefRegionKindSimple, [&]() {
-                                      return mutator->MutateExpected(self->body_params,
-                                                                     ffi::InplaceMode::kAllow);
-                                    }));
-  TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(
-      ffi::UnchangedOr<Stmt>, mapped_body,
-      mutator->WithConstraintScope([&]() -> ffi::Expected<ffi::UnchangedOr<ffi::Any>> {
-        const auto& body_params = mapped_body_params.IsUnchanged()
-                                      ? self->body_params
-                                      : ffi::AnyView(mapped_body_params).cast<ffi::Array<Var>>();
-        if (body_params.size() != old_body_params.size()) {
-          return ffi::Unexpected(
-              ffi::Error("ValueError",
-                         "A region definition rewrite must preserve the number of parameters", ""));
-        }
-        for (size_t i = 0; i < body_params.size(); ++i) {
-          if (!body_params[i].same_as(old_body_params[i])) {
-            auto remap = mutator->VarRemapSetExpected(old_body_params[i], body_params[i]);
-            TVM_FFI_S_MUTATE_MAYBE_EARLY_RETURN(remap);
-          }
-        }
-        if constexpr (is_thread_launch) {
-          if (auto result = AddThreadRange(mutator,
-                                           mapped_args.IsUnchanged()
-                                               ? self->args
-                                               : ffi::AnyView(mapped_args).cast<ffi::Array<Expr>>(),
-                                           body_params);
-              result.is_err()) {
-            return ffi::Unexpected(std::move(result).error());
-          }
-        }
-        return mutator->MutateExpected(self->body, ffi::InplaceMode::kAllow);
-      }));
-  ffi::Array<Var> old_result_vars = self->result_vars;
-  TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<ffi::Array<Var>>, mapped_result_vars,
-                                    mutator->WithDefRegionKind(kTVMFFIDefRegionKindSimple, [&]() {
-                                      return mutator->MutateExpected(self->result_vars,
-                                                                     ffi::InplaceMode::kAllow);
-                                    }));
-  const auto& result_vars = mapped_result_vars.IsUnchanged()
-                                ? self->result_vars
-                                : ffi::AnyView(mapped_result_vars).cast<ffi::Array<Var>>();
-  if (result_vars.size() != old_result_vars.size()) {
-    return ffi::Unexpected(ffi::Error(
-        "ValueError", "A region definition rewrite must preserve the number of results", ""));
-  }
-  for (size_t i = 0; i < result_vars.size(); ++i) {
-    if (!result_vars[i].same_as(old_result_vars[i])) {
-      auto remap = mutator->VarRemapSetExpected(old_result_vars[i], result_vars[i]);
-      TVM_FFI_S_MUTATE_MAYBE_EARLY_RETURN(remap);
-    }
-  }
-  if (mapped_args.UnchangedOrSameAs(self->args) && mapped_attrs.UnchangedOrSameAs(self->attrs) &&
-      mapped_body_params.UnchangedOrSameAs(self->body_params) &&
-      mapped_body.UnchangedOrSameAs(self->body) &&
-      mapped_result_vars.UnchangedOrSameAs(self->result_vars)) {
-    return ffi::Unchanged();
-  }
-  auto* copy = const_cast<RegionStmtObj*>(self);
-  if (!mapped_args.IsUnchanged()) copy->args = std::move(mapped_args).ValueUnchecked();
-  if (!mapped_attrs.IsUnchanged()) copy->attrs = std::move(mapped_attrs).ValueUnchecked();
-  if (!mapped_body_params.IsUnchanged())
-    copy->body_params = std::move(mapped_body_params).ValueUnchecked();
-  if (!mapped_body.IsUnchanged()) copy->body = SeqStmt(std::move(mapped_body).ValueUnchecked());
-  if (!mapped_result_vars.IsUnchanged())
-    copy->result_vars = std::move(mapped_result_vars).ValueUnchecked();
-  return ffi::Unchanged();
-}
-
-TVM_FFI_INLINE ffi::Expected<ffi::Optional<ffi::VisitInterrupt>> IfThenElseVisit(
-    StructuralVisitorWithConstraintContextObj* visitor, ffi::AnyView value) noexcept {
-  // skips: attrs and the interned if_then_else Op, matching ordinary Call descent.
-  if (!value.as<CallObj>()) return RegionStmtVisit<false>(visitor, value);
-  const auto* self =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const CallObj>(value);
-  if (self->args.size() != 3) {
-    return visitor->ffi::StructuralVisitorObj::DefaultVisitExpected(value);
-  }
-  if (!self->ty.as<PrimTypeObj>()) {
-    TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(visitor->VisitExpected(self->ty));
-  }
-  TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(visitor->VisitExpected(self->args[0]));
-  for (size_t i = 1; i < 3; ++i) {
-    auto result =
-        visitor->WithConstraintScope([&]() -> ffi::Expected<ffi::Optional<ffi::VisitInterrupt>> {
-          if (auto result = AddPredicate(visitor, self->args[0], i == 2); result.is_err()) {
-            return ffi::Unexpected(std::move(result).error());
-          }
-          return visitor->VisitExpected(self->args[i]);
-        });
-    TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(result);
-  }
-  if (!self->ty_args.empty()) {
-    TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(visitor->VisitExpected(self->ty_args));
-  }
-  return std::nullopt;
-}
-
-TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> IfThenElseMutate(
-    StructuralMutatorWithConstraintContextObj* mutator, ffi::AnyView value) noexcept {
-  // skips: attrs and the interned if_then_else Op, matching ordinary Call descent.
-  if (!value.as<CallObj>()) return RegionStmtMutate<false>(mutator, value);
-  const auto* self =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const CallObj>(value);
-  if (self->args.size() != 3) {
-    return mutator->ffi::StructuralMutatorObj::DefaultMutateExpected(value,
-                                                                     ffi::InplaceMode::kDisallow);
-  }
-  ffi::UnchangedOr<Type> mapped_ty = ffi::Unchanged();
-  if (!self->ty.as<PrimTypeObj>()) {
-    TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(
-        ffi::UnchangedOr<Type>, result,
-        mutator->MutateExpected(self->ty, ffi::InplaceMode::kDisallow));
-    mapped_ty = std::move(result);
-  }
-  TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<Expr>, mapped_condition,
-                                    mutator->MutateExpected(self->args[0]));
-  Expr condition = (mapped_condition.IsUnchanged() ? self->args[0]
-                                                   : ffi::AnyView(mapped_condition).cast<Expr>());
-  ffi::Array<Expr> args = self->args;
-  if (!mapped_condition.UnchangedOrSameAs(self->args[0])) args.Set(0, condition);
-  for (size_t i = 1; i < 3; ++i) {
-    TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(
-        ffi::UnchangedOr<Expr>, mapped_arg,
-        mutator->WithConstraintScope([&]() -> ffi::Expected<ffi::UnchangedOr<ffi::Any>> {
-          if (auto result = AddPredicate(mutator, condition, i == 2); result.is_err()) {
-            return ffi::Unexpected(std::move(result).error());
-          }
-          return mutator->MutateExpected(self->args[i]);
-        }));
-    if (!mapped_arg.UnchangedOrSameAs(self->args[i])) {
-      args.Set(i, std::move(mapped_arg).ValueUnchecked());
-    }
-  }
-  ffi::UnchangedOr<ffi::Array<Type>> mapped_ty_args = ffi::Unchanged();
-  if (!self->ty_args.empty()) {
-    TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(
-        ffi::UnchangedOr<ffi::Array<Type>>, result,
-        mutator->MutateExpected(self->ty_args, ffi::InplaceMode::kDisallow));
-    mapped_ty_args = std::move(result);
-  }
-  if (mapped_ty.UnchangedOrSameAs(self->ty) && args.same_as(self->args) &&
-      mapped_ty_args.UnchangedOrSameAs(self->ty_args)) {
-    return ffi::Unchanged();
-  }
-  auto copy = ffi::make_object<CallObj>(*self);
-  if (!mapped_ty.IsUnchanged()) copy->ty = std::move(mapped_ty).ValueUnchecked();
-  copy->args = std::move(args);
-  if (!mapped_ty_args.IsUnchanged()) copy->ty_args = std::move(mapped_ty_args).ValueUnchecked();
-  return ffi::Any(std::move(copy));
-}
-
-TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> IfThenElseMaybeInplaceMutate(
-    StructuralMutatorWithConstraintContextObj* mutator, ffi::AnyView value) noexcept {
-  // skips: attrs and the interned if_then_else Op, matching ordinary Call descent.
-  if (!value.as<CallObj>()) return RegionStmtMaybeInplaceMutate<false>(mutator, value);
-  const auto* self =
-      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const CallObj>(value);
-  if (self->args.size() != 3) {
-    return mutator->ffi::StructuralMutatorObj::DefaultMutateExpected(value,
-                                                                     ffi::InplaceMode::kAllow);
-  }
-  ffi::UnchangedOr<Type> mapped_ty = ffi::Unchanged();
-  if (!self->ty.as<PrimTypeObj>()) {
-    TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<Type>, result,
-                                      mutator->MutateExpected(self->ty, ffi::InplaceMode::kAllow));
-    mapped_ty = std::move(result);
-  }
-  // Borrow slots: typed indexing copies handles and prevents unique-child reuse.
-  const ffi::Any* args_data = self->args.GetArrayObj()->begin();
-  // A shared args array may own otherwise unique children. Check it before copying its handle.
-  ffi::InplaceMode args_mode =
-      self->args.unique() ? ffi::InplaceMode::kAllow : ffi::InplaceMode::kDisallow;
-  TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<Expr>, mapped_condition,
-                                    mutator->MutateExpected(args_data[0], args_mode));
-  Expr condition = (mapped_condition.IsUnchanged() ? self->args[0]
-                                                   : ffi::AnyView(mapped_condition).cast<Expr>());
-  ffi::Array<Expr> args = self->args;
-  if (!mapped_condition.UnchangedOrSameAs(self->args[0])) args.Set(0, condition);
-  for (size_t i = 1; i < 3; ++i) {
-    TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(
-        ffi::UnchangedOr<Expr>, mapped_arg,
-        mutator->WithConstraintScope([&]() -> ffi::Expected<ffi::UnchangedOr<ffi::Any>> {
-          if (auto result = AddPredicate(mutator, condition, i == 2); result.is_err()) {
-            return ffi::Unexpected(std::move(result).error());
-          }
-          return mutator->MutateExpected(args_data[i], args_mode);
-        }));
-    if (!mapped_arg.UnchangedOrSameAs(self->args[i])) {
-      args.Set(i, std::move(mapped_arg).ValueUnchecked());
-    }
-  }
-  ffi::UnchangedOr<ffi::Array<Type>> mapped_ty_args = ffi::Unchanged();
-  if (!self->ty_args.empty()) {
-    TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(
-        ffi::UnchangedOr<ffi::Array<Type>>, result,
-        mutator->MutateExpected(self->ty_args, ffi::InplaceMode::kAllow));
-    mapped_ty_args = std::move(result);
-  }
-  if (mapped_ty.UnchangedOrSameAs(self->ty) && args.same_as(self->args) &&
-      mapped_ty_args.UnchangedOrSameAs(self->ty_args)) {
-    return ffi::Unchanged();
-  }
-  auto* copy = const_cast<CallObj*>(self);
-  if (!mapped_ty.IsUnchanged()) copy->ty = std::move(mapped_ty).ValueUnchecked();
-  copy->args = std::move(args);
-  if (!mapped_ty_args.IsUnchanged()) copy->ty_args = std::move(mapped_ty_args).ValueUnchecked();
-  return ffi::Unchanged();
-}
-
-template <typename Node>
-ffi::Expected<ffi::Optional<ffi::VisitInterrupt>> OpVisit(
-    StructuralVisitorWithConstraintContextObj* visitor, ffi::AnyView value) noexcept {
-  const auto* self = ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const Node>(value);
-  try {
-    static auto hooks = Op::GetAttrMap(op_attr::kStructuralVisitWithConstraintContext);
-    if (auto op = self->op.template as<Op>(); op && hooks.count(*op)) {
-      return hooks[*op].CallExpected(visitor, value);
-    }
-    if constexpr (std::is_same_v<Node, RegionStmtObj>) {
-      return RegionStmtVisit<false>(visitor, value);
-    } else {
-      return visitor->ffi::StructuralVisitorObj::DefaultVisitExpected(value);
-    }
-  } catch (const ffi::Error& error) {
-    return ffi::Unexpected(error);
-  }
-}
-
 ffi::Expected<ffi::UnchangedOr<ffi::Any>> InvokeMutateHook(
     FStructuralMutateWithConstraintContext hook, StructuralMutatorWithConstraintContextObj* mutator,
     ffi::AnyView value) noexcept {
@@ -892,29 +466,335 @@ ffi::Expected<ffi::UnchangedOr<ffi::Any>> InvokeMutateHook(
   return ffi::details::ExpectedUnsafe::MoveFromTVMFFIAny<ffi::UnchangedOr<ffi::Any>>(raw);
 }
 
-template <typename Node, ffi::InplaceMode mode>
-ffi::Expected<ffi::UnchangedOr<ffi::Any>> OpMutate(
+TVM_FFI_INLINE ffi::Expected<ffi::Optional<ffi::VisitInterrupt>> CallVisit(
+    StructuralVisitorWithConstraintContextObj* visitor, ffi::AnyView value) noexcept {
+  // skips: attrs, constant metadata left untouched like the classic Expr functors.
+  const CallObj* self =
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const CallObj>(value);
+  try {
+    static auto hooks = Op::GetAttrMap(op_attr::kStructuralVisitWithConstraintContext);
+    if (auto op = self->op.as<Op>(); op && hooks.count(*op)) {
+      return hooks[*op].CallExpected(visitor, value);
+    }
+
+    // A PrimType carries only a dtype, so it has nothing to visit.  Broad callbacks do not see this
+    // skipped field; dynamically typed Call results still descend through the Type value.
+    if (!self->ty.as<PrimTypeObj>()) {
+      TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(visitor->VisitExpected(self->ty));
+    }
+    // An Op is an interned registry singleton, so it has nothing to visit.  Broad callbacks do not
+    // see this skipped field; function-valued Call operators still descend through the Expr value.
+    if (!self->op.as<OpObj>()) {
+      TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(visitor->VisitExpected(self->op));
+    }
+    TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(visitor->VisitExpected(self->args));
+    // An empty ty_args has no element to traverse.  Broad callbacks do not see the empty container;
+    // nonempty type arguments retain normal container descent and callback behavior.
+    if (!self->ty_args.empty()) {
+      TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(visitor->VisitExpected(self->ty_args));
+    }
+    return std::nullopt;
+  } catch (const ffi::Error& error) {
+    return ffi::Unexpected(error);
+  }
+}
+
+TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> CallMutate(
     StructuralMutatorWithConstraintContextObj* mutator, ffi::AnyView value) noexcept {
-  const auto* self = ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const Node>(value);
+  // skips: attrs, constant metadata left untouched like the classic Expr functors.
+  const CallObj* self =
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const CallObj>(value);
+  try {
+    static auto copying = Op::GetAttrMap(op_attr::kStructuralMutateWithConstraintContext);
+    if (auto op = self->op.as<Op>()) {
+      if (copying.count(*op)) return InvokeMutateHook(copying[*op], mutator, value);
+    }
+
+    // A PrimType carries only a dtype, so it has nothing to substitute.  Broad callbacks do not see
+    // this skipped field; dynamically typed Call results still descend through the Type value.
+    ffi::UnchangedOr<Type> mapped_ty_u = ffi::Unchanged();
+    if (!self->ty.as<PrimTypeObj>()) {
+      TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<Type>, descended_ty_u,
+                                        mutator->MutateExpected(self->ty));
+      mapped_ty_u = std::move(descended_ty_u);
+    }
+    // An Op is an interned registry singleton, so it has nothing to substitute.  Broad callbacks do
+    // not see this skipped field; function-valued Call operators still descend through the Expr.
+    ffi::UnchangedOr<Expr> mapped_op_u = ffi::Unchanged();
+    if (!self->op.as<OpObj>()) {
+      TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<Expr>, descended_op_u,
+                                        mutator->MutateExpected(self->op));
+      mapped_op_u = std::move(descended_op_u);
+    }
+    TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<ffi::Array<Expr>>, mapped_args_u,
+                                      mutator->MutateExpected(self->args));
+    // An empty ty_args has no element to substitute.  Broad callbacks do not see the empty
+    // container; nonempty type arguments retain normal container descent and callback behavior.
+    ffi::UnchangedOr<ffi::Array<Type>> mapped_ty_args_u = ffi::Unchanged();
+    if (!self->ty_args.empty()) {
+      TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<ffi::Array<Type>>, descended_ty_args_u,
+                                        mutator->MutateExpected(self->ty_args));
+      mapped_ty_args_u = std::move(descended_ty_args_u);
+    }
+    if (mapped_ty_u.UnchangedOrSameAs(self->ty) && mapped_op_u.UnchangedOrSameAs(self->op) &&
+        mapped_args_u.UnchangedOrSameAs(self->args) &&
+        mapped_ty_args_u.UnchangedOrSameAs(self->ty_args)) {
+      return ffi::Unchanged();
+    }
+    ffi::ObjectPtr<CallObj> copy = ffi::make_object<CallObj>(*self);
+    if (!mapped_ty_u.IsUnchanged()) copy->ty = std::move(mapped_ty_u).ValueUnchecked();
+    if (!mapped_op_u.IsUnchanged()) copy->op = std::move(mapped_op_u).ValueUnchecked();
+    if (!mapped_args_u.IsUnchanged()) copy->args = std::move(mapped_args_u).ValueUnchecked();
+    if (!mapped_ty_args_u.IsUnchanged())
+      copy->ty_args = std::move(mapped_ty_args_u).ValueUnchecked();
+    return ffi::Any(std::move(copy));
+  } catch (const ffi::Error& error) {
+    return ffi::Unexpected(error);
+  }
+}
+
+TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> CallMaybeInplaceMutate(
+    StructuralMutatorWithConstraintContextObj* mutator, ffi::AnyView value) noexcept {
+  // skips: attrs, constant metadata left untouched like the classic Expr functors.
+  CallObj* self = const_cast<CallObj*>(
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const CallObj>(value));
   try {
     static auto copying = Op::GetAttrMap(op_attr::kStructuralMutateWithConstraintContext);
     static auto inplace =
         Op::GetAttrMap(op_attr::kStructuralMaybeInplaceMutateWithConstraintContext);
-    if (auto op = self->op.template as<Op>()) {
-      if constexpr (mode == ffi::InplaceMode::kAllow) {
-        if (inplace.count(*op)) return InvokeMutateHook(inplace[*op], mutator, value);
-      }
+    if (auto op = self->op.as<Op>()) {
+      if (inplace.count(*op)) return InvokeMutateHook(inplace[*op], mutator, value);
       if (copying.count(*op)) return InvokeMutateHook(copying[*op], mutator, value);
     }
-    if constexpr (std::is_same_v<Node, RegionStmtObj>) {
-      if constexpr (mode == ffi::InplaceMode::kAllow) {
-        return RegionStmtMaybeInplaceMutate<false>(mutator, value);
-      } else {
-        return RegionStmtMutate<false>(mutator, value);
-      }
-    } else {
-      return mutator->ffi::StructuralMutatorObj::DefaultMutateExpected(value, mode);
+
+    // A PrimType carries only a dtype, so it has nothing to substitute.  Broad callbacks do not see
+    // this skipped field; dynamically typed Call results still descend through the Type value.
+    ffi::UnchangedOr<Type> mapped_ty_u = ffi::Unchanged();
+    if (!self->ty.as<PrimTypeObj>()) {
+      TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(
+          ffi::UnchangedOr<Type>, descended_ty_u,
+          mutator->MutateExpected(self->ty, ffi::InplaceMode::kAllow));
+      mapped_ty_u = std::move(descended_ty_u);
     }
+    // An Op is an interned registry singleton, so it has nothing to substitute.  Broad callbacks do
+    // not see this skipped field; function-valued Call operators still descend through the Expr.
+    ffi::UnchangedOr<Expr> mapped_op_u = ffi::Unchanged();
+    if (!self->op.as<OpObj>()) {
+      TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(
+          ffi::UnchangedOr<Expr>, descended_op_u,
+          mutator->MutateExpected(self->op, ffi::InplaceMode::kAllow));
+      mapped_op_u = std::move(descended_op_u);
+    }
+    TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(
+        ffi::UnchangedOr<ffi::Array<Expr>>, mapped_args_u,
+        mutator->MutateExpected(self->args, ffi::InplaceMode::kAllow));
+    // An empty ty_args has no element to substitute.  Broad callbacks do not see the empty
+    // container; nonempty type arguments retain normal container descent and callback behavior.
+    ffi::UnchangedOr<ffi::Array<Type>> mapped_ty_args_u = ffi::Unchanged();
+    if (!self->ty_args.empty()) {
+      TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(
+          ffi::UnchangedOr<ffi::Array<Type>>, descended_ty_args_u,
+          mutator->MutateExpected(self->ty_args, ffi::InplaceMode::kAllow));
+      mapped_ty_args_u = std::move(descended_ty_args_u);
+    }
+    if (mapped_ty_u.UnchangedOrSameAs(self->ty) && mapped_op_u.UnchangedOrSameAs(self->op) &&
+        mapped_args_u.UnchangedOrSameAs(self->args) &&
+        mapped_ty_args_u.UnchangedOrSameAs(self->ty_args)) {
+      return ffi::Unchanged();
+    }
+    if (!mapped_ty_u.IsUnchanged()) self->ty = std::move(mapped_ty_u).ValueUnchecked();
+    if (!mapped_op_u.IsUnchanged()) self->op = std::move(mapped_op_u).ValueUnchecked();
+    if (!mapped_args_u.IsUnchanged()) self->args = std::move(mapped_args_u).ValueUnchecked();
+    if (!mapped_ty_args_u.IsUnchanged())
+      self->ty_args = std::move(mapped_ty_args_u).ValueUnchecked();
+    return ffi::Unchanged();
+  } catch (const ffi::Error& error) {
+    return ffi::Unexpected(error);
+  }
+}
+
+TVM_FFI_INLINE ffi::Expected<ffi::Optional<ffi::VisitInterrupt>> RegionStmtVisit(
+    StructuralVisitorWithConstraintContextObj* visitor, ffi::AnyView value) noexcept {
+  const RegionStmtObj* self =
+      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const RegionStmtObj>(value);
+  try {
+    static auto hooks = Op::GetAttrMap(op_attr::kStructuralVisitWithConstraintContext);
+    if (auto op = self->op.as<Op>(); op && hooks.count(*op)) {
+      return hooks[*op].CallExpected(visitor, value);
+    }
+
+    TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(visitor->VisitExpected(self->attrs));
+    TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(visitor->VisitExpected(self->args));
+    TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(visitor->WithDefRegionKind(
+        kTVMFFIDefRegionKindSimple, [&]() { return visitor->VisitExpected(self->body_params); }));
+    auto result_body =
+        visitor->WithConstraintScope([&]() -> ffi::Expected<ffi::Optional<ffi::VisitInterrupt>> {
+          return visitor->VisitExpected(self->body);
+        });
+    TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(result_body);
+    return visitor->WithDefRegionKind(kTVMFFIDefRegionKindSimple,
+                                      [&]() { return visitor->VisitExpected(self->result_vars); });
+  } catch (const ffi::Error& error) {
+    return ffi::Unexpected(error);
+  }
+}
+
+TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> RegionStmtMutate(
+    StructuralMutatorWithConstraintContextObj* mutator, ffi::AnyView value) noexcept {
+  const RegionStmtObj* self =
+      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const RegionStmtObj>(value);
+  try {
+    static auto copying = Op::GetAttrMap(op_attr::kStructuralMutateWithConstraintContext);
+    if (auto op = self->op.as<Op>()) {
+      if (copying.count(*op)) return InvokeMutateHook(copying[*op], mutator, value);
+    }
+
+    TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<DictAttrs>, mapped_attrs,
+                                      mutator->MutateExpected(self->attrs));
+    TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<ffi::Array<Expr>>, mapped_args,
+                                      mutator->MutateExpected(self->args));
+    ffi::Array<Var> old_body_params = self->body_params;
+    TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<ffi::Array<Var>>, mapped_body_params,
+                                      mutator->WithDefRegionKind(kTVMFFIDefRegionKindSimple, [&]() {
+                                        return mutator->MutateExpected(self->body_params);
+                                      }));
+    TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(
+        ffi::UnchangedOr<Stmt>, mapped_body,
+        mutator->WithConstraintScope([&]() -> ffi::Expected<ffi::UnchangedOr<ffi::Any>> {
+          const auto& body_params = mapped_body_params.IsUnchanged()
+                                        ? self->body_params
+                                        : ffi::AnyView(mapped_body_params).cast<ffi::Array<Var>>();
+          if (body_params.size() != old_body_params.size()) {
+            return ffi::Unexpected(ffi::Error(
+                "ValueError", "A region definition rewrite must preserve the number of parameters",
+                ""));
+          }
+          for (size_t i = 0; i < body_params.size(); ++i) {
+            if (!body_params[i].same_as(old_body_params[i])) {
+              auto remap = mutator->VarRemapSetExpected(old_body_params[i], body_params[i]);
+              TVM_FFI_S_MUTATE_MAYBE_EARLY_RETURN(remap);
+            }
+          }
+
+          return mutator->MutateExpected(self->body);
+        }));
+    ffi::Array<Var> old_result_vars = self->result_vars;
+    TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<ffi::Array<Var>>, mapped_result_vars,
+                                      mutator->WithDefRegionKind(kTVMFFIDefRegionKindSimple, [&]() {
+                                        return mutator->MutateExpected(self->result_vars);
+                                      }));
+    const auto& result_vars = mapped_result_vars.IsUnchanged()
+                                  ? self->result_vars
+                                  : ffi::AnyView(mapped_result_vars).cast<ffi::Array<Var>>();
+    if (result_vars.size() != old_result_vars.size()) {
+      return ffi::Unexpected(ffi::Error(
+          "ValueError", "A region definition rewrite must preserve the number of results", ""));
+    }
+    for (size_t i = 0; i < result_vars.size(); ++i) {
+      if (!result_vars[i].same_as(old_result_vars[i])) {
+        auto remap = mutator->VarRemapSetExpected(old_result_vars[i], result_vars[i]);
+        TVM_FFI_S_MUTATE_MAYBE_EARLY_RETURN(remap);
+      }
+    }
+    if (mapped_args.UnchangedOrSameAs(self->args) && mapped_attrs.UnchangedOrSameAs(self->attrs) &&
+        mapped_body_params.UnchangedOrSameAs(self->body_params) &&
+        mapped_body.UnchangedOrSameAs(self->body) &&
+        mapped_result_vars.UnchangedOrSameAs(self->result_vars)) {
+      return ffi::Unchanged();
+    }
+    auto copy = ffi::make_object<RegionStmtObj>(*self);
+    if (!mapped_args.IsUnchanged()) copy->args = std::move(mapped_args).ValueUnchecked();
+    if (!mapped_attrs.IsUnchanged()) copy->attrs = std::move(mapped_attrs).ValueUnchecked();
+    if (!mapped_body_params.IsUnchanged())
+      copy->body_params = std::move(mapped_body_params).ValueUnchecked();
+    if (!mapped_body.IsUnchanged()) copy->body = SeqStmt(std::move(mapped_body).ValueUnchecked());
+    if (!mapped_result_vars.IsUnchanged())
+      copy->result_vars = std::move(mapped_result_vars).ValueUnchecked();
+    return ffi::Any(std::move(copy));
+  } catch (const ffi::Error& error) {
+    return ffi::Unexpected(error);
+  }
+}
+
+TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> RegionStmtMaybeInplaceMutate(
+    StructuralMutatorWithConstraintContextObj* mutator, ffi::AnyView value) noexcept {
+  const RegionStmtObj* self =
+      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const RegionStmtObj>(value);
+  try {
+    static auto copying = Op::GetAttrMap(op_attr::kStructuralMutateWithConstraintContext);
+    static auto inplace =
+        Op::GetAttrMap(op_attr::kStructuralMaybeInplaceMutateWithConstraintContext);
+    if (auto op = self->op.as<Op>()) {
+      if (inplace.count(*op)) return InvokeMutateHook(inplace[*op], mutator, value);
+      if (copying.count(*op)) return InvokeMutateHook(copying[*op], mutator, value);
+    }
+
+    TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(
+        ffi::UnchangedOr<DictAttrs>, mapped_attrs,
+        mutator->MutateExpected(self->attrs, ffi::InplaceMode::kAllow));
+    TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(
+        ffi::UnchangedOr<ffi::Array<Expr>>, mapped_args,
+        mutator->MutateExpected(self->args, ffi::InplaceMode::kAllow));
+    ffi::Array<Var> old_body_params = self->body_params;
+    TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<ffi::Array<Var>>, mapped_body_params,
+                                      mutator->WithDefRegionKind(kTVMFFIDefRegionKindSimple, [&]() {
+                                        return mutator->MutateExpected(self->body_params,
+                                                                       ffi::InplaceMode::kAllow);
+                                      }));
+    TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(
+        ffi::UnchangedOr<Stmt>, mapped_body,
+        mutator->WithConstraintScope([&]() -> ffi::Expected<ffi::UnchangedOr<ffi::Any>> {
+          const auto& body_params = mapped_body_params.IsUnchanged()
+                                        ? self->body_params
+                                        : ffi::AnyView(mapped_body_params).cast<ffi::Array<Var>>();
+          if (body_params.size() != old_body_params.size()) {
+            return ffi::Unexpected(ffi::Error(
+                "ValueError", "A region definition rewrite must preserve the number of parameters",
+                ""));
+          }
+          for (size_t i = 0; i < body_params.size(); ++i) {
+            if (!body_params[i].same_as(old_body_params[i])) {
+              auto remap = mutator->VarRemapSetExpected(old_body_params[i], body_params[i]);
+              TVM_FFI_S_MUTATE_MAYBE_EARLY_RETURN(remap);
+            }
+          }
+
+          return mutator->MutateExpected(self->body, ffi::InplaceMode::kAllow);
+        }));
+    ffi::Array<Var> old_result_vars = self->result_vars;
+    TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<ffi::Array<Var>>, mapped_result_vars,
+                                      mutator->WithDefRegionKind(kTVMFFIDefRegionKindSimple, [&]() {
+                                        return mutator->MutateExpected(self->result_vars,
+                                                                       ffi::InplaceMode::kAllow);
+                                      }));
+    const auto& result_vars = mapped_result_vars.IsUnchanged()
+                                  ? self->result_vars
+                                  : ffi::AnyView(mapped_result_vars).cast<ffi::Array<Var>>();
+    if (result_vars.size() != old_result_vars.size()) {
+      return ffi::Unexpected(ffi::Error(
+          "ValueError", "A region definition rewrite must preserve the number of results", ""));
+    }
+    for (size_t i = 0; i < result_vars.size(); ++i) {
+      if (!result_vars[i].same_as(old_result_vars[i])) {
+        auto remap = mutator->VarRemapSetExpected(old_result_vars[i], result_vars[i]);
+        TVM_FFI_S_MUTATE_MAYBE_EARLY_RETURN(remap);
+      }
+    }
+    if (mapped_args.UnchangedOrSameAs(self->args) && mapped_attrs.UnchangedOrSameAs(self->attrs) &&
+        mapped_body_params.UnchangedOrSameAs(self->body_params) &&
+        mapped_body.UnchangedOrSameAs(self->body) &&
+        mapped_result_vars.UnchangedOrSameAs(self->result_vars)) {
+      return ffi::Unchanged();
+    }
+    auto* copy = const_cast<RegionStmtObj*>(self);
+    if (!mapped_args.IsUnchanged()) copy->args = std::move(mapped_args).ValueUnchecked();
+    if (!mapped_attrs.IsUnchanged()) copy->attrs = std::move(mapped_attrs).ValueUnchecked();
+    if (!mapped_body_params.IsUnchanged())
+      copy->body_params = std::move(mapped_body_params).ValueUnchecked();
+    if (!mapped_body.IsUnchanged()) copy->body = SeqStmt(std::move(mapped_body).ValueUnchecked());
+    if (!mapped_result_vars.IsUnchanged())
+      copy->result_vars = std::move(mapped_result_vars).ValueUnchecked();
+    return ffi::Unchanged();
   } catch (const ffi::Error& error) {
     return ffi::Unexpected(error);
   }
@@ -931,9 +811,7 @@ TVM_FFI_INLINE ffi::Expected<ffi::Optional<ffi::VisitInterrupt>> SeqStmtVisit(
       if (result.value().has_value()) {
         return result;
       }
-      if (auto result = RecordStatement(visitor, stmt); result.is_err()) {
-        return ffi::Unexpected(std::move(result).error());
-      }
+      RecordStatement(visitor, stmt);
     }
     return std::nullopt;
   });
@@ -957,9 +835,7 @@ TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> SeqStmtMutate(
         auto remap = mutator->VarRemapSetExpected(old_var.value(), bind->var);
         TVM_FFI_S_MUTATE_MAYBE_EARLY_RETURN(remap);
       }
-      if (auto recorded = RecordStatement(mutator, result); recorded.is_err()) {
-        return ffi::Unexpected(std::move(recorded).error());
-      }
+      RecordStatement(mutator, result);
       return mapped;
     };
     TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<Stmt>, result,
@@ -971,16 +847,6 @@ TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> SeqStmtMutate(
 }  // namespace
 
 TVM_FFI_STATIC_INIT_BLOCK() {
-  OpDef("prim.if_then_else")
-      .set_native_fn_attr<&IfThenElseVisit>(op_attr::kStructuralVisitWithConstraintContext)
-      .set_native_fn_attr<&IfThenElseMutate>(op_attr::kStructuralMutateWithConstraintContext)
-      .set_native_fn_attr<&IfThenElseMaybeInplaceMutate>(
-          op_attr::kStructuralMaybeInplaceMutateWithConstraintContext);
-  OpDef("tirx.launch_thread")
-      .set_native_fn_attr<&RegionStmtVisit<true>>(op_attr::kStructuralVisitWithConstraintContext)
-      .set_native_fn_attr<&RegionStmtMutate<true>>(op_attr::kStructuralMutateWithConstraintContext)
-      .set_native_fn_attr<&RegionStmtMaybeInplaceMutate<true>>(
-          op_attr::kStructuralMaybeInplaceMutateWithConstraintContext);
   ffi::reflection::TypeAttrDef<IfObj>()
       .attr(type_attr::kStructuralVisitWithConstraintContext,
             FStructuralVisitWithConstraintContext::FromNative<&IfVisit>())
@@ -1011,22 +877,18 @@ TVM_FFI_STATIC_INIT_BLOCK() {
             FStructuralMutateWithConstraintContext::FromNative<&LetMaybeInplaceMutate>());
   ffi::reflection::TypeAttrDef<RegionStmtObj>()
       .attr(type_attr::kStructuralVisitWithConstraintContext,
-            FStructuralVisitWithConstraintContext::FromNative<&OpVisit<RegionStmtObj>>())
+            FStructuralVisitWithConstraintContext::FromNative<&RegionStmtVisit>())
       .attr(type_attr::kStructuralMutateWithConstraintContext,
-            FStructuralMutateWithConstraintContext::FromNative<
-                &OpMutate<RegionStmtObj, ffi::InplaceMode::kDisallow>>())
+            FStructuralMutateWithConstraintContext::FromNative<&RegionStmtMutate>())
       .attr(type_attr::kStructuralMaybeInplaceMutateWithConstraintContext,
-            FStructuralMutateWithConstraintContext::FromNative<
-                &OpMutate<RegionStmtObj, ffi::InplaceMode::kAllow>>());
+            FStructuralMutateWithConstraintContext::FromNative<&RegionStmtMaybeInplaceMutate>());
   ffi::reflection::TypeAttrDef<CallObj>()
       .attr(type_attr::kStructuralVisitWithConstraintContext,
-            FStructuralVisitWithConstraintContext::FromNative<&OpVisit<CallObj>>())
+            FStructuralVisitWithConstraintContext::FromNative<&CallVisit>())
       .attr(type_attr::kStructuralMutateWithConstraintContext,
-            FStructuralMutateWithConstraintContext::FromNative<
-                &OpMutate<CallObj, ffi::InplaceMode::kDisallow>>())
+            FStructuralMutateWithConstraintContext::FromNative<&CallMutate>())
       .attr(type_attr::kStructuralMaybeInplaceMutateWithConstraintContext,
-            FStructuralMutateWithConstraintContext::FromNative<
-                &OpMutate<CallObj, ffi::InplaceMode::kAllow>>());
+            FStructuralMutateWithConstraintContext::FromNative<&CallMaybeInplaceMutate>());
   ffi::reflection::TypeAttrDef<SeqStmtObj>()
       .attr(type_attr::kStructuralVisitWithConstraintContext,
             FStructuralVisitWithConstraintContext::FromNative<&SeqStmtVisit>())

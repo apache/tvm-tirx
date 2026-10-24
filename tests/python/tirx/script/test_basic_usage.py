@@ -1586,6 +1586,17 @@ def test_implicit_evaluate_assume():
     _assert_equal_functions(implicit, explicit)
 
 
+def test_assume_always_roundtrip():
+    @T.function
+    def func(A: T.Tensor(1, "int32")):
+        T.assume_always(A[0] >= 0)
+        A[0] = 10
+
+    script = func.script()
+    assert "T.assume_always" in script
+    assert_structural_equal(from_source(script), func)
+
+
 def test_implicit_evaluate_call_extern():
     @T.function
     def explicit(A: T.Tensor(1, "int32")):

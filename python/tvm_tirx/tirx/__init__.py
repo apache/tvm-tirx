@@ -52,7 +52,7 @@ from .op import CallFFIKernelAttr, call_ffi_kernel
 from .op import call_llvm_intrin, call_llvm_pure_intrin, all, any, min_value, max_value
 from .op import stack_alloca, stack_make_shape, stack_make_dltensor
 from .op import handle_add_byte_offset, abi_field_get, abi_field_set
-from .op import address_of, assume, assume_aligned, undef
+from .op import address_of, assume, assume_aligned, assume_always, undef
 from .op import gpu_thread_allreduce, ptr_byte_offset
 from .op import throw_last_error, cpu_parallel_barrier
 from .op import (

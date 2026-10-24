@@ -19,18 +19,21 @@
 #include <gtest/gtest.h>
 #include <tvm/ir/prim/op.h>
 #include <tvm/ir/stmt.h>
+#include <tvm/tirx/op/annotation.h>
 #include <tvm/tirx/structural_visit_with_constraint_context.h>
 
 namespace tvm::tirx {
 
 TEST(ConstraintTraversal, VisitCollectsScopedFacts) {
   PrimVar x("x", PrimType::Int(32)), i("i", PrimType::Int(32));
-  PrimExpr zero = IntImm::Int32(0), one = IntImm::Int32(1), four = IntImm::Int32(4);
-  PrimExpr condition = x <= four;
+  OpDef("test.read_loop_end").set_attr(tvm::op_attr::kCallEffectKind, CallEffectKind::kReadState);
+  PrimExpr zero = IntImm::Int32(0), one = IntImm::Int32(1);
+  PrimExpr end = Call(PrimType::Int(32), Op::Get("test.read_loop_end"), {}).as_or_throw<PrimExpr>();
+  PrimExpr condition = likely(x <= end);
   Evaluate body(i), after(x);
   SeqStmt root(
-      {Bind(x, four),
-       If(condition, SeqStmt({For(i, zero, four, one, ForKind::kDefault, SeqStmt({body}))})),
+      {Bind(x, end),
+       If(condition, SeqStmt({For(i, zero, end, one, ForKind::kDefault, SeqStmt({body}))})),
        after});
   ffi::Array<sym::Constraint> body_facts, after_facts;
   StructuralVisitWithConstraintContext(
@@ -47,13 +50,38 @@ TEST(ConstraintTraversal, VisitCollectsScopedFacts) {
   ASSERT_NE(predicate, nullptr);
   ASSERT_NE(range, nullptr);
   EXPECT_TRUE(binding->var.same_as(x));
-  EXPECT_TRUE(binding->value.same_as(four));
+  EXPECT_TRUE(binding->value.same_as(end));
   EXPECT_TRUE(predicate->condition.same_as(condition));
+  EXPECT_FALSE(predicate->assume_always);
   EXPECT_TRUE(range->var.same_as(i));
   EXPECT_EQ(range->range->begin.as<IntImmObj>()->value, 0);
-  EXPECT_EQ(range->range->extent.as<IntImmObj>()->value, 4);
+  EXPECT_TRUE(range->range->extent.same_as(end));
   ASSERT_EQ(after_facts.size(), 1);
   EXPECT_TRUE(after_facts[0].same_as(body_facts[0]));
+}
+
+TEST(ConstraintTraversal, VisitAssumptionsAndAssertions) {
+  PrimVar condition("condition", PrimType::Bool());
+  OpDef("test.read_assertion").set_attr(tvm::op_attr::kCallEffectKind, CallEffectKind::kReadState);
+  PrimExpr read =
+      Call(PrimType::Bool(), Op::Get("test.read_assertion"), {}).as_or_throw<PrimExpr>();
+  SeqStmt root({AssertStmt(read, StringImm("ValueError"), {}),
+                AssertStmt(condition, StringImm("ValueError"), {}),
+                Evaluate(Call(PrimType::Void(), assume_always_op(), {read})),
+                Evaluate(IntImm::Int32(1))});
+  ffi::Array<sym::Constraint> facts;
+  StructuralVisitWithConstraintContext(
+      root, [&](const IntImmObj*, StructuralVisitorWithConstraintContextObj* visitor) {
+        facts = visitor->constraints->ToArray();
+        return std::nullopt;
+      });
+  ASSERT_EQ(facts.size(), 2);
+  const auto* assertion = facts[0].as<sym::PredicateConstraintObj>();
+  const auto* assumption = facts[1].as<sym::PredicateConstraintObj>();
+  EXPECT_TRUE(assertion->condition.same_as(condition));
+  EXPECT_FALSE(assertion->assume_always);
+  EXPECT_TRUE(assumption->condition.same_as(read));
+  EXPECT_TRUE(assumption->assume_always);
 }
 
 }  // namespace tvm::tirx

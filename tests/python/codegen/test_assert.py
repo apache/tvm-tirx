@@ -28,6 +28,16 @@ def codegen_target(request):
     return request.param
 
 
+def test_assume_always_compilation(codegen_target):
+    @T.function
+    def func(x: T.int32) -> T.int32:
+        T.assume_always(x >= 0)
+        return x + 1
+
+    lib = tvm_tirx.tirx.compile(func, target=codegen_target)
+    assert lib(3) == 4
+
+
 def test_assert_runtime_error(codegen_target):
     """AssertStmt with RuntimeError kind produces RuntimeError."""
 
