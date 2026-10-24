@@ -25,7 +25,7 @@ repos:
         name: check CUDA launch generated files
         entry: python python/tvm_tirx/backend/cuda/launch/generate.py --check
         language: python
-        additional_dependencies: [ruff==0.12.3, clang-format==20.1.8]
+        additional_dependencies: [ruff==0.17.2, clang-format==20.1.8]
         pass_filenames: false
         files: ^(python/tvm_tirx/backend/cuda/launch/|src/backend/cuda/launch/)
       - id: check-asf-header
@@ -78,7 +78,7 @@ repos:
 
   # ---------- Python: ruff ----------
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.12.3
+    rev: v0.17.2
     hooks:
       - id: ruff-check
         types_or: [python, pyi, jupyter]

@@ -194,23 +194,11 @@ select = [
   "UP",  # pyupgrade, https://docs.astral.sh/ruff/rules/#pyupgrade-up
   "RUF", # ruff, https://docs.astral.sh/ruff/rules/#ruff-specific-rules-ruf
 ]
-# Select these checks explicitly for the existing pre-commit Ruff revision.
-preview = true
-explicit-preview-rules = true
-extend-select = ["RUF043", "RUF059"]
 fixable = ["ALL"]
 unfixable = []
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]
-# Lazy exports are not inferred by the existing pre-commit Ruff revision.
-"python/tvm_tirx/backend/adreno/__init__.py" = ["F822"]
-"python/tvm_tirx/backend/cuda/__init__.py" = ["F822"]
-"python/tvm_tirx/backend/cuda/lang/__init__.py" = ["F822"]
-"python/tvm_tirx/backend/hexagon/__init__.py" = ["F822"]
-"python/tvm_tirx/backend/metal/__init__.py" = ["F822"]
-"python/tvm_tirx/backend/trn/__init__.py" = ["F822"]
-"python/tvm_tirx/backend/trn/transform/__init__.py" = ["F822"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["tvm_tirx"]

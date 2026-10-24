@@ -15,5 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from .default import *  # noqa: F403 - Re-export the public namespace.
-from .utils import *  # noqa: F403 - Re-export the public namespace.
+# Re-export the public namespace.
+# ruff: noqa: F403
+
+from .default import *
+from .utils import *
