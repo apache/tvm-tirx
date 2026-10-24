@@ -124,14 +124,13 @@ Expressions
        not affect structural comparison.
 
 Subclasses inherit ``ty`` and ``loc`` and add fields for their stored values or
-operands. These classes represent variables, constants, arithmetic operations,
-comparisons, calls, and tensor reads:
+operands. Common expression forms include:
 
 .. list-table::
    :header-rows: 1
    :widths: 30 35 35
 
-   * - Class
+   * - Classes (examples)
      - Represents
      - Additional fields
    * - ``ir.Var``
@@ -140,18 +139,30 @@ comparisons, calls, and tensor reads:
    * - ``ir.IntImm``
      - An integer constant
      - ``value``
-   * - ``ir.prim.Add``
-     - An addition
+   * - ``ir.prim.Add``, ``ir.prim.Sub``, ``ir.prim.Mul``
+     - Binary arithmetic
+     - ``a``, ``b``
+   * - ``ir.prim.EQ``, ``ir.prim.LT``
+     - Comparisons
      - ``a``, ``b``
    * - ``ir.Call``
-     - A call
+     - A call to an operator or function
      - ``op``, ``args``, ``attrs``, ``ty_args``
    * - ``ir.TensorLoad``
      - A tensor element read
      - ``source``, ``indices``
 
-Operands are themselves expressions, so larger computations are built by
-connecting these objects.
+Arithmetic and comparison nodes for primitive values are available under
+``ir.prim``. The binary nodes above store their left and right operand
+expressions in ``a`` and ``b``.
+
+Registered operations such as ``prim.exp`` are identified by ``ir.Op``
+expressions and invoked through ``ir.Call``. For example,
+``ir.prim.exp(value)`` builds a ``Call`` whose ``op`` is
+``ir.Op.get("prim.exp")`` and whose ``args`` contains ``value``.
+
+Operands and call arguments are themselves expressions, allowing these forms
+to be combined into larger computations.
 
 .. _user-ir-const:
 
