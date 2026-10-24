@@ -155,8 +155,9 @@ three:
 
 ``For`` takes an exclusive ``end`` and explicit ``step`` and ``kind`` arguments.
 Its variable, bounds, and step must have matching scalar integer types after
-conversion. ``ForKind.DEFAULT`` denotes sequential execution; the other kinds
-permit parallel execution or request vectorization or unrolling. ``Break``
+conversion. ``ForKind.DEFAULT`` represents an ordinary loop whose iterations
+execute in order. The other kinds permit parallel execution or request
+vectorization or unrolling. ``Break``
 exits a loop, and ``Continue`` starts its next iteration.
 
 These nested bodies also determine variable visibility. The loop defines ``i``
