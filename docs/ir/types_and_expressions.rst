@@ -31,8 +31,7 @@ determine result types without running the program.
 Types
 -----
 
-``ir.Type`` is the base class for type objects. It defines a field named ``loc``,
-whose value is an ``ir.Location`` object:
+``ir.Type`` is the base class for type objects. It defines the following field:
 
 .. list-table::
    :header-rows: 1
@@ -46,9 +45,8 @@ whose value is an ``ir.Location`` object:
      - Source information for diagnostics. Defaults to ``UnknownLoc`` and does
        not affect structural comparison.
 
-Concrete types inherit ``loc`` from ``ir.Type`` and add their own fields. For
-example, ``ir.PrimType`` adds ``dtype``, so a ``PrimType`` object has both
-``loc`` and ``dtype``. Common subclasses include:
+Concrete subclasses inherit ``loc`` and add fields describing different kinds
+of values:
 
 .. list-table::
    :header-rows: 1
@@ -73,8 +71,8 @@ example, ``ir.PrimType`` adds ``dtype``, so a ``PrimType`` object has both
      - A tensor's shape, element type, and storage properties
      - ``shape``, ``dtype``, ``scope``, ``data_alignment``, ``layout``
 
-Types can contain other types. For example, ``FuncType`` combines argument and
-result types into a function signature:
+Some of these fields refer to other type objects. For example, ``FuncType``
+stores the types of a function's arguments and result:
 
 .. literalinclude:: examples/types_and_expressions.py
    :language: python
