@@ -53,6 +53,7 @@ class StructuralMutatorWithConstraintContextObj : public ffi::StructuralMapEngin
 
   /*!
    * \brief Add a fact to the current scope, creating its child context on the first append.
+   * \param constraint Binding, range, or predicate valid in the current scope.
    */
   void AppendConstraint(const sym::Constraint& constraint) {
     if (needs_child_context_) {
