@@ -148,8 +148,10 @@ The following tree shows the inheritance relationships between IR object types.
 Registered names can differ from Python API names. For example, ``prim.Add``
 is available as ``ir.prim.Add`` in Python.
 
-Choose a Chapter
-----------------
+.. _choose-a-chapter:
+
+What to Read Next
+-----------------
 
 The following chapters explain how to work with each part of the IR:
 
