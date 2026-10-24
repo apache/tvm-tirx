@@ -14,7 +14,7 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-# ruff: noqa: E501
+# ruff: noqa: E501, F841
 """TIRx function printing and roundtrip coverage."""
 
 import sys
@@ -1217,7 +1217,7 @@ def func_T_ptr_let_statement():
     ) -> None:
         # The T.Ptr declaration in the parameter list should parse
         # correctly, and should be usable as the data pointer in a tensor.
-        arg_type_ids = T.decl_tensor(  # noqa: F841 - The parser emits this named IR binding.
+        arg_type_ids = T.decl_tensor(
             arg_type_ids_handle, ty_args=[T.Tensor([2], "int32", data=arg_type_ids_handle)]
         )
 
@@ -1530,7 +1530,7 @@ def tvm_shfl_builtins():
         B: T.handle("float32"),
         C: T.handle("float32"),
     ):
-        blockIdx_x = T.launch_thread("blockIdx.x", 1)  # noqa: F841 - The parser emits this named IR binding.
+        blockIdx_x = T.launch_thread("blockIdx.x", 1)
         threadIdx_x = T.launch_thread("threadIdx.x", 32)
         A_warp = T.alloc_tensor(ty_args=[T.Tensor((1,), "float32", scope="local")])
         B_warp = T.alloc_tensor(ty_args=[T.Tensor((1,), "float32", scope="local")])

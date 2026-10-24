@@ -14,6 +14,9 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+
+# The parser consumes named IR bindings that Python sees as unused.
+# ruff: noqa: F841
 import pytest
 
 from tvm_tirx.script import tirx as T
@@ -126,7 +129,7 @@ def test_host():
         T.call_packed("runtime.cuTensorMapEncodeTiled", A_map, "float32", 2, A.data, 16, 16, 64, 16, 16, 1, 1, 0, 0, 0, 0)  # noqa: E501
 
         T.device_entry()
-        with T.launch_thread("blockIdx.x", 1) as blockIdx:  # noqa: F841 - The parser emits this named IR binding.
+        with T.launch_thread("blockIdx.x", 1) as blockIdx:
             with T.launch_thread("threadIdx.x", 128) as threadIdx:
                 bar = T.alloc_tensor(ty_args=[T.Tensor((1,), "uint64", scope="shared", align=8)])
                 phase = T.alloc_tensor(ty_args=[T.Tensor((1,), "int32", scope="local")])

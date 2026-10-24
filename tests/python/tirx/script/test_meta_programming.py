@@ -15,6 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
+# The parser consumes named IR bindings that Python sees as unused.
+# ruff: noqa: F841
+
 """TIRx script meta programming."""
 
 from __future__ import annotations
@@ -40,7 +43,7 @@ def test_meta_class_constructor_rejects_unowned_resource():
         @T.function
         def test():
             T.device_entry()
-            bad = Bad()  # noqa: F841 - The parser emits this named IR binding.
+            bad = Bad()
 
 
 def test_meta_class_multiple_instances_preserve_owned_resources():
@@ -533,11 +536,11 @@ def test_var_capturing_order():
 
     @T.function
     def test_case():
-        k: T.let[T.int32] = b  # noqa: F841 - The parser emits this named IR binding.
+        k: T.let[T.int32] = b
 
     @T.function
     def func_ref():
-        k: T.let[T.int32] = 2  # noqa: F841 - The parser emits this named IR binding.
+        k: T.let[T.int32] = 2
         T.evaluate(0)
 
     tvm_tirx.ir.assert_structural_equal(

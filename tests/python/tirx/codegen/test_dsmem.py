@@ -14,6 +14,9 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+
+# The parser consumes named IR bindings that Python sees as unused.
+# ruff: noqa: F841
 # pylint: disable=missing-function-docstring
 """Tests for cp.async.bulk.shared::cluster.shared::cta PTX instruction codegen."""
 
@@ -50,8 +53,8 @@ def test_ptx_cp_async_bulk_s2c_codegen():
     @T.function
     def main(A: T.Tensor((128,), "float16")):
         T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(1,)))
-        cta_id = T.cuda.block_idx('x')  # noqa: F841 - The parser emits this named IR binding.
-        tid = T.cuda.thread_idx('x')  # noqa: F841 - The parser emits this named IR binding.
+        cta_id = T.cuda.block_idx('x')
+        tid = T.cuda.thread_idx('x')
         A_smem = T.alloc_shared([128], "float16")
         for i in T.serial(128):
             A_smem[i] = A[i]
@@ -81,8 +84,8 @@ def test_ptx_cp_async_bulk_s2c_codegen_address_conversion():
     @T.function
     def main(A: T.Tensor((64,), "float32")):
         T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(1,)))
-        cta_id = T.cuda.block_idx('x')  # noqa: F841 - The parser emits this named IR binding.
-        tid = T.cuda.thread_idx('x')  # noqa: F841 - The parser emits this named IR binding.
+        cta_id = T.cuda.block_idx('x')
+        tid = T.cuda.thread_idx('x')
         A_smem = T.alloc_shared([64], "float32")
         for i in T.serial(64):
             A_smem[i] = A[i]
@@ -112,8 +115,8 @@ def test_mapa_pointer_bind_codegen():
     @T.function
     def main(A: T.Tensor((1,), "uint64")):
         T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(1,)))
-        cta_id = T.cuda.block_idx('x')  # noqa: F841 - The parser emits this named IR binding.
-        tid = T.cuda.thread_idx('x')  # noqa: F841 - The parser emits this named IR binding.
+        cta_id = T.cuda.block_idx('x')
+        tid = T.cuda.thread_idx('x')
         mbar = T.alloc_shared([2], "uint64")
         mapped = T.alloc_local([1], "uint64")
         T.ptx.mapa.u64(mapped[0], mbar.ptr_to([0]), T.uint32(0))

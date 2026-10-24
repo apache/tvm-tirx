@@ -14,6 +14,9 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+
+# The parser consumes named IR bindings that Python sees as unused.
+# ruff: noqa: F841
 """Shared parser meta programming."""
 
 from __future__ import annotations
@@ -209,7 +212,7 @@ def test_host_lambda_local_does_not_capture_optional_binding(language):
     @M.function
     def main():
         if I.constexpr(False):
-            x = 1  # noqa: F841 - The parser emits this named IR binding.
+            x = 1
         if I.constexpr((lambda x: x)(True)):
             M.record(222)
 
@@ -325,8 +328,8 @@ def test_unrelated_same_file_caller_does_not_supply_annotation_locals(language):
         return function
 
     def caller():
-        EXTENT = 99  # noqa: F841 - Keep this lexical-scope fixture for parser capture.
-        VALUE = 99  # noqa: F841 - Keep this lexical-scope fixture for parser capture.
+        EXTENT = 99
+        VALUE = 99
         return build()
 
     function = caller()
@@ -592,7 +595,7 @@ def test_macro_local_annotation_captures_definition_and_argument_names(
 ):
     M = language.M
     M.macro = entry.make_macro_decorator(M, namespace_path="M.macro")
-    MACRO_VALUE = 7  # noqa: F841 - Keep this lexical-scope fixture for parser capture.
+    MACRO_VALUE = 7
     observed = []
 
     def annotation(shape):

@@ -15,6 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
+# The parser consumes named IR bindings that Python sees as unused.
+# ruff: noqa: F841
+
 import numpy as np
 import pytest
 
@@ -118,11 +121,11 @@ def test_rocm_warp_shuffle():
     def func(
         A: T.Tensor((32,), dtype="float32"),
     ):
-        with T.launch_thread("blockIdx.x", 1) as bx:  # noqa: F841 - The parser emits this named IR binding.
+        with T.launch_thread("blockIdx.x", 1) as bx:
             with T.launch_thread("threadIdx.x", 32) as tx:
                 A_local = T.alloc_tensor(ty_args=[T.Tensor((1,), "float32", scope="local")])
                 mask = T.alloc_tensor(ty_args=[T.Tensor((1,), "uint32", scope="local")])
-                t0 = T.alloc_tensor(ty_args=[T.Tensor((1,), "float32", scope="local")])  # noqa: F841 - The parser emits this named IR binding.
+                t0 = T.alloc_tensor(ty_args=[T.Tensor((1,), "float32", scope="local")])
                 A_local[0] = A[tx]
                 A_local[0] = T.gpu_warp_shuffle(mask[0], A_local[0], 0, 32, 32)
                 A[tx] = A_local[0]
@@ -146,8 +149,8 @@ def test_rocm_vectorized_exp():
         A: T.Tensor((4,), dtype="float32"),
         B: T.Tensor((4,), dtype="float32"),
     ):
-        with T.launch_thread("blockIdx.x", 1) as bx:  # noqa: F841 - The parser emits this named IR binding.
-            with T.launch_thread("threadIdx.x", 1) as tx:  # noqa: F841 - The parser emits this named IR binding.
+        with T.launch_thread("blockIdx.x", 1) as bx:
+            with T.launch_thread("threadIdx.x", 1) as tx:
                 for i in T.vectorized(0, 4):
                     B[i] = T.exp2(A[i])
 

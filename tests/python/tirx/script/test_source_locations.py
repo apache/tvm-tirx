@@ -15,6 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
+# The parser consumes named IR bindings that Python sees as unused.
+# ruff: noqa: F841
+
 """TIRx script source locations."""
 
 from __future__ import annotations
@@ -353,7 +356,7 @@ def test_native_binding_preserves_metadata_but_binds_tensor_expressions():
         initialize(A)
         renamed_layout = make(0)
         renamed_holder = make(1)
-        bound = make(2)  # noqa: F841 - The parser emits this named IR binding.
+        bound = make(2)
         observe(renamed_layout, renamed_holder)
         make(0)
         make(1)
@@ -395,11 +398,7 @@ def test_native_binding_preserves_metadata_but_binds_tensor_expressions():
 
 def _line_of(function, statement):
     lines, first = inspect.getsourcelines(function)
-    return first + next(
-        index
-        for index, line in enumerate(lines)
-        if line.partition("  # noqa:")[0].strip() == statement
-    )
+    return first + next(index for index, line in enumerate(lines) if line.strip() == statement)
 
 
 def test_non_call_expression_reads_keep_their_source_range():
@@ -445,11 +444,7 @@ def test_non_call_expression_reads_keep_their_source_range():
 
 def _position(test, statement, expression):
     lines, start = inspect.getsourcelines(test)
-    index, line = next(
-        (i, line)
-        for i, line in enumerate(lines)
-        if line.partition("  # noqa:")[0].strip() == statement
-    )
+    index, line = next((i, line) for i, line in enumerate(lines) if line.strip() == statement)
     column = line.index(expression) + 1
     return start + index, column, start + index, column + len(expression)
 

@@ -15,6 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
+# The parser consumes named IR bindings that Python sees as unused.
+# ruff: noqa: F841
+
 
 import numpy as np
 import pytest
@@ -215,8 +218,8 @@ def test_half_broadcast(bcast_length):
         class Module:
             @T.function
             def main(a: T.Tensor((), dtype), vec: T.Tensor((bcast_length,), dtype)):
-                with T.launch_thread("blockIdx.x", 1) as i_0:  # noqa: F841 - The parser emits this named IR binding.
-                    with T.launch_thread("threadIdx.x", 1) as i_1:  # noqa: F841 - The parser emits this named IR binding.
+                with T.launch_thread("blockIdx.x", 1) as i_0:
+                    with T.launch_thread("threadIdx.x", 1) as i_1:
                         vec[0:bcast_length] = T.broadcast(a[()], bcast_length)
 
         return Module
@@ -253,7 +256,7 @@ def test_half_misaligned_vector_load(vector_length):
     def vector_load(
         A: T.Tensor((length,), dtype), B: T.Tensor((length // vector_length,), vec_dtype)
     ):
-        with T.launch_thread("blockIdx.x", 1) as b:  # noqa: F841 - The parser emits this named IR binding.
+        with T.launch_thread("blockIdx.x", 1) as b:
             with T.launch_thread("threadIdx.x", length // vector_length) as i:
                 vec_index = T.ramp((i + 1) * vector_length - 1, -1, vector_length)
                 B[i] = A[vec_index]

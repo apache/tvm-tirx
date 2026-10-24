@@ -15,6 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
+# The parser consumes named IR bindings that Python sees as unused.
+# ruff: noqa: F841
+
 """TIRx script gpu."""
 
 import pytest
@@ -33,8 +36,8 @@ def test_roundtrip_scopeid1():
     def test(A: T.Tensor((64,), 'float32', scope='global')) -> None:
 
         T.device_entry(launch=T.cuda.LaunchConfig(grid=(1, 1, 1), block=1 * 32))
-        bx, by, bz = (T.cuda.block_idx('x'), T.cuda.block_idx('y'), T.cuda.block_idx('z'))  # noqa: F841 - The parser emits this named IR binding.
-        warp_id = T.cuda.warp_id()  # noqa: F841 - The parser emits this named IR binding.
+        bx, by, bz = (T.cuda.block_idx('x'), T.cuda.block_idx('y'), T.cuda.block_idx('z'))
+        warp_id = T.cuda.warp_id()
         lane_id = T.cuda.lane_id()
         A_local = T.alloc_tensor(ty_args=[T.Tensor([1], "float16", scope="local")])
         for i in T.serial(2):
@@ -120,9 +123,9 @@ def test_roundtrip_op1():
     def test(A: T.Tensor((64,), 'float32', scope='global')) -> None:
 
         T.device_entry(launch=T.cuda.LaunchConfig(grid=(1, 1, 1), block=1 * 32))
-        bx, by, bz = (T.cuda.block_idx('x'), T.cuda.block_idx('y'), T.cuda.block_idx('z'))  # noqa: F841 - The parser emits this named IR binding.
-        warp_id = T.cuda.warp_id()  # noqa: F841 - The parser emits this named IR binding.
-        lane_id = T.cuda.lane_id()  # noqa: F841 - The parser emits this named IR binding.
+        bx, by, bz = (T.cuda.block_idx('x'), T.cuda.block_idx('y'), T.cuda.block_idx('z'))
+        warp_id = T.cuda.warp_id()
+        lane_id = T.cuda.lane_id()
         A_smem = T.alloc_tensor(ty_args=[T.Tensor([64], "float32", scope="shared")])
 
         transfer_src_125 = T.meta_var(A[tuple([slice(None) for _ in A.shape])])
@@ -174,9 +177,9 @@ def test_roundtrip_op2():
     ) -> None:
 
         T.device_entry(launch=T.cuda.LaunchConfig(grid=(1, 1, 1), block=4 * 32))
-        bx, by, bz = (T.cuda.block_idx('x'), T.cuda.block_idx('y'), T.cuda.block_idx('z'))  # noqa: F841 - The parser emits this named IR binding.
-        warp_id = T.cuda.warp_id()  # noqa: F841 - The parser emits this named IR binding.
-        lane_id = T.cuda.lane_id()  # noqa: F841 - The parser emits this named IR binding.
+        bx, by, bz = (T.cuda.block_idx('x'), T.cuda.block_idx('y'), T.cuda.block_idx('z'))
+        warp_id = T.cuda.warp_id()
+        lane_id = T.cuda.lane_id()
         A_smem = T.alloc_tensor(ty_args=[T.Tensor([128, 32], "float16", scope="shared")])
         B_smem = T.alloc_tensor(ty_args=[T.Tensor([32, 64], "float16", scope="shared")])
 
@@ -245,9 +248,9 @@ def test_roundtrip_op3():
     ) -> None:
 
         T.device_entry(launch=T.cuda.LaunchConfig(grid=(1, 1, 1), block=4 * 32))
-        bx, by, bz = (T.cuda.block_idx('x'), T.cuda.block_idx('y'), T.cuda.block_idx('z'))  # noqa: F841 - The parser emits this named IR binding.
-        warp_id = T.cuda.warp_id()  # noqa: F841 - The parser emits this named IR binding.
-        lane_id = T.cuda.lane_id()  # noqa: F841 - The parser emits this named IR binding.
+        bx, by, bz = (T.cuda.block_idx('x'), T.cuda.block_idx('y'), T.cuda.block_idx('z'))
+        warp_id = T.cuda.warp_id()
+        lane_id = T.cuda.lane_id()
         A_smem = T.alloc_tensor(
             ty_args=[T.Tensor([NUM_STAGES, 128, 32], "float16", scope="shared")]
         )
@@ -452,9 +455,9 @@ def test_roundtrip_persistent_decorator():
     def test(A: T.Tensor((128,), 'float32', scope='global')) -> None:
 
         T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=1 * 32))
-        cta_id = T.cuda.block_idx('x')  # noqa: F841 - The parser emits this named IR binding.
-        warp_id = T.cuda.warp_id()  # noqa: F841 - The parser emits this named IR binding.
-        lane_id = T.cuda.lane_id()  # noqa: F841 - The parser emits this named IR binding.
+        cta_id = T.cuda.block_idx('x')
+        warp_id = T.cuda.warp_id()
+        lane_id = T.cuda.lane_id()
         T.cuda.tile.apply(T.ptx['mov.b32'], A[0:32], T.float32(0), scope='cta')
         # fmt: on
 
@@ -473,9 +476,9 @@ def test_roundtrip_persistent_not_present():
     def test(A: T.Tensor((128,), 'float32', scope='global')) -> None:
 
         T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=1 * 32))
-        cta_id = T.cuda.block_idx('x')  # noqa: F841 - The parser emits this named IR binding.
-        warp_id = T.cuda.warp_id()  # noqa: F841 - The parser emits this named IR binding.
-        lane_id = T.cuda.lane_id()  # noqa: F841 - The parser emits this named IR binding.
+        cta_id = T.cuda.block_idx('x')
+        warp_id = T.cuda.warp_id()
+        lane_id = T.cuda.lane_id()
         T.cuda.tile.apply(T.ptx['mov.b32'], A[0:32], T.float32(0), scope='cta')
         # fmt: on
 

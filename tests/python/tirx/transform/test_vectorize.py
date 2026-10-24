@@ -14,6 +14,9 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+
+# The parser consumes named IR bindings that Python sees as unused.
+# ruff: noqa: F841
 import pytest
 
 import tvm_tirx
@@ -319,7 +322,7 @@ def test_vectorize_let_if_then_else():
             T.func_attr({"target": simple_target})
             for i in T.vectorized(4):
                 if i < 2:
-                    result: T.let[T.int32] = T.if_then_else(i < 1, 1, 2)  # noqa: F841 - The parser emits this named IR binding.
+                    result: T.let[T.int32] = T.if_then_else(i < 1, 1, 2)
 
     @I.ir_module
     class After:
@@ -328,7 +331,7 @@ def test_vectorize_let_if_then_else():
             T.func_attr({"target": simple_target})
             for i_s in range(4):
                 if i_s < 2:
-                    result: T.let[T.int32] = T.if_then_else(i_s < 1, 1, 2)  # noqa: F841 - The parser emits this named IR binding.
+                    result: T.let[T.int32] = T.if_then_else(i_s < 1, 1, 2)
                     T.evaluate(0)
 
     mod = tvm_tirx.tirx.transform.VectorizeLoop()(Before)

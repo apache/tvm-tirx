@@ -15,6 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
+# The parser consumes named IR bindings that Python sees as unused.
+# ruff: noqa: F841
+
 """TIRx script printer structural equal."""
 
 import pytest
@@ -129,11 +132,11 @@ def test_evaluate():
 def test_allocate():
     @T.function
     def func1():
-        a = T.alloc_tensor(ty_args=[T.Tensor((128, 128), "float32")])  # noqa: F841 - The parser emits this named IR binding.
+        a = T.alloc_tensor(ty_args=[T.Tensor((128, 128), "float32")])
 
     @T.function
     def func2():
-        a = T.alloc_tensor(ty_args=[T.Tensor((256, 128), "float32")])  # noqa: F841 - The parser emits this named IR binding.
+        a = T.alloc_tensor(ty_args=[T.Tensor((256, 128), "float32")])
 
     func1 = func1.with_attr("global_symbol", "main")
     func2 = func2.with_attr("global_symbol", "main")

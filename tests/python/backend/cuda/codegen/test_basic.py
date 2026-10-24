@@ -1,5 +1,5 @@
 # Licensed to the Apache Software Foundation (ASF) under one
-# ruff: noqa: E501, E741
+# ruff: noqa: E501, E741, F841
 
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -720,7 +720,7 @@ def sched(compute_fn, dtype, n=128, *, backend_config=None):
         @T.function
         def main(A: T.Tensor((n,), dtype), B: T.Tensor((n,), dtype)):
             T.func_attr({"tirx.noalias": True})
-            with T.launch_thread("blockIdx.x", 1) as i0_0:  # noqa: F841 - The parser emits this named IR binding.
+            with T.launch_thread("blockIdx.x", 1) as i0_0:
                 with T.launch_thread("threadIdx.x", 32) as i0_1_0:
                     for i0_1_1_0 in range(1):
                         for i0_1_1_1 in T.vectorized(4):
@@ -1111,8 +1111,8 @@ def test_cuda_thread_sync_inside_condition(*, backend_config):
     @T.function
     def func2(A: T.Tensor((4, 4), "float32")) -> None:
         A_shared = T.alloc_tensor(ty_args=[T.Tensor((4, 4), "float32", scope="shared")])
-        with T.launch_thread("blockIdx.x", 1) as bx:  # noqa: F841 - The parser emits this named IR binding.
-            with T.launch_thread("threadIdx.x", 32) as tx:  # noqa: F841 - The parser emits this named IR binding.
+        with T.launch_thread("blockIdx.x", 1) as bx:
+            with T.launch_thread("threadIdx.x", 32) as tx:
                 if T.gpu_thread_invariant(A[0, 0] > 1.0):
                     for i, j in T.grid(4, 4):
                         A_shared[i, j] = A[i, j]
@@ -1123,8 +1123,8 @@ def test_cuda_thread_sync_inside_condition(*, backend_config):
     @T.function
     def func3(A: T.Tensor((4, 4), "float32")) -> None:
         A_shared = T.alloc_tensor(ty_args=[T.Tensor((4, 4), "float32", scope="shared")])
-        with T.launch_thread("blockIdx.x", 1) as bx:  # noqa: F841 - The parser emits this named IR binding.
-            with T.launch_thread("threadIdx.x", 32) as tx:  # noqa: F841 - The parser emits this named IR binding.
+        with T.launch_thread("blockIdx.x", 1) as bx:
+            with T.launch_thread("threadIdx.x", 32) as tx:
                 while T.gpu_thread_invariant(A[0, 0] > 1.0):
                     for i, j in T.grid(4, 4):
                         A_shared[i, j] = A[i, j]
@@ -1163,7 +1163,7 @@ def test_cuda_tensormap(*, backend_config):
         T.call_packed("runtime.cuTensorMapInit", A_map, "float32", 2, A.data,
                       16, 16, 64, 16, 16, 1, 1, 0, 0, 0, 0)
 
-        with T.launch_thread("blockIdx.x", 1) as blockIdx:  # noqa: F841 - The parser emits this named IR binding.
+        with T.launch_thread("blockIdx.x", 1) as blockIdx:
             with T.launch_thread("threadIdx.x", 128) as threadIdx:
                 if threadIdx == 0:
                     A[0, 0] = T.Cast("float32", T.address_of(A_map))
@@ -1309,7 +1309,7 @@ def test_cuda_loop_step(*, backend_config):
         C: T.Tensor((1024,), "float32"),
     ):
         # Each thread computes a strided subset of the i loop: start = tx*3, step = 96 (3 * 32 threads)
-        with T.launch_thread("blockIdx.x", 1) as bx:  # noqa: F841 - The parser emits this named IR binding.
+        with T.launch_thread("blockIdx.x", 1) as bx:
             with T.launch_thread("threadIdx.x", 96) as tx:
                 for i in T.serial(tx, 1024, step=96):
                     C[i] = A[i] + B[i]

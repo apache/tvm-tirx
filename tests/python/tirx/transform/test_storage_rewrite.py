@@ -14,6 +14,9 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+
+# The parser consumes named IR bindings that Python sees as unused.
+# ruff: noqa: F841
 import uuid
 
 import pytest
@@ -871,7 +874,7 @@ def test_decl_tensor_alias_chain_uses_flat_root():
         @T.function
         def main(D: T.Tensor(1, "float32")):
             A = T.alloc_tensor(ty_args=[T.Tensor(16, "float32")])
-            B = T.decl_tensor(A.data, ty_args=[T.Tensor(16, "float32", data=A.data)])  # noqa: F841 - The parser emits this named IR binding.
+            B = T.decl_tensor(A.data, ty_args=[T.Tensor(16, "float32", data=A.data)])
             C = T.decl_tensor(A.data, ty_args=[T.Tensor(16, "float32", data=A.data)])
             A[0] = 1.0
             D[0] = C[0]
@@ -923,7 +926,7 @@ def test_no_orphaned_decl_tensor():
         def main(A: T.Tensor(16, "float32"), D: T.Tensor(16, "float32")):
             B = T.alloc_tensor(ty_args=[T.Tensor(16, "float32")])
             C = T.alloc_tensor(ty_args=[T.Tensor(16, "float32")])
-            Unused = T.alloc_tensor(ty_args=[T.Tensor(16, "float32")])  # noqa: F841 - The parser emits this named IR binding.
+            Unused = T.alloc_tensor(ty_args=[T.Tensor(16, "float32")])
 
             for i in range(16):
                 B[i] = A[i]

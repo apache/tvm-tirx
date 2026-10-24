@@ -14,6 +14,9 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+
+# The parser consumes named IR bindings that Python sees as unused.
+# ruff: noqa: F841
 # pylint: disable=invalid-name, missing-function-docstring
 """Tests for the tcgen05 TMEM load/store (ld/st) dispatch.
 
@@ -1662,10 +1665,10 @@ def test_copy_tmem2reg_async(dtype, width_32b):
 
         T.device_entry(launch=T.cuda.LaunchConfig(grid=(2,), block=(128,)))
         warp_id = T.cuda.warp_id()
-        cta_id = T.cuda.block_idx("x")  # noqa: F841 - The parser emits this named IR binding.
+        cta_id = T.cuda.block_idx("x")
         wg_id = T.cuda.warpgroup_id()
-        warp_id_in_wg = T.cuda.warp_in_warpgroup()  # noqa: F841 - The parser emits this named IR binding.
-        lane_id = T.cuda.lane_id()  # noqa: F841 - The parser emits this named IR binding.
+        warp_id_in_wg = T.cuda.warp_in_warpgroup()
+        lane_id = T.cuda.lane_id()
         tid_in_wg = T.cuda.thread_idx("x")
 
         tmem_addr = T.alloc_shared([1], "uint32", layout="default")

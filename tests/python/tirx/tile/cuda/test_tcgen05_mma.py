@@ -15,6 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
+# The parser consumes named IR bindings that Python sees as unused.
+# ruff: noqa: F841
+
 """Native tcgen05.mma instructions with explicit operand views."""
 
 import functools
@@ -101,7 +104,7 @@ def test_gemm_tcgen05_cta_group_1(task):
     ) -> None:
         T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=1 * 4 * 32))
         warp_id = T.cuda.warp_id()
-        cta_id = T.cuda.block_idx("x")  # noqa: F841 - The parser emits this named IR binding.
+        cta_id = T.cuda.block_idx("x")
         wg_id = T.cuda.warpgroup_id()
         tid_in_wg = T.cuda.thread_in_warpgroup()
 
@@ -277,7 +280,7 @@ def test_gemm_tcgen05_cta_group_1_layout_f_m64():
     ) -> None:
         T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=4 * 32))
         warp_id = T.cuda.warp_id()
-        cta_id = T.cuda.block_idx("x")  # noqa: F841 - The parser emits this named IR binding.
+        cta_id = T.cuda.block_idx("x")
         wg_id = T.cuda.warpgroup_id()
         tid_in_wg = T.cuda.thread_in_warpgroup()
         lane_id = T.cuda.lane_id()
@@ -493,8 +496,8 @@ def test_gemm_tcgen05_cta_group_2(task):
     ) -> None:
         T.device_entry(launch=T.cuda.LaunchConfig(grid=(2,), block=1 * 4 * 32, cluster=(2, 1)))
         warp_id = T.cuda.warp_id()
-        cbx, cby = (T.cuda.cluster_cta_id("x"), T.cuda.cluster_cta_id("y"))  # noqa: F841 - The parser emits this named IR binding.
-        cta_id = T.cuda.block_idx("x")  # noqa: F841 - The parser emits this named IR binding.
+        cbx, cby = (T.cuda.cluster_cta_id("x"), T.cuda.cluster_cta_id("y"))
+        cta_id = T.cuda.block_idx("x")
         wg_id = T.cuda.warpgroup_id()
         tid_in_wg = T.cuda.thread_in_warpgroup()
 
@@ -715,8 +718,8 @@ def test_gemm_tcgen05_cta_group_2_layout_b():
     ) -> None:
         T.device_entry(launch=T.cuda.LaunchConfig(grid=(2,), block=1 * 4 * 32, cluster=(2, 1)))
         warp_id = T.cuda.warp_id()
-        cbx, cby = (T.cuda.cluster_cta_id("x"), T.cuda.cluster_cta_id("y"))  # noqa: F841 - The parser emits this named IR binding.
-        cta_id = T.cuda.block_idx("x")  # noqa: F841 - The parser emits this named IR binding.
+        cbx, cby = (T.cuda.cluster_cta_id("x"), T.cuda.cluster_cta_id("y"))
+        cta_id = T.cuda.block_idx("x")
         wg_id = T.cuda.warpgroup_id()
         tid_in_wg = T.cuda.thread_in_warpgroup()
 
@@ -929,7 +932,7 @@ def test_gemm_tcgen05_cta_group_2_datapath_b_readback():
     ) -> None:
         T.device_entry(launch=T.cuda.LaunchConfig(grid=(2,), block=4 * 32, cluster=(2, 1)))
         warp_id = T.cuda.warp_id()
-        cbx, cby = (T.cuda.cluster_cta_id("x"), T.cuda.cluster_cta_id("y"))  # noqa: F841 - The parser emits this named IR binding.
+        cbx, cby = (T.cuda.cluster_cta_id("x"), T.cuda.cluster_cta_id("y"))
         wg_id = T.cuda.warpgroup_id()
         tid = T.cuda.thread_in_warpgroup()
 
@@ -1174,7 +1177,7 @@ def test_gemm_block_scaled_fp8_cta_group_1(task):
     ) -> None:
         T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=1 * 4 * 32))
         warp_id = T.cuda.warp_id()
-        cta_id = T.cuda.block_idx("x")  # noqa: F841 - The parser emits this named IR binding.
+        cta_id = T.cuda.block_idx("x")
         wg_id = T.cuda.warpgroup_id()
         tid_in_wg = T.cuda.thread_in_warpgroup()
 
@@ -1491,8 +1494,8 @@ def test_gemm_block_scaled_fp8_cta_group_2(task):
     ) -> None:
         T.device_entry(launch=T.cuda.LaunchConfig(grid=(2,), block=1 * 4 * 32, cluster=(2, 1)))
         warp_id = T.cuda.warp_id()
-        cbx, cby = (T.cuda.cluster_cta_id("x"), T.cuda.cluster_cta_id("y"))  # noqa: F841 - The parser emits this named IR binding.
-        cta_id = T.cuda.block_idx("x")  # noqa: F841 - The parser emits this named IR binding.
+        cbx, cby = (T.cuda.cluster_cta_id("x"), T.cuda.cluster_cta_id("y"))
+        cta_id = T.cuda.block_idx("x")
         wg_id = T.cuda.warpgroup_id()
         tid_in_wg = T.cuda.thread_in_warpgroup()
 
@@ -1867,7 +1870,7 @@ def test_gemm_block_scaled_nvfp4_cta_group_1():
     ) -> None:
         T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=1 * 4 * 32))
         warp_id = T.cuda.warp_id()
-        cta_id = T.cuda.block_idx("x")  # noqa: F841 - The parser emits this named IR binding.
+        cta_id = T.cuda.block_idx("x")
         wg_id = T.cuda.warpgroup_id()
         tid_in_wg = T.cuda.thread_in_warpgroup()
 
@@ -2191,8 +2194,8 @@ def test_gemm_block_scaled_nvfp4_cta_group_2():
     ) -> None:
         T.device_entry(launch=T.cuda.LaunchConfig(grid=(2,), block=1 * 4 * 32, cluster=(2, 1)))
         warp_id = T.cuda.warp_id()
-        cbx, cby = (T.cuda.cluster_cta_id("x"), T.cuda.cluster_cta_id("y"))  # noqa: F841 - The parser emits this named IR binding.
-        cta_id = T.cuda.block_idx("x")  # noqa: F841 - The parser emits this named IR binding.
+        cbx, cby = (T.cuda.cluster_cta_id("x"), T.cuda.cluster_cta_id("y"))
+        cta_id = T.cuda.block_idx("x")
         wg_id = T.cuda.warpgroup_id()
         tid_in_wg = T.cuda.thread_in_warpgroup()
 
@@ -2552,7 +2555,7 @@ def test_gemm_block_scaled_fp8_sf_id():
     ) -> None:
         T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=1 * 4 * 32))
         warp_id = T.cuda.warp_id()
-        cta_id = T.cuda.block_idx("x")  # noqa: F841 - The parser emits this named IR binding.
+        cta_id = T.cuda.block_idx("x")
         wg_id = T.cuda.warpgroup_id()
         tid_in_wg = T.cuda.thread_in_warpgroup()
 
@@ -3084,7 +3087,7 @@ def test_gemm_tcgen05_arbitrary_tiles(task, copy_perm, a_major, b_major):
         ag = A.permute(*copy_perm)
         T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=1 * 4 * 32))
         warp_id = T.cuda.warp_id()
-        cta_id = T.cuda.block_idx("x")  # noqa: F841 - The parser emits this named IR binding.
+        cta_id = T.cuda.block_idx("x")
         wg_id = T.cuda.warpgroup_id()
         tid_in_wg = T.cuda.thread_in_warpgroup()
 

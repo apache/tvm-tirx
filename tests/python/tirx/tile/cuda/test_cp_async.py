@@ -14,6 +14,9 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+
+# The parser consumes named IR bindings that Python sees as unused.
+# ruff: noqa: F841
 # pylint: disable=invalid-name, missing-function-docstring
 """Tests for the non-bulk CTA-level copy_async dispatch (vectorized load)."""
 
@@ -83,7 +86,7 @@ def test_copy_g2s_s2g_cta_vec_load(task, dtype):
         A: T.Tensor(g_shape, dtype, layout=layoutA), B: T.Tensor(g_shape, dtype, layout=layoutB)
     ) -> None:
         T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(thread_cnt,)))
-        cta_id = T.cuda.block_idx("x")  # noqa: F841 - The parser emits this named IR binding.
+        cta_id = T.cuda.block_idx("x")
         tid = T.cuda.thread_idx("x")
         A_smem = T.alloc_tensor(ty_args=[T.Tensor(s_shape, dtype, scope="shared", layout=layoutS)])
 

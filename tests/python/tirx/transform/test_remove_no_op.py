@@ -14,6 +14,9 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+
+# The parser consumes named IR bindings that Python sees as unused.
+# ruff: noqa: F841
 import pytest
 
 import tvm_tirx
@@ -134,13 +137,13 @@ def test_remove_unused_let():
 
     @T.function(private=True)
     def before(A: T.Tensor(16, "int32")):
-        x = 5  # noqa: F841 - The parser emits this named IR binding.
+        x = 5
         for i in T.serial(16):
             A[i] = 0
 
     @T.function(private=True)
     def expected(A: T.Tensor(16, "int32")):
-        x = 5  # noqa: F841 - The parser emits this named IR binding.
+        x = 5
         for i in T.serial(16):
             A[i] = 0
 
@@ -163,7 +166,7 @@ def test_remove_let_used_only_in_no_op():
 
     @T.function(private=True)
     def expected(A: T.Tensor(16, "int32")):
-        x = 5  # noqa: F841 - The parser emits this named IR binding.
+        x = 5
         T.evaluate(0)
 
     after = _apply_remove_no_op(before)
@@ -175,12 +178,12 @@ def test_keep_side_effects_of_let():
 
     @T.function(private=True)
     def before():
-        x = T.call_extern("extern_func", ty="int32")  # noqa: F841 - The parser emits this named IR binding.
+        x = T.call_extern("extern_func", ty="int32")
         T.evaluate(0)
 
     @T.function(private=True)
     def expected():
-        x = T.call_extern("extern_func", ty="int32")  # noqa: F841 - The parser emits this named IR binding.
+        x = T.call_extern("extern_func", ty="int32")
         T.evaluate(0)
 
     after = _apply_remove_no_op(before)
@@ -324,7 +327,7 @@ def test_remove_read_write_same_index_different_expression():
     def expected(A: T.Tensor(16, "int32")):
         for io in range(4):
             for ii in range(4):
-                i: T.let[T.int32] = 4 * io + ii  # noqa: F841 - The parser emits this named IR binding.
+                i: T.let[T.int32] = 4 * io + ii
 
     after = _apply_remove_no_op(before)
     tvm_tirx.ir.assert_structural_equal(after, expected)
@@ -362,7 +365,7 @@ def test_remove_empty_temporary():
 
     @T.function(private=True)
     def before():
-        A = T.alloc_tensor(ty_args=[T.Tensor((16,), "int32", scope="local")])  # noqa: F841 - The parser emits this named IR binding.
+        A = T.alloc_tensor(ty_args=[T.Tensor((16,), "int32", scope="local")])
         T.evaluate(0)
 
     @T.function(private=True)
@@ -384,7 +387,7 @@ def test_remove_empty_temporary_with_decl_tensor():
     @T.function(private=True)
     def before():
         A = T.alloc_tensor(ty_args=[T.Tensor([4, 4], "int32", scope="local")])
-        A_flat = T.decl_tensor(A.data, ty_args=[T.Tensor(16, "int32", scope="local")])  # noqa: F841 - The parser emits this named IR binding.
+        A_flat = T.decl_tensor(A.data, ty_args=[T.Tensor(16, "int32", scope="local")])
         T.evaluate(0)
 
     @T.function(private=True)
@@ -401,7 +404,7 @@ def test_remove_unused_temporary():
 
     @T.function(private=True)
     def before(A: T.Tensor(16, "int32")):
-        B = T.alloc_tensor(ty_args=[T.Tensor((16,), "int32", scope="local")])  # noqa: F841 - The parser emits this named IR binding.
+        B = T.alloc_tensor(ty_args=[T.Tensor((16,), "int32", scope="local")])
         for i in T.serial(16):
             A[i] = 1
 

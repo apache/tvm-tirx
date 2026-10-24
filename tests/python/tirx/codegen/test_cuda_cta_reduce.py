@@ -14,6 +14,9 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+
+# The parser consumes named IR bindings that Python sees as unused.
+# ruff: noqa: F841
 """Tests for T.cuda.cta_reduce / cta_sum / cta_max / cta_min intrinsics."""
 
 import numpy as np
@@ -52,9 +55,9 @@ def test_cta_sum_4_warps():
     def func(out: T.Tensor((N,), 'float32')):
 
         T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(N,)))
-        cta_id = T.cuda.block_idx('x')  # noqa: F841 - The parser emits this named IR binding.
-        warp_id = T.cuda.warp_id()  # noqa: F841 - The parser emits this named IR binding.
-        lane_id = T.cuda.lane_id()  # noqa: F841 - The parser emits this named IR binding.
+        cta_id = T.cuda.block_idx('x')
+        warp_id = T.cuda.warp_id()
+        lane_id = T.cuda.lane_id()
         tid = T.cuda.thread_idx('x')
         scratch = T.alloc_tensor(ty_args=[T.Tensor((NUM_WARPS,), "float32", scope="shared")])
         val: T.f32 = T.float32(tid + 1)
@@ -80,9 +83,9 @@ def test_cta_sum_8_warps():
     def func(out: T.Tensor((N,), 'float32')):
 
         T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(N,)))
-        cta_id = T.cuda.block_idx('x')  # noqa: F841 - The parser emits this named IR binding.
-        warp_id = T.cuda.warp_id()  # noqa: F841 - The parser emits this named IR binding.
-        lane_id = T.cuda.lane_id()  # noqa: F841 - The parser emits this named IR binding.
+        cta_id = T.cuda.block_idx('x')
+        warp_id = T.cuda.warp_id()
+        lane_id = T.cuda.lane_id()
         tid = T.cuda.thread_idx('x')
         scratch = T.alloc_tensor(ty_args=[T.Tensor((NUM_WARPS,), "float32", scope="shared")])
         val: T.f32 = T.float32(tid + 1)
@@ -107,9 +110,9 @@ def test_cta_max_4_warps():
     def func(out: T.Tensor((N,), 'float32')):
 
         T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(N,)))
-        cta_id = T.cuda.block_idx('x')  # noqa: F841 - The parser emits this named IR binding.
-        warp_id = T.cuda.warp_id()  # noqa: F841 - The parser emits this named IR binding.
-        lane_id = T.cuda.lane_id()  # noqa: F841 - The parser emits this named IR binding.
+        cta_id = T.cuda.block_idx('x')
+        warp_id = T.cuda.warp_id()
+        lane_id = T.cuda.lane_id()
         tid = T.cuda.thread_idx('x')
         scratch = T.alloc_tensor(ty_args=[T.Tensor((NUM_WARPS,), "float32", scope="shared")])
         val: T.f32 = T.float32(tid + 1)
@@ -133,9 +136,9 @@ def test_cta_min_4_warps():
     def func(out: T.Tensor((N,), 'float32')):
 
         T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(N,)))
-        cta_id = T.cuda.block_idx('x')  # noqa: F841 - The parser emits this named IR binding.
-        warp_id = T.cuda.warp_id()  # noqa: F841 - The parser emits this named IR binding.
-        lane_id = T.cuda.lane_id()  # noqa: F841 - The parser emits this named IR binding.
+        cta_id = T.cuda.block_idx('x')
+        warp_id = T.cuda.warp_id()
+        lane_id = T.cuda.lane_id()
         tid = T.cuda.thread_idx('x')
         scratch = T.alloc_tensor(ty_args=[T.Tensor((NUM_WARPS,), "float32", scope="shared")])
         val: T.f32 = T.float32(tid + 1)
@@ -159,9 +162,9 @@ def test_cta_sum_1_warp():
     def func(out: T.Tensor((N,), 'float32')):
 
         T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(N,)))
-        cta_id = T.cuda.block_idx('x')  # noqa: F841 - The parser emits this named IR binding.
-        warp_id = T.cuda.warp_id()  # noqa: F841 - The parser emits this named IR binding.
-        lane_id = T.cuda.lane_id()  # noqa: F841 - The parser emits this named IR binding.
+        cta_id = T.cuda.block_idx('x')
+        warp_id = T.cuda.warp_id()
+        lane_id = T.cuda.lane_id()
         tid = T.cuda.thread_idx('x')
         scratch = T.alloc_tensor(ty_args=[T.Tensor((NUM_WARPS,), "float32", scope="shared")])
         val: T.f32 = T.float32(tid + 1)
@@ -186,9 +189,9 @@ def test_cta_sum_all_warp_counts(num_warps):
     def func(out: T.Tensor((N,), 'float32')):
 
         T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(N,)))
-        cta_id = T.cuda.block_idx('x')  # noqa: F841 - The parser emits this named IR binding.
-        warp_id = T.cuda.warp_id()  # noqa: F841 - The parser emits this named IR binding.
-        lane_id = T.cuda.lane_id()  # noqa: F841 - The parser emits this named IR binding.
+        cta_id = T.cuda.block_idx('x')
+        warp_id = T.cuda.warp_id()
+        lane_id = T.cuda.lane_id()
         tid = T.cuda.thread_idx('x')
         scratch = T.alloc_tensor(ty_args=[T.Tensor((num_warps,), "float32", scope="shared")])
         val: T.f32 = T.float32(tid + 1)

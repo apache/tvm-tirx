@@ -14,6 +14,9 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+
+# The parser consumes named IR bindings that Python sees as unused.
+# ruff: noqa: F841
 """Shared parser error handling."""
 
 from __future__ import annotations
@@ -23,8 +26,6 @@ import inspect
 import traceback
 
 import pytest
-
-# Script-local bindings are observed through the constructed IR.
 from minilang import Value
 
 import tvm_tirx
@@ -155,15 +156,13 @@ def test_conditional_branches_require_matching_output_names(language):
         @M.function
         def main():
             if condition:
-                y = left  # noqa: F841 - The parser emits this named IR binding.
+                y = left
             else:
-                z = right  # noqa: F841 - The parser emits this named IR binding.
+                z = right
 
     error = caught.value
     lines, first = inspect.getsourcelines(test_conditional_branches_require_matching_output_names)
-    line = first + next(
-        i for i, text in enumerate(lines) if text.partition("  # noqa:")[0].strip() == "z = right"
-    )
+    line = first + next(i for i, text in enumerate(lines) if text.strip() == "z = right")
     assert (error.filename, error.lineno, error.end_lineno) == (__file__, line, line)
     assert (error.offset, error.end_offset) == (17, 26)
     assert not language.functions
@@ -351,7 +350,7 @@ def test_namespace_rebinding_reports_source_location(language):
 
         @M.function
         def main():
-            M = 1  # noqa: F841 - The parser emits this named IR binding.
+            M = 1
 
     error = caught.value
     lines, first = inspect.getsourcelines(test_namespace_rebinding_reports_source_location)

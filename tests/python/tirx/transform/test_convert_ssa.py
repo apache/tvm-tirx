@@ -15,6 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
+# The parser consumes named IR bindings that Python sees as unused.
+# ruff: noqa: F841
+
 
 import tvm_tirx
 import tvm_tirx.testing
@@ -403,7 +406,7 @@ def test_shared_shape_var_in_tensor_params_and_alloc_tensor():
     class Before:
         @T.function(private=True)
         def main(A: T.Tensor((n,), "float32"), B: T.Tensor((n,), "float32")):
-            C = T.alloc_tensor(ty_args=[T.Tensor((n,), "float32")])  # noqa: F841 - The parser emits this named IR binding.
+            C = T.alloc_tensor(ty_args=[T.Tensor((n,), "float32")])
             T.evaluate(1)
 
     After = tvm_tirx.tirx.transform.ConvertSSA()(Before)

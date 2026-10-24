@@ -15,6 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
+# The parser consumes named IR bindings that Python sees as unused.
+# ruff: noqa: F841
+
 """TIRx script tensors."""
 
 import math
@@ -58,9 +61,9 @@ def test_roundtrip_layout():
     def test(_: T.Tensor((64,), 'float32', scope='global')) -> None:
 
         T.device_entry(launch=T.cuda.LaunchConfig(grid=(1, 1, 1), block=1 * 32))
-        bx, by, bz = (T.cuda.block_idx('x'), T.cuda.block_idx('y'), T.cuda.block_idx('z'))  # noqa: F841 - The parser emits this named IR binding.
-        warp_id = T.cuda.warp_id()  # noqa: F841 - The parser emits this named IR binding.
-        lane_id = T.cuda.lane_id()  # noqa: F841 - The parser emits this named IR binding.
+        bx, by, bz = (T.cuda.block_idx('x'), T.cuda.block_idx('y'), T.cuda.block_idx('z'))
+        warp_id = T.cuda.warp_id()
+        lane_id = T.cuda.lane_id()
         C = T.alloc_tensor(
             ty_args=[T.Tensor([128, 128], "float16", scope="shared", layout=get_layout3())]
         )
@@ -158,10 +161,10 @@ def test_roundtrip_tensor_view_get2():
     def test(out: T.Tensor(2, 'float32', scope='global')) -> None:
 
         T.device_entry(launch=T.cuda.LaunchConfig(grid=(32, 32, 1), block=(16, 8, 1)))
-        bx, by, bz = (T.cuda.block_idx('x'), T.cuda.block_idx('y'), T.cuda.block_idx('z'))  # noqa: F841 - The parser emits this named IR binding.
-        tx, ty, tz = (T.cuda.thread_idx('x'), T.cuda.thread_idx('y'), T.cuda.thread_idx('z'))  # noqa: F841 - The parser emits this named IR binding.
-        warp_id = T.cuda.warp_id()  # noqa: F841 - The parser emits this named IR binding.
-        lane_id = T.cuda.lane_id()  # noqa: F841 - The parser emits this named IR binding.
+        bx, by, bz = (T.cuda.block_idx('x'), T.cuda.block_idx('y'), T.cuda.block_idx('z'))
+        tx, ty, tz = (T.cuda.thread_idx('x'), T.cuda.thread_idx('y'), T.cuda.thread_idx('z'))
+        warp_id = T.cuda.warp_id()
+        lane_id = T.cuda.lane_id()
         A = T.alloc_tensor(ty_args=[T.Tensor([2,], "float16", scope="local")])
         A_layout = T.TileLayout(T.S[(1, 2) : (2, 1)])
         B_layout = A_layout.tile(L_LANE, (8, 4), (1, 2))
@@ -1443,7 +1446,7 @@ def test_roundtrip_tmem_decl_tensor():
             addr_alias = T.decl_tensor(
                 addr.data, ty_args=[T.Tensor((1,), "uint32", scope="shared")]
             )
-            buf = T.cuda.decl_tmem(addr_alias[0], ty_args=[  # noqa: F841 - The parser emits this named IR binding.
+            buf = T.cuda.decl_tmem(addr_alias[0], ty_args=[
                 T.Tensor((64,), "float32", scope="tmem", layout=None),
             ])
     # fmt: on

@@ -15,6 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
+# The parser consumes named IR bindings that Python sees as unused.
+# ruff: noqa: F841
+
 from contextlib import nullcontext
 
 import pytest
@@ -355,20 +358,20 @@ def test_lower_explicit_singleton_cluster_launch_tags_survive_when_unused():
         @T.function(private=True)
         def cluster_2d() -> None:
             T.device_entry(launch=T.cuda.LaunchConfig(grid=(1, 1), block=(32,), cluster=(1, 1)))
-            unused_cbx, unused_cby = (T.cuda.cluster_cta_id("x"), T.cuda.cluster_cta_id("y"))  # noqa: F841 - The parser emits this named IR binding.
-            unused_bx, unused_by = (T.cuda.block_idx("x"), T.cuda.block_idx("y"))  # noqa: F841 - The parser emits this named IR binding.
+            unused_cbx, unused_cby = (T.cuda.cluster_cta_id("x"), T.cuda.cluster_cta_id("y"))
+            unused_bx, unused_by = (T.cuda.block_idx("x"), T.cuda.block_idx("y"))
 
         @T.function(private=True)
         def cluster_3d() -> None:
             T.device_entry(
                 launch=T.cuda.LaunchConfig(grid=(1, 1, 1), block=(32,), cluster=(1, 1, 1))
             )
-            unused_cbx, unused_cby, unused_cbz = (  # noqa: F841 - The parser emits this named IR binding.
+            unused_cbx, unused_cby, unused_cbz = (
                 T.cuda.cluster_cta_id("x"),
                 T.cuda.cluster_cta_id("y"),
                 T.cuda.cluster_cta_id("z"),
             )
-            unused_bx, unused_by, unused_bz = (  # noqa: F841 - The parser emits this named IR binding.
+            unused_bx, unused_by, unused_bz = (
                 T.cuda.block_idx("x"),
                 T.cuda.block_idx("y"),
                 T.cuda.block_idx("z"),
@@ -379,20 +382,20 @@ def test_lower_explicit_singleton_cluster_launch_tags_survive_when_unused():
         @T.function(private=True)
         def cluster_2d():
             with T.device_scope(1, 1, 1, 32, 1, 1, 1, 1, 1, attrs=_CLUSTER_LAUNCH_ATTRS):
-                unused_cbx: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.x")  # noqa: F841 - The parser emits this named IR binding.
-                unused_cby: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.y")  # noqa: F841 - The parser emits this named IR binding.
-                unused_bx: T.let[T.int32] = 0  # noqa: F841 - The parser emits this named IR binding.
-                unused_by: T.let[T.int32] = 0  # noqa: F841 - The parser emits this named IR binding.
+                unused_cbx: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.x")
+                unused_cby: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.y")
+                unused_bx: T.let[T.int32] = 0
+                unused_by: T.let[T.int32] = 0
 
         @T.function(private=True)
         def cluster_3d():
             with T.device_scope(1, 1, 1, 32, 1, 1, 1, 1, 1, attrs=_CLUSTER_LAUNCH_ATTRS):
-                unused_cbx: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.x")  # noqa: F841 - The parser emits this named IR binding.
-                unused_cby: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.y")  # noqa: F841 - The parser emits this named IR binding.
-                unused_cbz: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.z")  # noqa: F841 - The parser emits this named IR binding.
-                unused_bx: T.let[T.int32] = 0  # noqa: F841 - The parser emits this named IR binding.
-                unused_by: T.let[T.int32] = 0  # noqa: F841 - The parser emits this named IR binding.
-                unused_bz: T.let[T.int32] = 0  # noqa: F841 - The parser emits this named IR binding.
+                unused_cbx: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.x")
+                unused_cby: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.y")
+                unused_cbz: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.z")
+                unused_bx: T.let[T.int32] = 0
+                unused_by: T.let[T.int32] = 0
+                unused_bz: T.let[T.int32] = 0
 
     with tvm_tirx.target.Target("cuda"):
 
@@ -412,10 +415,10 @@ def test_lower_explicit_singleton_cluster_launch_tags_survive_when_unused():
                     1,
                     attrs=_CLUSTER_LAUNCH_ATTRS,
                 ):
-                    unused_cbx: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.x")  # noqa: F841 - The parser emits this named IR binding.
-                    unused_cby: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.y")  # noqa: F841 - The parser emits this named IR binding.
-                    unused_bx: T.let[T.int32] = 0  # noqa: F841 - The parser emits this named IR binding.
-                    unused_by: T.let[T.int32] = 0  # noqa: F841 - The parser emits this named IR binding.
+                    unused_cbx: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.x")
+                    unused_cby: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.y")
+                    unused_bx: T.let[T.int32] = 0
+                    unused_by: T.let[T.int32] = 0
 
             @T.function(private=True)
             def cluster_3d():
@@ -431,12 +434,12 @@ def test_lower_explicit_singleton_cluster_launch_tags_survive_when_unused():
                     1,
                     attrs=_CLUSTER_LAUNCH_ATTRS,
                 ):
-                    unused_cbx: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.x")  # noqa: F841 - The parser emits this named IR binding.
-                    unused_cby: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.y")  # noqa: F841 - The parser emits this named IR binding.
-                    unused_cbz: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.z")  # noqa: F841 - The parser emits this named IR binding.
-                    unused_bx: T.let[T.int32] = 0  # noqa: F841 - The parser emits this named IR binding.
-                    unused_by: T.let[T.int32] = 0  # noqa: F841 - The parser emits this named IR binding.
-                    unused_bz: T.let[T.int32] = 0  # noqa: F841 - The parser emits this named IR binding.
+                    unused_cbx: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.x")
+                    unused_cby: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.y")
+                    unused_cbz: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.z")
+                    unused_bx: T.let[T.int32] = 0
+                    unused_by: T.let[T.int32] = 0
+                    unused_bz: T.let[T.int32] = 0
 
         dispatched = TileDispatch()(Before)
         tvm_tirx.ir.assert_structural_equal(dispatched, Dispatched)
@@ -450,18 +453,18 @@ def test_lower_multi_cta_cluster_launch_tags_remain_unchanged():
         @T.function(private=True)
         def main() -> None:
             T.device_entry(launch=T.cuda.LaunchConfig(grid=(2, 1), block=(32,), cluster=(2, 1)))
-            unused_cbx, unused_cby = (T.cuda.cluster_cta_id("x"), T.cuda.cluster_cta_id("y"))  # noqa: F841 - The parser emits this named IR binding.
-            unused_bx, unused_by = (T.cuda.block_idx("x"), T.cuda.block_idx("y"))  # noqa: F841 - The parser emits this named IR binding.
+            unused_cbx, unused_cby = (T.cuda.cluster_cta_id("x"), T.cuda.cluster_cta_id("y"))
+            unused_bx, unused_by = (T.cuda.block_idx("x"), T.cuda.block_idx("y"))
 
     @I.ir_module
     class Expected:
         @T.function(private=True)
         def main():
             with T.device_scope(2, 1, 1, 32, 1, 1, 2, 1, 1, attrs=_CLUSTER_LAUNCH_ATTRS):
-                unused_cbx: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.x")  # noqa: F841 - The parser emits this named IR binding.
-                unused_cby: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.y")  # noqa: F841 - The parser emits this named IR binding.
-                unused_bx: T.let[T.int32] = T.cuda.block_idx("x")  # noqa: F841 - The parser emits this named IR binding.
-                unused_by: T.let[T.int32] = 0  # noqa: F841 - The parser emits this named IR binding.
+                unused_cbx: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.x")
+                unused_cby: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.y")
+                unused_bx: T.let[T.int32] = T.cuda.block_idx("x")
+                unused_by: T.let[T.int32] = 0
 
     with tvm_tirx.target.Target("cuda"):
 
@@ -481,10 +484,10 @@ def test_lower_multi_cta_cluster_launch_tags_remain_unchanged():
                     1,
                     attrs=_CLUSTER_LAUNCH_ATTRS,
                 ):
-                    unused_cbx: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.x")  # noqa: F841 - The parser emits this named IR binding.
-                    unused_cby: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.y")  # noqa: F841 - The parser emits this named IR binding.
-                    unused_bx: T.let[T.int32] = T.cuda.block_idx("x")  # noqa: F841 - The parser emits this named IR binding.
-                    unused_by: T.let[T.int32] = 0  # noqa: F841 - The parser emits this named IR binding.
+                    unused_cbx: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.x")
+                    unused_cby: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.y")
+                    unused_bx: T.let[T.int32] = T.cuda.block_idx("x")
+                    unused_by: T.let[T.int32] = 0
 
         dispatched = TileDispatch()(Before)
         tvm_tirx.ir.assert_structural_equal(dispatched, Dispatched)
@@ -502,8 +505,8 @@ def test_lower_singleton_cluster_preserves_preferred_cluster_tags():
                     grid=(2, 2), block=(32,), cluster=(1, 1), preferred_cluster=[2, 2]
                 )
             )
-            unused_cbx, unused_cby = (T.cuda.cluster_cta_id("x"), T.cuda.cluster_cta_id("y"))  # noqa: F841 - The parser emits this named IR binding.
-            unused_bx, unused_by = (T.cuda.block_idx("x"), T.cuda.block_idx("y"))  # noqa: F841 - The parser emits this named IR binding.
+            unused_cbx, unused_cby = (T.cuda.cluster_cta_id("x"), T.cuda.cluster_cta_id("y"))
+            unused_bx, unused_by = (T.cuda.block_idx("x"), T.cuda.block_idx("y"))
 
     @I.ir_module
     class Expected:
@@ -512,10 +515,10 @@ def test_lower_singleton_cluster_preserves_preferred_cluster_tags():
             with T.device_scope(
                 2, 2, 1, 32, 1, 1, 1, 1, 1, 2, 2, 1, attrs=_PREFERRED_CLUSTER_LAUNCH_ATTRS
             ):
-                unused_cbx: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.x")  # noqa: F841 - The parser emits this named IR binding.
-                unused_cby: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.y")  # noqa: F841 - The parser emits this named IR binding.
-                unused_bx: T.let[T.int32] = T.cuda.block_idx("x")  # noqa: F841 - The parser emits this named IR binding.
-                unused_by: T.let[T.int32] = T.cuda.block_idx("y")  # noqa: F841 - The parser emits this named IR binding.
+                unused_cbx: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.x")
+                unused_cby: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.y")
+                unused_bx: T.let[T.int32] = T.cuda.block_idx("x")
+                unused_by: T.let[T.int32] = T.cuda.block_idx("y")
 
     with tvm_tirx.target.Target("cuda"):
 
@@ -538,10 +541,10 @@ def test_lower_singleton_cluster_preserves_preferred_cluster_tags():
                     1,
                     attrs=_PREFERRED_CLUSTER_LAUNCH_ATTRS,
                 ):
-                    unused_cbx: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.x")  # noqa: F841 - The parser emits this named IR binding.
-                    unused_cby: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.y")  # noqa: F841 - The parser emits this named IR binding.
-                    unused_bx: T.let[T.int32] = T.cuda.block_idx("x")  # noqa: F841 - The parser emits this named IR binding.
-                    unused_by: T.let[T.int32] = T.cuda.block_idx("y")  # noqa: F841 - The parser emits this named IR binding.
+                    unused_cbx: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.x")
+                    unused_cby: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.y")
+                    unused_bx: T.let[T.int32] = T.cuda.block_idx("x")
+                    unused_by: T.let[T.int32] = T.cuda.block_idx("y")
 
         dispatched = TileDispatch()(Before)
         tvm_tirx.ir.assert_structural_equal(dispatched, Dispatched)
@@ -560,7 +563,7 @@ def test_lower_scope_id2():
         @T.function(private=True)
         def main():
             T.device_entry(launch=T.cuda.LaunchConfig(grid=(3, 4, 5), block=(256,)))
-            bx, by, bz = (T.cuda.block_idx("x"), T.cuda.block_idx("y"), T.cuda.block_idx("z"))  # noqa: F841 - The parser emits this named IR binding.
+            bx, by, bz = (T.cuda.block_idx("x"), T.cuda.block_idx("y"), T.cuda.block_idx("z"))
             warp_id = T.cuda.warp_id()
             tx = T.cuda.thread_idx("x")
             func(warp_id, tx)
@@ -577,9 +580,9 @@ def test_lower_scope_id2():
                 warp_id_in_cta: T.let[T.int32] = T.gpu_warp_shuffle(
                     T.uint32(4294967295), T.cuda.thread_idx("x") // 32, 0, 32, 32
                 )
-                bx: T.let[T.int32] = T.cuda.block_idx("x")  # noqa: F841 - The parser emits this named IR binding.
-                by: T.let[T.int32] = T.cuda.block_idx("y")  # noqa: F841 - The parser emits this named IR binding.
-                bz: T.let[T.int32] = T.cuda.block_idx("z")  # noqa: F841 - The parser emits this named IR binding.
+                bx: T.let[T.int32] = T.cuda.block_idx("x")
+                by: T.let[T.int32] = T.cuda.block_idx("y")
+                bz: T.let[T.int32] = T.cuda.block_idx("z")
                 warp_id: T.let[T.int32] = warp_id_in_cta
                 tx: T.let[T.int32] = T.cuda.thread_idx("x")
                 wg_id: T.let[T.int32] = warp_id_in_cta // 4
@@ -601,9 +604,9 @@ def test_lower_scope_id2():
                 warp_id_in_cta: T.let[T.int32] = T.gpu_warp_shuffle(
                     T.uint32(4294967295), T.cuda.thread_idx("x") // 32, 0, 32, 32
                 )
-                bx: T.let[T.int32] = T.cuda.block_idx("x")  # noqa: F841 - The parser emits this named IR binding.
-                by: T.let[T.int32] = T.cuda.block_idx("y")  # noqa: F841 - The parser emits this named IR binding.
-                bz: T.let[T.int32] = T.cuda.block_idx("z")  # noqa: F841 - The parser emits this named IR binding.
+                bx: T.let[T.int32] = T.cuda.block_idx("x")
+                by: T.let[T.int32] = T.cuda.block_idx("y")
+                bz: T.let[T.int32] = T.cuda.block_idx("z")
                 warp_id: T.let[T.int32] = warp_id_in_cta
                 tx: T.let[T.int32] = T.cuda.thread_idx("x")
                 wg_id: T.let[T.int32] = warp_id_in_cta // 4
@@ -826,8 +829,8 @@ def test_lower_exec_context_infers_plain_predicate_for_dispatch():
     class Expected:
         @T.function(private=True)
         def main(A: T.Tensor((1,), T.float32), B: T.Tensor((1,), T.float32)):
-            B_1 = T.decl_tensor(B.data, ty_args=[T.Tensor((1,), T.float32)])  # noqa: F841 - The parser emits this named IR binding.
-            A_1 = T.decl_tensor(A.data, ty_args=[T.Tensor((1,), T.float32)])  # noqa: F841 - The parser emits this named IR binding.
+            B_1 = T.decl_tensor(B.data, ty_args=[T.Tensor((1,), T.float32)])
+            A_1 = T.decl_tensor(A.data, ty_args=[T.Tensor((1,), T.float32)])
             with T.device_scope(1, 1, 1, 128, 1, 1, attrs=_CTA_LAUNCH_ATTRS):
                 warp_id_in_cta: T.let[T.int32] = T.gpu_warp_shuffle(
                     T.uint32(4294967295), T.cuda.thread_idx("x") // 32, 0, 32, 32
@@ -914,8 +917,8 @@ def test_lower_exec_context_tracks_let_aliases_and_hoists_warp_shuffle():
     class Expected:
         @T.function(private=True)
         def main(A: T.Tensor((1,), T.float32), B: T.Tensor((1,), T.float32)):
-            B_1 = T.decl_tensor(B.data, ty_args=[T.Tensor((1,), T.float32)])  # noqa: F841 - The parser emits this named IR binding.
-            A_1 = T.decl_tensor(A.data, ty_args=[T.Tensor((1,), T.float32)])  # noqa: F841 - The parser emits this named IR binding.
+            B_1 = T.decl_tensor(B.data, ty_args=[T.Tensor((1,), T.float32)])
+            A_1 = T.decl_tensor(A.data, ty_args=[T.Tensor((1,), T.float32)])
             with T.device_scope(1, 1, 1, 128, 1, 1, attrs=_CTA_LAUNCH_ATTRS):
                 warp_id_in_cta: T.let[T.int32] = T.gpu_warp_shuffle(
                     T.uint32(4294967295), T.cuda.thread_idx("x") // 32, 0, 32, 32
@@ -1007,8 +1010,8 @@ def test_lower_exec_context_respects_preferred_cluster_bounds():
     class Expected:
         @T.function(private=True)
         def main(A: T.Tensor((1,), T.float32), B: T.Tensor((1,), T.float32)):
-            B_1 = T.decl_tensor(B.data, ty_args=[T.Tensor((1,), T.float32)])  # noqa: F841 - The parser emits this named IR binding.
-            A_1 = T.decl_tensor(A.data, ty_args=[T.Tensor((1,), T.float32)])  # noqa: F841 - The parser emits this named IR binding.
+            B_1 = T.decl_tensor(B.data, ty_args=[T.Tensor((1,), T.float32)])
+            A_1 = T.decl_tensor(A.data, ty_args=[T.Tensor((1,), T.float32)])
             with T.device_scope(
                 2, 2, 1, 32, 1, 1, 1, 1, 1, 2, 2, 1, attrs=_PREFERRED_CLUSTER_LAUNCH_ATTRS
             ):
@@ -1113,8 +1116,8 @@ def test_lower_exec_context_infers_warpgroup_range_predicate_for_dispatch():
     class Expected:
         @T.function(private=True)
         def main(A: T.Tensor((1,), T.float32), B: T.Tensor((1,), T.float32)):
-            B_1 = T.decl_tensor(B.data, ty_args=[T.Tensor((1,), T.float32)])  # noqa: F841 - The parser emits this named IR binding.
-            A_1 = T.decl_tensor(A.data, ty_args=[T.Tensor((1,), T.float32)])  # noqa: F841 - The parser emits this named IR binding.
+            B_1 = T.decl_tensor(B.data, ty_args=[T.Tensor((1,), T.float32)])
+            A_1 = T.decl_tensor(A.data, ty_args=[T.Tensor((1,), T.float32)])
             with T.device_scope(1, 1, 1, 256, 1, 1, attrs=_CTA_LAUNCH_ATTRS):
                 warp_id_in_cta: T.let[T.int32] = T.gpu_warp_shuffle(
                     T.uint32(4294967295), T.cuda.thread_idx("x") // 32, 0, 32, 32
@@ -1206,8 +1209,8 @@ def test_lower_exec_context_tracks_cta_thread_range_predicate_for_dispatch():
     class Expected:
         @T.function(private=True)
         def main(A: T.Tensor((1,), T.float32), B: T.Tensor((1,), T.float32)):
-            B_1 = T.decl_tensor(B.data, ty_args=[T.Tensor((1,), T.float32)])  # noqa: F841 - The parser emits this named IR binding.
-            A_1 = T.decl_tensor(A.data, ty_args=[T.Tensor((1,), T.float32)])  # noqa: F841 - The parser emits this named IR binding.
+            B_1 = T.decl_tensor(B.data, ty_args=[T.Tensor((1,), T.float32)])
+            A_1 = T.decl_tensor(A.data, ty_args=[T.Tensor((1,), T.float32)])
             with T.device_scope(1, 1, 1, 256, 1, 1, attrs=_CTA_LAUNCH_ATTRS):
                 tid: T.let[T.int32] = T.cuda.thread_idx("x")
                 if (0 <= tid) & (tid < 128):
@@ -1282,8 +1285,8 @@ def test_lower_exec_context_tracks_cta_thread_single_warp_range_predicate():
     class Expected:
         @T.function(private=True)
         def main(A: T.Tensor((1,), T.float32), B: T.Tensor((1,), T.float32)):
-            B_1 = T.decl_tensor(B.data, ty_args=[T.Tensor((1,), T.float32)])  # noqa: F841 - The parser emits this named IR binding.
-            A_1 = T.decl_tensor(A.data, ty_args=[T.Tensor((1,), T.float32)])  # noqa: F841 - The parser emits this named IR binding.
+            B_1 = T.decl_tensor(B.data, ty_args=[T.Tensor((1,), T.float32)])
+            A_1 = T.decl_tensor(A.data, ty_args=[T.Tensor((1,), T.float32)])
             with T.device_scope(1, 1, 1, 256, 1, 1, attrs=_CTA_LAUNCH_ATTRS):
                 tid: T.let[T.int32] = T.cuda.thread_idx("x")
                 if (34 <= tid) & (tid < 40):
@@ -1360,8 +1363,8 @@ def test_lower_exec_context_tracks_warpgroup_thread_range_predicate():
     class Expected:
         @T.function(private=True)
         def main(A: T.Tensor((1,), T.float32), B: T.Tensor((1,), T.float32)):
-            B_1 = T.decl_tensor(B.data, ty_args=[T.Tensor((1,), T.float32)])  # noqa: F841 - The parser emits this named IR binding.
-            A_1 = T.decl_tensor(A.data, ty_args=[T.Tensor((1,), T.float32)])  # noqa: F841 - The parser emits this named IR binding.
+            B_1 = T.decl_tensor(B.data, ty_args=[T.Tensor((1,), T.float32)])
+            A_1 = T.decl_tensor(A.data, ty_args=[T.Tensor((1,), T.float32)])
             with T.device_scope(1, 1, 1, 256, 1, 1, attrs=_CTA_LAUNCH_ATTRS):
                 warp_id_in_cta: T.let[T.int32] = T.gpu_warp_shuffle(
                     T.uint32(4294967295), T.cuda.thread_idx("x") // 32, 0, 32, 32
@@ -1447,8 +1450,8 @@ def test_lower_exec_context_tracks_dependent_conjunctive_predicate():
     class Expected:
         @T.function(private=True)
         def main(A: T.Tensor((1,), T.float32), B: T.Tensor((1,), T.float32)):
-            B_1 = T.decl_tensor(B.data, ty_args=[T.Tensor((1,), T.float32)])  # noqa: F841 - The parser emits this named IR binding.
-            A_1 = T.decl_tensor(A.data, ty_args=[T.Tensor((1,), T.float32)])  # noqa: F841 - The parser emits this named IR binding.
+            B_1 = T.decl_tensor(B.data, ty_args=[T.Tensor((1,), T.float32)])
+            A_1 = T.decl_tensor(A.data, ty_args=[T.Tensor((1,), T.float32)])
             with T.device_scope(1, 1, 1, 256, 1, 1, attrs=_CTA_LAUNCH_ATTRS):
                 warp_id_in_cta: T.let[T.int32] = T.gpu_warp_shuffle(
                     T.uint32(4294967295), T.cuda.thread_idx("x") // 32, 0, 32, 32
@@ -1657,7 +1660,7 @@ def test_simplify_uses_floor_div_scope_predicate_as_context_fact():
                     T.uint32(4294967295), T.cuda.thread_idx("x") // 32, 0, 32, 32
                 )
                 wg_id: T.let[T.int32] = warp_id_in_cta // 4
-                warp_id: T.let[T.int32] = warp_id_in_cta % 4  # noqa: F841 - The parser emits this named IR binding.
+                warp_id: T.let[T.int32] = warp_id_in_cta % 4
                 lane_id: T.let[T.int32] = T.cuda.thread_idx("x") % 32
                 if wg_id == 0:
                     A_1[warp_id_in_cta % 4] = T.Cast("float32", lane_id)
@@ -1671,9 +1674,9 @@ def test_simplify_uses_floor_div_scope_predicate_as_context_fact():
                 warp_id_in_cta: T.let[T.int32] = T.gpu_warp_shuffle(
                     T.uint32(4294967295), T.cuda.thread_idx("x") // 32, 0, 32, 32
                 )
-                wg_id: T.let[T.int32] = warp_id_in_cta // 4  # noqa: F841 - The parser emits this named IR binding.
-                warp_id: T.let[T.int32] = warp_id_in_cta % 4  # noqa: F841 - The parser emits this named IR binding.
-                lane_id: T.let[T.int32] = T.cuda.thread_idx("x") % 32  # noqa: F841 - The parser emits this named IR binding.
+                wg_id: T.let[T.int32] = warp_id_in_cta // 4
+                warp_id: T.let[T.int32] = warp_id_in_cta % 4
+                lane_id: T.let[T.int32] = T.cuda.thread_idx("x") % 32
                 if warp_id_in_cta // 4 == 0:
                     A_1[warp_id_in_cta] = T.Cast("float32", T.cuda.thread_idx("x") % 32)
 
@@ -1739,7 +1742,7 @@ def test_lower_exec_context_selector_filter_for_elect_sync():
             B: T.Tensor((1,), "float32", scope="global", layout="default"),
         ):
             T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=1 * 32))
-            lane_id = T.cuda.lane_id()  # noqa: F841 - The parser emits this named IR binding.
+            lane_id = T.cuda.lane_id()
             if T.cuda.elect_sync():
                 getattr(T.cuda.tile, variant)(B[0:1], A[0:1])
             if T.cuda.elect_sync() != 0:
@@ -1751,10 +1754,10 @@ def test_lower_exec_context_selector_filter_for_elect_sync():
     class Expected:
         @T.function(private=True)
         def main(A: T.Tensor((1,), T.float32), B: T.Tensor((1,), T.float32)):
-            B_1 = T.decl_tensor(B.data, ty_args=[T.Tensor((1,), T.float32)])  # noqa: F841 - The parser emits this named IR binding.
-            A_1 = T.decl_tensor(A.data, ty_args=[T.Tensor((1,), T.float32)])  # noqa: F841 - The parser emits this named IR binding.
+            B_1 = T.decl_tensor(B.data, ty_args=[T.Tensor((1,), T.float32)])
+            A_1 = T.decl_tensor(A.data, ty_args=[T.Tensor((1,), T.float32)])
             with T.device_scope(1, 1, 1, 32, 1, 1, attrs=_CTA_LAUNCH_ATTRS):
-                lane_id: T.let[T.int32] = T.cuda.thread_idx("x") % 32  # noqa: F841 - The parser emits this named IR binding.
+                lane_id: T.let[T.int32] = T.cuda.thread_idx("x") % 32
                 if T.cuda.elect_sync():
                     pass
                 if T.cuda.elect_sync() != T.uint32(0):
@@ -1788,7 +1791,7 @@ def test_lower_exec_context_selector_filter_for_elect_sync():
                     1,
                     attrs=_CTA_LAUNCH_ATTRS,
                 ):
-                    lane_id: T.let[T.int32] = T.cuda.thread_idx("x") % 32  # noqa: F841 - The parser emits this named IR binding.
+                    lane_id: T.let[T.int32] = T.cuda.thread_idx("x") % 32
                     if T.cuda.elect_sync():
                         pass
                     if T.cuda.elect_sync() != T.uint32(0):
@@ -1830,7 +1833,7 @@ def test_lower_exec_context_scope_guard_mixes_structural_and_selector():
         ):
             T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=4 * 32))
             warp_id = T.cuda.warp_id()
-            lane_id = T.cuda.lane_id()  # noqa: F841 - The parser emits this named IR binding.
+            lane_id = T.cuda.lane_id()
             if (warp_id == 0) & T.cuda.elect_sync():
                 getattr(T.cuda.tile, variant)(B[0:1], A[0:1])
 
@@ -1838,14 +1841,14 @@ def test_lower_exec_context_scope_guard_mixes_structural_and_selector():
     class Expected:
         @T.function(private=True)
         def main(A: T.Tensor((1,), T.float32), B: T.Tensor((1,), T.float32)):
-            B_1 = T.decl_tensor(B.data, ty_args=[T.Tensor((1,), T.float32)])  # noqa: F841 - The parser emits this named IR binding.
-            A_1 = T.decl_tensor(A.data, ty_args=[T.Tensor((1,), T.float32)])  # noqa: F841 - The parser emits this named IR binding.
+            B_1 = T.decl_tensor(B.data, ty_args=[T.Tensor((1,), T.float32)])
+            A_1 = T.decl_tensor(A.data, ty_args=[T.Tensor((1,), T.float32)])
             with T.device_scope(1, 1, 1, 128, 1, 1, attrs=_CTA_LAUNCH_ATTRS):
                 warp_id_in_cta: T.let[T.int32] = T.gpu_warp_shuffle(
                     T.uint32(4294967295), T.cuda.thread_idx("x") // 32, 0, 32, 32
                 )
                 warp_id: T.let[T.int32] = warp_id_in_cta
-                lane_id: T.let[T.int32] = T.cuda.thread_idx("x") % 32  # noqa: F841 - The parser emits this named IR binding.
+                lane_id: T.let[T.int32] = T.cuda.thread_idx("x") % 32
                 if T.Cast("uint32", warp_id == 0) & T.cuda.elect_sync():
                     pass
 
@@ -1879,7 +1882,7 @@ def test_lower_exec_context_scope_guard_mixes_structural_and_selector():
                         T.uint32(4294967295), T.cuda.thread_idx("x") // 32, 0, 32, 32
                     )
                     warp_id: T.let[T.int32] = warp_id_in_cta
-                    lane_id: T.let[T.int32] = T.cuda.thread_idx("x") % 32  # noqa: F841 - The parser emits this named IR binding.
+                    lane_id: T.let[T.int32] = T.cuda.thread_idx("x") % 32
                     if T.Cast("uint32", warp_id == 0) & T.cuda.elect_sync():
                         pass
 
@@ -1916,7 +1919,7 @@ def test_lower_exec_context_tracks_factorized_cta_predicate():
             B: T.Tensor((1,), "float32", scope="global", layout="default"),
         ):
             T.device_entry(launch=T.cuda.LaunchConfig(grid=(2, 3), block=(32,), cluster=(2, 3)))
-            cbx, cby = (T.cuda.cluster_cta_id("x"), T.cuda.cluster_cta_id("y"))  # noqa: F841 - The parser emits this named IR binding.
+            cbx, cby = (T.cuda.cluster_cta_id("x"), T.cuda.cluster_cta_id("y"))
             if cbx == 0:
                 getattr(T.cuda.tile, variant)(B[0:1], A[0:1])
 
@@ -1924,11 +1927,11 @@ def test_lower_exec_context_tracks_factorized_cta_predicate():
     class Expected:
         @T.function(private=True)
         def main(A: T.Tensor((1,), T.float32), B: T.Tensor((1,), T.float32)):
-            B_1 = T.decl_tensor(B.data, ty_args=[T.Tensor((1,), T.float32)])  # noqa: F841 - The parser emits this named IR binding.
-            A_1 = T.decl_tensor(A.data, ty_args=[T.Tensor((1,), T.float32)])  # noqa: F841 - The parser emits this named IR binding.
+            B_1 = T.decl_tensor(B.data, ty_args=[T.Tensor((1,), T.float32)])
+            A_1 = T.decl_tensor(A.data, ty_args=[T.Tensor((1,), T.float32)])
             with T.device_scope(2, 3, 1, 32, 1, 1, 2, 3, 1, attrs=_CLUSTER_LAUNCH_ATTRS):
                 cbx: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.x")
-                cby: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.y")  # noqa: F841 - The parser emits this named IR binding.
+                cby: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.y")
                 if cbx == 0:
                     pass
 
@@ -1962,7 +1965,7 @@ def test_lower_exec_context_tracks_factorized_cta_predicate():
                     attrs=_CLUSTER_LAUNCH_ATTRS,
                 ):
                     cbx: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.x")
-                    cby: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.y")  # noqa: F841 - The parser emits this named IR binding.
+                    cby: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.y")
                     if cbx == 0:
                         pass
 
@@ -2012,8 +2015,8 @@ def test_lower_exec_context_keeps_kernel_cta_predicate_out_of_cluster_active_set
     class Expected:
         @T.function(private=True)
         def main(A: T.Tensor((1,), T.float32), B: T.Tensor((1,), T.float32)):
-            B_1 = T.decl_tensor(B.data, ty_args=[T.Tensor((1,), T.float32)])  # noqa: F841 - The parser emits this named IR binding.
-            A_1 = T.decl_tensor(A.data, ty_args=[T.Tensor((1,), T.float32)])  # noqa: F841 - The parser emits this named IR binding.
+            B_1 = T.decl_tensor(B.data, ty_args=[T.Tensor((1,), T.float32)])
+            A_1 = T.decl_tensor(A.data, ty_args=[T.Tensor((1,), T.float32)])
             with T.device_scope(8, 1, 1, 32, 1, 1, 2, 1, 1, attrs=_CLUSTER_LAUNCH_ATTRS):
                 bx: T.let[T.int32] = T.cuda.block_idx("x")
                 cbx: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.x")
@@ -2086,7 +2089,7 @@ def test_lower_exec_context_tracks_cta_axis_modulo_predicate():
             B: T.Tensor((1,), "float32", scope="global", layout="default"),
         ):
             T.device_entry(launch=T.cuda.LaunchConfig(grid=(4, 2), block=(32,), cluster=(4, 2)))
-            cbx, cby = (T.cuda.cluster_cta_id("x"), T.cuda.cluster_cta_id("y"))  # noqa: F841 - The parser emits this named IR binding.
+            cbx, cby = (T.cuda.cluster_cta_id("x"), T.cuda.cluster_cta_id("y"))
             if cbx % 2 == 0:
                 getattr(T.cuda.tile, variant)(B[0:1], A[0:1])
 
@@ -2094,11 +2097,11 @@ def test_lower_exec_context_tracks_cta_axis_modulo_predicate():
     class Expected:
         @T.function(private=True)
         def main(A: T.Tensor((1,), T.float32), B: T.Tensor((1,), T.float32)):
-            B_1 = T.decl_tensor(B.data, ty_args=[T.Tensor((1,), T.float32)])  # noqa: F841 - The parser emits this named IR binding.
-            A_1 = T.decl_tensor(A.data, ty_args=[T.Tensor((1,), T.float32)])  # noqa: F841 - The parser emits this named IR binding.
+            B_1 = T.decl_tensor(B.data, ty_args=[T.Tensor((1,), T.float32)])
+            A_1 = T.decl_tensor(A.data, ty_args=[T.Tensor((1,), T.float32)])
             with T.device_scope(4, 2, 1, 32, 1, 1, 4, 2, 1, attrs=_CLUSTER_LAUNCH_ATTRS):
                 cbx: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.x")
-                cby: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.y")  # noqa: F841 - The parser emits this named IR binding.
+                cby: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.y")
                 if cbx % 2 == 0:
                     pass
 
@@ -2132,7 +2135,7 @@ def test_lower_exec_context_tracks_cta_axis_modulo_predicate():
                     attrs=_CLUSTER_LAUNCH_ATTRS,
                 ):
                     cbx: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.x")
-                    cby: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.y")  # noqa: F841 - The parser emits this named IR binding.
+                    cby: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.y")
                     if cbx % 2 == 0:
                         pass
 
@@ -2164,7 +2167,7 @@ def test_lower_exec_context_tracks_cta_id_in_pair_predicate():
             B: T.Tensor((1,), "float32", scope="global", layout="default"),
         ):
             T.device_entry(launch=T.cuda.LaunchConfig(grid=(4, 2), block=(32,), cluster=(4, 2)))
-            cbx, cby = (T.cuda.cluster_cta_id("x"), T.cuda.cluster_cta_id("y"))  # noqa: F841 - The parser emits this named IR binding.
+            cbx, cby = (T.cuda.cluster_cta_id("x"), T.cuda.cluster_cta_id("y"))
             cta_id_in_pair = T.cuda.cta_pair_id()
             if cta_id_in_pair == 0:
                 getattr(T.cuda.tile, variant)(B[0:1], A[0:1])
@@ -2173,11 +2176,11 @@ def test_lower_exec_context_tracks_cta_id_in_pair_predicate():
     class Expected:
         @T.function(private=True)
         def main(A: T.Tensor((1,), T.float32), B: T.Tensor((1,), T.float32)):
-            B_1 = T.decl_tensor(B.data, ty_args=[T.Tensor((1,), T.float32)])  # noqa: F841 - The parser emits this named IR binding.
-            A_1 = T.decl_tensor(A.data, ty_args=[T.Tensor((1,), T.float32)])  # noqa: F841 - The parser emits this named IR binding.
+            B_1 = T.decl_tensor(B.data, ty_args=[T.Tensor((1,), T.float32)])
+            A_1 = T.decl_tensor(A.data, ty_args=[T.Tensor((1,), T.float32)])
             with T.device_scope(4, 2, 1, 32, 1, 1, 4, 2, 1, attrs=_CLUSTER_LAUNCH_ATTRS):
-                cbx: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.x")  # noqa: F841 - The parser emits this named IR binding.
-                cby: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.y")  # noqa: F841 - The parser emits this named IR binding.
+                cbx: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.x")
+                cby: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.y")
                 cta_id_in_pair: T.let[T.int32] = (
                     T.cuda.mov_sreg(32, "cluster_ctaid.x")
                     + T.cuda.mov_sreg(32, "cluster_nctaid.x")
@@ -2219,8 +2222,8 @@ def test_lower_exec_context_tracks_cta_id_in_pair_predicate():
                     1,
                     attrs=_CLUSTER_LAUNCH_ATTRS,
                 ):
-                    cbx: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.x")  # noqa: F841 - The parser emits this named IR binding.
-                    cby: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.y")  # noqa: F841 - The parser emits this named IR binding.
+                    cbx: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.x")
+                    cby: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.y")
                     cta_id_in_pair: T.let[T.int32] = (
                         T.cuda.mov_sreg(32, "cluster_ctaid.x")
                         + T.cuda.mov_sreg(32, "cluster_nctaid.x")
@@ -2278,8 +2281,8 @@ def test_lower_exec_context_tracks_two_cta_pair_predicates():
     class Expected:
         @T.function(private=True)
         def main(A: T.Tensor((1,), T.float32), B: T.Tensor((1,), T.float32)):
-            B_1 = T.decl_tensor(B.data, ty_args=[T.Tensor((1,), T.float32)])  # noqa: F841 - The parser emits this named IR binding.
-            A_1 = T.decl_tensor(A.data, ty_args=[T.Tensor((1,), T.float32)])  # noqa: F841 - The parser emits this named IR binding.
+            B_1 = T.decl_tensor(B.data, ty_args=[T.Tensor((1,), T.float32)])
+            A_1 = T.decl_tensor(A.data, ty_args=[T.Tensor((1,), T.float32)])
             with T.device_scope(2, 1, 1, 32, 1, 1, 2, 1, 1, attrs=_CLUSTER_LAUNCH_ATTRS):
                 cta_id_in_pair: T.let[T.int32] = (
                     T.cuda.mov_sreg(32, "cluster_ctaid.x")
@@ -2366,7 +2369,7 @@ def test_lower_exec_context_tracks_cta_id_in_pair_after_axis_predicate():
             B: T.Tensor((1,), "float32", scope="global", layout="default"),
         ):
             T.device_entry(launch=T.cuda.LaunchConfig(grid=(3, 2), block=(32,), cluster=(3, 2)))
-            cbx, cby = (T.cuda.cluster_cta_id("x"), T.cuda.cluster_cta_id("y"))  # noqa: F841 - The parser emits this named IR binding.
+            cbx, cby = (T.cuda.cluster_cta_id("x"), T.cuda.cluster_cta_id("y"))
             cta_id_in_pair = T.cuda.cta_pair_id()
             if cbx == 0:
                 if cta_id_in_pair == 1:
@@ -2376,11 +2379,11 @@ def test_lower_exec_context_tracks_cta_id_in_pair_after_axis_predicate():
     class Expected:
         @T.function(private=True)
         def main(A: T.Tensor((1,), T.float32), B: T.Tensor((1,), T.float32)):
-            B_1 = T.decl_tensor(B.data, ty_args=[T.Tensor((1,), T.float32)])  # noqa: F841 - The parser emits this named IR binding.
-            A_1 = T.decl_tensor(A.data, ty_args=[T.Tensor((1,), T.float32)])  # noqa: F841 - The parser emits this named IR binding.
+            B_1 = T.decl_tensor(B.data, ty_args=[T.Tensor((1,), T.float32)])
+            A_1 = T.decl_tensor(A.data, ty_args=[T.Tensor((1,), T.float32)])
             with T.device_scope(3, 2, 1, 32, 1, 1, 3, 2, 1, attrs=_CLUSTER_LAUNCH_ATTRS):
                 cbx: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.x")
-                cby: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.y")  # noqa: F841 - The parser emits this named IR binding.
+                cby: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.y")
                 cta_id_in_pair: T.let[T.int32] = (
                     T.cuda.mov_sreg(32, "cluster_ctaid.x")
                     + T.cuda.mov_sreg(32, "cluster_nctaid.x")
@@ -2424,7 +2427,7 @@ def test_lower_exec_context_tracks_cta_id_in_pair_after_axis_predicate():
                     attrs=_CLUSTER_LAUNCH_ATTRS,
                 ):
                     cbx: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.x")
-                    cby: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.y")  # noqa: F841 - The parser emits this named IR binding.
+                    cby: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.y")
                     cta_id_in_pair: T.let[T.int32] = (
                         T.cuda.mov_sreg(32, "cluster_ctaid.x")
                         + T.cuda.mov_sreg(32, "cluster_nctaid.x")

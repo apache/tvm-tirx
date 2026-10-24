@@ -15,6 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
+# The parser consumes named IR bindings that Python sees as unused.
+# ruff: noqa: F841
+
 """Caller-defined scalar compositions and explicit memory staging."""
 
 import math
@@ -312,7 +315,7 @@ def test_unary_op_local(input, op_type, src_dtype, dst_dtype):
         B: T.Tensor(g_shape_b, dst_dtype, layout=g_layout_b),
     ) -> None:
         T.device_entry(launch=T.cuda.LaunchConfig(grid=(1, 1, 1), block=N_GROUPS * 128))
-        bx, by, bz = (T.cuda.block_idx("x"), T.cuda.block_idx("y"), T.cuda.block_idx("z"))  # noqa: F841 - The parser emits this named IR binding.
+        bx, by, bz = (T.cuda.block_idx("x"), T.cuda.block_idx("y"), T.cuda.block_idx("z"))
         wg_id = T.cuda.warpgroup_id()
         warp_id_in_wg = T.cuda.warp_in_warpgroup()
         lane_id = T.cuda.lane_id()
@@ -457,7 +460,7 @@ def test_unary_op_local_with_bias_scale(input, op_type, bias_type, src_dtype, ds
         bias: T.Tensor(g_shape_bias, src_dtype, layout=g_layout_bias),
     ) -> None:
         T.device_entry(launch=T.cuda.LaunchConfig(grid=(1, 1, 1), block=N_GROUPS * 128))
-        bx, by, bz = (T.cuda.block_idx("x"), T.cuda.block_idx("y"), T.cuda.block_idx("z"))  # noqa: F841 - The parser emits this named IR binding.
+        bx, by, bz = (T.cuda.block_idx("x"), T.cuda.block_idx("y"), T.cuda.block_idx("z"))
         wg_id = T.cuda.warpgroup_id()
         warp_id_in_wg = T.cuda.warp_in_warpgroup()
         lane_id = T.cuda.lane_id()

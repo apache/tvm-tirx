@@ -14,6 +14,9 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+
+# The parser consumes named IR bindings that Python sees as unused.
+# ruff: noqa: F841
 """Native fma instructions with scalar broadcasts and explicit register views."""
 
 import re
@@ -211,7 +214,7 @@ def test_fma_warpgroup_thread_row_layout():
     ) -> None:
         T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=1 * 128))
         _bx = T.cuda.block_idx("x")
-        wg_id = T.cuda.warpgroup_id()  # noqa: F841 - The parser emits this named IR binding.
+        wg_id = T.cuda.warpgroup_id()
         tid = T.cuda.thread_in_warpgroup()
 
         reg = T.alloc_tensor(

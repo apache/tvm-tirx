@@ -14,6 +14,9 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+
+# The parser consumes named IR bindings that Python sees as unused.
+# ruff: noqa: F841
 # pylint: disable=missing-function-docstring
 import gc
 import re
@@ -510,7 +513,7 @@ def test_cuda_atomic_add():
     @T.function
     def main(A: T.Tensor((1,), "int32"), B: T.Tensor((1,), "float32")):
         T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(32,)))
-        cta_id = T.cuda.block_idx("x")  # noqa: F841 - The parser emits this named IR binding.
+        cta_id = T.cuda.block_idx("x")
         tx = T.cuda.thread_idx("x")
         if tx == 0:
             T.cuda.atomic_add(A.data, T.int32(1))
@@ -927,7 +930,7 @@ def test_cuda_thread_fence():
     @T.function
     def main(A: T.Tensor((16, 16), "int32")):
         T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(32,)))
-        cta_id = T.cuda.block_idx("x")  # noqa: F841 - The parser emits this named IR binding.
+        cta_id = T.cuda.block_idx("x")
         tx = T.cuda.thread_idx("x")
         if tx == 0:
             T.cuda.thread_fence()
@@ -940,7 +943,7 @@ def test_cuda_nano_sleep():
     @T.function
     def main(A: T.Tensor((16, 16), "int32")):
         T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(32,)))
-        cta_id = T.cuda.block_idx("x")  # noqa: F841 - The parser emits this named IR binding.
+        cta_id = T.cuda.block_idx("x")
         tx = T.cuda.thread_idx("x")
         if tx == 0:
             T.cuda.nano_sleep(1)
@@ -953,7 +956,7 @@ def test_cuda_atomic_cas():
     @T.function
     def main(A: T.Tensor((16, 16), "int32")):
         T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(32,)))
-        cta_id = T.cuda.block_idx("x")  # noqa: F841 - The parser emits this named IR binding.
+        cta_id = T.cuda.block_idx("x")
         tx = T.cuda.thread_idx("x")
         if tx == 0:
             T.cuda.atomic_cas(A.data, T.int32(1), T.int32(2))
@@ -975,7 +978,7 @@ __device__ int32_t add_one(int32_t a) {
         @T.function
         def main(a: T.Tensor((16, 16), "int32"), b: T.Tensor((16, 16), "int32")):
             T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(32,)))
-            cta_id = T.cuda.block_idx("x")  # noqa: F841 - The parser emits this named IR binding.
+            cta_id = T.cuda.block_idx("x")
             tx = T.cuda.thread_idx("x")
             if tx == 0:
                 for i, j in T.grid(16, 16):
@@ -1007,7 +1010,7 @@ __device__ void print(int32_t a) {
         @T.function
         def main(a: T.Tensor((16, 16), "int32")):
             T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(32,)))
-            cta_id = T.cuda.block_idx("x")  # noqa: F841 - The parser emits this named IR binding.
+            cta_id = T.cuda.block_idx("x")
             tx = T.cuda.thread_idx("x")
             if tx == 0:
                 for i, j in T.grid(16, 16):
@@ -1036,8 +1039,8 @@ def test_warp_shuffle_xor_sync():
     def func(A: T.Tensor((32,), dtype='float32', align=16)):
 
         T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=1 * 32))
-        cta_id = T.cuda.block_idx('x')  # noqa: F841 - The parser emits this named IR binding.
-        warp_id = T.cuda.warp_id()  # noqa: F841 - The parser emits this named IR binding.
+        cta_id = T.cuda.block_idx('x')
+        warp_id = T.cuda.warp_id()
         lane_id = T.cuda.lane_id()
 
         A_local = T.alloc_tensor(ty_args=[T.Tensor([1], "float32", scope="local")])
@@ -1097,8 +1100,8 @@ def test_ptx_cp_async(cp_size, cache_hint, prefetch_size, predicate, fill_mode):
     @T.function
     def main(A: T.Tensor((N), "float16")):
         T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(32,)))
-        cta_id = T.cuda.block_idx('x')  # noqa: F841 - The parser emits this named IR binding.
-        tid = T.cuda.thread_idx('x')  # noqa: F841 - The parser emits this named IR binding.
+        cta_id = T.cuda.block_idx('x')
+        tid = T.cuda.thread_idx('x')
         A_shared = T.alloc_shared([N], "float16")
         for i in T.vectorized(N):
             A_shared[i] = 5.0
@@ -1143,7 +1146,7 @@ def test_ptx_ldmatrix(trans, num):
     @T.function
     def main(A: T.Tensor((16, 16), "float16"), B: T.Tensor((16, 16), "float16")):
         T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(32,)))
-        cta_id = T.cuda.block_idx('x')  # noqa: F841 - The parser emits this named IR binding.
+        cta_id = T.cuda.block_idx('x')
         tx = T.cuda.thread_idx('x')
         A_shared = T.alloc_shared([16, 16], "float16")
         if tx == 0:

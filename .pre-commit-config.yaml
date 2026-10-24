@@ -24,7 +24,8 @@ repos:
       - id: cuda-launch-generated
         name: check CUDA launch generated files
         entry: python python/tvm_tirx/backend/cuda/launch/generate.py --check
-        language: system
+        language: python
+        additional_dependencies: [ruff==0.12.3, clang-format==20.1.8]
         pass_filenames: false
         files: ^(python/tvm_tirx/backend/cuda/launch/|src/backend/cuda/launch/)
       - id: check-asf-header
@@ -75,21 +76,15 @@ repos:
     hooks:
       - id: taplo-format
 
-  # ---------- Python: use the development environment's Ruff ----------
-  - repo: local
+  # ---------- Python: ruff ----------
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.12.3
     hooks:
       - id: ruff-check
-        name: ruff check
-        entry: ruff check --fix
-        language: system
         types_or: [python, pyi, jupyter]
-        require_serial: true
+        args: [--fix]
       - id: ruff-format
-        name: ruff format
-        entry: ruff format
-        language: system
         types_or: [python, pyi, jupyter]
-        require_serial: true
 
   # ---------- C/C++: clang-format ----------
   - repo: https://github.com/pre-commit/mirrors-clang-format

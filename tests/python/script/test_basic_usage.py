@@ -14,6 +14,9 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+
+# The parser consumes named IR bindings that Python sees as unused.
+# ruff: noqa: F841
 """Shared parser basic usage."""
 
 from __future__ import annotations
@@ -118,7 +121,7 @@ def test_ordinary_tuple_and_outer_branch_assignments_still_store(language):
         if M.value():
             a = first
         else:
-            a = second  # noqa: F841 - The parser emits this named IR binding.
+            a = second
         x = 0
         x = 1
         x += 2

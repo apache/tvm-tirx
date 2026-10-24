@@ -14,6 +14,9 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+
+# The parser consumes named IR bindings that Python sees as unused.
+# ruff: noqa: F841
 # pylint: disable=invalid-name, missing-function-docstring
 """Native tcgen05.cp layouts, regions, multicast and CTA-pair readbacks.
 
@@ -496,9 +499,9 @@ def _make_cp_kernel_cta2(s_full, s_shape, t_full, t_shape, dtype, cfg, W32, n_co
     def kernel(A: T.Tensor((2, *s_shape), dtype), B: T.Tensor((256, W32), "uint32")):
         T.device_entry(launch=T.cuda.LaunchConfig(grid=(2,), block=4 * 32, cluster=(2, 1)))
         warp_id = T.cuda.warp_id()
-        cbx, cby = (T.cuda.cluster_cta_id("x"), T.cuda.cluster_cta_id("y"))  # noqa: F841 - The parser emits this named IR binding.
-        cta_id = T.cuda.block_idx("x")  # noqa: F841 - The parser emits this named IR binding.
-        wg_id = T.cuda.warpgroup_id()  # noqa: F841 - The parser emits this named IR binding.
+        cbx, cby = (T.cuda.cluster_cta_id("x"), T.cuda.cluster_cta_id("y"))
+        cta_id = T.cuda.block_idx("x")
+        wg_id = T.cuda.warpgroup_id()
         tid_in_wg = T.cuda.thread_in_warpgroup()
         A_smem = T.alloc_tensor(
             ty_args=[T.Tensor(s_shape, dtype, scope="shared", layout=s_full, align=1024)]
