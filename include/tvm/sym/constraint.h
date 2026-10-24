@@ -25,7 +25,7 @@
 #define TVM_SYM_CONSTRAINT_H_
 
 #include <tvm/ffi/cast.h>
-#include <tvm/ffi/container/list.h>
+#include <tvm/ffi/container/array.h>
 #include <tvm/ir/expr.h>
 #include <tvm/ir/prim/expr.h>
 
@@ -238,24 +238,33 @@ class ConstraintContextObj : public ffi::Object {
   /*!
    * \brief Returns an independent array of the constraints in this context.
    * Includes inherited constraints in order. Later additions to the context do not
-   * change the returned array. Constraint objects remain shared.
+   * change the returned array. Edits to the array do not change this context.
+   * Constraint objects remain shared.
    */
-  ffi::Array<Constraint> ToArray() const {
-    ffi::Array<Constraint> result;
-    ForEach([&](const Constraint& constraint) { result.push_back(constraint); });
-    return result;
-  }
+  ffi::Array<Constraint> ToArray() const { return ToArray(LocalSize()); }
 
   static constexpr bool _type_mutable = true;
   static void RegisterReflection();
   TVM_FFI_DECLARE_OBJECT_INFO_FINAL("sym.ConstraintContext", ConstraintContextObj, ffi::Object);
 
  private:
+  ffi::Array<Constraint> ToArray(int64_t local_prefix) const {
+    if (!parent_) {
+      if (local_prefix == LocalSize()) return constraints_;
+      return ffi::Array<Constraint>(constraints_.begin(), constraints_.begin() + local_prefix);
+    }
+    auto result = parent_->ToArray(parent_prefix_size_);
+    if (local_prefix != 0) {
+      result.insert(result.end(), constraints_.begin(), constraints_.begin() + local_prefix);
+    }
+    return result;
+  }
+
   template <typename F>
   void ForEach(int64_t local_prefix, F&& f) const {
     if (parent_) parent_->ForEach(parent_prefix_size_, f);
     for (int64_t i = 0; i < local_prefix; ++i) {
-      // Read by value: a callback may append and reallocate the local list.
+      // Read by value: a callback may append and reallocate the local array.
       const Constraint constraint = constraints_[i];
       f(constraint);
     }
@@ -272,7 +281,7 @@ class ConstraintContextObj : public ffi::Object {
    * removed, replaced, reordered, or modified through aliases. Appending
    * preserves the contents and meaning of every previously captured prefix.
    */
-  ffi::List<Constraint> constraints_;
+  ffi::Array<Constraint> constraints_;
 };
 
 /*!

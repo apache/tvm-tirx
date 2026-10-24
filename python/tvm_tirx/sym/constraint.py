@@ -132,7 +132,7 @@ class ConstraintContext(tvm_ffi.Object):
         """Iterate ancestor-first, capturing the local bounds when iteration is requested.
 
         Entries are read lazily. Later appends do not enter this iteration, and
-        no mutable backing-list alias is exposed. Use ``list(context)`` for an
+        no mutable alias to the storage is exposed. Use ``list(context)`` for an
         independent list; the constraint objects and their referenced IR remain shared.
         """
         stack = []

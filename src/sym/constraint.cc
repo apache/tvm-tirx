@@ -25,7 +25,7 @@ namespace tvm {
 namespace sym {
 void ConstraintContextObj::RegisterReflection() {
   ffi::reflection::ObjectDef<ConstraintContextObj>();
-  // Python iteration borrows contexts and reads individual entries, never a List alias.
+  // Python iteration borrows contexts and reads individual entries, never the backing storage.
   ffi::reflection::GlobalDef()
       .def("sym.ConstraintContextGetParent",
            [](ConstraintContext context) {
