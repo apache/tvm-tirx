@@ -134,7 +134,6 @@ process:
    :start-after: # begin standalone source
    :end-before: # end standalone source
 
-The :download:`complete example <examples/printing_and_parsing.py>` checks the
-generated variants, shared shape symbols, and function and module round trips.
-See :doc:`/reference/python/script.parser` for parsing and script-helper
-interfaces, and :doc:`/reference/python/script.printer` for printer configuration.
+Download the :download:`complete example <examples/printing_and_parsing.py>`
+for runnable code. See the :doc:`parser </reference/python/script.parser>` and
+:doc:`printer </reference/python/script.printer>` API references for details.
