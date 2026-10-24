@@ -209,6 +209,21 @@ class ComputeLegalizer : public StmtExprMutator {
     }
   }
 
+  UnchangedOr<PrimExpr> Mutate_(const prim::RampObj* op, InplaceMode inplace_mode) final {
+    PrimExpr base =
+        PromoteToTarget(this->Mutate(op->base, inplace_mode).ValueOrUnchanged(op->base));
+    PrimExpr stride =
+        PromoteToTarget(this->Mutate(op->stride, inplace_mode).ValueOrUnchanged(op->stride));
+    auto lanes_result = this->Mutate(op->lanes, inplace_mode);
+    bool lanes_unchanged = lanes_result.UnchangedOrSameAs(op->lanes);
+    PrimExpr lanes = std::move(lanes_result).ValueOrUnchanged(op->lanes);
+    if (base.same_as(op->base) && stride.same_as(op->stride) && lanes_unchanged &&
+        !MatchType(op->ty)) {
+      return ffi::Unchanged();
+    }
+    return prim::Ramp(base, stride, lanes, op->loc);
+  }
+
   UnchangedOr<PrimExpr> Mutate_(const prim::BroadcastObj* op, InplaceMode inplace_mode) final {
     PrimExpr value =
         PromoteToTarget(this->Mutate(op->value, inplace_mode).ValueOrUnchanged(op->value));

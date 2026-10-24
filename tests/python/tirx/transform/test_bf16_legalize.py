@@ -47,6 +47,28 @@ def f32tobf16(v):
     return T.reinterpret(f32tou16(v), ty="bfloat16")
 
 
+def test_bf16_ramp_will_legalize():
+    @I.ir_module
+    class Before:
+        @T.function
+        def main():
+            T.evaluate(T.Ramp(T.bfloat16(0), T.bfloat16(1), 2))
+
+    @I.ir_module
+    class Expected:
+        @T.function
+        def main():
+            T.evaluate(T.Ramp(T.float32(0), T.float32(1), 2))
+
+    target = Target("llvm")
+    before = BindTarget(target)(Before)
+    expected = BindTarget(target)(Expected)
+    after_compute = tvm_tirx.tirx.transform.BF16ComputeLegalize()(before)
+    tvm_tirx.ir.assert_structural_equal(after_compute, expected)
+    after_storage = tvm_tirx.tirx.transform.BF16StorageLegalize()(after_compute)
+    tvm_tirx.ir.assert_structural_equal(after_storage, expected)
+
+
 def test_bf16_simple_store_will_legalize():
     def get_before():
         @tvm_tirx.script.ir_module
