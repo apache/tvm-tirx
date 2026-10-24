@@ -29,10 +29,7 @@ together. The IR can be extended with custom operators and types, and its
 existing interfaces can be used to build custom analyses, transformation passes,
 and backends.
 
-The following tree lists the shared IR object types and their built-in tensor,
-symbolic-analysis, and backend extensions. Indentation shows registered
-inheritance. Names are registration keys; ``prim.*`` classes are available
-under ``ir.prim`` in Python.
+The following tree shows the inheritance relationships between IR object types.
 
 .. code-block:: text
 
@@ -147,6 +144,9 @@ under ``ir.prim`` in Python.
    └── ffi.Enum                                        Registered enumeration objects
        ├── tirx.Axis                                   Layout axis identities
        └── tirx.ThreadScope                            Execution scope identities
+
+Registered names can differ from Python API names. For example, ``prim.Add``
+is available as ``ir.prim.Add`` in Python.
 
 Choose a Chapter
 ----------------
