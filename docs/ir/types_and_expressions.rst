@@ -20,8 +20,8 @@
 Types and Expressions
 =====================
 
-Compiler analyses work with computations whose inputs may only be known at
-runtime. Dtypes, tensor shapes, and function signatures let them reason about
+Compiler analyses work with computations whose input values may only be known
+at runtime. Dtypes, tensor shapes, and function signatures let them reason about
 how values can be used without evaluating the program.
 
 ``ir.Type`` is the base class for these descriptions. ``ir.Expr`` represents
