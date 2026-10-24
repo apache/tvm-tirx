@@ -35,8 +35,8 @@ properties of the value it produces.
 Types
 -----
 
-All type objects carry a ``loc`` field for source information, defaulting to
-``UnknownLoc``. Concrete types add fields describing the properties of values:
+``ir.Type`` is the base class for type objects. Concrete types describe
+different kinds of values through their own fields. Common subclasses include:
 
 .. list-table::
    :header-rows: 1
@@ -44,7 +44,7 @@ All type objects carry a ``loc`` field for source information, defaulting to
 
    * - Class
      - Describes
-     - Additional fields
+     - Fields
    * - ``ir.PrimType``
      - A scalar or vector dtype
      - ``dtype``
@@ -61,9 +61,8 @@ All type objects carry a ``loc`` field for source information, defaulting to
      - A tensor's shape, element type, and storage properties
      - ``shape``, ``dtype``, ``scope``, ``data_alignment``, ``layout``
 
-For a function that adds one to an int32 input, both the argument and result
-have the same primitive type. ``FuncType`` combines those types into a
-signature:
+Types can contain other types. For example, ``FuncType`` combines argument and
+result types into a function signature:
 
 .. literalinclude:: examples/types_and_expressions.py
    :language: python
@@ -71,23 +70,27 @@ signature:
    :end-before: # end composite type
    :prepend: from tvm_tirx import ir, tirx
 
-``signature.arg_types`` contains ``integer_type``, and ``signature.ret_type``
-refers to that same type. Tuple fields and pointer element types similarly
-refer to other type objects. Use ``==`` to compare type structure and
-``same_as`` to compare object identity.
+``signature`` describes a function that takes an int32 value and returns an
+int32 value. Its ``arg_types[0]`` and ``ret_type`` both refer to
+``integer_type``. Tuple fields and pointer element types similarly refer to
+other type objects.
 
 .. _user-tensor-type:
 
-The tensor layer adds ``tirx.TensorType`` as a subclass of ``ir.Type``. This type
-describes an ``(8, 128)`` tensor with float32 elements:
+``tirx.TensorType`` combines an element type with shape and storage information:
 
 .. literalinclude:: examples/types_and_expressions.py
    :language: python
    :start-after: # begin constant tensor type
    :end-before: # end constant tensor type
 
-Its dimensions are integer expressions. Here they are constants; dimensions can
-also use variables and arithmetic.
+``tile_type`` describes an ``(8, 128)`` tensor. Its ``shape`` contains integer
+expressions for ``8`` and ``128``, and its ``dtype`` is
+``ir.PrimType("float32")``. Dimensions can also use variables and arithmetic.
+
+Use ``==`` to compare type structure and ``same_as`` to compare object identity.
+All types also inherit a ``loc`` field for source information, defaulting to
+``UnknownLoc``. This field does not affect structural comparison.
 
 .. _user-ir-var:
 
