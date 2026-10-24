@@ -20,6 +20,13 @@ Run ``python types_and_expressions.py`` with TIRx installed.
 
 The four steps show scalar expressions, symbolic tensor shapes, operator
 calls, and a custom type. Each step prints the constructed IR and its type.
+For example, the tensor step prints::
+
+    2. Tensor expressions
+       Fixed tensor type: T.Tensor((8, 128), T.float32)
+       Symbolic tensor type: T.Tensor((T.int64(2) * n, 128), T.float32)
+       A[0, 0] : T.float32
+
 The printed forms use TVMScript notation, such as T.int32 and T.Tensor(...).
 """
 

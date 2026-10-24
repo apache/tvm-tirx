@@ -264,21 +264,4 @@ types, just like a built-in type.
 See :class:`~tvm_tirx.tirx.TensorType` for the complete constructor and storage
 options, and :doc:`/reference/python/ir` for expression and type APIs.
 Download :download:`types_and_expressions.py <examples/types_and_expressions.py>`
-to construct and inspect the scalar expressions, symbolic tensor, operator
-calls, and custom type introduced here. With TIRx installed, run:
-
-.. code-block:: console
-
-   python types_and_expressions.py
-
-The script prints the IR and types at each step. For example, the tensor
-section shows:
-
-.. code-block:: text
-
-   2. Tensor expressions
-      Fixed tensor type: T.Tensor((8, 128), T.float32)
-      Symbolic tensor type: T.Tensor((T.int64(2) * n, 128), T.float32)
-      A[0, 0] : T.float32
-
-The ``T.*`` forms are the TVMScript representation of the constructed objects.
+for runnable examples from this chapter.
