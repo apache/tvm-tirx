@@ -27,6 +27,12 @@ signature = ir.FuncType([integer_type], integer_type)
 tile_type = tirx.TensorType((8, 128), "float32")
 # end constant tensor type
 
+# begin operator expressions
+exp_op = ir.Op.get("prim.exp")
+value = ir.Var("value", "float32")
+exp_call = ir.Call(exp_op, [value])
+# end operator expressions
+
 # begin scalar expressions
 x = ir.Var("x", integer_type)
 added = x + ir.const(1, integer_type)
@@ -42,4 +48,7 @@ element = tensor[0, 0]
 assert signature.arg_types[0] == signature.ret_type == added.ty == x.ty
 assert tile_type.dtype == element.ty == ir.PrimType("float32")
 assert tensor.ty.shape[0].b.same_as(n)
+assert exp_op.name == "prim.exp"
+assert exp_call.op.same_as(exp_op) and exp_call.args[0].same_as(value)
+assert exp_call.ty == ir.PrimType("float32")
 print("Type and expression examples passed.")

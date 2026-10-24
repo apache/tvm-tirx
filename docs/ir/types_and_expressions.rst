@@ -125,7 +125,8 @@ Expressions
        not affect structural comparison.
 
 Subclasses inherit ``ty`` and ``loc`` and add fields for their stored values or
-operands. Common expression forms include:
+operands. The following examples show common expression classes and selected
+fields:
 
 .. list-table::
    :header-rows: 1
@@ -146,6 +147,9 @@ operands. Common expression forms include:
    * - ``ir.prim.EQ``, ``ir.prim.LT``
      - Comparisons
      - ``a``, ``b``
+   * - ``ir.Op``
+     - A registered operator
+     - ``name``, ``doc``, ``args_info``
    * - ``ir.Call``
      - A call to an operator or function
      - ``op``, ``args``, ``attrs``, ``ty_args``
@@ -157,10 +161,21 @@ Arithmetic and comparison nodes for primitive values are available under
 ``ir.prim``. The binary nodes above store their left and right operand
 expressions in ``a`` and ``b``.
 
-Registered operations such as ``prim.exp`` are identified by ``ir.Op``
-expressions and invoked through ``ir.Call``. For example,
-``ir.prim.exp(value)`` builds a ``Call`` whose ``op`` is
-``ir.Op.get("prim.exp")`` and whose ``args`` contains ``value``.
+Registered operators are themselves expressions of class ``ir.Op``. Each has
+a name, such as ``prim.exp``, and metadata describing its arguments.
+``ir.Op.get`` retrieves the operator object by name; ``ir.Call`` uses it as
+the callee of an invocation:
+
+.. literalinclude:: examples/types_and_expressions.py
+   :language: python
+   :start-after: # begin operator expressions
+   :end-before: # end operator expressions
+
+``exp_call.op`` refers to ``exp_op``, and ``exp_call.args`` contains the input
+``value``. The same operator object can be used by many calls, each with its
+own arguments. ``ir.prim.exp(value)`` is a helper that constructs this call
+form. :doc:`operators_and_calls` explains operator registration, attributes,
+type inference, and validation.
 
 Operands and call arguments are themselves expressions, allowing these forms
 to be combined into larger computations.
