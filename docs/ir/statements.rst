@@ -155,10 +155,18 @@ three:
 
 ``For`` takes an exclusive ``end`` and explicit ``step`` and ``kind`` arguments.
 Its variable, bounds, and step must have matching scalar integer types after
-conversion. ``ForKind.DEFAULT`` represents an ordinary loop whose iterations
-execute in order. The other kinds permit parallel execution or request
-vectorization or unrolling. ``Break``
-exits a loop, and ``Continue`` starts its next iteration.
+conversion.
+
+The ``kind`` argument specifies how the loop iterations are executed:
+
+* ``ForKind.DEFAULT`` executes iterations in order, one after another.
+* ``ForKind.PARALLEL`` allows different iterations to run concurrently.
+* ``ForKind.VECTORIZED`` asks the compiler to combine iterations into vector
+  operations that process multiple elements at once.
+* ``ForKind.UNROLLED`` asks the compiler to expand the loop into repeated
+  copies of its body.
+
+``Break`` exits a loop, and ``Continue`` starts its next iteration.
 
 These nested bodies also determine variable visibility. The loop defines ``i``
 inside its body; it cannot be used after the loop. Branch-local definitions
