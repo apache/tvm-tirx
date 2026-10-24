@@ -30,8 +30,8 @@ preserve program behavior when moving or rewriting computations.
 Statement Nodes
 ---------------
 
-``ir.Stmt`` is the base class for statement objects. It defines a field named
-``loc``, whose value is an ``ir.Location`` object:
+``ir.Stmt`` is the base class for statement objects. It defines the following
+field:
 
 .. list-table::
    :header-rows: 1
@@ -100,8 +100,8 @@ to that same variable object.
 Control Flow and Scope
 ----------------------
 
-The body above always binds and returns a value. To choose a body or repeat
-one, control-flow statements contain their own sequences:
+``ir.If``, ``ir.For``, and ``ir.While`` are statement classes whose nested
+bodies are statement sequences. They select a branch or repeat a body:
 
 .. list-table::
    :header-rows: 1
@@ -150,10 +150,13 @@ inside its body; it cannot be used after the loop. Branch-local definitions
 similarly stay inside their branch. Each variable object has one definition,
 and its uses refer to that object.
 
-Registered operations can enclose bodies through ``ir.RegionStmt``. Its
-``args`` and ``attrs`` refer to the enclosing scope; ``body_params`` introduces
-variables inside ``body``, and ``result_vars`` introduces variables for following
-statements. See :class:`~tvm_tirx.ir.RegionStmt` for the operator contract.
+``ir.RegionStmt`` represents an operator-defined statement with a nested body.
+Its ``op`` field refers to the registered ``ir.Op`` that defines the statement's
+semantics. Inputs in ``args`` and ``attrs`` are evaluated in the enclosing
+scope. ``body_params`` defines variables visible within ``body``;
+``result_vars`` defines variables available to subsequent statements in the
+enclosing sequence. See :class:`~tvm_tirx.ir.RegionStmt` for the operator
+contract.
 
 To check these definition and scope rules, the body needs the context of a
 complete function or module. :doc:`functions_and_modules` supplies that context;

@@ -36,10 +36,11 @@ its source:
    :end-before: # end tvmscript example
 
 ``@T.function`` parses the definition into a ``tirx.Function``. The future
-import lets the parser resolve ``n`` in the annotations. The tensor's shape and
-the loop bound refer to the same IR variable, keeping ``2*n`` symbolic in both
-places. The loops and indexing construct IR; the tensor computation runs when
-the compiled function is called.
+import postpones annotation evaluation until the parser reads the definition,
+so ``n`` in the tensor annotation can resolve to the first IR parameter. The
+tensor's shape and the loop bound refer to that same variable, keeping ``2*n``
+symbolic in both places. The loops and indexing construct IR; the tensor
+computation runs when the compiled function is called.
 
 An ordinary Python function can generate variations of this program. To reuse
 the element update across those variations, first separate its computation and

@@ -26,8 +26,10 @@ Operators
 ---------
 
 ``ir.Op`` is an expression that identifies a registered operator. Its
-``args_info`` describes the required value arguments, and its attributes record
-properties such as the effect kind. Retrieve it with ``ir.Op.get(name)``.
+``args_info`` lists names and documentation for the required value arguments;
+a registered validator checks calls against the operator's argument
+requirements. Operator attributes record properties such as the effect kind.
+Retrieve the operator with ``ir.Op.get(name)``.
 
 For example, ``prim.exp`` declares one argument named ``x`` and is a pure
 operation. Both properties can be inspected on the registered object:
@@ -133,9 +135,10 @@ validator, a type-inference callback, and attributes such as the effect kind.
 The operator joins the same registry as the built-in operators, so Python,
 C++, and Rust code can retrieve it.
 
-For example, this block registers ``my_ext.clamp``, which clamps an integer
-index to ``[0, bound)``. A call has the type of its index, and ``validate()``
-rejects arguments that are not integer expressions:
+For example, this block registers the interface of ``my_ext.clamp``, an
+operation for clamping an integer index to ``[0, bound)``. A call has the type
+of its index, and ``validate()`` rejects arguments that are not integer
+expressions:
 
 .. code-block:: rust
 
@@ -161,6 +164,9 @@ rejects arguments that are not integer expressions:
 Once the extension is loaded and the operator is registered, Python can
 retrieve it with ``ir.Op.get("my_ext.clamp")`` and construct calls in the same
 way as for a built-in operator.
+
+To make these calls executable, supply a lowering that replaces them with
+existing IR or implement the operation in a backend.
 
 See :doc:`/reference/python/ir` for the complete operator and call APIs. The
 :download:`operators_and_calls.py <examples/operators_and_calls.py>` example includes runnable

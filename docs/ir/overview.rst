@@ -30,6 +30,8 @@ existing interfaces can be used to build custom analyses, transformation passes,
 and backends.
 
 The following tree shows the inheritance relationships between IR object types.
+Registered names can differ from Python API names. For example, ``prim.Add``
+is available as ``ir.prim.Add`` in Python.
 
 .. code-block:: text
 
@@ -144,9 +146,6 @@ The following tree shows the inheritance relationships between IR object types.
    └── ffi.Enum                                        Registered enumeration objects
        ├── tirx.Axis                                   Layout axis identities
        └── tirx.ThreadScope                            Execution scope identities
-
-Registered names can differ from Python API names. For example, ``prim.Add``
-is available as ``ir.prim.Add`` in Python.
 
 .. _choose-a-chapter:
 

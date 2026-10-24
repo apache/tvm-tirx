@@ -46,7 +46,7 @@ Types
        not affect structural comparison.
 
 Concrete subclasses inherit ``loc`` and add fields describing different kinds
-of values:
+of values. Common examples include:
 
 .. list-table::
    :header-rows: 1
@@ -80,10 +80,11 @@ stores the types of a function's arguments and result:
    :end-before: # end composite type
    :prepend: from tvm_tirx import ir, tirx
 
-``signature`` describes a function that takes an int32 value and returns an
-int32 value. Its ``arg_types[0]`` and ``ret_type`` both refer to
-``integer_type``. Tuple fields and pointer element types similarly refer to
-other type objects.
+``signature`` describes a function that takes and returns int32 values.
+``integer_type.dtype`` holds the int32 dtype descriptor;
+``signature.arg_types[0]`` and ``signature.ret_type`` both refer to the
+``integer_type`` object. Tuple fields and pointer element types similarly
+refer to other type objects.
 
 .. _user-tensor-type:
 
@@ -136,8 +137,8 @@ operands. Common expression forms include:
    * - ``ir.Var``
      - A variable
      - ``name``
-   * - ``ir.IntImm``
-     - An integer constant
+   * - ``ir.IntImm``, ``ir.FloatImm``, ``ir.StringImm``
+     - Literal constants
      - ``value``
    * - ``ir.prim.Add``, ``ir.prim.Sub``, ``ir.prim.Mul``
      - Binary arithmetic
