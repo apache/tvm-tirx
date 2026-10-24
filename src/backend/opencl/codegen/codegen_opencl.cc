@@ -624,7 +624,7 @@ void CodeGenOpenCL::Dispatch_(const CallObj* op, std::ostream& os) {
 }
 
 void CodeGenOpenCL::Dispatch_(const prim::BroadcastObj* op, std::ostream& os) {  // NOLINT(*)
-  std::string v = SSAGetID(op->value);
+  std::string v = PrintExprToSSA(op->value);
   int lanes = op->ty.as_or_throw<PrimType>().lanes();
   os << "((";
   PrintType(op->ty.as_or_throw<PrimType>(), os);
@@ -637,8 +637,8 @@ void CodeGenOpenCL::Dispatch_(const prim::BroadcastObj* op, std::ostream& os) { 
 }
 
 void CodeGenOpenCL::Dispatch_(const prim::RampObj* op, std::ostream& os) {  // NOLINT(*)
-  std::string base = SSAGetID(op->base);
-  std::string stride = SSAGetID(op->stride);
+  std::string base = PrintExprToSSA(op->base);
+  std::string stride = PrintExprToSSA(op->stride);
   os << "((";
   PrintType(op->ty.as_or_throw<PrimType>(), os);
   os << ")(";

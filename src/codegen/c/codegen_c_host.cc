@@ -197,7 +197,7 @@ void CodeGenCHost::PrintType(const PrimType& type, std::ostream& os) {  // NOLIN
 }
 
 void CodeGenCHost::Dispatch_(const prim::BroadcastObj* op, std::ostream& os) {  // NOLINT(*)
-  std::string v = SSAGetID(op->value);
+  std::string v = PrintExprToSSA(op->value);
   int lanes = op->ty.as_or_throw<PrimType>().lanes();
   os << "((";
   PrintType(op->ty.as_or_throw<PrimType>(), os);
@@ -382,8 +382,8 @@ void CodeGenCHost::Dispatch_(const prim::MaxObj* op, std::ostream& os) {  // NOL
 
 void CodeGenCHost::PrintMinMax(const PrimExpr& lhs, const PrimExpr& rhs, bool is_min,
                                std::ostream& os) {  // NOLINT(*)
-  std::string lhs_value = "(" + SSAGetID(lhs) + ")";
-  std::string rhs_value = "(" + SSAGetID(rhs) + ")";
+  std::string lhs_value = "(" + PrintExprToSSA(lhs) + ")";
+  std::string rhs_value = "(" + PrintExprToSSA(rhs) + ")";
   PrimType dtype = lhs.ty().as_or_throw<PrimType>();
   FloatNaNStatus lhs_nan_status = GetFloatNaNStatus(lhs);
   FloatNaNStatus rhs_nan_status = GetFloatNaNStatus(rhs);

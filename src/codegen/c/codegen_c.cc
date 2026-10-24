@@ -231,7 +231,7 @@ void CodeGenC::PrintExpr(const PrimExpr& n, std::ostream& os) {  // NOLINT(*)
   }
 }
 
-std::string CodeGenC::SSAGetID(const Expr& expr) {
+std::string CodeGenC::PrintExprToSSA(const Expr& expr) {
   std::string source = PrintExpr(expr);
   bool can_reuse = SideEffect(expr) == CallEffectKind::kPure;
   // Emit a declaration if needed; the caller prints the returned variable or literal.
@@ -903,13 +903,13 @@ void CodeGenC::Dispatch_(const CallObj* op, std::ostream& os) {  // NOLINT(*)
                         source_dtype.lanes() * source_dtype.bits())
           << "reinterpret expects source and target to have the same number of bits";
       int ssa_scope = BeginScope();
-      std::string rhs = SSAGetID(op->args[0]);
+      std::string rhs = PrintExprToSSA(op->args[0]);
       os << "(*(";
       this->PrintType(target_dtype, os);
       os << " *)(&(" << rhs << ")))";
       EndScope(ssa_scope);
     } else if (op->op.same_as(prim::isnan_op())) {
-      std::string value = SSAGetID(op->args[0]);
+      std::string value = PrintExprToSSA(op->args[0]);
       os << "(" << value << " != " << value << ")";
     } else if (op->op.same_as(tirx::gpu_thread_invariant_op())) {
       os << "(";
@@ -1044,7 +1044,7 @@ void CodeGenC::Dispatch_(const TensorLoadObj* op, std::ostream& os) {  // NOLINT
       HandleVolatileLoads(ref, op, os);
     } else {
       std::ostringstream svalue_expr;
-      std::string sindex = SSAGetID(index);
+      std::string sindex = PrintExprToSSA(index);
       std::string vid = GetVarID(buffer_var.get());
       PrimType elem_type = value_ty.WithLanes(1);
       for (int i = 0; i < lanes; ++i) {
@@ -1099,8 +1099,8 @@ void CodeGenC::Dispatch_(const TensorStoreObj* op) {
       int vec_scope = BeginScope();
 
       // store elements separately
-      std::string index = SSAGetID(index_expr);
-      std::string value = SSAGetID(op->value);
+      std::string index = PrintExprToSSA(index_expr);
+      std::string value = PrintExprToSSA(op->value);
       std::string vid = GetVarID(buffer_var.get());
       for (int i = 0; i < value_ty.lanes(); ++i) {
         this->PrintIndent();
@@ -1164,8 +1164,8 @@ void CodeGenC::Dispatch_(const prim::LetObj* op, std::ostream& os) {  // NOLINT(
 }
 
 void CodeGenC::Dispatch_(const prim::RampObj* op, std::ostream& os) {  // NOLINT(*)
-  std::string base = SSAGetID(op->base);
-  std::string stride = SSAGetID(op->stride);
+  std::string base = PrintExprToSSA(op->base);
+  std::string stride = PrintExprToSSA(op->stride);
   // NOTE: C have comma expression so cannot use (int2)(v0, v1)
   // instead should use int2(v0, v1)
   PrintType(op->ty.as_or_throw<PrimType>(), os);
@@ -1193,7 +1193,7 @@ void CodeGenC::Dispatch_(const prim::ShuffleObj* op, std::ostream& os) {  // NOL
   // print each elements
   if (op->vectors.size() > 1) {
     for (const PrimExpr& vec : op->vectors) {
-      std::string vec_value = SSAGetID(vec);
+      std::string vec_value = PrintExprToSSA(vec);
       if (vec.ty().lanes() == 1) {
         concat_vec.push_back(vec_value);
       } else {
@@ -1208,7 +1208,7 @@ void CodeGenC::Dispatch_(const prim::ShuffleObj* op, std::ostream& os) {  // NOL
     }
   } else {
     // Extract elements from a single vector-type value.
-    std::string vec_value = "(" + SSAGetID(op->vectors[0]) + ")";
+    std::string vec_value = "(" + PrintExprToSSA(op->vectors[0]) + ")";
     if (op->vectors[0].ty().lanes() == 1) {
       concat_vec.push_back(vec_value);
     } else {

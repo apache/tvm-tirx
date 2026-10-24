@@ -472,7 +472,7 @@ void CodeGenWebGPU::PrintVecElemStore(const std::string& vec, const PrimType& t,
 }
 
 void CodeGenWebGPU::Dispatch_(const prim::BroadcastObj* op, std::ostream& os) {  // NOLINT(*)
-  std::string v = SSAGetID(op->value);
+  std::string v = PrintExprToSSA(op->value);
   int lanes = op->ty.as_or_throw<PrimType>().lanes();
   PrintType(op->ty.as_or_throw<PrimType>(), os);
   os << "(";
@@ -660,7 +660,7 @@ void CodeGenWebGPU::Dispatch_(const TensorLoadObj* op, std::ostream& os) {  // N
     tvm::PVar<PrimExpr> base;
     if (tvm::ramp(base, 1, value_ty.lanes()).Match(index)) {
       // vec3<f32>(buf[base + 0], buf[base + 1], buf[base + 2]);
-      std::string base_vid = SSAGetID(base.Eval());
+      std::string base_vid = PrintExprToSSA(base.Eval());
       PrintType(element_ty.WithLanes(value_ty.lanes()), os);
       os << "(";
       for (int i = 0; i < lanes; ++i) {
@@ -670,7 +670,7 @@ void CodeGenWebGPU::Dispatch_(const TensorLoadObj* op, std::ostream& os) {  // N
       os << ")";
     } else {
       // vec3<f32>(buf[index[0]], buf[index[1]], buf[index[2]]);
-      std::string index_vid = SSAGetID(index);
+      std::string index_vid = PrintExprToSSA(index);
       PrintType(element_ty.WithLanes(value_ty.lanes()), os);
       os << "(";
       for (int i = 0; i < lanes; ++i) {
@@ -742,12 +742,12 @@ void CodeGenWebGPU::Dispatch_(const TensorStoreObj* op) {
     TVM_FFI_ICHECK_EQ(element_ty.lanes(), 1) << "Can only vector load scalar array";
     TVM_FFI_ICHECK(value_ty.WithLanes(1) == element_ty)
         << "WebGPU vector stire requires base type to match";
-    std::string value_vid = SSAGetID(op->value);
+    std::string value_vid = PrintExprToSSA(op->value);
     tvm::PVar<PrimExpr> base;
     if (tvm::ramp(base, 1, value_ty.lanes()).Match(index)) {
       // buf[base + 0] = value[0]
       // buf[base + 1] = value[1]
-      std::string base_vid = SSAGetID(base.Eval());
+      std::string base_vid = PrintExprToSSA(base.Eval());
       for (int i = 0; i < value_ty.lanes(); ++i) {
         this->PrintIndent();
         stream << buffer_vid << "[" << base_vid << " + " << i << "] = " << value_vid << "[" << i
@@ -756,7 +756,7 @@ void CodeGenWebGPU::Dispatch_(const TensorStoreObj* op) {
     } else {
       // buf[index[0]] = value[0]
       // buf[index[1]] = value[1]
-      std::string index_vid = SSAGetID(index);
+      std::string index_vid = PrintExprToSSA(index);
       for (int i = 0; i < value_ty.lanes(); ++i) {
         this->PrintIndent();
         stream << buffer_vid << "[" << index_vid << "[" << i << "]] = " << value_vid << "[" << i
