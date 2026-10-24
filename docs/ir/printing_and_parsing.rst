@@ -20,11 +20,11 @@
 Printing and Parsing
 ====================
 
-Printing turns IR into readable TVMScript so you can inspect generated programs,
-compare pass results, and save examples for debugging. Parsing reconstructs IR
-from source, allowing a printed program to be edited and reused as compiler
-input. TVMScript uses Python syntax to express function signatures, symbolic
-shapes, and control flow.
+Printing renders IR as readable TVMScript, and parsing constructs IR from
+Python source. Compiler extensions can reuse these interfaces to generate
+programs, inspect the resulting IR, and reconstruct programs from source.
+Extensions can customize how source builds IR through builder namespaces
+and how IR is rendered through printer hooks.
 
 For example, this function increments every element of a float32 tensor with
 shape ``(2*n, 128)``. Save the code in a Python file so the decorator can inspect

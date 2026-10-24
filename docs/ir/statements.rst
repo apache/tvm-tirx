@@ -20,10 +20,10 @@
 Statements
 ==========
 
-Statements describe actions such as binding variables, writing tensor elements,
-and returning values, along with the order and conditions under which those
-actions occur. This structure lets the compiler track variable scope and
-preserve program behavior when moving or rewriting computations.
+Statements describe variable bindings, tensor writes, and control flow.
+Extensions can construct and rewrite program bodies with the existing
+statement nodes. Custom operators can use ``ir.RegionStmt`` to define how
+a group of statements executes.
 
 .. _statements-and-sequences:
 

@@ -20,12 +20,11 @@
 Types and Expressions
 =====================
 
-Expressions describe program values and computations, and types describe
-properties of those values, such as dtypes, tensor shapes, and function
-signatures. Making these properties explicit allows the compiler to check
-operation inputs and determine result types without running the program.
-The same information can guide optimizations that depend on a value's dtype
-or shape.
+Expressions represent program values and computations, while types describe
+properties such as dtypes, tensor shapes, and function signatures. This shared
+representation can be extended with custom types and operators. Programs using
+these constructs can be built, inspected, and transformed through the existing
+IR interfaces.
 
 .. _user-ir-type:
 .. _user-ir-prim-type:

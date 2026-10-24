@@ -18,10 +18,10 @@
 Functions and Modules
 =====================
 
-Functions give computations an explicit input and result interface so they
-can be called and transformed as units. Modules group named function
-definitions, allowing compiler passes to find and update the definitions
-that calls refer to.
+Functions define computations through parameters, result types, and statement
+bodies, while modules collect named function definitions. Extensions can build
+programs with custom types and operators using these same structures, and
+passes can inspect or replace definitions through the existing interfaces.
 
 Functions
 ---------

@@ -19,10 +19,10 @@ Operators and Calls
 ===================
 
 Operators describe computations, while calls apply them to particular inputs.
-The compiler uses an operator's shared definition to infer result types,
-validate arguments, and analyze effects across its calls.
-Custom operators use the same IR and registration interfaces as built-in
-operators, allowing new passes to analyze, transform, or lower their calls.
+Custom operators can be registered alongside built-in ones, with their own
+argument requirements, type rules, and effects. Their calls use the existing
+IR representation, so extensions can build analyses, transformations, and
+lowering passes around the same objects and interfaces.
 
 Operators
 ---------
