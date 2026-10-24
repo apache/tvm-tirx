@@ -68,7 +68,7 @@ def test_error_for_out_of_scope_usage():
 
     with pytest.raises(
         (ValueError, RuntimeError),
-        match=r"Invalid use of undefined variable i at .* no longer in-scope.",
+        match=r"Invalid use of undefined variable i at .* no longer in-scope\.",
     ):
         tvm_tirx.tirx.analysis.check_well_formed(func)
 

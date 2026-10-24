@@ -239,7 +239,7 @@ def test_captured_shape_requires_concrete_symbols():
     n = T.dynamic("n")
     function = build((n, 16))
     assert function.params[0].ty.shape[0].same_as(n)
-    with pytest.raises(TypeError, match=r"Expected `Array<ir.PrimExpr>`"):
+    with pytest.raises(TypeError, match=r"Expected `Array<ir\.PrimExpr>`"):
         build(("n", 16))
 
 

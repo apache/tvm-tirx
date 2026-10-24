@@ -159,7 +159,7 @@ def test_op_attr_map_lookup_without_value():
     assert unset not in attr_map
     assert attr_map.get(unset) is None
     assert attr_map.get(unset, 5) == 5
-    with pytest.raises(KeyError, match=r"test.attr_map_lookup.unset"):
+    with pytest.raises(KeyError, match=r"test\.attr_map_lookup\.unset"):
         attr_map[unset]
 
     # A non-Op expression has no attributes, as in C++ OpAttrMap::get(Expr, default).

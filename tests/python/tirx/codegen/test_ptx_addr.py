@@ -81,7 +81,7 @@ def test_ptx_addr_table_validation_rejects_wrong_operand_classes():
             (OperandSlot("x", kind="addr", space="tmem", allow_imm_offset=True),),
         ),
     )
-    with pytest.raises(ValueError, match=r"reg.x.*kind='reg'"):
+    with pytest.raises(ValueError, match=r"reg\.x.*kind='reg'"):
         _validate_imm_offset_slots(bad_entries)
 
 
@@ -249,7 +249,7 @@ def test_ptx_addr_pointer_and_raw_address_validation():
             value = T.local_scalar("uint32")
             T.ptx.ld.global_.b32(value, T.ptx.addr(raw, 4))
 
-    with pytest.raises(ValueError, match=r"does not support T.ptx.addr"):
+    with pytest.raises(ValueError, match=r"does not support T\.ptx\.addr"):
 
         @T.function
         def ptr_operand(src: T.Tensor((8,), "uint32")):
@@ -259,7 +259,7 @@ def test_ptx_addr_pointer_and_raw_address_validation():
 
 
 def test_ptx_addr_tma_tmem_and_independent_immediate_rejections():
-    with pytest.raises(ValueError, match=r"does not support T.ptx.addr"):
+    with pytest.raises(ValueError, match=r"does not support T\.ptx\.addr"):
 
         @T.function
         def tma(tmap: T.Tensor((8,), "uint64")):
@@ -270,7 +270,7 @@ def test_ptx_addr_tma_tmem_and_independent_immediate_rejections():
                 shared_buf.data, T.ptx.addr(tmap.data, 16), T.int32(0), barrier.data
             )
 
-    with pytest.raises(ValueError, match=r"does not support T.ptx.addr"):
+    with pytest.raises(ValueError, match=r"does not support T\.ptx\.addr"):
 
         @T.function
         def tmem(raw: T.uint32):

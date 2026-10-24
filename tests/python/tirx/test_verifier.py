@@ -175,7 +175,7 @@ def test_preferred_cluster_validation():
         T.cuda.LaunchConfig(grid=8, block=128, preferred_cluster=2)
     with pytest.raises(ValueError, match="divisible"):
         T.cuda.LaunchConfig(grid=(8, 3), block=128, cluster=(2, 1), preferred_cluster=(2, 2))
-    with pytest.raises(ValueError, match=r"cluster.z"):
+    with pytest.raises(ValueError, match=r"cluster\.z"):
         T.cuda.LaunchConfig(grid=(8, 4, 2), block=128, cluster=(2, 1), preferred_cluster=(2, 2, 2))
         # fmt: on
 

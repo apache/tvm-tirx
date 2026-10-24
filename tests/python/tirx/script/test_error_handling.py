@@ -33,7 +33,7 @@ from tvm_tirx.script import tirx as T
 
 def test_optional_annotation_requires_jit_at_the_source_parameter():
     # Ordinary argument validation must reject Optional at its original parameter location.
-    with pytest.raises(TypeError, match=r"^T.Optional is only supported by @T.jit$") as caught:
+    with pytest.raises(TypeError, match=r"^T\.Optional is only supported by @T\.jit$") as caught:
 
         @T.function
         def invalid(value: T.Optional(T.handle)):

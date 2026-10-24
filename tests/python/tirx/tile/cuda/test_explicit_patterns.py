@@ -332,7 +332,7 @@ def test_cluster_pattern_requires_launch_cluster():
         T.cuda.tile.apply(T.ptx[LD], r, A, scope="cluster")
 
     with tvm_tirx.target.Target({"kind": "cuda", "arch": "sm_100a"}):
-        with pytest.raises(RuntimeError, match=r"explicit LaunchConfig.cluster"):
+        with pytest.raises(RuntimeError, match=r"explicit LaunchConfig\.cluster"):
             tvm_tirx.tirx.transform.TileDispatch()(tvm_tirx.IRModule({"main": kernel}))
 
 

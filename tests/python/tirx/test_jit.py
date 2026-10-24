@@ -368,7 +368,7 @@ def test_standard_optional_annotations_are_specializable():
 
 
 def test_t_optional_is_restricted_to_jit():
-    with pytest.raises(TypeError, match=r"only supported by @T.jit"):
+    with pytest.raises(TypeError, match=r"only supported by @T\.jit"):
 
         @T.function(private=True)
         def invalid(a: T.Optional(T.handle)):
