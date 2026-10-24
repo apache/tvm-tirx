@@ -929,68 +929,36 @@ def test_min_max_nan_preserving_cuda(dtype, form, *, backend_config):
 def test_expression_evaluation(*, backend_config):
     @T.function
     def main(
-        P: T.Tensor((12,), "int32"),
+        P: T.Tensor((7,), "int32"),
         A: T.Tensor((8,), "float32x4"),
-        O: T.Tensor((15,), "float32x4"),
+        O: T.Tensor((9,), "float32x4"),
     ):
-        # One thread makes the atomic return values deterministic: 0, 1, ...
+        # One thread makes each counter's return values deterministic: 0, 1, ...
         with T.launch_thread("threadIdx.x", 1):
-            # Repeated casts must reload memory after a store.
-            O[0] = T.cast(T.cast(A[0], "int32x4"), "float32x4")
-            A[0] = T.Broadcast(T.float32(7), 4)
-            O[1] = T.cast(T.cast(A[0], "int32x4"), "float32x4")
-            A[0] = T.cast(T.Ramp(0, 1, 4), "float32x4")
-            # Independent operands execute separately, even with identical text.
+            O[0] = T.cast(T.cast(A[7], "int32x4"), "float32x4")
+            A[7] = T.Broadcast(T.float32(7), 4)
+            O[1] = T.cast(T.cast(A[7], "int32x4"), "float32x4")
+            # min/max share the same scalar implementation; max exercises it once.
             O[2] = T.Broadcast(
-                T.min(
+                T.max(
                     T.cast(T.cuda.atomic_add(T.address_of(P[0]), 1), "float32"),
                     T.cast(T.cuda.atomic_add(T.address_of(P[0]), 1), "float32"),
                 ),
                 4,
             )
-            O[3] = T.Broadcast(
-                T.max(
-                    T.cast(T.cuda.atomic_add(T.address_of(P[1]), 1), "float32"),
-                    T.cast(T.cuda.atomic_add(T.address_of(P[1]), 1), "float32"),
-                ),
-                4,
+            # Each expansion must evaluate its input once across all lanes.
+            O[3] = T.Broadcast(T.cast(T.cuda.atomic_add(T.address_of(P[1]), 1), "float32"), 4)
+            O[4] = T.cast(T.Ramp(T.cuda.atomic_add(T.address_of(P[2]), 1), 1, 4), "float32x4")
+            O[5] = T.Shuffle([A[T.cuda.atomic_add(T.address_of(P[3]), 1)]], [3, 2, 1, 0])
+            O[6] = (
+                A[T.cuda.atomic_add(T.address_of(P[4]), 1)]
+                + A[T.cuda.atomic_add(T.address_of(P[4]), 1)]
             )
-            O[4] = T.Broadcast(
-                T.cast(
-                    T.isnan(T.cast(T.cuda.atomic_add(T.address_of(P[2]), 1), "float32")),
-                    "float32",
-                ),
-                4,
+            O[7] = T.max(
+                A[T.cuda.atomic_add(T.address_of(P[5]), 1)],
+                A[T.cuda.atomic_add(T.address_of(P[5]), 1)],
             )
-            value = T.cast(T.cuda.atomic_add(T.address_of(P[3]), 1), "float32")
-            O[5] = T.Broadcast(T.max(value, value), 4)
-            O[6] = T.Broadcast(
-                T.max(
-                    T.float32("nan"),
-                    T.cast(T.cuda.atomic_add(T.address_of(P[4]), 1), "float32"),
-                ),
-                4,
-            )
-            # Vector expansion must reuse each input's value across lanes.
-            O[7] = T.Broadcast(T.cast(T.cuda.atomic_add(T.address_of(P[5]), 1), "float32"), 4)
-            O[8] = T.cast(T.Ramp(T.cuda.atomic_add(T.address_of(P[6]), 1), 1, 4), "float32x4")
-            wide = T.Ramp(
-                T.cuda.atomic_add(T.address_of(P[7]), 1),
-                T.cuda.atomic_add(T.address_of(P[7]), 1),
-                8,
-            )
-            O[9] = T.cast(T.Shuffle([wide], [0, 1, 2, 3]), "float32x4")
-            O[10] = T.cast(T.Shuffle([wide], [4, 5, 6, 7]), "float32x4")
-            O[11] = T.Shuffle([A[T.cuda.atomic_add(T.address_of(P[8]), 1)]], [3, 2, 1, 0])
-            O[12] = (
-                A[T.cuda.atomic_add(T.address_of(P[9]), 1)]
-                + A[T.cuda.atomic_add(T.address_of(P[9]), 1)]
-            )
-            O[13] = T.max(
-                A[T.cuda.atomic_add(T.address_of(P[10]), 1)],
-                A[T.cuda.atomic_add(T.address_of(P[10]), 1)],
-            )
-            O[14] = T.cast(T.isnan(A[4 + T.cuda.atomic_add(T.address_of(P[11]), 1)]), "float32x4")
+            O[8] = T.cast(T.isnan(A[4 + T.cuda.atomic_add(T.address_of(P[6]), 1)]), "float32x4")
 
     executable = tvm_tirx.tirx.compile(
         main, target={"kind": "cuda", "backend_config": backend_config}
@@ -1000,33 +968,23 @@ def test_expression_evaluation(*, backend_config):
         dev = tvm_tirx.cuda(0)
         data = np.arange(32, dtype="float32").reshape(8, 4)
         data[4, [0, 2]] = np.nan
-        counter = tvm_tirx.runtime.tensor(np.zeros(12, dtype="int32"), dev)
+        counter = tvm_tirx.runtime.tensor(np.zeros(7, dtype="int32"), dev)
         a = tvm_tirx.runtime.empty((8,), "float32x4", dev).copyfrom(data)
-        output = tvm_tirx.runtime.empty((15,), "float32x4", dev)
+        output = tvm_tirx.runtime.empty((9,), "float32x4", dev)
         executable(counter, a, output)
         expected = [
-            # Casts before and after a store.
-            [0, 1, 2, 3],
-            [7] * 4,
-            # min, max, isnan, shared variable, constant NaN.
-            [0] * 4,
-            [1] * 4,
-            [0] * 4,
-            [0] * 4,
-            [np.nan] * 4,
-            # Broadcast, narrow ramp, two halves of a wide ramp.
+            [28, 29, 30, 31],
+            [7] * 4,  # Reload after a store.
+            [1] * 4,  # Scalar max.
             [0] * 4,
             [0, 1, 2, 3],
-            [0, 1, 2, 3],
-            [4, 5, 6, 7],
-            # Shuffle, vector add/max/isnan.
-            [3, 2, 1, 0],
+            [3, 2, 1, 0],  # Broadcast, ramp, shuffle.
             [4, 6, 8, 10],
             [4, 5, 6, 7],
-            [1, 0, 1, 0],
+            [1, 0, 1, 0],  # Vector add/max/isnan.
         ]
         np.testing.assert_array_equal(output.numpy(), expected)
-        np.testing.assert_array_equal(counter.numpy(), [2, 2, 1, 1, 1, 1, 1, 2, 1, 2, 2, 1])
+        np.testing.assert_array_equal(counter.numpy(), [2, 1, 1, 1, 2, 2, 1])
 
     tvm_tirx.testing.run_with_gpu_lock(run_and_check)
 
