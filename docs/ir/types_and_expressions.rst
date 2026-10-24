@@ -31,8 +31,22 @@ determine result types without running the program.
 Types
 -----
 
-``ir.Type`` is the base class for type objects. Concrete types describe
-different kinds of values through their own fields. Common subclasses include:
+``ir.Type`` is the base class for type objects. All types inherit this field:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 15 25 60
+
+   * - Field
+     - Type
+     - Meaning
+   * - ``loc``
+     - ``ir.Location``
+     - Source information for diagnostics. Defaults to ``UnknownLoc`` and does
+       not affect structural comparison.
+
+Concrete types add fields describing particular kinds of values. Common
+subclasses include:
 
 .. list-table::
    :header-rows: 1
@@ -40,7 +54,7 @@ different kinds of values through their own fields. Common subclasses include:
 
    * - Class
      - Describes
-     - Fields
+     - Additional fields
    * - ``ir.PrimType``
      - A scalar or vector dtype
      - ``dtype``
@@ -85,17 +99,33 @@ expressions for ``8`` and ``128``, and its ``dtype`` is
 ``ir.PrimType("float32")``. Dimensions can also use variables and arithmetic.
 
 Use ``==`` to compare type structure and ``same_as`` to compare object identity.
-All types also inherit a ``loc`` field for source information, defaulting to
-``UnknownLoc``. This field does not affect structural comparison.
 
 .. _user-ir-var:
 
 Expressions
 -----------
 
-``ir.Expr`` is the base class for expression objects. Its subclasses represent
-variables, constants, arithmetic operations, comparisons, calls, and tensor
-reads. Each class stores the values or operands needed for that expression:
+``ir.Expr`` is the base class for expression objects. All expressions inherit
+these fields:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 15 25 60
+
+   * - Field
+     - Type
+     - Meaning
+   * - ``ty``
+     - ``ir.Type``
+     - Result type. ``ir.MissingType`` marks type information that has not yet
+       been supplied or computed.
+   * - ``loc``
+     - ``ir.Location``
+     - Source information for diagnostics. Defaults to ``UnknownLoc`` and does
+       not affect structural comparison.
+
+Subclasses represent variables, constants, arithmetic operations, comparisons,
+calls, and tensor reads. Common classes add the following fields:
 
 .. list-table::
    :header-rows: 1
@@ -103,7 +133,7 @@ reads. Each class stores the values or operands needed for that expression:
 
    * - Class
      - Represents
-     - Fields
+     - Additional fields
    * - ``ir.Var``
      - A variable
      - ``name``
@@ -122,10 +152,6 @@ reads. Each class stores the values or operands needed for that expression:
 
 Operands are themselves expressions, so larger computations are built by
 connecting these objects.
-
-All expressions also carry a result type in ``ty`` and source information in
-``loc``. ``ir.MissingType`` marks a result type that has not yet been supplied
-or computed; ``loc`` defaults to ``UnknownLoc``.
 
 .. _user-ir-const:
 

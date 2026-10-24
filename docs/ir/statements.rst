@@ -30,9 +30,23 @@ preserve program behavior when moving or rewriting computations.
 Statement Nodes
 ---------------
 
-``ir.Stmt`` is the base class for statement objects. Its subclasses store
-operands such as values and variables, or nested statement bodies. Common
-nodes include:
+``ir.Stmt`` is the base class for statement objects. All statements inherit
+this field:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 15 25 60
+
+   * - Field
+     - Type
+     - Meaning
+   * - ``loc``
+     - ``ir.Location``
+     - Source information for diagnostics. Defaults to ``UnknownLoc`` and does
+       not affect structural comparison.
+
+Subclasses add operands such as values and variables, or nested statement
+bodies. Common nodes include:
 
 .. list-table::
    :header-rows: 1
@@ -40,7 +54,7 @@ nodes include:
 
    * - Class
      - Represents
-     - Fields
+     - Additional fields
    * - ``ir.Bind``
      - A variable definition
      - ``var``, ``value``
@@ -56,9 +70,6 @@ nodes include:
    * - ``ir.AssertStmt``
      - A program assertion
      - ``condition``, ``error_kind``, ``message_parts``
-
-All statements also inherit a ``loc`` field for source information, defaulting to
-``UnknownLoc``.
 
 Statement Sequences
 -------------------

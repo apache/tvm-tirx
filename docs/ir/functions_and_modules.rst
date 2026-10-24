@@ -26,7 +26,21 @@ Functions
 ---------
 
 ``ir.BaseFunc`` is the shared base class for function definitions and is itself
-an expression. ``tirx.Function`` adds these fields:
+an expression. It inherits ``ty`` and ``loc`` from ``ir.Expr`` and adds a field
+shared by function definitions:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 15 25 60
+
+   * - Field
+     - Type
+     - Meaning
+   * - ``attrs``
+     - ``ir.DictAttrs``
+     - Named function properties.
+
+``tirx.Function`` adds these fields:
 
 .. list-table::
    :header-rows: 1
@@ -40,8 +54,6 @@ an expression. ``tirx.Function`` adds these fields:
      - The declared result type; an omitted type becomes an empty ``TupleType``.
    * - ``body``
      - A ``SeqStmt``, or None for a declaration without an implementation.
-   * - ``attrs``
-     - Named function properties stored in ``ir.DictAttrs``.
 
 Using ``x`` and ``body`` from :doc:`statements` completes the
 increment function:
