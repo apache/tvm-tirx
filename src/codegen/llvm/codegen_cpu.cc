@@ -1113,6 +1113,10 @@ llvm::Value* CodeGenCPU::CreateIntrinsic(const CallObj* op) {
 void CodeGenCPU::Dispatch_(const AssertStmtObj* op) {
   EmitDebugLocation(op);
   llvm::Value* cond = MakeValue(op->condition);
+  if (cond->getType()->isVectorTy()) {
+    // The assertion succeeds only if every lane is true, including for scalable vectors.
+    cond = builder_->CreateAndReduce(cond);
+  }
   llvm::LLVMContext* ctx = llvm_target_->GetContext();
   auto* fail_block = llvm::BasicBlock::Create(*ctx, "assert_fail", function_);
   auto* end_block = llvm::BasicBlock::Create(*ctx, "assert_end", function_);
