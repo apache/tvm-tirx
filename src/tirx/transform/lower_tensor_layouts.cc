@@ -301,17 +301,18 @@ class LayoutApplier : public StmtExprMutatorWithAnalyzer {
 
   ffi::Array<PrimExpr> GetSimplifiedElemOffset(const TensorVar& tensor,
                                                const ffi::Array<PrimExpr>& indices) {
-    if (tensor.ty()->layout.has_value()) {
-      if (auto tile = tensor.ty()->layout.value().as<TileLayoutObj>();
+    // Remap logical geometry before linearization; indices have already been lowered.
+    auto logical_type = StmtExprMutator::Mutate(ffi::AnyView(tensor.ty()), InplaceMode::kDisallow)
+                            .ValueOrUnchanged(tensor.ty())
+                            .as_or_throw<TensorType>();
+    if (logical_type->layout.has_value()) {
+      if (auto tile = logical_type->layout.value().as<TileLayoutObj>();
           tile && ffi::GetRef<TileLayout>(tile).HasThreadAxis()) {
         LOG(FATAL) << "Cannot lower direct TensorLoad/TensorStore on a tensor with thread-axis "
                    << "layout: unable to verify that the coordinate matches the current thread. "
                    << "Use .view() + .local() to decompose thread and memory axes.";
       }
-      auto layout = tensor.ty()->layout.value();
-      layout = StmtExprMutator::Mutate(ffi::AnyView(layout), InplaceMode::kDisallow)
-                   .ValueOrUnchanged(layout)
-                   .as_or_throw<Layout>();
+      auto layout = logical_type->layout.value();
       auto flat = GetFlattenedTensor(tensor);
       auto pattern = MatchShapeStridePattern(flat.ty()).value();
       if (!prim::IsZero(pattern.get<2>())) {
@@ -319,14 +320,14 @@ class LayoutApplier : public StmtExprMutatorWithAnalyzer {
         auto tile = layout.as_or_throw<TileLayout>();
         layout = TileLayout(tile->shard, tile->replica, {});
       }
-      auto res = layout.Canonicalize().Apply(indices, tensor.shape());
-      if (res.empty() && tensor.shape().empty()) {
-        return {IntImm(tensor.ty()->DefaultIndexType(), 0)};
+      auto res = layout.Canonicalize().Apply(indices, logical_type->shape);
+      if (res.empty() && logical_type->shape.empty()) {
+        return {IntImm(logical_type->DefaultIndexType(), 0)};
       }
       TVM_FFI_ICHECK_EQ(res.size(), 1) << "Expected a single element offset";
       return {analyzer_->Simplify((*res.begin()).second)};
     }
-    auto flattened_indices = tensor.ty()->ElemOffset(indices);
+    auto flattened_indices = logical_type->ElemOffset(indices);
     TVM_FFI_ICHECK_EQ(flattened_indices.size(), 1) << "Expected a single element offset";
     return {analyzer_->Simplify(flattened_indices[0])};
   }

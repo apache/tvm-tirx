@@ -1536,3 +1536,31 @@ def test_alloc_tensor_swizzle_storage_span(scope):
     with tvm_tirx.target.Target({"kind": "cuda", "arch": "sm_100a"}):
         After = LowerTensorLayouts()(Before)
     tvm_tirx.ir.assert_structural_equal(After, Expected)
+
+
+def test_shape_tensor_load_is_remapped_in_flattened_offset():
+    @I.ir_module
+    class Before:
+        @T.function(private=True)
+        def main(out: T.Tensor((1,), "float32")):
+            d = T.alloc_local((1,), "int32", layout="default")
+            d[0] = 1
+            b = T.alloc_local((d[0] + 1, d[0] + 1), "float32", layout=None)
+            b[d[0], d[0]] = T.float32(1)
+            out[0] = b[d[0], d[0]]
+
+    @I.ir_module
+    class Expected:
+        @T.function(private=True)
+        def main(out: T.Tensor((1,), "float32")):
+            d = T.alloc_local((1,), "int32", layout=None)
+            d[0] = 1
+            b = T.alloc_local(((d[0] + 1) * (d[0] + 1),), "float32", layout=None)
+            b[(d[0] + 2) * d[0]] = T.float32(1)
+            out[0] = b[(d[0] + 2) * d[0]]
+
+    with tvm_tirx.target.Target("llvm"):
+        after = LowerTensorLayouts()(Before)
+    assert not tvm_tirx.tirx.analysis.undefined_vars(after["main"].body, after["main"].params)
+    tvm_tirx.ir.assert_structural_equal(after, Expected)
+    tvm_tirx.tirx.transform.FlattenTensor()(after)
