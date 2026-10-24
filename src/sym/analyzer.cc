@@ -139,7 +139,7 @@ void AnalyzerObj::Bind(const ffi::Map<Var, Range>& variables, bool allow_overrid
   }
 }
 
-void ConstraintContext::EnterWithScope() {
+void AnalyzerConstraintScope::EnterWithScope() {
   TVM_FFI_ICHECK(recovery_functions_.size() == 0);
   // entering the scope.
   recovery_functions_.push_back(analyzer_->const_int_bound.EnterConstraint(constraint_));
@@ -151,7 +151,7 @@ void ConstraintContext::EnterWithScope() {
   recovery_functions_.push_back(analyzer_->z3_prover.EnterConstraint(constraint_, is_assume_));
 }
 
-void ConstraintContext::ExitWithScope() {
+void AnalyzerConstraintScope::ExitWithScope() {
   while (recovery_functions_.size()) {
     auto& func = recovery_functions_.back();
     if (func) {
@@ -371,8 +371,8 @@ TVM_FFI_STATIC_INIT_BLOCK() {
            [](Analyzer analyzer, const PrimExpr& constraint) {
              // can't use make_shared due to noexcept(false) decl in destructor,
              // see https://stackoverflow.com/a/43907314
-             auto ctx = std::shared_ptr<With<ConstraintContext>>(
-                 new With<ConstraintContext>(analyzer, constraint));
+             auto ctx = std::shared_ptr<With<AnalyzerConstraintScope>>(
+                 new With<AnalyzerConstraintScope>(analyzer, constraint));
              auto fexit = [ctx](ffi::PackedArgs, ffi::Any*) mutable { ctx.reset(); };
              return ffi::Function::FromPacked(fexit);
            })

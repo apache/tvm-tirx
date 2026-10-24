@@ -101,7 +101,7 @@ class With {
  * and provide EnterWithScope() / ExitWithScope() methods.
  *
  * \code
- *   WithGroup<ConstraintContext> group;
+ *   WithGroup<AnalyzerConstraintScope> group;
  *   group.Emplace(analyzer, cond1);  // constructs and enters
  *   group.Emplace(analyzer, cond2);  // constructs and enters
  *   // destructor: exits cond2, then cond1

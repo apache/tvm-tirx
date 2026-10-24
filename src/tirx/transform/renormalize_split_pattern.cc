@@ -188,8 +188,8 @@ class SplitPatternReNormalizer : public StmtExprMutatorWithAnalyzer {
 
   UnchangedOr<Stmt> Mutate_(const ForObj* op, InplaceMode inplace_mode) final {
     analyzer_->Bind(op->var, Range(op->begin, op->end));
-    With<ConstraintContext> ctx1(analyzer_, op->var >= op->begin);
-    With<ConstraintContext> ctx2(analyzer_, static_cast<PrimExpr>(op->var) < op->end);
+    With<AnalyzerConstraintScope> ctx1(analyzer_, op->var >= op->begin);
+    With<AnalyzerConstraintScope> ctx2(analyzer_, static_cast<PrimExpr>(op->var) < op->end);
     return StmtExprMutatorWithAnalyzer::Mutate_(op, inplace_mode);
   }
 

@@ -65,7 +65,7 @@ class SimplifierBase : public tvm::ExprMutator {
 
  protected:
   AnalyzerObj* analyzer_;
-  ScopeStack<WithGroup<ConstraintContext>> constraint_scope_;
+  ScopeStack<WithGroup<AnalyzerConstraintScope>> constraint_scope_;
 };
 
 }  // namespace sym

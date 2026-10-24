@@ -40,7 +40,7 @@ namespace tvm {
  * which pushes a new element on entry and pops it on exit.
  *
  * \code
- *   ScopeStack<WithGroup<ConstraintContext>> constraints;
+ *   ScopeStack<WithGroup<AnalyzerConstraintScope>> constraints;
  *
  *   // In VisitStmt_(ForObj):
  *   return constraints.WithNewScope([&]() -> Stmt {

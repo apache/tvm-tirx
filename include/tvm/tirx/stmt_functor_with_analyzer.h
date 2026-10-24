@@ -69,12 +69,12 @@ class TVM_TIRX_DLL StmtExprVisitorWithAnalyzer : public StmtExprVisitor {
   sym::Analyzer analyzer_;
 
   /*! \brief Scope stack for accumulated assert constraints. */
-  ScopeStack<WithGroup<sym::ConstraintContext>> constraint_scope_;
+  ScopeStack<WithGroup<sym::AnalyzerConstraintScope>> constraint_scope_;
 
   /*! \brief Extract a constraint from a conditional statement
    *
    * Intended for preparing argument for use in
-   * `With<ConstraintContext>`.
+   * `With<AnalyzerConstraintScope>`.
    */
   PrimExpr ExtractRealCondition(PrimExpr condition) const;
 };
@@ -132,7 +132,7 @@ class TVM_TIRX_DLL StmtExprMutatorWithAnalyzer : public StmtExprMutator {
   /*! \brief internal analyzer field. */
   sym::AnalyzerObj* analyzer_;
   /*! \brief Scope stack for accumulated assert constraints. */
-  ScopeStack<WithGroup<sym::ConstraintContext>> constraint_scope_;
+  ScopeStack<WithGroup<sym::AnalyzerConstraintScope>> constraint_scope_;
   // the following two fields are useful in case we want
   // note however that iter map analysis are usually more
   // expensive and we only encourage doing them during

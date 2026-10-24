@@ -42,3 +42,11 @@ from .iter_affine_map import (
     subspace_divide,
     inverse_affine_iter_map,
 )
+
+from .constraint import (
+    ConstraintContext,
+    Constraint,
+    BindingConstraint,
+    RangeConstraint,
+    PredicateConstraint,
+)

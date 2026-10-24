@@ -130,8 +130,8 @@ inline void CollectDerivedConstraintFacts(const PrimExpr& condition, std::vector
   }
 }
 
-inline void EnterConstraintFacts(WithGroup<ConstraintContext>* constraints, AnalyzerObj* analyzer,
-                                 const PrimExpr& condition) {
+inline void EnterConstraintFacts(WithGroup<AnalyzerConstraintScope>* constraints,
+                                 AnalyzerObj* analyzer, const PrimExpr& condition) {
   Analyzer analyzer_ref = ffi::GetRef<Analyzer>(analyzer);
   constraints->Emplace(analyzer_ref, condition);
   std::vector<PrimExpr> derived;

@@ -368,7 +368,7 @@ void CodeGenWebGPU::Dispatch_(const RegionStmtObj* op) {
         << "Virtual thread launches must be lowered before code generation";
     PrimVar var = op->body_params[0].as_or_throw<PrimVar>();
     PrimExpr extent = op->args[1].as_or_throw<PrimExpr>();
-    With<sym::ConstraintContext> thread_scope(analyzer_, var >= 0 && var < extent);
+    With<sym::AnalyzerConstraintScope> thread_scope(analyzer_, var >= 0 && var < extent);
     CodeGenC::Dispatch_(op);
   } else {
     TVM_FFI_THROW(ValueError) << "Unsupported region op " << op->op;

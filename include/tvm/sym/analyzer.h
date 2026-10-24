@@ -56,7 +56,7 @@ namespace sym {
 // Forward declare the analyzer object and its reference handle.
 class AnalyzerObj;
 class Analyzer;
-class ConstraintContext;
+class AnalyzerConstraintScope;
 
 enum DivMode {
   /*! \brief Truncated division. */
@@ -178,7 +178,7 @@ class ConstIntBoundAnalyzer {
 
  private:
   friend class AnalyzerObj;
-  friend class ConstraintContext;
+  friend class AnalyzerConstraintScope;
   explicit ConstIntBoundAnalyzer(AnalyzerObj* parent);
   TVM_TIRX_DLL ~ConstIntBoundAnalyzer();
   void CopyFrom(const ConstIntBoundAnalyzer& other);
@@ -258,7 +258,7 @@ class ModularSetAnalyzer {
 
  private:
   friend class AnalyzerObj;
-  friend class ConstraintContext;
+  friend class AnalyzerConstraintScope;
   explicit ModularSetAnalyzer(AnalyzerObj* parent);
   TVM_TIRX_DLL ~ModularSetAnalyzer();
   void CopyFrom(const ModularSetAnalyzer& other);
@@ -330,7 +330,7 @@ class RewriteSimplifier {
 
  private:
   friend class AnalyzerObj;
-  friend class ConstraintContext;
+  friend class AnalyzerConstraintScope;
   friend class CanonicalSimplifier;
   explicit RewriteSimplifier(AnalyzerObj* parent);
   TVM_TIRX_DLL ~RewriteSimplifier();
@@ -363,7 +363,7 @@ class CanonicalSimplifier {
 
  private:
   friend class AnalyzerObj;
-  friend class ConstraintContext;
+  friend class AnalyzerConstraintScope;
   explicit CanonicalSimplifier(AnalyzerObj* parent);
   TVM_TIRX_DLL ~CanonicalSimplifier();
   void CopyFrom(const CanonicalSimplifier& other);
@@ -441,7 +441,7 @@ class KnownComparisonAnalyzer {
 
  private:
   friend class AnalyzerObj;
-  friend class ConstraintContext;
+  friend class AnalyzerConstraintScope;
   KnownComparisonAnalyzer();
   TVM_TIRX_DLL ~KnownComparisonAnalyzer();
   void CopyFrom(const KnownComparisonAnalyzer& other);
@@ -787,7 +787,7 @@ class TVM_TIRX_DLL AnalyzerObj : public ffi::Object {
    * not affect the other. This is the deep copy that handle-copying an
    * Analyzer does not provide.
    *
-   * \note Do not call this while a `With<ConstraintContext>` scope is active
+   * \note Do not call this while a `With<AnalyzerConstraintScope>` scope is active
    *       on this analyzer. The clone would inherit the scoped constraints
    *       but not the recovery functions that pop them on scope exit, so the
    *       constraints would leak as if they were global facts. Clone at a
@@ -862,7 +862,7 @@ class AllowUIntAsIndex {
  *  Var x("x");
  *  sym::Analyzer analyzer;
  *  {
- *    With<sym::ConstraintContext> scope(analyzer, tvm::floormod(x, 3) == 0);
+ *    With<sym::AnalyzerConstraintScope> scope(analyzer, tvm::floormod(x, 3) == 0);
  *    TVM_FFI_ICHECK_EQ(analyzer->modular_set(x)->coeff, 3);
  *  }
  *  // constraint no longer in effect.
@@ -870,18 +870,18 @@ class AllowUIntAsIndex {
  *
  * \endcode
  */
-class ConstraintContext {
+class AnalyzerConstraintScope {
  private:
   // declare friend to enable with.
-  friend class With<ConstraintContext>;
+  friend class With<AnalyzerConstraintScope>;
   /*!
    * \brief Construct a constraint context.
    * \param analyzer The analyzer whose context is updated. The context
    *        keeps a reference to the analyzer while the scope is active.
    * \param constraint The constraint to be applied.
    */
-  ConstraintContext(const Analyzer& analyzer, PrimExpr constraint)
-      : ConstraintContext(analyzer, std::move(constraint), false) {}
+  AnalyzerConstraintScope(const Analyzer& analyzer, PrimExpr constraint)
+      : AnalyzerConstraintScope(analyzer, std::move(constraint), false) {}
   /*!
    * \brief Construct a constraint context.
    * \param analyzer The analyzer whose context is updated. The context
@@ -889,7 +889,7 @@ class ConstraintContext {
    * \param constraint The constraint to be applied.
    * \param is_assume Whether the constraint comes from an assumption.
    */
-  ConstraintContext(const Analyzer& analyzer, PrimExpr constraint, bool is_assume)
+  AnalyzerConstraintScope(const Analyzer& analyzer, PrimExpr constraint, bool is_assume)
       : analyzer_(analyzer), constraint_(std::move(constraint)), is_assume_(is_assume) {}
   /*!
    * \brief Construct a constraint context from a borrowed analyzer object.
@@ -898,16 +898,17 @@ class ConstraintContext {
    *
    * This overload is for internal callers that already operate on AnalyzerObj*.
    */
-  ConstraintContext(AnalyzerObj* analyzer, PrimExpr constraint)
-      : ConstraintContext(ffi::GetRef<Analyzer>(analyzer), std::move(constraint), false) {}
+  AnalyzerConstraintScope(AnalyzerObj* analyzer, PrimExpr constraint)
+      : AnalyzerConstraintScope(ffi::GetRef<Analyzer>(analyzer), std::move(constraint), false) {}
   /*!
    * \brief Construct a constraint context from a borrowed analyzer object.
    * \param analyzer The borrowed analyzer object.
    * \param constraint The constraint to be applied.
    * \param is_assume Whether the constraint comes from an assumption.
    */
-  ConstraintContext(AnalyzerObj* analyzer, PrimExpr constraint, bool is_assume)
-      : ConstraintContext(ffi::GetRef<Analyzer>(analyzer), std::move(constraint), is_assume) {}
+  AnalyzerConstraintScope(AnalyzerObj* analyzer, PrimExpr constraint, bool is_assume)
+      : AnalyzerConstraintScope(ffi::GetRef<Analyzer>(analyzer), std::move(constraint), is_assume) {
+  }
   // enter the scope.
   TVM_TIRX_DLL void EnterWithScope();
   // exit the scope.

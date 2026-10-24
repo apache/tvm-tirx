@@ -1025,7 +1025,7 @@ void CodeGenSPIRV::Dispatch_(const RegionStmtObj* op) {
         << "Conflicting launch extents for " << tag;
     TVM_FFI_ICHECK(!var_map_.count(var.get())) << "Launch variable is already defined";
     var_map_[var.get()] = GetThreadIndex(var, tag, extent);
-    With<sym::ConstraintContext> thread_scope(analyzer_, var >= 0 && var < extent);
+    With<sym::AnalyzerConstraintScope> thread_scope(analyzer_, var >= 0 && var < extent);
     this->Dispatch(op->body);
     var_map_.erase(var.get());
   } else {

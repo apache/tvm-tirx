@@ -28,6 +28,7 @@
 #ifndef TVM_TIRX_OP_ATTR_H_
 #define TVM_TIRX_OP_ATTR_H_
 
+#include <tvm/ffi/extra/structural_mutate.h>
 #include <tvm/ffi/function.h>
 #include <tvm/ffi/reflection/native_function.h>
 #include <tvm/ffi/string.h>
@@ -36,6 +37,9 @@
 
 namespace tvm {
 namespace tirx {
+
+class StructuralVisitorWithConstraintContextObj;
+class StructuralMutatorWithConstraintContextObj;
 
 /*!
  * \brief The intrinsic lowering function for given op.
@@ -56,6 +60,32 @@ inline constexpr ffi::reflection::AttrKey<ffi::String> kGlobalSymbol{"TGlobalSym
  * \brief Whether the op is overloaded for vector form.
  */
 inline constexpr ffi::reflection::AttrKey<bool> kVectorizable{"TVectorizable"};
+/*!
+ * \brief Constraint-aware descent for a Call or RegionStmt using this Op.
+ * Receives the complete containing node as value. The hook owns child descent,
+ * definition regions, and constraint scopes, and propagates interrupts and errors.
+ * Missing hooks use ordinary Call descent or body-scoped RegionStmt descent.
+ */
+inline constexpr ffi::reflection::AttrKey<ffi::reflection::NativeFunctionView<ffi::Optional<
+    ffi::VisitInterrupt>(StructuralVisitorWithConstraintContextObj*, ffi::AnyView value)>>
+    kStructuralVisitWithConstraintContext{"__s_visit_with_constraint_context__"};
+/*!
+ * \brief Copying mutation of a complete Call or RegionStmt using this Op.
+ * The hook owns descent, definition remaps, and constraint scopes. Descend with
+ * in-place mutation disallowed and return a replacement or Unchanged, or an error.
+ */
+inline constexpr ffi::reflection::AttrKey<ffi::reflection::NativeFunctionView<
+    ffi::UnchangedOr<ffi::Any>(StructuralMutatorWithConstraintContextObj*, ffi::AnyView value)>>
+    kStructuralMutateWithConstraintContext{"__s_mutate_with_constraint_context__"};
+/*!
+ * \brief Mutation when the engine permits in-place updates of the containing node.
+ * Child mutation still checks ownership. Missing overrides use the Op's copying
+ * hook; if both are absent, use ordinary Call or body-scoped RegionStmt descent.
+ */
+inline constexpr ffi::reflection::AttrKey<ffi::reflection::NativeFunctionView<
+    ffi::UnchangedOr<ffi::Any>(StructuralMutatorWithConstraintContextObj*, ffi::AnyView value)>>
+    kStructuralMaybeInplaceMutateWithConstraintContext{
+        "__s_maybe_inplace_mutate_with_constraint_context__"};
 }  // namespace op_attr
 
 }  // namespace tirx

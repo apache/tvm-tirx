@@ -116,3 +116,13 @@ def __getattr__(name):
 
         return import_module(__name__ + ".tile")
     raise AttributeError(name)
+
+
+from .structural import (
+    StructuralVisitorWithConstraintContext,
+    StructuralMutatorWithConstraintContext,
+    structural_walk_with_constraint_context,
+    structural_visit_with_constraint_context,
+    structural_map_with_constraint_context,
+    structural_mutate_with_constraint_context,
+)
