@@ -157,14 +157,9 @@ three:
 Its variable, bounds, and step must have matching scalar integer types after
 conversion.
 
-The ``kind`` argument specifies how the loop iterations are executed:
-
-* ``ForKind.DEFAULT`` executes iterations in order, one after another.
-* ``ForKind.PARALLEL`` allows different iterations to run concurrently.
-* ``ForKind.VECTORIZED`` asks the compiler to combine iterations into vector
-  operations that process multiple elements at once.
-* ``ForKind.UNROLLED`` asks the compiler to expand the loop into repeated
-  copies of its body.
+The ``kind`` argument controls how loop iterations are executed.
+``ForKind.DEFAULT`` executes them in order, one after another.
+See :class:`~tvm_tirx.ir.ForKind` for the available execution kinds.
 
 ``Break`` exits a loop, and ``Continue`` starts its next iteration.
 
