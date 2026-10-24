@@ -301,7 +301,7 @@ class LayoutApplier : public StmtExprMutatorWithAnalyzer {
 
   ffi::Array<PrimExpr> GetSimplifiedElemOffset(const TensorVar& tensor,
                                                const ffi::Array<PrimExpr>& indices) {
-    // Remap logical geometry before linearization; indices have already been lowered.
+    // Remap the ty first since the type may depend on previously remapped value in mutator.
     auto logical_type = StmtExprMutator::Mutate(ffi::AnyView(tensor.ty()), InplaceMode::kDisallow)
                             .ValueOrUnchanged(tensor.ty())
                             .as_or_throw<TensorType>();
