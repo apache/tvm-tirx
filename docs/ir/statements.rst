@@ -125,9 +125,12 @@ the enclosing scope.
 Control Flow and Scope
 ----------------------
 
-``ir.If`` selects a branch to execute; ``ir.For`` and ``ir.While`` repeat a
-body. Their bodies are ``SeqStmt`` objects and can in turn contain branches
-and loops.
+Control-flow statement nodes include ``ir.If`` for branching, ``ir.For`` and
+``ir.While`` for loops, ``ir.Break`` and ``ir.Continue`` for loop control, and
+``ir.Return`` for returning from a function.
+
+Branch and loop bodies are ``SeqStmt`` objects and can themselves contain
+branches and loops.
 
 For example, this branch returns the incremented value only for positive
 inputs. Both bodies are normalized to ``SeqStmt``:
