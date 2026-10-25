@@ -132,6 +132,9 @@ TVM_FFI_STATIC_INIT_BLOCK() {
   OpDef("prim.sqrt")
       .set_attr<FLowerIntrinsic>("default.FLowerIntrinsic", DispatchPureExtern<FloatSuffix>);
 
+  OpDef("prim.fmod")
+      .set_attr<FLowerIntrinsic>("default.FLowerIntrinsic", DispatchPureExtern<FloatSuffix>);
+
   OpDef("prim.floor")
       .set_attr<FLowerIntrinsic>("default.FLowerIntrinsic", DispatchPureExtern<FloatSuffix>);
 
