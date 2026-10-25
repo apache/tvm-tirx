@@ -209,6 +209,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
       .signature(sig::arg("ptr", "The pointer."), sig::arg<IntExpr>("rw", "The read/write mode."),
                  sig::arg<IntExpr>("locality", "The locality hint."),
                  sig::arg<IntExpr>("cache_type", "The cache policy."))
+      .set_attr(tvm::op_attr::kFixedReturnType, PrimType::Void())
       .set_attr(tvm::op_attr::kCallEffectKind, CallEffectKind::kOpaque);
 }
 
