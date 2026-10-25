@@ -61,6 +61,7 @@ namespace detail {
 class TempConstraintScope;
 }  // namespace detail
 
+/*! \brief Integer division semantics used by symbolic analysis. */
 enum DivMode {
   /*! \brief Truncated division. */
   kTruncDiv,
@@ -69,14 +70,14 @@ enum DivMode {
 };
 
 /*!
- * \brief The strength used in top-level condition proves
+ * \brief The strength used for top-level condition proofs.
  * \note The higher, the more time consuming it can be.
  *
  * Do not use level beyond kDefault in internal recursive rewriting in sym
  * analysis and only use it at top-level simplification to avoid speed issues.
  */
 enum class ProofStrength : int {
-  /*! \brief default strength, can be used in. */
+  /*! \brief Default simplification-based proof, suitable for recursive analysis. */
   kDefault = 0,
   /*!
    * \brief Prove using symbolic bound analysis
@@ -85,16 +86,18 @@ enum class ProofStrength : int {
 };
 
 /*!
- * \brief Constant integer up and lower bound(inclusive).
- *  Useful for value bound analysis.
+ * \brief Inclusive constant integer bounds, representing [min_value, max_value].
  *
- *  set = [min_value, max_value]
+ * The infinity sentinels represent unbounded endpoints, not finite integer values.
  */
 class ConstIntBoundObj : public ffi::Object {
  public:
+  /*! \brief Inclusive lower endpoint, or kNegInf when unbounded. */
   int64_t min_value;
+  /*! \brief Inclusive upper endpoint, or kPosInf when unbounded. */
   int64_t max_value;
 
+  /*! \brief Register the fields exposed through FFI reflection. */
   static void RegisterReflection() {
     namespace refl = tvm::ffi::reflection;
     refl::ObjectDef<ConstIntBoundObj>()
@@ -106,28 +109,31 @@ class ConstIntBoundObj : public ffi::Object {
   static const constexpr int64_t kPosInf = std::numeric_limits<int64_t>::max();
   /*!
    * \brief Number to represent -inf
-   * \note We can make use the of fact that -kPosInf == kNegInf in the project.
+   * \note The sentinels satisfy -kPosInf == kNegInf.
    */
   static const constexpr int64_t kNegInf = -kPosInf;
 
+  /*! \brief Compare and hash these value objects structurally. */
   static constexpr TVMFFISEqHashKind _type_s_eq_hash_kind = kTVMFFISEqHashKindTreeNode;
   TVM_FFI_DECLARE_OBJECT_INFO_FINAL("sym.ConstIntBound", ConstIntBoundObj, ffi::Object);
 };
 
 /*!
- * \brief reference class to ConstIntBoundObj
+ * \brief Managed reference to ConstIntBoundObj.
  * \sa ConstIntBoundObj
  */
 class ConstIntBound : public ffi::ObjectRef {
  public:
   /*!
-   * \brief constructor by fields.
-   * \param min_value The mininum value.
-   * \param max_value The maximum value.
+   * \brief Construct inclusive bounds from their endpoints.
+   * \param min_value The inclusive minimum, or kNegInf.
+   * \param max_value The inclusive maximum, or kPosInf.
    */
   TVM_TIRX_DLL ConstIntBound(int64_t min_value, int64_t max_value);
 
+  /*! \brief Sentinel for an unbounded upper endpoint. */
   static const constexpr int64_t kPosInf = ConstIntBoundObj::kPosInf;
+  /*! \brief Sentinel for an unbounded lower endpoint. */
   static const constexpr int64_t kNegInf = ConstIntBoundObj::kNegInf;
   TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(ConstIntBound, ffi::ObjectRef, ConstIntBoundObj);
 };
@@ -137,64 +143,69 @@ class ConstIntBound : public ffi::ObjectRef {
  */
 class ConstIntBoundAnalyzer {
  public:
+  /*! \brief Query results keyed by expression object identity. */
   using BoundMapType =
       std::unordered_map<PrimExpr, ConstIntBound, ffi::ObjectPtrHash, ffi::ObjectPtrEqual>;
   /*!
-   * \brief analyze the expr
-   * \param expr The expression of interest.
-   * \return the result of the analysis.
+   * \brief Compute conservative constant bounds under the current premises.
+   * \param expr The integer expression to analyze.
+   * \return Inclusive bounds; unproved endpoints use the infinity sentinels.
    */
   TVM_TIRX_DLL ConstIntBound operator()(const PrimExpr& expr) const;
 
   /*!
-   * \brief analyze the expr with the intermediate memorized to avoid redundant computation
-   * \param expr The expression of interest.
-   * \param bound Output map, cleared on entry so results cannot cross context epochs
-   * \return the result of the analysis.
+   * \brief Compute bounds and optionally collect intermediate query results.
+   * \param expr The integer expression to analyze.
+   * \param bound Optional output map, cleared on entry and borrowed only for this call.
+   * Its results describe the current premises and are not updated by later synchronization.
+   * \return Inclusive conservative bounds for expr.
    */
   TVM_TIRX_DLL ConstIntBound operator()(const PrimExpr& expr, BoundMapType* bound);
 
   /*!
-   * \brief Check if a variable is bound to a range.
+   * \brief Check whether a binding or recognized predicate supplies bounds for a variable.
    * \param var The variable.
-   * \return Whether the variable is bound to a range.
+   * \return True when such information is recorded, even if its bounds are unbounded.
    */
   TVM_TIRX_DLL bool IsBound(const Var& var) const;
 
  private:
   friend class AnalyzerObj;
-  TVM_TIRX_DLL void Reset();
-  TVM_TIRX_DLL void IngestBinding(const Var& var, const PrimExpr& expr);
-  TVM_TIRX_DLL void IngestBinding(const Var& var, const Range& range);
-  TVM_TIRX_DLL void IngestPredicate(const PrimExpr& constraint);
+  // Clear context-derived facts before replay; retain query settings and diagnostics.
+  void Reset();
+  // Record a value binding after AnalyzerObj validates and orders the premises.
+  void IngestBinding(const Var& var, const PrimExpr& expr);
+  // Record a half-open variable range from the accepted premise prefix.
+  void IngestBinding(const Var& var, const Range& range);
+  // Consume a predicate prepared against the preceding premise prefix.
+  void IngestPredicate(const PrimExpr& constraint);
+  // Borrow the owning analyzer for cross-backend queries.
   explicit ConstIntBoundAnalyzer(AnalyzerObj* parent);
+  // Exported for destruction through the inline Analyzer object allocator.
   TVM_TIRX_DLL ~ConstIntBoundAnalyzer();
+  // Copy durable facts/settings into this backend without sharing mutable query state.
   void CopyFrom(const ConstIntBoundAnalyzer& other);
   struct Entry;
   class Impl;
-  /*! \brief Internal impl */
+  // Owned backend state; its definition stays inside the compiler library.
   std::unique_ptr<Impl> impl_;
 };
 
 /*!
- * \brief Range of a linear integer function.
- *  Use to do specify the possible index values.
+ * \brief Integer congruence class {coeff * x + base | x in Z}.
  *
- *  set = { coeff * x + base | x in Z }
- *
- *  When coeff != 0, it can also be written as
- *  set = { n | n % coeff == base }
- *
- *  This is useful to decide if the index is dividable by certain value.
- *  For example, if index = 0 + 4 x, then we know it can be divided by 4.
+ * A zero coefficient represents the singleton {base}; a coefficient of one
+ * represents all integers. This information can establish divisibility, for
+ * example every element of {4 * x | x in Z} is divisible by four.
  */
 class ModularSetObj : public ffi::Object {
  public:
-  /*! \brief linear co-efficient */
+  /*! \brief Coefficient of the arbitrary integer multiplier. */
   int64_t coeff;
-  /*! \brief The base */
+  /*! \brief Constant offset of the congruence class. */
   int64_t base;
 
+  /*! \brief Register the fields exposed through FFI reflection. */
   static void RegisterReflection() {
     namespace refl = tvm::ffi::reflection;
     refl::ObjectDef<ModularSetObj>()
@@ -202,16 +213,22 @@ class ModularSetObj : public ffi::Object {
         .def_ro("base", &ModularSetObj::base);
   }
 
+  /*! \brief Compare and hash these value objects structurally. */
   static constexpr TVMFFISEqHashKind _type_s_eq_hash_kind = kTVMFFISEqHashKindTreeNode;
   TVM_FFI_DECLARE_OBJECT_INFO_FINAL("sym.ModularSet", ModularSetObj, ffi::Object);
 };
 
 /*!
- * \brief reference of ModularSetObj
+ * \brief Managed reference to ModularSetObj.
  * \sa ModularSetObj
  */
 class ModularSet : public ffi::ObjectRef {
  public:
+  /*!
+   * \brief Construct a congruence class from its coefficient and offset.
+   * \param coeff Coefficient of the integer multiplier; zero denotes a singleton.
+   * \param base Constant offset. Both fields are stored as supplied, without normalization.
+   */
   TVM_TIRX_DLL ModularSet(int64_t coeff, int64_t base);
 
   TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(ModularSet, ffi::ObjectRef, ModularSetObj);
@@ -223,23 +240,29 @@ class ModularSet : public ffi::ObjectRef {
 class ModularSetAnalyzer {
  public:
   /*!
-   * \brief analyze the expr
-   * \param expr The expression of interest.
-   * \return the result of the analysis.
+   * \brief Compute conservative congruence information under the current premises.
+   * \param expr The integer expression to analyze.
+   * \return A congruence class containing every possible value of expr.
    */
   TVM_TIRX_DLL ModularSet operator()(const PrimExpr& expr);
 
  private:
   friend class AnalyzerObj;
-  TVM_TIRX_DLL void Reset();
-  TVM_TIRX_DLL void IngestBinding(const Var& var, const PrimExpr& expr);
-  TVM_TIRX_DLL void IngestPredicate(const PrimExpr& constraint);
+  // Clear context-derived facts before replay; retain query settings and diagnostics.
+  void Reset();
+  // Record a value binding after AnalyzerObj validates and orders the premises.
+  void IngestBinding(const Var& var, const PrimExpr& expr);
+  // Consume a predicate prepared against the preceding premise prefix.
+  void IngestPredicate(const PrimExpr& constraint);
+  // Borrow the owning analyzer for cross-backend queries.
   explicit ModularSetAnalyzer(AnalyzerObj* parent);
+  // Exported for destruction through the inline Analyzer object allocator.
   TVM_TIRX_DLL ~ModularSetAnalyzer();
+  // Copy durable facts/settings into this backend without sharing mutable query state.
   void CopyFrom(const ModularSetAnalyzer& other);
   struct Entry;
   class Impl;
-  /*! \brief Internal impl */
+  // Owned backend state; its definition stays inside the compiler library.
   std::unique_ptr<Impl> impl_;
 };
 
@@ -249,19 +272,23 @@ class ModularSetAnalyzer {
 class RewriteSimplifier {
  public:
   /*!
-   * \brief analyze the expr
-   * \param expr The expression of interest.
-   * \return the result of the analysis.
+   * \brief Simplify an expression under the current premises.
+   * \param expr The expression to simplify.
+   * \return An equivalent expression under those premises.
    */
   TVM_TIRX_DLL PrimExpr operator()(const PrimExpr& expr);
 
-  /*! \brief Return the statistics counters */
+  /*!
+   * \brief Read cumulative rewrite statistics.
+   * \return A snapshot of the current counters.
+   */
   TVM_TIRX_DLL ffi::ObjectRef GetStatsCounters() const;
 
-  /*! \brief Reset the statistics counters */
+  /*! \brief Clear cumulative rewrite counters without changing facts or the rewrite limit. */
   TVM_TIRX_DLL void ResetStatsCounters();
 
-  /*! \brief Set the maximum allowed number of rewrite steps
+  /*!
+   * \brief Set the maximum allowed cumulative number of successful rewrites.
    *
    * By default, the simplifier may perform as many steps as are
    * required.  If a positive limit is set, then the simplifier will
@@ -271,23 +298,31 @@ class RewriteSimplifier {
    * Note: To maintain accurate usage counters, `Analyzer` instances
    * should be re-used wherever possible.  For example, TIR
    * transformations should declare a single `Analyzer` that is used
-   * throughout the pass.  Internal helper functions that only borrow
-   * the analyzer temporarily may receive the underlying `AnalyzerObj*`
-   * from their calling scope.
+   * throughout the pass. Internal helpers may borrow its `AnalyzerObj*`.
+   *
+   * The limit applies to the cumulative counter, not separately to each query.
+   * ResetStatsCounters starts a new accounting interval.
+   * \param maximum Positive rewrite limit, or a nonpositive value for no limit.
    */
   TVM_TIRX_DLL void SetMaximumRewriteSteps(int64_t maximum);
 
  private:
   friend class AnalyzerObj;
-  TVM_TIRX_DLL void Reset();
-  TVM_TIRX_DLL void IngestBinding(const Var& var, const PrimExpr& expr);
-  TVM_TIRX_DLL void IngestPredicate(const PrimExpr& constraint);
+  // Clear context-derived facts before replay; retain query settings and diagnostics.
+  void Reset();
+  // Record a value binding after AnalyzerObj validates and orders the premises.
+  void IngestBinding(const Var& var, const PrimExpr& expr);
+  // Consume a predicate prepared against the preceding premise prefix.
+  void IngestPredicate(const PrimExpr& constraint);
   friend class CanonicalSimplifier;
+  // Borrow the owning analyzer for cross-backend queries.
   explicit RewriteSimplifier(AnalyzerObj* parent);
+  // Exported for destruction through the inline Analyzer object allocator.
   TVM_TIRX_DLL ~RewriteSimplifier();
+  // Copy durable facts/settings into this backend without sharing mutable query state.
   void CopyFrom(const RewriteSimplifier& other);
   class Impl;
-  /*! \brief Internal impl */
+  // Owned backend state; its definition stays inside the compiler library.
   ffi::ObjectPtr<Impl> impl_;
 };
 
@@ -297,43 +332,69 @@ class RewriteSimplifier {
 class CanonicalSimplifier {
  public:
   /*!
-   * \brief analyze the expr
-   * \param expr The expression of interest.
-   * \return the result of the analysis.
+   * \brief Simplify an expression under the current premises.
+   * \param expr The expression to simplify.
+   * \return An equivalent expression under those premises.
    */
   TVM_TIRX_DLL PrimExpr operator()(const PrimExpr& expr);
 
  private:
   friend class AnalyzerObj;
-  TVM_TIRX_DLL void Reset();
-  TVM_TIRX_DLL void IngestBinding(const Var& var, const PrimExpr& expr);
+  // Clear context-derived facts before replay; retain query settings and diagnostics.
+  void Reset();
+  // Record a value binding after AnalyzerObj validates and orders the premises.
+  void IngestBinding(const Var& var, const PrimExpr& expr);
+  // Borrow the owning analyzer for cross-backend queries.
   explicit CanonicalSimplifier(AnalyzerObj* parent);
+  // Exported for destruction through the inline Analyzer object allocator.
   TVM_TIRX_DLL ~CanonicalSimplifier();
+  // Copy durable facts/settings into this backend without sharing mutable query state.
   void CopyFrom(const CanonicalSimplifier& other);
   class Impl;
-  /*! \brief Internal impl */
+  // Owned backend state; its definition stays inside the compiler library.
   ffi::ObjectPtr<Impl> impl_;
 };
 
-/*! \brief Structure for representing result of known
+/*!
+ * \brief Possible orderings of two expressions, represented as a bit set.
  *
- * Values are assigned to allow these flags to be used in bitwise
- * operations.
+ * EQ, LT, and GT are independent bits. Intersection combines facts that all
+ * hold; union combines alternative possibilities. Zero indicates inconsistency.
  */
 enum class CompareResult : int {
+  /*! \brief No ordering is possible under the known facts. */
   kInconsistent = 0,
+  /*! \brief Equal. */
   kEQ = 1,
+  /*! \brief Strictly less. */
   kLT = 2,
+  /*! \brief Less than or equal. */
   kLE = 3,
+  /*! \brief Strictly greater. */
   kGT = 4,
+  /*! \brief Greater than or equal. */
   kGE = 5,
+  /*! \brief Unequal. */
   kNE = 6,
+  /*! \brief Any ordering is possible. */
   kUnknown = 7
 };
 
+/*!
+ * \brief Intersect the possible orderings.
+ * \param lhs First set of orderings.
+ * \param rhs Second set of orderings.
+ * \return The combined set of orderings.
+ */
 inline constexpr CompareResult operator&(CompareResult lhs, CompareResult rhs) {
   return CompareResult(static_cast<int>(lhs) & static_cast<int>(rhs));
 }
+/*!
+ * \brief Unite the possible orderings.
+ * \param lhs First set of orderings.
+ * \param rhs Second set of orderings.
+ * \return The combined set of orderings.
+ */
 inline constexpr CompareResult operator|(CompareResult lhs, CompareResult rhs) {
   return CompareResult(static_cast<int>(lhs) | static_cast<int>(rhs));
 }
@@ -345,7 +406,8 @@ inline constexpr CompareResult operator|(CompareResult lhs, CompareResult rhs) {
  */
 class KnownComparisonAnalyzer {
  public:
-  /* \brief Using previously specified knowns, compare the expressions provided
+  /*!
+   * \brief Compare expressions using recorded relations and constant offsets.
    *
    * \param lhs The left-hand side of the comparison
    *
@@ -360,15 +422,22 @@ class KnownComparisonAnalyzer {
 
  private:
   friend class AnalyzerObj;
-  TVM_TIRX_DLL void Reset();
-  TVM_TIRX_DLL void IngestBinding(const Var& var, const PrimExpr& expr);
-  TVM_TIRX_DLL void IngestBinding(const Var& var, const Range& range);
-  TVM_TIRX_DLL void IngestPredicate(const PrimExpr& constraint);
+  // Clear context-derived facts before replay; retain query settings and diagnostics.
+  void Reset();
+  // Record a value binding after AnalyzerObj validates and orders the premises.
+  void IngestBinding(const Var& var, const PrimExpr& expr);
+  // Record a half-open variable range from the accepted premise prefix.
+  void IngestBinding(const Var& var, const Range& range);
+  // Consume a predicate prepared against the preceding premise prefix.
+  void IngestPredicate(const PrimExpr& constraint);
+  // Borrow the owning analyzer for cross-backend queries.
   explicit KnownComparisonAnalyzer(AnalyzerObj* parent);
+  // Exported for destruction through the inline Analyzer object allocator.
   TVM_TIRX_DLL ~KnownComparisonAnalyzer();
+  // Copy durable facts/settings into this backend without sharing mutable query state.
   void CopyFrom(const KnownComparisonAnalyzer& other);
   class Impl;
-  /*! \brief Internal impl */
+  // Owned backend state; its definition stays inside the compiler library.
   std::unique_ptr<Impl> impl_;
 };
 
@@ -379,18 +448,17 @@ class IntSetAnalyzer {
  public:
   /*!
    * \brief Find a symbolic integer set that contains all possible values of
-   *        expr given the domain of each variables.
+   *        expr given the supplied variable domains.
    *
    * \param expr The expression of interest.
-   * \param dom_map The domain map to indicate which variable to relax.
+   * \param dom_map The variable domains to relax; variables absent from the map remain symbolic.
    * \return the result of the analysis.
    */
   TVM_TIRX_DLL IntSet operator()(const PrimExpr& expr, const ffi::Map<Var, IntSet>& dom_map);
 
   /*!
    * \brief Find a symbolic integer set that contains all possible
-   *        values of expr given the domain of each variables, using
-   *        the domain map defined by bound variables.
+   *        values of expr using current bindings, ranges, and recognized predicates.
    *
    * \param expr The expression of interest.
    * \return the result of the analysis.
@@ -399,109 +467,130 @@ class IntSetAnalyzer {
 
  private:
   friend class AnalyzerObj;
-  TVM_TIRX_DLL void Reset();
-  TVM_TIRX_DLL void IngestBinding(const Var& var, const PrimExpr& expr);
-  TVM_TIRX_DLL void IngestBinding(const Var& var, const Range& range);
-  TVM_TIRX_DLL void IngestPredicate(const PrimExpr& constraint);
+  // Clear context-derived facts before replay; retain query settings and diagnostics.
+  void Reset();
+  // Record a value binding after AnalyzerObj validates and orders the premises.
+  void IngestBinding(const Var& var, const PrimExpr& expr);
+  // Record a half-open variable range from the accepted premise prefix.
+  void IngestBinding(const Var& var, const Range& range);
+  // Consume a predicate prepared against the preceding premise prefix.
+  void IngestPredicate(const PrimExpr& constraint);
+  // Borrow the owning analyzer for cross-backend queries.
   explicit IntSetAnalyzer(AnalyzerObj* parent);
+  // Exported for destruction through the inline Analyzer object allocator.
   TVM_TIRX_DLL ~IntSetAnalyzer();
+  // Copy durable facts/settings into this backend without sharing mutable query state.
   void CopyFrom(const IntSetAnalyzer& other);
   class Impl;
-  /*! \brief Internal impl */
+  // Owned backend state; its definition stays inside the compiler library.
   Impl* impl_;
 };
 
+/*!
+ * \brief Optional Z3-backed prover over the analyzer's accepted premises.
+ *
+ * Diagnostic and enumeration queries may propagate translation or solver errors.
+ * Their temporary assertions do not change the accepted premise environment.
+ */
 class Z3Prover {
  public:
   /*!
-   * \brief Whether the Z3 backend is compiled into this build (USE_Z3=ON).
+   * \brief Whether the Z3 backend is compiled into this build (TVM_TIRX_USE_Z3=ON).
    *
    * \return true if the real Z3 prover is available, false for the stub.
    */
   TVM_TIRX_DLL bool IsEnabled() const;
 
   /*!
-   * \brief Whether can we prove expr is always true.
-   *
-   * \param expr The expression.
-   * \return Whether we can prove it.
+   * \brief Attempt to prove that expr holds under the current premises.
+   * \param expr Boolean expression to prove.
+   * \return True only when proved; false for unsupported expressions, an unavailable
+   * backend, an inconclusive solver result, or a caught Z3 error. False is not a disproof.
    */
   TVM_TIRX_DLL bool CanProve(const PrimExpr& expr);
 
   /*!
    * \brief Get the SMTLIB2 representation of the current context.
    *
-   * \param expr The optional expression to check.
-   * \return The SMTLIB2 string.
+   * \param expr Optional boolean expression whose negation is added as a proof query.
+   * \return The SMTLIB2 string, or a comment indicating that Z3 is disabled.
    */
   TVM_TIRX_DLL ffi::String GetSMTLIB2(const ffi::Optional<PrimExpr> expr);
 
   /*!
    * \brief Get statistics about Z3 prover.
    *
-   * \return The statistics string.
+   * \return The statistics string, or a comment indicating that Z3 is disabled.
    */
   TVM_TIRX_DLL ffi::String GetStats();
 
   /*!
    * \brief Set timeout in milliseconds for Z3 prover.
    *
-   * \param timeout_ms The timeout in milliseconds.
+   * \param timeout_ms The timeout in milliseconds; zero disables the timeout. Ignored by the stub.
    */
   TVM_TIRX_DLL void SetTimeoutMs(unsigned timeout_ms);
 
   /*!
    * \brief Set resource limitation for Z3 prover.
    *
-   * \param rlimit the resource limitation.
+   * \param rlimit Z3 resource limit; zero disables it. Ignored by the stub.
    */
   TVM_TIRX_DLL void SetRLimit(unsigned rlimit);
 
   /*!
-   * \brief Get the Z3 model for the given expression if satisfiable.
+   * \brief Get a counterexample model for a boolean expression.
    *
-   * \param expr The expression to get the model for.
-   * \return The model as a string.
+   * \param expr Boolean expression whose negation is checked under the current premises.
+   * \return A model satisfying the negation, or an empty string if no model is found
+   * (including an unknown result). The stub returns a comment indicating Z3 is disabled.
    */
   TVM_TIRX_DLL ffi::String GetModel(const PrimExpr& expr);
 
   /*!
    * \brief Count the number of integer values that satisfy the current constraints.
    *
-   * This method uses Z3's model enumeration to count how many distinct values of
-   * the given variable satisfy all current constraints.
+   * Enumerates distinct values until the limit, unsatisfiability, or an inconclusive
+   * result. The count may be partial; it is not a proof of the domain cardinality.
    *
    * \param var The variable to count satisfying values for.
-   * \param max_count Maximum number of solutions to enumerate.
-   * \param min_consecutive Minimum consecutive count requirement.
-   * \return The number of distinct values that satisfy the constraints, or a negative error code.
+   * \param max_count Maximum number of values to enumerate; nonpositive values enumerate none.
+   * \param min_consecutive Minimum size of each consecutive run in the enumerated values;
+   * nonpositive values disable this check. The check does not establish complete coverage.
+   * \return The enumerated count, -1 for an unsupported variable or disabled Z3, or -2
+   * if a nonempty enumerated run is shorter than min_consecutive. Errors may propagate.
    */
   TVM_TIRX_DLL int64_t CountSatisfyingValues(const Var& var, int64_t max_count = 2048,
                                              int64_t min_consecutive = 1);
 
  private:
   friend class AnalyzerObj;
-  TVM_TIRX_DLL void Reset();
-  TVM_TIRX_DLL void IngestBinding(const Var& var, const PrimExpr& expr);
-  TVM_TIRX_DLL void IngestBinding(const Var& var, const Range& range);
-  TVM_TIRX_DLL void IngestPredicate(const PrimExpr& constraint);
+  // Clear facts, translations, and solver state; retain resource limits.
+  void Reset();
+  // Record a value binding after AnalyzerObj validates and orders the premises.
+  void IngestBinding(const Var& var, const PrimExpr& expr);
+  // Record a half-open variable range from the accepted premise prefix.
+  void IngestBinding(const Var& var, const Range& range);
+  // Consume a predicate prepared against the preceding premise prefix.
+  void IngestPredicate(const PrimExpr& constraint);
   friend class Analyzer;
+  // Borrow the owning analyzer for cross-backend queries.
   explicit Z3Prover(AnalyzerObj* parent);
+  // Exported for destruction through the inline Analyzer object allocator.
   TVM_TIRX_DLL ~Z3Prover();
+  // Copy durable facts/settings into this backend without sharing mutable query state.
   void CopyFrom(const Z3Prover& other);
   class Impl;
   std::unique_ptr<Impl> impl_;
 };
 
 /*!
- * \brief Analyzer that contains bunch of sub-analyzers.
+ * \brief Coordinated symbolic analyses over an explicitly synchronized premise environment.
  *
- * Each sub-analyzer can make use of another sub-analyzer
- * by weak reference of this.
- *
- * NOTE for sub-analyzer developers:
- * If the analyzer uses memoization, we need to clear the internal
- * cache when information about a Var has been overridden.
+ * Queries may update caches, solver state, and statistics, but do not append
+ * persistent premises. Proof methods are conservative: false means not proved.
+ * Sub-analyzers borrow their owner and must not outlive it. This mutable object
+ * must not be queried or synchronized concurrently from multiple threads.
  */
 class TVM_TIRX_DLL AnalyzerObj : public ffi::Object {
  public:
@@ -519,53 +608,71 @@ class TVM_TIRX_DLL AnalyzerObj : public ffi::Object {
   KnownComparisonAnalyzer known_comparisons;
   /*! \brief sub-analyzer using Z3 */
   Z3Prover z3_prover;
-  /*! \brief constructor */
+  /*! \brief Construct an analyzer with no accepted premises and default query settings. */
   AnalyzerObj();
-  /*! \brief Synchronize all derived facts to the supplied premise environment.
-   * Unchanged positions are free; additive prefixes update incrementally and
-   * other transitions clear and replay. Do not mutate captured premises through aliases.
+  /*!
+   * \brief Synchronize all derived facts to the supplied premise environment.
+   *
+   * Unchanged positions need no replay; recognized additive prefixes update
+   * incrementally, and other transitions clear and replay all backends. Query
+   * settings and cumulative rewrite counters survive synchronization.
+   *
+   * The context must bind each Var identity at most once across value and range
+   * bindings. Unsupported or effectful premises may be ignored conservatively.
+   * Captured constraint and expression nodes must not be mutated through aliases.
+   * Appending to the caller's context after this call takes effect only after a
+   * later synchronization. Synchronization during a query or another synchronization
+   * is rejected. If ingestion throws, discard this analyzer: partially applied
+   * backend state is not rolled back.
+   *
+   * \param context Ordered premises to snapshot and accept.
+   * \throws ffi::Error If bindings repeat a Var identity, synchronization is
+   * reentrant, or an analyzer invariant fails. Backend ingestion errors may also propagate.
    */
   void SyncConstraintContext(const ConstraintContext& context);
-  /*! \brief Return an independently extensible snapshot of the accepted premises. */
+  /*!
+   * \brief Snapshot the accepted premise environment.
+   * \return A context that can be extended independently. Constraint and expression
+   * nodes are shared and must not be mutated through aliases. Appending to this
+   * context does not update the analyzer until SyncConstraintContext is called.
+   */
   ConstraintContext GetConstraintContext() const;
   /*!
-   * \brief Whether can we prove expr >= val.
-
-   *  Non-negative proof is very useful in integer analysis
-   *  to lower divisions and mods given difference in trunc and ceil mode.
+   * \brief Attempt to prove expr >= lower_bound.
+   *
+   * Bounds help distinguish truncating and floor division/remainder semantics.
    *
    * \param expr The expression.
    * \param lower_bound The lower bound.
-   * \return Whether we can prove it.
+   * \return True if proved; false if unknown or false.
    *
    * \note Analyzer will call into sub-analyzers to get the result.
    */
   bool CanProveGreaterEqual(const PrimExpr& expr, int64_t lower_bound);
   /*!
-   * \brief Whether can we prove expr < val.
-
-   *  Non-negative proof is very useful in integer analysis
-   *  to lower divisions and mods given difference in trunc and ceil mode.
+   * \brief Attempt to prove expr < upper_bound.
+   *
+   * Bounds help distinguish truncating and floor division/remainder semantics.
    *
    * \param expr The expression.
    * \param upper_bound The upper bound.
-   * \return Whether we can prove it.
+   * \return True if proved; false if unknown or false.
    *
    * \note Analyzer will call into sub-analyzers to get the result.
    */
   bool CanProveLess(const PrimExpr& expr, int64_t upper_bound);
   /*!
-   * \brief Whether can we prove lhs == rhs.
+   * \brief Attempt to prove lhs == rhs.
    *
    * \param lhs The input lhs.
    * \param rhs The input rhs.
-   * \return Whether we can prove lhs == rhs.
+   * \return True if equality is proved; false does not establish inequality.
    *
    * \note Analyzer will call into sub-analyzers to get the result.
    */
   bool CanProveEqual(const PrimExpr& lhs, const PrimExpr& rhs);
   /*!
-   * \brief Whether we can prove lhs is smaller than possibly symbolic shape.
+   * \brief Attempt to prove lhs <= a possibly symbolic shape.
    *
    * By calling this function, the caller gives an extra hint that shape > 0,
    * because it appeared in buffer shape.
@@ -578,16 +685,16 @@ class TVM_TIRX_DLL AnalyzerObj : public ffi::Object {
    *
    * \param lhs The input lhs.
    * \param shape The symbolic shape.
-   * \return Whether we can prove lhs <= shape.
+   * \return True if proved using the caller's positive-shape guarantee; false otherwise.
    */
   bool CanProveLessEqualThanSymbolicShapeValue(const PrimExpr& lhs, const PrimExpr& shape);
   /*!
-   * \brief Whether can we prove condition.
+   * \brief Attempt to prove a condition under the current premises.
    *
    * \param cond The expression to be proved.
-   * \param strength the strength of the prove.
+   * \param strength Proof effort; stronger modes may use symbolic bounds and optional Z3.
    *
-   * \return The result.
+   * \return True if proved; false includes unsupported or inconclusive queries.
    *
    * \note Analyzer will call into sub-analyzers to get the result.
    * Do not use strength beyond default in sub-analyzers and
@@ -599,28 +706,26 @@ class TVM_TIRX_DLL AnalyzerObj : public ffi::Object {
    * \brief Simplify expr.
    *
    * \param expr The expression to be simplified.
-   * \param steps The simplification runs in the order of
-   *        rewrite_simplify (step 1) -> canonical_simplify (step 2) ->
-   *        rewrite_simplify (step 3) -> canonical_simplify (step 4) -> ...
-   *        param steps controls how many steps to run.
-   *        Default is 2, i.e., rewrite_simplify + canonical_simplify.
-   * \return The result.
+   * \param steps Number of alternating rewrite/canonical passes after an initial
+   * canonical pass. The default of two runs canonical, rewrite, then canonical.
+   * Nonpositive values run only the initial canonical pass. Processing may stop
+   * early at a constant expression.
+   * \return An equivalent expression under the current premises.
    *
    * \note Analyzer will call into sub-analyzers to get the result.
    */
   PrimExpr Simplify(const PrimExpr& expr, int steps = 2);
 
   /*!
-   * \brief Deep-copy this analyzer into a new, independent Analyzer.
+   * \brief Copy accepted facts and query settings into an independent analyzer.
    *
-   * The returned analyzer carries the same accumulated facts (variable
-   * bounds, modular sets, rewrite/canonical bindings, integer-set domains,
-   * literal constraints and known comparisons) as this one, but owns
-   * its own state: binding or simplifying on either analyzer afterwards does
-   * not affect the other. This is the deep copy that handle-copying an
-   * Analyzer does not provide.
+   * Backend state is independent: subsequent synchronization, simplification,
+   * and query settings on either analyzer do not affect the other. Premise and
+   * expression nodes are shared and must not be mutated through aliases.
+   * Query scratch, solver instances, and accumulated statistics are not copied.
+   * Copying an Analyzer handle alone instead shares the same mutable state.
    *
-   * \return A new Analyzer holding an independent copy of the facts.
+   * \return A new analyzer with independent backend state and the same accepted premises.
    */
   Analyzer Clone() const;
 
@@ -638,13 +743,21 @@ class TVM_TIRX_DLL AnalyzerObj : public ffi::Object {
 
  private:
   friend class detail::TempConstraintScope;
+  // Record a value binding after AnalyzerObj validates and orders the premises.
   void IngestBinding(const Var& var, const PrimExpr& expr);
+  // Record a half-open variable range from the accepted premise prefix.
   void IngestBinding(const Var& var, const Range& range);
+  // Dispatch a supported pure premise to the participating backends.
   void IngestConstraint(const Constraint& constraint);
+  // Normalize and derive predicate facts using only the already valid prefix.
   std::vector<PrimExpr> PreparePredicate(const PrimExpr& condition);
+  // Fixed position of the last successfully accepted premise environment.
   ConstraintContext last_snapshot_;
+  // Query-local premises, managed in LIFO order by TempConstraintScope.
   std::vector<Constraint> temp_constraints_;
+  // Prevent reentry and reuse after an incomplete synchronization.
   bool synchronizing_{false};
+  // Nested query count; synchronization requires zero active queries.
   int active_queries_{0};
 };
 
@@ -665,6 +778,10 @@ class Analyzer : public ffi::ObjectRef {
  public:
   /*! \brief Default-construct a fresh analyzer (allocates an AnalyzerObj). */
   Analyzer() : Analyzer(ffi::make_object<AnalyzerObj>()) {}
+  /*!
+   * \brief Adopt a reference to an existing mutable analyzer.
+   * \param n Non-null analyzer object; other references share its state.
+   */
   explicit Analyzer(ffi::ObjectPtr<AnalyzerObj> n) : ffi::ObjectRef(std::move(n)) {
     TVM_FFI_ICHECK(this->get() != nullptr);
   }
@@ -682,13 +799,19 @@ class Analyzer : public ffi::ObjectRef {
  */
 class AllowUIntAsIndex {
  public:
-  /*! \brief Whether unsigned index analysis is enabled in the current thread. */
+  /*!
+   * \brief Check the current thread's unsigned-index assumption.
+   * \return True inside an active With<AllowUIntAsIndex> scope.
+   */
   TVM_TIRX_DLL static bool Enabled();
 
  private:
   friend class With<AllowUIntAsIndex>;
+  // Called across the DLL boundary by the inline With<> constructor.
   TVM_TIRX_DLL void EnterWithScope();
+  // Called across the DLL boundary by the inline With<> destructor.
   TVM_TIRX_DLL void ExitWithScope();
+  // Number of active scopes in this thread.
   static thread_local int depth_;
 };
 

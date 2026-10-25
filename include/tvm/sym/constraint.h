@@ -185,10 +185,19 @@ class ConstraintContext;
  *
  * Holds variable bindings, value ranges, and predicates collected during traversal.
  * Callbacks can inspect these constraints when processing the current expression or statement.
+ * Captured constraint and expression nodes must not be changed through aliases: appending
+ * preserves earlier prefixes, but snapshots do not deep-copy their contents.
  */
 class ConstraintContextObj : public ffi::Object {
  public:
+  /*! \brief Construct an empty root context. */
   ConstraintContextObj() = default;
+  /*!
+   * \brief Capture an inherited prefix and start an empty local sequence.
+   * \param parent Non-null parent context.
+   * \param parent_local_prefix Number of parent-local entries to capture.
+   * \throws ffi::Error If parent is null or the prefix is outside [0, parent->LocalSize()].
+   */
   ConstraintContextObj(ffi::ObjectPtr<ConstraintContextObj> parent, int64_t parent_local_prefix)
       : parent_(std::move(parent)), parent_prefix_size_(parent_local_prefix) {
     TVM_FFI_CHECK(
@@ -196,16 +205,20 @@ class ConstraintContextObj : public ffi::Object {
         ValueError)
         << "Constraint context parent local prefix is out of bounds";
   }
+  // Context nodes have stable identity; use Snapshot to capture their current position.
   ConstraintContextObj(const ConstraintContextObj&) = delete;
   ConstraintContextObj& operator=(const ConstraintContextObj&) = delete;
 
   /*!
    * \brief Append a premise locally, preserving every previously captured prefix.
+   * \param constraint Premise to retain as supplied, without validation or inference.
+   * Its node and referenced expressions must not later be mutated through aliases.
    */
   void Append(const Constraint& constraint) { constraints_.push_back(constraint); }
 
   /*!
-   * \brief Number of local entries; excludes captured ancestors.
+   * \brief Count the local entries.
+   * \return Local sequence length, excluding captured ancestors.
    */
   int64_t LocalSize() const { return constraints_.size(); }
 
@@ -221,12 +234,16 @@ class ConstraintContextObj : public ffi::Object {
    * context->Append(sym::PredicateConstraint(x < 16));
    * // saved contains x >= 0; context contains both predicates.
    * \endcode
+   * \return An independently extensible context capturing the current prefix.
    */
   ConstraintContext Snapshot() const;
 
   /*!
    * \brief Read constraints in inherited/local order.
-   * The callback receives a const Constraint&. Later appends do not enter this iteration.
+   * Later appends do not enter this iteration. The reference passed to the callback
+   * is valid only during that invocation; copy the handle to retain the premise.
+   * \tparam F Callable accepting a const Constraint&.
+   * \param f Callback invoked once per captured premise, in inherited/local order.
    */
   template <typename F>
   void ForEach(F&& f) const {
@@ -239,16 +256,20 @@ class ConstraintContextObj : public ffi::Object {
    * \brief Returns an independent array of the constraints in this context.
    * Includes inherited constraints in order. Later additions to the context do not
    * change the returned array. Edits to the array do not change this context.
-   * Constraint objects remain shared.
+   * Constraint objects remain shared and must not be mutated through aliases.
+   * \return A copy-on-write array containing the captured premises.
    */
   ffi::Array<Constraint> ToArray() const { return ToArray(LocalSize()); }
 
+  /*! \brief Allow appending through a const context handle. */
   static constexpr bool _type_mutable = true;
+  /*! \brief Register the context methods exposed through FFI reflection. */
   static void RegisterReflection();
   TVM_FFI_DECLARE_OBJECT_INFO_FINAL("sym.ConstraintContext", ConstraintContextObj, ffi::Object);
 
  private:
   friend class AnalyzerObj;
+  // Materialize the fixed inherited sequence and the requested local prefix.
   ffi::Array<Constraint> ToArray(int64_t local_prefix) const {
     if (!parent_) {
       if (local_prefix == LocalSize()) return constraints_;
@@ -261,6 +282,7 @@ class ConstraintContextObj : public ffi::Object {
     return result;
   }
 
+  // Traverse a fixed prefix even if callbacks append more local constraints.
   template <typename F>
   void ForEach(int64_t local_prefix, F&& f) const {
     if (parent_) parent_->ForEach(parent_prefix_size_, f);
@@ -275,13 +297,7 @@ class ConstraintContextObj : public ffi::Object {
   const ffi::ObjectPtr<ConstraintContextObj> parent_;
   // Fixed prefix length in the parent's LOCAL sequence, not its effective count.
   const int64_t parent_prefix_size_{0};
-  /*!
-   * \brief Append-only sequence of constraints local to this context.
-   *
-   * New entries may be appended at the end. Existing entries must not be
-   * removed, replaced, reordered, or modified through aliases. Appending
-   * preserves the contents and meaning of every previously captured prefix.
-   */
+  // Append-only local sequence; captured entries cannot be replaced or mutated through aliases.
   ffi::Array<Constraint> constraints_;
 };
 
@@ -300,12 +316,14 @@ class ConstraintContext : public ffi::ObjectRef {
    * \param parent Context supplying inherited constraints.
    * \param parent_local_prefix Number of parent-local entries to capture, between zero
    * and parent->LocalSize(), inclusive.
+   * \throws ffi::Error If the prefix is outside that range.
    */
   ConstraintContext(ConstraintContext parent, int64_t parent_local_prefix)
       : ffi::ObjectRef(ffi::make_object<ConstraintContextObj>(
             ffi::GetObjectPtr<ConstraintContextObj>(parent.get()), parent_local_prefix)) {}
   /*!
    * \brief Adopt an existing context object.
+   * \param node Non-null context object; other references share its append-only sequence.
    */
   explicit ConstraintContext(ffi::ObjectPtr<ConstraintContextObj> node)
       : ffi::ObjectRef(std::move(node)) {}

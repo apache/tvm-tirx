@@ -984,10 +984,10 @@ TVM_TIRX_DLL bool Z3Prover::CanProve(const PrimExpr& expr) {
   detail::TempConstraintScope query(impl_->analyzer);
   return impl_->CanProve(expr, detail::TempConstraintScope::Query(impl_->analyzer));
 }
-TVM_TIRX_DLL void Z3Prover::IngestBinding(const Var& var, const Range& new_range) {
+void Z3Prover::IngestBinding(const Var& var, const Range& new_range) {
   return impl_->IngestBinding(var, new_range, true);
 }
-TVM_TIRX_DLL void Z3Prover::IngestBinding(const Var& var, const PrimExpr& expr) {
+void Z3Prover::IngestBinding(const Var& var, const PrimExpr& expr) {
   return impl_->IngestBinding(var, expr, true);
 }
 void Z3Prover::IngestPredicate(const PrimExpr& constraint) {
@@ -1050,8 +1050,8 @@ TVM_TIRX_DLL bool Z3Prover::CanProve(const PrimExpr& expr) {
   detail::TempConstraintScope query(impl_->analyzer);
   return false;
 }
-TVM_TIRX_DLL void Z3Prover::IngestBinding(const Var& var, const Range& new_range) {}
-TVM_TIRX_DLL void Z3Prover::IngestBinding(const Var& var, const PrimExpr& expr) {}
+void Z3Prover::IngestBinding(const Var& var, const Range& new_range) {}
+void Z3Prover::IngestBinding(const Var& var, const PrimExpr& expr) {}
 void Z3Prover::IngestPredicate(const PrimExpr& constraint) {}
 ffi::String Z3Prover::GetSMTLIB2(const ffi::Optional<PrimExpr> expr) {
   detail::TempConstraintScope query(impl_->analyzer);
