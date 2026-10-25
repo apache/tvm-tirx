@@ -1387,7 +1387,9 @@ def test_llvm_min_max_nan_preserving(dtype, lanes):
     for name, compare in (("min", np.less), ("max", np.greater)):
         values = []
         for lhs, rhs in operand_pairs:
-            take_lhs = compare(lhs, rhs) | np.isnan(lhs)
+            # BF16 comparisons signal invalid on NaNs; select those without comparing.
+            take_lhs = np.isnan(lhs)
+            compare(lhs, rhs, out=take_lhs, where=~(take_lhs | np.isnan(rhs)))
             # IEEE minimum selects -0 and maximum selects +0 on a zero tie.
             both_zero = (lhs == 0) & (rhs == 0)
             preferred_zero = np.signbit(lhs) if name == "min" else ~np.signbit(lhs)

@@ -33,6 +33,8 @@ from tvm_tirx.tirx import truncmod as tmod
 
 
 class TestCase:
+    __test__ = False
+
     def __init__(self, before, expected, preconditions=None):
         if isinstance(before, tirx.expr.EqualOp):
             before = before.__tvm_ffi_object__()

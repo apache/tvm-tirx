@@ -29,6 +29,8 @@ POS_INF = ConstIntBound.POS_INF
 
 
 class TestCase:
+    __test__ = False
+
     def __init__(self, expr, expected_bounds, known_bounds=None, constraint=None):
         self.expr = expr
         self.expected_bounds = expected_bounds

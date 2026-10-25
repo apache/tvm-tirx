@@ -137,13 +137,25 @@ def test_unary_intrin():
 
         dev = tvm_tirx.cpu(0)
         n = 10
-        a = tvm_tirx.runtime.tensor(np.random.uniform(0.1, 0.5, size=n).astype("float32"), dev)
+        name = tvm_intrin.__name__
+        if name == "acosh":
+            inputs = np.linspace(1.0, 2.0, num=n, dtype="float32")
+        else:
+            inputs = np.random.uniform(0.1, 0.5, size=n).astype("float32")
+        a = tvm_tirx.runtime.tensor(inputs, dev)
         b = tvm_tirx.runtime.tensor(np.random.uniform(size=n).astype("float32"), dev)
         func(a, b)
         tvm_tirx.testing.assert_allclose(b.numpy(), np_func(a.numpy()), atol=atol, rtol=rtol)
 
+        if name == "acosh":
+            # Inputs below 1 are outside the real domain; do not evaluate NumPy there.
+            invalid_inputs = np.array([-2.0, -1.0, 0.0, 0.1, 0.5], dtype="float32")
+            invalid_a = tvm_tirx.runtime.tensor(invalid_inputs, dev)
+            invalid_b = tvm_tirx.runtime.tensor(np.empty_like(invalid_inputs), dev)
+            func(invalid_a, invalid_b)
+            assert np.all(np.isnan(invalid_b.numpy()))
+
         # Out-of-bounds test for asin/acos
-        name = tvm_intrin.__name__
         if name in ("asin", "acos"):
             # generate some values outside [-1, 1]
             n = 8
