@@ -70,14 +70,14 @@ TvmLogDebugSettings TvmLogDebugSettings::ParseSpec(const char* opt_spec) {
     return settings;
   }
   std::istringstream spec_stream(spec);
-  auto tell_pos = [&](const std::string& last_read) {
-    int pos = spec_stream.tellg();
+  auto tell_pos = [&](const std::string& last_read) -> std::string::size_type {
+    std::streampos pos = spec_stream.tellg();
     if (pos == -1) {
       LOG(INFO) << "override pos: " << last_read;
       // when pos == -1, failbit was set due to std::getline reaching EOF without seeing delimiter.
-      pos = spec.size() - last_read.size();
+      return spec.size() - last_read.size();
     }
-    return pos;
+    return static_cast<std::string::size_type>(pos);
   };
   while (spec_stream) {
     std::string name;

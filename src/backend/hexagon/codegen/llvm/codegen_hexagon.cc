@@ -56,6 +56,7 @@
 #include <cstring>
 #include <functional>
 #include <iterator>
+#include <limits>
 #include <sstream>
 #include <string>
 #include <utility>
@@ -292,7 +293,7 @@ llvm::Value* CodeGenHexagon::Intrinsic(llvm::Intrinsic::ID IntID,
   llvm::FunctionType* intf_type = intf->getFunctionType();
   TVM_FFI_ICHECK(args.size() == intf_type->getNumParams());
 
-  for (int i = 0, e = args.size(); i != e; ++i) {
+  for (unsigned i = 0, e = intf_type->getNumParams(); i != e; ++i) {
     llvm::Value* arg = args[i];
     auto* need_type = llvm::dyn_cast<llvm::VectorType>(intf_type->getParamType(i));
     auto* have_type = llvm::dyn_cast<llvm::VectorType>(arg->getType());
@@ -417,7 +418,10 @@ void ProcessLLVMOptions(const std::vector<std::string>& llvm_vec) {
                  std::mem_fn(&std::string::c_str));
   const char** args = &starts.front();
 
-  llvm::cl::ParseCommandLineOptions(llvm_vec.size(), args);
+  TVM_FFI_CHECK_LE(llvm_vec.size(), static_cast<size_t>(std::numeric_limits<int>::max()),
+                   ValueError)
+      << "Too many LLVM command-line options";
+  llvm::cl::ParseCommandLineOptions(static_cast<int>(llvm_vec.size()), args);
 }
 }  // namespace
 
@@ -444,7 +448,7 @@ ffi::Module BuildHexagon(IRModule mod, Target target) {
     for (const ffi::String& s : llvm_options.value()) llvm_options_str += "," + s;
   }
   // Postprocess the LLVM options string: replace '@' with '=', and ',' with ' '.
-  for (int i = 0, e = llvm_options_str.size(); i != e; ++i) {
+  for (size_t i = 0, e = llvm_options_str.size(); i != e; ++i) {
     switch (llvm_options_str[i]) {
       case '@':
         llvm_options_str[i] = '=';

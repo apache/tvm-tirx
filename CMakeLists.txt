@@ -108,8 +108,7 @@ include_directories("${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/compiler-rt")
 if(MSVC)
   add_compile_definitions(WIN32_LEAN_AND_MEAN _CRT_SECURE_NO_WARNINGS
     _SCL_SECURE_NO_WARNINGS _ENABLE_EXTENDED_ALIGNED_STORAGE NOMINMAX)
-  add_compile_options(/EHsc /MP /bigobj /permissive-
-    /wd4244 /wd4267 /wd4018 /wd4316 /wd4101 /wd4180 /wd4251 /wd4624 /wd4146 /wd4141 /wd4068)
+  add_compile_options(/EHsc /MP /bigobj /permissive-)
 else()
   add_compile_options(-Wall)
 endif()

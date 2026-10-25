@@ -24,7 +24,8 @@ namespace tirx {
 
 Array<PrimExpr> SplitCoord(PrimExpr coord, const Array<PrimExpr>& shape) {
   Array<PrimExpr> result;
-  for (int i = shape.size() - 1; i >= 0; --i) {
+  for (size_t remaining = shape.size(); remaining != 0; --remaining) {
+    size_t i = remaining - 1;
     if (i == 0) {
       result.push_back(coord);
     } else {

@@ -950,14 +950,14 @@ ffi::Array<IntSet> UnionRegion(const ffi::Array<ffi::Array<IntSet>>& nd_int_sets
   if (nd_int_sets.empty()) {
     return {};
   }
-  int n = nd_int_sets.size();
-  int ndim = nd_int_sets[0].size();
+  size_t n = nd_int_sets.size();
+  size_t ndim = nd_int_sets[0].size();
   ffi::Array<IntSet> result;
   result.reserve(ndim);
-  for (int i = 0; i < ndim; ++i) {
+  for (size_t i = 0; i < ndim; ++i) {
     ffi::Array<IntSet> candidates;
     candidates.reserve(n);
-    for (int j = 0; j < n; ++j) {
+    for (size_t j = 0; j < n; ++j) {
       candidates.push_back(nd_int_sets[j][i]);
     }
     result.push_back(Union(candidates));
@@ -1003,14 +1003,14 @@ ffi::Array<IntSet> UnionRegionLowerBound(const ffi::Array<ffi::Array<IntSet>>& n
   if (nd_int_sets.empty()) {
     return {};
   }
-  int n = nd_int_sets.size();
-  int ndim = nd_int_sets[0].size();
+  size_t n = nd_int_sets.size();
+  size_t ndim = nd_int_sets[0].size();
   ffi::Array<IntSet> result;
   result.reserve(ndim);
-  for (int i = 0; i < ndim; ++i) {
+  for (size_t i = 0; i < ndim; ++i) {
     ffi::Array<IntSet> candidates;
     candidates.reserve(n);
-    for (int j = 0; j < n; ++j) {
+    for (size_t j = 0; j < n; ++j) {
       candidates.push_back(nd_int_sets[j][i]);
     }
     result.push_back(UnionLowerBound(candidates));
@@ -1159,7 +1159,7 @@ ffi::Optional<ffi::Array<IntSet>> EstimateRegionStrictBound(const ffi::Array<Ran
     input_iters.Set(var.as_or_throw<PrimVar>(), range);
   }
   AnalyzerObj* analyzer_ptr = analyzer.get();
-  int ndim = region.size();
+  size_t ndim = region.size();
   ffi::Array<IterSumExpr> iter_sum_exprs;
   {
     ffi::Array<PrimExpr> affine_indices;
@@ -1182,7 +1182,7 @@ ffi::Optional<ffi::Array<IntSet>> EstimateRegionStrictBound(const ffi::Array<Ran
   TVM_FFI_ICHECK_EQ(iter_sum_exprs.size(), ndim);
   ffi::Array<IntSet> result;
   result.reserve(ndim);
-  for (int i = 0; i < ndim; ++i) {
+  for (size_t i = 0; i < ndim; ++i) {
     const IterSumExpr& sum_expr = iter_sum_exprs[i];
     const Range& range = region[i];
     ffi::Optional<IntSet> int_set = EvalIterSum(sum_expr, range->extent, analyzer_ptr);

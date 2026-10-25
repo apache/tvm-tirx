@@ -123,7 +123,7 @@ ffi::Tuple<IndexMap, PrimExpr> IndexMapInverseImpl(const IndexMap& self,
 
   // Unpack the map to an array, maintaining the same parameter order.
   ffi::Array<PrimExpr> inverse_exprs;
-  for (int i = 0, n = self->initial_indices.size(); i < n; ++i) {
+  for (size_t i = 0, n = self->initial_indices.size(); i < n; ++i) {
     PrimVar index = self->initial_indices[i];
     PrimExpr expr{ffi::UnsafeInit{}};
     if (IsOne(initial_ranges[i]->extent) && !inverse_exprs_map.count(index)) {

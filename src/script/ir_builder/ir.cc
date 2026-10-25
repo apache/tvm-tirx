@@ -264,8 +264,8 @@ ForFrame Grid(ffi::Array<ffi::Variant<PrimExpr, ffi::Tuple<PrimExpr, PrimExpr>>>
     TVM_FFI_ICHECK_EQ(vars.size(), doms.size());
     TVM_FFI_ICHECK_EQ(vars.size(), steps.size());
     Stmt result = std::move(body);
-    int n = vars.size();
-    for (int i = n - 1; i >= 0; --i) {
+    for (size_t remaining = vars.size(); remaining != 0; --remaining) {
+      size_t i = remaining - 1;
       Range dom = doms[i];
       Var var = vars[i];
       PrimVar prim_var = var.as_or_throw<PrimVar>();

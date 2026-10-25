@@ -98,7 +98,8 @@ class PackedLaunchPlan {
   }
 
   LaunchValues Extract(tvm::ffi::PackedArgs args, size_t kernel_args) const {
-    if (static_cast<size_t>(args.size()) != kernel_args + num_values)
+    if (kernel_args > static_cast<size_t>(args.size()) ||
+        num_values != static_cast<size_t>(args.size()) - kernel_args)
       throw std::invalid_argument(
           "CUDA kernel launch argument count does not match its configuration");
     LaunchValues values;
@@ -107,7 +108,10 @@ class PackedLaunchPlan {
         values.SetInt(operand.field, operand.constant);
         continue;
       }
-      auto arg = args[kernel_args + operand.index];
+      size_t index = kernel_args + static_cast<size_t>(operand.index);
+      if (index >= static_cast<size_t>(args.size()))
+        throw std::invalid_argument("CUDA launch operand index is out of range");
+      auto arg = args[static_cast<int>(index)];
       switch (kFields[static_cast<size_t>(operand.field)].kind) {
         case ValueKind::kInteger:
           values.SetInt(operand.field, arg.cast<int64_t>());

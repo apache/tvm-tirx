@@ -549,7 +549,7 @@ class ThreadAllreduceBuilder final : public StmtExprMutator {
       PrimExpr mask, ffi::Optional<PrimExpr> predicate,  //
       std::vector<Stmt>* seq) {
     static const auto local_scope = runtime::MemoryScope::Get("local");
-    int n_tensors = src_values.size();
+    size_t n_tensors = src_values.size();
 
     std::vector<TensorVar> shared_bufs;
     std::vector<TensorVar> local_bufs;
@@ -563,7 +563,7 @@ class ThreadAllreduceBuilder final : public StmtExprMutator {
 
     std::vector<Stmt> load_values;
     load_values.reserve(n_tensors);
-    for (int idx = 0; idx < n_tensors; ++idx) {
+    for (size_t idx = 0; idx < n_tensors; ++idx) {
       shared_bufs.push_back(
           TensorVar("red_buf" + std::to_string(idx), TensorType(shape, dtypes[idx], local_scope)));
       load_values.push_back(TensorStore(shared_bufs[idx], zero_indices, src_values[idx]));
@@ -600,7 +600,7 @@ class ThreadAllreduceBuilder final : public StmtExprMutator {
     for (int offset = start_offset; offset > 0; offset /= 2) {
       // Load reduction values, no synchronization needed.
       ffi::Array<PrimExpr> a, b;
-      for (int i = 0; i < n_tensors; ++i) {
+      for (size_t i = 0; i < n_tensors; ++i) {
         TensorVar shared_buf = shared_bufs[i];
         TensorLoad val = TensorLoad(shared_buf, zero_indices);
         TVM_FFI_ICHECK_EQ(val.ty(), dtypes[i]);
@@ -634,7 +634,7 @@ class ThreadAllreduceBuilder final : public StmtExprMutator {
       // Store the reduction result to itself.
       std::vector<Stmt> stores;
       stores.reserve(n_tensors);
-      for (int i = 0; i < n_tensors; ++i) {
+      for (size_t i = 0; i < n_tensors; ++i) {
         TensorVar buf = shared_bufs[i];
         stores.push_back(TensorStore(buf, zero_indices, ret[i]));
       }
@@ -655,7 +655,7 @@ class ThreadAllreduceBuilder final : public StmtExprMutator {
 
     std::vector<PrimExpr> reduce_results;
     reduce_results.reserve(n_tensors);
-    for (int i = 0; i < n_tensors; ++i) {
+    for (size_t i = 0; i < n_tensors; ++i) {
       reduce_results.push_back(TensorLoad(shared_bufs[i], zero_indices));
     }
 
@@ -853,7 +853,7 @@ class ThreadAllreduceBuilder final : public StmtExprMutator {
           int16_t lanes = static_cast<int16_t>(dtype.lanes());
           if (dtype.MatchesCode(kDLFloat) && dtype.bits() == 16) return lanes > 2;
           if (lanes > 1) return true;
-          int bytes = dtype.StorageBytes();
+          size_t bytes = dtype.StorageBytes();
           return bytes < 4 || bytes > 8;
         })) {
       return false;

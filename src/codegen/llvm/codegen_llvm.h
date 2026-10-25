@@ -54,6 +54,7 @@
 #include <tvm/tirx/stmt_functor.h>
 
 #include <algorithm>
+#include <limits>
 #include <memory>
 #include <string>
 #include <tuple>
@@ -645,7 +646,9 @@ class CodeGenLLVM : public tvm::ExprFunctor<llvm::Value*(const Expr&)>,
 };
 
 inline int CodeGenLLVM::GetVectorNumElements(llvm::Value* vec) {
-  return llvm::cast<llvm::FixedVectorType>(vec->getType())->getNumElements();
+  unsigned lanes = llvm::cast<llvm::FixedVectorType>(vec->getType())->getNumElements();
+  TVM_FFI_ICHECK_LE(lanes, static_cast<unsigned>(std::numeric_limits<int>::max()));
+  return static_cast<int>(lanes);
 }
 
 template <typename IterType, typename ConvType>

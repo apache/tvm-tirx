@@ -39,6 +39,7 @@
 #include <tvm/tirx/op/region.h>
 #include <tvm/tirx/op/vector.h>
 #include <tvm/tirx/stmt.h>
+
 #if LLVM_VERSION_MAJOR >= 17
 #include <llvm/TargetParser/Triple.h>
 #else
@@ -96,6 +97,7 @@
 
 #include <algorithm>
 #include <functional>
+#include <limits>
 #include <memory>
 #include <sstream>
 #include <string>
@@ -360,7 +362,7 @@ void CodeGenLLVM::AddFunctionInternal(const GlobalVar& gvar, const Function& f) 
     if (is_restricted_) {
       if (var->ty.as<PtrTypeObj>() && !alias_var_set_.count(var.get())) {
         // set non alias.
-        function_->addParamAttr(i, llvm::Attribute::NoAlias);
+        v->addAttr(llvm::Attribute::NoAlias);
       }
     }
   }
@@ -793,7 +795,7 @@ llvm::Value* CodeGenLLVM::CreateVecSlice(llvm::Value* vec, int begin, int extent
   std::vector<llvm::Constant*> indices;
   indices.reserve(extent);
   for (int i = 0; i < extent; ++i) {
-    if (begin + i >= 0 && begin + i < num_elems) {
+    if (begin < num_elems && i < num_elems - begin) {
       indices.push_back(llvm::ConstantInt::get(t_int32_, begin + i));
     } else {
       indices.push_back(llvm::UndefValue::get(t_int32_));
@@ -837,26 +839,29 @@ llvm::Value* CodeGenLLVM::CreateVecConcat(std::vector<llvm::Value*> vecs) {
   int total_lanes = 0;
 
   for (llvm::Value* v : vecs) {
-    total_lanes += GetVectorNumElements(v);
+    int lanes = GetVectorNumElements(v);
+    TVM_FFI_ICHECK_LE(lanes, std::numeric_limits<int>::max() - total_lanes);
+    total_lanes += lanes;
   }
   while (vecs.size() > 1) {
     std::vector<llvm::Value*> new_vecs;
     for (size_t i = 0; i < vecs.size() - 1; i += 2) {
       llvm::Value* lhs = vecs[i];
       llvm::Value* rhs = vecs[i + 1];
-      const size_t lhs_lanes = GetVectorNumElements(lhs);
-      const size_t rhs_lanes = GetVectorNumElements(rhs);
+      const int lhs_lanes = GetVectorNumElements(lhs);
+      const int rhs_lanes = GetVectorNumElements(rhs);
       if (lhs_lanes < rhs_lanes) {
         lhs = CreateVecPad(lhs, rhs_lanes);
       } else if (rhs_lanes < lhs_lanes) {
         rhs = CreateVecPad(rhs, lhs_lanes);
       }
-      const size_t shared_lanes = std::max(lhs_lanes, rhs_lanes);
+      const int shared_lanes = std::max(lhs_lanes, rhs_lanes);
+      TVM_FFI_ICHECK_LE(rhs_lanes, std::numeric_limits<int>::max() - shared_lanes);
       std::vector<int> mask;
-      for (size_t i = 0; i < lhs_lanes; ++i) {
+      for (int i = 0; i < lhs_lanes; ++i) {
         mask.push_back(i);
       }
-      for (size_t i = 0; i < rhs_lanes; ++i) {
+      for (int i = 0; i < rhs_lanes; ++i) {
         mask.push_back(shared_lanes + i);
       }
       new_vecs.push_back(builder_->CreateShuffleVector(lhs, rhs, mask));
@@ -2057,19 +2062,21 @@ llvm::Value* CodeGenLLVM::Dispatch_(const prim::RampObj* op) {
 llvm::Value* CodeGenLLVM::Dispatch_(const prim::ShuffleObj* op) {
   std::vector<llvm::Value*> vecs(op->vectors.size());
   int total_lanes = 0;
-  for (int i = 0, e = op->vectors.size(); i < e; ++i) {
+  for (size_t i = 0, e = op->vectors.size(); i < e; ++i) {
     vecs[i] = Dispatch(op->vectors[i]);
-    total_lanes += PrimType(op->vectors[i].ty()->dtype).lanes();
+    int lanes = PrimType(op->vectors[i].ty()->dtype).lanes();
+    TVM_FFI_ICHECK_LE(lanes, std::numeric_limits<int>::max() - total_lanes);
+    total_lanes += lanes;
   }
   llvm::Value* v0 = CreateVecConcat(vecs);
   std::vector<uint32_t> idx(op->indices.size());
-  for (int i = 0, e = op->indices.size(); i < e; ++i) {
+  for (size_t i = 0, e = op->indices.size(); i < e; ++i) {
     const auto* imm = op->indices[i].as<IntImmObj>();
     auto val = imm ? imm->value.as<int64_t>() : std::nullopt;
     TVM_FFI_ICHECK(val.has_value() && *val >= 0 && *val < total_lanes)
         << "Shuffled indeces are suppose to be int, "
         << "but get " << op->indices[i] << "\n";
-    idx[i] = *val;
+    idx[i] = static_cast<uint32_t>(*val);
   }
   llvm::Value* mask = llvm::ConstantDataVector::get(builder_->getContext(), idx);
   auto res = builder_->CreateShuffleVector(v0, llvm::UndefValue::get(v0->getType()), mask);
@@ -2440,7 +2447,8 @@ void CodeGenLLVM::AddDebugInformation(llvm::Function* f_llvm,
 
   TVM_FFI_ICHECK_EQ(f_llvm->arg_size(), tvm_param_types.size());
   for (auto iter_param = f_llvm->arg_begin(); iter_param != f_llvm->arg_end(); iter_param++) {
-    size_t i = std::distance(f_llvm->arg_begin(), iter_param);
+    unsigned i = iter_param->getArgNo();
+    TVM_FFI_ICHECK_LT(i, std::numeric_limits<unsigned>::max());
     auto* paramAlloca = builder.CreateAlloca(iter_param->getType());
 
     auto param = dbg_info_->di_builder_->createParameterVariable(

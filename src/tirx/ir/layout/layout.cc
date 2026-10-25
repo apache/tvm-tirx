@@ -33,6 +33,7 @@ decltype(auto) DispatchLayout(const Layout& layout, F&& f) {
     return f(compose);
   }
   TVM_FFI_THROW(TypeError) << "Unsupported layout type: " << layout->GetTypeKey();
+  TVM_FFI_UNREACHABLE();
 }
 
 }  // namespace

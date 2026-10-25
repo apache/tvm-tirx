@@ -71,12 +71,12 @@ ffi::Array<PrimExpr> StmtExprMutatorWithAnalyzer::IterMapSimplifyWithContext(
   for (PrimExpr val : iter_predicates_) {
     pred = pred && val;
   }
-  int n = indices.size();
+  size_t n = indices.size();
   sym::Analyzer analyzer_ref = ffi::GetRef<sym::Analyzer>(this->analyzer_);
   ffi::Array<PrimExpr> simplified = sym::IterMapSimplify(
       indices, this->iter_vars_, pred, sym::IterMapLevel::Surjective, analyzer_ref);
   if (non_trivial_only) {
-    for (int i = 0; i < n; ++i) {
+    for (size_t i = 0; i < n; ++i) {
       if (simplified[i]->IsInstance<IntImmObj>() && indices[i].as<PrimVar>()) {
         simplified.Set(i, indices[i]);
       }

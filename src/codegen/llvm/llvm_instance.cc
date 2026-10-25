@@ -644,7 +644,7 @@ LLVMTargetInfo::Option LLVMTargetInfo::ParseOptionString(const std::string& str)
   // After breaking up the option string, examine and validate the individual
   // parts.
 
-  int part_this = 0, part_end = parts.size();
+  size_t part_this = 0, part_end = parts.size();
 
   const std::string error_header = "while parsing option \"" + str + "\": ";
 

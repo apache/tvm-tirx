@@ -32,6 +32,8 @@
 #include <tvm/tirx/op/abi.h>
 #include <tvm/tirx/op/memory.h>
 
+#include <limits>
+
 #include "ir_utils.h"
 
 namespace tvm {
@@ -652,9 +654,12 @@ Var TVMFFIABIBuilder::DLTensorGetFieldPtr(const Var& handle, int field_kind,
 // LoadInt64ArrayElem (helper for shape/strides element access)
 // ============================================================
 
-PrimExpr TVMFFIABIBuilder::LoadInt64ArrayElem(const Var& ptr, int index) {
+PrimExpr TVMFFIABIBuilder::LoadInt64ArrayElem(const Var& ptr, size_t index) {
+  TVM_FFI_CHECK_LE(index, static_cast<size_t>(std::numeric_limits<int32_t>::max()), ValueError)
+      << "Tensor dimension index exceeds the FFI ABI limit";
   return Call(DefaultIndexType(), tirx::abi_field_get_op(),
-              {ptr, IntImm::Int32(index), IntImm::Int32(tirx::kInt64ArrayElem)})
+              {ptr, IntImm::Int32(static_cast<int32_t>(index)),
+               IntImm::Int32(tirx::kInt64ArrayElem)})
       .as_or_throw<PrimExpr>();
 }
 
@@ -694,7 +699,8 @@ void TVMFFIABIBuilder::BindRegularStrides(const TensorVar& tensor, const Var& st
                                           const ffi::reflection::AccessPath& param_path) {
   PrimExpr stride_from_shape = 1;
   auto strides = MatchShapeStridePattern(tensor.ty()).value().get<1>();
-  for (int k = strides.size() - 1; k >= 0; k--) {
+  for (size_t remaining = strides.size(); remaining != 0; --remaining) {
+    size_t k = remaining - 1;
     PrimType stride_type = strides[k].ty();
     PrimExpr explicit_stride = cast(LoadInt64ArrayElem(strides_ptr, k), stride_type);
     ffi::reflection::AccessPath strides_k_path =
