@@ -480,6 +480,12 @@ class Vectorizer : public StmtExprMutator {
     VarRemapSet(var_, ramp_);
   }
 
+  Stmt Run(Stmt body, InplaceMode inplace_mode) {
+    Stmt result = this->Mutate(body, inplace_mode).ValueOrUnchanged(body);
+    // Keep bindings and side effects in scope when an assertion needs scalar control flow.
+    return scalarize_assertion_ ? Scalarize(body) : result;
+  }
+
   // Rewriting may change vector dtypes and later request scalarization of the
   // original statement.  Keep the complete speculative traversal out of place.
   UnchangedOr<ffi::Any> Mutate(ffi::AnyView value, InplaceMode inplace_mode) final {
@@ -1070,6 +1076,17 @@ class Vectorizer : public StmtExprMutator {
 
     return store;
   }
+  // Assert
+  UnchangedOr<Stmt> Mutate_(const AssertStmtObj* op, InplaceMode inplace_mode) final {
+    PrimExpr condition = this->Mutate(op->condition, inplace_mode).ValueOrUnchanged(op->condition);
+    if (need_scalarize_ || condition.ty().IsScalableVector() ||
+        condition.ty().IsFixedLengthVector()) {
+      scalarize_assertion_ = true;
+      return ffi::Unchanged();
+    }
+    if (condition.same_as(op->condition)) return ffi::Unchanged();
+    return AssertStmt(condition, op->error_kind, op->message_parts, op->loc);
+  }
   // For
   UnchangedOr<Stmt> Mutate_(const ForObj* op, InplaceMode inplace_mode) final {
     if (op->kind == ForKind::kVectorized) {
@@ -1199,6 +1216,8 @@ class Vectorizer : public StmtExprMutator {
   PrimExpr ramp_{ffi::UnsafeInit{}};
   // flag to mark requirment of scalarization.
   bool need_scalarize_{false};
+  // A lane-dependent assertion requires scalarizing the original loop body, including bindings.
+  bool scalarize_assertion_{false};
   // vectorizable property
   decltype(Op::GetAttrMap(tvm::tirx::op_attr::kVectorizable)) op_vectorizable_ =
       Op::GetAttrMap(tvm::tirx::op_attr::kVectorizable);
@@ -1391,9 +1410,7 @@ class LoopVectorizer : public StmtExprMutator {
             << "Failed to vectorize loop with extent " << extent << " for target " << target_;
       }
       Stmt body = PreserveUnrollPolicy(op->body, op->annotations);
-      return ffi::make_object<Vectorizer>(op->var, extent, target_)
-          ->Mutate(body, inplace_mode)
-          .ValueOrUnchanged(body);
+      return ffi::make_object<Vectorizer>(op->var, extent, target_)->Run(body, inplace_mode);
     } else {
       return StmtExprMutator::Mutate_(op, inplace_mode);
     }
