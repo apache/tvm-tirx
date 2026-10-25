@@ -33,7 +33,10 @@ namespace prim {
 /*!
  * \brief Construct a vector with lanes elements
  *        where its i-th element equals base + i * stride.
- *  This is useful to construct a index for a continuous vector load.
+ *  This is useful to construct an index for a continuous vector load.
+ *  Base and stride must be scalar signed int32 or int64. The stride is cast
+ *  to the base type when their widths differ. Other element types can be
+ *  expressed by explicitly casting the resulting vector.
  *
  *  Examples:
  *  - ramp(0, 1, 3) = [0, 1, 2]

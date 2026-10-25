@@ -475,8 +475,7 @@ class Vectorizer : public StmtExprMutator {
 
   Vectorizer(Var var, PrimExpr var_lanes, ffi::Optional<Target> target)
       : var_(var), var_lanes_(var_lanes), target_(target) {
-    PrimType var_ty = var->ty.as_or_throw<PrimType>();
-    ramp_ = prim::Ramp(IntImm(var_ty, 0), IntImm(var_ty, 1), var_lanes);
+    ramp_ = MakeIndexRamp(1, var_lanes);
     VarRemapSet(var_, ramp_);
   }
 
@@ -1004,8 +1003,7 @@ class Vectorizer : public StmtExprMutator {
     } else {
       PrimExpr prev_ramp = ramp_;
       PrimExpr prev_var_lanes = var_lanes_;
-      PrimType var_ty = var_->ty.as_or_throw<PrimType>();
-      ramp_ = prim::Ramp(IntImm(var_ty, 0), IntImm(var_ty, 2), new_vec_length);
+      ramp_ = MakeIndexRamp(2, new_vec_length);
       var_lanes_ = tvm::IntImm(var_lanes_.ty(), new_vec_length);
       lane_vectors = 0;
       vectors = MutateArray(op->vectors, &lane_vectors, inplace_mode);
@@ -1187,6 +1185,14 @@ class Vectorizer : public StmtExprMutator {
   }
 
  private:
+  PrimExpr MakeIndexRamp(int stride, PrimExpr lanes) const {
+    PrimType var_ty = var_->ty.as_or_throw<PrimType>();
+    PrimType index_ty = PrimType::Int(std::max(32, var_ty.bits()));
+    PrimExpr ramp = prim::Ramp(IntImm(index_ty, 0), IntImm(index_ty, stride), lanes);
+    // Preserve narrow and unsigned loop-variable types with an explicit vector cast.
+    return prim::cast(ramp, ramp.ty().WithCode(var_ty.code()).WithBits(var_ty.bits()));
+  }
+
   // analyzer
   sym::Analyzer analyzer_;
   // deep equal

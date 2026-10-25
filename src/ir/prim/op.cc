@@ -401,7 +401,7 @@ PrimExpr cast(PrimExpr value, PrimType t, Location loc) {
         const auto* base = ramp->base.as<IntImmObj>();
         const auto* stride = ramp->stride.as<IntImmObj>();
         if (dtype.IsFixedLengthVector() && base && stride &&
-            dtype.MatchesCode(DLDataTypeCode::kDLInt, DLDataTypeCode::kDLUInt)) {
+            (elem_ty == PrimType::Int(32) || elem_ty == PrimType::Int(64))) {
           ffi::BigInt last = base->value + stride->value * (dtype.lanes() - 1);
           if (detail::IsRepresentable(base->value, elem_ty) &&
               detail::IsRepresentable(stride->value, elem_ty) &&

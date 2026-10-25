@@ -25,7 +25,11 @@ from . import _ffi_api as _prim_ffi_api
 
 @tvm_ffi.register_object("prim.Ramp")
 class Ramp(ExprWithOp):
-    """Construct a vector whose lane ``i`` equals ``base + i * stride``.
+    """Construct an index vector whose lane ``i`` equals ``base + i * stride``.
+
+    Base and stride must be scalar signed ``int32`` or ``int64``. If their
+    widths differ, stride is cast to the base type. Use an explicit vector
+    cast to produce other element types.
 
     Parameters
     ----------
