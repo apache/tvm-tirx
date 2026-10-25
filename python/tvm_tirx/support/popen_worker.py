@@ -109,8 +109,10 @@ def main():
             msg = traceback.format_exc()
             ret_value = (StatusKind.EXCEPTION, type(exception)(msg))
 
-        if timeout is not None:
-            watcher.cancel()
+        finally:
+            # SystemExit must cancel the timer before interpreter shutdown too.
+            if timeout is not None:
+                watcher.cancel()
 
         lock.acquire()
         if status.status == StatusKind.RUNNING:
