@@ -27,6 +27,7 @@
 #include <tvm/ffi/extra/structural_mutate.h>
 #include <tvm/ffi/function.h>
 #include <tvm/ffi/reflection/registry.h>
+#include <tvm/ir/analysis.h>
 #include <tvm/ir/function.h>
 #include <tvm/ir/prim/expr.h>
 #include <tvm/ir/prim/op.h>
@@ -478,6 +479,13 @@ class Vectorizer : public StmtExprMutator {
     PrimType var_ty = var->ty.as_or_throw<PrimType>();
     ramp_ = prim::Ramp(IntImm(var_ty, 0), IntImm(var_ty, 1), var_lanes);
     VarRemapSet(var_, ramp_);
+  }
+
+  Stmt Run(Stmt body, InplaceMode inplace_mode) {
+    Stmt result = this->Mutate(body, inplace_mode).ValueOrUnchanged(body);
+    // A statement fallback cannot recover a binding defined by another statement.
+    // Retry the original body so definitions and uses stay in the same scalar scope.
+    return scalarize_bindings_ ? Scalarize(body) : result;
   }
 
   // Rewriting may change vector dtypes and later request scalarization of the
@@ -1188,6 +1196,17 @@ class Vectorizer : public StmtExprMutator {
   }
   // scalarize the statment
   Stmt Scalarize(Stmt stmt) {
+    // Wrapping a binding in a loop would hide its result from subsequent uses.
+    if (stmt.as<BindObj>()) scalarize_bindings_ = true;
+    for (const Var& var : UndefinedVars(stmt)) {
+      if (var.same_as(var_)) continue;
+      auto mapped = VarRemapGet(var).as<Expr>();
+      if (mapped && !mapped.value().same_as(var)) {
+        // The original statement still uses the scalar variable, whose definition
+        // has already been replaced by a vector binding outside this statement.
+        scalarize_bindings_ = true;
+      }
+    }
     PrimType var_ty = var_->ty.as_or_throw<PrimType>();
     Var idx(var_->name + ".s", var_ty);
     auto substituter = ffi::make_object<StmtExprMutator>();
@@ -1210,6 +1229,8 @@ class Vectorizer : public StmtExprMutator {
   PrimExpr ramp_{ffi::UnsafeInit{}};
   // flag to mark requirment of scalarization.
   bool need_scalarize_{false};
+  // Statement scalarization requires keeping dependent bindings in scalar scope.
+  bool scalarize_bindings_{false};
   // vectorizable property
   decltype(Op::GetAttrMap(tvm::tirx::op_attr::kVectorizable)) op_vectorizable_ =
       Op::GetAttrMap(tvm::tirx::op_attr::kVectorizable);
@@ -1402,9 +1423,7 @@ class LoopVectorizer : public StmtExprMutator {
             << "Failed to vectorize loop with extent " << extent << " for target " << target_;
       }
       Stmt body = PreserveUnrollPolicy(op->body, op->annotations);
-      return ffi::make_object<Vectorizer>(op->var, extent, target_)
-          ->Mutate(body, inplace_mode)
-          .ValueOrUnchanged(body);
+      return ffi::make_object<Vectorizer>(op->var, extent, target_)->Run(body, inplace_mode);
     } else {
       return StmtExprMutator::Mutate_(op, inplace_mode);
     }
