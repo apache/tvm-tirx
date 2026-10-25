@@ -569,11 +569,11 @@ Stmt MakeCudaKernelLaunch(const GlobalVar& symbol, Function* func, ffi::Array<Ex
   if (auto required = required_bytes) {
     sym::Analyzer analyzer;
     auto bytes = analyzer->Simplify(required.value());
-    size_t index = fields.size();
+    int index = -1;
     for (size_t i = 0; i < fields.size(); ++i) {
-      if (fields[i] == "dynamic_smem_bytes") index = i;
+      if (fields[i] == "dynamic_smem_bytes") index = static_cast<int>(i);
     }
-    if (index == fields.size()) {
+    if (index < 0) {
       TVM_FFI_CHECK(!prim::IsZero(bytes) ||
                         region->attrs->dict.count(tvm::backend::cuda::attr::kSmemRequired.name),
                     ValueError)

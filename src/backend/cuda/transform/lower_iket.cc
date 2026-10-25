@@ -768,10 +768,6 @@ extern "C" {
           << "NVIDIA IKET range-id collision between " << it->second << " and " << key.name;
     }
 
-    TVM_FFI_CHECK_LE(key.name.size(), static_cast<size_t>(kOfficialEventAttributesBytes - 28),
-                     ValueError)
-        << "NVIDIA IKET declaration name exceeds the event attribute capacity";
-    const auto name_size = static_cast<uint32_t>(key.name.size());
     std::vector<uint8_t> event(kOfficialEventAttributesBytes);
     PutOfficialU32(&event, 0, kOfficialEventAttributesBytes);
     PutOfficialU32(&event, 4, declaration.event_id);
@@ -781,7 +777,7 @@ extern "C" {
         key.kind == DeclarationKind::kRange ? 4 : (key.kind == DeclarationKind::kPush ? 1 : 0);
     PutOfficialU32(&event, 16, event_position);
     PutOfficialU32(&event, 20, range_id);
-    PutOfficialU32(&event, 24, name_size);
+    PutOfficialU32(&event, 24, static_cast<uint32_t>(key.name.size()));
     std::copy(key.name.begin(), key.name.end(), event.begin() + 28);
     std::string event_symbol = "__iket_evt_decl_" + OfficialSymbolName(key.name) + "_" +
                                std::to_string(declaration.event_id) + "_attrs";
@@ -795,7 +791,7 @@ extern "C" {
       PutOfficialU32(&range, 12, 0xffffffffU);
       PutOfficialU32(&range, 16, key.kind == DeclarationKind::kRange ? 1 : 2);
       PutOfficialU32(&range, 20, key.kind == DeclarationKind::kRange ? 1 : 0);
-      PutOfficialU32(&range, 32, name_size);
+      PutOfficialU32(&range, 32, static_cast<uint32_t>(key.name.size()));
       std::copy(key.name.begin(), key.name.end(), range.begin() + 36);
       std::string range_symbol = "__iket_range_decl_" + OfficialSymbolName(key.name) + "_" +
                                  std::to_string(range_id) + "_attrs";

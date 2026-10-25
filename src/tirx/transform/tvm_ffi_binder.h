@@ -293,7 +293,7 @@ class TVMFFIABIBuilder {
    * \param index The element index to load.
    * \return The loaded int64 value expression.
    */
-  static PrimExpr LoadInt64ArrayElem(const Var& ptr, size_t index);
+  static PrimExpr LoadInt64ArrayElem(const Var& ptr, int index);
 
   /*!
    * \brief Assert strides form a compact (C-contiguous) layout.

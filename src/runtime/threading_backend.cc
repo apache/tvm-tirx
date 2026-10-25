@@ -28,8 +28,6 @@
 #include <tvm/ffi/reflection/registry.h>
 #include <tvm/runtime/logging.h>
 
-#include <limits>
-
 #if defined(__linux__) || defined(__ANDROID__)
 #if __ANDROID_API__ >= 21
 #include <pthread.h>
@@ -111,9 +109,6 @@ class ThreadGroup::Impl {
         break;
       case kSpecifyOneCorePerThread:
       case kSpecifyThreadShareAllCore:
-        TVM_FFI_CHECK_LE(cpus.size(), static_cast<size_t>(std::numeric_limits<int>::max()),
-                         ValueError)
-            << "Too many CPUs in thread affinity configuration";
         num_workers_used = static_cast<int>(cpus.size());
         sorted_order_ = cpus;
         break;

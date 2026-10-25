@@ -32,7 +32,6 @@
 #include <tvm/ffi/reflection/registry.h>
 #include <tvm/tirx/op/memory.h>
 
-#include <limits>
 #include <string>
 #include <vector>
 
@@ -91,35 +90,31 @@ llvm::Value* CodeGenX86_64::CallVectorIntrin(llvm::Intrinsic::ID id, size_t intr
 #else
   llvm::Function* f = llvm::Intrinsic::getDeclaration(module_.get(), id);
 #endif
-  unsigned llvm_lanes = llvm::cast<llvm::FixedVectorType>(result_ty)->getNumElements();
-  TVM_FFI_ICHECK_LE(llvm_lanes, static_cast<unsigned>(std::numeric_limits<int>::max()));
-  int num_elems = static_cast<int>(llvm_lanes);
-  if (intrin_lanes == static_cast<size_t>(num_elems)) {
+  size_t num_elems = llvm::cast<llvm::FixedVectorType>(result_ty)->getNumElements();
+  if (intrin_lanes == num_elems) {
     return builder_->CreateCall(f, args);
   }
 
   // Otherwise, we split the vector into intrin_lanes sized elements (widening where necessary),
   // compute each result, and then concatenate the vectors (slicing the result if necessary).
-  TVM_FFI_ICHECK_GT(intrin_lanes, 0U);
-  TVM_FFI_ICHECK_LT(intrin_lanes, static_cast<size_t>(num_elems));
-  int slice_lanes = static_cast<int>(intrin_lanes);
+  TVM_FFI_ICHECK_LT(intrin_lanes, num_elems);
   std::vector<llvm::Value*> split_results;
-  for (int i = 0; i < num_elems;) {
+  for (size_t i = 0; i < num_elems; i += intrin_lanes) {
     std::vector<llvm::Value*> split_args;
     for (const auto& v : args) {
       if (v->getType()->isVectorTy()) {
         TVM_FFI_ICHECK_EQ(GetVectorNumElements(v), num_elems);
-        split_args.push_back(CreateVecSlice(v, i, slice_lanes));
+        split_args.push_back(
+            CreateVecSlice(v, static_cast<int>(i), static_cast<int>(intrin_lanes)));
       } else {
         split_args.push_back(v);
       }
     }
     llvm::Type* type =
-        llvm::FixedVectorType::get(result_ty->getScalarType(), static_cast<unsigned>(slice_lanes));
+        llvm::FixedVectorType::get(result_ty->getScalarType(), static_cast<unsigned>(intrin_lanes));
     split_results.push_back(CallVectorIntrin(id, intrin_lanes, type, split_args));
-    i += std::min(slice_lanes, num_elems - i);
   }
-  return CreateVecSlice(CreateVecConcat(split_results), 0, num_elems);
+  return CreateVecSlice(CreateVecConcat(split_results), 0, static_cast<int>(num_elems));
 }
 
 TVM_FFI_STATIC_INIT_BLOCK() {

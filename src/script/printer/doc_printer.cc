@@ -337,26 +337,27 @@ std::vector<ByteSpan> MergeAndExemptSpans(const std::vector<ByteSpan>& spans,
                                           const std::vector<ByteSpan>& spans_exempted) {
   // use prefix sum to merge and exempt spans
   std::vector<ByteSpan> res;
-  std::vector<std::pair<size_t, std::pair<int, int>>> prefix_stamp;
+  std::vector<std::pair<size_t, int>> prefix_stamp;
   for (ByteSpan span : spans) {
-    prefix_stamp.push_back({span.first, {1, 0}});
-    prefix_stamp.push_back({span.second, {-1, 0}});
+    prefix_stamp.push_back({span.first, 1});
+    prefix_stamp.push_back({span.second, -1});
   }
-  // Track exemptions separately so overlapping spans do not multiply the prefix count.
+  // at most spans.size() spans accumulated in prefix sum
+  // use spans.size() + 1 as stamp unit to exempt all positive spans
+  // with only one negative span
+  int max_n = static_cast<int>(spans.size() + 1);
   for (ByteSpan span : spans_exempted) {
-    prefix_stamp.push_back({span.first, {0, 1}});
-    prefix_stamp.push_back({span.second, {0, -1}});
+    prefix_stamp.push_back({span.first, -max_n});
+    prefix_stamp.push_back({span.second, max_n});
   }
   std::sort(prefix_stamp.begin(), prefix_stamp.end());
-  int64_t active_spans = 0;
-  int64_t active_exemptions = 0;
-  for (size_t i = 0; i + 1 < prefix_stamp.size(); ++i) {
-    active_spans += prefix_stamp[i].second.first;
-    active_exemptions += prefix_stamp[i].second.second;
+  int prefix_sum = 0;
+  int n = static_cast<int>(prefix_stamp.size());
+  for (int i = 0; i < n - 1; ++i) {
+    prefix_sum += prefix_stamp[i].second;
     // positive prefix sum leads to spans without exemption
     // different stamp positions guarantee the stamps in same position accumulated
-    if (active_spans > 0 && active_exemptions == 0 &&
-        prefix_stamp[i].first < prefix_stamp[i + 1].first) {
+    if (prefix_sum > 0 && prefix_stamp[i].first < prefix_stamp[i + 1].first) {
       if (res.size() && res.back().second == prefix_stamp[i].first) {
         // merge to the last spans if it is successive
         res.back().second = prefix_stamp[i + 1].first;
@@ -675,7 +676,8 @@ void DocPrinter::MarkSpan(const ByteSpan& span, const AccessPath& path) {
     pending_string_spans_->emplace_back(span, path);
     return;
   }
-  for (size_t i = 0; i < path_to_underline_.size(); ++i) {
+  int n = static_cast<int>(path_to_underline_.size());
+  for (int i = 0; i < n; ++i) {
     AccessPath p = path_to_underline_[i];
     if (path->depth >= current_max_path_depth_[i] && path->IsPrefixOf(p)) {
       if (path->depth > current_max_path_depth_[i] || !current_visible_paths_[i].has_value()) {

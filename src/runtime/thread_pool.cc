@@ -28,8 +28,6 @@
 #include <tvm/runtime/base.h>
 #include <tvm/runtime/c_backend_api.h>
 
-#include <limits>
-
 #include "threading_backend.h"
 #if TVM_THREADPOOL_USE_OPENMP
 #include <omp.h>
@@ -473,8 +471,6 @@ void ResetThreadPool() { tvm::runtime::ThreadPool::ThreadLocal()->Reset(); }
  */
 TVM_RUNTIME_DLL void Configure(tvm::runtime::threading::ThreadGroup::AffinityMode mode,
                                int nthreads, std::vector<unsigned int> cpus) {
-  TVM_FFI_CHECK_LE(cpus.size(), static_cast<size_t>(std::numeric_limits<int>::max()), ValueError)
-      << "Too many CPUs in thread affinity configuration";
   tvm::runtime::threading::SetMaxConcurrency(static_cast<int>(cpus.size()));
 #if !TVM_THREADPOOL_USE_OPENMP
   tvm::runtime::ThreadPool::ThreadLocal()->UpdateWorkerConfiguration(mode, nthreads, cpus);
