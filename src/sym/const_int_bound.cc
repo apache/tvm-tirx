@@ -853,8 +853,12 @@ class ConstIntBoundAnalyzer::Impl final
       }
     }
 
-    // Invert lo <= scale * var + offset <= hi for a positive constant scale.
-    // Restrict this to signed index arithmetic, where overflow is undefined.
+    // A bound on an affine expression does not by itself bound queries for its
+    // variable.  For scale > 0, lo <= scale * var + offset <= hi implies
+    // ceil((lo - offset) / scale) <= var <= floor((hi - offset) / scale).
+    // For example, -6 <= 3*x + 2 <= 13 implies -2 <= x <= 3.
+    // Restrict this to signed index arithmetic, where overflow is undefined;
+    // the same inference would be unsound for wrapping unsigned arithmetic.
     const size_t raw_count = info.size();
     for (size_t i = 0; i < raw_count; ++i) {
       const BoundInfo fact = info[i];
@@ -887,7 +891,7 @@ class ConstIntBoundAnalyzer::Impl final
       });
       if (!valid || !symbol.has_value() || scale <= 0) continue;
 
-      // var >= ceil((lo - offset) / scale), var <= floor((hi - offset) / scale).
+      // ceil(n / scale) = -floor(-n / scale), including negative n.
       // BigInt avoids intermediate overflow.  Missing or unrepresentable
       // endpoints remain conservatively infinite, including sentinel values.
       int64_t lower = kNegInf, upper = kPosInf;
