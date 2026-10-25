@@ -52,13 +52,13 @@ def test_bf16_ramp_will_legalize():
     class Before:
         @T.function
         def main():
-            T.evaluate(T.Ramp(T.bfloat16(0), T.bfloat16(1), 2))
+            T.evaluate(T.Cast("bfloat16x2", T.Ramp(0, 1, 2)))
 
     @I.ir_module
     class Expected:
         @T.function
         def main():
-            T.evaluate(T.Ramp(T.float32(0), T.float32(1), 2))
+            T.evaluate(T.Cast("float32x2", T.Ramp(0, 1, 2)))
 
     target = Target("llvm")
     before = BindTarget(target)(Before)
