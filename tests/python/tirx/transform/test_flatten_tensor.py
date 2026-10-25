@@ -69,24 +69,6 @@ def test_elementwise():
     tvm_tirx.ir.assert_structural_equal(After, Expected)
 
 
-def test_flatten_independent_cyclic_shifts():
-    @I.ir_module
-    class Before:
-        @T.function
-        def main(A: T.Tensor((6, 7), "float32"), B: T.Tensor((6, 7), "float32")):
-            for fused in T.serial(42):
-                B[fused // 7, fused % 7] = A[(fused // 7 + 1) % 6, (fused % 7 + 2) % 7]
-
-    after = FlattenTensor()(Before)
-    loop = after["main"].body.seq[-1]
-    index = loop.body.seq[-1].value.indices[0]
-    for value in range(42):
-        analyzer = tvm_tirx.sym.Analyzer()
-        analyzer.bind(loop.var, tvm_tirx.tirx.const(value, "int32"))
-        expected = ((value // 7 + 1) % 6) * 7 + (value % 7 + 2) % 7
-        assert int(analyzer.simplify(index)) == expected
-
-
 def test_elementwise_without_decl_tensor():
     """2-d tensors are flattened to 1-d
 

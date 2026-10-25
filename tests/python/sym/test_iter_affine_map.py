@@ -1311,6 +1311,17 @@ def test_iter_map_simplify_symbolic_predicate():
     )
 
 
+def test_iter_map_simplify_cyclic_shift():
+    fused = tvm_tirx.tirx.Var("fused", "int32")
+    index = (fused // 7 + 1) % 6 * 7 + (fused % 7 + 2) % 7
+    simplified = tvm_tirx.sym.iter_map_simplify([index], var_dom([(fused, 42)]))[0]
+    for value in range(42):
+        analyzer = tvm_tirx.sym.Analyzer()
+        analyzer.bind(fused, tvm_tirx.tirx.const(value, "int32"))
+        expected = ((value // 7 + 1) % 6) * 7 + (value % 7 + 2) % 7
+        assert int(analyzer.simplify(simplified)) == expected
+
+
 def test_iter_map_simplify_predicate_fallback_requires_no_padding():
     fused = tvm_tirx.tirx.Var("fused", "int64")
     predicate = fused % 2 == 0

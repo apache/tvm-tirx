@@ -352,19 +352,12 @@ class IterMapRewriter : public tvm::ExprMutator {
    */
   ffi::Optional<IterSumExpr> PreprocessDividend(IterMapExpr dividend, PrimExpr original_dividend);
 
-  // Create an iterator that represents the expression (split+base), with
-  // padding such that the iterator's extents are evenly divisible by
-  // `divisor`.
-  //
-  // If iterators can have padding added through UpdatePadding, pad a
-  // dividend out to be evenly divisible.  Otherwise, validate that the
-  // padding previously defined for the split using UpdatePadding can be
-  // used.  If no such previous padding exists, return an empty
-  // IterMark.
-  //
-  // Returns a pair of IterSplit that represents (split+base) in a
-  // form that can be dividied by divisors, and PrimExpr that
-  // represents the left padding applied to split.
+  // First pass: collect source-padding requirements; provisional splits are
+  // discarded and rewritten if any padding is required.
+  // Second pass: return a split whose unscaled value is the input's unscaled
+  // value plus the returned left shift, with the residual base offset divisible
+  // by divisor.  Reject incompatible or unproven shared padding instead of
+  // changing the mapping.
   std::optional<std::pair<IterSplitExpr, PrimExpr>> PadDividendToDivisor(IterSplitExpr split,
                                                                          PrimExpr base,
                                                                          PrimExpr divisor);
@@ -1878,7 +1871,8 @@ std::optional<std::pair<IterSplitExpr, PrimExpr>> IterMapRewriter::PadDividendTo
   if (it == padded_iter_map_.end() ||
       (IsZero(it->second.left_pad) && CanProveDivisible(mark->extent, it->second.padding_factor))) {
     // No shift is applied to this mark.  In particular, a nested split of an
-    // already padded mark cannot silently absorb a new nonzero offset.
+    // already padded mark cannot silently absorb a new nonzero offset:
+    // with P = f + 7, (P % 7 + 2) % 7 still needs the separate +2.
     if (!IsZero(left_pad)) {
       ErrorLogger(this) << "Cannot absorb left padding " << left_pad << " into "
                         << NormalizeIterMapToExpr(split);
@@ -1896,8 +1890,20 @@ std::optional<std::pair<IterSplitExpr, PrimExpr>> IterMapRewriter::PadDividendTo
       << "The padding factor " << info.padding_factor << " is not divisible by " << divisor
       << " for the split " << split;
 
-  // Every split must use the actual shift of the shared source, including
-  // subsequent uses of an already-created padded mark.
+  // Let l = split.lower_factor and E = split.extent.  Widening to the whole
+  // padded mark must not remove an existing wrap: for 0 <= s < mark.extent,
+  // prove (s // l) % E = s // l first.
+  if (!analyzer_->CanProve(mark->extent <= split->lower_factor * split->extent)) {
+    ErrorLogger(this) << "Cannot remove inner modulo while padding "
+                      << NormalizeIterMapToExpr(split);
+    return std::nullopt;
+  }
+
+  // Every use must establish its actual source shift L.  When L % l = 0,
+  // (s + L) // l = s // l + L // l.  The enlarged extent covers the whole
+  // shifted mark, so its modulo cannot wrap either.  The new unscaled split
+  // equals the original unscaled split plus L // l.  The split's scale is
+  // preserved separately.  Check this even when reusing the padded mark.
   PrimExpr mark_left_pad = info.left_pad;
   if (!CanProveDivisible(mark_left_pad, split->lower_factor)) {
     ErrorLogger(this) << "Detect incompatible left padding on " << NormalizeIterMapToExpr(split)
