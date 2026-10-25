@@ -30,6 +30,16 @@ function(tvm_tirx_configure_target target)
     target_compile_options(${target} PRIVATE "$<$<COMPILE_LANGUAGE:C,CXX>:/Zc:inline>")
   endif()
 
+  # Give ELF shared libraries section-level reachability; keep static link policy unchanged.
+  if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND CMAKE_CXX_COMPILER_ID MATCHES "^(GNU|Clang)$")
+    target_compile_options(${target} PRIVATE
+      "$<$<COMPILE_LANGUAGE:C,CXX>:-ffunction-sections;-fdata-sections>")
+    get_target_property(_target_type ${target} TYPE)
+    if(_target_type STREQUAL "SHARED_LIBRARY")
+      target_link_options(${target} PRIVATE "LINKER:--gc-sections")
+    endif()
+  endif()
+
   # Keep shared libraries relocatable within their installation directory.
   if(APPLE)
     set_target_properties(${target} PROPERTIES BUILD_RPATH "@loader_path" INSTALL_RPATH "@loader_path")

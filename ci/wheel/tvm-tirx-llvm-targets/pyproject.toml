@@ -26,7 +26,7 @@ dependencies = ["apache-tvm-tirx==0.1.0a2"]
 requires = [
   "scikit-build-core>=0.11",
   "mlc-llvm-static[all]==23.1.1",
-  "mlc-z3-static==5.3.1.post0",
+  "mlc-z3-static==5.3.1.post1",
 ]
 build-backend = "scikit_build_core.build"
 

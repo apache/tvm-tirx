@@ -432,7 +432,48 @@ void CodeGenLLVM::Optimize() {
   bool debug_logging = false;
   bool verify_each = false;
 
+  // Construct the default pass pipeline depending on the opt level.
+  llvm::OptimizationLevel optimization_level = llvm::OptimizationLevel::O3;
+#if TVM_LLVM_VERSION <= 170
+  switch (llvm_target_->GetOptLevel()) {
+    case llvm::CodeGenOpt::Level::None:
+      optimization_level = llvm::OptimizationLevel::O0;
+      break;
+    case llvm::CodeGenOpt::Level::Less:
+      optimization_level = llvm::OptimizationLevel::O1;
+      break;
+    case llvm::CodeGenOpt::Level::Default:
+      optimization_level = llvm::OptimizationLevel::O2;
+      break;
+    default:
+      // CodeGenOpt::Level::Aggressive
+      optimization_level = llvm::OptimizationLevel::O3;
+      break;
+  }
+#else
+  switch (llvm_target_->GetOptLevel()) {
+    case llvm::CodeGenOptLevel::None:
+      optimization_level = llvm::OptimizationLevel::O0;
+      break;
+    case llvm::CodeGenOptLevel::Less:
+      optimization_level = llvm::OptimizationLevel::O1;
+      break;
+    case llvm::CodeGenOptLevel::Default:
+      optimization_level = llvm::OptimizationLevel::O2;
+      break;
+    default:
+      // CodeGenOptLevel::Aggressive
+      optimization_level = llvm::OptimizationLevel::O3;
+      break;
+  }
+#endif
+
   llvm::PipelineTuningOptions pto = llvm::PipelineTuningOptions();
+  // Match the vectorization tuning applied by the default<O0/O1/O2/O3> aliases.
+  bool enable_vectorization = optimization_level == llvm::OptimizationLevel::O2 ||
+                              optimization_level == llvm::OptimizationLevel::O3;
+  pto.LoopVectorization = enable_vectorization;
+  pto.SLPVectorization = enable_vectorization;
   llvm::PassInstrumentationCallbacks pic;
   llvm::PassBuilder builder(tm, pto, std::nullopt, &pic);
 
@@ -446,42 +487,6 @@ void CodeGenLLVM::Optimize() {
   builder.registerModuleAnalyses(mam);
   builder.crossRegisterProxies(lam, fam, cgam, mam);
 
-  // Construct the default pass pipeline depending on the opt level.
-  std::string pipeline;
-#if TVM_LLVM_VERSION <= 170
-  switch (llvm_target_->GetOptLevel()) {
-    case llvm::CodeGenOpt::Level::None:
-      pipeline = "default<O0>";
-      break;
-    case llvm::CodeGenOpt::Level::Less:
-      pipeline = "default<O1>";
-      break;
-    case llvm::CodeGenOpt::Level::Default:
-      pipeline = "default<O2>";
-      break;
-    default:
-      // CodeGenOpt::Level::Aggressive
-      pipeline = "default<O3>";
-      break;
-  }
-#else
-  switch (llvm_target_->GetOptLevel()) {
-    case llvm::CodeGenOptLevel::None:
-      pipeline = "default<O0>";
-      break;
-    case llvm::CodeGenOptLevel::Less:
-      pipeline = "default<O1>";
-      break;
-    case llvm::CodeGenOptLevel::Default:
-      pipeline = "default<O2>";
-      break;
-    default:
-      // CodeGenOptLevel::Aggressive
-      pipeline = "default<O3>";
-      break;
-  }
-#endif
-
   llvm::StandardInstrumentations si(*llvm_target_->GetContext(), debug_logging, verify_each);
 #if LLVM_VERSION_MAJOR >= 17
   si.registerCallbacks(pic, &mam);
@@ -492,9 +497,10 @@ void CodeGenLLVM::Optimize() {
   if (verify_each) {
     mpass.addPass(llvm::VerifierPass());
   }
-  if (auto err = builder.parsePassPipeline(mpass, pipeline)) {
-    TVM_FFI_THROW(InternalError) << "error parsing pass pipeline '" << pipeline
-                                 << "':" << llvm::toString(std::move(err)) << '\n';
+  if (optimization_level == llvm::OptimizationLevel::O0) {
+    mpass.addPass(builder.buildO0DefaultPipeline(optimization_level));
+  } else {
+    mpass.addPass(builder.buildPerModuleDefaultPipeline(optimization_level));
   }
 
   mpass.run(*module_, mam);
