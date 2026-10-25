@@ -106,6 +106,20 @@ runs:
           CMAKE_ARGS="${{ inputs.cmake_defines }}"
         CIBW_ENVIRONMENT_WINDOWS: >-
           CMAKE_ARGS="${{ inputs.cmake_defines }}"
+        # The matching main wheel supplies the compiler/runtime libraries.
+        # Keep them external only when repairing the optional backend wheel.
+        CIBW_REPAIR_WHEEL_COMMAND_LINUX: >-
+          auditwheel repair --exclude libtvm_ffi.so
+          --exclude libtvm_tirx_compiler.so --exclude libtvm_runtime.so
+          --exclude libtvm_runtime_cuda.so --exclude 'libcuda.so.*'
+          --exclude 'libcudart.so.*' --exclude 'libnvrtc.so.*'
+          --exclude 'libnvrtc-builtins.so.*' -w {dest_dir} {wheel}
+        CIBW_REPAIR_WHEEL_COMMAND_WINDOWS: >-
+          delvewheel repair --analyze-existing --ignore-existing
+          --exclude "*tvm_ffi*.dll" --exclude tvm_tirx_compiler.dll
+          --exclude tvm_runtime.dll --exclude tvm_runtime_cuda.dll
+          --exclude nvcuda.dll --exclude cudart64_13.dll
+          --exclude nvrtc64_130_0.dll -w {dest_dir} {wheel}
         # before-test runs before cibuildwheel installs the optional wheel, so
         # its exact main dependency resolves to the wheel from this same build.
         CIBW_BEFORE_TEST: >-
