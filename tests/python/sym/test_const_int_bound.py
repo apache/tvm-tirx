@@ -104,6 +104,111 @@ def test_plain_var_non_negative_bound_requires_context():
     assert analyzer.const_int_bound(var).min_value == NEG_INF
 
 
+@pytest.mark.parametrize("dtype", ["int32", "int64"])
+@pytest.mark.parametrize(
+    "predicate, expected",
+    [
+        (lambda e: e >= 11, (3, POS_INF)),
+        (lambda e: e > 11, (4, POS_INF)),
+        (lambda e: e <= 14, (NEG_INF, 4)),
+        (lambda e: e < 14, (NEG_INF, 3)),
+        (lambda e: e == 11, (3, 3)),
+        (lambda e: e >= -6, (-2, POS_INF)),
+        (lambda e: e > -7, (-2, POS_INF)),
+        (lambda e: e <= -6, (NEG_INF, -3)),
+        (lambda e: e < -5, (NEG_INF, -3)),
+        (lambda e: e == -7, (-3, -3)),
+        (lambda e: tvm_tirx.tirx.And(e >= -6, e < 14), (-2, 3)),
+    ],
+)
+def test_affine_predicate_bound(dtype, predicate, expected):
+    x = tvm_tirx.tirx.Var("x", dtype)
+    analyzer = tvm_tirx.sym.Analyzer()
+    original = analyzer.const_int_bound(x)
+    with analyzer.constraint_scope(predicate(3 * x + 2)):
+        bound = analyzer.const_int_bound(x)
+        assert (bound.min_value, bound.max_value) == (
+            max(original.min_value, expected[0]),
+            min(original.max_value, expected[1]),
+        )
+    restored = analyzer.const_int_bound(x)
+    assert (restored.min_value, restored.max_value) == (original.min_value, original.max_value)
+
+
+@pytest.mark.parametrize(
+    "expression",
+    [
+        lambda x: 6 * x + 2,
+        lambda x: 2 + x * 6,
+        lambda x: 3 * (x * 2) + 2,
+        lambda x: (6 * x + 5) - 3,
+        lambda x: 5 - (3 - 6 * x),
+        lambda x: 2 - (-6 * x),
+    ],
+)
+def test_affine_predicate_syntax_and_intersection(expression):
+    x = tvm_tirx.tirx.Var("x", "int64")
+    analyzer = tvm_tirx.sym.Analyzer()
+    analyzer.update(x, ConstIntBound(-10, 10))
+    with analyzer.constraint_scope(expression(x) >= 15):
+        bound = analyzer.const_int_bound(x)
+        assert (bound.min_value, bound.max_value) == (3, 10)
+    bound = analyzer.const_int_bound(x)
+    assert (bound.min_value, bound.max_value) == (-10, 10)
+
+
+@pytest.mark.parametrize(
+    "expression",
+    [
+        lambda x, y: tvm_tirx.tirx.Mul(x, tvm_tirx.tirx.const(0, "int64")) + 2,
+        lambda x, y: -3 * x + 2,
+        lambda x, y: y * x + 2,
+        lambda x, y: x * x + 2,
+        lambda x, y: x + x + 2,
+        lambda x, y: (x + 1) * 3,
+        lambda x, y: x.astype("int32").astype("int64") + 2,
+        lambda x, y: tvm_tirx.tirx.Mul(2, 3) + x,
+    ],
+)
+def test_affine_predicate_unsupported_expression(expression):
+    x, y = (tvm_tirx.tirx.Var(name, "int64") for name in ("x", "y"))
+    analyzer = tvm_tirx.sym.Analyzer()
+    with analyzer.constraint_scope(expression(x, y) >= 11):
+        bound = analyzer.const_int_bound(x)
+        assert (bound.min_value, bound.max_value) == (NEG_INF, POS_INF)
+
+
+@pytest.mark.parametrize("dtype", ["int8", "uint32", "uint64"])
+def test_affine_predicate_unsupported_type(dtype):
+    x = tvm_tirx.tirx.Var("x", dtype)
+    analyzer = tvm_tirx.sym.Analyzer()
+    original = analyzer.const_int_bound(x)
+    with analyzer.constraint_scope(3 * x + 2 >= 11):
+        bound = analyzer.const_int_bound(x)
+        assert (bound.min_value, bound.max_value) == (original.min_value, original.max_value)
+
+
+@pytest.mark.parametrize(
+    "predicate, known_bounds, expected",
+    [
+        (lambda x: (x * (2**62)) * 4 == 0, None, (0, 0)),
+        (lambda x: x - (2**63 - 2) - 4 >= 1, (0, 1), (0, 1)),
+        (lambda x: x + (2**63 - 2) + 4 <= -1, (0, 1), (0, 1)),
+        (lambda x: 3 * x >= NEG_INF, None, (NEG_INF, POS_INF)),
+        (lambda x: 3 * x <= POS_INF, None, (NEG_INF, POS_INF)),
+    ],
+)
+def test_affine_predicate_wide_arithmetic(predicate, known_bounds, expected):
+    x = tvm_tirx.tirx.Var("x", "int64")
+    analyzer = tvm_tirx.sym.Analyzer()
+    if known_bounds is not None:
+        # Keep unrelated interval evaluation in the rewrite simplifier finite.
+        analyzer.update(x, ConstIntBound(*known_bounds))
+    with analyzer.constraint_scope(predicate(x)):
+        bound = analyzer.const_int_bound(x)
+        assert (bound.min_value, bound.max_value) == expected
+
+
 class TestCastBound(BaseCompare):
     x = tvm_tirx.tirx.Var("x", "int8")
     tmod = tvm_tirx.tirx.truncmod

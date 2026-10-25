@@ -25,6 +25,7 @@
 #include <tvm/ffi/reflection/registry.h>
 #include <tvm/ir/expr_functor.h>
 #include <tvm/ir/op.h>
+#include <tvm/ir/prim/const_fold.h>
 #include <tvm/ir/prim/expr.h>
 #include <tvm/ir/prim/op.h>
 #include <tvm/ir/prim/pattern_match.h>
@@ -37,6 +38,7 @@
 #include "constraint_extract.h"
 #include "constraint_helpers.h"
 #include "int_operator.h"
+#include "product_normal_form.h"
 
 namespace tvm {
 namespace sym {
@@ -851,6 +853,60 @@ class ConstIntBoundAnalyzer::Impl final
       }
     }
 
+    // Invert lo <= scale * var + offset <= hi for a positive constant scale.
+    // Restrict this to signed index arithmetic, where overflow is undefined.
+    const size_t raw_count = info.size();
+    for (size_t i = 0; i < raw_count; ++i) {
+      const BoundInfo fact = info[i];
+      if (!prim::detail::IsIndexTypedExpr(fact.expr) || fact.expr.as<PrimVar>()) continue;
+
+      // Match one nonconstant sum term, then one variable in its product.  Do
+      // not simplify using the current context while extracting new facts.
+      ffi::BigInt offset = 0, scale = 1;
+      ffi::Optional<PrimExpr> product, symbol;
+      bool valid = true;
+      UnpackSum(fact.expr, [&](PrimExpr term, int sign) {
+        if (const auto* imm = term.as<IntImmObj>()) {
+          offset += imm->value * sign;
+        } else if (!product.has_value()) {
+          product = term;
+          scale = sign;
+        } else {
+          valid = false;
+        }
+      });
+      if (!valid || !product.has_value()) continue;
+      UnpackReduction<prim::MulObj>(*product, [&](PrimExpr factor) {
+        if (const auto* imm = factor.as<IntImmObj>()) {
+          scale *= imm->value;
+        } else if (factor.as<PrimVar>() && !symbol.has_value()) {
+          symbol = factor;
+        } else {
+          valid = false;
+        }
+      });
+      if (!valid || !symbol.has_value() || scale <= 0) continue;
+
+      // var >= ceil((lo - offset) / scale), var <= floor((hi - offset) / scale).
+      // BigInt avoids intermediate overflow.  Missing or unrepresentable
+      // endpoints remain conservatively infinite, including sentinel values.
+      int64_t lower = kNegInf, upper = kPosInf;
+      if (fact.bound.min_value != kNegInf) {
+        ffi::BigInt bound = -ffi::floordiv(offset - fact.bound.min_value, scale);
+        if (auto value = bound.as<int64_t>(); value && *value > kNegInf && *value < kPosInf) {
+          lower = *value;
+        }
+      }
+      if (fact.bound.max_value != kPosInf) {
+        ffi::BigInt bound = ffi::floordiv(ffi::BigInt(fact.bound.max_value) - offset, scale);
+        if (auto value = bound.as<int64_t>(); value && *value > kNegInf && *value < kPosInf) {
+          upper = *value;
+        }
+      }
+      if (lower != kNegInf || upper != kPosInf) {
+        info.emplace_back(*symbol, MakeBound(lower, upper));
+      }
+    }
     return info;
   }
 
