@@ -1875,14 +1875,18 @@ std::optional<std::pair<IterSplitExpr, PrimExpr>> IterMapRewriter::PadDividendTo
 
   // In the second pass, update iteration mark's to padded form
   auto it = padded_iter_map_.find(mark);
-  if (it == padded_iter_map_.end()) {
-    return std::make_pair(split, left_pad);
+  if (it == padded_iter_map_.end() ||
+      (IsZero(it->second.left_pad) && CanProveDivisible(mark->extent, it->second.padding_factor))) {
+    // No shift is applied to this mark.  In particular, a nested split of an
+    // already padded mark cannot silently absorb a new nonzero offset.
+    if (!IsZero(left_pad)) {
+      ErrorLogger(this) << "Cannot absorb left padding " << left_pad << " into "
+                        << NormalizeIterMapToExpr(split);
+      return std::nullopt;
+    }
+    return std::make_pair(split, PrimExpr(0));
   }
   auto& info = it->second;
-  if (IsZero(info.left_pad) && CanProveDivisible(mark->extent, info.padding_factor)) {
-    // the iter mark requires no padding
-    return std::make_pair(split, left_pad);
-  }
 
   // check that padding factor is compatible with current split and divisor
   TVM_FFI_ICHECK(CanProveDivisible(info.padding_factor, split->lower_factor))
@@ -1892,24 +1896,28 @@ std::optional<std::pair<IterSplitExpr, PrimExpr>> IterMapRewriter::PadDividendTo
       << "The padding factor " << info.padding_factor << " is not divisible by " << divisor
       << " for the split " << split;
 
-  if (!info.padded.has_value()) {
-    // the first time encounter the iter mark to pad, update the padded mark.
-    PrimExpr mark_left_pad = info.left_pad;
-    if (CanProveDivisible(mark_left_pad, split->lower_factor)) {
-      // correct current split's left padding
-      // (mark_left_pad + iter) // lower_factor % extent  =>
-      // (left_pad * lower_factor + mark) // lower_factor % extent =>
-      // (left_pad + mark // lower_factor) % extent =>
-      // left_pad + (mark // lower_factor % extent) =>
-      // left_pad + split
-      // since the extent covers the full padding range.
-      left_pad = floordiv(mark_left_pad, split->lower_factor);
-    } else {
-      ErrorLogger(this) << "Detect incompatible left padding on " << NormalizeIterMapToExpr(split)
-                        << ", the iter mark is left padded with " << mark_left_pad;
-      return std::nullopt;
-    }
+  // Every split must use the actual shift of the shared source, including
+  // subsequent uses of an already-created padded mark.
+  PrimExpr mark_left_pad = info.left_pad;
+  if (!CanProveDivisible(mark_left_pad, split->lower_factor)) {
+    ErrorLogger(this) << "Detect incompatible left padding on " << NormalizeIterMapToExpr(split)
+                      << ", the iter mark is left padded with " << mark_left_pad;
+    return std::nullopt;
+  }
+  PrimExpr actual_left_pad = floordiv(mark_left_pad, split->lower_factor);
+  // FloorDiv can extract the residual offset, and FloorMod can discard it,
+  // only when it is a multiple of the divisor.  Compare against base % divisor
+  // to retain the already-simplified remainder for symbolic offsets.
+  if (!CanProveDivisible(actual_left_pad - left_pad, divisor)) {
+    ErrorLogger(this) << "Detect incompatible left padding on " << NormalizeIterMapToExpr(split)
+                      << ", the shared padding leaves offset " << base - actual_left_pad
+                      << " for divisor " << divisor;
+    return std::nullopt;
+  }
 
+  left_pad = actual_left_pad;
+
+  if (!info.padded.has_value()) {
     PrimExpr right_edge = mark->extent + mark_left_pad;
     PrimExpr mark_right_pad = CanProveDivisible(right_edge, info.padding_factor)
                                   ? PrimExpr(0)

@@ -1133,25 +1133,6 @@ class TestPadding:
         # padding for free iteration part
         ({y: 360}, {fld(x * 360 + y, 16): (23, fld(x * 360 - flm(x, 2) * 8, 16), 1)}),
         ({y: 360}, {flm(x * 360 + y, 16): (16, 0, 1)}),
-        # multiple split with same mark offset, could
-        # be surjective on missing (padded // LCM)
-        (
-            {x: 240},
-            {
-                flm(x + 10, 3): (3, 0),
-                flm(fld(x + 10, 3), 4): (4, 0),
-                flm(fld(fld(x + 10, 3), 4), 5): (5, 0),
-            },
-        ),
-        # different offsets on splits
-        (
-            {x: 240},
-            {
-                flm(x + 1, 3): (3, 0),
-                flm(fld(x + 10, 3) + 2, 4): (4, 0),
-                flm(fld(fld(x + 10, 3), 4) + 3, 5): (5, 0),
-            },
-        ),
     )
 
     @pytest.fixture(params=_positive_test_case_params, scope="session")
@@ -1173,6 +1154,26 @@ class TestPadding:
                 flm(fld(x + 10, 3), 4),
                 flm(fld(fld(x + 10, 3), 4), 5),
                 fld(fld(fld(x + 10, 3), 4), 5),
+            },
+        ),
+        # The collected maximum source padding is 9, but the low digit
+        # requires remainder 1 modulo 3.  Sharing that padding is unsound.
+        (
+            {x: 240},
+            {
+                flm(x + 10, 3),
+                flm(fld(x + 10, 3), 4),
+                flm(fld(fld(x + 10, 3), 4), 5),
+            },
+        ),
+        # Different nested offsets collect padding 36, which also fails to
+        # preserve the low digit's remainder 1 modulo 3.
+        (
+            {x: 240},
+            {
+                flm(x + 1, 3),
+                flm(fld(x + 10, 3) + 2, 4),
+                flm(fld(fld(x + 10, 3), 4) + 3, 5),
             },
         ),
         # original extent is smaller than the divident
@@ -1308,6 +1309,79 @@ def test_iter_map_simplify_symbolic_predicate():
         var_dom([(x, (n * n + 1) // 2), (y, 64)]),
         predicate=(z < n * n * 32),
     )
+
+
+@pytest.mark.parametrize(
+    "rows, cols, row_shift, col_shift",
+    [
+        (6, 7, 1, 2),
+        (6, 7, 1, 0),
+        (6, 7, 0, 2),
+        (6, 7, -1, -2),
+        (6, 7, 7, 9),
+        (3, 4, 1, 3),
+    ],
+)
+@pytest.mark.parametrize("reverse", [False, True])
+def test_iter_map_simplify_independent_cyclic_shifts(rows, cols, row_shift, col_shift, reverse):
+    fused = tvm_tirx.tirx.Var("fused", "int32")
+    row = (fused // cols + row_shift) % rows * cols
+    col = (fused % cols + col_shift) % cols
+    index = col + row if reverse else row + col
+    simplified = tvm_tirx.sym.iter_map_simplify([index], var_dom([(fused, rows * cols)]))[0]
+
+    # Independent row/column wraps cannot in general share one padded source.
+    for value in range(rows * cols):
+        analyzer = tvm_tirx.sym.Analyzer()
+        analyzer.bind(fused, tvm_tirx.tirx.const(value, "int32"))
+        expected = ((value // cols + row_shift) % rows) * cols + (value % cols + col_shift) % cols
+        assert int(analyzer.simplify(simplified)) == expected
+
+
+@pytest.mark.parametrize("use_mod", [False, True])
+@pytest.mark.parametrize("second_shift", [2, 8])
+@pytest.mark.parametrize("reverse", [False, True])
+def test_iter_map_simplify_shared_padding_offsets(use_mod, second_shift, reverse):
+    x = tvm_tirx.tirx.Var("x", "int32")
+    operation = tvm_tirx.tirx.floormod if use_mod else tvm_tirx.tirx.floordiv
+    first = operation(x + 1, 7)
+    second = operation(x + second_shift, 7)
+    index = second + first if reverse else first + second
+    simplified = tvm_tirx.sym.iter_map_simplify([index], var_dom([(x, 42)]))[0]
+
+    # The second shift is either incompatible with the shared padding, or
+    # differs by one divisor and must retain its quotient contribution.
+    for value in range(42):
+        analyzer = tvm_tirx.sym.Analyzer()
+        analyzer.bind(x, tvm_tirx.tirx.const(value, "int32"))
+        expected = (
+            (value + 1) % 7 + (value + second_shift) % 7
+            if use_mod
+            else (value + 1) // 7 + (value + second_shift) // 7
+        )
+        assert int(analyzer.simplify(simplified)) == expected
+
+
+@pytest.mark.parametrize("different_offsets", [False, True])
+@pytest.mark.parametrize("reverse", [False, True])
+def test_iter_map_simplify_nested_padding_offsets(different_offsets, reverse):
+    x = tvm_tirx.tirx.Var("x", "int32")
+    indices = (
+        [(x + 1) % 3, ((x + 10) // 3 + 2) % 4, ((x + 10) // 3 // 4 + 3) % 5]
+        if different_offsets
+        else [(x + 10) % 3, (x + 10) // 3 % 4, (x + 10) // 3 // 4 % 5]
+    )
+    if reverse:
+        indices.reverse()
+    simplified = tvm_tirx.sym.iter_map_simplify(indices, var_dom([(x, 240)]))
+    # The maximum collected padding omits lower-digit offsets.  Keep the
+    # original mapping when that shared representation is incompatible.
+    tvm_tirx.ir.assert_structural_equal(simplified, indices)
+    for value in range(240):
+        analyzer = tvm_tirx.sym.Analyzer()
+        analyzer.bind(x, tvm_tirx.tirx.const(value, "int32"))
+        for original, result in zip(indices, simplified):
+            assert int(analyzer.simplify(result)) == int(analyzer.simplify(original))
 
 
 def test_iter_map_simplify_predicate_fallback_requires_no_padding():
