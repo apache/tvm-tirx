@@ -52,7 +52,7 @@ def test_map_collects_transformed_guard_and_range():
 
     structural.structural_map_with_constraint_context(before.body, rewrite)
     (facts,) = collected
-    predicate, loop_range = facts
+    predicate, loop_range, _end_after_begin, _positive_extent = facts
     assert isinstance(predicate, sym.PredicateConstraint)
     assert predicate.condition.same_as(guard)
     assert isinstance(loop_range, sym.RangeConstraint)

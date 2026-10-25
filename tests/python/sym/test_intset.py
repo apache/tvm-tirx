@@ -24,6 +24,7 @@ from tvm_tirx.sym.analyzer import Analyzer
 class IntSetChecker:
     def __init__(self):
         self.analyzer = tvm_tirx.sym.Analyzer()
+        self.constraints = tvm_tirx.sym.ConstraintContext()
 
     def verify(self, data, dmap, expected):
         res = self.analyzer.int_set(data, dmap)
@@ -81,7 +82,9 @@ def test_mul_div():
     x, y = tvm_tirx.tirx.Var("x", "int32"), tvm_tirx.tirx.Var("y", "int32")
 
     tdiv = tvm_tirx.tirx.truncdiv
-    ck.analyzer.update(y, tvm_tirx.sym.ConstIntBound(1, 100), override=True)
+    ck.constraints.append(tvm_tirx.sym.PredicateConstraint(y >= 1))
+    ck.constraints.append(tvm_tirx.sym.PredicateConstraint(y <= 100))
+    ck.analyzer.sync_constraint_context(ck.constraints)
     ck.verify(x * y, {x: tvm_tirx.sym.IntervalSet(0, 10)}, (0, 10 * y))
     ck.verify(x * 2, {x: tvm_tirx.sym.IntervalSet(1, 10)}, (2, 20))
     ck.verify(x * -2, {x: tvm_tirx.sym.IntervalSet(1, 10)}, (-20, -2))
@@ -98,7 +101,9 @@ def test_mod():
     ck = IntSetChecker()
     x, y = tvm_tirx.tirx.Var("x", "int32"), tvm_tirx.tirx.Var("y", "int32")
     tmod = tvm_tirx.tirx.truncmod
-    ck.analyzer.update(y, tvm_tirx.sym.ConstIntBound(1, 100), override=True)
+    ck.constraints.append(tvm_tirx.sym.PredicateConstraint(y >= 1))
+    ck.constraints.append(tvm_tirx.sym.PredicateConstraint(y <= 100))
+    ck.analyzer.sync_constraint_context(ck.constraints)
     ck.verify(tmod(x, y), {x: tvm_tirx.sym.IntervalSet(0, 10)}, (0, y - 1))
     ck.verify(tmod(x, 10), {x: tvm_tirx.sym.IntervalSet(1, 10)}, (0, 9))
 
@@ -112,7 +117,8 @@ def test_mod():
 
     fld = tvm_tirx.tirx.floordiv
     z = tvm_tirx.tirx.Var("z", "int32")
-    ck.analyzer.bind(x, tvm_tirx.ir.Range.from_min_extent(0, 3))
+    ck.constraints.append(tvm_tirx.sym.RangeConstraint(x, tvm_tirx.ir.Range.from_min_extent(0, 3)))
+    ck.analyzer.sync_constraint_context(ck.constraints)
     ck.verify(
         flm(y, 8),
         {y: tvm_tirx.sym.IntervalSet(z * 8 + x * 4, z * 8 + x * 4 + 3)},
@@ -122,7 +128,8 @@ def test_mod():
         ),
     )
     ck1 = IntSetChecker()
-    ck1.analyzer.bind(x, tvm_tirx.ir.Range.from_min_extent(0, 2))
+    ck1.constraints.append(tvm_tirx.sym.RangeConstraint(x, tvm_tirx.ir.Range.from_min_extent(0, 2)))
+    ck1.analyzer.sync_constraint_context(ck1.constraints)
     ck1.verify(
         flm(y, 8),
         {y: tvm_tirx.sym.IntervalSet(z * 8 + x * 4, z * 8 + x * 4 + 3)},
@@ -195,8 +202,10 @@ def check_region_bound(expect_region, var_dom, mode, predicate=None):
             # check range on different free var bindings
             for binding in expect_desc:
                 analyzer = Analyzer()
+                analyzer_context = tvm_tirx.sym.ConstraintContext()
                 for k, v in binding:
-                    analyzer.bind(k, v)
+                    analyzer_context.append(tvm_tirx.sym.BindingConstraint(k, v))
+                    analyzer.sync_constraint_context(analyzer_context)
                 expect_begin, expect_end = expect_desc[binding]
                 result_begin = analyzer.simplify(intset.min_value, 3)
                 result_end = analyzer.simplify(intset.max_value + 1, 3)
@@ -210,6 +219,7 @@ def check_region_bound(expect_region, var_dom, mode, predicate=None):
             # check range
             expect_begin, expect_end = expect_desc
             analyzer = Analyzer()
+            analyzer_context = tvm_tirx.sym.ConstraintContext()
             assert analyzer.can_prove_equal(intset.min_value - expect_begin, 0), (
                 f"{intset.min_value} vs {expect_begin}"
             )
@@ -450,7 +460,9 @@ def test_estimate_region_accepts_external_analyzer():
     upper_without_analyzer = tvm_tirx.sym.estimate_region_upper_bound(region, dom, True)
 
     analyzer = tvm_tirx.sym.Analyzer()
-    analyzer.bind(tile, tvm_tirx.tirx.const(4, "int32"))
+    analyzer_context = tvm_tirx.sym.ConstraintContext()
+    analyzer_context.append(tvm_tirx.sym.BindingConstraint(tile, tvm_tirx.tirx.const(4, "int32")))
+    analyzer.sync_constraint_context(analyzer_context)
     # The external binding lets the affine detection succeed.
     for estimate_region in [
         tvm_tirx.sym.estimate_region_lower_bound,

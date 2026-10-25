@@ -50,9 +50,11 @@ def test_map_indices_accepts_external_analyzer():
     tile = tvm_tirx.tirx.Var("tile", "int32")
     index_map = IndexMap.from_func(lambda i: [i // tile], index_dtype="int32")
     analyzer = tvm_tirx.sym.Analyzer()
+    analyzer_context = tvm_tirx.sym.ConstraintContext()
 
     unsimplified = index_map.map_indices([T.int32(32)])[0]
-    analyzer.bind(tile, T.int32(16))
+    analyzer_context.append(tvm_tirx.sym.BindingConstraint(tile, T.int32(16)))
+    analyzer.sync_constraint_context(analyzer_context)
     simplified = index_map.map_indices([T.int32(32)], analyzer=analyzer)[0]
 
     assert not tvm_ffi.structural_equal(unsimplified, T.int32(2))
@@ -63,8 +65,10 @@ def test_map_shape_accepts_external_analyzer():
     tile = tvm_tirx.tirx.Var("tile", "int32")
     index_map = IndexMap.from_func(lambda i: [i // tile, i % tile], index_dtype="int32")
     analyzer = tvm_tirx.sym.Analyzer()
+    analyzer_context = tvm_tirx.sym.ConstraintContext()
 
-    analyzer.bind(tile, T.int32(16))
+    analyzer_context.append(tvm_tirx.sym.BindingConstraint(tile, T.int32(16)))
+    analyzer.sync_constraint_context(analyzer_context)
     mapped_shape = index_map.map_shape([T.int32(32)], analyzer=analyzer)
 
     assert_structural_equal(mapped_shape, [T.int32(2), T.int32(16)])
@@ -79,7 +83,9 @@ def test_is_equivalent_to_accepts_external_analyzer():
     assert not concrete.is_equivalent_to(symbolic)
 
     analyzer = tvm_tirx.sym.Analyzer()
-    analyzer.bind(tile, T.int32(4))
+    analyzer_context = tvm_tirx.sym.ConstraintContext()
+    analyzer_context.append(tvm_tirx.sym.BindingConstraint(tile, T.int32(4)))
+    analyzer.sync_constraint_context(analyzer_context)
     assert concrete.is_equivalent_to(symbolic, analyzer=analyzer)
 
 
@@ -111,8 +117,10 @@ def test_inverse_accepts_external_analyzer():
     tile = tvm_tirx.tirx.Var("tile", "int32")
     index_map = IndexMap.from_func(lambda i: [i // tile, i % tile], index_dtype="int32")
     analyzer = tvm_tirx.sym.Analyzer()
+    analyzer_context = tvm_tirx.sym.ConstraintContext()
 
-    analyzer.bind(tile, T.int32(16))
+    analyzer_context.append(tvm_tirx.sym.BindingConstraint(tile, T.int32(16)))
+    analyzer.sync_constraint_context(analyzer_context)
     inverse = index_map.inverse([T.int32(32)], analyzer=analyzer)
     mapped = inverse.map_indices([T.int32(1), T.int32(3)], analyzer=analyzer)
 
@@ -262,8 +270,10 @@ def test_non_surjective_inverse_accepts_external_analyzer():
     tile = tvm_tirx.tirx.Var("tile", "int32")
     index_map = IndexMap.from_func(lambda i: [i // tile, i % tile], index_dtype="int32")
     analyzer = tvm_tirx.sym.Analyzer()
+    analyzer_context = tvm_tirx.sym.ConstraintContext()
 
-    analyzer.bind(tile, T.int32(16))
+    analyzer_context.append(tvm_tirx.sym.BindingConstraint(tile, T.int32(16)))
+    analyzer.sync_constraint_context(analyzer_context)
     inverse, padding_predicate = index_map.non_surjective_inverse([T.int32(31)], analyzer=analyzer)
     mapped = inverse.map_indices([T.int32(1), T.int32(15)], analyzer=analyzer)
 
@@ -295,12 +305,16 @@ def test_non_surjective_inverse_does_not_bind_output_vars_to_external_analyzer()
     tile = tvm_tirx.tirx.Var("tile", "int32")
     index_map = IndexMap.from_func(lambda i: [i // tile, i % tile], index_dtype="int32")
     analyzer = tvm_tirx.sym.Analyzer()
+    analyzer_context = tvm_tirx.sym.ConstraintContext()
 
-    analyzer.bind(tile, T.int32(16))
+    analyzer_context.append(tvm_tirx.sym.BindingConstraint(tile, T.int32(16)))
+    analyzer.sync_constraint_context(analyzer_context)
     inverse, _ = index_map.non_surjective_inverse([T.int32(31)], analyzer=analyzer)
 
-    analyzer.bind(inverse.initial_indices[0], T.int32(0))
-    analyzer.bind(inverse.initial_indices[1], T.int32(1))
+    analyzer_context.append(tvm_tirx.sym.BindingConstraint(inverse.initial_indices[0], T.int32(0)))
+    analyzer.sync_constraint_context(analyzer_context)
+    analyzer_context.append(tvm_tirx.sym.BindingConstraint(inverse.initial_indices[1], T.int32(1)))
+    analyzer.sync_constraint_context(analyzer_context)
 
 
 def test_index_map_inverse_no_iter():

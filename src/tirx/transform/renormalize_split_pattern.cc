@@ -26,7 +26,7 @@
 #include <tvm/ir/prim/op.h>
 #include <tvm/ir/prim/pattern_match.h>
 #include <tvm/tirx/stmt.h>
-#include <tvm/tirx/stmt_functor_with_analyzer.h>
+#include <tvm/tirx/stmt_functor_with_constraint_context.h>
 #include <tvm/tirx/transform.h>
 
 #include "../../sym/int_operator.h"
@@ -48,13 +48,13 @@ using namespace sym;
     return RecursiveRewrite((ResExpr).Eval());               \
   }
 
-class SplitPatternReNormalizer : public StmtExprMutatorWithAnalyzer {
+class SplitPatternReNormalizer : public StmtExprMutatorWithConstraintContext {
  public:
-  using StmtExprMutatorWithAnalyzer::Mutate;
-  using StmtExprMutatorWithAnalyzer::Mutate_;
+  using StmtExprMutatorWithConstraintContext::Mutate;
+  using StmtExprMutatorWithConstraintContext::Mutate_;
 
-  explicit SplitPatternReNormalizer(const Analyzer& analyzer)
-      : StmtExprMutatorWithAnalyzer(analyzer) {}
+  explicit SplitPatternReNormalizer(const sym::ConstraintContext& context)
+      : StmtExprMutatorWithConstraintContext(context) {}
 
   UnchangedOr<PrimExpr> Mutate_(const prim::FloorDivObj* op, InplaceMode inplace_mode) final {
     PrimExpr a = Mutate(op->a, inplace_mode).ValueOrUnchanged(op->a);
@@ -174,7 +174,7 @@ class SplitPatternReNormalizer : public StmtExprMutatorWithAnalyzer {
   }
 
   UnchangedOr<PrimExpr> Mutate_(const prim::NotObj* op, InplaceMode inplace_mode) {
-    PrimExpr ret = StmtExprMutatorWithAnalyzer::Mutate_(op, inplace_mode)
+    PrimExpr ret = StmtExprMutatorWithConstraintContext::Mutate_(op, inplace_mode)
                        .ValueOrUnchanged(ffi::GetRef<PrimExpr>(op));
     // Pattern var to match any expression
     PVar<PrimExpr> x, y;
@@ -187,10 +187,7 @@ class SplitPatternReNormalizer : public StmtExprMutatorWithAnalyzer {
   }
 
   UnchangedOr<Stmt> Mutate_(const ForObj* op, InplaceMode inplace_mode) final {
-    analyzer_->Bind(op->var, Range(op->begin, op->end));
-    With<AnalyzerConstraintScope> ctx1(analyzer_, op->var >= op->begin);
-    With<AnalyzerConstraintScope> ctx2(analyzer_, static_cast<PrimExpr>(op->var) < op->end);
-    return StmtExprMutatorWithAnalyzer::Mutate_(op, inplace_mode);
+    return StmtExprMutatorWithConstraintContext::Mutate_(op, inplace_mode);
   }
 
   // Recursive rewrite x
@@ -216,9 +213,9 @@ namespace transform {
 Pass RenormalizeSplitPattern() {
   auto pass_func = [](Function f, IRModule m, PassContext ctx) {
     auto* n = f.CopyOnWrite();
-    sym::Analyzer analyzer;
-    n->body = ffi::make_object<SplitPatternReNormalizer>(analyzer)
+    n->body = ffi::make_object<SplitPatternReNormalizer>(sym::ConstraintContext())
                   ->Mutate(n->body, InplaceMode::kAllow)
+                  .as_or_throw<UnchangedOr<ffi::Optional<SeqStmt>>>()
                   .ValueOrUnchanged(std::move(n->body));
     return f;
   };

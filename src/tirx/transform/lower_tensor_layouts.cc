@@ -32,7 +32,7 @@
 #include <tvm/tirx/op/memory.h>
 #include <tvm/tirx/stmt.h>
 #include <tvm/tirx/stmt_functor.h>
-#include <tvm/tirx/stmt_functor_with_analyzer.h>
+#include <tvm/tirx/stmt_functor_with_constraint_context.h>
 #include <tvm/tirx/transform.h>
 
 #include <tuple>
@@ -47,14 +47,14 @@
 namespace tvm {
 namespace tirx {
 
-class LayoutApplier : public StmtExprMutatorWithAnalyzer {
+class LayoutApplier : public StmtExprMutatorWithConstraintContext {
  public:
-  using StmtExprMutatorWithAnalyzer::Mutate;
-  using StmtExprMutatorWithAnalyzer::Mutate_;
+  using StmtExprMutatorWithConstraintContext::Mutate;
+  using StmtExprMutatorWithConstraintContext::Mutate_;
   static std::pair<Stmt, ffi::Array<Var>> Flatten(const Stmt& stmt, const ffi::Array<Var>& params,
                                                   const Target& target) {
     sym::Analyzer ana;
-    auto storage_lower = ffi::make_object<LayoutApplier>(ana, target);
+    auto storage_lower = ffi::make_object<LayoutApplier>(ana->GetConstraintContext(), target);
     ffi::Array<Var> new_params;
     new_params.reserve(params.size());
     std::vector<std::pair<TensorVar, TensorVar>> param_flattened_tensors;
@@ -87,8 +87,8 @@ class LayoutApplier : public StmtExprMutatorWithAnalyzer {
   }
 
  public:
-  explicit LayoutApplier(const sym::Analyzer& analyzer, const Target&)
-      : StmtExprMutatorWithAnalyzer(analyzer) {}
+  explicit LayoutApplier(const sym::ConstraintContext& context, const Target&)
+      : StmtExprMutatorWithConstraintContext(context) {}
 
  protected:
   ffi::Any VisitAny(const ffi::Any& any) {
@@ -115,13 +115,13 @@ class LayoutApplier : public StmtExprMutatorWithAnalyzer {
             << ", which has no visible definition "
             << "(AllocTensor/DeclTensor/Function parameter) at this point";
         Var root = root_opt.value();
-        if (auto mapped = VarRemapGet(root); mapped != nullptr) {
+        if (auto mapped = VarRemapGetExpected(root).value(); mapped != nullptr) {
           root = mapped.as_or_throw<Var>();
         }
         return root.as_or_throw<TensorVar>().data();
       }
     }
-    return StmtExprMutatorWithAnalyzer::Mutate_(op, inplace_mode);
+    return StmtExprMutatorWithConstraintContext::Mutate_(op, inplace_mode);
   }
 
   UnchangedOr<Stmt> Mutate_(const BindObj* op, InplaceMode inplace_mode) final {
@@ -147,7 +147,7 @@ class LayoutApplier : public StmtExprMutatorWithAnalyzer {
             .ValueOrUnchanged(binding);
       }
     }
-    return StmtExprMutatorWithAnalyzer::Mutate_(op, inplace_mode);
+    return StmtExprMutatorWithConstraintContext::Mutate_(op, inplace_mode);
   }
 
   UnchangedOr<Stmt> MutateAllocTensor(const BindObj* op, const CallObj* tensor_call,
@@ -183,7 +183,7 @@ class LayoutApplier : public StmtExprMutatorWithAnalyzer {
   }
 
   TensorVar GetFlattenedTensor(TensorVar buf, bool is_alloc = false) {
-    if (auto mapped = VarRemapGet(buf); mapped != nullptr) {
+    if (auto mapped = VarRemapGetExpected(buf).value(); mapped != nullptr) {
       return mapped.as_or_throw<TensorVar>();
     }
     TensorVar flattened = buf;
@@ -230,24 +230,24 @@ class LayoutApplier : public StmtExprMutatorWithAnalyzer {
           mem_span = floordiv(mem_span + block - 1, block) * block;
         }
         type = ffi::make_object<TensorTypeObj>(*buf.ty().get());
-        type->shape = {analyzer_->Simplify(mem_span)};
+        type->shape = {GetSyncedAnalyzer()->Simplify(mem_span)};
         type->layout = std::nullopt;
       } else {
-        flattened = FlattenedTensor(buf, ffi::GetRef<sym::Analyzer>(analyzer_));
+        flattened = FlattenedTensor(buf, ffi::GetRef<sym::Analyzer>(GetSyncedAnalyzer()));
         type = ffi::make_object<TensorTypeObj>(*flattened.ty().get());
       }
     } else {
-      flattened = FlattenedTensor(buf, ffi::GetRef<sym::Analyzer>(analyzer_));
+      flattened = FlattenedTensor(buf, ffi::GetRef<sym::Analyzer>(GetSyncedAnalyzer()));
       type = ffi::make_object<TensorTypeObj>(*flattened.ty().get());
     }
     // Remap variables the pass has already rebuilt (a shape may load from
     // another local tensor), then canonicalize.
     for (size_t i = 0; i < type->shape.size(); ++i) {
-      type->shape.Set(
-          i, analyzer_->canonical_simplify(
-                 StmtExprMutator::Mutate(ffi::AnyView(type->shape[i]), InplaceMode::kDisallow)
-                     .ValueOrUnchanged(type->shape[i])
-                     .as_or_throw<PrimExpr>()));
+      PrimExpr shape = StmtExprMutatorWithConstraintContext::Mutate(ffi::AnyView(type->shape[i]),
+                                                                    InplaceMode::kDisallow)
+                           .ValueOrUnchanged(type->shape[i])
+                           .as_or_throw<PrimExpr>();
+      type->shape.Set(i, GetSyncedAnalyzer()->canonical_simplify(shape));
     }
     type->layout = std::nullopt;
     // Keep a regular view's origin in its flat memory layout. Allocations have
@@ -255,10 +255,11 @@ class LayoutApplier : public StmtExprMutatorWithAnalyzer {
     if (!is_alloc) {
       if (auto pattern = MatchShapeStridePattern(buf.ty()); pattern.has_value()) {
         PrimExpr origin = pattern.value().get<2>();
-        origin = analyzer_->canonical_simplify(
-            StmtExprMutator::Mutate(ffi::AnyView(origin), InplaceMode::kDisallow)
-                .ValueOrUnchanged(origin)
-                .as_or_throw<PrimExpr>());
+        origin = StmtExprMutatorWithConstraintContext::Mutate(ffi::AnyView(origin),
+                                                              InplaceMode::kDisallow)
+                     .ValueOrUnchanged(origin)
+                     .as_or_throw<PrimExpr>();
+        origin = GetSyncedAnalyzer()->canonical_simplify(origin);
         if (!prim::IsZero(origin)) {
           static const auto memory_axis = Axis::Get("m");
           type->layout =
@@ -271,7 +272,7 @@ class LayoutApplier : public StmtExprMutatorWithAnalyzer {
     }
     flattened = TensorVar(flattened->name, TensorType(std::move(type)), flattened->loc);
 
-    VarRemapSet(buf, flattened);
+    VarRemapSetExpected(buf, flattened).value();
     return flattened;
   }
 
@@ -302,7 +303,8 @@ class LayoutApplier : public StmtExprMutatorWithAnalyzer {
   ffi::Array<PrimExpr> GetSimplifiedElemOffset(const TensorVar& tensor,
                                                const ffi::Array<PrimExpr>& indices) {
     // Remap the ty first since the type may depend on previously remapped value in mutator.
-    auto logical_type = StmtExprMutator::Mutate(ffi::AnyView(tensor.ty()), InplaceMode::kDisallow)
+    auto logical_type = StmtExprMutatorWithConstraintContext::Mutate(ffi::AnyView(tensor.ty()),
+                                                                     InplaceMode::kDisallow)
                             .ValueOrUnchanged(tensor.ty())
                             .as_or_throw<TensorType>();
     if (logical_type->layout.has_value()) {
@@ -325,11 +327,11 @@ class LayoutApplier : public StmtExprMutatorWithAnalyzer {
         return {IntImm(logical_type->DefaultIndexType(), 0)};
       }
       TVM_FFI_ICHECK_EQ(res.size(), 1) << "Expected a single element offset";
-      return {analyzer_->Simplify((*res.begin()).second)};
+      return {GetSyncedAnalyzer()->Simplify((*res.begin()).second)};
     }
     auto flattened_indices = logical_type->ElemOffset(indices);
     TVM_FFI_ICHECK_EQ(flattened_indices.size(), 1) << "Expected a single element offset";
-    return {analyzer_->Simplify(flattened_indices[0])};
+    return {GetSyncedAnalyzer()->Simplify(flattened_indices[0])};
   }
 
   template <typename Node>

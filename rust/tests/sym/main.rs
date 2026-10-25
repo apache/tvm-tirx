@@ -30,6 +30,7 @@ mod iter_affine_map;
 use tvm_tirx::ir::{UNKNOWN_LOC, dtype, Expr, IntImm, Location, PrimType, Range, Var};
 use tvm_tirx::sym::Analyzer;
 use tvm_tirx::tvm_ffi::String as FfiString;
+use tvm_tirx::tvm_ffi::object::ObjectRef;
 
 use common::global;
 
@@ -53,6 +54,32 @@ fn range(begin: i64, extent: i64) -> Range {
     Range::from_fields(int32(begin), int32(extent), Location::unknown())
 }
 
+// Constraint data is passed opaquely until the Rust bindings expose typed contexts.
+fn context(constraints: impl IntoIterator<Item = ObjectRef>) -> ObjectRef {
+    let context: ObjectRef = global("sym.ConstraintContext")
+        .call_tuple((None::<ObjectRef>, 0_i64))
+        .unwrap()
+        .try_into()
+        .unwrap();
+    for constraint in constraints {
+        global("sym.ConstraintContextAppend")
+            .call_packed(&[
+                tvm_tirx::tvm_ffi::AnyView::from(&context),
+                tvm_tirx::tvm_ffi::AnyView::from(&constraint),
+            ])
+            .unwrap();
+    }
+    context
+}
+
+fn range_constraint(var: &Var, domain: Range) -> ObjectRef {
+    global("sym.RangeConstraint").call_tuple((var, domain)).unwrap().try_into().unwrap()
+}
+
+fn predicate_constraint(predicate: Expr) -> ObjectRef {
+    global("sym.PredicateConstraint").call_tuple((predicate, false)).unwrap().try_into().unwrap()
+}
+
 struct Fixture {
     analyzer: Analyzer,
     x: Var,
@@ -63,6 +90,12 @@ fn fixture() -> Fixture {
     let x = var("x");
     // A typed `Analyzer` handle goes through `call_tuple` like any other object.
     let analyzer: Analyzer = global("sym.Analyzer").call_tuple(()).unwrap().try_into().unwrap();
-    global("sym.AnalyzerBind").call_tuple((analyzer.clone(), x.clone(), range(0, 16))).unwrap();
+    let constraints = context([range_constraint(&x, range(0, 16))]);
+    global("sym.AnalyzerSyncConstraintContext")
+        .call_packed(&[
+            tvm_tirx::tvm_ffi::AnyView::from(&analyzer),
+            tvm_tirx::tvm_ffi::AnyView::from(&constraints),
+        ])
+        .unwrap();
     Fixture { analyzer, x }
 }

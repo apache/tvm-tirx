@@ -145,7 +145,7 @@ def _tensor_map(ctx, region, rank, box, encoding):
                 stride = 1 if i == tensor_rank - 1 else max(channels, 128 // bits)
             strides.append(stride)
         var = Var(f"descriptor_dim_{i}", "int32")
-        ctx.analyzer.bind(var, Range(0, size))
+        ctx.add_range(var, Range(0, size))
         coordinates.append(var)
     if layout is not None:
         actual = layout.apply(*(a + b for a, b in zip(starts, coordinates)), shape=ty.shape)["m"]

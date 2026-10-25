@@ -16,7 +16,6 @@
 # under the License.
 
 
-import contextlib
 from typing import ClassVar
 
 import pytest
@@ -48,16 +47,22 @@ class TestCase:
 class BaseCompare:
     def test_const_bounds(self, test_case):
         analyzer = tvm_tirx.sym.Analyzer()
+        analyzer_context = tvm_tirx.sym.ConstraintContext()
 
         for var, bounds in test_case.known_bounds.items():
-            analyzer.update(var, ConstIntBound(*bounds))
-            assert analyzer.const_int_bound_is_bound(var)
+            if bounds[0] != tvm_tirx.sym.ConstIntBound.NEG_INF:
+                analyzer_context.append(tvm_tirx.sym.PredicateConstraint(var >= bounds[0]))
+            if bounds[1] != tvm_tirx.sym.ConstIntBound.POS_INF:
+                analyzer_context.append(tvm_tirx.sym.PredicateConstraint(var <= bounds[1]))
+            analyzer.sync_constraint_context(analyzer_context)
+            if bounds != (NEG_INF, POS_INF):
+                assert analyzer.const_int_bound_is_bound(var)
 
-        with contextlib.ExitStack() as stack:
-            if test_case.constraint is not None:
-                stack.enter_context(analyzer.constraint_scope(test_case.constraint))
+        if test_case.constraint is not None:
+            analyzer_context.append(tvm_tirx.sym.PredicateConstraint(test_case.constraint))
+            analyzer.sync_constraint_context(analyzer_context)
 
-            bounds = analyzer.const_int_bound(test_case.expr)
+        bounds = analyzer.const_int_bound(test_case.expr)
 
         if test_case.expected_bounds[0] is None:
             assert bounds.max_value == test_case.expected_bounds[1]
@@ -84,10 +89,18 @@ class TestDataType(BaseCompare):
 def test_plain_var_non_negative_bound_requires_context():
     var = tvm_tirx.tirx.Var("x", "int64")
     analyzer = tvm_tirx.sym.Analyzer()
+    analyzer_context = tvm_tirx.sym.ConstraintContext()
 
     assert analyzer.const_int_bound(var).min_value == NEG_INF
-    with analyzer.constraint_scope(var >= 0):
+    parent_context_1 = analyzer_context
+    analyzer_context = analyzer_context.snapshot()
+    analyzer_context.append(tvm_tirx.sym.PredicateConstraint(var >= 0))
+    analyzer.sync_constraint_context(analyzer_context)
+    try:
         assert analyzer.const_int_bound(var).min_value == 0
+    finally:
+        analyzer_context = parent_context_1
+        analyzer.sync_constraint_context(analyzer_context)
     assert analyzer.const_int_bound(var).min_value == NEG_INF
 
 
@@ -166,7 +179,8 @@ class TestBoundsUsingReciprocals(BaseCompare):
 
 
 class TestMulBound(BaseCompare):
-    x, y = tvm_tirx.tirx.Var("x", "int32"), tvm_tirx.tirx.Var("y", "int32")
+    # Keep the infinity cases unbounded by a narrower variable type.
+    x, y = tvm_tirx.tirx.Var("x", "int64"), tvm_tirx.tirx.Var("y", "int64")
 
     @pytest.fixture(
         params=[
@@ -181,7 +195,8 @@ class TestMulBound(BaseCompare):
 
 
 class TestTruncDivBound(BaseCompare):
-    x, y = tvm_tirx.tirx.Var("x", "int32"), tvm_tirx.tirx.Var("y", "int32")
+    # Keep the infinity cases unbounded by a narrower variable type.
+    x, y = tvm_tirx.tirx.Var("x", "int64"), tvm_tirx.tirx.Var("y", "int64")
 
     expr = tvm_tirx.tirx.truncdiv(x, y)
 
@@ -216,7 +231,8 @@ class TestTruncModBound(BaseCompare):
 
 
 class TestFloorDivBound(BaseCompare):
-    x, y = tvm_tirx.tirx.Var("x", "int32"), tvm_tirx.tirx.Var("y", "int32")
+    # Keep the infinity cases unbounded by a narrower variable type.
+    x, y = tvm_tirx.tirx.Var("x", "int64"), tvm_tirx.tirx.Var("y", "int64")
     ux = tvm_tirx.tirx.Var("x", "uint32")
     uy = tvm_tirx.tirx.Var("y", "uint32")
 
@@ -301,7 +317,8 @@ class TestModBoundWithModularSet(BaseCompare):
 
 
 class TestMinMaxBound(BaseCompare):
-    x, y = tvm_tirx.tirx.Var("x", "int32"), tvm_tirx.tirx.Var("y", "int32")
+    # Keep the infinity cases unbounded by a narrower variable type.
+    x, y = tvm_tirx.tirx.Var("x", "int64"), tvm_tirx.tirx.Var("y", "int64")
 
     @pytest.fixture(
         params=[
@@ -461,6 +478,7 @@ class TestRampBound(BaseCompare):
 
 class TestModularSetBound(BaseCompare):
     analyzer = tvm_tirx.sym.Analyzer()
+    analyzer_context = tvm_tirx.sym.ConstraintContext()
     tx = tvm_tirx.tirx.Var("tx", "int32")
     bx = tvm_tirx.tirx.Var("bx", "int32")
 

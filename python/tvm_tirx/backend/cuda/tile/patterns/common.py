@@ -44,7 +44,7 @@ from tvm_tirx.ir import (
 from tvm_tirx.ir.prim import Let
 from tvm_tirx.runtime import MemoryScope
 from tvm_tirx.script import tirx as T
-from tvm_tirx.sym import Analyzer
+from tvm_tirx.sym import Analyzer, ConstraintContext, RangeConstraint
 from tvm_tirx.tirx.layout import TileLayout
 
 
@@ -59,11 +59,12 @@ class Context:
     def __init__(self, sctx, atom_scope="thread"):
         self.sctx = sctx
         self.analyzer = Analyzer()
+        self.constraints = ConstraintContext()
         self.static_ranges = {}
         for var, extent in sctx.launch_params.values():
-            self.analyzer.bind(var, Range(0, extent))
+            self.add_range(var, Range(0, extent))
         for var, bound in sctx.var_range_map.items():
-            self.analyzer.bind(
+            self.add_range(
                 var, Range.from_min_extent(self.index_coordinates(bound.begin), bound.extent)
             )
             low, extent = (self.analyzer.simplify(x) for x in (bound.begin, bound.extent))
@@ -101,7 +102,7 @@ class Context:
                 continue
             extent, offset = (int(x) for x in intra[name])
             var = Var("group_" + name, "int32")
-            self.analyzer.bind(var, Range(0, extent))
+            self.add_range(var, Range(0, extent))
             self.group.append(var)
             self.group_shape.append(int(extent))
             self.owners["cbx" if name == "cta_id" else name] = var + offset
@@ -111,6 +112,11 @@ class Context:
             self.bindings.append(Bind(var, coordinate))
         self.repeat = None
         self.repeat_shape = None
+
+    def add_range(self, var, bound):
+        """Record a coordinate domain and synchronize subsequent pattern queries."""
+        self.constraints.append(RangeConstraint(var, bound))
+        self.analyzer.sync_constraint_context(self.constraints)
 
     def index_coordinates(self, expr):
         """Express CUDA index calls in the launch variables used by the prover."""
@@ -204,7 +210,7 @@ class Context:
         self.repeat_shape = tuple(shape)
         self.repeat = [Var(f"repeat_{i}", "int32") for i in range(len(shape))]
         for var, size in zip(self.repeat, shape):
-            self.analyzer.bind(var, Range(0, size))
+            self.add_range(var, Range(0, size))
         return self.repeat
 
     def region(self, name, region, atom_shape, scopes, *, repeat_axes=None, bounds=True):

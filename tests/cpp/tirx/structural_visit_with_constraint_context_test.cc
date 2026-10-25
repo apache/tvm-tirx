@@ -42,7 +42,7 @@ TEST(ConstraintTraversal, VisitCollectsScopedFacts) {
         return visitor->DefaultVisitExpected(node);
       });
 
-  ASSERT_EQ(body_facts.size(), 3);
+  ASSERT_EQ(body_facts.size(), 5);
   const auto* binding = body_facts[0].as<sym::BindingConstraintObj>();
   const auto* predicate = body_facts[1].as<sym::PredicateConstraintObj>();
   const auto* range = body_facts[2].as<sym::RangeConstraintObj>();

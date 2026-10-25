@@ -28,7 +28,11 @@
 #include <tvm/runtime/logging.h>
 #include <tvm/sym/analyzer.h>
 
+#include <algorithm>
+#include <unordered_set>
+
 #include "const_fold.h"
+#include "constraint_helpers.h"
 #include "product_normal_form.h"
 
 namespace tvm {
@@ -51,114 +55,173 @@ AnalyzerObj::AnalyzerObj()
       rewrite_simplify(this),
       canonical_simplify(this),
       int_set(this),
+      known_comparisons(this),
       z3_prover(this) {}
 
-void AnalyzerObj::Bind(const Var& var, const PrimExpr& expr, bool allow_override) {
-  PrimExpr new_expr = expr;
-  new_expr = this->canonical_simplify(new_expr);
-  new_expr = this->rewrite_simplify(new_expr);
-
-  this->const_int_bound.Update(var, this->const_int_bound(new_expr), allow_override);
-  this->modular_set.Update(var, this->modular_set(new_expr), allow_override);
-  this->rewrite_simplify.Update(var, new_expr, allow_override);
-  this->canonical_simplify.Update(var, new_expr, allow_override);
-  this->int_set.Update(var, this->int_set(new_expr), allow_override);
-  this->known_comparisons.Bind(var, expr, allow_override);
-  this->z3_prover.Bind(var, expr, allow_override);
+ConstraintContext AnalyzerObj::GetConstraintContext() const {
+  // Never return the sealed internal position: callers may extend this child.
+  return last_snapshot_->Snapshot();
 }
 
-void AnalyzerObj::Bind(const Var& var, const Range& range, bool allow_override) {
-  TVM_FFI_ICHECK(range.defined());
-  if (prim::IsOne(range->extent)) {
-    this->Bind(var, range->begin, allow_override);
+namespace detail {
+namespace {
+// Normalize empty captured children to their source and captured prefix. This
+// token is private to the coordinator; backends only see ordered facts.
+struct ContextPosition {
+  const ConstraintContextObj* source;
+  int64_t prefix;
+
+  bool operator==(const ContextPosition& other) const {
+    return source == other.source && prefix == other.prefix;
+  }
+};
+}  // namespace
+}  // namespace detail
+
+void AnalyzerObj::SyncConstraintContext(const ConstraintContext& context) {
+  TVM_FFI_CHECK(!synchronizing_ && active_queries_ == 0, RuntimeError)
+      << "Cannot synchronize an Analyzer during its active query or synchronization";
+  auto position = [](const ConstraintContextObj* source, int64_t prefix) {
+    while (prefix == 0 && source->parent_) {
+      prefix = source->parent_prefix_size_;
+      source = source->parent_.get();
+    }
+    return detail::ContextPosition{source, prefix};
+  };
+  auto next_position = position(context.get(), context->LocalSize());
+  auto old_position = position(last_snapshot_.get(), last_snapshot_->LocalSize());
+  if (next_position == old_position) return;
+
+  // Stable Var identities have one definition in a premise environment.
+  std::unordered_set<Var, ffi::ObjectPtrHash, ffi::ObjectPtrEqual> definitions;
+  context->ForEach([&](const Constraint& fact) {
+    ffi::Optional<Var> var;
+    if (const auto* binding = fact.as<BindingConstraintObj>()) var = binding->var;
+    if (const auto* range = fact.as<RangeConstraintObj>()) var = range->var;
+    if (var)
+      TVM_FFI_CHECK(definitions.insert(*var).second, ValueError)
+          << "A constraint context cannot redefine variable " << *var;
+  });
+
+  ConstraintContext next = context->Snapshot();  // One shared capture per change.
+  synchronizing_ = true;
+  bool additive = next_position.source == old_position.source
+                      ? next_position.prefix >= old_position.prefix
+                      : next_position.source->parent_ &&
+                            position(next_position.source->parent_.get(),
+                                     next_position.source->parent_prefix_size_) == old_position;
+  if (additive) {
+    int64_t begin = next_position.source == old_position.source ? old_position.prefix : 0;
+    for (int64_t i = begin; i < next_position.prefix; ++i)
+      IngestConstraint(next_position.source->constraints_[i]);
   } else {
-    this->const_int_bound.Bind(var, range, allow_override);
-    this->int_set.Bind(var, range, allow_override);
-    this->known_comparisons.Bind(var, range, allow_override);
-    this->z3_prover.Bind(var, range, allow_override);
+    // Reset ALL peers before ordered replay. A binding may query its peers,
+    // which must agree on the valid prefix rather than retain removed facts.
+    const_int_bound.Reset();
+    modular_set.Reset();
+    rewrite_simplify.Reset();
+    canonical_simplify.Reset();
+    int_set.Reset();
+    known_comparisons.Reset();
+    z3_prover.Reset();
+    next->ForEach([&](const Constraint& fact) { IngestConstraint(fact); });
   }
-  // skip modular_set
-  // skip rewrite simplify
+  last_snapshot_ = std::move(next);
+  synchronizing_ = false;
+  // An exception ends this analyzer's lifetime; partially updated state is not reusable.
 }
 
-void AnalyzerObj::MarkGlobalNonNegValue(const PrimExpr& value) {
-  // decompose value as symbol * scale + offset
-  ffi::BigInt offset = 0;
-  PrimType value_ty = value.ty();
-  PrimExpr symbol_scale = prim::MakeConst(value_ty, 0);
+void AnalyzerObj::IngestBinding(const Var& var, const PrimExpr& expr) {
+  PrimExpr value = canonical_simplify(expr);
+  value = rewrite_simplify(value);
+  const_int_bound.IngestBinding(var, value);
+  modular_set.IngestBinding(var, value);
+  rewrite_simplify.IngestBinding(var, value);
+  canonical_simplify.IngestBinding(var, value);
+  int_set.IngestBinding(var, value);
+  known_comparisons.IngestBinding(var, expr);
+  z3_prover.IngestBinding(var, expr);
+}
 
-  auto fcollect_sum = [&](PrimExpr val, int sign) {
-    if (const auto* intimm = val.as<IntImmObj>()) {
-      offset += intimm->value * sign;
-    } else {
-      if (sign > 0) {
-        symbol_scale = symbol_scale + val;
-      } else {
-        symbol_scale = symbol_scale - val;
-      }
+void AnalyzerObj::IngestBinding(const Var& var, const Range& range) {
+  if (prim::IsOne(range->extent)) {
+    IngestBinding(var, range->begin);
+  } else {
+    const_int_bound.IngestBinding(var, range);
+    int_set.IngestBinding(var, range);
+    known_comparisons.IngestBinding(var, range);
+    z3_prover.IngestBinding(var, range);
+  }
+}
+
+namespace {
+// Collectors retain syntax, including branch-likelihood annotations. Their truth
+// is the wrapped predicate's truth; remove only the annotation in the analyzer's
+// derived input, without changing the captured premise or the transformed IR.
+PrimExpr PredicateTruth(const PrimExpr& expression) {
+  if (const auto* call = expression.as<CallObj>();
+      call && call->op.same_as(prim::likely_op()) && call->args.size() == 1) {
+    if (auto argument = call->args[0].as<PrimExpr>()) return PredicateTruth(*argument);
+  }
+  if (const auto* op = expression.as<prim::NotObj>()) return prim::Not(PredicateTruth(op->a));
+  if (const auto* op = expression.as<prim::AndObj>())
+    return PredicateTruth(op->a) && PredicateTruth(op->b);
+  if (const auto* op = expression.as<prim::OrObj>())
+    return PredicateTruth(op->a) || PredicateTruth(op->b);
+  if (!expression.ty().MatchesCode(DLDataTypeCode::kDLBool))
+    return expression != IntImm(expression.ty(), 0);
+  return expression;
+}
+}  // namespace
+
+void AnalyzerObj::IngestConstraint(const Constraint& fact) {
+  if (const auto* binding = fact.as<BindingConstraintObj>()) {
+    // A captured mutable load is data, not an enduring substitution to a future load.
+    if (SideEffect(binding->value) <= CallEffectKind::kPure)
+      IngestBinding(binding->var, binding->value);
+  } else if (const auto* range = fact.as<RangeConstraintObj>()) {
+    if (SideEffect(range->range->begin) <= CallEffectKind::kPure &&
+        SideEffect(range->range->extent) <= CallEffectKind::kPure)
+      IngestBinding(range->var, range->range);
+  } else if (const auto* predicate = fact.as<PredicateConstraintObj>()) {
+    const auto facts = PreparePredicate(predicate->condition);
+    for (const PrimExpr& condition : facts) {
+      const_int_bound.IngestPredicate(condition);
+      modular_set.IngestPredicate(condition);
+      rewrite_simplify.IngestPredicate(condition);
+      int_set.IngestPredicate(condition);
+      known_comparisons.IngestPredicate(condition);
+      z3_prover.IngestPredicate(condition);
     }
-  };
-  UnpackSum(value, fcollect_sum);
-
-  // split out the symbol and non-symbolic part
-  ffi::BigInt cscale = 1;
-  PrimExpr symbol = prim::MakeConst(value_ty, 1);
-  auto fcollect_prod = [&](PrimExpr val) {
-    if (const auto* intimm = val.as<IntImmObj>()) {
-      cscale *= intimm->value;
-    } else {
-      symbol = symbol * val;
-    }
-  };
-  UnpackReduction<prim::MulObj>(symbol_scale, fcollect_prod);
-  if (cscale <= 0) return;
-  // override the constant int bound by marking it as non-negative
-  // NOTE: there might be future opportunities of more bound hint
-  // this is a simple step and covers all the current needs
-  //
-  // We may consider enhance the sub analyzer to directly take
-  // MarkPositiveVar so their bounds do not overlap
-  if (auto prim_var = symbol.as<PrimVar>()) {
-    Var var = *prim_var;
-    // skip non-index type, keep it to be compatible
-    // with any_dim that do not represent any value
-    if (!IsIndexTypedExpr(var.as_or_throw<PrimExpr>())) return;
-    bool allow_override = true;
-    // mark the constant bound is sufficient
-    // we cannot mark interval set as that will cause relaxation of the var
-    // during bound proof which is not our intention
-    if (-offset <= ConstIntBound::kNegInf || -offset >= ConstIntBound::kPosInf) return;
-    this->const_int_bound.Update(
-        var, ConstIntBound(static_cast<int64_t>(-offset), ConstIntBound::kPosInf), allow_override);
   }
 }
 
-void AnalyzerObj::Bind(const ffi::Map<Var, Range>& variables, bool allow_override) {
-  for (const auto& iter : variables) {
-    this->Bind(iter.first, iter.second, allow_override);
+std::vector<PrimExpr> AnalyzerObj::PreparePredicate(const PrimExpr& predicate) {
+  // assume_always promises truth, not stable values of mutable reads. Until
+  // translation models that distinction, effectful facts are conservatively ignored.
+  if (SideEffect(predicate) > CallEffectKind::kPure) return {};
+  PrimType type = predicate.ty();
+  if (!type.IsScalar() ||
+      !(type.MatchesCode(DLDataTypeCode::kDLBool) || type.MatchesCode(DLDataTypeCode::kDLInt) ||
+        type.MatchesCode(DLDataTypeCode::kDLUInt)))
+    return {};
+  // Normalize against the previous valid prefix before installing this fact
+  // in any backend. In particular, !(i != 0) must reach bounds as i == 0;
+  // simplifying after installation could prove the premise itself true and
+  // discard the useful literal. Scalar integer guards use nonzero truth.
+  PrimExpr original = PredicateTruth(predicate);
+  PrimExpr condition = rewrite_simplify(original);
+  // Bounds and literal matching also use exact expression structure. Keep the
+  // original truth alongside its normalized equivalent so canonical and
+  // rewrite queries can both recognize the premise. Compute both before any
+  // backend ingests either; otherwise normalization can erase the premise.
+  std::vector<PrimExpr> facts{original};
+  detail::CollectDerivedConstraintFacts(original, &facts);
+  if (!condition.same_as(original)) {
+    facts.push_back(condition);
+    detail::CollectDerivedConstraintFacts(condition, &facts);
   }
-}
-
-void AnalyzerConstraintScope::EnterWithScope() {
-  TVM_FFI_ICHECK(recovery_functions_.size() == 0);
-  // entering the scope.
-  recovery_functions_.push_back(analyzer_->const_int_bound.EnterConstraint(constraint_));
-  recovery_functions_.push_back(analyzer_->modular_set.EnterConstraint(constraint_));
-  recovery_functions_.push_back(
-      analyzer_->rewrite_simplify.EnterConstraint(constraint_, is_assume_));
-  recovery_functions_.push_back(analyzer_->int_set.EnterConstraint(constraint_));
-  recovery_functions_.push_back(analyzer_->known_comparisons.EnterConstraint(constraint_));
-  recovery_functions_.push_back(analyzer_->z3_prover.EnterConstraint(constraint_, is_assume_));
-}
-
-void AnalyzerConstraintScope::ExitWithScope() {
-  while (recovery_functions_.size()) {
-    auto& func = recovery_functions_.back();
-    if (func) {
-      func();
-    }
-    recovery_functions_.pop_back();
-  }
+  return facts;
 }
 
 bool AnalyzerObj::CanProveGreaterEqual(const PrimExpr& expr, int64_t lower_bound) {
@@ -293,6 +356,7 @@ Analyzer AnalyzerObj::Clone() const {
   cloned->int_set.CopyFrom(this->int_set);
   cloned->known_comparisons.CopyFrom(this->known_comparisons);
   cloned->z3_prover.CopyFrom(this->z3_prover);
+  cloned->last_snapshot_ = last_snapshot_;
   return cloned;
 }
 
@@ -302,22 +366,14 @@ TVM_FFI_STATIC_INIT_BLOCK() {
   refl::GlobalDef()
       .def("sym.Analyzer", []() { return Analyzer(); })
       .def("sym.AnalyzerClone", [](Analyzer analyzer) { return analyzer->Clone(); })
+      .def_method("sym.AnalyzerSyncConstraintContext", &AnalyzerObj::SyncConstraintContext)
+      .def_method("sym.AnalyzerGetConstraintContext", &AnalyzerObj::GetConstraintContext)
       .def("sym.AnalyzerConstIntBound",
            [](Analyzer analyzer, const PrimExpr& expr) { return analyzer->const_int_bound(expr); })
-      .def("sym.AnalyzerConstIntBoundUpdate",
-           [](Analyzer analyzer, const Var& var, const ConstIntBound& info, bool allow_override) {
-             analyzer->const_int_bound.Update(var, info, allow_override);
-           })
+
       .def("sym.AnalyzerConstIntBoundIsBound",
            [](Analyzer analyzer, const Var& var) { return analyzer->const_int_bound.IsBound(var); })
-      .def("sym.AnalyzerModularSetUpdate",
-           [](Analyzer analyzer, const Var& var, const ModularSet& info, bool allow_override) {
-             analyzer->modular_set.Update(var, info, allow_override);
-           })
-      .def("sym.AnalyzerIntSetUpdate",
-           [](Analyzer analyzer, const Var& var, const IntSet& info, bool allow_override) {
-             analyzer->int_set.Update(var, info, allow_override);
-           })
+
       .def("sym.AnalyzerModularSet",
            [](Analyzer analyzer, const PrimExpr& expr) { return analyzer->modular_set(expr); })
       .def("sym.AnalyzerSimplify", [](Analyzer analyzer, const PrimExpr& expr,
@@ -340,18 +396,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
              }
              return analyzer->int_set(expr);
            })
-      .def_packed("sym.AnalyzerBind",
-                  [](ffi::PackedArgs args, ffi::Any* ret) {
-                    TVM_FFI_ICHECK(args.size() == 3 || args.size() == 4)
-                        << "AnalyzerBind expects 3 or 4 arguments, but got " << args.size();
-                    Analyzer analyzer = args[0].cast<Analyzer>();
-                    bool allow_override = args.size() >= 4 && args[3].cast<bool>();
-                    if (auto opt_range = args[2].try_cast<Range>()) {
-                      analyzer->Bind(args[1].cast<Var>(), opt_range.value(), allow_override);
-                    } else {
-                      analyzer->Bind(args[1].cast<Var>(), args[2].cast<PrimExpr>(), allow_override);
-                    }
-                  })
+
       .def("sym.AnalyzerCanProve",
            [](Analyzer analyzer, const PrimExpr& expr, int strength) {
              return analyzer->CanProve(expr, static_cast<ProofStrength>(strength));
@@ -367,15 +412,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
            [](Analyzer analyzer, int64_t maximum) {
              analyzer->rewrite_simplify.SetMaximumRewriteSteps(maximum);
            })
-      .def("sym.AnalyzerEnterConstraintContext",
-           [](Analyzer analyzer, const PrimExpr& constraint) {
-             // can't use make_shared due to noexcept(false) decl in destructor,
-             // see https://stackoverflow.com/a/43907314
-             auto ctx = std::shared_ptr<With<AnalyzerConstraintScope>>(
-                 new With<AnalyzerConstraintScope>(analyzer, constraint));
-             auto fexit = [ctx](ffi::PackedArgs, ffi::Any*) mutable { ctx.reset(); };
-             return ffi::Function::FromPacked(fexit);
-           })
+
       .def_method("sym.AnalyzerCanProveEqual", &AnalyzerObj::CanProveEqual)
       .def("sym.AnalyzerTryCompare",
            [](Analyzer analyzer, const PrimExpr& lhs, const PrimExpr& rhs) {

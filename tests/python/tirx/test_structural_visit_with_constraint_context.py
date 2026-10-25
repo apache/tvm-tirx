@@ -35,7 +35,7 @@ def test_walk_collects_binding_and_loop_range():
 
     structural.structural_walk_with_constraint_context(before.body, observe)
     (facts,) = collected
-    binding, loop_range = facts
+    binding, loop_range, _end_after_begin, _positive_extent = facts
     assert isinstance(binding, sym.BindingConstraint)
     assert binding.var.same_as(before.body[0].var)
     assert binding.value.same_as(before.body[0].value)

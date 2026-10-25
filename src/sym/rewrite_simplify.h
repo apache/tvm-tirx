@@ -92,7 +92,7 @@ class RewriteSimplifier::Impl : public SimplifierBase {
   UnchangedOr<ffi::Any> Mutate(ffi::AnyView value,
                                InplaceMode inplace_mode = InplaceMode::kDisallow) override;
 
-  void Update(const Var& var, const PrimExpr& info, bool override_info);
+  void SetBinding(const Var& var, const PrimExpr& info, bool override_info);
   UnchangedOr<Expr> Mutate_(const CallObj* op, InplaceMode inplace_mode) override;
   UnchangedOr<Expr> Mutate_(const VarObj* op, InplaceMode inplace_mode) override;
   UnchangedOr<PrimExpr> Mutate_(const prim::AddObj* op, InplaceMode inplace_mode) override;
@@ -122,7 +122,7 @@ class RewriteSimplifier::Impl : public SimplifierBase {
   UnchangedOr<PrimExpr> Mutate_(const prim::CastObj* op, InplaceMode inplace_mode) override;
   UnchangedOr<PrimExpr> Mutate_(const prim::LetObj* op, InplaceMode inplace_mode) override;
 
-  std::function<void()> EnterConstraint(const PrimExpr& constraint, bool is_assume);
+  void AddPredicate(const PrimExpr& constraint, bool is_assume);
 
   RewriteSimplifierStats GetStatsCounters() const { return RewriteSimplifierStats(stats_); }
 
@@ -130,6 +130,14 @@ class RewriteSimplifier::Impl : public SimplifierBase {
 
   void SetMaximumRewriteSteps(int64_t maximum) { maximum_rewrite_steps_ = maximum; }
 
+  AnalyzerObj* owner() const { return analyzer_; }
+
+  void ResetContext() {
+    var_map_.clear();
+    literal_constraints_.clear();
+    // Limits and cumulative diagnostics survive environment changes. Recursion
+    // belongs to the active query and cannot be reset underneath that query.
+  }
   void CopyFrom(const Impl& other) {
     var_map_ = other.var_map_;
     literal_constraints_ = other.literal_constraints_;

@@ -39,6 +39,7 @@
 #include <utility>
 
 #include "constraint_extract.h"
+#include "constraint_helpers.h"
 #include "int_operator.h"
 #include "interval_set.h"
 
@@ -645,6 +646,9 @@ class IntervalSetEvaluator : public tvm::ExprFunctor<IntervalSet(const Expr&)> {
 
 class IntSetAnalyzer::Impl {
  public:
+  // The parent sym::Analyzer.
+  AnalyzerObj* analyzer_;
+
   explicit Impl(AnalyzerObj* analyzer) : analyzer_(analyzer) {}
 
   IntSet Eval(const PrimExpr& expr, const ffi::Map<Var, IntSet>& dom_map) const {
@@ -652,17 +656,40 @@ class IntSetAnalyzer::Impl {
   }
 
   IntSet Eval(const PrimExpr& expr) const {
-    return IntervalSetEvaluator(analyzer_, dom_map_, &dom_constraints_, true).Eval(expr);
+    const auto& temporary = detail::TempConstraintScope::Query(analyzer_);
+    if (temporary.empty())
+      return IntervalSetEvaluator(analyzer_, dom_map_, &dom_constraints_, true).Eval(expr);
+    // Domains and interval scratch live only for this query. Interpret bindings
+    // in order so each RHS uses the outer environment.
+    auto domains = dom_map_;
+    auto constraints = dom_constraints_;
+    const size_t count = temporary.size();
+    for (size_t i = 0; i < count; ++i) {
+      Constraint fact = temporary[i];
+      if (const auto* binding = fact.as<BindingConstraintObj>()) {
+        auto value =
+            IntervalSetEvaluator(analyzer_, domains, &constraints, true).Eval(binding->value);
+        domains.Set(binding->var, value);
+      } else if (const auto* predicate = fact.as<PredicateConstraintObj>()) {
+        auto bounds = DetectBoundInfo(predicate->condition);
+        constraints.insert(constraints.end(), bounds.begin(), bounds.end());
+      }
+    }
+    return IntervalSetEvaluator(analyzer_, domains, &constraints, true).Eval(expr);
   }
 
-  void Bind(const Var& var, const Range& range, bool allow_override) {
-    Update(var, IntSet::FromRange(range), allow_override);
+  void IngestBinding(const Var& var, const Range& range, bool allow_override) {
+    SetBinding(var, IntSet::FromRange(range), allow_override);
   }
 
-  void Update(const Var& var, const IntSet& info, bool override_info);
-  void Bind(const Var& var, const PrimExpr& expr, bool override_info);
-  std::function<void()> EnterConstraint(const PrimExpr& constraint);
+  void SetBinding(const Var& var, const IntSet& info, bool override_info);
+  void IngestBinding(const Var& var, const PrimExpr& expr, bool override_info);
+  void AddPredicate(const PrimExpr& constraint);
 
+  void Reset() {
+    dom_map_ = {};
+    dom_constraints_.clear();
+  }
   void CopyFrom(const Impl& other) {
     dom_map_ = other.dom_map_;
     dom_constraints_ = other.dom_constraints_;
@@ -672,9 +699,6 @@ class IntSetAnalyzer::Impl {
   // Utility function to split a boolean condition into the domain
   // bounds implied by that condition.
   static std::vector<std::pair<Var, IntSet>> DetectBoundInfo(const PrimExpr& cond);
-
-  // The parent sym::Analyzer
-  AnalyzerObj* analyzer_;
 
   // Map of variables to global variable bounds (e.g. loop iterator
   // ranges)
@@ -691,23 +715,32 @@ IntSetAnalyzer::IntSetAnalyzer(AnalyzerObj* parent) : impl_(new Impl(parent)) {}
 
 IntSetAnalyzer::~IntSetAnalyzer() { delete impl_; }
 
+void IntSetAnalyzer::Reset() {
+  // Drop domains and predicate bounds; interval memoization is query-local.
+  impl_->Reset();
+}
+
 void IntSetAnalyzer::CopyFrom(const IntSetAnalyzer& other) { impl_->CopyFrom(*other.impl_); }
 
 IntSet IntSetAnalyzer::operator()(const PrimExpr& expr, const ffi::Map<Var, IntSet>& dom_map) {
+  detail::TempConstraintScope query(impl_->analyzer_);
   return impl_->Eval(expr, dom_map);
 }
 
-IntSet IntSetAnalyzer::operator()(const PrimExpr& expr) { return impl_->Eval(expr); }
-
-void IntSetAnalyzer::Update(const Var& var, const IntSet& info, bool allow_override) {
-  impl_->Update(var, info, allow_override);
+IntSet IntSetAnalyzer::operator()(const PrimExpr& expr) {
+  detail::TempConstraintScope query(impl_->analyzer_);
+  return impl_->Eval(expr);
 }
 
-void IntSetAnalyzer::Bind(const Var& var, const Range& range, bool allow_override) {
-  impl_->Bind(var, range, allow_override);
+void IntSetAnalyzer::IngestBinding(const Var& var, const PrimExpr& expr) {
+  impl_->SetBinding(var, (*this)(expr), true);
 }
 
-void IntSetAnalyzer::Impl::Update(const Var& var, const IntSet& info, bool can_override) {
+void IntSetAnalyzer::IngestBinding(const Var& var, const Range& range) {
+  impl_->IngestBinding(var, range, true);
+}
+
+void IntSetAnalyzer::Impl::SetBinding(const Var& var, const IntSet& info, bool can_override) {
   if (!can_override) {
     auto it = dom_map_.find(var);
     if (it != dom_map_.end()) {
@@ -727,8 +760,8 @@ void IntSetAnalyzer::Impl::Update(const Var& var, const IntSet& info, bool can_o
   dom_map_.Set(var, info);
 }
 
-void IntSetAnalyzer::Impl::Bind(const Var& var, const PrimExpr& expr, bool can_override) {
-  Update(var, Eval(expr), can_override);
+void IntSetAnalyzer::Impl::IngestBinding(const Var& var, const PrimExpr& expr, bool can_override) {
+  SetBinding(var, Eval(expr), can_override);
 }
 
 std::vector<std::pair<Var, IntSet>> IntSetAnalyzer::Impl::DetectBoundInfo(
@@ -765,23 +798,13 @@ std::vector<std::pair<Var, IntSet>> IntSetAnalyzer::Impl::DetectBoundInfo(
   return bounds;
 }
 
-std::function<void()> IntSetAnalyzer::EnterConstraint(const PrimExpr& constraint) {
-  return impl_->EnterConstraint(constraint);
+void IntSetAnalyzer::IngestPredicate(const PrimExpr& constraint) {
+  impl_->AddPredicate(constraint);
 }
 
-std::function<void()> IntSetAnalyzer::Impl::EnterConstraint(const PrimExpr& constraint) {
+void IntSetAnalyzer::Impl::AddPredicate(const PrimExpr& constraint) {
   auto bounds = DetectBoundInfo(constraint);
-
-  if (bounds.size() == 0) return nullptr;
-
-  size_t old_size = dom_constraints_.size();
   dom_constraints_.insert(dom_constraints_.end(), bounds.begin(), bounds.end());
-  size_t new_size = dom_constraints_.size();
-  auto frecover = [old_size, new_size, this]() {
-    TVM_FFI_ICHECK_EQ(dom_constraints_.size(), new_size);
-    dom_constraints_.erase(dom_constraints_.begin() + old_size, dom_constraints_.end());
-  };
-  return frecover;
 }
 
 // Quickly adapt to IntSet interface

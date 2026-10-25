@@ -353,7 +353,11 @@ void CodeGenMetal::Dispatch_(const BindObj* op) {
   // Stateful reads cannot be substituted after the underlying state changes.
   if (auto prim_value = op->value.as<PrimExpr>();
       prim_value && SideEffect(prim_value.value()) <= CallEffectKind::kPure) {
-    analyzer_->Bind(op->var, prim_value.value());
+    {
+      auto context = analyzer_->GetConstraintContext();
+      context->Append(sym::BindingConstraint(op->var, prim_value.value()));
+      analyzer_->SyncConstraintContext(context);
+    }
   }
   const auto* pointer_type = op->var->ty.as<PtrTypeObj>();
   if (pointer_type == nullptr) {

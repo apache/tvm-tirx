@@ -29,6 +29,7 @@
 #include <tvm/sym/analyzer.h>
 #include <tvm/tirx/op/region.h>
 #include <tvm/tirx/stmt_functor.h>
+#include <tvm/tirx/stmt_functor_with_constraint_context.h>
 #include <tvm/tirx/transform.h>
 
 #include "../ir/data_type_rewriter.h"
@@ -73,22 +74,31 @@ using sym::ConstIntBound;
 // then we narrow `var` into `target_bits_`. That is,
 // `vmap[var] = min(target_bits_, var.dtype.bits())`
 // Otherwise, `var` is not narrowed, that is, `vmap[var] = var.dtype.bits()`
-class DataTypeVisitor final : public StmtExprVisitor {
+class DataTypeVisitor final : public StmtExprVisitorWithConstraintContext {
  public:
-  using StmtExprVisitor::Visit_;
+  using StmtExprVisitorWithConstraintContext::Visit_;
 
   explicit DataTypeVisitor(int target_bits) : bits_(target_bits), target_bits_(target_bits) {}
 
   ffi::Optional<VisitInterrupt> Visit(ffi::AnyView expr) final {
     if (expr == nullptr) return std::nullopt;
+    // Definitions are visited before their loop/thread body facts are installed.
+    // They impose no value-use width requirement; recording their unconstrained
+    // type here would prevent every later, bounded use from being narrowed.
+    if (def_region_kind() != kTVMFFIDefRegionKindNone && expr.as<Var>()) {
+      return std::nullopt;
+    }
     auto prim_expr = expr.as<PrimExpr>();
     if (!prim_expr) {
-      return StmtExprVisitor::Visit(expr);
+      return StmtExprVisitorWithConstraintContext::Visit(expr);
     }
     PrimExpr e = prim_expr.value();
     PrimType e_ty = e.ty();
     if (e_ty.MatchesCode(DLDataTypeCode::kDLInt)) {
       int bits = max_bits_;
+      analyzer_->SyncConstraintContext(constraints);
+      // Bound output maps belong to this environment, not later sibling scopes.
+      bound_.clear();
       if (bound_.find(e) == bound_.end()) {
         analyzer_->const_int_bound(e, &bound_);
       }
@@ -103,10 +113,10 @@ class DataTypeVisitor final : public StmtExprVisitor {
       }
       int tmp = bits > bits_ ? bits : bits_;
       std::swap(bits_, tmp);
-      TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(StmtExprVisitor::Visit(expr));
+      TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(StmtExprVisitorWithConstraintContext::Visit(expr));
       std::swap(bits_, tmp);
     } else {
-      TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(StmtExprVisitor::Visit(expr));
+      TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(StmtExprVisitorWithConstraintContext::Visit(expr));
     }
     return std::nullopt;
   }
@@ -114,25 +124,23 @@ class DataTypeVisitor final : public StmtExprVisitor {
   ffi::Optional<VisitInterrupt> Visit_(const TensorLoadObj* op) {
     int tmp = bits_;
     bits_ = target_bits_;
-    TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(StmtExprVisitor::Visit_(op));
+    TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(StmtExprVisitorWithConstraintContext::Visit_(op));
     bits_ = tmp;
     return std::nullopt;
   }
 
   ffi::Optional<VisitInterrupt> Visit_(const ForObj* op) {
-    analyzer_->Bind(op->var, Range(op->begin, op->end));
     vextent_.insert_or_assign(op->var.as<VarObj>(), op->end.ty());
-    return StmtExprVisitor::Visit_(op);
+    return StmtExprVisitorWithConstraintContext::Visit_(op);
   }
 
   ffi::Optional<VisitInterrupt> Visit_(const RegionStmtObj* op) {
     if (op->op.same_as(tirx::launch_thread_op())) {
       PrimVar var = op->body_params[0].as_or_throw<PrimVar>();
       PrimExpr extent = op->args[1].as_or_throw<PrimExpr>();
-      analyzer_->Bind(var, Range::FromMinExtent(IntImm(extent.ty(), 0), extent));
       vextent_.insert_or_assign(var.get(), extent.ty());
     }
-    return StmtExprVisitor::Visit_(op);
+    return StmtExprVisitorWithConstraintContext::Visit_(op);
   }
 
   ffi::Optional<VisitInterrupt> Visit_(const VarObj* op) {
@@ -148,7 +156,7 @@ class DataTypeVisitor final : public StmtExprVisitor {
         it->second = op_ty.WithBits(std::max(it->second.bits(), bits));
       }
     }
-    return StmtExprVisitor::Visit_(op);
+    return StmtExprVisitorWithConstraintContext::Visit_(op);
   }
 
   ffi::Optional<VisitInterrupt> Visit_(const IntImmObj* op) {
@@ -178,7 +186,7 @@ class DataTypeVisitor final : public StmtExprVisitor {
         it->second = op_ty.WithBits(std::max(it->second.bits(), bits));
       }
     }
-    return StmtExprVisitor::Visit_(op);
+    return StmtExprVisitorWithConstraintContext::Visit_(op);
   }
 
   // the narrowed datatype of Var and IntImm

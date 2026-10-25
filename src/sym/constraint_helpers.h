@@ -130,16 +130,42 @@ inline void CollectDerivedConstraintFacts(const PrimExpr& condition, std::vector
   }
 }
 
-inline void EnterConstraintFacts(WithGroup<AnalyzerConstraintScope>* constraints,
-                                 AnalyzerObj* analyzer, const PrimExpr& condition) {
-  Analyzer analyzer_ref = ffi::GetRef<Analyzer>(analyzer);
-  constraints->Emplace(analyzer_ref, condition);
-  std::vector<PrimExpr> derived;
-  CollectDerivedConstraintFacts(condition, &derived);
-  for (const PrimExpr& fact : derived) {
-    constraints->Emplace(analyzer_ref, fact);
+// Query entry and lexical assumptions share a length/truncate guard. Neither
+// predicates nor Let bindings mutate retained backend state. Only this helper
+// accesses Analyzer internals; backends receive a read-only view of the list.
+class TempConstraintScope {
+ public:
+  explicit TempConstraintScope(AnalyzerObj* analyzer)
+      : analyzer_(analyzer), mark_(analyzer->temp_constraints_.size()) {
+    ++analyzer_->active_queries_;
   }
-}
+  TempConstraintScope(const TempConstraintScope&) = delete;
+  TempConstraintScope& operator=(const TempConstraintScope&) = delete;
+  ~TempConstraintScope() {
+    analyzer_->temp_constraints_.erase(analyzer_->temp_constraints_.begin() + mark_,
+                                       analyzer_->temp_constraints_.end());
+    --analyzer_->active_queries_;
+  }
+  static const std::vector<Constraint>& Query(const AnalyzerObj* analyzer) {
+    return analyzer->temp_constraints_;
+  }
+  void AddPredicate(const PrimExpr& condition) {
+    // Normalize against the incoming environment before exposing the new facts.
+    for (const PrimExpr& fact : analyzer_->PreparePredicate(condition))
+      analyzer_->temp_constraints_.push_back(PredicateConstraint(fact));
+  }
+  void AddBinding(const Var& var, const PrimExpr& value) {
+    if (SideEffect(value) > CallEffectKind::kPure) return;
+    // Let definitions use distinct SSA identities; evaluate the RHS in the outer scope.
+    PrimExpr simplified = analyzer_->Simplify(value);
+    if (!simplified.same_as(var))
+      analyzer_->temp_constraints_.push_back(BindingConstraint(var, simplified));
+  }
+
+ private:
+  AnalyzerObj* analyzer_;
+  size_t mark_;
+};
 
 }  // namespace detail
 }  // namespace sym

@@ -40,12 +40,11 @@ namespace tvm {
  * which pushes a new element on entry and pops it on exit.
  *
  * \code
- *   ScopeStack<WithGroup<AnalyzerConstraintScope>> constraints;
+ *   ScopeStack<std::vector<Var>> definitions;
  *
- *   // In VisitStmt_(ForObj):
- *   return constraints.WithNewScope([&]() -> Stmt {
- *     constraints.Current().Emplace(analyzer, condition);
- *     return StmtExprMutator::VisitStmt_(op);
+ *   definitions.WithNewScope([&]() {
+ *     definitions.Current().push_back(var);
+ *     Visit(body);
  *   });
  * \endcode
  *

@@ -25,11 +25,14 @@ from tvm_tirx import tirx
 
 def test_simplify_reshape_flattened_index():
     ana = tvm_tirx.sym.Analyzer()
+    ana_context = tvm_tirx.sym.ConstraintContext()
 
     i0 = tirx.Var("i0", "int64")
     i1 = tirx.Var("i1", "int64")
-    ana.bind(i0, tvm_tirx.ir.Range(0, 8))
-    ana.bind(i1, tvm_tirx.ir.Range(0, 3))
+    ana_context.append(tvm_tirx.sym.RangeConstraint(i0, tvm_tirx.ir.Range(0, 8)))
+    ana.sync_constraint_context(ana_context)
+    ana_context.append(tvm_tirx.sym.RangeConstraint(i1, tvm_tirx.ir.Range(0, 3)))
+    ana.sync_constraint_context(ana_context)
 
     i_flattened = i0 * 3 + i1
     tvm_tirx.ir.assert_structural_equal(
@@ -74,6 +77,7 @@ def test_can_prove_self_equal_to_self(dtype):
 
 def test_simplify_symbolic_comparison():
     ana = tvm_tirx.sym.Analyzer()
+    ana_context = tvm_tirx.sym.ConstraintContext()
 
     i0 = tirx.Var("i0", "int64")
     i1 = tirx.Var("i1", "int64")
@@ -82,10 +86,20 @@ def test_simplify_symbolic_comparison():
     PS = tvm_tirx.sym.ProofStrength
 
     non_negative = tvm_tirx.sym.ConstIntBound(0, tvm_tirx.sym.ConstIntBound.POS_INF)
-    ana.update(n, non_negative)
-    ana.update(m, non_negative)
-    ana.bind(i0, tvm_tirx.ir.Range(0, outer))
-    ana.bind(i1, tvm_tirx.ir.Range(0, 32))
+    if non_negative.min_value != tvm_tirx.sym.ConstIntBound.NEG_INF:
+        ana_context.append(tvm_tirx.sym.PredicateConstraint(n >= non_negative.min_value))
+    if non_negative.max_value != tvm_tirx.sym.ConstIntBound.POS_INF:
+        ana_context.append(tvm_tirx.sym.PredicateConstraint(n <= non_negative.max_value))
+    ana.sync_constraint_context(ana_context)
+    if non_negative.min_value != tvm_tirx.sym.ConstIntBound.NEG_INF:
+        ana_context.append(tvm_tirx.sym.PredicateConstraint(m >= non_negative.min_value))
+    if non_negative.max_value != tvm_tirx.sym.ConstIntBound.POS_INF:
+        ana_context.append(tvm_tirx.sym.PredicateConstraint(m <= non_negative.max_value))
+    ana.sync_constraint_context(ana_context)
+    ana_context.append(tvm_tirx.sym.RangeConstraint(i0, tvm_tirx.ir.Range(0, outer)))
+    ana.sync_constraint_context(ana_context)
+    ana_context.append(tvm_tirx.sym.RangeConstraint(i1, tvm_tirx.ir.Range(0, 32)))
+    ana.sync_constraint_context(ana_context)
     assert not ana.can_prove(i0 * 32 + i1 < (n + 31) // 32 * 32, PS.DEFAULT)
     assert ana.can_prove(i0 * 32 + i1 < (n + 31) // 32 * 32, PS.SYMBOLIC_BOUND)
     assert ana.can_prove(i0 * 32 + i1 < (n + 31) // 32 * 32 + m, PS.SYMBOLIC_BOUND)
@@ -106,19 +120,24 @@ def test_regression_simplify_inf_recursion():
     ana.rewrite_simplify(res)
 
 
-def test_bind_allow_override():
+def test_context_replacement_and_conflicting_binding():
     ana = tvm_tirx.sym.Analyzer()
+    ana_context = tvm_tirx.sym.ConstraintContext()
     x = tirx.Var("x", "int64")
 
-    ana.bind(x, tvm_tirx.ir.Range(0, 10))
-    ana.bind(x, tvm_tirx.ir.Range(0, 5), allow_override=True)
+    ana_context.append(tvm_tirx.sym.RangeConstraint(x, tvm_tirx.ir.Range(0, 10)))
+    ana.sync_constraint_context(ana_context)
+    ana_context = tvm_tirx.sym.ConstraintContext()
+    ana_context.append(tvm_tirx.sym.RangeConstraint(x, tvm_tirx.ir.Range(0, 5)))
+    ana.sync_constraint_context(ana_context)
     assert ana.can_prove(x < 5)
 
     with pytest.raises(
-        RuntimeError,
-        match=r"Trying to update var 'x' with a different const bound",
+        ValueError,
+        match="cannot redefine variable",
     ):
-        ana.bind(x, tvm_tirx.ir.Range(0, 3))
+        ana_context.append(tvm_tirx.sym.RangeConstraint(x, tvm_tirx.ir.Range(0, 3)))
+        ana.sync_constraint_context(ana_context)
 
 
 def test_simplify_floor_mod_with_linear_offset():

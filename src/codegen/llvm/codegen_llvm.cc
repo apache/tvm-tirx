@@ -1743,8 +1743,15 @@ llvm::Value* CodeGenLLVM::Dispatch_(const prim::LetObj* op) {
   auto var_value = MakeValue(op->value);
   var_map_[op->var.get()] = var_value;
   AddDebugInformation(var_value, op->var);
-  analyzer_->Bind(op->var, op->value);
-  return MakeValue(op->body);
+  // A shared Let expression may be emitted again. Its premise belongs only to
+  // this lexical body, not the surrounding context used by the next occurrence.
+  auto parent_context = analyzer_->GetConstraintContext();
+  auto body_context = parent_context->Snapshot();
+  body_context->Append(sym::BindingConstraint(op->var, op->value));
+  analyzer_->SyncConstraintContext(body_context);
+  auto result = MakeValue(op->body);
+  analyzer_->SyncConstraintContext(parent_context);
+  return result;
 }
 
 bool CodeGenLLVM::HasAlignmentPadding(PrimType dtype) {
@@ -2137,7 +2144,11 @@ void CodeGenLLVM::Dispatch_(const TensorStoreObj* op) {
 
 void CodeGenLLVM::Dispatch_(const ForObj* op) {
   EmitDebugLocation(op);
-  analyzer_->Bind(op->var, Range(op->begin, op->end));
+  {
+    auto context = analyzer_->GetConstraintContext();
+    context->Append(sym::RangeConstraint(op->var, Range(op->begin, op->end)));
+    analyzer_->SyncConstraintContext(context);
+  }
   if (op->kind == ForKind::kUnrolled) {
     LOG(WARNING) << "Unroll hint get ignore at CodeGenLLVM backend, "
                  << " consider set unroll_explicit=True";
@@ -2292,8 +2303,12 @@ void CodeGenLLVM::Dispatch_(const RegionStmtObj* op) {
         << "Conflicting launch extents for " << tag;
     TVM_FFI_ICHECK(!var_map_.count(var.get())) << "Launch variable is already defined";
     var_map_[var.get()] = GetThreadIndex(var, tag);
-    With<sym::AnalyzerConstraintScope> thread_scope(analyzer_, var >= 0 && var < extent);
+    auto parent_context = analyzer_->GetConstraintContext();
+    auto thread_context = parent_context->Snapshot();
+    thread_context->Append(sym::PredicateConstraint(var >= 0 && var < extent));
+    analyzer_->SyncConstraintContext(thread_context);
     this->Dispatch(op->body);
+    analyzer_->SyncConstraintContext(parent_context);
     var_map_.erase(var.get());
   } else if (op->op.same_as(tirx::device_context_op()) ||
              op->op.same_as(tirx::compute_scope_op()) ||
@@ -2344,7 +2359,11 @@ void CodeGenLLVM::Dispatch_(const BindObj* op) {
   AddDebugInformation(value, op->var);
   var_map_[v] = value;
   if (auto prim_value = op->value.as<PrimExpr>()) {
-    analyzer_->Bind(op->var, prim_value.value());
+    {
+      auto context = analyzer_->GetConstraintContext();
+      context->Append(sym::BindingConstraint(op->var, prim_value.value()));
+      analyzer_->SyncConstraintContext(context);
+    }
   }
   if (alloc_storage_info_.count(v) && alloc_storage_info_[v].alignment > 1) {
     builder_->CreateAlignmentAssumption(*data_layout_, GetVarValue(v),

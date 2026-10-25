@@ -816,7 +816,9 @@ def test_subspace_divide_accepts_external_analyzer():
     assert len(tvm_tirx.sym.subspace_divide(bindings, root_iters, [i])) == 0
 
     analyzer = tvm_tirx.sym.Analyzer()
-    analyzer.bind(tile, T.int32(4))
+    analyzer_context = tvm_tirx.sym.ConstraintContext()
+    analyzer_context.append(tvm_tirx.sym.BindingConstraint(tile, T.int32(4)))
+    analyzer.sync_constraint_context(analyzer_context)
     res = tvm_tirx.sym.subspace_divide(bindings, root_iters, [i], analyzer=analyzer)
     res = convert_division(res)
 
@@ -1491,7 +1493,9 @@ def test_normalize_to_iter_sum_accepts_external_analyzer():
     input_iters = {i: tvm_tirx.ir.Range(0, 16)}
 
     analyzer = tvm_tirx.sym.Analyzer()
-    analyzer.bind(tile, T.int32(4))
+    analyzer_context = tvm_tirx.sym.ConstraintContext()
+    analyzer_context.append(tvm_tirx.sym.BindingConstraint(tile, T.int32(4)))
+    analyzer.sync_constraint_context(analyzer_context)
     res = tvm_tirx.sym.normalize_to_iter_sum(i // tile, input_iters, analyzer=analyzer)
 
     assert len(res.args) == 1
@@ -1528,7 +1532,9 @@ def test_detect_iter_map_accepts_external_analyzer():
     assert len(tvm_tirx.sym.detect_iter_map([i % tile], iter_vars).indices) == 0
 
     analyzer = tvm_tirx.sym.Analyzer()
-    analyzer.bind(tile, T.int32(4))
+    analyzer_context = tvm_tirx.sym.ConstraintContext()
+    analyzer_context.append(tvm_tirx.sym.BindingConstraint(tile, T.int32(4)))
+    analyzer.sync_constraint_context(analyzer_context)
     # The external analyzer supplies `tile == 4`, allowing detection to succeed.
     assert (
         len(
@@ -1546,7 +1552,9 @@ def test_iter_map_simplify_accepts_external_analyzer():
     iter_vars = {i: tvm_tirx.ir.Range(0, 32)}
 
     analyzer = tvm_tirx.sym.Analyzer()
-    analyzer.bind(tile, T.int32(8))
+    analyzer_context = tvm_tirx.sym.ConstraintContext()
+    analyzer_context.append(tvm_tirx.sym.BindingConstraint(tile, T.int32(8)))
+    analyzer.sync_constraint_context(analyzer_context)
     simplified = tvm_tirx.sym.iter_map_simplify(
         [i % tile], iter_vars, True, "Surjective", analyzer, True
     )

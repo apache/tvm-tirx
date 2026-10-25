@@ -31,8 +31,11 @@
 
 #include <limits>
 #include <numeric>
+#include <optional>
 #include <unordered_map>
 #include <utility>
+
+#include "constraint_helpers.h"
 
 namespace tvm {
 namespace sym {
@@ -136,9 +139,11 @@ struct ModularSetAnalyzer::Entry {
 class ModularSetAnalyzer::Impl final
     : public tvm::ExprFunctor<ModularSetAnalyzer::Entry(const Expr&)> {
  public:
+  AnalyzerObj* owner() const { return parent_; }
+
   explicit Impl(AnalyzerObj* parent) : parent_(parent) {}
 
-  void Update(const Var& var, const ModularSet& info, bool allow_override) {
+  void SetBinding(const Var& var, const ModularSet& info, bool allow_override) {
     if (!allow_override) {
       auto it = var_map_.find(var);
       if (it != var_map_.end()) {
@@ -152,7 +157,11 @@ class ModularSetAnalyzer::Impl final
   }
 
   // Detect useful constraints and use them in the analysis scope.
-  std::function<void()> EnterConstraint(const PrimExpr& constraint) {
+  void AddPredicate(const PrimExpr& constraint) {
+    if (auto fact = DetectPredicate(constraint)) UpdateByIntersect(fact->first, fact->second);
+  }
+
+  static std::optional<std::pair<Var, Entry>> DetectPredicate(const PrimExpr& constraint) {
     PVar<Var> var;
     PVar<IntImm> coeff, base;
     // pattern match interesting constraints
@@ -160,31 +169,26 @@ class ModularSetAnalyzer::Impl final
         (floormod(var, coeff) == base).Match(constraint)) {
       if (auto c = coeff.Eval()->value.as<int64_t>(), b = base.Eval()->value.as<int64_t>();
           c.has_value() && b.has_value()) {
-        return UpdateByIntersect(var.Eval(), Entry(*c, *b));
+        return std::pair{var.Eval(), Entry(*c, *b)};
       }
     }
     if ((var == base).Match(constraint) || (base == var).Match(constraint)) {
       if (auto b = base.Eval()->value.as<int64_t>(); b.has_value()) {
-        return UpdateByIntersect(var.Eval(), Entry(1, *b));
+        // Entry represents coeff * n + base: coefficient 0 fixes the value to
+        // base, whereas coefficient 1 would admit every integer.
+        return std::pair{var.Eval(), Entry(0, *b)};
       }
     }
-    return nullptr;
+    return std::nullopt;
   }
 
   // Override visitor behaviors
   Entry DispatchDefault_(const ffi::Object* op) final { return Everything(); }
 
   Entry Dispatch_(const prim::LetObj* op) final {
-    auto it = var_map_.find(op->var);
-    // if the var has not been binded, update the info.
-    if (it == var_map_.end()) {
-      var_map_[op->var] = this->Dispatch(op->value);
-      Entry ret = Dispatch(op->body);
-      var_map_.erase(op->var);
-      return ret;
-    } else {
-      return Dispatch(op->body);
-    }
+    detail::TempConstraintScope scope(parent_);
+    scope.AddBinding(op->var, op->value);
+    return Dispatch(op->body);
   }
 
   Entry Dispatch_(const prim::CastObj* op) final { return Dispatch(op->value); }
@@ -302,12 +306,28 @@ class ModularSetAnalyzer::Impl final
 
   Entry Dispatch_(const VarObj* op) final {
     Var v = ffi::GetRef<Var>(op);
-    auto it = var_map_.find(v);
-    if (it != var_map_.end()) {
-      return it->second;
-    } else {
-      return Everything();
+    auto persistent = var_map_.find(v);
+    Entry result = persistent != var_map_.end() ? persistent->second : Everything();
+    const auto& facts = detail::TempConstraintScope::Query(parent_);
+    for (auto it = facts.rbegin(); it != facts.rend(); ++it) {
+      if (const auto* binding = it->as<BindingConstraintObj>();
+          binding && binding->var.same_as(v)) {
+        PrimExpr value = binding->value;
+        result = Dispatch(value);
+        break;
+      }
     }
+    // Intersect temporary facts into the query result, leaving retained residues
+    // unchanged when the enclosing branch scope exits.
+    for (const Constraint& fact : detail::TempConstraintScope::Query(parent_)) {
+      const auto* condition = fact.as<PredicateConstraintObj>();
+      if (!condition) continue;
+      const PrimExpr& predicate = condition->condition;
+      if (auto fact = DetectPredicate(predicate); fact && fact->first.same_as(v)) {
+        result = Intersect(result, fact->second);
+      }
+    }
+    return result;
   }
 
   Entry Dispatch_(const prim::LShiftObj* op) final {
@@ -339,6 +359,7 @@ class ModularSetAnalyzer::Impl final
     return Everything();
   }
 
+  void Reset() { var_map_.clear(); }
   void CopyFrom(const Impl& other) { var_map_ = other.var_map_; }
 
  private:
@@ -347,20 +368,17 @@ class ModularSetAnalyzer::Impl final
   // internal variable map
   std::unordered_map<Var, Entry> var_map_;
   /*!
-   * \brief Update var by intersecting entry with var's current set.
+   * \brief Refine var by intersecting entry with var's current set.
    * \param var The variable.
    * \param entry The entry to be updated.
-   * \return The recovery function of the scope.
    */
-  std::function<void()> UpdateByIntersect(const Var& var, Entry entry) {
+  void UpdateByIntersect(const Var& var, Entry entry) {
     Entry old = Everything();
     auto it = var_map_.find(var);
     if (it != var_map_.end()) {
       old = it->second;
     }
     var_map_[var] = Intersect(old, entry);
-    // reover function.
-    return [this, old, var]() { var_map_[var] = old; };
   }
   /*!
    * \brief Create union of two sets.
@@ -389,6 +407,9 @@ class ModularSetAnalyzer::Impl final
    * \param b the right operand.
    */
   static Entry Intersect(Entry a, Entry b) {
+    // A repeated equality may refine an already constant variable. Avoid the
+    // zero gcd in the general congruence formula for two singleton sets.
+    if (a.is_const() && b.is_const()) return a.base == b.base ? a : Everything();
     int64_t x, y;
     int64_t c1 = a.coeff, b1 = a.base, c2 = b.coeff, b2 = b.base;
     // z = c1 * p + b1
@@ -422,22 +443,28 @@ class ModularSetAnalyzer::Impl final
 };
 
 ModularSet ModularSetAnalyzer::operator()(const PrimExpr& expr) {
+  detail::TempConstraintScope query(impl_->owner());
   Entry ret = impl_->Dispatch(expr);
   return ModularSet(ret.coeff, ret.base);
 }
 
-void ModularSetAnalyzer::Update(const Var& var, const ModularSet& info, bool allow_override) {
-  impl_->Update(var, info, allow_override);
+void ModularSetAnalyzer::IngestBinding(const Var& var, const PrimExpr& expr) {
+  impl_->SetBinding(var, (*this)(expr), true);
 }
 
-std::function<void()> ModularSetAnalyzer::EnterConstraint(const PrimExpr& constraint) {
-  return impl_->EnterConstraint(constraint);
+void ModularSetAnalyzer::IngestPredicate(const PrimExpr& constraint) {
+  impl_->AddPredicate(constraint);
 }
 
 ModularSetAnalyzer::ModularSetAnalyzer(AnalyzerObj* parent)
     : impl_(std::make_unique<Impl>(parent)) {}
 
 ModularSetAnalyzer::~ModularSetAnalyzer() = default;
+
+void ModularSetAnalyzer::Reset() {
+  // Binding residues and predicate intersections must be cleared together.
+  impl_->Reset();
+}
 
 void ModularSetAnalyzer::CopyFrom(const ModularSetAnalyzer& other) {
   impl_->CopyFrom(*other.impl_);

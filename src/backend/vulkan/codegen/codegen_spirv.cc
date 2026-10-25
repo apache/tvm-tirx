@@ -434,8 +434,15 @@ spirv::Value CodeGenSPIRV::Dispatch_(const prim::LetObj* op) {
     let_binding_[op->var] = op;
   }
   var_map_[op->var.get()] = MakeValue(op->value);
-  analyzer_->Bind(op->var, op->value);
-  return MakeValue(op->body);
+  // A shared Let expression may be emitted again. Its premise belongs only to
+  // this lexical body, not the surrounding context used by the next occurrence.
+  auto parent_context = analyzer_->GetConstraintContext();
+  auto body_context = parent_context->Snapshot();
+  body_context->Append(sym::BindingConstraint(op->var, op->value));
+  analyzer_->SyncConstraintContext(body_context);
+  auto result = MakeValue(op->body);
+  analyzer_->SyncConstraintContext(parent_context);
+  return result;
 }
 
 spirv::Value CodeGenSPIRV::Dispatch_(const CallObj* op) {
@@ -801,7 +808,11 @@ void CodeGenSPIRV::Dispatch_(const TensorStoreObj* op) {
 }
 
 void CodeGenSPIRV::Dispatch_(const ForObj* op) {
-  analyzer_->Bind(op->var, Range(op->begin, op->end));
+  {
+    auto context = analyzer_->GetConstraintContext();
+    context->Append(sym::RangeConstraint(op->var, Range(op->begin, op->end)));
+    analyzer_->SyncConstraintContext(context);
+  }
   spirv::Value init_value = MakeValue(op->begin);
   spirv::Value end_value = MakeValue(op->end);
 
@@ -1025,8 +1036,12 @@ void CodeGenSPIRV::Dispatch_(const RegionStmtObj* op) {
         << "Conflicting launch extents for " << tag;
     TVM_FFI_ICHECK(!var_map_.count(var.get())) << "Launch variable is already defined";
     var_map_[var.get()] = GetThreadIndex(var, tag, extent);
-    With<sym::AnalyzerConstraintScope> thread_scope(analyzer_, var >= 0 && var < extent);
+    auto parent_context = analyzer_->GetConstraintContext();
+    auto thread_context = parent_context->Snapshot();
+    thread_context->Append(sym::PredicateConstraint(var >= 0 && var < extent));
+    analyzer_->SyncConstraintContext(thread_context);
     this->Dispatch(op->body);
+    analyzer_->SyncConstraintContext(parent_context);
     var_map_.erase(var.get());
   } else {
     TVM_FFI_THROW(ValueError) << "Unsupported region op " << op->op;
@@ -1050,7 +1065,11 @@ void CodeGenSPIRV::Dispatch_(const BindObj* op) {
   }
   var_map_[op->var.get()] = MakeValue(op->value);
   if (auto prim_value = op->value.as<PrimExpr>()) {
-    analyzer_->Bind(op->var, prim_value.value());
+    {
+      auto context = analyzer_->GetConstraintContext();
+      context->Append(sym::BindingConstraint(op->var, prim_value.value()));
+      analyzer_->SyncConstraintContext(context);
+    }
   }
 }
 

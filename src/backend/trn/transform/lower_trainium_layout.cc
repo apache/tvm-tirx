@@ -31,7 +31,7 @@
 #include <tvm/tirx/op/memory.h>
 #include <tvm/tirx/stmt.h>
 #include <tvm/tirx/stmt_functor.h>
-#include <tvm/tirx/stmt_functor_with_analyzer.h>
+#include <tvm/tirx/stmt_functor_with_constraint_context.h>
 #include <tvm/tirx/transform.h>
 
 #include <algorithm>
@@ -54,11 +54,11 @@ static bool IsTrainiumLayout(const TileLayoutObj* layout) {
   });
 }
 
-class TrainiumLayoutApplier : public tirx::StmtExprMutatorWithAnalyzer {
+class TrainiumLayoutApplier : public tirx::StmtExprMutatorWithConstraintContext {
  public:
   static std::pair<Stmt, ffi::Array<Var>> Lower(const Stmt& stmt, const ffi::Array<Var>& params) {
     sym::Analyzer ana;
-    auto storage_lower = ffi::make_object<TrainiumLayoutApplier>(ana);
+    auto storage_lower = ffi::make_object<TrainiumLayoutApplier>(ana->GetConstraintContext());
     ffi::Array<Var> new_params;
     new_params.reserve(params.size());
     std::vector<std::pair<TensorVar, TensorVar>> param_flattened_tensors;
@@ -106,11 +106,25 @@ class TrainiumLayoutApplier : public tirx::StmtExprMutatorWithAnalyzer {
     return std::make_pair(new_stmt, new_params);
   }
 
-  explicit TrainiumLayoutApplier(const sym::Analyzer& analyzer)
-      : tirx::StmtExprMutatorWithAnalyzer(analyzer) {}
+  explicit TrainiumLayoutApplier(const sym::ConstraintContext& context)
+      : tirx::StmtExprMutatorWithConstraintContext(context) {}
 
  protected:
-  using StmtExprMutatorWithAnalyzer::Mutate_;
+  using StmtExprMutatorWithConstraintContext::Mutate_;
+
+  UnchangedOr<Stmt> Mutate_(const IfObj* op, InplaceMode inplace_mode) final {
+    auto result = StmtExprMutatorWithConstraintContext::Mutate_(op, inplace_mode);
+    If stmt = std::move(result).ValueOrUnchanged(ffi::GetRef<Stmt>(op)).as_or_throw<If>();
+    PrimExpr condition = stmt->condition;
+    if (auto call = condition.as<CallObj>(); call && call->op.same_as(prim::likely_op())) {
+      condition = call->args[0].as_or_throw<PrimExpr>();
+    }
+    // Preserve the literal-guard folding previously provided by the analyzer mutator.
+    // Trainium layout lowering is also used without a later statement simplifier.
+    if (prim::IsOne(condition)) return stmt->then_case;
+    if (prim::IsZero(condition)) return stmt->else_case.value_or(Evaluate(0));
+    return stmt;
+  }
 
   ffi::Any MutateTileArgument(const ffi::Any& any) {
     if (auto tensor = any.as<TensorVar>()) {
@@ -162,12 +176,12 @@ class TrainiumLayoutApplier : public tirx::StmtExprMutatorWithAnalyzer {
                        {tensor.ty()}, call->loc),
                   op->loc);
     }
-    return StmtExprMutatorWithAnalyzer::Mutate_(op, inplace_mode);
+    return StmtExprMutatorWithConstraintContext::Mutate_(op, inplace_mode);
   }
 
   TensorVar GetFlattenedTensor(TensorVar buf, bool is_alloc = false) {
     static const auto scope_trn_psum = runtime::MemoryScope::Get("trn.psum");
-    ffi::Any mapped = VarRemapGet(buf);
+    ffi::Any mapped = VarRemapGetExpected(buf).value();
     if (mapped.type_index() != ffi::TypeIndex::kTVMFFINone) {
       return std::move(mapped).as_or_throw<UnchangedOr<TensorVar>>().ValueOrUnchanged(buf);
     }
@@ -211,30 +225,31 @@ class TrainiumLayoutApplier : public tirx::StmtExprMutatorWithAnalyzer {
         type->shape = {ana->Simplify(mem_span)};
         type->layout = std::nullopt;
       } else {
-        flattened = FlattenedTensor(buf, ffi::GetRef<sym::Analyzer>(analyzer_));
+        flattened = FlattenedTensor(buf, ffi::GetRef<sym::Analyzer>(GetSyncedAnalyzer()));
         type = ffi::make_object<TensorTypeObj>(*flattened.ty().get());
       }
     } else {
-      flattened = FlattenedTensor(buf, ffi::GetRef<sym::Analyzer>(analyzer_), /*fold_origin=*/true);
+      flattened = FlattenedTensor(buf, ffi::GetRef<sym::Analyzer>(GetSyncedAnalyzer()),
+                                  /*fold_origin=*/true);
       type = ffi::make_object<TensorTypeObj>(*flattened.ty().get());
     }
     if (flattened.dtype()->dtype == DLDataType{kDLBool, 8, 1}) {
       type->dtype = PrimType::Int(8);
     }
     for (size_t i = 0; i < type->shape.size(); ++i) {
-      type->shape.Set(i, analyzer_->canonical_simplify(type->shape[i]));
+      type->shape.Set(i, GetSyncedAnalyzer()->canonical_simplify(type->shape[i]));
     }
     if (!IsTrainiumLayout(trn_layout)) type->layout = std::nullopt;
     flattened = TensorVar(flattened->name, TensorType(std::move(type)), flattened->loc);
 
-    VarRemapSet(buf, flattened);
+    VarRemapSetExpected(buf, flattened).value();
     return flattened;
   }
 
   UnchangedOr<Stmt> Mutate_(const TensorStoreObj* op, InplaceMode inplace_mode) final {
     // Index conversion needs the original logical layout after the parent remaps the tensor.
     TensorVar logical_tensor = op->dest.as_or_throw<TensorVar>();
-    TensorStore store = StmtExprMutator::Mutate_(op, inplace_mode)
+    TensorStore store = StmtExprMutatorWithConstraintContext::Mutate_(op, inplace_mode)
                             .ValueOrUnchanged(ffi::GetRef<Stmt>(op))
                             .as_or_throw<TensorStore>();
     PrimType store_value_ty = op->value.ty();
@@ -256,7 +271,7 @@ class TrainiumLayoutApplier : public tirx::StmtExprMutatorWithAnalyzer {
     TensorVar logical_tensor = op->source.as_or_throw<TensorVar>();
     PrimType load_ty = op->ty.as_or_throw<PrimType>();
     bool load_returns_bool = load_ty.MatchesCode(DLDataTypeCode::kDLBool);
-    TensorLoad load = StmtExprMutator::Mutate_(op, inplace_mode)
+    TensorLoad load = StmtExprMutatorWithConstraintContext::Mutate_(op, inplace_mode)
                           .ValueOrUnchanged(ffi::GetRef<PrimExpr>(op))
                           .as_or_throw<TensorLoad>();
     load = VisitTensorAccess(load, logical_tensor);
@@ -276,9 +291,10 @@ class TrainiumLayoutApplier : public tirx::StmtExprMutatorWithAnalyzer {
     static const auto scope_trn_psum = runtime::MemoryScope::Get("trn.psum");
     if (tensor.ty()->layout.has_value()) {
       auto layout = tensor.ty()->layout.value();
-      layout = StmtExprMutator::Mutate(ffi::AnyView(layout), InplaceMode::kDisallow)
-                   .ValueOrUnchanged(layout)
-                   .as_or_throw<Layout>();
+      layout =
+          StmtExprMutatorWithConstraintContext::Mutate(ffi::AnyView(layout), InplaceMode::kDisallow)
+              .ValueOrUnchanged(layout)
+              .as_or_throw<Layout>();
       auto tile_layout = layout.as<TileLayoutObj>();
       if (IsTrainiumLayout(tile_layout)) {
         auto coord = layout.Apply(indices, tensor.shape());
@@ -288,7 +304,7 @@ class TrainiumLayoutApplier : public tirx::StmtExprMutatorWithAnalyzer {
                                     : ffi::Array<ffi::String>{"P", "F"}) {
           auto it = coord.find(ffi::String(axis));
           if (it != coord.end()) {
-            res.push_back(analyzer_->Simplify((*it).second));
+            res.push_back(GetSyncedAnalyzer()->Simplify((*it).second));
           } else {
             res.push_back(0);
           }
@@ -302,11 +318,11 @@ class TrainiumLayoutApplier : public tirx::StmtExprMutatorWithAnalyzer {
       }
       auto res = layout.Canonicalize().Apply(indices, tensor.shape());
       TVM_FFI_ICHECK_EQ(res.size(), 1) << "Expected a single element offset";
-      return {analyzer_->Simplify((*res.begin()).second)};
+      return {GetSyncedAnalyzer()->Simplify((*res.begin()).second)};
     }
     auto flattened_indices = tensor.ty()->ElemOffset(indices);
     TVM_FFI_ICHECK_EQ(flattened_indices.size(), 1) << "Expected a single element offset";
-    return {analyzer_->Simplify(flattened_indices[0])};
+    return {GetSyncedAnalyzer()->Simplify(flattened_indices[0])};
   }
 
   TensorStore VisitTensorAccess(TensorStore node, const TensorVar& logical_tensor) {

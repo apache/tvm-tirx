@@ -31,6 +31,7 @@
 #include <tvm/sym/analyzer.h>
 
 #include "const_fold.h"
+#include "constraint_helpers.h"
 #include "product_normal_form.h"
 #include "rewrite_simplify.h"
 
@@ -1462,17 +1463,23 @@ UnchangedOr<PrimExpr> CanonicalSimplifier::Impl::Mutate_(const prim::LTObj* op,
 }
 
 PrimExpr CanonicalSimplifier::operator()(const PrimExpr& expr) {
+  detail::TempConstraintScope query(impl_->owner());
   return impl_->Mutate(expr).ValueOrUnchanged(expr);
 }
 
-void CanonicalSimplifier::Update(const Var& var, const PrimExpr& info, bool override) {
-  impl_->Update(var, info, override);
+void CanonicalSimplifier::IngestBinding(const Var& var, const PrimExpr& info) {
+  impl_->SetBinding(var, info, true);
 }
 
 CanonicalSimplifier::CanonicalSimplifier(AnalyzerObj* parent)
     : impl_(ffi::make_object<Impl>(parent)) {}
 
 CanonicalSimplifier::~CanonicalSimplifier() = default;
+
+void CanonicalSimplifier::Reset() {
+  // Inherited substitutions can depend on peer facts; keep rewrite configuration.
+  impl_->ResetContext();
+}
 
 void CanonicalSimplifier::CopyFrom(const CanonicalSimplifier& other) {
   impl_->CopyFrom(*other.impl_);

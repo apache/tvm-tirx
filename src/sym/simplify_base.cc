@@ -27,7 +27,7 @@
 namespace tvm {
 namespace sym {
 
-using detail::EnterConstraintFacts;
+using detail::TempConstraintScope;
 
 UnchangedOr<Expr> SimplifierBase::Mutate_(const TupleObj* op, InplaceMode inplace_mode) {
   auto fields_u = Mutate(op->fields, inplace_mode).as_or_throw<UnchangedOr<ffi::Array<Expr>>>();
@@ -83,22 +83,23 @@ UnchangedOr<Expr> SimplifierBase::Mutate_(const CallObj* op, InplaceMode inplace
     const auto* args = op->args.GetArrayObj();
     PrimExpr cond =
         Mutate((*args)[0], inplace_mode_args).ValueOrUnchanged((*args)[0]).as_or_throw<PrimExpr>();
-    Expr true_value = constraint_scope_
-                          .WithNewScope([&]() {
-                            EnterConstraintFacts(&constraint_scope_.Current(), analyzer_, cond);
-                            return Mutate((*args)[1], inplace_mode_args);
-                          })
-                          .ValueOrUnchanged((*args)[1])
-                          .as_or_throw<Expr>();
+    Expr true_value =
+        [&]() {
+          TempConstraintScope frame(analyzer_);
+          frame.AddPredicate(cond);
+          return Mutate((*args)[1], inplace_mode_args);
+        }()
+            .ValueOrUnchanged((*args)[1])
+            .as_or_throw<Expr>();
     Expr false_value = [&]() {
       PrimExpr not_cond = prim::Not(cond);
-      return constraint_scope_
-          .WithNewScope([&]() {
-            constraint_scope_.Current().Emplace(analyzer_, not_cond);
-            return Mutate((*args)[2], inplace_mode_args);
-          })
-          .ValueOrUnchanged((*args)[2])
-          .as_or_throw<Expr>();
+      return [&]() {
+        TempConstraintScope frame(analyzer_);
+        frame.AddPredicate(not_cond);
+        return Mutate((*args)[2], inplace_mode_args);
+      }()
+                 .ValueOrUnchanged((*args)[2])
+                 .as_or_throw<Expr>();
     }();
     if (prim::IsZero(cond)) return false_value;
     if (prim::IsOne(cond)) return true_value;
@@ -122,9 +123,8 @@ UnchangedOr<Expr> SimplifierBase::Mutate_(const CallObj* op, InplaceMode inplace
 
 UnchangedOr<PrimExpr> SimplifierBase::Mutate_(const prim::LetObj* op, InplaceMode inplace_mode) {
   PrimExpr value = Mutate(op->value, inplace_mode).ValueOrUnchanged(op->value);
-  if (SideEffect(value) <= CallEffectKind::kPure) {
-    analyzer_->Bind(op->var, value);
-  }
+  TempConstraintScope frame(analyzer_);
+  frame.AddBinding(op->var, value);
   PrimExpr body = Mutate(op->body, inplace_mode).ValueOrUnchanged(op->body);
   if (value.same_as(op->value) && body.same_as(op->body)) {
     // Reuse the original node identity; there is no replacement to process.
@@ -135,20 +135,21 @@ UnchangedOr<PrimExpr> SimplifierBase::Mutate_(const prim::LetObj* op, InplaceMod
 
 UnchangedOr<PrimExpr> SimplifierBase::Mutate_(const prim::SelectObj* op, InplaceMode inplace_mode) {
   PrimExpr cond = Mutate(op->condition, inplace_mode).ValueOrUnchanged(op->condition);
-  PrimExpr true_value = constraint_scope_
-                            .WithNewScope([&]() {
-                              EnterConstraintFacts(&constraint_scope_.Current(), analyzer_, cond);
-                              return Mutate(op->true_value, inplace_mode);
-                            })
-                            .ValueOrUnchanged(op->true_value);
+  PrimExpr true_value =
+      [&]() {
+        TempConstraintScope frame(analyzer_);
+        frame.AddPredicate(cond);
+        return Mutate(op->true_value, inplace_mode);
+      }()
+          .ValueOrUnchanged(op->true_value);
   PrimExpr false_value = [&]() {
     PrimExpr neg_cond = analyzer_->rewrite_simplify(prim::Not(cond));
-    return constraint_scope_
-        .WithNewScope([&]() {
-          constraint_scope_.Current().Emplace(analyzer_, neg_cond);
-          return Mutate(op->false_value, inplace_mode);
-        })
-        .ValueOrUnchanged(op->false_value);
+    return [&]() {
+      TempConstraintScope frame(analyzer_);
+      frame.AddPredicate(neg_cond);
+      return Mutate(op->false_value, inplace_mode);
+    }()
+               .ValueOrUnchanged(op->false_value);
   }();
   if (prim::IsZero(cond)) return false_value;
   if (prim::IsOne(cond)) return true_value;

@@ -636,7 +636,7 @@ def test_conditional_floor_mod():
     `canonical_simplify` would rewrite `floormod(0-i,2)` to the equivalent
     `floormod(i,-2)`.  Then, the rewrite_simplifier would enter a
     constrained context in which `floormod(i,-2)==1`.  Passing this
-    expression to `ModularSet::EnterConstraint`, which previously did not
+    expression to the modular-set constraint ingestion, which previously did not
     support a negative value for the second argument, threw an error.
 
     The analogous failure mode never occurred for `truncmod`, because

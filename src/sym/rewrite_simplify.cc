@@ -39,6 +39,7 @@
 
 #include "const_fold.h"
 #include "constraint_extract.h"
+#include "constraint_helpers.h"
 
 namespace tvm {
 namespace sym {
@@ -232,7 +233,7 @@ UnchangedOr<ffi::Any> RewriteSimplifier::Impl::Mutate(ffi::AnyView value,
   return SimplifierBase::Mutate(value, inplace_mode);
 }
 
-void RewriteSimplifier::Impl::Update(const Var& var, const PrimExpr& info, bool can_override) {
+void RewriteSimplifier::Impl::SetBinding(const Var& var, const PrimExpr& info, bool can_override) {
   if (!can_override) {
     auto it = var_map_.find(var);
     if (it != var_map_.end()) {
@@ -360,13 +361,11 @@ UnchangedOr<PrimExpr> RewriteSimplifier::Impl::Mutate_(const prim::AddObj* op,
   return ret;
 }
 
-std::function<void()> RewriteSimplifier::Impl::EnterConstraint(const PrimExpr& constraint,
-                                                               bool is_assume) {
-  size_t old_literal_size = literal_constraints_.size();
-  // we will compare the already simplified result with the constraint,
-  // so simplify the constraint as well
-  PrimExpr new_constraint = Mutate(constraint).ValueOrUnchanged(constraint);
-  for (const PrimExpr& subconstraint : ExtractConstraints(new_constraint, false)) {
+void RewriteSimplifier::Impl::AddPredicate(const PrimExpr& constraint, bool is_assume) {
+  // The coordinator prepared this premise against the previous prefix.
+  // Do not simplify it again after peers have ingested it: that can turn the
+  // premise into true and lose the literal needed by subsequent queries.
+  for (const PrimExpr& subconstraint : ExtractConstraints(constraint, false)) {
     if (is_assume || SideEffect(subconstraint) <= CallEffectKind::kPure) {
       literal_constraints_.push_back(subconstraint);
       PrimExpr negation{ffi::UnsafeInit{}};
@@ -384,13 +383,6 @@ std::function<void()> RewriteSimplifier::Impl::EnterConstraint(const PrimExpr& c
     }
   }
   stats_.constraints_entered++;
-  size_t new_literal_size = literal_constraints_.size();
-  auto frecover = [old_literal_size, new_literal_size, this]() {
-    TVM_FFI_ICHECK_EQ(literal_constraints_.size(), new_literal_size);
-    literal_constraints_.erase(literal_constraints_.begin() + old_literal_size,
-                               literal_constraints_.end());
-  };
-  return frecover;
 }
 
 UnchangedOr<PrimExpr> RewriteSimplifier::Impl::Mutate_(const prim::SubObj* op,
@@ -1606,12 +1598,31 @@ ffi::Optional<PrimExpr> RewriteSimplifier::Impl::TryMatchLiteralConstraint(
   PrimExpr negation = prim::Not(expr);
 
   prim::ExprDeepEqual expr_equal;
-  for (const auto& constraint : literal_constraints_) {
+  auto match = [&](const PrimExpr& constraint) -> ffi::Optional<PrimExpr> {
     if (expr_equal(constraint, expr)) {
       return prim::MakeConst(expr.ty(), true);
     }
     if (expr_equal(constraint, negation)) {
       return prim::MakeConst(expr.ty(), false);
+    }
+    return std::nullopt;
+  };
+  for (const auto& constraint : literal_constraints_) {
+    if (auto result = match(constraint)) return result;
+  }
+  // Temporary branch facts are query overlays, never persistent literals. Match
+  // the same literal and normalized-negation forms used by AddPredicate without
+  // installing either in this simplifier's context-derived state.
+  for (const Constraint& fact : detail::TempConstraintScope::Query(analyzer_)) {
+    const auto* condition = fact.as<PredicateConstraintObj>();
+    if (!condition) continue;
+    const PrimExpr& predicate = condition->condition;
+    for (const PrimExpr& constraint : ExtractConstraints(predicate, false)) {
+      if (auto result = match(constraint)) return result;
+      PrimExpr normalized_negation = constraint.ty().MatchesElementType(DLDataTypeCode::kDLBool, 8)
+                                         ? NormalizeBooleanOperators(prim::Not(constraint))
+                                         : constraint == IntImm(constraint.ty(), 0);
+      if (auto result = match(prim::Not(normalized_negation))) return result;
     }
   }
   return std::nullopt;
@@ -2314,6 +2325,11 @@ UnchangedOr<Expr> RewriteSimplifier::Impl::Mutate_(const VarObj* op, InplaceMode
     }
   }
 
+  const auto& facts = detail::TempConstraintScope::Query(analyzer_);
+  for (auto it = facts.rbegin(); it != facts.rend(); ++it) {
+    if (const auto* binding = it->as<BindingConstraintObj>(); binding && binding->var.same_as(var))
+      return binding->value;
+  }
   auto it = var_map_.find(var);
   if (it != var_map_.end()) {
     return it->second;
@@ -2344,7 +2360,8 @@ UnchangedOr<PrimExpr> RewriteSimplifier::Impl::Mutate_(const prim::LetObj* op,
   if (CanInlineLet(op)) {
     // it is fine to discard the let binding
     // because the value will always be inlined in the simplifier.
-    analyzer_->Bind(op->var, value);
+    detail::TempConstraintScope frame(analyzer_);
+    frame.AddBinding(op->var, value);
     return Mutate(op->body, inplace_mode).ValueOrUnchanged(op->body);
   }
   PrimExpr body = Mutate(op->body, inplace_mode).ValueOrUnchanged(op->body);
@@ -2357,6 +2374,7 @@ UnchangedOr<PrimExpr> RewriteSimplifier::Impl::Mutate_(const prim::LetObj* op,
 }
 
 PrimExpr RewriteSimplifier::operator()(const PrimExpr& expr) {
+  detail::TempConstraintScope query(impl_->owner());
   // Run simplification in post order
   PrimExpr res = expr;
   int max_iter = 2;
@@ -2369,13 +2387,12 @@ PrimExpr RewriteSimplifier::operator()(const PrimExpr& expr) {
   return res;
 }
 
-void RewriteSimplifier::Update(const Var& var, const PrimExpr& info, bool allow_override) {
-  impl_->Update(var, info, allow_override);
+void RewriteSimplifier::IngestBinding(const Var& var, const PrimExpr& info) {
+  impl_->SetBinding(var, info, true);
 }
 
-std::function<void()> RewriteSimplifier::EnterConstraint(const PrimExpr& constraint,
-                                                         bool is_assume) {
-  return impl_->EnterConstraint(constraint, is_assume);
+void RewriteSimplifier::IngestPredicate(const PrimExpr& constraint) {
+  impl_->AddPredicate(constraint, false);
 }
 
 ffi::ObjectRef RewriteSimplifier::GetStatsCounters() const { return impl_->GetStatsCounters(); }
@@ -2389,6 +2406,11 @@ void RewriteSimplifier::SetMaximumRewriteSteps(int64_t maximum) {
 RewriteSimplifier::RewriteSimplifier(AnalyzerObj* parent) : impl_(ffi::make_object<Impl>(parent)) {}
 
 RewriteSimplifier::~RewriteSimplifier() = default;
+
+void RewriteSimplifier::Reset() {
+  // Substitutions and literals may depend on removed facts; keep rewrite limits.
+  impl_->ResetContext();
+}
 
 void RewriteSimplifier::CopyFrom(const RewriteSimplifier& other) { impl_->CopyFrom(*other.impl_); }
 

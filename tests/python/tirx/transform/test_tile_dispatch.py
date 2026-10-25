@@ -1663,7 +1663,7 @@ def test_simplify_uses_floor_div_scope_predicate_as_context_fact():
                 warp_id: T.let[T.int32] = warp_id_in_cta % 4
                 lane_id: T.let[T.int32] = T.cuda.thread_idx("x") % 32
                 if wg_id == 0:
-                    A_1[warp_id_in_cta % 4] = T.Cast("float32", lane_id)
+                    A_1[warp_id_in_cta] = T.Cast("float32", lane_id)
 
     @I.ir_module
     class ExpectedSimplified:

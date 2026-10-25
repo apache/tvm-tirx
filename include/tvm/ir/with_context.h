@@ -101,10 +101,10 @@ class With {
  * and provide EnterWithScope() / ExitWithScope() methods.
  *
  * \code
- *   WithGroup<AnalyzerConstraintScope> group;
- *   group.Emplace(analyzer, cond1);  // constructs and enters
- *   group.Emplace(analyzer, cond2);  // constructs and enters
- *   // destructor: exits cond2, then cond1
+ *   WithGroup<sym::AllowUIntAsIndex> group;
+ *   group.Emplace();  // enters the first no-overflow assumption scope
+ *   group.Emplace();  // enters a nested scope
+ *   // Destruction exits the scopes in reverse order.
  * \endcode
  *
  * \tparam ContextType The context type with EnterWithScope/ExitWithScope.

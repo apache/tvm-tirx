@@ -33,7 +33,7 @@
 #include <tvm/target/target.h>
 #include <tvm/tirx/expr.h>
 #include <tvm/tirx/op/memory.h>
-#include <tvm/tirx/stmt_functor_with_analyzer.h>
+#include <tvm/tirx/stmt_functor_with_constraint_context.h>
 #include <tvm/tirx/transform.h>
 
 #include <limits>
@@ -43,15 +43,15 @@ namespace tvm {
 namespace tirx {
 using namespace tvm::prim;
 
-class IntrinInjecter : public StmtExprMutatorWithAnalyzer {
+class IntrinInjecter : public StmtExprMutatorWithConstraintContext {
  public:
-  using StmtExprMutatorWithAnalyzer::Mutate;
-  using StmtExprMutatorWithAnalyzer::Mutate_;
+  using StmtExprMutatorWithConstraintContext::Mutate;
+  using StmtExprMutatorWithConstraintContext::Mutate_;
 
   using FLowerGeneral = ffi::TypedFunction<PrimExpr(PrimExpr)>;
 
-  IntrinInjecter(const sym::Analyzer& analyzer, const Target& tgt, bool enable_fast_math)
-      : StmtExprMutatorWithAnalyzer(analyzer) {
+  IntrinInjecter(const sym::ConstraintContext& context, const Target& tgt, bool enable_fast_math)
+      : StmtExprMutatorWithConstraintContext(context) {
     std::string target = tgt->kind->name;
     ffi::String mtriple = tgt->GetAttr<ffi::String>("mtriple").value_or("");
 
@@ -103,7 +103,7 @@ class IntrinInjecter : public StmtExprMutatorWithAnalyzer {
         }
       }
     }
-    return StmtExprMutatorWithAnalyzer::Mutate_(op, inplace_mode);
+    return StmtExprMutatorWithConstraintContext::Mutate_(op, inplace_mode);
   }
 
   UnchangedOr<PrimExpr> Mutate_(const prim::AddObj* op, InplaceMode inplace_mode) final {
@@ -112,14 +112,14 @@ class IntrinInjecter : public StmtExprMutatorWithAnalyzer {
     } else if (const prim::MulObj* ma = op->a.as<prim::MulObj>()) {
       return MakeFMA(ma->a, ma->b, op->b, op);
     }
-    return StmtExprMutatorWithAnalyzer::Mutate_(op, inplace_mode);
+    return StmtExprMutatorWithConstraintContext::Mutate_(op, inplace_mode);
   }
 
   // We use floordiv for integer analysis,
   // but will need to lower them to native truncdiv instructions
   UnchangedOr<PrimExpr> Mutate_(const prim::FloorDivObj* op, InplaceMode inplace_mode) final {
     auto e = ffi::GetRef<PrimExpr>(op);
-    PrimExpr ret = StmtExprMutatorWithAnalyzer::Mutate_(op, inplace_mode)
+    PrimExpr ret = StmtExprMutatorWithConstraintContext::Mutate_(op, inplace_mode)
                        .ValueOrUnchanged(ffi::GetRef<PrimExpr>(op));
     op = ret.as<prim::FloorDivObj>();
     if (op == nullptr) return ret;
@@ -132,9 +132,10 @@ class IntrinInjecter : public StmtExprMutatorWithAnalyzer {
       return op->a >> IntImm(dtype, shift);
     }
 
-    if (analyzer_->CanProveGreaterEqual(op->b, 0)) {
+    if (GetSyncedAnalyzer()->CanProveGreaterEqual(op->b, 0)) {
       // Common path, positive divisor
-      if (analyzer_->CanProveGreaterEqual(op->a, 0) || analyzer_->CanProveGreaterEqual(e, 0)) {
+      if (GetSyncedAnalyzer()->CanProveGreaterEqual(op->a, 0) ||
+          GetSyncedAnalyzer()->CanProveGreaterEqual(e, 0)) {
         return truncdiv(op->a, op->b);
       }
       const auto* b_as_intimm = op->b.as<IntImmObj>();
@@ -183,7 +184,7 @@ class IntrinInjecter : public StmtExprMutatorWithAnalyzer {
   }
 
   UnchangedOr<PrimExpr> Mutate_(const prim::FloorModObj* op, InplaceMode inplace_mode) final {
-    PrimExpr ret = StmtExprMutatorWithAnalyzer::Mutate_(op, inplace_mode)
+    PrimExpr ret = StmtExprMutatorWithConstraintContext::Mutate_(op, inplace_mode)
                        .ValueOrUnchanged(ffi::GetRef<PrimExpr>(op));
     op = ret.as<prim::FloorModObj>();
     if (op == nullptr) return ret;
@@ -198,9 +199,9 @@ class IntrinInjecter : public StmtExprMutatorWithAnalyzer {
       return op->a & IntImm(dtype, mask);
     }
 
-    if (analyzer_->CanProveGreaterEqual(op->b, 0)) {
+    if (GetSyncedAnalyzer()->CanProveGreaterEqual(op->b, 0)) {
       // Common pass, positive divisor
-      if (analyzer_->CanProveGreaterEqual(op->a, 0)) {
+      if (GetSyncedAnalyzer()->CanProveGreaterEqual(op->a, 0)) {
         return truncmod(op->a, op->b);
       }
       const auto* b_as_intimm = op->b.as<IntImmObj>();
@@ -252,11 +253,11 @@ class IntrinInjecter : public StmtExprMutatorWithAnalyzer {
     PVar<IntImm> c;
     auto e = ffi::GetRef<PrimExpr>(op);
     if (max(floordiv(x, y), c).Match(e) && c.Eval()->value >= 0 &&
-        analyzer_->CanProveGreaterEqual(y.Eval(), 0)) {
+        GetSyncedAnalyzer()->CanProveGreaterEqual(y.Eval(), 0)) {
       PrimExpr input = truncdiv(x, y).Eval();
       return max(Mutate(input, inplace_mode).ValueOrUnchanged(input), c.Eval());
     }
-    return StmtExprMutatorWithAnalyzer::Mutate_(op, inplace_mode);
+    return StmtExprMutatorWithConstraintContext::Mutate_(op, inplace_mode);
   }
 
   UnchangedOr<PrimExpr> Mutate_(const prim::EQObj* op, InplaceMode inplace_mode) final {
@@ -266,7 +267,7 @@ class IntrinInjecter : public StmtExprMutatorWithAnalyzer {
       PrimExpr input = (truncmod(x, y) == 0).Eval();
       return Mutate(input, inplace_mode).ValueOrUnchanged(input);
     }
-    return StmtExprMutatorWithAnalyzer::Mutate_(op, inplace_mode);
+    return StmtExprMutatorWithConstraintContext::Mutate_(op, inplace_mode);
   }
 
   UnchangedOr<PrimExpr> Mutate_(const prim::NEObj* op, InplaceMode inplace_mode) final {
@@ -276,7 +277,7 @@ class IntrinInjecter : public StmtExprMutatorWithAnalyzer {
       PrimExpr input = (truncmod(x, y) != 0).Eval();
       return Mutate(input, inplace_mode).ValueOrUnchanged(input);
     }
-    return StmtExprMutatorWithAnalyzer::Mutate_(op, inplace_mode);
+    return StmtExprMutatorWithConstraintContext::Mutate_(op, inplace_mode);
   }
 
  private:
@@ -333,7 +334,7 @@ class IntrinInjecter : public StmtExprMutatorWithAnalyzer {
         return prim::Add(mul, this->Mutate(c, InplaceMode::kDisallow).ValueOrUnchanged(c));
       }
     }
-    return StmtExprMutatorWithAnalyzer::Mutate_(op, InplaceMode::kDisallow)
+    return StmtExprMutatorWithConstraintContext::Mutate_(op, InplaceMode::kDisallow)
         .ValueOrUnchanged(ffi::GetRef<PrimExpr>(op));
   }
 
@@ -352,7 +353,7 @@ class IntrinInjecter : public StmtExprMutatorWithAnalyzer {
     // NOTE: we need to be very careful in the checks below, to make sure
     // all the intermediate calculations in both compiler checks and runtime checks
     // do not overflow
-    sym::ConstIntBound const_int_bound_a = analyzer_->const_int_bound(a);
+    sym::ConstIntBound const_int_bound_a = GetSyncedAnalyzer()->const_int_bound(a);
     if (const_int_bound_a->min_value >= 0) {
       return std::nullopt;
     }
@@ -391,10 +392,10 @@ class IntrinInjecter : public StmtExprMutatorWithAnalyzer {
 };
 
 Stmt LowerIntrinStmt(Stmt stmt, const std::string& target) {
-  sym::Analyzer analyzer;
   bool enable_fast_math =
       transform::PassContext::Current()->GetConfig<bool>("tirx.enable_fast_math").value_or(false);
-  return ffi::make_object<IntrinInjecter>(analyzer, Target(ffi::String(target)), enable_fast_math)
+  return ffi::make_object<IntrinInjecter>(sym::ConstraintContext(), Target(ffi::String(target)),
+                                          enable_fast_math)
       ->Mutate(stmt, InplaceMode::kAllow)
       .ValueOrUnchanged(stmt);
 }
@@ -406,11 +407,12 @@ Pass LowerIntrin() {
     auto* n = f.CopyOnWrite();
     auto target = f->GetAttr(tvm::attr::kTarget);
     TVM_FFI_ICHECK(target.has_value()) << "LowerIntrin: Require the target attribute";
-    sym::Analyzer analyzer;
     bool enable_fast_math = ctx->GetConfig<bool>("tirx.enable_fast_math").value_or(false);
-    n->body = ffi::make_object<IntrinInjecter>(analyzer, target.value(), enable_fast_math)
-                  ->Mutate(n->body, InplaceMode::kAllow)
-                  .ValueOrUnchanged(n->body);
+    n->body =
+        ffi::make_object<IntrinInjecter>(sym::ConstraintContext(), target.value(), enable_fast_math)
+            ->Mutate(n->body, InplaceMode::kAllow)
+            .as_or_throw<UnchangedOr<ffi::Optional<SeqStmt>>>()
+            .ValueOrUnchanged(n->body);
     return f;
   };
   return CreateFunctionPass(pass_func, 0, "tirx.LowerIntrin");

@@ -26,11 +26,13 @@ from tvm_tirx.sym.analyzer import CompareResult
 
 def test_analyzer_is_ffi_object_with_persistent_state():
     analyzer = tvm_tirx.sym.Analyzer()
+    analyzer_context = tvm_tirx.sym.ConstraintContext()
     x = tirx.Var("x", "int64")
 
     assert isinstance(analyzer, tvm_ffi.Object)
 
-    analyzer.bind(x, tvm_tirx.ir.Range(0, 8))
+    analyzer_context.append(tvm_tirx.sym.RangeConstraint(x, tvm_tirx.ir.Range(0, 8)))
+    analyzer.sync_constraint_context(analyzer_context)
     assert analyzer.const_int_bound_is_bound(x)
     assert analyzer.can_prove(x < 8)
     assert not analyzer.can_prove(x < 4)
@@ -40,29 +42,44 @@ def test_analyzer_is_ffi_object_with_persistent_state():
     assert bound.max_value == 8
 
 
-def test_analyzer_object_constraint_scope_and_override_bind():
+def test_analyzer_object_context_switch_and_replacement():
     analyzer = tvm_tirx.sym.Analyzer()
+    analyzer_context = tvm_tirx.sym.ConstraintContext()
     x = tirx.Var("x", "int64")
 
-    with analyzer.constraint_scope(x % 3 == 0):
+    parent_context_1 = analyzer_context
+    analyzer_context = analyzer_context.snapshot()
+    analyzer_context.append(tvm_tirx.sym.PredicateConstraint(x % 3 == 0))
+    analyzer.sync_constraint_context(analyzer_context)
+    try:
         assert analyzer.modular_set(x).coeff == 3
+    finally:
+        analyzer_context = parent_context_1
+        analyzer.sync_constraint_context(analyzer_context)
 
     assert analyzer.modular_set(x).coeff != 3
 
     analyzer = tvm_tirx.sym.Analyzer()
+    analyzer_context = tvm_tirx.sym.ConstraintContext()
     y = tirx.Var("y", "int64")
-    analyzer.bind(y, tirx.const(4, "int64"))
+    analyzer_context.append(tvm_tirx.sym.BindingConstraint(y, tirx.const(4, "int64")))
+    analyzer.sync_constraint_context(analyzer_context)
     tvm_tirx.ir.assert_structural_equal(analyzer.simplify(y + 1), tirx.const(5, "int64"))
 
-    analyzer.bind(y, tirx.const(8, "int64"), allow_override=True)
+    analyzer_context = tvm_tirx.sym.ConstraintContext()
+    analyzer_context.append(tvm_tirx.sym.BindingConstraint(y, tirx.const(8, "int64")))
+    analyzer.sync_constraint_context(analyzer_context)
     tvm_tirx.ir.assert_structural_equal(analyzer.simplify(y + 1), tirx.const(9, "int64"))
 
 
 def test_analyzer_object_update_const_int_bound():
     analyzer = tvm_tirx.sym.Analyzer()
+    analyzer_context = tvm_tirx.sym.ConstraintContext()
     x = tirx.Var("x", "int64")
 
-    analyzer.update(x, tvm_tirx.sym.ConstIntBound(2, 5))
+    analyzer_context.append(tvm_tirx.sym.PredicateConstraint(x >= 2))
+    analyzer_context.append(tvm_tirx.sym.PredicateConstraint(x <= 5))
+    analyzer.sync_constraint_context(analyzer_context)
 
     bound = analyzer.const_int_bound(x + 1)
     assert bound.min_value == 3
@@ -71,10 +88,12 @@ def test_analyzer_object_update_const_int_bound():
 
 def test_analyzer_object_update_modular_set():
     analyzer = tvm_tirx.sym.Analyzer()
+    analyzer_context = tvm_tirx.sym.ConstraintContext()
     x = tirx.Var("x", "int32")
 
     assert analyzer.modular_set(x).coeff == 1
-    analyzer.update(x, tvm_tirx.sym.ModularSet(4, 0))
+    analyzer_context.append(tvm_tirx.sym.PredicateConstraint(x % 4 == 0))
+    analyzer.sync_constraint_context(analyzer_context)
 
     result = analyzer.modular_set(x)
     assert result.coeff == 4
@@ -83,27 +102,29 @@ def test_analyzer_object_update_modular_set():
 
 def test_analyzer_object_update_int_set():
     analyzer = tvm_tirx.sym.Analyzer()
+    analyzer_context = tvm_tirx.sym.ConstraintContext()
     y = tirx.Var("y", "int32")
 
-    analyzer.update(y, tvm_tirx.sym.IntervalSet(0, 8))
+    analyzer_context.append(tvm_tirx.sym.RangeConstraint(y, tvm_tirx.ir.Range(0, (8) + 1)))
+    analyzer.sync_constraint_context(analyzer_context)
 
     int_set = analyzer.int_set(y)
     assert int_set.min_value.value == 0
     assert int_set.max_value.value == 8
 
 
-def test_analyzer_object_update_rejects_unknown_info():
+def test_analyzer_object_sync_rejects_unknown_context():
     analyzer = tvm_tirx.sym.Analyzer()
-    y = tirx.Var("y", "int32")
-
     with pytest.raises(TypeError):
-        analyzer.update(y, "not-an-info-object")
+        analyzer.sync_constraint_context("not-a-constraint-context")
 
 
 def test_analyzer_object_can_prove_comparison_predicates():
     analyzer = tvm_tirx.sym.Analyzer()
+    analyzer_context = tvm_tirx.sym.ConstraintContext()
     x = tirx.Var("x", "int32")
-    analyzer.bind(x, tvm_tirx.ir.Range(0, 8))
+    analyzer_context.append(tvm_tirx.sym.RangeConstraint(x, tvm_tirx.ir.Range(0, 8)))
+    analyzer.sync_constraint_context(analyzer_context)
 
     assert analyzer.can_prove(x >= 0)
     assert not analyzer.can_prove(x >= 1)
@@ -113,17 +134,21 @@ def test_analyzer_object_can_prove_comparison_predicates():
 
 def test_analyzer_object_update_const_int_bound_half_space():
     analyzer = tvm_tirx.sym.Analyzer()
+    analyzer_context = tvm_tirx.sym.ConstraintContext()
     n = tirx.Var("n", "int32")
 
     assert not analyzer.can_prove(n >= 0)
-    analyzer.update(n, tvm_tirx.sym.ConstIntBound(0, tvm_tirx.sym.ConstIntBound.POS_INF))
+    analyzer_context.append(tvm_tirx.sym.PredicateConstraint(n >= 0))
+    analyzer.sync_constraint_context(analyzer_context)
     assert analyzer.can_prove(n >= 0)
 
 
 def test_analyzer_object_int_set_from_bound_vars():
     analyzer = tvm_tirx.sym.Analyzer()
+    analyzer_context = tvm_tirx.sym.ConstraintContext()
     x = tirx.Var("x", "int32")
-    analyzer.bind(x, tvm_tirx.ir.Range(0, 8))
+    analyzer_context.append(tvm_tirx.sym.RangeConstraint(x, tvm_tirx.ir.Range(0, 8)))
+    analyzer.sync_constraint_context(analyzer_context)
 
     int_set = analyzer.int_set(x + 1)
     assert int_set.min_value.value == 1
@@ -148,18 +173,32 @@ def test_analyzer_object_set_maximum_rewrite_steps():
 
 def test_analyzer_object_try_compare_direct():
     analyzer = tvm_tirx.sym.Analyzer()
+    analyzer_context = tvm_tirx.sym.ConstraintContext()
     x = tirx.Var("x", "int32")
     y = tirx.Var("y", "int32")
     z = tirx.Var("z", "int32")
 
     assert analyzer.try_compare(x, y) == CompareResult.UNKNOWN
 
-    with analyzer.constraint_scope(x < y):
-        with analyzer.constraint_scope(y < z):
-            # Direct known comparison.
+    parent_context_2 = analyzer_context
+    analyzer_context = analyzer_context.snapshot()
+    analyzer_context.append(tvm_tirx.sym.PredicateConstraint(x < y))
+    analyzer.sync_constraint_context(analyzer_context)
+    try:
+        parent_context_3 = analyzer_context
+        analyzer_context = analyzer_context.snapshot()
+        analyzer_context.append(tvm_tirx.sym.PredicateConstraint(y < z))
+        analyzer.sync_constraint_context(analyzer_context)
+        try:
             assert analyzer.try_compare(x, y) == CompareResult.LT
             # No direct comparison connects x and z.
             assert analyzer.try_compare(x, z) == CompareResult.UNKNOWN
+        finally:
+            analyzer_context = parent_context_3
+            analyzer.sync_constraint_context(analyzer_context)
+    finally:
+        analyzer_context = parent_context_2
+        analyzer.sync_constraint_context(analyzer_context)
 
 
 def test_analyzer_object_rewrite_simplify_stats():
@@ -178,9 +217,11 @@ def test_analyzer_object_rewrite_simplify_stats():
 
 def test_analyzer_object_state_persists_across_ffi_calls():
     analyzer = tvm_tirx.sym.Analyzer()
+    analyzer_context = tvm_tirx.sym.ConstraintContext()
     tile = tirx.Var("tile", "int32")
     i = tirx.Var("i", "int32")
-    analyzer.bind(tile, tvm_tirx.tirx.const(8, "int32"))
+    analyzer_context.append(tvm_tirx.sym.BindingConstraint(tile, tvm_tirx.tirx.const(8, "int32")))
+    analyzer.sync_constraint_context(analyzer_context)
 
     # The same analyzer object is borrowed by the C++ DetectIterMap entry point;
     # its binding makes the otherwise-undetectable floormod recognizable.
@@ -195,21 +236,26 @@ def test_analyzer_object_state_persists_across_ffi_calls():
 
 def test_analyzer_object_clone_is_independent():
     analyzer = tvm_tirx.sym.Analyzer()
+    analyzer_context = tvm_tirx.sym.ConstraintContext()
     x = tirx.Var("x", "int64")
     y = tirx.Var("y", "int64")
     z = tirx.Var("z", "int64")
 
-    analyzer.bind(x, tvm_tirx.ir.Range(0, 8))
+    analyzer_context.append(tvm_tirx.sym.RangeConstraint(x, tvm_tirx.ir.Range(0, 8)))
+    analyzer.sync_constraint_context(analyzer_context)
 
     clone = analyzer.clone()
+    clone_context = analyzer_context.snapshot()
     assert clone is not analyzer
     assert clone.can_prove(x < 8)
 
-    clone.bind(y, tvm_tirx.ir.Range(0, 4))
+    clone_context.append(tvm_tirx.sym.RangeConstraint(y, tvm_tirx.ir.Range(0, 4)))
+    clone.sync_constraint_context(clone_context)
     assert clone.can_prove(y < 4)
     assert not analyzer.can_prove(y < 4)
 
-    analyzer.bind(z, tvm_tirx.ir.Range(0, 4))
+    analyzer_context.append(tvm_tirx.sym.RangeConstraint(z, tvm_tirx.ir.Range(0, 4)))
+    analyzer.sync_constraint_context(analyzer_context)
     assert analyzer.can_prove(z < 4)
     assert not clone.can_prove(z < 4)
 
@@ -219,16 +265,22 @@ def test_analyzer_object_clone_is_independent():
 
 def test_analyzer_object_clone_copies_every_sub_analyzer():
     analyzer = tvm_tirx.sym.Analyzer()
+    analyzer_context = tvm_tirx.sym.ConstraintContext()
     x = tirx.Var("x", "int64")
     w = tirx.Var("w", "int64")
     v = tirx.Var("v", "int64")
 
-    analyzer.bind(x, tvm_tirx.ir.Range(0, 8))
-    analyzer.update(x, tvm_tirx.sym.ModularSet(4, 0))
-    analyzer.bind(w, tirx.const(4, "int64"))
-    analyzer.update(v, tvm_tirx.sym.IntervalSet(2, 9))
+    analyzer_context.append(tvm_tirx.sym.RangeConstraint(x, tvm_tirx.ir.Range(0, 8)))
+    analyzer.sync_constraint_context(analyzer_context)
+    analyzer_context.append(tvm_tirx.sym.PredicateConstraint(x % 4 == 0))
+    analyzer.sync_constraint_context(analyzer_context)
+    analyzer_context.append(tvm_tirx.sym.BindingConstraint(w, tirx.const(4, "int64")))
+    analyzer.sync_constraint_context(analyzer_context)
+    analyzer_context.append(tvm_tirx.sym.RangeConstraint(v, tvm_tirx.ir.Range(2, (9) + 1)))
+    analyzer.sync_constraint_context(analyzer_context)
 
     clone = analyzer.clone()
+    clone_context = analyzer_context.snapshot()
 
     assert clone.can_prove(x < 8)
     assert clone.modular_set(x).coeff == 4
@@ -237,13 +289,21 @@ def test_analyzer_object_clone_copies_every_sub_analyzer():
     assert clone.try_compare(x, tirx.const(0, "int64")) == CompareResult.GE
 
     t = tirx.Var("t", "int64")
-    clone.update(x, tvm_tirx.sym.ModularSet(8, 0), override=True)
-    clone.update(v, tvm_tirx.sym.IntervalSet(0, 3), override=True)
-    clone.bind(w, tirx.const(8, "int64"), allow_override=True)
-    clone.bind(t, tvm_tirx.ir.Range(0, 4))
+    clone_context = tvm_tirx.sym.ConstraintContext()
+    clone_context.append(tvm_tirx.sym.RangeConstraint(x, tvm_tirx.ir.Range(0, 8)))
+    clone_context.append(tvm_tirx.sym.PredicateConstraint(x % 8 == 0))
+    clone.sync_constraint_context(clone_context)
+    clone_context.append(tvm_tirx.sym.RangeConstraint(v, tvm_tirx.ir.Range(0, (3) + 1)))
+    clone.sync_constraint_context(clone_context)
+    clone_context.append(tvm_tirx.sym.BindingConstraint(w, tirx.const(8, "int64")))
+    clone.sync_constraint_context(clone_context)
+    clone_context.append(tvm_tirx.sym.RangeConstraint(t, tvm_tirx.ir.Range(0, 4)))
+    clone.sync_constraint_context(clone_context)
 
     assert analyzer.modular_set(x).coeff == 4
-    assert clone.modular_set(x).coeff == 8
+    # Coordinated ingestion also uses 0 <= x < 8 when applying x % 8 == 0.
+    assert clone.modular_set(x).coeff == 0
+    assert clone.modular_set(x).base == 0
     assert analyzer.int_set(v).max_value.value == 9
     assert clone.int_set(v).max_value.value == 3
     tvm_tirx.ir.assert_structural_equal(analyzer.simplify(w + 1), tirx.const(5, "int64"))
@@ -254,10 +314,13 @@ def test_analyzer_object_clone_copies_every_sub_analyzer():
 
 def test_analyzer_object_clone_resets_rewrite_stats():
     analyzer = tvm_tirx.sym.Analyzer()
+    analyzer_context = tvm_tirx.sym.ConstraintContext()
     x = tirx.Var("x", "int64")
     y = tirx.Var("y", "int64")
-    analyzer.bind(x, tvm_tirx.ir.Range(0, 8))
-    analyzer.bind(y, tvm_tirx.ir.Range(0, 8))
+    analyzer_context.append(tvm_tirx.sym.RangeConstraint(x, tvm_tirx.ir.Range(0, 8)))
+    analyzer.sync_constraint_context(analyzer_context)
+    analyzer_context.append(tvm_tirx.sym.RangeConstraint(y, tvm_tirx.ir.Range(0, 8)))
+    analyzer.sync_constraint_context(analyzer_context)
     analyzer.simplify((x + y) * 2 - x - y)
     source_attempts = analyzer.rewrite_simplify_stats.rewrites_attempted
     assert source_attempts > 0

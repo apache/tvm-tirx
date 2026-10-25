@@ -30,6 +30,7 @@
 #include <tvm/ffi/string.h>
 #include <tvm/ir/expr.h>
 #include <tvm/ir/with_context.h>
+#include <tvm/sym/constraint.h>
 #include <tvm/sym/int_set.h>
 
 #include <functional>
@@ -56,7 +57,9 @@ namespace sym {
 // Forward declare the analyzer object and its reference handle.
 class AnalyzerObj;
 class Analyzer;
-class AnalyzerConstraintScope;
+namespace detail {
+class TempConstraintScope;
+}  // namespace detail
 
 enum DivMode {
   /*! \brief Truncated division. */
@@ -146,28 +149,10 @@ class ConstIntBoundAnalyzer {
   /*!
    * \brief analyze the expr with the intermediate memorized to avoid redundant computation
    * \param expr The expression of interest.
-   * \param bound The lookup table to store the intermediate results
+   * \param bound Output map, cleared on entry so results cannot cross context epochs
    * \return the result of the analysis.
    */
   TVM_TIRX_DLL ConstIntBound operator()(const PrimExpr& expr, BoundMapType* bound);
-
-  /*!
-   * \brief Update constant int bound information of var.
-   *
-   * \param var The variable of interest.
-   * \param info The bound information.
-   * \param allow_override whether we allow override of existing information.
-   */
-  TVM_TIRX_DLL void Update(const Var& var, const ConstIntBound& info, bool allow_override = false);
-
-  /*!
-   * \brief Bind variable to a range.
-   *
-   * \param var The variable.
-   * \param range The range we bind to.
-   * \param allow_override Whether we allow overriding an existing var's range.
-   */
-  TVM_TIRX_DLL void Bind(const Var& var, const Range& range, bool allow_override = false);
 
   /*!
    * \brief Check if a variable is bound to a range.
@@ -178,17 +163,13 @@ class ConstIntBoundAnalyzer {
 
  private:
   friend class AnalyzerObj;
-  friend class AnalyzerConstraintScope;
+  TVM_TIRX_DLL void Reset();
+  TVM_TIRX_DLL void IngestBinding(const Var& var, const PrimExpr& expr);
+  TVM_TIRX_DLL void IngestBinding(const Var& var, const Range& range);
+  TVM_TIRX_DLL void IngestPredicate(const PrimExpr& constraint);
   explicit ConstIntBoundAnalyzer(AnalyzerObj* parent);
   TVM_TIRX_DLL ~ConstIntBoundAnalyzer();
   void CopyFrom(const ConstIntBoundAnalyzer& other);
-  /*!
-   * \brief Update the internal state to enter constraint.
-   * \param constraint A constraint expression.
-   *
-   * \return an exit function that must be called to cleanup the constraint can be nullptr.
-   */
-  std::function<void()> EnterConstraint(const PrimExpr& constraint);
   struct Entry;
   class Impl;
   /*! \brief Internal impl */
@@ -247,28 +228,15 @@ class ModularSetAnalyzer {
    * \return the result of the analysis.
    */
   TVM_TIRX_DLL ModularSet operator()(const PrimExpr& expr);
-  /*!
-   * \brief Update constant int bound information of var.
-   *
-   * \param var The variable of interest.
-   * \param info The bound information.
-   * \param allow_override whether we allow override of existing information.
-   */
-  TVM_TIRX_DLL void Update(const Var& var, const ModularSet& info, bool allow_override = false);
 
  private:
   friend class AnalyzerObj;
-  friend class AnalyzerConstraintScope;
+  TVM_TIRX_DLL void Reset();
+  TVM_TIRX_DLL void IngestBinding(const Var& var, const PrimExpr& expr);
+  TVM_TIRX_DLL void IngestPredicate(const PrimExpr& constraint);
   explicit ModularSetAnalyzer(AnalyzerObj* parent);
   TVM_TIRX_DLL ~ModularSetAnalyzer();
   void CopyFrom(const ModularSetAnalyzer& other);
-  /*!
-   * \brief Update the internal state to enter constraint.
-   * \param constraint A constraint expression.
-   *
-   * \return an exit function that must be called to cleanup the constraint can be nullptr.
-   */
-  std::function<void()> EnterConstraint(const PrimExpr& constraint);
   struct Entry;
   class Impl;
   /*! \brief Internal impl */
@@ -286,25 +254,6 @@ class RewriteSimplifier {
    * \return the result of the analysis.
    */
   TVM_TIRX_DLL PrimExpr operator()(const PrimExpr& expr);
-
-  /*!
-   * \brief Update binding of var to a new expression.
-   *
-   * \param var The variable of interest.
-   * \param new_expr
-   * \param allow_override Whether we allow override of existing information.
-   */
-  TVM_TIRX_DLL void Update(const Var& var, const PrimExpr& new_expr, bool allow_override = false);
-
-  /*!
-   * \brief Update the internal state to enter constraint.
-   * \param constraint A constraint expression.
-   * \param is_assume Whether the constraint comes from an assumption.
-   *
-   * \return an exit function that must be called to cleanup the constraint can be nullptr.
-   */
-  TVM_TIRX_DLL std::function<void()> EnterConstraint(const PrimExpr& constraint,
-                                                     bool is_assume = false);
 
   /*! \brief Return the statistics counters */
   TVM_TIRX_DLL ffi::ObjectRef GetStatsCounters() const;
@@ -330,7 +279,9 @@ class RewriteSimplifier {
 
  private:
   friend class AnalyzerObj;
-  friend class AnalyzerConstraintScope;
+  TVM_TIRX_DLL void Reset();
+  TVM_TIRX_DLL void IngestBinding(const Var& var, const PrimExpr& expr);
+  TVM_TIRX_DLL void IngestPredicate(const PrimExpr& constraint);
   friend class CanonicalSimplifier;
   explicit RewriteSimplifier(AnalyzerObj* parent);
   TVM_TIRX_DLL ~RewriteSimplifier();
@@ -352,18 +303,10 @@ class CanonicalSimplifier {
    */
   TVM_TIRX_DLL PrimExpr operator()(const PrimExpr& expr);
 
-  /*!
-   * \brief Update binding of var to a new expression.
-   *
-   * \param var The variable of interest.
-   * \param new_expr
-   * \param allow_override whether we allow override of existing information.
-   */
-  TVM_TIRX_DLL void Update(const Var& var, const PrimExpr& new_expr, bool allow_override = false);
-
  private:
   friend class AnalyzerObj;
-  friend class AnalyzerConstraintScope;
+  TVM_TIRX_DLL void Reset();
+  TVM_TIRX_DLL void IngestBinding(const Var& var, const PrimExpr& expr);
   explicit CanonicalSimplifier(AnalyzerObj* parent);
   TVM_TIRX_DLL ~CanonicalSimplifier();
   void CopyFrom(const CanonicalSimplifier& other);
@@ -415,34 +358,13 @@ class KnownComparisonAnalyzer {
    */
   TVM_TIRX_DLL CompareResult TryCompare(const PrimExpr& lhs, const PrimExpr& rhs);
 
-  /*! \brief Bind a variable as being equal to a known expression
-   *
-   * \param var The variable of interest.
-   * \param expr The bound expression
-   * \param allow_override Whether to allow override of existing information.
-   */
-  TVM_TIRX_DLL void Bind(const Var& var, const PrimExpr& expr, bool allow_override = false);
-
-  /*! \brief Bind a variable as being within a specified range
-   *
-   * \param var The variable of interest.
-   * \param range The known range
-   * \param allow_override Whether to allow override of existing information.
-   */
-  TVM_TIRX_DLL void Bind(const Var& var, const Range& range, bool allow_override = false);
-
-  /*!
-   * \brief Update the internal state to enter constraint.
-   * \param constraint A constraint expression.
-   *
-   * \return an exit function that must be called to cleanup the constraint can be nullptr.
-   */
-  TVM_TIRX_DLL std::function<void()> EnterConstraint(const PrimExpr& constraint);
-
  private:
   friend class AnalyzerObj;
-  friend class AnalyzerConstraintScope;
-  KnownComparisonAnalyzer();
+  TVM_TIRX_DLL void Reset();
+  TVM_TIRX_DLL void IngestBinding(const Var& var, const PrimExpr& expr);
+  TVM_TIRX_DLL void IngestBinding(const Var& var, const Range& range);
+  TVM_TIRX_DLL void IngestPredicate(const PrimExpr& constraint);
+  explicit KnownComparisonAnalyzer(AnalyzerObj* parent);
   TVM_TIRX_DLL ~KnownComparisonAnalyzer();
   void CopyFrom(const KnownComparisonAnalyzer& other);
   class Impl;
@@ -475,29 +397,12 @@ class IntSetAnalyzer {
    */
   TVM_TIRX_DLL IntSet operator()(const PrimExpr& expr);
 
-  /*!
-   * \brief Update binding of var to a new expression.
-   *
-   * \param var The variable of interest.
-   * \param new_interval_set The set of allowed values for this var.
-   * \param allow_override whether we allow override of existing information.
-   */
-  TVM_TIRX_DLL void Update(const Var& var, const IntSet& new_interval_set,
-                           bool allow_override = false);
-
-  /*!
-   * \brief Update binding of var to a new expression.
-   *
-   * \param var The variable of interest.
-   * \param new_range The range of allowed values for this var.
-   * \param allow_override whether we allow override of existing information.
-   */
-  TVM_TIRX_DLL void Bind(const Var& var, const Range& new_range, bool allow_override = false);
-
-  TVM_TIRX_DLL std::function<void()> EnterConstraint(const PrimExpr& constraint);
-
  private:
   friend class AnalyzerObj;
+  TVM_TIRX_DLL void Reset();
+  TVM_TIRX_DLL void IngestBinding(const Var& var, const PrimExpr& expr);
+  TVM_TIRX_DLL void IngestBinding(const Var& var, const Range& range);
+  TVM_TIRX_DLL void IngestPredicate(const PrimExpr& constraint);
   explicit IntSetAnalyzer(AnalyzerObj* parent);
   TVM_TIRX_DLL ~IntSetAnalyzer();
   void CopyFrom(const IntSetAnalyzer& other);
@@ -508,24 +413,6 @@ class IntSetAnalyzer {
 
 class Z3Prover {
  public:
-  /*!
-   * \brief Update binding of var to a new expression.
-   *
-   * \param var The variable of interest.
-   * \param new_range The range of allowed values for this var.
-   * \param allow_override whether we allow override of existing information.
-   */
-  TVM_TIRX_DLL void Bind(const Var& var, const Range& new_range, bool allow_override = false);
-
-  /*!
-   * \brief Update binding of var to a new expression.
-   *
-   * \param var The variable of interest.
-   * \param expr The bound expression.
-   * \param allow_override whether we allow override of existing information.
-   */
-  TVM_TIRX_DLL void Bind(const Var& var, const PrimExpr& expr, bool allow_override = false);
-
   /*!
    * \brief Whether the Z3 backend is compiled into this build (USE_Z3=ON).
    *
@@ -540,16 +427,6 @@ class Z3Prover {
    * \return Whether we can prove it.
    */
   TVM_TIRX_DLL bool CanProve(const PrimExpr& expr);
-
-  /*!
-   * \brief Update the internal state to enter constraint.
-   *
-   * \param constraint A constraint expression.
-   * \param is_assume Whether the constraint comes from an assumption.
-   * \return an exit function that must be called to cleanup the constraint can be nullptr.
-   */
-  TVM_TIRX_DLL std::function<void()> EnterConstraint(const PrimExpr& constraint,
-                                                     bool is_assume = false);
 
   /*!
    * \brief Get the SMTLIB2 representation of the current context.
@@ -604,6 +481,10 @@ class Z3Prover {
 
  private:
   friend class AnalyzerObj;
+  TVM_TIRX_DLL void Reset();
+  TVM_TIRX_DLL void IngestBinding(const Var& var, const PrimExpr& expr);
+  TVM_TIRX_DLL void IngestBinding(const Var& var, const Range& range);
+  TVM_TIRX_DLL void IngestPredicate(const PrimExpr& constraint);
   friend class Analyzer;
   explicit Z3Prover(AnalyzerObj* parent);
   TVM_TIRX_DLL ~Z3Prover();
@@ -640,61 +521,13 @@ class TVM_TIRX_DLL AnalyzerObj : public ffi::Object {
   Z3Prover z3_prover;
   /*! \brief constructor */
   AnalyzerObj();
-  /*!
-   * \brief Mark the value as non-negative value globally in analyzer.
-   *
-   * Only call this function if the non-neg condition is global and
-   * not context-dependent.
-   *
-   * This function does best-effort propagations to the sub-analyzers
-   *
-   * A canonical use of MarkGlobalNonNegValue is to record a non-negativity
-   * fact at a Var's definition site. Because each Var identity is defined
-   * exactly once in canonical IR, the fact is globally valid for that identity.
-   *
-   * \note We expose this function because non-negative global values,
-   * such as symbolic buffer shapes in function arguments are really
-   * important to ensure the best simplification, and usually they
-   * can be handled in a simpler way than the generic constraints.
-   *
-   * This function may call into the Update function of the sub-analyzers.
+  /*! \brief Synchronize all derived facts to the supplied premise environment.
+   * Unchanged positions are free; additive prefixes update incrementally and
+   * other transitions clear and replay. Do not mutate captured premises through aliases.
    */
-  void MarkGlobalNonNegValue(const PrimExpr& value);
-  /*!
-   * \brief Notify all the sub-analyzers that var
-   *        is created and binded to expr.
-   *
-   *  Each var can only be bound once.
-   *
-   * \param var The variable.
-   * \param expr The expression we bind to.
-   * \param allow_override Whether we allow overriding an existing var's
-   *        expression. This option should not be used if there is any dependency
-   *        between variables.
-   */
-  void Bind(const Var& var, const PrimExpr& expr, bool allow_override = false);
-  /*!
-   * \brief Notify all the sub-analyzers that var
-   *        is created and bound to a range.
-   *
-   *  Each var can only be bound once.
-   *
-   * \param var The variable.
-   * \param range The range we bind to.
-   * \param allow_override Whether we allow overriding an existing var's
-   *        expression. This option should not be used if there is any dependency
-   *        between variables.
-   */
-  void Bind(const Var& var, const Range& range, bool allow_override = false);
-  /*!
-   * \brief Bind all the vars in the Map
-   *
-   * \param variables The {variable -> range} map.
-   * \param allow_override Whether we allow overriding an existing var's
-   *        expression. This option should not be used if there is any dependency
-   *        between variables.
-   */
-  void Bind(const ffi::Map<Var, Range>& variables, bool allow_override = false);
+  void SyncConstraintContext(const ConstraintContext& context);
+  /*! \brief Return an independently extensible snapshot of the accepted premises. */
+  ConstraintContext GetConstraintContext() const;
   /*!
    * \brief Whether can we prove expr >= val.
 
@@ -787,12 +620,6 @@ class TVM_TIRX_DLL AnalyzerObj : public ffi::Object {
    * not affect the other. This is the deep copy that handle-copying an
    * Analyzer does not provide.
    *
-   * \note Do not call this while a `With<AnalyzerConstraintScope>` scope is active
-   *       on this analyzer. The clone would inherit the scoped constraints
-   *       but not the recovery functions that pop them on scope exit, so the
-   *       constraints would leak as if they were global facts. Clone at a
-   *       point where no constraint scope is in effect.
-   *
    * \return A new Analyzer holding an independent copy of the facts.
    */
   Analyzer Clone() const;
@@ -802,12 +629,23 @@ class TVM_TIRX_DLL AnalyzerObj : public ffi::Object {
    *
    * Marking the object mutable makes the `Analyzer` ObjectRef expose a
    * non-const `operator->`, so APIs can take `const Analyzer&` while still
-   * allowing calls such as `analyzer->Bind(...)`.
+   * allowing calls such as `analyzer->SyncConstraintContext(...)`.
    * `const Analyzer&` keeps the handle itself from being rebound; it does
    * not make the underlying AnalyzerObj immutable.
    */
   static constexpr bool _type_mutable = true;
   TVM_FFI_DECLARE_OBJECT_INFO_FINAL("sym.Analyzer", AnalyzerObj, ffi::Object);
+
+ private:
+  friend class detail::TempConstraintScope;
+  void IngestBinding(const Var& var, const PrimExpr& expr);
+  void IngestBinding(const Var& var, const Range& range);
+  void IngestConstraint(const Constraint& constraint);
+  std::vector<PrimExpr> PreparePredicate(const PrimExpr& condition);
+  ConstraintContext last_snapshot_;
+  std::vector<Constraint> temp_constraints_;
+  bool synchronizing_{false};
+  int active_queries_{0};
 };
 
 /*!
@@ -852,75 +690,6 @@ class AllowUIntAsIndex {
   TVM_TIRX_DLL void EnterWithScope();
   TVM_TIRX_DLL void ExitWithScope();
   static thread_local int depth_;
-};
-
-/*!
- * \brief Constraint context.
- *
- * \code
- *
- *  Var x("x");
- *  sym::Analyzer analyzer;
- *  {
- *    With<sym::AnalyzerConstraintScope> scope(analyzer, tvm::floormod(x, 3) == 0);
- *    TVM_FFI_ICHECK_EQ(analyzer->modular_set(x)->coeff, 3);
- *  }
- *  // constraint no longer in effect.
- *  TVM_FFI_ICHECK_NE(analyzer->modular_set(x)->coeff, 3);
- *
- * \endcode
- */
-class AnalyzerConstraintScope {
- private:
-  // declare friend to enable with.
-  friend class With<AnalyzerConstraintScope>;
-  /*!
-   * \brief Construct a constraint context.
-   * \param analyzer The analyzer whose context is updated. The context
-   *        keeps a reference to the analyzer while the scope is active.
-   * \param constraint The constraint to be applied.
-   */
-  AnalyzerConstraintScope(const Analyzer& analyzer, PrimExpr constraint)
-      : AnalyzerConstraintScope(analyzer, std::move(constraint), false) {}
-  /*!
-   * \brief Construct a constraint context.
-   * \param analyzer The analyzer whose context is updated. The context
-   *        keeps a reference to the analyzer while the scope is active.
-   * \param constraint The constraint to be applied.
-   * \param is_assume Whether the constraint comes from an assumption.
-   */
-  AnalyzerConstraintScope(const Analyzer& analyzer, PrimExpr constraint, bool is_assume)
-      : analyzer_(analyzer), constraint_(std::move(constraint)), is_assume_(is_assume) {}
-  /*!
-   * \brief Construct a constraint context from a borrowed analyzer object.
-   * \param analyzer The borrowed analyzer object.
-   * \param constraint The constraint to be applied.
-   *
-   * This overload is for internal callers that already operate on AnalyzerObj*.
-   */
-  AnalyzerConstraintScope(AnalyzerObj* analyzer, PrimExpr constraint)
-      : AnalyzerConstraintScope(ffi::GetRef<Analyzer>(analyzer), std::move(constraint), false) {}
-  /*!
-   * \brief Construct a constraint context from a borrowed analyzer object.
-   * \param analyzer The borrowed analyzer object.
-   * \param constraint The constraint to be applied.
-   * \param is_assume Whether the constraint comes from an assumption.
-   */
-  AnalyzerConstraintScope(AnalyzerObj* analyzer, PrimExpr constraint, bool is_assume)
-      : AnalyzerConstraintScope(ffi::GetRef<Analyzer>(analyzer), std::move(constraint), is_assume) {
-  }
-  // enter the scope.
-  TVM_TIRX_DLL void EnterWithScope();
-  // exit the scope.
-  TVM_TIRX_DLL void ExitWithScope();
-  /*! \brief Analyzer kept alive while the context is active. */
-  Analyzer analyzer_;
-  /*! \brief The constraint */
-  PrimExpr constraint_;
-  /*! \brief functions to be called in recovery */
-  std::vector<std::function<void()>> recovery_functions_;
-  /*! \brief Whether the constraint comes from an assumption. */
-  bool is_assume_;
 };
 
 }  // namespace sym

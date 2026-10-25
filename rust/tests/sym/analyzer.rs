@@ -23,7 +23,7 @@ use tvm_tirx::ir::{Expr, ExprObj};
 use tvm_tirx::sym::*;
 use tvm_tirx::tvm_ffi::Object;
 
-use super::{fixture, int32, op, range, var, Fixture};
+use super::{context, fixture, int32, op, predicate_constraint, range, range_constraint, var, Fixture};
 use crate::common::{assert_type_contracts, global};
 
 #[test]
@@ -70,11 +70,13 @@ fn analyzer_results_are_read_as_fields() {
 #[test]
 fn rust_allocated_bounds_reach_the_native_analyzer() {
     let Fixture { analyzer, x } = fixture();
-    // A complete binding allocates on the Rust side; the native analyzer reads its fields.
+    // Rust-allocated bound fields define the range premises consumed by the native analyzer.
     let bound = ConstIntBound::new(3, 7);
-    global("sym.AnalyzerConstIntBoundUpdate")
-        .call_tuple((analyzer.clone(), x.clone(), bound, true))
-        .unwrap();
+    let constraints = context([range_constraint(
+        &x,
+        range(bound.min_value, bound.max_value - bound.min_value + 1),
+    )]);
+    analyzer.sync_constraint_context(&constraints).unwrap();
     let read: ConstIntBound = global("sym.AnalyzerConstIntBound")
         .call_tuple((analyzer, Expr::from(x)))
         .unwrap()
@@ -87,7 +89,8 @@ fn rust_allocated_bounds_reach_the_native_analyzer() {
 fn bounds_and_simplification() {
     let analyzer = Analyzer::new();
     let x = var("x");
-    analyzer.bind_range(&x, &range(0, 16), false).unwrap();
+    let constraints = context([range_constraint(&x, range(0, 16))]);
+    analyzer.sync_constraint_context(&constraints).unwrap();
 
     let bound = analyzer.const_int_bound(op("prim._OpAdd", &x, int32(1))).unwrap();
     assert_eq!((bound.min_value, bound.max_value), (1, 16));
@@ -110,17 +113,19 @@ fn bounds_and_simplification() {
 }
 
 #[test]
-fn scopes_end_on_drop() {
+fn contexts_restore_parent_facts() {
     let analyzer = Analyzer::new();
     let x = var("x");
     let x_mod_3 = op("prim._OpFloorMod", &x, int32(3));
-    {
-        let _scope = analyzer.constraint_scope(op("prim._OpEQ", &x_mod_3, int32(0))).unwrap();
-        assert_eq!(analyzer.modular_set(&x).unwrap().coeff, 3);
-    }
+    let parent = context([]);
+    let child = context([predicate_constraint(op("prim._OpEQ", &x_mod_3, int32(0)))]);
+    analyzer.sync_constraint_context(&child).unwrap();
+    assert_eq!(analyzer.modular_set(&x).unwrap().coeff, 3);
+    analyzer.sync_constraint_context(&parent).unwrap();
     assert_eq!(analyzer.modular_set(&x).unwrap().coeff, 1);
     let _uint = allow_uint_as_index().unwrap();
 
-    analyzer.update(&x, &ConstIntBound::new(2, 5), false).unwrap();
+    let constraints = context([range_constraint(&x, range(2, 4))]);
+    analyzer.sync_constraint_context(&constraints).unwrap();
     assert_eq!(analyzer.const_int_bound(&x).unwrap().max_value, 5);
 }

@@ -30,8 +30,9 @@
 #include <tvm/ir/prim/op.h>
 #include <tvm/sym/analyzer.h>
 #include <tvm/tirx/analysis.h>
+#include <tvm/tirx/op/annotation.h>
 #include <tvm/tirx/op/memory.h>
-#include <tvm/tirx/stmt_functor_with_analyzer.h>
+#include <tvm/tirx/stmt_functor_with_constraint_context.h>
 #include <tvm/tirx/transform.h>
 
 namespace tvm {
@@ -40,16 +41,17 @@ using namespace tvm::prim;
 
 namespace {
 
-class StmtSimplifier : public StmtExprMutatorWithAnalyzer {
+class StmtSimplifier : public StmtExprMutatorWithConstraintContext {
  public:
-  using StmtExprMutatorWithAnalyzer::Mutate;
-  using StmtExprMutatorWithAnalyzer::Mutate_;
-  explicit StmtSimplifier(const sym::Analyzer& analyzer) : StmtExprMutatorWithAnalyzer(analyzer) {}
+  using StmtExprMutatorWithConstraintContext::Mutate;
+  using StmtExprMutatorWithConstraintContext::Mutate_;
+  explicit StmtSimplifier(const sym::ConstraintContext& context)
+      : StmtExprMutatorWithConstraintContext(context) {}
 
   Function Run(Function func);
 
  protected:
-  using Parent = StmtExprMutatorWithAnalyzer;
+  using Parent = StmtExprMutatorWithConstraintContext;
 
   UnchangedOr<ffi::Any> Mutate(ffi::AnyView input, InplaceMode inplace_mode) final;
 
@@ -69,7 +71,7 @@ class StmtSimplifier : public StmtExprMutatorWithAnalyzer {
    *
    * Substitutes any known Bind values and then simplifies with the analyzer.
    */
-  ffi::Optional<bool> ProveCondition(PrimExpr condition) const;
+  ffi::Optional<bool> ProveCondition(PrimExpr condition);
 
   // Pure Bind values kept for substitution into assert conditions.
   // Grows monotonically under SSA — no scope-based cleanup required.
@@ -77,7 +79,7 @@ class StmtSimplifier : public StmtExprMutatorWithAnalyzer {
 };
 
 Function StmtSimplifier::Run(Function func) {
-  MarkTensorParamShapes(func);
+  AddParamConstraints(func);
   auto* n = func.CopyOnWrite();
   // Shared string literals no longer enter the primitive analyzer.  Inline their
   // SSA bindings so existing literal arguments remain constants during lowering.
@@ -97,7 +99,9 @@ Function StmtSimplifier::Run(Function func) {
                   return ffi::Unchanged();
                 })
                 .as_or_throw<ffi::Optional<SeqStmt>>();
-  n->body = Mutate(n->body, InplaceMode::kAllow).ValueOrUnchanged(n->body);
+  n->body = Mutate(n->body, InplaceMode::kAllow)
+                .as_or_throw<UnchangedOr<ffi::Optional<SeqStmt>>>()
+                .ValueOrUnchanged(n->body);
   return func;
 }
 
@@ -108,8 +112,14 @@ UnchangedOr<ffi::Any> StmtSimplifier::Mutate(ffi::AnyView input, InplaceMode inp
   if (def_region_kind() != kTVMFFIDefRegionKindNone && input.as<Var>()) {
     return Parent::Mutate(input, inplace_mode);
   }
+  // The annotation's structural hook records a premise for following statements.
+  // Its void result is a PrimExpr too, but arithmetic simplification alone would
+  // bypass that hook and lose the scope-wide guarantee.
+  if (auto call = input.as<Call>(); call && call.value()->op.same_as(assume_always_op())) {
+    return Parent::Mutate(input, inplace_mode);
+  }
   if (auto expr = input.as<PrimExpr>()) {
-    PrimExpr simplified = analyzer_->Simplify(*expr);
+    PrimExpr simplified = GetSyncedAnalyzer()->Simplify(*expr);
     if (simplified.same_as(*expr)) return ffi::Unchanged();
     return simplified;
   }
@@ -117,9 +127,6 @@ UnchangedOr<ffi::Any> StmtSimplifier::Mutate(ffi::AnyView input, InplaceMode inp
 }
 
 UnchangedOr<Stmt> StmtSimplifier::Mutate_(const ForObj* op, InplaceMode inplace_mode) {
-  analyzer_->Bind(op->var, Range(op->begin, op->end));
-  With<sym::AnalyzerConstraintScope> ctx1(analyzer_, op->var >= op->begin);
-  With<sym::AnalyzerConstraintScope> ctx2(analyzer_, static_cast<PrimExpr>(op->var) < op->end);
   return Parent::Mutate_(op, inplace_mode);
 }
 
@@ -148,12 +155,9 @@ UnchangedOr<Stmt> StmtSimplifier::Mutate_(const BindObj* op, InplaceMode inplace
   }
   PrimExpr value =
       this->Mutate(prim_value.value(), inplace_mode).ValueOrUnchanged(prim_value.value());
-  // Bind in analyzer for constraint proving and simplification of
-  // subsequent expressions.  Don't remove the Bind statement --
-  // with flat Bind there's no body to inspect for usage patterns,
-  // so we always keep the Bind.
+  // Keep the statement: the shared sequence collector records its transformed
+  // binding for following siblings after this callback returns.
   if (SideEffect(value) <= CallEffectKind::kPure) {
-    analyzer_->Bind(op->var, value);
     // Record the binding so we can substitute it into assert conditions
     // (see Mutate_(const AssertStmtObj*, InplaceMode)).  Under SSA each var is
     // bound exactly once, so the map grows monotonically without key
@@ -219,14 +223,14 @@ bool StmtSimplifier::ArrayDeepEqual(const ffi::Array<PrimExpr>& lhs,
   return true;
 }
 
-ffi::Optional<bool> StmtSimplifier::ProveCondition(PrimExpr condition) const {
+ffi::Optional<bool> StmtSimplifier::ProveCondition(PrimExpr condition) {
   auto f_substitute = [this](const Var& var) -> ffi::Expected<ffi::UnchangedOr<ffi::Any>> {
     if (auto repl = non_inlined_bindings_.Get(var)) return ffi::Any(*std::move(repl));
     return ffi::Unchanged();
   };
   condition = ffi::StructuralMap<ffi::WalkOrder::kPreOrder>(condition, f_substitute)
                   .as_or_throw<PrimExpr>();
-  condition = analyzer_->Simplify(condition);
+  condition = GetSyncedAnalyzer()->Simplify(condition);
   if (const auto* as_int = condition.as<IntImmObj>()) {
     return as_int->value != 0;
   } else {
@@ -237,7 +241,7 @@ ffi::Optional<bool> StmtSimplifier::ProveCondition(PrimExpr condition) const {
 }  // namespace
 
 Function StmtSimplify(Function func, const sym::Analyzer& analyzer) {
-  return ffi::make_object<StmtSimplifier>(analyzer)->Run(std::move(func));
+  return ffi::make_object<StmtSimplifier>(analyzer->GetConstraintContext())->Run(std::move(func));
 }
 
 namespace transform {

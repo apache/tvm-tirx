@@ -29,7 +29,7 @@
 #include <tvm/tirx/layout.h>
 #include <tvm/tirx/op/memory.h>
 #include <tvm/tirx/stmt_functor.h>
-#include <tvm/tirx/stmt_functor_with_analyzer.h>
+#include <tvm/tirx/stmt_functor_with_constraint_context.h>
 #include <tvm/tirx/transform.h>
 
 #include <unordered_set>
@@ -60,22 +60,22 @@ using namespace tvm::prim;
  *  Every use site then only looks the pair up; a use before its definition is
  *  a hard error instead of a silently stale reference.
  */
-class TensorFlattener : public StmtExprMutatorWithAnalyzer {
+class TensorFlattener : public StmtExprMutatorWithConstraintContext {
  public:
-  using StmtExprMutatorWithAnalyzer::Mutate;
-  using StmtExprMutatorWithAnalyzer::Mutate_;
+  using StmtExprMutatorWithConstraintContext::Mutate;
+  using StmtExprMutatorWithConstraintContext::Mutate_;
   static Function Flatten(Function func) {
     if (!func->body.has_value()) return func;
-    sym::Analyzer ana;
-    auto pass = ffi::make_object<TensorFlattener>(ana);
-    pass->MarkTensorParamShapes(func);
+    auto pass = ffi::make_object<TensorFlattener>(sym::ConstraintContext());
+    pass->AddParamConstraints(func);
     for (const Var& param : func->params) {
       if (auto tensor = param.as<TensorVar>()) {
         pass->extern_tensors_.insert(tensor.value());
         pass->Define(tensor.value());
       }
     }
-    auto body_result = pass->Mutate(func->body, InplaceMode::kDisallow);
+    auto body_result = pass->Mutate(func->body, InplaceMode::kDisallow)
+                           .as_or_throw<UnchangedOr<ffi::Optional<SeqStmt>>>();
     bool body_unchanged = body_result.UnchangedOrSameAs(func->body);
     auto body = std::move(body_result).ValueOrUnchanged(func->body);
 
@@ -103,7 +103,8 @@ class TensorFlattener : public StmtExprMutatorWithAnalyzer {
   }
 
  public:
-  explicit TensorFlattener(const sym::Analyzer& ana) : StmtExprMutatorWithAnalyzer(ana) {}
+  explicit TensorFlattener(const sym::ConstraintContext& context)
+      : StmtExprMutatorWithConstraintContext(context) {}
 
  private:
   struct FlatInfo {
@@ -134,11 +135,11 @@ class TensorFlattener : public StmtExprMutatorWithAnalyzer {
 
     // buf': the storage husk. The linearized indices carry layout and
     // elem_offset, so the husk keeps neither.
-    auto flat = FlattenedTensor(fold_view, ffi::GetRef<sym::Analyzer>(analyzer_),
+    auto flat = FlattenedTensor(fold_view, ffi::GetRef<sym::Analyzer>(GetSyncedAnalyzer()),
                                 /*fold_origin=*/true);
     auto type = ffi::make_object<TensorTypeObj>(*flat.ty().get());
     for (size_t i = 0; i < type->shape.size(); ++i) {
-      type->shape.Set(i, analyzer_->canonical_simplify(type->shape[i]));
+      type->shape.Set(i, GetSyncedAnalyzer()->canonical_simplify(type->shape[i]));
     }
     type->layout = std::nullopt;
     // Body-local tensors keep their identity when flattening changes nothing.
@@ -151,7 +152,7 @@ class TensorFlattener : public StmtExprMutatorWithAnalyzer {
             : TensorVar(buf->name, TensorType(std::move(type)), buf->loc);
 
     // Feed the base mutator's remap so stray tensor-var expressions follow.
-    VarRemapSet(buf, flattened);
+    VarRemapSetExpected(buf, flattened).value();
     auto [it, inserted] = flat_map_.emplace(buf, FlatInfo{fold_view, flattened});
     return it->second;
   }
@@ -169,7 +170,7 @@ class TensorFlattener : public StmtExprMutatorWithAnalyzer {
       if (call->op.same_as(alloc_tensor_op())) return MutateAllocTensor(op, call, inplace_mode);
       if (call->op.same_as(decl_tensor_op())) return MutateDeclTensor(op, call, inplace_mode);
     }
-    return StmtExprMutatorWithAnalyzer::Mutate_(op, inplace_mode);
+    return StmtExprMutatorWithConstraintContext::Mutate_(op, inplace_mode);
   }
 
   UnchangedOr<Stmt> MutateAllocTensor(const BindObj* op, const CallObj* tensor_call,
@@ -268,7 +269,7 @@ class TensorFlattener : public StmtExprMutatorWithAnalyzer {
         }
       }
     }
-    return StmtExprMutatorWithAnalyzer::Mutate_(op, inplace_mode);
+    return StmtExprMutatorWithConstraintContext::Mutate_(op, inplace_mode);
   }
 
   ffi::Array<PrimExpr> FoldIndices(const FlatInfo& info, const ffi::Array<PrimExpr>& indices) {

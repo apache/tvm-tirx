@@ -17,6 +17,7 @@
  * under the License.
  */
 
+#include <tvm/backend/cuda/attr.h>
 #include <tvm/ffi/reflection/registry.h>
 #include <tvm/ir/prim/op.h>
 #include <tvm/ir/stmt.h>
@@ -28,6 +29,13 @@
 namespace tvm {
 namespace tirx {
 namespace {
+// If accepts scalar integer truth values as well as booleans. Preserve that
+// raw meaning without passing an integer expression to the boolean-only Not.
+PrimExpr NegateConstraintCondition(const PrimExpr& condition) {
+  if (condition.ty().MatchesCode(DLDataTypeCode::kDLBool)) return prim::Not(condition);
+  return condition == IntImm(condition.ty(), 0);
+}
+
 template <typename Traversal>
 void RecordStatement(Traversal* traversal, ffi::AnyView value) {
   if (const auto* bind = value.as<BindObj>()) {
@@ -54,6 +62,11 @@ ffi::Expected<void> AddLoopRange(Traversal* traversal, PrimVar var, PrimExpr beg
     const auto* stride = step.as<IntImmObj>();
     if (stride && stride->value > 0) {
       traversal->AppendConstraint(sym::RangeConstraint(var, Range(begin, end)));
+      // These are facts at an executed positive-step loop body, not an assertion
+      // that every RangeConstraint supplied by an arbitrary caller is nonempty.
+      traversal->AppendConstraint(sym::PredicateConstraint(end > begin));
+      PrimExpr extent = Range::GetExtentFromBeginEnd(begin, end);
+      traversal->AppendConstraint(sym::PredicateConstraint(extent > IntImm(extent.ty(), 0)));
     }
     return {};
   } catch (const ffi::Error& error) {
@@ -74,7 +87,9 @@ TVM_FFI_INLINE ffi::Expected<ffi::Optional<ffi::VisitInterrupt>> IfVisit(
   TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(result_then_case);
   auto result_else_case =
       visitor->WithConstraintScope([&]() -> ffi::Expected<ffi::Optional<ffi::VisitInterrupt>> {
-        visitor->AppendConstraint(sym::PredicateConstraint(prim::Not(self->condition)));
+        if (!self->else_case.has_value()) return std::nullopt;
+        visitor->AppendConstraint(
+            sym::PredicateConstraint(NegateConstraintCondition(self->condition)));
         return visitor->VisitExpected(self->else_case);
       });
   TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(result_else_case);
@@ -99,7 +114,8 @@ TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> IfMutate(
   TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(
       ffi::UnchangedOr<ffi::Optional<Stmt>>, mapped_else_case,
       mutator->WithConstraintScope([&]() -> ffi::Expected<ffi::UnchangedOr<ffi::Any>> {
-        mutator->AppendConstraint(sym::PredicateConstraint(prim::Not(condition)));
+        if (!self->else_case.has_value()) return ffi::Unchanged();
+        mutator->AppendConstraint(sym::PredicateConstraint(NegateConstraintCondition(condition)));
         return mutator->MutateExpected(self->else_case);
       }));
   if (mapped_condition.UnchangedOrSameAs(self->condition) &&
@@ -139,7 +155,8 @@ TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> IfMaybeInplaceMutate(
   TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(
       ffi::UnchangedOr<ffi::Optional<Stmt>>, mapped_else_case,
       mutator->WithConstraintScope([&]() -> ffi::Expected<ffi::UnchangedOr<ffi::Any>> {
-        mutator->AppendConstraint(sym::PredicateConstraint(prim::Not(condition)));
+        if (!self->else_case.has_value()) return ffi::Unchanged();
+        mutator->AppendConstraint(sym::PredicateConstraint(NegateConstraintCondition(condition)));
         return mutator->MutateExpected(self->else_case, ffi::InplaceMode::kAllow);
       }));
   if (mapped_condition.UnchangedOrSameAs(self->condition) &&
@@ -280,6 +297,57 @@ TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> ForMaybeInplaceMutate(
   if (!mapped_body.IsUnchanged()) self->body = SeqStmt(std::move(mapped_body).ValueUnchecked());
   if (!mapped_step.IsUnchanged()) self->step = std::move(mapped_step).ValueUnchecked();
   return ffi::Unchanged();
+}
+
+// Select mutation may simplify each value under the condition that selects it.
+// Keep this rule in the shared collector so native adapters and structural
+// mutation observe the same context; visitors still visit both arms normally.
+template <ffi::InplaceMode mode>
+TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> SelectWithConstraintsMutate(
+    StructuralMutatorWithConstraintContextObj* mutator, ffi::AnyView value) noexcept {
+  const auto* self =
+      ffi::details::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const prim::SelectObj>(value);
+  TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<PrimExpr>, mapped_condition,
+                                    mutator->MutateExpected(self->condition, mode));
+  PrimExpr condition = mapped_condition.IsUnchanged()
+                           ? self->condition
+                           : ffi::AnyView(mapped_condition).cast<PrimExpr>();
+  auto mutate_arm = [&](const PrimExpr& arm,
+                        bool negate) -> ffi::Expected<ffi::UnchangedOr<ffi::Any>> {
+    return mutator->WithConstraintScope([&]() -> ffi::Expected<ffi::UnchangedOr<ffi::Any>> {
+      // A vector Select has no single boolean premise for its whole value.
+      if (condition.ty().IsScalar()) {
+        mutator->AppendConstraint(
+            sym::PredicateConstraint(negate ? NegateConstraintCondition(condition) : condition));
+      }
+      return mutator->MutateExpected(arm, mode);
+    });
+  };
+  TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<PrimExpr>, mapped_true,
+                                    mutate_arm(self->true_value, false));
+  TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<PrimExpr>, mapped_false,
+                                    mutate_arm(self->false_value, true));
+  if (mapped_condition.UnchangedOrSameAs(self->condition) &&
+      mapped_true.UnchangedOrSameAs(self->true_value) &&
+      mapped_false.UnchangedOrSameAs(self->false_value)) {
+    return ffi::Unchanged();
+  }
+  if constexpr (mode == ffi::InplaceMode::kAllow) {
+    auto* writable = const_cast<prim::SelectObj*>(self);
+    if (!mapped_condition.IsUnchanged())
+      writable->condition = std::move(mapped_condition).ValueUnchecked();
+    if (!mapped_true.IsUnchanged()) writable->true_value = std::move(mapped_true).ValueUnchecked();
+    if (!mapped_false.IsUnchanged())
+      writable->false_value = std::move(mapped_false).ValueUnchecked();
+    return ffi::Unchanged();
+  } else {
+    auto copy = ffi::make_object<prim::SelectObj>(*self);
+    if (!mapped_condition.IsUnchanged())
+      copy->condition = std::move(mapped_condition).ValueUnchecked();
+    if (!mapped_true.IsUnchanged()) copy->true_value = std::move(mapped_true).ValueUnchecked();
+    if (!mapped_false.IsUnchanged()) copy->false_value = std::move(mapped_false).ValueUnchecked();
+    return ffi::Any(std::move(copy));
+  }
 }
 
 TVM_FFI_INLINE ffi::Expected<ffi::Optional<ffi::VisitInterrupt>> WhileVisit(
@@ -613,6 +681,31 @@ TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> CallMaybeInplaceMutate(
   }
 }
 
+// Native CUDA coordinates are calls rather than bound variables. Keep their
+// launch bounds in the same scope as the region body, using transformed args.
+template <typename Traversal>
+void AddLaunchCoordinates(Traversal* traversal, const DictAttrs& attrs,
+                          const ffi::Array<Expr>& args) {
+  auto description = attrs->dict.Get(tvm::backend::cuda::attr::kLaunchFields.name);
+  if (!description) return;
+  auto fields = description->as_or_throw<ffi::Array<ffi::String>>();
+  TVM_FFI_CHECK(fields.size() <= args.size(), ValueError) << "Missing CUDA launch extent";
+  for (size_t i = 0; i < fields.size(); ++i) {
+    std::string field(fields[i]);
+    std::string intrinsic;
+    if (field.rfind("grid.", 0) == 0) intrinsic = "tirx.cuda.block_idx";
+    if (field.rfind("block.", 0) == 0) intrinsic = "tirx.cuda.thread_idx";
+    if (intrinsic.empty()) continue;
+    auto extent = args[i].as<PrimExpr>();
+    if (!extent) continue;
+    PrimExpr index =
+        Call(PrimType::Int(32), Op::Get(intrinsic), {StringImm(field.substr(field.size() - 1))})
+            .as_or_throw<PrimExpr>();
+    traversal->AppendConstraint(sym::PredicateConstraint(index >= 0));
+    traversal->AppendConstraint(sym::PredicateConstraint(index < *extent));
+  }
+}
+
 TVM_FFI_INLINE ffi::Expected<ffi::Optional<ffi::VisitInterrupt>> RegionStmtVisit(
     StructuralVisitorWithConstraintContextObj* visitor, ffi::AnyView value) noexcept {
   const RegionStmtObj* self =
@@ -629,6 +722,7 @@ TVM_FFI_INLINE ffi::Expected<ffi::Optional<ffi::VisitInterrupt>> RegionStmtVisit
         kTVMFFIDefRegionKindSimple, [&]() { return visitor->VisitExpected(self->body_params); }));
     auto result_body =
         visitor->WithConstraintScope([&]() -> ffi::Expected<ffi::Optional<ffi::VisitInterrupt>> {
+          AddLaunchCoordinates(visitor, self->attrs, self->args);
           return visitor->VisitExpected(self->body);
         });
     TVM_FFI_S_VISIT_MAYBE_EARLY_RETURN(result_body);
@@ -676,6 +770,12 @@ TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> RegionStmtMutate(
             }
           }
 
+          AddLaunchCoordinates(
+              mutator,
+              mapped_attrs.IsUnchanged() ? self->attrs
+                                         : ffi::AnyView(mapped_attrs).cast<DictAttrs>(),
+              mapped_args.IsUnchanged() ? self->args
+                                        : ffi::AnyView(mapped_args).cast<ffi::Array<Expr>>());
           return mutator->MutateExpected(self->body);
         }));
     ffi::Array<Var> old_result_vars = self->result_vars;
@@ -759,6 +859,12 @@ TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> RegionStmtMaybeInplaceM
             }
           }
 
+          AddLaunchCoordinates(
+              mutator,
+              mapped_attrs.IsUnchanged() ? self->attrs
+                                         : ffi::AnyView(mapped_attrs).cast<DictAttrs>(),
+              mapped_args.IsUnchanged() ? self->args
+                                        : ffi::AnyView(mapped_args).cast<ffi::Array<Expr>>());
           return mutator->MutateExpected(self->body, ffi::InplaceMode::kAllow);
         }));
     ffi::Array<Var> old_result_vars = self->result_vars;
@@ -847,6 +953,13 @@ TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> SeqStmtMutate(
 }  // namespace
 
 TVM_FFI_STATIC_INIT_BLOCK() {
+  ffi::reflection::TypeAttrDef<prim::SelectObj>()
+      .attr(type_attr::kStructuralMutateWithConstraintContext,
+            FStructuralMutateWithConstraintContext::FromNative<
+                &SelectWithConstraintsMutate<ffi::InplaceMode::kDisallow>>())
+      .attr(type_attr::kStructuralMaybeInplaceMutateWithConstraintContext,
+            FStructuralMutateWithConstraintContext::FromNative<
+                &SelectWithConstraintsMutate<ffi::InplaceMode::kAllow>>());
   ffi::reflection::TypeAttrDef<IfObj>()
       .attr(type_attr::kStructuralVisitWithConstraintContext,
             FStructuralVisitWithConstraintContext::FromNative<&IfVisit>())

@@ -34,12 +34,14 @@ def test_cast():
 
 def test_add_sub():
     analyzer = tvm_tirx.sym.Analyzer()
+    analyzer_context = tvm_tirx.sym.ConstraintContext()
     x, y = tvm_tirx.tirx.Var("x", "int64"), tvm_tirx.tirx.Var("y", "int64")
     m = analyzer.modular_set(x * 6 + y * 4)
     assert m.coeff == 2
     assert m.base == 0
 
-    analyzer.bind(y, x * 4 + 1)
+    analyzer_context.append(tvm_tirx.sym.BindingConstraint(y, x * 4 + 1))
+    analyzer.sync_constraint_context(analyzer_context)
     m = analyzer.modular_set(1 - y)
     assert m.coeff == 4
     assert m.base == 0
@@ -71,6 +73,7 @@ def test_floormod():
 
 def test_div_shift():
     analyzer = tvm_tirx.sym.Analyzer()
+    analyzer_context = tvm_tirx.sym.ConstraintContext()
     x = tvm_tirx.tirx.Var("x", "int32")
     # not sure if x is non-negative
     tdiv = tvm_tirx.tirx.truncdiv
@@ -86,7 +89,9 @@ def test_div_shift():
     assert m.coeff == 2
     assert m.base == 1
     # x is non-negative
-    analyzer.update(x, tvm_tirx.sym.ConstIntBound(0, 100))
+    analyzer_context.append(tvm_tirx.sym.PredicateConstraint(x >= 0))
+    analyzer_context.append(tvm_tirx.sym.PredicateConstraint(x <= 100))
+    analyzer.sync_constraint_context(analyzer_context)
     m = analyzer.modular_set(tdiv(x * 4 + 2, 2))
     assert m.coeff == 2
     assert m.base == 1
@@ -94,6 +99,7 @@ def test_div_shift():
 
 def test_mod():
     analyzer = tvm_tirx.sym.Analyzer()
+    analyzer_context = tvm_tirx.sym.ConstraintContext()
     x = tvm_tirx.tirx.Var("x", "int32")
     tmod = tvm_tirx.tirx.truncmod
     fmod = tvm_tirx.tirx.floormod
@@ -113,7 +119,9 @@ def test_mod():
     assert m.coeff == 4
     assert m.base == 3
     # x is non-negative
-    analyzer.update(x, tvm_tirx.sym.ConstIntBound(0, 100))
+    analyzer_context.append(tvm_tirx.sym.PredicateConstraint(x >= 0))
+    analyzer_context.append(tvm_tirx.sym.PredicateConstraint(x <= 100))
+    analyzer.sync_constraint_context(analyzer_context)
     m = analyzer.modular_set(tmod(x * 4 + 3, 2))
     assert m.coeff == 2
     assert m.base == 1
@@ -169,19 +177,34 @@ def test_constraint_scope():
     a = tvm_tirx.tirx.Var("a", "int32")
     b = tvm_tirx.tirx.Var("b", "int32")
     analyzer = tvm_tirx.sym.Analyzer()
+    analyzer_context = tvm_tirx.sym.ConstraintContext()
     tmod = tvm_tirx.tirx.truncmod
 
-    with analyzer.constraint_scope(tmod(b, 4) == 2):
+    parent_context_1 = analyzer_context
+    analyzer_context = analyzer_context.snapshot()
+    analyzer_context.append(tvm_tirx.sym.PredicateConstraint(tmod(b, 4) == 2))
+    analyzer.sync_constraint_context(analyzer_context)
+    try:
         m = analyzer.modular_set(b + 1)
         assert m.coeff == 4
         assert m.base == 3
-        with analyzer.constraint_scope(tmod(a, 2) == 1):
+        parent_context_4 = analyzer_context
+        analyzer_context = analyzer_context.snapshot()
+        analyzer_context.append(tvm_tirx.sym.PredicateConstraint(tmod(a, 2) == 1))
+        analyzer.sync_constraint_context(analyzer_context)
+        try:
             m = analyzer.modular_set(b + a * 2)
             assert m.coeff == 4
             assert m.base == 0
+        finally:
+            analyzer_context = parent_context_4
+            analyzer.sync_constraint_context(analyzer_context)
         m = analyzer.modular_set(b + a * 2)
         assert m.coeff == 2
         assert m.base == 0
+    finally:
+        analyzer_context = parent_context_1
+        analyzer.sync_constraint_context(analyzer_context)
 
     m = analyzer.modular_set(b + 1)
     assert m.coeff == 1
@@ -191,19 +214,55 @@ def test_constraint_scope():
 def test_intersect():
     a = tvm_tirx.tirx.Var("a", "int32")
     analyzer = tvm_tirx.sym.Analyzer()
+    analyzer_context = tvm_tirx.sym.ConstraintContext()
     tmod = tvm_tirx.tirx.truncmod
-    with analyzer.constraint_scope(tmod(a, 4) == 1):
-        with analyzer.constraint_scope(tmod(a, 3) == 1):
+    parent_context_2 = analyzer_context
+    analyzer_context = analyzer_context.snapshot()
+    analyzer_context.append(tvm_tirx.sym.PredicateConstraint(tmod(a, 4) == 1))
+    analyzer.sync_constraint_context(analyzer_context)
+    try:
+        parent_context_5 = analyzer_context
+        analyzer_context = analyzer_context.snapshot()
+        analyzer_context.append(tvm_tirx.sym.PredicateConstraint(tmod(a, 3) == 1))
+        analyzer.sync_constraint_context(analyzer_context)
+        try:
             m = analyzer.modular_set(a)
             assert m.coeff == 12
             assert m.base == 1
+        finally:
+            analyzer_context = parent_context_5
+            analyzer.sync_constraint_context(analyzer_context)
+    finally:
+        analyzer_context = parent_context_2
+        analyzer.sync_constraint_context(analyzer_context)
 
-    with analyzer.constraint_scope(tmod(a, 3) == 2):
-        with analyzer.constraint_scope(tmod(a, 5) == 3):
-            with analyzer.constraint_scope(tmod(a, 7) == 2):
+    parent_context_3 = analyzer_context
+    analyzer_context = analyzer_context.snapshot()
+    analyzer_context.append(tvm_tirx.sym.PredicateConstraint(tmod(a, 3) == 2))
+    analyzer.sync_constraint_context(analyzer_context)
+    try:
+        parent_context_6 = analyzer_context
+        analyzer_context = analyzer_context.snapshot()
+        analyzer_context.append(tvm_tirx.sym.PredicateConstraint(tmod(a, 5) == 3))
+        analyzer.sync_constraint_context(analyzer_context)
+        try:
+            parent_context_7 = analyzer_context
+            analyzer_context = analyzer_context.snapshot()
+            analyzer_context.append(tvm_tirx.sym.PredicateConstraint(tmod(a, 7) == 2))
+            analyzer.sync_constraint_context(analyzer_context)
+            try:
                 m = analyzer.modular_set(a)
                 assert m.coeff == 105
                 assert m.base == 23
+            finally:
+                analyzer_context = parent_context_7
+                analyzer.sync_constraint_context(analyzer_context)
+        finally:
+            analyzer_context = parent_context_6
+            analyzer.sync_constraint_context(analyzer_context)
+    finally:
+        analyzer_context = parent_context_3
+        analyzer.sync_constraint_context(analyzer_context)
 
 
 def test_let():

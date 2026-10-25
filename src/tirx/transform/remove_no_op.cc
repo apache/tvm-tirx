@@ -30,7 +30,7 @@
 #include <tvm/tirx/analysis.h>
 #include <tvm/tirx/stmt.h>
 #include <tvm/tirx/stmt_functor.h>
-#include <tvm/tirx/stmt_functor_with_analyzer.h>
+#include <tvm/tirx/stmt_functor_with_constraint_context.h>
 #include <tvm/tirx/transform.h>
 
 #include "ir_utils.h"
@@ -71,31 +71,36 @@ TVM_FFI_STATIC_INIT_BLOCK() {
 }
 
 // Mark the statement of each stage.
-class NoOpRemover : public StmtExprMutatorWithAnalyzer {
+class NoOpRemover : public StmtExprMutatorWithConstraintContext {
  public:
-  using StmtExprMutatorWithAnalyzer::Mutate;
-  using StmtExprMutatorWithAnalyzer::Mutate_;
-  static Stmt Apply(Stmt stmt, const sym::Analyzer& analyzer, bool ignore_profiler_call = false) {
-    auto visitor = ffi::make_object<NoOpRemover>(analyzer, ignore_profiler_call);
+  using StmtExprMutatorWithConstraintContext::Mutate;
+  using StmtExprMutatorWithConstraintContext::Mutate_;
+  static Stmt Apply(Stmt stmt, const sym::ConstraintContext& context,
+                    bool ignore_profiler_call = false, int64_t max_simplification_steps = 0) {
+    auto visitor = ffi::make_object<NoOpRemover>(context, ignore_profiler_call);
+    visitor->GetSyncedAnalyzer()->rewrite_simplify.SetMaximumRewriteSteps(max_simplification_steps);
     return visitor->Mutate(stmt, InplaceMode::kAllow).ValueOrUnchanged(stmt);
   }
 
  private:
-  using Parent = StmtExprMutatorWithAnalyzer;
+  using Parent = StmtExprMutatorWithConstraintContext;
 
  public:
-  NoOpRemover(const sym::Analyzer& analyzer, bool ignore_profiler_call = false)
-      : Parent(analyzer), ignore_profiler_call_(ignore_profiler_call) {}
+  NoOpRemover(const sym::ConstraintContext& context, bool ignore_profiler_call = false)
+      : Parent(context), ignore_profiler_call_(ignore_profiler_call) {}
 
  private:
   UnchangedOr<Stmt> Mutate_(const IfObj* op, InplaceMode inplace_mode) final {
     Stmt stmt = Parent::Mutate_(op, inplace_mode).ValueOrUnchanged(ffi::GetRef<Stmt>(op));
     op = stmt.as<IfObj>();
-    // Sometimes the condition can be statically determined,
-    // in which the type of the `stmt` will not be IfObj.
-    if (!op) {
-      return stmt;
+    if (!op) return stmt;
+    PrimExpr condition = op->condition;
+    if (auto call = condition.as<CallObj>(); call && call->op.same_as(prim::likely_op())) {
+      condition = call->args[0].as_or_throw<PrimExpr>();
     }
+    // Structural traversal preserves literal branches; remove their dead control flow here.
+    if (prim::IsOne(condition)) return op->then_case;
+    if (prim::IsZero(condition)) return op->else_case.value_or(Evaluate(0));
     if (op->else_case) {
       bool no_op_else = tirx::IsNoOp(op->else_case.value());
       bool no_op_then = tirx::IsNoOp(op->then_case);
@@ -120,7 +125,7 @@ class NoOpRemover : public StmtExprMutatorWithAnalyzer {
     auto extent_range =
         sym::EvalSet(Range::GetExtentFromBeginEnd(op->begin, op->end), var_range_map_);
     if (!prim::is_neg_inf(extent_range.max()) && !prim::is_pos_inf(extent_range.max()) &&
-        analyzer_->CanProve(extent_range.max() <= 0)) {
+        GetSyncedAnalyzer()->CanProve(extent_range.max() <= 0)) {
       return Evaluate(0);
     }
     var_range_map_.Set(op->var, sym::IntSet::FromRange(Range(op->begin, op->end)));
@@ -169,7 +174,7 @@ class NoOpRemover : public StmtExprMutatorWithAnalyzer {
     // values to be written is a no-op.
     PrimExpr stores_existing_value =
         store->value - TensorLoad(store->dest.as_or_throw<TensorVar>(), store->indices) == 0;
-    stores_existing_value = analyzer_->Simplify(stores_existing_value);
+    stores_existing_value = GetSyncedAnalyzer()->Simplify(stores_existing_value);
     if (IsOne(stores_existing_value)) {
       return only_side_effects();
     }
@@ -192,7 +197,7 @@ class NoOpRemover : public StmtExprMutatorWithAnalyzer {
       return false;
     }
     for (size_t i = 0; i < a.size(); i++) {
-      if (!analyzer_->CanProveEqual(a[i], b[i])) {
+      if (!GetSyncedAnalyzer()->CanProveEqual(a[i], b[i])) {
         return false;
       }
     }
@@ -238,7 +243,8 @@ class NoOpRemover : public StmtExprMutatorWithAnalyzer {
 };
 
 Stmt RemoveNoOp(Stmt stmt, const sym::Analyzer& analyzer, bool ignore_profiler_call) {
-  return NoOpRemover::Apply(std::move(stmt), analyzer, ignore_profiler_call);
+  return NoOpRemover::Apply(std::move(stmt), analyzer->GetConstraintContext(),
+                            ignore_profiler_call);
 }
 
 namespace transform {
@@ -248,15 +254,13 @@ Pass RemoveNoOp() {
     if (!f->body.has_value()) return f;
     RemoveNoOpConfig config = ctx->GetConfigOrDefault<RemoveNoOpConfig>("tirx.RemoveNoOp");
 
-    sym::Analyzer analyzer;
-    analyzer->rewrite_simplify.SetMaximumRewriteSteps(config->max_simplification_steps);
-
     bool ignore_profiler_call = config->ignore_profiler_call;
 
     {
       auto* write_ptr = f.CopyOnWrite();
       write_ptr->body =
-          NoOpRemover::Apply(std::move(write_ptr->body).value(), analyzer, ignore_profiler_call);
+          NoOpRemover::Apply(std::move(write_ptr->body).value(), sym::ConstraintContext(),
+                             ignore_profiler_call, config->max_simplification_steps);
     }
     return f;
   };

@@ -24,6 +24,8 @@
 #ifndef TVM_TIRX_STMT_FUNCTOR_WITH_CONSTRAINT_CONTEXT_H_
 #define TVM_TIRX_STMT_FUNCTOR_WITH_CONSTRAINT_CONTEXT_H_
 
+#include <tvm/sym/analyzer.h>
+#include <tvm/tirx/function.h>
 #include <tvm/tirx/object_functor_with_constraint_context.h>
 #include <tvm/tirx/stmt.h>
 
@@ -315,6 +317,11 @@ class TVM_TIRX_DLL StmtExprMutatorWithConstraintContext
     : public ObjectMutatorWithConstraintContext {
  public:
   StmtExprMutatorWithConstraintContext() : ObjectMutatorWithConstraintContext(GlobalVTable()) {}
+  /*! \brief Capture the supplied environment; the mutator owns its analyzer and local facts. */
+  explicit StmtExprMutatorWithConstraintContext(const sym::ConstraintContext& context)
+      : StmtExprMutatorWithConstraintContext() {
+    constraints = context->Snapshot();
+  }
   using ObjectMutatorWithConstraintContext::Mutate;
   /*!
    * \brief Typed entry preserving the expression or statement category.
@@ -580,8 +587,22 @@ class TVM_TIRX_DLL StmtExprMutatorWithConstraintContext
 
  protected:
   /*!
-   * \brief Construct with a finalized table extended by a native subclass.
+   * \brief Synchronize before every analysis, including after child traversal.
+   * The borrowed pointer is not a live view: reacquire it after changing context.
    */
+  sym::AnalyzerObj* GetSyncedAnalyzer() {
+    analyzer_->SyncConstraintContext(constraints);
+    return analyzer_.get();
+  }
+
+  /*! \brief Add global nonnegative tensor-parameter shape premises before traversal. */
+  void AddParamConstraints(const Function& func);
+
+  /*! \brief Simplify indices using the active collector's iterator facts. */
+  ffi::Array<PrimExpr> IterMapSimplifyWithContext(const ffi::Array<PrimExpr>& indices,
+                                                  bool non_trivial_only);
+
+  /*! \brief Construct with a finalized table extended by a native subclass. */
   explicit StmtExprMutatorWithConstraintContext(const VTable* table)
       : ObjectMutatorWithConstraintContext(table) {}
 
@@ -589,6 +610,7 @@ class TVM_TIRX_DLL StmtExprMutatorWithConstraintContext
 
  private:
   static const VTable* GlobalVTable();
+  sym::Analyzer analyzer_;
 };
 }  // namespace tirx
 }  // namespace tvm

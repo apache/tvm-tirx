@@ -73,7 +73,7 @@ def lower(opcode, entry, modifiers, args, params, sctx):
         operand.require_bits(32)
     d.nonoverlapping()
     lane = Var("atom_lane", "int32")
-    ctx.analyzer.bind(lane, Range(0, 32))
+    ctx.add_range(lane, Range(0, 32))
 
     def a_coord(lane, reg):
         return lane // 4 + 8 * (reg % 2), lane % 4 + 4 * (reg // 2)

@@ -35,6 +35,7 @@
 #include <optional>
 
 #include "constraint_extract.h"
+#include "constraint_helpers.h"
 #include "int_operator.h"
 
 namespace tvm {
@@ -95,6 +96,8 @@ struct ConstIntBoundAnalyzer::Entry {
 class ConstIntBoundAnalyzer::Impl final
     : public tvm::ExprFunctor<ConstIntBoundAnalyzer::Entry(const Expr&)> {
  public:
+  AnalyzerObj* owner() const { return parent_; }
+
   explicit Impl(AnalyzerObj* parent) : parent_(parent) {}
   /*! \brief additional bound info about expr in bound */
   struct BoundInfo {
@@ -106,18 +109,34 @@ class ConstIntBoundAnalyzer::Impl final
     BoundInfo(PrimExpr expr, Entry bound) : expr(expr), bound(bound) {}
   };
 
-  bool IsBound(const Var& var) const { return var_map_.find(var) != var_map_.end(); }
+  bool IsBound(const Var& var) const {
+    if (var_map_.count(var)) return true;
+    for (const Constraint& fact : detail::TempConstraintScope::Query(parent_))
+      if (const auto* binding = fact.as<BindingConstraintObj>();
+          binding && binding->var.same_as(var))
+        return true;
+    for (const auto& info : additional_info_)
+      if (info.expr.same_as(var)) return true;
+    for (const Constraint& fact : detail::TempConstraintScope::Query(parent_)) {
+      const auto* condition = fact.as<PredicateConstraintObj>();
+      if (!condition) continue;
+      const PrimExpr& predicate = condition->condition;
+      for (const auto& info : DetectBoundInfo(predicate))
+        if (info.expr.same_as(var)) return true;
+    }
+    return false;
+  }
 
-  void Bind(const Var& var, const Range& range, bool allow_override) {
+  void IngestBinding(const Var& var, const Range& range, bool allow_override) {
     Entry a = Dispatch(range->begin);
     Entry b = Dispatch(range->extent);
     Entry ret;
     ret.min_value = a.min_value;
     ret.max_value = InfAwareAdd(a.max_value, InfAwareAdd(b.max_value, -1));
-    Update(var, ret, allow_override);
+    SetBinding(var, ret, allow_override);
   }
 
-  void Update(const Var& var, const Entry& info, bool allow_override) {
+  void SetBinding(const Var& var, const Entry& info, bool allow_override) {
     if (!allow_override) {
       auto it = var_map_.find(var);
       if (it != var_map_.end()) {
@@ -132,20 +151,13 @@ class ConstIntBoundAnalyzer::Impl final
   }
 
   Entry Dispatch_(const prim::LetObj* op) final {
-    auto it = var_map_.find(op->var);
-    // if the var has not been binded, update the info.
-    if (it == var_map_.end()) {
-      var_map_[op->var] = this->Dispatch(op->value);
-      Entry ret = Dispatch(op->body);
-      var_map_.erase(op->var);
-      return ret;
-    } else {
-      return Dispatch(op->body);
-    }
+    detail::TempConstraintScope scope(parent_);
+    scope.AddBinding(op->var, op->value);
+    return Dispatch(op->body);
   }
 
-  void Update(const Var& var, const ConstIntBound& info, bool allow_override) {
-    Update(var, MakeBound(info->min_value, info->max_value), allow_override);
+  void SetBinding(const Var& var, const ConstIntBound& info, bool allow_override) {
+    SetBinding(var, MakeBound(info->min_value, info->max_value), allow_override);
   }
 
   // Override visitor behaviors
@@ -162,6 +174,16 @@ class ConstIntBoundAnalyzer::Impl final
     for (const BoundInfo& info : additional_info_) {
       if (equal(prim_expr, info.expr)) {
         res = Intersect(res, info.bound);
+      }
+    }
+    // Temporary branch premises refine this result only. They never enter the
+    // stored variable map or the bounds retained for the synchronized context.
+    for (const Constraint& fact : detail::TempConstraintScope::Query(parent_)) {
+      const auto* condition = fact.as<PredicateConstraintObj>();
+      if (!condition) continue;
+      const PrimExpr& predicate = condition->condition;
+      for (const BoundInfo& info : DetectBoundInfo(predicate)) {
+        if (equal(prim_expr, info.expr)) res = Intersect(res, info.bound);
       }
     }
     if (bound_) {
@@ -475,6 +497,11 @@ class ConstIntBoundAnalyzer::Impl final
 
   Entry Dispatch_(const VarObj* op) final {
     Var v = ffi::GetRef<Var>(op);
+    const auto& facts = detail::TempConstraintScope::Query(parent_);
+    for (auto it = facts.rbegin(); it != facts.rend(); ++it) {
+      if (const auto* binding = it->as<BindingConstraintObj>(); binding && binding->var.same_as(v))
+        return Dispatch(binding->value);
+    }
     auto it = var_map_.find(v);
     if (it != var_map_.end()) {
       return it->second;
@@ -520,17 +547,15 @@ class ConstIntBoundAnalyzer::Impl final
     }
   }
 
-  std::function<void()> EnterConstraint(const PrimExpr& constraint) {
-    std::vector<BoundInfo> info = DetectBoundInfo(constraint);
-    if (info.size() == 0) return nullptr;
-    size_t old_size = additional_info_.size();
+  void AddPredicate(const PrimExpr& constraint) {
+    auto info = DetectBoundInfo(constraint);
     additional_info_.insert(additional_info_.end(), info.begin(), info.end());
-    auto frecover = [old_size, this]() {
-      if (additional_info_.size() > old_size) {
-        additional_info_.erase(additional_info_.begin() + old_size, additional_info_.end());
-      }
-    };
-    return frecover;
+  }
+  void Reset() {
+    var_map_.clear();
+    additional_info_.clear();
+    // bound_ is query-owned scratch; synchronization cannot run during a query.
+    bound_ = nullptr;
   }
 
   void CopyFrom(const Impl& other) {
@@ -817,7 +842,7 @@ class ConstIntBoundAnalyzer::Impl final
         add_info(x.Eval(), c.Eval()->value, kPosInf);
       } else if ((c < x).Match(subexpr) || (x > c).Match(subexpr)) {
         add_info(x.Eval(), c.Eval()->value + 1, kPosInf);
-      } else if ((x <= c).Match(subexpr) || (x >= c).Match(subexpr)) {
+      } else if ((x <= c).Match(subexpr) || (c >= x).Match(subexpr)) {
         add_info(x.Eval(), kNegInf, c.Eval()->value);
       } else if ((x < c).Match(subexpr) || (c > x).Match(subexpr)) {
         add_info(x.Eval(), kNegInf, c.Eval()->value - 1);
@@ -873,39 +898,50 @@ class ConstIntBoundAnalyzer::Impl final
 };
 
 ConstIntBound ConstIntBoundAnalyzer::operator()(const PrimExpr& expr) const {
+  detail::TempConstraintScope query(impl_->owner());
   Entry ret = impl_->Dispatch(expr);
   return ConstIntBound(ret.min_value, ret.max_value);
 }
 
 ConstIntBound ConstIntBoundAnalyzer::operator()(const PrimExpr& expr, BoundMapType* bound) {
+  detail::TempConstraintScope query(impl_->owner());
   struct RestoreMemo {
     Impl* impl;
     BoundMapType* previous;
     ~RestoreMemo() { impl->bound_ = previous; }
   } restore{impl_.get(), impl_->bound_};
+  if (bound) bound->clear();
   impl_->bound_ = bound;
   Entry ret = impl_->Dispatch(expr);
   return ConstIntBound(ret.min_value, ret.max_value);
 }
 
-void ConstIntBoundAnalyzer::Update(const Var& var, const ConstIntBound& info, bool allow_override) {
-  impl_->Update(var, info, allow_override);
+void ConstIntBoundAnalyzer::IngestBinding(const Var& var, const PrimExpr& expr) {
+  impl_->SetBinding(var, (*this)(expr), true);
 }
 
-void ConstIntBoundAnalyzer::Bind(const Var& var, const Range& range, bool allow_override) {
-  impl_->Bind(var, range, allow_override);
+void ConstIntBoundAnalyzer::IngestBinding(const Var& var, const Range& range) {
+  impl_->IngestBinding(var, range, true);
 }
 
-bool ConstIntBoundAnalyzer::IsBound(const Var& var) const { return impl_->IsBound(var); }
+bool ConstIntBoundAnalyzer::IsBound(const Var& var) const {
+  detail::TempConstraintScope query(impl_->owner());
+  return impl_->IsBound(var);
+}
 
-std::function<void()> ConstIntBoundAnalyzer::EnterConstraint(const PrimExpr& constraint) {
-  return impl_->EnterConstraint(constraint);
+void ConstIntBoundAnalyzer::IngestPredicate(const PrimExpr& constraint) {
+  impl_->AddPredicate(constraint);
 }
 
 ConstIntBoundAnalyzer::ConstIntBoundAnalyzer(AnalyzerObj* parent)
     : impl_(std::make_unique<Impl>(parent)) {}
 
 ConstIntBoundAnalyzer::~ConstIntBoundAnalyzer() = default;
+
+void ConstIntBoundAnalyzer::Reset() {
+  // Variable bounds and additional predicate bounds share the context lifetime.
+  impl_->Reset();
+}
 
 void ConstIntBoundAnalyzer::CopyFrom(const ConstIntBoundAnalyzer& other) {
   impl_->CopyFrom(*other.impl_);

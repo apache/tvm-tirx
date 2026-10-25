@@ -17,7 +17,7 @@
 
 """Common utilities for TRN operator scheduling."""
 
-from tvm_tirx.sym.analyzer import Analyzer
+from tvm_tirx.sym import Analyzer, ConstraintContext, RangeConstraint
 from tvm_tirx.tirx.tile import DispatchContext
 
 # Used to generate the correct [:, None] for mask/predicate
@@ -38,6 +38,8 @@ def init_analyzer(sctx: DispatchContext):
         The initialized analyzer
     """
     analyzer = Analyzer()
+    constraints = ConstraintContext()
     for v, r in sctx.var_range_map.items():
-        analyzer.bind(v, r)
+        constraints.append(RangeConstraint(v, r))
+    analyzer.sync_constraint_context(constraints)
     return analyzer

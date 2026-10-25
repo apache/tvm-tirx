@@ -368,8 +368,12 @@ void CodeGenWebGPU::Dispatch_(const RegionStmtObj* op) {
         << "Virtual thread launches must be lowered before code generation";
     PrimVar var = op->body_params[0].as_or_throw<PrimVar>();
     PrimExpr extent = op->args[1].as_or_throw<PrimExpr>();
-    With<sym::AnalyzerConstraintScope> thread_scope(analyzer_, var >= 0 && var < extent);
+    auto parent_context = analyzer_->GetConstraintContext();
+    auto thread_context = parent_context->Snapshot();
+    thread_context->Append(sym::PredicateConstraint(var >= 0 && var < extent));
+    analyzer_->SyncConstraintContext(thread_context);
     CodeGenC::Dispatch_(op);
+    analyzer_->SyncConstraintContext(parent_context);
   } else {
     TVM_FFI_THROW(ValueError) << "Unsupported region op " << op->op;
   }
@@ -690,7 +694,11 @@ void CodeGenWebGPU::Dispatch_(const BindObj* op) {
   // Stateful reads cannot be substituted after the underlying state changes.
   if (auto prim_value = op->value.as<PrimExpr>();
       prim_value && SideEffect(prim_value.value()) <= CallEffectKind::kPure) {
-    analyzer_->Bind(op->var, prim_value.value());
+    {
+      auto context = analyzer_->GetConstraintContext();
+      context->Append(sym::BindingConstraint(op->var, prim_value.value()));
+      analyzer_->SyncConstraintContext(context);
+    }
   }
   // use ssa form.
   if (print_ssa_form_) {

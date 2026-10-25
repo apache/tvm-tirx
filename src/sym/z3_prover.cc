@@ -47,6 +47,7 @@
 #include <unordered_set>
 #include <vector>
 
+#include "constraint_helpers.h"
 #include "tvm/ffi/cast.h"
 #include "tvm/ffi/dtype.h"
 #include "tvm/ffi/object.h"
@@ -110,8 +111,7 @@ class Z3Prover::Impl final : tvm::ExprFunctor<z3::expr(const Expr&)> {
   AnalyzerObj* analyzer;
   /// @brief Z3 context owning every handle of this prover.
   // Null until the solver materializes; Materialize creates a context private
-  // to this prover, which clones of a materialized prover then share so their
-  // copied handles stay valid.
+  // to this prover. Clones copy the raw journal and materialize independently.
   std::shared_ptr<z3::context> ctx;
 
   /// @brief Z3 solver instance
@@ -177,26 +177,19 @@ class Z3Prover::Impl final : tvm::ExprFunctor<z3::expr(const Expr&)> {
     // The solver (and its context) is created lazily (see Materialize).
     // Analyzers are constructed in large numbers as cheap scratch objects,
     // and only a tiny fraction ever reaches the Z3 fallback of CanProve;
-    // creating the solver (and translating every Bind into Z3 constraints)
+    // creating the solver (and translating every IngestBinding into Z3 constraints)
     // eagerly made every Analyzer pay Z3's initialization cost up front.
     // Until the first operation that actually needs the solver,
-    // Bind/EnterConstraint only journal their arguments into scope_stack_.
+    // IngestBinding/AddPredicate only journal their arguments into scope_stack_.
     scope_stack_.push_back({});
     scope_side_effects_.push_back({});
     // use rlimit, not timeout to ensure deterministic behavior
     SetRLimit(10000U);
   }
 
-  /// @brief Create the solver on first use and replay the recorded journal.
-  ///
-  /// The live scope_stack_ (which also feeds the SMTLIB2 debug output) holds
-  /// exactly the binds and constraints an eagerly-built solver would carry:
-  /// binds append to the innermost scope and scopes pop LIFO, so walking the
-  /// scopes front-to-back replays the surviving entries in the order they
-  /// were recorded. Entries from scopes that already exited were popped
-  /// together with their scope and are correctly absent. The replay performs
-  /// the same MemoPut/solver->add sequence the eager path would have done
-  /// for these entries, so CanProve answers are unchanged.
+  // Materialize only on a proving/debug query. The single root journal records
+  // the accepted binding/predicate order; additive sync extends it and removal
+  // replaces it. Temporary query predicates are supplied as check assumptions.
   void Materialize() {
     if (solver) return;
     // The solver gets its own context: verdicts under the deterministic
@@ -280,30 +273,16 @@ class Z3Prover::Impl final : tvm::ExprFunctor<z3::expr(const Expr&)> {
   /// @brief Per-scope memoized side-effect expressions, parallel to scope_stack_.
   std::vector<std::vector<PrimExpr>> scope_side_effects_;
 
-  /// @brief Enter a constraint scope
-  std::function<void()> EnterConstraint(const PrimExpr& constraint, bool is_assume) {
-    scope_stack_.push_back({});
+  // Context premises append to one ordered journal. Removal clears the whole
+  // journal and solver. Temporary query predicates never enter this journal.
+  void AddPredicate(const PrimExpr& constraint, bool is_assume) {
     scope_stack_.back().push_back(Scope{Scope::Constraint, std::nullopt, std::nullopt, std::nullopt,
                                         std::nullopt, constraint, is_assume});
-    scope_side_effects_.push_back({});
-    if (solver) {
-      ApplyConstraint(constraint, is_assume, scope_side_effects_.size() - 1);
-    }
-    // Exit callback: scopes leave LIFO. If the solver materialized while this
-    // scope was live, replay pushed its frame and retained its assume memos.
-    return [this]() {
-      if (solver) solver->pop();
-      for (const PrimExpr& expr : scope_side_effects_.back()) {
-        MemoErase(expr);
-      }
-      scope_side_effects_.pop_back();
-      scope_stack_.pop_back();
-    };
+    if (solver) ApplyConstraint(constraint, is_assume, scope_side_effects_.size() - 1);
   }
 
-  /// @brief Translate a constraint into the solver (push + assert).
+  /// @brief Assert the next accepted predicate in the materialized solver.
   void ApplyConstraint(const PrimExpr& constraint, bool is_assume, size_t scope_index) {
-    solver->push();
     this->is_assume = is_assume;
     solver->add(VisitBool(constraint));
     this->is_assume = false;
@@ -363,7 +342,7 @@ class Z3Prover::Impl final : tvm::ExprFunctor<z3::expr(const Expr&)> {
   }
 
   /// @brief Check if the expression can be proved
-  bool CanProve(const PrimExpr& expr) {
+  bool CanProve(const PrimExpr& expr, const std::vector<Constraint>& temporary_predicates) {
     // Z3 is only a fallback. Any failure (including z3::exception thrown by the
     // solver) must degrade to "cannot prove" instead of escaping to the caller.
     try {
@@ -371,26 +350,23 @@ class Z3Prover::Impl final : tvm::ExprFunctor<z3::expr(const Expr&)> {
       // The trivial-bad-case check below consults the memo (IsFreeNode), so
       // the journal must be replayed first for it to see the bound vars.
       Materialize();
-      if (CheckTrivilBadCases(expr)) return false;
-      z3::expr_vector constr(*ctx);
+      if (temporary_predicates.empty() && CheckTrivilBadCases(expr)) return false;
+      z3::expr_vector constr = TemporaryAssumptions(temporary_predicates);
       constr.push_back(!ConvertBool(expr));
       auto result = solver->check(constr);
-      constr.pop_back();
       return result == z3::unsat;
     } catch (const z3::exception&) {
+      // Materialization or translation may have installed only part of the
+      // journal. Keep the accepted facts, but never reuse that partial solver;
+      // the next proving query must replay them into a fresh context.
+      ResetSolver();
       return false;
     }
   }
 
-  /// @brief Binded
-  /// @brief Bind a variable to a value or a range
-  /// A bind journaled inside a live constraint scope is dropped with that
-  /// scope. The eager path differed only cosmetically: it kept the var's memo
-  /// translation after the scope's solver frame (and with it the var's range
-  /// assertions) was popped, leaving an unconstrained placeholder --
-  /// observably the same as translating the var as a fresh free variable on
-  /// demand, which is what a later query on the journal does.
-  void Bind(const Var& var, const PrimExpr& value, bool allow_override = false) {
+  // Binding translations are context-derived. A reset discards both the raw
+  // journal and translations; temporary assumptions never alter that journal.
+  void IngestBinding(const Var& var, const PrimExpr& value, bool allow_override = false) {
     if (!IsZ3SupportedExpr(var.get())) return;
     scope_stack_.back().push_back(Scope{Scope::BindValue, var, value});
     if (!solver) return;  // journaled; translated when the solver materializes
@@ -398,13 +374,15 @@ class Z3Prover::Impl final : tvm::ExprFunctor<z3::expr(const Expr&)> {
   }
 
   void ApplyBindValue(const Var& var, const PrimExpr& value) {
-    // we add the binding whenever the value is pure,
-    // because non-pure parts are handling by creating free variables in Dispatch
-    MemoPut(var.as_or_throw<PrimExpr>(), ConvertInt(value));
+    // A prior query or predicate may already have translated the free variable.
+    // Keep that identity and assert its definition; replacing/dropping the memo
+    // would disconnect earlier assertions from this additive binding.
+    z3::expr var_expr = ConvertInt(var.as_or_throw<PrimExpr>());
+    solver->add(var_expr == ConvertInt(value));
   }
 
-  /// @brief Bind a variable to a range
-  void Bind(const Var& var, const Range& range, bool allow_override = false) {
+  /// @brief Journal a variable range
+  void IngestBinding(const Var& var, const Range& range, bool allow_override = false) {
     if (!IsZ3SupportedExpr(var.get())) return;
     scope_stack_.back().push_back(
         Scope{Scope::BindRange, var, std::nullopt, range->begin, range->extent});
@@ -413,11 +391,9 @@ class Z3Prover::Impl final : tvm::ExprFunctor<z3::expr(const Expr&)> {
   }
 
   void ApplyBindRange(const Var& var, const PrimExpr& begin, const PrimExpr& extent) {
-    // 1. Create a placeholder for the var, and save it in the memo
-    //    if the var is overrided later, we can just update the memo, and the old placeholder will
-    //    be ignored
-    auto var_expr = Create(var.get());
-    MemoPut(var.as_or_throw<PrimExpr>(), var_expr);
+    // Reuse an existing free-variable translation so an additive range also
+    // constrains occurrences translated by earlier predicates or queries.
+    auto var_expr = ConvertInt(var.as_or_throw<PrimExpr>());
 
     // 2. Add constraint on the placeholder
     //    when min_expr >= max_expr, the range is empty, which is under undefined behavior
@@ -442,55 +418,34 @@ class Z3Prover::Impl final : tvm::ExprFunctor<z3::expr(const Expr&)> {
     }
   }
 
-  void CopyFrom(const Self& other_) {
-    if (!other_.solver) {
-      // The source has not materialized: its entire Z3 state is the journal.
-      // Copy it and stay lazy; a later Materialize on this clone rebuilds
-      // the same solver state the source would have built.
-      solver.reset();
-      memo_.clear();
-      z3_pool_.clear();
-      free_slots_.clear();
-      ns = Namespace();
-      side_effect_exprs_.clear();
-      ctx = other_.ctx;
-      scope_stack_ = other_.scope_stack_;
-      scope_side_effects_.assign(scope_stack_.size(), {});
-      timeout_ms = other_.timeout_ms;
-      rlimit = other_.rlimit;
-      return;
-    }
-    // Z3 handles cannot move between contexts. Destroy every handle owned by
-    // this fresh clone before adopting the source Analyzer's context.
+  void ResetSolver() {
+    // Destroy every Z3 expression before its owning context. Keep only resource
+    // configuration and the raw journal, which can be replayed after a failure.
     solver.reset();
     memo_.clear();
     z3_pool_.clear();
     free_slots_.clear();
-    ctx = other_.ctx;
-    solver.emplace(CreateSolver(*ctx));
+    side_effect_exprs_.clear();
+    for (auto& effects : scope_side_effects_) effects.clear();
+    ns = Namespace();
+    ctx.reset();
+    is_assume = false;
+  }
 
-    // Copy other objects. The source and destination now share one context, so
-    // copying Z3 handles is valid and both provers retain its ownership.
-    ns = other_.ns;
-    std::vector<std::pair<size_t, const PrimExpr*>> live;
-    live.reserve(other_.memo_.size());
-    for (auto& item : other_.memo_) {
-      live.emplace_back(item.second, &item.first);
-    }
-    std::sort(live.begin(), live.end(),
-              [](const auto& lhs, const auto& rhs) { return lhs.first < rhs.first; });
-    for (auto [index, expr] : live) {
-      MemoPut(*expr, *other_.z3_pool_[index]);
-    }
-    for (auto a : other_.solver->assertions()) {
-      solver->add(a);
-    }
-    // Copy timeout options, but not other solver options.
-    SetTimeoutMs(other_.timeout_ms);
-    SetRLimit(other_.rlimit);
-    // Copy the scope stack, which contains comments for SMTLIB2 generation.
+  void Reset() {
+    ResetSolver();
+    scope_side_effects_ = {{}};
+    scope_stack_ = {{}};
+  }
+
+  void CopyFrom(const Self& other_) {
+    // Copy the complete raw journal, not flattened solver assertions or handles
+    // into another context. The independent copy stays lazy and replays in order.
+    Reset();
     scope_stack_ = other_.scope_stack_;
-    scope_side_effects_ = other_.scope_side_effects_;
+    scope_side_effects_.assign(scope_stack_.size(), {});
+    timeout_ms = other_.timeout_ms;
+    rlimit = other_.rlimit;
   }
 
   /// @brief Set timeout in milliseconds
@@ -507,14 +462,22 @@ class Z3Prover::Impl final : tvm::ExprFunctor<z3::expr(const Expr&)> {
     solver->set("rlimit", rlimit);
   }
 
-  /// @brief Get the SMTLIB2 representation of the current solver state
-  ffi::String GetSMTLIB2() {
-    Materialize();
-    std::stringstream ss;
-    ss << "(set-option :timeout " << timeout_ms << ")\n";
-    AddScopeDebugMsg(ss);
-    ss << solver->to_smt2();
-    return ss.str();
+  // Convert temporary predicates before a solver push: expression memoization
+  // may add universally valid dtype bounds, which must outlive cached handles.
+  // The predicates themselves remain assumptions and never enter the journal.
+  z3::expr_vector TemporaryAssumptions(const std::vector<Constraint>& predicates) {
+    z3::expr_vector assumptions(*ctx);
+    for (const Constraint& fact : predicates) {
+      if (const auto* binding = fact.as<BindingConstraintObj>()) {
+        if (IsZ3SupportedExpr(binding->var.get()) && IsZ3SupportedExpr(binding->value.get()))
+          assumptions.push_back(ConvertInt(binding->var.as_or_throw<PrimExpr>()) ==
+                                ConvertInt(binding->value));
+      } else if (const auto* predicate = fact.as<PredicateConstraintObj>()) {
+        if (IsZ3SupportedExpr(predicate->condition.get()))
+          assumptions.push_back(ConvertBool(predicate->condition));
+      }
+    }
+    return assumptions;
   }
 
   void AddScopeDebugMsg(std::ostream& ss) {
@@ -537,19 +500,28 @@ class Z3Prover::Impl final : tvm::ExprFunctor<z3::expr(const Expr&)> {
     }
   }
 
-  /// @brief Get the SMTLIB2 representation of the current solver state with additional expr trying
-  /// to prove
-  ffi::String GetSMTLIB2(const PrimExpr& expr) {
-    Materialize();
-    std::stringstream ss;
-    ss << "(set-option :timeout " << timeout_ms << ")\n";
-    AddScopeDebugMsg(ss);
-    ss << "; Trying to prove: " << expr << "\n";
-    solver->push();
-    solver->add(!ConvertBool(expr));
-    ss << solver->to_smt2();
-    solver->pop();
-    return ss.str();
+  /// @brief Render the current facts and optional proof query, including query-local predicates.
+  ffi::String GetSMTLIB2(const ffi::Optional<PrimExpr>& expr,
+                         const std::vector<Constraint>& temporary_predicates) {
+    try {
+      Materialize();
+      z3::expr_vector assumptions = TemporaryAssumptions(temporary_predicates);
+      if (expr) assumptions.push_back(!ConvertBool(*expr));
+      std::stringstream ss;
+      ss << "(set-option :timeout " << timeout_ms << ")\n";
+      AddScopeDebugMsg(ss);
+      if (expr) ss << "; Trying to prove: " << *expr << "\n";
+      solver->push();
+      solver->add(assumptions);
+      ss << solver->to_smt2();
+      solver->pop();
+      return ss.str();
+    } catch (...) {
+      // Local Z3 handles have unwound before the context is destroyed. A failed
+      // debug query must not leave temporary assertions or a partial translation.
+      ResetSolver();
+      throw;
+    }
   }
 
   /// @brief Get the statistics of the solver
@@ -560,29 +532,36 @@ class Z3Prover::Impl final : tvm::ExprFunctor<z3::expr(const Expr&)> {
     return ss.str();
   }
 
-  ffi::String GetModel(const PrimExpr& expr) {
-    Materialize();
-    solver->set("model", true);
-    solver->push();
-    solver->add(!ConvertBool(expr));
-    auto result = solver->check();
-    ffi::String model_str;
-    if (result == z3::sat) {
-      z3::model m = solver->get_model();
-      std::map<std::string, z3::expr> model_map;
-      for (unsigned i = 0; i < m.size(); i++) {
-        z3::func_decl d = m[i];
-        model_map.emplace(d.name().str(), m.get_const_interp(d));
+  ffi::String GetModel(const PrimExpr& expr, const std::vector<Constraint>& temporary_predicates) {
+    try {
+      Materialize();
+      z3::expr_vector assumptions = TemporaryAssumptions(temporary_predicates);
+      assumptions.push_back(!ConvertBool(expr));
+      solver->set("model", true);
+      solver->push();
+      solver->add(assumptions);
+      auto result = solver->check();
+      ffi::String model_str;
+      if (result == z3::sat) {
+        z3::model m = solver->get_model();
+        std::map<std::string, z3::expr> model_map;
+        for (unsigned i = 0; i < m.size(); i++) {
+          z3::func_decl d = m[i];
+          model_map.emplace(d.name().str(), m.get_const_interp(d));
+        }
+        std::stringstream ss;
+        for (const auto& [k, v] : model_map) {
+          ss << "  " << k << " = " << v << "\n";
+        }
+        model_str = ss.str();
       }
-      std::stringstream ss;
-      for (const auto& [k, v] : model_map) {
-        ss << "  " << k << " = " << v << "\n";
-      }
-      model_str = ss.str();
+      solver->pop();
+      solver->set("model", false);
+      return model_str;
+    } catch (...) {
+      ResetSolver();
+      throw;
     }
-    solver->pop();
-    solver->set("model", false);
-    return model_str;
   }
 
   /*!
@@ -598,54 +577,59 @@ class Z3Prover::Impl final : tvm::ExprFunctor<z3::expr(const Expr&)> {
    * \param min_consecutive Minimum consecutive count requirement (0 to disable)
    * \return Number of satisfying values, -1 on error, -2 if min_consecutive constraint not met
    */
-  int64_t CountSatisfyingValues(const Var& var, int64_t max_count, int64_t min_consecutive = 1) {
+  int64_t CountSatisfyingValues(const Var& var, int64_t max_count, int64_t min_consecutive,
+                                const std::vector<Constraint>& temporary_predicates) {
     if (!IsZ3SupportedExpr(var.get())) {
       return -1;
     }
 
-    Materialize();
-    solver->set("model", true);
-    solver->push();
-
-    // Convert the TVM variable to Z3 expression
-    z3::expr z3_var = VisitInt(var.as_or_throw<PrimExpr>());
-
     int64_t count = 0;
     std::vector<int64_t> found_values;
+    try {
+      Materialize();
+      z3::expr_vector assumptions = TemporaryAssumptions(temporary_predicates);
+      z3::expr z3_var = ConvertInt(var.as_or_throw<PrimExpr>());
+      solver->set("model", true);
+      solver->push();
+      solver->add(assumptions);
 
-    while (count < max_count) {
-      auto result = solver->check();
-      if (result != z3::sat) {
-        break;  // No more solutions
+      while (count < max_count) {
+        auto result = solver->check();
+        if (result != z3::sat) {
+          break;  // No more solutions
+        }
+
+        z3::model m = solver->get_model();
+        z3::expr val_expr = m.eval(z3_var, true);
+
+        // Extract the integer value from Z3 expression
+        int64_t val;
+        if (val_expr.is_numeral()) {
+          val = val_expr.get_numeral_int64();
+        } else {
+          // If we can't get a concrete value, stop enumeration
+          break;
+        }
+
+        found_values.push_back(val);
+        count++;
+
+        // Add blocking clause: var != val (exclude this solution)
+        solver->add(z3_var != ctx->int_val(val));
       }
 
-      z3::model m = solver->get_model();
-      z3::expr val_expr = m.eval(z3_var, true);
+      solver->pop();
+      solver->set("model", false);
 
-      // Extract the integer value from Z3 expression
-      int64_t val;
-      if (val_expr.is_numeral()) {
-        val = val_expr.get_numeral_int64();
-      } else {
-        // If we can't get a concrete value, stop enumeration
-        break;
+      // Clear any side effects from visiting the variable
+      for (const auto& expr : side_effect_exprs_) {
+        MemoErase(expr);
       }
-
-      found_values.push_back(val);
-      count++;
-
-      // Add blocking clause: var != val (exclude this solution)
-      solver->add(z3_var != ctx->int_val(val));
+      side_effect_exprs_.clear();
+    } catch (...) {
+      ResetSolver();
+      throw;
     }
-
-    solver->pop();
-    solver->set("model", false);
-
-    // Clear any side effects from visiting the variable
-    for (const auto& expr : side_effect_exprs_) {
-      MemoErase(expr);
-    }
-    side_effect_exprs_.clear();
 
     // Check minimum consecutive constraint if enabled
     if (min_consecutive > 0 && count > 0) {
@@ -780,9 +764,36 @@ class Z3Prover::Impl final : tvm::ExprFunctor<z3::expr(const Expr&)> {
   }
 
   z3::expr Dispatch_(const prim::LetObj* op) override {
-    if (IsZ3SupportedExpr(op->var.get())) {
-      MemoPut(op->var.as_or_throw<PrimExpr>(), VisitInt(op->value));
+    if (!IsZ3SupportedExpr(op->var.get()) || !IsZ3SupportedExpr(op->value.get())) return Create(op);
+    z3::expr value = VisitInt(op->value);
+    // A lexical binding must not survive a successful query. Dependent expression
+    // translations also change under the binding, so save the whole memo rather
+    // than trying to identify dependencies or merely restoring the variable key.
+    struct RestoreMemo {
+      Impl* self;
+      decltype(memo_) memo;
+      decltype(z3_pool_) pool;
+      decltype(free_slots_) free_slots;
+      decltype(side_effect_exprs_) side_effects;
+      ~RestoreMemo() {
+        self->memo_ = std::move(memo);
+        self->z3_pool_ = std::move(pool);
+        self->free_slots_ = std::move(free_slots);
+        self->side_effect_exprs_ = std::move(side_effects);
+      }
+    } restore{this, memo_, z3_pool_, free_slots_, side_effect_exprs_};
+    memo_.clear();
+    z3_pool_.clear();
+    free_slots_.clear();
+    side_effect_exprs_.clear();
+    // Keep free-variable identities connected to the surrounding solver facts.
+    // Recompute composite expressions, which may depend on the lexical binding.
+    // The name supply remains monotonic so temporary placeholders cannot alias
+    // future expressions after restoring the memo.
+    for (const auto& [expr, slot] : restore.memo) {
+      if (expr.as<VarObj>() && !expr.same_as(op->var)) MemoPut(expr, *restore.pool[slot]);
     }
+    if (IsZ3SupportedExpr(op->var.get())) MemoPut(op->var.as_or_throw<PrimExpr>(), value);
     return Dispatch(op->body);
   }
   z3::expr Dispatch_(const prim::CastObj* op) override {
@@ -969,31 +980,44 @@ class Z3Prover::Impl final : tvm::ExprFunctor<z3::expr(const Expr&)> {
 };
 
 TVM_TIRX_DLL bool Z3Prover::IsEnabled() const { return true; }
-TVM_TIRX_DLL bool Z3Prover::CanProve(const PrimExpr& expr) { return impl_->CanProve(expr); }
-TVM_TIRX_DLL void Z3Prover::Bind(const Var& var, const Range& new_range, bool allow_override) {
-  return impl_->Bind(var, new_range, allow_override);
+TVM_TIRX_DLL bool Z3Prover::CanProve(const PrimExpr& expr) {
+  detail::TempConstraintScope query(impl_->analyzer);
+  return impl_->CanProve(expr, detail::TempConstraintScope::Query(impl_->analyzer));
 }
-TVM_TIRX_DLL void Z3Prover::Bind(const Var& var, const PrimExpr& expr, bool allow_override) {
-  return impl_->Bind(var, expr, allow_override);
+TVM_TIRX_DLL void Z3Prover::IngestBinding(const Var& var, const Range& new_range) {
+  return impl_->IngestBinding(var, new_range, true);
 }
-std::function<void()> Z3Prover::EnterConstraint(const PrimExpr& constraint, bool is_assume) {
-  return impl_->EnterConstraint(constraint, is_assume);
+TVM_TIRX_DLL void Z3Prover::IngestBinding(const Var& var, const PrimExpr& expr) {
+  return impl_->IngestBinding(var, expr, true);
+}
+void Z3Prover::IngestPredicate(const PrimExpr& constraint) {
+  impl_->AddPredicate(constraint, false);
 }
 ffi::String Z3Prover::GetSMTLIB2(const ffi::Optional<PrimExpr> expr) {
-  if (expr.has_value()) {
-    return impl_->GetSMTLIB2(expr.value());
-  } else {
-    return impl_->GetSMTLIB2();
-  }
+  detail::TempConstraintScope query(impl_->analyzer);
+  return impl_->GetSMTLIB2(expr, detail::TempConstraintScope::Query(impl_->analyzer));
 }
 void Z3Prover::SetTimeoutMs(unsigned timeout_ms) { impl_->SetTimeoutMs(timeout_ms); }
 void Z3Prover::SetRLimit(unsigned max_step) { impl_->SetRLimit(max_step); }
+void Z3Prover::Reset() {
+  // Drop journal, solver, translations and names together; retain resource limits.
+  impl_->Reset();
+}
+
 void Z3Prover::CopyFrom(const Z3Prover& other) { impl_->CopyFrom(*other.impl_); }
-ffi::String Z3Prover::GetStats() { return impl_->GetStats(); }
-ffi::String Z3Prover::GetModel(const PrimExpr& expr) { return impl_->GetModel(expr); }
+ffi::String Z3Prover::GetStats() {
+  detail::TempConstraintScope query(impl_->analyzer);
+  return impl_->GetStats();
+}
+ffi::String Z3Prover::GetModel(const PrimExpr& expr) {
+  detail::TempConstraintScope query(impl_->analyzer);
+  return impl_->GetModel(expr, detail::TempConstraintScope::Query(impl_->analyzer));
+}
 TVM_TIRX_DLL int64_t Z3Prover::CountSatisfyingValues(const Var& var, int64_t max_count,
                                                      int64_t min_consecutive) {
-  return impl_->CountSatisfyingValues(var, max_count, min_consecutive);
+  detail::TempConstraintScope query(impl_->analyzer);
+  return impl_->CountSatisfyingValues(var, max_count, min_consecutive,
+                                      detail::TempConstraintScope::Query(impl_->analyzer));
 }
 Z3Prover::Z3Prover(AnalyzerObj* parent) : impl_(std::make_unique<Impl>(parent)) {}
 TVM_TIRX_DLL Z3Prover::~Z3Prover() = default;
@@ -1005,6 +1029,7 @@ TVM_TIRX_DLL Z3Prover::~Z3Prover() = default;
 #include <tvm/ir/prim/expr.h>
 #include <tvm/sym/analyzer.h>
 
+#include "constraint_helpers.h"
 #include "tvm/ffi/string.h"
 #include "tvm/ir/expr.h"
 
@@ -1014,29 +1039,45 @@ using namespace ffi;
 
 // Stub implementation used when Z3 support is not built. All proving queries
 // conservatively report "cannot prove" while keeping the public API available.
-class Z3Prover::Impl {};
+class Z3Prover::Impl {
+ public:
+  explicit Impl(AnalyzerObj* owner) : analyzer(owner) {}
+  AnalyzerObj* analyzer;
+};
 
 TVM_TIRX_DLL bool Z3Prover::IsEnabled() const { return false; }
-TVM_TIRX_DLL bool Z3Prover::CanProve(const PrimExpr& expr) { return false; }
-TVM_TIRX_DLL void Z3Prover::Bind(const Var& var, const Range& new_range, bool allow_override) {}
-TVM_TIRX_DLL void Z3Prover::Bind(const Var& var, const PrimExpr& expr, bool allow_override) {}
-std::function<void()> Z3Prover::EnterConstraint(const PrimExpr& constraint, bool is_assume) {
-  return []() {};
+TVM_TIRX_DLL bool Z3Prover::CanProve(const PrimExpr& expr) {
+  detail::TempConstraintScope query(impl_->analyzer);
+  return false;
 }
+TVM_TIRX_DLL void Z3Prover::IngestBinding(const Var& var, const Range& new_range) {}
+TVM_TIRX_DLL void Z3Prover::IngestBinding(const Var& var, const PrimExpr& expr) {}
+void Z3Prover::IngestPredicate(const PrimExpr& constraint) {}
 ffi::String Z3Prover::GetSMTLIB2(const ffi::Optional<PrimExpr> expr) {
+  detail::TempConstraintScope query(impl_->analyzer);
   return "; Z3 Prover is disabled.";
 }
 void Z3Prover::SetTimeoutMs(unsigned timeout_ms) {}
 void Z3Prover::SetRLimit(unsigned rlimit) {}
-ffi::String Z3Prover::GetModel(const PrimExpr& expr) { return "; Z3 Prover is disabled."; }
+ffi::String Z3Prover::GetModel(const PrimExpr& expr) {
+  detail::TempConstraintScope query(impl_->analyzer);
+  return "; Z3 Prover is disabled.";
+}
 TVM_TIRX_DLL int64_t Z3Prover::CountSatisfyingValues(const Var& var, int64_t max_count,
                                                      int64_t min_consecutive) {
+  detail::TempConstraintScope query(impl_->analyzer);
   return -1;  // Z3 disabled, return error
 }
 
+void Z3Prover::Reset() {
+  // The disabled backend has no context-derived state.
+}
 void Z3Prover::CopyFrom(const Z3Prover& other) {}
-ffi::String Z3Prover::GetStats() { return "; Z3 Prover is disabled."; }
-Z3Prover::Z3Prover(AnalyzerObj*) : impl_(nullptr) {}
+ffi::String Z3Prover::GetStats() {
+  detail::TempConstraintScope query(impl_->analyzer);
+  return "; Z3 Prover is disabled.";
+}
+Z3Prover::Z3Prover(AnalyzerObj* parent) : impl_(std::make_unique<Impl>(parent)) {}
 TVM_TIRX_DLL Z3Prover::~Z3Prover() = default;
 
 }  // namespace tvm::sym

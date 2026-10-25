@@ -28,6 +28,7 @@
 #include <vector>
 
 #include "constraint_extract.h"
+#include "constraint_helpers.h"
 
 namespace tvm {
 namespace sym {
@@ -37,6 +38,8 @@ using prim::IsConstInt;
 
 class KnownComparisonAnalyzer::Impl {
  public:
+  explicit Impl(AnalyzerObj* owner = nullptr) : owner_(owner) {}
+  AnalyzerObj* owner_;
   /* \brief Using previously specified knowns, compare the expressions provided
    *
    * \param lhs The left-hand side of the comparison
@@ -56,7 +59,7 @@ class KnownComparisonAnalyzer::Impl {
    * \param expr The bound expression
    * \param allow_override Whether to allow override of existing information.
    */
-  void Bind(const Var& var, const PrimExpr& expr, bool allow_override = false);
+  void IngestBinding(const Var& var, const PrimExpr& expr, bool allow_override = false);
 
   /*! \brief Bind a variable as being within a specified range
    *
@@ -64,16 +67,13 @@ class KnownComparisonAnalyzer::Impl {
    * \param range The known range
    * \param allow_override Whether to allow override of existing information.
    */
-  void Bind(const Var& var, const Range& expr, bool allow_override = false);
+  void IngestBinding(const Var& var, const Range& expr, bool allow_override = false);
 
   /*!
-   * \brief Update the internal state to enter constraint.
+   * \brief Add a predicate to the active derived state.
    * \param constraint A constraint expression.
-   *
-   * \return An exit function that must be called to cleanup.  May be
-   * `nullptr`, if no cleanup is required.
    */
-  std::function<void()> EnterConstraint(const PrimExpr& expr);
+  void AddPredicate(const PrimExpr& expr);
 
   void CopyFrom(const Impl& other) {
     expr_to_key = other.expr_to_key;
@@ -175,7 +175,7 @@ class KnownComparisonAnalyzer::Impl {
   /*! \brief Generate a Comparison representing the given expression */
   std::optional<Comparison> FromExpr(const PrimExpr& expr);
 
-  /*! \brief Utility function used by Bind and EnterConstraint
+  /*! \brief Utility function used by IngestBinding and AddPredicate
    *
    * \param expr The comparison expression, to be converted into
    * internal Comparison objects.
@@ -382,26 +382,44 @@ KnownComparisonAnalyzer::Impl::Comparison::WithLHS(Key new_lhs) const {
   }
 }
 
-KnownComparisonAnalyzer::KnownComparisonAnalyzer() : impl_(std::make_unique<Impl>()) {}
+KnownComparisonAnalyzer::KnownComparisonAnalyzer(AnalyzerObj* parent)
+    : impl_(std::make_unique<Impl>(parent)) {}
 KnownComparisonAnalyzer::~KnownComparisonAnalyzer() {}
+
+void KnownComparisonAnalyzer::Reset() {
+  // Drop comparisons, binding metadata and their expression keys together.
+  *impl_ = Impl(impl_->owner_);
+}
 
 void KnownComparisonAnalyzer::CopyFrom(const KnownComparisonAnalyzer& other) {
   impl_->CopyFrom(*other.impl_);
 }
 
 CompareResult KnownComparisonAnalyzer::TryCompare(const PrimExpr& lhs, const PrimExpr& rhs) {
-  return impl_->TryCompare(lhs, rhs);
+  detail::TempConstraintScope query(impl_->owner_);
+  const auto& facts = detail::TempConstraintScope::Query(impl_->owner_);
+  if (facts.empty()) return impl_->TryCompare(lhs, rhs);
+  // Temporary binding metadata and expression keys belong to query scratch.
+  Impl temporary;
+  temporary.CopyFrom(*impl_);
+  for (const Constraint& fact : facts) {
+    if (const auto* binding = fact.as<BindingConstraintObj>())
+      temporary.IngestBinding(binding->var, binding->value, true);
+    else if (const auto* predicate = fact.as<PredicateConstraintObj>())
+      temporary.AddPredicate(predicate->condition);
+  }
+  return temporary.TryCompare(lhs, rhs);
 }
 
-void KnownComparisonAnalyzer::Bind(const Var& var, const PrimExpr& expr, bool allow_override) {
-  impl_->Bind(var, expr, allow_override);
+void KnownComparisonAnalyzer::IngestBinding(const Var& var, const PrimExpr& expr) {
+  impl_->IngestBinding(var, expr, true);
 }
-void KnownComparisonAnalyzer::Bind(const Var& var, const Range& range, bool allow_override) {
-  impl_->Bind(var, range, allow_override);
+void KnownComparisonAnalyzer::IngestBinding(const Var& var, const Range& range) {
+  impl_->IngestBinding(var, range, true);
 }
 
-std::function<void()> KnownComparisonAnalyzer::EnterConstraint(const PrimExpr& constraint) {
-  return impl_->EnterConstraint(constraint);
+void KnownComparisonAnalyzer::IngestPredicate(const PrimExpr& constraint) {
+  impl_->AddPredicate(constraint);
 }
 
 void KnownComparisonAnalyzer::Impl::AddKnown(const PrimExpr& expr, std::vector<Comparison>* vec) {
@@ -414,7 +432,8 @@ void KnownComparisonAnalyzer::Impl::AddKnown(const PrimExpr& expr, std::vector<C
   }
 }
 
-void KnownComparisonAnalyzer::Impl::Bind(const Var& var, const Range& range, bool allow_override) {
+void KnownComparisonAnalyzer::Impl::IngestBinding(const Var& var, const Range& range,
+                                                  bool allow_override) {
   auto it = prev_bindings_.find(var);
   if (it != prev_bindings_.end()) {
     prim::ExprDeepEqual expr_equal;
@@ -442,21 +461,13 @@ void KnownComparisonAnalyzer::Impl::Bind(const Var& var, const Range& range, boo
   }
 }
 
-void KnownComparisonAnalyzer::Impl::Bind(const Var& var, const PrimExpr& expr,
-                                         bool allow_override) {
-  Bind(var, Range::FromMinExtent(expr, 1), allow_override);
+void KnownComparisonAnalyzer::Impl::IngestBinding(const Var& var, const PrimExpr& expr,
+                                                  bool allow_override) {
+  IngestBinding(var, Range::FromMinExtent(expr, 1), allow_override);
 }
 
-std::function<void()> KnownComparisonAnalyzer::Impl::EnterConstraint(const PrimExpr& expr) {
-  size_t old_literal_size = scoped_knowns_.size();
+void KnownComparisonAnalyzer::Impl::AddPredicate(const PrimExpr& expr) {
   AddKnown(expr, &scoped_knowns_);
-  size_t new_literal_size = scoped_knowns_.size();
-
-  auto frecover = [old_literal_size, new_literal_size, this]() {
-    TVM_FFI_ICHECK_EQ(scoped_knowns_.size(), new_literal_size);
-    scoped_knowns_.erase(scoped_knowns_.begin() + old_literal_size, scoped_knowns_.end());
-  };
-  return frecover;
 }
 
 CompareResult KnownComparisonAnalyzer::Impl::TryCompare(const PrimExpr& lhs_expr,

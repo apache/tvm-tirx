@@ -26,6 +26,7 @@ from tvm_tirx import ir
 from tvm_tirx.sym import IntSet
 
 from . import _ffi_api
+from .constraint import ConstraintContext
 
 
 class ProofStrength(enum.IntEnum):
@@ -77,30 +78,6 @@ class ConstIntBound(tvm_ffi.Object):
 
     def __init__(self, min_value, max_value):
         self.__init_handle_by_constructor__(_ffi_api.ConstIntBound, min_value, max_value)
-
-
-class ConstraintScope:
-    """Constraint scope.
-
-    Parameters
-    ----------
-    fenter : function
-        A function that will be called to create an enter context.
-
-    Note
-    ----
-    Do not create object directly, use Analyzer.constraint_scope
-    """
-
-    def __init__(self, fenter):
-        self._fenter = fenter
-        self._fexit = None
-
-    def __enter__(self):
-        self._fexit = self._fenter()
-
-    def __exit__(self, ptype, value, trace):
-        self._fexit()
 
 
 @tvm_ffi.register_object("sym.Analyzer")
@@ -271,10 +248,8 @@ class Analyzer(tvm_ffi.Object):
         The returned analyzer carries the same accumulated facts (variable
         bounds, modular sets, bindings, integer-set domains, literal
         constraints and transitive comparisons) as this one, but owns its own
-        state: binding or simplifying on either analyzer afterwards does not
+        state: synchronizing or simplifying either analyzer afterwards does not
         affect the other. Unlike copying the handle, this is a true deep copy.
-
-        Do not call this while a constraint scope is active on this analyzer.
 
         Returns
         -------
@@ -374,84 +349,22 @@ class Analyzer(tvm_ffi.Object):
         """
         _ffi_api.AnalyzerSetMaximumRewriteSteps(self, maximum)
 
-    def bind(
-        self,
-        var: ir.Var,
-        expr: ir.Expr | ir.Range,
-        allow_override: bool = False,
-    ) -> None:
-        """Bind a variable to the expression.
+    def sync_constraint_context(self, context: "ConstraintContext") -> None:
+        """Synchronize this analyzer with the premises visible in ``context``.
+
+        The analyzer captures the current context position. Later appends become
+        visible only after another synchronization. Switching to a parent,
+        sibling, or empty context removes facts no longer present there.
+        Repeating this call for an unchanged context is inexpensive.
 
         Parameters
         ----------
-        var : tvm_tirx.ir.Var
-            The variable.
-
-        expr : Union[ir.Expr, ir.Range]
-            The expression or the range to bind to.
-
-        allow_override : bool
-            Whether to allow overriding an existing binding for the variable.
+        context : ConstraintContext
+            Binding, range, and predicate premises for subsequent queries.
+            Captured premises and their referenced expressions must not be
+            modified through aliases.
         """
-        return _ffi_api.AnalyzerBind(self, var, expr, allow_override)
-
-    def constraint_scope(self, constraint: ir.Expr) -> ConstraintScope:
-        """Create a constraint scope.
-
-        Parameters
-        ----------
-        constraint : Expr
-            The constraint expression.
-
-        returns
-        -------
-        scope : ConstraintScope
-            The constraint scope
-
-        Examples
-        --------
-        .. code-block:: python
-
-          x = te.var("x")
-          analyzer = tvm_tirx.sym.Analyzer()
-          with analyzer.constraint_scope(x % 3 == 0):
-              # constraint in effect
-              assert analyzer.modular_set(x).coeff == 3
-          # constraint no longer in effect
-          assert analyzer.modular_set(x).coeff != 3
-        """
-
-        def _fenter():
-            return _ffi_api.AnalyzerEnterConstraintContext(self, constraint)
-
-        return ConstraintScope(_fenter)
-
-    def update(
-        self, var: ir.Var, info: ConstIntBound | ModularSet | IntSet, override: bool = False
-    ) -> None:
-        """Update information about var.
-
-        Parameters
-        ----------
-        var : tvm_tirx.ir.Var
-            The variable.
-
-        info : Union[ConstIntBound, ModularSet, IntSet]
-            Related information.  A ``ConstIntBound`` updates the constant
-            integer bound, a ``ModularSet`` updates the modular set, and an
-            ``IntSet`` updates the integer-set domain of ``var``.
-
-        override : bool
-            Whether allow override.
-        """
-        if isinstance(info, ConstIntBound):
-            _ffi_api.AnalyzerConstIntBoundUpdate(self, var, info, override)
-        elif isinstance(info, ModularSet):
-            _ffi_api.AnalyzerModularSetUpdate(self, var, info, override)
-        elif isinstance(info, IntSet):
-            _ffi_api.AnalyzerIntSetUpdate(self, var, info, override)
-        else:
-            raise TypeError(f"Do not know how to handle type {type(info)}")
+        _ffi_api.AnalyzerSyncConstraintContext(self, context)
 
     def can_prove_equal(self, lhs: ir.Expr, rhs: ir.Expr) -> bool:
         """Whether we can prove that lhs == rhs

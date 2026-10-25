@@ -57,7 +57,7 @@ def _tmem_operand(ctx, operand, expected, atom_shape):
     base = operand.physical(origin)
     coords = [Var(f"{operand.name}_atom_{i}", "int32") for i in range(len(atom_shape))]
     for var, size in zip(coords, atom_shape):
-        ctx.analyzer.bind(var, Range(0, size))
+        ctx.add_range(var, Range(0, size))
     physical = operand.physical(coords)
     image = expected.apply(*coords, shape=atom_shape)
     if set(physical) - {"TLane", "TCol"}:

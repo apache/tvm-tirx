@@ -150,7 +150,9 @@ ffi::Tuple<IndexMap, PrimExpr> IndexMapInverseImpl(const IndexMap& self,
 
     sym::Analyzer output_var_analyzer;
     for (size_t i = 0; i < output_vars.size(); ++i) {
-      output_var_analyzer->Bind(output_vars[i], output_ranges[i]);
+      auto context = output_var_analyzer->GetConstraintContext();
+      context->Append(sym::RangeConstraint(output_vars[i], output_ranges[i]));
+      output_var_analyzer->SyncConstraintContext(context);
     }
 
     // Additional simplification steps required to unwrap nested floordiv/floormod

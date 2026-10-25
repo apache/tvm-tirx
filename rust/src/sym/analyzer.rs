@@ -62,7 +62,7 @@ use tvm_ffi::VALUE_ERROR;
 // tvm-ffi-stubgen(end)
 
 // tvm-ffi-stubgen(begin): object/sym.Analyzer
-/// Opaque: bytes [24, 80) of [24, 80) are not accounted for by reflected fields. Fields are read through the C ABI getters.
+/// Opaque: bytes [24, 160) of [24, 160) are not accounted for by reflected fields. Fields are read through the C ABI getters.
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "sym.Analyzer"]
@@ -401,61 +401,6 @@ impl TryFrom<i64> for CompareResult {
     }
 }
 
-/// Facts an analyzer may learn about a variable, for [`Analyzer::update`].
-pub trait AnalyzerFact {
-    #[doc(hidden)]
-    fn update(&self, analyzer: &Analyzer, var: &Var, allow_override: bool) -> Result<()>;
-}
-
-impl AnalyzerFact for ConstIntBound {
-    fn update(&self, analyzer: &Analyzer, var: &Var, allow_override: bool) -> Result<()> {
-        tvm_ffi::cached_global_func!("sym.AnalyzerConstIntBoundUpdate").call_tuple((
-            analyzer,
-            var,
-            self,
-            allow_override,
-        ))?;
-        Ok(())
-    }
-}
-
-impl AnalyzerFact for ModularSet {
-    fn update(&self, analyzer: &Analyzer, var: &Var, allow_override: bool) -> Result<()> {
-        tvm_ffi::cached_global_func!("sym.AnalyzerModularSetUpdate").call_tuple((
-            analyzer,
-            var,
-            self,
-            allow_override,
-        ))?;
-        Ok(())
-    }
-}
-
-impl AnalyzerFact for IntSet {
-    fn update(&self, analyzer: &Analyzer, var: &Var, allow_override: bool) -> Result<()> {
-        tvm_ffi::cached_global_func!("sym.AnalyzerIntSetUpdate").call_tuple((
-            analyzer,
-            var,
-            self,
-            allow_override,
-        ))?;
-        Ok(())
-    }
-}
-
-/// A constraint in effect while it is alive: [`Analyzer::constraint_scope`].
-///
-/// Ending the scope restores the facts the analyzer knew before it, so the scopes of an analyzer
-/// end in the reverse order they were opened: drop the innermost one first. The analyzer is not
-/// synchronized, so a scope stays on the thread that opened it.
-///
-/// ```compile_fail
-/// fn send<T: Send>() {}
-/// send::<tvm_tirx::sym::ConstraintScope>();
-/// ```
-#[must_use = "the constraint ends when the scope is dropped"]
-pub struct ConstraintScope(ExitOnDrop);
-
 /// The uint-as-index assumption, in effect while it is alive: [`allow_uint_as_index`].
 ///
 /// The assumption is a depth counter of the thread, so a scope stays on the thread that opened
@@ -483,59 +428,15 @@ impl Analyzer {
         tvm_ffi::cached_global_func!("sym.AnalyzerClone").call_tuple((self,))?.try_into()
     }
 
-    /// Bind `var` to `expr`, so that `var` is replaced by `expr` (`sym.AnalyzerBind`).
-    pub fn bind(
-        &self,
-        var: impl Into<Var>,
-        expr: impl IntoExpr,
-        allow_override: bool,
-    ) -> Result<()> {
-        let (var, expr) = (var.into(), expr.into_expr()?);
-        tvm_ffi::cached_global_func!("sym.AnalyzerBind").call_tuple((
-            self,
-            &var,
-            &expr,
-            allow_override,
-        ))?;
+    /// Synchronize with a `sym.ConstraintContext` captured at its current position.
+    ///
+    /// The context is an opaque FFI object until typed constraint bindings are available.
+    /// Switching contexts removes facts that are no longer present. Mutating the context
+    /// after this call takes effect only after another synchronization.
+    pub fn sync_constraint_context(&self, context: &tvm_ffi::object::ObjectRef) -> Result<()> {
+        tvm_ffi::cached_global_func!("sym.AnalyzerSyncConstraintContext")
+            .call_packed(&[tvm_ffi::AnyView::from(self), tvm_ffi::AnyView::from(context)])?;
         Ok(())
-    }
-
-    /// Bind `var` to the values of `range` (`sym.AnalyzerBind`).
-    pub fn bind_range(
-        &self,
-        var: impl Into<Var>,
-        range: &Range,
-        allow_override: bool,
-    ) -> Result<()> {
-        let var = var.into();
-        tvm_ffi::cached_global_func!("sym.AnalyzerBind").call_tuple((
-            self,
-            &var,
-            range,
-            allow_override,
-        ))?;
-        Ok(())
-    }
-
-    /// Record a fact about `var`: a [`ConstIntBound`], a [`ModularSet`] or an [`IntSet`]
-    /// (`sym.Analyzer{ConstIntBound,ModularSet,IntSet}Update`).
-    pub fn update(
-        &self,
-        var: impl Into<Var>,
-        fact: &impl AnalyzerFact,
-        allow_override: bool,
-    ) -> Result<()> {
-        fact.update(self, &var.into(), allow_override)
-    }
-
-    /// Assume `constraint` until the returned scope is dropped
-    /// (`sym.AnalyzerEnterConstraintContext`).
-    pub fn constraint_scope(&self, constraint: impl IntoExpr) -> Result<ConstraintScope> {
-        let exit: tvm_ffi::Function =
-            tvm_ffi::cached_global_func!("sym.AnalyzerEnterConstraintContext")
-                .call_tuple((self, &constraint.into_expr()?))?
-                .try_into()?;
-        Ok(ConstraintScope(ExitOnDrop::new(exit)))
     }
 
     /// The constant bounds of `expr` (`sym.AnalyzerConstIntBound`).

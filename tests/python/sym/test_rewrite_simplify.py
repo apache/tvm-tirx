@@ -71,14 +71,29 @@ class TestCase:
 class BaseCompare:
     def test_simplify(self, test_case):
         analyzer = tvm_tirx.sym.Analyzer()
+        analyzer_context = tvm_tirx.sym.ConstraintContext()
 
         if inspect.isclass(test_case.expected) and issubclass(test_case.expected, Exception):
             with pytest.raises(test_case.expected):
-                with analyzer.constraint_scope(test_case.constraint):
+                parent_context_2 = analyzer_context
+                analyzer_context = analyzer_context.snapshot()
+                analyzer_context.append(tvm_tirx.sym.PredicateConstraint(test_case.constraint))
+                analyzer.sync_constraint_context(analyzer_context)
+                try:
                     analyzer.rewrite_simplify(test_case.before)
+                finally:
+                    analyzer_context = parent_context_2
+                    analyzer.sync_constraint_context(analyzer_context)
         else:
-            with analyzer.constraint_scope(test_case.constraint):
+            parent_context_1 = analyzer_context
+            analyzer_context = analyzer_context.snapshot()
+            analyzer_context.append(tvm_tirx.sym.PredicateConstraint(test_case.constraint))
+            analyzer.sync_constraint_context(analyzer_context)
+            try:
                 after = analyzer.rewrite_simplify(test_case.before)
+            finally:
+                analyzer_context = parent_context_1
+                analyzer.sync_constraint_context(analyzer_context)
 
             assert tvm_ffi.structural_equal(after, test_case.expected), (
                 f"Rewrite didn't match expected.\n"
@@ -1804,8 +1819,15 @@ def test_allow_uint_as_index():
     lane = tirx.Var("lane", "int32")
     x = tirx.Var("x", "uint32")
     analyzer = tvm_tirx.sym.Analyzer()
-    analyzer.bind(lane, tvm_tirx.ir.Range.from_min_extent(0, 32))
-    analyzer.bind(w, tvm_tirx.ir.Range.from_min_extent(0, 4))
+    analyzer_context = tvm_tirx.sym.ConstraintContext()
+    analyzer_context.append(
+        tvm_tirx.sym.RangeConstraint(lane, tvm_tirx.ir.Range.from_min_extent(0, 32))
+    )
+    analyzer.sync_constraint_context(analyzer_context)
+    analyzer_context.append(
+        tvm_tirx.sym.RangeConstraint(w, tvm_tirx.ir.Range.from_min_extent(0, 4))
+    )
+    analyzer.sync_constraint_context(analyzer_context)
     s_off = (
         (w * 1024 + lane // 8 * 8).astype("uint32")
         + x * T.uint32(4096)

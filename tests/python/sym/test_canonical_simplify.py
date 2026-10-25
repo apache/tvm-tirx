@@ -26,6 +26,7 @@ from tvm_tirx.script import tirx as T
 class CanonicalChecker:
     def __init__(self):
         self.analyzer = tvm_tirx.sym.Analyzer()
+        self.constraints = tvm_tirx.sym.ConstraintContext()
 
     def _convert(self, expr):
         # TODO(Lunderberg): Make utility functions `tirx.convert` and
@@ -96,14 +97,20 @@ def test_split_index_simplify():
     ck.verify(tmod(x * 8, 2), 0)
 
     # simplify then fold
-    ck.analyzer.update(x, tvm_tirx.sym.ConstIntBound(0, 1000))
-    ck.analyzer.update(y, tvm_tirx.sym.ConstIntBound(0, 1000))
+    ck.constraints.append(tvm_tirx.sym.RangeConstraint(x, tvm_tirx.ir.Range(0, 1001)))
+    ck.analyzer.sync_constraint_context(ck.constraints)
+    ck.constraints.append(tvm_tirx.sym.RangeConstraint(y, tvm_tirx.ir.Range(0, 1001)))
+    ck.analyzer.sync_constraint_context(ck.constraints)
     ck.verify(tdiv(x * 4 + y, 2) * 2 + tmod(x * 4 + y, 2), x * 4 + y)
     # complex fold
     ck.verify(tdiv(z * 9 + y, 2) * 2 + tmod(z * 9 + y, 2), z * 9 + y)
 
-    ck.analyzer.update(x, tvm_tirx.sym.ConstIntBound(-100, 1000), True)
-    ck.analyzer.update(y, tvm_tirx.sym.ConstIntBound(-100, 1000), True)
+    # Replace the old bounds instead of accumulating incompatible assumptions.
+    ck.constraints = tvm_tirx.sym.ConstraintContext()
+    ck.constraints.append(tvm_tirx.sym.RangeConstraint(x, tvm_tirx.ir.Range(-100, 1001)))
+    ck.analyzer.sync_constraint_context(ck.constraints)
+    ck.constraints.append(tvm_tirx.sym.RangeConstraint(y, tvm_tirx.ir.Range(-100, 1001)))
+    ck.analyzer.sync_constraint_context(ck.constraints)
     ck.verify(tdiv(x * 4 + y, 2) * 2 + tmod(x * 4 + y, 2), x * 4 + y)
 
     # floordiv
@@ -122,9 +129,12 @@ def test_split_index_simplify():
     d_tile = tvm_tirx.tirx.Var("d_tile", "int32")
     i = tvm_tirx.tirx.Var("i", "int32")
     v = tvm_tirx.tirx.Var("v", "int32")
-    ck.analyzer.update(d_tile, tvm_tirx.sym.ConstIntBound(0, 7), True)
-    ck.analyzer.update(i, tvm_tirx.sym.ConstIntBound(0, 1), True)
-    ck.analyzer.update(v, tvm_tirx.sym.ConstIntBound(0, 7), True)
+    ck.constraints.append(tvm_tirx.sym.RangeConstraint(d_tile, tvm_tirx.ir.Range(0, 8)))
+    ck.analyzer.sync_constraint_context(ck.constraints)
+    ck.constraints.append(tvm_tirx.sym.RangeConstraint(i, tvm_tirx.ir.Range(0, 2)))
+    ck.analyzer.sync_constraint_context(ck.constraints)
+    ck.constraints.append(tvm_tirx.sym.RangeConstraint(v, tvm_tirx.ir.Range(0, 8)))
+    ck.analyzer.sync_constraint_context(ck.constraints)
     ck.verify(fld(flm(d_tile * 16 + i * 8 + v, 64), 8), flm(d_tile * 2 + i, 8))
 
     # cannot simplify mixed case, unless we canonicalize into one mode.
@@ -138,7 +148,9 @@ def test_bigint_coefficients_and_factors():
     ck = CanonicalChecker()
     x = tirx.Var("x", "int64")
     offset = 2**61
-    ck.analyzer.update(x, tvm_tirx.sym.ConstIntBound(offset, offset + 1))
+    ck.constraints.append(tvm_tirx.sym.PredicateConstraint(x >= offset))
+    ck.constraints.append(tvm_tirx.sym.PredicateConstraint(x <= offset + 1))
+    ck.analyzer.sync_constraint_context(ck.constraints)
     # The canonical base 16 - 48 * offset is wider than int64.
     ck.verify(
         tirx.truncdiv(16 + 48 * (x - offset), 16),
@@ -167,14 +179,19 @@ def test_div_simplify():
     # (17+48*x)/16 != 1+3*x
     ck.verify(tdiv(17 + 48 * x, 16), tdiv(x * 48 + 17, 16))
     # However, when x >= 0, then 17+48*x >= 0 and (17+48*x)/16 can be simplified
-    ck.analyzer.update(x, tvm_tirx.sym.ConstIntBound(0, 10))
+    ck.constraints.append(tvm_tirx.sym.PredicateConstraint(x >= 0))
+    ck.constraints.append(tvm_tirx.sym.PredicateConstraint(x <= 10))
+    ck.analyzer.sync_constraint_context(ck.constraints)
     ck.verify(tdiv(17 + 48 * x, 16), x * 3 + 1)
     # Trying expressions that are not simplifiable for any values of the variables
     ck.verify(tdiv(17 + 47 * x, 16), tdiv(x * 47 + 17, 16))
 
     # floordiv
     fld = tvm_tirx.tirx.floordiv
-    ck.analyzer.update(x, tvm_tirx.sym.ConstIntBound(-1000, 10000), True)
+    ck.constraints = tvm_tirx.sym.ConstraintContext()
+    ck.constraints.append(tvm_tirx.sym.PredicateConstraint(x >= -1000))
+    ck.constraints.append(tvm_tirx.sym.PredicateConstraint(x <= 10000))
+    ck.analyzer.sync_constraint_context(ck.constraints)
     ck.verify(fld(16 + 48 * x, 16), x * 3 + 1)
     ck.verify(fld(17 + 48 * x, 16), x * 3 + 1)
     ck.verify(fld(17 + 47 * x, 16), fld(x * 47 + 17, 16))
@@ -289,11 +306,20 @@ def test_complex_cases():
         - tmod((x * 128) + y, 1296)
         + 1
     )
-    ck.analyzer.update(x, tvm_tirx.sym.ConstIntBound(0, 5))
-    ck.analyzer.update(y, tvm_tirx.sym.ConstIntBound(0, 127))
+    ck.constraints.append(tvm_tirx.sym.PredicateConstraint(x >= 0))
+    ck.constraints.append(tvm_tirx.sym.PredicateConstraint(x <= 5))
+    ck.analyzer.sync_constraint_context(ck.constraints)
+    ck.constraints.append(tvm_tirx.sym.PredicateConstraint(y >= 0))
+    ck.constraints.append(tvm_tirx.sym.PredicateConstraint(y <= 127))
+    ck.analyzer.sync_constraint_context(ck.constraints)
     ck.verify(res2, 1)
 
-    ck.analyzer.update(y, tvm_tirx.sym.ConstIntBound(0, 1024), True)
+    ck.constraints = tvm_tirx.sym.ConstraintContext()
+    ck.constraints.append(tvm_tirx.sym.PredicateConstraint(x >= 0))
+    ck.constraints.append(tvm_tirx.sym.PredicateConstraint(x <= 5))
+    ck.constraints.append(tvm_tirx.sym.PredicateConstraint(y >= 0))
+    ck.constraints.append(tvm_tirx.sym.PredicateConstraint(y <= 1024))
+    ck.analyzer.sync_constraint_context(ck.constraints)
     res3 = (
         tdiv(x * 1024 + y, 65536)
         + tdiv(tmod(x * 1024 + y, 65536), 256)
@@ -319,21 +345,31 @@ def test_simplify_cast():
     # cast(i + j + 1, i32) - cast(i, i32)
     i = tvm_tirx.tirx.Var("i", "int64")
     j = tvm_tirx.tirx.Var("j", "int64")
-    ck.analyzer.update(i, tvm_tirx.sym.ConstIntBound(0, 10))
-    ck.analyzer.update(j, tvm_tirx.sym.ConstIntBound(0, 10))
+    ck.constraints.append(tvm_tirx.sym.PredicateConstraint(i >= 0))
+    ck.constraints.append(tvm_tirx.sym.PredicateConstraint(i <= 10))
+    ck.analyzer.sync_constraint_context(ck.constraints)
+    ck.constraints.append(tvm_tirx.sym.PredicateConstraint(j >= 0))
+    ck.constraints.append(tvm_tirx.sym.PredicateConstraint(j <= 10))
+    ck.analyzer.sync_constraint_context(ck.constraints)
     res = tcast("int32", i + j + 1) - tcast("int32", i)
     ck.verify(res, tcast("int32", j) + 1)
     # cast(i + j - 100, i32)
     i = tvm_tirx.tirx.Var("i", "int64")
     j = tvm_tirx.tirx.Var("j", "int64")
-    ck.analyzer.update(i, tvm_tirx.sym.ConstIntBound(0, 2**31 - 1))
-    ck.analyzer.update(j, tvm_tirx.sym.ConstIntBound(0, 10))
+    ck.constraints.append(tvm_tirx.sym.PredicateConstraint(i >= 0))
+    ck.constraints.append(tvm_tirx.sym.PredicateConstraint(i <= 2**31 - 1))
+    ck.analyzer.sync_constraint_context(ck.constraints)
+    ck.constraints.append(tvm_tirx.sym.PredicateConstraint(j >= 0))
+    ck.constraints.append(tvm_tirx.sym.PredicateConstraint(j <= 10))
+    ck.analyzer.sync_constraint_context(ck.constraints)
     res = tcast("int32", i + j - 100)
     ck.verify(res, res)
     # cast(flm(axis, 7i64) * 2i64 + 1i64, i32) + 1i32
     # - cast(flm(axis, 7i64) * 2i64, i32)
     axis = tvm_tirx.tirx.Var("axis", "int64")
-    ck.analyzer.update(axis, tvm_tirx.sym.ConstIntBound(0, 42))
+    ck.constraints.append(tvm_tirx.sym.PredicateConstraint(axis >= 0))
+    ck.constraints.append(tvm_tirx.sym.PredicateConstraint(axis <= 42))
+    ck.analyzer.sync_constraint_context(ck.constraints)
     res = (
         tcast(
             "int32",
@@ -423,8 +459,10 @@ def test_simplify_le():
         tvm_tirx.tirx.Var("y", "int32"),
         tvm_tirx.tirx.Var("z", "int32"),
     )
-    ck.analyzer.bind(y, tvm_tirx.ir.Range(0, 8))
-    ck.analyzer.bind(z, tvm_tirx.ir.Range(0, 2))
+    ck.constraints.append(tvm_tirx.sym.RangeConstraint(y, tvm_tirx.ir.Range(0, 8)))
+    ck.analyzer.sync_constraint_context(ck.constraints)
+    ck.constraints.append(tvm_tirx.sym.RangeConstraint(z, tvm_tirx.ir.Range(0, 2)))
+    ck.analyzer.sync_constraint_context(ck.constraints)
     ck.verify(x * 8 + y < 16, x < 2)
     ck.verify(x * 8 + z * 4 < 16, x < 2)
     ck.verify(x * 8 + z * 4 < 16, x < 2)
@@ -446,11 +484,16 @@ def test_simplify_le():
         tvm_tirx.tirx.Var("tx", "int32"),
         tvm_tirx.tirx.Var("vec", "int32"),
     )
-    ck.analyzer.bind(x1, tvm_tirx.ir.Range(0, 2))
-    ck.analyzer.bind(x2, tvm_tirx.ir.Range(0, 3))
-    ck.analyzer.bind(ty, tvm_tirx.ir.Range(0, 8))
-    ck.analyzer.bind(tx, tvm_tirx.ir.Range(0, 32))
-    ck.analyzer.bind(vec, tvm_tirx.ir.Range(0, 8))
+    ck.constraints.append(tvm_tirx.sym.RangeConstraint(x1, tvm_tirx.ir.Range(0, 2)))
+    ck.analyzer.sync_constraint_context(ck.constraints)
+    ck.constraints.append(tvm_tirx.sym.RangeConstraint(x2, tvm_tirx.ir.Range(0, 3)))
+    ck.analyzer.sync_constraint_context(ck.constraints)
+    ck.constraints.append(tvm_tirx.sym.RangeConstraint(ty, tvm_tirx.ir.Range(0, 8)))
+    ck.analyzer.sync_constraint_context(ck.constraints)
+    ck.constraints.append(tvm_tirx.sym.RangeConstraint(tx, tvm_tirx.ir.Range(0, 32)))
+    ck.analyzer.sync_constraint_context(ck.constraints)
+    ck.constraints.append(tvm_tirx.sym.RangeConstraint(vec, tvm_tirx.ir.Range(0, 8)))
+    ck.analyzer.sync_constraint_context(ck.constraints)
     ck.verify(
         x1 * 5632 + (((x2 * 8 + ty) * 32 + tx) * 8 + vec) % 5632 < 11008,
         x1 * 22 + (x2 * 8 + ty) % 22 < 43,
@@ -463,7 +506,8 @@ def test_simplify_le():
         tvm_tirx.tirx.Var("y", "int32"),
         tvm_tirx.tirx.Var("z", "int32"),
     )
-    ck.analyzer.bind(y, tvm_tirx.ir.Range(0, 1024))
+    ck.constraints.append(tvm_tirx.sym.RangeConstraint(y, tvm_tirx.ir.Range(0, 1024)))
+    ck.analyzer.sync_constraint_context(ck.constraints)
     ck.verify(x * 1024 + y < z * 7168, x - z * 7 < 0)
 
 
@@ -482,8 +526,10 @@ def test_simplify_le_negative_scale_extra():
     ck = CanonicalChecker()
     tx = tvm_tirx.tirx.Var("tx", "int32")
     warp = tvm_tirx.tirx.Var("warp", "int32")
-    ck.analyzer.bind(tx, tvm_tirx.ir.Range(0, 128))
-    ck.analyzer.bind(warp, tvm_tirx.ir.Range(0, 4))
+    ck.constraints.append(tvm_tirx.sym.RangeConstraint(tx, tvm_tirx.ir.Range(0, 128)))
+    ck.analyzer.sync_constraint_context(ck.constraints)
+    ck.constraints.append(tvm_tirx.sym.RangeConstraint(warp, tvm_tirx.ir.Range(0, 4)))
+    ck.analyzer.sync_constraint_context(ck.constraints)
 
     # Same-source joint projection: the comparison genuinely depends on tx
     # at warp == 0 (e.g. tx == 4 ⇒ 0 < 1 = True; tx == 1 ⇒ 2 < 0 = False),
