@@ -1319,7 +1319,9 @@ def test_iter_map_simplify_cyclic_shift():
     simplified = tvm_tirx.sym.iter_map_simplify([index], var_dom([(fused, 42)]))[0]
     for value in range(42):
         analyzer = tvm_tirx.sym.Analyzer()
-        analyzer.bind(fused, tvm_tirx.tirx.const(value, "int32"))
+        context = tvm_tirx.sym.ConstraintContext()
+        context.append(tvm_tirx.sym.BindingConstraint(fused, tvm_tirx.tirx.const(value, "int32")))
+        analyzer.sync_constraint_context(context)
         expected = ((value // 7 + 1) % 6) * 7 + (value % 7 + 2) % 7
         assert int(analyzer.simplify(simplified)) == expected
 
