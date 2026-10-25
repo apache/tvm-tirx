@@ -19,9 +19,10 @@
 set -euxo pipefail
 
 rm -rf dist
-uv pip install --python python3 --target .local/python \
-    "scikit-build-core>=0.11,!=1.1.0" "setuptools-scm>=8" "cython>=3.2.8" "mlc-z3-static>=4.16.0"
-export PYTHONPATH="$PWD/.local/python"
-
-uv build --wheel --no-build-isolation --offline --python python3 --out-dir dist ./3rdparty/tvm-ffi
-uv pip install --python python3 --target .local/python --no-deps --offline --reinstall dist/apache_tvm_ffi-*.whl
+unset PYTHONPATH TVM_LIBRARY_PATH TVM_FFI_LIBRARY_PATH TVM_TIRX_LIBRARY_PATH
+export PYTHONNOUSERSITE=1
+uv venv --clear --python "$(command -v python3)"
+source .venv/bin/activate
+uv sync --only-group build
+uv build --wheel --no-build-isolation --offline --out-dir dist ./3rdparty/tvm-ffi
+uv pip install --no-deps --offline --reinstall dist/apache_tvm_ffi-*.whl

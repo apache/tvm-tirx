@@ -28,8 +28,6 @@ build_exhale = os.environ.get("BUILD_CPP_DOCS", "0") == "1"
 
 _DOCS_DIR = Path(__file__).resolve().parent
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "python"))
-
 project = "tvm-tirx"
 html_title = project
 author = "Apache TVM Community"

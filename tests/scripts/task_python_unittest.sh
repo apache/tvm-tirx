@@ -22,4 +22,4 @@ export PYTEST_ADDOPTS="${CI_PYTEST_ADD_OPTIONS:-} ${PYTEST_ADDOPTS:-}"
 if [ "$#" -eq 0 ]; then
     set -- tests/python
 fi
-python3 -m pytest -vvs -n auto -o faulthandler_timeout=120 -m "${TVM_TEST_MARKER:-not gpu}" "$@"
+uv run --no-sync python -m pytest -vvs -n auto -o faulthandler_timeout=120 -m "${TVM_TEST_MARKER:-not gpu}" "$@"

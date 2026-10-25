@@ -35,8 +35,8 @@ rem on PATH in this shell.
 set "conda_exe=conda"
 where conda >nul 2>nul || set "conda_exe=%CONDA%\Scripts\conda.exe"
 
-rem Install the pinned CUDA toolkit via conda from the nvidia channel, mirroring the
-rem LLVM-via-conda install used elsewhere. The win-64 channel caps at 13.0.x, so this
+rem Install the pinned CUDA toolkit via conda from the nvidia channel.
+rem The win-64 channel caps at 13.0.x, so this
 rem pins 13.0.2 -- slightly behind the Linux image's CUDA 13.1, which is harmless: the
 rem sidecar has no device code and links the CUDA runtime by soname only. The nvidia
 rem CDN occasionally returns a transient HTTP 5xx, so retry once; a half-finished first

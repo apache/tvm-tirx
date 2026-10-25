@@ -84,8 +84,8 @@ elseif(Z3_FOUND OR (Z3_INCLUDE_DIR AND Z3_LIBRARY))
 else()
   if(TVM_Z3_REQUIRED)
     message(FATAL_ERROR
-      "TVM_TIRX_USE_Z3 is ON, but Z3 was not found. Install the static Z3 development "
-      "package with `pip install 'mlc-z3-static>=4.16.0'`, or point "
+      "TVM_TIRX_USE_Z3 is ON, but Z3 was not found. From the source root, run "
+      "`uv sync --only-group build` and configure with `uv run --no-sync cmake`, or point "
       "Z3_DIR/CMAKE_PREFIX_PATH at a Z3 installation.")
   endif()
   message(STATUS "Build without Z3 SMT solver support")

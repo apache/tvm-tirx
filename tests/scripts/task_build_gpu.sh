@@ -23,10 +23,9 @@ export CMAKE_ARGS="
     -DTVM_TIRX_USE_CUDA=ON
     -DTVM_TIRX_USE_VULKAN=OFF
     -DTVM_TIRX_USE_OPENCL=OFF
-    -DTVM_TIRX_USE_LLVM='/usr/bin/llvm-config-15 --link-static'
     -DCMAKE_CXX_FLAGS=-Werror
     -DCMAKE_CUDA_ARCHITECTURES=75
 "
-uv build --wheel --no-build-isolation --offline --python python3 --out-dir dist .
+uv build --wheel --no-build-isolation --offline --out-dir dist .
 
 ./build/tirx_cpptest

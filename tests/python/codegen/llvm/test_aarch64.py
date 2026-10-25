@@ -385,6 +385,11 @@ def test_eq(dtype):
         r"cm(p)?eq\tp[0-9].[shdb],( p[0-9]/[zm],)? z[0-9].[shdb], z[0-9].[shdb]", assembly
     )
 
+    if llvm.version_major() >= 23 and dtype in ("float", "float16"):
+        # LLVM 23 can use NEON for both the main loop and the epilogue.
+        loads += re.findall(r"ld[rp]\tq[0-9]+", assembly)
+        matches += re.findall(r"fcmeq\tv[0-9]+\.[0-9]+[hs]", assembly)
+
     assert len(loads) > 1
     # The number of SVE compares depends on the LLVM cost model: LLVM <= 17
     # interleaves the scalable loop by two, while LLVM 20 emits a fixed-width
@@ -425,6 +430,12 @@ def test_neq(dtype):
     matches = re.findall(
         r"cm(p)?(gt|ne)\tp[0-9].[shdb],( p[0-9]/[zm],)? z[0-9].[shdb], z[0-9].[shdb]", assembly
     )
+
+    if llvm.version_major() >= 23 and dtype in ("float", "float16"):
+        # LLVM 23 can use NEON for both the main loop and the epilogue.
+        loads += re.findall(r"ld[rp]\tq[0-9]+", assembly)
+        matches += re.findall(r"fcmgt\tv[0-9]+\.[0-9]+[hs]", assembly)
+        assert re.search(r"orr\tv[0-9]+\.16b", assembly)
 
     assert len(loads) > 1
     # The number of SVE compares depends on the LLVM cost model: LLVM <= 17
@@ -535,6 +546,12 @@ def test_not(dtype):
     matches = re.findall(
         r"eor\tz[0-9].[shdb],( p[0-9]/[zm],)? z[0-9].[shdb], z[0-9].[shdb]", assembly
     )
+
+    if llvm.version_major() >= 23:
+        # Full-vector loads need no predicate. LLVM also represents bytewise
+        # complement as 255 - x, which is identical to xor with all ones.
+        loads += re.findall(r"ldr\tz[0-9]+,", assembly)
+        matches += re.findall(r"subr\tz[0-9]+\.b, z[0-9]+\.b, #255", assembly)
 
     assert len(loads) > 1
     assert len(matches) > 1

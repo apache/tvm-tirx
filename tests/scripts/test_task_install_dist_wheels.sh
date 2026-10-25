@@ -20,7 +20,11 @@ set -euxo pipefail
 
 unset PYTHONPATH TVM_LIBRARY_PATH TVM_FFI_LIBRARY_PATH TVM_TIRX_LIBRARY_PATH
 export PYTHONNOUSERSITE=1
-uv pip install --python python3 --target .local/python --no-deps "apache-tvm-ffi-orcjit>=0.1.2"
-uv pip install --python python3 --target .local/python --no-deps --offline --reinstall \
+uv venv --clear --python "$(command -v python3)"
+source .venv/bin/activate
+
+# Prepare groups before installing the exact artifacts under test.
+uv sync --no-default-groups --group test \
+    --no-install-project --no-install-package apache-tvm-ffi "$@"
+uv pip install --no-deps --offline --reinstall \
     dist/apache_tvm_ffi-*.whl dist/apache_tvm_tirx-*.whl
-export PYTHONPATH="$PWD/.local/python"

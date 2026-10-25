@@ -53,6 +53,13 @@ def _require_compiler(compiler):
         status, major, minor = nvrtc.nvrtcVersion()
         assert status == nvrtc.nvrtcResult.NVRTC_SUCCESS
         version = (major, minor)
+        # Python bindings alone do not provide the toolkit headers used by the driver.
+        from tvm_tirx.support.nvcc import find_cuda_path
+
+        try:
+            find_cuda_path()
+        except RuntimeError:
+            pytest.skip("CUDA toolkit is not installed")
     if version < (12, 8):
         pytest.skip("sm_100a compile tests require CUDA 12.8 or newer")
 

@@ -58,20 +58,31 @@ popen-pool = ["psutil", "cloudpickle"]
 all = ["psutil", "cloudpickle"]
 
 [dependency-groups]
-torch = ["torch"]
+build = [
+  "cmake>=3.26",
+  "ninja",
+  "scikit-build-core>=0.11,!=1.1.0",
+  "setuptools-scm>=8",
+  "cython>=3.2.8",
+  "mlc-llvm-static[all]==23.1.1",
+  "mlc-z3-static==5.3.1.post0",
+]
+torch = [
+  "torch",
+  "setuptools", # setuptools is needed by torch jit for best perf
+  "ninja",
+  "numpy",
+  "ml_dtypes",
+]
+cuda = ["cuda-bindings"]
 popen-pool = ["psutil", "cloudpickle"]
 test = [
-  "z3-solver",
-  "pytest",
-  "pytest-xdist",
-  "pytest-cov",
-  "pytest-mock",
-  "pytest-benchmark",
-  "pytest-timeout",
-  "pytest-rerunfailures",
-  "pytest-repeat",
   { include-group = "torch" },
   { include-group = "popen-pool" },
+  "pytest",
+  "pytest-xdist",
+  "z3-solver",
+  "packaging",
 ]
 lint = ["ruff", "pre-commit"]
 dev = [{ include-group = "test" }, { include-group = "lint" }]
@@ -88,8 +99,12 @@ docs = [
 tvm-tirx-config = "tvm_tirx.config:__main__"
 
 [build-system]
-# mlc-z3-static ships the PIC static libz3 + headers consumed by TVM_TIRX_USE_Z3=ON.
-requires = ["scikit-build-core>=0.11", "mlc-z3-static>=4.16.0"]
+# Static development SDKs are build requirements, not runtime dependencies.
+requires = [
+  "scikit-build-core>=0.11",
+  "mlc-llvm-static[all]==23.1.1",
+  "mlc-z3-static==5.3.1.post0",
+]
 build-backend = "scikit_build_core.build"
 
 [tool.scikit-build]

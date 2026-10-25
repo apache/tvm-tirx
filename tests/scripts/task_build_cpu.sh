@@ -20,9 +20,8 @@ set -euxo pipefail
 
 export CMAKE_ARGS="
     -DTVM_TIRX_BUILD_TESTS=ON
-    -DTVM_TIRX_USE_LLVM='/usr/bin/llvm-config-17 --link-static'
     -DCMAKE_CXX_FLAGS='-Wno-error=range-loop-construct -Wno-error=comment'
 "
-uv build --wheel --no-build-isolation --offline --python python3 --out-dir dist .
+uv build --wheel --no-build-isolation --offline --out-dir dist .
 
 ./build/tirx_cpptest

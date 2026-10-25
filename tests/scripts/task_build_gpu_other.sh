@@ -20,9 +20,12 @@
 set -euxo pipefail
 
 # Keep these libraries separate from the published GPU wheel artifacts.
-uv pip install --python python3 --no-deps --target build/python ./3rdparty/tvm-ffi
-export PYTHONPATH="$PWD/build/python"
-cmake -S . -B build -GNinja -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+unset PYTHONPATH TVM_LIBRARY_PATH TVM_FFI_LIBRARY_PATH TVM_TIRX_LIBRARY_PATH
+export PYTHONNOUSERSITE=1
+source .venv/bin/activate
+uv sync --only-group build
+uv pip install --no-deps --offline --reinstall dist/apache_tvm_ffi-*.whl
+uv run --no-sync cmake -S . -B build -GNinja -DCMAKE_BUILD_TYPE=RelWithDebInfo \
     -DTVM_TIRX_USE_OPENCL=ON -DTVM_TIRX_USE_VULKAN=ON -DTVM_TIRX_USE_ROCM=ON \
-    -DTVM_TIRX_USE_LLVM='/usr/bin/llvm-config-15 --link-static' -DCMAKE_CXX_FLAGS=-Werror
-cmake --build build --target tvm_tirx_compiler tvm_runtime_opencl tvm_runtime_vulkan tvm_runtime_rocm
+    -DCMAKE_CXX_FLAGS=-Werror
+uv run --no-sync cmake --build build --target tvm_tirx_compiler tvm_runtime_opencl tvm_runtime_vulkan tvm_runtime_rocm

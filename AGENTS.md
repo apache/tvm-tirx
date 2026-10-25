@@ -49,21 +49,19 @@ ci/wheel/           Wheel-build support
 
 ## Building
 
-Use `uv` for Python environments and package installation. Run commands from
-the repository root; the default virtual environment is `.venv`.
+Run commands from the repository root. `uv sync` creates and manages the project
+`.venv`; use `uv run --no-sync` to run commands in that environment.
 
 ### Prerequisites
 
-- Python 3.10+, a C++20 compiler, CMake 3.26+, and Ninja.
-- LLVM development libraries and `llvm-config` for the default LLVM backend.
+- Python 3.10+, a C++20 compiler, Git, and uv.
 - Initialize dependencies: `git submodule update --init --recursive`.
 - Install the relevant device SDK when enabling a device runtime.
 
 ### Python editable install (primary workflow)
 
 ```bash
-uv venv
-uv pip install --verbose --group dev -e .
+uv sync --no-default-groups
 ```
 
 Re-run the editable install after changing C++ code or build configuration.
@@ -73,7 +71,7 @@ Pass native build settings through `CMAKE_ARGS`, for example:
 
 ```bash
 CMAKE_ARGS="-DTVM_TIRX_USE_LLVM=ON -DTVM_TIRX_USE_CUDA=OFF" \
-  uv pip install --force-reinstall --verbose -e .
+  uv sync --no-default-groups --reinstall-package apache-tvm-tirx
 ```
 
 The main switches are `TVM_TIRX_USE_LLVM`, `TVM_TIRX_USE_CUDA`,
@@ -84,8 +82,9 @@ runtimes such as Metal, ROCm, Vulkan, and OpenCL have their own
 ### C++-only build
 
 ```bash
-cmake -S . -B build_cpp -DCMAKE_BUILD_TYPE=RelWithDebInfo
-cmake --build build_cpp --parallel --config RelWithDebInfo --target tvm_tirx_compiler
+uv sync --only-group build
+uv run --no-sync cmake -S . -B build_cpp -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo
+uv run --no-sync cmake --build build_cpp --parallel --config RelWithDebInfo --target tvm_tirx_compiler
 ```
 
 The `runtime` target builds the core runtime and enabled device runtimes.
@@ -95,23 +94,26 @@ The `runtime` target builds the core runtime and enabled device runtimes.
 ### C++ tests
 
 ```bash
-cmake -S . -B build_test -DTVM_TIRX_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Debug
-cmake --build build_test --parallel --config Debug --target tirx_cpptest
-ctest --test-dir build_test -C Debug --output-on-failure
+uv sync --only-group build
+uv run --no-sync cmake -S . -B build_test -G Ninja -DTVM_TIRX_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Debug
+uv run --no-sync cmake --build build_test --parallel --config Debug --target tirx_cpptest
+uv run --no-sync ctest --test-dir build_test -C Debug --output-on-failure
 ```
 
 CMake uses an installed GoogleTest package when available and fetches it otherwise.
 
 ### Python tests
 
-After the editable install with the `dev` or `test` dependency group:
+Install the test dependencies and editable package:
 
 ```bash
+uv sync --no-default-groups --group test
 uv run --no-sync pytest -v tests/python -m "not gpu"
 uv run --no-sync pytest -v tests/python/ir/test_type.py
 ```
 
-Run the relevant GPU tests on a machine with the matching runtime and hardware:
+Run the relevant GPU tests on a machine with the matching runtime and hardware.
+For CUDA tests, add `--group cuda` to the sync command above:
 
 ```bash
 uv run --no-sync pytest -v tests/python -m gpu
@@ -145,6 +147,7 @@ cargo is preferred). `import tvm_tirx` loads it and registers the operators of i
 ### Pre-commit (primary lint workflow)
 
 ```bash
+uv sync --only-group lint
 uv run --no-sync pre-commit run --all-files
 uv run --no-sync pre-commit run --files path/to/changed_file
 ```
@@ -195,10 +198,10 @@ Use the existing tag-based style, for example `[FIX]`, `[REFACTOR]`, `[FEAT]`,
 
 ## Documentation
 
-After building TIRx, install the documentation dependency group and build:
+Install the documentation dependencies and editable package, then build:
 
 ```bash
-uv pip install --group docs
+uv sync --no-default-groups --group docs
 uv run --no-sync python -m sphinx -b html -W docs docs/_build/html
 ```
 

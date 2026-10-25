@@ -18,10 +18,8 @@
 
 set -euxo pipefail
 
-source ./tests/scripts/test_task_install_dist_wheels.sh
-uv pip install --python python3 --target .local/python --group docs
-export TVM_TIRX_LIBRARY_PATH="$PWD/.local/python/tvm_tirx/lib"
+source ./tests/scripts/test_task_install_dist_wheels.sh --group docs
 rm -rf docs/_build docs/reference/python/generated
-BUILD_CPP_DOCS=1 python3 -m sphinx -E -a -b html -d docs/_build/doctrees -W --keep-going docs docs/_build/html
+BUILD_CPP_DOCS=1 uv run --no-sync python -m sphinx -E -a -b html -d docs/_build/doctrees -W --keep-going docs docs/_build/html
 git rev-parse HEAD > docs/_build/html/commit_hash
 tar -czf docs.tgz -C docs/_build/html .

@@ -63,7 +63,7 @@ parallel(
         ci.download_artifacts('gpu')
         sh(
           script: """${docker_run} ${images.ci_gpu} bash -euo pipefail -c '
-            source ./tests/scripts/test_task_install_dist_wheels.sh
+            source ./tests/scripts/test_task_install_dist_wheels.sh --group cuda
             ./tests/scripts/task_python_unittest_gpuonly.sh
           '""",
           label: 'Run Python GPU unit tests',

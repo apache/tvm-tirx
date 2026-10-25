@@ -17,13 +17,12 @@
 
 # TIRx Documentation
 
-See [Build from Source](dev/source_build.rst) for the Miniforge/mamba and uv
-environment. After building TIRx, install the documentation dependencies and build from the
-repository root:
+From the repository root, sync the documentation dependencies and editable
+package into the project `.venv`:
 
 ```bash
-uv pip install --group docs
-uv run python -m sphinx -b html -W docs docs/_build/html
+uv sync --no-default-groups --group docs
+uv run --no-sync python -m sphinx -b html -W docs docs/_build/html
 ```
 
 Set `BUILD_CPP_DOCS=1` to also generate the C++ API reference; this requires Doxygen.

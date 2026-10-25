@@ -44,7 +44,7 @@ endfunction()
 # Usage:
 #   find_llvm(${USE_LLVM} [${LLVM_VERSION}])
 #
-# - When USE_LLVM=ON, use auto search
+# - When USE_LLVM=ON, prefer the Python mlc-llvm-static SDK, then auto search
 # - When USE_LLVM=/path/to/llvm-config, use corresponding config
 # - The optional LLVM_VERSION=<required version> which will find a matching version
 #      If LLVM_VERSION=10 then it will find 10.X.X, any version of 10
@@ -66,6 +66,32 @@ macro(find_llvm use_llvm)
   endif()
 
   if(${LLVM_CONFIG} MATCHES ${IS_TRUE_PATTERN})
+    # Like Z3 discovery, preserve an explicit LLVM_DIR override.
+    if(NOT LLVM_DIR)
+      find_package(Python3 COMPONENTS Interpreter QUIET)
+      if(Python3_EXECUTABLE)
+        execute_process(
+          COMMAND "${Python3_EXECUTABLE}" -m mlc_llvm_static.config --cmake-dir
+          OUTPUT_VARIABLE LLVM_STATIC_CMAKE_DIR
+          OUTPUT_STRIP_TRAILING_WHITESPACE
+          ERROR_QUIET
+          RESULT_VARIABLE LLVM_STATIC_RESULT
+        )
+        if(LLVM_STATIC_RESULT EQUAL 0 AND EXISTS "${LLVM_STATIC_CMAKE_DIR}")
+          set(LLVM_DIR "${LLVM_STATIC_CMAKE_DIR}")
+          get_filename_component(LLVM_STATIC_PREFIX "${LLVM_DIR}/../../.." ABSOLUTE)
+          list(PREPEND CMAKE_PREFIX_PATH "${LLVM_STATIC_PREFIX}")
+          set(ZLIB_USE_STATIC_LIBS ON)
+          # This provider supplies imported static targets, including its
+          # transitive dependencies; never select an ambient LLVM dylib.
+          set(LLVM_LINK_LLVM_DYLIB OFF)
+          if(TVM_TIRX_BUILD_PYTHON_MODULE)
+            install(DIRECTORY "${LLVM_STATIC_PREFIX}/../licenses/"
+              DESTINATION licenses COMPONENT tvm_tirx FILES_MATCHING PATTERN "*.txt")
+          endif()
+        endif()
+      endif()
+    endif()
     # This is a workaround for an upstream LLVM issue [0], in which
     # the `CMAKE_INSTALL_LIBDIR` variable is used before definition.
     # While there is an LLVM PR to resolve this fix [1], as of
@@ -78,13 +104,17 @@ macro(find_llvm use_llvm)
     find_package(LLVM ${llvm_version_required} QUIET CONFIG)
     if(NOT LLVM_FOUND)
       message(FATAL_ERROR
-        "LLVM development files were not found. Install LLVM 15 or newer, including "
+        "LLVM development files were not found. From the source root, run "
+        "`uv sync --only-group build` and configure with `uv run --no-sync cmake`, "
+        "or install LLVM 15 or newer, including "
         "its development headers and libraries (for example, llvm-dev on Debian/Ubuntu "
         "or llvm-devel on Fedora). Set LLVM_DIR to the directory containing "
         "LLVMConfig.cmake, add the LLVM installation to CMAKE_PREFIX_PATH, or set "
         "TVM_TIRX_USE_LLVM to the full path to llvm-config. To build without LLVM, "
         "explicitly set TVM_TIRX_USE_LLVM=OFF.")
     endif()
+    # LLVMConfig.cmake exports command-line flags as one space-separated string.
+    separate_arguments(LLVM_DEFINITIONS NATIVE_COMMAND "${LLVM_DEFINITIONS}")
     llvm_map_components_to_libnames(LLVM_LIBS "all")
     if (NOT LLVM_LIBS)
       message(STATUS "Not found - LLVM_LIBS")
