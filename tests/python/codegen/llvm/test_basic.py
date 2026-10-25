@@ -1410,5 +1410,97 @@ def test_llvm_min_max_nan_preserving(dtype, lanes):
     )
 
 
+def _fmod_samples(dtype):
+    """Finite dividends and divisors, including negatives, with exact fmod results."""
+    dividend = np.array([5.5, -5.5, 5.5, -5.5, -3.0, 1.0, -1.25, 8.0], dtype=dtype)
+    divisor = np.array([2.0, 2.0, -2.0, -2.0, 3.0, -2.0, 0.5, 3.0], dtype=dtype)
+    return dividend, divisor
+
+
+def _assert_fmod(got, dividend, divisor):
+    expected = np.fmod(dividend, divisor)
+    # Remainder sign follows the dividend, so negative operands must not collapse to +0.
+    np.testing.assert_array_equal(np.signbit(got), np.signbit(expected))
+    np.testing.assert_array_equal(got, expected)
+
+
+@pytest.mark.skipif(not env.has_llvm(), reason="need llvm")
+def test_llvm_scalar_fmod_reproducer():
+    """Scalar float32 T.fmod compiles on the LLVM CPU pipeline and matches numpy.fmod."""
+    source = """from tvm_tirx.script import tirx as T
+
+@T.function
+def main(out: T.Tensor((1,), "float32"), x: T.float32, y: T.float32):
+    out[0] = T.fmod(x, y)
+"""
+    func = tvm_tirx.script.from_source(source, extra_vars={"T": T})
+    tvm_tirx.tirx.analysis.check_well_formed(func, assert_mode=True)
+    tvm_tirx.ir.assert_structural_equal(
+        func, tvm_tirx.script.from_source(func.script(), extra_vars={"T": T})
+    )
+    target = tvm_tirx.target.Target.from_device(tvm_tirx.cpu())
+    func = func.with_attr("target", target).with_attr("global_symbol", "main")
+    module = tvm_tirx.IRModule({"main": func})
+    with tvm_tirx.ir.transform.PassContext(opt_level=0):
+        compiled = tvm_tirx.tirx.compile(module, target=target, pipeline="tirx")
+
+    assert "frem float" in compiled.mod.inspect_source("ll")
+    dividend, divisor = _fmod_samples("float32")
+    for x, y in zip(dividend, divisor):
+        out = tvm_tirx.runtime.empty((1,), "float32")
+        compiled(out, x, y)
+        _assert_fmod(out.numpy(), np.array([x], dtype="float32"), np.array([y], dtype="float32"))
+
+
+@pytest.mark.skipif(not env.has_llvm(), reason="need llvm")
+@pytest.mark.parametrize("dtype", ["float16", "float32", "float64"])
+@pytest.mark.parametrize("lanes", [1, 4])
+def test_llvm_fmod(dtype, lanes):
+    """prim.fmod lowers to LLVM frem for scalar and vector float16/float32/float64."""
+    n = 8
+    dividend, divisor = _fmod_samples(dtype)
+
+    @T.function
+    def main(A: T.Tensor((n,), dtype), B: T.Tensor((n,), dtype), C: T.Tensor((n,), dtype)):
+        for outer in range(n // lanes):
+            i = outer if T.constexpr(lanes == 1) else T.ramp(outer * lanes, 1, lanes)
+            C[i] = T.fmod(A[i], B[i])
+
+    compiled = tvm_tirx.tirx.compile(main, target="llvm")
+    llvm_element = {"float16": "half", "float32": "float", "float64": "double"}[dtype]
+    llvm_type = llvm_element if lanes == 1 else f"<{lanes} x {llvm_element}>"
+    assert f"frem {llvm_type}" in compiled.mod.inspect_source("ll")
+
+    out = tvm_tirx.runtime.empty((n,), dtype)
+    compiled(
+        tvm_tirx.runtime.tensor(dividend),
+        tvm_tirx.runtime.tensor(divisor),
+        out,
+    )
+    _assert_fmod(out.numpy(), dividend, divisor)
+
+
+@pytest.mark.skipif(not env.has_llvm(), reason="need llvm")
+def test_llvm_fmod_vectorized_loop():
+    """A vectorized loop containing fmod still matches numpy.fmod."""
+    n = 8
+    dtype = "float32"
+    dividend, divisor = _fmod_samples(dtype)
+
+    @T.function
+    def main(A: T.Tensor((n,), dtype), B: T.Tensor((n,), dtype), C: T.Tensor((n,), dtype)):
+        for i in T.vectorized(n):
+            C[i] = T.fmod(A[i], B[i])
+
+    compiled = tvm_tirx.tirx.compile(main, target="llvm")
+    out = tvm_tirx.runtime.empty((n,), dtype)
+    compiled(
+        tvm_tirx.runtime.tensor(dividend),
+        tvm_tirx.runtime.tensor(divisor),
+        out,
+    )
+    _assert_fmod(out.numpy(), dividend, divisor)
+
+
 if __name__ == "__main__":
     tvm_tirx.testing.main()

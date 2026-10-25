@@ -1505,6 +1505,14 @@ llvm::Value* CodeGenLLVM::CreateIntrinsic(const CallObj* op) {
     llvm::Function* f = GetIntrinsicDecl(id, DTypeToLLVMType(ret_type.as_or_throw<PrimType>()),
                                          {builder_->getInt32Ty(), builder_->getInt32Ty()});
     return builder_->CreateCall(f, {MakeValue(args[0]), MakeValue(args[1])});
+  } else if (op->op.same_as(prim::fmod_op())) {
+    // LLVM has no fmod intrinsic. frem matches libm fmod: the remainder has the
+    // sign of the dividend, for scalar and vector float16, float32, and float64.
+    TVM_FFI_ICHECK_EQ(args.size(), 2U);
+    PrimType dtype = ret_type.as_or_throw<PrimType>();
+    TVM_FFI_ICHECK(dtype.MatchesCode(DLDataTypeCode::kDLFloat))
+        << "fmod only applies to float, but got " << dtype;
+    return builder_->CreateFRem(MakeValue(args[0]), MakeValue(args[1]));
   } else {
     TVM_FFI_THROW(InternalError) << "unknown intrinsic " << op->op;
   }

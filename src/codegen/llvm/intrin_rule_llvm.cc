@@ -103,6 +103,9 @@ TVM_FFI_STATIC_INIT_BLOCK() {
       .set_attr<FLowerIntrinsic>("llvm.FLowerIntrinsic",
                                  DispatchLLVMPureIntrin<::llvm::Intrinsic::pow, 2>);
 
+  // prim.fmod is lowered in CodeGenLLVM to the frem instruction. LLVM has no
+  // fmod intrinsic, and frem already covers scalar and vector float types.
+
   OpDef("prim.popcount")
       .set_attr<FLowerIntrinsic>("llvm.FLowerIntrinsic",
                                  DispatchLLVMPureIntrin<::llvm::Intrinsic::ctpop, 1>);
