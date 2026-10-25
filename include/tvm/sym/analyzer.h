@@ -124,11 +124,7 @@ class ConstIntBoundObj : public ffi::Object {
  */
 class ConstIntBound : public ffi::ObjectRef {
  public:
-  /*!
-   * \brief Construct inclusive bounds from their endpoints.
-   * \param min_value The inclusive minimum, or kNegInf.
-   * \param max_value The inclusive maximum, or kPosInf.
-   */
+  /*! \brief Construct inclusive bounds; endpoints may use the infinity sentinels. */
   TVM_TIRX_DLL ConstIntBound(int64_t min_value, int64_t max_value);
 
   /*! \brief Sentinel for an unbounded upper endpoint. */
@@ -224,11 +220,7 @@ class ModularSetObj : public ffi::Object {
  */
 class ModularSet : public ffi::ObjectRef {
  public:
-  /*!
-   * \brief Construct a congruence class from its coefficient and offset.
-   * \param coeff Coefficient of the integer multiplier; zero denotes a singleton.
-   * \param base Constant offset. Both fields are stored as supplied, without normalization.
-   */
+  /*! \brief Store coeff and base as supplied, without normalization. */
   TVM_TIRX_DLL ModularSet(int64_t coeff, int64_t base);
 
   TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(ModularSet, ffi::ObjectRef, ModularSetObj);
@@ -776,12 +768,9 @@ class TVM_TIRX_DLL AnalyzerObj : public ffi::Object {
  */
 class Analyzer : public ffi::ObjectRef {
  public:
-  /*! \brief Default-construct a fresh analyzer (allocates an AnalyzerObj). */
+  /*! \brief Construct a fresh analyzer. */
   Analyzer() : Analyzer(ffi::make_object<AnalyzerObj>()) {}
-  /*!
-   * \brief Adopt a reference to an existing mutable analyzer.
-   * \param n Non-null analyzer object; other references share its state.
-   */
+  /*! \brief Adopt a reference to a non-null analyzer object. */
   explicit Analyzer(ffi::ObjectPtr<AnalyzerObj> n) : ffi::ObjectRef(std::move(n)) {
     TVM_FFI_ICHECK(this->get() != nullptr);
   }

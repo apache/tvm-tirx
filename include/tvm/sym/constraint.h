@@ -306,9 +306,7 @@ class ConstraintContextObj : public ffi::Object {
  */
 class ConstraintContext : public ffi::ObjectRef {
  public:
-  /*!
-   * \brief Construct an empty root.
-   */
+  /*! \brief Construct an empty root. */
   ConstraintContext() : ffi::ObjectRef(ffi::make_object<ConstraintContextObj>()) {}
   /*!
    * \brief Construct a child capturing [0, parent_local_prefix) of its parent's local entries.
@@ -321,10 +319,7 @@ class ConstraintContext : public ffi::ObjectRef {
   ConstraintContext(ConstraintContext parent, int64_t parent_local_prefix)
       : ffi::ObjectRef(ffi::make_object<ConstraintContextObj>(
             ffi::GetObjectPtr<ConstraintContextObj>(parent.get()), parent_local_prefix)) {}
-  /*!
-   * \brief Adopt an existing context object.
-   * \param node Non-null context object; other references share its append-only sequence.
-   */
+  /*! \brief Adopt a reference to a non-null context object. */
   explicit ConstraintContext(ffi::ObjectPtr<ConstraintContextObj> node)
       : ffi::ObjectRef(std::move(node)) {}
   TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(ConstraintContext, ffi::ObjectRef,
