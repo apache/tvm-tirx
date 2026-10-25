@@ -44,7 +44,7 @@ def test_int_intrin(target, dtype):
     if not tvm_tirx.testing.device_enabled(target):
         pytest.skip(f"{target} not enabled")
     test_funcs = [
-        (T.clz, lambda x, dtype: int(dtype[-2:]) - (len(bin(x)) - 2)),
+        (T.clz, lambda x, dtype: int(dtype[-2:]) - int(x).bit_length()),
     ]
 
     for tvm_intrin, np_func in test_funcs:
@@ -65,7 +65,8 @@ def test_int_intrin(target, dtype):
 
         def run_and_check():
             dev = tvm_tirx.device_from_target(target)
-            a = tvm_tirx.runtime.tensor(np.random.randint(0, 100000, size=n).astype(dtype), dev)
+            # clz is undefined for zero.
+            a = tvm_tirx.runtime.tensor(np.random.randint(1, 100000, size=n).astype(dtype), dev)
             b = tvm_tirx.runtime.tensor(np.zeros(shape=(n,)).astype(dtype), dev)
             f(a, b)
             ref = np.vectorize(partial(np_func, dtype=dtype))(a.numpy())

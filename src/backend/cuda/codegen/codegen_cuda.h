@@ -71,6 +71,9 @@ class CodeGenCUDA final : public CodeGenC {
                         std::ostream& os) final;  // NOLINT(*)
   void PrintVecElemStore(const std::string& vec, const PrimType& t, int i,
                          const std::string& value) final;
+  void PrintVecStore(const VarObj* buffer, const PrimType& t, PrimExpr base,
+                     const std::string& value) final;
+  std::string GetBufferRef(const PrimType& t, const VarObj* buffer, PrimExpr index) final;
   void BindThreadIndex(const PrimVar& var, const ffi::String& thread_tag) final;  // NOLINT(*)
   void PrintVecElemLoadExpr(const PrimType& t, int i, const std::string& value,
                             std::ostream& os) final;

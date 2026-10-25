@@ -609,5 +609,25 @@ def test_fp8_fp16_bf16_vectorize_arith(vec_length, dtype):
     tvm_tirx.testing.run_with_gpu_lock(run_and_check)
 
 
+@pytest.mark.gpu
+@pytest.mark.skipif(not env.has_cuda_compute(9), reason="need CUDA compute >= 9.0")
+def test_cross_format_fp8_conversion():
+    @T.function
+    def main(A: T.Tensor((8,), "float8_e4m3fn"), B: T.Tensor((8,), "float8_e5m2")):
+        T.func_attr({"tirx.noalias": True})
+        with T.launch_thread("blockIdx.x", 1):
+            with T.launch_thread("threadIdx.x", 1):
+                B[T.Ramp(0, 1, 8)] = T.Cast("float8_e5m2x8", A[T.Ramp(0, 1, 8)])
+
+    compiled = tvm_tirx.tirx.compile(main, target="cuda")
+    values = np.array([0.0, 1.0, -1.0, 2.5, -2.5, 0.125, -0.125, 240.0], dtype="float8_e4m3fn")
+    device = tvm_tirx.cuda()
+    output = tvm_tirx.runtime.empty((8,), "float8_e5m2", device)
+    compiled(tvm_tirx.runtime.tensor(values, device), output)
+    np.testing.assert_array_equal(
+        output.numpy().astype("float32"), values.astype("float8_e5m2").astype("float32")
+    )
+
+
 if __name__ == "__main__":
     tvm_tirx.testing.main()

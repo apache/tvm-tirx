@@ -589,10 +589,10 @@ void CodeGenCUDA::PrintType(const PrimType& t, std::ostream& os) {  // NOLINT(*)
     return;
   } else if (t.MatchesCode(DLDataTypeCode::kDLBool) && lanes > 1) {
     // CUDA does not support bool vectors.
-    // Use ushort vectors to represent instead.
+    // Use one byte per element, matching scalar bool tensor storage.
     int n = lanes;
     if (n <= 4) {
-      os << "ushort" << n;
+      os << "uchar" << n;
       return;
     }
   } else if (t.MatchesCode(DLDataTypeCode::kDLUInt, DLDataTypeCode::kDLInt)) {
@@ -878,6 +878,36 @@ void CodeGenCUDA::PrintVecBinaryOp(const std::string& op, const PrimType& t, Pri
   os << sret;
 }
 
+std::string CodeGenCUDA::GetBufferRef(const PrimType& t, const VarObj* buffer, PrimExpr index) {
+  if (!t.IsScalar()) {
+    // CUDA vector representations align to their power-of-two storage component,
+    // capped at 16 bytes. Bool and FP6 wrappers use one byte per scalar element.
+    int bits = t.MatchesCode(DLDataTypeCode::kDLBool) || IsFloat6(t) ? 8 : t.bits();
+    int bytes = (bits * t.lanes() + 7) / 8;
+    int required_alignment = std::min(16, bytes & -bytes);
+    int buffer_alignment = ffi::GetRef<Var>(buffer).as_or_throw<TensorVar>().ty()->data_alignment;
+    if (buffer_alignment % required_alignment != 0) {
+      TVM_FFI_THROW(ValueError) << "Cannot prove alignment for CUDA vector access of " << t
+                                << ": buffer alignment " << buffer_alignment
+                                << " is not a multiple of " << required_alignment << " bytes";
+    }
+  }
+  return CodeGenC::GetBufferRef(t, buffer, index);
+}
+
+void CodeGenCUDA::PrintVecStore(const VarObj* buffer, const PrimType& t, PrimExpr base,
+                                const std::string& value) {
+  // Match the conservative offset-alignment proof used for vector loads.
+  // A typed CUDA vector dereference must not reach an unaligned address.
+  sym::ModularSet alignment = sym::Analyzer()->modular_set(base);
+  if (alignment->coeff % t.lanes() != 0 || alignment->base % t.lanes() != 0) {
+    TVM_FFI_THROW(ValueError) << "Cannot prove alignment for CUDA vector store of " << t
+                              << ": base index must be a multiple of " << t.lanes() << ", but got "
+                              << base;
+  }
+  CodeGenC::PrintVecStore(buffer, t, base, value);
+}
+
 void CodeGenCUDA::PrintVecElemLoad(const std::string& vec, const PrimType& t, int i,
                                    std::ostream& os) {  // NOLINT(*)
   int lanes = t.lanes();
@@ -1053,6 +1083,39 @@ void CodeGenCUDA::Dispatch_(const prim::CastObj* op, std::ostream& os) {
   PrimType from_ty = op->value.ty();
   PrimType target_ty = op->ty.as_or_throw<PrimType>();
   TVM_FFI_ICHECK_EQ(target_ty.lanes(), from_ty.lanes());
+
+  // Distinct FP8 formats require a numeric conversion even when their CUDA
+  // vector storage types coincide. CUDA's FP8 wrappers do not provide direct
+  // cross-format constructors; float is an exact intermediate for FP8 values.
+  if (IsFloat8(from_ty) && IsFloat8(target_ty) && from_ty.code() != target_ty.code()) {
+    std::string source = PrintExprToSSA(op->value);
+    PrimType from_scalar = from_ty.WithLanes(1);
+    PrimType target_scalar = target_ty.WithLanes(1);
+    if (from_ty.IsScalar()) {
+      PrintType(target_scalar, os);
+      os << "(float(" << source << "))";
+      return;
+    }
+    std::string result = name_supply_->FreshName("_");
+    PrintIndent();
+    PrintType(target_ty, stream);
+    stream << " " << result << ";\n";
+    for (int i = 0; i < from_ty.lanes(); ++i) {
+      std::string lane = name_supply_->FreshName("_");
+      PrintIndent();
+      PrintType(from_scalar, stream);
+      stream << " " << lane << ";\n";
+      PrintIndent();
+      stream << lane << ".__x = reinterpret_cast<const unsigned char*>(&" << source << ")[" << i
+             << "];\n";
+      PrintIndent();
+      stream << "reinterpret_cast<unsigned char*>(&" << result << ")[" << i << "] = ";
+      PrintType(target_scalar, stream);
+      stream << "(float(" << lane << ")).__x;\n";
+    }
+    os << result;
+    return;
+  }
 
   // Emit simple C-style type conversion.
   if (from_ty.IsScalar()) return CodeGenC::Dispatch_(op, os);
@@ -1599,9 +1662,9 @@ void CodeGenCUDA::Dispatch_(const prim::SelectObj* op, std::ostream& os) {
     std::string t_var = PrintExprToSSA(op->true_value);
     std::string f_var = PrintExprToSSA(op->false_value);
 
-    // The condition is stored as an ushort vector.
+    // Use the condition's bool-vector representation.
     int lanes = op_ty.lanes();
-    PrimType memory_ty = PrimType::UInt(16, lanes);
+    PrimType memory_ty = op->condition.ty();
 
     for (int i = 0; i < lanes; ++i) {
       std::ostringstream item;
