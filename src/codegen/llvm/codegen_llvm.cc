@@ -1510,11 +1510,27 @@ llvm::Value* CodeGenLLVM::CreateIntrinsic(const CallObj* op) {
   }
 }
 
+llvm::Value* CodeGenLLVM::MakeRampLane(const prim::RampObj* ramp, int lane) {
+  PrimType elem_dtype(ramp->base.ty()->dtype);
+  if (elem_dtype.MatchesCode(DLDataTypeCode::kDLInt, DLDataTypeCode::kDLUInt)) {
+    // The lane ordinal is an index, not a literal of the element dtype.
+    // MakeConst(elem_dtype, lane) rejects uint1 lane 2, uint2 lane 4, and any
+    // other ordinal outside that dtype before the multiply can wrap. Truncate
+    // the ordinal to the element width and let the multiply and add wrap.
+    TVM_FFI_ICHECK_GT(elem_dtype.bits(), 0);
+    llvm::Value* ordinal =
+        builder_->getIntN(static_cast<unsigned>(elem_dtype.bits()), static_cast<uint64_t>(lane));
+    llvm::Value* base = MakeValue(ramp->base);
+    llvm::Value* stride = MakeValue(ramp->stride);
+    return CreateAdd(elem_dtype, base, CreateMul(elem_dtype, stride, ordinal));
+  }
+  return MakeValue(ramp->base + ramp->stride * MakeConst(ramp->stride.ty(), lane));
+}
+
 void CodeGenLLVM::Scalarize(const PrimExpr& e, std::function<void(int i, llvm::Value* v)> f) {
   if (const prim::RampObj* ramp = e.as<prim::RampObj>()) {
     for (int i = 0; i < PrimType(ramp->ty.as_or_throw<PrimType>()->dtype).lanes(); ++i) {
-      PrimExpr offset = ramp->base + (ramp->stride * i);
-      f(i, MakeValue(offset));
+      f(i, MakeRampLane(ramp, i));
     }
   } else {
     llvm::Value* value = MakeValue(e);
@@ -1838,8 +1854,7 @@ void CodeGenLLVM::BufferAccessHelper(
     llvm::Value* last_index_value;
     int subelement_i = i;
     if (const prim::RampObj* ramp = last_index.as<prim::RampObj>()) {
-      PrimExpr offset = ramp->base + (ramp->stride * i);
-      last_index_value = MakeValue(offset);
+      last_index_value = MakeRampLane(ramp, i);
     } else if (!PrimType(last_index.ty()->dtype).IsScalar()) {
       if (i == 0) {
         cached_vector_index = MakeValue(last_index);
@@ -2048,8 +2063,7 @@ llvm::Value* CodeGenLLVM::Dispatch_(const prim::RampObj* op) {
   llvm::Value* vec = llvm::UndefValue::get(vec_type);
   int lanes = dtype.lanes();
   for (int i = 0; i < lanes; ++i) {
-    vec = builder_->CreateInsertElement(
-        vec, MakeValue(op->base + op->stride * MakeConst(op->stride.ty(), i)), ConstInt32(i));
+    vec = builder_->CreateInsertElement(vec, MakeRampLane(op, i), ConstInt32(i));
   }
   return vec;
 }

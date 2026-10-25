@@ -1410,5 +1410,83 @@ def test_llvm_min_max_nan_preserving(dtype, lanes):
     )
 
 
+def _compile_zero_stride_ramp(dtype, lanes):
+    """Compile the fuzz reproducer: a zero-stride ramp whose lane count exceeds the dtype."""
+    source = f"""from tvm_tirx.script import tirx as T
+
+@T.function
+def f():
+    T.evaluate(T.Ramp(T.Cast("{dtype}", 0), T.Cast("{dtype}", 0), {lanes}))
+"""
+    func = tvm_tirx.script.from_source(source)
+    tvm_tirx.tirx.analysis.check_well_formed(func, assert_mode=True)
+    tvm_tirx.ir.assert_structural_equal(
+        func, tvm_tirx.script.from_source(func.script(), extra_vars={"T": T})
+    )
+    target = tvm_tirx.target.Target.from_device(tvm_tirx.cpu())
+    func = func.with_attr("target", target).with_attr("global_symbol", "f")
+    module = tvm_tirx.IRModule({"f": func})
+    with tvm_tirx.ir.transform.PassContext(opt_level=0):
+        tvm_tirx.tirx.compile(module, target=target, pipeline="tirx")
+
+
+@pytest.mark.skipif(not env.has_llvm(), reason="need llvm")
+def test_llvm_uint1x3_zero_stride_ramp_opt_level_0():
+    """A three-lane uint1 ramp is well-formed and must compile at opt_level 0.
+
+    Regression for apache/tvm-tirx#34. Codegen used to build each lane as
+    ``base + stride * MakeConst(uint1, i)`` and reject lane 2.
+    """
+    _compile_zero_stride_ramp("uint1", 3)
+
+
+@pytest.mark.skipif(not env.has_llvm(), reason="need llvm")
+def test_llvm_uint2x5_zero_stride_ramp_opt_level_0():
+    """A five-lane uint2 ramp compiles; four lanes fit in uint2 and the fifth does not."""
+    _compile_zero_stride_ramp("uint2", 5)
+
+
+@pytest.mark.skipif(not env.has_llvm(), reason="need llvm")
+def test_llvm_narrow_integer_ramp_wraparound():
+    """Nonzero-stride narrow ramps wrap in the element width, including lane ordinals.
+
+    uint2 lane 4 is not a uint2 literal. The stored lanes are still
+    ``(base + stride * i) mod 4``. int2 uses the same modular arithmetic and
+    sign-extends when widened to int8.
+    """
+
+    @I.ir_module
+    class Unsigned:
+        @T.function
+        def main(out: T.Tensor((5,), "uint8")):
+            T.func_attr({"tirx.noalias": True})
+            out[T.Ramp(0, 1, 5)] = T.Cast(
+                "uint8x5", T.Ramp(T.Cast("uint2", 1), T.Cast("uint2", 3), 5)
+            )
+
+    @I.ir_module
+    class Signed:
+        @T.function
+        def main(out: T.Tensor((5,), "int8")):
+            T.func_attr({"tirx.noalias": True})
+            out[T.Ramp(0, 1, 5)] = T.Cast("int8x5", T.Ramp(T.Cast("int2", 1), T.Cast("int2", 1), 5))
+
+    target = "llvm"
+    with tvm_tirx.ir.transform.PassContext(opt_level=0):
+        unsigned = tvm_tirx.tirx.compile(Unsigned, target=target, pipeline="tirx")
+        signed = tvm_tirx.tirx.compile(Signed, target=target, pipeline="tirx")
+
+    dev = tvm_tirx.cpu(0)
+    out_u = tvm_tirx.runtime.empty((5,), "uint8", dev)
+    unsigned(out_u)
+    # (1 + 3*i) mod 4 for i in 0..4
+    np.testing.assert_array_equal(out_u.numpy(), np.array([1, 0, 3, 2, 1], dtype="uint8"))
+
+    out_s = tvm_tirx.runtime.empty((5,), "int8", dev)
+    signed(out_s)
+    # (1 + i) mod 4, then interpreted as int2: 1, -2, -1, 0, 1
+    np.testing.assert_array_equal(out_s.numpy(), np.array([1, -2, -1, 0, 1], dtype="int8"))
+
+
 if __name__ == "__main__":
     tvm_tirx.testing.main()

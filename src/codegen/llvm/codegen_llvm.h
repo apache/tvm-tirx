@@ -339,6 +339,10 @@ class CodeGenLLVM : public tvm::ExprFunctor<llvm::Value*(const Expr&)>,
   // apply optimization on the module.
   virtual void InitPassManagerBuilder(llvm::PassManagerBuilder* builder);
 #endif
+  // Value of ramp lane `lane`. Integer ordinals are LLVM constants of the
+  // element integer type, so a narrow dtype wraps instead of rejecting the
+  // ordinal as an out-of-range literal. Floating lanes keep base + stride * lane.
+  llvm::Value* MakeRampLane(const prim::RampObj* ramp, int lane);
   // Scalarize by iterating elements of e.
   // f is a callback that takes index and v.
   void Scalarize(const PrimExpr& e, std::function<void(int i, llvm::Value* v)> f);
