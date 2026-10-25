@@ -17,13 +17,14 @@
 
 # The parser consumes named IR bindings that Python sees as unused.
 # ruff: noqa: F841
+import numpy as np
 import pytest
 
 import tvm_tirx
 import tvm_tirx.testing
-from tvm_tirx.codegen import llvm
 from tvm_tirx.script import ir as I
 from tvm_tirx.script import tirx as T
+from tvm_tirx.testing import env
 
 simple_target = tvm_tirx.target.Target({"kind": "llvm", "mtriple": "x86_64-linux-gnu"})
 sve_target = tvm_tirx.target.Target(
@@ -34,6 +35,12 @@ sve_target = tvm_tirx.target.Target(
         "mattr": ["+v8.2a", "+sve"],
     }
 )
+
+
+def _assert_scalar_fallback(mod):
+    after = tvm_tirx.tirx.transform.VectorizeLoop()(mod)
+    tvm_tirx.ir.assert_structural_equal(after, tvm_tirx.tirx.transform.VectorizeLoop(False)(mod))
+    return after
 
 
 @pytest.mark.parametrize("extent, target", [(4, simple_target), (T.vscale() * 4, sve_target)])
@@ -57,7 +64,7 @@ def test_vectorize_loop(extent, target):
     tvm_tirx.ir.assert_structural_equal(mod, After)
 
 
-def test_vectorize_vector():
+def test_fixed_vector_elements_keep_scalar_loop():
     @I.ir_module
     class Module:
         @T.function
@@ -66,18 +73,10 @@ def test_vectorize_vector():
                 for j in T.vectorized(4):
                     A[j] = T.Broadcast(T.float32(1), 4)
 
-    @I.ir_module
-    class Expected:
-        @T.function
-        def main(A: T.Tensor((4,), "float32x4"), n: T.int32):
-            for i in T.serial(n):
-                A[T.Ramp(0, 1, 4)] = T.Broadcast(T.float32(1), 16)
-
-    After = tvm_tirx.tirx.transform.VectorizeLoop()(Module)
-    tvm_tirx.ir.assert_structural_equal(After, Expected)
+    _assert_scalar_fallback(Module)
 
 
-def test_vectorize_vector_scalable_error():
+def test_fixed_vector_access_in_scalable_loop_keeps_scalar_loop():
     @I.ir_module
     class Module:
         @T.function
@@ -86,12 +85,10 @@ def test_vectorize_vector_scalable_error():
             for j in T.vectorized(T.vscale() * 4):
                 A[T.ramp(j * 4, 1, 4)] = T.Broadcast(T.float32(1), 4)
 
-    error_msg = "Creating scalable vectors from existing vectors is not supported."
-    with pytest.raises(RuntimeError, match=error_msg):
-        tvm_tirx.tirx.transform.VectorizeLoop()(Module)
+    _assert_scalar_fallback(Module)
 
 
-def test_vectorize_vector_scalable_error2():
+def test_scalable_vector_elements_in_fixed_loop_keep_scalar_loop():
     @I.ir_module
     class Module:
         @T.function
@@ -99,12 +96,10 @@ def test_vectorize_vector_scalable_error2():
             for j in T.vectorized(4):
                 A[j] = T.Broadcast(T.float32(1), T.vscale() * 4)
 
-    error_msg = "Vectorizing over scalable tensor elements is not supported in vectorizer."
-    with pytest.raises(RuntimeError, match=error_msg):
-        tvm_tirx.tirx.transform.VectorizeLoop()(Module)
+    _assert_scalar_fallback(Module)
 
 
-def test_vectorize_vector_scalable_error3():
+def test_scalable_vector_access_in_fixed_loop_keeps_scalar_loop():
     @I.ir_module
     class Module:
         @T.function
@@ -115,12 +110,10 @@ def test_vectorize_vector_scalable_error3():
                     T.float32(1), T.vscale() * 4
                 )
 
-    error_msg = "Vectorizing over existing scalable vectors is not supported."
-    with pytest.raises(RuntimeError, match=error_msg):
-        tvm_tirx.tirx.transform.VectorizeLoop()(Module)
+    _assert_scalar_fallback(Module)
 
 
-def test_vectorize_vector_scalable_error4():
+def test_scalable_vector_access_in_scalable_loop_keeps_scalar_loop():
     @I.ir_module
     class Module:
         @T.function(private=True)
@@ -131,12 +124,10 @@ def test_vectorize_vector_scalable_error4():
                     T.float32(1), T.vscale() * 4
                 )
 
-    error_msg = "Creating scalable vectors from existing vectors is not supported."
-    with pytest.raises(RuntimeError, match=error_msg):
-        tvm_tirx.tirx.transform.VectorizeLoop()(Module)
+    _assert_scalar_fallback(Module)
 
 
-def test_vectorize_with_if():
+def test_if_in_fixed_loop_keeps_scalar_loop():
     extent = 4
     target = simple_target
 
@@ -152,25 +143,10 @@ def test_vectorize_with_if():
                     if i < n:
                         A[i] = T.float32(2)
 
-    @I.ir_module
-    class After:
-        @T.function
-        def main(A: T.Tensor((25,), "float32"), n: T.int32, x: T.int32):
-            T.func_attr({"target": target})
-            if x < n:
-                A[T.Ramp(0, 1, extent)] = A[T.Ramp(0, 1, extent)] + T.Broadcast(
-                    T.float32(1), extent
-                )
-            else:
-                for i_s in range(extent):
-                    if i_s < n:
-                        A[i_s] = T.float32(2)
-
-    mod = tvm_tirx.tirx.transform.VectorizeLoop()(Before)
-    tvm_tirx.ir.assert_structural_equal(mod, After)
+    _assert_scalar_fallback(Before)
 
 
-def test_vectorize_if_scalable_extent():
+def test_if_in_scalable_loop_keeps_scalar_loop():
     extent = T.vscale() * 4
     target = sve_target
 
@@ -186,29 +162,7 @@ def test_vectorize_if_scalable_extent():
                     if i < n:
                         A[i] = T.float32(2)
 
-    @I.ir_module
-    class After:
-        @T.function
-        def main(A: T.Tensor((25,), "float32"), n: T.int32, x: T.int32):
-            T.func_attr({"target": target})
-            if x < n:
-                A[T.Ramp(0, 1, extent)] = A[T.Ramp(0, 1, extent)] + T.Broadcast(
-                    T.float32(1), extent
-                )
-            else:
-                T.evaluate(
-                    T.call_intrin(
-                        "tirx.masked_store",
-                        A,
-                        T.Broadcast(T.float32(2), T.vscale() * 4),
-                        T.Ramp(0, 1, T.vscale() * 4),
-                        T.get_active_lane_mask(0, n, ty="uint1xvscalex4"),
-                        ty="void",
-                    )
-                )
-
-    mod = tvm_tirx.tirx.transform.VectorizeLoop()(Before)
-    tvm_tirx.ir.assert_structural_equal(mod, After)
+    _assert_scalar_fallback(Before)
 
 
 @pytest.mark.parametrize("extent, target", [(4, simple_target), (T.vscale() * 4, sve_target)])
@@ -268,7 +222,7 @@ def test_vectorize_with_bound_condition(extent, target, comparison):
 
 
 @pytest.mark.parametrize("extent, target", [(4, simple_target), (T.vscale() * 4, sve_target)])
-def test_vectorize_if_then_else_scalarize(extent, target):
+def test_varying_if_then_else_keeps_scalar_loop(extent, target):
     @I.ir_module
     class Before:
         @T.function
@@ -290,7 +244,7 @@ def test_vectorize_if_then_else_scalarize(extent, target):
 
 
 @pytest.mark.parametrize("extent, target", [(4, simple_target), (T.vscale() * 4, sve_target)])
-def test_vectorize_if_then_else_vector(extent, target):
+def test_uniform_if_then_else_keeps_scalar_loop(extent, target):
     @I.ir_module
     class Before:
         @T.function
@@ -300,18 +254,7 @@ def test_vectorize_if_then_else_vector(extent, target):
                 for j in T.vectorized(extent):
                     A[i * extent + j] = T.if_then_else(i > 0, A[i * extent + j], 0)
 
-    @I.ir_module
-    class After:
-        @T.function
-        def main(A: T.Tensor((25,), "float32"), n: T.int32):
-            T.func_attr({"target": target})
-            for i in range(n):
-                A[T.Ramp(i * extent, 1, extent)] = T.if_then_else(
-                    i > 0, A[T.Ramp(i * extent, 1, extent)], T.Broadcast(0, extent)
-                )
-
-    mod = tvm_tirx.tirx.transform.VectorizeLoop()(Before)
-    tvm_tirx.ir.assert_structural_equal(mod, After)
+    _assert_scalar_fallback(Before)
 
 
 def test_vectorize_let_if_then_else():
@@ -338,9 +281,7 @@ def test_vectorize_let_if_then_else():
     tvm_tirx.ir.assert_structural_equal(mod, After)
 
 
-def test_vectorize_while_fail():
-    """A while loop inside a vectorized loop should fail."""
-
+def test_vectorize_while_fallback():
     @I.ir_module
     class Module:
         @T.function
@@ -353,7 +294,7 @@ def test_vectorize_while_fail():
             for j in range(64):
                 C[j] = T.float32(0)
 
-            # While loop inside vectorized loop (should fail)
+            # While loop keeps scalar execution
             i = T.alloc_tensor(ty_args=[T.Tensor((1,), "int32", scope="local")])
             i[0] = 0
             for j in T.vectorized(64):
@@ -361,32 +302,24 @@ def test_vectorize_while_fail():
                     C[j] = C[j] + A[j] + B[j]
                     i[0] = i[0] + 1
 
-    with pytest.raises(RuntimeError, match="A while loop inside a vectorized loop not supported"):
-        tvm_tirx.tirx.compile(Module, target="llvm")
+    after = _assert_scalar_fallback(Module)
+    tvm_tirx.tirx.compile(after, target="llvm")
 
 
 @pytest.mark.parametrize(
-    "extent, vec_str, target",
-    [(16, "float32x16", simple_target), (T.vscale() * 8, "float32xvscalex8", sve_target)],
+    "extent, target",
+    [(16, simple_target), (T.vscale() * 8, sve_target)],
 )
-def test_vectorize_with_reinterpret(extent, vec_str, target):
+def test_reinterpret_keeps_scalar_loop(extent, target):
     @I.ir_module
     class Before:
         @T.function
         def main(A: T.Tensor((16,), "int32"), B: T.Tensor((16,), "float32")):
-            T.func_attr({"target": target})
+            T.func_attr({"target": target, "tirx.noalias": True})
             for i in T.vectorized(0, extent):
                 B[i] = T.reinterpret(A[i], ty="float32")
 
-    @I.ir_module
-    class After:
-        @T.function
-        def main(A: T.Tensor((16,), "int32"), B: T.Tensor((16,), "float32")):
-            T.func_attr({"target": target})
-            B[T.Ramp(0, 1, extent)] = T.reinterpret(A[T.Ramp(0, 1, extent)], ty=vec_str)
-
-    mod = tvm_tirx.tirx.transform.VectorizeLoop()(Before)
-    tvm_tirx.ir.assert_structural_equal(mod, After)
+    _assert_scalar_fallback(Before)
 
 
 @pytest.mark.parametrize("extent, target", [(4, simple_target), (T.vscale() * 4, sve_target)])
@@ -415,7 +348,7 @@ def test_vectorize_binary(op, extent, target):
     class Before:
         @T.function
         def main(A: T.Tensor((25,), "float32"), B: T.Tensor((25,), "float32")):
-            T.func_attr({"target": target})
+            T.func_attr({"target": target, "tirx.noalias": True})
             for j in T.vectorized(extent):
                 A[j] = op(T.float32(3), B[j])
 
@@ -423,7 +356,7 @@ def test_vectorize_binary(op, extent, target):
     class After:
         @T.function
         def main(A: T.Tensor((25,), "float32"), B: T.Tensor((25,), "float32")):
-            T.func_attr({"target": target})
+            T.func_attr({"target": target, "tirx.noalias": True})
             A[T.Ramp(0, 1, extent)] = op(T.Broadcast(T.float32(3), extent), B[T.Ramp(0, 1, extent)])
 
     mod = tvm_tirx.tirx.transform.VectorizeLoop()(Before)
@@ -432,24 +365,16 @@ def test_vectorize_binary(op, extent, target):
 
 @pytest.mark.parametrize("extent, target", [(4, simple_target), (T.vscale() * 4, sve_target)])
 @pytest.mark.parametrize("op", (T.And, T.Or))
-def test_vectorize_logical(op, extent, target):
+def test_boolean_storage_keeps_scalar_loop(op, extent, target):
     @I.ir_module
     class Before:
         @T.function
         def main(A: T.Tensor((25,), "bool"), B: T.Tensor((25,), "bool")):
-            T.func_attr({"target": target})
+            T.func_attr({"target": target, "tirx.noalias": True})
             for j in T.vectorized(extent):
                 A[j] = op(T.bool(1), B[j])
 
-    @I.ir_module
-    class After:
-        @T.function
-        def main(A: T.Tensor((25,), "bool"), B: T.Tensor((25,), "bool")):
-            T.func_attr({"target": target})
-            A[T.Ramp(0, 1, extent)] = op(T.Broadcast(T.bool(1), extent), B[T.Ramp(0, 1, extent)])
-
-    mod = tvm_tirx.tirx.transform.VectorizeLoop()(Before)
-    tvm_tirx.ir.assert_structural_equal(mod, After)
+    _assert_scalar_fallback(Before)
 
 
 @pytest.mark.parametrize("extent, target", [(4, simple_target), (T.vscale() * 4, sve_target)])
@@ -458,7 +383,7 @@ def test_vectorize_select(extent, target):
     class Before:
         @T.function
         def main(A: T.Tensor((25,), "float32"), B: T.Tensor((25,), "float32")):
-            T.func_attr({"target": target})
+            T.func_attr({"target": target, "tirx.noalias": True})
             for j in T.vectorized(extent):
                 A[j] = T.Select(T.bool(True), A[j], B[j])
 
@@ -466,7 +391,7 @@ def test_vectorize_select(extent, target):
     class After:
         @T.function
         def main(A: T.Tensor((25,), "float32"), B: T.Tensor((25,), "float32")):
-            T.func_attr({"target": target})
+            T.func_attr({"target": target, "tirx.noalias": True})
             A[T.Ramp(0, 1, extent)] = T.Select(
                 T.Broadcast(T.bool(True), extent),
                 A[T.Ramp(0, 1, extent)],
@@ -486,7 +411,7 @@ def test_vectorize_cast(extent, vec_str, target):
     class Before:
         @T.function
         def main(A: T.Tensor((25,), "int32"), B: T.Tensor((25,), "float32")):
-            T.func_attr({"target": target})
+            T.func_attr({"target": target, "tirx.noalias": True})
             for j in T.vectorized(extent):
                 A[j] = T.Cast("int32", B[j])
 
@@ -494,14 +419,14 @@ def test_vectorize_cast(extent, vec_str, target):
     class After:
         @T.function
         def main(A: T.Tensor((25,), "int32"), B: T.Tensor((25,), "float32")):
-            T.func_attr({"target": target})
+            T.func_attr({"target": target, "tirx.noalias": True})
             A[T.Ramp(0, 1, extent)] = T.Cast(vec_str, B[T.Ramp(0, 1, extent)])
 
     mod = tvm_tirx.tirx.transform.VectorizeLoop()(Before)
     tvm_tirx.ir.assert_structural_equal(mod, After)
 
 
-def test_illegal_extent():
+def test_dynamic_extent_fallback():
     n = T.dynamic("n", "int32")
 
     @I.ir_module(check_well_formed=False)
@@ -511,12 +436,10 @@ def test_illegal_extent():
             for j in T.vectorized(n):
                 A[j] = 3
 
-    error_msg = r"Failed to vectorize loop with extent n for target None"
-    with pytest.raises(RuntimeError, match=error_msg):
-        tvm_tirx.tirx.transform.VectorizeLoop()(Mod)
+    _assert_scalar_fallback(Mod)
 
 
-def test_illegal_vscale_in_non_sve_compilation():
+def test_vscale_in_non_sve_vectorization_fallback():
     @I.ir_module
     class Mod:
         @T.function
@@ -525,12 +448,10 @@ def test_illegal_vscale_in_non_sve_compilation():
             for j in T.vectorized(0, 4 * T.vscale()):
                 A[j] = 13
 
-    msg = "Failed to vectorize loop with extent 4 \\* T.vscale\\(\\) for target"
-    with pytest.raises(RuntimeError, match=msg):
-        tvm_tirx.tirx.transform.VectorizeLoop()(Mod)
+    _assert_scalar_fallback(Mod)
 
 
-def test_vectorize_and_predicate_all_tensor_loads_stores():
+def test_conditional_load_store_keeps_scalar_loop():
     @T.function
     def before(A: T.Tensor((16,), "float32"), B: T.Tensor((16,), "float32")):
         T.func_attr({"global_symbol": "main", "tirx.noalias": True})
@@ -539,45 +460,16 @@ def test_vectorize_and_predicate_all_tensor_loads_stores():
                 if i_0 * 4 + i_1 < 14:
                     B[i_0 * 4 + i_1] = A[i_0 * 4 + i_1] + 1.0
 
-    @T.function
-    def expected(A: T.Tensor((16,), "float32"), B: T.Tensor((16,), "float32")):
-        T.func_attr({"global_symbol": "main", "tirx.noalias": True})
-        for i_0 in range(4):
-            T.evaluate(
-                T.call_intrin(
-                    "tirx.masked_store",
-                    B,
-                    (
-                        T.call_intrin(
-                            "tirx.masked_load",
-                            A,
-                            T.Ramp(i_0 * 4, 1, 4),
-                            T.get_active_lane_mask(i_0 * 4, 14, ty="uint1x4"),
-                            ty="float32x4",
-                        )
-                        + T.Broadcast(T.float32(1), 4)
-                    ),
-                    T.Ramp(i_0 * 4, 1, 4),
-                    T.get_active_lane_mask(i_0 * 4, 14, ty="uint1x4"),
-                    ty="void",
-                )
-            )
-
     input_func = before
 
     @I.ir_module(check_well_formed=False)
     class InputModule:
         main = input_func
 
-    mod = InputModule
-    with tvm_tirx.ir.transform.PassContext(config={"tirx.enable_tensor_level_predication": True}):
-        after = tvm_tirx.tirx.transform.VectorizeLoop()(mod)["main"]
-    tvm_tirx.ir.assert_structural_equal(after, expected)
+    _assert_scalar_fallback(InputModule)
 
 
-def test_vectorize_and_predicate_some_tensor_loads_stores():
-    # Currently revert to scalarizing the block if not all accesses
-    # have been predicated, otherwise incorrect code is generated.
+def test_conditional_uniform_load_keeps_scalar_loop():
     @T.function
     def before(A: T.Tensor((16,), "float32"), B: T.Tensor((16,), "float32")):
         T.func_attr({"global_symbol": "main", "tirx.noalias": True})
@@ -600,12 +492,11 @@ def test_vectorize_and_predicate_some_tensor_loads_stores():
         main = input_func
 
     mod = InputModule
-    with tvm_tirx.ir.transform.PassContext(config={"tirx.enable_tensor_level_predication": True}):
-        after = tvm_tirx.tirx.transform.VectorizeLoop()(mod)["main"]
+    after = tvm_tirx.tirx.transform.VectorizeLoop()(mod)["main"]
     tvm_tirx.ir.assert_structural_equal(after, expected)
 
 
-def test_vectorize_and_predicate_multiple_access_statements():
+def test_conditional_multiple_stores_keep_scalar_loop():
     @T.function
     def before(A: T.Tensor((16,), "float32"), B: T.Tensor((16,), "float32")):
         T.func_attr({"global_symbol": "main", "tirx.noalias": True})
@@ -615,44 +506,16 @@ def test_vectorize_and_predicate_multiple_access_statements():
                     A[i_0 * 4 + i_1] = 2.0
                     B[i_0 * 4 + i_1] = 1.0
 
-    @T.function
-    def expected(A: T.Tensor((16,), "float32"), B: T.Tensor((16,), "float32")):
-        T.func_attr({"global_symbol": "main", "tirx.noalias": True})
-        for i_0 in range(4):
-            T.evaluate(
-                T.call_intrin(
-                    "tirx.masked_store",
-                    A,
-                    T.Broadcast(T.float32(2), 4),
-                    T.Ramp(i_0 * 4, 1, 4),
-                    T.get_active_lane_mask(i_0 * 4, 14, ty="uint1x4"),
-                    ty="void",
-                )
-            )
-            T.evaluate(
-                T.call_intrin(
-                    "tirx.masked_store",
-                    B,
-                    T.Broadcast(T.float32(1), 4),
-                    T.Ramp(i_0 * 4, 1, 4),
-                    T.get_active_lane_mask(i_0 * 4, 14, ty="uint1x4"),
-                    ty="void",
-                )
-            )
-
     input_func = before
 
     @I.ir_module(check_well_formed=False)
     class InputModule:
         main = input_func
 
-    before_mod = InputModule
-    with tvm_tirx.ir.transform.PassContext(config={"tirx.enable_tensor_level_predication": True}):
-        after = tvm_tirx.tirx.transform.VectorizeLoop()(before_mod)["main"]
-    tvm_tirx.ir.assert_structural_equal(after, expected)
+    _assert_scalar_fallback(InputModule)
 
 
-def test_vectorize_nested_predicates_preserve_both_masks():
+def test_nested_conditionals_keep_scalar_loop():
     rvv_target = tvm_tirx.target.Target(
         {"kind": "llvm", "mtriple": "riscv64-unknown-linux-gnu", "mattr": ["+v"]}
     )
@@ -673,46 +536,10 @@ def test_vectorize_nested_predicates_preserve_both_masks():
     class InputModule:
         before = input_func
 
-    after = tvm_tirx.tirx.transform.VectorizeLoop()(InputModule)
-    after = tvm_tirx.tirx.transform.StmtSimplify()(after)["before"]
-
-    @I.ir_module
-    class Expected:
-        @T.function
-        def before(A: T.Tensor((16,), T.float32), B: T.Tensor((16,), T.float32)):
-            T.func_attr({"target": rvv_target})
-            for i_0 in range(4):
-                for i_1_vla_o in range((T.vscale() * 4 + 3) // (T.vscale() * 4)):
-                    T.masked_store(
-                        A,
-                        T.Broadcast(T.float32(1.0), T.vscale() * 4),
-                        T.Ramp(i_0 * 4 + i_1_vla_o * T.vscale() * 4, 1, T.vscale() * 4),
-                        T.get_active_lane_mask(
-                            i_0 * 4 + i_1_vla_o * T.vscale() * 4, 14, ty="uint1xvscalex4"
-                        )
-                        & T.get_active_lane_mask(
-                            i_0 * 4 + i_1_vla_o * T.vscale() * 4, 15, ty="uint1xvscalex4"
-                        )
-                        & T.get_active_lane_mask(
-                            i_1_vla_o * T.vscale() * 4, 4, ty="uint1xvscalex4"
-                        ),
-                    )
-                    T.masked_store(
-                        B,
-                        T.Broadcast(T.float32(2.0), T.vscale() * 4),
-                        T.Ramp(i_0 * 4 + i_1_vla_o * T.vscale() * 4, 1, T.vscale() * 4),
-                        T.get_active_lane_mask(
-                            i_0 * 4 + i_1_vla_o * T.vscale() * 4, 15, ty="uint1xvscalex4"
-                        )
-                        & T.get_active_lane_mask(
-                            i_1_vla_o * T.vscale() * 4, 4, ty="uint1xvscalex4"
-                        ),
-                    )
-
-    tvm_tirx.ir.assert_structural_equal(after, Expected["before"])
+    _assert_scalar_fallback(InputModule)
 
 
-def test_vectorize_and_predicate_invalid_conditions():
+def test_multiple_conditions_keep_scalar_loop():
     @T.function
     def before(A: T.Tensor((16,), "float32"), B: T.Tensor((16,), "float32")):
         T.func_attr({"global_symbol": "main", "tirx.noalias": True})
@@ -725,64 +552,16 @@ def test_vectorize_and_predicate_invalid_conditions():
                 if i_0 * 4 + i_1 < i_0 * 4 + i_1:
                     A[i_0 * 4 + i_1] = 2.0
 
-    @T.function
-    def expected(A: T.Tensor((16,), "float32"), B: T.Tensor((16,), "float32")):
-        T.func_attr({"global_symbol": "main", "tirx.noalias": True})
-        for i_0 in range(4):
-            for i_1_s in range(4):
-                if i_0 * 4 + i_1_s > 14:
-                    A[i_0 * 4 + i_1_s] = T.float32(2)
-            for i_1_s in range(4):
-                if 14 < i_0 * 4 + i_1_s:
-                    A[i_0 * 4 + i_1_s] = T.float32(2)
-            for i_1_s in range(4):
-                if i_0 * 4 + i_1_s < i_0 * 4 + i_1_s:
-                    A[i_0 * 4 + i_1_s] = T.float32(2)
-
     input_func = before
 
     @I.ir_module(check_well_formed=False)
     class InputModule:
         main = input_func
 
-    before_mod = InputModule
-    with tvm_tirx.ir.transform.PassContext(config={"tirx.enable_tensor_level_predication": True}):
-        after = tvm_tirx.tirx.transform.VectorizeLoop()(before_mod)["main"]
-    tvm_tirx.ir.assert_structural_equal(after, expected)
+    _assert_scalar_fallback(InputModule)
 
 
-def test_vectorize_with_explicitly_disabled_tensor_level_predication():
-    # Since the target has the VLA feature, tensor level predication is enabled
-    # by default. However, it has been explicitly disabled by the pass context
-    # option, so no tensor-level predicates should be added.
-    @T.function
-    def before(A: T.Tensor((16,), "float32"), B: T.Tensor((16,), "float32")):
-        T.func_attr({"target": sve_target, "global_symbol": "main", "tirx.noalias": True})
-        for i_0 in T.serial(T.ceildiv(14, 4)):
-            for i_1 in T.vectorized(4):
-                if i_0 * 4 + i_1 < 14:
-                    B[i_0 * 4 + i_1] = A[i_0 * 4 + i_1] + 1.0
-
-    @T.function
-    def expected(A: T.Tensor((16,), "float32"), B: T.Tensor((16,), "float32")):
-        T.func_attr({"target": sve_target, "global_symbol": "main", "tirx.noalias": True})
-        for i_0, i_1_s in T.grid(4, 4):
-            if i_0 * 4 + i_1_s < 14:
-                B[i_0 * 4 + i_1_s] = A[i_0 * 4 + i_1_s] + T.float32(1)
-
-    input_func = before
-
-    @I.ir_module(check_well_formed=False)
-    class InputModule:
-        main = input_func
-
-    mod = InputModule
-    with tvm_tirx.ir.transform.PassContext(config={"tirx.enable_tensor_level_predication": False}):
-        after = tvm_tirx.tirx.transform.VectorizeLoop()(mod)["main"]
-    tvm_tirx.ir.assert_structural_equal(after, expected)
-
-
-def test_vectorize_and_predicate_tensor_load_stores_with_sve_func_attr_target():
+def test_conditional_load_store_on_sve_keeps_scalar_loop():
     @T.function
     def before(A: T.Tensor((16,), "float32"), B: T.Tensor((16,), "float32")):
         T.func_attr({"global_symbol": "main", "tirx.noalias": True, "target": sve_target})
@@ -791,100 +570,58 @@ def test_vectorize_and_predicate_tensor_load_stores_with_sve_func_attr_target():
                 if i_0 * 4 + i_1 < 14:
                     B[i_0 * 4 + i_1] = A[i_0 * 4 + i_1] + 1.0
 
-    @T.function
-    def expected(A: T.Tensor((16,), "float32"), B: T.Tensor((16,), "float32")):
-        T.func_attr({"global_symbol": "main", "tirx.noalias": True, "target": sve_target})
-        for i_0 in range(4):
-            T.evaluate(
-                T.call_intrin(
-                    "tirx.masked_store",
-                    B,
-                    (
-                        T.call_intrin(
-                            "tirx.masked_load",
-                            A,
-                            T.Ramp(i_0 * 4, 1, 4),
-                            T.get_active_lane_mask(i_0 * 4, 14, ty="uint1x4"),
-                            ty="float32x4",
-                        )
-                        + T.Broadcast(T.float32(1), 4)
-                    ),
-                    T.Ramp(i_0 * 4, 1, 4),
-                    T.get_active_lane_mask(i_0 * 4, 14, ty="uint1x4"),
-                    ty="void",
-                )
-            )
-
     input_func = before
 
     @I.ir_module(check_well_formed=False)
     class InputModule:
         main = input_func
 
-    mod = InputModule
-    after = tvm_tirx.tirx.transform.VectorizeLoop()(mod)["main"]
-    tvm_tirx.ir.assert_structural_equal(after, expected)
+    _assert_scalar_fallback(InputModule)
 
 
-@pytest.mark.parametrize(
-    "extent, vec_str, target",
-    [(4, "float32x4", simple_target)],
-)
-def test_vectorize_llvm_pure_intrin(extent, vec_str, target):
+def test_llvm_pure_intrin_keeps_scalar_loop():
     @I.ir_module
     class Before:
         @T.function
         def main(A: T.Tensor((25,), "float32"), B: T.Tensor((25,), "float32")):
-            T.func_attr({"target": target})
-            for j in T.vectorized(extent):
+            T.func_attr({"target": simple_target, "tirx.noalias": True})
+            for j in T.vectorized(4):
                 A[j] = T.call_llvm_pure_intrin("llvm.sqrt", B[j], ty="float32")
 
-    @I.ir_module
-    class After:
-        @T.function
-        def main(A: T.Tensor((25,), "float32"), B: T.Tensor((25,), "float32")):
-            T.func_attr({"target": target})
-            A[T.Ramp(0, 1, extent)] = T.call_llvm_pure_intrin(
-                "llvm.sqrt", B[T.Ramp(0, 1, extent)], ty=vec_str
-            )
-
-    mod = tvm_tirx.tirx.transform.VectorizeLoop()(Before)
-    tvm_tirx.ir.assert_structural_equal(mod, After)
-    mod = tvm_tirx.tirx.compile(mod, target=target)
+    after = _assert_scalar_fallback(Before)
+    tvm_tirx.tirx.compile(after, target="llvm")
 
 
-@pytest.mark.parametrize(
-    "extent, vec_str, target",
-    [(4, "int32x4", simple_target)],
-)
-def test_vectorize_llvm_pure_intrin_fail(extent, vec_str, target):
-    @I.ir_module
-    class Before:
-        @T.function
-        def main(A: T.Tensor((25,), "int32"), B: T.Tensor((25,), "float32")):
-            T.func_attr({"target": target})
-            for j in T.vectorized(extent):
-                A[j] = T.call_llvm_pure_intrin("llvm.lround", B[j], ty="int32")
+@pytest.mark.skipif(not env.has_llvm(), reason="need LLVM")
+def test_vectorize_assert_preserves_scalar_failure_order():
+    @T.function
+    def main(A: T.Tensor((4,), "int32")):
+        for i in T.vectorized(4):
+            value: T.let = i + 1
+            A[i] = value
+            assert i < 2, ("RuntimeError", ["stop"])
+            A[i] = value + 10
 
-    @I.ir_module
-    class After:
-        @T.function
-        def main(A: T.Tensor((25,), "int32"), B: T.Tensor((25,), "float32")):
-            T.func_attr({"target": target})
-            A[T.Ramp(0, 1, extent)] = T.call_llvm_pure_intrin(
-                "llvm.lround", B[T.Ramp(0, 1, extent)], ty=vec_str
-            )
+    before = tvm_tirx.IRModule({"main": main})
+    _assert_scalar_fallback(before)
+    data = tvm_tirx.runtime.tensor(np.full(4, -1, dtype="int32"))
+    with pytest.raises(RuntimeError, match="stop"):
+        tvm_tirx.tirx.compile(main, target="llvm")(data)
+    np.testing.assert_array_equal(data.numpy(), [11, 12, 3, -1])
 
-    mod = tvm_tirx.tirx.transform.VectorizeLoop()(Before)
-    tvm_tirx.ir.assert_structural_equal(mod, After)
-    # LLVM 20 added vector support for llvm.lround/llvm.llround.  The IR Verifier's
-    # "Intrinsic does not support vectors" check was removed in release/20.x, so
-    # compilation only fails on LLVM <= 19.
-    if llvm.version_major() >= 20:
-        tvm_tirx.tirx.compile(mod, target=target)
-    else:
-        with pytest.raises(Exception, match="Intrinsic does not support vectors"):
-            tvm_tirx.tirx.compile(mod, target=target)
+
+def test_vectorize_unsupported_scalable_factor_keeps_scalar_loop():
+    @T.function
+    def main(A: T.Tensor((64,), "int32")):
+        T.func_attr({"target": sve_target})
+        for i in T.vectorized(T.Mul(T.vscale(), 1)):
+            value: T.let = i + 1
+            A[i] = value
+
+    before = tvm_tirx.IRModule({"main": main})
+    _assert_scalar_fallback(before)
+    if env.has_llvm():
+        tvm_tirx.tirx.compile(before, target=sve_target)
 
 
 if __name__ == "__main__":

@@ -113,6 +113,10 @@ def VectorizeLoop(enable_vectorize: bool = True):
     fixed-width loops do not require a target. Code needing different vectorization
     targets must be separated into functions before this pass.
 
+    Unsupported loops retain scalar execution. Loops containing assertions
+    always remain scalar. Accessing multiple tensors requires the function's
+    ``tirx.noalias`` attribute unless they are views of the same storage.
+
     Parameters
     ----------
     enable_vectorize : bool
@@ -137,6 +141,7 @@ def VectorizeLoop(enable_vectorize: bool = True):
         class Before:
             @T.function(private=True)
             def main(A: T.Tensor((4,), T.float32), B: T.Tensor((4,), T.float32)):
+                T.func_attr({"tirx.noalias": True})
                 for i in T.vectorized(0, 4):
                     B[i] = A[i]
 
@@ -144,6 +149,7 @@ def VectorizeLoop(enable_vectorize: bool = True):
         class Expected:
             @T.function(private=True)
             def main(A: T.Tensor((4,), T.float32), B: T.Tensor((4,), T.float32)):
+                T.func_attr({"tirx.noalias": True})
                 B[0:4] = A[T.Ramp(0, 1, 4)]
 
         def run_pass():

@@ -74,7 +74,8 @@ def test_vmlal_s16():
 
                 for n in T.vectorized(N):
                     C[n] = 0
-                    for rv in range(K):
+                for rv in range(K):
+                    for n in T.vectorized(N):
                         C[n] = C[n] + T.Cast("int32", A[rv, n]) * T.Cast("int32", B[rv, n])
 
         f = tvm_tirx.tirx.compile(Module, target=target).mod
@@ -102,7 +103,8 @@ def test_vmlal_s16():
 
                 for n in T.vectorized(N):
                     C[n] = 0
-                    for rv in range(K):
+                for rv in range(K):
+                    for n in T.vectorized(N):
                         C[n] = C[n] + T.Cast("int32", A[rv, n]) * T.Cast("int32", B[rv])
 
         f = tvm_tirx.tirx.compile(Module, target=target).mod

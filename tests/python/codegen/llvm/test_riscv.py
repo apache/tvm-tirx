@@ -128,7 +128,7 @@ def test_rvv_vscale_llvm_dbginfo(target):
 
 
 @pytest.mark.skipif(not env.has_llvm_min_version(14), reason="need llvm >= 14")
-def test_rvv_fixed_width_vectorized_loop_uses_scalable_chunks():
+def test_rvv_predicated_loop_fallback_and_fixed_width_vectorization():
     @T.function
     def fixed16_negative(
         A: T.Tensor((14, 23, 67, 99), "float32"),
@@ -141,6 +141,7 @@ def test_rvv_fixed_width_vectorized_loop_uses_scalable_chunks():
 
     @T.function
     def fixed16_negative_int64(A: T.Tensor((16,), "float32"), B: T.Tensor((16,), "float32")):
+        T.func_attr({"tirx.noalias": True})
         for wi in T.vectorized(T.int64(0), T.int64(16)):
             B[wi] = T.float32(0) - A[wi]
 
@@ -165,15 +166,22 @@ def test_rvv_fixed_width_vectorized_loop_uses_scalable_chunks():
         assert not re.search(r"\bfsub\.s\b", assembly)
         assert not re.search(r"\bfsw\b", assembly)
 
-    check_codegen(fixed16_negative)
+    # Predication is outside the conservative vectorizer subset. Preserve the
+    # complete scalar loop and verify it still lowers for RVV.
+    before = tvm_tirx.IRModule({"main": fixed16_negative})
+    tvm_tirx.ir.assert_structural_equal(
+        tvm_tirx.tirx.transform.VectorizeLoop()(before),
+        tvm_tirx.tirx.transform.VectorizeLoop(False)(before),
+    )
+    tvm_tirx.tirx.compile(before, target)
     check_codegen(fixed16_negative_int64)
 
 
 @pytest.mark.skipif(not env.has_llvm_min_version(14), reason="need llvm >= 14")
 def test_rvv_scalable_ramp_expression():
     @T.function
-    def ramp_compare(B: T.Tensor((16,), "int32")):
-        for i in T.vectorized(16):
+    def ramp_compare(B: T.Tensor((128,), "int32")):
+        for i in T.vectorized(T.vscale() * 4):
             B[i] = T.Select(i * 3 + 5 < 29, i * 3 + 5, -1)
 
     target = tvm_tirx.target.Target(
@@ -191,8 +199,10 @@ def test_rvv_scalable_ramp_expression():
 
     assembly = f.inspect_source("asm")
     assert "vid.v" in assembly
-    assert re.search(r"\bvmul\.v", assembly)
-    assert re.search(r"\bvadd\.v", assembly)
+    # LLVM may fuse the multiply/add into a vector multiply-accumulate.
+    assert re.search(r"\bvmacc\.v", assembly) or (
+        re.search(r"\bvmul\.v", assembly) and re.search(r"\bvadd\.v", assembly)
+    )
 
 
 if __name__ == "__main__":

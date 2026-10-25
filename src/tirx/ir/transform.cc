@@ -37,7 +37,6 @@ TVM_FFI_STATIC_INIT_BLOCK() {
   ::tvm::transform::PassContext::RegisterConfigOption<bool>(tvm::tirx::attr::kNoAlias.name);
   ::tvm::transform::PassContext::RegisterConfigOption<bool>("tirx.disable_assert");
   ::tvm::transform::PassContext::RegisterConfigOption<bool>("tirx.disable_vectorize");
-  ::tvm::transform::PassContext::RegisterConfigOption<bool>("tirx.enable_tensor_level_predication");
   ::tvm::transform::PassContext::RegisterConfigOption<bool>("tirx.disable_cse_tir");
   ::tvm::transform::PassContext::RegisterConfigOption<bool>("tirx.enable_debug");
   ::tvm::transform::PassContext::RegisterConfigOption<bool>("tirx.disable_storage_rewrite");
