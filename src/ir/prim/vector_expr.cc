@@ -213,10 +213,16 @@ Ramp::Ramp(PrimExpr base, PrimExpr stride, PrimExpr lanes, Location loc)
   TVM_FFI_ICHECK(stride.defined());
   PrimType base_ty = base.ty();
   PrimType stride_ty = stride.ty();
-  TVM_FFI_CHECK(base_ty == PrimType::Int(32) || base_ty == PrimType::Int(64), TypeError)
-      << "Ramp base must be scalar signed int32 or int64, but got " << base_ty;
-  TVM_FFI_CHECK(stride_ty == PrimType::Int(32) || stride_ty == PrimType::Int(64), TypeError)
-      << "Ramp stride must be scalar signed int32 or int64, but got " << stride_ty;
+  TVM_FFI_CHECK(base_ty.IsScalar() &&
+                    base_ty.MatchesCode(DLDataTypeCode::kDLInt, DLDataTypeCode::kDLUInt) &&
+                    (base_ty.bits() == 32 || base_ty.bits() == 64),
+                TypeError)
+      << "Ramp base must be scalar int32, int64, uint32, or uint64, but got " << base_ty;
+  TVM_FFI_CHECK(stride_ty.IsScalar() &&
+                    stride_ty.MatchesCode(DLDataTypeCode::kDLInt, DLDataTypeCode::kDLUInt) &&
+                    (stride_ty.bits() == 32 || stride_ty.bits() == 64),
+                TypeError)
+      << "Ramp stride must be scalar int32, int64, uint32, or uint64, but got " << stride_ty;
   if (stride_ty != base_ty) {
     stride = prim::cast(stride, base_ty);
   }

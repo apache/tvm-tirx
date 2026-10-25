@@ -163,9 +163,9 @@ UnchangedOr<PrimExpr> DataTypeLegalizer::Mutate_(const prim::RampObj* op,
   } else {
     PrimType base_dtype = base.ty();
     PrimType stride_dtype = stride.ty();
-    TVM_FFI_ICHECK(base_dtype.MatchesCode(DLDataTypeCode::kDLInt) &&
-                   stride_dtype.MatchesCode(DLDataTypeCode::kDLInt));
-    // Index narrowing may produce int8/int16 children, but Ramp requires at least int32.
+    TVM_FFI_ICHECK(base_dtype.MatchesCode(DLDataTypeCode::kDLInt, DLDataTypeCode::kDLUInt) &&
+                   stride_dtype.MatchesCode(DLDataTypeCode::kDLInt, DLDataTypeCode::kDLUInt));
+    // Index narrowing may produce narrow children, but Ramp requires at least 32 bits.
     int bits = std::max(32, std::max(base_dtype.bits(), stride_dtype.bits()));
     PrimType dtype = base_dtype.WithBits(bits);
     if (base_dtype->dtype != dtype->dtype) base = prim::cast(base, dtype);

@@ -1187,9 +1187,9 @@ class Vectorizer : public StmtExprMutator {
  private:
   PrimExpr MakeIndexRamp(int stride, PrimExpr lanes) const {
     PrimType var_ty = var_->ty.as_or_throw<PrimType>();
-    PrimType index_ty = PrimType::Int(std::max(32, var_ty.bits()));
+    PrimType index_ty = var_ty.WithBits(std::max(32, var_ty.bits()));
     PrimExpr ramp = prim::Ramp(IntImm(index_ty, 0), IntImm(index_ty, stride), lanes);
-    // Preserve narrow and unsigned loop-variable types with an explicit vector cast.
+    // Preserve narrow loop-variable types with an explicit vector cast.
     return prim::cast(ramp, ramp.ty().WithCode(var_ty.code()).WithBits(var_ty.bits()));
   }
 
