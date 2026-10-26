@@ -31,13 +31,13 @@ set "build_dir=%repo_root%\build-wheel-cuda"
 set "target_arch=%~1"
 if not defined target_arch set "target_arch=AMD64"
 set "cuda_subdir=win-64"
-set "cuda_channel=nvidia/label/cuda-13.0.2"
+set "cuda_channels=-c nvidia/label/cuda-13.0.2"
 set "cuda_package=cuda-toolkit=13.0.2"
 set "vc_component=Microsoft.VisualStudio.Component.VC.Tools.x86.x64"
 set "vc_target=amd64"
 if /i "%target_arch%"=="ARM64" (
   set "cuda_subdir=win-arm64"
-  set "cuda_channel=https://repo.anaconda.com/pkgs/main"
+  set "cuda_channels=--override-channels -c https://repo.anaconda.com/pkgs/main"
   set "cuda_package=cuda-toolkit=13.4.3"
   set "vc_component=Microsoft.VisualStudio.Component.VC.Tools.ARM64"
   set "vc_target=arm64"
@@ -65,10 +65,10 @@ rem Keep the existing AMD64 NVIDIA package pin. ARM64 packages are supplied by
 rem Anaconda main; pin the toolkit and target subdir instead of solving for x64.
 set "CONDA_PLUGINS_AUTO_ACCEPT_TOS=yes"
 if not exist "%cuda_prefix%\Library\bin\nvcc.exe" (
-  call "%conda_exe%" create -q -p "%cuda_prefix%" --platform "%cuda_subdir%" --override-channels -c "%cuda_channel%" "%cuda_package%" -y
+  call "%conda_exe%" create -q -p "%cuda_prefix%" --platform "%cuda_subdir%" %cuda_channels% "%cuda_package%" -y
   if errorlevel 1 (
     if exist "%cuda_prefix%" rmdir /s /q "%cuda_prefix%"
-    call "%conda_exe%" create -q -p "%cuda_prefix%" --platform "%cuda_subdir%" --override-channels -c "%cuda_channel%" "%cuda_package%" -y || exit /b 1
+    call "%conda_exe%" create -q -p "%cuda_prefix%" --platform "%cuda_subdir%" %cuda_channels% "%cuda_package%" -y || exit /b 1
   )
 )
 call "%conda_exe%" list -p "%cuda_prefix%" --explicit || exit /b 1

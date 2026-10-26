@@ -40,9 +40,14 @@
 macro(find_cuda use_cuda use_cudnn)
   if(MSVC)
     # Select import libraries for the compiler target, never the host architecture.
-    if(CMAKE_CXX_COMPILER_ARCHITECTURE_ID STREQUAL "ARM64" OR
-       CMAKE_GENERATOR_PLATFORM STREQUAL "ARM64" OR
-       CMAKE_SYSTEM_PROCESSOR MATCHES "^(ARM64|arm64|aarch64)$")
+    if(CMAKE_CXX_COMPILER_ARCHITECTURE_ID)
+      set(_CUDA_MSVC_TARGET_ARCH "${CMAKE_CXX_COMPILER_ARCHITECTURE_ID}")
+    elseif(CMAKE_GENERATOR_PLATFORM)
+      set(_CUDA_MSVC_TARGET_ARCH "${CMAKE_GENERATOR_PLATFORM}")
+    else()
+      set(_CUDA_MSVC_TARGET_ARCH "${CMAKE_SYSTEM_PROCESSOR}")
+    endif()
+    if(_CUDA_MSVC_TARGET_ARCH MATCHES "^(ARM64|arm64|aarch64)$")
       set(_CUDA_MSVC_LIB_SUFFIX arm64)
     elseif(CMAKE_SIZEOF_VOID_P EQUAL 8)
       set(_CUDA_MSVC_LIB_SUFFIX x64)
