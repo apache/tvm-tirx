@@ -59,6 +59,21 @@ runs:
       shell: bash
       run: echo "TVM_CUDA_EXTRA_LIB=$(cygpath -m "$(pwd)")/build-wheel-cuda/lib/tvm_runtime_cuda.dll" >> "$GITHUB_ENV"
 
+    # Prefer the redistributable matching the native compiler over older DLLs
+    # shipped alongside the runner's tools when delvewheel follows PATH.
+    - name: Select native MSVC runtime DLLs (Windows ARM64)
+      if: runner.os == 'Windows' && inputs.arch == 'ARM64'
+      shell: pwsh
+      run: |
+        $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+        $vs = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.ARM64 -property installationPath
+        if (-not $vs) { throw "Visual Studio ARM64 tools not found" }
+        $version = (Get-Content "$vs\VC\Auxiliary\Build\Microsoft.VCRedistVersion.default.txt").Trim()
+        $crt = Get-ChildItem "$vs\VC\Redist\MSVC\$version\arm64" -Directory -Filter 'Microsoft.VC*.CRT' | Select-Object -First 1
+        if (-not $crt -or -not (Test-Path "$($crt.FullName)\msvcp140.dll")) { throw "Native MSVC redistributable not found" }
+        $crt.FullName | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+        Write-Host "Wheel repair will use $($crt.FullName)"
+
     # ---- Build and test wheels ----
     - name: Build and test TIRx core wheel
       uses: pypa/cibuildwheel@b3395e271a35f73dad77f21802abe9b986dfe299  # v4.3.1
