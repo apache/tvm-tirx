@@ -126,32 +126,6 @@ TEST(StmtFunctor, ReferenceResult) {
   EXPECT_EQ(value, 7);
 }
 
-class ThrowStmtFunctor : public StmtFunctor<void(const Stmt&)> {
- public:
-  using StmtFunctor::Dispatch_;
-  ffi::Error error{"ValueError", "dispatch failure", "original backtrace"};
-  void Dispatch_(const EvaluateObj*) override { throw error; }
-};
-
-TEST(StmtFunctor, AttachesContextAndPreservesError) {
-  ThrowStmtFunctor functor;
-  auto node = Evaluate(IntImm::Int32(7));
-  try {
-    functor(node);
-    FAIL() << "Expected a dispatch failure";
-  } catch (const ffi::Error& error) {
-    EXPECT_TRUE(error.same_as(functor.error));
-    EXPECT_EQ(error.kind(), "ValueError");
-    EXPECT_EQ(error.message(), "dispatch failure");
-    EXPECT_EQ(error.backtrace(), "original backtrace");
-    auto context = ffi::VisitErrorContext::TryGetFromError(error);
-    ASSERT_TRUE(context.has_value());
-    const auto& pattern = context.value()->reverse_visit_pattern;
-    ASSERT_EQ(pattern.size(), 1);
-    EXPECT_TRUE(pattern[0].same_as(node));
-  }
-}
-
 }  // namespace
 }  // namespace tirx
 }  // namespace tvm

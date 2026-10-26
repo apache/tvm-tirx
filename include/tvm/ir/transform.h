@@ -451,6 +451,23 @@ inline Pass CreateModulePass(std::function<IRModule(IRModule, PassContext)> pass
 TVM_TIRX_DLL Pass PrintIR(ffi::String header = "");
 
 /*!
+ * \brief Append an underlined TVMScript location from an error's visit context.
+ *
+ * Preserve the original error kind, message, and backtrace. Return the original
+ * error if the context cannot be resolved or printed. A rendered error drops
+ * its visit context so outer handlers do not append the location again.
+ *
+ * \param err The original error.
+ * \param mod The module containing the visited nodes.
+ * \param context The operation description preceding the location.
+ * \param func Optional function to search before falling back to the module.
+ * \return The enriched error, or the original error on fallback.
+ */
+TVM_TIRX_DLL ffi::Error EnrichErrorWithContext(
+    const ffi::Error& err, const IRModule& mod, ffi::String context,
+    ffi::Optional<GlobalVar> func = ffi::Optional<GlobalVar>(std::nullopt));
+
+/*!
  * \brief Enrich a pass-time error with a TVMScript-rendered, underlined source
  *        location derived from the error's embedded VisitErrorContext.
  *

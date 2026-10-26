@@ -22,7 +22,7 @@
  */
 #include <tvm/codegen/codegen.h>
 #include <tvm/ffi/reflection/registry.h>
-#include <tvm/ir/diagnostic.h>
+#include <tvm/ir/transform.h>
 #include <tvm/tirx/transform.h>
 
 namespace tvm {
@@ -40,7 +40,7 @@ ffi::Module Build(IRModule mod, Target target) {
   try {
     return (*bf)(mod, target).cast<ffi::Module>();
   } catch (const ffi::Error& error) {
-    throw EnrichErrorWithContext(error, mod, "Error in codegen: " + target->kind->name);
+    throw transform::EnrichErrorWithContext(error, mod, "Error in codegen: " + target->kind->name);
   }
 }
 

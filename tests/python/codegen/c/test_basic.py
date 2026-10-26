@@ -380,5 +380,26 @@ def test_min_max_nan_preserving(dtype):
     )
 
 
+def test_unsupported_vector_diagnostic():
+    from tvm_tirx import ir, tirx
+    from tvm_tirx.ir import prim
+
+    value = prim.Broadcast(prim.const(1.0, "float32"), 17)
+    var = ir.Var("bad_value", ir.PrimType("float32x17"))
+    func = tirx.Function([], ir.Bind(var, value)).with_attr("global_symbol", "main")
+    mod = tvm_tirx.IRModule({"main": func})
+    with pytest.raises(RuntimeError, match="Cannot convert type float32x17 to C type") as caught:
+        tvm_tirx.codegen.build_module(mod, "c")
+
+    message = str(caught.value)
+    assert "Error in codegen: c" in message
+    assert message.count("Location (TVMScript):") == 1
+    expression = "T.Broadcast(T.float32(1.0), 17)"
+    lines = message.splitlines()
+    index = next(i for i, line in enumerate(lines) if expression in line)
+    start = lines[index].index(expression)
+    assert lines[index + 1] == " " * start + "^" * len(expression)
+
+
 if __name__ == "__main__":
     tvm_tirx.testing.main()
