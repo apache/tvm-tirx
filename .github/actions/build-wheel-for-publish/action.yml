@@ -22,7 +22,7 @@ description: >
 
 inputs:
   arch:
-    description: "Target architecture for cibuildwheel (e.g., x86_64, aarch64, arm64, AMD64)"
+    description: "Target architecture for cibuildwheel (e.g., x86_64, aarch64, arm64, AMD64, ARM64)"
     required: true
   build:
     description: "cibuildwheel build selector (e.g., cp310-manylinux_x86_64)"
@@ -32,7 +32,7 @@ inputs:
     required: false
     default: ""
   include_cuda_runtime:
-    description: "Set to 1 to build and inject the CUDA runtime library (Linux only)"
+    description: "Set to 1 to build and inject the CUDA runtime library (Linux and Windows)"
     required: false
     default: "0"
 

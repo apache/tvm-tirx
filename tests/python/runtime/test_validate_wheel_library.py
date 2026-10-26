@@ -30,6 +30,8 @@ on Linux/macOS source builds with LLVM enabled.
 
 import glob
 import os
+import platform
+import struct
 import subprocess
 import sys
 from pathlib import Path
@@ -57,6 +59,22 @@ def test_cuda_runtime_present():
         str(libdir / "tvm_runtime_cuda.*")
     )
     assert present, "CUDA runtime expected but not bundled in tvm/lib"
+
+
+def test_windows_library_architecture():
+    """Bundled DLLs, including an injected CUDA sidecar, match the interpreter."""
+    if sys.platform != "win32" or os.environ.get("TVM_WHEEL_EXPECT_LLVM") != "1":
+        pytest.skip("Windows wheel architecture check")
+    expected = 0xAA64 if platform.machine().upper() == "ARM64" else 0x8664
+    libdir = Path(tvm_tirx.__file__).resolve().parent / "lib"
+    libraries = list(libdir.glob("*.dll"))
+    assert libraries, "wheel contains no Windows libraries"
+    for library in libraries:
+        data = library.read_bytes()
+        pe_offset = struct.unpack_from("<I", data, 0x3C)[0]
+        assert data[pe_offset : pe_offset + 4] == b"PE\0\0", library
+        machine = struct.unpack_from("<H", data, pe_offset + 4)[0]
+        assert machine == expected, (library, hex(machine), hex(expected))
 
 
 def test_cpu_aot(tmp_path):

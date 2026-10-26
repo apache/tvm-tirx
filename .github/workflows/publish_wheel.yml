@@ -24,6 +24,14 @@ on:
         description: "Tag, branch, or SHA to build"
         required: true
         type: string
+      platform:
+        description: "Build all platforms, or validate Windows ARM64 without publishing"
+        required: true
+        default: "all"
+        type: choice
+        options:
+          - all
+          - windows-arm64
       publish_repository:
         description: "Where to publish after the wheel build succeeds"
         required: true
@@ -43,37 +51,35 @@ env:
   PIP_NO_CACHE_DIR: "1"
 
 jobs:
+  select_platforms:
+    runs-on: ubuntu-latest
+    outputs:
+      cuda: ${{ steps.select.outputs.cuda }}
+      wheels: ${{ steps.select.outputs.wheels }}
+    steps:
+      - uses: actions/checkout@v6.0.2
+        with:
+          ref: ${{ inputs.tag }}
+      - name: Select wheel platforms
+        id: select
+        env:
+          WHEEL_PLATFORM: ${{ inputs.platform }}
+          PUBLISH_REPOSITORY: ${{ inputs.publish_repository }}
+        run: python ci/wheel/select_wheel_platforms.py
+
   # Build the CUDA runtime sidecar once per arch and upload it as an artifact that
   # build_wheels bundles. The Linux legs build inside the official manylinux_2_28
   # CUDA image (CUDA toolkit preinstalled, see pypa/manylinux) -- the same glibc
   # baseline cibuildwheel targets for the wheel -- so the sidecar stays
   # ABI-compatible with the wheel's libtvm_runtime.so regardless of the exact tag.
   build_cuda_runtime:
+    needs: [select_platforms]
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
     container: ${{ matrix.container }}
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - name: "CUDA runtime sidecar (Linux x86_64, manylinux_2_28)"
-            os: ubuntu-latest
-            container: quay.io/manylinux_cuda/manylinux_2_28_x86_64_cuda13_1:latest
-            arch: x86_64
-            script: ci/wheel/manylinux_build_libtvm_runtime_cuda.sh
-            lib: build-wheel-cuda/lib/libtvm_runtime_cuda.so
-          - name: "CUDA runtime sidecar (Linux aarch64, manylinux_2_28)"
-            os: ubuntu-24.04-arm
-            container: quay.io/manylinux_cuda/manylinux_2_28_aarch64_cuda13_1:latest
-            arch: aarch64
-            script: ci/wheel/manylinux_build_libtvm_runtime_cuda.sh
-            lib: build-wheel-cuda/lib/libtvm_runtime_cuda.so
-          - name: "CUDA runtime sidecar (Windows AMD64)"
-            os: windows-2022
-            container: ""
-            arch: AMD64
-            script: ci/wheel/windows_build_libtvm_runtime_cuda.bat
-            lib: build-wheel-cuda/lib/tvm_runtime_cuda.dll
+      matrix: ${{ fromJSON(needs.select_platforms.outputs.cuda) }}
     steps:
       # The containerized Linux legs check out as root; mark the tree safe so git
       # (submodule init in checkout) does not bail on "dubious ownership".
@@ -95,7 +101,8 @@ jobs:
         if: runner.os == 'Windows'
         uses: actions/setup-python@v6.2.0
         with:
-          python-version: "3.10"
+          python-version: ${{ matrix.arch == 'ARM64' && '3.12' || '3.10' }}
+          architecture: ${{ matrix.arch == 'ARM64' && 'arm64' || 'x64' }}
 
       - name: Build CUDA runtime sidecar (Unix)
         if: runner.os != 'Windows'
@@ -105,7 +112,7 @@ jobs:
       - name: Build CUDA runtime sidecar (Windows)
         if: runner.os == 'Windows'
         shell: cmd
-        run: call ${{ matrix.script }}
+        run: call ${{ matrix.script }} ${{ matrix.arch }}
 
       - name: Upload CUDA runtime sidecar
         uses: actions/upload-artifact@v7.0.1
@@ -118,37 +125,11 @@ jobs:
     name: ${{ matrix.name }}
     # All-or-nothing: a failed sidecar leg blocks the whole wheel matrix (a publish
     # needs both complete wheel sets anyway).
-    needs: [build_cuda_runtime]
+    needs: [select_platforms, build_cuda_runtime]
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - name: "Linux x86_64 wheel with CUDA runtime (manylinux_2_28)"
-            os: ubuntu-latest
-            arch: x86_64
-            build: cp310-manylinux_x86_64
-            include_cuda_runtime: "1"
-            artifact_suffix: linux-x86_64-manylinux_2_28
-          - name: "Linux aarch64 wheel with CUDA runtime (manylinux_2_28)"
-            os: ubuntu-24.04-arm
-            arch: aarch64
-            build: cp310-manylinux_aarch64
-            include_cuda_runtime: "1"
-            artifact_suffix: linux-aarch64-manylinux_2_28
-          - name: "macOS arm64 wheel with Metal"
-            os: macos-14
-            arch: arm64
-            build: cp310-macosx_arm64
-            include_cuda_runtime: "0"
-            artifact_suffix: macos-arm64
-            cmake_defines: "-DTVM_TIRX_USE_METAL=ON"
-          - name: "Windows AMD64 wheel with CUDA runtime"
-            os: windows-2022
-            arch: AMD64
-            build: cp310-win_amd64
-            include_cuda_runtime: "1"
-            artifact_suffix: windows-amd64
+      matrix: ${{ fromJSON(needs.select_platforms.outputs.wheels) }}
     steps:
       - name: Checkout source
         uses: actions/checkout@v6.0.2
