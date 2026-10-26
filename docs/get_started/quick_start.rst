@@ -15,20 +15,21 @@
     specific language governing permissions and limitations
     under the License.
 
-Your First TIRx Program
-=======================
+Quick Start
+===========
 
 In this chapter, we'll write and run a small TIRx program using TVMScript,
-TIRx's Python-based notation for IR, then look at the IR it builds. Our example
-adds one to each element of a tensor: ``B[i] = A[i] + 1``.
+which lets us describe tensor computations with Python syntax. We'll also
+inspect the IR that TVMScript creates from the code.
+The :doc:`/dev/source_build` guide explains how to set up TIRx.
 
-``A`` is the input tensor, and ``B`` stores the result. Both tensors have the
-same dynamic length ``n``. We can call the compiled program with different
-lengths without recompiling.
+Our example computes ``B[i] = A[i] + 1``, where ``A`` is the input tensor
+and ``B`` is the output. Both tensors have the same dynamic length ``n``,
+so the compiled program can handle different input lengths without
+recompilation.
 
-With an LLVM-enabled TIRx build, you can download
-:download:`add_one_cpu.py <examples/add_one_cpu.py>` and run ``python add_one_cpu.py``.
-Here's the complete program:
+We'll show two versions of this program: one for the CPU and one for an
+NVIDIA GPU. We'll first compile and run the CPU version using LLVM.
 
 .. literalinclude:: examples/add_one_cpu.py
    :language: python
@@ -42,18 +43,22 @@ its output. We'll explore the IR objects behind these constructs in the
 :doc:`IR Walkthrough </ir/overview>`.
 
 We can also run this computation on an NVIDIA GPU. In addition to LLVM,
-this example needs CUDA support, an NVIDIA driver, the CUDA toolkit, and
-``cuda-bindings``. You can download
-:download:`add_one_cuda.py <examples/add_one_cuda.py>` and run ``python add_one_cuda.py``.
-Here's the complete GPU program:
+it still needs CUDA support, an NVIDIA driver, the CUDA toolkit, and
+``cuda-bindings`` to run.
 
 .. literalinclude:: examples/add_one_cuda.py
    :language: python
    :start-after: # begin program
    :end-before: # end program
 
-Here, ``T.device_entry`` marks the GPU computation. Each thread handles one
-element, and the launch uses enough blocks of 256 threads to cover ``n``
-elements. The ``if i < n`` check skips any extra threads. ``tirx.compile``
-compiles it for CUDA, and ``cuda(0)`` selects the GPU for the input and output
-tensors. The NumPy assertion checks the result in the same way as the CPU example.
+``T.device_entry`` marks the GPU computation and configures blocks of 256
+threads. Each thread handles one element, so the block count is rounded
+up to cover ``n`` elements. The ``if i < n`` check keeps extra threads in
+the last block from accessing the tensors. We compile the function for
+CUDA with ``tirx.compile`` and run it with input and output tensors on
+``cuda(0)``, then check the result with NumPy as in the CPU example.
+
+The complete examples are available as
+:download:`add_one_cpu.py <examples/add_one_cpu.py>` and
+:download:`add_one_cuda.py <examples/add_one_cuda.py>`. You can run them with
+``python add_one_cpu.py`` and ``python add_one_cuda.py``, respectively.

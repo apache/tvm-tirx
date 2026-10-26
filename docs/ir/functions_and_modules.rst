@@ -28,14 +28,20 @@ an implementation while preserving references to it.
 Functions
 ---------
 
-For tensor programs, use ``@T.function`` to define functions in TVMScript,
-as in our sigmoid example. The decorator produces a
-:class:`tirx.Function <tvm_tirx.tirx.Function>` IR object. To help users better
-understand the IR, we also show how to construct the same representation
-directly through the IR API.
+``@T.function`` defines a tensor-program function in TVMScript and
+produces a :class:`tirx.Function <tvm_tirx.tirx.Function>` IR object.
+The CPU example is defined as:
 
-``ir.BaseFunc`` is the base class for all function definitions and is also
-an expression. Its ``attrs`` field holds named function properties:
+.. literalinclude:: ../get_started/examples/add_one_cpu.py
+   :language: python
+   :start-at: from tvm_tirx.script import tirx as T
+   :end-at:         B[i] = A[i] + 1
+
+The decorated name ``add_one`` refers to the resulting IR function.
+Its parameters are ``A`` and ``B``, and its body contains the loop.
+
+``ir.BaseFunc`` is the base class for all function definitions and is
+also an expression. Its ``attrs`` field holds named function properties:
 
 .. list-table::
    :header-rows: 1
@@ -48,8 +54,8 @@ an expression. Its ``attrs`` field holds named function properties:
      - ``ir.DictAttrs``
      - Named function properties.
 
-:class:`tirx.Function <tvm_tirx.tirx.Function>` extends ``ir.BaseFunc`` with
-parameters, a result type, and a statement body:
+``tirx.Function`` extends ``ir.BaseFunc`` with parameters, a result type,
+and a statement body:
 
 .. list-table::
    :header-rows: 1
@@ -64,78 +70,135 @@ parameters, a result type, and a statement body:
    * - ``body``
      - A ``SeqStmt``, or None for a declaration without an implementation.
 
-The parameter and result types form the function's signature, available as
-an ``ir.FuncType`` through ``ty``. The ``global_symbol`` entry in ``attrs``
-specifies the function's exported name for code generation. For public
+The parameter and result types form the function's signature, available
+as an ``ir.FuncType`` through ``ty``. The ``global_symbol`` entry in
+``attrs`` specifies its exported name for code generation. For public
 functions, ``@T.function`` sets it to the Python function name by default.
-The IR API example below sets it explicitly with ``with_attr``.
 
-The program defines a function with input, bias, and output tensors.
-Its IR definition combines these three parameters with the batch and
-channel loops:
+The IR API can also build the function from the CPU example.
+We start with its symbolic length, tensor parameters, and loop index:
 
-.. literalinclude:: examples/sigmoid.py
+.. literalinclude:: examples/add_one.py
+   :language: python
+   :start-after: # begin variables
+   :end-before: # end variables
+   :dedent: 4
+   :prepend: from tvm_tirx import ir, tirx
+
+``A`` and ``B`` share the tensor type with length ``n``, and ``i`` is
+an int32 index variable. The store and loop from :doc:`statements`
+form the computation:
+
+.. code-block:: python
+
+   store = ir.TensorStore(B, [i], A[i] + 1)
+   body = ir.SeqStmt([store])
+   loop = ir.For(i, 0, n, 1, ir.ForKind.DEFAULT, body)
+
+The function then combines the parameters with the loop body:
+
+.. literalinclude:: examples/add_one.py
    :language: python
    :start-after: # begin function construction
    :end-before: # end function construction
    :dedent: 4
 
-``batch_loop`` contains a channel loop that processes one element at a time.
-The function writes activated values into ``Y``; ``ir.TupleType([])`` declares
-that it returns no value.
-The input and output types have shape ``(2*n, channels)``. The symbol ``n``,
-whose value the compiled function derives from the tensor shapes at runtime,
-is used in these types and the loop bound.
+``[A, B]`` supplies the function's parameters in calling order. The
+second argument, ``loop``, is a single ``ir.For`` statement; the
+constructor wraps it in a ``SeqStmt`` to form the function's ``body``.
+The function writes its results through the output parameter ``B`` and
+returns no value, as declared by ``ret_type=ir.TupleType([])``.
+
+The ``with_attr`` call returns a function with ``attrs["global_symbol"]``
+set to ``"add_one"``, its exported name. The symbol ``n`` appears in both
+parameter types and the loop bound, and its value is derived from the
+tensor shapes at runtime.
+
+The original ``add_one`` function connects its parameters and result
+type to a nested statement body:
+
+.. code-block:: text
+
+   add_one: tirx.Function
+   ├── params[0]: ir.Var                     A
+   ├── params[1]: ir.Var                     B
+   ├── ret_type: ir.TupleType                no return value
+   └── body: ir.SeqStmt
+       └── seq[0]: ir.For                    for i in range(n)
+           └── body: ir.SeqStmt
+               └── seq[0]: ir.TensorStore    B[i] = A[i] + 1
+
+The function body contains the ``For``, and the loop body contains the
+``TensorStore``. We can follow these fields to inspect each statement.
+Since ``add_one.body`` is a ``SeqStmt``, ``add_one.body[0]`` selects
+the loop:
+
+.. literalinclude:: examples/add_one.py
+   :language: python
+   :start-after: # begin loop inspection
+   :end-before: # end loop inspection
+
+``loop`` is the ``ir.For`` for ``for i in range(n)``, and ``loop.var``
+is its index variable ``i``. The loop body is another ``SeqStmt``. Its
+first statement writes the result to ``B[i]``:
+
+.. literalinclude:: examples/add_one.py
+   :language: python
+   :start-after: # begin store inspection
+   :end-before: # end store inspection
+
+``store`` is an ``ir.TensorStore``. Its ``value`` field contains the
+expression to write, so ``addition`` is the ``ir.prim.Add`` for
+``A[i] + 1``.
 
 Modules
 -------
 
-:class:`ir.IRModule <tvm_tirx.ir.IRModule>` organizes named functions into a
-program and lets us look up their definitions. An
-:class:`ir.GlobalVar <tvm_tirx.ir.GlobalVar>` is an expression that refers to a
-function stored in the module. This differs from the :ref:`ir.Var <user-ir-var>`
-objects used for parameters and local values in our example. The module
-associates each function reference with its ``ir.BaseFunc`` definition, such
-as a ``tirx.Function``.
+:class:`ir.IRModule <tvm_tirx.ir.IRModule>` organizes named functions into
+a program. An :class:`ir.GlobalVar <tvm_tirx.ir.GlobalVar>` refers to a
+function stored in the module. The module associates that reference
+with an ``ir.BaseFunc`` definition, such as a ``tirx.Function``.
 
-In the bias + sigmoid example, one module keeps two model specializations.
-The same factory builds kernels for 128-channel and 130-channel outputs,
-each with its own exported name:
+The program passes ``add_one`` directly to ``tirx.compile``.
+A tool that manages functions by name can wrap this same function in a module:
 
-.. literalinclude:: examples/sigmoid.py
+.. literalinclude:: examples/add_one.py
    :language: python
    :start-after: # begin module construction
    :end-before: # end module construction
 
-Both accept tensors with a runtime row count of ``2*n``. Each specialization
-uses a scalar loop over its channels. Their tensor types record the different
-widths.
+``IRModule`` converts the string key ``"add_one"`` into an ``ir.GlobalVar``
+and associates it with the ``add_one`` definition. We can retrieve that
+global reference, then use it to look up the function:
 
-Use ``module.get_global_var(name)`` to retrieve the ``ir.GlobalVar`` reference
-for an existing function:
-
-.. literalinclude:: examples/sigmoid.py
+.. literalinclude:: examples/add_one.py
    :language: python
    :start-after: # begin module lookup
    :end-before: # end module lookup
 
-``entry`` is the function's ``ir.GlobalVar`` reference; ``module[entry]`` and
-``module["bias_sigmoid_130"]`` retrieve its current definition. A compiler pass
-can replace that definition while keeping ``entry``. If the replacement
-preserves the function's calling interface, calls using this reference can
-remain unchanged.
+``entry`` is an ``ir.GlobalVar`` used as a key in the module's
+``functions`` mapping. The associated value is the function definition:
 
-For example, a compiler can keep the original expanded sigmoid and build
-another module that uses the named ``prim.sigmoid`` operator. The factory's
-``activation`` argument selects this representation:
+.. code-block:: text
 
-.. literalinclude:: examples/sigmoid.py
+   module: ir.IRModule
+   └── functions
+       └── entry (ir.GlobalVar) → add_one (tirx.Function)
+
+Both ``module[entry]`` and ``module["add_one"]`` retrieve that definition.
+The ``GlobalVar`` refers to the function in the module; the ``Var``
+objects inside the function represent its parameters and loop indices.
+
+A compiler pass can rebuild a function and replace its definition under
+the same reference. For example, we can install the IR API reconstruction
+``ir_function`` from above into a copy of the module:
+
+.. literalinclude:: examples/add_one.py
    :language: python
    :start-after: # begin module update
    :end-before: # end module update
 
-``variant`` keeps the 128-channel definition and replaces the 130-channel
-definition with one that calls ``prim.sigmoid``. The replacement keeps the
-same tensor interface and exported name, so ``variant[entry]`` now retrieves
-the new implementation through the existing global reference. The original
-``module`` still contains the expanded sigmoid expression.
+``variant[entry]`` now returns the reconstructed definition. It keeps
+the same parameters, result type, and exported name. The original
+``module`` retains the TVMScript definition. This is the update pattern
+a pass can use while preserving the function's calling interface.
