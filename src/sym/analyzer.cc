@@ -55,7 +55,6 @@ AnalyzerObj::AnalyzerObj()
       rewrite_simplify(this),
       canonical_simplify(this),
       int_set(this),
-      known_comparisons(this),
       z3_prover(this) {}
 
 ConstraintContext AnalyzerObj::GetConstraintContext() const {
@@ -110,10 +109,15 @@ void AnalyzerObj::SyncConstraintContext(const ConstraintContext& context) {
                       : next_position.source->parent_ &&
                             position(next_position.source->parent_.get(),
                                      next_position.source->parent_prefix_size_) == old_position;
+  auto ingest = [&](const ConstraintContextObj* source, int64_t index) {
+    IngestConstraint(source->constraints_[index]);
+    // On-demand queries during ingestion must see only previously accepted
+    // premises. Capture this position only after all backends accept the fact.
+    last_snapshot_ = ConstraintContext(ffi::GetRef<ConstraintContext>(source), index + 1);
+  };
   if (additive) {
     int64_t begin = next_position.source == old_position.source ? old_position.prefix : 0;
-    for (int64_t i = begin; i < next_position.prefix; ++i)
-      IngestConstraint(next_position.source->constraints_[i]);
+    for (int64_t i = begin; i < next_position.prefix; ++i) ingest(next_position.source, i);
   } else {
     // Reset ALL peers before ordered replay. A binding may query its peers,
     // which must agree on the valid prefix rather than retain removed facts.
@@ -122,9 +126,13 @@ void AnalyzerObj::SyncConstraintContext(const ConstraintContext& context) {
     rewrite_simplify.Reset();
     canonical_simplify.Reset();
     int_set.Reset();
-    known_comparisons.Reset();
     z3_prover.Reset();
-    next->ForEach([&](const Constraint& fact) { IngestConstraint(fact); });
+    last_snapshot_ = ConstraintContext();
+    auto replay = [&](auto&& self, const ConstraintContextObj* source, int64_t prefix) -> void {
+      if (source->parent_) self(self, source->parent_.get(), source->parent_prefix_size_);
+      for (int64_t i = 0; i < prefix; ++i) ingest(source, i);
+    };
+    replay(replay, next_position.source, next_position.prefix);
   }
   last_snapshot_ = std::move(next);
   synchronizing_ = false;
@@ -139,7 +147,6 @@ void AnalyzerObj::IngestBinding(const Var& var, const PrimExpr& expr) {
   rewrite_simplify.IngestBinding(var, value);
   canonical_simplify.IngestBinding(var, value);
   int_set.IngestBinding(var, value);
-  known_comparisons.IngestBinding(var, expr);
   z3_prover.IngestBinding(var, expr);
 }
 
@@ -149,7 +156,6 @@ void AnalyzerObj::IngestBinding(const Var& var, const Range& range) {
   } else {
     const_int_bound.IngestBinding(var, range);
     int_set.IngestBinding(var, range);
-    known_comparisons.IngestBinding(var, range);
     z3_prover.IngestBinding(var, range);
   }
 }
@@ -190,7 +196,6 @@ void AnalyzerObj::IngestConstraint(const Constraint& fact) {
       modular_set.IngestPredicate(condition);
       rewrite_simplify.IngestPredicate(condition);
       int_set.IngestPredicate(condition);
-      known_comparisons.IngestPredicate(condition);
       z3_prover.IngestPredicate(condition);
     }
   }
@@ -354,7 +359,6 @@ Analyzer AnalyzerObj::Clone() const {
   cloned->rewrite_simplify.CopyFrom(this->rewrite_simplify);
   cloned->canonical_simplify.CopyFrom(this->canonical_simplify);
   cloned->int_set.CopyFrom(this->int_set);
-  cloned->known_comparisons.CopyFrom(this->known_comparisons);
   cloned->z3_prover.CopyFrom(this->z3_prover);
   cloned->last_snapshot_ = last_snapshot_;
   return cloned;
@@ -416,7 +420,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
       .def_method("sym.AnalyzerCanProveEqual", &AnalyzerObj::CanProveEqual)
       .def("sym.AnalyzerTryCompare",
            [](Analyzer analyzer, const PrimExpr& lhs, const PrimExpr& rhs) {
-             return static_cast<int64_t>(analyzer->known_comparisons.TryCompare(lhs, rhs));
+             return static_cast<int64_t>(analyzer->rewrite_simplify.TryCompare(lhs, rhs));
            })
       .def("sym.AnalyzerIsZ3Enabled",
            [](Analyzer analyzer) { return analyzer->z3_prover.IsEnabled(); })

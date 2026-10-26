@@ -124,6 +124,9 @@ class RewriteSimplifier::Impl : public SimplifierBase {
 
   void AddPredicate(const PrimExpr& constraint, bool is_assume);
 
+  // Direct premise matching does not invoke simplification or other analyzers.
+  CompareResult TryCompareKnown(const PrimExpr& lhs, const PrimExpr& rhs) const;
+
   RewriteSimplifierStats GetStatsCounters() const { return RewriteSimplifierStats(stats_); }
 
   void ResetStatsCounters() { stats_ = {}; }
@@ -221,9 +224,6 @@ class RewriteSimplifier::Impl : public SimplifierBase {
   PrimExpr ApplyRewriteRules(prim::Not node, InplaceMode inplace_mode);
 
  private:
-  CompareResult TryCompareUsingKnownInequalities(const PrimExpr& x, const PrimExpr& y);
-  CompareResult TryCompareUsingConstIntBounds(const PrimExpr& x, const PrimExpr y);
-
   // Whether x >= val
   bool CanProveGreaterEqual(const PrimExpr& x, int64_t val) {
     return analyzer_->CanProveGreaterEqual(x, val);
