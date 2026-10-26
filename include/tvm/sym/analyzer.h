@@ -311,8 +311,10 @@ class RewriteSimplifier {
   friend class AnalyzerObj;
   // Clear context-derived facts before replay; retain query settings and diagnostics.
   void Reset();
-  // Record a value binding after AnalyzerObj validates and orders the premises.
-  void IngestBinding(const Var& var, const PrimExpr& expr);
+  // Keep the original relation alongside the simplified substitution.
+  void IngestBinding(const Var& var, const PrimExpr& value, const PrimExpr& original);
+  // Record a range relation after AnalyzerObj validates and orders the premises.
+  void IngestBinding(const Var& var, const Range& range);
   // Consume a predicate prepared against the preceding premise prefix.
   void IngestPredicate(const PrimExpr& constraint);
   friend class CanonicalSimplifier;

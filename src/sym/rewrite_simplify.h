@@ -35,6 +35,7 @@
 #include <vector>
 
 #include "const_fold.h"
+#include "known_comparisons.h"
 #include "simplify_base.h"
 
 namespace tvm {
@@ -124,6 +125,8 @@ class RewriteSimplifier::Impl : public SimplifierBase {
 
   void AddPredicate(const PrimExpr& constraint, bool is_assume);
 
+  KnownComparisons known_comparisons_;
+
   // Direct premise matching does not invoke simplification or other analyzers.
   CompareResult TryCompareKnown(const PrimExpr& lhs, const PrimExpr& rhs) const;
 
@@ -138,12 +141,14 @@ class RewriteSimplifier::Impl : public SimplifierBase {
   void ResetContext() {
     var_map_.clear();
     literal_constraints_.clear();
+    known_comparisons_ = {};
     // Limits and cumulative diagnostics survive environment changes. Recursion
     // belongs to the active query and cannot be reset underneath that query.
   }
   void CopyFrom(const Impl& other) {
     var_map_ = other.var_map_;
     literal_constraints_ = other.literal_constraints_;
+    known_comparisons_ = other.known_comparisons_;
     maximum_rewrite_steps_ = other.maximum_rewrite_steps_;
   }
 

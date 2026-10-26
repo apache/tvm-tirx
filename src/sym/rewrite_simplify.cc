@@ -35,7 +35,6 @@
 #include <algorithm>
 #include <numeric>
 #include <tuple>
-#include <unordered_set>
 #include <utility>
 
 #include "const_fold.h"
@@ -51,74 +50,6 @@ TVM_FFI_INLINE bool IsVectorExpr(const ExprObj* expr) {
   return ty.IsScalableVector() || ty.IsFixedLengthVector();
 }
 
-// Represent lhs OP rhs as lhs_base OP rhs_base + offset. Keep unsupported
-// offsets intact, and use BigInt for intermediate arithmetic to avoid overflow.
-std::tuple<PrimExpr, PrimExpr, int64_t> ComparisonOperands(const PrimExpr& lhs,
-                                                           const PrimExpr& rhs) {
-  auto split = [](const PrimExpr& expr) -> std::pair<PrimExpr, ffi::BigInt> {
-    PVar<PrimExpr> x;
-    PVar<IntImm> c;
-    if ((x + c).Match(expr)) return {x.Eval(), c.Eval()->value};
-    if ((x - c).Match(expr)) return {x.Eval(), -c.Eval()->value};
-    if (c.Match(expr)) return {0, c.Eval()->value};
-    return {expr, 0};
-  };
-  auto [lhs_base, lhs_offset] = split(lhs);
-  auto [rhs_base, rhs_offset] = split(rhs);
-  if (auto offset = (rhs_offset - lhs_offset).as<int64_t>()) return {lhs_base, rhs_base, *offset};
-  return {lhs, rhs, 0};
-}
-
-// Match one premise to the query's operands, without following relationships
-// through other expressions or invoking an analyzer recursively.
-CompareResult MatchComparison(const PrimExpr& lhs, const PrimExpr& rhs, int64_t offset,
-                              const PrimExpr& known_lhs, const PrimExpr& known_rhs,
-                              CompareResult relation) {
-  if (!known_lhs.ty().MatchesCode(DLDataTypeCode::kDLInt) ||
-      !known_rhs.ty().MatchesCode(DLDataTypeCode::kDLInt))
-    return CompareResult::kUnknown;
-  auto [a, b, known_offset] = ComparisonOperands(known_lhs, known_rhs);
-  ffi::BigInt normalized = known_offset;
-  if (relation == CompareResult::kLT) {
-    --normalized;
-    relation = CompareResult::kLE;
-  } else if (relation == CompareResult::kGT) {
-    ++normalized;
-    relation = CompareResult::kGE;
-  }
-  if (!normalized.as<int64_t>()) return CompareResult::kUnknown;
-  ffi::StructuralEqual equal;
-  if (equal(lhs, a) && equal(rhs, b)) {
-    // Already oriented like the query.
-  } else if (equal(lhs, b) && equal(rhs, a)) {
-    normalized = -normalized;
-    if (relation == CompareResult::kLE)
-      relation = CompareResult::kGE;
-    else if (relation == CompareResult::kGE)
-      relation = CompareResult::kLE;
-    if (!normalized.as<int64_t>()) return CompareResult::kUnknown;
-  } else {
-    return CompareResult::kUnknown;
-  }
-  switch (relation) {
-    case CompareResult::kEQ:
-      return normalized == offset ? CompareResult::kEQ : CompareResult::kNE;
-    case CompareResult::kLE:
-      if (normalized < offset) return CompareResult::kLT;
-      if (normalized == offset) return CompareResult::kLE;
-      break;
-    case CompareResult::kGE:
-      if (normalized > offset) return CompareResult::kGT;
-      if (normalized == offset) return CompareResult::kGE;
-      break;
-    case CompareResult::kNE:
-      if (normalized == offset) return CompareResult::kNE;
-      break;
-    default:
-      break;
-  }
-  return CompareResult::kUnknown;
-}
 }  // namespace
 
 TVM_FFI_STATIC_INIT_BLOCK() { RewriteSimplifierStatsObj::RegisterReflection(); }
@@ -242,75 +173,19 @@ CompareResult RewriteSimplifier::Impl::TryCompare(const PrimExpr& x, const PrimE
   return output;
 }
 
-CompareResult RewriteSimplifier::Impl::TryCompareKnown(const PrimExpr& x, const PrimExpr& y) const {
-  if (!x.ty().MatchesCode(DLDataTypeCode::kDLInt) || !y.ty().MatchesCode(DLDataTypeCode::kDLInt) ||
-      SideEffect(x) > CallEffectKind::kPure || SideEffect(y) > CallEffectKind::kPure)
-    return CompareResult::kUnknown;
-  if (const auto* a = x.as<IntImmObj>()) {
-    if (const auto* b = y.as<IntImmObj>())
-      return a->value < b->value   ? CompareResult::kLT
-             : a->value > b->value ? CompareResult::kGT
-                                   : CompareResult::kEQ;
+CompareResult RewriteSimplifier::Impl::TryCompareKnown(const PrimExpr& lhs,
+                                                       const PrimExpr& rhs) const {
+  const auto& facts = detail::TempConstraintScope::Query(analyzer_);
+  if (facts.empty()) return known_comparisons_.TryCompare(lhs, rhs);
+  // Temporary bindings, predicates and expression keys belong to query scratch.
+  KnownComparisons temporary = known_comparisons_;
+  for (const Constraint& fact : facts) {
+    if (const auto* binding = fact.as<BindingConstraintObj>())
+      temporary.IngestBinding(binding->var, binding->value);
+    else if (const auto* predicate = fact.as<PredicateConstraintObj>())
+      temporary.IngestPredicate(predicate->condition);
   }
-
-  auto [lhs, rhs, offset] = ComparisonOperands(x, y);
-  CompareResult result = CompareResult::kUnknown;
-  auto match = [&](const PrimExpr& a, const PrimExpr& b, CompareResult relation) {
-    result = result & MatchComparison(lhs, rhs, offset, a, b, relation);
-  };
-  auto predicate = [&](const PrimExpr& condition) {
-    for (const PrimExpr& part : ExtractConstraints(condition, false)) {
-      PVar<PrimExpr> a, b;
-      if ((a <= b).Match(part))
-        match(a.Eval(), b.Eval(), CompareResult::kLE);
-      else if ((a >= b).Match(part))
-        match(a.Eval(), b.Eval(), CompareResult::kGE);
-      else if ((a < b).Match(part))
-        match(a.Eval(), b.Eval(), CompareResult::kLT);
-      else if ((a > b).Match(part))
-        match(a.Eval(), b.Eval(), CompareResult::kGT);
-      else if ((a == b).Match(part))
-        match(a.Eval(), b.Eval(), CompareResult::kEQ);
-      else if ((a != b).Match(part))
-        match(a.Eval(), b.Eval(), CompareResult::kNE);
-    }
-  };
-  for (const PrimExpr& condition : literal_constraints_) predicate(condition);
-
-  // Temporary definitions take precedence over captured bindings/ranges. The
-  // set is query-local; no comparison facts or expression keys are retained.
-  std::unordered_set<const VarObj*> bound;
-  const auto& temporary = detail::TempConstraintScope::Query(analyzer_);
-  for (auto it = temporary.rbegin(); it != temporary.rend(); ++it) {
-    if (const auto* binding = it->as<BindingConstraintObj>()) {
-      if (bound.insert(binding->var.get()).second)
-        predicate(binding->var.as_or_throw<PrimExpr>() == binding->value);
-    } else if (const auto* condition = it->as<PredicateConstraintObj>()) {
-      predicate(condition->condition);
-    }
-  }
-  // The coordinator exposes only the accepted prefix, including during replay.
-  // Use original binding/range expressions, as their simplified values can lose
-  // the direct relation to the expression being compared.
-  analyzer_->GetConstraintContext()->ForEach([&](const Constraint& fact) {
-    if (const auto* binding = fact.as<BindingConstraintObj>()) {
-      if (!bound.count(binding->var.get()) && SideEffect(binding->value) <= CallEffectKind::kPure)
-        predicate(binding->var.as_or_throw<PrimExpr>() == binding->value);
-    } else if (const auto* range = fact.as<RangeConstraintObj>()) {
-      if (bound.count(range->var.get()) ||
-          SideEffect(range->range->begin) > CallEffectKind::kPure ||
-          SideEffect(range->range->extent) > CallEffectKind::kPure)
-        return;
-      PrimExpr var = range->var.as_or_throw<PrimExpr>();
-      if (prim::IsOne(range->range->extent)) {
-        predicate(var == range->range->begin);
-      } else {
-        predicate(var >= range->range->begin);
-        predicate(var < range->range->begin + range->range->extent);
-      }
-    }
-  });
-  return result;
+  return temporary.TryCompare(lhs, rhs);
 }
 
 // try to prove x equals val
@@ -2523,12 +2398,19 @@ CompareResult RewriteSimplifier::TryCompare(const PrimExpr& lhs, const PrimExpr&
   return impl_->TryCompareKnown(lhs, rhs);
 }
 
-void RewriteSimplifier::IngestBinding(const Var& var, const PrimExpr& info) {
-  impl_->SetBinding(var, info, true);
+void RewriteSimplifier::IngestBinding(const Var& var, const PrimExpr& value,
+                                      const PrimExpr& original) {
+  impl_->SetBinding(var, value, true);
+  impl_->known_comparisons_.IngestBinding(var, original);
+}
+
+void RewriteSimplifier::IngestBinding(const Var& var, const Range& range) {
+  impl_->known_comparisons_.IngestBinding(var, range);
 }
 
 void RewriteSimplifier::IngestPredicate(const PrimExpr& constraint) {
   impl_->AddPredicate(constraint, false);
+  impl_->known_comparisons_.IngestPredicate(constraint);
 }
 
 ffi::ObjectRef RewriteSimplifier::GetStatsCounters() const { return impl_->GetStatsCounters(); }

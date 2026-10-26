@@ -109,15 +109,10 @@ void AnalyzerObj::SyncConstraintContext(const ConstraintContext& context) {
                       : next_position.source->parent_ &&
                             position(next_position.source->parent_.get(),
                                      next_position.source->parent_prefix_size_) == old_position;
-  auto ingest = [&](const ConstraintContextObj* source, int64_t index) {
-    IngestConstraint(source->constraints_[index]);
-    // On-demand queries during ingestion must see only previously accepted
-    // premises. Capture this position only after all backends accept the fact.
-    last_snapshot_ = ConstraintContext(ffi::GetRef<ConstraintContext>(source), index + 1);
-  };
   if (additive) {
     int64_t begin = next_position.source == old_position.source ? old_position.prefix : 0;
-    for (int64_t i = begin; i < next_position.prefix; ++i) ingest(next_position.source, i);
+    for (int64_t i = begin; i < next_position.prefix; ++i)
+      IngestConstraint(next_position.source->constraints_[i]);
   } else {
     // Reset ALL peers before ordered replay. A binding may query its peers,
     // which must agree on the valid prefix rather than retain removed facts.
@@ -127,12 +122,7 @@ void AnalyzerObj::SyncConstraintContext(const ConstraintContext& context) {
     canonical_simplify.Reset();
     int_set.Reset();
     z3_prover.Reset();
-    last_snapshot_ = ConstraintContext();
-    auto replay = [&](auto&& self, const ConstraintContextObj* source, int64_t prefix) -> void {
-      if (source->parent_) self(self, source->parent_.get(), source->parent_prefix_size_);
-      for (int64_t i = 0; i < prefix; ++i) ingest(source, i);
-    };
-    replay(replay, next_position.source, next_position.prefix);
+    next->ForEach([&](const Constraint& fact) { IngestConstraint(fact); });
   }
   last_snapshot_ = std::move(next);
   synchronizing_ = false;
@@ -144,7 +134,7 @@ void AnalyzerObj::IngestBinding(const Var& var, const PrimExpr& expr) {
   value = rewrite_simplify(value);
   const_int_bound.IngestBinding(var, value);
   modular_set.IngestBinding(var, value);
-  rewrite_simplify.IngestBinding(var, value);
+  rewrite_simplify.IngestBinding(var, value, expr);
   canonical_simplify.IngestBinding(var, value);
   int_set.IngestBinding(var, value);
   z3_prover.IngestBinding(var, expr);
@@ -156,6 +146,7 @@ void AnalyzerObj::IngestBinding(const Var& var, const Range& range) {
   } else {
     const_int_bound.IngestBinding(var, range);
     int_set.IngestBinding(var, range);
+    rewrite_simplify.IngestBinding(var, range);
     z3_prover.IngestBinding(var, range);
   }
 }
