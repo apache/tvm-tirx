@@ -78,12 +78,14 @@ functions, ``@T.function`` sets it to the Python function name by default.
 The IR API can also build the function from the CPU example.
 We start with its symbolic length, tensor parameters, and loop index:
 
-.. literalinclude:: examples/add_one.py
-   :language: python
-   :start-after: # begin variables
-   :end-before: # end variables
-   :dedent: 4
-   :prepend: from tvm_tirx import ir, tirx
+.. code-block:: python
+
+   from tvm_tirx import ir, tirx
+   n = ir.Var("n", "int32")
+   tensor_type = tirx.TensorType((n,), "float32")
+   A = ir.Var("A", tensor_type)
+   B = ir.Var("B", tensor_type)
+   i = ir.Var("i", "int32")
 
 ``A`` and ``B`` share the tensor type with length ``n``, and ``i`` is
 an int32 index variable. The store and loop from :doc:`statements`
@@ -97,11 +99,10 @@ form the computation:
 
 The function then combines the parameters with the loop body:
 
-.. literalinclude:: examples/add_one.py
-   :language: python
-   :start-after: # begin function construction
-   :end-before: # end function construction
-   :dedent: 4
+.. code-block:: python
+
+   ir_function = tirx.Function([A, B], loop, ret_type=ir.TupleType([]))
+   ir_function = ir_function.with_attr("global_symbol", "add_one")
 
 ``[A, B]`` supplies the function's parameters in calling order. The
 second argument, ``loop``, is a single ``ir.For`` statement; the
@@ -133,19 +134,19 @@ The function body contains the ``For``, and the loop body contains the
 Since ``add_one.body`` is a ``SeqStmt``, ``add_one.body[0]`` selects
 the loop:
 
-.. literalinclude:: examples/add_one.py
-   :language: python
-   :start-after: # begin loop inspection
-   :end-before: # end loop inspection
+.. code-block:: python
+
+   loop = add_one.body[0]
+   i = loop.var
 
 ``loop`` is the ``ir.For`` for ``for i in range(n)``, and ``loop.var``
 is its index variable ``i``. The loop body is another ``SeqStmt``. Its
 first statement writes the result to ``B[i]``:
 
-.. literalinclude:: examples/add_one.py
-   :language: python
-   :start-after: # begin store inspection
-   :end-before: # end store inspection
+.. code-block:: python
+
+   store = loop.body[0]
+   addition = store.value
 
 ``store`` is an ``ir.TensorStore``. Its ``value`` field contains the
 expression to write, so ``addition`` is the ``ir.prim.Add`` for
@@ -162,19 +163,18 @@ with an ``ir.BaseFunc`` definition, such as a ``tirx.Function``.
 The program passes ``add_one`` directly to ``tirx.compile``.
 A tool that manages functions by name can wrap this same function in a module:
 
-.. literalinclude:: examples/add_one.py
-   :language: python
-   :start-after: # begin module construction
-   :end-before: # end module construction
+.. code-block:: python
+
+   module = ir.IRModule({"add_one": add_one})
 
 ``IRModule`` converts the string key ``"add_one"`` into an ``ir.GlobalVar``
 and associates it with the ``add_one`` definition. We can retrieve that
 global reference, then use it to look up the function:
 
-.. literalinclude:: examples/add_one.py
-   :language: python
-   :start-after: # begin module lookup
-   :end-before: # end module lookup
+.. code-block:: python
+
+   entry = module.get_global_var("add_one")
+   function = module[entry]
 
 ``entry`` is an ``ir.GlobalVar`` used as a key in the module's
 ``functions`` mapping. The associated value is the function definition:
@@ -193,10 +193,10 @@ A compiler pass can rebuild a function and replace its definition under
 the same reference. For example, we can install the IR API reconstruction
 ``ir_function`` from above into a copy of the module:
 
-.. literalinclude:: examples/add_one.py
-   :language: python
-   :start-after: # begin module update
-   :end-before: # end module update
+.. code-block:: python
+
+   variant = module.clone()
+   variant[entry] = ir_function
 
 ``variant[entry]`` now returns the reconstructed definition. It keeps
 the same parameters, result type, and exported name. The original

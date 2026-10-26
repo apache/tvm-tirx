@@ -37,11 +37,12 @@ The GPU example uses the registered operator ``tirx.cuda.thread_idx`` to
 obtain a thread coordinate. We can retrieve its definition with
 ``ir.Op.get`` and inspect its argument information and attributes:
 
-.. literalinclude:: examples/add_one.py
-   :language: python
-   :start-after: # begin operator lookup
-   :end-before: # end operator lookup
-   :prepend: from tvm_tirx import ir
+.. code-block:: python
+
+   from tvm_tirx import ir
+   op = ir.Op.get("tirx.cuda.thread_idx")
+   argument_names = [argument.name for argument in op.args_info]
+   effect = op.get_attr("TCallEffectKind")
 
 ``argument_names`` is ``["axis"]``: ``op.args_info`` describes an argument
 named ``axis``. The actual axis value is supplied by each call. ``effect``
@@ -102,11 +103,10 @@ addition use the calls' results as operands:
 The thread-index call refers to the registered ``tirx.cuda.thread_idx``
 operator. We can construct it directly through the IR API:
 
-.. literalinclude:: examples/add_one.py
-   :language: python
-   :start-after: # begin call construction
-   :end-before: # end call construction
-   :prepend: op = ir.Op.get("tirx.cuda.thread_idx")
+.. code-block:: python
+
+   op = ir.Op.get("tirx.cuda.thread_idx")
+   x_call = ir.Call(op, [ir.StringImm("x")])
 
 ``ir.Op.get`` retrieves the shared operator definition. ``ir.Call``
 creates an expression whose ``op`` refers to that definition and whose
@@ -130,10 +130,9 @@ The constructor also accepts the registered name directly:
 The program uses the x axis. As an additional example, we can construct
 a call for the y axis with the same operator:
 
-.. literalinclude:: examples/add_one.py
-   :language: python
-   :start-after: # begin shared operator
-   :end-before: # end shared operator
+.. code-block:: python
+
+   y_call = ir.Call(op, [ir.StringImm("y")])
 
 Both ``x_call.op`` and ``y_call.op`` reference the shared ``op``. Each
 call has its own ``args`` array, containing ``"x"`` or ``"y"``, and
@@ -153,11 +152,11 @@ As an extension of the scalar add-one expression, we can apply sigmoid to
 ``scalar_value + 1``. The variable ``scalar_value`` has type
 ``ir.PrimType("float32")``:
 
-.. literalinclude:: examples/add_one.py
-   :language: python
-   :start-after: # begin scalar addition
-   :end-before: # end scalar addition
-   :append: activated_plus_one = ir.prim.sigmoid(scalar_plus_one)
+.. code-block:: python
+
+   scalar_value = ir.Var("scalar_value", "float32")
+   scalar_plus_one = scalar_value + 1
+   activated_plus_one = ir.prim.sigmoid(scalar_plus_one)
 
 ``ir.prim.sigmoid(...)`` constructs and returns an ``ir.Call`` object.
 ``activated_plus_one`` refers to this call, which is also a primitive
@@ -192,18 +191,20 @@ The callee can also be a function defined in IR. A function stored in an
 ``IRModule`` is referenced through an ``ir.GlobalVar``. For example, a
 small helper can put the scalar add-one computation in a function:
 
-.. literalinclude:: examples/add_one.py
-   :language: python
-   :start-after: # begin scalar helper
-   :end-before: # end scalar helper
+.. code-block:: python
+
+   @T.function(private=True)
+   def add_one_scalar(value: T.float32) -> T.float32:
+       return value + 1
 
 ``private=True`` makes this an internal helper. We can place it in a
 module and construct a call that passes ``scalar_value`` as its argument:
 
-.. literalinclude:: examples/add_one.py
-   :language: python
-   :start-after: # begin function call
-   :end-before: # end function call
+.. code-block:: python
+
+   call_module = ir.IRModule({"add_one_scalar": add_one_scalar})
+   callee = call_module.get_global_var("add_one_scalar")
+   function_call = ir.Call(callee, [scalar_value], ty=add_one_scalar.ret_type)
 
 ``callee`` is the module's global reference to ``add_one_scalar``.
 ``function_call.op`` refers to this ``GlobalVar``, and
@@ -220,11 +221,13 @@ For example, a temporary tensor allocation needs the type of tensor to
 allocate. This additional example describes storage for four float32
 elements:
 
-.. literalinclude:: examples/add_one.py
-   :language: python
-   :start-after: # begin allocation call
-   :end-before: # end allocation call
-   :prepend: from tvm_tirx import tirx
+.. code-block:: python
+
+   from tvm_tirx import tirx
+   temporary_type = tirx.TensorType((4,), "float32", scope="local")
+   allocation_call = ir.Call(
+       "tirx.alloc_tensor", [], ty_args=[temporary_type], attrs={"alignment": 16}
+   )
 
 ``ty_args[0]`` supplies ``temporary_type`` to the allocation operator.
 Its type rule also uses this type as the call's result, so
@@ -246,10 +249,11 @@ statement gives a call its place in the computation. For the allocation,
 an ``ir.Bind`` names the resulting tensor, and a ``SeqStmt`` holds the
 binding in execution order:
 
-.. literalinclude:: examples/add_one.py
-   :language: python
-   :start-after: # begin allocation binding
-   :end-before: # end allocation binding
+.. code-block:: python
+
+   temporary = ir.Var("temporary", temporary_type)
+   allocation_binding = ir.Bind(temporary, allocation_call)
+   allocation_body = ir.SeqStmt([allocation_binding])
 
 ``allocation_binding.value`` refers to ``allocation_call``, and
 ``allocation_binding.var`` is ``temporary``. Later statements in the
@@ -279,10 +283,11 @@ and defer result-type inference until the inputs are ready. With the
 thread-index operator and argument introduced above, we can compare
 automatic inference, an explicit type, and a deferred type:
 
-.. literalinclude:: examples/add_one.py
-   :language: python
-   :start-after: # begin inference choices
-   :end-before: # end inference choices
+.. code-block:: python
+
+   inferred_call = ir.Call(op, x_call.args)
+   typed_call = ir.Call(op, x_call.args, ty="int32")
+   provisional = ir.Call(op, x_call.args, ty=ir.Type.missing())
 
 ``inferred_call`` and ``typed_call`` both store an int32 result type.
 ``provisional`` retains ``MissingType`` because a type was supplied
@@ -293,11 +298,10 @@ by :meth:`validate() <tvm_tirx.ir.Call.validate>`. Validation is separate
 from construction, so tools can assemble a call before checking it.
 For example, a rebuilt call might accidentally omit the axis argument:
 
-.. literalinclude:: examples/add_one.py
-   :language: python
-   :start-after: # begin validation failure
-   :end-before: # end validation failure
-   :append: invalid.validate()
+.. code-block:: python
+
+   invalid = ir.Call(op, [], ty="int32")
+   invalid.validate()
 
 The explicit result type bypasses inference, allowing this incomplete
 call to be constructed. ``invalid.validate()`` raises ``TypeError``
@@ -310,19 +314,19 @@ the scalar sigmoid call produces float32, but a version whose input is
 call with this four-lane variable as its argument and leave the result
 type undetermined:
 
-.. literalinclude:: examples/add_one.py
-   :language: python
-   :start-after: # begin provisional sigmoid
-   :end-before: # end provisional sigmoid
+.. code-block:: python
+
+   provisional_sigmoid = ir.Call(sigmoid_op, [vector_value], ty=ir.Type.missing())
 
 The new argument is now in place. A pass can compute the corresponding
 result type with :func:`ir.reinfer_type <tvm_tirx.ir.reinfer_type>` and
 record it in a replacement call:
 
-.. literalinclude:: examples/add_one.py
-   :language: python
-   :start-after: # begin provisional call
-   :end-before: # end provisional call
+.. code-block:: python
+
+   inferred = ir.reinfer_type(provisional_sigmoid)
+   rebuilt_call = ir.Call(sigmoid_op, provisional_sigmoid.args, ty=inferred)
+   rebuilt_call.validate()
 
 ``inferred`` is ``ir.PrimType("float32x4")``, matching the new input.
 The inference function returns this type without changing

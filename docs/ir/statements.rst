@@ -102,12 +102,11 @@ tensor parameters ``A`` and ``B`` from :ref:`user-ir-var`, we can also
 construct this loop body directly through the IR API, first creating
 the tensor store and then placing it in a ``SeqStmt``:
 
-.. literalinclude:: examples/add_one.py
-   :language: python
-   :start-after: # begin cpu body
-   :end-before: # end cpu body
-   :dedent: 4
-   :prepend: i = ir.Var("i", "int32")
+.. code-block:: python
+
+   i = ir.Var("i", "int32")
+   store = ir.TensorStore(B, [i], A[i] + 1)
+   body = ir.SeqStmt([store])
 
 ``ir.TensorStore`` takes the destination tensor ``B``, the index list
 ``[i]``, and the value expression ``A[i] + 1``. These arguments populate
@@ -156,11 +155,9 @@ The CPU example visits every element with a loop:
 Its IR specifies a variable, begin and end bounds, a step, and an
 execution kind. The same loop can be built around ``body`` with:
 
-.. literalinclude:: examples/add_one.py
-   :language: python
-   :start-after: # begin cpu loop
-   :end-before: # end cpu loop
-   :dedent: 4
+.. code-block:: python
+
+   loop = ir.For(i, 0, n, 1, ir.ForKind.DEFAULT, body)
 
 The first argument, ``i``, is the loop variable. The next three arguments
 set the beginning to ``0``, the end to ``n``, and the step to ``1``.

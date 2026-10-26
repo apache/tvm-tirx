@@ -123,9 +123,14 @@ includes them in the generated source. The following helper saves and
 reloads a whole module, such as the wrapper from
 :doc:`functions_and_modules`:
 
-.. literalinclude:: examples/add_one.py
-   :language: python
-   :pyobject: save_program
+.. code-block:: python
+
+   def save_program(program, output_path):
+       source = program.script(extra_config={"ir.comment_imports": False})
+       output_path.write_text(source)
+       restored = from_source(output_path.read_text())
+       ir.assert_structural_equal(program, restored)
+       return restored
 
 ``output_path`` is a ``pathlib.Path``. The saved file contains the
 module's definition and imports, so ``from_source`` can reconstruct it

@@ -82,11 +82,11 @@ The loop index ``i`` has the same primitive type.
 We can express the addition ``A[i] + 1`` directly through the IR API,
 with a scalar variable standing for the input element:
 
-.. literalinclude:: examples/add_one.py
-   :language: python
-   :start-after: # begin scalar addition
-   :end-before: # end scalar addition
-   :prepend: from tvm_tirx import ir
+.. code-block:: python
+
+   from tvm_tirx import ir
+   scalar_value = ir.Var("scalar_value", "float32")
+   scalar_plus_one = scalar_value + 1
 
 ``scalar_value`` has type ``ir.PrimType("float32")``, so it represents a single
 32-bit floating-point value. The result ``scalar_plus_one`` has the
@@ -97,10 +97,10 @@ same type, just like ``A[i] + 1`` in the program.
 ``PrimType`` also supports vector values. We can extend the same addition
 to four float32 values at once:
 
-.. literalinclude:: examples/add_one.py
-   :language: python
-   :start-after: # begin vector extension
-   :end-before: # end vector extension
+.. code-block:: python
+
+   vector_value = ir.Var("vector_value", "float32x4")
+   vector_plus_one = vector_value + 1
 
 The type of ``vector_value`` is ``ir.PrimType("float32x4")``. The ``x4`` suffix
 specifies four float32 lanes within one vector value. The addition adds
@@ -292,10 +292,11 @@ The tensor parameters ``A`` and ``B`` in the program are represented by
 ``ir.Var`` objects. In the CPU example, we can retrieve them from
 ``add_one.params`` and inspect their types through ``ty``:
 
-.. literalinclude:: examples/add_one.py
-   :language: python
-   :start-after: # begin parameter inspection
-   :end-before: # end parameter inspection
+.. code-block:: python
+
+   A, B = add_one.params
+   input_type = A.ty
+   output_type = B.ty
 
 Each parameter is a ``Var`` with its own ``name`` and ``ty`` fields.
 For ``A``, these are:
@@ -313,11 +314,11 @@ TVMScript creates these parameter variables when it parses the function.
 We can also create variables directly with ``ir.Var(name, ty)``. The
 scalar add-one example in PrimType uses this constructor:
 
-.. literalinclude:: examples/add_one.py
-   :language: python
-   :start-after: # begin scalar addition
-   :end-before: # end scalar addition
-   :prepend: from tvm_tirx import ir
+.. code-block:: python
+
+   from tvm_tirx import ir
+   scalar_value = ir.Var("scalar_value", "float32")
+   scalar_plus_one = scalar_value + 1
 
 ``ir.Var("scalar_value", "float32")`` creates a variable whose ``name``
 is ``"scalar_value"`` and whose ``ty`` is ``ir.PrimType("float32")``.
@@ -366,11 +367,12 @@ other function-valued IR expressions. For example, we can call the
 built-in ``prim.sigmoid`` operator to compute
 ``1 / (1 + exp(-value))``:
 
-.. literalinclude:: examples/add_one.py
-   :language: python
-   :start-after: # begin sigmoid call
-   :end-before: # end sigmoid call
-   :prepend: from tvm_tirx import ir
+.. code-block:: python
+
+   from tvm_tirx import ir
+   value = ir.Var("value", "float32")
+   sigmoid_op = ir.Op.get("prim.sigmoid")
+   activated_value = ir.Call(sigmoid_op, [value])
 
 ``activated_value`` has the same structure, with a variable as its
 argument:
@@ -404,10 +406,12 @@ and range.
 The first parameter of ``add_one`` is ``A``. We can retrieve the
 filename and starting line number of its declaration:
 
-.. literalinclude:: examples/add_one.py
-   :language: python
-   :start-after: # begin source location
-   :end-before: # end source location
+.. code-block:: python
+
+   parameter = add_one.params[0]
+   location = parameter.loc
+   source_name = location.source_name.name
+   line = location.start_line
 
 The code follows these fields from the parameter to its source location:
 
