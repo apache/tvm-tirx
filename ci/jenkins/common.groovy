@@ -324,8 +324,6 @@ def upload_artifacts(tag, options) {
 }
 
 def download_artifacts(tag) {
-  // Reused workspaces must install only this build's wheel artifacts.
-  sh 'rm -rf dist'
   sh(
     script: "./${jenkins_scripts_root}/s3.py --action download --bucket ${s3_bucket} --prefix ${s3_prefix}/${tag}",
     label: 'Download artifacts from S3',

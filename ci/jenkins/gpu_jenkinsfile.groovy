@@ -60,6 +60,7 @@ parallel(
         name: 'unittest: GPU', folder: 'tvm/ut-python-gpu',
         variables: ['PLATFORM=gpu', 'TEST_STEP_NAME=unittest: GPU']) {
         ci.docker_init(images.ci_gpu)
+        sh 'rm -rf dist'
         ci.download_artifacts('gpu')
         sh(
           script: """${docker_run} ${images.ci_gpu} bash -euo pipefail -c '
@@ -76,6 +77,7 @@ parallel(
       ci.with_node(instance: 'CPU-SPOT', retry_instance: 'CPU',
         name: 'Docs', folder: 'tvm/tirx-docs', variables: ['PLATFORM=gpu']) {
         ci.docker_init(images.ci_gpu)
+        sh 'rm -rf dist'
         ci.download_artifacts('gpu')
         sh(
           script: "${docker_run} --no-gpu ${images.ci_gpu} ./tests/scripts/task_python_docs.sh",
