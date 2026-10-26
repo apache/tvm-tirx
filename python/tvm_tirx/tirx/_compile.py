@@ -132,13 +132,9 @@ def _split_host_device_modules(
 
 def _build_for_target(mod: IRModule, target: Target) -> tvm_ffi.Module:
     """Build a runtime module from an IRModule and a Target."""
-    if tvm_tirx.ir.transform.PassContext.current().config.get("tirx.disable_assert", False):
-        mod = tvm_tirx.tirx.transform.SkipAssert()(mod)
-    build_f_name = "target.build." + target.kind.name
-    bf = tvm_ffi.get_global_func(build_f_name)
-    if bf is None:
-        raise ValueError(f"{build_f_name} is not enabled")
-    return bf(mod, target)
+    # Retain the Python ValueError for an unavailable backend.
+    tvm_ffi.get_global_func("target.build." + target.kind.name)
+    return tvm_tirx.codegen.build_module(mod, target)
 
 
 def _codegen_host_and_device(

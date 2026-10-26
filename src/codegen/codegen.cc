@@ -22,6 +22,7 @@
  */
 #include <tvm/codegen/codegen.h>
 #include <tvm/ffi/reflection/registry.h>
+#include <tvm/ir/diagnostic.h>
 #include <tvm/tirx/transform.h>
 
 namespace tvm {
@@ -36,7 +37,11 @@ ffi::Module Build(IRModule mod, Target target) {
   std::string build_f_name = "target.build." + target->kind->name;
   const auto bf = tvm::ffi::Function::GetGlobal(build_f_name);
   TVM_FFI_ICHECK(bf.has_value()) << build_f_name << " is not enabled";
-  return (*bf)(mod, target).cast<ffi::Module>();
+  try {
+    return (*bf)(mod, target).cast<ffi::Module>();
+  } catch (const ffi::Error& error) {
+    throw EnrichErrorWithContext(error, mod, "Error in codegen: " + target->kind->name);
+  }
 }
 
 TVM_FFI_STATIC_INIT_BLOCK() {
