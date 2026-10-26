@@ -51,6 +51,7 @@ stage('Test') {
       name: 'unittest: CPU', folder: 'tvm/ut-python-cpu',
       variables: ['PLATFORM=cpu', 'TEST_STEP_NAME=unittest: CPU']) {
       ci.docker_init(images.ci_cpu)
+      sh 'rm -rf dist'
       ci.download_artifacts('cpu')
       sh (
         script: """${docker_run} ${images.ci_cpu} bash -euo pipefail -c '

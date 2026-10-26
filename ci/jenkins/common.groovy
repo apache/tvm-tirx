@@ -24,7 +24,7 @@ image_platforms = [ci_arm: 'ARM', ci_cpu: 'CPU', ci_gpu: 'GPU']
 enable_docker_hub_cache = true
 max_time = 180
 // Temporarily bypass image sccache wrappers and inherited compiler launchers.
-docker_run = 'docker/bash.sh --env CI --env PLATFORM --env TEST_STEP_NAME' +
+docker_run = 'ci/jenkins/docker/bash.sh --env CI --env PLATFORM --env TEST_STEP_NAME' +
   ' --env CC=/usr/bin/gcc --env CXX=/usr/bin/g++' +
   ' --env CMAKE_C_COMPILER_LAUNCHER= --env CMAKE_CXX_COMPILER_LAUNCHER='
 s3_bucket = 'tvm-jenkins-artifacts-prod'
