@@ -72,6 +72,80 @@ def test_isnan_scalar_and_vector_codegen(dtype):
     assert "!=" in source
 
 
+def _vector_kernel(dtype, lanes, operation, result_dtype=None):
+    if result_dtype is None:
+        result_dtype = dtype
+
+    vector_dtype = f"{dtype}x{lanes}"
+    result_vector_dtype = f"{result_dtype}x{lanes}"
+
+    @T.function
+    def func(A: T.Tensor((1,), vector_dtype), B: T.Tensor((1,), result_vector_dtype)):
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=1))
+        B[0] = operation(A[0])
+
+    return func
+
+
+@pytest.mark.parametrize(
+    "dtype,lanes,operation,result_dtype,error",
+    [
+        ("int8", 8, lambda x: x + T.int8(1), None, "Broadcast for int8x8"),
+        ("uint8", 8, lambda x: x >> T.uint8(3), None, "Broadcast for uint8x8"),
+        ("bool", 8, lambda x: x, None, "type boolx8"),
+        ("int64", 8, lambda x: x, None, "type int64x8"),
+        ("float4_e2m1fn", 8, lambda x: x, None, "type float4_e2m1fnx8"),
+        ("float6_e3m2fn", 8, lambda x: x, None, "type float6_e3m2fnx8"),
+        ("int32", 4, lambda x: ~x, None, "'~' for int32x4"),
+        ("float8_e5m2", 2, lambda x: x + x, None, "'+' for float8_e5m2x2"),
+        ("float8_e4m3fn", 4, lambda x: x * x, None, "'*' for float8_e4m3fnx4"),
+        ("float8_e5m2", 2, lambda x: x < T.float8_e5m2(1), "bool", "'<' for float8_e5m2x2"),
+    ],
+)
+def test_unsupported_vectors_fail_before_cuda_handoff(
+    dtype, lanes, operation, result_dtype, error, monkeypatch
+):
+    monkeypatch.setenv("TVM_TIRX_COMPILE_FORCE_FALLBACK", "1")
+    # This hook runs after codegen, before either nvcc or the source-only fallback.
+    # Checking it also exercises the rejection boundary on CPU-only builds.
+    name = "tvm_callback_cuda_postproc"
+    original = tvm_ffi.get_global_func(name, allow_missing=True)
+    handed_off = []
+
+    def postproc(source, target):
+        handed_off.append(source)
+        return source
+
+    tvm_ffi.register_global_func(name, postproc, override=True)
+    try:
+        with pytest.raises(RuntimeError, match=re.escape("CUDA codegen does not support " + error)):
+            _get_source(_vector_kernel(dtype, lanes, operation, result_dtype))
+        assert not handed_off
+        _get_source(_vector_kernel("int32", 2, lambda x: x))
+        assert len(handed_off) == 1
+    finally:
+        if original is None:
+            tvm_ffi.registry.remove_global_func(name)
+        else:
+            tvm_ffi.register_global_func(name, original, override=True)
+
+
+@pytest.mark.parametrize(
+    "dtype,lanes,operation,result_dtype,source_fragment",
+    [
+        ("int8", 4, lambda x: ~x, None, "(~"),
+        ("int32", 4, lambda x: x + 1, None, "make_int4"),
+        ("float16", 2, lambda x: x + x, None, "half2"),
+        ("float8_e5m2", 2, lambda x: x, None, "__nv_fp8x2_e5m2"),
+        ("float8_e5m2", 8, lambda x: x, None, "uint2"),
+        ("float8_e5m2", 2, lambda x: T.Cast("float32x2", x), "float32", "float2"),
+    ],
+)
+def test_supported_vector_codegen(dtype, lanes, operation, result_dtype, source_fragment):
+    source, _ = _get_source(_vector_kernel(dtype, lanes, operation, result_dtype))
+    assert source_fragment in source
+
+
 def _helper_source(src: str, helper_name: str) -> str:
     pattern = rf"__forceinline__ __device__ [^{{;]+ {re.escape(helper_name)}\("
     match = re.search(pattern, src)

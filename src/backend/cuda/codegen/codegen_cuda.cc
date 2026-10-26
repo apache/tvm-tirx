@@ -575,7 +575,7 @@ void CodeGenCUDA::PrintType(const PrimType& t, std::ostream& os) {  // NOLINT(*)
     } else {
       fail = true;
     }
-    return;
+    if (!fail) return;
   } else if (IsFloat4(t)) {
     codegen_tags_.insert("fp4");
     if (lanes <= 4) {
@@ -583,7 +583,7 @@ void CodeGenCUDA::PrintType(const PrimType& t, std::ostream& os) {  // NOLINT(*)
     } else {
       fail = true;
     }
-    return;
+    if (!fail) return;
   } else if (t == PrimType::Bool()) {
     os << "bool";
     return;
@@ -731,8 +731,11 @@ void CodeGenCUDA::PrintType(const PrimType& t, std::ostream& os) {  // NOLINT(*)
           os << "longlong3";
         } else if (lanes == 4) {
           os << "longlong4";
+        } else {
+          fail = true;
         }
-        return;
+        if (!fail) return;
+        break;
       }
 
       default:
@@ -747,7 +750,7 @@ void CodeGenCUDA::PrintType(const PrimType& t, std::ostream& os) {  // NOLINT(*)
       return;
     }
   }
-  TVM_FFI_THROW(InternalError) << "Cannot convert type " << t << " to CUDA type";
+  TVM_FFI_THROW(RuntimeError) << "CUDA codegen does not support type " << t->dtype;
 }
 
 void CodeGenCUDA::PrintVecConstructor(const PrimType& t, std::ostream& os) {
@@ -845,6 +848,10 @@ void CodeGenCUDA::PrintVecBinaryOpNanPreserving(const std::string& op, const Pri
 
 void CodeGenCUDA::PrintVecBinaryOp(const std::string& op, const PrimType& t, PrimExpr lhs,
                                    PrimExpr rhs, std::ostream& os) {  // NOLINT(*)
+  if (IsFloat8(lhs.ty())) {
+    TVM_FFI_THROW(RuntimeError) << "CUDA codegen does not support '" << op << "' for "
+                                << lhs.ty()->dtype;
+  }
   // Declare the result.
   std::string sret = name_supply_->FreshName("_");
   this->PrintIndent();
@@ -1516,6 +1523,17 @@ void CodeGenCUDA::Dispatch_(const prim::RampObj* op, std::ostream& os) {
   os << sret;
 }
 
+void CodeGenCUDA::Dispatch_(const prim::BitwiseNotObj* op, std::ostream& os) {
+  PrimType t = op->a.ty();
+  // Packed integers represented by a scalar still support the C bitwise operator.
+  bool packed_scalar = ((t.bits() == 1 || t.bits() == 4) && t.bits() * t.lanes() <= 32) ||
+                       (t.bits() == 8 && t.lanes() == 4);
+  if (t.lanes() > 1 && !t.MatchesCode(DLDataTypeCode::kDLBool) && !packed_scalar) {
+    TVM_FFI_THROW(RuntimeError) << "CUDA codegen does not support '~' for " << t->dtype;
+  }
+  CodeGenC::Dispatch_(op, os);
+}
+
 void CodeGenCUDA::Dispatch_(const prim::BroadcastObj* op, std::ostream& os) {  // NOLINT(*)
   PrimType op_ty = op->ty.as_or_throw<PrimType>();
   int lanes = op_ty.lanes();
@@ -1574,7 +1592,9 @@ void CodeGenCUDA::Dispatch_(const prim::BroadcastObj* op, std::ostream& os) {  /
   }
 
   if (IsFloat8(op_ty) || IsFloat4(op_ty)) {
-    TVM_FFI_ICHECK(lanes == 1 || lanes == 2 || lanes == 4);
+    if (lanes != 2 && lanes != 4) {
+      TVM_FFI_THROW(RuntimeError) << "CUDA codegen does not support Broadcast for " << op_ty->dtype;
+    }
     std::string v = PrintExprToSSA(op->value);
     // Implicit conversion from float back to fp8
     PrintType(op_ty, os);
@@ -1631,6 +1651,9 @@ void CodeGenCUDA::Dispatch_(const prim::BroadcastObj* op, std::ostream& os) {  /
     }
   }
 
+  if (lanes > 4) {
+    TVM_FFI_THROW(RuntimeError) << "CUDA codegen does not support Broadcast for " << op_ty->dtype;
+  }
   std::string v = PrintExprToSSA(op->value);
   PrintVecConstructor(op_ty, os);
   os << '(';

@@ -86,6 +86,7 @@ class CodeGenCUDA final : public CodeGenC {
   void Dispatch_(const FloatImmObj* op, std::ostream& os) final;
   void Dispatch_(const CallObj* op, std::ostream& os) final;
   void Dispatch_(const prim::CastObj* op, std::ostream& os) final;
+  void Dispatch_(const prim::BitwiseNotObj* op, std::ostream& os) final;
   void Dispatch_(const prim::MinObj* op, std::ostream& os) final;  // NOLINT(*)
   void Dispatch_(const prim::MaxObj* op, std::ostream& os) final;  // NOLINT(*)
   template <typename T>
