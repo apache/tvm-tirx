@@ -28,10 +28,12 @@ checks arguments.
 Operators
 ---------
 
-:class:`ir.Op <tvm_tirx.ir.Op>` represents the shared definition of a
-registered operator. It records the operation's name, argument descriptions,
-and attributes. Its registration also supplies rules for type inference
-and argument validation.
+Calls to the same registered operator share an
+:class:`ir.Op <tvm_tirx.ir.Op>` definition. ``ir.Op`` records the
+operator's name, argument descriptions, and attributes, together with rules
+for type inference and argument validation. Each call supplies its own
+argument expressions, and the compiler uses the shared rules to infer its
+result type and validate its arguments.
 
 The GPU example uses the registered operator ``tirx.cuda.thread_idx`` to
 obtain a thread coordinate. We can retrieve its definition with
@@ -243,11 +245,11 @@ to this call; the attributes on ``ir.Op`` describe the shared operator.
 Calls in Function Bodies
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
-The examples above construct expressions without running their operations
-or inserting statements into a function. A surrounding expression or
-statement gives a call its place in the computation. For the allocation,
-an ``ir.Bind`` names the resulting tensor, and a ``SeqStmt`` holds the
-binding in execution order:
+The allocation call above describes a tensor allocation, but has not yet
+been inserted into a function body. To let later statements refer to the
+allocated tensor, we bind the call's result to a variable with ``ir.Bind``.
+We then place this binding in a ``SeqStmt``, which arranges statements in
+execution order:
 
 .. code-block:: python
 
@@ -259,13 +261,13 @@ binding in execution order:
 ``allocation_binding.var`` is ``temporary``. Later statements in the
 same scope can use this variable to access the temporary tensor.
 
-A call made for its effects can instead appear in an ``ir.Evaluate``
-statement, which executes the call and discards its result. For example,
-``tirx.masked_store`` describes a memory write and has a ``void`` result
-type. Its operator declares ``ir.CallEffectKind.UpdateState``. The
-``TCallEffectKind`` attribute lets compiler passes account for effects
-when they transform calls, alongside the argument and type information
-examined next.
+When we do not need to retain a call's result, we can use ``ir.Evaluate``
+to construct a statement that evaluates the call and discards its result.
+For example, ``tirx.masked_store`` writes to memory and returns ``void``.
+Even with a ``void`` result type, ``ir.Call`` is an expression, while
+``SeqStmt`` accepts only statements, so we wrap the call in ``ir.Evaluate``.
+The operator's ``TCallEffectKind`` attribute is ``ir.CallEffectKind.UpdateState``,
+so compiler passes cannot discard the call merely because its result is unused.
 
 .. _types-and-validation:
 
