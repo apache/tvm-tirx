@@ -18,6 +18,7 @@
 # pylint: disable=invalid-name, import-outside-toplevel
 """Base library for TVM."""
 
+import importlib
 import importlib.util
 import os
 from pathlib import Path
@@ -90,6 +91,8 @@ def _load_llvm_backend(lib_paths):
         except RuntimeError:
             return None
         if importlib.util.find_spec("tvm_tirx_llvm_targets") is not None:
+            # Initialize wheel repair hooks before loading their dependent DLLs.
+            importlib.import_module("tvm_tirx_llvm_targets")
             package = "apache-tvm-tirx-llvm-targets"
             target_name = "tvm_tirx_llvm_backend"
             tvm_ffi_libinfo._find_library_by_basename(
