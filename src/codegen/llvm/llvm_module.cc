@@ -324,7 +324,7 @@ void LLVMModuleObj::EnsureOrcJITModule() {
   TVM_FFI_CHECK(get_default_session.has_value() && load_module.has_value(), InternalError)
       << "LLVMModule execution requires the separately installed apache-tvm-ffi-orcjit "
          "package and its global execution-session functions. "
-         "Install it with `pip install apache-tvm-ffi-orcjit==0.1.2`.";
+         "Install it with `pip install \"apache-tvm-ffi-orcjit>=0.1.3\"`.";
 
   With<LLVMTarget> llvm_target(*llvm_instance_, LLVMTarget::GetTargetMetadata(*module_));
   llvm::TargetMachine* tm = llvm_target->GetOrCreateTargetMachine();

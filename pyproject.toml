@@ -39,7 +39,7 @@ classifiers = [
 ]
 dependencies = [
   "apache-tvm-ffi>=0.1.15.post1",
-  "apache-tvm-ffi-orcjit>=0.1.2",
+  "apache-tvm-ffi-orcjit>=0.1.3",
   "ml_dtypes",
   "numpy",
   "packaging",
