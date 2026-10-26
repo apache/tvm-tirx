@@ -61,10 +61,11 @@ TVM_FFI_INLINE bool IsFloat8(const PrimType& ty) {
                         DLDataTypeCode::kDLFloat8_e5m2fnuz, DLDataTypeCode::kDLFloat8_e8m0fnu);
 }
 
-void CheckBinaryOpSupported(const std::string& op, const PrimType& operand_type) {
-  if (IsFloat8(operand_type)) {
-    TVM_FFI_THROW(RuntimeError) << "CUDA codegen does not support '" << op << "' for "
-                                << operand_type->dtype;
+template <typename Op>
+void CheckBinaryOpSupported(const Op* op) {
+  if (IsFloat8(op->a.ty())) {
+    TVM_FFI_THROW(RuntimeError) << "CUDA codegen does not support " << Op::_type_key << " for "
+                                << op->a.ty()->dtype;
   }
 }
 
@@ -814,67 +815,67 @@ void CodeGenCUDA::PrintMinMaxNanPreservingImpl(const T* op, const char* opstr,
 }
 
 void CodeGenCUDA::Dispatch_(const prim::AddObj* op, std::ostream& os) {
-  CheckBinaryOpSupported("+", op->a.ty());
+  CheckBinaryOpSupported(op);
   CodeGenC::Dispatch_(op, os);
 }
 
 void CodeGenCUDA::Dispatch_(const prim::SubObj* op, std::ostream& os) {
-  CheckBinaryOpSupported("-", op->a.ty());
+  CheckBinaryOpSupported(op);
   CodeGenC::Dispatch_(op, os);
 }
 
 void CodeGenCUDA::Dispatch_(const prim::MulObj* op, std::ostream& os) {
-  CheckBinaryOpSupported("*", op->a.ty());
+  CheckBinaryOpSupported(op);
   CodeGenC::Dispatch_(op, os);
 }
 
 void CodeGenCUDA::Dispatch_(const prim::DivObj* op, std::ostream& os) {
-  CheckBinaryOpSupported("/", op->a.ty());
+  CheckBinaryOpSupported(op);
   CodeGenC::Dispatch_(op, os);
 }
 
 void CodeGenCUDA::Dispatch_(const prim::ModObj* op, std::ostream& os) {
-  CheckBinaryOpSupported("%", op->a.ty());
+  CheckBinaryOpSupported(op);
   CodeGenC::Dispatch_(op, os);
 }
 
 void CodeGenCUDA::Dispatch_(const prim::EQObj* op, std::ostream& os) {
-  CheckBinaryOpSupported("==", op->a.ty());
+  CheckBinaryOpSupported(op);
   CodeGenC::Dispatch_(op, os);
 }
 
 void CodeGenCUDA::Dispatch_(const prim::NEObj* op, std::ostream& os) {
-  CheckBinaryOpSupported("!=", op->a.ty());
+  CheckBinaryOpSupported(op);
   CodeGenC::Dispatch_(op, os);
 }
 
 void CodeGenCUDA::Dispatch_(const prim::LTObj* op, std::ostream& os) {
-  CheckBinaryOpSupported("<", op->a.ty());
+  CheckBinaryOpSupported(op);
   CodeGenC::Dispatch_(op, os);
 }
 
 void CodeGenCUDA::Dispatch_(const prim::LEObj* op, std::ostream& os) {
-  CheckBinaryOpSupported("<=", op->a.ty());
+  CheckBinaryOpSupported(op);
   CodeGenC::Dispatch_(op, os);
 }
 
 void CodeGenCUDA::Dispatch_(const prim::GTObj* op, std::ostream& os) {
-  CheckBinaryOpSupported(">", op->a.ty());
+  CheckBinaryOpSupported(op);
   CodeGenC::Dispatch_(op, os);
 }
 
 void CodeGenCUDA::Dispatch_(const prim::GEObj* op, std::ostream& os) {
-  CheckBinaryOpSupported(">=", op->a.ty());
+  CheckBinaryOpSupported(op);
   CodeGenC::Dispatch_(op, os);
 }
 
 void CodeGenCUDA::Dispatch_(const prim::MinObj* op, std::ostream& os) {  // NOLINT(*)
-  CheckBinaryOpSupported("min", op->a.ty());
+  CheckBinaryOpSupported(op);
   this->PrintMinMaxNanPreservingImpl(op, "min", os);
 }
 
 void CodeGenCUDA::Dispatch_(const prim::MaxObj* op, std::ostream& os) {  // NOLINT(*)
-  CheckBinaryOpSupported("max", op->a.ty());
+  CheckBinaryOpSupported(op);
   this->PrintMinMaxNanPreservingImpl(op, "max", os);
 }
 
@@ -912,7 +913,10 @@ void CodeGenCUDA::PrintVecBinaryOpNanPreserving(const std::string& op, const Pri
 
 void CodeGenCUDA::PrintVecBinaryOp(const std::string& op, const PrimType& t, PrimExpr lhs,
                                    PrimExpr rhs, std::ostream& os) {  // NOLINT(*)
-  CheckBinaryOpSupported(op, lhs.ty());
+  if (IsFloat8(lhs.ty())) {
+    TVM_FFI_THROW(RuntimeError) << "CUDA codegen does not support '" << op << "' for "
+                                << lhs.ty()->dtype;
+  }
   // Declare the result.
   std::string sret = name_supply_->FreshName("_");
   this->PrintIndent();
