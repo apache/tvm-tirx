@@ -75,7 +75,7 @@ def lookup_image_tag(name: str) -> str:
     """Resolve image ``name`` (e.g. ``ci_cpu``) to its tag string from the ini.
 
     Pure ini read — no Docker Hub query, no tlcpackstaging fallback. Used by
-    ``docker/bash.sh`` for local-dev image-name shortcuts where the
+    ``ci/jenkins/docker/bash.sh`` for local-dev image-name shortcuts where the
     full Hub-existence check is unnecessary.
     """
     config = configparser.ConfigParser()

@@ -20,16 +20,16 @@
 #
 # Start a bash, mount REPO_MOUNT_POINT to be current directory.
 #
-# Usage: docker/bash.sh [-i|--interactive] [--net=host] [-t|--tty]
+# Usage: ci/jenkins/docker/bash.sh [-i|--interactive] [--net=host] [-t|--tty]
 #          [--shell SHELL] [--mount MOUNT_DIR]
 #          [--repo-mount-point REPO_MOUNT_POINT]
 #          [--dry-run] [--name NAME] [--privileged]
 #          <DOCKER_IMAGE_NAME> [--] [COMMAND]
 #
-# Usage: docker/bash.sh <CONTAINER_NAME>
+# Usage: ci/jenkins/docker/bash.sh <CONTAINER_NAME>
 #     Starts an interactive session
 #
-# Usage2: docker/bash.sh [-i] <CONTAINER_NAME> [COMMAND]
+# Usage2: ci/jenkins/docker/bash.sh [-i] <CONTAINER_NAME> [COMMAND]
 #     Execute command in the docker image, default non-interactive
 #     With -i, execute interactively.
 #
@@ -41,7 +41,7 @@ set -euo pipefail
 ##############################################
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
-REPO_DIR="$(dirname "${SCRIPT_DIR}")"
+REPO_DIR="$(cd "${SCRIPT_DIR}/../../.." && pwd -P)"
 
 DRY_RUN=false
 INTERACTIVE=false
@@ -73,7 +73,7 @@ fi
 
 function show_usage() {
     cat <<EOF
-Usage: docker/bash.sh [-i|--interactive] [--net=host] [-t|--tty]
+Usage: ci/jenkins/docker/bash.sh [-i|--interactive] [--net=host] [-t|--tty]
           [--shell SHELL] [--cpus NUM_CPUS] [--mount MOUNT_DIR]
           [--repo-mount-point REPO_MOUNT_POINT]
           [--dry-run] [--name NAME]
@@ -379,7 +379,7 @@ while (( $# )); do
             echo "Error: Unknown flag: $1" >&2
             echo "  If this flag is intended to be passed to the" >&2
             echo "  docker command, please add -- before the docker" >&2
-            echo "  command (e.g. docker/bash.sh ci_gpu -- build -j2)" >&2
+            echo "  command (e.g. ci/jenkins/docker/bash.sh ci_gpu -- build -j2)" >&2
             show_usage >&2
             exit 1
             ;;
