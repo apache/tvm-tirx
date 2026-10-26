@@ -29,7 +29,8 @@ namespace tirx {
 void StmtExprMutatorWithConstraintContext::AddParamConstraints(const Function& func) {
   for (const Var& param : func->params) {
     if (!param->ty.as<TensorTypeObj>()) continue;
-    for (PrimExpr shape : param.as_or_throw<TensorVar>().shape()) {
+    TensorVar tensor = param.as_or_throw<TensorVar>();
+    for (const PrimExpr& shape : tensor.shape()) {
       constraints->Append(sym::PredicateConstraint(shape >= prim::MakeConst(shape.ty(), 0)));
     }
   }
