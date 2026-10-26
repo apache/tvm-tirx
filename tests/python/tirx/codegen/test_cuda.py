@@ -87,6 +87,21 @@ def test_unsupported_fp8_vector_arithmetic(monkeypatch):
         _get_source(func)
 
 
+def test_unsupported_fp8_arithmetic_in_vectorized_loop(monkeypatch):
+    monkeypatch.setenv("TVM_TIRX_COMPILE_FORCE_FALLBACK", "1")
+
+    @T.function
+    def func(A: T.Tensor((2,), "float8_e5m2"), B: T.Tensor((2,), "float8_e5m2")):
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=1))
+        for i in T.vectorized(2):
+            B[i] = A[i] + A[i]
+
+    with pytest.raises(
+        RuntimeError, match=re.escape("CUDA codegen does not support '+' for float8_e5m2")
+    ):
+        _get_source(func)
+
+
 def _helper_source(src: str, helper_name: str) -> str:
     pattern = rf"__forceinline__ __device__ [^{{;]+ {re.escape(helper_name)}\("
     match = re.search(pattern, src)
