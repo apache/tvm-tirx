@@ -74,6 +74,12 @@ jobs:
             arch: AMD64
             script: ci/wheel/windows_build_libtvm_runtime_cuda.bat
             lib: build-wheel-cuda/lib/tvm_runtime_cuda.dll
+          - name: "CUDA runtime sidecar (Windows ARM64)"
+            os: windows-11-arm
+            container: ""
+            arch: ARM64
+            script: ci/wheel/windows_build_libtvm_runtime_cuda.bat
+            lib: build-wheel-cuda/lib/tvm_runtime_cuda.dll
     steps:
       # The containerized Linux legs check out as root; mark the tree safe so git
       # (submodule init in checkout) does not bail on "dubious ownership".
@@ -95,7 +101,8 @@ jobs:
         if: runner.os == 'Windows'
         uses: actions/setup-python@v6.2.0
         with:
-          python-version: "3.10"
+          python-version: ${{ matrix.arch == 'ARM64' && '3.12' || '3.10' }}
+          architecture: ${{ matrix.arch == 'ARM64' && 'arm64' || 'x64' }}
 
       - name: Build CUDA runtime sidecar (Unix)
         if: runner.os != 'Windows'
@@ -105,7 +112,7 @@ jobs:
       - name: Build CUDA runtime sidecar (Windows)
         if: runner.os == 'Windows'
         shell: cmd
-        run: call ${{ matrix.script }}
+        run: call ${{ matrix.script }} ${{ matrix.arch }}
 
       - name: Upload CUDA runtime sidecar
         uses: actions/upload-artifact@v7.0.1
@@ -149,6 +156,12 @@ jobs:
             build: cp310-win_amd64
             include_cuda_runtime: "1"
             artifact_suffix: windows-amd64
+          - name: "Windows ARM64 wheel with CUDA runtime"
+            os: windows-11-arm
+            arch: ARM64
+            build: cp312-win_arm64
+            include_cuda_runtime: "1"
+            artifact_suffix: windows-arm64
     steps:
       - name: Checkout source
         uses: actions/checkout@v6.0.2

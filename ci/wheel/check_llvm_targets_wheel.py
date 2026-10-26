@@ -45,12 +45,15 @@ def main():
             if any(part in Path(name).name for part in forbidden):
                 raise RuntimeError(f"Optional wheel bundles an FFI/native-backend library: {name}")
 
+    # A normal core import must initialize the optional wheel's DLL loader hooks.
+    from importlib import import_module
     from importlib.metadata import version
 
     import tvm_ffi
-    from tvm_tirx_llvm_targets import get_lib_path
 
     from tvm_tirx import base
+
+    get_lib_path = import_module("tvm_tirx_llvm_targets").get_lib_path
 
     assert version("apache-tvm-tirx") == version("apache-tvm-tirx-llvm-targets")
     loaded = Path(base._LOADED_LIBS["tvm_tirx_llvm_backend"]._name).resolve()

@@ -28,29 +28,53 @@ pushd "%~dp0..\.." || exit /b 1
 set "repo_root=%CD%"
 popd
 set "build_dir=%repo_root%\build-wheel-cuda"
-set "cuda_prefix=C:\opt\cuda"
+set "target_arch=%~1"
+if not defined target_arch set "target_arch=AMD64"
+set "cuda_subdir=win-64"
+set "cuda_channels=-c nvidia/label/cuda-13.0.2"
+set "cuda_package=cuda-toolkit=13.0.2"
+set "vc_component=Microsoft.VisualStudio.Component.VC.Tools.x86.x64"
+set "vc_target=amd64"
+if /i "%target_arch%"=="ARM64" (
+  set "cuda_subdir=win-arm64"
+  set "cuda_channels=--override-channels -c https://repo.anaconda.com/pkgs/main"
+  set "cuda_package=cuda-toolkit=13.4.3"
+  set "vc_component=Microsoft.VisualStudio.Component.VC.Tools.ARM64"
+  set "vc_target=arm64"
+) else if /i not "%target_arch%"=="AMD64" (
+  echo Unsupported target architecture: %target_arch%
+  exit /b 1
+)
+set "cuda_prefix=C:\opt\cuda-%target_arch%"
 
-rem Locate conda: the runner ships Miniconda (exposed via %CONDA%) but it may not be
-rem on PATH in this shell.
+rem ARM64 runners do not ship conda. Bootstrap a pinned native installer when
+rem needed; this does not replace the Python selected by actions/setup-python.
 set "conda_exe=conda"
-where conda >nul 2>nul || set "conda_exe=%CONDA%\Scripts\conda.exe"
-
-rem Install the pinned CUDA toolkit via conda from the nvidia channel.
-rem The win-64 channel caps at 13.0.x, so this
-rem pins 13.0.2 -- slightly behind the Linux image's CUDA 13.1, which is harmless: the
-rem sidecar has no device code and links the CUDA runtime by soname only. The nvidia
-rem CDN occasionally returns a transient HTTP 5xx, so retry once; a half-finished first
-rem attempt can leave the prefix partially populated, so wipe it before retrying.
-if not exist "%cuda_prefix%\Library\bin\nvcc.exe" (
-  call "%conda_exe%" create -q -p "%cuda_prefix%" -c nvidia/label/cuda-13.0.2 cuda-toolkit -y
-  if errorlevel 1 (
-    if exist "%cuda_prefix%" rmdir /s /q "%cuda_prefix%"
-    call "%conda_exe%" create -q -p "%cuda_prefix%" -c nvidia/label/cuda-13.0.2 cuda-toolkit -y || exit /b 1
+where conda >nul 2>nul
+if errorlevel 1 (
+  if exist "%CONDA%\Scripts\conda.exe" (
+    set "conda_exe=%CONDA%\Scripts\conda.exe"
+  ) else (
+    if /i not "%target_arch%"=="ARM64" ( echo conda not found & exit /b 1 )
+    powershell -NoProfile -ExecutionPolicy Bypass -Command "$ErrorActionPreference='Stop'; $p=Join-Path $env:TEMP 'miniconda-arm64.exe'; Invoke-WebRequest 'https://repo.anaconda.com/miniconda/Miniconda3-py313_26.9.4-0-Windows-arm64.exe' -OutFile $p; if ((Get-FileHash $p -Algorithm SHA256).Hash -ne '3101d128cd1bbedf59822a0aeaae6b2c8ba3c574711a7c544bccd382a9eff307') { throw 'Miniconda checksum mismatch' }; $proc=Start-Process $p -ArgumentList '/S','/InstallationType=JustMe','/RegisterPython=0','/AddToPath=0','/D=C:\opt\miniconda-arm64' -Wait -PassThru; if ($proc.ExitCode -ne 0) { exit $proc.ExitCode }" || exit /b 1
+    set "conda_exe=C:\opt\miniconda-arm64\Scripts\conda.exe"
   )
 )
 
+rem Keep the existing AMD64 NVIDIA package pin. ARM64 packages are supplied by
+rem Anaconda main; pin the toolkit and target subdir instead of solving for x64.
+set "CONDA_PLUGINS_AUTO_ACCEPT_TOS=yes"
+if not exist "%cuda_prefix%\Library\bin\nvcc.exe" (
+  call "%conda_exe%" create -q -p "%cuda_prefix%" --platform "%cuda_subdir%" %cuda_channels% "%cuda_package%" -y
+  if errorlevel 1 (
+    if exist "%cuda_prefix%" rmdir /s /q "%cuda_prefix%"
+    call "%conda_exe%" create -q -p "%cuda_prefix%" --platform "%cuda_subdir%" %cuda_channels% "%cuda_package%" -y || exit /b 1
+  )
+)
+call "%conda_exe%" list -p "%cuda_prefix%" --explicit || exit /b 1
+
 rem conda lays the Windows toolkit out under <prefix>\Library (bin\nvcc.exe,
-rem lib\x64\cudart.lib, include\...). Discover the root from nvcc.exe so TVM's
+rem lib\<arch>\cudart.lib, include\...). Discover the root from nvcc.exe so TVM's
 rem FindCUDA MSVC branch resolves against the real layout instead of a hardcode.
 set "nvcc_exe="
 for /f "delims=" %%i in ('dir /s /b "%cuda_prefix%\nvcc.exe" 2^>nul') do if not defined nvcc_exe set "nvcc_exe=%%i"
@@ -62,16 +86,16 @@ set "cuda_root=%CD%"
 popd
 set "CUDA_PATH=%cuda_root%"
 
-python -m pip install -U pip cmake ninja "apache-tvm-ffi>=0.1.15.post0" || exit /b 1
+python -m pip install -U pip cmake ninja "apache-tvm-ffi>=0.1.15.post1" || exit /b 1
 "%nvcc_exe%" --version || exit /b 1
 
 rem nvcc needs the MSVC host compiler (cl.exe), so locate VS via vswhere and run the
-rem cmake configure+build inside vcvars64 (this shell is not a VS Developer prompt).
+rem cmake configure+build inside vcvarsall (this shell is not a VS Developer prompt).
 set "vswhere=C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe"
 set "vs_path="
-for /f "usebackq delims=" %%i in (`"%vswhere%" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do set "vs_path=%%i"
+for /f "usebackq delims=" %%i in (`"%vswhere%" -latest -products * -requires %vc_component% -property installationPath`) do set "vs_path=%%i"
 if not defined vs_path ( echo Visual Studio with VC tools not found & exit /b 1 )
-set "vcvars=%vs_path%\VC\Auxiliary\Build\vcvars64.bat"
+set "vcvars=%vs_path%\VC\Auxiliary\Build\vcvarsall.bat"
 
 if exist "%build_dir%" rmdir /s /q "%build_dir%"
 
@@ -89,11 +113,14 @@ set "build_dir_fwd=%build_dir:\=/%"
 set "cuda_root_fwd=%cuda_root:\=/%"
 set "nvcc_fwd=%nvcc_exe:\=/%"
 
-call "%vcvars%" || exit /b 1
+call "%vcvars%" %vc_target% || exit /b 1
 cmake -S "%repo_root_fwd%" -B "%build_dir_fwd%" -G Ninja -DCMAKE_BUILD_TYPE=Release -DTVM_TIRX_BUILD_TESTS=OFF -DTVM_TIRX_BUILD_PYTHON_MODULE=ON -DTVM_TIRX_USE_CUDA="%cuda_root_fwd%" -DTVM_TIRX_USE_LLVM=OFF -DCMAKE_CUDA_COMPILER="%nvcc_fwd%" -DCMAKE_CUDA_FLAGS="-allow-unsupported-compiler" || exit /b 1
 cmake --build "%build_dir_fwd%" --target tvm_runtime tvm_runtime_cuda --config Release || exit /b 1
 
 if not exist "%build_dir%\lib\tvm_runtime_cuda.dll" ( echo tvm_runtime_cuda.dll was not produced & exit /b 1 )
+dumpbin /headers "%build_dir%\lib\tvm_runtime_cuda.dll" || exit /b 1
+dumpbin /dependents "%build_dir%\lib\tvm_runtime_cuda.dll" || exit /b 1
+python -c "import pathlib,struct; p=pathlib.Path(r'%build_dir%\lib\tvm_runtime_cuda.dll').read_bytes(); off=struct.unpack_from('<I',p,0x3c)[0]; machine=struct.unpack_from('<H',p,off+4)[0]; expected=0xaa64 if '%target_arch%'.upper()=='ARM64' else 0x8664; assert machine==expected, (hex(machine),hex(expected))" || exit /b 1
 rem No patchelf/rpath step on Windows; delvewheel vendors dependencies at repair time.
 echo CUDA runtime: %build_dir%\lib\tvm_runtime_cuda.dll
 endlocal

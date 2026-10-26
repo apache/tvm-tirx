@@ -38,6 +38,23 @@
 # - CUDA_CUBLAS_LIBRARY
 #
 macro(find_cuda use_cuda use_cudnn)
+  if(MSVC)
+    # Select import libraries for the compiler target, never the host architecture.
+    if(CMAKE_CXX_COMPILER_ARCHITECTURE_ID)
+      set(_CUDA_MSVC_TARGET_ARCH "${CMAKE_CXX_COMPILER_ARCHITECTURE_ID}")
+    elseif(CMAKE_GENERATOR_PLATFORM)
+      set(_CUDA_MSVC_TARGET_ARCH "${CMAKE_GENERATOR_PLATFORM}")
+    else()
+      set(_CUDA_MSVC_TARGET_ARCH "${CMAKE_SYSTEM_PROCESSOR}")
+    endif()
+    if(_CUDA_MSVC_TARGET_ARCH MATCHES "^(ARM64|arm64|aarch64)$")
+      set(_CUDA_MSVC_LIB_SUFFIX arm64)
+    elseif(CMAKE_SIZEOF_VOID_P EQUAL 8)
+      set(_CUDA_MSVC_LIB_SUFFIX x64)
+    else()
+      set(_CUDA_MSVC_LIB_SUFFIX Win32)
+    endif()
+  endif()
   set(__use_cuda ${use_cuda})
   if(${__use_cuda} MATCHES ${IS_TRUE_PATTERN})
     find_package(CUDA QUIET)
@@ -48,8 +65,7 @@ macro(find_cuda use_cuda use_cudnn)
     set(CUDA_FOUND TRUE)
     if(MSVC)
       find_library(CUDA_CUDART_LIBRARY cudart
-        ${CUDA_TOOLKIT_ROOT_DIR}/lib/x64
-        ${CUDA_TOOLKIT_ROOT_DIR}/lib/Win32)
+        ${CUDA_TOOLKIT_ROOT_DIR}/lib/${_CUDA_MSVC_LIB_SUFFIX})
     else(MSVC)
       find_library(CUDA_CUDART_LIBRARY cudart
         ${CUDA_TOOLKIT_ROOT_DIR}/lib64
@@ -61,14 +77,11 @@ macro(find_cuda use_cuda use_cudnn)
   if(CUDA_FOUND)
     if(MSVC)
       find_library(CUDA_CUDA_LIBRARY cuda
-        ${CUDA_TOOLKIT_ROOT_DIR}/lib/x64
-        ${CUDA_TOOLKIT_ROOT_DIR}/lib/Win32)
+        ${CUDA_TOOLKIT_ROOT_DIR}/lib/${_CUDA_MSVC_LIB_SUFFIX})
       find_library(CUDA_CUBLAS_LIBRARY cublas
-        ${CUDA_TOOLKIT_ROOT_DIR}/lib/x64
-        ${CUDA_TOOLKIT_ROOT_DIR}/lib/Win32)
+        ${CUDA_TOOLKIT_ROOT_DIR}/lib/${_CUDA_MSVC_LIB_SUFFIX})
       find_library(CUDA_CUBLASLT_LIBRARY cublaslt
-        ${CUDA_TOOLKIT_ROOT_DIR}/lib/x64
-        ${CUDA_TOOLKIT_ROOT_DIR}/lib/Win32)
+        ${CUDA_TOOLKIT_ROOT_DIR}/lib/${_CUDA_MSVC_LIB_SUFFIX})
     else(MSVC)
       find_library(_CUDA_CUDA_LIBRARY cuda
         PATHS ${CUDA_TOOLKIT_ROOT_DIR}
@@ -109,8 +122,7 @@ macro(find_cuda use_cuda use_cudnn)
       set(CUDA_CUDNN_INCLUDE_DIRS ${CUDA_INCLUDE_DIRS})
       if(MSVC)
         find_library(CUDA_CUDNN_LIBRARY cudnn
-          ${CUDA_TOOLKIT_ROOT_DIR}/lib/x64
-          ${CUDA_TOOLKIT_ROOT_DIR}/lib/Win32)
+          ${CUDA_TOOLKIT_ROOT_DIR}/lib/${_CUDA_MSVC_LIB_SUFFIX})
       else(MSVC)
         find_library(CUDA_CUDNN_LIBRARY cudnn
           PATHS ${CUDA_TOOLKIT_ROOT_DIR}
