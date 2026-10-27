@@ -131,16 +131,20 @@ The host compiler links the already compiled device binaries.
 Inspecting the result
 ---------------------
 
-Read the IR with ``.show()`` / ``.script()``, and read the generated CUDA from the
-compiled module.
+The GPU program in :doc:`Quick Start </get_started/quick_start>` defines
+``add_one`` and compiles it as ``add_one_compiled``. We can inspect its IR
+and the generated CUDA through these objects:
 
 .. code-block:: python
 
-    pipeline.show()                       # pretty-print the TIRx (TVMScript)
-    print(pipeline.script())              # ... the same, as a string
+    add_one.show()
+    print(add_one.script())
+    print(add_one_compiled.mod.imports[0].inspect_source("cuda"))
 
-    # the generated CUDA C source, from the compiled Executable:
-    print(exe.mod.imports[0].inspect_source())
+``show`` displays the IR as TVMScript, while ``script`` returns it as a
+string. The first imported module contains this program's device code;
+``inspect_source("cuda")`` shows the lowered CUDA, including the thread
+index calculation and bounds check.
 
 ``Tx.hint("message")`` (statement or ``with`` block) attaches structured hints
 that survive a script round-trip.
@@ -150,8 +154,8 @@ From simple to complex
 
 A natural native progression, each rung adding one capability:
 
-#. **Elementwise** — ``device_entry`` + ``thread_id`` + a guarded store (the first
-   kernel).
+#. **Elementwise** — ``device_entry`` + thread-index arithmetic + a guarded
+   store, as in the GPU example in :doc:`Quick Start </get_started/quick_start>`.
 #. **Shared-memory reduction** — stage into ``Tx.alloc_shared``, then a
    ``cta_sync``-separated tree (shown in full below). Adds shared memory and a
    block barrier.

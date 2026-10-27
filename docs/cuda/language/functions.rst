@@ -20,10 +20,10 @@
 Defining a function
 ===================
 
-A kernel is a ``@Tx.function`` (like ``scale`` in :doc:`/cuda/language/first_kernel`), or a
-``@Tx.jit`` when it has compile-time parameters, as described below. This
-chapter covers the parameter list — how to declare tensors, what types you can
-pass, symbolic shapes, and the ``function`` / ``jit`` distinction.
+The GPU example in :doc:`Quick Start </get_started/quick_start>` defines its
+kernel with ``@Tx.function``. This chapter covers parameter types, symbolic
+shapes, compile-time specialization with ``@Tx.jit``, and CUDA launch
+configuration.
 
 Declaring tensor parameters
 ---------------------------
@@ -32,6 +32,8 @@ Declare tensor parameters with ``Tx.Tensor`` annotations. The annotation accepts
 shape, dtype, layout, scope, and alignment metadata:
 
 .. code-block:: python
+
+    from tvm_tirx.script import tirx as Tx
 
     @Tx.function
     def copy(A: Tx.Tensor((256,), "float32", align=16), B: Tx.Tensor((256,), "float32")):
@@ -56,7 +58,7 @@ pass on the Python side when you call the compiled ``Executable``:
      - Is
      - Pass at call time
    * - ``Tx.Tensor((d0, d1), dtype)``
-     - a tensor parameter (shape + dtype fixed)
+     - a tensor with a declared shape and dtype
      - a tensor on the right device
    * - ``Tx.handle``
      - an opaque handle
@@ -89,21 +91,21 @@ order. For example, a kernel with a scalar parameter::
 Symbolic shapes
 ---------------
 
-For a size that varies at run time, declare a free symbolic extent with
-``Tx.dynamic("n")`` and use it in the tensor shape. Its value is **inferred from the
-passed tensor** at run time, so a *single compiled kernel* handles any size:
+For a length that varies at runtime, declare a symbol with ``Tx.dynamic("n")``
+and use it in the tensor shapes. The same compiled function can then accept
+different lengths:
 
 .. code-block:: python
 
-    n = Tx.dynamic("n")  # free symbolic extent
+    import torch
+    import tvm_tirx
 
+    n = Tx.dynamic("n")
 
     @Tx.function
     def scale_dyn(A: Tx.Tensor((n,), "float32"), B: Tx.Tensor((n,), "float32")):
         Tx.device_entry(launch=Tx.cuda.LaunchConfig(grid=(1,), block=(1,)))
-        bx = Tx.cuda.block_idx("x")
-        tx = Tx.cuda.thread_idx("x")
-        for i in range(n):  # loop / launch bounds may use n
+        for i in range(n):
             B[i] = A[i] * Tx.float32(2.0)
 
 
@@ -113,46 +115,10 @@ passed tensor** at run time, so a *single compiled kernel* handles any size:
     exe(torch.rand(100, device="cuda"), torch.empty(100, device="cuda"))  # n = 100
     exe(torch.rand(200, device="cuda"), torch.empty(200, device="cuda"))  # n = 200, same kernel
 
-Both tensor annotations share ``n``, so the two shapes are constrained equal;
-``n`` is never passed explicitly — it comes from the tensor.
-
-In the generated CUDA, ``n`` is just a runtime kernel argument; the host launcher
-reads it from the tensor's shape and passes it, and the loop bound uses it
-(boilerplate elided):
-
-.. code-block:: c++
-
-    extern "C" __global__ void
-    scale_dyn_kernel(float* __restrict__ A_ptr, float* __restrict__ B_ptr, int n) {
-      for (int i = 0; i < n; ++i) {
-        B_ptr[i] = A_ptr[i] * 2.0f;
-      }
-    }
-
-.. note::
-
-   You passed only two tensors, yet the kernel takes a third argument ``n`` — who
-   supplies it? A compiled ``Executable`` has two halves: a **host launcher** and
-   the **device kernel** above. When you call ``exe(a, b)``, the host launcher
-   unpacks the two tensors, reads ``n`` from ``a``'s shape (``a`` was matched as
-   ``(n,)``), checks that ``b`` agrees, computes the launch configuration, and then
-   invokes the device kernel — forwarding the data pointers **and** the resolved
-   ``n`` as explicit arguments. Nothing passes ``n`` by hand; the host side derives
-   it from the tensor metadata. ``tirx.transform.SplitHostDevice`` extracts the
-   device function, and the later ``tirx.transform.MakePackedAPI`` pass builds
-   the packed host-side argument handling.
-
-The host/device relationship is:
-
-.. code-block:: text
-
-    authored function: tensor parameters A, B
-        -> host launcher: read n from A.shape[0], check B.shape[0] == n
-        -> device kernel: receive A_ptr, B_ptr, and n
-
-``SplitHostDevice`` extracts the device function. ``MakePackedAPI`` builds
-host-side argument handling, including the tensor metadata checks and the
-runtime value for ``n``.
+At each call, the host launcher reads ``n`` from the input shape, checks that
+the output has the same length, and passes the data pointers and ``n`` to the
+device kernel. Both calls above use the same compiled function; the caller
+supplies only the two tensors.
 
 ``@Tx.function`` vs ``@Tx.jit``
 -------------------------------
@@ -169,7 +135,7 @@ runtime value for ``n``.
 .. code-block:: python
 
     from __future__ import annotations
-
+    from tvm_tirx.script import tirx as Tx
 
     @Tx.jit
     def add(
@@ -191,30 +157,18 @@ So: a **symbolic shape** is one kernel whose size is resolved at run time; a
 **constexpr + jit** produces a specialized kernel per value, resolved at compile
 time.
 
-Optional annotations may use ``Tx.Tensor((N,), "float32") | None`` or
-``typing.Optional[Tx.Tensor((N,), "float32")]`` (including an imported
-``Optional``). The existing ``Tx.Optional(...)`` spelling remains supported.
-Use ``from __future__ import annotations`` for these deferred tensor annotations;
-they are interpreted as script syntax rather than evaluated as Python unions.
-``kernel.specialize(optional=None)`` skips that parameter's original
-annotation and binds Python ``None`` in compile-time guards. The resulting
-``Function`` retains the parameter in its original position with ``ir.NoneType``;
-the compiled function requires ``None`` in that argument slot. Omitting the
-specialization keyword keeps the parameter's ordinary runtime type.
+The :doc:`JIT API </reference/python/tirx.script.jit>` covers optional
+parameters and the full specialization rules.
 
 Launch parameters
 -----------------
 
-``Tx.device_entry(launch=Tx.cuda.LaunchConfig(grid=(1,), block=(32,)))``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Device regions
+~~~~~~~~~~~~~~
 
-``Tx.device_entry(launch=Tx.cuda.LaunchConfig(grid=(1,), block=(32,)))`` starts the authored device region: parameter binding and
-shape reads precede it, while the kernel body follows it. A flat call scopes the
-remaining statements in the enclosing body; ``with Tx.device_entry(launch=Tx.cuda.LaunchConfig(grid=(1,), block=(32,))):`` gives
-an explicit boundary. Both forms create a ``RegionStmt`` with the
-``tirx.device_entry`` op. ``TileDispatch`` lowers this region, resolves scope ids,
-and retains its launch operands on a ``device_scope`` region.
-``SplitHostDevice`` separates the host configuration from the device body.
+``Tx.device_entry`` begins a device region. A standalone call covers the
+remaining statements in the enclosing body; a ``with`` block gives the region
+an explicit boundary. Its ``launch`` argument specifies the execution geometry.
 
 CUDA indices and launch configuration
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -235,18 +189,12 @@ trailing dimensions are one.
     lane = Tx.cuda.lane_id()
     tid = Tx.cuda.linear_thread_id()
 
-Every assignment above is an ordinary let binding. Tuple assignments produce
-separate bindings. Index reads do not declare or infer launch dimensions,
-and unused indices do not remove launch configuration.
-
-The finite index API includes ``block_idx(axis)``, ``thread_idx(axis)``,
-``cluster_id(axis)``, ``cluster_cta_id(axis)``, ``grid_dim(axis)``,
-``block_dim(axis)``, ``cluster_dim(axis)``, ``linear_thread_id()``, ``warp_id()``,
-``lane_id()``, ``warpgroup_id()``, ``warp_in_warpgroup()``,
-``thread_in_warpgroup()``, and ``cta_pair_id()``. The axis is ``"x"``, ``"y"``,
-or ``"z"``. Linear thread IDs use CUDA's x-major order, including 2D and 3D blocks.
-Warp index helpers require a static block size divisible by 32; their shared
-full-mask shuffle is emitted at kernel entry, before divergent control flow.
+``block_idx`` and ``thread_idx`` accept ``"x"``, ``"y"``, or ``"z"``.
+``warp_id`` identifies the warp within a CTA, and ``lane_id`` identifies the
+thread within its warp. ``linear_thread_id`` follows CUDA's x-major order
+for multidimensional blocks. Warp helpers require a static block size
+divisible by 32. The :doc:`CUDA script API </reference/python/backend.cuda.script>`
+lists the remaining index helpers.
 
 For a cluster launch:
 
@@ -258,31 +206,12 @@ For a cluster launch:
     cid = Tx.cuda.cluster_id("x")
     cx = Tx.cuda.cluster_cta_id("x")
 
-Cluster coordinates read the corresponding PTX special registers, including
-``%cluster_ctaid.x`` for the CTA's x coordinate. An omitted cluster and an explicit
-unit cluster remain distinct. ``preferred_cluster`` requests CUDA's substitute
-cluster dimensions; kernels that use it must handle either permitted shape.
-Cluster-scope tensor instructions require one static cluster shape. Use explicit
-CUDA/PTX instructions when the cluster shape is dynamic or its preferred shape
-differs. CTA-, warp-, and thread-scope instructions remain available.
+This launches two CTAs per cluster. ``cluster_id`` identifies the cluster,
+while ``cluster_cta_id`` gives the CTA's coordinate within it. Cluster launches
+require a supporting GPU.
 
-``KernelAttributes`` contains compile-time CUDA kernel attributes: ``min_blocks_per_sm``,
-``max_blocks_per_cluster`` (requires ``min_blocks_per_sm``),
-``max_registers_per_thread``, and ``required_block_size``. The last attribute fixes
-both block and cluster dimensions using CUDA 13's ``__block_size__`` declaration.
-``max_registers_per_thread`` conflicts with explicit launch bounds and required
-block size. Runtime values belong in ``LaunchConfig``.
-
-Both host backends consume the same validated launch description. The normal
-CUDA module and exported ``cuda_host`` code both call the Driver API's
-``cuLaunchKernelEx``. The exported code embeds compiled device binaries and
-needs only CUDA and tvm-ffi. They share field decoding, attribute encoding, and resource setup.
-Dynamic grid sizes, stream handles, event handles, and other launch values are
-host-side call operands, not device kernel parameters or expression-valued attrs.
-
-The declaration table in ``python/tvm_tirx/backend/cuda/launch/table.py`` generates
-the public records, native attribute encoders, and :doc:`launch reference </reference/python/backend.cuda.launch>`. Run ``python python/tvm_tirx/backend/cuda/launch/generate.py``
-with the repository's pinned Ruff and clang-format versions after editing the
-table or shared launch header; pre-commit checks that these files are current.
-Historical launch tags are translated only at the packed-call compatibility
-boundary. New kernels should use the configuration API above.
+``LaunchConfig`` supplies runtime execution settings. ``KernelAttributes``
+supplies compile-time properties such as launch bounds, including
+``min_blocks_per_sm`` in the earlier example. The
+:doc:`launch API </reference/python/backend.cuda.launch>` describes additional
+settings and their requirements.

@@ -57,13 +57,30 @@ an explicit caller view, and the resulting instruction count. Asynchronous
 completion belongs to the selected instruction family, not to a generic
 ``copy_async`` or ``gemm_async`` operation.
 
+The common operand conventions below explain how to prepare tensor views
+for these operations. The instruction guides then cover data movement,
+arithmetic, asynchronous transfers, and matrix instructions.
+
 .. toctree::
    :maxdepth: 1
 
    tile_patterns
+
+Data Movement
+~~~~~~~~~~~~~
+
+.. toctree::
+   :maxdepth: 1
+
    tile_ops/ld_st
-   tile_ops/ldmatrix_stmatrix
    tile_ops/mov
+
+Arithmetic and Type Conversion
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. toctree::
+   :maxdepth: 1
+
    tile_ops/add_sub_mul
    tile_ops/div_rcp_sqrt
    tile_ops/min_max
@@ -71,11 +88,26 @@ completion belongs to the selected instruction family, not to a generic
    tile_ops/cvt
    tile_ops/ex2_lg2
    tile_ops/abs_neg
+   tile_ops/ewise
+
+Asynchronous Transfers
+~~~~~~~~~~~~~~~~~~~~~~
+
+.. toctree::
+   :maxdepth: 1
+
    tile_ops/cp_async
    tile_ops/cp_async_bulk
    tile_ops/cp_async_bulk_tensor
+
+Matrix Instructions
+~~~~~~~~~~~~~~~~~~~
+
+.. toctree::
+   :maxdepth: 1
+
+   tile_ops/ldmatrix_stmatrix
    tile_ops/tcgen05_ld_st
    tile_ops/tcgen05_cp
    tile_ops/mma_sync
    tile_ops/tcgen05_mma
-   tile_ops/ewise

@@ -20,83 +20,36 @@
 CUDA Language Basics
 ====================
 
-In this chapter, we will introduce native-level CUDA kernel authoring:
-thread hierarchy, memory scopes, device intrinsics, and the compile, run,
-and inspect loop. The examples follow Apache TVM's CUDA programming guide,
-with interfaces adapted to the standalone ``tvm_tirx`` package.
+In this chapter, we will introduce the CUDA interfaces for writing and running
+TIRx kernels. You choose the launch configuration, assign work to threads,
+allocate shared and per-thread storage, and synchronize data accesses where
+needed. Loops, branches, and device intrinsics describe the computation, which
+TIRx compiles into CUDA device code. The following sections explain these
+interfaces and show how to inspect the resulting IR and generated CUDA.
 
-What "native level" means
--------------------------
-
-A native-level TIRx kernel reads like a structured device kernel: you place
-threads yourself, allocate shared/per-thread local tensors, write loops and barriers, and
-call device intrinsics directly. You explicitly choose the orchestration and
-layouts; standard lowering still dispatches primitives, applies layouts, and
-vectorizes or unrolls marked loops. This is the foundation the tile ops
-(:doc:`/cuda/tile_operations`) are built on; everything here is what those ops
-ultimately lower to, so it is also where you go when a hardware feature does not
-have a primitive yet.
-
-The authoring model
--------------------
-
-- ``@Tx.function`` (or ``@Tx.jit`` for compile-time-specialized) kernels, written
-  with ``from tvm_tirx.script import tirx as Tx``;
-- ``Tx.device_entry(launch=Tx.cuda.LaunchConfig(grid=(1,), block=(32,)))`` plus *scope-id* intrinsics for thread binding;
-- ``Tx.Tensor`` parameter annotations and ``Tx.alloc_*`` scratch tensors;
-- ordinary loops, branches, and scalar math;
-- ``tvm_tirx.tirx.compile(mod, target=..., pipeline="tirx")`` to build, then call the
-  result directly.
-
-The examples use these imports. The ``__future__`` import lets ``@Tx.jit``
-kernels reference compile-time parameters inside type annotations (see
-:doc:`/cuda/language/functions`); it is harmless for ordinary kernels::
-
-    from __future__ import annotations
-    import tvm_tirx
-    from tvm_tirx.script import tirx as Tx
-
-Start here
-----------
-
-The first example scales a vector by two. It covers the complete
-write, compile, run, and inspect loop before the language chapters expand
-each part. The examples require CUDA support; see
-:doc:`the source build guide </dev/source_build>` for installation.
+* :doc:`language/functions` covers function parameters, symbolic shapes,
+  compile-time specialization, and launch configuration.
+* :doc:`language/data_types` explains scalar and vector dtypes, their CUDA
+  representations, and pointers.
+* :doc:`language/tensors` covers shared and per-thread storage, mutable
+  scalars, and tensor views.
+* :doc:`language/control_flow` introduces conditionals, loop forms, and
+  thread election.
+* :doc:`language/threads_sync` shows how to call device intrinsics and
+  include custom CUDA functions.
+* :doc:`language/compiling` explains compiler configuration and how to
+  inspect the IR and generated CUDA.
+* :doc:`language/parser_utils` introduces helpers for reusable code
+  fragments and compile-time metadata.
 
 .. toctree::
-   :maxdepth: 1
-
-   language/first_kernel
-
-Language guide
---------------
-
-.. toctree::
+   :hidden:
    :maxdepth: 1
 
    language/functions
    language/data_types
    language/tensors
    language/control_flow
-
-CUDA execution and compilation
-------------------------------
-
-.. toctree::
-   :maxdepth: 1
-
    language/threads_sync
    language/compiling
-
-Advanced topics
----------------
-
-.. toctree::
-   :maxdepth: 1
-
    language/parser_utils
-
-
-:doc:`The IKET profiling guide </cuda/iket_profiling>` covers the current
-backend's event-tracing and capture interfaces.

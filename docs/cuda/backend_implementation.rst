@@ -22,7 +22,8 @@ In this chapter, we will trace a CUDA program from TVMScript to device
 code and locate the parts of the backend that implement each step.
 This is useful when a new instruction needs support, a layout fails to
 lower, or generated code differs from the intended computation. The
-following chapters explain the authoring interfaces in more detail.
+:doc:`language guide </cuda/language_basics>` introduces the authoring
+interfaces used here.
 
 TIRx keeps the core IR and compiler machinery under ``tvm_tirx.ir`` and ``tvm_tirx.tirx``.  A target
 backend owns its script namespaces, intrinsic builders, dispatch variants,
@@ -73,9 +74,9 @@ regions, which the shared compiler pipeline can process.
 From a Function to a Kernel
 ---------------------------
 
-The ``scale`` function in :doc:`language/first_kernel` contains tensor
-parameters, a device region, an index calculation, and a tensor
-store. Its compilation follows this path:
+The GPU ``add_one`` function in :doc:`Quick Start </get_started/quick_start>`
+contains tensor parameters, a device region, an index calculation, and a
+guarded tensor store. Its compilation follows this path:
 
 .. code-block:: text
 
@@ -100,7 +101,8 @@ lower profiling annotations and prepare the calling convention.
 The CUDA source generator in
 ``src/backend/cuda/codegen/codegen_cuda.cc`` emits the device code.
 
-With ``scale`` defined, we can inspect the generated device source:
+With the GPU ``add_one`` function defined, we can inspect the generated
+device source:
 
 .. code-block:: python
 
@@ -108,7 +110,7 @@ With ``scale`` defined, we can inspect the generated device source:
    from tvm_tirx.target import Target
 
    target = Target({"kind": "cuda", "arch": "sm_75"})
-   executable = tirx.compile(scale, target=target)
+   executable = tirx.compile(add_one, target=target)
    device_module = executable.mod.imports[0]
    print(device_module.inspect_source("cuda"))
 

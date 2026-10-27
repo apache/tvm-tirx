@@ -42,22 +42,22 @@ Table of Contents
 
 .. toctree::
    :maxdepth: 1
-   :caption: CUDA/PTX Programming Guides
-   :titlesonly:
-
-   cuda/backend_implementation
-   cuda/language_basics
-   cuda/ptx_tablegen
-   cuda/layouts
-   cuda/tile_operations
-   cuda/iket_profiling
-
-.. toctree::
-   :maxdepth: 1
    :caption: Compiler Internals
    :titlesonly:
 
    compiler/symbolic_integer_analysis
+
+.. toctree::
+   :maxdepth: 1
+   :caption: CUDA/PTX Programming Guides
+   :titlesonly:
+
+   cuda/language_basics
+   cuda/layouts
+   cuda/tile_operations
+   cuda/iket_profiling
+   cuda/backend_implementation
+   cuda/ptx_tablegen
 
 .. toctree::
    :maxdepth: 1
