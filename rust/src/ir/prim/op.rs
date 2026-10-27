@@ -561,6 +561,7 @@ fn is_rounded_to_16_bits(value: f64, bfloat: bool) -> bool {
 fn fold_cast(value: &Expr, to: DLDataType) -> Result<Option<Expr>> {
     let integer = matches!(to.code, support::INT | support::UINT | support::BOOL);
     let float32 = to.code == support::FLOAT && to.bits == 32;
+    let float64 = to.code == support::FLOAT && to.bits == 64;
     let limit_16 = match (to.code, to.bits) {
         (support::FLOAT, 16) => Some(support::MAX_FLOAT16),
         (support::BFLOAT, 16) => Some(support::MAX_BFLOAT16),
@@ -580,6 +581,11 @@ fn fold_cast(value: &Expr, to: DLDataType) -> Result<Option<Expr>> {
         } else if float32 {
             if let Some(small) = imm.value.to_i64() {
                 return float(f64::from(small as f32), &imm.loc);
+            }
+        } else if float64 {
+            let limit = BigInt::try_from(f64::MAX)?;
+            if (-&limit..=limit).contains(&imm.value) {
+                return float(imm.value.to_f64()?, &imm.loc);
             }
         } else if let Some(limit) = limit_16 {
             let source = imm.value.to_f64()?;
@@ -618,6 +624,11 @@ fn fold_cast(value: &Expr, to: DLDataType) -> Result<Option<Expr>> {
             if const_fold::is_in_float32_range(source) {
                 return float(f64::from(source as f32), &imm.loc);
             }
+        } else if float64
+            && ((from.code == support::FLOAT && matches!(from.bits, 16 | 32)) || is_bfloat16(from))
+        {
+            // Source rounding was checked above; widening preserves its value exactly.
+            return float(source, &imm.loc);
         } else if let Some(limit) = limit_16 {
             if !source.is_finite() || (-limit..=limit).contains(&source) {
                 return float(source, &imm.loc);
