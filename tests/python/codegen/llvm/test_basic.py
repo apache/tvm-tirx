@@ -1370,8 +1370,22 @@ def test_llvm_min_max_nan_preserving(dtype, lanes):
     elif lanes != 1:
         llvm_type = f"<{lanes} x {llvm_type}>"
     llvm_ir = compiled.mod.inspect_source("ll")
-    for intrinsic in ("minimum", "maximum"):
-        assert f"call {llvm_type} @llvm.{intrinsic}." in llvm_ir
+    if llvm.version_major() >= 17:
+        for intrinsic in ("minimum", "maximum"):
+            assert f"call {llvm_type} @llvm.{intrinsic}." in llvm_ir
+    else:
+        # Older LLVM uses comparisons and bitwise zero-tie selection because
+        # minimum/maximum are not legalizable on every supported target.
+        for predicate in ("olt", "ogt", "oeq", "uno"):
+            assert f"fcmp {predicate} {llvm_type}" in llvm_ir
+        int_type = {"float16": "i16", "float32": "i32", "float64": "i64", "bfloat16": "i32"}[dtype]
+        if scalable:
+            int_type = f"<vscale x 4 x {int_type}>"
+        elif lanes != 1:
+            int_type = f"<{lanes} x {int_type}>"
+        for operation in ("or", "and"):
+            assert f"{operation} {int_type}" in llvm_ir
+        assert "select " in llvm_ir
     if scalable:
         return  # Cross-compile SVE; execution requires SVE hardware.
 
