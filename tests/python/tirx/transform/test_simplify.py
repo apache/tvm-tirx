@@ -500,7 +500,7 @@ def test_if_then_else_expr():
 
 
 def test_ceil_log2_int():
-    """Preserve ceil_log2 when its integer-to-float64 cast does not fold."""
+    """Fold ceil_log2 of an integer constant through its float64 cast."""
 
     @T.function(private=True)
     def before(A: T.Tensor(1, "int32")):
@@ -508,7 +508,7 @@ def test_ceil_log2_int():
 
     @T.function(private=True)
     def expected(A: T.Tensor(1, "int32")):
-        A[0] = T.Cast("int32", T.ceil(T.log2(T.Cast("float64", 14))))
+        A[0] = 4
 
     after = _apply_simplify(before)
     tvm_tirx.ir.assert_structural_equal(after, expected)
