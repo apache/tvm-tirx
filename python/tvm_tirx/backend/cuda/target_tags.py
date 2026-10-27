@@ -33,8 +33,15 @@ def _register_cuda_tag(name, arch, shared_mem=49152, regs=65536, **extra):
     register_tag(name, config)
 
 
+def _register_if_host_enabled(name, config):
+    from tvm_tirx.codegen import llvm
+
+    if llvm.backend_enabled(config["host"]["mtriple"]):
+        register_tag(name, config)
+
+
 def _register_jetson_tag(name, arch, mcpu, num_cores, regs=65536):
-    register_tag(
+    _register_if_host_enabled(
         name,
         {
             "kind": "cuda",
@@ -372,7 +379,7 @@ _register_jetson_tag("nvidia/jetson-agx-xavier", "sm_72", "carmel", 8)
 _register_jetson_tag("nvidia/jetson-orin-nano", "sm_87", "carmel", 6)
 _register_jetson_tag("nvidia/jetson-agx-orin-32gb", "sm_87", "cortex-a78", 8)
 _register_jetson_tag("nvidia/jetson-agx-orin-64gb", "sm_87", "cortex-a78", 12)
-register_tag(
+_register_if_host_enabled(
     "nvidia/jetson-agx-thor",
     {
         "kind": "cuda",

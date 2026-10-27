@@ -16,11 +16,11 @@
 # under the License.
 [project]
 name = "apache-tvm-tirx-llvm-targets"
-version = "0.1.0a3"
+version = "0.1.0a4"
 description = "Additional LLVM code generation targets for TVM TIRx"
 license = "Apache-2.0"
 requires-python = ">=3.10"
-dependencies = ["apache-tvm-tirx==0.1.0a3"]
+dependencies = ["apache-tvm-tirx==0.1.0a4"]
 
 [build-system]
 requires = [

@@ -174,6 +174,10 @@ def test_target_tag_1():
 
 
 def test_target_tag_jetson_agx_thor():
+    from tvm_tirx.codegen import llvm
+
+    if not llvm.backend_enabled("aarch64-linux-gnu"):
+        pytest.skip("need LLVM AArch64 backend")
     tgt = tvm_tirx.target.Target("nvidia/jetson-agx-thor")
     assert tgt.kind.name == "cuda"
     assert tgt.attrs["arch"] == "sm_110a"

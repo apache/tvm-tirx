@@ -16,6 +16,8 @@
 # under the License.
 """LLVM code generation and target information."""
 
+import functools
+
 from tvm_ffi import Array, get_global_func
 
 from tvm_tirx.target import Target
@@ -107,6 +109,39 @@ def get_targets():
         List of available LLVM targets.
     """
     return get_global_func("codegen.llvm_get_targets")()
+
+
+@functools.cache
+def _enabled_targets():
+    if get_global_func("codegen.llvm_get_targets", allow_missing=True) is None:
+        return None
+    return frozenset(get_targets())
+
+
+def backend_enabled(mtriple):
+    """Check whether this build's LLVM has the backend an Arm ``mtriple`` needs.
+
+    Non-Arm triples, and builds without LLVM, always pass.
+
+    Parameters
+    ----------
+    mtriple : str
+        The LLVM target triple, e.g. "aarch64-linux-gnu".
+
+    Returns
+    -------
+    enabled : bool
+        False only when ``mtriple`` needs an Arm backend that LLVM lacks.
+    """
+    targets = _enabled_targets()
+    if targets is None:
+        return True
+    arch = mtriple.split("-", 1)[0]
+    if arch.startswith(("aarch64", "arm64")):
+        return "aarch64" in targets
+    if arch.startswith(("arm", "thumb")):
+        return "arm" in targets
+    return True
 
 
 def get_cpu_archlist(target=None):

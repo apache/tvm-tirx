@@ -18,8 +18,16 @@
 
 from .registry import register_tag
 
+
+def _register_if_enabled(name, config):
+    from tvm_tirx.codegen import llvm
+
+    if llvm.backend_enabled(config["mtriple"]):
+        register_tag(name, config)
+
+
 # ---------- Raspberry Pi (self-hosted, with host config) ----------
-register_tag(
+_register_if_enabled(
     "raspberry-pi/4b-aarch64",
     {
         "kind": "llvm",
@@ -42,7 +50,7 @@ register_tag(
 def _register_arm_tag(name, config):
     base = {"kind": "llvm", "keys": ["arm_cpu", "cpu"], "device": "arm_cpu"}
     base.update(config)
-    register_tag(name, base)
+    _register_if_enabled(name, base)
 
 
 _register_arm_tag(
