@@ -19,11 +19,12 @@ Symbolic Integer Analysis
 =========================
 
 In this chapter, we will introduce symbolic integer analysis for tensor
-shapes, loop bounds, and element indices. A compiler pass may need to
-simplify an index calculation or check that an access stays within bounds
-even when the tensor length is not yet known. We will use the CPU add-one
-program from :doc:`/get_started/quick_start` to see how an analyzer answers
-these questions, then extend its index calculation with groups of four.
+shapes, loop bounds, and element indices. A pass that combines four scalar
+accesses into one vector access needs to preserve their positions and
+establish that the whole group is within the tensor. The length may only
+be known at runtime, so these decisions require reasoning about symbolic
+expressions. We will start from a loop's known range, then examine grouped
+indices and a neighboring-element access.
 
 The Analyzer
 ------------
@@ -35,55 +36,54 @@ across several queries:
 
 .. list-table::
    :header-rows: 1
-   :widths: 30 30 40
+   :widths: 32 28 40
 
    * - Query
+     - Arguments
      - Result
-     - Purpose
-   * - ``simplify``
-     - An IR expression
-     - Simplify a calculation under the known facts.
-   * - ``int_set``
-     - ``sym.IntSet``
-     - Describe possible values, including symbolic bounds.
-   * - ``const_int_bound``
-     - ``sym.ConstIntBound``
-     - Find inclusive numeric bounds.
-   * - ``modular_set``
-     - ``sym.ModularSet``
-     - Find divisibility and remainder information.
-   * - ``can_prove``, ``can_prove_equal``
-     - A boolean
-     - Establish a condition or equality of expression values.
+   * - ``simplify(expr)``
+     - An IR expression.
+     - An equivalent IR expression in a simpler form.
+   * - ``int_set(expr)``
+     - An integer IR expression.
+     - A ``sym.IntSet`` covering its possible values, including symbolic bounds.
+   * - ``const_int_bound(expr)``
+     - An integer IR expression.
+     - A ``sym.ConstIntBound`` with inclusive numeric bounds.
+   * - ``modular_set(expr)``
+     - An integer IR expression.
+     - A ``sym.ModularSet`` describing divisibility and remainders.
+   * - ``can_prove(expr)``
+     - A boolean IR expression.
+     - ``True`` if the condition is established from the known facts.
+   * - ``can_prove_equal(lhs, rhs)``
+     - Two integer IR expressions.
+     - ``True`` if their values are established to be equal.
+
+These calls show the required arguments. The expressions describe
+calculations in the program, and the analyzer uses its known facts to
+reason about their runtime values.
 
 Facts from the Program
 ----------------------
 
-An index variable alone does not tell an analyzer its loop bounds.
-The CPU example visits each tensor element with this loop:
-
-.. literalinclude:: ../get_started/examples/add_one_cpu.py
-   :language: python
-   :start-at:     for i in range(n):
-   :end-at:         B[i] = A[i] + 1
-   :dedent: 4
-
-With ``add_one`` from the CPU example, we can retrieve the loop and its
-index, then create an analyzer:
+The analyzer needs facts from the point in the program where a rewrite
+would occur. In a loop over a contiguous tensor of symbolic length ``n``,
+the index ``i`` satisfies ``0 <= i < n``. We can represent the length and
+index directly with integer IR variables:
 
 .. code-block:: python
 
    from tvm_tirx import ir, sym
 
-   loop = add_one.body[0]
-   i = loop.var
-   n = loop.end
+   n = ir.Var("n", "int32")
+   i = ir.Var("i", "int32")
    analyzer = sym.Analyzer()
 
-Inside this loop, ``0 <= i < n``. The analyzer needs this information
-from the surrounding program to reason about ``i``. A ``RangeConstraint``
-records the variable's domain; a ``ConstraintContext`` collects facts
-for the current program point:
+The loop bounds belong to the loop statement, while the variable ``i``
+records a name and type. A query on ``i`` therefore does not automatically
+include those bounds. The pass supplies them through a ``RangeConstraint``;
+a ``ConstraintContext`` collects the facts for the current program point:
 
 .. code-block:: python
 
@@ -110,11 +110,12 @@ of the program must supply the context valid there.
 Simplifying Index Expressions
 -----------------------------
 
-A vectorized version of the loop could process four elements at a time.
-For an element at index ``i``, its group starts at ``(i // 4) * 4``, and
-``i % 4`` gives its lane within that group. For example, index 6 belongs
-to the group starting at 4 and occupies lane 2. The analyzer can simplify
-the expression that recombines the group start and lane:
+A vectorization pass can split the loop index ``i`` into a group start
+and a lane within a group of four. The address calculation may later
+recombine these parts, leaving division and remainder operations that can
+be removed. The group starts at ``(i // 4) * 4``, and ``i % 4`` gives its
+lane. For example, index 6 belongs to the group starting at 4 and occupies
+lane 2. The analyzer can simplify the recombined expression:
 
 .. code-block:: python
 
@@ -135,9 +136,10 @@ index calculation.
 Bounds and Divisibility
 -----------------------
 
-An analysis can also describe the values an expression may take.
-For example, a neighboring-element access ``A[i + 1]`` would use this
-index:
+The loop range guarantees that ``A[i]`` is in bounds. A computation that
+also reads ``A[i + 1]`` needs to establish a bound for that new index.
+``int_set`` can bound its possible values before the pass decides whether
+the access needs a guard:
 
 .. code-block:: python
 
@@ -159,8 +161,9 @@ the endpoints can depend on ``n``. The interval is inclusive: ``i + 1``
 can reach ``n`` on the last iteration. This matters because the final
 valid tensor index is ``n - 1``.
 
-For numeric endpoints, ``const_int_bound`` returns a ``ConstIntBound``.
-The lane expression from the grouping example has fixed bounds:
+The grouping calculation gives another bounds query: the lane must select
+one of the group's four positions. Its bounds are numeric, so
+``const_int_bound`` can report them directly:
 
 .. code-block:: python
 
@@ -177,8 +180,8 @@ These endpoints are also inclusive, describing the four lane positions.
 Bounds cover every possible value; for more complex expressions, an
 inferred interval may also contain values that never occur.
 
-``modular_set`` describes possible remainders. We can use it to check
-the offsets at which groups begin:
+The start offset also matters for a vector access. A pass can use
+``modular_set`` to check whether every group starts on a multiple of four:
 
 .. code-block:: python
 
@@ -192,15 +195,17 @@ The output is:
    4 0
 
 ``coeff`` and ``base`` describe values of the form ``coeff*k + base``
-for integer ``k``. Every group therefore starts at a multiple of four,
-a property a pass can use when checking a vector index calculation.
+for integer ``k``. Every group therefore starts on a four-element boundary.
+A vectorization pass can use this offset information together with the
+base-address alignment and access bounds.
 
 Proving Conditions
 ------------------
 
-A proof query asks whether a condition holds for all values allowed by
-the known facts. The loop's range lets us check the original access,
-the neighboring-element access, and the regrouped index:
+A compiler pass often needs a yes-or-no answer before it removes a check
+or replaces an index. A proof query asks whether the required condition
+holds for every value allowed by the known facts. The following calls
+check the original index, the neighboring index, and the regrouped index:
 
 .. code-block:: python
 
@@ -216,15 +221,18 @@ The output is:
    False
    True
 
-The original access satisfies its upper bound. The neighboring index
-can reach ``n``, so its upper bound cannot be established for every
-iteration. In general, ``False`` means that the analyzer did not prove
-a condition; it does not prove the opposite condition. A pass requiring
-that condition must keep the general case when the proof fails.
+The known range proves ``i < n``, so a redundant check of this condition
+inside the loop can be removed. The neighboring index can reach ``n``,
+so ``i + 1 < n`` cannot be established for every iteration. That access
+needs a guard or an iteration range that excludes the last element.
 
-``can_prove_equal`` compares values rather than IR structure. Here, a
-pass can establish that the grouping calculation preserves the original
-index even though the two expressions have different structures.
+In general, ``False`` means that the analyzer did not prove a condition;
+it does not prove the opposite condition. A pass cannot use that result
+to justify removing a bounds check.
+
+``can_prove_equal`` compares expression values. Here, its ``True`` result
+confirms that a pass can replace ``group_start + lane`` with ``i`` while
+preserving the element index, even though their IR structures differ.
 
 The analysis infrastructure and its APIs are under active development.
 The :doc:`tvm_tirx.sym </reference/python/sym>` reference describes the
