@@ -27,7 +27,7 @@ import tvm_ffi
 from tvm_tirx import tirx
 from tvm_tirx.ir import Attrs, Call, Op, StringImm, const
 from tvm_tirx.ir.location import UNKNOWN_LOC, Location
-from tvm_tirx.ir.op import _init_op_api, _make_op_api
+from tvm_tirx.ir.op import _make_op_api
 from tvm_tirx.runtime import MemoryScope
 from tvm_tirx.tirx.op import bitwise_and, call_intrin, ptr_byte_offset
 
@@ -1605,4 +1605,23 @@ def tensormap_encode_tiled(
     )
 
 
-_init_op_api("tirx.cuda", __name__)
+def __getattr__(name):
+    try:
+        op = Op.get(f"tirx.cuda.{name}")
+    except AttributeError as err:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}") from err
+    call = _make_op_api(op, __name__)
+    globals()[name] = call
+    return call
+
+
+# Copy the completed script exposures into the raw API without scanning the Op registry.
+from tvm_tirx.tirx.script.ir_builder import op as _builder_op  # noqa: E402
+
+for _name in vars(_builder_op._get_script_namespace("cuda")):
+    if _name not in globals():
+        try:
+            __getattr__(_name)
+        except AttributeError:
+            # Nested script namespaces are not raw operator callables.
+            pass

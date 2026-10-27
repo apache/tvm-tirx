@@ -18,6 +18,7 @@
 
 from __future__ import annotations
 
+import keyword
 import sys
 from types import SimpleNamespace
 from typing import Any
@@ -229,6 +230,16 @@ def _get_script_namespace(name: str) -> object:
     raise AttributeError(f"No script namespace {name!r}")
 
 
+def _merge_script_namespace(generated, explicit):
+    """Keep definition-site exports when a backend installs its explicit namespace."""
+    for name, value in vars(generated).items():
+        current = getattr(explicit, name, None)
+        if current is None:
+            setattr(explicit, name, value)
+        elif isinstance(value, SimpleNamespace):
+            _merge_script_namespace(value, current)
+
+
 def register_script_namespace(name: str, namespace: object) -> object:
     """Register a construction namespace and return it.
 
@@ -239,6 +250,9 @@ def register_script_namespace(name: str, namespace: object) -> object:
     namespace : object
         Construction namespace object.
     """
+    previous = _SCRIPT_NAMESPACES.get(name)
+    if isinstance(previous, SimpleNamespace) and previous is not namespace:
+        _merge_script_namespace(previous, namespace)
     _SCRIPT_NAMESPACES[name] = namespace
     globals()[name] = namespace
     if "__all__" in globals() and name not in __all__:
@@ -320,6 +334,9 @@ def _script_slot(name: str):
             parser.register_namespace(part, value)
         else:
             setattr(container, part, value)
+            exports = vars(container).get("__all__")
+            if isinstance(exports, list) and part not in exports:
+                exports.append(part)
             if container is sys.modules["tvm_tirx.tirx.script.ir_builder"]:
                 # Keep successful bindings if a later exposure aborts the builder's
                 # first import. Its next import can recover them through __getattr__.
@@ -331,6 +348,32 @@ def _script_slot(name: str):
             bind(part, SimpleNamespace())
         container = lookup(part)
     return leaf, lookup, bind
+
+
+def _bind_type_alias(module, name, cls, type_key):
+    """Publish one completed type, preserving explicit and dialect-owned aliases."""
+    exports = vars(module)
+    generated = exports.setdefault("_generated_type_aliases", {})
+    existing = exports.get(name)
+    existing_info = getattr(existing, "__tvm_ffi_type_info__", None)
+    previous = generated.get(name)
+    replaces_root = (
+        previous is not None
+        and existing is previous[1]
+        and previous[0].startswith("ir.")
+        and type_key.startswith("tirx.")
+    )
+    if existing is None or getattr(existing_info, "type_key", None) == type_key or replaces_root:
+        exports[name] = cls
+        if existing is None or (previous is not None and existing is previous[1]):
+            generated[name] = (type_key, cls)
+        else:
+            # Re-exposing an explicit class must not make its alias replaceable.
+            generated.pop(name, None)
+        module_all = getattr(module, "__all__", None)
+        if isinstance(module_all, list) and name not in module_all:
+            module_all.append(name)
+    return exports.get(name)
 
 
 def expose_script_type(type_key: str) -> Any:
@@ -370,7 +413,34 @@ def expose_script_type(type_key: str) -> Any:
         cls = tvm_ffi.register_object(type_key)(type(name, (base,), attrs))
     # The printer drops the "Type" suffix (DefaultTypeTranslate).
     if len(name) > 4 and name.endswith("Type"):
-        name = name[:-4]
+        short_name = name[:-4]
+        if keyword.iskeyword(short_name):
+            # Retain attribute lookup under the printed short name, while
+            # publishing a valid Python alias such as NoneType as well.
+            leaf, lookup, bind = _script_slot(f"{namespace}.{short_name}")
+            if lookup(leaf) is None:
+                bind(leaf, cls)
+        else:
+            name = short_name
+    # Core types also belong to the shared builders. Publish each completed
+    # definition directly, without scanning the object registry at module init.
+    modules = []
+    if namespace == "ir":
+        modules.extend(("tvm_tirx.script.ir_builder", "tvm_tirx.script.ir_builder.ir"))
+    if namespace in ("ir", "tirx"):
+        modules.append("tvm_tirx.tirx.script.ir_builder.ir")
+    for module_name in modules:
+        module = sys.modules.get(module_name)
+        if module is not None:
+            _bind_type_alias(module, name, cls, type_key)
+    if namespace in ("ir", "tirx"):
+        module = sys.modules["tvm_tirx.tirx.script.ir_builder"]
+        result = _bind_type_alias(module, name, cls, type_key)
+        if not callable(result):
+            raise ValueError(f"Type {type_key!r} conflicts with a non-callable Python attribute")
+        if result is cls:
+            _SCRIPT_NAMESPACES[name] = cls
+        return result
     leaf, lookup, bind = _script_slot(f"{namespace}.{name}")
     existing = lookup(leaf)
     existing_info = getattr(existing, "__tvm_ffi_type_info__", None)

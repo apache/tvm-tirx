@@ -40,7 +40,8 @@ TVM_FFI_STATIC_INIT_BLOCK() {
                  sig::arg<IntExpr>("channel_size", "The number of channels."),
                  sig::arg<PrimExpr>("value", "The value to use."))
       .set_attr(tvm::tirx::op_attr::kVectorizable, true)
-      .set_attr(tvm::op_attr::kCallEffectKind, CallEffectKind::kOpaque);
+      .set_attr(tvm::op_attr::kCallEffectKind, CallEffectKind::kOpaque)
+      .expose_script();
 }
 
 const Op& texture2d_load_op() {
@@ -56,7 +57,8 @@ TVM_FFI_STATIC_INIT_BLOCK() {
                  sig::arg<IntExpr>("channel_size", "The number of channels."),
                  sig::arg<PrimExpr>("element_index", "The element index within a texture channel."))
       .set_attr(tvm::tirx::op_attr::kVectorizable, true)
-      .set_attr(tvm::op_attr::kCallEffectKind, CallEffectKind::kOpaque);
+      .set_attr(tvm::op_attr::kCallEffectKind, CallEffectKind::kOpaque)
+      .expose_script();
 }
 
 const Op& nd_mem_alloc_with_scope_op() {
@@ -69,7 +71,8 @@ TVM_FFI_STATIC_INIT_BLOCK() {
       .signature(sig::arg("storage_scope", "The storage scope."),
                  sig::arg<IntExpr>("ndim", "The number of dimensions."),
                  sig::arg("shape", "The shape."), sig::var_args("args"))
-      .set_attr(tvm::op_attr::kCallEffectKind, CallEffectKind::kOpaque);
+      .set_attr(tvm::op_attr::kCallEffectKind, CallEffectKind::kOpaque)
+      .expose_script();
 }
 
 }  // namespace opencl

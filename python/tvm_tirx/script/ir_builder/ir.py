@@ -22,7 +22,6 @@ import tvm_ffi
 
 from tvm_tirx.ir import DataTypeImm, GlobalInfo, LambdaExpr, Location, Var
 from tvm_tirx.ir.location import UNKNOWN_LOC
-from tvm_tirx.ir.type import _init_type_api
 
 from . import _ffi_api
 from .base import IRBuilder, LocationEntry
@@ -190,6 +189,10 @@ def _get_dialect_builder(name: str):
         module = importlib.import_module(f"tvm_tirx.script.ir_builder.{name}")
         setattr(sys.modules["tvm_tirx.script.ir_builder"], name, module)
         return module
+    if not name.startswith("_"):
+        importlib.import_module("tvm_tirx.tirx.script.ir_builder")
+        if name in globals():
+            return globals()[name]
     raise AttributeError(f"module 'tvm_tirx.script.ir_builder' has no attribute {name!r}")
 
 
@@ -202,4 +205,10 @@ def Lambda(parameter_types, function, *, ret_type=None):  # pylint: disable=inva
     return LambdaExpr(parameter_types, function, ret_type=ret_type)
 
 
-_init_type_api("ir", __name__)
+def __getattr__(name):
+    if name == "__all__":
+        import importlib
+
+        importlib.import_module("tvm_tirx.tirx.script.ir_builder")
+        return [key for key in globals() if not key.startswith("_")]
+    return _get_dialect_builder(name)

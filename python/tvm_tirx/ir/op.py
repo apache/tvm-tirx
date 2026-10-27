@@ -17,10 +17,7 @@
 # pylint: disable=invalid-name
 """Primitive operators in the TVM IR."""
 
-import keyword
-import sys
 from collections.abc import Sequence
-from types import ModuleType, SimpleNamespace
 
 import tvm_ffi
 
@@ -170,6 +167,14 @@ class Op(Expr):
         type_tail = [] if var_ty_args is None else list(parse_entry(var_ty_args, "var_ty_args"))
         self._set_signature(arg_names, arg_docs, ty_arg_names, ty_arg_docs, value_tail, type_tail)
 
+    def expose_script(self) -> None:
+        """Expose the completed operator definition in TVMScript.
+
+        Call after setting the signature and attributes. Early requests wait
+        until the script builder is initialized; explicit builders take precedence.
+        """
+        tvm_ffi.get_global_func("script.expose_script_op")(self.name)
+
 
 class OpAttrMap:
     """The values of one operator attribute, keyed by operator.
@@ -311,65 +316,3 @@ def _make_op_api(op, module_name):
     call.__module__ = module_name
     call.__doc__ = op.doc or f"Construct a call to {op.name}."
     return call
-
-
-def _init_op_api(namespace, target_module_name=None, *, wrapper=None):
-    """Initialize registered Op callables in an already loaded Python module.
-
-    Like :func:`tvm_ffi.init_ffi_api`, the registry prefix comes first and the
-    target defaults to that module name. For example, a backend module uses
-    ``_init_op_api("tirx.cuda", __name__)``. Dotted suffixes require existing
-    module or SimpleNamespace containers; underscores are ordinary name parts.
-
-    Generated functions accept registered positional/named operands plus
-    ``attrs``, ``ty_args``, ``loc`` and ``ty``.
-    Region operations construct a RegionFrame and accept ``body_params`` instead
-    of Call result/type arguments.
-    Omitting the result invokes an available Op inference hook; without one,
-    Call retains a missing type.
-    Explicit results and inference errors are preserved; Call.validate checks
-    the operator contract separately. Attribute
-    keywords construct the registered attrs schema, when one is declared.
-
-    Existing Python callables retain ownership of their names; only missing
-    exposures are generated. Existing functions must accept printed calls or
-    have an appropriate exceptional printer hook. Non-callable collisions fail
-    before any functions are installed. An optional ``wrapper`` adapts newly
-    generated Call constructors at export time; existing exposures and region
-    builders are untouched.
-    Returns None.
-    """
-    if not namespace or any(
-        not part.isidentifier() or keyword.iskeyword(part) for part in namespace.split(".")
-    ):
-        raise ValueError(f"Invalid Op namespace {namespace!r}")
-    target = sys.modules[target_module_name or namespace]
-    pending = []
-    destinations = set()
-    for name in sorted(Op.list_op_names()):
-        if not name.startswith(namespace + "."):
-            continue
-        parts = name[len(namespace) + 1 :].split(".")
-        if any(not part.isidentifier() or keyword.iskeyword(part) for part in parts):
-            raise ValueError(f"Op {name!r} has no Python attribute spelling")
-        container = target
-        for part in parts[:-1]:
-            container = vars(container).get(part)
-            if not isinstance(container, ModuleType | SimpleNamespace):
-                raise ValueError(f"Op {name!r} requires an existing namespace at {part!r}")
-        destination = (id(container), parts[-1])
-        if destination in destinations:
-            raise ValueError(f"Op {name!r} aliases another exposure destination")
-        destinations.add(destination)
-        op = Op.get(name)
-        if parts[-1] in vars(container):
-            current = vars(container)[parts[-1]]
-            if not callable(current):
-                raise ValueError(f"Op {name!r} conflicts with an existing Python attribute")
-        else:
-            call = _make_op_api(op, target.__name__)
-            if wrapper is not None and op.get_attr("FRegionGetBodyParams") is None:
-                call = wrapper(call)
-            pending.append((container, parts[-1], call))
-    for container, name, call in pending:
-        setattr(container, name, call)

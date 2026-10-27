@@ -35,7 +35,6 @@ from tvm_tirx.ir import (
     Var,
     make_node,
 )
-from tvm_tirx.ir.type import _init_type_api
 
 from .base import (
     MISSING,
@@ -48,6 +47,7 @@ from .base import (
 from .frame import IRModuleFrame
 from .ir import (
     Lambda,
+    _get_dialect_builder,
     constexpr,
     dtype,
     dynamic,
@@ -57,7 +57,6 @@ from .ir import (
     module_global_infos,
     module_set_attr,
 )
-from .ir import _get_dialect_builder as __getattr__
 from .parser_protocol import (
     decl_function,
     ir_module,
@@ -66,7 +65,7 @@ from .parser_protocol import (
 )
 
 # Keep source namespaces independent of imported helper modules and lazy builders.
-__all__ = [
+_exports = [
     "MISSING",
     "AlreadyEmitted",
     "Bind",
@@ -107,4 +106,12 @@ __all__ = [
 ]
 
 
-_init_type_api("ir", __name__)
+def __getattr__(name):
+    if name == "__all__":
+        # A wildcard import needs the same completed type exposures as named access.
+        import importlib
+
+        importlib.import_module("tvm_tirx.tirx.script.ir_builder")
+
+        return _exports
+    return _get_dialect_builder(name)

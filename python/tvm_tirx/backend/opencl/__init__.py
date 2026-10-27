@@ -38,7 +38,6 @@ def _detect_target_from_device(dev):
 
 def register_backend():
     """Register OpenCL-owned Python semantics."""
-    from tvm_tirx.ir.op import _init_op_api
     from tvm_tirx.target.detect_target import register_device_target_detector
     from tvm_tirx.tirx.script.ir_builder import op as builder_op
 
@@ -56,9 +55,20 @@ def register_backend():
     register_device_target_detector("opencl", _detect_target_from_device)
     from . import script
 
-    _init_op_api("tirx.opencl", __name__)
     builder_op.register_script_namespace("opencl", script)
     return None
+
+
+def __getattr__(name):
+    from tvm_tirx.ir.op import Op, _make_op_api
+
+    try:
+        op = Op.get(f"tirx.opencl.{name}")
+    except AttributeError as err:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}") from err
+    call = _make_op_api(op, __name__)
+    globals()[name] = call
+    return call
 
 
 __all__ = ["register_backend"]

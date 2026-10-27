@@ -16,10 +16,7 @@
 # under the License.
 """Unified type system in the project."""
 
-import keyword
-import sys
 from collections.abc import Callable
-from types import ModuleType
 from typing import ClassVar
 
 import numpy as np
@@ -265,57 +262,3 @@ def _normalize_type(value) -> Type:
     if isinstance(value, str | tvm_ffi.dtype):
         return PrimType(value)
     raise TypeError(f"Expected an IR type or primitive dtype, got {type(value).__name__}")
-
-
-def _init_type_api(namespace: str, target_module: str | ModuleType) -> None:
-    """Expose loaded Type bindings as short aliases in a builder namespace.
-
-    Dialect bindings precede root ``ir`` bindings. Explicit exports always win.
-    This only aliases registered classes: it never imports bindings, constructs
-    instances, or generates constructors. Call it again after loading additional
-    bindings to fill missing names or replace generated root aliases with dialect
-    aliases. Module-local provenance distinguishes generated aliases from exports.
-
-    Parameters
-    ----------
-    namespace : str
-        Registered type-key namespace to expose, such as ``"tirx"``. Its type
-        aliases take precedence over root ``"ir"`` aliases with the same name.
-    target_module : str or types.ModuleType
-        Module receiving the aliases, or its name in ``sys.modules``. The
-        module must already be loaded when passed by name.
-    """
-    module = sys.modules[target_module] if isinstance(target_module, str) else target_module
-    exports = vars(module)
-    generated = exports.setdefault("_generated_type_aliases", {})
-    root_index = Type.__tvm_ffi_type_info__.type_index
-    type_keys = [str(key) for key in tvm_ffi.registry.get_registered_type_keys()]
-    dialect_aliases = set()
-    for prefix in dict.fromkeys((namespace, "ir")):
-        for type_key in type_keys:
-            owner, _, name = type_key.rpartition(".")
-            if owner != prefix or type_key == "ir.Type":
-                continue
-            info = tvm_ffi.core._lookup_or_register_type_info_from_type_key(type_key)
-            if root_index not in info.type_ancestors:
-                continue
-            alias = name[:-4] if name.endswith("Type") else name
-            if keyword.iskeyword(alias):
-                alias = name
-            if prefix == namespace:
-                # Reserve unbound dialect names so a later repeat can fill them.
-                dialect_aliases.add(alias)
-            elif alias in dialect_aliases:
-                continue
-            if info.type_cls is None or not alias:
-                continue
-            if alias in exports:
-                previous = generated.get(alias)
-                if previous is None or exports[alias] is not previous[1]:
-                    continue
-                if prefix != namespace or previous[0] != "ir" or namespace == "ir":
-                    continue
-            exports[alias] = info.type_cls
-            generated[alias] = (prefix, info.type_cls)
-            if "__all__" in exports and alias not in exports["__all__"]:
-                exports["__all__"] = [*exports["__all__"], alias]

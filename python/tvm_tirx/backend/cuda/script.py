@@ -161,7 +161,6 @@ __activemask = _auto_emit_void_call(_cuda_op.__activemask)
 tile = _make_tensor_namespace()
 tile.apply = _auto_emit_void_call(tile.apply)
 tile.ewise = _auto_emit_void_call(tile.ewise)
-_ir.op._init_op_api("tirx.cuda", __name__, wrapper=_auto_emit_void_call)
 
 
 class NVSHMEMNamespace:
@@ -247,3 +246,11 @@ class PTXNamespace(_PTXNamespace):
     def _family(self, token):
         chain = super()._family(token)
         return None if chain is None else _ScriptInstrChain(chain._cands)
+
+
+# Preserve completed definition-site exports alongside the explicit builders.
+import sys as _sys  # noqa: E402
+
+from tvm_tirx.tirx.script.ir_builder.op import register_script_namespace as _register_namespace  # noqa: E402
+
+_register_namespace("cuda", _sys.modules[__name__])
