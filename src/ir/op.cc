@@ -29,23 +29,13 @@
 #include <tvm/ffi/reflection/registry.h>
 #include <tvm/ir/op.h>
 
-#include <mutex>
 #include <optional>
 
 namespace tvm {
 
-void ExposeScriptOp(const ffi::String& op_name) {
-  static std::mutex mutex;
-  static std::optional<ffi::Function> cached;
-  std::optional<ffi::Function> callback;
-  {
-    std::lock_guard<std::mutex> lock(mutex);
-    // Cache only a successful lookup: a receiver may be installed after native loading.
-    if (!cached) cached = ffi::Function::GetGlobal("script.expose_script_op");
-    callback = cached;
-  }
-  // Invoking outside the lock permits a callback to request another exposure.
-  if (callback) (*callback)(op_name);
+void Op::ExposeScript(const ffi::String& op_name) {
+  static std::optional<ffi::Function> cached = ffi::Function::GetGlobal("script.expose_script_op");
+  if (cached) (*cached)(op_name);
 }
 
 // Owns canonical Ops and mutable attribute columns for the lifetime of the process.
