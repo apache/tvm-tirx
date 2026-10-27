@@ -84,7 +84,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
       .set_native_fn_attr<&AssumeAlwaysMaybeInplaceMutate>(
           op_attr::kStructuralMaybeInplaceMutateWithConstraintContext)
       .set_attr(tvm::op_attr::kCallEffectKind, CallEffectKind::kEmbedInfo)
-      .expose_script();
+      .expose();
 }
 
 const Op& kernel_replace_point_op() {
@@ -96,7 +96,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
   OpDef("tirx.kernel_replace_point")
       .set_attr(tvm::op_attr::kFixedReturnType, PrimType::Void())
       .set_attr(tvm::op_attr::kCallEffectKind, CallEffectKind::kOpaque)
-      .expose_script();
+      .expose();
 }
 
 const Op& ignore_loop_partition_op() {
@@ -109,7 +109,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
       .set_attr(tvm::op_attr::kFixedReturnType, PrimType::Bool())
       .signature(sig::arg<PrimExpr>("predicate", "The predicate."))
       .set_attr(tvm::op_attr::kCallEffectKind, CallEffectKind::kPure)
-      .expose_script();
+      .expose();
 }
 
 }  // namespace tirx

@@ -75,28 +75,28 @@ class TypeObj : public ffi::Object {
 class Type : public ffi::ObjectRef {
  public:
   /*!
-   * \brief Request a registered IR type's constructor in its script namespace.
+   * \brief Request a registered IR type's constructor in its exposure destinations.
    * \param type_key The registered type key.
    * \note Call after ObjectDef finalization and all reflection and constructor registration.
-   *       The first call caches the optional script receiver, including absence for standalone
-   *       native use. Install the receiver before the first call to enable exposure; errors from
-   *       an installed receiver propagate.
+   *       The first call caches the optional ir.expose_type receiver, including its absence.
+   *       This permits standalone native use. Install the receiver before the first call to enable
+   *       exposure; errors from an installed receiver propagate.
    */
-  TVM_TIRX_DLL static void ExposeScript(const ffi::String& type_key);
+  TVM_TIRX_DLL static void Expose(const ffi::String& type_key);
 
   /*!
-   * \brief Request script exposure of a registered IR object type.
+   * \brief Request API exposure of a registered IR object type.
    * \tparam TypeObj The object class, not its reference wrapper.
    * \note Finish the ObjectDef statement and constructor registration before calling.
    *       Does nothing if the optional receiver was absent on the string helper's first call.
    * \code
    * ffi::reflection::ObjectDef<FooTypeObj>().def_ro("value", &FooTypeObj::value);
-   * Type::ExposeScript<FooTypeObj>();
+   * Type::Expose<FooTypeObj>();
    * \endcode
    */
   template <typename TypeObj>
-  static inline void ExposeScript() {
-    ExposeScript(TypeObj::_type_key);
+  static inline void Expose() {
+    Expose(TypeObj::_type_key);
   }
 
   /*! \brief Construct a MissingType for type information not yet populated. */

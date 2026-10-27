@@ -36,21 +36,21 @@ TVM_FFI_STATIC_INIT_BLOCK() {
                  sig::arg<IntExpr>("src_offset", "The source offset."),
                  sig::arg<IntExpr>("dst_stride", "The destination stride."))
       .set_attr(tvm::op_attr::kCallEffectKind, CallEffectKind::kOpaque)
-      .expose_script();
+      .expose();
 
   OpDef("tirx.cuda.mma_fill")
       .signature(sig::arg<IntExpr>("local_size", "The local allocation size."),
                  sig::arg("local_ptr", "The local pointer."),
                  sig::arg<IntExpr>("offset", "The offset."))
       .set_attr(tvm::op_attr::kCallEffectKind, CallEffectKind::kOpaque)
-      .expose_script();
+      .expose();
 
   OpDef("tirx.ptx_legacy.ldmatrix")
       .signature(sig::arg("trans"), sig::arg<IntExpr>("num"), sig::arg("dtype"),
                  sig::arg("local_ptr"), sig::arg<IntExpr>("local_offset"), sig::arg("smem_ptr"),
                  sig::arg<IntExpr>("smem_offset"))
       .set_attr(tvm::op_attr::kCallEffectKind, CallEffectKind::kOpaque)
-      .expose_script();
+      .expose();
   OpDef("tirx.ptx_legacy.mma")
       .signature(sig::arg("shape"), sig::arg("a_layout"), sig::arg("b_layout"), sig::arg("a_dtype"),
                  sig::arg("b_dtype"), sig::arg("c_dtype"), sig::arg("a_ptr"),
@@ -58,7 +58,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
                  sig::arg("acc_ptr"), sig::arg<IntExpr>("c_offset"), sig::arg("saturate"),
                  sig::var_args("args"))
       .set_attr(tvm::op_attr::kCallEffectKind, CallEffectKind::kOpaque)
-      .expose_script();
+      .expose();
 }
 
 }  // namespace tirx

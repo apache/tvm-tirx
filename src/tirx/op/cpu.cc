@@ -41,7 +41,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
       .signature()
       .set_attr(tvm::op_attr::kFixedReturnType, PrimType::Void())
       .set_attr(tvm::op_attr::kCallEffectKind, CallEffectKind::kOpaque)
-      .expose_script();
+      .expose();
 }
 
 }  // namespace tirx

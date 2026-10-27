@@ -271,7 +271,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
       .set_native_fn_attr<&LaunchThreadMaybeInplaceMutate>(
           op_attr::kStructuralMaybeInplaceMutateWithConstraintContext)
       .set_native_fn_attr<&ValidateBuiltinRegion>(tvm::op_attr::kRegionValidate)
-      .expose_script();
+      .expose();
 }
 
 void ValidateDeviceScopeRegion(const RegionStmtObj* region) {
@@ -283,7 +283,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
       .signature(sig::var_args<Expr>("launch_values"), sig::call_attrs<DictAttrsObj>())
       .set_native_fn_attr<&RegionNoBodyParams>(tvm::op_attr::kRegionGetBodyParams)
       .set_native_fn_attr<&ValidateDeviceScopeRegion>(tvm::op_attr::kRegionValidate)
-      .expose_script();
+      .expose();
 }
 
 const Op& device_entry_op() {
@@ -309,7 +309,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
       .signature(sig::var_args("launch_values"), sig::call_attrs<DictAttrsObj>())
       .set_native_fn_attr<&RegionNoBodyParams>(tvm::op_attr::kRegionGetBodyParams)
       .set_native_fn_attr<&ValidateDeviceEntry>(tvm::op_attr::kRegionValidate)
-      .expose_script();
+      .expose();
 }
 
 const Op& device_context_op() {
@@ -322,7 +322,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
       .signature(sig::arg<IntExpr>("device_type"), sig::arg<IntExpr>("device_id"))
       .set_native_fn_attr<&RegionNoBodyParams>(tvm::op_attr::kRegionGetBodyParams)
       .set_native_fn_attr<&ValidateBuiltinRegion>(tvm::op_attr::kRegionValidate)
-      .expose_script();
+      .expose();
 }
 
 const Op& compute_scope_op() {
@@ -335,7 +335,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
       .signature(sig::arg<StringImm>("name"))
       .set_native_fn_attr<&RegionNoBodyParams>(tvm::op_attr::kRegionGetBodyParams)
       .set_native_fn_attr<&ValidateBuiltinRegion>(tvm::op_attr::kRegionValidate)
-      .expose_script();
+      .expose();
 }
 
 const Op& parallel_launch_op() {
@@ -348,7 +348,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
       .signature()
       .set_native_fn_attr<&RegionNoBodyParams>(tvm::op_attr::kRegionGetBodyParams)
       .set_native_fn_attr<&ValidateBuiltinRegion>(tvm::op_attr::kRegionValidate)
-      .expose_script();
+      .expose();
 }
 
 }  // namespace tirx

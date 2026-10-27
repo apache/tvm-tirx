@@ -31,28 +31,28 @@ from tvm_ffi.libinfo import load_lib_ctypes
 from . import libinfo
 
 # These receivers must exist before native static initialization. Keep them stable:
-# native callers may cache them before the script builder has finished importing.
-_EXPOSE_SCRIPT_OP_CALLBACK = None
-_EXPOSE_SCRIPT_TYPE_CALLBACK = None
-_PENDING_SCRIPT_EXPOSURES = deque()
+# native callers may cache them before the IR modules have finished importing.
+_EXPOSE_OP_CALLBACK = None
+_EXPOSE_TYPE_CALLBACK = None
+_PENDING_EXPOSURES = deque()
 
 
-@register_global_func("script.expose_script_op")
-def _expose_script_op(name):
-    """Request script exposure after the operator's registration is complete."""
-    if _EXPOSE_SCRIPT_OP_CALLBACK is None:
-        _PENDING_SCRIPT_EXPOSURES.append(("op", name))
+@register_global_func("ir.expose_op")
+def _expose_op(name):
+    """Request API exposure after the operator's registration is complete."""
+    if _EXPOSE_OP_CALLBACK is None:
+        _PENDING_EXPOSURES.append(("op", name))
     else:
-        _EXPOSE_SCRIPT_OP_CALLBACK(name)
+        _EXPOSE_OP_CALLBACK(name)
 
 
-@register_global_func("script.expose_script_type")
-def _expose_script_type(type_key):
-    """Request script exposure after the type's reflection and constructor are ready."""
-    if _EXPOSE_SCRIPT_TYPE_CALLBACK is None:
-        _PENDING_SCRIPT_EXPOSURES.append(("type", type_key))
+@register_global_func("ir.expose_type")
+def _expose_type(type_key):
+    """Request API exposure after the type's reflection and constructor are ready."""
+    if _EXPOSE_TYPE_CALLBACK is None:
+        _PENDING_EXPOSURES.append(("type", type_key))
     else:
-        _EXPOSE_SCRIPT_TYPE_CALLBACK(type_key)
+        _EXPOSE_TYPE_CALLBACK(type_key)
 
 
 # ----------------------------

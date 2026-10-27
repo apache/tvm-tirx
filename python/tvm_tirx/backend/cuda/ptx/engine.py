@@ -107,7 +107,7 @@ def register_table(table: dict[str, InstructionEntry]) -> None:
                 get_global_func("script.printer.PTXCallDocTranslate")(),
             )
         register_codegen(f"ptx.{entry.name}")(_make_codegen(entry))
-        Op.get(entry.op_name).expose_script()
+        Op.get(entry.op_name).expose()
 
 
 def register_addr() -> None:
@@ -125,7 +125,7 @@ def register_addr() -> None:
             get_global_func("script.printer.PTXCallDocTranslate")(),
         )
     register_codegen("ptx.addr")(_unconsumed_addr_codegen)
-    op.expose_script()
+    op.expose()
 
 
 def _unconsumed_addr_codegen(*_args):

@@ -24,6 +24,7 @@ import tvm_ffi
 from tvm_tirx.ir.location import UNKNOWN_LOC, Location
 
 from . import _ffi_api
+from ._exposure import _api_attribute, _api_slot, _bind_api, _relative_name
 from .expr import Expr
 
 
@@ -167,13 +168,14 @@ class Op(Expr):
         type_tail = [] if var_ty_args is None else list(parse_entry(var_ty_args, "var_ty_args"))
         self._set_signature(arg_names, arg_docs, ty_arg_names, ty_arg_docs, value_tail, type_tail)
 
-    def expose_script(self) -> None:
-        """Expose the completed operator definition in TVMScript.
+    def expose(self) -> None:
+        """Expose the completed operator definition to registered API destinations.
 
-        Call after setting the signature and attributes. Early requests wait
-        until the script builder is initialized; explicit builders take precedence.
+        Call after setting the signature and attributes. Destinations initialized
+        later replay the request; explicit Python APIs
+        take precedence. Registration and attribute updates alone do not expose an Op.
         """
-        tvm_ffi.get_global_func("script.expose_script_op")(self.name)
+        tvm_ffi.get_global_func("ir.expose_op")(self.name)
 
 
 class OpAttrMap:
@@ -316,3 +318,77 @@ def _make_op_api(op, module_name):
     call.__module__ = module_name
     call.__doc__ = op.doc or f"Construct a call to {op.name}."
     return call
+
+
+_EXPOSED_OPS = {}
+_OP_API_DESTINATIONS = {}
+_OP_API_CALLABLES = {}
+_OP_PUBLICATIONS = {}
+
+
+def _publish_op(name, prefix, module_name, wrapper):
+    path = _relative_name(name, prefix)
+    if path is None or (slot := _api_slot(module_name, path)) is None:
+        return None
+    container, leaf = slot
+    existing = _api_attribute(container, leaf)
+    if existing is not None:
+        if not callable(existing):
+            raise ValueError(f"Op {name!r} conflicts with a non-callable Python attribute")
+        return existing
+    key = name, id(wrapper)
+    cached = _OP_API_CALLABLES.get(key)
+    if cached is None:
+        op = Op.get(name)
+        call = _make_op_api(op, module_name)
+        if wrapper is not None:
+            call = wrapper(call)
+        # Retain even unhashable policies so their identity cannot be reused.
+        _OP_API_CALLABLES[key] = wrapper, call
+    else:
+        _, call = cached
+    return _bind_api(container, leaf, call)
+
+
+def _publish_op_destinations(name, destinations):
+    if name in _OP_PUBLICATIONS:
+        pending, visited = _OP_PUBLICATIONS[name]
+        pending.update((key, None) for key in destinations if key not in visited)
+        return
+    pending, visited = dict.fromkeys(destinations), set()
+    _OP_PUBLICATIONS[name] = pending, visited
+    try:
+        # Reentrant exposure can add destinations, but cannot wrap one twice.
+        while pending:
+            module_name, prefix = next(iter(pending))
+            wrapper = _OP_API_DESTINATIONS[module_name, prefix]
+            _publish_op(name, prefix, module_name, wrapper)
+            visited.add((module_name, prefix))
+            del pending[module_name, prefix]
+    finally:
+        del _OP_PUBLICATIONS[name]
+
+
+def _expose_op(name):
+    name = str(name)
+    # Record before publication: a failed destination can replay this request.
+    _EXPOSED_OPS[name] = None
+    _publish_op_destinations(name, _OP_API_DESTINATIONS)
+
+
+def _init_exposed_op_api(prefix, target_module_name, *, wrapper=None):
+    """Initialize APIs for explicitly exposed ops and subscribe to future exposures.
+
+    The prefix matches complete name components. Existing Python definitions take
+    precedence. A wrapper adapts newly generated callables for the destination;
+    omitting it publishes raw constructors. Reinitialization replays selected ops
+    without wrapping existing exports again. Destinations with the same wrapper
+    policy share a callable, retaining its identity and original ``__module__``
+    across facade reexports.
+    """
+    _OP_API_DESTINATIONS[target_module_name, prefix] = wrapper
+    for name in tuple(_EXPOSED_OPS):
+        _publish_op_destinations(name, [(target_module_name, prefix)])
+
+
+_init_exposed_op_api("ir", __name__)

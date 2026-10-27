@@ -113,7 +113,7 @@ class Instruction:
         ]
         construct.__signature__ = Signature(parameters, return_annotation=Call)
         self._factory = construct
-        op.expose_script()
+        op.expose()
         return construct
 
     def make(self, *values, **kw):

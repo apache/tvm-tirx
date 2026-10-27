@@ -92,12 +92,12 @@ impl OpDef {
         Self(registered.and_then(|_| Op::get(name)))
     }
 
-    /// The completed operator, or the error of the step that failed. Request its TVMScript
-    /// builder through `script.expose_script_op` after its signature and attributes are ready.
+    /// The completed operator, or the error of the step that failed. Request its APIs in
+    /// registered destinations through `ir.expose_op` after its signature and attributes are ready.
     /// An absent receiver is a no-op; an installed receiver's error is returned.
     pub fn op(self) -> Result<Op> {
         let op = self.0?;
-        if let Ok(expose) = tvm_ffi::Function::get_global("script.expose_script_op") {
+        if let Ok(expose) = tvm_ffi::Function::get_global("ir.expose_op") {
             expose.call_tuple((op.name.clone(),))?;
         }
         Ok(op)

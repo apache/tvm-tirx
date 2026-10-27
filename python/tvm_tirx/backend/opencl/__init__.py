@@ -21,6 +21,7 @@ from pathlib import Path
 from tvm_ffi.libinfo import load_lib_ctypes
 
 from tvm_tirx.base import _LOADED_LIBS
+from tvm_tirx.ir.op import _init_exposed_op_api
 
 
 def _detect_target_from_device(dev):
@@ -59,16 +60,5 @@ def register_backend():
     return None
 
 
-def __getattr__(name):
-    from tvm_tirx.ir.op import Op, _make_op_api
-
-    try:
-        op = Op.get(f"tirx.opencl.{name}")
-    except AttributeError as err:
-        raise AttributeError(f"module {__name__!r} has no attribute {name!r}") from err
-    call = _make_op_api(op, __name__)
-    globals()[name] = call
-    return call
-
-
 __all__ = ["register_backend"]
+_init_exposed_op_api("tirx.opencl", __name__)

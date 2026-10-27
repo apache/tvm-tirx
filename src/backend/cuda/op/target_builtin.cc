@@ -103,7 +103,7 @@ void RegisterCudaTargetBuiltins() {
                          const CallObj*)>::FromNative<&ValidateDeclTmem>(),
                      true)
       .set_attr(tvm::op_attr::kCallEffectKind, CallEffectKind::kPure)
-      .expose_script();
+      .expose();
 
   OpDef("tirx.cuda.bmma_sync")
       .set_attr(tvm::op_attr::kFixedReturnType, PrimType::Void())
@@ -116,7 +116,7 @@ void RegisterCudaTargetBuiltins() {
                  sig::arg("fragment_c", "The C fragment."),
                  sig::arg<IntExpr>("index_c", "The C fragment index."))
       .set_attr(tvm::op_attr::kCallEffectKind, CallEffectKind::kOpaque)
-      .expose_script();
+      .expose();
 
   // Raw legacy cp.async form emitted by InjectPTXAsyncCopy (and round-tripped by
   // the T.s_tir.cp_async_raw.legacy 6-arg surface). It carries the element dtype in Call.dtype
@@ -128,7 +128,7 @@ void RegisterCudaTargetBuiltins() {
                  sig::arg<IntExpr>("src_offset", "The source offset."),
                  sig::arg<IntExpr>("cp_size", "The copy size."), sig::var_args("args"))
       .set_attr(tvm::op_attr::kCallEffectKind, CallEffectKind::kOpaque)
-      .expose_script();
+      .expose();
 
   OpDef("tirx.cuda.timer_init")
       .signature(sig::arg("profiler_buffer", "The profiler buffer."),
@@ -137,7 +137,7 @@ void RegisterCudaTargetBuiltins() {
                  sig::arg<IntExpr>("num_groups", "The number of groups."),
                  sig::arg<IntExpr>("group_id", "The group identifier."))
       .set_attr(tvm::op_attr::kCallEffectKind, CallEffectKind::kOpaque)
-      .expose_script();
+      .expose();
 
   OpDef("tirx.cuda.timer_start")
       .signature(sig::arg("event_type", "The event type."),
@@ -147,7 +147,7 @@ void RegisterCudaTargetBuiltins() {
                  sig::arg<IntExpr>("profiler_write_stride", "The profiler write stride."),
                  sig::arg("leader_cond", "The leader condition."))
       .set_attr(tvm::op_attr::kCallEffectKind, CallEffectKind::kOpaque)
-      .expose_script();
+      .expose();
 
   OpDef("tirx.cuda.timer_end")
       .signature(sig::arg("event_type", "The event type."),
@@ -157,7 +157,7 @@ void RegisterCudaTargetBuiltins() {
                  sig::arg<IntExpr>("profiler_write_stride", "The profiler write stride."),
                  sig::arg("leader_cond", "The leader condition."))
       .set_attr(tvm::op_attr::kCallEffectKind, CallEffectKind::kOpaque)
-      .expose_script();
+      .expose();
 
   OpDef("tirx.cuda.timer_finalize")
       .signature(sig::arg("profiler_buffer", "The profiler buffer."),
@@ -166,7 +166,7 @@ void RegisterCudaTargetBuiltins() {
                  sig::arg<IntExpr>("profiler_write_stride", "The profiler write stride."),
                  sig::arg("leader_cond", "The leader condition."))
       .set_attr(tvm::op_attr::kCallEffectKind, CallEffectKind::kOpaque)
-      .expose_script();
+      .expose();
 
   RegisterDeviceIntrinsics();
 }
@@ -190,289 +190,289 @@ void RegisterDeviceIntrinsics() {
     RegisterDeviceIntrinsic(OpDef(std::string("tirx.cuda.") + name), CallEffectKind::kPure,
                             sig::arg<StringImm>("axis"))
         .set_native_fn_attr<&InferTypeCudaAxis>(tvm::op_attr::kInferType)
-        .expose_script();
+        .expose();
   }
   for (const char* name : {"linear_thread_id", "warp_id", "lane_id", "warpgroup_id",
                            "warp_in_warpgroup", "thread_in_warpgroup", "cta_pair_id"}) {
     RegisterDeviceIntrinsic(OpDef(std::string("tirx.cuda.") + name), CallEffectKind::kPure)
         .set_attr(tvm::op_attr::kFixedReturnType, PrimType::Int(32))
-        .expose_script();
+        .expose();
   }
   RegisterDeviceIntrinsic(OpDef("tirx.cuda.any_sync"), CallEffectKind::kPure,
                           sig::arg<IntExpr>("mask"), sig::arg("pred"))
       .set_attr(tvm::op_attr::kFixedReturnType, PrimType::Int(32))
-      .expose_script();
+      .expose();
   RegisterDeviceIntrinsic(OpDef("tirx.cuda.atomic_add"), CallEffectKind::kOpaque,
                           sig::arg("res_addr"), sig::arg("value"))
       .set_native_fn_attr<&InferTypeReturnArgType<1>>(tvm::op_attr::kInferType)
-      .expose_script();
+      .expose();
   RegisterDeviceIntrinsic(OpDef("tirx.cuda.atomic_cas"), CallEffectKind::kOpaque, sig::arg("ptr"),
                           sig::arg("old_val"), sig::arg("new_val"))
       .set_native_fn_attr<&InferTypeReturnArgType<1>>(tvm::op_attr::kInferType)
-      .expose_script();
+      .expose();
   RegisterDeviceIntrinsic(OpDef("tirx.cuda.wait_until"), CallEffectKind::kOpaque, sig::arg("dst"),
                           sig::arg("ptr"), sig::arg("condition"), sig::arg("scope"),
                           sig::arg("space"), sig::arg("ptx_type"), sig::arg<IntExpr>("backoff_ns"))
-      .expose_script();
+      .expose();
   RegisterDeviceIntrinsic(OpDef("tirx.cuda.ballot_sync"), CallEffectKind::kOpaque,
                           sig::arg<IntExpr>("mask"), sig::arg("pred"))
       .set_attr(tvm::op_attr::kFixedReturnType, PrimType::UInt(32))
-      .expose_script();
+      .expose();
   RegisterDeviceIntrinsic(OpDef("tirx.cuda.bfloat1622float2"), CallEffectKind::kOpaque,
                           sig::arg("packed"))
       .set_attr(tvm::op_attr::kFixedReturnType, PrimType::UInt(64))
-      .expose_script();
+      .expose();
   RegisterDeviceIntrinsic(OpDef("tirx.cuda.bfloat162float"), CallEffectKind::kOpaque,
                           sig::arg("src"))
       .set_attr(tvm::op_attr::kFixedReturnType, PrimType::Float(32))
-      .expose_script();
+      .expose();
   RegisterDeviceIntrinsic(OpDef("tirx.cuda.clock64"), CallEffectKind::kOpaque)
       .set_attr(tvm::op_attr::kFixedReturnType, PrimType::UInt(64))
-      .expose_script();
+      .expose();
   RegisterDeviceIntrinsic(OpDef("tirx.cuda.cluster_sync"), CallEffectKind::kOpaque)
       .set_attr(tvm::op_attr::kFixedReturnType, PrimType::Void())
-      .expose_script();
+      .expose();
   RegisterDeviceIntrinsic(OpDef("tirx.cuda.cta_reduce"), CallEffectKind::kOpaque, sig::arg("value"),
                           sig::arg("op"), sig::arg<IntExpr>("num_warps"), sig::arg("scratch"))
       .set_native_fn_attr<&InferTypeReturnArgType<0>>(tvm::op_attr::kInferType)
-      .expose_script();
+      .expose();
   RegisterDeviceIntrinsic(OpDef("tirx.cuda.cta_sync"), CallEffectKind::kOpaque)
       .set_attr(tvm::op_attr::kFixedReturnType, PrimType::Void())
-      .expose_script();
+      .expose();
   RegisterDeviceIntrinsic(OpDef("tirx.cuda.cvta_generic_to_shared"), CallEffectKind::kOpaque,
                           sig::arg("ptr"))
       .set_attr(tvm::op_attr::kFixedReturnType, PrimType::UInt(32))
-      .expose_script();
+      .expose();
   RegisterDeviceIntrinsic(OpDef("tirx.cuda.elect_sync"), CallEffectKind::kOpaque)
       .set_attr(tvm::op_attr::kFixedReturnType, PrimType::UInt(32))
-      .expose_script();
+      .expose();
   RegisterDeviceIntrinsic(OpDef("tirx.cuda.fadd2_rn"), CallEffectKind::kOpaque, sig::arg("a"),
                           sig::arg("b"))
       .set_attr(tvm::op_attr::kFixedReturnType, PrimType::UInt(64))
-      .expose_script();
+      .expose();
   RegisterDeviceIntrinsic(OpDef("tirx.cuda.fdividef"), CallEffectKind::kPure, sig::arg("x"),
                           sig::arg("y"))
       .set_attr(tvm::op_attr::kFixedReturnType, PrimType::Float(32))
-      .expose_script();
+      .expose();
   RegisterDeviceIntrinsic(OpDef("tirx.cuda.ffs_u32"), CallEffectKind::kOpaque,
                           sig::arg<IntExpr>("value"))
       .set_attr(tvm::op_attr::kFixedReturnType, PrimType::Int(32))
-      .expose_script();
+      .expose();
   RegisterDeviceIntrinsic(OpDef("tirx.cuda.float22bfloat162_rn"), CallEffectKind::kOpaque,
                           sig::arg("v0"), sig::arg("v1"))
       .set_attr(tvm::op_attr::kFixedReturnType, PrimType::UInt(32))
-      .expose_script();
+      .expose();
   RegisterDeviceIntrinsic(OpDef("tirx.cuda.float22bfloat162_rn_from_float2"),
                           CallEffectKind::kOpaque, sig::arg("packed"))
       .set_attr(tvm::op_attr::kFixedReturnType, PrimType::UInt(32))
-      .expose_script();
+      .expose();
   RegisterDeviceIntrinsic(OpDef("tirx.cuda.float22half2"), CallEffectKind::kOpaque, sig::arg("dst"),
                           sig::arg("src"))
       .set_attr(tvm::op_attr::kFixedReturnType, PrimType::Void())
-      .expose_script();
+      .expose();
   RegisterDeviceIntrinsic(OpDef("tirx.cuda.float2_x"), CallEffectKind::kOpaque, sig::arg("packed"))
       .set_attr(tvm::op_attr::kFixedReturnType, PrimType::Float(32))
-      .expose_script();
+      .expose();
   RegisterDeviceIntrinsic(OpDef("tirx.cuda.float2_y"), CallEffectKind::kOpaque, sig::arg("packed"))
       .set_attr(tvm::op_attr::kFixedReturnType, PrimType::Float(32))
-      .expose_script();
+      .expose();
   RegisterDeviceIntrinsic(OpDef("tirx.cuda.float8tohalf8"), CallEffectKind::kOpaque,
                           sig::arg("src_addr"), sig::arg("dst_addr"))
       .set_attr(tvm::op_attr::kFixedReturnType, PrimType::Void())
-      .expose_script();
+      .expose();
   RegisterDeviceIntrinsic(OpDef("tirx.cuda.float_as_uint"), CallEffectKind::kOpaque, sig::arg("x"))
       .set_attr(tvm::op_attr::kFixedReturnType, PrimType::UInt(32))
-      .expose_script();
+      .expose();
   RegisterDeviceIntrinsic(OpDef("tirx.cuda.fmul2_rn"), CallEffectKind::kOpaque, sig::arg("a"),
                           sig::arg("b"))
       .set_attr(tvm::op_attr::kFixedReturnType, PrimType::UInt(64))
-      .expose_script();
+      .expose();
   RegisterDeviceIntrinsic(OpDef("tirx.cuda.fp8x4_e4m3_from_float4"), CallEffectKind::kOpaque,
                           sig::arg("x"), sig::arg("y"), sig::arg("z"), sig::arg("w"))
       .set_attr(tvm::op_attr::kFixedReturnType, PrimType::UInt(32))
-      .expose_script();
+      .expose();
   RegisterDeviceIntrinsic(OpDef("tirx.cuda.func_call"), CallEffectKind::kOpaque,
                           sig::arg("func_name"), sig::var_args("args"))
       .set_attr(tvm::op_attr::kFixedReturnType, PrimType::Void())
-      .expose_script();
+      .expose();
   RegisterDeviceIntrinsic(OpDef("tirx.cuda.get_tmem_addr"), CallEffectKind::kOpaque,
                           sig::arg("addr"), sig::arg<IntExpr>("row_offset"),
                           sig::arg<IntExpr>("col_offset"))
       .set_attr(tvm::op_attr::kFixedReturnType, PrimType::UInt(32))
-      .expose_script();
+      .expose();
   RegisterDeviceIntrinsic(OpDef("tirx.cuda.grid_sync"), CallEffectKind::kOpaque)
       .set_attr(tvm::op_attr::kFixedReturnType, PrimType::Void())
-      .expose_script();
+      .expose();
   RegisterDeviceIntrinsic(OpDef("tirx.cuda.half2float"), CallEffectKind::kOpaque, sig::arg("src"))
       .set_attr(tvm::op_attr::kFixedReturnType, PrimType::Float(32))
-      .expose_script();
+      .expose();
   RegisterDeviceIntrinsic(OpDef("tirx.cuda.half8tofloat8"), CallEffectKind::kOpaque,
                           sig::arg("src_addr"), sig::arg("dst_addr"))
       .set_attr(tvm::op_attr::kFixedReturnType, PrimType::Void())
-      .expose_script();
+      .expose();
   RegisterDeviceIntrinsic(OpDef("tirx.cuda.hmax2"), CallEffectKind::kOpaque, sig::arg("a"),
                           sig::arg("b"))
       .set_attr(tvm::op_attr::kFixedReturnType, PrimType::UInt(32))
-      .expose_script();
+      .expose();
   RegisterDeviceIntrinsic(OpDef("tirx.cuda.hmin2"), CallEffectKind::kOpaque, sig::arg("a"),
                           sig::arg("b"))
       .set_attr(tvm::op_attr::kFixedReturnType, PrimType::UInt(32))
-      .expose_script();
+      .expose();
   RegisterDeviceIntrinsic(OpDef("tirx.cuda.make_float2"), CallEffectKind::kOpaque, sig::arg("x"),
                           sig::arg("y"))
       .set_attr(tvm::op_attr::kFixedReturnType, PrimType::UInt(64))
-      .expose_script();
+      .expose();
   RegisterDeviceIntrinsic(OpDef("tirx.cuda.mbarrier_wait"), CallEffectKind::kOpaque,
                           sig::arg("bar"), sig::arg<IntExpr>("phase"))
       .set_attr(tvm::op_attr::kFixedReturnType, PrimType::Void())
-      .expose_script();
+      .expose();
   RegisterDeviceIntrinsic(OpDef("tirx.cuda.mbarrier_wait_acquire_cluster"), CallEffectKind::kOpaque,
                           sig::arg("bar"), sig::arg<IntExpr>("phase"))
       .set_attr(tvm::op_attr::kFixedReturnType, PrimType::Void())
-      .expose_script();
+      .expose();
   RegisterDeviceIntrinsic(OpDef("tirx.cuda.mov_sreg"), CallEffectKind::kPure,
                           sig::arg<IntExpr>("bits"), sig::arg("reg_name"))
       .set_native_fn_attr<&InferTypeMovSreg>(tvm::op_attr::kInferType)
-      .expose_script();
+      .expose();
   RegisterDeviceIntrinsic(OpDef("tirx.cuda.nano_sleep"), CallEffectKind::kOpaque,
                           sig::arg<IntExpr>("time"))
       .set_attr(tvm::op_attr::kFixedReturnType, PrimType::Void())
-      .expose_script();
+      .expose();
   RegisterDeviceIntrinsic(OpDef("tirx.cuda.printf"), CallEffectKind::kOpaque, sig::arg("fmt"),
                           sig::var_args("args"))
       .set_attr(tvm::op_attr::kFixedReturnType, PrimType::Void())
-      .expose_script();
+      .expose();
   RegisterDeviceIntrinsic(OpDef("tirx.cuda.reduce_add_sync_u32"), CallEffectKind::kOpaque,
                           sig::arg<IntExpr>("mask"), sig::arg<IntExpr>("value"))
       .set_attr(tvm::op_attr::kFixedReturnType, PrimType::UInt(32))
-      .expose_script();
+      .expose();
   RegisterDeviceIntrinsic(OpDef("tirx.cuda.reduce_min_sync_u32"), CallEffectKind::kOpaque,
                           sig::arg<IntExpr>("mask"), sig::arg<IntExpr>("value"))
       .set_attr(tvm::op_attr::kFixedReturnType, PrimType::UInt(32))
-      .expose_script();
+      .expose();
   RegisterDeviceIntrinsic(OpDef("tirx.cuda.runtime_instr_desc"), CallEffectKind::kOpaque,
                           sig::arg("desc"), sig::arg<IntExpr>("sf_id"))
       .set_attr(tvm::op_attr::kFixedReturnType, PrimType::Void())
-      .expose_script();
+      .expose();
   RegisterDeviceIntrinsic(OpDef("tirx.cuda.smem_addr_from_uint64"), CallEffectKind::kOpaque,
                           sig::arg<IntExpr>("cluster_addr"))
       .set_attr(tvm::op_attr::kFixedReturnType, PrimType::UInt(32))
-      .expose_script();
+      .expose();
   RegisterDeviceIntrinsic(OpDef("tirx.cuda.syncthreads_and"), CallEffectKind::kOpaque,
                           sig::arg("cond"))
       .set_attr(tvm::op_attr::kFixedReturnType, PrimType::Int(64))
-      .expose_script();
+      .expose();
   RegisterDeviceIntrinsic(OpDef("tirx.cuda.syncthreads_or"), CallEffectKind::kOpaque,
                           sig::arg("cond"))
       .set_attr(tvm::op_attr::kFixedReturnType, PrimType::Int(64))
-      .expose_script();
+      .expose();
   RegisterDeviceIntrinsic(OpDef("tirx.cuda.thread_fence"), CallEffectKind::kOpaque)
       .set_attr(tvm::op_attr::kFixedReturnType, PrimType::Void())
-      .expose_script();
+      .expose();
   RegisterDeviceIntrinsic(OpDef("tirx.cuda.thread_rank"), CallEffectKind::kPure)
       .set_attr(tvm::op_attr::kFixedReturnType, PrimType::Int(32))
-      .expose_script();
+      .expose();
   RegisterDeviceIntrinsic(OpDef("tirx.cuda.trap_when_assert_failed"), CallEffectKind::kOpaque,
                           sig::arg("cond"))
       .set_attr(tvm::op_attr::kFixedReturnType, PrimType::Void())
-      .expose_script();
+      .expose();
   RegisterDeviceIntrinsic(OpDef("tirx.cuda.uint_as_float"), CallEffectKind::kOpaque,
                           sig::arg<IntExpr>("bits"))
       .set_attr(tvm::op_attr::kFixedReturnType, PrimType::Float(32))
-      .expose_script();
+      .expose();
   RegisterDeviceIntrinsic(OpDef("tirx.cuda.warp_reduce"), CallEffectKind::kOpaque,
                           sig::arg("value"), sig::arg("op"), sig::arg<IntExpr>("width"))
       .set_native_fn_attr<&InferTypeReturnArgType<0>>(tvm::op_attr::kInferType)
-      .expose_script();
+      .expose();
   RegisterDeviceIntrinsic(OpDef("tirx.cuda.warp_sync"), CallEffectKind::kOpaque)
       .set_attr(tvm::op_attr::kFixedReturnType, PrimType::Void())
-      .expose_script();
+      .expose();
   RegisterDeviceIntrinsic(OpDef("tirx.cuda.warpgroup_sync"), CallEffectKind::kOpaque,
                           sig::arg<IntExpr>("bar_no"))
       .set_attr(tvm::op_attr::kFixedReturnType, PrimType::Void())
-      .expose_script();
+      .expose();
   RegisterDeviceIntrinsic(OpDef("tirx.cuda.wgmma_encode_matrix_descriptor"),
                           CallEffectKind::kOpaque, sig::arg("desc"), sig::arg("addr"),
                           sig::arg<IntExpr>("ldo"), sig::arg<IntExpr>("sdo"),
                           sig::arg<IntExpr>("swizzle"))
       .set_attr(tvm::op_attr::kFixedReturnType, PrimType::Void())
-      .expose_script();
+      .expose();
   RegisterDeviceIntrinsic(OpDef("tirx.cuda.wgmma_noop_barrier"), CallEffectKind::kOpaque,
                           sig::arg("reg"))
       .set_attr(tvm::op_attr::kFixedReturnType, PrimType::Void())
-      .expose_script();
+      .expose();
   RegisterDeviceIntrinsic(OpDef("tirx.nvshmem.barrier_all"), CallEffectKind::kOpaque)
       .set_attr(tvm::op_attr::kFixedReturnType, PrimType::Void())
-      .expose_script();
+      .expose();
   RegisterDeviceIntrinsic(OpDef("tirx.nvshmem.fence"), CallEffectKind::kOpaque)
       .set_attr(tvm::op_attr::kFixedReturnType, PrimType::Void())
-      .expose_script();
+      .expose();
   RegisterDeviceIntrinsic(OpDef("tirx.nvshmem.getmem_nbi"), CallEffectKind::kOpaque,
                           sig::arg("dst"), sig::arg("src"), sig::arg<IntExpr>("nelems"),
                           sig::arg<IntExpr>("pe"))
       .set_attr(tvm::op_attr::kFixedReturnType, PrimType::Void())
-      .expose_script();
+      .expose();
   RegisterDeviceIntrinsic(OpDef("tirx.nvshmem.getmem_nbi_block"), CallEffectKind::kOpaque,
                           sig::arg("dst"), sig::arg("src"), sig::arg<IntExpr>("nelems"),
                           sig::arg<IntExpr>("pe"))
-      .expose_script();
+      .expose();
   RegisterDeviceIntrinsic(OpDef("tirx.nvshmem.getmem_nbi_warp"), CallEffectKind::kOpaque,
                           sig::arg("dst"), sig::arg("src"), sig::arg<IntExpr>("nelems"),
                           sig::arg<IntExpr>("pe"))
       .set_attr(tvm::op_attr::kFixedReturnType, PrimType::Void())
-      .expose_script();
+      .expose();
   RegisterDeviceIntrinsic(OpDef("tirx.nvshmem.my_pe"), CallEffectKind::kOpaque)
       .set_attr(tvm::op_attr::kFixedReturnType, PrimType::Int(32))
-      .expose_script();
+      .expose();
   RegisterDeviceIntrinsic(OpDef("tirx.nvshmem.n_pes"), CallEffectKind::kOpaque)
       .set_attr(tvm::op_attr::kFixedReturnType, PrimType::Int(32))
-      .expose_script();
+      .expose();
   RegisterDeviceIntrinsic(OpDef("tirx.nvshmem.putmem_nbi"), CallEffectKind::kOpaque,
                           sig::arg("dst"), sig::arg("src"), sig::arg<IntExpr>("nelems"),
                           sig::arg<IntExpr>("pe"))
       .set_attr(tvm::op_attr::kFixedReturnType, PrimType::Void())
-      .expose_script();
+      .expose();
   RegisterDeviceIntrinsic(OpDef("tirx.nvshmem.putmem_nbi_block"), CallEffectKind::kOpaque,
                           sig::arg("dst"), sig::arg("src"), sig::arg<IntExpr>("nelems"),
                           sig::arg<IntExpr>("pe"))
       .set_attr(tvm::op_attr::kFixedReturnType, PrimType::Void())
-      .expose_script();
+      .expose();
   RegisterDeviceIntrinsic(OpDef("tirx.nvshmem.putmem_nbi_warp"), CallEffectKind::kOpaque,
                           sig::arg("dst"), sig::arg("src"), sig::arg<IntExpr>("nelems"),
                           sig::arg<IntExpr>("pe"))
       .set_attr(tvm::op_attr::kFixedReturnType, PrimType::Void())
-      .expose_script();
+      .expose();
   RegisterDeviceIntrinsic(OpDef("tirx.nvshmem.putmem_signal_nbi"), CallEffectKind::kOpaque,
                           sig::arg("dst"), sig::arg("src"), sig::arg<IntExpr>("nelems"),
                           sig::arg("sig_addr"), sig::arg<IntExpr>("signal"), sig::arg("sig_op"),
                           sig::arg<IntExpr>("pe"))
       .set_attr(tvm::op_attr::kFixedReturnType, PrimType::Void())
-      .expose_script();
+      .expose();
   RegisterDeviceIntrinsic(OpDef("tirx.nvshmem.putmem_signal_nbi_block"), CallEffectKind::kOpaque,
                           sig::arg("dst"), sig::arg("src"), sig::arg<IntExpr>("nelems"),
                           sig::arg("sig_addr"), sig::arg<IntExpr>("signal"), sig::arg("sig_op"),
                           sig::arg<IntExpr>("pe"))
       .set_attr(tvm::op_attr::kFixedReturnType, PrimType::Void())
-      .expose_script();
+      .expose();
   RegisterDeviceIntrinsic(OpDef("tirx.nvshmem.putmem_signal_nbi_warp"), CallEffectKind::kOpaque,
                           sig::arg("dst"), sig::arg("src"), sig::arg<IntExpr>("nelems"),
                           sig::arg("sig_addr"), sig::arg<IntExpr>("signal"), sig::arg("sig_op"),
                           sig::arg<IntExpr>("pe"))
       .set_attr(tvm::op_attr::kFixedReturnType, PrimType::Void())
-      .expose_script();
+      .expose();
   RegisterDeviceIntrinsic(OpDef("tirx.nvshmem.quiet"), CallEffectKind::kOpaque)
       .set_attr(tvm::op_attr::kFixedReturnType, PrimType::Void())
-      .expose_script();
+      .expose();
   RegisterDeviceIntrinsic(OpDef("tirx.nvshmem.signal_op"), CallEffectKind::kOpaque,
                           sig::arg("sig_addr"), sig::arg<IntExpr>("signal"), sig::arg("sig_op"),
                           sig::arg<IntExpr>("pe"))
       .set_attr(tvm::op_attr::kFixedReturnType, PrimType::Void())
-      .expose_script();
+      .expose();
   RegisterDeviceIntrinsic(OpDef("tirx.nvshmem.wait_until"), CallEffectKind::kOpaque,
                           sig::arg("ivar"), sig::arg("cmp"), sig::arg<IntExpr>("cmp_value"),
                           sig::arg("type"))
       .set_attr(tvm::op_attr::kFixedReturnType, PrimType::Void())
-      .expose_script();
+      .expose();
 }
 
 }  // namespace

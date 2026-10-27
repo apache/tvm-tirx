@@ -34,7 +34,8 @@ from tvm_tirx.script import ir_builder as builder_ir
 from tvm_tirx.script.ir_builder import base
 from tvm_tirx.script.ir_builder.base import LocationEntry
 
-from . import _NAMESPACES, _initialize, jit_support, protocol_registry
+from . import _NAMESPACES as _NAMESPACES
+from . import _initialize, _namespace_items, jit_support, protocol_registry
 from . import register_namespace as register_namespace
 from .inspect_source import (
     _AnnotationScope,
@@ -573,7 +574,7 @@ def _prepare_transpiler(
     namespace = {
         "tvm": sys.modules.get("tvm"),
         "tvm_tirx": sys.modules.get("tvm_tirx"),
-        **_NAMESPACES,
+        **dict(_namespace_items()),
         **environment,
     }
     # Imports establish source-text namespace metadata before prescan. Their
@@ -833,7 +834,7 @@ def parse(
                         if keyword.arg == "check_well_formed":
                             check_well_formed = eval(
                                 compile(ast.Expression(keyword.value), filename, "eval"),
-                                {**_NAMESPACES, **env},
+                                {**dict(_namespace_items()), **env},
                             )
         # Prescan and rewrite consume only the owned syntax and fixed metadata.
         transformer, namespace = _prepare_transpiler(

@@ -39,6 +39,44 @@ Namespaces
    ir.json_compact
    ir.unique_name_supply
 
+Explicit API exposure
+---------------------
+
+Registration and exposure are separate. After an operator's signature and attributes
+are complete, C++ definitions call ``OpDef::expose()`` (or ``Op::Expose(name)``),
+and Python definitions call ``Op.get(name).expose()``. A completed reflected type
+calls ``Type::Expose<TypeObj>()`` or ``Type::Expose(type_key)`` in C++.
+Rust definition-completion helpers request exposure after installing their metadata.
+Native helpers invoke the optional ``ir.expose_op`` and ``ir.expose_type`` callbacks;
+standalone native programs do not need a Python receiver.
+
+Python API modules declare their destinations after defining handwritten APIs::
+
+    from tvm_tirx.ir.op import _init_exposed_op_api
+
+    _init_exposed_op_api("tirx.cuda", __name__)
+
+A script destination passes its wrapping policy::
+
+    from tvm_tirx.script.ir_builder.base import auto_emit_void_call
+
+    _init_exposed_op_api("tirx.cuda", __name__, wrapper=auto_emit_void_call)
+
+Both destinations receive earlier and future explicit selections. Merely registering
+an Op does not export it. Prefixes match complete components, and nested names form
+nested API namespaces. Handwritten exports retain precedence. Destinations using
+the same wrapping policy share generated callable identity, including the original
+generating module in ``__module__``; raw and script policies remain independent.
+
+``tvm_tirx.ir.type._init_exposed_type_api(prefix, module_name)`` declares a type
+consumer with the printer's shortened constructor names. Later prefix declarations
+for that destination take precedence over earlier generated aliases. Facades that
+reexport shared aliases declare the shared destination before composing their
+exports, then declare the dialect destination. Binding ownership remains local to
+each destination; a handwritten alias to a class is never inferred to be generated
+merely because another destination also exports that class. Re-exposing a type
+refreshes aliases of that same registered type.
+
 Location
 --------
 

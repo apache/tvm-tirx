@@ -18,12 +18,8 @@
 
 from __future__ import annotations
 
-import keyword
 import sys
-from types import SimpleNamespace
 from typing import Any
-
-import tvm_ffi
 
 from tvm_tirx import ir
 from tvm_tirx import ir as _ir
@@ -33,7 +29,9 @@ from tvm_tirx import tirx as tir
 # pylint: disable=unused-import
 from tvm_tirx.codegen.llvm import lookup_intrinsic_id as llvm_lookup_intrinsic_id
 from tvm_tirx.ir import Call, CallEffectKind, Var
+from tvm_tirx.ir._exposure import _bind_api
 from tvm_tirx.ir.location import UNKNOWN_LOC, Location
+from tvm_tirx.ir.op import _init_exposed_op_api
 from tvm_tirx.ir.prim import _ffi_api as _prim_ffi
 from tvm_tirx.ir.prim import _ffi_api as _prim_ffi_api
 from tvm_tirx.ir.prim.vector_expr import Broadcast, Ramp, Shuffle
@@ -220,236 +218,43 @@ class WebGPUNamespace:
 webgpu = WebGPUNamespace()
 
 
-_SCRIPT_NAMESPACES = {}
-
-
-def _get_script_namespace(name: str) -> object:
-    """Return a generated construction binding or registered backend namespace."""
-    if name in _SCRIPT_NAMESPACES:
-        return _SCRIPT_NAMESPACES[name]
-    raise AttributeError(f"No script namespace {name!r}")
-
-
-def _merge_script_namespace(generated, explicit):
-    """Keep definition-site exports when a backend installs its explicit namespace."""
-    for name, value in vars(generated).items():
-        current = getattr(explicit, name, None)
-        if current is None:
-            setattr(explicit, name, value)
-        elif isinstance(value, SimpleNamespace):
-            _merge_script_namespace(value, current)
-
-
 def register_script_namespace(name: str, namespace: object) -> object:
-    """Register a construction namespace and return it.
-
-    Parameters
-    ----------
-    name : str
-        Namespace name on the TIRx builder facade.
-    namespace : object
-        Construction namespace object.
-    """
-    previous = _SCRIPT_NAMESPACES.get(name)
-    if isinstance(previous, SimpleNamespace) and previous is not namespace:
-        _merge_script_namespace(previous, namespace)
-    _SCRIPT_NAMESPACES[name] = namespace
+    """Register an explicit backend construction namespace and its public aliases."""
     globals()[name] = namespace
-    if "__all__" in globals() and name not in __all__:
+    if name not in __all__:
         __all__.append(name)
-
-    import sys  # pylint: disable=import-outside-toplevel
-
-    for module_name in [
+    for module_name in (
         "tvm_tirx.tirx.script.ir_builder",
         "tvm_tirx.tirx.script",
-        "tvm_tirx.script.tirx",
-    ]:
+    ):
         module = sys.modules.get(module_name)
-        if module is None:
-            continue
-        setattr(module, name, namespace)
-        module_all = getattr(module, "__all__", None)
-        if isinstance(module_all, list) and name not in module_all:
-            module_all.append(name)
-
+        if module is not None:
+            _bind_api(module, name, namespace)
     return namespace
 
 
 def expose_script_op(name: str) -> Any:
-    """Give a registered Op the TVMScript builder its printed calls name, and return it.
-
-    The printer spells a call to ``tirx.<path>``, ``prim.<path>`` or ``ir.<path>`` as
-    ``T.<path>``, and a call to any other Op by its name, whose first part is then a
-    parser namespace. The builder is generated from the Op's registration, as backend
-    builders are, and a missing namespace of its path is created. An existing callable
-    keeps the name, so a hand-written builder takes precedence. Operators of Rust
-    ``register_ops!`` blocks get their builders when they are registered.
-
-    Parameters
-    ----------
-    name : str
-        Name of a registered Op.
-
-    Returns
-    -------
-    builder : Callable
-        The builder the printed calls name.
-    """
-    op = _ir.Op.get(name)
-    leaf, lookup, bind = _script_slot(name)
-    existing = lookup(leaf)
-    if existing is not None:
-        if not callable(existing):
-            raise ValueError(f"Op {name!r} conflicts with a non-callable Python attribute")
-        return existing
-    call = _ir.op._make_op_api(op, __name__)
-    if op.get_attr("FRegionGetBodyParams") is None:
-        call = _auto_emit_void_call(call)
-    bind(leaf, call)
-    return call
-
-
-def _script_slot(name: str):
-    """The last part of ``name``, and the lookup and binding of a name where its first parts are.
-
-    ``tirx.<path>``, ``prim.<path>`` and ``ir.<path>`` are printed as ``T.<path>``, and the first
-    part of any other name is a parser namespace. A missing namespace of the path is created.
-    """
-    from tvm_tirx.script import parser  # pylint: disable=import-outside-toplevel
-
-    parts = name.split(".")
-    # None stands for the parser's namespaces, which hold the first part of other names.
-    container = None
-    if parts[0] in ("tirx", "prim", "ir"):
-        container, parts = sys.modules["tvm_tirx.tirx.script.ir_builder"], parts[1:]
-
-    def lookup(part):
-        if container is None:
-            return parser._NAMESPACES.get(part)
-        return getattr(container, part, None)
-
-    def bind(part, value):
-        if container is None:
-            parser.register_namespace(part, value)
-        else:
-            setattr(container, part, value)
-            exports = vars(container).get("__all__")
-            if isinstance(exports, list) and part not in exports:
-                exports.append(part)
-            if container is sys.modules["tvm_tirx.tirx.script.ir_builder"]:
-                # Keep successful bindings if a later exposure aborts the builder's
-                # first import. Its next import can recover them through __getattr__.
-                _SCRIPT_NAMESPACES[part] = value
-
-    *namespaces, leaf = parts
-    for part in namespaces:
-        if lookup(part) is None:
-            bind(part, SimpleNamespace())
-        container = lookup(part)
-    return leaf, lookup, bind
-
-
-def _bind_type_alias(module, name, cls, type_key):
-    """Publish one completed type, preserving explicit and dialect-owned aliases."""
-    exports = vars(module)
-    generated = exports.setdefault("_generated_type_aliases", {})
-    existing = exports.get(name)
-    existing_info = getattr(existing, "__tvm_ffi_type_info__", None)
-    previous = generated.get(name)
-    replaces_root = (
-        previous is not None
-        and existing is previous[1]
-        and previous[0].startswith("ir.")
-        and type_key.startswith("tirx.")
-    )
-    if existing is None or getattr(existing_info, "type_key", None) == type_key or replaces_root:
-        exports[name] = cls
-        if existing is None or (previous is not None and existing is previous[1]):
-            generated[name] = (type_key, cls)
-        else:
-            # Re-exposing an explicit class must not make its alias replaceable.
-            generated.pop(name, None)
-        module_all = getattr(module, "__all__", None)
-        if isinstance(module_all, list) and name not in module_all:
-            module_all.append(name)
-    return exports.get(name)
+    """Expose a completed Op to API destinations and return its script binding."""
+    _ir.op._expose_op(name)
+    if name.partition(".")[0] in ("ir", "prim", "tirx"):
+        prefix = name.partition(".")[0]
+        module_name = "tvm_tirx.tirx.script.ir_builder"
+    else:
+        prefix = ""
+        module_name = "tvm_tirx.script.parser._namespaces"
+    return _ir.op._publish_op(name, prefix, module_name, _auto_emit_void_call)
 
 
 def expose_script_type(type_key: str) -> Any:
-    """Give a registered Type the class its printed constructor names, and return it.
-
-    The printer spells a Type ``<namespace>.<Name>Type`` without a printer hook as a call of
-    ``<Name>`` in its namespace, with its fields as arguments, which is placed as
-    :func:`expose_script_op` places a builder. The class is the one registered for the type,
-    or, when the type has none or only the fallback class of an object that reached Python
-    first, a class registered now, which constructs the type through its ``__ffi_init__``. As for
-    an Op, an existing callable keeps the name, so a hand-written builder takes precedence, except
-    a class of the type, which is replaced: a hand-written class takes the name when this is called
-    after it is registered. Types of Rust ``register_types!`` blocks get their classes when they
-    are registered.
-
-    Parameters
-    ----------
-    type_key : str
-        Key of a registered Type.
-
-    Returns
-    -------
-    cls : Callable
-        The class, or the builder, the printed constructors name.
-    """
-    type_key = str(type_key)
-    info = tvm_ffi.core._lookup_or_register_type_info_from_type_key(type_key)
-    namespace, _, name = type_key.rpartition(".")
-    cls = info.type_cls
-    # The fallback class tvm_ffi makes for an object of a type without a class has no __init__.
-    if cls is None or "__init__" not in vars(cls):
-        parent = info.parent_type_info
-        base = parent.type_cls
-        if base is None or "__init__" not in vars(base):
-            base = expose_script_type(parent.type_key)
-        attrs = {"__slots__": (), "__module__": namespace}
-        cls = tvm_ffi.register_object(type_key)(type(name, (base,), attrs))
-    # The printer drops the "Type" suffix (DefaultTypeTranslate).
-    if len(name) > 4 and name.endswith("Type"):
-        short_name = name[:-4]
-        if keyword.iskeyword(short_name):
-            # Retain attribute lookup under the printed short name, while
-            # publishing a valid Python alias such as NoneType as well.
-            leaf, lookup, bind = _script_slot(f"{namespace}.{short_name}")
-            if lookup(leaf) is None:
-                bind(leaf, cls)
-        else:
-            name = short_name
-    # Core types also belong to the shared builders. Publish each completed
-    # definition directly, without scanning the object registry at module init.
-    modules = []
-    if namespace == "ir":
-        modules.extend(("tvm_tirx.script.ir_builder", "tvm_tirx.script.ir_builder.ir"))
-    if namespace in ("ir", "tirx"):
-        modules.append("tvm_tirx.tirx.script.ir_builder.ir")
-    for module_name in modules:
-        module = sys.modules.get(module_name)
-        if module is not None:
-            _bind_type_alias(module, name, cls, type_key)
-    if namespace in ("ir", "tirx"):
-        module = sys.modules["tvm_tirx.tirx.script.ir_builder"]
-        result = _bind_type_alias(module, name, cls, type_key)
-        if not callable(result):
-            raise ValueError(f"Type {type_key!r} conflicts with a non-callable Python attribute")
-        if result is cls:
-            _SCRIPT_NAMESPACES[name] = cls
-        return result
-    leaf, lookup, bind = _script_slot(f"{namespace}.{name}")
-    existing = lookup(leaf)
-    existing_info = getattr(existing, "__tvm_ffi_type_info__", None)
-    if existing is not None and getattr(existing_info, "type_key", None) != type_key:
-        if not callable(existing):
-            raise ValueError(f"Type {type_key!r} conflicts with a non-callable Python attribute")
-        return existing
-    bind(leaf, cls)
-    return cls
+    """Expose a completed Type to API destinations and return its script binding."""
+    _ir.type._expose_type(type_key)
+    if type_key.partition(".")[0] in ("ir", "tirx"):
+        prefix = type_key.partition(".")[0]
+        module_name = "tvm_tirx.tirx.script.ir_builder"
+    else:
+        prefix = ""
+        module_name = "tvm_tirx.script.parser._namespaces"
+    return _ir.type._publish_type(type_key, prefix, module_name)
 
 
 abs = _auto_emit_void_call(_tir_op.abs)  # pylint: disable=redefined-builtin
@@ -462,20 +267,6 @@ acosh = _auto_emit_void_call(_tir_op.acosh)
 
 
 address_of = _auto_emit_void_call(_tir_op.address_of)
-
-atomic_add = _auto_emit_void_call(_ir.op._make_op_api(_ir.Op.get("tirx.atomic_add"), __name__))
-
-call_spirv_pure_glsl450 = _auto_emit_void_call(
-    _ir.op._make_op_api(_ir.Op.get("tirx.call_spirv_pure_glsl450"), __name__)
-)
-
-device_scope = _ir.op._make_op_api(_ir.Op.get("tirx.device_scope"), __name__)
-
-prefetch = _auto_emit_void_call(_ir.op._make_op_api(_ir.Op.get("tirx.prefetch"), __name__))
-
-static_handle = _auto_emit_void_call(
-    _ir.op._make_op_api(_ir.Op.get("tirx.static_handle"), __name__)
-)
 
 
 asin = _auto_emit_void_call(_tir_op.asin)
@@ -505,12 +296,6 @@ bitwise_or = _auto_emit_void_call(_tir_op.bitwise_or)
 bitwise_xor = _auto_emit_void_call(_tir_op.bitwise_xor)
 
 
-ceil = _auto_emit_void_call(_ir.op._make_op_api(_ir.Op.get("prim.ceil"), __name__))
-
-
-clz = _auto_emit_void_call(_ir.op._make_op_api(_ir.Op.get("prim.clz"), __name__))
-
-
 copysign = _auto_emit_void_call(_tir_op.copysign)
 
 
@@ -538,9 +323,6 @@ gpu_thread_filter = _auto_emit_void_call(_tir_op.gpu_thread_filter)
 gpu_active_thread_selector = _auto_emit_void_call(_tir_op.gpu_active_thread_selector)
 
 
-floor = _auto_emit_void_call(_ir.op._make_op_api(_ir.Op.get("prim.floor"), __name__))
-
-
 ceildiv = _auto_emit_void_call(_tir_op.ceildiv)
 
 
@@ -557,9 +339,6 @@ fma = _auto_emit_void_call(_tir_op.fma)
 
 
 hypot = _auto_emit_void_call(_tir_op.hypot)
-
-
-if_then_else = _auto_emit_void_call(_ir.op._make_op_api(_ir.Op.get("prim.if_then_else"), __name__))
 
 
 infinity = _auto_emit_void_call(_tir_op.infinity)
@@ -580,9 +359,6 @@ isnullptr = _auto_emit_void_call(_tir_op.isnullptr)
 ldexp = _auto_emit_void_call(_tir_op.ldexp)
 
 
-likely = _auto_emit_void_call(_ir.op._make_op_api(_ir.Op.get("prim.likely"), __name__))
-
-
 log = _auto_emit_void_call(_tir_op.log)
 
 
@@ -601,19 +377,10 @@ max_value = _auto_emit_void_call(_tir_op.max_value)
 min_value = _auto_emit_void_call(_tir_op.min_value)
 
 
-nearbyint = _auto_emit_void_call(_ir.op._make_op_api(_ir.Op.get("prim.nearbyint"), __name__))
-
-
 nextafter = _auto_emit_void_call(_tir_op.nextafter)
 
 
 popcount = _auto_emit_void_call(_tir_op.popcount)
-
-
-pow = _auto_emit_void_call(_ir.op._make_op_api(_ir.Op.get("prim.pow"), __name__))
-
-
-round = _auto_emit_void_call(_ir.op._make_op_api(_ir.Op.get("prim.round"), __name__))
 
 
 rsqrt = _auto_emit_void_call(_tir_op.rsqrt)
@@ -644,9 +411,6 @@ tanh = _auto_emit_void_call(_tir_op.tanh)
 
 
 gpu_thread_return = _auto_emit_void_call(_tir_op.gpu_thread_return)
-
-
-trunc = _auto_emit_void_call(_ir.op._make_op_api(_ir.Op.get("prim.trunc"), __name__))
 
 
 truncdiv = _auto_emit_void_call(_tir_op.truncdiv)
@@ -700,11 +464,6 @@ handle_add_byte_offset = _auto_emit_void_call(_tir_op.handle_add_byte_offset)
 
 
 abi_field_set = _auto_emit_void_call(_tir_op.abi_field_set)
-
-
-abi_field_get = _auto_emit_void_call(
-    _ir.op._make_op_api(_ir.Op.get("tirx.abi_field_get"), __name__)
-)
 
 
 gpu_thread_invariant = _auto_emit_void_call(_tir_op.gpu_thread_invariant)
@@ -767,12 +526,6 @@ vscale = _auto_emit_void_call(_tir_op.vscale)
 ignore_loop_partition = _auto_emit_void_call(_tir_op.ignore_loop_partition)
 
 
-reinterpret = _auto_emit_void_call(_ir.op._make_op_api(_ir.Op.get("tirx.reinterpret"), __name__))
-
-
-call_extern = _auto_emit_void_call(_ir.op._make_op_api(_ir.Op.get("tirx.call_extern"), __name__))
-
-
 @_auto_emit_void_call
 def call_intrin(func_name, *args, ty, attrs=None, loc: Location = UNKNOWN_LOC):
     """Call an intrinsic with an explicit result type."""
@@ -783,27 +536,6 @@ call_llvm_intrin = _auto_emit_void_call(_tir_op.call_llvm_intrin)
 
 
 call_llvm_pure_intrin = _auto_emit_void_call(_tir_op.call_llvm_pure_intrin)
-
-
-call_pure_extern = _auto_emit_void_call(
-    _ir.op._make_op_api(_ir.Op.get("tirx.call_pure_extern"), __name__)
-)
-
-
-vector_low = _auto_emit_void_call(_ir.op._make_op_api(_ir.Op.get("tirx.vector_low"), __name__))
-
-
-vector_high = _auto_emit_void_call(_ir.op._make_op_api(_ir.Op.get("tirx.vector_high"), __name__))
-
-
-vector_combine = _auto_emit_void_call(
-    _ir.op._make_op_api(_ir.Op.get("tirx.vector_combine"), __name__)
-)
-
-
-get_active_lane_mask = _auto_emit_void_call(
-    _ir.op._make_op_api(_ir.Op.get("tirx.get_active_lane_mask"), __name__)
-)
 
 
 masked_load = _auto_emit_void_call(_tir_op.masked_load)
@@ -819,9 +551,6 @@ broadcast = Broadcast
 
 
 ramp = Ramp
-
-
-fabs = _auto_emit_void_call(_ir.op._make_op_api(_ir.Op.get("prim.fabs"), __name__))
 
 
 def logical_and(*values):
@@ -979,7 +708,6 @@ __all__ = [
     "Select",
     "Shuffle",
     "Sub",
-    "abi_field_get",
     "abi_field_set",
     "abs",
     "acos",
@@ -994,7 +722,6 @@ __all__ = [
     "atan",
     "atan2",
     "atanh",
-    "atomic_add",
     "bitwise_and",
     "bitwise_not",
     "bitwise_or",
@@ -1002,7 +729,6 @@ __all__ = [
     "broadcast",
     "call_cpacked",
     "call_cpacked_lowered",
-    "call_extern",
     "call_ffi_kernel",
     "call_intrin",
     "call_kernel",
@@ -1010,31 +736,23 @@ __all__ = [
     "call_llvm_pure_intrin",
     "call_packed",
     "call_packed_lowered",
-    "call_pure_extern",
-    "call_spirv_pure_glsl450",
     "cast",
-    "ceil",
     "ceildiv",
-    "clz",
     "copysign",
     "cos",
     "cosh",
     "cpu_parallel_barrier",
-    "device_scope",
     "erf",
     "exp",
     "exp2",
     "exp10",
     "expose_script_op",
     "expose_script_type",
-    "fabs",
-    "floor",
     "floordiv",
     "floormod",
     "fma",
     "fmod",
     "free_workspace",
-    "get_active_lane_mask",
     "gpu_active_thread_selector",
     "gpu_dp4a",
     "gpu_fill_fragment",
@@ -1053,7 +771,6 @@ __all__ = [
     "gpu_warp_shuffle_xor",
     "handle_add_byte_offset",
     "hypot",
-    "if_then_else",
     "ignore_loop_partition",
     "infinity",
     "isfinite",
@@ -1062,7 +779,6 @@ __all__ = [
     "isnullptr",
     "kernel_replace_point",
     "ldexp",
-    "likely",
     "llvm_lookup_intrinsic_id",
     "log",
     "log1p",
@@ -1077,16 +793,11 @@ __all__ = [
     "max_value",
     "min",
     "min_value",
-    "nearbyint",
     "nextafter",
     "popcount",
-    "pow",
-    "prefetch",
     "ptr_byte_offset",
     "ramp",
     "register_script_namespace",
-    "reinterpret",
-    "round",
     "rsqrt",
     "select",
     "shift_left",
@@ -1098,18 +809,13 @@ __all__ = [
     "stack_alloca",
     "stack_make_dltensor",
     "stack_make_shape",
-    "static_handle",
     "tan",
     "tanh",
     "tensor_data_ptr",
     "throw_last_error",
-    "trunc",
     "truncdiv",
     "truncmod",
     "undef",
-    "vector_combine",
-    "vector_high",
-    "vector_low",
     "vscale",
     "webgpu",
 ]
@@ -1174,3 +880,8 @@ def ne_(lhs: Any, rhs: Any, *, loc: _Loc = None) -> _ir.Expr:
 
 
 __all__ += ["and_", "eq_", "ge_", "gt_", "if_then_else_", "le_", "lt_", "ne_", "not_", "or_"]
+
+
+_init_exposed_op_api("ir", __name__, wrapper=_auto_emit_void_call)
+_init_exposed_op_api("prim", __name__, wrapper=_auto_emit_void_call)
+_init_exposed_op_api("tirx", __name__, wrapper=_auto_emit_void_call)

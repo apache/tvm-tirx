@@ -33,8 +33,8 @@
 
 namespace tvm {
 
-void Op::ExposeScript(const ffi::String& op_name) {
-  static std::optional<ffi::Function> cached = ffi::Function::GetGlobal("script.expose_script_op");
+void Op::Expose(const ffi::String& op_name) {
+  static std::optional<ffi::Function> cached = ffi::Function::GetGlobal("ir.expose_op");
   if (cached) (*cached)(op_name);
 }
 

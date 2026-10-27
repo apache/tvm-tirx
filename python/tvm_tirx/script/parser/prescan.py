@@ -92,7 +92,7 @@ def resolve_namespace_key(
     environment: Mapping[str, object],
 ) -> str | None:
     """Normalize a fixed namespace alias, without resolving its members or receivers."""
-    from . import _NAMESPACES
+    from . import _namespace_items
 
     parts = []
     while isinstance(node, ast.Attribute):
@@ -104,7 +104,7 @@ def resolve_namespace_key(
     parts.reverse()
     key = None
     for index in range(len(parts) + 1):
-        for alias, namespace in _NAMESPACES.items():
+        for alias, namespace in _namespace_items():
             if owner is namespace:
                 key = ".".join([alias, *parts[index:]])
                 break
@@ -118,6 +118,7 @@ def resolve_namespace_key(
 
 def resolve_namespace_value(node: ast.AST | None, environment: Mapping[str, object]) -> object:
     """Read configuration from an explicitly registered namespace, never a receiver."""
+
     from . import _NAMESPACES
 
     key = resolve_namespace_key(node, environment)
@@ -272,11 +273,11 @@ class PrescanCollector(ast.NodeVisitor):
         SyntaxError
             If source bindings or declarations violate a parser restriction.
         """
-        from . import _NAMESPACES
+        from . import _namespace_items
 
         # Resolve roots once. Qualified receivers remain ordinary Python expressions.
         for name, value in self.environment.items():
-            for alias, namespace in _NAMESPACES.items():
+            for alias, namespace in _namespace_items():
                 if value is namespace:
                     self.namespaces[name] = alias
                     break

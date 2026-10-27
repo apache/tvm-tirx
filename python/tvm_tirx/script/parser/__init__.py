@@ -40,7 +40,9 @@ import importlib
 from collections.abc import Callable
 from typing import Any
 
-_NAMESPACES: dict[str, object] = {}
+from . import _namespaces
+
+_NAMESPACES = vars(_namespaces)
 _NAMESPACE_INITIALIZERS: list[Callable[[], None]] = []
 _NAMESPACE_ALIASES: set[str] = {"ir"}
 _ENTRY_EXPORTS = (
@@ -54,6 +56,15 @@ _ENTRY_EXPORTS = (
 __all__ = [*_ENTRY_EXPORTS, "register_namespace", "register_namespace_initializer"]
 _initialized = False
 _initializing = False
+
+
+def _namespace_items():
+    """Iterate public bindings, excluding the destination module's Python metadata."""
+    return (
+        (name, value)
+        for name, value in _NAMESPACES.items()
+        if not name.startswith("_") or name in _namespaces.__all__
+    )
 
 
 def register_namespace(alias: str, namespace: object) -> None:
@@ -80,6 +91,8 @@ def register_namespace(alias: str, namespace: object) -> None:
     only; registration enters no builder frame and inspects no namespace members.
     """
     _NAMESPACES[alias] = namespace
+    if alias not in _namespaces.__all__:
+        _namespaces.__all__.append(alias)
 
 
 def register_namespace_initializer(
@@ -130,7 +143,9 @@ def _initialize() -> None:
 
 
 def __getattr__(name: str) -> Any:
-    if name not in _ENTRY_EXPORTS and name not in _NAMESPACES and name not in _NAMESPACE_ALIASES:
+    if (name.startswith("_") and name not in _namespaces.__all__) or (
+        name not in _ENTRY_EXPORTS and name not in _NAMESPACES and name not in _NAMESPACE_ALIASES
+    ):
         raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
     _initialize()
     if name in _ENTRY_EXPORTS:

@@ -60,7 +60,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
       .signature(sig::arg<PrimExpr>("vec", "The input vector."))
       .set_native_fn_attr<&InferTypeVectorPart<false>>(tvm::op_attr::kInferType)
       .set_attr(tvm::op_attr::kCallEffectKind, CallEffectKind::kPure)
-      .expose_script();
+      .expose();
 }
 
 const Op& vector_low_op() {
@@ -73,7 +73,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
       .signature(sig::arg<PrimExpr>("vec", "The input vector."))
       .set_native_fn_attr<&InferTypeVectorPart<false>>(tvm::op_attr::kInferType)
       .set_attr(tvm::op_attr::kCallEffectKind, CallEffectKind::kPure)
-      .expose_script();
+      .expose();
 }
 
 const Op& vector_combine_op() {
@@ -87,7 +87,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
                  sig::arg<PrimExpr>("vec2", "The second input vector."))
       .set_native_fn_attr<&InferTypeVectorPart<true>>(tvm::op_attr::kInferType)
       .set_attr(tvm::op_attr::kCallEffectKind, CallEffectKind::kPure)
-      .expose_script();
+      .expose();
 }
 
 const Op& get_active_lane_mask_op() {
@@ -100,7 +100,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
       .signature(sig::arg<IntExpr>("base", "The base value."),
                  sig::arg<IntExpr>("limit", "The limit value."))
       .set_attr(tvm::op_attr::kCallEffectKind, CallEffectKind::kPure)
-      .expose_script();
+      .expose();
 }
 
 }  // namespace tirx

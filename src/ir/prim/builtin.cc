@@ -206,7 +206,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
       .set_native_fn_attr<&InferTypeReturnArgType<0>>(tvm::op_attr::kInferType)
       .set_attr(tvm::op_attr::kCallEffectKind, CallEffectKind::kExprAnnotation)
       .set_attr(tvm::tirx::op_attr::kVectorizable, true)
-      .expose_script();
+      .expose();
 
   OpDef("prim.if_then_else")
       .signature(sig::arg("condition", "The condition."),
@@ -218,32 +218,32 @@ TVM_FFI_STATIC_INIT_BLOCK() {
       .set_native_fn_attr<&IfThenElseMaybeInplaceMutate>(
           tirx::op_attr::kStructuralMaybeInplaceMutateWithConstraintContext)
       .set_attr(tvm::op_attr::kCallEffectKind, CallEffectKind::kPure)
-      .expose_script();
+      .expose();
 
   OpDef("prim.vscale")
       .set_attr(tvm::op_attr::kFixedReturnType, PrimType::Int(32))
       .set_attr(tvm::op_attr::kCallEffectKind, CallEffectKind::kPure)
-      .expose_script();
+      .expose();
 
   OpDef("prim.ceil")
       .signature(sig::arg("x", "The input value."))
       .set_native_fn_attr<&InferTypeReturnArgType<0>>(tvm::op_attr::kInferType)
       .set_attr(tvm::op_attr::kCallEffectKind, CallEffectKind::kPure)
       .set_attr(tvm::tirx::op_attr::kVectorizable, true)
-      .expose_script();
+      .expose();
 
   OpDef("prim.log2")
       .signature(sig::arg("x", "The input value."))
       .set_native_fn_attr<&InferTypeReturnArgType<0>>(tvm::op_attr::kInferType)
       .set_attr(tvm::op_attr::kCallEffectKind, CallEffectKind::kPure)
       .set_attr(tvm::tirx::op_attr::kVectorizable, true)
-      .expose_script();
+      .expose();
 
   OpDef("prim.clz")
       .signature(sig::arg("x", "The input value."))
       .set_attr(tvm::op_attr::kFixedReturnType, PrimType::Int(32))
       .set_attr(tvm::op_attr::kCallEffectKind, CallEffectKind::kPure)
-      .expose_script();
+      .expose();
 }
 
 }  // namespace prim

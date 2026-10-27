@@ -52,7 +52,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
   OpDef("tirx.gpu_thread_return")
       .set_attr(tvm::op_attr::kFixedReturnType, PrimType::Void())
       .set_attr(tvm::op_attr::kCallEffectKind, CallEffectKind::kControlJump)
-      .expose_script();
+      .expose();
 }
 
 const Op& gpu_thread_filter_op() {
@@ -66,7 +66,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
       .signature(sig::arg<PrimVar>("var", "The thread-axis variable."),
                  sig::arg<PrimExpr>("pred", "The predicate."))
       .set_attr(tvm::op_attr::kCallEffectKind, CallEffectKind::kPure)
-      .expose_script();
+      .expose();
 }
 
 const Op& gpu_active_thread_selector_op() {
@@ -80,7 +80,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
                  sig::arg<PrimExpr>("pred", "The predicate."))
       .set_native_fn_attr<&InferTypeReturnArgType<0>>(tvm::op_attr::kInferType)
       .set_attr(tvm::op_attr::kCallEffectKind, CallEffectKind::kOpaque)
-      .expose_script();
+      .expose();
 }
 
 const Op& gpu_thread_invariant_op() {
@@ -93,7 +93,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
       .set_native_fn_attr<&InferTypeReturnArgType<0>>(tvm::op_attr::kInferType)
       .signature(sig::arg<PrimExpr>("cond", "The condition."))
       .set_attr(tvm::op_attr::kCallEffectKind, CallEffectKind::kPure)
-      .expose_script();
+      .expose();
 }
 
 const Op& gpu_storage_sync_op() {
@@ -106,7 +106,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
       .signature(sig::arg<StringImm>("storage_scope", "The storage scope."))
       .set_attr(tvm::op_attr::kFixedReturnType, PrimType::Void())
       .set_attr(tvm::op_attr::kCallEffectKind, CallEffectKind::kOpaque)
-      .expose_script();
+      .expose();
 }
 
 const Op& gpu_warp_shuffle_op() {
@@ -123,7 +123,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
                  sig::arg<IntExpr>("warp_size", "The number of threads per warp."))
       .set_native_fn_attr<&InferTypeReturnArgType<1>>(tvm::op_attr::kInferType)
       .set_attr(tvm::op_attr::kCallEffectKind, CallEffectKind::kOpaque)
-      .expose_script();
+      .expose();
 }
 
 const Op& gpu_warp_shuffle_up_op() {
@@ -139,7 +139,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
           sig::arg<IntExpr>("warp_size", "The number of threads per warp."))
       .set_native_fn_attr<&InferTypeReturnArgType<1>>(tvm::op_attr::kInferType)
       .set_attr(tvm::op_attr::kCallEffectKind, CallEffectKind::kOpaque)
-      .expose_script();
+      .expose();
 }
 
 const Op& gpu_warp_shuffle_down_op() {
@@ -155,7 +155,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
           sig::arg<IntExpr>("warp_size", "The number of threads per warp."))
       .set_native_fn_attr<&InferTypeReturnArgType<1>>(tvm::op_attr::kInferType)
       .set_attr(tvm::op_attr::kCallEffectKind, CallEffectKind::kOpaque)
-      .expose_script();
+      .expose();
 }
 
 const Op& gpu_warp_shuffle_xor_op() {
@@ -172,7 +172,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
                  sig::arg<IntExpr>("warp_size", "The number of threads per warp."))
       .set_native_fn_attr<&InferTypeReturnArgType<1>>(tvm::op_attr::kInferType)
       .set_attr(tvm::op_attr::kCallEffectKind, CallEffectKind::kOpaque)
-      .expose_script();
+      .expose();
 }
 
 const Op& gpu_warp_activemask_op() {
@@ -184,7 +184,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
   OpDef("tirx.gpu_warp_activemask")
       .set_attr(tvm::op_attr::kFixedReturnType, PrimType::UInt(32))
       .set_attr(tvm::op_attr::kCallEffectKind, CallEffectKind::kOpaque)
-      .expose_script();
+      .expose();
 }
 
 const Op& gpu_thread_allreduce_op() {
@@ -202,7 +202,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
                  sig::arg<Expr>("thread_axes", "The reduction thread axes."))
       .set_attr(tvm::op_attr::kFixedReturnType, PrimType::Void())
       .set_attr(tvm::op_attr::kCallEffectKind, CallEffectKind::kOpaque)
-      .expose_script();
+      .expose();
 }
 
 const Op& gpu_dp4a_op() {
@@ -217,7 +217,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
                  sig::arg<PrimExpr>("acc", "The accumulator."))
       .set_attr(tvm::op_attr::kFixedReturnType, PrimType::Int(32))
       .set_attr(tvm::op_attr::kCallEffectKind, CallEffectKind::kPure)
-      .expose_script();
+      .expose();
 }
 
 TVM_FFI_STATIC_INIT_BLOCK() {
@@ -229,7 +229,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
           sig::arg<IntExpr>("index", "The index."), sig::arg("buffer_ptr", "The buffer pointer."),
           sig::arg<IntExpr>("stride", "The stride."), sig::arg("layout", "The layout."))
       .set_attr(tvm::op_attr::kCallEffectKind, CallEffectKind::kReadState)
-      .expose_script();
+      .expose();
 }
 
 TVM_FFI_STATIC_INIT_BLOCK() {
@@ -244,7 +244,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
                  sig::arg("fragment_c", "The C fragment."),
                  sig::arg<IntExpr>("index_c", "The C fragment index."))
       .set_attr(tvm::op_attr::kCallEffectKind, CallEffectKind::kOpaque)
-      .expose_script();
+      .expose();
 }
 
 TVM_FFI_STATIC_INIT_BLOCK() {
@@ -255,7 +255,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
           sig::arg<IntExpr>("n", "The N dimension."), sig::arg<IntExpr>("k", "The K dimension."),
           sig::arg<IntExpr>("index", "The index."), sig::arg("value", "The value to use."))
       .set_attr(tvm::op_attr::kCallEffectKind, CallEffectKind::kOpaque)
-      .expose_script();
+      .expose();
 }
 
 TVM_FFI_STATIC_INIT_BLOCK() {
@@ -267,7 +267,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
           sig::arg<IntExpr>("index", "The index."), sig::arg("buffer_ptr", "The buffer pointer."),
           sig::arg<IntExpr>("stride", "The stride."), sig::arg("layout", "The layout."))
       .set_attr(tvm::op_attr::kCallEffectKind, CallEffectKind::kOpaque)
-      .expose_script();
+      .expose();
 }
 
 TVM_FFI_STATIC_INIT_BLOCK() {

@@ -41,6 +41,7 @@ from tvm_tirx.ir import (
     const,
 )
 from tvm_tirx.ir.location import UNKNOWN_LOC, Location
+from tvm_tirx.ir.op import _init_exposed_op_api
 from tvm_tirx.ir.prim import clz as clz
 from tvm_tirx.ir.prim import max_value as max_value
 from tvm_tirx.ir.prim import min_value as min_value
@@ -1632,3 +1633,6 @@ def gpu_store_matrix_sync(
 def gpu_thread_return(*, ty=None, loc: Location = UNKNOWN_LOC):
     """Return from the current GPU thread without a function value."""
     return call_intrin("tirx.gpu_thread_return", loc=loc, ty=ty)
+
+
+_init_exposed_op_api("tirx", __name__)

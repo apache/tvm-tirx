@@ -130,7 +130,7 @@ class OpObj : public ExprObj {
  *   OpDef("example.identity", "Return the input expression.")
  *       .signature(sig::arg("value", "The input expression."))
  *       .set_attr(kPure, true)
- *       .expose_script();
+ *       .expose();
  * }
  * // Copies the handle; the canonical node is shared.
  * Op op = Op::Get("example.identity");
@@ -170,13 +170,13 @@ class Op : public Expr {
   }
 
   /*!
-   * \brief Request a registered operator's builder in its script namespace.
+   * \brief Request a registered operator's APIs in its exposure destinations.
    * \param op_name The canonical registered operator name.
    * \note Call after its signature and attributes are complete. The first call caches the optional
-   *       script receiver, including absence for standalone native use. Install the receiver before
+   *       ir.expose_op receiver, including absence for standalone native use. Install it before
    *       the first call to enable exposure; errors from an installed receiver propagate.
    */
-  TVM_TIRX_DLL static void ExposeScript(const ffi::String& op_name);
+  TVM_TIRX_DLL static void Expose(const ffi::String& op_name);
 
   /*!
    * \brief Look up a registered operator by name.
@@ -483,10 +483,10 @@ class OpDef {
   /*! \brief Get the canonical operator. \return A copied handle, safe after this builder dies. */
   Op op() const { return op_; }
   /*!
-   * \brief Request script exposure after this operator's signature and attributes are complete.
-   * \note Does nothing if the optional receiver was absent on Op::ExposeScript's first call.
+   * \brief Request API exposure after this operator's signature and attributes are complete.
+   * \note Does nothing if the optional receiver was absent on Op::Expose's first call.
    */
-  void expose_script() const { Op::ExposeScript(op_->name); }
+  inline void expose() const { Op::Expose(op_->name); }
   /*!
    * \brief Append a required value-argument descriptor.
    * \param name Argument name.

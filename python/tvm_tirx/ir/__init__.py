@@ -68,6 +68,7 @@ from . import prim
 from .function import BaseFunc, CallingConv
 from .global_info import GlobalInfo
 from .module import IRModule
+from . import op as op, type as type
 from .op import Op, OpAttrMap, register_op_attr
 from .stmt import (
     Stmt,
@@ -89,3 +90,16 @@ from .stmt import (
 
 # Load passes after the common IR classes used by transformations are registered.
 from . import transform
+
+# Native requests arrive before the IR wrappers are ready. Connect their stable
+# receivers here; destinations can now replay selections without loading script.
+from tvm_tirx import base as _base
+from .op import _expose_op
+from .type import _expose_type
+
+_base._EXPOSE_OP_CALLBACK = _expose_op
+_base._EXPOSE_TYPE_CALLBACK = _expose_type
+while _base._PENDING_EXPOSURES:
+    _kind, _name = _base._PENDING_EXPOSURES[0]
+    (_expose_op if _kind == "op" else _expose_type)(_name)
+    _base._PENDING_EXPOSURES.popleft()

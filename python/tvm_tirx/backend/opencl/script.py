@@ -16,9 +16,7 @@
 # under the License.
 """OpenCL TVMScript operator exports."""
 
-# Preserve completed definition-site exports alongside the explicit builders.
-import sys as _sys
+from tvm_tirx.ir.op import _init_exposed_op_api
+from tvm_tirx.script.ir_builder.base import auto_emit_void_call as _auto_emit_void_call
 
-from tvm_tirx.tirx.script.ir_builder.op import register_script_namespace as _register_namespace
-
-_register_namespace("opencl", _sys.modules[__name__])
+_init_exposed_op_api("tirx.opencl", __name__, wrapper=_auto_emit_void_call)

@@ -42,7 +42,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
       .signature(sig::arg("name", "The name."), sig::var_args("args"))
       .set_attr(tvm::op_attr::kFixedReturnType, PrimType::Void())
       .set_attr(tvm::op_attr::kCallEffectKind, CallEffectKind::kOpaque)
-      .expose_script();
+      .expose();
 }
 
 const Op& iket_range_start_op() {
@@ -55,7 +55,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
       .signature(sig::arg("name", "The name."), sig::var_args("args"))
       .set_attr(tvm::op_attr::kFixedReturnType, PrimType::UInt(32))
       .set_attr(tvm::op_attr::kCallEffectKind, CallEffectKind::kOpaque)
-      .expose_script();
+      .expose();
 }
 
 const Op& iket_range_end_op() {
@@ -68,7 +68,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
       .signature(sig::arg<IntExpr>("token", "The token."), sig::var_args("args"))
       .set_attr(tvm::op_attr::kFixedReturnType, PrimType::Void())
       .set_attr(tvm::op_attr::kCallEffectKind, CallEffectKind::kOpaque)
-      .expose_script();
+      .expose();
 }
 
 const Op& iket_range_push_op() {
@@ -81,7 +81,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
       .set_attr(tvm::op_attr::kFixedReturnType, PrimType::Void())
       .signature(sig::arg("name", "The name."), sig::var_args("args"))
       .set_attr(tvm::op_attr::kCallEffectKind, CallEffectKind::kOpaque)
-      .expose_script();
+      .expose();
 }
 
 const Op& iket_range_pop_op() {
@@ -93,7 +93,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
   OpDef("tirx.cuda.iket_range_pop")
       .set_attr(tvm::op_attr::kFixedReturnType, PrimType::Void())
       .set_attr(tvm::op_attr::kCallEffectKind, CallEffectKind::kOpaque)
-      .expose_script();
+      .expose();
 }
 
 const Op& iket_sentinel_token_op() {
@@ -106,7 +106,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
       .set_attr(tvm::op_attr::kFixedReturnType, PrimType::UInt(32))
       .signature(sig::arg("name", "The name."))
       .set_attr(tvm::op_attr::kCallEffectKind, CallEffectKind::kOpaque)
-      .expose_script();
+      .expose();
 }
 
 TVM_FFI_STATIC_INIT_BLOCK() {
@@ -115,7 +115,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
       .signature(sig::arg("event_id", "The event identifier."),
                  sig::arg("source_code", "The source code."), sig::var_args("args"))
       .set_attr(tvm::op_attr::kCallEffectKind, CallEffectKind::kOpaque)
-      .expose_script();
+      .expose();
 }
 
 }  // namespace cuda

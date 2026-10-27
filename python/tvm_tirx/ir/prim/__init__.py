@@ -17,6 +17,8 @@
 # pylint: disable=unused-import
 """Primitive expressions and construction helpers shared by TVM IR dialects."""
 
+from tvm_tirx.ir.op import _init_exposed_op_api
+
 from .._constant import const
 from ..expr import Expr
 from . import _ffi_api
@@ -161,3 +163,6 @@ def expr_deep_equal(lhs: Expr, rhs: Expr) -> bool:
     tvm_ffi.structural_equal
     """
     return _ffi_api.expr_deep_equal(lhs, rhs)  # type: ignore
+
+
+_init_exposed_op_api("prim", __name__)
