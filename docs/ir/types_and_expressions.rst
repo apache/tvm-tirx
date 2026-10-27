@@ -20,11 +20,11 @@
 Types and Expressions
 =====================
 
-In this chapter, we will introduce types and expressions and explain how
-they work together in the IR. Types describe properties such as dtypes,
-tensor shapes, and function signatures, while expressions represent values
-and computations. Compiler passes can work with these objects directly to
-inspect or rewrite a program without executing it.
+In this chapter, we will introduce types and expressions. Expressions
+represent values and computations, and their types describe properties
+such as dtypes, tensor shapes, and function signatures. The add-one
+examples will show how to inspect these objects and construct expressions
+directly with the IR API.
 
 .. _user-ir-type:
 
@@ -68,6 +68,9 @@ PrimType
 :class:`ir.PrimType <tvm_tirx.ir.PrimType>` describes integer,
 floating-point, and boolean values, either as scalars or vectors. Its
 ``dtype`` records the element kind, bit width, and number of lanes.
+
+In the program's tensor annotations, ``T.float32`` is an
+``ir.PrimType("float32")`` object.
 
 The program declares its dynamic length as:
 
@@ -122,14 +125,14 @@ The program declares its input and output as:
    :start-at: def add_one(
    :end-at: def add_one(
 
-``T.Tensor((n,), "float32")`` is the TVMScript notation for a tensor type;
+``T.Tensor((n,), T.float32)`` is the TVMScript notation for a tensor type;
 the parser represents it as a ``tirx.TensorType`` object. Its ``shape``
 field contains one dimension, ``n``, and its ``dtype`` field is
 ``ir.PrimType("float32")``:
 
 .. code-block:: text
 
-   tirx.TensorType                  T.Tensor((n,), "float32")
+   tirx.TensorType                  T.Tensor((n,), T.float32)
    ├── shape[0]: ir.Var              n
    └── dtype: ir.PrimType            float32
 
@@ -141,9 +144,9 @@ match ``A``. The loop then uses ``n`` as its bound.
 Expressions
 -----------
 
-``ir.Expr`` is the base class for all expressions, which represent program
-values and the operations that produce them. Each expression's ``ty`` field
-records its result type:
+``ir.Expr`` is the base class for expressions, which represent program
+values and computations. All expression classes inherit its ``ty`` field,
+which records the type of value they represent:
 
 .. list-table::
    :header-rows: 1
@@ -156,8 +159,34 @@ records its result type:
      - ``ir.Type``
      - The type of value represented by the expression.
 
-Expressions include variables, constants, arithmetic, tensor reads, and calls.
-These classes store their values or operands in the following fields:
+We can inspect the types of ``scalar_value`` and ``scalar_plus_one``
+through ``ty``. Both are primitive types, so their ``dtype`` fields give
+the dtype names:
+
+.. code-block:: python
+
+   print(scalar_value.ty.dtype)
+   print(scalar_plus_one.ty.dtype)
+
+The output is:
+
+.. code-block:: text
+
+   float32
+   float32
+
+The variable's type was supplied by the ``"float32"`` argument in
+``ir.Var("scalar_value", "float32")``. The addition's constructor
+determines its result type from its operands; this process is called
+type inference.
+
+An expression under construction can also have an ``ir.MissingType``
+in ``ty`` while its type is undetermined. The
+:ref:`Call Types and Validation <types-and-validation>` section shows
+how a missing result type can be inferred later.
+
+Each expression class adds fields for its value or operands, alongside
+the shared ``ty`` field:
 
 .. list-table::
    :header-rows: 1
@@ -194,8 +223,9 @@ Primitive Expressions
 ~~~~~~~~~~~~~~~~~~~~~
 
 A primitive expression is an expression whose ``ty`` is an ``ir.PrimType``.
-Variables, tensor reads, arithmetic, and calls can all be primitive expressions,
-depending on the type of value they produce.
+This term groups expressions by their result type. Variables, tensor
+reads, arithmetic nodes, and calls can all belong to this group when
+they produce primitive scalar or vector values.
 
 **Scalar expressions.** The CPU example uses the int32 expressions ``n``
 and ``i`` for the loop bound and index. The tensor read ``A[i]`` and the
@@ -232,12 +262,27 @@ For example, the GPU expression ``T.cuda.thread_idx("x")`` is an
 Primitive Operations
 ~~~~~~~~~~~~~~~~~~~~
 
-The ``ir.prim`` namespace provides node classes and construction functions
-for arithmetic, comparisons, boolean logic, casts, and other primitive
-computations. Python operators such as ``+``, ``*``, and ``<`` combine
-expressions into arithmetic and comparison nodes. Python functions such
-as ``ir.prim.sigmoid`` build calls to registered operators:
-``ir.prim.sigmoid(scalar_value)`` returns an ``ir.Call`` for ``prim.sigmoid``.
+The previous section grouped expressions by result type. The operations
+below describe the computations that produce those values. The
+``ir.prim`` namespace provides node classes and Python helpers for
+arithmetic, comparisons, boolean logic, casts, and other primitive
+computations:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 55 45
+
+   * - Python expression
+     - IR node constructed
+   * - ``scalar_value + 1``
+     - ``ir.prim.Add``
+   * - ``ir.prim.sigmoid(scalar_value)``
+     - ``ir.Call`` to ``prim.sigmoid``
+
+Python operators such as ``+``, ``*``, and ``<`` construct arithmetic
+and comparison nodes. The Python helper ``ir.prim.sigmoid`` constructs
+a call to a registered operator; the returned IR node is an ``ir.Call``.
+The :ref:`Call <user-ir-call>` section below examines its fields.
 The :doc:`ir.prim </reference/python/ir.prim>` API reference lists the
 available classes and construction helpers.
 
@@ -267,9 +312,10 @@ compute and check each thread's element index:
    :end-at:         B[i] = A[i] + 1
    :dedent: 4
 
-The multiplication by 256 becomes an ``ir.prim.Mul``, and the sum becomes
-an ``ir.prim.Add``. The condition ``i < n`` is an ``ir.prim.LT`` whose
-``a`` and ``b`` operands are the index and tensor length:
+The GPU launch uses 256 threads per block. The multiplication by 256
+becomes an ``ir.prim.Mul``, and the sum becomes an ``ir.prim.Add``.
+The condition ``i < n`` is an ``ir.prim.LT`` whose ``a`` and ``b``
+operands are the index and tensor length:
 
 .. code-block:: text
 
@@ -289,8 +335,10 @@ function parameters, loop indices, or intermediate values defined by
 bindings.
 
 The tensor parameters ``A`` and ``B`` in the program are represented by
-``ir.Var`` objects. In the CPU example, we can retrieve them from
-``add_one.params`` and inspect their types through ``ty``:
+``ir.Var`` objects. The PyTorch tensors ``a`` and ``b`` are passed to these
+parameters when the compiled function is called. In the CPU example, we
+can retrieve the parameter variables from ``add_one.params`` and inspect
+their types through ``ty``:
 
 .. code-block:: python
 
@@ -331,14 +379,14 @@ Call
 ~~~~
 
 :class:`ir.Call <tvm_tirx.ir.Call>` represents a call to an operator or
-function. Its ``op`` field identifies the callee, and ``args`` holds
-the argument expressions. A registered operator is represented by
-``ir.Op``.
+function. Its ``op`` field refers to the operator or function expression
+being called, and ``args`` holds the argument expressions. A registered
+operator is represented by ``ir.Op``.
 
 In the GPU example, the index expression contains calls to
 ``T.cuda.block_idx("x")`` and ``T.cuda.thread_idx("x")``.
-These helpers call registered CUDA operators. We can construct the
-thread-index call directly:
+These TVMScript helpers construct calls to registered CUDA operators.
+We can construct the thread-index call directly through the IR API:
 
 .. code-block:: python
 
@@ -347,51 +395,50 @@ thread-index call directly:
    op = ir.Op.get("tirx.cuda.thread_idx")
    x_call = ir.Call(op, [ir.StringImm("x")])
 
-``ir.Op.get`` retrieves the shared operator definition. ``ir.Call``
-creates a separate expression whose ``op`` refers to that definition and
-whose ``args`` contains the arguments for this use:
+``op`` is the ``ir.Op`` object for ``tirx.cuda.thread_idx``. The call's
+``op`` field refers to this object, and its ``args`` array contains the
+string expression ``"x"``. Its ``ty`` is ``ir.PrimType("int32")``:
 
 .. code-block:: text
 
    x_call: ir.Call
-   ├── op → shared ir.Op            tirx.cuda.thread_idx
+   ├── op → ir.Op                   tirx.cuda.thread_idx
    ├── args[0]: ir.StringImm         "x"
    └── ty: ir.PrimType               int32
 
-The string argument selects the x axis. Other calls can refer to the same
-operator with their own arguments. The index arithmetic uses the coordinates
-returned by the two calls in the program.
+The ``"x"`` argument selects the x axis. When the compiled GPU function
+runs, this call reads the current thread's x-axis coordinate within its
+block. The index arithmetic uses the coordinates returned by the
+thread-index and block-index calls to compute ``i``.
 
-The same representation supports calls to registered operators and
-other function-valued IR expressions. For example, we can call the
-built-in ``prim.sigmoid`` operator to compute
-``1 / (1 + exp(-value))``:
+A common extension of add-one is an activation applied to its result.
+We can pass the earlier addition expression ``scalar_plus_one`` to the
+built-in ``prim.sigmoid`` operator:
 
 .. code-block:: python
 
-   from tvm_tirx import ir
-   value = ir.Var("value", "float32")
    sigmoid_op = ir.Op.get("prim.sigmoid")
-   activated_value = ir.Call(sigmoid_op, [value])
+   activated_plus_one = ir.Call(sigmoid_op, [scalar_plus_one])
 
-``activated_value`` has the same structure, with a variable as its
-argument:
+The call's argument is now the addition expression:
 
 .. code-block:: text
 
-   activated_value: ir.Call
-   ├── op: ir.Op                    prim.sigmoid
-   ├── args[0]: ir.Var               value
+   activated_plus_one: ir.Call
+   ├── op → ir.Op                   prim.sigmoid
+   ├── args[0]: ir.prim.Add          scalar_value + 1
    └── ty: ir.PrimType               float32
 
-The operator's type rule gives the call the same type as its input, so
-``activated_value.ty`` is ``ir.PrimType("float32")``. The helper
-``ir.prim.sigmoid(value)`` is a shorter way to construct the same call.
+``activated_plus_one.args[0]`` refers to ``scalar_plus_one``, so sigmoid
+receives the addition's result. The expression computes
+``1 / (1 + exp(-(scalar_value + 1)))``. The operator's type rule gives
+the call the same type as its input, ``ir.PrimType("float32")``. This
+call is therefore also a primitive expression. The Python helper
+``ir.prim.sigmoid(scalar_plus_one)`` constructs the same call.
 
-Both examples use ``ir.Call`` to describe an operation that the compiled
-program performs when it runs. The :doc:`operators_and_calls` chapter
-examines how operator definitions provide type inference and argument
-validation for these calls.
+The :doc:`operators_and_calls` chapter also covers calls to IR functions
+and explains how registered operators provide result-type inference
+and argument validation.
 
 .. _user-ir-source-locations:
 
@@ -403,26 +450,38 @@ the original code. The ``loc`` field stores this information, and
 :class:`ir.SourceLoc <tvm_tirx.ir.SourceLoc>` records the source file
 and range.
 
-The first parameter of ``add_one`` is ``A``. We can retrieve the
-filename and starting line number of its declaration:
+The parameter ``A`` is declared on this line of the CPU program:
+
+.. literalinclude:: ../get_started/examples/add_one_cpu.py
+   :language: python
+   :start-at: def add_one(
+   :end-at: def add_one(
+   :lineno-match:
+
+The parameter's ``loc`` points back to this declaration. We can read
+``start_line`` to report its line number:
 
 .. code-block:: python
 
    parameter = add_one.params[0]
    location = parameter.loc
-   source_name = location.source_name.name
    line = location.start_line
+   print(f"Parameter {parameter.name} is declared on line {line} of the CPU program.")
 
-The code follows these fields from the parameter to its source location:
+The output is:
+
+.. code-block:: text
+
+   Parameter A is declared on line 29 of the CPU program.
+
+The line number matches the declaration shown above.
+``source_name.name`` also records the path to the CPU program's source
+file:
 
 .. code-block:: text
 
    parameter: ir.Var                 A
    └── loc: ir.SourceLoc
        ├── source_name: ir.SourceName
-       │   └── name                  path to add_one_cpu.py
+       │   └── name                  path to the CPU program's source file
        └── start_line                line of A's declaration
-
-``source_name`` and ``line`` hold the path and line number reached
-through these fields, identifying ``A``'s declaration in
-``add_one_cpu.py``.

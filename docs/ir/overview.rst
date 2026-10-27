@@ -24,7 +24,7 @@ the CPU and GPU examples from :doc:`/get_started/quick_start` to introduce
 the main IR objects and show how they fit together.
 
 TVMScript constructs IR objects to describe the computation in these examples.
-Runtime tensors hold the input and output data, and the compiled functions
+PyTorch tensors hold the input and output data, and the compiled functions
 perform the computation when called.
 
 TIRx shares its IR object system across C++, Python, and Rust through TVM FFI,
