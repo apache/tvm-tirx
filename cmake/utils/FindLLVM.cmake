@@ -106,7 +106,7 @@ macro(find_llvm use_llvm)
       message(FATAL_ERROR
         "LLVM development files were not found. From the source root, run "
         "`uv sync --only-group build` and configure with `uv run --no-sync cmake`, "
-        "or install LLVM 15 or newer, including "
+        "or install LLVM 17 or newer, including "
         "its development headers and libraries (for example, llvm-dev on Debian/Ubuntu "
         "or llvm-devel on Fedora). Set LLVM_DIR to the directory containing "
         "LLVMConfig.cmake, add the LLVM installation to CMAKE_PREFIX_PATH, or set "
@@ -285,8 +285,8 @@ macro(find_llvm use_llvm)
   message(STATUS "Found LLVM_DEFINITIONS=" "${LLVM_DEFINITIONS}")
   message(STATUS "Found LLVM_LIBS=" "${LLVM_LIBS}")
   message(STATUS "Found TVM_LLVM_VERSION=" ${TVM_LLVM_VERSION})
-  if (${TVM_LLVM_VERSION} LESS 150)
-    message(FATAL_ERROR "TVM requires LLVM 15.0 or higher.")
+  if (${TVM_LLVM_VERSION} LESS 170)
+    message(FATAL_ERROR "TVM requires LLVM 17.0 or higher.")
   endif()
   message(STATUS "Found TVM_LLVM_HAS_AARCH64_TARGET=" ${TVM_LLVM_HAS_AARCH64_TARGET})
 

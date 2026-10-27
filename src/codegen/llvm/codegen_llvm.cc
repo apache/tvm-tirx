@@ -1661,31 +1661,8 @@ llvm::Value* CodeGenLLVM::CreateMinMax(const PrimExpr& lhs, const PrimExpr& rhs,
   if (lhs_value->getType()->isFPOrFPVectorTy()) {
     // Propagate NaNs lane-wise for scalars, fixed-length vectors, and scalable vectors.
     // On a signed-zero tie, minimum selects -0 and maximum selects +0.
-#if TVM_LLVM_VERSION < 170
-    // Older LLVM targets cannot always legalize minimum/maximum. Equal finite
-    // operands have identical bits except for signed zero, where OR selects -0
-    // and AND selects +0. The unordered left-operand check propagates its NaN;
-    // an unordered right operand is already selected by the ordered comparison.
-    llvm::Type* float_ty = lhs_value->getType();
-    llvm::Type* int_ty =
-        llvm::Type::getIntNTy(float_ty->getContext(), float_ty->getScalarSizeInBits());
-    if (auto* vector_ty = llvm::dyn_cast<llvm::VectorType>(float_ty)) {
-      int_ty = llvm::VectorType::get(int_ty, vector_ty->getElementCount());
-    }
-    llvm::Value* lhs_bits = builder_->CreateBitCast(lhs_value, int_ty);
-    llvm::Value* rhs_bits = builder_->CreateBitCast(rhs_value, int_ty);
-    llvm::Value* equal_bits =
-        is_min ? builder_->CreateOr(lhs_bits, rhs_bits) : builder_->CreateAnd(lhs_bits, rhs_bits);
-    llvm::Value* take_lhs = is_min ? builder_->CreateFCmpOLT(lhs_value, rhs_value)
-                                   : builder_->CreateFCmpOGT(lhs_value, rhs_value);
-    llvm::Value* result = builder_->CreateSelect(take_lhs, lhs_value, rhs_value);
-    result = builder_->CreateSelect(builder_->CreateFCmpOEQ(lhs_value, rhs_value),
-                                    builder_->CreateBitCast(equal_bits, float_ty), result);
-    return builder_->CreateSelect(builder_->CreateFCmpUNO(lhs_value, lhs_value), lhs_value, result);
-#else
     return is_min ? builder_->CreateMinimum(lhs_value, rhs_value)
                   : builder_->CreateMaximum(lhs_value, rhs_value);
-#endif
   }
 
   PrimType dtype(lhs.ty()->dtype);
