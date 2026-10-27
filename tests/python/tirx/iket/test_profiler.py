@@ -800,7 +800,7 @@ def test_multi_kernel_module_has_no_tvm_control_plane():
 
 
 def test_proxy_fails_closed_and_forbids_export(tmp_path, monkeypatch):
-    from tvm_tirx.tirx.cuda import iket as _iket_official
+    _iket_official = importlib.import_module("tvm_tirx.backend.cuda.iket")
 
     executable = _compile(serial_a)
     with pytest.raises(RuntimeError, match="cannot be exported"):
@@ -814,7 +814,7 @@ def test_proxy_fails_closed_and_forbids_export(tmp_path, monkeypatch):
 
 
 def test_environment_validation_is_not_process_cached(tmp_path, monkeypatch):
-    from tvm_tirx.tirx.cuda import iket as _iket_official
+    _iket_official = importlib.import_module("tvm_tirx.backend.cuda.iket")
 
     monkeypatch.setattr(_iket_official, "_validate_run_iket_entrypoint", lambda: None)
     monkeypatch.setattr(_iket_official, "_validate_nvrtc_available", lambda: None)
@@ -834,7 +834,7 @@ def test_environment_validation_is_not_process_cached(tmp_path, monkeypatch):
 
 @pytest.mark.parametrize("version", ("4.5.0", "4.6.0", "4.6.2", "5.0.0.dev1"))
 def test_installation_ignores_package_versions(tmp_path, monkeypatch, version):
-    from tvm_tirx.tirx.cuda import iket as _iket_official
+    _iket_official = importlib.import_module("tvm_tirx.backend.cuda.iket")
 
     executable = tmp_path / "run-iket"
     executable.write_text("#!/bin/sh\n")
@@ -856,7 +856,7 @@ def test_installation_ignores_package_versions(tmp_path, monkeypatch, version):
 
 @pytest.mark.parametrize("version", ((12, 9), (13, 2), (13, 4), (14, 0)))
 def test_nvrtc_version_unrestricted(monkeypatch, version):
-    from tvm_tirx.tirx.cuda import iket as _iket_official
+    _iket_official = importlib.import_module("tvm_tirx.backend.cuda.iket")
 
     nvrtc = SimpleNamespace(nvrtcVersion=lambda: (0, *version))
     monkeypatch.setitem(sys.modules, "cuda.bindings", SimpleNamespace(nvrtc=nvrtc))
@@ -864,7 +864,7 @@ def test_nvrtc_version_unrestricted(monkeypatch, version):
 
 
 def test_nvrtc_error_status(monkeypatch):
-    from tvm_tirx.tirx.cuda import iket as _iket_official
+    _iket_official = importlib.import_module("tvm_tirx.backend.cuda.iket")
 
     nvrtc = SimpleNamespace(nvrtcVersion=lambda: (1, 0, 0))
     monkeypatch.setitem(sys.modules, "cuda.bindings", SimpleNamespace(nvrtc=nvrtc))
@@ -874,7 +874,7 @@ def test_nvrtc_error_status(monkeypatch):
 
 @pytest.mark.parametrize("error_type", (ImportError, OSError, RuntimeError))
 def test_nvrtc_load_error(monkeypatch, error_type):
-    from tvm_tirx.tirx.cuda import iket as _iket_official
+    _iket_official = importlib.import_module("tvm_tirx.backend.cuda.iket")
 
     def unavailable_nvrtc():
         raise error_type("NVRTC could not be loaded")
@@ -887,7 +887,7 @@ def test_nvrtc_load_error(monkeypatch, error_type):
 
 @pytest.mark.parametrize("config_env", ["IKET_INJECTION_CONFIG", "SMODEL_INJECTION_CONFIG"])
 def test_injection_environment_accepts_run_iket_two_passes(tmp_path, monkeypatch, config_env):
-    from tvm_tirx.tirx.cuda import iket as _iket_official
+    _iket_official = importlib.import_module("tvm_tirx.backend.cuda.iket")
 
     monkeypatch.delenv("IKET_INJECTION_CONFIG", raising=False)
     monkeypatch.delenv("SMODEL_INJECTION_CONFIG", raising=False)
@@ -918,7 +918,7 @@ def test_injection_environment_accepts_run_iket_two_passes(tmp_path, monkeypatch
 
 
 def test_injection_environment_prefers_current_config(tmp_path, monkeypatch):
-    from tvm_tirx.tirx.cuda import iket as _iket_official
+    _iket_official = importlib.import_module("tvm_tirx.backend.cuda.iket")
 
     injection = tmp_path / "libiket_injection.so"
     injection.touch()

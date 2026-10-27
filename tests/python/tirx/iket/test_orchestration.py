@@ -28,7 +28,8 @@ from pathlib import Path
 
 import pytest
 
-from tvm_tirx.tirx.cuda import iket
+# Patch private helpers on their owning module, not the forwarding public alias.
+iket = importlib.import_module("tvm_tirx.backend.cuda.iket")
 
 
 def _write_artifacts(output_dir: Path, postprocess: str, *, count: int = 1) -> None:
@@ -56,8 +57,9 @@ def _fake_profile_process(captured, *, artifact_count: int = 1):
 def test_public_namespace_and_old_bench_path_is_absent():
     pytest.importorskip("triton")  # tvm_tirx.testing.bench pulls in the triton harness
     import tvm_tirx.testing.bench as bench
+    from tvm_tirx.tirx.cuda import iket as public_iket
 
-    assert iket.__all__ == [
+    assert public_iket.__all__ == [
         "IketProfileError",
         "IketProfileResult",
         "IketProfiler",
