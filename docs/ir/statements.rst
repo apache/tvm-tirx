@@ -127,9 +127,8 @@ When the compiled function runs, the store computes ``A[i] + 1`` and
 writes the result to element ``i`` of ``B``. We can retrieve this
 statement with ``body[0]``, which is shorthand for ``body.seq[0]``.
 
-For a body with several statements, the sequence records the order in
-which they run. A small extension of the CPU loop names the addition's
-result before writing it to the output:
+A small extension of the CPU loop names the addition's result before
+writing it to the output:
 
 .. code-block:: python
 
@@ -150,8 +149,6 @@ them in a sequence:
    store_from_value = ir.TensorStore(B, [i], value)
    sequence = ir.SeqStmt([binding, store_from_value])
 
-The sequence holds the binding first and the store second:
-
 .. code-block:: text
 
    sequence: ir.SeqStmt
@@ -162,9 +159,7 @@ The sequence holds the binding first and the store second:
        └── value → same ir.Var              value
 
 When the function runs, the binding computes the addition and defines
-``value``, then the store writes this value to ``B[i]``. ``sequence[0]``
-and ``sequence[1]`` select these two statements in order. Each entry is
-a statement; the surrounding ``SeqStmt`` keeps them in execution order.
+``value``, then the store writes this value to ``B[i]``.
 The next section places the original single-store ``body`` inside the
 CPU loop.
 

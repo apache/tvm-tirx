@@ -341,7 +341,7 @@ four-element float32 tensor in local storage:
 ``ty_args[0]`` supplies the tensor type to the allocation operator. Its
 type rule uses this argument as the result type, so ``allocation_call.ty``
 is ``temporary_type``. A call can therefore produce a tensor as well as a
-scalar or vector value. ``attrs={}`` starts with no allocation annotations.
+scalar or vector value.
 A surrounding ``ir.Bind`` can name the allocated tensor for subsequent
 reads and writes, as described in :doc:`statements`.
 

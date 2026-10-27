@@ -355,9 +355,6 @@ For ``A``, these are:
    ├── name: "A"
    └── ty: tirx.TensorType           (n,) of float32
 
-``input_type`` refers to this tensor type. ``output_type`` comes from
-``B.ty`` in the same way.
-
 TVMScript creates these parameter variables when it parses the function.
 We can also create variables directly with ``ir.Var(name, ty)``. The
 scalar add-one example in PrimType uses this constructor:
@@ -370,8 +367,6 @@ scalar add-one example in PrimType uses this constructor:
 
 ``ir.Var("scalar_value", "float32")`` creates a variable whose ``name``
 is ``"scalar_value"`` and whose ``ty`` is ``ir.PrimType("float32")``.
-We then use this variable in ``scalar_value + 1`` to construct the
-addition expression ``scalar_plus_one``.
 
 .. _user-ir-call:
 
@@ -474,7 +469,6 @@ The output is:
 
    Parameter A is declared on line 29 of the CPU program.
 
-The line number matches the declaration shown above.
 ``source_name.name`` also records the path to the CPU program's source
 file:
 

@@ -106,8 +106,7 @@ helper from :doc:`operators_and_calls` returns a single float32 value:
 The return annotation ``-> T.float32`` sets its ``ret_type`` to
 ``ir.PrimType("float32")``, and the ``return`` becomes an ``ir.Return``
 statement in its body. The result of ``add_one`` goes into an output
-parameter; the result of ``add_one_scalar`` is a return value. The return
-type records this part of the function's interface.
+parameter; the result of ``add_one_scalar`` is a return value.
 
 So far, ``@T.function`` has built a function object for us from source
 code. Compiler code can also build this kind of object directly with

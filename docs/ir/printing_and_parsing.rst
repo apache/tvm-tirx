@@ -30,16 +30,15 @@ compiler pass's changes.
 Printing IR
 -----------
 
-The CPU example is written in TVMScript. Its ``@T.function`` decorator
-parses the function definition and creates a ``tirx.Function`` IR object:
+In the CPU example, the TVMScript decorator ``@T.function`` parses the
+function definition into a ``tirx.Function`` IR object:
 
 .. literalinclude:: ../get_started/examples/add_one_cpu.py
    :language: python
    :start-at: from tvm_tirx.script import tirx as T
    :end-at:         B[i] = A[i] + 1
 
-The ``script()`` method returns a string containing TVMScript source
-for this IR function. We can display that string with ``print``:
+The ``script()`` method returns the function's TVMScript source:
 
 .. code-block:: python
 
@@ -76,10 +75,7 @@ Parsing TVMScript
 
 The :doc:`TVMScript parser </reference/python/script.parser>` provides
 ``from_source`` to construct IR from a string containing TVMScript code.
-For example, we can put the add-one definition printed above in a
-Python string, including its import. The following code parses that
-string, then displays the resulting object's class and its TVMScript
-representation:
+We can use it with the add-one definition:
 
 .. code-block:: python
 
@@ -111,13 +107,9 @@ The output is:
        for i in range(n):
            B[i] = A[i] + T.float32(1.0)
 
-``source_text`` is a string because its contents are enclosed in triple
-quotes. ``from_source`` reads that text and builds the parameter
-variables, loop, and tensor store in a ``tirx.Function``. The first output
-line, ``Function``, is the class name of this IR object. The remaining
-lines are the TVMScript text returned by ``parsed_function.script()``.
-They describe the reconstructed function's computation. The IR function
-can also be passed to ``tirx.compile`` and run as in Quick Start.
+``parsed_function`` is a ``tirx.Function`` containing the parameter
+variables, loop, and tensor store. It can be inspected or compiled
+through the same interfaces as ``add_one``.
 
 The import inside ``source_text`` tells the parser what ``T`` refers to.
 The earlier ``source`` returned by ``add_one.script()`` has this import
@@ -132,9 +124,8 @@ namespace:
    restored_function = from_source(source, extra_vars={"T": T})
    ir.assert_structural_equal(add_one, restored_function)
 
-The assertion checks that ``restored_function`` has the same IR
-structure as ``add_one``. The printed ``[n]`` declares the symbolic
-dimension, so it needs no external binding.
+The printed ``[n]`` declares the symbolic dimension, so it needs no
+external binding.
 
 Saving and Loading a Module
 ---------------------------
@@ -153,9 +144,7 @@ imports with ``ir.comment_imports=False``:
    output_path = Path("add_one_module.py")
    output_path.write_text(module_source)
 
-``module_source`` contains the imports and module definition, and
-``write_text`` saves that string to ``add_one_module.py``. We can read
-the file and reconstruct the module:
+We can read the saved source and reconstruct the module:
 
 .. code-block:: python
 
@@ -164,9 +153,7 @@ the file and reconstruct the module:
 
 The imports in the file supply the namespaces needed by the parser, so
 this call needs no ``extra_vars``. ``restored_module`` is an ``ir.IRModule``
-with the same function definitions as ``module``. It can be inspected or
-passed to ``tirx.compile`` through the interfaces described in
-:doc:`functions_and_modules`.
+with the same function definitions as ``module``.
 
 Inspecting IR
 -------------
@@ -174,11 +161,13 @@ Inspecting IR
 The printer can also help us locate a selected computation in the source
 or see how a compiler pass changes the program.
 
-Highlighting Nodes
-~~~~~~~~~~~~~~~~~~
+.. _highlighting-nodes:
+
+Highlighting IR Objects
+~~~~~~~~~~~~~~~~~~~~~~~
 
 The function's body lets us reach the addition in ``B[i] = A[i] + 1``.
-To find this node in the printed program, we can ask the printer to
+To find this expression in the printed program, we can ask the printer to
 underline it:
 
 .. code-block:: python
@@ -198,7 +187,7 @@ The marked lines include:
 
 ``obj_to_underline`` selects the IR objects to mark. For a diagnostic,
 ``print_line_numbers=True`` adds line numbers, ``obj_to_annotate`` can
-attach messages to selected nodes, and ``num_context_lines`` limits the
+attach messages to selected objects, and ``num_context_lines`` limits the
 surrounding source.
 
 For interactive inspection,
@@ -239,16 +228,12 @@ The second output contains the simplified loop:
    for i in range(n):
        B[i] = A[i] + T.float32(1.0)
 
-The computation still adds one to each element, and the printed output
-shows exactly which control-flow statement the pass removed.
-
 Building Program Variants
 -------------------------
 
-A program may come from a source file or a text template. If we want
-several versions with different constants, ``from_source`` can bind those
-constants while parsing. For the add-one example, we can replace ``1``
-with ``increment`` in a shared template:
+For functions that differ only in a constant, ``from_source`` can parse
+the same template with different ``extra_vars``. This template replaces
+the add-one constant with ``increment``:
 
 .. code-block:: python
 
@@ -271,19 +256,17 @@ The same text can produce versions that add one or two:
    )
    print(add_two_variant.script())
 
-``extra_vars`` supplies both the ``T`` namespace and the Python value
-bound to ``increment``. The parser uses that value while constructing
-the IR: the printed addition for ``add_two_variant`` is
-``A[i] + T.float32(2.0)``. Both versions still take only ``A`` and ``B``
-as parameters, because ``increment`` has become a constant in each
-function's body.
+The parser turns the ``increment`` value supplied through ``extra_vars``
+into a constant. The addition in ``add_two_variant`` is therefore
+``A[i] + T.float32(2.0)``; both functions still take only ``A`` and ``B``
+as parameters.
 
 Source Locations
 ~~~~~~~~~~~~~~~~
 
-An error in generated source needs to point back to that text. The
-``filename`` argument gives it a name for diagnostics. To see this, we
-can remove the required type annotation from ``A`` in the template:
+The ``filename`` argument labels generated source in parser diagnostics.
+The following example removes the required type annotation from ``A``
+in the template:
 
 .. code-block:: python
 
@@ -303,9 +286,8 @@ The output is:
 
    Parameter 'A' requires an annotation (generated_add_constant.py, line 3)
 
-The diagnostic names the supplied text and the line containing the
-invalid parameter. The program comes from ``invalid_source``;
-``filename`` supplies the name shown in the message. Successfully parsed
+The program comes from ``invalid_source``; ``filename`` supplies the
+name shown in the message. Successfully parsed
 nodes also record their positions through the
 :ref:`source-location fields <user-ir-source-locations>` introduced earlier.
 
@@ -328,8 +310,7 @@ enclosing block as the region's body. The enclosing block here is the
 function body: the region extends from ``T.device_entry(...)`` to the
 end of the function. It contains the assignment to ``i`` and the entire
 ``if`` branch, even though those statements have the same indentation
-as ``T.device_entry(...)``. This grouping is part of TVMScript's syntax
-for region constructs.
+as ``T.device_entry(...)``.
 
 An explicit ``with`` block shows the same region through indentation:
 
@@ -342,6 +323,5 @@ An explicit ``with`` block shows the same region through indentation:
            if i < n:
                B[i] = A[i] + 1
 
-The ``with`` form includes only its indented block. Both forms produce
-the same ``ir.RegionStmt``. The :doc:`statements` chapter explains the
-IR structure inside that region.
+Both forms produce the same ``ir.RegionStmt``. The :doc:`statements`
+chapter explains the IR structure inside that region.
