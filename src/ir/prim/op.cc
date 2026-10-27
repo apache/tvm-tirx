@@ -317,6 +317,11 @@ PrimExpr cast(PrimExpr value, PrimType t, Location loc) {
         if (auto small = op->value.as<int64_t>()) {
           return FloatImm(dtype, static_cast<float>(*small), op->loc);
         }
+      } else if (dtype.MatchesElementType(DLDataTypeCode::kDLFloat, 64)) {
+        ffi::BigInt limit(std::numeric_limits<double>::max());
+        if (op->value >= -limit && op->value <= limit) {
+          return FloatImm(dtype, static_cast<double>(op->value), op->loc);
+        }
       } else if (dtype.MatchesElementType(DLDataTypeCode::kDLFloat, 16) ||
                  dtype.MatchesElementType(DLDataTypeCode::kDLBfloat, 16)) {
         double source = static_cast<double>(op->value);
@@ -358,6 +363,12 @@ PrimExpr cast(PrimExpr value, PrimType t, Location loc) {
         if (detail::IsInFloat32Range(source)) {
           return FloatImm(dtype, static_cast<float>(source), op->loc);
         }
+      } else if (dtype.MatchesElementType(DLDataTypeCode::kDLFloat, 64) &&
+                 (value.ty().MatchesElementType(DLDataTypeCode::kDLFloat, 32) ||
+                  value.ty().MatchesElementType(DLDataTypeCode::kDLFloat, 16) ||
+                  value.ty().MatchesElementType(DLDataTypeCode::kDLBfloat, 16))) {
+        // Source rounding was checked above; widening preserves its value exactly.
+        return FloatImm(dtype, source, op->loc);
       } else if (dtype.MatchesElementType(DLDataTypeCode::kDLFloat, 16) ||
                  dtype.MatchesElementType(DLDataTypeCode::kDLBfloat, 16)) {
         double limit = dtype.MatchesCode(DLDataTypeCode::kDLBfloat) ? support::kMaxBFloat16
