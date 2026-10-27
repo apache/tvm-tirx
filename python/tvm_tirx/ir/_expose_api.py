@@ -137,13 +137,17 @@ def _get_or_create_namespace(root: object, path: str) -> object:
         child = _api_attribute(namespace, name)
         if child is None:
             child = SimpleNamespace()
-            _bind_api(namespace, name, child)
+            _set_api_and_export(namespace, name, child)
         namespace = child
     return namespace
 
 
-def _bind_api(container: object, name: str, value: Any) -> Any:
-    """Install a binding and add its name to an existing __all__ list.
+def _set_api_and_export(container: object, name: str, value: Any) -> Any:
+    """Assign an attribute and add its name to an existing __all__ list.
+
+    Assignment unconditionally overwrites an existing attribute; callers own
+    collision validation and first-binding precedence. Append the name only when
+    __all__ is already a list and does not contain it. Never create __all__.
 
     Parameters
     ----------
@@ -157,7 +161,7 @@ def _bind_api(container: object, name: str, value: Any) -> Any:
     Returns
     -------
     value : Any
-        The installed object, unchanged.
+        The exact supplied object, unchanged.
 
     Raises
     ------
@@ -302,7 +306,7 @@ def _publish_op(
         if wrapper is not None:
             call = wrapper(call)
         apis.append(_OpBinding(wrapper, call))
-    return _bind_api(container, leaf, call)
+    return _set_api_and_export(container, leaf, call)
 
 
 def _expose_op(name: str) -> None:
@@ -437,7 +441,7 @@ def _publish_type(type_key: str, prefix: str, namespace: ModuleType) -> Callable
                 )
             result = existing
         else:
-            result = _bind_api(container, name, _exposed_type_class(type_key))
+            result = _set_api_and_export(container, name, _exposed_type_class(type_key))
     return result
 
 

@@ -30,13 +30,13 @@ from tvm_tirx import tirx as tir
 from tvm_tirx.codegen.llvm import lookup_intrinsic_id as llvm_lookup_intrinsic_id
 from tvm_tirx.ir import Call, CallEffectKind, Var
 from tvm_tirx.ir._expose_api import (
-    _bind_api,
     _expose_op,
     _expose_type,
     _init_exposed_op_api,
     _make_op_api,
     _publish_op,
     _publish_type,
+    _set_api_and_export,
 )
 from tvm_tirx.ir.location import UNKNOWN_LOC, Location
 from tvm_tirx.ir.prim import _ffi_api as _prim_ffi
@@ -236,7 +236,7 @@ def register_script_namespace(name: str, namespace: object) -> object:
     ):
         module = sys.modules.get(module_name)
         if module is not None:
-            _bind_api(module, name, namespace)
+            _set_api_and_export(module, name, namespace)
     return namespace
 
 
