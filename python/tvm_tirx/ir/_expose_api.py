@@ -67,10 +67,22 @@ _EXPOSED_TYPE_API_MODULE_MAP: dict[tuple[str, str], ModuleType] = {}
 
 
 def _api_attribute(container: object, name: str) -> Any:
-    """Read a binding, returning None when absent, without lazy module imports.
+    """Read a binding without triggering lazy module imports.
 
     Explicit namespace objects keep their descriptor/dynamic lookup behavior.
     Errors from those lookups propagate to the publisher.
+
+    Parameters
+    ----------
+    container : object
+        Module or explicit namespace object holding the binding.
+    name : str
+        Attribute name to look up in the namespace.
+
+    Returns
+    -------
+    value : Any
+        Existing binding, or None when the attribute is absent.
     """
     return (
         vars(container).get(name)
@@ -80,7 +92,22 @@ def _api_attribute(container: object, name: str) -> Any:
 
 
 def _relative_name(name: str, prefix: str) -> str | None:
-    """Return the suffix for a complete prefix match, or None; empty matches all."""
+    """Return the portion of a name within a destination prefix.
+
+    Parameters
+    ----------
+    name : str
+        Fully qualified op name or type key.
+    prefix : str
+        Namespace prefix matched on a complete dotted component boundary.
+        An empty prefix matches every name.
+
+    Returns
+    -------
+    relative_name : str or None
+        Name after the prefix and separator, the full name for an empty prefix,
+        or None when the name does not begin with the prefix and a dot.
+    """
     if not prefix:
         return name
     return name[len(prefix) + 1 :] if name.startswith(prefix + ".") else None
@@ -89,9 +116,21 @@ def _relative_name(name: str, prefix: str) -> str | None:
 def _get_or_create_namespace(root: object, path: str) -> object:
     """Resolve a dotted path under root, creating missing namespace objects.
 
-    An empty path returns root. Existing namespace objects retain their attribute
-    semantics; missing components become SimpleNamespace bindings. This helper
-    stores no state and does not import modules.
+    Existing namespace objects retain their attribute semantics; missing
+    components become SimpleNamespace bindings. This helper stores no state
+    and does not import modules. Attribute lookup and binding errors propagate.
+
+    Parameters
+    ----------
+    root : object
+        Destination module or namespace object from which to resolve the path.
+    path : str
+        Dotted namespace path relative to root; an empty path selects root.
+
+    Returns
+    -------
+    namespace : object
+        Existing or newly created namespace at the requested path.
     """
     namespace = root
     for name in path.split(".") if path else ():
@@ -104,7 +143,29 @@ def _get_or_create_namespace(root: object, path: str) -> object:
 
 
 def _bind_api(container: object, name: str, value: Any) -> Any:
-    """Install and return a binding, adding its name to an existing __all__ list."""
+    """Install a binding and add its name to an existing __all__ list.
+
+    Parameters
+    ----------
+    container : object
+        Writable namespace with an instance dictionary to receive the binding.
+    name : str
+        Attribute name to assign and export.
+    value : Any
+        Object to publish under the attribute name.
+
+    Returns
+    -------
+    value : Any
+        The installed object, unchanged.
+
+    Raises
+    ------
+    AttributeError
+        If the namespace rejects the attribute assignment.
+    TypeError
+        If the namespace has no instance dictionary.
+    """
     setattr(container, name, value)
     exports = vars(container).get("__all__")
     if isinstance(exports, list) and name not in exports:
@@ -118,6 +179,18 @@ def _make_op_api(op: "Op", module_name: str) -> _OpAPI:
     The callable binds positional/named operands and reflected attrs, then builds a
     raw Call. Region ops instead enter their existing builder path on invocation.
     Argument and constructor errors propagate; constructing the callable emits no IR.
+
+    Parameters
+    ----------
+    op : Op
+        Completed native operator whose signature, attributes and docs define the API.
+    module_name : str
+        Destination name assigned to the generated callable's __module__.
+
+    Returns
+    -------
+    api : _OpAPI
+        Unwrapped callable that constructs a raw Call or enters a region builder.
     """
     from .attrs import make_node  # pylint: disable=import-outside-toplevel
     from .expr import Call  # pylint: disable=import-outside-toplevel
@@ -181,11 +254,34 @@ def _make_op_api(op: "Op", module_name: str) -> _OpAPI:
 def _publish_op(
     name: str, prefix: str, namespace: ModuleType, wrapper: _OpWrapper | None
 ) -> _OpAPI | None:
-    """Publish one selected op to a matching destination and return its binding.
+    """Publish one selected op to a matching destination.
 
-    Existing callables win; a non-callable collision raises ValueError. A new API
-    is created once per wrapper identity, then reused without double wrapping.
-    A name outside the destination prefix returns None.
+    Existing callables win. A new API is created once per wrapper identity,
+    then reused without double wrapping. Wrapper and binding errors propagate.
+
+    Parameters
+    ----------
+    name : str
+        Fully qualified completed op name already retained in the selection map.
+    prefix : str
+        Component prefix to remove from the name; empty matches the full name.
+    namespace : ModuleType
+        Resolved destination root beneath which the remaining name is published.
+    wrapper : _OpWrapper or None
+        Adapter from a new raw callable to its destination callable; None keeps
+        the raw constructor. Existing bindings are not adapted again.
+
+    Returns
+    -------
+    api : _OpAPI or None
+        Existing or newly installed callable, or None if the prefix does not match.
+
+    Raises
+    ------
+    ValueError
+        If the destination name is occupied by a non-callable binding.
+    KeyError
+        If a missing destination binding needs an op absent from the selection map.
     """
     path = _relative_name(name, prefix)
     if path is None:
@@ -214,6 +310,16 @@ def _expose_op(name: str) -> None:
 
     Publication errors propagate. The retained selection lets destination
     initialization retry publication without discovering unselected registry ops.
+
+    Parameters
+    ----------
+    name : str
+        Fully qualified native op name whose definition is ready for publication.
+
+    Raises
+    ------
+    ValueError
+        If a matching destination has a non-callable binding at the op name.
     """
     name = str(name)
     _EXPOSED_OP_API_MAP.setdefault(name, [])
@@ -226,11 +332,28 @@ def _init_exposed_op_api(
 ) -> None:
     """Initialize APIs for explicitly exposed ops and subscribe to future exposures.
 
-    Register the module/prefix pair, then replay previous selections. The optional
-    wrapper adapts each new callable; None publishes raw constructors. Repeated
+    Register the module/prefix pair, then replay previous selections. Repeated
     initialization preserves existing exports and shares same-policy callables.
-    The target must be loaded. Re-registration refreshes its resolved namespace.
-    Publication errors propagate and leave the destination registered for retry.
+    Re-registration refreshes the resolved namespace. Publication errors propagate
+    and leave the destination registered for retry.
+
+    Parameters
+    ----------
+    prefix : str
+        Component prefix selecting op names; an empty prefix selects all names.
+        The matched prefix is removed from names published in this destination.
+    target_module_name : str
+        Name of the already loaded destination module in sys.modules.
+    wrapper : _OpWrapper or None, optional
+        Adapter for newly generated callables. None publishes raw constructors;
+        the same adapter identity shares callables across destinations.
+
+    Raises
+    ------
+    KeyError
+        If the target module is not loaded.
+    ValueError
+        If replay encounters a non-callable binding at an exposed op name.
     """
     namespace = sys.modules[target_module_name]
     _EXPOSED_OP_API_MODULE_MAP[target_module_name, prefix] = _OpDestination(namespace, wrapper)
@@ -243,6 +366,16 @@ def _exposed_type_class(type_key: str) -> "type[Type]":
 
     Missing parent wrappers are constructed without selecting them for exposure.
     Registry/reflection errors propagate to the requesting destination.
+
+    Parameters
+    ----------
+    type_key : str
+        Fully qualified native type key with completed reflection information.
+
+    Returns
+    -------
+    cls : type[Type]
+        Registered Python type wrapper with a constructor, creating one if needed.
     """
     info = tvm_ffi.core._lookup_or_register_type_info_from_type_key(type_key)
     cls = info.type_cls
@@ -259,12 +392,31 @@ def _exposed_type_class(type_key: str) -> "type[Type]":
 
 
 def _publish_type(type_key: str, prefix: str, namespace: ModuleType) -> Callable[..., Any] | None:
-    """Publish a selected type's printer aliases and return the resulting binding.
+    """Publish a selected type's printer aliases to a matching destination.
 
     Type suffixes are shortened, retaining a valid suffixed name for keywords.
     Existing callables always win, including aliases of an older class for the
-    same type key. Non-callable collisions raise ValueError. An unmatched prefix
-    returns None.
+    same type key. Reflection and binding errors propagate.
+
+    Parameters
+    ----------
+    type_key : str
+        Fully qualified selected native type key with completed reflection.
+    prefix : str
+        Component prefix to remove from the key; empty matches the full key.
+    namespace : ModuleType
+        Resolved destination root beneath which the type aliases are published.
+
+    Returns
+    -------
+    binding : Callable[..., Any] or None
+        Existing or newly installed callable for the last alias, or None if the
+        prefix does not match. A keyword alias returns its valid suffixed binding.
+
+    Raises
+    ------
+    ValueError
+        If a type alias is occupied by a non-callable binding.
     """
     path = _relative_name(type_key, prefix)
     if path is None:
@@ -293,6 +445,16 @@ def _expose_type(type_key: str) -> None:
     """Retain a completed type selection and update matching destination aliases.
 
     Errors propagate while the selection remains available for later replay.
+
+    Parameters
+    ----------
+    type_key : str
+        Fully qualified native type key whose reflection and constructor are ready.
+
+    Raises
+    ------
+    ValueError
+        If a matching destination has a non-callable binding at a type alias.
     """
     type_key = str(type_key)
     _EXPOSED_TYPES[type_key] = None
@@ -304,9 +466,24 @@ def _init_exposed_type_api(prefix: str, target_module_name: str) -> None:
     """Initialize APIs for explicitly exposed types and subscribe to future exposures.
 
     Register the module/prefix pair, then replay previous selections. Existing
-    bindings remain unchanged, so the first published callable wins. The target
-    must be loaded; re-registration refreshes its resolved namespace. Errors
-    propagate and leave the destination registered for a later retry.
+    bindings remain unchanged, so the first published callable wins.
+    Re-registration refreshes the resolved namespace. Errors propagate and leave
+    the destination registered for a later retry.
+
+    Parameters
+    ----------
+    prefix : str
+        Component prefix selecting type keys; an empty prefix selects all keys.
+        The matched prefix is removed before deriving destination aliases.
+    target_module_name : str
+        Name of the already loaded destination module in sys.modules.
+
+    Raises
+    ------
+    KeyError
+        If the target module is not loaded.
+    ValueError
+        If replay encounters a non-callable binding at a type alias.
     """
     namespace = sys.modules[target_module_name]
     _EXPOSED_TYPE_API_MODULE_MAP[target_module_name, prefix] = namespace
