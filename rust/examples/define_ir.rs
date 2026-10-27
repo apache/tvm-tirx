@@ -24,7 +24,9 @@
 //! `tests/python/ir/test_op_rust.py` loads it, which registers these operators and gives each its
 //! TVMScript builder, as `import tvm_tirx` loads `libtvm_tirx_rust`: `T.example_clamp(i, n)`,
 //! `T.example_mark()`, `my_ext.hint(i, attrs={..})` and `with T.example_loop(n) as j:`; and
-//! registers the type, with its class `T.ExamplePair`.
+//! registers the type, with its class `T.ExamplePair`. The test declares a `my_ext` API
+//! destination explicitly and supplies that module when parsing printed source; exposing
+//! an extension operator does not register a default parser namespace.
 
 use tvm_tirx::ir::op_attr::{CALL_EFFECT_KIND, FIXED_RETURN_TYPE};
 use tvm_tirx::ir::sig::{self, IntExpr};

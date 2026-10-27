@@ -19,6 +19,7 @@
 from __future__ import annotations
 
 import sys
+from collections.abc import Callable
 from typing import Any
 
 from tvm_tirx import ir
@@ -226,7 +227,25 @@ webgpu = WebGPUNamespace()
 
 
 def register_script_namespace(name: str, namespace: object) -> object:
-    """Register an explicit backend construction namespace and its public aliases."""
+    """Bind an explicit construction namespace to T and its builder aliases.
+
+    Parameters
+    ----------
+    name : str
+        Attribute name under which the namespace is published.
+    namespace : object
+        Module or custom namespace instance to bind without copying its members.
+
+    Returns
+    -------
+    namespace : object
+        The supplied object, also available as T.<name>.
+
+    Notes
+    -----
+    This updates explicit script attributes, not standalone parser defaults.
+    Use parser.register_namespace separately when text should resolve a root name.
+    """
     globals()[name] = namespace
     if name not in __all__:
         __all__.append(name)
@@ -240,28 +259,73 @@ def register_script_namespace(name: str, namespace: object) -> object:
     return namespace
 
 
-def expose_script_op(name: str) -> Any:
-    """Expose a completed Op to API destinations and return its script binding."""
+def expose_script_op(name: str) -> Callable[..., Any] | None:
+    """Select a completed Op and publish it to declared API destinations.
+
+    Parameters
+    ----------
+    name : str
+        Fully qualified native op name whose definition is ready for publication.
+
+    Returns
+    -------
+    binding : Callable[..., Any] or None
+        The built-in script binding for an ir, prim or tirx prefix. Other roots
+        return None; callers read their extension's explicitly declared API module.
+
+    Raises
+    ------
+    ValueError
+        If a matching destination has a non-callable binding at the op name.
+
+    Notes
+    -----
+    All matching destinations receive the selection before the result is returned.
+    An extension declares its destinations with _init_exposed_op_api; exposure
+    does not register a parser default or infer an extension's script destination.
+    """
     _expose_op(name)
-    if name.partition(".")[0] in ("ir", "prim", "tirx"):
-        prefix = name.partition(".")[0]
-        module_name = "tvm_tirx.tirx.script.ir_builder"
-    else:
-        prefix = ""
-        module_name = "tvm_tirx.script.parser._namespaces"
-    return _publish_op(name, prefix, sys.modules[module_name], _auto_emit_void_call)
+    prefix = name.partition(".")[0]
+    if prefix in ("ir", "prim", "tirx"):
+        return _publish_op(
+            name,
+            prefix,
+            sys.modules["tvm_tirx.tirx.script.ir_builder"],
+            _auto_emit_void_call,
+        )
+    return None
 
 
-def expose_script_type(type_key: str) -> Any:
-    """Expose a completed Type to API destinations and return its script binding."""
+def expose_script_type(type_key: str) -> Callable[..., Any] | None:
+    """Select a completed Type and publish it to declared API destinations.
+
+    Parameters
+    ----------
+    type_key : str
+        Fully qualified native type key whose reflection and constructor are ready.
+
+    Returns
+    -------
+    binding : Callable[..., Any] or None
+        The built-in script binding for an ir or tirx prefix. Other roots return
+        None; callers read their extension's explicitly declared API module.
+
+    Raises
+    ------
+    ValueError
+        If a matching destination has a non-callable binding at a type alias.
+
+    Notes
+    -----
+    All matching destinations receive the selection before the result is returned.
+    An extension declares its destinations with _init_exposed_type_api; exposure
+    does not register a parser default or infer an extension's script destination.
+    """
     _expose_type(type_key)
-    if type_key.partition(".")[0] in ("ir", "tirx"):
-        prefix = type_key.partition(".")[0]
-        module_name = "tvm_tirx.tirx.script.ir_builder"
-    else:
-        prefix = ""
-        module_name = "tvm_tirx.script.parser._namespaces"
-    return _publish_type(type_key, prefix, sys.modules[module_name])
+    prefix = type_key.partition(".")[0]
+    if prefix in ("ir", "tirx"):
+        return _publish_type(type_key, prefix, sys.modules["tvm_tirx.tirx.script.ir_builder"])
+    return None
 
 
 abs = _auto_emit_void_call(_tir_op.abs)  # pylint: disable=redefined-builtin

@@ -40,9 +40,9 @@ import importlib
 from collections.abc import Callable
 from typing import Any
 
-from . import _namespaces
-
-_NAMESPACES = vars(_namespaces)
+# Explicit parser defaults, mapping source names to borrowed namespace objects.
+# Exposure selects APIs for their declared destinations; it never adds defaults here.
+_NAMESPACES: dict[str, object] = {}
 _NAMESPACE_INITIALIZERS: list[Callable[[], None]] = []
 _NAMESPACE_ALIASES: set[str] = {"ir"}
 _ENTRY_EXPORTS = (
@@ -56,15 +56,6 @@ _ENTRY_EXPORTS = (
 __all__ = [*_ENTRY_EXPORTS, "register_namespace", "register_namespace_initializer"]
 _initialized = False
 _initializing = False
-
-
-def _namespace_items():
-    """Iterate public bindings, excluding the destination module's Python metadata."""
-    return (
-        (name, value)
-        for name, value in _NAMESPACES.items()
-        if not name.startswith("_") or name in _namespaces.__all__
-    )
 
 
 def register_namespace(alias: str, namespace: object) -> None:
@@ -87,12 +78,13 @@ def register_namespace(alias: str, namespace: object) -> None:
 
     Notes
     -----
-    Each parse borrows these namespaces. Replacing an alias affects future parses
-    only; registration enters no builder frame and inspects no namespace members.
+    Each parse borrows these explicitly registered defaults. Replacing an alias
+    affects future parses only; registration enters no builder frame and inspects
+    no namespace members. Imported extension objects also work through Python
+    scope without registration. Text parsing can receive them through imports or
+    extra_vars; exposing an op or type does not register a parser default.
     """
     _NAMESPACES[alias] = namespace
-    if alias not in _namespaces.__all__:
-        _namespaces.__all__.append(alias)
 
 
 def register_namespace_initializer(
@@ -143,9 +135,7 @@ def _initialize() -> None:
 
 
 def __getattr__(name: str) -> Any:
-    if (name.startswith("_") and name not in _namespaces.__all__) or (
-        name not in _ENTRY_EXPORTS and name not in _NAMESPACES and name not in _NAMESPACE_ALIASES
-    ):
+    if name not in _ENTRY_EXPORTS and name not in _NAMESPACES and name not in _NAMESPACE_ALIASES:
         raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
     _initialize()
     if name in _ENTRY_EXPORTS:

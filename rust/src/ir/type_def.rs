@@ -159,10 +159,12 @@ fn register_type_attr(type_index: i32, name: &str, mut value: Any) -> Result<()>
 ///
 /// The block registers its types when its program or library loads, as a
 /// [`register_ops!`](crate::register_ops) block registers its operators, and once per process.
-/// Python then constructs a type from its fields, `my_ext.Pair(T.int32, second=T.float32)`, as it
-/// constructs a C++ type, a JSON graph holds it, and, when Python has imported `tvm_tirx` before it
-/// loads the library, the type gets the class its TVMScript constructor names. The type of each
-/// field and the parent's object implement [`Placeholder`].
+/// With an explicitly declared `my_ext` type API destination, Python constructs a type from its
+/// fields as `my_ext.Pair(T.int32, second=T.float32)`, like a C++ type, and a JSON graph holds it.
+/// Import `tvm_tirx` before loading the library so exposure requests reach Python. Import the
+/// extension module in Python scope, or supply it to text parsing through imports, `extra_vars`
+/// or explicit parser namespace registration; type exposure does not add parser defaults.
+/// The type of each field and the parent's object implement [`Placeholder`].
 #[macro_export]
 macro_rules! register_types {
     ($(

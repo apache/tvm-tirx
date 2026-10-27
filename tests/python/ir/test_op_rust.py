@@ -103,12 +103,19 @@ ROUND_TRIP = """
     from tvm_tirx import ir
     from tvm_tirx.script import tirx as T
 
-    # Each builder is generated from the signature of its operator under the name the printer
-    # gives its calls: `T.<name>` for `tirx.<name>`, and outside `tirx.`, in the parser namespace
-    # its root names.
+    # Built-in destinations expose tirx operators as T.<name>. Extensions declare
+    # their own API module and pass it explicitly when parsing printed source.
     assert T.example_clamp.__doc__ == ir.Op.get("tirx.example_clamp").doc
     assert T.example_loop.__doc__ == ir.Op.get("tirx.example_loop").doc
-    from tvm_tirx.script.parser import my_ext
+    import importlib
+    import sys
+    from types import ModuleType
+    from tvm_tirx.ir._expose_api import _init_exposed_op_api
+    from tvm_tirx.script.ir_builder.base import auto_emit_void_call
+
+    sys.modules["my_ext"] = ModuleType("my_ext")
+    _init_exposed_op_api("my_ext", "my_ext", wrapper=auto_emit_void_call)
+    my_ext = importlib.import_module("my_ext")
 
     assert my_ext.hint.__doc__ == ir.Op.get("my_ext.hint").doc
 
@@ -125,7 +132,7 @@ ROUND_TRIP = """
     assert "T.example_mark()" in text, text
     assert 'my_ext.hint(i, attrs={"note": "hot"})' in text, text
     assert "with T.example_loop(n) as j:" in text, text
-    parsed = tvm_tirx.script.parse(text, extra_vars={"T": T})
+    parsed = tvm_tirx.script.parse(text, extra_vars={"T": T, "my_ext": my_ext})
     assert tvm_ffi.structural_equal(parsed, func), parsed.script()
     assert parsed.script() == text
 """
