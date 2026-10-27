@@ -21,38 +21,6 @@ from tvm_tirx.script import ir as I
 from tvm_tirx.script import tirx as T
 
 
-def test_popcount():
-    target = {
-        "kind": "llvm",
-        "mtriple": "armv7l-none-linux-gnueabihf",
-        "mcpu": "cortex-a53",
-        "mattr": ["+neon"],
-    }
-
-    def check_correct_assembly(type, elements, counts):
-        @I.ir_module
-        class Module:
-            @T.function
-            def main(A: T.Tensor((elements,), type), B: T.Tensor((elements,), type)):
-                T.func_attr({"tirx.noalias": True})
-                for i in T.vectorized(elements):
-                    B[i] = T.popcount(A[i])
-
-        f = tvm_tirx.tirx.compile(Module, target=target).mod
-        # Verify we see the correct number of vpaddl and vcnt instructions in the assembly
-        assembly = f.inspect_source("asm")
-        matches = re.findall("vpaddl", assembly)
-        assert len(matches) == counts
-        matches = re.findall("vcnt", assembly)
-        assert len(matches) == 1
-
-    check_correct_assembly("uint16", 8, 1)
-    check_correct_assembly("uint16", 4, 1)
-    check_correct_assembly("uint32", 4, 2)
-    check_correct_assembly("uint32", 2, 2)
-    check_correct_assembly("uint64", 2, 3)
-
-
 def test_vmlal_s16():
     target = {
         "kind": "llvm",
@@ -121,5 +89,4 @@ def test_vmlal_s16():
 
 
 if __name__ == "__main__":
-    test_popcount()
     test_vmlal_s16()

@@ -237,18 +237,15 @@ class VectorizationAnalysis : private tvm::ExprFunctor<bool(const Expr&)>,
   bool Dispatch_(const CallObj* op) final {
     // These unary operations are lane-wise and pure. Keep arbitrary calls and
     // scalable call lowering outside the admitted subset.
-    if (scalable_ || op->args.size() != 1) return false;
+    if (!allow_rvv_calls_ || scalable_ || op->args.size() != 1) return false;
     auto arg = op->args[0].as<PrimExpr>();
     auto result_type = op->ty.as<PrimType>();
     if (!arg || !result_type || !AnalyzeExpr(*arg)) return false;
     PrimType input_type = arg->ty();
     bool supported = false;
-    if (op->op.same_as(prim::popcount_op())) {
-      supported = input_type.MatchesCode(DLDataTypeCode::kDLInt, DLDataTypeCode::kDLUInt) &&
-                  input_type == *result_type;
-    } else if (allow_rvv_calls_ && op->op.same_as(prim::floor_op())) {
+    if (op->op.same_as(prim::floor_op())) {
       supported = input_type.MatchesCode(DLDataTypeCode::kDLFloat) && input_type == *result_type;
-    } else if (allow_rvv_calls_ && op->op.same_as(tirx::reinterpret_op())) {
+    } else if (op->op.same_as(tirx::reinterpret_op())) {
       supported = input_type.bits() >= 8 && input_type.bits() == result_type->bits();
     }
     return supported && Record(op, VariationOf(*arg));
