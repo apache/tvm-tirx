@@ -20,7 +20,6 @@ set -euxo pipefail
 
 export CMAKE_ARGS="
     -DTVM_TIRX_BUILD_TESTS=ON
-    -DTVM_TIRX_USE_LLVM='/usr/bin/llvm-config-15 --link-static'
     -DTVM_TIRX_USE_CUDA=ON
     -DTVM_TIRX_USE_VULKAN=OFF
     -DTVM_TIRX_USE_OPENCL=OFF
