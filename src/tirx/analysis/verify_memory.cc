@@ -118,9 +118,24 @@ class MemoryAccessVerifier final : public StmtExprVisitor {
   }
   //@}
 
+  /// Resolve decl_tensor(tensor_data_ptr(X)) views of a tensor to their base X.
+  const VarObj* ResolveTensorView(const VarObj* V) const {
+    while (true) {
+      auto it = defs_.find(V);
+      if (it == defs_.end()) return V;
+      const CallObj* decl = it->second.as<const CallObj>();
+      if (!decl || !decl->op.same_as(tirx::decl_tensor_op()) || decl->args.empty()) return V;
+      const CallObj* data = decl->args[0].as<const CallObj>();
+      if (!data || !data->op.same_as(tirx::tensor_data_ptr_op()) || data->args.empty()) return V;
+      const VarObj* base = data->args[0].as<VarObj>();
+      if (!base) return V;
+      V = base;
+    }
+  }
+
   /// Check if the value of a Variable comes from function argument.
   bool IsFromFunctionArgs(const VarObj* var) const {
-    const VarObj* V = var;
+    const VarObj* V = ResolveTensorView(var);
     for (const Var& param : func_->params) {
       if (param->ty.as<TensorTypeObj>() && V == param.get()) return true;
     }

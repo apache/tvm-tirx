@@ -86,5 +86,32 @@ def test_explicit_tile_pass_order_and_diagnostic(monkeypatch, capfd, print_after
         assert "TileLayout" in output
 
 
+def _prepare_for_cuda(func):
+    from tvm_tirx.tirx.compilation_pipeline import tirx_pipeline
+
+    target = tvm_tirx.target.Target({"kind": "cuda", "arch": "sm_80"})
+    pipeline, _, _ = tirx_pipeline(prepare_only=True, target=target)
+    return pipeline(tvm_tirx.IRModule({"main": func}))
+
+
+def test_verify_memory_rejects_host_store_to_gpu_tensor():
+    @T.function
+    def kernel(A: T.Tensor((1,), "float32")):
+        A[0] = T.float32(1)
+
+    with pytest.raises(RuntimeError, match="Did you forget to bind"):
+        _prepare_for_cuda(kernel)
+
+
+def test_verify_memory_rejects_host_store_to_gpu_tensor_view():
+    @T.function
+    def kernel(A: T.Tensor((1, 1), "float32")):
+        A_view = T.decl_tensor(A.data, ty_args=[T.Tensor((1,), "float32")])
+        A_view[0] = T.float32(1)
+
+    with pytest.raises(RuntimeError, match="Did you forget to bind"):
+        _prepare_for_cuda(kernel)
+
+
 if __name__ == "__main__":
     tvm_tirx.testing.main()
