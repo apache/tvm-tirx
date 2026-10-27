@@ -42,6 +42,18 @@ Table of Contents
 
 .. toctree::
    :maxdepth: 1
+   :caption: CUDA/PTX Programming Guides
+   :titlesonly:
+
+   cuda/backend_implementation
+   cuda/language_basics
+   cuda/ptx_tablegen
+   cuda/layouts
+   cuda/tile_operations
+   cuda/iket_profiling
+
+.. toctree::
+   :maxdepth: 1
    :caption: Compiler Internals
    :titlesonly:
 
