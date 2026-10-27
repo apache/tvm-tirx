@@ -75,16 +75,6 @@ class TypeObj : public ffi::Object {
 class Type : public ffi::ObjectRef {
  public:
   /*!
-   * \brief Request a registered IR type's constructor in its exposure destinations.
-   * \param type_key The registered type key.
-   * \note Call after ObjectDef finalization and all reflection and constructor registration.
-   *       The first call caches the optional ir.expose_type receiver, including its absence.
-   *       This permits standalone native use. Install the receiver before the first call to enable
-   *       exposure; errors from an installed receiver propagate.
-   */
-  TVM_TIRX_DLL static void Expose(const ffi::String& type_key);
-
-  /*!
    * \brief Request API exposure of a registered IR object type.
    * \tparam TypeObj The object class, not its reference wrapper.
    * \note Finish the ObjectDef statement and constructor registration before calling.
@@ -103,6 +93,17 @@ class Type : public ffi::ObjectRef {
   TVM_TIRX_DLL static Type Missing();
 
   TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(Type, ffi::ObjectRef, TypeObj);
+
+ private:
+  /*!
+   * \brief Request a registered IR type's constructor in its exposure destinations.
+   * \param type_key The registered type key.
+   * \note Call after ObjectDef finalization and all reflection and constructor registration.
+   *       The first call caches the optional ir.expose_type receiver, including its absence.
+   *       This permits standalone native use. Install the receiver before the first call to enable
+   *       exposure; errors from an installed receiver propagate.
+   */
+  TVM_TIRX_DLL static void Expose(const ffi::String& type_key);
 };
 
 /*!

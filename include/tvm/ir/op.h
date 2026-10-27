@@ -170,15 +170,6 @@ class Op : public Expr {
   }
 
   /*!
-   * \brief Request a registered operator's APIs in its exposure destinations.
-   * \param op_name The canonical registered operator name.
-   * \note Call after its signature and attributes are complete. The first call caches the optional
-   *       ir.expose_op receiver, including absence for standalone native use. Install it before
-   *       the first call to enable exposure; errors from an installed receiver propagate.
-   */
-  TVM_TIRX_DLL static void Expose(const ffi::String& op_name);
-
-  /*!
    * \brief Look up a registered operator by name.
    * \param op_name The canonical name.
    * \return A copy of the reference-counted handle to the canonical node.
@@ -203,6 +194,16 @@ class Op : public Expr {
   TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(Op, Expr, OpObj);
 
  private:
+  friend class OpDef;
+  /*!
+   * \brief Request a registered operator's APIs in its exposure destinations.
+   * \param op_name The canonical registered operator name.
+   * \note Call after its signature and attributes are complete. The first call caches the optional
+   *       ir.expose_op receiver, including absence for standalone native use. Install it before
+   *       the first call to enable exposure; errors from an installed receiver propagate.
+   */
+  TVM_TIRX_DLL static void Expose(const ffi::String& op_name);
+
   TVM_TIRX_DLL static void ThrowInvalidCall(const OpObj* op);
   TVM_TIRX_DLL static ffi::List<ffi::Any> GetAttrColumn(const ffi::String& attr_name);
 };
