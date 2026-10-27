@@ -17,7 +17,7 @@
 # pylint: disable=unused-import
 """Primitive expressions and construction helpers shared by TVM IR dialects."""
 
-from tvm_tirx.ir.op import _init_exposed_op_api
+from tvm_tirx.ir._expose_api import _init_exposed_op_api
 
 from .._constant import const
 from ..expr import Expr

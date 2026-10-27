@@ -30,8 +30,9 @@ from tvm_tirx import ir
 from tvm_tirx import ir as _ir
 from tvm_tirx import tirx as tir
 from tvm_tirx.ir import FloatImm, IntImm, Range, TensorLoad, TensorRegion, Type
+from tvm_tirx.ir._expose_api import _init_exposed_type_api
 from tvm_tirx.ir.location import UNKNOWN_LOC, Location
-from tvm_tirx.ir.type import _init_exposed_type_api, _normalize_type
+from tvm_tirx.ir.type import _normalize_type
 from tvm_tirx.runtime import MemoryScope
 from tvm_tirx.script.ir_builder.base import MISSING, AlreadyEmitted, IRBuilder
 from tvm_tirx.script.ir_builder.ir import Lambda, meta_var

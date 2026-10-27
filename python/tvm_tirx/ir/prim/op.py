@@ -18,8 +18,8 @@
 
 from typing import Any
 
+from tvm_tirx.ir._expose_api import _init_exposed_op_api
 from tvm_tirx.ir.location import UNKNOWN_LOC, Location
-from tvm_tirx.ir.op import _init_exposed_op_api
 
 from ..expr import Call, Expr
 from . import _ffi_api

@@ -19,8 +19,8 @@
 from __future__ import annotations
 
 from tvm_tirx.ir import Call, Expr, Op, Var
+from tvm_tirx.ir._expose_api import _make_op_api
 from tvm_tirx.ir.location import UNKNOWN_LOC, Location
-from tvm_tirx.ir.op import _make_op_api
 from tvm_tirx.tirx import is_tensor_var
 from tvm_tirx.tirx.op import call_intrin
 

@@ -29,9 +29,16 @@ from tvm_tirx import tirx as tir
 # pylint: disable=unused-import
 from tvm_tirx.codegen.llvm import lookup_intrinsic_id as llvm_lookup_intrinsic_id
 from tvm_tirx.ir import Call, CallEffectKind, Var
-from tvm_tirx.ir._exposure import _bind_api
+from tvm_tirx.ir._expose_api import (
+    _bind_api,
+    _expose_op,
+    _expose_type,
+    _init_exposed_op_api,
+    _make_op_api,
+    _publish_op,
+    _publish_type,
+)
 from tvm_tirx.ir.location import UNKNOWN_LOC, Location
-from tvm_tirx.ir.op import _init_exposed_op_api
 from tvm_tirx.ir.prim import _ffi_api as _prim_ffi
 from tvm_tirx.ir.prim import _ffi_api as _prim_ffi_api
 from tvm_tirx.ir.prim.vector_expr import Broadcast, Ramp, Shuffle
@@ -235,26 +242,26 @@ def register_script_namespace(name: str, namespace: object) -> object:
 
 def expose_script_op(name: str) -> Any:
     """Expose a completed Op to API destinations and return its script binding."""
-    _ir.op._expose_op(name)
+    _expose_op(name)
     if name.partition(".")[0] in ("ir", "prim", "tirx"):
         prefix = name.partition(".")[0]
         module_name = "tvm_tirx.tirx.script.ir_builder"
     else:
         prefix = ""
         module_name = "tvm_tirx.script.parser._namespaces"
-    return _ir.op._publish_op(name, prefix, module_name, _auto_emit_void_call)
+    return _publish_op(name, prefix, sys.modules[module_name], _auto_emit_void_call)
 
 
 def expose_script_type(type_key: str) -> Any:
     """Expose a completed Type to API destinations and return its script binding."""
-    _ir.type._expose_type(type_key)
+    _expose_type(type_key)
     if type_key.partition(".")[0] in ("ir", "tirx"):
         prefix = type_key.partition(".")[0]
         module_name = "tvm_tirx.tirx.script.ir_builder"
     else:
         prefix = ""
         module_name = "tvm_tirx.script.parser._namespaces"
-    return _ir.type._publish_type(type_key, prefix, module_name)
+    return _publish_type(type_key, prefix, sys.modules[module_name])
 
 
 abs = _auto_emit_void_call(_tir_op.abs)  # pylint: disable=redefined-builtin
@@ -437,7 +444,7 @@ stack_make_dltensor = _auto_emit_void_call(_tir_op.stack_make_dltensor)
 call_packed = _auto_emit_void_call(_tir_op.call_packed)
 
 
-_call_ffi_kernel_raw = _ir.op._make_op_api(_ir.Op.get("tirx.call_ffi_kernel"), __name__)
+_call_ffi_kernel_raw = _make_op_api(_ir.Op.get("tirx.call_ffi_kernel"), __name__)
 
 
 @_auto_emit_void_call

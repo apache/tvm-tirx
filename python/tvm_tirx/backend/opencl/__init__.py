@@ -21,7 +21,7 @@ from pathlib import Path
 from tvm_ffi.libinfo import load_lib_ctypes
 
 from tvm_tirx.base import _LOADED_LIBS
-from tvm_tirx.ir.op import _init_exposed_op_api
+from tvm_tirx.ir._expose_api import _init_exposed_op_api
 
 
 def _detect_target_from_device(dev):

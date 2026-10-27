@@ -16,7 +16,7 @@
 # under the License.
 """OpenCL TVMScript operator exports."""
 
-from tvm_tirx.ir.op import _init_exposed_op_api
+from tvm_tirx.ir._expose_api import _init_exposed_op_api
 from tvm_tirx.script.ir_builder.base import auto_emit_void_call as _auto_emit_void_call
 
 _init_exposed_op_api("tirx.opencl", __name__, wrapper=_auto_emit_void_call)

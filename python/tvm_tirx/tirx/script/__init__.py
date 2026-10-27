@@ -31,14 +31,13 @@ def _initialize() -> None:
         return
     _initializing = True
     try:
-        from tvm_tirx.ir.type import _init_exposed_type_api
+        from tvm_tirx.ir._expose_api import _init_exposed_type_api
         from tvm_tirx.script.parser import entry, register_namespace
         from tvm_tirx.tirx.layout import Axis
 
         from . import ir_builder as builder
         from .jit import make_jit
 
-        _init_exposed_type_api("ir", __name__)
         globals().update(
             (name, value) for name, value in vars(builder).items() if not name.startswith("_")
         )
@@ -58,9 +57,10 @@ def _initialize() -> None:
         register_namespace("tirx", namespace)
         register_namespace("Axis", Axis)
         globals()["__all__"] = sorted(name for name in globals() if not name.startswith("_"))
-        from tvm_tirx.ir.op import _init_exposed_op_api
+        from tvm_tirx.ir._expose_api import _init_exposed_op_api
         from tvm_tirx.script.ir_builder.base import auto_emit_void_call
 
+        _init_exposed_type_api("ir", __name__)
         _init_exposed_type_api("tirx", __name__)
         _init_exposed_op_api("ir", __name__, wrapper=auto_emit_void_call)
         _init_exposed_op_api("prim", __name__, wrapper=auto_emit_void_call)

@@ -26,8 +26,8 @@ import tvm_ffi
 
 from tvm_tirx import tirx
 from tvm_tirx.ir import Attrs, Call, Op, StringImm, const
+from tvm_tirx.ir._expose_api import _init_exposed_op_api, _make_op_api
 from tvm_tirx.ir.location import UNKNOWN_LOC, Location
-from tvm_tirx.ir.op import _init_exposed_op_api, _make_op_api
 from tvm_tirx.runtime import MemoryScope
 from tvm_tirx.tirx.op import bitwise_and, call_intrin, ptr_byte_offset
 

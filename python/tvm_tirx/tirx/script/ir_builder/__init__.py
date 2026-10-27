@@ -15,14 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 """Concrete TIRx construction operations over the shared native IRBuilder stack."""
-# ruff: noqa: E402
 
-from tvm_tirx.ir.op import _init_exposed_op_api
-from tvm_tirx.ir.type import _init_exposed_type_api
-
-# Own shared aliases before composing the handwritten builder exports.
-_init_exposed_type_api("ir", __name__)
-
+from tvm_tirx.ir._expose_api import _init_exposed_op_api, _init_exposed_type_api
 from tvm_tirx.script.ir_builder import *  # noqa: F403 - Re-export the public namespace.
 from tvm_tirx.script.ir_builder import __all__ as _shared_exports
 from tvm_tirx.script.ir_builder import constexpr, dtype, dynamic
@@ -63,6 +57,7 @@ __all__ = [
 ]
 
 
+_init_exposed_type_api("ir", __name__)
 _init_exposed_type_api("tirx", __name__)
 _init_exposed_op_api("ir", __name__, wrapper=_auto_emit_void_call)
 _init_exposed_op_api("prim", __name__, wrapper=_auto_emit_void_call)

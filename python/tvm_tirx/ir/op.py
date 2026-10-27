@@ -21,10 +21,8 @@ from collections.abc import Sequence
 
 import tvm_ffi
 
-from tvm_tirx.ir.location import UNKNOWN_LOC, Location
-
 from . import _ffi_api
-from ._exposure import _api_attribute, _api_slot, _bind_api, _relative_name
+from ._expose_api import _init_exposed_op_api
 from .expr import Expr
 
 
@@ -258,137 +256,6 @@ def register_op_attr(op_name, attr_key, value=None, override=False):
         return v
 
     return _register(value) if value is not None else _register
-
-
-def _make_op_api(op, module_name):
-    """Build a callable whose operands and result are governed by its Op."""
-    from .attrs import make_node  # pylint: disable=import-outside-toplevel
-    from .expr import Call  # pylint: disable=import-outside-toplevel
-
-    def call(
-        *args,
-        attrs=None,
-        ty_args=None,
-        loc: Location = UNKNOWN_LOC,
-        ty=None,
-        **kwargs,
-    ):
-        # Bind named operands using the registered signature, without inventing
-        # defaults or interpreting arbitrary Python wrapper signatures.
-        is_region = op.get_attr("FRegionGetBodyParams") is not None
-        body_params = kwargs.pop("body_params", None) if is_region else None
-        operands = list(args)
-        for index, info in enumerate(op.args_info):
-            if index < len(args):
-                if info.name in kwargs:
-                    raise TypeError(f"{op.name}: multiple values for {info.name!r}")
-            elif info.name in kwargs:
-                operands.append(kwargs.pop(info.name))
-            else:
-                raise TypeError(f"{op.name}: missing operand {info.name!r}")
-        if kwargs or (attrs is None and op.attrs_type_key):
-            if not op.attrs_type_key:
-                raise TypeError(f"{op.name}: unexpected keyword operands {tuple(kwargs)}")
-            if attrs is not None:
-                raise TypeError(f"{op.name}: cannot mix attrs with attribute keywords")
-            attrs = make_node(op.attrs_type_key, **kwargs)
-        if is_region:
-            from tvm_tirx.script.ir_builder.stmt import region
-
-            if (
-                ty is not None
-                or ty_args is not None
-                or not isinstance(loc, Location)
-                or not loc.same_as(UNKNOWN_LOC)
-            ):
-                raise TypeError(
-                    f"{op.name}: region builders do not accept ty, ty_args or an explicit loc"
-                )
-            return region(op, operands, body_params=body_params, attrs=attrs)
-        return Call(
-            op,
-            operands,
-            attrs=attrs,
-            ty_args=ty_args,
-            loc=loc,
-            ty=ty,
-        )
-
-    call.__name__ = op.name.rsplit(".", 1)[-1]
-    call.__module__ = module_name
-    call.__doc__ = op.doc or f"Construct a call to {op.name}."
-    return call
-
-
-_EXPOSED_OPS = {}
-_OP_API_DESTINATIONS = {}
-_OP_API_CALLABLES = {}
-_OP_PUBLICATIONS = {}
-
-
-def _publish_op(name, prefix, module_name, wrapper):
-    path = _relative_name(name, prefix)
-    if path is None or (slot := _api_slot(module_name, path)) is None:
-        return None
-    container, leaf = slot
-    existing = _api_attribute(container, leaf)
-    if existing is not None:
-        if not callable(existing):
-            raise ValueError(f"Op {name!r} conflicts with a non-callable Python attribute")
-        return existing
-    key = name, id(wrapper)
-    cached = _OP_API_CALLABLES.get(key)
-    if cached is None:
-        op = Op.get(name)
-        call = _make_op_api(op, module_name)
-        if wrapper is not None:
-            call = wrapper(call)
-        # Retain even unhashable policies so their identity cannot be reused.
-        _OP_API_CALLABLES[key] = wrapper, call
-    else:
-        _, call = cached
-    return _bind_api(container, leaf, call)
-
-
-def _publish_op_destinations(name, destinations):
-    if name in _OP_PUBLICATIONS:
-        pending, visited = _OP_PUBLICATIONS[name]
-        pending.update((key, None) for key in destinations if key not in visited)
-        return
-    pending, visited = dict.fromkeys(destinations), set()
-    _OP_PUBLICATIONS[name] = pending, visited
-    try:
-        # Reentrant exposure can add destinations, but cannot wrap one twice.
-        while pending:
-            module_name, prefix = next(iter(pending))
-            wrapper = _OP_API_DESTINATIONS[module_name, prefix]
-            _publish_op(name, prefix, module_name, wrapper)
-            visited.add((module_name, prefix))
-            del pending[module_name, prefix]
-    finally:
-        del _OP_PUBLICATIONS[name]
-
-
-def _expose_op(name):
-    name = str(name)
-    # Record before publication: a failed destination can replay this request.
-    _EXPOSED_OPS[name] = None
-    _publish_op_destinations(name, _OP_API_DESTINATIONS)
-
-
-def _init_exposed_op_api(prefix, target_module_name, *, wrapper=None):
-    """Initialize APIs for explicitly exposed ops and subscribe to future exposures.
-
-    The prefix matches complete name components. Existing Python definitions take
-    precedence. A wrapper adapts newly generated callables for the destination;
-    omitting it publishes raw constructors. Reinitialization replays selected ops
-    without wrapping existing exports again. Destinations with the same wrapper
-    policy share a callable, retaining its identity and original ``__module__``
-    across facade reexports.
-    """
-    _OP_API_DESTINATIONS[target_module_name, prefix] = wrapper
-    for name in tuple(_EXPOSED_OPS):
-        _publish_op_destinations(name, [(target_module_name, prefix)])
 
 
 _init_exposed_op_api("ir", __name__)

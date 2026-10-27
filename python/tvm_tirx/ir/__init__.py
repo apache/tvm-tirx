@@ -91,15 +91,7 @@ from .stmt import (
 # Load passes after the common IR classes used by transformations are registered.
 from . import transform
 
-# Native requests arrive before the IR wrappers are ready. Connect their stable
-# receivers here; destinations can now replay selections without loading script.
-from tvm_tirx import base as _base
-from .op import _expose_op
-from .type import _expose_type
+# Connect exposure after the shared IR wrappers are ready.
+from ._expose_api import _install_exposure_callbacks
 
-_base._EXPOSE_OP_CALLBACK = _expose_op
-_base._EXPOSE_TYPE_CALLBACK = _expose_type
-while _base._PENDING_EXPOSURES:
-    _kind, _name = _base._PENDING_EXPOSURES[0]
-    (_expose_op if _kind == "op" else _expose_type)(_name)
-    _base._PENDING_EXPOSURES.popleft()
+_install_exposure_callbacks()

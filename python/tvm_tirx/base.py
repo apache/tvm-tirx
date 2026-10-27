@@ -22,7 +22,9 @@ import importlib
 import importlib.util
 import os
 from collections import deque
+from collections.abc import Callable
 from pathlib import Path
+from typing import Literal
 
 from tvm_ffi import libinfo as tvm_ffi_libinfo
 from tvm_ffi import register_global_func
@@ -32,13 +34,16 @@ from . import libinfo
 
 # These receivers must exist before native static initialization. Keep them stable:
 # native callers may cache them before the IR modules have finished importing.
-_EXPOSE_OP_CALLBACK = None
-_EXPOSE_TYPE_CALLBACK = None
-_PENDING_EXPOSURES = deque()
+# Op dispatcher installed after the IR wrappers finish loading.
+_EXPOSE_OP_CALLBACK: Callable[[str], None] | None = None
+# Type dispatcher installed at the same IR initialization boundary.
+_EXPOSE_TYPE_CALLBACK: Callable[[str], None] | None = None
+# Early native selections, removed only after successful dispatch.
+_PENDING_EXPOSURES: deque[tuple[Literal["op", "type"], str]] = deque()
 
 
 @register_global_func("ir.expose_op")
-def _expose_op(name):
+def _expose_op(name: str) -> None:
     """Request API exposure after the operator's registration is complete."""
     if _EXPOSE_OP_CALLBACK is None:
         _PENDING_EXPOSURES.append(("op", name))
@@ -47,7 +52,7 @@ def _expose_op(name):
 
 
 @register_global_func("ir.expose_type")
-def _expose_type(type_key):
+def _expose_type(type_key: str) -> None:
     """Request API exposure after the type's reflection and constructor are ready."""
     if _EXPOSE_TYPE_CALLBACK is None:
         _PENDING_EXPOSURES.append(("type", type_key))

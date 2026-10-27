@@ -198,7 +198,9 @@ def test_generated_op_api_constructs_dictionary_attrs():
     op.set_signature(args=[])
     op.set_attrs_type_key("ir.DictAttrs")
     tvm_tirx.ir.register_op_attr(name, "TFixedReturnType", tvm_tirx.ir.PrimType("int32"))
-    api = tvm_tirx.ir.op._make_op_api(op, __name__)
+    from tvm_tirx.ir._expose_api import _make_op_api
+
+    api = _make_op_api(op, __name__)
     assert len(api().attrs) == 0
     call = api(label="preserved", axis=2)
     assert call.attrs["label"] == "preserved"

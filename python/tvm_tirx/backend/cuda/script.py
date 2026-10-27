@@ -20,7 +20,7 @@ from __future__ import annotations
 
 from tvm_tirx import ir as _ir
 from tvm_tirx.backend.cuda import op as _cuda_op
-from tvm_tirx.ir.op import _init_exposed_op_api
+from tvm_tirx.ir._expose_api import _init_exposed_op_api, _make_op_api
 from tvm_tirx.script.ir_builder.base import auto_emit_void_call as _auto_emit_void_call
 
 from . import layout as layout
@@ -49,7 +49,7 @@ class _CpAsyncRaw:
         # raw op below.
         self.legacy = _auto_emit_void_call(_cuda_op.ptx_cp_async_legacy)
         op = _ir.Op.get("tirx.s_tir.cp_async_raw")
-        self._construct = _auto_emit_void_call(_ir.op._make_op_api(op, __name__))
+        self._construct = _auto_emit_void_call(_make_op_api(op, __name__))
 
     def __call__(self, *args, **kwds):
         return self._construct(*args, **kwds)
@@ -102,10 +102,10 @@ class CudaTcgen05Namespace:
             _cuda_op.tcgen05_encode_matrix_descriptor
         )
         self.encode_instr_descriptor = _auto_emit_void_call(
-            _ir.op._make_op_api(_ir.Op.get("tirx.cuda.tcgen05_encode_instr_descriptor"), __name__)
+            _make_op_api(_ir.Op.get("tirx.cuda.tcgen05_encode_instr_descriptor"), __name__)
         )
         self.encode_instr_descriptor_block_scaled = _auto_emit_void_call(
-            _ir.op._make_op_api(
+            _make_op_api(
                 _ir.Op.get("tirx.cuda.tcgen05_encode_instr_descriptor_block_scaled"), __name__
             )
         )

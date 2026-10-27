@@ -21,8 +21,8 @@ from typing import NoReturn, TypeVar
 import tvm_ffi
 
 from tvm_tirx.ir import DataTypeImm, GlobalInfo, LambdaExpr, Location, Var
+from tvm_tirx.ir._expose_api import _init_exposed_type_api
 from tvm_tirx.ir.location import UNKNOWN_LOC
-from tvm_tirx.ir.type import _init_exposed_type_api
 
 from . import _ffi_api
 from .base import IRBuilder, LocationEntry

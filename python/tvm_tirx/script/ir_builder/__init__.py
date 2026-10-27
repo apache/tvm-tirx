@@ -35,7 +35,7 @@ from tvm_tirx.ir import (
     Var,
     make_node,
 )
-from tvm_tirx.ir.type import _init_exposed_type_api
+from tvm_tirx.ir._expose_api import _init_exposed_type_api
 
 from .base import (
     MISSING,

@@ -40,8 +40,8 @@ from tvm_tirx.ir import (
     Var,
     const,
 )
+from tvm_tirx.ir._expose_api import _init_exposed_op_api
 from tvm_tirx.ir.location import UNKNOWN_LOC, Location
-from tvm_tirx.ir.op import _init_exposed_op_api
 from tvm_tirx.ir.prim import clz as clz
 from tvm_tirx.ir.prim import max_value as max_value
 from tvm_tirx.ir.prim import min_value as min_value

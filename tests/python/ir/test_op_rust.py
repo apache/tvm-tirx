@@ -208,14 +208,15 @@ def test_rust_types_are_registered_by_their_library(define_ir_library):
         assert tvm_ffi.structural_equal(parsed, func), parsed.script()
         assert tvm_ffi.structural_equal(ir.load_json(ir.save_json(func)), func)
 
-        # A class written for it in Python takes the name.
+        # Reexposure preserves the first published constructor.
+        original = T.ExamplePair
         @tvm_ffi.register_object("tirx.ExamplePairType")
         class ExamplePair(ir.Type):
             pass
 
-        assert T.expose_script_type("tirx.ExamplePairType") is ExamplePair
-        assert T.ExamplePair is ExamplePair
-        assert type(T.ExamplePair(T.int32, T.float32)) is ExamplePair
+        assert T.expose_script_type("tirx.ExamplePairType") is original
+        assert T.ExamplePair is original
+        assert type(T.ExamplePair(T.int32, T.float32)) is original
         """,
         libraries=[define_ir_library],
     )

@@ -16,11 +16,8 @@
 # under the License.
 """Unified type system in the project."""
 
-import keyword
-import sys
 from collections.abc import Callable
 from typing import ClassVar
-from weakref import ref
 
 import numpy as np
 import tvm_ffi
@@ -29,7 +26,6 @@ from tvm_tirx.ir.location import UNKNOWN_LOC, Location
 from tvm_tirx.runtime import MemoryScope
 
 from . import _ffi_api
-from ._exposure import _api_attribute, _api_slot, _bind_api, _relative_name
 from .base import Node, Scriptable
 
 
@@ -266,115 +262,3 @@ def _normalize_type(value) -> Type:
     if isinstance(value, str | tvm_ffi.dtype):
         return PrimType(value)
     raise TypeError(f"Expected an IR type or primitive dtype, got {type(value).__name__}")
-
-
-_EXPOSED_TYPES = {}
-_TYPE_API_DESTINATIONS = {}
-_TYPE_API_BINDINGS = {}
-
-
-def _exposed_type_class(type_key):
-    info = tvm_ffi.core._lookup_or_register_type_info_from_type_key(type_key)
-    cls = info.type_cls
-    if cls is None or "__init__" not in vars(cls):
-        parent = info.parent_type_info
-        base = parent.type_cls
-        if base is None or "__init__" not in vars(base):
-            base = _exposed_type_class(parent.type_key)
-        namespace, _, name = type_key.rpartition(".")
-        cls = tvm_ffi.register_object(type_key)(
-            type(name, (base,), {"__slots__": (), "__module__": namespace})
-        )
-    return cls
-
-
-def _publish_type(type_key, prefix, module_name):
-    path = _relative_name(type_key, prefix)
-    if path is None:
-        return None
-    namespace, separator, name = path.rpartition(".")
-    names = [name]
-    if len(name) > 4 and name.endswith("Type"):
-        short = name[:-4]
-        names = [short, name] if keyword.iskeyword(short) else [short]
-    cls = None
-    result = None
-    for name in names:
-        path = namespace + separator + name
-        slot = _api_slot(module_name, path)
-        if slot is None:
-            continue
-        container, leaf = slot
-        if cls is None:
-            cls = _exposed_type_class(type_key)
-        existing = _api_attribute(container, leaf)
-        previous = _TYPE_API_BINDINGS.get((module_name, path))
-        if previous is not None and (
-            previous[0]() is not sys.modules[module_name]
-            or previous[1]() is not container
-            or existing is not previous[2]
-        ):
-            previous = None
-        existing_info = getattr(existing, "__tvm_ffi_type_info__", None)
-        same_type = getattr(existing_info, "type_key", None) == type_key
-        prefixes = _TYPE_API_DESTINATIONS[module_name]
-        priority = prefixes.index(prefix)
-        previous_priority = -1
-        if previous is not None:
-            previous_priority = max(
-                (
-                    i
-                    for i, source in enumerate(prefixes)
-                    if _relative_name(previous[3], source) is not None
-                ),
-                default=-1,
-            )
-        if existing is None or same_type or (previous is not None and priority > previous_priority):
-            _bind_api(container, leaf, cls)
-            if existing is None or previous is not None:
-                try:
-                    owner = ref(container)
-                except TypeError:
-                    # SimpleNamespace does not support weak references. Keep the
-                    # nested namespace identity without retaining its root module.
-                    def owner(container=container):
-                        return container
-
-                _TYPE_API_BINDINGS[module_name, path] = (
-                    ref(sys.modules[module_name]),
-                    owner,
-                    cls,
-                    type_key,
-                )
-            else:
-                _TYPE_API_BINDINGS.pop((module_name, path), None)
-            result = cls
-        else:
-            if not callable(existing):
-                raise ValueError(
-                    f"Type {type_key!r} conflicts with a non-callable Python attribute"
-                )
-            result = existing
-    return result
-
-
-def _expose_type(type_key):
-    type_key = str(type_key)
-    _EXPOSED_TYPES[type_key] = None
-    for module_name, prefixes in tuple(_TYPE_API_DESTINATIONS.items()):
-        for prefix in tuple(prefixes):
-            _publish_type(type_key, prefix, module_name)
-
-
-def _init_exposed_type_api(prefix, target_module_name):
-    """Initialize APIs for explicitly exposed types and subscribe to future exposures.
-
-    Later prefixes declared for a destination take precedence over earlier generated
-    aliases. Handwritten bindings retain precedence, and re-exposing the same type
-    refreshes its class. Type suffixes follow the script printer's constructor names.
-    """
-    prefixes = _TYPE_API_DESTINATIONS.setdefault(target_module_name, [])
-    if prefix not in prefixes:
-        prefixes.append(prefix)
-    for type_key in tuple(_EXPOSED_TYPES):
-        _publish_type(type_key, prefix, target_module_name)

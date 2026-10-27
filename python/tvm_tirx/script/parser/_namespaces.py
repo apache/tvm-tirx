@@ -16,8 +16,7 @@
 # under the License.
 """Default parser namespaces for explicitly exposed extension APIs."""
 
-from tvm_tirx.ir.op import _init_exposed_op_api
-from tvm_tirx.ir.type import _init_exposed_type_api
+from tvm_tirx.ir._expose_api import _init_exposed_op_api, _init_exposed_type_api
 from tvm_tirx.script.ir_builder.base import auto_emit_void_call as _auto_emit_void_call
 
 __all__ = []
