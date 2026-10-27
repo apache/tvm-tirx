@@ -40,7 +40,8 @@ TVM_FFI_STATIC_INIT_BLOCK() {
   OpDef("tirx.cpu_parallel_barrier")
       .signature()
       .set_attr(tvm::op_attr::kFixedReturnType, PrimType::Void())
-      .set_attr(tvm::op_attr::kCallEffectKind, CallEffectKind::kOpaque);
+      .set_attr(tvm::op_attr::kCallEffectKind, CallEffectKind::kOpaque)
+      .expose_script();
 }
 
 }  // namespace tirx

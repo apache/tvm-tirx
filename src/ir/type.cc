@@ -29,9 +29,25 @@
 #include <tvm/ir/type.h>
 
 #include <cstdint>
+#include <mutex>
+#include <optional>
 #include <unordered_map>
 
 namespace tvm {
+
+void ExposeScriptType(const ffi::String& type_key) {
+  static std::mutex mutex;
+  static std::optional<ffi::Function> cached;
+  std::optional<ffi::Function> callback;
+  {
+    std::lock_guard<std::mutex> lock(mutex);
+    // Cache only a successful lookup: a receiver may be installed after native loading.
+    if (!cached) cached = ffi::Function::GetGlobal("script.expose_script_type");
+    callback = cached;
+  }
+  // Invoking outside the lock permits a callback to request another exposure.
+  if (callback) (*callback)(type_key);
+}
 
 namespace {
 
@@ -273,6 +289,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
       .attr(ffi::type_attr::kStructuralMaybeInplaceMutate,
             ffi::FStructuralMutate::FromNative<&TypeMaybeInplaceMutate>());
   refl::GlobalDef().def("ir.MissingType", []() { return MissingType(); });
+  ExposeScriptType<MissingTypeObj>();
 }
 
 NoneType::NoneType() : Type(ffi::UnsafeInit{}) {
@@ -289,6 +306,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
       .attr(ffi::type_attr::kStructuralMaybeInplaceMutate,
             ffi::FStructuralMutate::FromNative<&TypeMaybeInplaceMutate>());
   refl::GlobalDef().def("ir.NoneType", []() { return NoneType(); });
+  ExposeScriptType<NoneTypeObj>();
 }
 
 AnyType::AnyType(Location loc) : Type(ffi::UnsafeInit{}) {
@@ -306,6 +324,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
       .attr(ffi::type_attr::kStructuralMaybeInplaceMutate,
             ffi::FStructuralMutate::FromNative<&TypeMaybeInplaceMutate>());
   refl::GlobalDef().def("ir.AnyType", [](Location loc) { return AnyType(loc); });
+  ExposeScriptType<AnyTypeObj>();
 }
 
 TensorRegionType::TensorRegionType() : Type(ffi::UnsafeInit{}) {
@@ -322,6 +341,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
       .attr(ffi::type_attr::kStructuralMaybeInplaceMutate,
             ffi::FStructuralMutate::FromNative<&TypeMaybeInplaceMutate>());
   refl::GlobalDef().def("ir.TensorRegionType", []() { return TensorRegionType(); });
+  ExposeScriptType<TensorRegionTypeObj>();
 }
 
 OpaqueType::OpaqueType() : Type(ffi::UnsafeInit{}) { data_ = ffi::make_object<OpaqueTypeObj>(); }
@@ -337,6 +357,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
             ffi::FStructuralMutate::FromNative<&OpaqueTypeMaybeInplaceMutate>());
 
   refl::GlobalDef().def("ir.OpaqueType", []() { return OpaqueType(); });
+  ExposeScriptType<OpaqueTypeObj>();
 }
 
 // PrimType
@@ -365,6 +386,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
             ffi::FStructuralMutate::FromNative<&PrimTypeMaybeInplaceMutate>());
 
   refl::GlobalDef().def("ir.PrimType", [](DLDataType dtype) { return PrimType(dtype); });
+  ExposeScriptType<PrimTypeObj>();
 }
 
 PrimType PrimType::Int(int bits, int lanes) {
@@ -422,6 +444,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
       .attr(ffi::type_attr::kStructuralMaybeInplaceMutate,
             ffi::FStructuralMutate::FromNative<&TypeMaybeInplaceMutate>());
   refl::GlobalDef().def("ir.StringType", []() { return StringType(); });
+  ExposeScriptType<StringTypeObj>();
 }
 
 // PtrType
@@ -446,6 +469,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
   refl::GlobalDef().def("ir.PtrType", [](Type element_type, runtime::MemoryScope scope = {}) {
     return PtrType(element_type, scope);
   });
+  ExposeScriptType<PtrTypeObj>();
 }
 
 PtrType PtrType::VoidPtrType(runtime::MemoryScope scope) {
@@ -474,6 +498,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
   refl::GlobalDef().def("ir.FuncType", [](tvm::ffi::Array<Type> arg_types, Type ret_type) {
     return FuncType(arg_types, ret_type);
   });
+  ExposeScriptType<FuncTypeObj>();
 }
 
 TupleType::TupleType(ffi::Array<Type> fields, Location loc) : Type(ffi::UnsafeInit{}) {
@@ -495,6 +520,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
 
   refl::GlobalDef().def(
       "ir.TupleType", [](ffi::Array<Type> fields, Location loc) { return TupleType(fields, loc); });
+  ExposeScriptType<TupleTypeObj>();
 }
 
 TupleType TupleType::Empty() { return TupleType(ffi::Array<Type>()); }

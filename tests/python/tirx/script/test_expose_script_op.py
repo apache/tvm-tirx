@@ -25,6 +25,7 @@ from tvm_tirx.ir import Call, Op, PrimType, Type, assert_structural_equal, regis
 from tvm_tirx.script import parser
 from tvm_tirx.script import tirx as T
 from tvm_tirx.tirx.script import ir_builder as builder
+from tvm_tirx.tirx.script.ir_builder.op import _SCRIPT_NAMESPACES
 
 
 def define(name, args, result):
@@ -70,6 +71,7 @@ def exposed():
     for name in names:
         vars(builder).pop(name, None)
         parser._NAMESPACES.pop(name, None)
+        _SCRIPT_NAMESPACES.pop(name, None)
 
 
 def test_builders_round_trip_calls_under_every_root(exposed):
@@ -143,3 +145,15 @@ def test_existing_names_keep_their_values_over_types(exposed):
     builder.TestScriptConstant = 1
     with pytest.raises(ValueError, match="conflicts with a non-callable"):
         T.expose_script_type("tirx.TestScriptConstantType")
+
+
+def test_python_definitions_use_canonical_receivers(exposed):
+    exposed += ["test_script_receiver", "TestScriptPair", "test_script_types"]
+    op = define("tirx.test_script_receiver", ["x", "factor"], "int32")
+    tvm_ffi.get_global_func("script.expose_script_op")(op.name)
+    tvm_ffi.get_global_func("script.expose_script_type")("tirx.TestScriptPairType")
+    tvm_ffi.get_global_func("script.expose_script_type")("test_script_types.BoxType")
+    assert_structural_equal(T.test_script_receiver(x=1, factor=2), Call(op, [1, 2]))
+    assert T.TestScriptPair is ScriptPair
+    assert parser.test_script_types.Box is ScriptBox
+    assert_structural_equal(T.TestScriptPair(T.int32, T.float32), ScriptPair(T.int32, T.float32))

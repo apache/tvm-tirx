@@ -108,7 +108,8 @@ impl Placeholder for Expr {
 
 /// Register the type of the reference `R` of a [`register_types!`](crate::register_types) block:
 /// `__ffi_new__`, then the `__ffi_init__` tvm-ffi generates from the reflected fields, then, once
-/// Python has imported `tvm_tirx`, its TVMScript class (`tirx.script.expose_script_type`).
+/// the Python receiver is available, request its TVMScript class (`script.expose_script_type`).
+/// An absent receiver is a no-op; an installed receiver's error is returned.
 #[doc(hidden)]
 pub fn __register_type<R>() -> Result<()>
 where
@@ -118,7 +119,7 @@ where
     let new = Function::from_typed(|| -> Result<R> { Ok(R::placeholder()) });
     register_type_attr(type_index, "__ffi_new__", Any::from(new))?;
     tvm_ffi::cached_global_func!("ffi._RegisterFFIInit").call_tuple((type_index,))?;
-    if let Ok(expose) = Function::get_global("tirx.script.expose_script_type") {
+    if let Ok(expose) = Function::get_global("script.expose_script_type") {
         expose.call_tuple((String::from(support::type_key(type_index).as_str()),))?;
     }
     Ok(())

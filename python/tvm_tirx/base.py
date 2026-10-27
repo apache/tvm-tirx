@@ -21,12 +21,39 @@
 import importlib
 import importlib.util
 import os
+from collections import deque
 from pathlib import Path
 
 from tvm_ffi import libinfo as tvm_ffi_libinfo
+from tvm_ffi import register_global_func
 from tvm_ffi.libinfo import load_lib_ctypes
 
 from . import libinfo
+
+# These receivers must exist before native static initialization. Keep them stable:
+# native callers may cache them before the script builder has finished importing.
+_EXPOSE_SCRIPT_OP_CALLBACK = None
+_EXPOSE_SCRIPT_TYPE_CALLBACK = None
+_PENDING_SCRIPT_EXPOSURES = deque()
+
+
+@register_global_func("script.expose_script_op")
+def _expose_script_op(name):
+    """Request script exposure after the operator's registration is complete."""
+    if _EXPOSE_SCRIPT_OP_CALLBACK is None:
+        _PENDING_SCRIPT_EXPOSURES.append(("op", name))
+    else:
+        _EXPOSE_SCRIPT_OP_CALLBACK(name)
+
+
+@register_global_func("script.expose_script_type")
+def _expose_script_type(type_key):
+    """Request script exposure after the type's reflection and constructor are ready."""
+    if _EXPOSE_SCRIPT_TYPE_CALLBACK is None:
+        _PENDING_SCRIPT_EXPOSURES.append(("type", type_key))
+    else:
+        _EXPOSE_SCRIPT_TYPE_CALLBACK(type_key)
+
 
 # ----------------------------
 # library loading

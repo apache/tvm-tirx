@@ -188,6 +188,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
                           return TensorType(std::move(shape), std::move(dtype), std::move(scope),
                                             data_alignment, std::move(layout), std::move(loc));
                         });
+  ExposeScriptType<TensorTypeObj>();
 }
 
 TensorMapType::TensorMapType(Location loc) : Type(ffi::UnsafeInit{}) {
@@ -208,6 +209,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
             ffi::FStructuralMutate::FromNative<&TensorMapTypeMaybeInplaceMutate>());
 
   refl::GlobalDef().def("tirx.TensorMapType", [](Location loc) { return TensorMapType(loc); });
+  ExposeScriptType<TensorMapTypeObj>();
 }
 
 }  // namespace tvm::tirx

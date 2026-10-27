@@ -270,7 +270,8 @@ TVM_FFI_STATIC_INIT_BLOCK() {
       .set_native_fn_attr<&LaunchThreadMutate>(op_attr::kStructuralMutateWithConstraintContext)
       .set_native_fn_attr<&LaunchThreadMaybeInplaceMutate>(
           op_attr::kStructuralMaybeInplaceMutateWithConstraintContext)
-      .set_native_fn_attr<&ValidateBuiltinRegion>(tvm::op_attr::kRegionValidate);
+      .set_native_fn_attr<&ValidateBuiltinRegion>(tvm::op_attr::kRegionValidate)
+      .expose_script();
 }
 
 void ValidateDeviceScopeRegion(const RegionStmtObj* region) {
@@ -281,7 +282,8 @@ TVM_FFI_STATIC_INIT_BLOCK() {
   OpDef("tirx.device_scope", "Internal host/device splitting boundary.")
       .signature(sig::var_args<Expr>("launch_values"), sig::call_attrs<DictAttrsObj>())
       .set_native_fn_attr<&RegionNoBodyParams>(tvm::op_attr::kRegionGetBodyParams)
-      .set_native_fn_attr<&ValidateDeviceScopeRegion>(tvm::op_attr::kRegionValidate);
+      .set_native_fn_attr<&ValidateDeviceScopeRegion>(tvm::op_attr::kRegionValidate)
+      .expose_script();
 }
 
 const Op& device_entry_op() {
@@ -306,7 +308,8 @@ TVM_FFI_STATIC_INIT_BLOCK() {
   OpDef("tirx.device_entry", "Enter a device kernel with independent launch configuration.")
       .signature(sig::var_args("launch_values"), sig::call_attrs<DictAttrsObj>())
       .set_native_fn_attr<&RegionNoBodyParams>(tvm::op_attr::kRegionGetBodyParams)
-      .set_native_fn_attr<&ValidateDeviceEntry>(tvm::op_attr::kRegionValidate);
+      .set_native_fn_attr<&ValidateDeviceEntry>(tvm::op_attr::kRegionValidate)
+      .expose_script();
 }
 
 const Op& device_context_op() {
@@ -318,7 +321,8 @@ TVM_FFI_STATIC_INIT_BLOCK() {
   OpDef("tirx.device_context", "Supply the device type and ID within a region.")
       .signature(sig::arg<IntExpr>("device_type"), sig::arg<IntExpr>("device_id"))
       .set_native_fn_attr<&RegionNoBodyParams>(tvm::op_attr::kRegionGetBodyParams)
-      .set_native_fn_attr<&ValidateBuiltinRegion>(tvm::op_attr::kRegionValidate);
+      .set_native_fn_attr<&ValidateBuiltinRegion>(tvm::op_attr::kRegionValidate)
+      .expose_script();
 }
 
 const Op& compute_scope_op() {
@@ -330,7 +334,8 @@ TVM_FFI_STATIC_INIT_BLOCK() {
   OpDef("tirx.compute_scope", "Outline a named CPU compute region.")
       .signature(sig::arg<StringImm>("name"))
       .set_native_fn_attr<&RegionNoBodyParams>(tvm::op_attr::kRegionGetBodyParams)
-      .set_native_fn_attr<&ValidateBuiltinRegion>(tvm::op_attr::kRegionValidate);
+      .set_native_fn_attr<&ValidateBuiltinRegion>(tvm::op_attr::kRegionValidate)
+      .expose_script();
 }
 
 const Op& parallel_launch_op() {
@@ -342,7 +347,8 @@ TVM_FFI_STATIC_INIT_BLOCK() {
   OpDef("tirx.parallel_launch", "Launch a CPU worker team around a region.")
       .signature()
       .set_native_fn_attr<&RegionNoBodyParams>(tvm::op_attr::kRegionGetBodyParams)
-      .set_native_fn_attr<&ValidateBuiltinRegion>(tvm::op_attr::kRegionValidate);
+      .set_native_fn_attr<&ValidateBuiltinRegion>(tvm::op_attr::kRegionValidate)
+      .expose_script();
 }
 
 }  // namespace tirx

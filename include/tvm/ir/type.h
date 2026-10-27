@@ -35,6 +35,30 @@
 namespace tvm {
 
 /*!
+ * \brief Request a registered IR type's constructor in its script namespace.
+ * \param type_key The registered type key.
+ * \note Call after ObjectDef finalization and all reflection and constructor registration.
+ *       Does nothing when the optional script receiver is absent (standalone native use).
+ *       A missing receiver is retried on the next call; errors from a receiver propagate.
+ */
+TVM_TIRX_DLL void ExposeScriptType(const ffi::String& type_key);
+
+/*!
+ * \brief Request script exposure of a registered IR object type.
+ * \tparam TypeObj The object class, not its reference wrapper.
+ * \note Finish the ObjectDef statement and constructor registration before calling.
+ *       Does nothing when the optional script receiver is absent.
+ * \code
+ * ffi::reflection::ObjectDef<FooTypeObj>().def_ro("value", &FooTypeObj::value);
+ * ExposeScriptType<FooTypeObj>();
+ * \endcode
+ */
+template <typename TypeObj>
+inline void ExposeScriptType() {
+  ExposeScriptType(TypeObj::_type_key);
+}
+
+/*!
  * \brief Type is the base type of all types.
  *
  * TVM's type system contains following subclasses:

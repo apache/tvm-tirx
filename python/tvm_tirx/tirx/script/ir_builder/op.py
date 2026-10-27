@@ -223,7 +223,7 @@ _SCRIPT_NAMESPACES = {}
 
 
 def _get_script_namespace(name: str) -> object:
-    """Return an explicitly registered backend construction namespace."""
+    """Return a generated construction binding or registered backend namespace."""
     if name in _SCRIPT_NAMESPACES:
         return _SCRIPT_NAMESPACES[name]
     raise AttributeError(f"No script namespace {name!r}")
@@ -320,6 +320,10 @@ def _script_slot(name: str):
             parser.register_namespace(part, value)
         else:
             setattr(container, part, value)
+            if container is sys.modules["tvm_tirx.tirx.script.ir_builder"]:
+                # Keep successful bindings if a later exposure aborts the builder's
+                # first import. Its next import can recover them through __getattr__.
+                _SCRIPT_NAMESPACES[part] = value
 
     *namespaces, leaf = parts
     for part in namespaces:
@@ -376,11 +380,6 @@ def expose_script_type(type_key: str) -> Any:
         return existing
     bind(leaf, cls)
     return cls
-
-
-# Rust operators and types call these when they are registered.
-tvm_ffi.register_global_func("tirx.script.expose_script_op", expose_script_op)
-tvm_ffi.register_global_func("tirx.script.expose_script_type", expose_script_type)
 
 
 abs = _auto_emit_void_call(_tir_op.abs)  # pylint: disable=redefined-builtin
