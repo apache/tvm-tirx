@@ -143,13 +143,11 @@ class VectorizationAnalysis : private tvm::ExprFunctor<bool(const Expr&)>,
   };
 
   VectorizationAnalysis(PrimVar var, const PrimExpr& extent, bool noalias,
-                        const std::unordered_map<const VarObj*, const VarObj*>& roots,
-                        bool allow_rvv_calls = false)
+                        const std::unordered_map<const VarObj*, const VarObj*>& roots)
       : ExprFunctor(ExpressionVTable()),
         var_(var),
         noalias_(noalias),
         scalable_(!extent.as<IntImmObj>()),
-        allow_rvv_calls_(allow_rvv_calls),
         roots_(roots) {
     var_variation_[var.get()] = Variation::kVarying;
   }
@@ -232,23 +230,6 @@ class VectorizationAnalysis : private tvm::ExprFunctor<bool(const Expr&)>,
   bool Dispatch_(const VarObj* op) final {
     auto it = var_variation_.find(op);
     return Record(op, it == var_variation_.end() ? Variation::kUniform : it->second);
-  }
-
-  bool Dispatch_(const CallObj* op) final {
-    // These unary operations are lane-wise and pure. Keep arbitrary calls and
-    // scalable call lowering outside the admitted subset.
-    if (!allow_rvv_calls_ || scalable_ || op->args.size() != 1) return false;
-    auto arg = op->args[0].as<PrimExpr>();
-    auto result_type = op->ty.as<PrimType>();
-    if (!arg || !result_type || !AnalyzeExpr(*arg)) return false;
-    PrimType input_type = arg->ty();
-    bool supported = false;
-    if (op->op.same_as(prim::floor_op())) {
-      supported = input_type.MatchesCode(DLDataTypeCode::kDLFloat) && input_type == *result_type;
-    } else if (op->op.same_as(tirx::reinterpret_op())) {
-      supported = input_type.bits() >= 8 && input_type.bits() == result_type->bits();
-    }
-    return supported && Record(op, VariationOf(*arg));
   }
 
   bool Dispatch_(const TensorLoadObj* op) final {
@@ -359,7 +340,6 @@ class VectorizationAnalysis : private tvm::ExprFunctor<bool(const Expr&)>,
   PrimVar var_;
   bool noalias_;
   bool scalable_;
-  bool allow_rvv_calls_;
   const std::unordered_map<const VarObj*, const VarObj*>& roots_;
   Plan plan_;
   std::unordered_map<const VarObj*, Variation> var_variation_;
@@ -545,14 +525,6 @@ class Vectorizer : public StmtExprMutator {
         return prim::Cast(op->ty.as_or_throw<PrimType>().WithLanes(value.ty().lanes()), value);
       }
     }
-  }
-
-  UnchangedOr<Expr> Mutate_(const CallObj* op, InplaceMode inplace_mode) final {
-    PrimExpr original = op->args[0].as_or_throw<PrimExpr>();
-    PrimExpr value = Mutate(original, inplace_mode).ValueOrUnchanged(original);
-    if (value.same_as(original)) return ffi::Unchanged();
-    PrimType result_type = op->ty.as_or_throw<PrimType>().WithLanes(value.ty().lanes());
-    return Call(result_type, op->op, {value}, op->attrs, op->ty_args, op->loc);
   }
 
   // TensorLoad
@@ -744,7 +716,7 @@ class LoopVectorizer : public StmtExprMutator {
   }
 
   UnchangedOr<Stmt> Mutate_(const BindObj* op, InplaceMode inplace_mode) final {
-    TrackStorageRoot(op);
+    TrackParameterView(op);
     return StmtExprMutator::Mutate_(op, inplace_mode);
   }
 
@@ -752,14 +724,10 @@ class LoopVectorizer : public StmtExprMutator {
     if (op->kind != ForKind::kVectorized) return StmtExprMutator::Mutate_(op, inplace_mode);
     if (IsSupportedLoop(op)) {
       PrimExpr extent = Range::GetExtentFromBeginEnd(op->begin, op->end);
-      bool rvv = TargetHasRVV(target_);
-      if (auto plan = VectorizationAnalysis(op->var, extent, noalias_, roots_, rvv).Run(op->body)) {
+      if (auto plan = VectorizationAnalysis(op->var, extent, noalias_, roots_).Run(op->body)) {
         return ffi::make_object<Vectorizer>(op->var, extent, *plan)
             ->Mutate(op->body, InplaceMode::kDisallow)
             .ValueOrUnchanged(op->body);
-      }
-      if (rvv) {
-        if (auto versioned = VectorizeFullChunks(op, extent)) return *versioned;
       }
     }
     // Preserve the complete original loop, including bindings, order, effects,
@@ -769,62 +737,20 @@ class LoopVectorizer : public StmtExprMutator {
   }
 
  private:
-  void TrackStorageRoot(const BindObj* op) {
+  void TrackParameterView(const BindObj* op) {
     // FlattenTensor introduces layout-free views of parameter storage. Only
     // identical element types and an unadjusted data pointer preserve the
     // physical index map used by the dependence checks.
     auto tensor = op->var.as<TensorVar>();
     if (!tensor || tensor->ty()->layout.has_value()) return;
     const auto* decl = op->value.as<CallObj>();
-    if (!decl) return;
-    if (decl->op.same_as(alloc_tensor_op())) {
-      // Ordinary allocations outside the candidate loop are distinct storage
-      // roots. Explicit placement and allocations inside the candidate remain
-      // outside this analysis.
-      if (decl->args.empty()) roots_[tensor->get()] = tensor->get();
-      return;
-    }
-    if (!decl->op.same_as(decl_tensor_op()) || decl->args.size() != 1) return;
+    if (!decl || !decl->op.same_as(decl_tensor_op()) || decl->args.size() != 1) return;
     const auto* data = decl->args[0].as<CallObj>();
     if (!data || !data->op.same_as(tensor_data_ptr_op()) || data->args.size() != 1) return;
     auto source = data->args[0].as<TensorVar>();
     if (!source || source->dtype() != tensor->dtype()) return;
     auto root = roots_.find(source->get());
     if (root != roots_.end()) roots_[tensor->get()] = root->second;
-  }
-
-  // RVV tail loops generated by split contain one guarded store. Version the
-  // whole chunk instead of speculating any memory access across its guard. The
-  // original guarded scalar loop handles partial and entirely inactive chunks.
-  ffi::Optional<Stmt> VectorizeFullChunks(const ForObj* op, const PrimExpr& extent) {
-    const auto* count = extent.as<IntImmObj>();
-    if (!count || op->body->seq.size() != 1) return std::nullopt;
-    const auto* guard = op->body->seq[0].as<IfObj>();
-    if (!guard || guard->else_case || guard->then_case->seq.size() != 1 ||
-        !guard->then_case->seq[0].as<TensorStoreObj>())
-      return std::nullopt;
-    const auto* condition = guard->condition.as<prim::LTObj>();
-    if (!condition || SideEffect(guard->condition) != CallEffectKind::kPure) return std::nullopt;
-    auto coefficients = DetectLinearEquation(condition->a - condition->b, {op->var});
-    if (coefficients.size() != 2 || !IsOne(coefficients[0])) return std::nullopt;
-    auto plan =
-        VectorizationAnalysis(op->var, extent, noalias_, roots_, true).Run(guard->then_case);
-    if (!plan) return std::nullopt;
-    // Check every original lane, rather than relying on a no-overflow
-    // assumption when replacing an affine predicate by its last-lane value.
-    PrimExpr full_chunk = IntImm(PrimType::Bool(), 1);
-    for (int64_t lane = 0; lane < count->value; ++lane) {
-      auto substitute = ffi::make_object<StmtExprMutator>();
-      substitute->VarRemapSet(op->var, IntImm(op->var.ty(), lane));
-      PrimExpr lane_condition = substitute->Mutate(guard->condition, InplaceMode::kDisallow)
-                                    .ValueOrUnchanged(guard->condition);
-      full_chunk = full_chunk && lane_condition;
-    }
-    Stmt vector_body = ffi::make_object<Vectorizer>(op->var, extent, *plan)
-                           ->Mutate(guard->then_case, InplaceMode::kDisallow)
-                           .ValueOrUnchanged(guard->then_case);
-    return If(full_chunk, SeqStmt({vector_body}), SeqStmt({SkipVectorize(ffi::GetRef<Stmt>(op))}),
-              op->loc);
   }
 
   bool IsSupportedLoop(const ForObj* op) const {
