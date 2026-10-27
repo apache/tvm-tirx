@@ -22,7 +22,7 @@ source ./tests/scripts/task_install_rust.sh
 
 export CMAKE_ARGS="
     -DTVM_TIRX_BUILD_TESTS=ON
-    -DTVM_TIRX_USE_LLVM=/usr/lib/llvm-17/bin/llvm-config
+    -DTVM_TIRX_USE_LLVM='/usr/bin/llvm-config-17 --link-static'
     -DTVM_TIRX_USE_RUST=ON
     -DCMAKE_CXX_FLAGS='-Wno-error=range-loop-construct -Wno-error=comment'
 "
