@@ -59,21 +59,6 @@ Use ``@M.function`` at the definition site. The registered namespace supplies
 these hooks; ``tvm_tirx.script.ir_builder.parser_protocol`` defines their shared
 contracts and language-specific placeholders, not a complete language.
 
-Extension API modules declare their own destinations with
-``_init_exposed_op_api`` or ``_init_exposed_type_api`` from
-``tvm_tirx.ir._expose_api``. Exposure publishes selected definitions to those
-destinations; it does not add default names to the parser. An imported object
-such as ``custom_type.BOX`` is available to ``@T.function`` through normal Python
-scope. When parsing printed text, supply the extension through a source import,
-``extra_vars``, or an explicit ``register_namespace("custom_type", custom_type)``.
-
-``T.register_script_namespace("custom", namespace)`` binds the supplied module
-or namespace instance as ``T.custom``. This explicit attribute binding does not
-register a standalone ``custom`` parser default. ``T.expose_script_op`` and
-``T.expose_script_type`` still select definitions for declared destinations;
-they return the built-in script binding for supported built-in prefixes and
-``None`` for custom roots. Read custom APIs from the extension's declared module.
-
 Functions
 ---------
 
