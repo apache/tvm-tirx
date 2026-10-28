@@ -41,10 +41,78 @@ and whether the operation or the callback controls recursion:
      - ``tvm_ffi.structural_map``
      - ``tvm_ffi.structural_mutate``
 
-``structural_visit`` supplies a ``StructuralVisitor`` to its callback;
-``structural_mutate`` supplies a ``StructuralMutator``. These objects carry
-the active recursive dispatch. Use the supplied instance so recursive calls
-continue through the same callbacks.
+For collecting nodes or applying a rule to every node, start with walk or
+map. Choose visit or mutate when a callback must select children, arrange
+their processing order, or manage state around recursive calls.
+
+API Inputs and Callback Selection
+---------------------------------
+
+The four entry points have these Python call signatures:
+
+.. code-block:: text
+
+   tvm_ffi.structural_walk(
+       root, callbacks=(), with_def_region_kind=(), order="post")
+   tvm_ffi.structural_map(
+       root, callbacks=(), with_def_region_kind=(), order="post")
+   tvm_ffi.structural_visit(root, callbacks=())
+   tvm_ffi.structural_mutate(root, callbacks=())
+
+``root`` is the value at which traversal starts. It can be an expression,
+statement, function, module, type, or FFI container. The root itself participates
+in callback selection, as do values reached through structural descent.
+These operations inspect IR objects; they do not execute the program those
+objects describe.
+
+``callbacks`` selects which values a handler receives. All four functions
+accept the following forms; ``handler`` stands for a callable whose arguments
+and return value depend on the operation:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 48 52
+
+   * - Form
+     - Meaning
+   * - ``(ir.Var, handler)``
+     - Handle variables.
+   * - ``((ir.prim.Add, ir.prim.Mul), handler)``
+     - Handle either addition or multiplication with the same callable.
+   * - ``[(ir.Var, on_var), (ir.Expr, on_expr)]``
+     - Try handlers in the supplied order.
+   * - ``handler``
+     - Handle every value as a catch-all.
+   * - ``()``
+     - Install no handlers; use default structural descent throughout.
+
+An IR class selector matches that class and its subclasses. For example,
+``ir.Expr`` includes ``ir.Var`` and arithmetic expressions. Only the first
+matching entry runs: selection does not automatically favor the most specific
+type, and returning from a handler does not try another entry. Put specific
+types before broader ones. An unmatched value still follows default descent;
+selecting only ``ir.Var`` does not prevent traversal through an ``Add``.
+
+Supported selectors include registered FFI object classes and built-in value
+types such as ``int``. ``object`` and ``typing.Any`` match both inline values
+and FFI objects; ``tvm_ffi.Object`` matches only object-backed FFI values.
+``ir.IntImm`` selects an integer IR constant, while ``int`` selects an inline
+integer value; they describe different kinds of values.
+
+``order`` belongs to walk and map. ``"post"`` is the default; ``"pre"``
+selects parent-before-children processing. The corresponding enum values are
+``tvm_ffi.WalkOrder.POSTORDER`` and ``PREORDER``. Visit and mutate have no
+``order`` argument because their callbacks place recursive calls themselves.
+
+``with_def_region_kind`` belongs to walk and map. It is an alternative
+callback table whose handlers also receive a ``tvm_ffi.DefRegionKind`` telling
+them whether a value occurs in a definition region. Normal ``callbacks``
+are tried first; this table is consulted only if none matches. Its entries
+use the same selection forms above. We will use it in
+:ref:`ir-definition-regions`.
+
+The following sections distinguish two results: what a callback returns for
+one value, and what the entry point returns for the whole traversal.
 
 An Expression to Traverse
 -------------------------
@@ -88,8 +156,28 @@ share the variables defined above.
 Structural Walk
 ---------------
 
-A walk calls an analysis callback and automatically continues through the
-children. The callback receives one argument, the current value.
+A walk inspects values without replacing them. Its normal callback is called
+as ``handler(value)``; a ``with_def_region_kind`` handler is called as
+``handler(value, kind)``. The walker handles recursion. The callback's return
+value controls that recursion:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 40 60
+
+   * - Callback returns
+     - Effect
+   * - ``None`` or ``tvm_ffi.WalkResult.ADVANCE``
+     - Continue normally.
+   * - ``tvm_ffi.WalkResult.SKIP``
+     - In pre-order, omit this value's children and continue elsewhere.
+   * - ``tvm_ffi.VisitInterrupt(payload)``
+     - Stop the whole walk and return the interrupt to the caller.
+
+The entry point returns ``None`` on completion or the ``VisitInterrupt`` on
+early exit. It does not return collected nodes or a rewritten root. Store
+observations in callback state, such as a list, and read an early-exit payload
+through the returned interrupt's ``value`` field.
 
 Selecting Nodes
 ~~~~~~~~~~~~~~~
@@ -113,6 +201,25 @@ still descends through the unmatched ``Mul`` and ``Add`` nodes to reach
 the variables. ``append`` returns ``None``, which tells the walker to continue.
 Walking leaves the input structure unchanged; keep observations in callback
 state such as this list.
+
+To see first-match selection, install both a variable handler and an expression
+handler on a single variable:
+
+.. code-block:: python
+
+   selected = []
+   tvm_ffi.structural_walk(
+       x,
+       [
+           (ir.Var, lambda var: selected.append("variable")),
+           (ir.Expr, lambda node: selected.append("expression")),
+       ],
+   )
+   print(selected)
+
+The output is ``['variable']``. Both selectors match ``x``, but only the first
+handler runs. Its ``None`` return continues traversal; it does not request
+the next handler.
 
 Traversal Order
 ~~~~~~~~~~~~~~~
@@ -205,9 +312,33 @@ whereas returning an interrupt stops all remaining traversal.
 Structural Map
 --------------
 
-A map automatically descends like a walk, but its callback returns a value:
-the unchanged input or a replacement. Use it when the same recursive
-replacement rule should apply throughout the structure.
+A map applies replacement rules with automatic recursion. Its normal callback
+is called as ``handler(value)``; a ``with_def_region_kind`` handler is called
+as ``handler(value, kind)``. Each handler must return the value to keep at
+that position: either its input unchanged or a valid replacement. The entry
+point returns the resulting root. Assign that result to use the transformed IR.
+
+The ``order`` argument determines both the callback's input and what happens
+to its result:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 15 42 43
+
+   * - Order
+     - Callback receives
+     - After the callback
+   * - ``"pre"``
+     - The value before child mapping.
+     - Map the returned value's children, then return the rebuilt value.
+   * - ``"post"``
+     - The value with its children already mapped.
+     - Return its result without descending into the replacement again.
+
+In both cases, the mapper invokes a selected callback once at that position;
+it does not repeatedly apply rules until nothing changes. A callback must not
+modify its input in place. The examples below keep the original root available
+and return new IR where needed.
 
 Replacing Symbols
 ~~~~~~~~~~~~~~~~~
@@ -295,9 +426,33 @@ nothing changes. Falling off a callback returns ``None``; it does not mean
 Structural Visitor
 ------------------
 
-``structural_visit`` gives its callback ``(value, visitor)``. A matched
-callback owns recursion: it chooses whether, when, and which children to
-visit. Unmatched node types still follow default structural descent.
+``structural_visit`` calls its handler as ``handler(value, visitor)``.
+``visitor`` is the active ``tvm_ffi.StructuralVisitor``, supplied by the
+entry point rather than constructed by the callback. A matched callback
+owns recursion: it chooses whether, when, and which children to visit.
+Unmatched node types still follow default structural descent.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 35 65
+
+   * - Within the callback
+     - Effect
+   * - ``visitor.visit(child)``
+     - Run callback selection and traversal on the chosen child.
+   * - ``visitor.default_visit(value)``
+     - Bypass callback selection for this value and traverse its registered
+       children. Child visits still use the same callbacks.
+   * - Return ``None`` without recursive calls.
+     - Finish this callback without visiting children.
+   * - Return ``tvm_ffi.VisitInterrupt(payload)``.
+     - Stop traversal and return the interrupt to the caller.
+
+Both visitor methods return ``None`` or ``VisitInterrupt``. Return a child
+interrupt from the callback so it reaches the entry point. The entry point
+has the same return contract as walk: ``None`` on completion, otherwise the
+interrupt. ``WalkResult`` is a walk-only control signal; visitors select
+subtrees through their recursive calls instead.
 
 Requesting Default Descent
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -375,10 +530,37 @@ callback again rather than advance to the children.
 Structural Mutator
 ------------------
 
-``structural_mutate`` gives its callback ``(value, mutator)`` and expects
-a returned value. It combines replacement with the visitor's explicit
-control over recursion. A matched callback that returns without recursing
-leaves its input's children unprocessed.
+``structural_mutate`` calls its handler as ``handler(value, mutator)``.
+``mutator`` is the active ``tvm_ffi.StructuralMutator`` supplied by the
+entry point. The callback returns the value to install at this position and
+owns all recursive processing of its matched value:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 35 65
+
+   * - Within the callback
+     - Effect
+   * - ``mutator.mutate(child)``
+     - Run callback selection and mutation on the chosen child; return its result.
+   * - ``mutator.default_mutate(value)``
+     - Bypass this value's callback and return its default mutation, with child
+       callbacks applied through the same mutator.
+   * - ``return value`` without recursive calls.
+     - Keep this value with its children unprocessed.
+   * - ``return replacement``
+     - Install the replacement without further traversal by the engine.
+
+Unmatched values follow default mutation. The entry point returns the resulting
+root, which the caller must retain. Every matched callback must return a valid
+value, even when unchanged; ``None`` does not request default mutation or mean
+"keep the input." There is no ``SKIP`` or ``VisitInterrupt`` control result.
+
+Use ``mutate`` on a selected child and ``default_mutate`` on the current
+value to continue through the same dispatch. Calling ``mutate`` on the current
+value dispatches to its callback again. Like visit, mutate has no ``order``
+parameter: placing the local rewrite before or after recursive calls chooses
+the processing order.
 
 Rewriting Selected Children
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -487,20 +669,8 @@ children need processing, the callback must explicitly request that descent.
 This lets a callback determine exactly which parts of a replacement are
 already complete.
 
-Callbacks, Ownership, and Shared Objects
-----------------------------------------
-
-All four functions accept these callback forms:
-
-* ``(Type, callback)`` selects one type.
-* ``((TypeA, TypeB), callback)`` shares a callback across types, as in the fold.
-* A sequence of entries installs several handlers, as in the mutator example.
-* A bare callable acts as a catch-all.
-
-Only the first matching entry runs for a value. Put specific types before
-broad entries such as ``ir.Expr``, or the broad entry will handle those nodes
-first. ``object`` matches both inline values and FFI objects;
-``tvm_ffi.Object`` matches only object-backed FFI values.
+Ownership and Shared Objects
+----------------------------
 
 Container hooks visit ``Array`` and ``List`` elements, and ``Map`` and
 ``Dict`` values. Map and dictionary keys remain structural anchors, so a
@@ -513,7 +683,13 @@ original node when default descent makes no changes. A map callback must
 not modify its input in place. The name "mutator" describes the replacement
 operation; using ``structural_mutate`` does not itself request in-place writes.
 Ownership-transfer and optional native in-place hooks are separate mechanisms
-covered by TVM FFI's ownership contract.
+covered by TVM FFI's ownership contract. For ownership-aware implementations,
+a ``structural_mutate`` callback may accept a third positional argument,
+``handler(value, mutator, inplace_mode)``. This integer compares with
+``tvm_ffi.InplaceMode.DISALLOW`` and ``ALLOW``; ``ALLOW`` permits storage reuse
+only along a uniquely owned path. Passing ``root._move()`` to map or mutate
+transfers ownership of that Python reference. The two-argument callbacks and
+ordinary references used in this chapter do not need that mechanism.
 
 Walks visit occurrences rather than deduplicating shared objects:
 
@@ -578,6 +754,8 @@ Traversal reaches shape expressions in ``TensorType`` as well as the body.
 The original function still has its symbolic shape. ``show()`` displays
 the result, while ``script()`` returns its TVMScript source as a string.
 
+.. _ir-definition-regions:
+
 Definitions and Uses
 ~~~~~~~~~~~~~~~~~~~~
 
@@ -610,6 +788,15 @@ which can bind symbols through a type. Map callbacks with definition-region
 information must return the unchanged value or a valid replacement.
 Substituting a dimension use is different from removing a parameter or
 loop binder; the resulting definition sites must remain valid.
+
+Visit and mutate expose the current kind through
+``visitor.def_region_kind()`` and ``mutator.def_region_kind()`` instead of
+accepting a separate callback table. Each also provides
+``with_def_region_kind(kind, callback)``: it calls the zero-argument callable
+under that definition kind, restores the previous kind afterward, and returns
+the callable's result. Default descent already enters the definition regions
+registered by IR nodes; explicit scopes are for callbacks implementing their
+own definition traversal.
 
 Further Tools
 -------------
