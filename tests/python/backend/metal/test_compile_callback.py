@@ -49,7 +49,7 @@ def test_metal_compile_callback_source_passthrough():
 
     tvm_ffi.register_global_func("tvm_callback_metal_compile", inspect_callback, override=True)
     try:
-        f = tvm_tirx.tirx.compile(Module, target="metal")
+        f = tvm_tirx.compile(Module, target="metal")
         dev = tvm_tirx.metal()
         a = np.random.rand(n).astype("float32")
         a_nd = tvm_tirx.runtime.tensor(a, dev)
@@ -99,7 +99,7 @@ def test_metal_compile_callback_mixed_formats_rejected():
     tvm_ffi.register_global_func("tvm_callback_metal_compile", mixed_callback, override=True)
     try:
         with pytest.raises(Exception, match="inconsistent formats"):
-            tvm_tirx.tirx.compile(Module, target="metal")
+            tvm_tirx.compile(Module, target="metal")
     finally:
         tvm_ffi.registry.remove_global_func("tvm_callback_metal_compile")
 

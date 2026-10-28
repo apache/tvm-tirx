@@ -59,7 +59,7 @@ def _binary_kernel(op, rhs_dtype="float32"):
 
 
 def test_nearbyint():
-    func = tvm_tirx.tirx.compile(_unary_kernel(tvm_tirx.tirx.nearbyint), target="llvm")
+    func = tvm_tirx.compile(_unary_kernel(tvm_tirx.tirx.nearbyint), target="llvm")
 
     dev = tvm_tirx.cpu(0)
     n = 10
@@ -85,7 +85,7 @@ def test_round_ties_to_even(target):
     if target != "c" and not tvm_tirx.testing.device_enabled(target):
         pytest.skip(f"{target} not enabled")
 
-    func = tvm_tirx.tirx.compile(_unary_kernel(tvm_tirx.tirx.round), target=target)
+    func = tvm_tirx.compile(_unary_kernel(tvm_tirx.tirx.round), target=target)
 
     dev = tvm_tirx.cpu(0)
     # Midpoint values where ties-to-even and ties-away differ
@@ -133,7 +133,7 @@ def test_unary_intrin():
     ]
 
     def run_test(tvm_intrin, np_func, atol=1e-5, rtol=1e-5):
-        func = tvm_tirx.tirx.compile(_unary_kernel(tvm_intrin), target="llvm")
+        func = tvm_tirx.compile(_unary_kernel(tvm_intrin), target="llvm")
 
         dev = tvm_tirx.cpu(0)
         n = 10
@@ -194,7 +194,7 @@ def test_asin_acos_boundary_values():
     ]
 
     def run_test(tvm_intrin, np_func):
-        func = tvm_tirx.tirx.compile(_unary_kernel(tvm_intrin), target="llvm")
+        func = tvm_tirx.compile(_unary_kernel(tvm_intrin), target="llvm")
 
         dev = tvm_tirx.cpu(0)
 
@@ -243,7 +243,7 @@ def test_binary_intrin():
     ]
 
     def run_test(tvm_intrin, np_func):
-        func = tvm_tirx.tirx.compile(_binary_kernel(tvm_intrin), target="llvm")
+        func = tvm_tirx.compile(_binary_kernel(tvm_intrin), target="llvm")
 
         dev = tvm_tirx.cpu(0)
         n = 10
@@ -260,9 +260,7 @@ def test_binary_intrin():
 
 
 def test_ldexp():
-    func = tvm_tirx.tirx.compile(
-        _binary_kernel(tvm_tirx.tirx.ldexp, rhs_dtype="int32"), target="llvm"
-    )
+    func = tvm_tirx.compile(_binary_kernel(tvm_tirx.tirx.ldexp, rhs_dtype="int32"), target="llvm")
 
     dev = tvm_tirx.cpu(0)
     n = 10
@@ -302,7 +300,7 @@ def test_clz(target, dtype):
         clz[np.bitwise_and(x, x - 1) == 0] -= 1
         return clz
 
-    func = tvm_tirx.tirx.compile(
+    func = tvm_tirx.compile(
         _unary_kernel(tvm_tirx.tirx.clz, dtype, "int32", gpu=target.kind.name == "vulkan"),
         target=target,
     )

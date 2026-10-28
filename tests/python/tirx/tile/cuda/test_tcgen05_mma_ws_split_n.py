@@ -120,7 +120,7 @@ def test_gemm_tcgen05_explicit_mma_tile_preserves_ws_datapath():
             T.ptx.tcgen05.relinquish_alloc_permit.cta_group__1.sync.aligned()
             T.ptx.tcgen05.dealloc.cta_group__1.sync.aligned.b32(address[0], T.uint32(512))
 
-    f = tvm_tirx.tirx.compile(kernel, target={"kind": "cuda", "arch": "sm_100a"}, pipeline="tirx")
+    f = tvm_tirx.compile(kernel, target={"kind": "cuda", "arch": "sm_100a"}, pipeline="tirx")
     calls = [
         line
         for line in f.mod.imports[0].inspect_source().splitlines()

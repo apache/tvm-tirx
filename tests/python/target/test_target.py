@@ -443,7 +443,7 @@ def test_module_dict_from_deserialized_targets():
     func = func.with_attr("Target", target)
     target2 = tvm_tirx.ir.load_json(tvm_tirx.ir.save_json(target))
     mod = tvm_tirx.IRModule({"main": func})
-    lib = tvm_tirx.tirx.compile(mod, target=target2)
+    lib = tvm_tirx.compile(mod, target=target2)
     lib["func"]()
 
 

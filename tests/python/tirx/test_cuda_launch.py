@@ -154,7 +154,7 @@ def _compile(kernel, host, tmp_path):
 
     arch = env.cuda_arch(0)
     target = tvm_tirx.target.Target({"kind": "cuda", "arch": arch}, host=host)
-    built = tvm_tirx.tirx.compile(kernel, target=target).mod
+    built = tvm_tirx.compile(kernel, target=target).mod
     if host == "llvm":
         return built, None
     import tvm_ffi.cpp
@@ -327,6 +327,6 @@ def test_static_shared_memory_override_cannot_shrink_allocation():
         scratch[0] = T.cuda.thread_idx("x")
 
     with pytest.raises(ValueError, match="smaller than"):
-        tvm_tirx.tirx.compile(
+        tvm_tirx.compile(
             kernel, target={"kind": "cuda", "backend_config": {"cuda": {"arch": "sm_80"}}}
         )

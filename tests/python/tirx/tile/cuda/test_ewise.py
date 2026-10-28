@@ -76,7 +76,7 @@ def _reference(operation, x):
 
 def _run(kernel, arrays, expected, output=0, atol=1e-3, rtol=1e-7, target="cuda"):
     with tvm_tirx.target.Target(target):
-        module = tvm_tirx.tirx.compile(kernel, target=target, pipeline="tirx")
+        module = tvm_tirx.compile(kernel, target=target, pipeline="tirx")
 
     def check():
         args = [tvm_tirx.runtime.tensor(a, tvm_tirx.cuda()) for a in arrays]
@@ -377,7 +377,7 @@ def test_unary_op_local(input, op_type, src_dtype, dst_dtype):
     target = tvm_tirx.target.Target("cuda")
     with target:
         mod = tvm_tirx.IRModule({"main": test_unary})
-        mod = tvm_tirx.tirx.compile(mod, target=target, pipeline="tirx")
+        mod = tvm_tirx.compile(mod, target=target, pipeline="tirx")
 
         np.random.seed(0)
         A_np = np.abs(np.random.rand(*g_shape_a).astype(src_dtype)) + 0.1
@@ -570,7 +570,7 @@ def test_unary_op_local_with_bias_scale(input, op_type, bias_type, src_dtype, ds
         bias_np = np.random.rand(*g_shape_bias).astype(src_dtype)
         B_np = np.zeros(g_shape_b, dtype=dst_dtype)
         mod = tvm_tirx.IRModule({"main": test_unary_with_bias})
-        mod = tvm_tirx.tirx.compile(mod, target=target, pipeline="tirx")
+        mod = tvm_tirx.compile(mod, target=target, pipeline="tirx")
         B_ref = get_ref(A_np, bias_np)
         atol = 1e-3 if src_dtype == dst_dtype else 2e-2
 
@@ -624,7 +624,7 @@ def test_unary_op_local_thread_wise(op_type, dtype):
         np.random.seed(0)
         A_np = np.abs(np.random.rand(*shape).astype(dtype)) + 0.1
         mod = tvm_tirx.IRModule({"main": kernel})
-        mod = tvm_tirx.tirx.compile(mod, target=target, pipeline="tirx")
+        mod = tvm_tirx.compile(mod, target=target, pipeline="tirx")
         if op_type == "zero":
             A_ref = np.zeros_like(A_np)
         elif op_type == "sqrt":

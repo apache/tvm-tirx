@@ -38,7 +38,7 @@ def cuda_source(monkeypatch):
 
     def generate(function):
         target = tvm_tirx.target.Target({"kind": "cuda", "arch": "sm_80"})
-        executable = tvm_tirx.tirx.compile(function, target=target)
+        executable = tvm_tirx.compile(function, target=target)
         source = executable.mod.imports[0].inspect_source("cuda")
         assert "#include <nvshmem.h>" in source
         assert "#include <nvshmemx.h>" in source

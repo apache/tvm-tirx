@@ -80,7 +80,7 @@ def test_parameter_stride_contract():
     lowered = tvm_tirx.backend.trn.transform.LowerTrainiumLayout()(mod)
     # Execute the lowered scalar accesses and packed wrapper on the host, without
     # requiring a Trainium device or compiling Trainium-specific instructions.
-    lib = tvm_tirx.tirx.compile(lowered, target="llvm")
+    lib = tvm_tirx.compile(lowered, target="llvm")
     data = np.arange(6, dtype="float32").reshape(2, 3)[:, :2]
     result = tvm_tirx.runtime.empty((2, 2), "float32")
     lib(data, result)

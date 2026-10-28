@@ -44,9 +44,7 @@ TARGET = tvm_tirx.target.Target("cuda")
 
 def _compile_and_run(kernel, n_out):
     with TARGET:
-        mod = tvm_tirx.tirx.compile(
-            tvm_tirx.IRModule({"main": kernel}), target=TARGET, pipeline="tirx"
-        )
+        mod = tvm_tirx.compile(tvm_tirx.IRModule({"main": kernel}), target=TARGET, pipeline="tirx")
     result = {}
 
     def go():

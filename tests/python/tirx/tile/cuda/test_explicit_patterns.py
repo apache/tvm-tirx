@@ -96,7 +96,7 @@ def compile_kernel(kernel):
         {"kind": "cuda", "backend_config": {"cuda": {"target_format": "ptx"}}}
     )
     with target:
-        return tvm_tirx.tirx.compile(kernel, target=target, pipeline="tirx")
+        return tvm_tirx.compile(kernel, target=target, pipeline="tirx")
 
 
 @pytest.mark.parametrize("factory", [global_kernel, matrix_kernel])

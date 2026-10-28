@@ -53,7 +53,7 @@ def ptx_cp_async(A: T.Tensor((32, 128), "float16"), B: T.Tensor((32, 128), "floa
 def test_ptx_cp_async():
     f = ptx_cp_async
 
-    mod = tvm_tirx.tirx.compile(f, target="cuda")
+    mod = tvm_tirx.compile(f, target="cuda")
     A_np = np.random.rand(32, 128).astype("float16")
     B_np = np.zeros((32, 128)).astype("float16")
 

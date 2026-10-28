@@ -36,7 +36,7 @@ def test_default_pipeline_allocations(pipeline):
         for i in range(16):
             B[i] = temp[i]
 
-    module = tvm_tirx.tirx.compile(add_one, target="llvm", pipeline=pipeline)
+    module = tvm_tirx.compile(add_one, target="llvm", pipeline=pipeline)
     source = np.arange(16, dtype="float32")
     a = tvm_tirx.runtime.tensor(source)
     b = tvm_tirx.runtime.tensor(np.zeros(16, dtype="float32"))

@@ -456,7 +456,7 @@ def test_build_with_optional_unroll_explicit(value):
 
     After = FlattenTensor()(Before)
     tvm_tirx.ir.assert_structural_equal(After, Expected)
-    tvm_tirx.tirx.compile(Before, target="llvm").mod
+    tvm_tirx.compile(Before, target="llvm").mod
 
 
 def test_flatten_remaps_loads_in_view_shape():

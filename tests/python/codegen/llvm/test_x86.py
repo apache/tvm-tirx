@@ -50,7 +50,7 @@ def test_fp16_to_fp32():
                     for i1 in T.vectorized(width):
                         B[i0, i1] = T.Cast("float32", A[i0, i1])
 
-        f = tvm_tirx.tirx.compile(Module, target=target).mod
+        f = tvm_tirx.compile(Module, target=target).mod
 
         assembly = f.inspect_source("asm").splitlines()
         if match:

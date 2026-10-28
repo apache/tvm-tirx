@@ -42,7 +42,7 @@ def test_rocm_inf_nan():
                         if i_0 * 128 + i_1 < 1:
                             C[i_0 * 128 + i_1] = T.Cast(dtype, value)
 
-        fun = tvm_tirx.tirx.compile(Module, "rocm")
+        fun = tvm_tirx.compile(Module, "rocm")
 
         def run_and_check():
             dev = tvm_tirx.rocm(0)
@@ -97,7 +97,7 @@ def test_rocm_vectorize_add():
                     with T.launch_thread("threadIdx.x", 4) as i_1:
                         B[i_0 * 4 + i_1] = A[i_0 * 4 + i_1] + T.Broadcast(T.Cast(dtype, 1), lanes)
 
-        fun = tvm_tirx.tirx.compile(Module, target="rocm")
+        fun = tvm_tirx.compile(Module, target="rocm")
 
         def run_and_check():
             dev = tvm_tirx.rocm(0)
@@ -130,7 +130,7 @@ def test_rocm_warp_shuffle():
                 A_local[0] = T.gpu_warp_shuffle(mask[0], A_local[0], 0, 32, 32)
                 A[tx] = A_local[0]
 
-    mod = tvm_tirx.tirx.compile(func, target="rocm")
+    mod = tvm_tirx.compile(func, target="rocm")
 
     def run_and_check():
         dev = tvm_tirx.rocm(0)
@@ -154,7 +154,7 @@ def test_rocm_vectorized_exp():
                 for i in T.vectorized(0, 4):
                     B[i] = T.exp2(A[i])
 
-    mod = tvm_tirx.tirx.compile(func, target="rocm")
+    mod = tvm_tirx.compile(func, target="rocm")
 
     def run_and_check():
         dev = tvm_tirx.rocm(0)

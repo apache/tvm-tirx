@@ -40,7 +40,7 @@ def test_export_load_with_fallback(monkeypatch, tmp_path):
                     B[i_0 * 32 + i_1] = A[i_0 * 32 + i_1] + 1.0
 
     monkeypatch.setenv("TVM_TIRX_COMPILE_FORCE_FALLBACK", "1")
-    host_lib = tvm_tirx.tirx.compile(Module, target="vulkan")
+    host_lib = tvm_tirx.compile(Module, target="vulkan")
     monkeypatch.delenv("TVM_TIRX_COMPILE_FORCE_FALLBACK")
 
     lib_path = str(tmp_path / "lib.so")

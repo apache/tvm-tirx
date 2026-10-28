@@ -48,7 +48,7 @@ _SHARED_COPY_CASES = {
 
 
 def _build_and_run(func, *np_args):
-    mod = tvm_tirx.tirx.compile(tvm_tirx.IRModule({"main": func}), target=TARGET, pipeline="tirx")
+    mod = tvm_tirx.compile(tvm_tirx.IRModule({"main": func}), target=TARGET, pipeline="tirx")
 
     def run_and_check():
         dev = tvm_tirx.cuda(0)
@@ -133,7 +133,7 @@ def test_ptx_ld_st_codegen_emits_shared_asm():
 
     target = TARGET
     with target:
-        mod = tvm_tirx.tirx.compile(
+        mod = tvm_tirx.compile(
             tvm_tirx.IRModule({"main": copy_kernel}), target=target, pipeline="tirx"
         )
     src = mod.mod.imports[0].inspect_source("cuda")
@@ -157,9 +157,7 @@ def test_ptx_ld_st_raw_shared_address_codegen():
             T.ptx.st.weak.shared__cta.b128(raw_addr, values.view("uint128")[0])
 
     with TARGET:
-        mod = tvm_tirx.tirx.compile(
-            tvm_tirx.IRModule({"main": main}), target=TARGET, pipeline="tirx"
-        )
+        mod = tvm_tirx.compile(tvm_tirx.IRModule({"main": main}), target=TARGET, pipeline="tirx")
     src = mod.mod.imports[0].inspect_source("cuda")
     assert "ld.shared.u64 %0, [%1];" in src
     # One cvta, for the generic pointer. The raw window address is already a
@@ -182,9 +180,7 @@ def test_ptx_ld_st_immediate_offset_codegen():
             T.ptx.st.global_.v2.b64(T.ptx.addr(out.data, 16), values[0], values[1])
 
     with TARGET:
-        mod = tvm_tirx.tirx.compile(
-            tvm_tirx.IRModule({"main": main}), target=TARGET, pipeline="tirx"
-        )
+        mod = tvm_tirx.compile(tvm_tirx.IRModule({"main": main}), target=TARGET, pipeline="tirx")
     src = mod.mod.imports[0].inspect_source("cuda")
     assert "ld.global.v2.b64 {%0, %1}, [%2+16];" in src
     assert "st.global.v2.b64 [%0+16], {%1, %2};" in src
@@ -211,7 +207,7 @@ def test_ptx_ld_global_nc_v8_codegen():
 
     target = TARGET
     with target:
-        mod = tvm_tirx.tirx.compile(
+        mod = tvm_tirx.compile(
             tvm_tirx.IRModule({"main": copy_kernel}), target=target, pipeline="tirx"
         )
     src = mod.mod.imports[0].inspect_source("cuda")
@@ -240,7 +236,7 @@ def test_ptx_ld_global_nc_v4_u64_256b_codegen():
 
     target = TARGET
     with target:
-        mod = tvm_tirx.tirx.compile(
+        mod = tvm_tirx.compile(
             tvm_tirx.IRModule({"main": copy_kernel}), target=target, pipeline="tirx"
         )
     src = mod.mod.imports[0].inspect_source("cuda")
@@ -268,7 +264,7 @@ def test_ptx_ld_vector_scatter_dst_codegen():
 
     target = TARGET
     with target:
-        mod = tvm_tirx.tirx.compile(
+        mod = tvm_tirx.compile(
             tvm_tirx.IRModule({"main": copy_kernel}), target=target, pipeline="tirx"
         )
     src = mod.mod.imports[0].inspect_source("cuda")

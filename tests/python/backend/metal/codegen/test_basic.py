@@ -42,7 +42,7 @@ def test_metal_inf_nan():
                 with T.launch_thread("threadIdx.x", 1) as i:
                     C[i] = T.Cast(dtype, value)
 
-        fun = tvm_tirx.tirx.compile(Module, target=target)
+        fun = tvm_tirx.compile(Module, target=target)
 
         def run_and_check():
             dev = tvm_tirx.metal(0)
@@ -74,7 +74,7 @@ def test_unaligned_vectorize():
 
     target = "metal"
     a = (np.arange(6).reshape(2, 3)).astype("float32")
-    f = tvm_tirx.tirx.compile(IRModule, target=target)
+    f = tvm_tirx.compile(IRModule, target=target)
 
     def run_and_check():
         dev = tvm_tirx.metal()
@@ -103,7 +103,7 @@ def test_metal_erf():
                 with T.launch_thread("threadIdx.x", 1) as i0:
                     C[i0] = T.erf(A[i0])
 
-        fun = tvm_tirx.tirx.compile(Module, target=target)
+        fun = tvm_tirx.compile(Module, target=target)
 
         def run_and_check():
             dev = tvm_tirx.metal(0)
@@ -131,7 +131,7 @@ def test_ramp():
                 r: T.let = T.ramp(i, 3, 2)
                 A[0, T.ramp(0, 1, 2)] = r
 
-    f = tvm_tirx.tirx.compile(IRModule, target=target)
+    f = tvm_tirx.compile(IRModule, target=target)
 
     def run_and_check():
         dev = tvm_tirx.metal()
@@ -158,7 +158,7 @@ def test_select_vectorize():
 
     target = "metal"
     a = np.arange(6).astype("float32")
-    f = tvm_tirx.tirx.compile(IRModule, target=target)
+    f = tvm_tirx.compile(IRModule, target=target)
     a.reshape(3, 2)[:, 1] = 0
 
     def run_and_check():
@@ -181,7 +181,7 @@ def test_vectorized_uint8():
                 B[i * 4 + j] = T.Cast("float32", A[i * 4 + j])
 
     a = np.arange(16).astype("uint8")
-    f = tvm_tirx.tirx.compile(func, target="metal")
+    f = tvm_tirx.compile(func, target="metal")
 
     def run_and_check():
         dev = tvm_tirx.metal()
@@ -212,7 +212,7 @@ def test_func_with_trailing_pod_params():
     try:
         mod = tvm_tirx.IRModule({"main": func})
 
-        f = tvm_tirx.tirx.compile(mod, target="metal").mod
+        f = tvm_tirx.compile(mod, target="metal").mod
         src: str = f.imports[0].inspect_source()
         occurrences = src.count("struct func_kernel_args_t")
         assert occurrences == 1, occurrences
@@ -561,7 +561,7 @@ def test_pointer_byte_offsets_execute_in_threadgroup_memory():
                     B[1] = typed_buffer[0]
                     B[2] = void_buffer[0]
 
-    executable = tvm_tirx.tirx.compile(Module, target="metal")
+    executable = tvm_tirx.compile(Module, target="metal")
     source = executable.mod.imports[0].inspect_source()
 
     assert "threadgroup float shared[16]" in source

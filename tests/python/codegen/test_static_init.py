@@ -45,7 +45,7 @@ def test_static_init():
             )
 
     mod = Module
-    f = tvm_tirx.tirx.compile(mod, target="llvm").mod
+    f = tvm_tirx.compile(mod, target="llvm").mod
     a = tvm_tirx.runtime.tensor(np.zeros(10, dtype="int64"))
     f(a)
 

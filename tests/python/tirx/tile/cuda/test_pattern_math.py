@@ -56,7 +56,7 @@ def test_ewise_composite(operation):
         T.cuda.tile.ewise(scalar, r, r, T.float32(2), T.float32(3), scope="cta")
         T.cuda.tile.apply(T.ptx["st.global.f32"], Output, r, scope="cta")
 
-    f = tvm_tirx.tirx.compile(kernel, target="cuda", pipeline="tirx")
+    f = tvm_tirx.compile(kernel, target="cuda", pipeline="tirx")
     x = np.linspace(0.1, 2, 448, dtype="float32").reshape(2, 32, 7, 1)
     out = tvm_tirx.runtime.tensor(np.zeros_like(x), tvm_tirx.cuda())
     f(tvm_tirx.runtime.tensor(x, tvm_tirx.cuda()), out)
@@ -97,7 +97,7 @@ def test_native_packed(dtype, suffix, opcode, kind):
             T.cuda.tile.apply(T.ptx[instruction], a, a, b)
         T.cuda.tile.apply(T.ptx[f"st.global.b{bits}"], Output, a)
 
-    f = tvm_tirx.tirx.compile(kernel, target="cuda", pipeline="tirx")
+    f = tvm_tirx.compile(kernel, target="cuda", pipeline="tirx")
     x = np.arange(16, dtype="float32").reshape(8, 2).astype(dtype)
     y = np.full((8, 2), 2, dtype=dtype)
     a = np.ascontiguousarray(x).view(storage)

@@ -28,7 +28,7 @@ from tvm_tirx.tirx.layout import ComposeLayout, R, S, TileLayout
 
 
 def _build(f):
-    return tvm_tirx.tirx.compile(f, target="cuda", pipeline="tirx")
+    return tvm_tirx.compile(f, target="cuda", pipeline="tirx")
 
 
 @pytest.mark.skipif(not env.has_cuda_compute(10), reason="Blackwell required")

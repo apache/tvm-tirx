@@ -1077,7 +1077,7 @@ def _lower_module(func, arch="sm_100a"):
 
 def _compile_module(func, arch="sm_100a"):
     target = tvm_tirx.target.Target({"kind": "cuda", "arch": arch})
-    return tvm_tirx.tirx.compile(tvm_tirx.IRModule({"main": func}), target=target, pipeline="tirx")
+    return tvm_tirx.compile(tvm_tirx.IRModule({"main": func}), target=target, pipeline="tirx")
 
 
 # These recipes retain the old coordinate-only dimensions, split storage axes,

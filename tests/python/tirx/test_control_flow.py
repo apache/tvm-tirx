@@ -29,7 +29,7 @@ def run_test_break_continue(func, shape, expected):
     target = tvm_tirx.target.Target("cuda")
     mod = tvm_tirx.IRModule({"main": func})
     with target:
-        mod = tvm_tirx.tirx.compile(mod, target=target, pipeline="tirx")
+        mod = tvm_tirx.compile(mod, target=target, pipeline="tirx")
     arr_np = np.zeros(shape, dtype="int32")
 
     def run_and_check():

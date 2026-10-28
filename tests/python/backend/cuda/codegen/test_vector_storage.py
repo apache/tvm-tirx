@@ -43,7 +43,7 @@ def test_bool_storage_uses_one_byte_per_lane():
     expected = np.ones(40, dtype="bool")
     expected[4:-4] = a < b
     result = tx.runtime.tensor(np.ones_like(expected), device)
-    compiled = tx.tirx.compile(compare, target="cuda")
+    compiled = tx.compile(compare, target="cuda")
     compiled(tx.runtime.tensor(a, device), tx.runtime.tensor(b, device), result)
     np.testing.assert_array_equal(result.numpy(), expected)
 
@@ -59,4 +59,4 @@ def test_unaligned_vector_store_is_rejected():
                 B[T.Ramp(tx * 4 + 1, 1, 4)] = A[T.Ramp(tx * 4, 1, 4)]
 
     with pytest.raises(ValueError, match="Cannot prove alignment for CUDA vector store"):
-        tx.tirx.compile(copy, target="cuda")
+        tx.compile(copy, target="cuda")

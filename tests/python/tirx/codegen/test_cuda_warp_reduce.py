@@ -31,7 +31,7 @@ TARGET = tvm_tirx.target.Target("cuda")
 
 def _build_and_run(func, n=32):
     mod = tvm_tirx.IRModule({"main": func})
-    mod = tvm_tirx.tirx.compile(mod, target=TARGET, pipeline="tirx")
+    mod = tvm_tirx.compile(mod, target=TARGET, pipeline="tirx")
     out_np = np.zeros(n, dtype="float32")
 
     def run_and_check():

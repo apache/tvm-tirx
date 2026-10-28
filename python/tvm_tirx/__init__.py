@@ -58,6 +58,10 @@ if TYPE_CHECKING or not _is_config_mode():
 
     # tvm.tirx — registers itself via tvm.script.register_dialect in its __init__
     from . import tirx
+
+    if not _RUNTIME_ONLY:
+        from .tirx import compile
+
     from .ir import prim
 
     # tvm.backend — owns backend Python load hooks

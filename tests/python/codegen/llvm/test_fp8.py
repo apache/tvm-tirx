@@ -47,5 +47,5 @@ def test_fp8_float32_roundtrip(dtype):
         tvm_tirx.runtime.tensor(np.zeros(128, dtype="float32")),
         tvm_tirx.runtime.tensor(np.zeros(128, dtype=np_dtype)),
     ]
-    tvm_tirx.tirx.compile(roundtrip, target="llvm")(*tensors)
+    tvm_tirx.compile(roundtrip, target="llvm")(*tensors)
     np.testing.assert_equal(tensors[2].numpy(), source.astype("float32").astype(np_dtype))

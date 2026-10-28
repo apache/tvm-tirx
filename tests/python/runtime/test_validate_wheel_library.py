@@ -69,7 +69,7 @@ def test_cpu_aot(tmp_path):
         for i in range(16):
             B[i] = A[i] + 1
 
-    module = tvm_tirx.tirx.compile(add_one, target="llvm")
+    module = tvm_tirx.compile(add_one, target="llvm")
     path = tmp_path / "model.so"
     module.export_library(path)
     subprocess.run(

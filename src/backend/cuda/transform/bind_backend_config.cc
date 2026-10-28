@@ -44,7 +44,7 @@ class BackendConfigBinder : public StmtExprMutator {
   Function Apply(Function func) {
     TVM_FFI_CHECK(!func->GetAttr<ffi::String>("tirx.cuda_arch").has_value(), ValueError)
         << "tirx.cuda_arch was removed; set backend_config['cuda']['arch'] on device_entry or "
-           "tvm.compile";
+           "tvm_tirx.compile";
     auto resolved =
         resolve_(func->GetAttr<ffi::String>("backend_config").value_or(""), defaults_, target_)
             .cast<ffi::Array<ffi::Any>>();

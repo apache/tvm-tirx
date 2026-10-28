@@ -72,8 +72,8 @@ def test_cuda_multi_lib():
 
     temp = utils.tempdir()
     target = tvm_tirx.target.Target("cuda", host="llvm")
-    libA = tvm_tirx.tirx.compile(ModA, target=target)
-    libB = tvm_tirx.tirx.compile(ModB, target=target)
+    libA = tvm_tirx.compile(ModA, target=target)
+    libB = tvm_tirx.compile(ModB, target=target)
 
     pathA = temp.relpath("libA.tar")
     pathB = temp.relpath("libB.tar")
@@ -128,9 +128,7 @@ def test_export_load_with_fallback(monkeypatch, tmp_path, *, backend_config):
                     B[i_0 * 32 + i_1] = A[i_0 * 32 + i_1] + 1.0
 
     monkeypatch.setenv("TVM_TIRX_COMPILE_FORCE_FALLBACK", "1")
-    host_lib = tvm_tirx.tirx.compile(
-        Module, target={"kind": "cuda", "backend_config": backend_config}
-    )
+    host_lib = tvm_tirx.compile(Module, target={"kind": "cuda", "backend_config": backend_config})
     monkeypatch.delenv("TVM_TIRX_COMPILE_FORCE_FALLBACK")
 
     lib_path = str(tmp_path / "lib.so")

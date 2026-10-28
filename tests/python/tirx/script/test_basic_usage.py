@@ -1008,7 +1008,7 @@ def ceildiv_test(A: T.Tensor(16, "int32")):
 
 @pytest.mark.skipif(not env.has_llvm(), reason="need llvm")
 def test_ceildiv():
-    f = tvm_tirx.tirx.compile(ceildiv_test, "llvm")
+    f = tvm_tirx.compile(ceildiv_test, "llvm")
     a = tvm_tirx.runtime.tensor(np.arange(16).astype("int32"))
     f(a)
     ref = (np.arange(16) + 3) // 4

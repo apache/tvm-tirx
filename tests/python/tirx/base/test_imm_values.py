@@ -195,7 +195,7 @@ def test_tir_too_large_literal_f64():
     def imm_overflow_fp64() -> T.float64:
         return T.float64(1.7976e309)
 
-    f = tvm_tirx.tirx.compile(imm_overflow_fp64, target="llvm")
+    f = tvm_tirx.compile(imm_overflow_fp64, target="llvm")
     assert math.isinf(f())
 
 
@@ -331,7 +331,7 @@ def test_tir_floatimm_const_fold():
         z[()] = x / y
 
     def __wrap_build(f):
-        lib = tvm_tirx.tirx.compile(f, target="llvm")
+        lib = tvm_tirx.compile(f, target="llvm")
         z = tvm_tirx.runtime.tensor(np.zeros([]).astype("float32"))
 
         def _func(x, y):
@@ -392,11 +392,11 @@ def test_tir_int8_const_fold():
     def imm_floordiv(x: T.int8, y: T.int8) -> T.int8:
         return T.floordiv(x, y)
 
-    fmul = tvm_tirx.tirx.compile(imm_multiply, target="llvm")
-    fadd = tvm_tirx.tirx.compile(imm_add, target="llvm")
-    fsub = tvm_tirx.tirx.compile(imm_sub, target="llvm")
-    ffloordiv = tvm_tirx.tirx.compile(imm_floordiv, target="llvm")
-    ftruncdiv = tvm_tirx.tirx.compile(imm_truncdiv, target="llvm")
+    fmul = tvm_tirx.compile(imm_multiply, target="llvm")
+    fadd = tvm_tirx.compile(imm_add, target="llvm")
+    fsub = tvm_tirx.compile(imm_sub, target="llvm")
+    ffloordiv = tvm_tirx.compile(imm_floordiv, target="llvm")
+    ftruncdiv = tvm_tirx.compile(imm_truncdiv, target="llvm")
 
     # Overflow remains a typed operation instead of manufacturing a wrapped literal.
     assert isinstance(tirx.const(127, "int8") + tirx.const(1, "int8"), tirx.Add)
@@ -452,11 +452,11 @@ def test_tir_uint8_const_fold():
     def imm_floordiv(x: T.uint8, y: T.uint8) -> T.uint8:
         return T.floordiv(x, y)
 
-    fmul = tvm_tirx.tirx.compile(imm_multiply, target="llvm")
-    fadd = tvm_tirx.tirx.compile(imm_add, target="llvm")
-    fsub = tvm_tirx.tirx.compile(imm_sub, target="llvm")
-    ffloordiv = tvm_tirx.tirx.compile(imm_floordiv, target="llvm")
-    ftruncdiv = tvm_tirx.tirx.compile(imm_truncdiv, target="llvm")
+    fmul = tvm_tirx.compile(imm_multiply, target="llvm")
+    fadd = tvm_tirx.compile(imm_add, target="llvm")
+    fsub = tvm_tirx.compile(imm_sub, target="llvm")
+    ffloordiv = tvm_tirx.compile(imm_floordiv, target="llvm")
+    ftruncdiv = tvm_tirx.compile(imm_truncdiv, target="llvm")
 
     # Both overflow and negative unsigned results decline folding.
     assert isinstance(tirx.const(255, "uint8") + tirx.const(1, "uint8"), tirx.Add)
@@ -522,13 +522,13 @@ def test_tir_int32_const_fold():
     def imm_floormod(x: T.int32, y: T.int32) -> T.int32:
         return T.floormod(x, y)
 
-    fmul = tvm_tirx.tirx.compile(imm_multiply, target="llvm")
-    fadd = tvm_tirx.tirx.compile(imm_add, target="llvm")
-    fsub = tvm_tirx.tirx.compile(imm_sub, target="llvm")
-    ffloordiv = tvm_tirx.tirx.compile(imm_floordiv, target="llvm")
-    ffloormod = tvm_tirx.tirx.compile(imm_floormod, target="llvm")
-    ftruncdiv = tvm_tirx.tirx.compile(imm_truncdiv, target="llvm")
-    ftruncmod = tvm_tirx.tirx.compile(imm_truncmod, target="llvm")
+    fmul = tvm_tirx.compile(imm_multiply, target="llvm")
+    fadd = tvm_tirx.compile(imm_add, target="llvm")
+    fsub = tvm_tirx.compile(imm_sub, target="llvm")
+    ffloordiv = tvm_tirx.compile(imm_floordiv, target="llvm")
+    ffloormod = tvm_tirx.compile(imm_floormod, target="llvm")
+    ftruncdiv = tvm_tirx.compile(imm_truncdiv, target="llvm")
+    ftruncmod = tvm_tirx.compile(imm_truncmod, target="llvm")
 
     # Out-of-range exact results remain typed operations.
     assert isinstance(tirx.const(2**31 - 1, "int32") + tirx.const(1, "int32"), tirx.Add)
@@ -602,11 +602,11 @@ def test_tir_uint32_const_fold():
     def imm_floordiv(x: T.uint32, y: T.uint32) -> T.uint32:
         return T.floordiv(x, y)
 
-    fmul = tvm_tirx.tirx.compile(imm_multiply, target="llvm")
-    fadd = tvm_tirx.tirx.compile(imm_add, target="llvm")
-    fsub = tvm_tirx.tirx.compile(imm_sub, target="llvm")
-    ffloordiv = tvm_tirx.tirx.compile(imm_floordiv, target="llvm")
-    ftruncdiv = tvm_tirx.tirx.compile(imm_truncdiv, target="llvm")
+    fmul = tvm_tirx.compile(imm_multiply, target="llvm")
+    fadd = tvm_tirx.compile(imm_add, target="llvm")
+    fsub = tvm_tirx.compile(imm_sub, target="llvm")
+    ffloordiv = tvm_tirx.compile(imm_floordiv, target="llvm")
+    ftruncdiv = tvm_tirx.compile(imm_truncdiv, target="llvm")
 
     # Out-of-range exact results remain typed operations.
     assert isinstance(tirx.const(2**32 - 1, "uint32") + tirx.const(1, "uint32"), tirx.Add)

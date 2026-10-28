@@ -40,7 +40,7 @@ def test_nested_byte_pointer_offset():
     After = tvm_tirx.tirx.transform.LowerIntrin()(Before)
     tvm_tirx.ir.assert_structural_equal(After, Before)
     for target in ["c"] + (["llvm"] if env.has_llvm() else []):
-        tvm_tirx.tirx.compile(Before, target=target).mod
+        tvm_tirx.compile(Before, target=target).mod
 
 
 @pytest.mark.skipif(not env.has_llvm(), reason="need llvm")
@@ -57,7 +57,7 @@ def test_vector_byte_pointer_offset(dtype, byte_offset):
 
     After = tvm_tirx.tirx.transform.LowerIntrin()(Before)
     tvm_tirx.ir.assert_structural_equal(After, Before)
-    tvm_tirx.tirx.compile(Before, target="llvm").mod
+    tvm_tirx.compile(Before, target="llvm").mod
 
 
 @pytest.mark.parametrize("shape, indices", [((), []), ((16,), [3]), ((2, 4), [1, 2])])
@@ -168,7 +168,7 @@ def test_lower_floordiv_and_floormod(dtype, kind, variant):
         [tvm_tirx.tirx.transform.StmtSimplify(), tvm_tirx.tirx.transform.LowerIntrin()]
     )(Before)
     tvm_tirx.ir.assert_structural_equal(After, Expected)
-    compiled = tvm_tirx.tirx.compile(After, "llvm")
+    compiled = tvm_tirx.compile(After, "llvm")
     data = itertools.product(range(-10, 10), [y for y in range(-10, 10) if y])
     for x, y in data:
         if (variant == "pow2" and y != 8) or (variant == "offset" and y != 5):
@@ -226,7 +226,7 @@ def test_lower_floordiv_overflow_checks(dtype, clamp, data):
         [tvm_tirx.tirx.transform.StmtSimplify(), tvm_tirx.tirx.transform.LowerIntrin()]
     )(Before)
     tvm_tirx.ir.assert_structural_equal(After, Expected)
-    compiled = tvm_tirx.tirx.compile(After, "llvm")
+    compiled = tvm_tirx.compile(After, "llvm")
     for value in data:
         expected = min(max(value, -10), 32758) if clamp else value
         assert compiled(value) == expected // 3

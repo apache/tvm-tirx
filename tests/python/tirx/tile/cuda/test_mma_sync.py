@@ -581,9 +581,7 @@ def test_cuda_gemm_mma_numerical(dtype):
             D_g[lane // 4 + 8 * rM, 2 * (lane % 4) + rN] = D_reg[s]
 
     with tvm_tirx.target.Target("cuda"):
-        mod = tvm_tirx.tirx.compile(
-            tvm_tirx.IRModule({"main": gemm}), target="cuda", pipeline="tirx"
-        )
+        mod = tvm_tirx.compile(tvm_tirx.IRModule({"main": gemm}), target="cuda", pipeline="tirx")
 
     np.random.seed(0)
     A_np = np.random.uniform(-1, 1, (16, 16)).astype(np.float32)
@@ -642,9 +640,7 @@ def test_cuda_gemm_mma_numerical_tiled(dtype, beta, Mt, Nt, Kt, kinst):
 
     func, M, N, K = _build_tiled_numeric(Mt, Nt, Kt, kinst, beta, dtype)
     with tvm_tirx.target.Target("cuda"):
-        mod = tvm_tirx.tirx.compile(
-            tvm_tirx.IRModule({"main": func}), target="cuda", pipeline="tirx"
-        )
+        mod = tvm_tirx.compile(tvm_tirx.IRModule({"main": func}), target="cuda", pipeline="tirx")
 
     np.random.seed(0)
     A_np = np.random.uniform(-1, 1, (M, K)).astype(np.float32)
@@ -684,9 +680,7 @@ def test_cuda_gemm_mma_numerical_transpose(transpose_A, transpose_B, dtype):
 
     func = _build_transpose_numeric(transpose_A, transpose_B, dtype)
     with tvm_tirx.target.Target("cuda"):
-        mod = tvm_tirx.tirx.compile(
-            tvm_tirx.IRModule({"main": func}), target="cuda", pipeline="tirx"
-        )
+        mod = tvm_tirx.compile(tvm_tirx.IRModule({"main": func}), target="cuda", pipeline="tirx")
 
     np.random.seed(0)
     A_log = np.random.uniform(-1, 1, (16, 16)).astype(np.float32)  # logical A[M, K]
@@ -749,7 +743,7 @@ def test_cuda_gemm_mma_codegen_issue_count(Mt, Nt, Kt, kinst):
     tile; K-tiles accumulate in place, so D is cleared once per output tile."""
     target = tvm_tirx.target.Target({"kind": "cuda", "arch": "sm_80"})
     with target:
-        mod = tvm_tirx.tirx.compile(
+        mod = tvm_tirx.compile(
             tvm_tirx.IRModule({"main": _build_tiled(Mt, Nt, Kt, kinst, store=True)}),
             target=target,
             pipeline="tirx",
@@ -784,7 +778,7 @@ def test_cuda_gemm_mma_codegen_transpose(transpose_A, transpose_B):
     """Every orientation codegens to a valid m16n8k16 kernel."""
     target = tvm_tirx.target.Target({"kind": "cuda", "arch": "sm_80"})
     with target:
-        mod = tvm_tirx.tirx.compile(
+        mod = tvm_tirx.compile(
             tvm_tirx.IRModule({"main": _build_transpose(transpose_A, transpose_B, store=True)}),
             target=target,
             pipeline="tirx",
@@ -858,7 +852,7 @@ def _check_scaled_mma(alpha, beta):
     a = rng.uniform(-1, 1, (16, 16)).astype("float16")
     b = rng.uniform(-1, 1, (16, 8)).astype("float16")
     c = rng.uniform(-1, 1, (16, 8)).astype("float32")
-    f = tvm_tirx.tirx.compile(kernel, target="cuda", pipeline="tirx")
+    f = tvm_tirx.compile(kernel, target="cuda", pipeline="tirx")
 
     def check():
         values = [tvm_tirx.runtime.tensor(v, tvm_tirx.cuda()) for v in (a, b, c, np.zeros_like(c))]

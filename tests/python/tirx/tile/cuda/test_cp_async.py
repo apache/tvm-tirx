@@ -148,7 +148,7 @@ def test_copy_g2s_s2g_cta_vec_load(task, dtype):
         mod = tvm_tirx.ir.transform.Sequential(
             [tvm_tirx.tirx.transform.TileDispatch(), tvm_tirx.tirx.transform.LowerTensorLayouts()]
         )(mod)
-        mod = tvm_tirx.tirx.compile(mod, target=target, pipeline="tirx")
+        mod = tvm_tirx.compile(mod, target=target, pipeline="tirx")
 
         np.random.seed(0)
         A_np = np.random.rand(*g_shape).astype(np_dtype)
@@ -188,7 +188,7 @@ def test_copy_ldgsts_predicate_zero_fill_codegen():
 
     target = tvm_tirx.target.Target({"kind": "cuda", "arch": "sm_100a"})
     with target:
-        mod = tvm_tirx.tirx.compile(
+        mod = tvm_tirx.compile(
             tvm_tirx.IRModule({"main": copy_async}), target=target, pipeline="tirx"
         )
     src = mod.mod.imports[0].inspect_source()

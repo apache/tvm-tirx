@@ -46,7 +46,7 @@ def test_vmlal_s16():
                     for n in T.vectorized(N):
                         C[n] = C[n] + T.Cast("int32", A[rv, n]) * T.Cast("int32", B[rv, n])
 
-        f = tvm_tirx.tirx.compile(Module, target=target).mod
+        f = tvm_tirx.compile(Module, target=target).mod
 
         # Verify we see the correct number of vmlal.s16 instructions
         assembly = f.inspect_source("asm")
@@ -75,7 +75,7 @@ def test_vmlal_s16():
                     for n in T.vectorized(N):
                         C[n] = C[n] + T.Cast("int32", A[rv, n]) * T.Cast("int32", B[rv])
 
-        f = tvm_tirx.tirx.compile(Module, target=target).mod
+        f = tvm_tirx.compile(Module, target=target).mod
 
         # Verify we see the correct number of vmlal.s16 instructions
         assembly = f.inspect_source("asm")

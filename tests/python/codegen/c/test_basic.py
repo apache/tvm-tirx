@@ -41,7 +41,7 @@ def test_add():
                 C[i0] = A[i0] + B[i0]
 
     def check_c():
-        mhost = tvm_tirx.tirx.compile(Module, target="c")
+        mhost = tvm_tirx.compile(Module, target="c")
         temp = utils.tempdir()
         path_dso = temp.relpath("temp.so")
         mhost.export_library(path_dso)
@@ -73,7 +73,7 @@ def test_reinterpret():
                 B[i0] = T.reinterpret(A[i0] + 2, ty="float32")
 
     def check_c():
-        mhost = tvm_tirx.tirx.compile(Module, target="c")
+        mhost = tvm_tirx.compile(Module, target="c")
         temp = utils.tempdir()
         path_dso = temp.relpath("temp.so")
         mhost.export_library(path_dso)
@@ -104,7 +104,7 @@ def test_ceil():
                 B[i0] = T.ceil(A[i0])
 
     def check_c():
-        mhost = tvm_tirx.tirx.compile(Module, target="c")
+        mhost = tvm_tirx.compile(Module, target="c")
         temp = utils.tempdir()
         path_dso = temp.relpath("temp.so")
         mhost.export_library(path_dso)
@@ -135,7 +135,7 @@ def test_floor():
                 B[i0] = T.floor(A[i0])
 
     def check_c():
-        mhost = tvm_tirx.tirx.compile(Module, target="c")
+        mhost = tvm_tirx.compile(Module, target="c")
         temp = utils.tempdir()
         path_dso = temp.relpath("temp.so")
         mhost.export_library(path_dso)
@@ -166,7 +166,7 @@ def test_round():
                 B[i0] = T.round(A[i0])
 
     def check_c():
-        mhost = tvm_tirx.tirx.compile(Module, target="c")
+        mhost = tvm_tirx.compile(Module, target="c")
         temp = utils.tempdir()
         path_dso = temp.relpath("temp.so")
         mhost.export_library(path_dso)
@@ -206,7 +206,7 @@ def test_min_max_reads_after_store():
         def main(P: T.Tensor((1,), "float32"), Out: T.Tensor((2,), "float32")):
             Module.check(P.data, Out.data)
 
-    executable = tvm_tirx.tirx.compile(Module, target="c")
+    executable = tvm_tirx.compile(Module, target="c")
     data = tvm_tirx.runtime.tensor(np.ones(1, dtype="float32"))
     output = tvm_tirx.runtime.empty((2,), "float32")
     executable(data, output)
@@ -225,7 +225,7 @@ def test_subroutine_call():
             A = T.decl_tensor(A_data, ty_args=[T.Tensor(1, "float32", data=A_data)])
             A[0] = 42.0
 
-    built = tvm_tirx.tirx.compile(Module, target="c").mod
+    built = tvm_tirx.compile(Module, target="c").mod
 
     source = built.inspect_source()
     assert source.count("__tvm_ffi_main(void*") == 2, (
@@ -250,7 +250,7 @@ def test_workspace_allocation_cast():
             for i in range(256):
                 A[i] = workspace[i]
 
-    built = tvm_tirx.tirx.compile(Module, target="c").mod
+    built = tvm_tirx.compile(Module, target="c").mod
     assert "((float*)TVMBackendAllocWorkspace(" in built.inspect_source()
 
     temp = utils.tempdir()
@@ -267,7 +267,7 @@ def test_local_alloc_buffer_uses_plain_c_pointer():
                 B[i] = A[i] + T.float32(1)
                 A[i] = B[i]
 
-    built = tvm_tirx.tirx.compile(Module, target="c").mod
+    built = tvm_tirx.compile(Module, target="c").mod
     assert "local float*" not in built.inspect_source()
 
     temp = utils.tempdir()
@@ -286,9 +286,7 @@ def test_vector_pointer_uses_byte_offset():
     body = tvm_tirx.ir.Evaluate(tvm_tirx.tirx.call_extern("consume", pointer, ty="void"))
     func = tvm_tirx.tirx.Function([buffer], body).with_attr("global_symbol", "main")
 
-    source = tvm_tirx.tirx.compile(
-        tvm_tirx.IRModule.from_expr(func), target="c"
-    ).mod.inspect_source()
+    source = tvm_tirx.compile(tvm_tirx.IRModule.from_expr(func), target="c").mod.inspect_source()
     call = next(line.strip() for line in source.splitlines() if line.strip().startswith("consume("))
     assert "int32_t2" not in call
     assert "float2*" in call
@@ -303,7 +301,7 @@ def test_if_then_else_avoids_extraneous_parentheses():
             for i in range(8):
                 B[i] = T.if_then_else(i == 0, 1, A[i])
 
-    built = tvm_tirx.tirx.compile(Module, target="c").mod
+    built = tvm_tirx.compile(Module, target="c").mod
     source = built.inspect_source()
     assert "if ((" not in source, (
         "Generated code contains extraneous parentheses in the if condition, "
@@ -351,7 +349,7 @@ def test_min_max_nan_preserving(dtype):
             C[12, i] = T.min(A[i], T.cast(infinity, dtype))
             C[13, i] = T.max(A[i], T.cast(-infinity, dtype))
 
-    compiled = tvm_tirx.tirx.compile(main, target="c")
+    compiled = tvm_tirx.compile(main, target="c")
     a = np.array([np.nan, 1, np.nan, 0.0, -0.0, 3, 2, -5, np.inf, -np.inf, 1, -1], dtype=dtype)
     b = np.array([1, np.nan, np.nan, -0.0, 0.0, 2, 2, -4, 1, 1, np.inf, -np.inf], dtype=dtype)
     out = tvm_tirx.runtime.empty((14, n), dtype)

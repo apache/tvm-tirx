@@ -81,7 +81,7 @@ def test_gmem_smem_roundtrip(scope, n_threads, shape, dtype):
     target = tvm_tirx.target.Target("cuda")
     with target:
         mod = tvm_tirx.IRModule({"main": kernel})
-        compiled = tvm_tirx.tirx.compile(mod, target=target, pipeline="tirx")
+        compiled = tvm_tirx.compile(mod, target=target, pipeline="tirx")
 
     np_dtype = tvm_tirx.testing.np_dtype_from_str(dtype)
     A_np = tvm_tirx.testing.generate_random_array(dtype, shape)
@@ -202,7 +202,7 @@ def test_copy_g2s_s2g(task, dtype, scope):
     target = tvm_tirx.target.Target("cuda")
     with target:
         mod = tvm_tirx.IRModule({"main": copy_sync})
-        mod = tvm_tirx.tirx.compile(mod, target=target, pipeline="tirx")
+        mod = tvm_tirx.compile(mod, target=target, pipeline="tirx")
 
         np.random.seed(0)
         A_np = tvm_tirx.testing.generate_random_array(dtype, g_shape)
@@ -228,7 +228,7 @@ def test_swizzled_smem_emit_must_be_swizzle_aware():
     kernel = _explicit_staging_kernel(shape, shape, gl, sl, 0, "uint32", 4)
     target = tvm_tirx.target.Target({"kind": "cuda", "arch": "sm_90"})
     with target:
-        ex = tvm_tirx.tirx.compile(kernel, target=target)
+        ex = tvm_tirx.compile(kernel, target=target)
     source = ex.mod.imports[0].inspect_source()
     assert "^" in source
     assert "st.shared.v4.b32" in source
@@ -279,7 +279,7 @@ def _check_explicit_staging(g_shape, s_shape, g_layout, s_layout, start, word_dt
     )
     target = tvm_tirx.target.Target("cuda")
     with target:
-        ex = tvm_tirx.tirx.compile(kernel, target=target)
+        ex = tvm_tirx.compile(kernel, target=target)
     size = int(g_layout.span())
     source = (np.arange(size, dtype="float32") % 113 + 0.5).astype("float16")
     expected = np.empty(s_shape, "float16")

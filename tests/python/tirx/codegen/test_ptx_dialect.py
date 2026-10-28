@@ -37,9 +37,7 @@ requires_nvcc = pytest.mark.skipif(shutil.which("nvcc") is None, reason="nvcc no
 
 def _cuda_source(func, target=TARGET) -> str:
     with target:
-        mod = tvm_tirx.tirx.compile(
-            tvm_tirx.IRModule({"main": func}), target=target, pipeline="tirx"
-        )
+        mod = tvm_tirx.compile(tvm_tirx.IRModule({"main": func}), target=target, pipeline="tirx")
     return mod.mod.imports[0].inspect_source("cuda")
 
 
@@ -2221,9 +2219,7 @@ def test_ptx_wgmma_scale_d_runtime_predicate_roundtrip():
 
     target = tvm_tirx.target.Target({"kind": "cuda", "arch": "sm_90a"})
     with target:
-        mod = tvm_tirx.tirx.compile(
-            tvm_tirx.IRModule({"main": kernel}), target=target, pipeline="tirx"
-        )
+        mod = tvm_tirx.compile(tvm_tirx.IRModule({"main": kernel}), target=target, pipeline="tirx")
     src = mod.mod.imports[0].inspect_source("cuda")
     assert "wgmma.mma_async.sync.aligned.m64n8k32.s32.s8.s8" in src
     assert ".reg .pred ps0;" in src
@@ -4546,9 +4542,7 @@ def test_ptx_ld_st_gpu_roundtrip():
         T.ptx.st.release.gpu.global_.b32(B.ptr_to([tx]), val)
 
     with TARGET:
-        mod = tvm_tirx.tirx.compile(
-            tvm_tirx.IRModule({"main": kernel}), target=TARGET, pipeline="tirx"
-        )
+        mod = tvm_tirx.compile(tvm_tirx.IRModule({"main": kernel}), target=TARGET, pipeline="tirx")
 
     def run_and_check():
         dev = tvm_tirx.cuda(0)

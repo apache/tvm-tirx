@@ -85,7 +85,7 @@ def test_vector_comparison(dtype):
                         )
 
     # Build
-    f = tvm_tirx.tirx.compile(Module, target=target).mod
+    f = tvm_tirx.compile(Module, target=target).mod
 
     # Verify we generate the boolx4 type declaration and the OpSelect
     # v4{float,half,int} instruction
@@ -150,7 +150,7 @@ def test_array_vectorize_add(dtype):
                 with T.launch_thread("threadIdx.x", 4) as i_1:
                     B[i_0 * 4 + i_1] = A[i_0 * 4 + i_1] + one
 
-    f = tvm_tirx.tirx.compile(Module, target=target)
+    f = tvm_tirx.compile(Module, target=target)
 
     def run_and_check():
         dev = tvm_tirx.vulkan()
@@ -182,7 +182,7 @@ def test_vulkan_bool_load():
                 with T.launch_thread("threadIdx.x", 128) as i_1:
                     B[i_0 * 128 + i_1] = T.Cast("int32", A[i_0 * 128 + i_1])
 
-    f = tvm_tirx.tirx.compile(Module, target=target)
+    f = tvm_tirx.compile(Module, target=target)
 
     a_np = np.random.uniform(size=arr_size) > 0.5
     b_np = np.zeros((arr_size,), dtype="int32")
@@ -261,7 +261,7 @@ def test_vulkan_constant_passing(vulkan_parameter_impl, vulkan_parameter_dtype):
                             with T_builder.then_():
                                 T_builder.tensor_store(B, [v_i], scalar_sum + A[v_i])
     mod = ib.get()
-    f_add = tvm_tirx.tirx.compile(mod, target=target)
+    f_add = tvm_tirx.compile(mod, target=target)
 
     n = 1024
     scalars = np.array([1 for _ in range(num_int_params)]).astype(dtype)
@@ -298,7 +298,7 @@ def test_vulkan_while_if():
                 B[0] = B[0] + iterations[0]
 
     mod = tvm_tirx.IRModule.from_expr(while_if_gpu.with_attr("target", target))
-    compiled_func = tvm_tirx.tirx.compile(mod, target=target)
+    compiled_func = tvm_tirx.compile(mod, target=target)
 
     def run_and_check():
         dev = tvm_tirx.vulkan()
@@ -333,7 +333,7 @@ def test_vulkan_local_threadidx():
                 B[tx + 16] = A[tx + 16]
 
     mod = tvm_tirx.IRModule.from_expr(local_threadidx_func)
-    func = tvm_tirx.tirx.compile(mod, target=target)
+    func = tvm_tirx.compile(mod, target=target)
 
     a_np = np.arange(n).astype(dtype="int32")
     b_np = np.zeros((n,), dtype="int32")
@@ -374,7 +374,7 @@ def test_vectorized_index_ramp():
             bx = T.launch_thread("blockIdx.x", 1)
             B[ramp_index] = A[ramp_index]
 
-    f = tvm_tirx.tirx.compile(Module, target=target)
+    f = tvm_tirx.compile(Module, target=target)
 
     a_np = np.random.randint(np.iinfo("int32").max, size=n).astype("int32")
     b_np = np.zeros(n, dtype="int32")
@@ -416,7 +416,7 @@ def test_vectorized_index_broadcast():
             bx = T.launch_thread("blockIdx.x", 1)
             B[ramp_index] = A[broadcast_index]
 
-    f = tvm_tirx.tirx.compile(Module, target=target)
+    f = tvm_tirx.compile(Module, target=target)
 
     a_np = np.random.randint(np.iinfo("int32").max, size=n).astype("int32")
     b_np = np.zeros(n, dtype="int32")
@@ -462,7 +462,7 @@ def test_negative_operand_divmod():
             A[i, 0] = T.floordiv(i - offset, divisor)
             A[i, 1] = T.floormod(i - offset, divisor)
 
-    built = tvm_tirx.tirx.compile(func, target=target)
+    built = tvm_tirx.compile(func, target=target)
 
     def run_and_check():
         dev = tvm_tirx.vulkan()
@@ -515,7 +515,7 @@ def test_cooperative_matrix(out_dtype):
     tgt_attrs = tvm_tirx.target.Target(target).attrs
 
     if tgt_attrs.get("supports_cooperative_matrix"):
-        f = tvm_tirx.tirx.compile(Module, target=target)
+        f = tvm_tirx.compile(Module, target=target)
 
         def run_and_check():
             dev = tvm_tirx.vulkan(0)
@@ -559,7 +559,7 @@ def test_codegen_decl_buffer():
             with T.launch_thread("threadIdx.x", 1) as tx:
                 B_buf[tx] = A_buf[tx]
 
-    tvm_tirx.tirx.compile(ParameterBacked, target=target)
+    tvm_tirx.compile(ParameterBacked, target=target)
 
 
 @pytest.mark.gpu
@@ -578,7 +578,7 @@ def test_codegen_static_shared_memory():
                     A_shared[tx] = A[tx]
                     B[tx] = A_shared[tx]
 
-    tvm_tirx.tirx.compile(Module, target="vulkan")
+    tvm_tirx.compile(Module, target="vulkan")
 
 
 @pytest.mark.gpu
@@ -614,7 +614,7 @@ def test_unary():
                             B[i_0 * 64 + i_1] = tvm_intrin(A[i_0 * 64 + i_1])
 
         target = tvm_tirx.target.Target("vulkan")
-        func = tvm_tirx.tirx.compile(Module, target=target)
+        func = tvm_tirx.compile(Module, target=target)
 
         if tvm_intrin in [tvm_tirx.tirx.asin, tvm_tirx.tirx.acos]:
             data = np.random.uniform(-1.0, 1.0, size=n)

@@ -108,7 +108,7 @@ def test_cuda_aot(tmp_path):
             with T.launch_thread("threadIdx.x", 16) as i:
                 B[i] = A[i] + 1
 
-    module = tvm_tirx.tirx.compile(add_one, target=tvm_tirx.target.Target("cuda", host="llvm"))
+    module = tvm_tirx.compile(add_one, target=tvm_tirx.target.Target("cuda", host="llvm"))
     path = tmp_path / "model.so"
     options = shlex.split(
         subprocess.check_output(

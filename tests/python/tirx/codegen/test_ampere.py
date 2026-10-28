@@ -44,7 +44,7 @@ from tvm_tirx.testing import env
 def _get_source(func: tvm_tirx.tirx.Function):
     target = tvm_tirx.target.Target("cuda")
     mod = tvm_tirx.IRModule({"main": func})
-    mod = tvm_tirx.tirx.compile(mod, target=target, pipeline="tirx")
+    mod = tvm_tirx.compile(mod, target=target, pipeline="tirx")
     src = mod.mod.imports[0].inspect_source()
     return src, mod
 

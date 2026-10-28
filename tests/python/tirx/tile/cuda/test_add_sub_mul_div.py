@@ -45,7 +45,7 @@ def half_divide(a: T.float16, b: T.float16) -> T.float16:
 
 def _run(kernel, arrays, expected, output=0, atol=1e-3, target="cuda", opcode=None):
     with tvm_tirx.target.Target(target):
-        mod = tvm_tirx.tirx.compile(kernel, target=target, pipeline="tirx")
+        mod = tvm_tirx.compile(kernel, target=target, pipeline="tirx")
     if opcode is not None:
         assert opcode in mod.mod.imports[0].inspect_source()
 
@@ -388,7 +388,7 @@ def test_binary_op_local_subcta_trivial(thread_scope, rhs_kind, op_type):
         B_np = np.random.rand(*b_shape).astype(dtype)
         C_np = np.zeros(c_shape, dtype=dtype)
         mod = tvm_tirx.IRModule({"main": kernel})
-        mod = tvm_tirx.tirx.compile(mod, target=target, pipeline="tirx")
+        mod = tvm_tirx.compile(mod, target=target, pipeline="tirx")
         np_op = {"add": np.add, "sub": np.subtract, "mul": np.multiply, "fdiv": np.divide}[op_type]
         if rhs_kind == "region":
             C_ref = np_op(A_np, B_np)
@@ -597,7 +597,7 @@ def test_binary_op_packed_f32x2_explicit(op_type):
         A_np = np.random.rand(*a_shape).astype(dtype)
         B_np = np.random.rand(*b_shape).astype(dtype)
         mod = tvm_tirx.IRModule({"main": test_func})
-        mod = tvm_tirx.tirx.compile(mod, target=target, pipeline="tirx")
+        mod = tvm_tirx.compile(mod, target=target, pipeline="tirx")
         src = mod.mod.imports[0].inspect_source()
         ptx_pat = {
             "add": r"add\.[a-z]+\.ftz\.f32x2",
@@ -713,7 +713,7 @@ def test_binary_op_warpgroup_thread_row_layout(op_name):
         C_np = np.zeros((rows, cols), dtype=dtype)
 
         mod = tvm_tirx.IRModule({"main": test_func})
-        mod = tvm_tirx.tirx.compile(mod, target=target, pipeline="tirx")
+        mod = tvm_tirx.compile(mod, target=target, pipeline="tirx")
         if op_name == "add":
             C_ref = A_np + B_np
         elif op_name == "sub":
@@ -824,7 +824,7 @@ def test_binary_op_warpgroup_wg_local_emits_packed_f32x2(op_name, ptx_op):
 
     with target:
         mod = tvm_tirx.IRModule({"main": test_func})
-        ex = tvm_tirx.tirx.compile(mod, target=target, pipeline="tirx")
+        ex = tvm_tirx.compile(mod, target=target, pipeline="tirx")
         src = ex.mod.imports[0].inspect_source()
 
     # Codegen must use the packed f32x2 path, not scalar fallback.
@@ -883,7 +883,7 @@ def test_fma_warpgroup_wg_local_emits_packed_f32x2():
 
     with target:
         mod = tvm_tirx.IRModule({"main": test_func})
-        ex = tvm_tirx.tirx.compile(mod, target=target, pipeline="tirx")
+        ex = tvm_tirx.compile(mod, target=target, pipeline="tirx")
         src = ex.mod.imports[0].inspect_source()
 
     assert re.search(r"fma\.[a-z]+\.ftz\.f32x2", src), (
@@ -934,7 +934,7 @@ def test_binary_add_f32_sm100_packed_f32x2_dispatch():
     target = tvm_tirx.target.Target({"kind": "cuda", "arch": "sm_100a"})
     with target:
         mod = tvm_tirx.IRModule({"main": k})
-        mod = tvm_tirx.tirx.compile(mod, target=target, pipeline="tirx")
+        mod = tvm_tirx.compile(mod, target=target, pipeline="tirx")
         src = mod.mod.imports[0].inspect_source()
     assert re.search(r"add\.[a-z]+\.ftz\.f32x2", src), (
         f"expected packed add_f32x2; got:\n{src[:2000]}"
@@ -961,7 +961,7 @@ def test_binary_maximum_reg():
 
     target = tvm_tirx.target.Target("cuda")
     with target:
-        mod = tvm_tirx.tirx.compile(
+        mod = tvm_tirx.compile(
             tvm_tirx.IRModule({"main": relu_max}), target=target, pipeline="tirx"
         )
     np.random.seed(0)
@@ -1021,7 +1021,7 @@ def test_binary_add_f16_scalar_fallback_dispatch():
     target = tvm_tirx.target.Target({"kind": "cuda", "arch": "sm_80"})
     with target:
         mod = tvm_tirx.IRModule({"main": k})
-        mod = tvm_tirx.tirx.compile(mod, target=target, pipeline="tirx")
+        mod = tvm_tirx.compile(mod, target=target, pipeline="tirx")
         src = mod.mod.imports[0].inspect_source()
     assert "add.rn.f16" in src, f"expected scalar half add; got:\n{src[:2000]}"
     assert not re.search(r"add\.[a-z]+\.ftz\.f(32|16)x2", src), (
@@ -1071,9 +1071,7 @@ def test_mul_tcgen05_16x256b_atom_warpgroup_dispatch():
 
     target = tvm_tirx.target.Target({"kind": "cuda", "arch": "sm_100a"})
     with target:
-        mod = tvm_tirx.tirx.compile(
-            tvm_tirx.IRModule({"main": kernel}), target=target, pipeline="tirx"
-        )
+        mod = tvm_tirx.compile(tvm_tirx.IRModule({"main": kernel}), target=target, pipeline="tirx")
         src = mod.mod.imports[0].inspect_source()
     assert re.search(r"mul\.[a-z]+\.ftz\.f32x2", src), (
         f"expected packed mul_f32x2 for tcgen05 atom; got:\n{src[:2000]}"
@@ -1142,7 +1140,7 @@ def test_mul_scalar_broadcast():
         A_np = np.random.rand(N).astype(dtype)
         S_np = np.array([2.5], dtype=dtype)
         mod = tvm_tirx.IRModule({"main": test_func})
-        mod = tvm_tirx.tirx.compile(mod, target=target, pipeline="tirx")
+        mod = tvm_tirx.compile(mod, target=target, pipeline="tirx")
 
         def run_and_check():
             dev = tvm_tirx.cuda(0)
@@ -1188,7 +1186,7 @@ def test_add_rounding_mode():
     with target:
         A_np = np.array([1.3, 2.7], dtype=dtype)
         mod = tvm_tirx.IRModule({"main": test_func})
-        mod = tvm_tirx.tirx.compile(mod, target=target, pipeline="tirx")
+        mod = tvm_tirx.compile(mod, target=target, pipeline="tirx")
         # Check that the PTX uses the rounding mode
         src = mod.mod.imports[0].inspect_source()
         assert re.search(r"add\.rm\.ftz\.f32x2", src), (
@@ -1245,7 +1243,7 @@ def test_sub_tensor_tensor_rounding():
         A_np = np.array([3.14, 2.71], dtype=dtype)
         B_np = np.array([1.41, 0.57], dtype=dtype)
         mod = tvm_tirx.IRModule({"main": test_func})
-        mod = tvm_tirx.tirx.compile(mod, target=target, pipeline="tirx")
+        mod = tvm_tirx.compile(mod, target=target, pipeline="tirx")
         src = mod.mod.imports[0].inspect_source()
         assert re.search(r"sub\.rn\.ftz\.f32x2", src), (
             f"Expected packed sub with rn rounding in PTX:\n{src}"

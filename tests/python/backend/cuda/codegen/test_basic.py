@@ -63,9 +63,7 @@ def test_cuda_vectorize_add(*, backend_config):
                         if i_0 * num_thread + i_1 < n:
                             B[i_0 * num_thread + i_1] = A[i_0 * num_thread + i_1] + one
 
-        fun = tvm_tirx.tirx.compile(
-            Module, target={"kind": "cuda", "backend_config": backend_config}
-        )
+        fun = tvm_tirx.compile(Module, target={"kind": "cuda", "backend_config": backend_config})
 
         def run_and_check():
             dev = tvm_tirx.cuda(0)
@@ -131,7 +129,7 @@ def test_cuda_bf16_vectorize_add(*, backend_config):
         with tvm_tirx.ir.transform.PassContext(
             disabled_pass=["tirx.BF16Promote", "tirx.BF16CastElimination", "tirx.BF16TypeLowering"]
         ):
-            fun = tvm_tirx.tirx.compile(
+            fun = tvm_tirx.compile(
                 Module, target={"kind": "cuda", "backend_config": backend_config}
             )
 
@@ -185,9 +183,7 @@ def test_cuda_multiply_add(*, backend_config):
                             ty="int32",
                         )
 
-        fun = tvm_tirx.tirx.compile(
-            Module, target={"kind": "cuda", "backend_config": backend_config}
-        )
+        fun = tvm_tirx.compile(Module, target={"kind": "cuda", "backend_config": backend_config})
 
         np_a = np.random.randint(low=-128, high=127, size=(n, lanes))
         np_b = np.random.randint(low=-128, high=127, size=(n, lanes))
@@ -226,9 +222,7 @@ def test_cuda_vectorize_load(*, backend_config):
                     with T.launch_thread("threadIdx.x", num_thread) as i_1:
                         B[i_0 * num_thread + i_1] = A[i_0 * num_thread + i_1]
 
-        fun = tvm_tirx.tirx.compile(
-            Module, target={"kind": "cuda", "backend_config": backend_config}
-        )
+        fun = tvm_tirx.compile(Module, target={"kind": "cuda", "backend_config": backend_config})
 
         def run_and_check():
             dev = tvm_tirx.cuda(0)
@@ -263,9 +257,7 @@ def test_cuda_make_int8(*, backend_config):
                     for j in T.vectorized(lanes):
                         A[i, j] = const_value
 
-        fun = tvm_tirx.tirx.compile(
-            Module, target={"kind": "cuda", "backend_config": backend_config}
-        )
+        fun = tvm_tirx.compile(Module, target={"kind": "cuda", "backend_config": backend_config})
 
         def run_and_check():
             dev = tvm_tirx.cuda(0)
@@ -303,9 +295,7 @@ def test_cuda_inf_nan(*, backend_config):
                         if i_0 * 8 + i_1 < n:
                             C[i_0 * 8 + i_1] = inf_value
 
-        fun = tvm_tirx.tirx.compile(
-            Module, target={"kind": "cuda", "backend_config": backend_config}
-        )
+        fun = tvm_tirx.compile(Module, target={"kind": "cuda", "backend_config": backend_config})
 
         def run_and_check():
             dev = tvm_tirx.cuda(0)
@@ -363,7 +353,7 @@ def test_crossthread_reduction1(target, *, backend_config):
                         if m_0 == 0:
                             B[i] = reduced[0]
 
-        fun = tvm_tirx.tirx.compile(
+        fun = tvm_tirx.compile(
             Module,
             target={**tvm_tirx.target.Target(target).export(), "backend_config": backend_config}
             if target == "cuda"
@@ -451,7 +441,7 @@ def test_crossthread_reduction2(target, *, backend_config):
                             if k0_0 == 0 and k1_0 == 0:
                                 B[i] = reduced[0]
 
-        func = tvm_tirx.tirx.compile(
+        func = tvm_tirx.compile(
             Module,
             target={**tvm_tirx.target.Target(target).export(), "backend_config": backend_config}
             if target == "cuda"
@@ -500,7 +490,7 @@ def test_cuda_reduction_binding(*, backend_config):
                             B[m_0 * 32 + m_1] = T.float32(0.0)
                         B[m_0 * 32 + m_1] = B[m_0 * 32 + m_1] + A[m_0 * 32 + m_1, k]
 
-    tvm_tirx.tirx.compile(Module, target={"kind": "cuda", "backend_config": backend_config})
+    tvm_tirx.compile(Module, target={"kind": "cuda", "backend_config": backend_config})
 
 
 @pytest.mark.gpu
@@ -532,7 +522,7 @@ def test_cuda_const_float_to_half(*, backend_config):
                             ]
                         )
 
-    func = tvm_tirx.tirx.compile(Module, target={"kind": "cuda", "backend_config": backend_config})
+    func = tvm_tirx.compile(Module, target={"kind": "cuda", "backend_config": backend_config})
 
     shape = (2, 3, 4)
     a_np = np.random.uniform(size=shape).astype("float16")
@@ -568,9 +558,7 @@ def test_cuda_floordiv_with_vectorization(*, backend_config):
                                 (i_0 * 256 + i_1_0 * 4 + i_1_1) // 37
                             ]
 
-        func = tvm_tirx.tirx.compile(
-            Module, target={"kind": "cuda", "backend_config": backend_config}
-        )
+        func = tvm_tirx.compile(Module, target={"kind": "cuda", "backend_config": backend_config})
 
         def run_and_check():
             dev = tvm_tirx.cuda(0)
@@ -604,9 +592,7 @@ def test_cuda_floormod_with_vectorization(*, backend_config):
                                 (i_0 * 256 + i_1_0 * 4 + i_1_1) % 37
                             ]
 
-        func = tvm_tirx.tirx.compile(
-            Module, target={"kind": "cuda", "backend_config": backend_config}
-        )
+        func = tvm_tirx.compile(Module, target={"kind": "cuda", "backend_config": backend_config})
 
         def run_and_check():
             dev = tvm_tirx.cuda(0)
@@ -689,7 +675,7 @@ def test_vectorized_casts(t0, t1, factor, *, backend_config):
                         t0, B[i_0 * factor + i_1]
                     )
 
-    func = tvm_tirx.tirx.compile(Module, target={"kind": "cuda", "backend_config": backend_config})
+    func = tvm_tirx.compile(Module, target={"kind": "cuda", "backend_config": backend_config})
 
     # correctness
     def run_and_check():
@@ -728,7 +714,7 @@ def sched(compute_fn, dtype, n=128, *, backend_config=None):
                                 A[i0_1_0 * 4 + i0_1_1_0 * 4 + i0_1_1_1]
                             )
 
-    return tvm_tirx.tirx.compile(Module, target={"kind": "cuda", "backend_config": backend_config})
+    return tvm_tirx.compile(Module, target={"kind": "cuda", "backend_config": backend_config})
 
 
 @pytest.mark.gpu
@@ -870,7 +856,7 @@ def _min_max_module(dtype, form, n=12):
 def test_min_max_nan_preserving_cuda(dtype, form, *, backend_config):
     n = 12
     is_float = dtype != "int32"
-    mod = tvm_tirx.tirx.compile(
+    mod = tvm_tirx.compile(
         _min_max_module(dtype, form, n), target={"kind": "cuda", "backend_config": backend_config}
     )
     # The CUDA header before the kernel has "||" in preprocessor lines, so the text is
@@ -939,7 +925,7 @@ def test_atomic_operand_evaluation():
                 4,
             )
 
-    executable = tvm_tirx.tirx.compile(main, target="cuda")
+    executable = tvm_tirx.compile(main, target="cuda")
 
     def run_and_check():
         dev = tvm_tirx.cuda(0)
@@ -1058,9 +1044,7 @@ def test_cuda_vectorize_load_permute_pad(*, backend_config):
                                 j < padding or l + padding <= j, zero, A[i * lanes + k, j - padding]
                             )
 
-        fun = tvm_tirx.tirx.compile(
-            Module, target={"kind": "cuda", "backend_config": backend_config}
-        )
+        fun = tvm_tirx.compile(Module, target={"kind": "cuda", "backend_config": backend_config})
 
         np_a = np.random.randint(low=-128, high=127, size=(n, l)).astype(dtype)
         np_a_reshape = np_a.reshape(n // lanes, lanes, l).transpose(0, 2, 1)
@@ -1099,9 +1083,7 @@ def test_try_unaligned_vector_load(*, backend_config):
                     for i_1 in T.vectorized(2):
                         C[i_0 * 2 + i_1] = A[i_0 * 2 + i_1 + offset]
 
-        f = tvm_tirx.tirx.compile(
-            Module, target={"kind": "cuda", "backend_config": backend_config}
-        ).mod
+        f = tvm_tirx.compile(Module, target={"kind": "cuda", "backend_config": backend_config}).mod
 
         kernel_source = f.imports[0].inspect_source()
         a_data = np.arange(0, N).astype("float16")
@@ -1162,9 +1144,7 @@ def test_cuda_thread_sync_inside_condition(*, backend_config):
 
     for func in [func2, func3]:
         mod = tvm_tirx.IRModule({"main": func})
-        compiled = tvm_tirx.tirx.compile(
-            mod, target={"kind": "cuda", "backend_config": backend_config}
-        )
+        compiled = tvm_tirx.compile(mod, target={"kind": "cuda", "backend_config": backend_config})
         assert "__syncthreads()" in compiled.mod.imports[0].inspect_source()
 
 
@@ -1177,7 +1157,7 @@ def test_invalid_reinterpret(*, backend_config):
             B[tx] = T.call_intrin("tirx.reinterpret", A[tx], ty="uint8")
 
     with pytest.raises(RuntimeError):
-        tvm_tirx.tirx.compile(func, target={"kind": "cuda", "backend_config": backend_config})
+        tvm_tirx.compile(func, target={"kind": "cuda", "backend_config": backend_config})
 
 
 @pytest.mark.gpu
@@ -1198,7 +1178,7 @@ def test_cuda_tensormap(*, backend_config):
     # fmt: on
 
     mod = tvm_tirx.IRModule({"main": main})
-    mod = tvm_tirx.tirx.compile(mod, target={"kind": "cuda", "backend_config": backend_config})
+    mod = tvm_tirx.compile(mod, target={"kind": "cuda", "backend_config": backend_config})
     assert (
         """
 extern "C" __global__ void __launch_bounds__(128) main_kernel(float* __restrict__ A_ptr, const __grid_constant__ CUtensorMap A_map) {
@@ -1229,7 +1209,7 @@ def test_cuda_device_func_call(*, backend_config):
                 with T.launch_thread("threadIdx.x", 1024) as tx:
                     C[bx, tx] = Module.add(A[bx, tx], B[bx, tx])
 
-    lib = tvm_tirx.tirx.compile(Module, target={"kind": "cuda", "backend_config": backend_config})
+    lib = tvm_tirx.compile(Module, target={"kind": "cuda", "backend_config": backend_config})
     cuda_code = lib.mod.imports[0].inspect_source()
     assert 'extern "C" __device__ float add(float a, float b) {\n  return (a + b);\n}' in cuda_code
 
@@ -1249,7 +1229,7 @@ def test_cuda_float_const_hex_format(*, backend_config):
                 with T.launch_thread("threadIdx.x", 1024) as tx:
                     A[bx, tx] = T.float32(1 / 27)
 
-    lib = tvm_tirx.tirx.compile(Module, target={"kind": "cuda", "backend_config": backend_config})
+    lib = tvm_tirx.compile(Module, target={"kind": "cuda", "backend_config": backend_config})
     cuda_code = lib.mod.imports[0].inspect_source()
     assert "0x1.2f684bda12f68p-5f" in cuda_code
 
@@ -1280,7 +1260,7 @@ def test_device_host_call_same_func(*, backend_config):
     # 2. We set a dummy mcpu value for testing purpose,
     #    in order to avoid checking a function is host or device based on the "cpu" substring.
     target = tvm_tirx.target.Target({"kind": "cuda", "mcpu": "dummy_mcpu"}, host="c")
-    lib = tvm_tirx.tirx.compile(
+    lib = tvm_tirx.compile(
         Module, target={**tvm_tirx.target.Target(target).export(), "backend_config": backend_config}
     )
     cuda_code = lib.mod.imports[0].inspect_source()
@@ -1315,7 +1295,7 @@ def test_thread_return(monkeypatch, *, backend_config):
                         T.gpu_thread_return()
                     B[bx, tx] = A[bx, tx]
 
-    lib = tvm_tirx.tirx.compile(
+    lib = tvm_tirx.compile(
         Module,
         target={
             "kind": "cuda",
@@ -1343,7 +1323,7 @@ def test_cuda_loop_step(*, backend_config):
                     C[i] = A[i] + B[i]
 
     target = tvm_tirx.target.Target({"kind": "cuda"})
-    lib = tvm_tirx.tirx.compile(
+    lib = tvm_tirx.compile(
         cuda_loop_step,
         target={**tvm_tirx.target.Target(target).export(), "backend_config": backend_config},
     )

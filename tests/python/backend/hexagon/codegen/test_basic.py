@@ -63,7 +63,7 @@ def test_basic():
             for i in range(128):
                 C[i] = A[i] + A_1[i]
 
-    hexm = tvm_tirx.tirx.compile(Module, target=tvm_tirx.target.Target(target, target))
+    hexm = tvm_tirx.compile(Module, target=tvm_tirx.target.Target(target, target))
     asm = hexm.mod.imports[0].inspect_source("s")
     vadds = re.findall(r"v[0-9]+.b = vadd\(v[0-9]+.b,v[0-9]+.b\)", asm)
     assert vadds, asm
@@ -81,7 +81,7 @@ def test_llvm_target_features():
             for i in range(128):
                 C[i] = T.Cast("int32", A[i]) + 1
 
-    m = tvm_tirx.tirx.compile(Module, target=tvm_tirx.target.Target(target, target))
+    m = tvm_tirx.compile(Module, target=tvm_tirx.target.Target(target, target))
     llvm_ir = m.mod.imports[0].inspect_source("ll")
     # Make sure we find +hvx-length128b in "attributes".
     fs = re.findall(r"attributes.*\+hvx-length128b", llvm_ir)
@@ -112,7 +112,7 @@ def test_llvm_options():
 
     # Check that BuildHexagon hasn't crashed because of target attribute
     # type mismatch.
-    tvm_tirx.tirx.compile(Module, target=tvm_tirx.target.Target(target, target))
+    tvm_tirx.compile(Module, target=tvm_tirx.target.Target(target, target))
     assert re.search("-hexagon-noopt", str(target))
 
 

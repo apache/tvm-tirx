@@ -33,7 +33,7 @@ def build(func):
     target = tvm_tirx.target.Target(
         {"kind": "cuda", "backend_config": {"cuda": {"target_format": "ptx"}}}
     )
-    return tvm_tirx.tirx.compile(func, target=target, pipeline="tirx")
+    return tvm_tirx.compile(func, target=target, pipeline="tirx")
 
 
 @T.function(private=True)

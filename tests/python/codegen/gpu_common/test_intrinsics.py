@@ -61,7 +61,7 @@ def test_int_intrin(target, dtype):
                 with T.launch_thread("threadIdx.x", n) as i0:
                     B[i0] = tvm_intrin(A[i0])
 
-        f = tvm_tirx.tirx.compile(Module, target=target)
+        f = tvm_tirx.compile(Module, target=target)
 
         def run_and_check():
             dev = tvm_tirx.device_from_target(target)
@@ -91,7 +91,7 @@ def test_device_module_dump():
             print(f"Skip because {device} is not enabled")
             return
         temp = utils.tempdir()
-        f = tvm_tirx.tirx.compile(main, target=device)
+        f = tvm_tirx.compile(main, target=device)
 
         path_dso = temp.relpath("dev_lib.so")
         # test cross compiler function
@@ -122,7 +122,7 @@ def test_device_module_dump():
         if not tvm_tirx.testing.device_enabled(device):
             print(f"Skip because {device} is not enabled")
             return
-        f = tvm_tirx.tirx.compile(main, target=tvm_tirx.target.Target(device, host="c"))
+        f = tvm_tirx.compile(main, target=tvm_tirx.target.Target(device, host="c"))
 
         def run_and_check():
             dev = tvm_ffi.device(device, 0)

@@ -303,7 +303,7 @@ def test_vectorize_while_fallback():
                     i[0] = i[0] + 1
 
     after = _assert_scalar_fallback(Module)
-    tvm_tirx.tirx.compile(after, target="llvm")
+    tvm_tirx.compile(after, target="llvm")
 
 
 @pytest.mark.parametrize(
@@ -589,7 +589,7 @@ def test_llvm_pure_intrin_keeps_scalar_loop():
                 A[j] = T.call_llvm_pure_intrin("llvm.sqrt", B[j], ty="float32")
 
     after = _assert_scalar_fallback(Before)
-    tvm_tirx.tirx.compile(after, target="llvm")
+    tvm_tirx.compile(after, target="llvm")
 
 
 @pytest.mark.skipif(not env.has_llvm(), reason="need LLVM")
@@ -606,7 +606,7 @@ def test_vectorize_assert_preserves_scalar_failure_order():
     _assert_scalar_fallback(before)
     data = tvm_tirx.runtime.tensor(np.full(4, -1, dtype="int32"))
     with pytest.raises(RuntimeError, match="stop"):
-        tvm_tirx.tirx.compile(main, target="llvm")(data)
+        tvm_tirx.compile(main, target="llvm")(data)
     np.testing.assert_array_equal(data.numpy(), [11, 12, 3, -1])
 
 
@@ -621,7 +621,7 @@ def test_vectorize_unsupported_scalable_factor_keeps_scalar_loop():
     before = tvm_tirx.IRModule({"main": main})
     _assert_scalar_fallback(before)
     if env.has_llvm():
-        tvm_tirx.tirx.compile(before, target=sve_target)
+        tvm_tirx.compile(before, target=sve_target)
 
 
 if __name__ == "__main__":

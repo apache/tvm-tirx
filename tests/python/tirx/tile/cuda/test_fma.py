@@ -80,7 +80,7 @@ def test_fma_scalar_scalar():
     with target:
         A_np = np.random.rand(N).astype(dtype)
         mod = tvm_tirx.IRModule({"main": test_func})
-        mod = tvm_tirx.tirx.compile(mod, target=target, pipeline="tirx")
+        mod = tvm_tirx.compile(mod, target=target, pipeline="tirx")
 
         def run_and_check():
             dev = tvm_tirx.cuda(0)
@@ -134,7 +134,7 @@ def test_fma_tensor_scale_scalar_bias():
         A_np = np.random.rand(N).astype(dtype)
         B_np = np.random.rand(N).astype(dtype)
         mod = tvm_tirx.IRModule({"main": test_func})
-        mod = tvm_tirx.tirx.compile(mod, target=target, pipeline="tirx")
+        mod = tvm_tirx.compile(mod, target=target, pipeline="tirx")
 
         def run_and_check():
             dev = tvm_tirx.cuda(0)
@@ -186,7 +186,7 @@ def test_fma_no_layout(layout):
     with target:
         A_np = np.array([1.0, 2.0, 3.0, 4.0], dtype=dtype)
         mod = tvm_tirx.IRModule({"main": test_func})
-        mod = tvm_tirx.tirx.compile(mod, target=target, pipeline="tirx")
+        mod = tvm_tirx.compile(mod, target=target, pipeline="tirx")
 
         def run_and_check():
             dev = tvm_tirx.cuda(0)
@@ -248,7 +248,7 @@ def test_fma_warpgroup_thread_row_layout():
         A_np = np.random.rand(rows, cols).astype(dtype)
         B_np = np.zeros((rows, cols), dtype=dtype)
         mod = tvm_tirx.IRModule({"main": test_func})
-        mod = tvm_tirx.tirx.compile(mod, target=target, pipeline="tirx")
+        mod = tvm_tirx.compile(mod, target=target, pipeline="tirx")
 
         def run_and_check():
             dev = tvm_tirx.cuda(0)
@@ -303,7 +303,7 @@ def test_fma_f32_sm100_packed_f32x2_dispatch():
     target = tvm_tirx.target.Target({"kind": "cuda", "arch": "sm_100a"})
     with target:
         mod = tvm_tirx.IRModule({"main": k})
-        mod = tvm_tirx.tirx.compile(mod, target=target, pipeline="tirx")
+        mod = tvm_tirx.compile(mod, target=target, pipeline="tirx")
         src = mod.mod.imports[0].inspect_source()
     assert re.search(r"fma\.[a-z]+\.ftz\.f32x2", src), (
         f"expected packed fma_f32x2; got:\n{src[:2000]}"

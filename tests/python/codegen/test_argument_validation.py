@@ -51,7 +51,7 @@ def test_wrong_argument_count_error(codegen_target):
         for i in range(n0):
             B[i] = A[i] + T.float32(1)
 
-    lib = tvm_tirx.tirx.compile(func, target=codegen_target)
+    lib = tvm_tirx.compile(func, target=codegen_target)
     a = tvm_tirx.runtime.tensor(np.zeros(128, dtype="float32"))
     b = tvm_tirx.runtime.tensor(np.zeros(128, dtype="float32"))
     lib(a, b)  # correct input should pass
@@ -79,7 +79,7 @@ def test_type_mismatch_non_tensor(codegen_target):
         for i in range(n0):
             B[i] = A[i] + T.float32(1)
 
-    lib = tvm_tirx.tirx.compile(func, target=codegen_target)
+    lib = tvm_tirx.compile(func, target=codegen_target)
     a = tvm_tirx.runtime.tensor(np.zeros(128, dtype="float32"))
     b = tvm_tirx.runtime.tensor(np.zeros(128, dtype="float32"))
     lib(a, b)  # correct input should pass
@@ -108,7 +108,7 @@ def test_shape_mismatch_shared_variable(codegen_target):
         for i in range(n0):
             B[i] = A[i] + T.float32(1)
 
-    lib = tvm_tirx.tirx.compile(func, target=codegen_target)
+    lib = tvm_tirx.compile(func, target=codegen_target)
     a = tvm_tirx.runtime.tensor(np.zeros(128, dtype="float32"))
     b = tvm_tirx.runtime.tensor(np.zeros(128, dtype="float32"))
     lib(a, b)  # correct input should pass
@@ -133,7 +133,7 @@ def test_invalid_shape_fixed(codegen_target):
         for i in range(128):
             b[i] = a[i] + T.float32(1)
 
-    lib = tvm_tirx.tirx.compile(func, target=codegen_target)
+    lib = tvm_tirx.compile(func, target=codegen_target)
     a = tvm_tirx.runtime.tensor(np.zeros(128, dtype="float32"))
     b = tvm_tirx.runtime.tensor(np.zeros(128, dtype="float32"))
     lib(a, b)  # correct input should pass
@@ -162,7 +162,7 @@ def test_ndim_mismatch_error(codegen_target):
         for i, j in T.grid(4, 8):
             b[i, j] = a[i, j]
 
-    lib = tvm_tirx.tirx.compile(func, target=codegen_target)
+    lib = tvm_tirx.compile(func, target=codegen_target)
     a_ok = tvm_tirx.runtime.tensor(np.zeros((4, 8), dtype="float32"))
     b_ok = tvm_tirx.runtime.tensor(np.zeros((4, 8), dtype="float32"))
     lib(a_ok, b_ok)  # correct input should pass
@@ -191,7 +191,7 @@ def test_dtype_mismatch_error(codegen_target):
         for i in range(8):
             b[i] = a[i]
 
-    lib = tvm_tirx.tirx.compile(func, target=codegen_target)
+    lib = tvm_tirx.compile(func, target=codegen_target)
     a_ok = tvm_tirx.runtime.tensor(np.zeros(8, dtype="float32"))
     b_ok = tvm_tirx.runtime.tensor(np.zeros(8, dtype="float32"))
     lib(a_ok, b_ok)  # correct input should pass
@@ -220,7 +220,7 @@ def test_data_alignment_error(codegen_target):
         for i in range(128):
             b[i] = a[i] + T.float32(1)
 
-    lib = tvm_tirx.tirx.compile(func, target=codegen_target)
+    lib = tvm_tirx.compile(func, target=codegen_target)
     a_ok = tvm_tirx.runtime.tensor(np.zeros(128, dtype="float32"))
     b_ok = tvm_tirx.runtime.tensor(np.zeros(128, dtype="float32"))
     lib(a_ok, b_ok)  # correct input should pass
@@ -252,7 +252,7 @@ def test_strides_mismatch_transposed(codegen_target):
         for i, j in T.grid(128, 128):
             b[i, j] = a[i, j] + T.float32(1)
 
-    lib = tvm_tirx.tirx.compile(func, target=codegen_target)
+    lib = tvm_tirx.compile(func, target=codegen_target)
     a_ok = tvm_tirx.runtime.tensor(np.zeros((128, 128), dtype="float32"))
     b_ok = tvm_tirx.runtime.tensor(np.zeros((128, 128), dtype="float32"))
     lib(a_ok, b_ok)  # correct input should pass
@@ -286,7 +286,7 @@ def test_device_mismatch_error():
         for i in range(128):
             b[i] = a[i] + T.float32(1)
 
-    lib = tvm_tirx.tirx.compile(func, target="llvm")
+    lib = tvm_tirx.compile(func, target="llvm")
     a_ok = tvm_tirx.runtime.tensor(np.zeros(128, dtype="float32"))
     b_ok = tvm_tirx.runtime.tensor(np.zeros(128, dtype="float32"))
     lib(a_ok, b_ok)  # correct input should pass
@@ -321,7 +321,7 @@ def test_type_mismatch_int_parameter(codegen_target):
         else:
             return 20
 
-    lib = tvm_tirx.tirx.compile(func, target=codegen_target)
+    lib = tvm_tirx.compile(func, target=codegen_target)
     assert lib(5) == 10  # correct input should pass
 
     a = tvm_tirx.runtime.tensor(np.zeros(8, dtype="float32"))
@@ -344,7 +344,7 @@ def test_type_mismatch_float_parameter(codegen_target):
         else:
             return 0
 
-    lib = tvm_tirx.tirx.compile(func, target=codegen_target)
+    lib = tvm_tirx.compile(func, target=codegen_target)
     assert lib(1.0) == 1  # correct input should pass
 
     a = tvm_tirx.runtime.tensor(np.zeros(8, dtype="float32"))
@@ -367,7 +367,7 @@ def test_type_mismatch_bool_parameter(codegen_target):
         else:
             return 0
 
-    lib = tvm_tirx.tirx.compile(func, target=codegen_target)
+    lib = tvm_tirx.compile(func, target=codegen_target)
     assert lib(True) == 1  # correct input should pass
 
     a = tvm_tirx.runtime.tensor(np.zeros(8, dtype="float32"))
@@ -399,7 +399,7 @@ def test_forward_reference_symbolic_shape(codegen_target):
         for i in range(batch_size):
             B[i] = A[i] + A[i + 1]
 
-    lib = tvm_tirx.tirx.compile(func, target=codegen_target)
+    lib = tvm_tirx.compile(func, target=codegen_target)
     # Correct inputs: A has shape (5,), B has shape (4,)
     a = tvm_tirx.runtime.tensor(np.array([1, 2, 3, 4, 5], dtype="int32"))
     b = tvm_tirx.runtime.tensor(np.zeros(4, dtype="int32"))
@@ -431,7 +431,7 @@ def test_invalid_arguments_mixed_params(codegen_target):
     def func(a0: T.bool, a1: T.Tensor([10], "float32")) -> T.int32:
         return 0
 
-    lib = tvm_tirx.tirx.compile(func, target=codegen_target)
+    lib = tvm_tirx.compile(func, target=codegen_target)
     lib(True, tvm_tirx.runtime.tensor(np.zeros(10, dtype="float32")))  # correct input should pass
 
     with pytest.raises(

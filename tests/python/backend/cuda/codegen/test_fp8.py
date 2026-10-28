@@ -68,7 +68,7 @@ def test_fp8_conversions(input):
 
     mod = _create_mod(dtype)
     target = "cuda"
-    fadd = tvm_tirx.tirx.compile(mod, target=target).mod
+    fadd = tvm_tirx.compile(mod, target=target).mod
 
     cuda_src = fadd.imports[0].inspect_source()
     assert nv_dtype in cuda_src, f"{nv_dtype} datatype not found in generated CUDA"
@@ -117,7 +117,7 @@ def test_fp8_packing(dtype):
 
     mod = _create_mod(native_dtype, packed_dtype, length)
     target = "cuda"
-    f = tvm_tirx.tirx.compile(mod, target=target)
+    f = tvm_tirx.compile(mod, target=target)
     dev = tvm_tirx.cuda(0)
 
     np_shape = (length, vector_length)
@@ -175,7 +175,7 @@ def test_fp8_vector_conversions(native_dtype, promoted_dtype, numpytype):
 
     mod = _create_mod(native_dtype, promoted_dtype)
     target = "cuda"
-    fadd = tvm_tirx.tirx.compile(mod, target=target).mod
+    fadd = tvm_tirx.compile(mod, target=target).mod
     dev = tvm_tirx.cuda(0)
 
     if "x" in native_dtype:
@@ -226,7 +226,7 @@ def test_half_broadcast(bcast_length):
 
     mod = _create_mod(bcast_length, dtype)
     target = "cuda"
-    func = tvm_tirx.tirx.compile(mod, target=target)
+    func = tvm_tirx.compile(mod, target=target)
     dev = tvm_tirx.cuda(0)
 
     a_np = np.random.uniform(low=0, high=4, size=()).astype(dtype)
@@ -262,7 +262,7 @@ def test_half_misaligned_vector_load(vector_length):
                 B[i] = A[vec_index]
 
     target = "cuda"
-    f = tvm_tirx.tirx.compile(vector_load, target=target)
+    f = tvm_tirx.compile(vector_load, target=target)
 
     dev = tvm_tirx.cuda(0)
     a_np = np.random.uniform(low=0, high=1, size=(length,)).astype(dtype)
@@ -303,7 +303,7 @@ def test_half4_vector_add():
                     C[i_0 * 32 + i_1] = A[i_0 * 32 + i_1] + B[i_0 * 32 + i_1]
 
     target = "cuda"
-    fadd = tvm_tirx.tirx.compile(Module, target=target)
+    fadd = tvm_tirx.compile(Module, target=target)
     dev = tvm_tirx.cuda(0)
 
     a_np = np.random.uniform(-1, 1, (length, vector_length)).astype(dtype)
@@ -382,8 +382,8 @@ class BaseFP8E4M3QuantScaleOnly:
                         vec_model_dtype, T.reinterpret(packed[row, k], ty=vec_quantized_dtype)
                     ) * T.Broadcast(scale[row, k * 4 // group_size], 4)
 
-        quant_func = tvm_tirx.tirx.compile(quantize, target=target_str)
-        dequant_func = tvm_tirx.tirx.compile(dequantize, target=target_str)
+        quant_func = tvm_tirx.compile(quantize, target=target_str)
+        dequant_func = tvm_tirx.compile(dequantize, target=target_str)
 
         def quant(weight):
             packed = tvm_tirx.runtime.empty(quant_weight_shape, storage_dtype, dev)
@@ -461,7 +461,7 @@ def test_const(dtype):
             A[tx] = A_local[tx]
 
     mod = tvm_tirx.IRModule({"main": func})
-    tvm_tirx.tirx.compile(mod, target="cuda")
+    tvm_tirx.compile(mod, target="cuda")
 
 
 @pytest.mark.gpu
@@ -491,7 +491,7 @@ def test_copy(dtype, vec_len):
                 B[tx, i] = A[tx, i]
 
     mod = tvm_tirx.IRModule({"main": func})
-    tvm_tirx.tirx.compile(mod, target="cuda")
+    tvm_tirx.compile(mod, target="cuda")
 
 
 num_experts = 8
@@ -541,7 +541,7 @@ def test_moe_gemv_shfl_down_illegal_instr():
                         if reduction == 0:
                             output[expert, block * 4 + spatial] = reduced[0]
 
-    rt_mod = tvm_tirx.tirx.compile(moe_dequantize_gemv, target="cuda")
+    rt_mod = tvm_tirx.compile(moe_dequantize_gemv, target="cuda")
 
     x_data = np.zeros((1, reduce_size), dtype=np.float16)
     indptr_data = np.zeros((1, 2), dtype=np.int32)
@@ -589,7 +589,7 @@ def test_fp8_fp16_bf16_vectorize_arith(vec_length, dtype):
 
     mod = _create_mod(vec_length, dtype)
     target = tvm_tirx.target.Target.from_device(tvm_tirx.cuda())
-    f = tvm_tirx.tirx.compile(mod, target=target).mod
+    f = tvm_tirx.compile(mod, target=target).mod
 
     a_np = np.random.rand(128).astype("float8_e4m3fn")
     b_np = np.random.rand(128).astype(dtype)
@@ -619,7 +619,7 @@ def test_cross_format_fp8_conversion():
             with T.launch_thread("threadIdx.x", 1):
                 B[T.Ramp(0, 1, 8)] = T.Cast("float8_e5m2x8", A[T.Ramp(0, 1, 8)])
 
-    compiled = tvm_tirx.tirx.compile(main, target="cuda")
+    compiled = tvm_tirx.compile(main, target="cuda")
     values = np.array([0.0, 1.0, -1.0, 2.5, -2.5, 0.125, -0.125, 240.0], dtype="float8_e4m3fn")
     device = tvm_tirx.cuda()
     output = tvm_tirx.runtime.empty((8,), "float8_e5m2", device)

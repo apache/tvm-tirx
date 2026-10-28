@@ -43,7 +43,7 @@ def test_tensor_store_predicate_not_supported():
     err_msg = "Predicated buffer store is not supported."
     with pytest.raises(RuntimeError, match=err_msg):
         with tvm_tirx.target.Target(target):
-            tvm_tirx.tirx.compile(func)
+            tvm_tirx.compile(func)
 
 
 @pytest.mark.parametrize(
@@ -78,7 +78,7 @@ def test_tensor_store_predicate_not_supported_gpu(target):
     err_msg = "Predicated buffer store is not supported."
     with pytest.raises(RuntimeError, match=err_msg):
         with tvm_tirx.target.Target(target):
-            tvm_tirx.tirx.compile(func)
+            tvm_tirx.compile(func)
 
 
 def test_buffer_load_predicate_not_supported():
@@ -98,7 +98,7 @@ def test_buffer_load_predicate_not_supported():
     err_msg = "Predicated buffer load is not supported."
     with pytest.raises(RuntimeError, match=err_msg):
         with tvm_tirx.target.Target(target):
-            tvm_tirx.tirx.compile(func)
+            tvm_tirx.compile(func)
 
 
 @pytest.mark.parametrize(
@@ -129,7 +129,7 @@ def test_buffer_load_predicate_not_supported_gpu(target):
     err_msg = "Predicated buffer load is not supported."
     with pytest.raises(RuntimeError, match=err_msg):
         with tvm_tirx.target.Target(target):
-            tvm_tirx.tirx.compile(func)
+            tvm_tirx.compile(func)
 
 
 @pytest.mark.parametrize(
@@ -174,7 +174,7 @@ def test_codegen_loop_step(target):
         for i in T.serial(3, 1024, step=96):
             C[i] = A[i] + B[i]
 
-    lib = tvm_tirx.tirx.compile(test_loop_step, target=target)
+    lib = tvm_tirx.compile(test_loop_step, target=target)
 
     src = lib.mod.inspect_source()
     if target == "c":

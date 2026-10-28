@@ -47,7 +47,7 @@ def test_llvm_add_pipeline():
             for inner in T.vectorized(4):
                 C[outer * 4 + inner] = sum_buffer[outer * 4 + inner]
 
-    kernel = tvm_tirx.tirx.compile(add, target="llvm")
+    kernel = tvm_tirx.compile(add, target="llvm")
     dev = tvm_tirx.cpu(0)
     rng = np.random.default_rng(0)
     a = tvm_tirx.runtime.tensor(rng.uniform(size=128).astype("float32"), dev)

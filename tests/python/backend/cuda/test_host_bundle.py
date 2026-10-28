@@ -51,7 +51,7 @@ def test_cuda_host_bundle(tmp_path, *, backend_config):
             B[tx] = A[tx] + T.float32(1)
 
     target = tvm_tirx.target.Target("cuda", host="cuda_host")
-    built = tvm_tirx.tirx.compile(
+    built = tvm_tirx.compile(
         add_one,
         target={**tvm_tirx.target.Target(target).export(), "backend_config": backend_config},
     ).mod
@@ -113,7 +113,7 @@ def test_cuda_host_bundle_bf16_cluster(tmp_path, *, backend_config):
     arch = env.cuda_arch()
     target = tvm_tirx.target.Target({"kind": "cuda", "arch": arch}, host="cuda_host")
     with target:
-        built = tvm_tirx.tirx.compile(
+        built = tvm_tirx.compile(
             tvm_tirx.IRModule({"main": main}),
             target={**tvm_tirx.target.Target(target).export(), "backend_config": backend_config},
             pipeline="tirx",
@@ -167,7 +167,7 @@ def test_cuda_host_bundle_programmatic_dependent_launch(tmp_path, *, backend_con
 
     target = tvm_tirx.target.Target("cuda", host="cuda_host")
     source = export_cuda_host(
-        tvm_tirx.tirx.compile(
+        tvm_tirx.compile(
             add_one,
             target={**tvm_tirx.target.Target(target).export(), "backend_config": backend_config},
         ).mod
@@ -216,7 +216,7 @@ def test_cuda_host_bundle_tensor_map_parameter(tmp_path, monkeypatch, *, backend
 
     target = tvm_tirx.target.Target({"kind": "cuda", "arch": "sm_90a"}, host="cuda_host")
     with target:
-        built = tvm_tirx.tirx.compile(
+        built = tvm_tirx.compile(
             tvm_tirx.IRModule({"main": main}),
             target={**tvm_tirx.target.Target(target).export(), "backend_config": backend_config},
             pipeline="tirx",

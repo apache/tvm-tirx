@@ -54,7 +54,7 @@ def test_arm_object_and_assembly(tmp_path):
     if "arm" not in llvm.get_targets():
         pytest.skip("LLVM ARM backend is not enabled")
     target = {"kind": "llvm", "mtriple": "armv7-none-linux-gnueabihf"}
-    module = tvm_tirx.tirx.compile(AddModule, target=target).mod
+    module = tvm_tirx.compile(AddModule, target=target).mod
     object_path = tmp_path / "add.o"
     module.write_to_file(str(object_path))
     verify_elf(object_path, machine=0x28, byte_order="<")
@@ -78,7 +78,7 @@ def test_powerpc_big_endian_object(tmp_path, dtype):
             B[i] = A[i] + tvm_tirx.tirx.const(1, dtype)
 
     target = {"kind": "llvm", "mtriple": "powerpc-linux-gnu"}
-    module = tvm_tirx.tirx.compile(main, target=target).mod
+    module = tvm_tirx.compile(main, target=target).mod
     object_path = tmp_path / "add_one.o"
     module.write_to_file(str(object_path))
     verify_elf(object_path, machine=0x14, byte_order=">")

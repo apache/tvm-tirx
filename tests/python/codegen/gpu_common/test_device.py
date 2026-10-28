@@ -44,7 +44,7 @@ def test_large_uint_imm():
         target_kind = target["kind"] if isinstance(target, dict) else target
         if not tvm_tirx.testing.device_enabled(target_kind):
             return
-        f = tvm_tirx.tirx.compile(Module, target=target)
+        f = tvm_tirx.compile(Module, target=target)
 
         def run_and_check():
             dev = tvm_ffi.device(target_kind, 0)
@@ -85,7 +85,7 @@ def test_add_pipeline():
         if not tvm_tirx.testing.device_enabled(device) or not tvm_tirx.testing.device_enabled(host):
             return
         target = tvm_tirx.target.Target(device, host)
-        mhost = tvm_tirx.tirx.compile(Module, target=target).mod
+        mhost = tvm_tirx.compile(Module, target=target).mod
         f = mhost.main
         n = 1027
 

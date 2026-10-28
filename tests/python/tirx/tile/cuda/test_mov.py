@@ -32,7 +32,7 @@ from tvm_tirx.tirx.layout import S, TileLayout
 
 def _run(kernel, arrays, expected, output=0, atol=1e-3, rtol=1e-7, target="cuda"):
     with tvm_tirx.target.Target(target):
-        module = tvm_tirx.tirx.compile(kernel, target=target, pipeline="tirx")
+        module = tvm_tirx.compile(kernel, target=target, pipeline="tirx")
 
     def check():
         args = [tvm_tirx.runtime.tensor(a, tvm_tirx.cuda()) for a in arrays]
@@ -144,7 +144,7 @@ def test_mov_handles_scalar_regions():
     target = tvm_tirx.target.Target("cuda")
     with target:
         mod = tvm_tirx.IRModule({"main": kernel})
-        ex = tvm_tirx.tirx.compile(mod, target=target, pipeline="tirx")
+        ex = tvm_tirx.compile(mod, target=target, pipeline="tirx")
         src = ex.mod.imports[0].inspect_source()
 
     assert "mov.b32" in src

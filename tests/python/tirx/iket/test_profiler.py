@@ -434,7 +434,7 @@ def test_regular_lowering_strips_annotations_and_tokens():
 
     sources = []
     for with_annotation in (False, True):
-        executable = tvm_tirx.tirx.compile(
+        executable = tvm_tirx.compile(
             tvm_tirx.IRModule({"main": make_kernel(with_annotation)}),
             target=TARGET,
             pipeline="tirx",
@@ -452,7 +452,7 @@ def test_verified_injected_child_automatically_enables_plain_jit(monkeypatch, co
     monkeypatch.delenv("TVM_IKET_OFFICIAL_PROFILE", raising=False)
     monkeypatch.setenv("CUDA_INJECTION64_PATH", "/verified/libsmodel_injection.so")
     monkeypatch.setenv(config_env, "/verified/config.json")
-    executable = tvm_tirx.tirx.compile(
+    executable = tvm_tirx.compile(
         tvm_tirx.IRModule({"main": serial_a}), target=TARGET, pipeline="tirx"
     )
     source = _cuda_source(executable)
@@ -475,7 +475,7 @@ def test_injected_child_auto_enable_remains_fail_closed(monkeypatch, missing_env
     for name, value in values.items():
         monkeypatch.setenv(name, value)
     monkeypatch.delenv(config_env if missing_env == "config" else missing_env)
-    executable = tvm_tirx.tirx.compile(
+    executable = tvm_tirx.compile(
         tvm_tirx.IRModule({"main": serial_a}), target=TARGET, pipeline="tirx"
     )
     assert "iket" not in _cuda_source(executable).lower()

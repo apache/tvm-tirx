@@ -67,7 +67,7 @@ def test_mma(k, dtype, initial):
                 (m * N + n) * 4 + r
             ]
 
-    f = tvm_tirx.tirx.compile(kernel, target="cuda", pipeline="tirx")
+    f = tvm_tirx.compile(kernel, target="cuda", pipeline="tirx")
     rng = np.random.default_rng(7)
     a = rng.uniform(-1, 1, (M * 16, K * k)).astype(dtype)
     b = rng.uniform(-1, 1, (N * 8, K * k)).astype(dtype)
@@ -240,7 +240,7 @@ def test_tcgen05_mma(m, ws, dtype, k, kind, acc_dtype, major, swizzle=3):
             T.ptx.tcgen05.relinquish_alloc_permit.cta_group__1.sync.aligned()
             T.ptx.tcgen05.dealloc.cta_group__1.sync.aligned.b32(address[0], T.uint32(n))
 
-    f = tvm_tirx.tirx.compile(kernel, target="cuda", pipeline="tirx")
+    f = tvm_tirx.compile(kernel, target="cuda", pipeline="tirx")
     rng = np.random.default_rng(4)
     a = (rng.integers(-4, 5, (m, nk * k)) / 4).astype(dtype)
     b = (rng.integers(-4, 5, (n, nk * k)) / 4).astype(dtype)
@@ -355,7 +355,7 @@ def test_tcgen05_block_scale_repeated_k():
             T.ptx.tcgen05.relinquish_alloc_permit.cta_group__1.sync.aligned()
             T.ptx.tcgen05.dealloc.cta_group__1.sync.aligned.b32(address[0], T.uint32(128))
 
-    f = tvm_tirx.tirx.compile(kernel, target="cuda", pipeline="tirx")
+    f = tvm_tirx.compile(kernel, target="cuda", pipeline="tirx")
     rng = np.random.default_rng(5)
     a = rng.uniform(-1, 1, (m, nk * k)).astype(dtype)
     b = rng.uniform(-1, 1, (n, nk * k)).astype(dtype)
@@ -436,7 +436,7 @@ def test_tcgen05_mma_cta_pair(m):
             T.ptx.tcgen05.relinquish_alloc_permit.cta_group__2.sync.aligned()
             T.ptx.tcgen05.dealloc.cta_group__2.sync.aligned.b32(address[0], T.uint32(128))
 
-    f = tvm_tirx.tirx.compile(kernel, target="cuda", pipeline="tirx")
+    f = tvm_tirx.compile(kernel, target="cuda", pipeline="tirx")
     rng = np.random.default_rng(12)
     a = rng.uniform(-1, 1, (m, k)).astype("float16")
     b = rng.uniform(-1, 1, (n, k)).astype("float16")
@@ -522,7 +522,7 @@ def test_tcgen05_tmem_a_repeated_mnk():
             T.ptx.tcgen05.relinquish_alloc_permit.cta_group__1.sync.aligned()
             T.ptx.tcgen05.dealloc.cta_group__1.sync.aligned.b32(address[0], T.uint32(512))
 
-    f = tvm_tirx.tirx.compile(kernel, target="cuda", pipeline="tirx")
+    f = tvm_tirx.compile(kernel, target="cuda", pipeline="tirx")
     rng = np.random.default_rng(21)
     a = rng.uniform(-1, 1, (mr * m, kr * k)).astype("float16")
     b = rng.uniform(-1, 1, (nr * n, kr * k)).astype("float16")
@@ -675,7 +675,7 @@ def test_tcgen05_fp4_scale_vectors(cta_group, scale_format, vec, kind):
                 address[0], T.uint32(256)
             )
 
-    f = tvm_tirx.tirx.compile(kernel, target="cuda", pipeline="tirx")
+    f = tvm_tirx.compile(kernel, target="cuda", pipeline="tirx")
     rng = np.random.default_rng(22)
     a = rng.uniform(-4, 4, (m, kr * k)).astype("float4_e2m1fn")
     b = rng.uniform(-4, 4, (n, kr * k)).astype("float4_e2m1fn")

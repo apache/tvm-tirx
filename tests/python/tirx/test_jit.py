@@ -445,7 +445,7 @@ def test_present_optional_param_still_rejects_ffi_none():
     def kernel(A: T.Tensor((1,), "int32")):
         A[0] = 0
 
-    executable = tvm_tirx.tirx.compile(kernel.specialize(), target="llvm", pipeline="tirx")
+    executable = tvm_tirx.compile(kernel.specialize(), target="llvm", pipeline="tirx")
     with pytest.raises(TypeError, match="expected Tensor"):
         executable(None)
 
@@ -455,9 +455,7 @@ def test_none_specialization_checks_unused_packed_argument():
     def kernel(before: T.int32, value: T.Tensor((1,), "int32") | None, after: T.int32):
         T.evaluate(before + after)
 
-    executable = tvm_tirx.tirx.compile(
-        kernel.specialize(value=None), target="llvm", pipeline="tirx"
-    )
+    executable = tvm_tirx.compile(kernel.specialize(value=None), target="llvm", pipeline="tirx")
     executable(1, None, 2)
     tensor = tvm_tirx.runtime.empty((1,), "int32")
     for value in (0, False, 1.0, "not None", tensor, ctypes.c_void_p()):

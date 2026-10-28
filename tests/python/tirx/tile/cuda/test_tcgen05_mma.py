@@ -238,7 +238,7 @@ def test_gemm_tcgen05_cta_group_1(task):
     with target:
         mod = tvm_tirx.IRModule({"main": gemm_async})
         # mod.show()
-        mod = tvm_tirx.tirx.compile(mod, target=target, pipeline="tirx")
+        mod = tvm_tirx.compile(mod, target=target, pipeline="tirx")
         # print(mod.mod.imports[0].inspect_source())
 
         A_np = np.random.randn(*A_shape).astype(A_dtype)
@@ -411,7 +411,7 @@ def test_gemm_tcgen05_cta_group_1_layout_f_m64():
     np.random.seed(0)
     target = tvm_tirx.target.Target({"kind": "cuda", "arch": "sm_100a"})
     with target:
-        mod = tvm_tirx.tirx.compile(
+        mod = tvm_tirx.compile(
             tvm_tirx.IRModule({"main": gemm_layout_f}), target=target, pipeline="tirx"
         )
 
@@ -650,7 +650,7 @@ def test_gemm_tcgen05_cta_group_2(task):
     target = tvm_tirx.target.Target({"kind": "cuda", "arch": "sm_100a"})
     with target:
         mod = tvm_tirx.IRModule({"main": gemm_async})
-        mod = tvm_tirx.tirx.compile(mod, target=target, pipeline="tirx")
+        mod = tvm_tirx.compile(mod, target=target, pipeline="tirx")
         # print(mod.mod.imports[0].inspect_source())
 
         A_np = np.random.randn(*A_shape).astype(A_dtype)
@@ -886,7 +886,7 @@ def test_gemm_tcgen05_cta_group_2_layout_b():
     target = tvm_tirx.target.Target({"kind": "cuda", "arch": "sm_100a"})
     with target:
         mod = tvm_tirx.IRModule({"main": gemm_async})
-        mod = tvm_tirx.tirx.compile(mod, target=target, pipeline="tirx")
+        mod = tvm_tirx.compile(mod, target=target, pipeline="tirx")
 
         A_np = np.random.randn(M_per_cta * 2, K).astype(A_dtype)
         B_np = np.random.randn(N_logical, K).astype(B_dtype)
@@ -1047,7 +1047,7 @@ def test_gemm_tcgen05_cta_group_2_datapath_b_readback():
 
     target = tvm_tirx.target.Target({"kind": "cuda", "arch": "sm_100a"})
     with target:
-        mod = tvm_tirx.tirx.compile(
+        mod = tvm_tirx.compile(
             tvm_tirx.IRModule({"main": gemm_async}), target=target, pipeline="tirx"
         )
 
@@ -1374,7 +1374,7 @@ def test_gemm_block_scaled_fp8_cta_group_1(task):
     target = tvm_tirx.target.Target({"kind": "cuda", "arch": "sm_100a"})
     with target:
         mod = tvm_tirx.IRModule({"main": gemm_async_fn})
-        mod = tvm_tirx.tirx.compile(mod, target=target, pipeline="tirx")
+        mod = tvm_tirx.compile(mod, target=target, pipeline="tirx")
 
         # Generate random float32 data and quantize per-row
         A_f32 = np.random.randn(*A_shape).astype(np.float32)
@@ -1732,7 +1732,7 @@ def test_gemm_block_scaled_fp8_cta_group_2(task):
     target = tvm_tirx.target.Target({"kind": "cuda", "arch": "sm_100a"})
     with target:
         mod = tvm_tirx.IRModule({"main": gemm_async_fn})
-        mod = tvm_tirx.tirx.compile(mod, target=target, pipeline="tirx")
+        mod = tvm_tirx.compile(mod, target=target, pipeline="tirx")
 
         # Generate random float32 data and quantize
         A_f32 = np.random.randn(*A_shape).astype(np.float32)
@@ -2088,7 +2088,7 @@ def test_gemm_block_scaled_nvfp4_cta_group_1():
     target = tvm_tirx.target.Target({"kind": "cuda", "arch": "sm_100a"})
     with target:
         mod = tvm_tirx.IRModule({"main": gemm_async_fn})
-        mod = tvm_tirx.tirx.compile(mod, target=target, pipeline="tirx")
+        mod = tvm_tirx.compile(mod, target=target, pipeline="tirx")
 
         # Generate random float32 data and quantize per-row
         A_f32 = np.random.randn(M, K).astype(np.float32)
@@ -2445,7 +2445,7 @@ def test_gemm_block_scaled_nvfp4_cta_group_2():
     target = tvm_tirx.target.Target({"kind": "cuda", "arch": "sm_100a"})
     with target:
         mod = tvm_tirx.IRModule({"main": gemm_async_fn})
-        mod = tvm_tirx.tirx.compile(mod, target=target, pipeline="tirx")
+        mod = tvm_tirx.compile(mod, target=target, pipeline="tirx")
 
         # Generate random float32 data
         A_f32 = np.random.randn(M_total, K).astype(np.float32)
@@ -2766,7 +2766,7 @@ def test_gemm_block_scaled_fp8_sf_id():
     target = tvm_tirx.target.Target({"kind": "cuda", "arch": "sm_100a"})
     with target:
         mod = tvm_tirx.IRModule({"main": gemm_async_fn})
-        mod = tvm_tirx.tirx.compile(mod, target=target, pipeline="tirx")
+        mod = tvm_tirx.compile(mod, target=target, pipeline="tirx")
 
         # Create data with very different per-block ranges to ensure sf_id matters
         A_f32 = np.random.randn(M, K).astype(np.float32)
@@ -3243,7 +3243,7 @@ def test_gemm_tcgen05_arbitrary_tiles(task, copy_perm, a_major, b_major):
     target = tvm_tirx.target.Target({"kind": "cuda", "arch": "sm_100a"})
     with target:
         mod = tvm_tirx.IRModule({"main": gemm_async})
-        mod = tvm_tirx.tirx.compile(mod, target=target, pipeline="tirx")
+        mod = tvm_tirx.compile(mod, target=target, pipeline="tirx")
 
         A_np = np.random.randn(*A_shape).astype(A_dtype)
         B_np = np.random.randn(*B_shape).astype(B_dtype)
@@ -3401,7 +3401,7 @@ def test_gemm_tcgen05_contiguous_kslice_partial_k(k_lo, k_hi):
 
     np.random.seed(0)
     with tvm_tirx.target.Target({"kind": "cuda", "arch": "sm_100a"}):
-        mod = tvm_tirx.tirx.compile(
+        mod = tvm_tirx.compile(
             tvm_tirx.IRModule({"main": gemm_async}),
             target={"kind": "cuda", "arch": "sm_100a"},
             pipeline="tirx",
@@ -3573,7 +3573,7 @@ def _run_dense_gemm(
     np.random.seed(0)
     target = tvm_tirx.target.Target({"kind": "cuda", "arch": "sm_100a"})
     with target:
-        mod = tvm_tirx.tirx.compile(
+        mod = tvm_tirx.compile(
             tvm_tirx.IRModule({"main": gemm_async}), target=target, pipeline="tirx"
         )
 
@@ -3708,7 +3708,7 @@ def test_gemm_tcgen05_no_swizzle_col_major_a_ws_local_idesc():
             T.ptx.tcgen05.dealloc.cta_group__1.sync.aligned.b32(tmem_addr[0], T.uint32(128))
 
     with tvm_tirx.target.Target({"kind": "cuda", "arch": "sm_100a"}):
-        mod = tvm_tirx.tirx.compile(
+        mod = tvm_tirx.compile(
             tvm_tirx.IRModule({"main": gemm_ws}),
             target={"kind": "cuda", "arch": "sm_100a"},
             pipeline="tirx",

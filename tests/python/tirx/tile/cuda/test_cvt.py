@@ -38,7 +38,7 @@ from tvm_tirx.tirx.layout import S, TileLayout
 
 def _run(kernel, arrays, expected, output=0, atol=1e-3, rtol=1e-7, target="cuda"):
     with tvm_tirx.target.Target(target):
-        module = tvm_tirx.tirx.compile(kernel, target=target, pipeline="tirx")
+        module = tvm_tirx.compile(kernel, target=target, pipeline="tirx")
 
     def check():
         args = [tvm_tirx.runtime.tensor(a, tvm_tirx.cuda()) for a in arrays]
@@ -101,7 +101,7 @@ def test_cast_thread_local(shape, A_dtype, B_dtype):
     target = tvm_tirx.target.Target("cuda")
     with target:
         mod = tvm_tirx.IRModule({"main": test_cast})
-        mod = tvm_tirx.tirx.compile(mod, target=target, pipeline="tirx")
+        mod = tvm_tirx.compile(mod, target=target, pipeline="tirx")
 
         def run_and_check():
             dev = tvm_tirx.cuda(0)
@@ -182,7 +182,7 @@ def test_cast_warpgroup_local_view(A_dtype, B_dtype):
     target = tvm_tirx.target.Target("cuda")
     with target:
         mod = tvm_tirx.IRModule({"main": test_cast})
-        mod = tvm_tirx.tirx.compile(mod, target=target, pipeline="tirx")
+        mod = tvm_tirx.compile(mod, target=target, pipeline="tirx")
 
         def run_and_check():
             dev = tvm_tirx.cuda(0)
@@ -254,7 +254,7 @@ def test_cast_cta_local_view(A_dtype, B_dtype):
     target = tvm_tirx.target.Target("cuda")
     with target:
         mod = tvm_tirx.IRModule({"main": test_cast})
-        mod = tvm_tirx.tirx.compile(mod, target=target, pipeline="tirx")
+        mod = tvm_tirx.compile(mod, target=target, pipeline="tirx")
 
         def run_and_check():
             dev = tvm_tirx.cuda(0)
@@ -344,7 +344,7 @@ def test_cast_warpgroup_src_layout_to_flat_uses_vec2_intrinsic(A_dtype, B_dtype)
     target = tvm_tirx.target.Target("cuda")
     with target:
         mod = tvm_tirx.IRModule({"main": test_cast})
-        mod = tvm_tirx.tirx.compile(mod, target=target, pipeline="tirx")
+        mod = tvm_tirx.compile(mod, target=target, pipeline="tirx")
         src = mod.mod.imports[0].inspect_source()
         assert opcode in src, src
 
@@ -422,7 +422,7 @@ def test_cast_local_view_sliced(A_dtype, B_dtype, slice_start, slice_end):
     target = tvm_tirx.target.Target("cuda")
     with target:
         mod = tvm_tirx.IRModule({"main": kernel})
-        mod = tvm_tirx.tirx.compile(mod, target=target, pipeline="tirx")
+        mod = tvm_tirx.compile(mod, target=target, pipeline="tirx")
 
     def run_and_check():
         dev = tvm_tirx.cuda(0)
@@ -494,7 +494,7 @@ def test_cast_mixed_axes_and_subregion(slice_start, slice_end):
     target = tvm_tirx.target.Target("cuda")
     with target:
         mod = tvm_tirx.IRModule({"main": kernel})
-        mod = tvm_tirx.tirx.compile(mod, target=target, pipeline="tirx")
+        mod = tvm_tirx.compile(mod, target=target, pipeline="tirx")
 
     def run_and_check():
         dev = tvm_tirx.cuda(0)
@@ -560,7 +560,7 @@ def test_cast_validate_extent_mismatch_rejected():
             Exception,
             match=r"incorrect .* owner",
         ):
-            tvm_tirx.tirx.compile(mod, target=target, pipeline="tirx")
+            tvm_tirx.compile(mod, target=target, pipeline="tirx")
 
 
 @pytest.mark.parametrize(
@@ -617,7 +617,7 @@ def test_cast_vec2_packed_dispatch(src_dtype, dst_dtype, intrinsic):
     )
     with target:
         mod = tvm_tirx.IRModule({"main": k})
-        mod = tvm_tirx.tirx.compile(mod, target=target, pipeline="tirx")
+        mod = tvm_tirx.compile(mod, target=target, pipeline="tirx")
         src = mod.mod.imports[0].inspect_source()
     opcode = "cvt.rn.f16x2.f32" if src_dtype == "float32" else "cvt.f32.f16"
     assert opcode in src, src
@@ -640,7 +640,7 @@ _SL_ROWS, _SL_COLS = 128, 8
 def _sl_compile(fn):
     target = tvm_tirx.target.Target("cuda")
     with target:
-        tvm_tirx.tirx.compile(tvm_tirx.IRModule({"main": fn}), target=target, pipeline="tirx")
+        tvm_tirx.compile(tvm_tirx.IRModule({"main": fn}), target=target, pipeline="tirx")
 
 
 def test_cast_wg_rejects_thread_local_view():
@@ -944,7 +944,7 @@ def test_cast_tcgen05_atom_warpgroup_gpu():
     m, k = _TCGEN05_M, _TCGEN05_K
     target = tvm_tirx.target.Target("cuda")
     with target:
-        mod = tvm_tirx.tirx.compile(
+        mod = tvm_tirx.compile(
             tvm_tirx.IRModule({"main": _tcgen05_cast_warpgroup_kernel()}),
             target=target,
             pipeline="tirx",

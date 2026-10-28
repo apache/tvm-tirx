@@ -33,7 +33,7 @@ from tvm_tirx.testing import env
 def _get_source(func: tvm_tirx.tirx.Function) -> tuple[str, tvm_tirx.IRModule]:
     target = tvm_tirx.target.Target("cuda")
     mod = tvm_tirx.IRModule({"main": func})
-    mod = tvm_tirx.tirx.compile(mod, target=target, pipeline="tirx")
+    mod = tvm_tirx.compile(mod, target=target, pipeline="tirx")
     src = mod.mod.imports[0].inspect_source()
     return src, mod
 
@@ -54,7 +54,7 @@ def _run_tensormap_encode(shape, dtype, encode_args):
 
     target = tvm_tirx.target.Target("cuda")
     mod = tvm_tirx.IRModule({"main": main})
-    mod = tvm_tirx.tirx.compile(mod, target=target, pipeline="tirx")
+    mod = tvm_tirx.compile(mod, target=target, pipeline="tirx")
     def run_and_check():
         A = tvm_tirx.runtime.tensor(np.zeros(shape, dtype=dtype), device=tvm_tirx.cuda(0))
         mod(A)
@@ -112,7 +112,7 @@ def test_stmatrix_sync_aligned(trans):
     target = tvm_tirx.target.Target("cuda")
     mod = tvm_tirx.IRModule({"main": func})
     with target:
-        mod = tvm_tirx.tirx.compile(mod, target=target, pipeline="tirx")
+        mod = tvm_tirx.compile(mod, target=target, pipeline="tirx")
         src = mod.mod.imports[0].inspect_source()
         if not trans:
             assert "stmatrix.sync.aligned.m8n8.x4.shared.b16" in src
@@ -185,7 +185,7 @@ def test_ptx_stmatrix(trans, num):
     target = tvm_tirx.target.Target("cuda")
     mod = tvm_tirx.IRModule({"main": main})
     with target:
-        mod = tvm_tirx.tirx.compile(mod, target=target, pipeline="tirx")
+        mod = tvm_tirx.compile(mod, target=target, pipeline="tirx")
         src = mod.mod.imports[0].inspect_source()
     A_np = np.zeros((16, 16), dtype="float16")
     A_ref = np.zeros((16, 16), dtype="float16")
@@ -261,7 +261,7 @@ def test_ptx_stmatrix_noncontiguous(trans, num):
     target = tvm_tirx.target.Target("cuda")
     mod = tvm_tirx.IRModule({"main": main})
     with target:
-        mod = tvm_tirx.tirx.compile(mod, target=target, pipeline="tirx")
+        mod = tvm_tirx.compile(mod, target=target, pipeline="tirx")
         src = mod.mod.imports[0].inspect_source()
         trans_inst = ".trans" if trans else ""
         regs = ", ".join(f"%{i + 1}" for i in range(num))
@@ -491,7 +491,7 @@ def test_cp_async_bulk_tensor_global_to_shared_unicast(dtype, inputs):
     target = tvm_tirx.target.Target("cuda")
     shape, tma_args = inputs
     mod = tvm_tirx.IRModule({"main": get_ir(shape, tma_args)})
-    mod = tvm_tirx.tirx.compile(mod, target=target, pipeline="tirx")
+    mod = tvm_tirx.compile(mod, target=target, pipeline="tirx")
     src = mod.mod.imports[0].inspect_source()
     assert "const __grid_constant__ CUtensorMap" in src
 
@@ -695,7 +695,7 @@ def test_cp_async_bulk_tensor_global_to_shared_swizzle(swizzle, dtype):
     target = tvm_tirx.target.Target("cuda")
     func, shape = get_ir(swizzle, dtype)
     mod = tvm_tirx.IRModule({"main": func})
-    mod = tvm_tirx.tirx.compile(mod, target=target, pipeline="tirx")
+    mod = tvm_tirx.compile(mod, target=target, pipeline="tirx")
     src = mod.mod.imports[0].inspect_source()
     assert "const __grid_constant__ CUtensorMap" in src
 
@@ -813,7 +813,7 @@ def test_cp_async_bulk_tensor_global_to_shared_multicast1(inputs):
     target = tvm_tirx.target.Target("cuda")
     shape, tma_args = inputs
     mod = tvm_tirx.IRModule({"main": get_ir(shape, tma_args)})
-    mod = tvm_tirx.tirx.compile(mod, target=target, pipeline="tirx")
+    mod = tvm_tirx.compile(mod, target=target, pipeline="tirx")
     src = mod.mod.imports[0].inspect_source()
     assert "const __grid_constant__ CUtensorMap" in src
 
@@ -954,7 +954,7 @@ def test_cp_async_bulk_tensor_global_to_shared_multicast2(inputs):
     target = tvm_tirx.target.Target("cuda")
     shape, tma_args = inputs
     mod = tvm_tirx.IRModule({"main": get_ir(shape, tma_args)})
-    mod = tvm_tirx.tirx.compile(mod, target=target, pipeline="tirx")
+    mod = tvm_tirx.compile(mod, target=target, pipeline="tirx")
     src = mod.mod.imports[0].inspect_source()
     assert "const __grid_constant__ CUtensorMap" in src
 
@@ -1018,7 +1018,7 @@ def test_cp_async_bulk_tensor_shared_to_global(inputs):
     target = tvm_tirx.target.Target("cuda")
     shape, tma_args = inputs
     mod = tvm_tirx.IRModule({"main": get_ir(shape, tma_args)})
-    mod = tvm_tirx.tirx.compile(mod, target=target, pipeline="tirx")
+    mod = tvm_tirx.compile(mod, target=target, pipeline="tirx")
     src = mod.mod.imports[0].inspect_source()
     assert "const __grid_constant__ CUtensorMap" in src
 
@@ -1200,7 +1200,7 @@ def test_wgmma_ss_nt():
         B_encode_args,
     )
     mod = tvm_tirx.IRModule({"main": func})
-    mod = tvm_tirx.tirx.compile(mod, target=target, pipeline="tirx")
+    mod = tvm_tirx.compile(mod, target=target, pipeline="tirx")
 
     np.random.seed(0)
     A_np = np.random.randn(*shapeA).astype(in_dtype)
@@ -1375,7 +1375,7 @@ def test_wgmma_rs_nt():
         shapeA, shapeB, shapeC, B_tma_args, in_dtype, in_dtype_bits, out_dtype, B_encode_args
     )
     mod = tvm_tirx.IRModule({"main": func})
-    mod = tvm_tirx.tirx.compile(mod, target=target, pipeline="tirx")
+    mod = tvm_tirx.compile(mod, target=target, pipeline="tirx")
 
     np.random.seed(0)
     A_np = np.random.randn(*shapeA).astype(in_dtype)
