@@ -31,21 +31,21 @@ parameter, a loop, and compile-time specialization.
 A CUDA function
 ---------------
 
-The ``@Tx.function`` decorator constructs a ``tirx.Function`` from a
+The ``@T.function`` decorator constructs a ``tirx.Function`` from a
 TVMScript definition. The add-one function takes two tensors with the same
 symbolic length ``n``:
 
 .. code-block:: python
 
     from tvm_tirx import tirx
-    from tvm_tirx.script import tirx as Tx
+    from tvm_tirx.script import tirx as T
 
-    n = Tx.dynamic("n")
+    n = T.dynamic("n")
 
-    @Tx.function
-    def add_one(A: Tx.Tensor((n,), Tx.float32), B: Tx.Tensor((n,), Tx.float32)):
-        Tx.device_entry(launch=Tx.cuda.LaunchConfig(grid=((n + 255) // 256,), block=(256,)))
-        i = Tx.cuda.block_idx("x") * 256 + Tx.cuda.thread_idx("x")
+    @T.function
+    def add_one(A: T.Tensor((n,), T.float32), B: T.Tensor((n,), T.float32)):
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=((n + 255) // 256,), block=(256,)))
+        i = T.cuda.block_idx("x") * 256 + T.cuda.thread_idx("x")
         if i < n:
             B[i] = A[i] + 1
 
@@ -64,16 +64,16 @@ The parameter annotations specify what the caller supplies:
    * - Annotation
      - Meaning
      - Argument
-   * - ``Tx.Tensor(shape, dtype)``
+   * - ``T.Tensor(shape, dtype)``
      - A tensor with the declared shape and dtype
      - A tensor on the expected device
-   * - ``Tx.int32``, ``Tx.float32``, etc.
+   * - ``T.int32``, ``T.float32``, etc.
      - A runtime scalar
      - A Python ``int`` or ``float``
-   * - ``Tx.handle``
+   * - ``T.handle``
      - An opaque handle
      - A handle value
-   * - ``Tx.constexpr`` (``@Tx.jit``)
+   * - ``T.constexpr`` (``@T.jit``)
      - A compile-time parameter
      - Supplied to ``.specialize(...)``
 
@@ -83,24 +83,29 @@ function can accept its multiplier as a runtime float32 parameter:
 
 .. code-block:: python
 
-    @Tx.function
+    @T.function
     def scale(
-        A: Tx.Tensor((n,), Tx.float32),
-        B: Tx.Tensor((n,), Tx.float32),
-        factor: Tx.float32,
+        A: T.Tensor((n,), T.float32),
+        B: T.Tensor((n,), T.float32),
+        factor: T.float32,
     ):
-        Tx.device_entry(launch=Tx.cuda.LaunchConfig(grid=((n + 255) // 256,), block=(256,)))
-        i = Tx.cuda.block_idx("x") * 256 + Tx.cuda.thread_idx("x")
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=((n + 255) // 256,), block=(256,)))
+        i = T.cuda.block_idx("x") * 256 + T.cuda.thread_idx("x")
         if i < n:
             B[i] = A[i] * factor
 
-With the CUDA tensors ``a`` and ``b`` from Quick Start, the call supplies
-``factor`` after the two tensors:
+For an input of 100 elements, we can supply ``factor`` after the two
+tensor arguments and check the scaled values:
 
 .. code-block:: python
 
+    import torch
+
+    a = torch.arange(100, dtype=torch.float32, device="cuda")
+    b = torch.empty_like(a)
     scale_compiled = tirx.compile(scale, target="cuda")
     scale_compiled(a, b, 3.0)
+    torch.testing.assert_close(b, 3 * a)
 
 .. _cuda-symbolic-shapes:
 
@@ -113,8 +118,6 @@ the output must have the same length. One compiled function can serve
 multiple lengths:
 
 .. code-block:: python
-
-    import torch
 
     add_one_compiled = tirx.compile(add_one, target="cuda")
     for length in (100, 200):
@@ -130,9 +133,9 @@ reuse ``add_one_compiled``.
 Launch configuration
 --------------------
 
-``Tx.device_entry`` begins the device computation. As a standalone
+``T.device_entry`` begins the device computation. As a standalone
 statement, it covers the remaining statements in the enclosing body. An
-explicit ``with Tx.device_entry(...):`` block sets the boundary through
+explicit ``with T.device_entry(...):`` block sets the boundary through
 indentation; :ref:`tvmscript-region-syntax` explains both forms.
 
 In ``add_one``, ``block=(256,)`` launches 256 threads per block, and
@@ -159,22 +162,22 @@ four consecutive elements to each thread, using 64 threads per block:
 
 .. code-block:: python
 
-    @Tx.function
-    def add_one_four(A: Tx.Tensor((n,), Tx.float32), B: Tx.Tensor((n,), Tx.float32)):
-        Tx.device_entry(launch=Tx.cuda.LaunchConfig(grid=((n + 255) // 256,), block=(64,)))
-        base = Tx.cuda.block_idx("x") * 256 + Tx.cuda.thread_idx("x") * 4
-        for offset in Tx.unroll(4):
+    @T.function
+    def add_one_four(A: T.Tensor((n,), T.float32), B: T.Tensor((n,), T.float32)):
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=((n + 255) // 256,), block=(64,)))
+        base = T.cuda.block_idx("x") * 256 + T.cuda.thread_idx("x") * 4
+        for offset in T.unroll(4):
             i = base + offset
             if i < n:
                 B[i] = A[i] + 1
 
-Each block still covers up to ``64 * 4 = 256`` elements. ``Tx.unroll(4)``
+Each block still covers up to ``64 * 4 = 256`` elements. ``T.unroll(4)``
 requests expansion of the four iterations during lowering. The bounds
 check applies to each element, so the last thread can handle a partial
 group of four.
 
 A regular ``range`` loop executes sequentially within each thread.
-``Tx.vectorized`` marks a vectorized loop, and ``Tx.grid`` expresses nested
+``T.vectorized`` marks a vectorized loop, and ``T.grid`` expresses nested
 loops. Kernels also support ``if`` / ``else``, ``while``, ``break``, and
 ``continue``. Mutable counters and accumulators are described in
 :doc:`tensors`; the :doc:`TIRx script API </reference/python/tirx.script>`
@@ -184,7 +187,7 @@ Compile-time specialization
 ---------------------------
 
 A symbolic dimension varies at runtime. When a size should be fixed before
-compilation, ``@Tx.jit`` lets us declare it as ``Tx.constexpr`` and supply it
+compilation, ``@T.jit`` lets us declare it as ``T.constexpr`` and supply it
 through ``.specialize(...)``. Parsing happens at specialization time, and
 the result is an ordinary ``tirx.Function``.
 
@@ -195,17 +198,17 @@ Python file so the annotation can refer to ``N`` before specialization:
 .. code-block:: python
 
     from __future__ import annotations
-    from tvm_tirx.script import tirx as Tx
+    from tvm_tirx.script import tirx as T
 
-    @Tx.jit
+    @T.jit
     def add_one_fixed(
-        A: Tx.Tensor((N,), Tx.float32),
-        B: Tx.Tensor((N,), Tx.float32),
+        A: T.Tensor((N,), T.float32),
+        B: T.Tensor((N,), T.float32),
         *,
-        N: Tx.constexpr,
+        N: T.constexpr,
     ):
-        Tx.device_entry(launch=Tx.cuda.LaunchConfig(grid=((N + 255) // 256,), block=(256,)))
-        i = Tx.cuda.block_idx("x") * 256 + Tx.cuda.thread_idx("x")
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=((N + 255) // 256,), block=(256,)))
+        i = T.cuda.block_idx("x") * 256 + T.cuda.thread_idx("x")
         if i < N:
             B[i] = A[i] + 1
 
@@ -213,7 +216,7 @@ Python file so the annotation can refer to ``N`` before specialization:
 
 ``kernel`` has length 256 fixed in its parameter types and body. It can be
 compiled with ``tirx.compile`` and called with its two tensor arguments;
-``N`` is already supplied. In contrast, ``@Tx.function`` parses immediately,
+``N`` is already supplied. In contrast, ``@T.function`` parses immediately,
 and the symbolic ``n`` in ``add_one`` remains a runtime dimension. The
 :doc:`JIT API </reference/python/tirx.script.jit>` covers optional
 parameters and specialization rules.
@@ -223,12 +226,12 @@ parameters and specialization rules.
 Reusable code fragments
 -----------------------
 
-Several kernels may need the same bounds check and store. ``@Tx.inline``
+Several kernels may need the same bounds check and store. ``@T.inline``
 lets us write that fragment once:
 
 .. code-block:: python
 
-    @Tx.inline
+    @T.inline
     def add_one_if_valid(A, B, i, length):
         if i < length:
             B[i] = A[i] + 1
@@ -237,7 +240,7 @@ The loop body in ``add_one_four`` can then use the helper:
 
 .. code-block:: python
 
-    for offset in Tx.unroll(4):
+    for offset in T.unroll(4):
         add_one_if_valid(A, B, base + offset, n)
 
 TVMScript expands the helper body at each call site during parsing, using

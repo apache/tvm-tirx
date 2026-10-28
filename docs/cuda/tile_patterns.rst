@@ -26,11 +26,44 @@ A CUDA tile operation repeats a chosen computation over a tensor region.
 operand views describe which values each thread handles and how many times
 it repeats that computation.
 
+Reading an operand's shape
+--------------------------
+
+Suppose each of 64 threads processes twelve float32 values. A
+``ld.global.v4.b32`` instruction loads four 32-bit words at a time, so
+each thread needs three loads. We can describe this work with shape
+``(2, 32, 3, 4)``:
+
+.. code-block:: text
+
+    (2, 32, 3, 4)
+     └───┘  │  └─ atom: four words used by one instruction
+      group └──── repeat: three instructions per thread
+
+.. list-table::
+   :header-rows: 1
+   :widths: 20 80
+
+   * - Part
+     - Meaning in this example
+   * - Group
+     - ``(2, 32)`` selects one of two warps and a lane within that warp.
+   * - Repeat
+     - ``(3,)`` repeats the chosen instruction three times for that thread.
+   * - Atom
+     - ``(4,)`` selects the four words transferred by ``.v4.b32``.
+
+The instruction fixes the atom shape. The leading axes describe its
+repetitions and the threads that execute them. The register layout below
+maps the first two coordinates to ``warpid`` and ``laneid``, leaving
+``3 * 4 = 12`` local positions per thread.
+
 A load, compute, and store example
 ----------------------------------
 
-Suppose each of 64 threads processes twelve float32 values. We can load
-four values at a time, add one to each value, and store the results:
+The kernel uses this layout to load the values, add one to each, and
+store the results. ``scope="cta"`` tells the tile calls to use the
+leading ``(2, 32)`` axes for the threads in the block:
 
 .. code-block:: python
 
@@ -73,36 +106,15 @@ We can compile and check the result:
     compiled(a, b)
     torch.testing.assert_close(b, a + 1)
 
-Reading an operand's shape
---------------------------
+Execution scope and scalar functions
+------------------------------------
 
-For the load and store, the shape ``(2, 32, 3, 4)`` has three parts:
-
-.. code-block:: text
-
-    (2, 32, 3, 4)
-     └───┘  │  └─ atom: four words used by one instruction
-      group └──── repeat: three instructions per thread
-
-.. list-table::
-   :header-rows: 1
-   :widths: 20 80
-
-   * - Part
-     - Meaning in this example
-   * - Group
-     - ``(2, 32)`` selects the warp and lane within the 64-thread block.
-   * - Repeat
-     - ``(3,)`` repeats the chosen instruction three times for that thread.
-   * - Atom
-     - ``(4,)`` selects the four words transferred by ``.v4.b32``.
-
-The instruction fixes the atom shape. The preceding repeat axes specify
-how many times to issue it. ``scope="cta"`` makes the leading axes select
-threads in the block; it does not launch more threads or insert a barrier.
-At ``scope="thread"``, an operand has no group prefix. Other scopes and
-warp-collective instructions use the group shapes listed in the
-:ref:`coordinate reference <cuda-tile-operand-coordinates>`.
+The kernel's ``LaunchConfig`` launches 64 threads; ``scope="cta"``
+describes how the tile operands map to those threads. It does not launch
+additional threads or insert a barrier. At ``scope="thread"``, an operand
+has no group prefix. Other scopes and warp-collective instructions use
+the group shapes listed in the :ref:`coordinate reference
+<cuda-tile-operand-coordinates>`.
 
 ``ewise`` uses one scalar value per invocation, so it has no trailing
 instruction atom. For the same register view, ``(2, 32)`` still selects a

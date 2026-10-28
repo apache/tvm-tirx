@@ -18,45 +18,12 @@
 PTX Tablegen
 ============
 
-In this chapter, we will follow ``add.rn.f32`` from a TVMScript call to
-generated inline PTX. An instruction table describes operands and valid
+In this chapter, we will trace the ``add.rn.f32`` call from the
+:ref:`direct PTX example <cuda-direct-ptx>` through its instruction-table
+entry and generated CUDA helper. The table describes operands and valid
 modifiers. The backend uses that definition to check calls and generate
-CUDA helpers, so a new instruction form can share one definition across
-these interfaces.
-
-Call a PTX instruction
-----------------------
-
-PTX instructions name their destination registers explicitly. The kernel
-below uses ``add.rn.f32`` to add two float32 values per thread. The
-``rn`` modifier selects round-to-nearest-even:
-
-.. code-block:: python
-
-   from tvm_tirx.script import tirx as T
-
-   @T.function
-   def add_ptx(
-       A: T.Tensor((32,), T.float32),
-       B: T.Tensor((32,), T.float32),
-       C: T.Tensor((32,), T.float32),
-   ):
-       with T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(32,))):
-           tid = T.cuda.thread_idx("x")
-           result = T.local_scalar("float32")
-           T.ptx.add.rn.f32(result, A[tid], B[tid])
-           C[tid] = result
-
-``result`` supplies the destination register. The PTX call writes it,
-and the next statement stores that value in ``C``. The instruction call
-itself has no return value.
-
-The indexed spelling ``T.ptx["add.rn.f32"]`` selects the same form.
-Attribute chains escape Python keywords with a trailing underscore,
-as in ``T.ptx.ld.global_.b32``; PTX's ``::`` becomes ``__``, as in
-``T.ptx.mbarrier.init.shared__cta.b64``. Indexed names use the exact PTX
-spelling. ``T.cuda`` also provides helpers for operations that need
-multiple statements or descriptor construction.
+code, so a new instruction form can share one definition across these
+interfaces.
 
 Inspect its table entry
 -----------------------
@@ -100,7 +67,7 @@ Three Python modules connect the definition to generated code:
 The engine registers an operator for each entry and constructs a void
 ``ir.Call`` for the selected instruction. During CUDA source generation,
 the registered callback renders a helper for its modifiers and operand
-types. For the kernel above, that helper contains:
+types. For ``add.rn.f32``, that helper contains:
 
 .. code-block:: cuda
 

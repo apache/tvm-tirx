@@ -22,8 +22,8 @@ CUDA C++/PTX intrinsics
 
 In this chapter, we will call CUDA device helpers and PTX instructions
 directly, then include a device function written in CUDA C++. TVMScript
-exposes these interfaces through ``Tx.cuda``, ``Tx.ptx``, and
-``Tx.cuda.func_call``.
+exposes these interfaces through ``T.cuda``, ``T.ptx``, and
+``T.cuda.func_call``.
 
 Calling backend intrinsics
 --------------------------
@@ -37,34 +37,34 @@ reductions, and matrix operations:
 
    * - Interface
      - Purpose
-   * - ``Tx.cuda.cta_sync()``
+   * - ``T.cuda.cta_sync()``
      - Synchronize the threads in a block.
-   * - ``Tx.cuda.warp_sync()``
+   * - ``T.cuda.warp_sync()``
      - Synchronize a full warp.
-   * - ``Tx.cuda.warpgroup_sync(8)``
+   * - ``T.cuda.warpgroup_sync(8)``
      - Synchronize a 128-thread warpgroup using named barrier 8.
-   * - ``Tx.cuda.__shfl_xor_sync(mask, value, lane_mask, width)``
+   * - ``T.cuda.__shfl_xor_sync(mask, value, lane_mask, width)``
      - Read a value from another lane selected by XOR.
-   * - ``Tx.cuda.cta_sum(value, num_warps, scratch)``
+   * - ``T.cuda.cta_sum(value, num_warps, scratch)``
      - Reduce a value across a block using a shared scratch pointer.
 
 For example, a warp can sum its 32 input values with
-``Tx.cuda.__shfl_xor_sync``:
+``T.cuda.__shfl_xor_sync``:
 
 .. code-block:: python
 
-    from tvm_tirx.script import tirx as Tx
+    from tvm_tirx.script import tirx as T
 
-    @Tx.function
-    def warp_reduce(A: Tx.Tensor((32,), "float32", align=16)):
-        Tx.device_entry(launch=Tx.cuda.LaunchConfig(grid=1, block=32))
-        lane_id = Tx.cuda.lane_id()
-        v = Tx.alloc_local((1,), "float32")
-        i = Tx.alloc_local((1,), "int32")
+    @T.function
+    def warp_reduce(A: T.Tensor((32,), "float32", align=16)):
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=32))
+        lane_id = T.cuda.lane_id()
+        v = T.alloc_local((1,), "float32")
+        i = T.alloc_local((1,), "int32")
         v[0] = A[lane_id]
         i[0] = 16
         while i[0] >= 1:
-            v[0] += Tx.cuda.__shfl_xor_sync(0xFFFFFFFF, v[0], i[0], 32)
+            v[0] += T.cuda.__shfl_xor_sync(0xFFFFFFFF, v[0], i[0], 32)
             i[0] = i[0] // 2
         A[lane_id] = v[0]
 
@@ -79,16 +79,51 @@ The device helper calls CUDA's ``__shfl_xor_sync``:
 The :doc:`TMA guide </cuda/tile_ops/tma>` shows a complete barrier
 initialization, arrival, and phase wait around an asynchronous transfer.
 
-Other families under ``Tx.ptx.*`` / ``Tx.cuda.*``: ``cp.async`` (LDGSTS),
-``cp.async.bulk.tensor`` (TMA), ``ldmatrix`` / ``stmatrix``, ``tcgen05.*``
-(Blackwell MMA), ``atomic_add``, ``fence`` … See :doc:`/reference/python/backend.cuda` for CUDA
-helpers and :doc:`/cuda/ptx_tablegen` for the registered PTX forms.
+.. _cuda-direct-ptx:
+
+Calling PTX instructions
+------------------------
+
+``T.ptx`` selects individual PTX instructions. PTX names its destination
+registers explicitly, so the destination is an argument to the call.
+This kernel uses ``add.rn.f32`` to add two float32 values in each thread;
+``rn`` selects round-to-nearest-even:
+
+.. code-block:: python
+
+    @T.function
+    def add_ptx(
+        A: T.Tensor((32,), T.float32),
+        B: T.Tensor((32,), T.float32),
+        C: T.Tensor((32,), T.float32),
+    ):
+        with T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=32)):
+            tid = T.cuda.thread_idx("x")
+            result = T.local_scalar("float32")
+            T.ptx.add.rn.f32(result, A[tid], B[tid])
+            C[tid] = result
+
+``result`` supplies the writable destination. The PTX call puts the sum
+in that register, and the next statement stores it in ``C``. The call
+itself has no return value. A CUDA helper such as ``__shfl_xor_sync``
+can instead return an expression, as in the preceding reduction.
+
+The indexed spelling ``T.ptx["add.rn.f32"]`` constructs the same call.
+Attribute chains escape Python keywords with a trailing underscore,
+as in ``T.ptx.ld.global_.b32``; PTX's ``::`` becomes ``__``, as in
+``T.ptx.mbarrier.init.shared__cta.b64``. Indexed names use the exact PTX
+spelling, which is convenient for longer instruction names.
+
+The :doc:`PTX reference </reference/python/backend.cuda.ptx>` covers
+predication and special operands. The :doc:`PTX Tablegen guide
+</cuda/ptx_tablegen>` explains how instruction definitions generate these
+interfaces and their CUDA helpers.
 
 Inlining raw CUDA
 -----------------
 
 For something with no intrinsic at all, inject a ``__device__`` function from a
-source string with ``Tx.cuda.func_call(name, *args, ..., ty=...)``:
+source string with ``T.cuda.func_call(name, *args, ..., ty=...)``:
 
 .. code-block:: python
 
@@ -97,13 +132,11 @@ source string with ``Tx.cuda.func_call(name, *args, ..., ty=...)``:
     """
 
 
-    @Tx.function
-    def k(A: Tx.Tensor((256,), "float32"), B: Tx.Tensor((256,), "float32")):
-
-        Tx.device_entry(launch=Tx.cuda.LaunchConfig(grid=(1,), block=(256,)))
-        bx = Tx.cuda.block_idx("x")
-        tx = Tx.cuda.thread_idx("x")
-        B[tx] = Tx.cuda.func_call("my_relu", A[tx], SRC, ty="float32")
+    @T.function
+    def relu_cuda(A: T.Tensor((256,), "float32"), B: T.Tensor((256,), "float32")):
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(256,)))
+        tx = T.cuda.thread_idx("x")
+        B[tx] = T.cuda.func_call("my_relu", A[tx], SRC, ty="float32")
 
 The source is emitted verbatim and the call is wired in:
 

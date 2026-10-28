@@ -31,14 +31,10 @@ interfaces and show how to inspect the resulting IR and generated CUDA.
   launch configuration, control flow, specialization, and reusable fragments.
 * :doc:`language/tensors` covers element types, vector accesses, shared and
   per-thread storage, mutable scalars, and tensor views.
-* :doc:`language/threads_sync` shows how to call device intrinsics and
-  include custom CUDA functions.
+* :doc:`language/threads_sync` shows how to call CUDA helpers and PTX
+  instructions, and include custom CUDA functions.
 * :doc:`language/compiling` explains compiler configuration and how to
   inspect the IR and generated CUDA.
-
-Helpers for passing Python metadata and grouping parser-side state are
-documented in the :func:`meta_var <tvm_tirx.script.ir_builder.meta_var>` and
-:func:`meta_class <tvm_tirx.tirx.script.meta_class>` APIs.
 
 .. toctree::
    :hidden:

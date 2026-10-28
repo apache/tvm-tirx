@@ -96,10 +96,25 @@ Read the trace
 --------------
 
 ``result.perfetto`` identifies the timeline file, ``result.html`` the
-HTML report, and ``result.trace_json`` the JSON trace. The timeline shows
-the ``affine`` range and the ``loaded`` checkpoint within the kernel's
-execution. Instrumentation adds work, so measure the uninstrumented
-kernel separately when assessing its overall performance.
+HTML report, and ``result.trace_json`` the JSON trace. Open the Perfetto
+file in the Perfetto UI and expand the kernel's warp track. The
+``StackedRanges`` row contains the ``affine`` bar, and the ``Marker`` row
+contains the ``loaded`` checkpoint.
+
+.. figure:: images/iket_affine_b200.svg
+   :alt: B200 IKET capture: affine spans 0.096 to 0.352 microseconds; loaded occurs at 0.192 microseconds.
+   :width: 780px
+
+   A simplified timeline redrawn from one B200 capture. Times are in µs.
+
+The ``affine`` bar covers the code between ``range_push`` and
+``range_pop``. In this capture, its duration is ``0.352 - 0.096 = 0.256`` µs,
+or 256 ns. The ``loaded`` checkpoint at 0.192 µs marks the point after
+the input read. It falls inside the range and records a timestamp.
+Select the bar or marker in Perfetto to inspect those values.
+
+Instrumentation adds work, so measure the uninstrumented kernel
+separately when assessing its overall performance.
 
 The :doc:`IKET API </reference/python/backend.cuda.iket>` covers token-based
 ranges, command-based capture with ``iket.profile``, and capture options.

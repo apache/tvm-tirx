@@ -38,12 +38,38 @@ this path:
                                                        |
                                       float32 registers -> Out
 
-The instruction fixes which matrix elements belong to each lane. We use
-two sets of register views over the same storage: ``a_load_layout`` and
-``b_load_layout`` describe the small matrices loaded by ``ldmatrix``;
-the ``*_mma_layout`` views organize those words as A, B, and D operands
-for ``mma.sync``. These views change the coordinates used to describe the
-registers without moving values between lanes.
+Each lane holds part of a matrix, called its register fragment. In this
+example, the fragments have the following sizes:
+
+.. list-table::
+   :header-rows: 1
+
+   * - Registers in each lane
+     - Contents
+     - Complete matrix across the warp
+   * - ``ar``: four uint32 words
+     - Eight float16 elements, packed in pairs
+     - A: ``(16, 16)``
+   * - ``br``: two uint32 words
+     - Four float16 elements, packed in pairs
+     - B: ``(8, 16)``
+   * - ``dr``: four float32 values
+     - Four output elements
+     - Out: ``(16, 8)``
+
+The instruction fixes which elements belong to each lane. The
+``ldmatrix`` views use coordinates ``(matrix, row, packed_word)``: each
+``8 x 8`` half matrix has eight rows of four words. A contains four such
+matrices and B contains two, giving view shapes ``(4, 8, 4)`` and
+``(2, 8, 4)``. The load layouts place their words in ``ar`` and ``br``.
+
+The ``*_mma_layout`` views describe those same registers with MMA operand
+coordinates. For example, A's ``(1, 1, 16, 8)`` view has one M repeat,
+one K repeat, 16 rows, and eight packed words per row. These views let
+both instructions use the same fragments without moving values between
+lanes. The
+:ref:`warp MMA reference <cuda-tile-contract-mma-sync>` gives the fixed
+lane mappings represented by these layouts.
 
 .. code-block:: python
 
@@ -105,16 +131,17 @@ ensures those stores are visible before ``ldmatrix`` reads them. The
 ``uint32`` views pack two float16 elements into each instruction operand;
 they preserve the bits rather than convert the values to integers.
 
-The shared views divide A into four ``8 x 8`` half matrices and B into
-two. ``ldmatrix.x4`` gives each lane four packed words from A, and
-``ldmatrix.x2`` gives it two from B. Both instructions require all 32
-lanes to participate.
+``ldmatrix.x4`` loads the four A matrices, and ``ldmatrix.x2`` loads the
+two B matrices. Both instructions require all 32 lanes to participate.
 
 The MMA call takes ``D, A, B, C`` in that order. Its views include repeat
 axes of length one before the matrix dimensions. The selected
 ``m16n8k16`` instruction computes the whole product in one issue, with
 ``T.float32(0)`` as the initial C value. Each lane receives four output
 elements in ``dr``; the final loop writes them to their matrix positions.
+For lane 0, ``dr[0]`` through ``dr[3]`` belong to ``Out[0, 0]``,
+``Out[0, 1]``, ``Out[8, 0]``, and ``Out[8, 1]``. The other lanes use the
+same coordinate formula to cover the remaining output elements.
 
 We can compile the kernel and compare its result with a float32 matrix
 product:

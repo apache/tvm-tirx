@@ -33,6 +33,7 @@ For example, we can compile ``add_one`` with fast math enabled:
 .. code-block:: python
 
     from tvm_tirx import tirx
+    from tvm_tirx.script import tirx as T
     from tvm_tirx.target import Target
 
     target = Target({

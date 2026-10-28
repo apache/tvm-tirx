@@ -28,9 +28,7 @@ The accumulator's lifetime
 --------------------------
 
 The example computes ``Out = A @ B.T`` with A of shape ``(128, 64)`` and
-B of shape ``(64, 64)``. It uses one CTA of 128 threads. A warp allocates
-TMEM, one thread issues the matrix operations, and all four warps load
-the result into registers before writing Out:
+B of shape ``(64, 64)``. One CTA of 128 threads performs these stages:
 
 .. code-block:: text
 
@@ -40,7 +38,24 @@ the result into registers before writing Out:
                                                     |
     release TMEM <- write Out <- load TMEM into registers + wait
 
+Different stages require different participants. The conditions in the
+kernel select them explicitly:
+
+.. list-table::
+   :header-rows: 1
+
+   * - Participants
+     - Operations
+   * - ``warp == 0``: all 32 threads of warp 0
+     - Allocate TMEM, relinquish the allocation permit, and deallocate TMEM.
+   * - ``tid == 0``: thread 0
+     - Initialize the barrier, issue the MMA instructions, and commit them.
+   * - All four warps
+     - Stage inputs, synchronize, load the completed result from TMEM, and write Out.
+
 ``mma_shared_layout`` supplies the swizzled shared layouts for A and B.
+Mode 3 selects a 128-byte swizzle; its 1024-byte period determines the
+shared allocation alignment used below.
 ``tmem_mma_operand_layout`` maps the float32 accumulator to TMEM lanes
 and columns for the chosen instruction. The ``128 x 64`` accumulator
 uses 64 columns, so the allocation and deallocation both specify 64.
@@ -119,16 +134,18 @@ uses 64 columns, so the allocation and deallocation both specify 64.
             T.ptx.tcgen05.dealloc.cta_group__1.sync.aligned.b32(address[0], T.uint32(64))
 
 The allocation writes a TMEM base address to the shared ``address`` slot.
-All 32 threads of warp 0 execute that collective instruction. After the
-CTA barrier publishes the address, ``decl_tmem`` gives the allocated
+After the CTA barrier publishes the address, ``decl_tmem`` gives the allocated
 storage a tensor shape and layout. It does not perform another allocation.
 
 Each thread stages input values in shared memory and executes a proxy
 fence. The following CTA barrier lets the issuing thread proceed only
 after all writers have finished this handoff to the asynchronous reader.
-The A/B views split K=64 into four K=16 slices. Consequently, the tile
-call issues four MMA instructions. ``accum=False`` starts a fresh result
-on the first slice; subsequent slices accumulate into D.
+The A/B views split K=64 into four K=16 slices. For example,
+``av`` has shape ``(1, 4, 128, 16)``: one M tile, four K repeats, and a
+``128 x 16`` A slice per issue. B likewise has one N tile and four K
+repeats. Consequently, the tile call issues four MMA instructions.
+``accum=False`` starts a fresh result on the first slice; subsequent
+slices accumulate into D.
 
 The elected thread commits these operations to ``mbar``, initialized with
 one expected arrival. All threads wait for phase 0 and execute

@@ -74,17 +74,17 @@ add-one kernel launches one warp and gives each lane four values:
 
 .. code-block:: python
 
-    from tvm_tirx.script import tirx as Tx
+    from tvm_tirx.script import tirx as T
 
-    @Tx.function
-    def add_one_layout(A: Tx.Tensor((32, 4), "float32"), B: Tx.Tensor((32, 4), "float32")):
-        Tx.device_entry(launch=Tx.cuda.LaunchConfig(grid=1, block=32))
-        lane = Tx.cuda.lane_id()
-        fragment = Tx.alloc_local((32, 4), "float32", layout=fragment_layout)
+    @T.function
+    def add_one_layout(A: T.Tensor((32, 4), "float32"), B: T.Tensor((32, 4), "float32")):
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=32))
+        lane = T.cuda.lane_id()
+        fragment = T.alloc_local((32, 4), "float32", layout=fragment_layout)
         lane_values = fragment.view(4, layout="default")
-        for j in Tx.unroll(4):
+        for j in T.unroll(4):
             lane_values[j] = A[lane, j] + 1
-        for j in Tx.unroll(4):
+        for j in T.unroll(4):
             B[lane, j] = lane_values[j]
 
 ``fragment`` describes the logical tile across all 32 lanes. Its layout
@@ -145,7 +145,7 @@ Inside a device region, attach the layout when allocating shared memory:
 
 .. code-block:: python
 
-    shared = Tx.alloc_shared((8, 64), "float16", layout=swizzled, align=1024)
+    shared = T.alloc_shared((8, 64), "float16", layout=swizzled, align=1024)
 
 The eight 128-byte rows form one 1024-byte swizzle period, matching the
 allocation's alignment. Instructions such as TMA and MMA must interpret

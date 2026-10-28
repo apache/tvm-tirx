@@ -62,19 +62,19 @@ also read and compute those four elements as a vector:
 
 .. code-block:: python
 
-    from tvm_tirx.script import tirx as Tx
+    from tvm_tirx.script import tirx as T
 
-    @Tx.function
+    @T.function
     def add_one_vector(
-        A: Tx.Tensor((256,), "float32", align=16),
-        B: Tx.Tensor((256,), "float32", align=16),
+        A: T.Tensor((256,), "float32", align=16),
+        B: T.Tensor((256,), "float32", align=16),
     ):
-        Tx.device_entry(launch=Tx.cuda.LaunchConfig(grid=1, block=64))
-        tx = Tx.cuda.thread_idx("x")
-        vector_value = A[Tx.Ramp(tx * 4, 1, 4)]
-        B[Tx.Ramp(tx * 4, 1, 4)] = vector_value + 1
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=64))
+        tx = T.cuda.thread_idx("x")
+        vector_value = A[T.Ramp(tx * 4, 1, 4)]
+        B[T.Ramp(tx * 4, 1, 4)] = vector_value + 1
 
-``Tx.Ramp(base, stride, lanes)`` selects evenly spaced indices. The index
+``T.Ramp(base, stride, lanes)`` selects evenly spaced indices. The index
 above selects ``4*tx``, ``4*tx + 1``, ``4*tx + 2``, and ``4*tx + 3``.
 The tensors have float32 elements, while the load produces one
 ``float32x4`` intermediate. The addition adds one to each lane, and the
@@ -87,10 +87,10 @@ and stores. The 64 threads cover all ``64 * 4 = 256`` elements.
 Declaring tensors
 -----------------
 
-A parameter such as ``A: Tx.Tensor((128,), "float32")`` describes storage
-supplied by the caller. Inside a kernel, ``Tx.alloc_shared`` and
-``Tx.alloc_local`` allocate scratch tensors. Both are conveniences for
-``Tx.alloc_tensor``, whose tensor type specifies the shape, dtype, and scope.
+A parameter such as ``A: T.Tensor((128,), "float32")`` describes storage
+supplied by the caller. Inside a kernel, ``T.alloc_shared`` and
+``T.alloc_local`` allocate scratch tensors. Both are conveniences for
+``T.alloc_tensor``, whose tensor type specifies the shape, dtype, and scope.
 The ``scope`` selects the memory space:
 
 .. list-table::
@@ -104,27 +104,27 @@ The ``scope`` selects the memory space:
      - Tensor parameters (default)
      - Device global memory
    * - ``"shared"``
-     - ``Tx.alloc_shared``
+     - ``T.alloc_shared``
      - Shared by threads in a block; size fixed at compile time
    * - ``"shared.dyn"``
      - ``SMEMPool``
      - Shared by threads in a block; reserved at launch
    * - ``"local"``
-     - ``Tx.alloc_local``
+     - ``T.alloc_local``
      - Private to each thread
    * - ``"tmem"``
-     - ``Tx.cuda.decl_tmem``
+     - ``T.cuda.decl_tmem``
      - Blackwell tensor memory, reserved separately
 
-When storage already exists, ``Tx.decl_tensor`` creates a tensor view over
+When storage already exists, ``T.decl_tensor`` creates a tensor view over
 its pointer. For example, these statements inside a device region allocate
 one shared tensor and declare another view of the same elements:
 
 .. code-block:: python
 
-    shared = Tx.alloc_shared((128,), "float32")
-    shared_view = Tx.decl_tensor(
-        shared.data, ty_args=[Tx.Tensor((128,), "float32", scope="shared")]
+    shared = T.alloc_shared((128,), "float32")
+    shared_view = T.decl_tensor(
+        shared.data, ty_args=[T.Tensor((128,), "float32", scope="shared")]
     )
 
 ``shared.data`` supplies the base pointer. Both names refer to the same
@@ -142,23 +142,23 @@ Shared memory
 Static shared memory
 ~~~~~~~~~~~~~~~~~~~~
 
-``Tx.alloc_shared`` creates a shared tensor with a size known at compile
+``T.alloc_shared`` creates a shared tensor with a size known at compile
 time. The following kernel lets each thread read the value staged by its
 neighbor, wrapping the last thread back to the first:
 
 .. code-block:: python
 
-    @Tx.function
-    def shared_shift(A: Tx.Tensor((128,), "float32"), B: Tx.Tensor((128,), "float32")):
-        Tx.device_entry(launch=Tx.cuda.LaunchConfig(grid=1, block=128))
-        tx = Tx.cuda.thread_idx("x")
-        shared = Tx.alloc_shared((128,), "float32")
+    @T.function
+    def shared_shift(A: T.Tensor((128,), "float32"), B: T.Tensor((128,), "float32")):
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=128))
+        tx = T.cuda.thread_idx("x")
+        shared = T.alloc_shared((128,), "float32")
         shared[tx] = A[tx]
-        Tx.cuda.cta_sync()
+        T.cuda.cta_sync()
         B[tx] = shared[(tx + 1) % 128]
 
 Each thread first writes one input element to ``shared``. The
-``Tx.cuda.cta_sync()`` barrier waits until all threads in the block have
+``T.cuda.cta_sync()`` barrier waits until all threads in the block have
 reached it, making those writes visible before the neighboring reads.
 For example, thread 0 writes ``A[0]`` but reads the value that thread 1
 stored from ``A[1]``.
@@ -190,20 +190,20 @@ launch settings are documented in the
 Per-thread local storage
 ------------------------
 
-``Tx.alloc_local`` creates storage private to each thread. For example,
+``T.alloc_local`` creates storage private to each thread. For example,
 each of 64 threads can keep four input elements in a local array before
 adding one and writing them back:
 
 .. code-block:: python
 
-    @Tx.function
-    def add_one_local(A: Tx.Tensor((256,), "float32"), B: Tx.Tensor((256,), "float32")):
-        Tx.device_entry(launch=Tx.cuda.LaunchConfig(grid=1, block=64))
-        tx = Tx.cuda.thread_idx("x")
-        values = Tx.alloc_local((4,), "float32")
-        for k in Tx.unroll(4):
+    @T.function
+    def add_one_local(A: T.Tensor((256,), "float32"), B: T.Tensor((256,), "float32")):
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=64))
+        tx = T.cuda.thread_idx("x")
+        values = T.alloc_local((4,), "float32")
+        for k in T.unroll(4):
             values[k] = A[tx * 4 + k]
-        for k in Tx.unroll(4):
+        for k in T.unroll(4):
             B[tx * 4 + k] = values[k] + 1
 
 Every thread has its own ``values`` array. The CUDA compiler may place its
@@ -214,19 +214,19 @@ Mutable scalars and ``let``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 An accumulator needs to change as a loop runs. A type-annotated assignment
-such as ``total: Tx.float32 = 0.0`` creates a mutable scalar backed by a
+such as ``total: T.float32 = 0.0`` creates a mutable scalar backed by a
 one-element local tensor. A computed index that stays fixed can instead
-use an immutable ``Tx.let`` binding. This version sums each thread's four
+use an immutable ``T.let`` binding. This version sums each thread's four
 input elements into one output:
 
 .. code-block:: python
 
-    @Tx.function
-    def sum_four(A: Tx.Tensor((256,), "float32"), B: Tx.Tensor((64,), "float32")):
-        Tx.device_entry(launch=Tx.cuda.LaunchConfig(grid=1, block=64))
-        tx = Tx.cuda.thread_idx("x")
-        base: Tx.let[Tx.int32] = tx * 4
-        total: Tx.float32 = 0.0
+    @T.function
+    def sum_four(A: T.Tensor((256,), "float32"), B: T.Tensor((64,), "float32")):
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=64))
+        tx = T.cuda.thread_idx("x")
+        base: T.let[T.int32] = tx * 4
+        total: T.float32 = 0.0
         for k in range(4):
             total += A[base + k]
         B[tx] = total
@@ -255,10 +255,16 @@ same elements:
      - The base data pointer
    * - ``A.ptr_to([i, j])``
      - A pointer to element ``A[i, j]``, with its element type and storage scope
+   * - ``A.sub[i, :]``
+     - A tensor region selecting row ``i``, for use as an instruction operand
    * - ``A.view(*shape)``
      - A view with a different shape
    * - ``A.permute(*dims)``
      - A view with the axes reordered
+   * - ``A.rearrange(pattern, **sizes)``
+     - A view that splits, reorders, or merges axes using a named pattern
+   * - ``A.view("uint32")``
+     - A view of the same bytes as 32-bit unsigned words
 
 For a contiguous one-dimensional tensor ``A`` with 256 elements, we can
 view the data as a matrix and transpose that view:
@@ -270,18 +276,47 @@ view the data as a matrix and transpose that view:
 
 ``matrix`` has shape ``(64, 4)`` and ``transposed`` has shape ``(4, 64)``.
 ``matrix[i, j]`` and ``transposed[j, i]`` both refer to ``A[i * 4 + j]``.
-The views share the original storage; they change how elements are indexed
-without copying or rearranging the data. The
+
+A tile instruction may expect separate axes for warps and lanes. We can
+split the 64 rows into two groups of 32 with ``rearrange``:
+
+.. code-block:: python
+
+    grouped = matrix.rearrange("(warp lane) value -> warp lane value", warp=2, lane=32)
+
+The left side describes the current shape: ``(warp lane)`` is one axis
+of length ``2 * 32``, followed by the four-value axis. The right side
+exposes all three axes, giving ``grouped`` shape ``(2, 32, 4)``.
+``grouped[w, l, j]`` refers to ``matrix[32*w + l, j]``. The pattern names
+the coordinates; the tensor's layout determines their physical placement.
+
+``sub`` selects a region to pass to an operation. For example,
+``matrix.sub[i, :]`` selects its four-element row ``i``. A tile load can
+then read that region into registers, as shown in :doc:`/cuda/tile_ops/data_movement`.
+
+A dtype view changes the storage units used to access the bytes. Inside
+a device region, eight float16 elements can be viewed as four uint32 words:
+
+.. code-block:: python
+
+    half_values = T.alloc_local((8,), "float16")
+    packed_words = half_values.view("uint32")
+
+``packed_words`` has shape ``(4,)``. Each word contains the bits of two
+adjacent float16 elements. This is the representation used by instructions
+that accept packed half values; a numeric conversion uses ``cvt`` instead,
+as shown in :doc:`/cuda/tile_ops/arithmetic`.
+
+All these views and regions reuse the original storage. The
 :class:`TensorType API <tvm_tirx.tirx.TensorType>` covers the available
-methods and view options. The :doc:`Tensor Layout </cuda/layouts>` guide
-explains explicit storage mappings, including layouts distributed across
-threads.
+methods and options, while :doc:`/cuda/layouts` explains explicit storage
+mappings, including layouts distributed across threads.
 
 Tensor memory
 -------------
 
 Blackwell tensor memory uses ``scope="tmem"`` and must be reserved and
-released explicitly. ``Tx.cuda.decl_tmem`` declares a tensor at an allocated
+released explicitly. ``T.cuda.decl_tmem`` declares a tensor at an allocated
 tensor-memory address; access uses ``tcgen05`` instructions. The
 :doc:`Blackwell Tensor Core guide </cuda/tile_ops/blackwell_tensor_cores>` shows the
 allocation, synchronization, transfer, and release steps together. The
