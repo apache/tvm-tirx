@@ -58,8 +58,9 @@ you can run it independently.
 Structural Walk
 ---------------
 
-``tvm_ffi.structural_walk`` inspects values with automatic recursion. Use it
-to collect nodes, check properties, or find a value without replacing IR.
+``tvm_ffi.structural_walk`` automatically traverses IR. Its callbacks can
+collect nodes, check properties, or stop the traversal when a matching value
+is found.
 
 .. code-block:: text
 
@@ -73,8 +74,9 @@ matches every value. The default ``()`` installs no handlers. A normal handler
 is called as ``handler(value)``.
 
 An IR class selector also matches its subclasses. Only the first matching
-entry runs, so put specific types before broader ones. Unmatched values still
-follow default descent. ``ir.IntImm`` selects an integer IR constant, while
+entry runs. A specific handler must appear before a broader one to take
+precedence over it. Unmatched values still follow default descent.
+``ir.IntImm`` selects an integer IR constant, while
 ``int`` selects an inline integer value; ``object`` or ``typing.Any`` matches
 both inline values and FFI objects, and ``tvm_ffi.Object`` matches only FFI
 objects.
@@ -102,9 +104,9 @@ The callback's return value controls traversal:
      - Stop the whole walk and return the interrupt to the caller.
 
 ``structural_walk`` returns ``None`` on completion or the ``VisitInterrupt`` on
-early exit. It does not return collected nodes or a rewritten root. Store
-observations in callback state, such as a list, and read an early-exit payload
-through the returned interrupt's ``value`` field.
+early exit. It does not return collected nodes or a rewritten root. Callbacks
+can record observations in state such as a list. An early-exit payload is
+available through the returned interrupt's ``value`` field.
 
 We will start with two integer variables and a small expression:
 
@@ -240,9 +242,9 @@ The output is:
 The first ``Add`` is observed, but its children ``x`` and ``1`` are skipped.
 The second subtree is still visited. ``same_as(x)`` checks the identity of
 the IR variable; another variable with the printed name ``x`` is a distinct
-symbol. Return ``None`` or ``WalkResult.ADVANCE`` to continue normally.
-Use pre-order for pruning, since a post-order callback runs after the
-children have already been visited.
+symbol. A ``None`` or ``WalkResult.ADVANCE`` return continues traversal
+normally. Pruning takes effect in pre-order, since a post-order callback runs
+after the children have already been visited.
 
 ``VisitInterrupt`` stops the entire traversal and carries a result:
 
@@ -317,8 +319,8 @@ symbols through a type. The inputs ``x`` and ``y`` remain ordinary uses.
 Structural Map
 --------------
 
-``tvm_ffi.structural_map`` applies replacement rules with automatic recursion.
-Use it for substitutions and rewrites that process every structural child.
+``tvm_ffi.structural_map`` applies replacement rules with automatic recursion,
+supporting substitutions and rewrites throughout the IR.
 
 .. code-block:: text
 
@@ -329,14 +331,14 @@ Use it for substitutions and rewrites that process every structural child.
 to transform. ``callbacks`` accepts ``(Type, handler)``, a grouped
 ``((TypeA, TypeB), handler)``, a list of entries, or a bare catch-all callable.
 The default ``()`` installs no handlers. IR class selectors match subclasses,
-and only the first matching entry runs; put specific types before broad ones.
+and only the first matching entry runs. A specific handler must appear before
+a broader one to take precedence over it.
 Unmatched values follow default mapping. ``object`` or ``typing.Any`` matches
 all values, while ``tvm_ffi.Object`` matches only FFI objects.
 
 A normal callback is called as ``handler(value)`` and returns the value to
 install: either the input unchanged or a valid replacement. ``None`` does
-not mean "keep this value." ``structural_map`` returns the transformed root;
-assign this result to use the new IR.
+not mean "keep this value." ``structural_map`` returns the transformed root.
 
 ``with_def_region_kind`` accepts the same entry forms but calls
 ``handler(value, kind)``, where ``kind`` is a ``tvm_ffi.DefRegionKind``. This
@@ -366,7 +368,7 @@ it does not repeatedly apply rules until nothing changes. A callback must not
 modify its input in place. The examples below keep the original root available
 and return new IR where needed.
 
-First construct an expression to transform:
+We will start with an expression to transform:
 
 .. code-block:: python
 
@@ -464,7 +466,7 @@ time after that descent.
 Map callbacks must return an expression for these IR nodes, including when
 nothing changes. Falling off a callback returns ``None``; it does not mean
 "keep this node." There is no map result corresponding to ``SKIP`` or
-``VisitInterrupt``. Use a mutator when a rewrite needs to choose its children.
+``VisitInterrupt``. A mutator gives the callback control over child selection.
 
 We can use the same callbacks on a deeper expression,
 ``((x + 1) * (y - 2)) // 4``. Its outer division depends on a multiplication,
@@ -480,8 +482,8 @@ structure is:
    │   └── b: Sub(y, 2)
    └── b: IntImm(4)
 
-First substitute ``x = 8`` and ``y = 3``, then record each successful fold in
-post-order:
+The following example first substitutes ``x = 8`` and ``y = 3``, then records
+each successful fold in post-order:
 
 .. code-block:: python
 
@@ -548,7 +550,8 @@ callback choose which children to visit and in what order.
 where visiting starts. ``callbacks`` accepts ``(Type, handler)``, a grouped
 ``((TypeA, TypeB), handler)``, a list of entries, or a bare catch-all callable.
 The default ``()`` installs no handlers. IR class selectors match subclasses;
-only the first matching entry runs, so put specific types before broad ones.
+only the first matching entry runs. A specific handler must appear before
+a broader one to take precedence over it.
 Unmatched values follow default structural descent. ``object`` or
 ``typing.Any`` matches all values, while ``tvm_ffi.Object`` matches only FFI
 objects.
@@ -573,8 +576,8 @@ A matched callback owns descent; it can choose these operations:
    * - Return ``tvm_ffi.VisitInterrupt(payload)``.
      - Stop traversal and return the interrupt to the caller.
 
-Both visitor methods return ``None`` or ``VisitInterrupt``. Return a child
-interrupt from the callback so it reaches the caller. ``structural_visit``
+Both visitor methods return ``None`` or ``VisitInterrupt``. Child interrupts
+reach the caller when the callback returns them. ``structural_visit``
 returns ``None`` on completion, otherwise the interrupt.
 ``WalkResult`` is a walk-only control signal; visitors select
 subtrees through their recursive calls instead. There is no ``order`` argument;
@@ -660,8 +663,9 @@ The output is ``['x']``. The ``Mul`` callback selects ``a``; the unmatched
 ``Add`` descends normally; the ``Var`` callback records ``x``. Nothing visits
 the right subtree containing ``y``.
 
-Use ``visit`` for a child that should enter callback dispatch. In an engine
-callback, use ``default_visit`` on the current node for its normal descent.
+A selected child enters callback dispatch through ``visitor.visit(child)``.
+Default descent from the current node proceeds through
+``visitor.default_visit(node)``.
 Calling ``visitor.visit(node)`` on that same current node would invoke its
 callback again rather than advance to the children.
 
@@ -678,8 +682,8 @@ An early exit must propagate through recursive calls. This callback finds
    visitor_found = tvm_ffi.structural_visit(expr, (ir.Expr, visit_until_y))
    print(visitor_found.value.name)
 
-The output is ``y``. When a callback visits several children explicitly, check
-each recursive result and return an interrupt before visiting the next child.
+The output is ``y``. A callback that visits several children explicitly must
+propagate any child interrupt before visiting the next child.
 
 ``visitor.def_region_kind()`` reports the current ``tvm_ffi.DefRegionKind``:
 ``NONE`` for ordinary uses, ``DEF_SIMPLE`` for simple definitions, or
@@ -693,14 +697,14 @@ the requested kind and restores the previous kind afterward; an enclosing
 The callbacks above are different from a node type's custom ``__s_visit__``
 hook. In an engine callback, ``default_visit(node)`` bypasses that callback;
 inside the node's own ``__s_visit__`` hook, the same call would re-enter the
-hook. Use the hook's child traversal contract when defining a new node type.
+hook. A custom node hook follows its own child traversal contract.
 
 Structural Mutator
 ------------------
 
 ``tvm_ffi.structural_mutate`` combines replacement with explicit control over
-recursive processing. Use it when a rewrite must select children or arrange
-recursive calls around its local transformation.
+recursion. Its callbacks can select which children to rewrite and arrange
+recursive calls around their local transformations.
 
 .. code-block:: text
 
@@ -710,8 +714,9 @@ recursive calls around its local transformation.
 to transform. ``callbacks`` accepts ``(Type, handler)``, a grouped
 ``((TypeA, TypeB), handler)``, a list of entries, or a bare catch-all callable.
 The default ``()`` installs no handlers. IR class selectors match subclasses;
-only the first matching entry runs, so place specific types before broader
-ones. Unmatched values follow default mutation. ``object`` or ``typing.Any``
+only the first matching entry runs. A specific handler must appear before
+a broader one to take precedence over it. Unmatched values follow default
+mutation. ``object`` or ``typing.Any``
 matches all values, while ``tvm_ffi.Object`` matches only FFI objects.
 
 The callback is called as ``handler(value, mutator)`` and returns the value
@@ -735,14 +740,15 @@ callbacks into recursive calls. The matched callback owns descent:
      - Install the replacement without further traversal by the engine.
 
 Unmatched values follow default mutation. ``structural_mutate`` returns the
-resulting root, which the caller must retain. Every matched callback must
-return a valid value, even when unchanged; ``None`` does not request default
+resulting root. Every matched callback must return a valid value, even when
+unchanged; ``None`` does not request default
 mutation or mean "keep the input." There is no ``SKIP`` or ``VisitInterrupt``
 control result.
 
-Use ``mutate`` on a selected child and ``default_mutate`` on the current
-value to continue through the same dispatch. Calling ``mutate`` on the current
-value dispatches to its callback again. There is no ``order`` parameter:
+``mutator.mutate(child)`` applies callback dispatch to a selected child.
+``mutator.default_mutate(node)`` applies default descent to the current node,
+with child mutations using the same callbacks. Calling ``mutate`` on the
+current value dispatches to its callback again. There is no ``order`` parameter:
 placing the local rewrite before or after recursive calls chooses the
 processing order.
 
@@ -896,8 +902,9 @@ only along a uniquely owned path. Passing ``root._move()`` transfers ownership
 and permits that optimization. The two-argument callbacks and ordinary
 references above do not require ownership transfer.
 
-For custom object hooks and native implementations, see the TVM FFI
-`Structural Walk and Map guide <https://github.com/apache/tvm-ffi/blob/dbdcdaceeef5b0b03251e8dea87725a1c1e2cde6/docs/concepts/structural_eq_hash.rst#structural-walk-and-map>`_.
+The TVM FFI
+`Structural Walk and Map guide <https://github.com/apache/tvm-ffi/blob/dbdcdaceeef5b0b03251e8dea87725a1c1e2cde6/docs/concepts/structural_eq_hash.rst#structural-walk-and-map>`_
+describes custom object hooks and native implementations.
 TIRx's constraint-aware variants are covered in
 :doc:`symbolic_integer_analysis`; :doc:`writing_passes` shows how to package
 a rewrite as a compiler pass.
