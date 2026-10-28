@@ -23,22 +23,27 @@ rewrite IR. Each API is introduced with its signature, callback rules, and
 examples. We will start with small arithmetic expressions to explain traversal
 order and node replacement, then work through a deeper expression.
 
-The APIs have two independent choices: whether to inspect or replace values,
-and whether the operation or the callback controls recursion:
+TVM FFI provides four APIs for traversing and transforming IR:
 
 .. list-table::
    :header-rows: 1
-   :widths: 24 38 38
+   :widths: 25 35 40
 
-   * - Task
-     - Automatic recursion
-     - Callback-controlled recursion
-   * - Inspect values
-     - ``tvm_ffi.structural_walk``
-     - ``tvm_ffi.structural_visit``
-   * - Replace values
-     - ``tvm_ffi.structural_map``
-     - ``tvm_ffi.structural_mutate``
+   * - API
+     - Purpose
+     - Recursion
+   * - ``tvm_ffi.structural_walk``
+     - Inspect nodes and collect information.
+     - The walker visits children automatically.
+   * - ``tvm_ffi.structural_map``
+     - Replace nodes and rebuild changed paths.
+     - The mapper processes children automatically.
+   * - ``tvm_ffi.structural_visit``
+     - Inspect nodes with explicit control over traversal.
+     - Your callback chooses which children to visit and when.
+   * - ``tvm_ffi.structural_mutate``
+     - Rewrite nodes with explicit control over traversal.
+     - Your callback chooses which children to rewrite and returns the result.
 
 Walk and map are higher-level APIs that handle recursion for you, letting
 callbacks focus on inspecting or replacing nodes. Visit and mutate give
