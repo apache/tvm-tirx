@@ -32,11 +32,15 @@ def test_tensor_type_eager_annotation_placeholder():
     n = TypeVar("n")
     assert T.Tensor is tvm_tirx.tirx.TensorType
     for shape in (n, (n,), [n, 4]):
-        assert isinstance(T.Tensor(shape, T.float32), tvm_tirx.ir.MissingType)
+        annotation = T.Tensor(shape, T.float32)
+        assert isinstance(annotation, tvm_tirx.tirx.TensorType)
+        assert annotation.__chandle__() == 0
     with IRBuilder(), pytest.raises(TypeError, match=r"Expected `Array<ir\.PrimExpr>`"):
         T.Tensor((n,), T.float32)
     with pytest.raises(TypeError, match=r"Expected `Array<ir\.PrimExpr>`"):
         T.Tensor((object(),), T.float32)
+    with pytest.raises(TypeError):
+        T.Tensor(None, T.float32)
     # Native reconstruction allocates the Python wrapper without constructor arguments.
     ty = T.Tensor((4,), T.float32)
     tvm_tirx.ir.assert_structural_equal(ty, tvm_tirx.ir.load_json(tvm_tirx.ir.save_json(ty)))
