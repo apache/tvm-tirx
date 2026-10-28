@@ -296,6 +296,7 @@ def require_definition_site(
         "CALL",
         "CALL_FUNCTION",
         "PRECALL",
+        "PUSH_NULL",
         "CACHE",
         "EXTENDED_ARG",
         "SET_FUNCTION_ATTRIBUTE",

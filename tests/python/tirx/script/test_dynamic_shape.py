@@ -19,6 +19,7 @@
 
 from __future__ import annotations
 
+import runpy
 import sys
 
 import pytest
@@ -122,6 +123,29 @@ def test_tir_return_annotation_does_not_define_symbolic_var():
         def main() -> T.Tensor((n,), "float32"):  # noqa: F821
             A = T.alloc_tensor(ty_args=[T.Tensor((n,), "float32")])  # noqa: F821
             return A
+
+
+@pytest.mark.skipif(sys.version_info < (3, 12), reason="PEP 695 requires Python 3.12")
+@pytest.mark.parametrize("type_param", ["n", "n: T.int32"])
+def test_generic_function_decorators(tmp_path, type_param):
+    source = f"""from __future__ import annotations
+@T.function
+def standalone[{type_param}](A: T.Tensor((n,), T.float32)):
+    T.evaluate(n)
+
+@I.ir_module
+class Module:
+    @T.function
+    def member[{type_param}](A: T.Tensor((n,), T.float32)):
+        T.evaluate(n)
+"""
+    path = tmp_path / "generic_functions.py"
+    path.write_text(source)
+    namespace = runpy.run_path(str(path), init_globals={"T": T, "I": I})
+    for function in [namespace["standalone"], namespace["Module"]["member"]]:
+        n = function.params[0].ty.shape[0]
+        assert n.ty.dtype == "int32"
+        assert function.body[0].value.same_as(n)
 
 
 @pytest.mark.skipif(sys.version_info < (3, 12), reason="PEP 695 requires Python 3.12")
