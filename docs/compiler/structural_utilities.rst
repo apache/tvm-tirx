@@ -21,8 +21,7 @@ Traversing and Transforming IR
 In this chapter, we will use TVM FFI's structural operations to inspect and
 rewrite IR. Each API is introduced with its signature, callback rules, and
 examples. We will start with small arithmetic expressions to explain traversal
-order and node replacement, then work through a deeper expression combining
-addition, subtraction, multiplication, and integer division.
+order and node replacement, then work through a deeper expression.
 
 The APIs have two independent choices: whether to inspect or replace values,
 and whether the operation or the callback controls recursion:
