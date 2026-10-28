@@ -125,13 +125,48 @@ names are defined in this section's examples:
        default structural traversal. This is the default when ``callbacks``
        is omitted.
 
-An IR class selector also matches its subclasses. Only the first matching
-entry runs. A specific handler must appear before a broader one to take
-precedence over it. Unmatched values still follow default descent.
-``ir.IntImm`` selects an integer IR constant, while
-``int`` selects an inline integer value; ``object`` or ``typing.Any`` matches
-both inline values and FFI objects, and ``tvm_ffi.Object`` matches only FFI
-objects.
+The class in a ``callbacks`` entry also matches its subclasses. For example,
+``ir.Expr`` matches ``ir.Var`` because a variable is an expression. More than
+one entry can therefore match the same node:
+
+.. code-block:: python
+
+   selected = []
+   tvm_ffi.structural_walk(
+       root=x,
+       callbacks=[
+           (ir.Var, lambda var: selected.append("variable")),
+           (ir.Expr, lambda node: selected.append("expression")),
+       ],
+   )
+   print(selected)
+
+The output is ``['variable']``. Both entries match ``x``, but the walker
+checks them in order and calls only the first matching function. If the
+``ir.Expr`` entry came first, the expression handler would run instead.
+Returning ``None`` continues traversal; it does not try the next handler.
+
+When no entry matches a node, the walker still visits its children. For
+example, a walk with only ``(ir.Var, on_var)`` still descends through the
+multiplication and additions in ``expr`` to reach ``x`` and ``y``.
+
+The type in a ``callbacks`` entry determines which kinds of values match:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 30 70
+
+   * - Type
+     - Matching values
+   * - ``ir.IntImm``
+     - Integer constants in IR, such as the ``1`` in ``x + 1``.
+   * - ``int``
+     - Ordinary integers, such as the elements of ``tvm_ffi.Array([1, 2])``.
+   * - ``object`` or ``typing.Any``
+     - All values, including IR nodes, FFI containers, and ordinary integers.
+   * - ``tvm_ffi.Object``
+     - FFI objects, including IR nodes and FFI containers. Ordinary integers
+       do not match this type.
 
 ``order="post"`` calls the handler after the children; ``order="pre"`` calls
 it before them. The corresponding enum values are
@@ -283,25 +318,6 @@ The output is:
 ``on_value`` receives all seven expression nodes, including arithmetic nodes
 and integer constants. Only variable names enter ``bare_variables``, because
 the callback body performs that type check itself.
-
-The next example places a variable handler before an expression handler to
-illustrate first-match selection:
-
-.. code-block:: python
-
-   selected = []
-   tvm_ffi.structural_walk(
-       x,
-       [
-           (ir.Var, lambda var: selected.append("variable")),
-           (ir.Expr, lambda node: selected.append("expression")),
-       ],
-   )
-   print(selected)
-
-The output is ``['variable']``. Both selectors match ``x``, but only the first
-handler runs. Its ``None`` return continues traversal; it does not request
-the next handler.
 
 To see when callbacks run, we can record every expression node. ``ir.Expr``
 matches its concrete subclasses, including variables and arithmetic nodes:
