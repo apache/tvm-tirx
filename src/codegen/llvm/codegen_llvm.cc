@@ -1874,9 +1874,10 @@ void CodeGenLLVM::BufferAccessHelper(
     if (predicate.has_value()) {
       predicate_value = MakeValue(predicate.value());
 
+      // lanes() throws for scalable vectors, so check IsScalableVector() first.
       PrimType predicate_dtype(predicate.value().ty()->dtype);
-      int predicate_lanes = predicate_dtype.lanes();
-      if (last_index_lanes > 1 && predicate_lanes == last_index_lanes) {
+      if (last_index_lanes > 1 && !predicate_dtype.IsScalableVector() &&
+          predicate_dtype.lanes() == last_index_lanes) {
         predicate_value = builder_->CreateExtractElement(predicate_value, i);
       }
     }
