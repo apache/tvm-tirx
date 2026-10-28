@@ -109,6 +109,8 @@ operands in ``a`` and ``b``:
        ├── a: Var       y
        └── b: IntImm    2
 
+.. _ir-default-structural-traversal:
+
 The walker visits this structure automatically, starting at the multiplication
 and following each arithmetic node's operands. This is the default structural
 traversal.
@@ -169,10 +171,60 @@ When no entry matches a node, the walker still visits its children. For
 example, a walk with only ``(ir.Var, on_var)`` still descends through the
 multiplication and additions in ``expr`` to reach ``x`` and ``y``.
 
-Each node type defines its child relationships through structural fields or
-custom traversal hooks. For containers, traversal visits ``Array`` and ``List``
-elements and ``Map`` and ``Dict`` values, while skipping map keys. Fields marked
-``structural_eq="ignore"`` are also skipped.
+.. _ir-ffi-containers:
+
+IR fields can hold collections of child nodes. TVM FFI provides container
+objects so that Python and C++ can share these collections:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 40 60
+
+   * - TVM FFI container
+     - Python container interface
+   * - ``tvm_ffi.Array``
+     - Read-only sequence, with indexing and iteration.
+   * - ``tvm_ffi.List``
+     - Mutable sequence, with indexing, iteration, and updates such as ``append``.
+   * - ``tvm_ffi.Map``
+     - Read-only key-value mapping, with lookup by key.
+   * - ``tvm_ffi.Dict``
+     - Mutable key-value mapping, with lookup, insertion, and deletion.
+
+All four are FFI objects. The list in ``callbacks=[...]`` is an ordinary
+Python list that holds callback rules.
+
+The walker visits the elements of ``tvm_ffi.Array`` and ``tvm_ffi.List``.
+For ``tvm_ffi.Map`` and ``tvm_ffi.Dict``, it visits values and skips keys.
+The following example groups the variables in an FFI array and stores it
+as a value in an FFI map:
+
+.. code-block:: python
+
+   container_nodes = tvm_ffi.Array([x, y])
+   container_groups = tvm_ffi.Map({"inputs": container_nodes})
+   container_names = []
+
+   def collect_container_var(var):
+       container_names.append(var.name)
+
+   tvm_ffi.structural_walk(
+       root=container_groups, callbacks=(ir.Var, collect_container_var)
+   )
+   print(container_names)
+
+The output is:
+
+.. code-block:: text
+
+   ['x', 'y']
+
+``[x, y]`` initializes the FFI array. The walk follows the map's ``"inputs"``
+value to that array, then visits ``x`` and ``y``. The string key ``"inputs"``
+is skipped.
+
+Each IR node type defines its children through structural fields or custom
+traversal hooks. Fields marked ``structural_eq="ignore"`` are skipped.
 
 The type in a ``callbacks`` entry determines which kinds of values match:
 
