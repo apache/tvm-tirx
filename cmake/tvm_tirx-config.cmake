@@ -18,12 +18,21 @@
 include(CMakeFindDependencyMacro)
 find_dependency(Python 3.10 COMPONENTS Interpreter)
 
-# Query this installation's helper, independently of any other Python wheel.
-# Passing the exact library directory also supports lib64 and multiarch layouts.
-get_filename_component(_tvm_tirx_libdir "${CMAKE_CURRENT_LIST_DIR}/../.." ABSOLUTE)
+if(EXISTS "${CMAKE_CURRENT_LIST_DIR}/config.py")
+  # Installed package: query this installation's helper, independently of any
+  # other Python wheel. Passing the exact library directory also supports lib64
+  # and multiarch layouts.
+  get_filename_component(_tvm_tirx_libdir "${CMAKE_CURRENT_LIST_DIR}/../.." ABSOLUTE)
+  set(_tvm_tirx_config_args
+    "${CMAKE_CURRENT_LIST_DIR}/config.py" --library-dir "${_tvm_tirx_libdir}")
+else()
+  # Source checkout (``tvm-tirx-config --cmakedir`` returns its ``cmake/``):
+  # the source helper locates the build's library directory itself.
+  set(_tvm_tirx_config_args "${CMAKE_CURRENT_LIST_DIR}/../python/tvm_tirx/config.py")
+endif()
 execute_process(
-  COMMAND "${Python_EXECUTABLE}" "${CMAKE_CURRENT_LIST_DIR}/config.py"
-    --library-dir "${_tvm_tirx_libdir}" --platform "${CMAKE_SYSTEM_NAME}" --json
+  COMMAND "${Python_EXECUTABLE}" ${_tvm_tirx_config_args}
+    --platform "${CMAKE_SYSTEM_NAME}" --json
   OUTPUT_VARIABLE _tvm_tirx_config OUTPUT_STRIP_TRAILING_WHITESPACE
   COMMAND_ERROR_IS_FATAL ANY)
 string(JSON TVM_TIRX_VERSION GET "${_tvm_tirx_config}" version)

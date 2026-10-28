@@ -14,9 +14,9 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-"""Add one to each element on an NVIDIA GPU. Requires LLVM and CUDA support."""
+"""Add one to each element on the CPU."""
 
-# begin program
+# [function.begin]
 import torch
 
 import tvm_tirx
@@ -27,16 +27,19 @@ n = T.dynamic("n")
 
 @T.function
 def add_one(A: T.Tensor((n,), T.float32), B: T.Tensor((n,), T.float32)):
-    T.device_entry(launch=T.cuda.LaunchConfig(grid=((n + 255) // 256,), block=(256,)))
-    i = T.cuda.block_idx("x") * 256 + T.cuda.thread_idx("x")
-    if i < n:
+    for i in range(n):
         B[i] = A[i] + 1
 
 
-add_one_compiled = tvm_tirx.compile(add_one, target="cuda")
-a = torch.arange(10, dtype=torch.float32, device="cuda:0")
-b = torch.empty(a.shape, dtype=a.dtype, device=a.device)
+# [run.begin]
+add_one_compiled = tvm_tirx.compile(add_one, target="llvm")
+a = torch.arange(10, dtype=torch.float32)
+b = torch.empty_like(a)
 add_one_compiled(a, b)
 torch.testing.assert_close(b, a + 1)
 print(b)
-# end program
+# [run.end]
+
+# [export.begin]
+add_one_compiled.export_library("./add_one_cpu.so")
+# [export.end]

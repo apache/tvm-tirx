@@ -1,3 +1,4 @@
+#!/bin/bash
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -14,27 +15,11 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-"""Add one to each element on the CPU. Requires LLVM support."""
+set -ex
+cd "$(dirname "$0")"
 
-# begin program
-import torch
+# Write, compile, and run add_one on CUDA; export it to add_one_cuda.so
+python add_one_cuda.py
 
-import tvm_tirx
-from tvm_tirx.script import tirx as T
-
-n = T.dynamic("n")
-
-
-@T.function
-def add_one(A: T.Tensor((n,), T.float32), B: T.Tensor((n,), T.float32)):
-    for i in range(n):
-        B[i] = A[i] + 1
-
-
-add_one_compiled = tvm_tirx.compile(add_one, target="llvm")
-a = torch.arange(10, dtype=torch.float32)
-b = torch.empty(a.shape, dtype=a.dtype)
-add_one_compiled(a, b)
-torch.testing.assert_close(b, a + 1)
-print(b)
-# end program
+# Load add_one_cuda.so in a new Python process
+python load_add_one_cuda.py
