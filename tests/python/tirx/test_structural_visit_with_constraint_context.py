@@ -44,6 +44,22 @@ def test_walk_collects_binding_and_loop_range():
     assert int(loop_range.range.begin) == 0 and int(loop_range.range.extent) == 4
 
 
+def test_walk_omits_zero_trip_loop_constraints():
+    @T.function
+    def before():
+        for i in T.serial(0):
+            T.evaluate(T.truncmod(1, i))
+
+    collected = []
+
+    def observe(value, constraints):
+        if isinstance(value, ir.Evaluate):
+            collected.append(list(constraints))
+
+    structural.structural_walk_with_constraint_context(before.body, observe)
+    assert collected == [[]]
+
+
 def test_visit_collects_branch_predicates():
     @T.function
     def before(x: T.int32):

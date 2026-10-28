@@ -61,11 +61,12 @@ ffi::Expected<void> AddLoopRange(Traversal* traversal, PrimVar var, PrimExpr beg
   try {
     const auto* stride = step.as<IntImmObj>();
     if (stride && stride->value > 0) {
+      PrimExpr extent = Range::GetExtentFromBeginEnd(begin, end);
+      if (prim::IsZero(extent)) return {};
       traversal->AppendConstraint(sym::RangeConstraint(var, Range(begin, end)));
       // These are facts at an executed positive-step loop body, not an assertion
       // that every RangeConstraint supplied by an arbitrary caller is nonempty.
       traversal->AppendConstraint(sym::PredicateConstraint(end > begin));
-      PrimExpr extent = Range::GetExtentFromBeginEnd(begin, end);
       traversal->AppendConstraint(sym::PredicateConstraint(extent > IntImm(extent.ty(), 0)));
     }
     return {};
