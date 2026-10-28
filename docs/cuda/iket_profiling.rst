@@ -101,7 +101,7 @@ file in the Perfetto UI and expand the kernel's warp track. The
 ``StackedRanges`` row contains the ``affine`` bar, and the ``Marker`` row
 contains the ``loaded`` checkpoint.
 
-.. figure:: images/iket_affine_b200.svg
+.. figure:: images/iket_affine_b200.png
    :alt: B200 IKET capture: affine spans 0.096 to 0.352 microseconds; loaded occurs at 0.192 microseconds.
    :width: 780px
 
