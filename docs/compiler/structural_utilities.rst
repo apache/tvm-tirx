@@ -71,9 +71,9 @@ and traversal order, and finally distinguish variable definitions from uses.
 ``root`` is the expression, statement, function, module, type, or FFI container
 where traversal starts. ``callbacks`` determines which Python function runs
 for each visited value. In a ``(Type, handler)`` entry, ``Type`` is a class
-such as ``ir.Var``, and ``handler`` is a callable supplied by the caller.
-A callable supports function-call syntax: it can be a Python function or,
-for example, a list's ``append`` method.
+such as ``ir.Var``, and ``handler`` is a callable: a Python function or
+another object that supports function-call syntax, such as a list's
+``append`` method.
 The walker calls that function with the actual matching object as its single
 argument. For example, ``(ir.Var, on_var)`` means that the walker calls
 ``on_var(var)`` whenever it visits a variable.
@@ -105,7 +105,7 @@ The function names in the following table are defined in the examples below:
 The notation ``handler(value)`` describes how the walker calls a callback.
 The ``value`` argument is the current object, such as an ``ir.Var`` or an
 ``ir.IntImm``. The caller passes the function itself in ``callbacks``; the
-walker supplies its argument during traversal.
+walker passes the current value to that function during traversal.
 
 An IR class selector also matches its subclasses. Only the first matching
 entry runs. A specific handler must appear before a broader one to take
@@ -461,9 +461,9 @@ to transform. ``callbacks`` specifies Python replacement functions and
 optional type filters. Each function receives the current value and returns
 the value to install at that position. In ``(ir.Var, specialize_var)``,
 ``ir.Var`` is the class to match and ``specialize_var`` is a Python function
-passed without calling it. The mapper supplies the actual variable object
-when it calls ``specialize_var(var)``. The table uses functions defined in
-this section's examples:
+passed without calling it. The mapper calls ``specialize_var(var)`` with
+the actual variable object. The table uses functions defined in this
+section's examples:
 
 .. list-table::
    :header-rows: 1
@@ -482,7 +482,7 @@ this section's examples:
      - A function on its own has no type filter. ``keep_value`` returns its
        input unchanged.
    * - ``()``
-     - The empty tuple supplies no replacement callback. Default mapping
+     - The empty tuple contains no replacement callback. Default mapping
        still runs. This is the default when ``callbacks`` is omitted.
 
 IR class selectors match subclasses, and only the first matching entry runs.
@@ -703,8 +703,9 @@ one post-order traversal folds all four arithmetic nodes.
 
 The examples so far replace free variables with constants. A definition site
 has a different requirement: the variable bound by a ``Let`` expression must
-remain a variable. ``with_def_region_kind`` supplies this context to a
-replacement callback as ``(value, kind)``. It accepts the same entry forms as
+remain a variable. Callbacks in ``with_def_region_kind`` receive
+``(value, kind)``, so they can distinguish definitions from uses.
+This table accepts the same entry forms as
 ``callbacks`` and is tried only when no entry in ``callbacks`` matches.
 ``NONE`` marks an ordinary use, ``DEF_SIMPLE`` a simple definition, and
 ``DEF_PATTERN`` a pattern definition that can bind symbols through a type.
@@ -774,7 +775,7 @@ control their order.
 ``root`` is the expression, statement, function, module, type, or FFI container
 where visiting starts. A callback receives the current value and the active
 visitor. For example, ``(ir.Expr, visit_expr)``
-selects expression objects and calls the supplied function as
+selects expression objects for ``visit_expr``. The traversal calls it as
 ``visit_expr(node, visitor)``. ``callbacks`` accepts the following forms:
 
 .. list-table::
@@ -795,7 +796,7 @@ selects expression objects and calls the supplied function as
      - The function is selected without a type filter for every value reached.
        Its recursive calls determine which children are reached.
    * - ``()``
-     - The empty tuple supplies no callback, so default visiting runs.
+     - The empty tuple contains no callback, so default visiting runs.
        This is the default when ``callbacks`` is omitted.
 
 The function names above refer to callbacks defined in this section's examples.
@@ -806,9 +807,9 @@ Unmatched values follow default structural descent. ``object`` or
 objects.
 
 The callback receives two arguments, ``(value, visitor)``. ``value`` is the
-current object; the supplied ``tvm_ffi.StructuralVisitor`` carries the same
-callbacks into recursive calls. ``structural_visit`` creates this visitor for
-the traversal; the caller does not construct or pass one separately.
+current object. ``structural_visit`` creates a ``tvm_ffi.StructuralVisitor``
+for the traversal and passes it as ``visitor``. Recursive calls through this
+visitor use the same callbacks.
 A matched callback controls descent through these operations:
 
 .. list-table::
@@ -1095,7 +1096,7 @@ expression.
 to transform. A callback receives the current value and the active mutator,
 then returns the replacement value. ``callbacks``
 selects that function. In ``(ir.Var, replace_var)``, ``ir.Var`` is the class
-to match and ``replace_var`` is the function supplied by the caller; the
+to match and ``replace_var`` is a Python function; the
 engine invokes it as ``replace_var(var, mutator)``. The accepted forms are:
 
 .. list-table::
@@ -1115,7 +1116,7 @@ engine invokes it as ``replace_var(var, mutator)``. The accepted forms are:
      - The function is selected without a type filter. Its recursive calls
        determine which children receive callbacks.
    * - ``()``
-     - The empty tuple supplies no callback, so default mutation runs.
+     - The empty tuple contains no callback, so default mutation runs.
        This is the default when ``callbacks`` is omitted.
 
 The functions above are defined in this section's examples. IR class selectors
@@ -1125,11 +1126,10 @@ follow default mutation. ``object`` or ``typing.Any`` matches all values, while
 ``tvm_ffi.Object`` matches only FFI objects.
 
 The callback receives two arguments, ``(value, mutator)``, and returns the
-value to install. ``value`` is the current object. The supplied
-``tvm_ffi.StructuralMutator`` carries the same callbacks into recursive calls.
-``structural_mutate`` creates it for the traversal; the caller receives it
-through the callback rather than constructing it. The matched callback
-controls descent through these operations:
+value to install. ``value`` is the current object. ``structural_mutate``
+creates a ``tvm_ffi.StructuralMutator`` for the traversal and passes it as
+``mutator``. Recursive calls through this mutator use the same callbacks.
+The matched callback controls descent through these operations:
 
 .. list-table::
    :header-rows: 1
@@ -1357,7 +1357,7 @@ process those new children without dispatching on the addition itself.
 Rewriting a bound variable requires consistent identities at its definition
 and uses. ``mutator.def_region_kind()`` reports ``tvm_ffi.DefRegionKind.NONE``
 for ordinary uses, ``DEF_SIMPLE`` for simple definitions, or ``DEF_PATTERN``
-for pattern definitions. Default mutation supplies the regions registered by
+for pattern definitions. Default mutation enters the regions registered by
 IR nodes. The following callback creates a new symbol at a simple definition
 and reuses it at later occurrences:
 
