@@ -21,9 +21,8 @@ Traversing and Transforming IR
 In this chapter, we will use TVM FFI's structural operations to inspect and
 rewrite IR. Each API is introduced with its signature, callback rules, and
 examples. We will start with small arithmetic expressions to explain traversal
-order and node replacement. We will then apply the same APIs to the add-one
-function from the :doc:`IR Walkthrough </ir/overview>`, specializing its symbolic
-dimension in both the loop bound and tensor types.
+order and node replacement, then work through a deeper expression combining
+addition, subtraction, multiplication, and integer division.
 
 The APIs have two independent choices: whether to inspect or replace values,
 and whether the operation or the callback controls recursion:
@@ -54,9 +53,9 @@ elements and ``Map`` and ``Dict`` values, while skipping map keys. Fields marked
 ``structural_eq="ignore"`` are also skipped. These operations work on IR objects
 without executing the program they describe.
 
-The examples below use the same arithmetic expression to make these levels
-of control easy to compare. Each API section includes its own setup, so you
-can run it independently.
+The API sections start from the same arithmetic expression, making their
+callback behavior easy to compare. Each section includes its own setup, so
+you can run it independently.
 
 Structural Walk
 ---------------
@@ -288,25 +287,23 @@ a pre-order walk can keep a visited set and return ``SKIP`` on repeats.
 .. _ir-definition-regions:
 
 The optional ``with_def_region_kind`` table distinguishes variable definitions
-from uses. For a complete loop example, use the add-one function from the
-:doc:`IR Walkthrough </ir/overview>`:
-
-.. literalinclude:: ../get_started/examples/add_one_cpu.py
-   :language: python
-   :start-at: from tvm_tirx.script import tirx as T
-   :end-at:         B[i] = A[i] + 1
+from uses. ``ir.prim.Let(var, value, body)`` binds a value to a local variable
+while evaluating its body. Here, ``tmp`` is defined once and used twice in
+``tmp + tmp``:
 
 .. code-block:: python
 
+   tmp = ir.Var("tmp", "int32")
+   scoped_expr = ir.prim.Let(tmp, expr, tmp + tmp)
    regions = []
    tvm_ffi.structural_walk(
-       add_one.body[0],
+       scoped_expr,
        with_def_region_kind=(
            ir.Var,
            lambda var, kind: regions.append((var.name, kind.name)),
        ),
    )
-   print([kind for name, kind in regions if name == "i"])
+   print([kind for name, kind in regions if name == "tmp"])
 
 The output is:
 
@@ -314,10 +311,10 @@ The output is:
 
    ['DEF_SIMPLE', 'NONE', 'NONE']
 
-The first occurrence defines the loop variable; the other two use it in the
-store and load indices. ``NONE`` means an ordinary use, ``DEF_SIMPLE`` marks
-a simple variable definition, and ``DEF_PATTERN`` marks a pattern definition,
-which can bind symbols through a type.
+The first occurrence defines ``tmp``; the other two use it in the body.
+``NONE`` means an ordinary use, ``DEF_SIMPLE`` marks a simple variable
+definition, and ``DEF_PATTERN`` marks a pattern definition, which can bind
+symbols through a type. The inputs ``x`` and ``y`` remain ordinary uses.
 
 Structural Map
 --------------
@@ -415,8 +412,9 @@ IR type. Returning a bare Python integer cannot replace a typed expression
 field here; ``ir.const(value, var.ty)`` constructs the required expression.
 
 Post-order is useful when a parent's rewrite depends on its rewritten
-children. We can evaluate constant additions and multiplications with one
-callback shared by both node types:
+children. The following callback evaluates constant additions, subtractions,
+multiplications, and floor divisions. It keeps the input node when an operand
+is nonconstant or a divisor is zero:
 
 .. code-block:: python
 
@@ -424,12 +422,22 @@ callback shared by both node types:
        if not isinstance(node.a, ir.IntImm) or not isinstance(node.b, ir.IntImm):
            return node
        lhs, rhs = int(node.a), int(node.b)
-       value = lhs + rhs if isinstance(node, ir.prim.Add) else lhs * rhs
+       if isinstance(node, ir.prim.Add):
+           value = lhs + rhs
+       elif isinstance(node, ir.prim.Sub):
+           value = lhs - rhs
+       elif isinstance(node, ir.prim.Mul):
+           value = lhs * rhs
+       elif isinstance(node, ir.prim.FloorDiv) and rhs != 0:
+           value = lhs // rhs
+       else:
+           return node
        return ir.const(value, node.ty)
 
+   arithmetic_types = (ir.prim.Add, ir.prim.Sub, ir.prim.Mul, ir.prim.FloorDiv)
    folded = tvm_ffi.structural_map(
        bound,
-       ((ir.prim.Add, ir.prim.Mul), fold_arithmetic),
+       (arithmetic_types, fold_arithmetic),
        order="post",
    )
    print(folded)
@@ -445,7 +453,7 @@ result:
 
    folded_pre = tvm_ffi.structural_map(
        bound,
-       ((ir.prim.Add, ir.prim.Mul), fold_arithmetic),
+       (arithmetic_types, fold_arithmetic),
        order="pre",
    )
    print(folded_pre)
@@ -460,50 +468,64 @@ nothing changes. Falling off a callback returns ``None``; it does not mean
 "keep this node." There is no map result corresponding to ``SKIP`` or
 ``VisitInterrupt``. Use a mutator when a rewrite needs to choose its children.
 
-We can now apply the same variable-substitution rule to a complete function.
-The root changes from an arithmetic expression to a function, whose structural
-children include both its parameter types and its body. We will use the
-add-one function from the walkthrough:
-
-.. literalinclude:: ../get_started/examples/add_one_cpu.py
-   :language: python
-   :start-at: from tvm_tirx.script import tirx as T
-   :end-at:         B[i] = A[i] + 1
-
-.. _ir-shape-specialization:
-
-The dimension ``n`` occurs in both tensor types and the loop bound. As in
-``specialize_var``, an identity test selects the symbol to replace. A map
-can specialize these occurrences together:
-
-.. code-block:: python
-
-   add_one_specialized = tvm_ffi.structural_map(
-       add_one,
-       (ir.Var, lambda var: ir.const(128, n.ty) if var.same_as(n) else var),
-       order="pre",
-   )
-   add_one_specialized.show()
-
-The displayed function includes:
+We can use the same callbacks on a deeper expression,
+``((x + 1) * (y - 2)) // 4``. Its outer division depends on a multiplication,
+which in turn depends on an addition and a subtraction. ``//`` constructs an
+``ir.prim.FloorDiv`` node and rounds integer division down. The arithmetic
+structure is:
 
 .. code-block:: text
 
-   @T.function
-   def add_one(A: T.Tensor((128,), T.float32), B: T.Tensor((128,), T.float32)):
-       for i in range(128):
-           B[i] = A[i] + T.float32(1.0)
+   FloorDiv
+   ├── a: Mul
+   │   ├── a: Add(x, 1)
+   │   └── b: Sub(y, 2)
+   └── b: IntImm(4)
 
-Traversal reaches shape expressions in ``TensorType`` as well as the body.
-The original function still has its symbolic shape. ``show()`` displays
-the result, while ``script()`` returns its TVMScript source as a string.
+First substitute ``x = 8`` and ``y = 3``, then record each successful fold in
+post-order:
+
+.. code-block:: python
+
+   complex_expr = ((x + 1) * (y - 2)) // 4
+   complex_bound = tvm_ffi.structural_map(
+       complex_expr, (ir.Var, specialize_var), order="pre"
+   )
+   fold_steps = []
+
+   def fold_and_record(node):
+       rewritten = fold_arithmetic(node)
+       if isinstance(rewritten, ir.IntImm):
+           fold_steps.append((type(node).__name__, int(rewritten)))
+       return rewritten
+
+   complex_folded = tvm_ffi.structural_map(
+       complex_bound, (arithmetic_types, fold_and_record), order="post"
+   )
+   print(complex_bound)
+   print(fold_steps)
+   print(complex_folded)
+
+The output is:
+
+.. code-block:: text
+
+   T.Add(8, 1) * T.Sub(3, 2) // 4
+   [('Add', 9), ('Sub', 1), ('Mul', 9), ('FloorDiv', 2)]
+   2
+
+The first map replaces variables while retaining the arithmetic nodes. The
+second map folds the addition to 9 and the subtraction to 1 before visiting
+their parent multiplication. That result, 9, becomes the dividend of the outer
+division, which folds to 2. Each parent receives its rewritten children, so
+one post-order traversal folds all four arithmetic nodes.
 
 With ``with_def_region_kind``, the replacement callback receives
 ``(value, kind)``. ``NONE`` marks an ordinary use, ``DEF_SIMPLE`` a simple
 definition, and ``DEF_PATTERN`` a pattern definition that can bind symbols
 through a type. The callback still returns the unchanged value or a valid
-replacement. Substituting a dimension is different from removing a parameter
-or loop binder: the resulting definition sites must remain valid.
+replacement. Definition sites must remain valid, including the variable bound
+by a ``Let`` expression.
 
 Passing an ordinary Python reference preserves the source through
 copy-on-write. Default mapping reuses unchanged children and copies changed
@@ -776,37 +798,52 @@ it with 8. The root callback returns a new multiplication that shares the
 original right subtree. Its source location is retained through ``loc``.
 
 ``mutator.default_mutate(node)`` rewrites the current node's children without
-invoking its callback again on that node. To perform a bottom-up constant
-fold, first construct ``(8 + 1) * (3 + 2)`` as IR nodes and define a local
-arithmetic rule:
+invoking its callback again on that node. To fold
+``((8 + 1) * (3 - 2)) // 4`` from its leaves to its root, construct the
+arithmetic nodes and define a local rule:
 
 .. code-block:: python
 
-   bound = ir.prim.Mul(
-       ir.prim.Add(ir.const(8, "int32"), ir.const(1, "int32")),
-       ir.prim.Add(ir.const(3, "int32"), ir.const(2, "int32")),
+   constant_expr = ir.prim.FloorDiv(
+       ir.prim.Mul(
+           ir.prim.Add(ir.const(8, "int32"), ir.const(1, "int32")),
+           ir.prim.Sub(ir.const(3, "int32"), ir.const(2, "int32")),
+       ),
+       ir.const(4, "int32"),
    )
 
    def fold_arithmetic(node):
        if not isinstance(node.a, ir.IntImm) or not isinstance(node.b, ir.IntImm):
            return node
        lhs, rhs = int(node.a), int(node.b)
-       value = lhs + rhs if isinstance(node, ir.prim.Add) else lhs * rhs
+       if isinstance(node, ir.prim.Add):
+           value = lhs + rhs
+       elif isinstance(node, ir.prim.Sub):
+           value = lhs - rhs
+       elif isinstance(node, ir.prim.Mul):
+           value = lhs * rhs
+       elif isinstance(node, ir.prim.FloorDiv) and rhs != 0:
+           value = lhs // rhs
+       else:
+           return node
        return ir.const(value, node.ty)
+
+   arithmetic_types = (ir.prim.Add, ir.prim.Sub, ir.prim.Mul, ir.prim.FloorDiv)
 
    def mutate_and_fold(node, mutator):
        rewritten = mutator.default_mutate(node)
-       if isinstance(rewritten, (ir.prim.Add, ir.prim.Mul)):
+       if isinstance(rewritten, arithmetic_types):
            return fold_arithmetic(rewritten)
        return rewritten
 
-   folded_manual = tvm_ffi.structural_mutate(bound, (ir.Expr, mutate_and_fold))
+   folded_manual = tvm_ffi.structural_mutate(constant_expr, (ir.Expr, mutate_and_fold))
    print(folded_manual)
 
-The output is ``45``. Child mutation happens before the local fold, giving
-the same result as the post-order map. A map is shorter when this automatic
-order is all a rewrite needs; a mutator lets each callback arrange its own
-recursive calls.
+The output is ``2``. The explicit recursive call processes the addition and
+subtraction before multiplication, and multiplication before division. This
+gives the same result as the post-order map. A map is shorter when this order
+is all a rewrite needs; a mutator lets each callback arrange its own recursive
+calls.
 
 The engine does not traverse a mutator callback's returned replacement again.
 We can observe this by replacing a variable with a newly constructed addition:

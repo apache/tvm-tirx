@@ -18,11 +18,12 @@
 Writing and Debugging Passes
 ============================
 
-In this chapter, we will turn the shape specialization from
-:doc:`structural_utilities` into a compiler pass. We will combine it with
-statement simplification, check the resulting program, and inspect the
-intermediate stages. The example continues the add-one program used in
-the :doc:`IR Walkthrough </ir/overview>`.
+In this chapter, we will use the variable-substitution technique from
+:doc:`structural_utilities` to specialize a tensor program's dynamic dimension
+and package the rewrite as a compiler pass. We will combine it with statement
+simplification, check the resulting program, and inspect the intermediate
+stages. The example continues the add-one program used in the
+:doc:`IR Walkthrough </ir/overview>`.
 
 Starting from a Function
 ------------------------

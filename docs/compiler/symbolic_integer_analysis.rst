@@ -69,8 +69,8 @@ Facts from the Program
 ----------------------
 
 The analyzer needs facts from the point in the program where a rewrite
-would occur. We will use the same CPU function as in
-:doc:`structural_utilities`:
+would occur. We will use the add-one CPU function from the
+:doc:`IR Walkthrough </ir/overview>`:
 
 .. literalinclude:: ../get_started/examples/add_one_cpu.py
    :language: python
