@@ -110,6 +110,13 @@ class MemoryAccessVerifier final : public StmtExprVisitor {
   }
 
   ffi::Optional<VisitInterrupt> Visit_(const CallObj* op) final {
+    if (op->op.same_as(tirx::address_of_op()) && !op->args.empty()) {
+      if (const auto* load = op->args[0].as<TensorLoadObj>()) {
+        // Taking an address does not read the tensor element, but its indices
+        // can contain memory accesses that still need verification.
+        return StmtExprVisitor::Visit_(load);
+      }
+    }
     if ((op->op.same_as(tirx::masked_load_op()) || op->op.same_as(tirx::masked_store_op())) &&
         !op->args.empty()) {
       HandleLoadStoreToVariable(op->args[0].as_or_throw<Var>());
