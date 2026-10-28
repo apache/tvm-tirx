@@ -777,8 +777,10 @@ callback results. Passing ``root._move()`` transfers ownership and permits
 storage reuse along uniquely owned paths; map callbacks must still return
 values without modifying their input in place.
 
-Structural Visitor
-------------------
+.. _structural-visitor:
+
+Structural Visit
+----------------
 
 ``tvm_ffi.structural_visit`` inspects values while letting each matched
 callback choose which children to visit and in what order. Unlike a walk,
@@ -1097,8 +1099,10 @@ hook. In an engine callback, ``default_visit(node)`` bypasses that callback;
 inside the node's own ``__s_visit__`` hook, the same call would re-enter the
 hook. A custom node hook follows its own child traversal contract.
 
-Structural Mutator
-------------------
+.. _structural-mutator:
+
+Structural Mutate
+-----------------
 
 ``tvm_ffi.structural_mutate`` combines replacement with explicit control over
 recursion. Its callbacks can select which children to rewrite and arrange
