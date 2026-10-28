@@ -18,7 +18,7 @@
 
 from collections.abc import Callable
 from numbers import Integral
-from typing import ClassVar
+from typing import ClassVar, TypeVar
 
 import tvm_ffi
 
@@ -78,6 +78,20 @@ class TensorType(Type):
     data_alignment: int
 
     layout: object | None
+
+    def __new__(cls, shape=None, *args, **kwargs):
+        # Python 3.12/3.13 evaluate generic annotations before the decorator.
+        # The parser re-evaluates their source with real symbolic IR variables.
+        dimensions = (shape,) if isinstance(shape, TypeVar) else shape
+        if isinstance(dimensions, (tuple, list)) and any(
+            isinstance(dim, TypeVar) for dim in dimensions
+        ):
+            from tvm_tirx.script.ir_builder.base import IRBuilder
+
+            if not IRBuilder.is_in_scope():
+                return Type.missing()
+        # Native FFI reconstruction also calls __new__ without arguments.
+        return super().__new__(cls)
 
     def __init__(
         self,

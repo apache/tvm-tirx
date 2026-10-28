@@ -127,8 +127,10 @@ def test_tir_return_annotation_does_not_define_symbolic_var():
 
 @pytest.mark.skipif(sys.version_info < (3, 12), reason="PEP 695 requires Python 3.12")
 @pytest.mark.parametrize("type_param", ["n", "n: T.int32"])
-def test_generic_function_decorators(tmp_path, type_param):
-    source = f"""from __future__ import annotations
+@pytest.mark.parametrize("postponed", [False, True])
+def test_generic_function_decorators(tmp_path, type_param, postponed):
+    source = "from __future__ import annotations\n" if postponed else ""
+    source += f"""
 @T.function
 def standalone[{type_param}](A: T.Tensor((n,), T.float32)):
     T.evaluate(n)
