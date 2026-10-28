@@ -60,7 +60,7 @@ Structural Walk
 
 ``tvm_ffi.structural_walk`` automatically traverses IR. Its callbacks can
 collect nodes, check properties, or stop the traversal when a matching value
-is found. We will first collect variables, then examine callback selection
+is found. We will start by printing variable names, then examine callback selection
 and traversal order, and finally distinguish variable definitions from uses.
 
 .. code-block:: text
@@ -70,15 +70,45 @@ and traversal order, and finally distinguish variable definitions from uses.
 
 ``root`` is the expression, statement, function, module, type, or FFI container
 where traversal starts. The ``callbacks`` parameter determines which Python
-function runs for each visited value. It accepts an entry of the form
-``(Type, handler)``, where ``Type`` is a class such as ``ir.Var`` and ``handler``
-is a callable: a Python function or another object that supports function-call syntax, such as a
-list's ``append`` method. For example, ``callbacks=(ir.Var, on_var)`` registers
-``on_var`` for variables. The walker calls ``on_var(var)`` with the actual
-variable object as its single argument whenever it visits a variable.
+function runs for a matching node. For example, this walk prints the names
+of the variables in ``(x + 1) * (y + 2)``:
+
+.. code-block:: python
+
+   import tvm_ffi
+   from tvm_tirx import ir
+
+   x = ir.Var("x", "int32")
+   y = ir.Var("y", "int32")
+   expr = (x + 1) * (y + 2)
+
+   def on_var(var):
+       print(var.name)
+
+   tvm_ffi.structural_walk(root=expr, callbacks=(ir.Var, on_var))
+
+The output is:
+
+.. code-block:: text
+
+   x
+   y
+
+``root=expr`` starts the walk at the multiplication. In
+``callbacks=(ir.Var, on_var)``, ``ir.Var`` selects variable nodes and
+``on_var`` is the function to call for each one. The walker calls
+``on_var(x)`` and then ``on_var(y)``. Each call receives the variable object,
+and ``var.name`` reads its name. The arithmetic nodes and constants do not
+match ``ir.Var``, so they do not call ``on_var``; traversal still follows
+the arithmetic operands to reach the variables.
+
+This is the ``(Type, handler)`` form of the ``callbacks`` parameter:
+``Type`` is ``ir.Var`` and ``handler`` is ``on_var``. The argument contains
+the function ``on_var`` itself; the walker calls it later with each matching
+variable.
 
 The following table lists the forms accepted by ``callbacks``. The function
-names are defined in the examples below:
+names are defined in this section's examples:
 
 .. list-table::
    :header-rows: 1
@@ -101,11 +131,6 @@ names are defined in the examples below:
      - The empty tuple contains no callback entries. The walker still follows
        default structural traversal. This is the default when ``callbacks``
        is omitted.
-
-The notation ``handler(value)`` describes how the walker calls a callback.
-The ``value`` argument is the current object, such as an ``ir.Var`` or an
-``ir.IntImm``. The caller passes the function itself in ``callbacks``; the
-walker passes the current value to that function during traversal.
 
 An IR class selector also matches its subclasses. Only the first matching
 entry runs. A specific handler must appear before a broader one to take
@@ -142,24 +167,6 @@ early exit. It does not return collected nodes or a rewritten root. Callbacks
 can record observations in state such as a list. An early-exit payload is
 available through the returned interrupt's ``value`` field.
 
-We will start with two integer variables and a small expression:
-
-.. code-block:: python
-
-   import tvm_ffi
-   from tvm_tirx import ir
-
-   x = ir.Var("x", "int32")
-   y = ir.Var("y", "int32")
-   expr = (x + 1) * (y + 2)
-   print(expr)
-
-The output is:
-
-.. code-block:: text
-
-   (x + 1) * (y + 2)
-
 ``ir.Var("x", "int32")`` creates a symbolic integer variable. The overloaded
 ``+`` and ``*`` operators construct IR nodes; the Python integers become
 typed ``ir.IntImm`` constants. Constructing or walking ``expr`` does not
@@ -184,16 +191,16 @@ expression traces below select ``ir.Expr``, which includes variables,
 integer constants, and arithmetic nodes.
 The examples in this section run in order and share these variables.
 
-We can now collect the variables in the expression:
+The callback can also collect variable objects in a list for later use:
 
 .. code-block:: python
 
    variables = []
 
-   def on_var(var):
+   def collect_var(var):
        variables.append(var)
 
-   tvm_ffi.structural_walk(expr, (ir.Var, on_var))
+   tvm_ffi.structural_walk(expr, callbacks=(ir.Var, collect_var))
    print([var.name for var in variables])
 
 The output is:
@@ -202,11 +209,11 @@ The output is:
 
    ['x', 'y']
 
-The walker calls ``on_var(x)`` and ``on_var(y)``. The callback receives the
-variable objects themselves, which is why the final line can read their
+The walker calls ``collect_var(x)`` and ``collect_var(y)``. The callback
+receives the variable objects themselves, which is why the final line can read their
 ``name`` fields. The unmatched ``Mul`` and ``Add`` nodes still receive default
 descent: the type filter selects callback invocations, not entire subtrees.
-``on_var`` returns ``None`` implicitly, so traversal continues. The list is
+``collect_var`` returns ``None`` implicitly, so traversal continues. The list is
 populated by the callback; it is not the return value of ``structural_walk``.
 
 A tuple of classes shares one callback across those classes. Here, additions
