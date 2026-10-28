@@ -69,16 +69,18 @@ and traversal order, and finally distinguish variable definitions from uses.
        root, callbacks=(), with_def_region_kind=(), order="post")
 
 ``root`` is the expression, statement, function, module, type, or FFI container
-where traversal starts. ``callbacks`` determines which Python function runs
-for each visited value. In a ``(Type, handler)`` entry, ``Type`` is a class
-such as ``ir.Var``, and ``handler`` is a callable: a Python function or
-another object that supports function-call syntax, such as a list's
-``append`` method.
-The walker calls that function with the actual matching object as its single
-argument. For example, ``(ir.Var, on_var)`` means that the walker calls
-``on_var(var)`` whenever it visits a variable.
+where traversal starts.
 
-The function names in the following table are defined in the examples below:
+The ``callbacks`` parameter determines which Python function runs for each
+visited value. It accepts an entry of the form ``(Type, handler)``, where
+``Type`` is a class such as ``ir.Var`` and ``handler`` is a callable: a Python
+function or another object that supports function-call syntax, such as a
+list's ``append`` method. For example, ``callbacks=(ir.Var, on_var)`` registers
+``on_var`` for variables. The walker calls ``on_var(var)`` with the actual
+variable object as its single argument whenever it visits a variable.
+
+The following table lists the forms accepted by ``callbacks``. The function
+names are defined in the examples below:
 
 .. list-table::
    :header-rows: 1
@@ -457,9 +459,11 @@ the expression containing it.
        root, callbacks=(), with_def_region_kind=(), order="post")
 
 ``root`` is the expression, statement, function, module, type, or FFI container
-to transform. ``callbacks`` specifies Python replacement functions and
+to transform.
+
+The ``callbacks`` parameter specifies Python replacement functions and
 optional type filters. Each function receives the current value and returns
-the value to install at that position. In ``(ir.Var, specialize_var)``,
+the value to install at that position. In ``callbacks=(ir.Var, specialize_var)``,
 ``ir.Var`` is the class to match and ``specialize_var`` is a Python function
 passed without calling it. The mapper calls ``specialize_var(var)`` with
 the actual variable object. The table uses functions defined in this
@@ -773,8 +777,10 @@ control their order.
    tvm_ffi.structural_visit(root, callbacks=())
 
 ``root`` is the expression, statement, function, module, type, or FFI container
-where visiting starts. A callback receives the current value and the active
-visitor. For example, ``(ir.Expr, visit_expr)``
+where visiting starts.
+
+The ``callbacks`` parameter selects functions that receive the current value
+and the active visitor. For example, ``callbacks=(ir.Expr, visit_expr)``
 selects expression objects for ``visit_expr``. The traversal calls it as
 ``visit_expr(node, visitor)``. ``callbacks`` accepts the following forms:
 
@@ -1093,11 +1099,13 @@ expression.
    tvm_ffi.structural_mutate(root, callbacks=())
 
 ``root`` is the expression, statement, function, module, type, or FFI container
-to transform. A callback receives the current value and the active mutator,
-then returns the replacement value. ``callbacks``
-selects that function. In ``(ir.Var, replace_var)``, ``ir.Var`` is the class
-to match and ``replace_var`` is a Python function; the
-engine invokes it as ``replace_var(var, mutator)``. The accepted forms are:
+to transform.
+
+The ``callbacks`` parameter selects functions that receive the current value
+and the active mutator, then return the replacement value. In
+``callbacks=(ir.Var, replace_var)``, ``ir.Var`` is the class to match and
+``replace_var`` is a Python function. The engine calls it as
+``replace_var(var, mutator)``. The accepted forms for ``callbacks`` are:
 
 .. list-table::
    :header-rows: 1
