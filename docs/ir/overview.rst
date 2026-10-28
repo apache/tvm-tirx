@@ -194,6 +194,39 @@ expression types. ``max_depth`` bounds expansion, and ``inline_width=0``
 expands child objects instead of combining them in headers or on one line.
 The result is inspection text; use :doc:`printing_and_parsing` for TVMScript and round trips.
 
+To choose the detail level for particular fields, use ``fold_fields`` and
+``expand_fields``. For example, inspect the loop variable from the same body:
+
+.. code-block:: python
+
+   loop_var = add_one.body.seq[0].var
+   print(ir.format_tree(loop_var, fold_fields=("ty",)))
+
+.. code-block:: text
+
+   Var(ty=PrimType(...), name='i')
+
+Expanding that field reveals its dtype on a separate edge:
+
+.. code-block:: python
+
+   print(ir.format_tree(loop_var, expand_fields=("ty",)))
+
+.. code-block:: text
+
+   Var(name='i')
+   └── ty: PrimType(dtype=int32)
+
+These controls match exact reflected field names at every occurrence,
+including extension fields. Folding replaces a composite field with a type
+summary; expanding reveals that field while its descendants follow the normal
+layout rules. For example, ``expand_fields=("begin", "end")`` moves the loop
+bounds out of the header. Expanding a variable reference shows its fields,
+and expanding an array retains the array level. Selected fields are shown
+even when they match reflected defaults. Hidden fields and ``max_depth``
+remain in effect, and expansion does not open a folded ancestor. A field
+cannot be both folded and expanded.
+
 .. _choose-a-chapter:
 
 What to Read Next

@@ -71,11 +71,15 @@ def _is_default(field, value):
 
 
 class _TreeFormatter:
-    def __init__(self, max_depth, hide_fields, show_defaults, inline_width):
+    def __init__(
+        self, max_depth, hide_fields, show_defaults, inline_width, fold_fields, expand_fields
+    ):
         self.max_depth = max_depth
         self.hide_fields = frozenset(hide_fields)
         self.show_defaults = show_defaults
         self.inline_width = inline_width
+        self.layouts = dict.fromkeys(fold_fields, "fold")
+        self.layouts.update(dict.fromkeys(expand_fields, "expand"))
 
     def _reference(self, value, depth, region):
         if isinstance(value, Var) and depth and region is None:
@@ -88,7 +92,7 @@ class _TreeFormatter:
             return (
                 type(value).__name__,
                 "sequence",
-                [(i, child, region) for i, child in enumerate(value)],
+                [(i, child, region, "auto") for i, child in enumerate(value)],
             )
         if isinstance(value, _MAPPINGS):
             items = list(value.items())
@@ -97,14 +101,14 @@ class _TreeFormatter:
                 return (
                     type(value).__name__,
                     "mapping",
-                    [(_scalar(key), child, region) for key, child in items],
+                    [(_scalar(key), child, region, "auto") for key, child in items],
                 )
             # Object keys have structure too: show each key/value pair rather
             # than invoking a possibly dialect-specific repr on the key.
             return (
                 type(value).__name__,
                 "sequence",
-                [(i, pair, region) for i, pair in enumerate(items)],
+                [(i, pair, region, "auto") for i, pair in enumerate(items)],
             )
         if isinstance(value, tvm_ffi.Object):
             name = type(value).__tvm_ffi_type_info__.type_key.rsplit(".", 1)[-1]
@@ -113,7 +117,11 @@ class _TreeFormatter:
                 if field.name in self.hide_fields:
                     continue
                 child = getattr(value, field.name)
-                if not self.show_defaults and _is_default(field, child):
+                if (
+                    not self.show_defaults
+                    and field.name not in self.layouts
+                    and _is_default(field, child)
+                ):
                     continue
                 role = field.c_structural_eq
                 if role not in ("def-simple", "def-pattern"):
@@ -127,14 +135,23 @@ class _TreeFormatter:
                         and role != "ignore"
                         else None
                     )
-                entries.append((field.name, child, role))
+                entries.append((field.name, child, role, self.layouts.get(field.name, "auto")))
             return name, "object", entries
         return type(value).__name__, "opaque", []
 
     def _limited(self, depth):
         return self.max_depth is not None and depth >= self.max_depth
 
-    def _compact(self, value, depth, ancestors, budget, region=None, remaining=4):
+    def _folded(self, value):
+        if isinstance(value, tvm_ffi.Object):
+            name = type(value).__tvm_ffi_type_info__.type_key.rsplit(".", 1)[-1]
+        else:
+            name = type(value).__name__
+        return f"{name}(...)"
+
+    def _compact(self, value, depth, ancestors, budget, region=None, layout="auto", remaining=4):
+        if layout == "expand":
+            return None
         scalar = self._reference(value, depth, region) or _scalar(value)
         if scalar is not None:
             return scalar if len(scalar) <= budget else None
@@ -142,6 +159,8 @@ class _TreeFormatter:
         name, kind, entries = self._parts(value, region)
         if identity in ancestors:
             return "<cycle>"
+        if layout == "fold":
+            return self._folded(value)
         if kind == "opaque":
             return f"<{name}>"
         if self._limited(depth) and entries:
@@ -153,7 +172,7 @@ class _TreeFormatter:
         )
         text = opening
         ancestors = ancestors | {identity}
-        for index, (label, child, role) in enumerate(entries):
+        for index, (label, child, role, child_layout) in enumerate(entries):
             prefix = "" if index == 0 else ", "
             if kind == "object":
                 prefix += f"{label}="
@@ -162,82 +181,97 @@ class _TreeFormatter:
             available = budget - len(text) - len(prefix) - len(closing)
             if available < 0:
                 return None
-            compact = self._compact(child, depth + 1, ancestors, available, role, remaining - 1)
+            compact = self._compact(
+                child, depth + 1, ancestors, available, role, child_layout, remaining - 1
+            )
             if compact is None or len(compact) > available:
                 return None
             text += prefix + compact
         return text + closing if len(text) + len(closing) <= budget else None
 
-    def _header_text(self, value, depth, ancestors, region):
+    def _header_text(self, value, depth, ancestors, region, layout):
+        if layout == "expand":
+            return None
         text = self._reference(value, depth, region) or _scalar(value)
-        if text is not None or not self.inline_width:
+        if text is not None:
             return text
+        if layout == "fold":
+            return "<cycle>" if _identity(value) in ancestors else self._folded(value)
+        if not self.inline_width:
+            return None
         _, kind, entries = self._parts(value, region)
         if kind == "object":
             # Scalar-bearing leaf objects (e.g. constants or declarations) can
             # share the header. Structural children still get their own edges.
-            if not any(_scalar(child) is not None for _, child, _ in entries):
+            if not any(_scalar(child) is not None for _, child, _, _ in entries):
                 return None
         elif kind == "sequence":
             if any(
                 self._reference(child, depth + 1, role) is None and _scalar(child) is None
-                for _, child, role in entries
+                for _, child, role, _ in entries
             ):
                 return None
         text = self._compact(value, depth, ancestors, self.inline_width, region)
         return text if text is not None and len(text) <= self.inline_width else None
 
-    def _edge(self, label, value, depth, ancestors, region):
+    def _edge(self, label, value, depth, ancestors, region, layout):
         identity = _identity(value)
         if (
-            isinstance(value, _SEQUENCES)
+            layout == "auto"
+            and isinstance(value, _SEQUENCES)
             and len(value)
             and not self._limited(depth)
             and identity not in ancestors
         ):
             for i, child in enumerate(value):
                 yield from self._edge(
-                    f"{label}[{i}]", child, depth + 1, ancestors | {identity}, region
+                    f"{label}[{i}]", child, depth + 1, ancestors | {identity}, region, "auto"
                 )
         else:
-            yield label, value, depth, ancestors, region
+            yield label, value, depth, ancestors, region, layout
 
-    def lines(self, value, depth=0, ancestors=frozenset(), region=None):
-        scalar = self._reference(value, depth, region) or _scalar(value)
+    def lines(self, value, depth=0, ancestors=frozenset(), region=None, layout="auto"):
+        scalar = _scalar(value)
+        if layout != "expand":
+            scalar = self._reference(value, depth, region) or scalar
         if scalar is not None:
             return [scalar]
         identity = _identity(value)
         if identity in ancestors:
             return ["<cycle>"]
+        if layout == "fold":
+            return [self._folded(value)]
         name, kind, entries = self._parts(value, region)
         if kind == "opaque":
             return [f"<{name}>"]
         if self._limited(depth) and entries:
             return [f"{name}(...)"]
-        if self.inline_width:
+        if self.inline_width and layout != "expand":
             compact = self._compact(value, depth, ancestors, self.inline_width, region)
             if compact is not None and len(compact) <= self.inline_width:
                 return [compact]
         ancestors = ancestors | {identity}
         if kind == "object":
             header, children = [], []
-            for label, child, role in entries:
-                text = self._header_text(child, depth + 1, ancestors, role)
+            for label, child, role, child_layout in entries:
+                text = self._header_text(child, depth + 1, ancestors, role, child_layout)
                 if text is not None:
                     header.append(f"{label}={text}")
                 else:
-                    children.append((label, child, role))
+                    children.append((label, child, role, child_layout))
             name += "(" + ", ".join(header) + ")" if header else ""
             entries = children
         lines = [name]
         edges = []
-        for label, child, role in entries:
+        for label, child, role, child_layout in entries:
             label = f"[{label}]" if kind == "sequence" else str(label)
-            edges.extend(self._edge(label, child, depth + 1, ancestors, role))
-        for index, (label, child, child_depth, child_ancestors, role) in enumerate(edges):
+            edges.extend(self._edge(label, child, depth + 1, ancestors, role, child_layout))
+        for index, (label, child, child_depth, child_ancestors, role, child_layout) in enumerate(
+            edges
+        ):
             last = index == len(edges) - 1
             branch, padding = ("└── ", "    ") if last else ("├── ", "│   ")
-            child_lines = self.lines(child, child_depth, child_ancestors, role)
+            child_lines = self.lines(child, child_depth, child_ancestors, role, child_layout)
             lines.append(f"{branch}{label}: {child_lines[0]}")
             lines.extend(padding + line for line in child_lines[1:])
         return lines
@@ -250,6 +284,8 @@ def format_tree(
     hide_fields: tuple[str, ...] = ("loc",),
     show_defaults: bool = False,
     inline_width: int = 80,
+    fold_fields: tuple[str, ...] = (),
+    expand_fields: tuple[str, ...] = (),
 ) -> str:
     """Render reflected fields as a compact text tree.
 
@@ -282,6 +318,21 @@ def format_tree(
         and its edge label. Zero disables inline compaction. This is not a
         maximum line length; scalar values are never truncated.
 
+    fold_fields : tuple[str, ...]
+        Exact reflected field names to summarize as ``Type(...)``. Primitive
+        values and variable references keep their scalar/name representation.
+        This applies at every occurrence, including extension fields. Selected
+        fields are included even when they match a reflected default.
+    expand_fields : tuple[str, ...]
+        Exact reflected field names to put on separate detail edges, bypassing
+        inline compaction and variable-name shorthand for that field. Selected
+        arrays retain their container level. Descendants follow normal rules;
+        expansion does not open a folded ancestor. Selected fields are shown
+        even when they match a reflected default.
+        A name cannot appear in both fold_fields and expand_fields. Hidden
+        fields remain hidden, and max_depth still limits expansion. These
+        options select field names, not paths, array indices, or mapping keys.
+
     Returns
     -------
     text : str
@@ -303,7 +354,22 @@ def format_tree(
         raise ValueError("max_depth must be a nonnegative integer or None")
     if type(inline_width) is not int or inline_width < 0:
         raise ValueError("inline_width must be a nonnegative integer")
-    if isinstance(hide_fields, str) or any(not isinstance(name, str) for name in hide_fields):
-        raise TypeError("hide_fields must be a sequence of field names")
-    formatter = _TreeFormatter(max_depth, hide_fields, show_defaults, inline_width)
+    options = []
+    for key, names in (
+        ("hide_fields", hide_fields),
+        ("fold_fields", fold_fields),
+        ("expand_fields", expand_fields),
+    ):
+        if isinstance(names, str):
+            raise TypeError(f"{key} must be a sequence of field names")
+        names = tuple(names)
+        if any(not isinstance(name, str) for name in names):
+            raise TypeError(f"{key} must be a sequence of field names")
+        options.append(names)
+    hide_fields, fold_fields, expand_fields = options
+    if set(fold_fields) & set(expand_fields):
+        raise ValueError("fold_fields and expand_fields must not overlap")
+    formatter = _TreeFormatter(
+        max_depth, hide_fields, show_defaults, inline_width, fold_fields, expand_fields
+    )
     return "\n".join(formatter.lines(value))

@@ -211,6 +211,56 @@ def test_loop_header_and_variable_uses():
     assert "ty: TensorType" in full
 
 
+def test_selected_field_folding_and_expansion():
+    var = ir.Var("i", "int32")
+    assert ir.format_tree(var, fold_fields=("ty",)) == "Var(ty=PrimType(...), name='i')"
+    assert ir.format_tree(var, expand_fields=("ty",)) == (
+        "Var(name='i')\n└── ty: PrimType(dtype=int32)"
+    )
+    # Explicit expansion cannot override visibility or depth limits.
+    assert ir.format_tree(var, hide_fields=("loc", "ty"), expand_fields=("ty",)) == (
+        "Var(name='i')"
+    )
+    assert ir.format_tree(var, max_depth=0, expand_fields=("ty",)) == "Var(...)"
+    with pytest.raises(ValueError, match="overlap"):
+        ir.format_tree(var, fold_fields=("ty",), expand_fields=("ty",))
+
+
+def test_extension_field_layouts():
+    inner = TreeExtension(label="inner", child=ir.Var("i", "int32"))
+    outer = TreeExtension(label="outer", child=inner)
+    folded = ir.format_tree(outer, fold_fields=("child",))
+    assert "child=Extension(...)" in folded
+    assert "inner" not in folded
+    assert "inner" not in ir.format_tree(outer, fold_fields=("child",), expand_fields=("ty",))
+    assert "count: 0" in ir.format_tree(outer, expand_fields=("count",))
+    expanded = ir.format_tree(outer, expand_fields=("child",))
+    assert "child: Extension(label='inner')" in expanded
+    assert "child: Var(ty=PrimType(dtype=int32), name='i')" in expanded
+    # A mapping key with the same spelling is not a reflected-field selector.
+    assert "inner" in ir.format_tree({"child": inner}, fold_fields=("child",))
+    outer.child = outer
+    try:
+        assert "<cycle>" in ir.format_tree(outer, expand_fields=("child",))
+    finally:
+        outer.child = None
+
+
+def test_selected_array_expansion():
+    seq = ir.SeqStmt([ir.Evaluate(ir.Var("i", "int32"))])
+    text = ir.format_tree(seq, expand_fields=("seq", "value"))
+    assert "seq: Array" in text
+    assert "[0]: Evaluate" in text
+    assert "value: Var(ty=PrimType(dtype=int32), name='i')" in text
+    assert ir.format_tree(seq, fold_fields=("seq",)) == "SeqStmt(seq=Array(...))"
+
+
+@pytest.mark.parametrize("option", ["fold_fields", "expand_fields"])
+def test_invalid_layout_fields(option):
+    with pytest.raises(TypeError, match="field names"):
+        ir.format_tree(None, **{option: "ty"})
+
+
 def test_invalid_field_filter():
     with pytest.raises(TypeError, match="field names"):
         ir.format_tree(None, hide_fields="loc")
