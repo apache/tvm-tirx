@@ -69,10 +69,11 @@ and traversal order, and finally distinguish variable definitions from uses.
        root, callbacks=(), with_def_region_kind=(), order="post")
 
 ``root`` is the expression, statement, function, module, type, or FFI container
-where traversal starts. The ``callbacks`` parameter accepts a ``(Type, handler)``
-pair, where ``Type`` is the node class to match and ``handler`` is the function
-to call for each match. For example, the following walk prints the names of
-the variables in ``(x + 1) * (y + 2)``:
+where traversal starts. The ``callbacks`` parameter can take a single
+``(Type, handler)`` tuple or a list or tuple of these entries. In each entry,
+``Type`` is the node class to match and ``handler`` is the function to call
+for each match. The following example uses a single entry to print the names
+of the variables in ``(x + 1) * (y + 2)``:
 
 .. code-block:: python
 
@@ -115,8 +116,11 @@ names are defined in this section's examples:
      - Either an addition or a multiplication is passed to the same
        ``on_arithmetic`` function.
    * - ``[(ir.Var, on_name), (ir.IntImm, on_int)]``
-     - Variables are passed to ``on_name``; integer IR constants are passed
-       to ``on_int``. Each list entry pairs a type with its function.
+     - A list containing two ``(Type, handler)`` tuples. Variables are passed
+       to ``on_name``; integer IR constants are passed to ``on_int``.
+   * - ``((ir.Var, on_name), (ir.IntImm, on_int))``
+     - The same two entries in a tuple instead of a list. Matching behavior
+       and entry order are unchanged.
    * - ``on_value``
      - The function is passed on its own, with no type filter. It can receive
        any kind of value visited by the walker.
@@ -126,8 +130,8 @@ names are defined in this section's examples:
        is omitted.
 
 The class in a ``callbacks`` entry also matches its subclasses. For example,
-``ir.Expr`` matches ``ir.Var`` because a variable is an expression. More than
-one entry can therefore match the same node:
+``ir.Expr`` matches ``ir.Var`` because a variable is an expression. Here,
+``callbacks`` is a list of two ``(Type, handler)`` tuples that both match ``x``:
 
 .. code-block:: python
 
