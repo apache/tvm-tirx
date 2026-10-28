@@ -42,18 +42,21 @@ and whether the operation or the callback controls recursion:
      - ``tvm_ffi.structural_map``
      - ``tvm_ffi.structural_mutate``
 
-For collecting nodes or applying a rule to every node, start with walk or
-map. Choose visit or mutate when a callback must select children, arrange
-their processing order, or manage state around recursive calls.
+Walk and map are higher-level APIs that handle recursion for you, letting
+callbacks focus on inspecting or replacing nodes. Visit and mutate give
+callbacks more control over which children to process and in what order.
+Their callbacks make the recursive calls explicitly and can manage state
+before and after each call.
 
-The examples use the same arithmetic expression, and each section constructs
-its own inputs so it can be run independently.
+By default, traversal follows the structural fields and child traversal hooks
+registered by each node type. For containers, it visits ``Array`` and ``List``
+elements and ``Map`` and ``Dict`` values, while skipping map keys. Fields marked
+``structural_eq="ignore"`` are also skipped. These operations work on IR objects
+without executing the program they describe.
 
-Structural descent follows the fields and child traversal registered by each
-node type. It also follows ``Array`` and ``List`` elements and ``Map`` and
-``Dict`` values; map keys and fields marked ``structural_eq="ignore"`` are
-omitted. These operations inspect and rewrite IR objects without executing
-the program they describe.
+The examples below use the same arithmetic expression to make these levels
+of control easy to compare. Each API section includes its own setup, so you
+can run it independently.
 
 Structural Walk
 ---------------
