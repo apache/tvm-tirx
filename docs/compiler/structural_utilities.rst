@@ -68,10 +68,43 @@ is found.
        root, callbacks=(), with_def_region_kind=(), order="post")
 
 ``root`` is the expression, statement, function, module, type, or FFI container
-where traversal starts. ``callbacks`` accepts ``(Type, handler)``, a grouped
-``((TypeA, TypeB), handler)``, a list of such entries, or a bare callable that
-matches every value. The default ``()`` installs no handlers. A normal handler
-is called as ``handler(value)``.
+where traversal starts. ``callbacks`` determines which Python function runs
+for each visited value. In a ``(Type, handler)`` entry, ``Type`` is a class
+such as ``ir.Var``, and ``handler`` is a callable supplied by the caller.
+A callable supports function-call syntax: it can be a Python function or,
+for example, a list's ``append`` method.
+The walker calls that function with the actual matching object as its single
+argument. For example, ``(ir.Var, on_var)`` means that the walker calls
+``on_var(var)`` whenever it visits a variable.
+
+The function names in the following table are defined in the examples below:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 48 52
+
+   * - ``callbacks`` argument
+     - Meaning
+   * - ``(ir.Var, on_var)``
+     - Variables are passed to ``on_var``.
+   * - ``((ir.prim.Add, ir.prim.Mul), on_arithmetic)``
+     - Either an addition or a multiplication is passed to the same
+       ``on_arithmetic`` function.
+   * - ``[(ir.Var, on_name), (ir.IntImm, on_int)]``
+     - Variables are passed to ``on_name``; integer IR constants are passed
+       to ``on_int``. Each list entry pairs a type with its function.
+   * - ``on_value``
+     - The function is passed on its own, with no type filter. It can receive
+       any kind of value visited by the walker.
+   * - ``()``
+     - The empty tuple contains no callback entries. The walker still follows
+       default structural traversal. This is the default when ``callbacks``
+       is omitted.
+
+The notation ``handler(value)`` describes how the walker calls a callback.
+The ``value`` argument is the current object, such as an ``ir.Var`` or an
+``ir.IntImm``. The caller passes the function itself in ``callbacks``; the
+walker supplies its argument during traversal.
 
 An IR class selector also matches its subclasses. Only the first matching
 entry runs. A specific handler must appear before a broader one to take
@@ -85,8 +118,8 @@ objects.
 it before them. The corresponding enum values are
 ``tvm_ffi.WalkOrder.POSTORDER`` and ``PREORDER``. The optional
 ``with_def_region_kind`` table uses the same selection forms, but calls
-``handler(value, kind)`` with a ``tvm_ffi.DefRegionKind``. Normal callbacks are
-tried first; this table is consulted only when none matches.
+``handler(value, kind)`` with a ``tvm_ffi.DefRegionKind``. Entries in
+``callbacks`` are tried first; this table is consulted only when none matches.
 
 The callback's return value controls traversal:
 
@@ -139,10 +172,10 @@ store their operands in ``a`` and ``b``:
        ├── a: Var       y
        └── b: IntImm    2
 
-Structural traversal also reaches types and other registered fields omitted
-from this diagram. The traces below select ``ir.Expr`` to display only
-expression nodes. Each node type registers its structural fields or custom
-child traversal with TVM FFI, so callbacks can focus on the types they handle.
+The walker follows the child traversal registered by each node type. For this
+arithmetic expression, those children are the operands shown above. The
+expression traces below select ``ir.Expr``, which includes variables,
+integer constants, and arithmetic nodes.
 The examples in this section run in order and share these variables.
 
 We can now collect the variables in the expression:
@@ -150,7 +183,11 @@ We can now collect the variables in the expression:
 .. code-block:: python
 
    variables = []
-   tvm_ffi.structural_walk(expr, (ir.Var, variables.append))
+
+   def on_var(var):
+       variables.append(var)
+
+   tvm_ffi.structural_walk(expr, (ir.Var, on_var))
    print([var.name for var in variables])
 
 The output is:
@@ -159,14 +196,88 @@ The output is:
 
    ['x', 'y']
 
-``(ir.Var, variables.append)`` selects the callback by node type. The walker
-still descends through the unmatched ``Mul`` and ``Add`` nodes to reach
-the variables. ``append`` returns ``None``, which tells the walker to continue.
-Walking leaves the input structure unchanged; keep observations in callback
-state such as this list.
+The walker calls ``on_var(x)`` and ``on_var(y)``. The callback receives the
+variable objects themselves, which is why the final line can read their
+``name`` fields. The unmatched ``Mul`` and ``Add`` nodes still receive default
+descent. ``on_var`` returns ``None`` implicitly, so traversal continues.
 
-To see first-match selection, install both a variable handler and an expression
-handler on a single variable:
+A tuple of classes shares one callback across those classes. Here, additions
+and multiplications both call ``on_arithmetic``:
+
+.. code-block:: python
+
+   operator_names = []
+
+   def on_arithmetic(node):
+       operator_names.append(type(node).__name__)
+
+   tvm_ffi.structural_walk(
+       expr, ((ir.prim.Add, ir.prim.Mul), on_arithmetic)
+   )
+   print(operator_names)
+
+The output is ``['Add', 'Add', 'Mul']``. The type tuple lists alternatives:
+``on_arithmetic`` receives one node per call, whether that node is an
+addition or a multiplication.
+
+A list of entries assigns different functions to different types:
+
+.. code-block:: python
+
+   leaves = []
+
+   def on_name(var):
+       leaves.append(("var", var.name))
+
+   def on_int(value):
+       leaves.append(("int", int(value)))
+
+   tvm_ffi.structural_walk(
+       expr, [(ir.Var, on_name), (ir.IntImm, on_int)]
+   )
+   print(leaves)
+
+The output is:
+
+.. code-block:: text
+
+   [('var', 'x'), ('int', 1), ('var', 'y'), ('int', 2)]
+
+Here, ``on_name`` receives ``ir.Var`` objects and ``on_int`` receives
+``ir.IntImm`` objects. The type entries determine which function runs;
+the functions read the fields or convert the values they receive.
+
+A callable passed on its own, without a ``(Type, handler)`` entry, is also
+called a bare callable. It has no type filter. Its body can check types
+before accessing fields specific to a node class:
+
+.. code-block:: python
+
+   bare_variables = []
+   visited_types = []
+
+   def on_value(value):
+       visited_types.append(type(value).__name__)
+       if isinstance(value, ir.Var):
+           bare_variables.append(value.name)
+
+   tvm_ffi.structural_walk(expr, on_value)
+   print(visited_types)
+   print(bare_variables)
+
+The output is:
+
+.. code-block:: text
+
+   ['Var', 'IntImm', 'Add', 'Var', 'IntImm', 'Add', 'Mul']
+   ['x', 'y']
+
+``on_value`` receives all seven expression nodes, including arithmetic nodes
+and integer constants. Only variable names enter ``bare_variables``, because
+the callback body performs that type check itself.
+
+The next example places a variable handler before an expression handler to
+illustrate first-match selection:
 
 .. code-block:: python
 
@@ -328,21 +439,42 @@ supporting substitutions and rewrites throughout the IR.
        root, callbacks=(), with_def_region_kind=(), order="post")
 
 ``root`` is the expression, statement, function, module, type, or FFI container
-to transform. ``callbacks`` accepts ``(Type, handler)``, a grouped
-``((TypeA, TypeB), handler)``, a list of entries, or a bare catch-all callable.
-The default ``()`` installs no handlers. IR class selectors match subclasses,
-and only the first matching entry runs. A specific handler must appear before
-a broader one to take precedence over it.
+to transform. ``callbacks`` specifies Python replacement functions and
+optional type filters. Each function receives the current value and returns
+the value to install at that position. The table uses functions defined in
+this section's examples:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 48 52
+
+   * - ``callbacks`` argument
+     - Meaning
+   * - ``(ir.Var, specialize_var)``
+     - ``specialize_var(var)`` returns a replacement for a variable.
+   * - ``((ir.prim.Add, ir.prim.Mul), fold_arithmetic)``
+     - The same ``fold_arithmetic(node)`` function handles either operator class.
+   * - ``[(ir.Var, specialize_var), (ir.prim.Add, fold_arithmetic)]``
+     - Variables and additions have separate replacement functions.
+   * - ``keep_value``
+     - A function on its own has no type filter. ``keep_value`` returns its
+       input unchanged.
+   * - ``()``
+     - The empty tuple supplies no replacement callback. Default mapping
+       still runs. This is the default when ``callbacks`` is omitted.
+
+IR class selectors match subclasses, and only the first matching entry runs.
+A specific handler must appear before a broader one to take precedence over it.
 Unmatched values follow default mapping. ``object`` or ``typing.Any`` matches
 all values, while ``tvm_ffi.Object`` matches only FFI objects.
 
-A normal callback is called as ``handler(value)`` and returns the value to
-install: either the input unchanged or a valid replacement. ``None`` does
-not mean "keep this value." ``structural_map`` returns the transformed root.
+Each callback returns the value to install: either the input unchanged or a
+valid replacement. ``None`` does not mean "keep this value."
+``structural_map`` returns the transformed root.
 
-``with_def_region_kind`` accepts the same entry forms but calls
-``handler(value, kind)``, where ``kind`` is a ``tvm_ffi.DefRegionKind``. This
-table is tried only if no normal callback matches. ``order`` accepts
+``with_def_region_kind`` accepts the same entry forms, but its callbacks receive
+two arguments, ``(value, kind)``, where ``kind`` is a ``tvm_ffi.DefRegionKind``.
+This table is tried only if no callback in ``callbacks`` matches. ``order`` accepts
 ``"post"`` (the default), ``"pre"``, or the corresponding
 ``tvm_ffi.WalkOrder.POSTORDER`` and ``PREORDER`` enum values.
 
@@ -378,6 +510,20 @@ We will start with an expression to transform:
    x = ir.Var("x", "int32")
    y = ir.Var("y", "int32")
    expr = (x + 1) * (y + 2)
+
+A callback can return each value unchanged. Passing that function directly
+applies it without a type filter:
+
+.. code-block:: python
+
+   def keep_value(value):
+       return value
+
+   identity = tvm_ffi.structural_map(expr, keep_value)
+   print(identity.same_as(expr))
+
+The output is ``True``. The returned root is the original object because
+neither the callback nor default mapping changes any structural field.
 
 We can replace ``x`` with 8 and ``y`` with 3:
 
@@ -547,17 +693,40 @@ callback choose which children to visit and in what order.
    tvm_ffi.structural_visit(root, callbacks=())
 
 ``root`` is the expression, statement, function, module, type, or FFI container
-where visiting starts. ``callbacks`` accepts ``(Type, handler)``, a grouped
-``((TypeA, TypeB), handler)``, a list of entries, or a bare catch-all callable.
-The default ``()`` installs no handlers. IR class selectors match subclasses;
-only the first matching entry runs. A specific handler must appear before
-a broader one to take precedence over it.
+where visiting starts. A callback is a Python function that receives the
+current value and the active visitor. ``callbacks`` determines which function
+handles each value, with the following forms:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 48 52
+
+   * - ``callbacks`` argument
+     - Meaning
+   * - ``(ir.Expr, visit_expr)``
+     - Expression nodes are passed to ``visit_expr(node, visitor)``.
+   * - ``((ir.prim.Add, ir.prim.Mul), visit_expr)``
+     - Either operator class selects the same ``visit_expr`` function.
+   * - ``[(ir.prim.Mul, visit_left), (ir.Expr, visit_expr)]``
+     - Multiplications select ``visit_left``; other expressions select
+       ``visit_expr``. Entries are tried in order.
+   * - ``visit_expr``
+     - The function is selected without a type filter for every value reached.
+       Its recursive calls determine which children are reached.
+   * - ``()``
+     - The empty tuple supplies no callback, so default visiting runs.
+       This is the default when ``callbacks`` is omitted.
+
+The function names above refer to callbacks defined in this section's examples.
+IR class selectors match subclasses, and only the first matching entry runs.
+A specific handler must appear before a broader one to take precedence over it.
 Unmatched values follow default structural descent. ``object`` or
 ``typing.Any`` matches all values, while ``tvm_ffi.Object`` matches only FFI
 objects.
 
-The callback is called as ``handler(value, visitor)``. The supplied
-``tvm_ffi.StructuralVisitor`` carries the same callbacks into recursive calls.
+The callback receives two arguments, ``(value, visitor)``. ``value`` is the
+current object; the supplied ``tvm_ffi.StructuralVisitor`` carries the same
+callbacks into recursive calls.
 A matched callback owns descent; it can choose these operations:
 
 .. list-table::
@@ -711,16 +880,38 @@ recursive calls around their local transformations.
    tvm_ffi.structural_mutate(root, callbacks=())
 
 ``root`` is the expression, statement, function, module, type, or FFI container
-to transform. ``callbacks`` accepts ``(Type, handler)``, a grouped
-``((TypeA, TypeB), handler)``, a list of entries, or a bare catch-all callable.
-The default ``()`` installs no handlers. IR class selectors match subclasses;
-only the first matching entry runs. A specific handler must appear before
-a broader one to take precedence over it. Unmatched values follow default
-mutation. ``object`` or ``typing.Any``
-matches all values, while ``tvm_ffi.Object`` matches only FFI objects.
+to transform. A callback is a Python function that receives the current value
+and the active mutator, then returns the replacement value. ``callbacks``
+selects that function using the following forms:
 
-The callback is called as ``handler(value, mutator)`` and returns the value
-to install. The supplied ``tvm_ffi.StructuralMutator`` carries the same
+.. list-table::
+   :header-rows: 1
+   :widths: 48 52
+
+   * - ``callbacks`` argument
+     - Meaning
+   * - ``(ir.Var, replace_var)``
+     - Variables are passed to ``replace_var(var, mutator)``.
+   * - ``((ir.prim.Add, ir.prim.Mul), mutate_and_fold)``
+     - Either operator class selects the same ``mutate_and_fold`` function.
+   * - ``[(ir.prim.Mul, mutate_left), (ir.Var, replace_var)]``
+     - Multiplications select ``mutate_left`` and variables select ``replace_var``.
+   * - ``mutate_and_fold``
+     - The function is selected without a type filter. Its recursive calls
+       determine which children receive callbacks.
+   * - ``()``
+     - The empty tuple supplies no callback, so default mutation runs.
+       This is the default when ``callbacks`` is omitted.
+
+The functions above are defined in this section's examples. IR class selectors
+match subclasses, and only the first matching entry runs. A specific handler
+must appear before a broader one to take precedence over it. Unmatched values
+follow default mutation. ``object`` or ``typing.Any`` matches all values, while
+``tvm_ffi.Object`` matches only FFI objects.
+
+The callback receives two arguments, ``(value, mutator)``, and returns the
+value to install. ``value`` is the current object. The supplied
+``tvm_ffi.StructuralMutator`` carries the same
 callbacks into recursive calls. The matched callback owns descent:
 
 .. list-table::
