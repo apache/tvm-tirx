@@ -56,8 +56,10 @@ Structural Walk
 
 ``tvm_ffi.structural_walk`` automatically traverses IR. Its callbacks can
 collect nodes, check properties, or stop the traversal when a matching value
-is found. We will start by printing variable names, then examine callback selection
-and traversal order, and finally distinguish variable definitions from uses.
+is found. We will start by printing variable names, then examine callback
+selection and traversal order, and finally distinguish variable definitions
+from uses. The examples in this section run in order and share the inputs
+created below.
 
 .. code-block:: text
 
@@ -92,18 +94,10 @@ The output is:
    x
    y
 
-Here, ``ir.Var`` is the class to match and ``on_var`` is the handler.
-Starting at ``expr``, the walker calls ``on_var(x)`` and then ``on_var(y)``.
-Each call receives a variable object and prints its name through ``var.name``.
-The arithmetic nodes and constants are traversed without calling ``on_var``.
-
-``ir.Var("x", "int32")`` creates a symbolic integer variable. The overloaded
-``+`` and ``*`` operators construct IR nodes; the Python integers become
-typed ``ir.IntImm`` constants. Constructing or walking ``expr`` does not
-assign values to ``x`` and ``y`` or calculate a numeric result.
-
-The diagram below shows the arithmetic operands. Binary arithmetic nodes
-store their left and right operands in ``a`` and ``b``, respectively:
+The expression ``(x + 1) * (y + 2)`` has a multiplication node at its root.
+Its operands are two addition nodes, each containing a variable and an
+integer constant. Binary arithmetic nodes store their left and right
+operands in ``a`` and ``b``:
 
 .. code-block:: text
 
@@ -115,17 +109,13 @@ store their left and right operands in ``a`` and ``b``, respectively:
        ├── a: Var       y
        └── b: IntImm    2
 
-The multiplication has two addition children. Each addition has a variable
-and an integer constant as its operands. The walker follows these child
-relationships automatically, even when a node has no matching callback.
-This is the default structural traversal.
+The walker visits this structure automatically, starting at the multiplication
+and following each arithmetic node's operands. This is the default structural
+traversal.
 
-Each node type defines its child relationships through structural fields or
-custom traversal hooks. For containers, traversal visits ``Array`` and ``List``
-elements and ``Map`` and ``Dict`` values, while skipping map keys. Fields marked
-``structural_eq="ignore"`` are also skipped.
-
-The examples in this section run in order and share these variables.
+With ``callbacks=(ir.Var, on_var)``, the walker calls ``on_var`` only for
+variable nodes. It calls ``on_var(x)`` and then ``on_var(y)``, and each call
+prints the variable's name through ``var.name``.
 
 The following table lists the forms accepted by ``callbacks``. The function
 names are defined in this section's examples:
@@ -178,6 +168,11 @@ Returning ``None`` continues traversal; it does not try the next handler.
 When no entry matches a node, the walker still visits its children. For
 example, a walk with only ``(ir.Var, on_var)`` still descends through the
 multiplication and additions in ``expr`` to reach ``x`` and ``y``.
+
+Each node type defines its child relationships through structural fields or
+custom traversal hooks. For containers, traversal visits ``Array`` and ``List``
+elements and ``Map`` and ``Dict`` values, while skipping map keys. Fields marked
+``structural_eq="ignore"`` are also skipped.
 
 The type in a ``callbacks`` entry determines which kinds of values match:
 
