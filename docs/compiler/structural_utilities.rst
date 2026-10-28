@@ -45,11 +45,7 @@ callbacks more control over which children to process and in what order.
 Their callbacks make the recursive calls explicitly and can manage state
 before and after each call.
 
-By default, traversal follows the structural fields and child traversal hooks
-registered by each node type. For containers, it visits ``Array`` and ``List``
-elements and ``Map`` and ``Dict`` values, while skipping map keys. Fields marked
-``structural_eq="ignore"`` are also skipped. These operations work on IR objects
-without executing the program they describe.
+These operations work on IR objects without executing the program they describe.
 
 The API sections start from the same arithmetic expression, making their
 callback behavior easy to compare. Each section includes its own setup, so
@@ -101,6 +97,36 @@ Starting at ``expr``, the walker calls ``on_var(x)`` and then ``on_var(y)``.
 Each call receives a variable object and prints its name through ``var.name``.
 The arithmetic nodes and constants are traversed without calling ``on_var``.
 
+``ir.Var("x", "int32")`` creates a symbolic integer variable. The overloaded
+``+`` and ``*`` operators construct IR nodes; the Python integers become
+typed ``ir.IntImm`` constants. Constructing or walking ``expr`` does not
+assign values to ``x`` and ``y`` or calculate a numeric result.
+
+The diagram below shows the arithmetic operands. Binary arithmetic nodes
+store their left and right operands in ``a`` and ``b``, respectively:
+
+.. code-block:: text
+
+   Mul
+   ├── a: Add
+   │   ├── a: Var       x
+   │   └── b: IntImm    1
+   └── b: Add
+       ├── a: Var       y
+       └── b: IntImm    2
+
+The multiplication has two addition children. Each addition has a variable
+and an integer constant as its operands. The walker follows these child
+relationships automatically, even when a node has no matching callback.
+This is the default structural traversal.
+
+Each node type defines its child relationships through structural fields or
+custom traversal hooks. For containers, traversal visits ``Array`` and ``List``
+elements and ``Map`` and ``Dict`` values, while skipping map keys. Fields marked
+``structural_eq="ignore"`` are also skipped.
+
+The examples in this section run in order and share these variables.
+
 The following table lists the forms accepted by ``callbacks``. The function
 names are defined in this section's examples:
 
@@ -125,9 +151,8 @@ names are defined in this section's examples:
      - The function is passed on its own, with no type filter. It can receive
        any kind of value visited by the walker.
    * - ``()``
-     - The empty tuple contains no callback entries. The walker still follows
-       default structural traversal. This is the default when ``callbacks``
-       is omitted.
+     - No functions are registered in ``callbacks``. The walker still visits
+       child nodes. This is the default when ``callbacks`` is omitted.
 
 The class in a ``callbacks`` entry also matches its subclasses. For example,
 ``ir.Expr`` matches ``ir.Var`` because a variable is an expression. Here,
@@ -198,30 +223,6 @@ The callback's return value controls traversal:
 early exit. It does not return collected nodes or a rewritten root. Callbacks
 can record observations in state such as a list. An early-exit payload is
 available through the returned interrupt's ``value`` field.
-
-``ir.Var("x", "int32")`` creates a symbolic integer variable. The overloaded
-``+`` and ``*`` operators construct IR nodes; the Python integers become
-typed ``ir.IntImm`` constants. Constructing or walking ``expr`` does not
-assign values to ``x`` and ``y`` or calculate a numeric result.
-
-The diagram below shows the arithmetic operands. Binary arithmetic nodes
-store their left and right operands in ``a`` and ``b``, respectively:
-
-.. code-block:: text
-
-   Mul
-   ├── a: Add
-   │   ├── a: Var       x
-   │   └── b: IntImm    1
-   └── b: Add
-       ├── a: Var       y
-       └── b: IntImm    2
-
-The walker follows the child traversal registered by each node type. For this
-arithmetic expression, those children are the operands shown above. The
-expression traces below select ``ir.Expr``, which includes variables,
-integer constants, and arithmetic nodes.
-The examples in this section run in order and share these variables.
 
 The callback can also collect variable objects in a list for later use:
 
