@@ -20,9 +20,10 @@ Traversing and Transforming IR
 
 In this chapter, we will use TVM FFI's structural operations to inspect and
 rewrite IR. Each API is introduced with its signature, callback rules, and
-examples. Arithmetic expressions show traversal and rewriting; the add-one
-function from the :doc:`IR Walkthrough </ir/overview>` shows how these
-operations reach function bodies and tensor types.
+examples. We will start with small arithmetic expressions to explain traversal
+order and node replacement. We will then apply the same APIs to the add-one
+function from the :doc:`IR Walkthrough </ir/overview>`, specializing its symbolic
+dimension in both the loop bound and tensor types.
 
 The APIs have two independent choices: whether to inspect or replace values,
 and whether the operation or the callback controls recursion:
