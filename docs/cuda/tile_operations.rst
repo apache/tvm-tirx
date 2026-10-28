@@ -20,75 +20,30 @@
 CUDA Tile Operations
 ====================
 
-In this chapter, we will introduce CUDA tile operations, which apply an
-explicit PTX instruction or a scalar function to canonical tensor views::
+In this chapter, we will use CUDA tile operations to apply a computation
+to tensor regions. ``T.cuda.tile.apply`` repeats a specified PTX instruction,
+such as a vector load or matrix multiplication. ``T.cuda.tile.ewise``
+applies a scalar TIRx function to register elements. You choose the operand
+views, instruction variants, and synchronization required by the kernel.
 
-    T.cuda.tile.apply(T.ptx["ld.global.v4.b32"], registers, global_words)
-    T.cuda.tile.apply(T.ptx["st.shared.v4.b32"], shared_words, registers)
-
-See :doc:`/cuda/tile_patterns` for every operand pattern, descriptor contract,
-execution-group axis, and caller view. ``T.cuda.tile.ewise`` applies a
-caller-defined scalar TIRx function to registers. No CUDA tile call selects a
-vector width, matrix shape, transpose mode, or staging algorithm from layouts.
-
-CUDA tile operations use ordinary opaque void Calls. Tensor regions, pointers,
-predicates, coordinates and descriptor parameters are normal IR arguments.
-The shared ``FTileOpDispatch`` boundary remains unchanged. ``T.ptx``
-exposes raw scalar/address instructions.
-
-Algorithms owned by the caller
-------------------------------
-
-CUDA reductions, layout permutation, synchronous global/shared copying, and
-scalar fallback copying are implemented directly by the caller.
-Write the loops, temporary registers, and synchronization at the call site.
-For an in-place shared-memory permutation, finish all reads into registers,
-synchronize the warp, write using the destination layout, and synchronize
-again before reusing the storage.
-
-See :doc:`/reference/python/backend.cuda.tile` for the constructor signatures and
-:doc:`/cuda/tile_patterns` for the lowering boundary.
+Start with :doc:`tile_patterns` for a load, compute, and store example and
+an explanation of how operand axes divide the work across threads. The
+:doc:`instruction reference </reference/python/backend.cuda.tile.instructions>`
+lists each family's parameters, operand layouts, and alignment requirements.
 
 CUDA instruction guides
 -----------------------
 
-Pages follow PTX instruction families. Each page specifies the operand image,
-an explicit caller view, and the resulting instruction count. Asynchronous
-completion belongs to the selected instruction family, not to a generic
-``copy_async`` or ``gemm_async`` operation.
-
-The common operand conventions below explain how to prepare tensor views
-for these operations. The instruction guides then cover data movement,
-arithmetic, asynchronous transfers, and matrix instructions.
+The guides below show how to use these interfaces for data movement,
+arithmetic, asynchronous transfers, and matrix instructions. Asynchronous
+examples include the completion protocol required by their instruction family.
 
 .. toctree::
    :maxdepth: 1
 
    tile_patterns
-
-Data Movement
-~~~~~~~~~~~~~
-
-.. toctree::
-   :maxdepth: 1
-
-   tile_ops/ld_st
-   tile_ops/mov
-
-Arithmetic and Type Conversion
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. toctree::
-   :maxdepth: 1
-
-   tile_ops/add_sub_mul
-   tile_ops/div_rcp_sqrt
-   tile_ops/min_max
-   tile_ops/fma
-   tile_ops/cvt
-   tile_ops/ex2_lg2
-   tile_ops/abs_neg
-   tile_ops/ewise
+   tile_ops/data_movement
+   tile_ops/arithmetic
 
 Asynchronous Transfers
 ~~~~~~~~~~~~~~~~~~~~~~
@@ -96,9 +51,8 @@ Asynchronous Transfers
 .. toctree::
    :maxdepth: 1
 
-   tile_ops/cp_async
-   tile_ops/cp_async_bulk
-   tile_ops/cp_async_bulk_tensor
+   tile_ops/async_copies
+   tile_ops/tma
 
 Matrix Instructions
 ~~~~~~~~~~~~~~~~~~~
@@ -106,8 +60,5 @@ Matrix Instructions
 .. toctree::
    :maxdepth: 1
 
-   tile_ops/ldmatrix_stmatrix
-   tile_ops/tcgen05_ld_st
-   tile_ops/tcgen05_cp
-   tile_ops/mma_sync
-   tile_ops/tcgen05_mma
+   tile_ops/warp_matrix
+   tile_ops/blackwell_tensor_cores

@@ -70,12 +70,44 @@ def apply(instruction, *operands, scope="thread", **parameters):
     """Repeat the explicitly named PTX instruction over its canonical operands.
 
     Operand axes are group, repeat, then instruction-specific atom coordinates.
-    Group axes bind execution IDs; repeat axes generate unrolled loops. Explicit
-    semantic parameters and runtime operands are ordinary Call arguments. Shared
-    matrix descriptors are extracted from canonical layouts. Each instruction
-    guide in ``docs/tirx/tile_ops/`` lists the complete parameters, operand
-    specification and generated code; common conventions are in
-    ``docs/tirx/cuda_tile_patterns.rst``.
+    Group axes bind execution IDs; repeat axes generate unrolled loops. Each
+    repeat emits the selected native instruction. The caller supplies any
+    synchronization and asynchronous completion operations.
+
+    Parameters
+    ----------
+    instruction : str or PTX instruction
+        The exact PTX instruction, including its type and other qualifiers.
+        TVMScript accepts, for example, ``T.ptx["ld.global.v4.b32"]``.
+    *operands : TensorRegion or Expr
+        Operands in the instruction family's documented order. A tensor denotes
+        its full region. Scalar expressions are accepted where that family allows
+        them; each tensor view must satisfy its storage and ownership requirements.
+    scope : str, optional
+        Execution scope: ``"thread"`` (default), ``"warp"``, ``"warpgroup"``,
+        ``"cta"``, or ``"cluster"``. It determines the leading group coordinates
+        and does not launch threads or perform thread election.
+    **parameters
+        Family-specific static parameters and runtime operands. See the
+        :doc:`CUDA tile instruction reference
+        </reference/python/backend.cuda.tile.instructions>` for accepted keywords,
+        defaults, required operands, and layout constraints. The generic IR
+        construction keywords ``attrs``, ``ty``, ``ty_args``, and ``loc`` are also
+        accepted.
+
+    Returns
+    -------
+    call : tvm_tirx.ir.Call
+        The tile operation as an IR call with a void result.
+
+    See Also
+    --------
+    tvm_tirx.backend.cuda.script.tile.ewise
+
+    Notes
+    -----
+    The :doc:`operand guide </cuda/tile_patterns>` explains the coordinate
+    conventions with a complete load, compute, and store example.
     """
     if isinstance(instruction, StringImm):
         instruction = instruction.value

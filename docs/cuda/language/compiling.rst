@@ -20,194 +20,101 @@
 Compiling and inspecting
 ========================
 
-CUDA compilation accepts a lightweight ``backend_config`` mapping. The same
-nested structure is accepted by the Target's ``backend_config`` attribute and
-``Tx.device_entry``. Pass the configured Target to ``tvm_tirx.tirx.compile``.
-``tvm_tirx.backend.cuda.BackendConfig`` is an optional
-``TypedDict`` helper, also available as ``Tx.cuda.BackendConfig``:
+In this chapter, we will compile a CUDA function with a chosen target and
+compiler options, then inspect its IR and generated code. The examples reuse
+``add_one`` from the GPU program in :doc:`Quick Start </get_started/quick_start>`.
+
+Compiling for CUDA
+------------------
+
+A ``Target`` specifies the GPU architecture and device compiler settings.
+For example, we can compile ``add_one`` with fast math enabled:
 
 .. code-block:: python
 
-    import tvm_tirx
-    from tvm_tirx.backend.cuda import BackendConfig
-    from tvm_tirx.script import tirx as Tx
+    from tvm_tirx import tirx
+    from tvm_tirx.target import Target
 
-    @Tx.function
-    def pipeline(A: Tx.Tensor((32,), "float32"), B: Tx.Tensor((32,), "float32")):
-        with Tx.device_entry(
-            launch=Tx.cuda.LaunchConfig(grid=1, block=32),
-            backend_config={"cuda": {"nvrtc": ["--use_fast_math", "--ftz=false"]}},
-        ):
-            x = Tx.cuda.thread_idx("x")
-            B[x] = A[x] * Tx.float32(0.5)
-        with Tx.device_entry(
-            launch=Tx.cuda.LaunchConfig(grid=1, block=32),
-            backend_config={"cuda": {
-                "compiler": "nvcc",
-                "nvcc": ["--use_fast_math", "--generate-line-info"],
-            }},
-        ):
-            y = Tx.cuda.thread_idx("x")
-            A[y] = B[y] + Tx.float32(1)
-
-    target = tvm_tirx.target.Target({
-        "kind": "cuda", "arch": "sm_100a",
-        "backend_config": {"cuda": BackendConfig(compiler="nvrtc")},
+    target = Target({
+        "kind": "cuda",
+        "arch": "sm_75",
+        "backend_config": {"cuda": {"nvrtc": ["--use_fast_math"]}},
     })
-    exe = tvm_tirx.tirx.compile(pipeline, target=target)
+    add_one_compiled = tirx.compile(add_one, target=target)
 
-Each entry resolves its configuration before architecture-sensitive lowering.
-Entries with different resolved targets or options compile as separate CUDA
-modules; their shared device helpers are copied into each group. The existing
-host module imports these device modules and launches them in program order.
-Kernels must be compatible with the device on which they execute.
+``arch`` selects the GPU architecture; ``sm_75`` denotes compute capability
+7.5. Set it to the architecture of the GPU that will run the program. On a
+machine with CUDA support and an available GPU, ``Target("cuda")`` can detect
+the architecture instead. An offline build needs an explicit architecture.
 
-Defaults and overrides
-----------------------
+TIRx uses NVRTC by default. The ``nvrtc`` list passes individual compiler
+arguments, such as ``--use_fast_math``, to that compiler. These target settings
+apply to the function's device code. The returned executable accepts the
+input and output tensors just as in Quick Start. The
+:class:`BackendConfig API <tvm_tirx.backend.cuda.BackendConfig>` describes
+other compiler settings.
 
-Precedence, from lowest to highest, is backend defaults, Target/tag settings,
-then device-entry overrides. ``None`` and ``{}`` add no
-overrides. Toolchain lists replace inherited lists in full, and ``[]`` clears a
-list. To keep fast math while changing FTZ, include both arguments as above.
-Configuration boundaries snapshot dictionaries and lists, so later mutation of
-the input cannot change an already constructed entry or a factory cache key.
+Overriding options for a kernel
+-------------------------------
 
-Target tags use the existing target registry and carry defaults in Target attrs:
+A kernel can override the target's settings through its ``device_entry``.
+For example, to add source line information to the add-one kernel, replace
+its ``T.device_entry`` statement with:
 
 .. code-block:: python
 
-    tvm_tirx.target.tag.register_tag("local/blackwell", {
-        "kind": "cuda", "arch": "sm_100a",
-        "backend_config": {"cuda": {
-            "compiler": "nvcc", "nvcc": ["--use_fast_math", "--generate-line-info"],
+    T.device_entry(
+        launch=T.cuda.LaunchConfig(grid=((n + 255) // 256,), block=(256,)),
+        backend_config={"cuda": {
+            "nvrtc": ["--use_fast_math", "--generate-line-info"],
         }},
-    })
-    exe = tvm_tirx.tirx.compile(pipeline, target="local/blackwell")
+    )
 
-Both ``Target("local/blackwell")`` and ``Target({"tag": "local/blackwell"})``
-preserve these defaults in their expanded attributes. There is no separate
-backend tag registry. An entry can override the architecture supplied by its Target.
-
-Online builds can detect the GPU architecture. Offline builds require an
-explicit architecture in the Target or every device entry.
-A generic ``Target("cuda")`` may remain without an architecture for backend
-discovery and IR construction; compilation validates it before lowering.
-Architecture-dependent Python factories resolve and record their architecture
-before tracing. Other backend defaults remain overridable at compilation.
-
-The default compiler is NVRTC, with fast math enabled and ptxas register usage
-level 10. NVRTC produces cubin by default, NVCC produces fatbin, and NVSHMEM
-requires cubin. Native options go into ``nvcc``, ``nvrtc``, or ``ptxas`` as
-individual argv strings; the compiler validates their values and availability.
-TVM reserves only routing, architecture, and output controls that it manages.
-Adding a compiler flag does not require adding a Python field or updating TVM.
-
-``LaunchConfig`` supplies runtime grid, block, cluster, and stream settings.
-``KernelAttributes`` describes CUDA kernel declaration attributes.
-``backend_config`` controls device compilation. PassContext still controls TVM
-passes independently; there is no wrapper combining these APIs. Only CUDA
-backend configuration is implemented currently; unsupported backend keys raise
-an explicit error.
-
-Artifacts and standalone hosts
-------------------------------
-
-CUDA modules retain the resolved configuration as one opaque JSON string,
-available through ``module.inspect_source("backend_config")``. Serialization
-keeps the existing format, function map, and code fields, then appends this string.
-It does not persist compiler logs or the complete source map. Source fallback
-artifacts retain source and configuration and compile on loading with a CUDA
-runtime. Replay uses the saved defaults independently of the loader's Target scope. Producing a source fallback does not require NVCC or NVRTC.
-Old binary artifacts remain loadable; old source artifacts without configuration
-use the default compiler settings when compiled.
-
-For ``target=Target({"kind": "cuda", "arch": "sm_100a"}, host="cuda_host")``,
-``tvm_tirx.backend.cuda.export_cuda_host(exe.mod)`` returns ordinary C++ host source
-with embedded independently compiled device binaries. Compile it with a C++
-compiler and CUDA headers, and link with tvm-ffi, cudart and the CUDA driver.
-The exported library requires no TVM installation or device compiler at runtime.
-The host compiler links the already compiled device binaries.
-
-Inspecting the result
----------------------
-
-The GPU program in :doc:`Quick Start </get_started/quick_start>` defines
-``add_one`` and compiles it as ``add_one_compiled``. We can inspect its IR
-and the generated CUDA through these objects:
+After redefining ``add_one`` with this entry, compile it again:
 
 .. code-block:: python
 
-    add_one.show()
-    print(add_one.script())
-    print(add_one_compiled.mod.imports[0].inspect_source("cuda"))
+    add_one_compiled = tirx.compile(add_one, target=target)
 
-``show`` displays the IR as TVMScript, while ``script`` returns it as a
-string. The first imported module contains this program's device code;
-``inspect_source("cuda")`` shows the lowered CUDA, including the thread
-index calculation and bounds check.
+Device-entry settings take precedence over target settings. Compiler argument
+lists replace the inherited list in full, so this example includes
+``--use_fast_math`` again alongside the new flag. ``launch`` controls the
+thread configuration; ``backend_config`` controls compilation.
 
-``Tx.hint("message")`` (statement or ``with`` block) attaches structured hints
-that survive a script round-trip.
-
-From simple to complex
+Inspecting IR and CUDA
 ----------------------
 
-A natural native progression, each rung adding one capability:
-
-#. **Elementwise** — ``device_entry`` + thread-index arithmetic + a guarded
-   store, as in the GPU example in :doc:`Quick Start </get_started/quick_start>`.
-#. **Shared-memory reduction** — stage into ``Tx.alloc_shared``, then a
-   ``cta_sync``-separated tree (shown in full below). Adds shared memory and a
-   block barrier.
-#. **Warp / block reduction** — ``Tx.cuda.__shfl_xor_sync`` or ``Tx.cuda.cta_sum``
-   to combine partial results across lanes/warps (the warp all-reduce in
-   :doc:`/cuda/language/threads_sync`).
-#. **Async pipeline** — ``Tx.ptx["cp.async.ca.shared.global"]`` (or TMA ``cp.async.bulk.tensor``) with
-   ``Tx.ptx.mbarrier.*`` / ``Tx.cuda.mbarrier_wait`` to overlap loads with compute.
-
-Rung 2 in full — a 256-element block sum via a shared-memory tree reduction
-(shared tensor, ``cta_sync``, a ``while`` loop, and a thread predicate):
+The function and compiled executable expose different stages of the program.
+``add_one.script()`` returns the IR as TVMScript, which lets us check the
+parameter types, index expression, and bounds check:
 
 .. code-block:: python
 
-    import torch
+    print(add_one.script())
 
-    @Tx.function
-    def block_sum(A: Tx.Tensor((256,), "float32"), out: Tx.Tensor((1,), "float32")):
+``add_one.show()`` displays the same representation directly. For printing
+options, see :doc:`/ir/printing_and_parsing`.
 
-        Tx.device_entry(launch=Tx.cuda.LaunchConfig(grid=(1,), block=(256,)))
-        bx = Tx.cuda.block_idx("x")
-        tx = Tx.cuda.thread_idx("x")
+The compiled executable contains a host launcher and an imported device
+module. For this single-kernel program, the first import contains the CUDA
+code:
 
-        sm = Tx.alloc_shared((256,), "float32")
-        sm[tx] = A[tx]
-        Tx.cuda.cta_sync()
+.. code-block:: python
 
-        s = Tx.alloc_local((1,), "int32")
-        s[0] = 128
-        while s[0] >= 1:
-            if tx < s[0]:
-                sm[tx] += sm[tx + s[0]]
-            Tx.cuda.cta_sync()
-            s[0] = s[0] // 2
+    device_module = add_one_compiled.mod.imports[0]
+    print(device_module.inspect_source("cuda"))
 
-        if tx == 0:
-            out[0] = sm[0]
+This output shows the lowered kernel, including its data pointers,
+``blockIdx.x`` and ``threadIdx.x`` accesses, and the condition guarding the
+output store. It is useful for checking how the authored computation was
+translated to CUDA.
 
+To check which compiler settings were applied, inspect the same module's
+resolved configuration:
 
-    exe = tvm_tirx.tirx.compile(
-        tvm_tirx.IRModule({"main": block_sum}), target=tvm_tirx.target.Target("cuda"), pipeline="tirx"
-    )
-    a = torch.arange(256, device="cuda", dtype=torch.float32)
-    out = torch.zeros(1, device="cuda")
-    exe(a, out)  # out[0] == 32640.0
+.. code-block:: python
 
-The full tile-level GEMM/attention ladder (sync → TMA → warp specialization →
-2-CTA cluster) is built on top of these and the dispatchable tile ops in
-:doc:`/cuda/tile_operations`.
+    print(device_module.inspect_source("backend_config"))
 
-Next steps
-----------
-
-- :doc:`/cuda/layouts` — how tensors map to physical resources (``TileLayout``).
-- :doc:`/cuda/tile_operations` — the dispatchable ops these native idioms lower to.
+For a build using the override above, the ``nvrtc`` list includes both
+``--use_fast_math`` and ``--generate-line-info``.

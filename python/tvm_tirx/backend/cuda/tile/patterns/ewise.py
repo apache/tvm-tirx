@@ -118,6 +118,36 @@ def ewise(function, dst, *inputs, scope="thread", **kwargs):
     Tensor inputs have exactly the destination's group and repeat axes. Scalar
     inputs are broadcast; tensor broadcasting is expressed with a zero-stride
     view. There is no implicit cast, vectorization, memory staging, or barrier.
+
+    Parameters
+    ----------
+    function : tvm_tirx.tirx.Function or tvm_tirx.ir.LambdaExpr
+        A typed scalar function with a scalar return on every path. Its parameter
+        types must match the inputs, and its result type must match the destination.
+    dst : TensorRegion
+        Destination registers, owned by the executing threads and without
+        overlapping storage positions.
+    *inputs : TensorRegion or Expr
+        Register regions with the same group and repeat shape as ``dst``, or scalar
+        expressions broadcast to every invocation.
+    scope : str, optional
+        Execution scope; defaults to ``"thread"``. Group coordinates follow the
+        same scope rules as :func:`tvm_tirx.backend.cuda.script.tile.apply`.
+    **kwargs
+        Generic IR construction keywords, such as ``loc``. There are no
+        instruction-specific parameters.
+
+    Returns
+    -------
+    call : tvm_tirx.ir.Call
+        The scalar function application over the explicit register coordinates.
+
+    Notes
+    -----
+    Unlike ``apply``, ``ewise`` has no trailing instruction atom: every coordinate
+    after the group prefix selects one scalar invocation. See the
+    :ref:`scalar function contract <cuda-tile-contract-ewise>` for restrictions and
+    the :doc:`operand guide </cuda/tile_patterns>` for an example.
     """
     if len(inputs) == 1 and isinstance(inputs[0], Tuple | tuple | list):
         values = inputs[0]

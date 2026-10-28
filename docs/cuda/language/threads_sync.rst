@@ -20,54 +20,64 @@
 CUDA C++/PTX intrinsics
 =======================
 
-When no tile op covers what you need, two escape hatches reach the hardware
-directly: **call a backend intrinsic** (the ``Tx.cuda.*`` / ``Tx.ptx.*`` namespaces
-from ``tvm_tirx.backend.cuda``), or **inline raw CUDA** source.
+In this chapter, we will call CUDA device helpers and PTX instructions
+directly, then include a device function written in CUDA C++. TVMScript
+exposes these interfaces through ``Tx.cuda``, ``Tx.ptx``, and
+``Tx.cuda.func_call``.
 
 Calling backend intrinsics
 --------------------------
 
-``Tx.cuda.*`` and ``Tx.ptx.*`` expose the CUDA backend's device intrinsics directly —
-synchronization, mbarriers, reductions, and the PTX data-movement / MMA families:
+The backend provides helpers for thread synchronization, data movement,
+reductions, and matrix operations:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 50 50
+
+   * - Interface
+     - Purpose
+   * - ``Tx.cuda.cta_sync()``
+     - Synchronize the threads in a block.
+   * - ``Tx.cuda.warp_sync()``
+     - Synchronize a full warp.
+   * - ``Tx.cuda.warpgroup_sync(8)``
+     - Synchronize a 128-thread warpgroup using named barrier 8.
+   * - ``Tx.cuda.__shfl_xor_sync(mask, value, lane_mask, width)``
+     - Read a value from another lane selected by XOR.
+   * - ``Tx.cuda.cta_sum(value, num_warps, scratch)``
+     - Reduce a value across a block using a shared scratch pointer.
+
+For example, a warp can sum its 32 input values with
+``Tx.cuda.__shfl_xor_sync``:
 
 .. code-block:: python
 
-    Tx.cuda.cta_sync()                    # block barrier (__syncthreads)
-    Tx.cuda.warp_sync()                   # __syncwarp
-    Tx.cuda.warpgroup_sync(8)             # warpgroup named-barrier ID 8
-    Tx.cuda.cta_sum(val, num_warps, scratch.ptr_to([0]))   # block-level reduction
-
-    bar = Tx.alloc_shared((1,), "uint64")
-    if Tx.cuda.linear_thread_id() == 0:  # one thread initializes the CTA-shared barrier
-        Tx.ptx.mbarrier.init.shared.b64(bar.data, Tx.uint32(1))
-    Tx.cuda.cta_sync()  # initialization completes before any thread uses bar
-    Tx.cuda.mbarrier_wait(bar.data, phase)
-
-A complete, runnable example — a warp all-reduce via ``Tx.gpu_warp_shuffle_xor``:
-
-.. code-block:: python
+    from tvm_tirx.script import tirx as Tx
 
     @Tx.function
     def warp_reduce(A: Tx.Tensor((32,), "float32", align=16)):
-
-        Tx.device_entry(launch=Tx.cuda.LaunchConfig(grid=(1,), block=((1) * 32,)))
-        cta_id = Tx.cuda.block_idx("x")
-        warp_id = Tx.cuda.warp_id()
+        Tx.device_entry(launch=Tx.cuda.LaunchConfig(grid=1, block=32))
         lane_id = Tx.cuda.lane_id()
         v = Tx.alloc_local((1,), "float32")
         i = Tx.alloc_local((1,), "int32")
-        v[0] = Tx.float32(31 - lane_id)
+        v[0] = A[lane_id]
         i[0] = 16
         while i[0] >= 1:
-            v[0] += Tx.gpu_warp_shuffle_xor(0xFFFFFFFF, v[0], i[0], 32, 32)
+            v[0] += Tx.cuda.__shfl_xor_sync(0xFFFFFFFF, v[0], i[0], 32)
             i[0] = i[0] // 2
         A[lane_id] = v[0]
 
-The shuffle lowers straight to ``__shfl_xor_sync``:
+All lanes participate, as selected by ``0xFFFFFFFF``. The XOR distances
+16, 8, 4, 2, and 1 combine all 32 values; every lane receives the sum.
+The device helper calls CUDA's ``__shfl_xor_sync``:
 
 .. code-block:: c++
 
     v_ptr[0] = v_ptr[0] + __shfl_xor_sync(0xFFFFFFFF, v_ptr[0], i_ptr[0], 32);
+
+The :doc:`TMA guide </cuda/tile_ops/tma>` shows a complete barrier
+initialization, arrival, and phase wait around an asynchronous transfer.
 
 Other families under ``Tx.ptx.*`` / ``Tx.cuda.*``: ``cp.async`` (LDGSTS),
 ``cp.async.bulk.tensor`` (TMA), ``ldmatrix`` / ``stmatrix``, ``tcgen05.*``

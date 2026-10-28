@@ -28,28 +28,23 @@ TIRx compiles into CUDA device code. The following sections explain these
 interfaces and show how to inspect the resulting IR and generated CUDA.
 
 * :doc:`language/functions` covers function parameters, symbolic shapes,
-  compile-time specialization, and launch configuration.
-* :doc:`language/data_types` explains scalar and vector dtypes, their CUDA
-  representations, and pointers.
-* :doc:`language/tensors` covers shared and per-thread storage, mutable
-  scalars, and tensor views.
-* :doc:`language/control_flow` introduces conditionals, loop forms, and
-  thread election.
+  launch configuration, control flow, specialization, and reusable fragments.
+* :doc:`language/tensors` covers element types, vector accesses, shared and
+  per-thread storage, mutable scalars, and tensor views.
 * :doc:`language/threads_sync` shows how to call device intrinsics and
   include custom CUDA functions.
 * :doc:`language/compiling` explains compiler configuration and how to
   inspect the IR and generated CUDA.
-* :doc:`language/parser_utils` introduces helpers for reusable code
-  fragments and compile-time metadata.
+
+Helpers for passing Python metadata and grouping parser-side state are
+documented in the :func:`meta_var <tvm_tirx.script.ir_builder.meta_var>` and
+:func:`meta_class <tvm_tirx.tirx.script.meta_class>` APIs.
 
 .. toctree::
    :hidden:
    :maxdepth: 1
 
    language/functions
-   language/data_types
    language/tensors
-   language/control_flow
    language/threads_sync
    language/compiling
-   language/parser_utils

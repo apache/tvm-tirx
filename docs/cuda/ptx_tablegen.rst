@@ -18,18 +18,18 @@
 PTX Tablegen
 ============
 
-In this chapter, we will introduce the table-driven PTX interface and
-follow an instruction from its TVMScript spelling to generated inline
-assembly. The same table supplies operand contracts, modifier choices,
-and generated helpers, so a backend developer can add an instruction
-form without duplicating this information across several interfaces.
+In this chapter, we will follow ``add.rn.f32`` from a TVMScript call to
+generated inline PTX. An instruction table describes operands and valid
+modifiers. The backend uses that definition to check calls and generate
+CUDA helpers, so a new instruction form can share one definition across
+these interfaces.
 
-A Direct PTX Instruction
-------------------------
+Call a PTX instruction
+----------------------
 
-PTX instructions name their destination registers explicitly. The
-following kernel uses ``add.rn.f32`` to add two float32 values in each
-thread. The ``rn`` modifier selects round-to-nearest-even:
+PTX instructions name their destination registers explicitly. The kernel
+below uses ``add.rn.f32`` to add two float32 values per thread. The
+``rn`` modifier selects round-to-nearest-even:
 
 .. code-block:: python
 
@@ -47,53 +47,22 @@ thread. The ``rn`` modifier selects round-to-nearest-even:
            T.ptx.add.rn.f32(result, A[tid], B[tid])
            C[tid] = result
 
-``result`` declares the destination. The PTX call writes it, and the
-following tensor store writes that value to ``C``. The instruction call
-itself has no return value, so it appears as a statement.
+``result`` supplies the destination register. The PTX call writes it,
+and the next statement stores that value in ``C``. The instruction call
+itself has no return value.
 
-The indexed spelling ``T.ptx["add.rn.f32"]`` selects the same instruction.
-It is convenient for names containing tokens such as ``global``, which
-need a Python keyword escape in attribute chains: ``T.ptx.ld.global_.b32``.
-The selected instruction must include the modifiers required by its form.
+The indexed spelling ``T.ptx["add.rn.f32"]`` selects the same form.
+Attribute chains escape Python keywords with a trailing underscore,
+as in ``T.ptx.ld.global_.b32``; PTX's ``::`` becomes ``__``, as in
+``T.ptx.mbarrier.init.shared__cta.b64``. Indexed names use the exact PTX
+spelling. ``T.cuda`` also provides helpers for operations that need
+multiple statements or descriptor construction.
 
-Instruction forms
------------------
-Attribute chains fill PTX modifier slots.  Python keywords have a trailing
-underscore, and PTX's ``::`` separator is written as a double underscore::
-
-   T.ptx.ld.acquire.gpu.global_.b32(value, pointer)
-   T.ptx.mbarrier.arrive.shared__cluster.b64(barrier, count)
-
-The indexed form accepts the exact PTX spelling of a registered form and uses
-the same table lookup::
-
-   T.ptx["st.weak.shared::cta.b32"](pointer, value)
-
-Destination registers are leading operands, so PTX calls are statements.
-Predication is keyword-only::
-
-   T.ptx.ld.global_.b32(value, pointer, pred=predicate, preserve_dst=True)
-
-``T.ptx.pred(value)`` marks a register operand whose PTX type is ``.pred``;
-``T.ptx.addr(base, byte_offset)`` forms an immediate-offset address for
-instructions that accept one; and ``T.ptx.SINK`` represents PTX's sink operand
-``_`` in table-marked positions.  The stub generator described below provides editor completion for
-registered instruction families and modifier chains.
-
-PTX versus CUDA helpers
+Inspect its table entry
 -----------------------
-Use ``T.ptx`` for one table-described PTX instruction.  Use ``T.cuda`` for
-backend helpers that require multiple statements, C/C++ expressions, descriptor
-packing, or other behavior that cannot be represented as one PTX instruction.
-``T.ptx_legacy`` preserves operation construction for downstream emitters.
-New kernels should use the direct ``T.ptx`` interface.
-
-
-The Instruction Table
----------------------
 
 ``python/tvm_tirx/backend/cuda/ptx/table.py`` describes each instruction
-shape with an ``InstructionEntry``. We can inspect the existing add entry:
+operand shape with an ``InstructionEntry``. We can inspect the add entry:
 
 .. code-block:: python
 
@@ -112,94 +81,54 @@ The output is:
    ['d', 'a', 'b']
    ['rnd', 'ftz', 'sat', 'type', 'srctype']
 
-The operands describe the destination ``d`` and sources ``a`` and ``b``.
-Modifier slots describe the available rounding, flush-to-zero, saturation,
-and type choices; some slots are optional. The engine resolves
-``add.rn.f32`` to this entry with concrete modifier values.
+The operands are destination ``d`` and sources ``a`` and ``b``. Modifier
+slots describe rounding, flush-to-zero, saturation, and type choices;
+some are optional. The engine resolves ``add.rn.f32`` to this entry with
+concrete modifier values and checks that the combination is supported.
 
-The entry's main components are:
+From the entry to inline assembly
+---------------------------------
 
-.. list-table::
-   :header-rows: 1
-   :widths: 30 70
-
-   * - Component
-     - Role
-   * - ``operands``
-     - Operand order, register or address kind, read/write direction, dtype, and register-group size.
-   * - ``slots``
-     - Named modifier positions, legal tokens, and whether a position is optional.
-   * - ``check``
-     - Cross-modifier rules that reject combinations of otherwise valid tokens.
-   * - ``imm_check``
-     - Validation for concrete immediate operands.
-   * - ``asm_volatile``, ``orders_memory``
-     - Inline-assembly retention and ordering requirements.
-
-An entry represents one operand shape. Forms with different register
-groups can have separate entries while sharing a user-facing mnemonic.
-
-From the Table to CUDA Source
------------------------------
-
-The tablegen system is implemented in Python. Its main pieces are:
+Three Python modules connect the definition to generated code:
 
 .. code-block:: text
 
-   table.py       instruction shapes, operands, and modifier rules
-       -> engine.py      namespace selection, IR calls, and codegen registration
-       -> render.py      CUDA helpers containing inline PTX
+   table.py   instruction operands and modifier rules
+       -> engine.py   instruction selection, IR calls, and codegen registration
+       -> render.py   CUDA helpers containing inline PTX
 
 The engine registers an operator for each entry and constructs a void
-``ir.Call`` for a selected instruction. The CUDA code generator invokes
-the registered callback, which renders the helper for the concrete
-modifiers and operand types. For the kernel above, the helper contains:
+``ir.Call`` for the selected instruction. During CUDA source generation,
+the registered callback renders a helper for its modifiers and operand
+types. For the kernel above, that helper contains:
 
 .. code-block:: cuda
 
    asm volatile("add.rn.f32 %0, %1, %2;"
                 : "=f"(__d) : "f"(__a), "f"(__b));
 
-The output constraint writes ``__d``; the two input constraints read the
-float operands. NVCC or NVRTC processes this CUDA source, and the CUDA
-assembler validates the instruction for the selected architecture.
-
-Generated Helpers and Coverage
-------------------------------
-
-The generators make the table inspectable without writing a kernel.
-From the repository root, these commands produce helper source, Python
-signatures, and a coverage summary:
+The output constraint writes ``__d``, and the input constraints read the
+two float operands. NVCC or NVRTC compiles the CUDA helper, and the
+assembler checks support for the selected GPU architecture. To inspect
+the add family's helpers without writing a kernel, run:
 
 .. code-block:: bash
 
    python -m tvm_tirx.backend.cuda.ptx.gen_helpers add -o /tmp/ptx_add.cuh
-   python -m tvm_tirx.backend.cuda.ptx.gen_stubs -o /tmp/ptx_stubs.pyi
-   python -m tvm_tirx.backend.cuda.ptx.gen_coverage > /tmp/ptx_coverage.txt
 
-``gen_helpers`` enumerates the selected family's valid forms and renders
-their helpers. ``gen_stubs`` exposes signatures for editor tooling, while
-``gen_coverage`` summarizes the table's families and variants. Runtime
-code generation uses the table directly; these files are inspection
-artifacts.
+Add an instruction form
+-----------------------
 
-A New Instruction Form
-----------------------
+A new form starts with its PTX operand order, register widths and groups,
+address spaces, and modifiers. Add an entry describing that contract,
+with ``check`` or ``imm_check`` for constraints that cannot be expressed
+as individual modifier choices. A form with different register groups
+may need a separate entry under the same user-facing mnemonic.
 
-A new form starts with its PTX operand contract: operand order, register
-widths and groups, address spaces, and modifiers. The entry then describes
-those operands and slots, with ``check`` or ``imm_check`` for constraints
-that cannot be expressed as individual token choices. Existing entries
-provide examples for arithmetic, loads, stores, and collective operations.
-
-The new form also needs a code-generation test that constructs a kernel
-and checks its emitted instruction. The tests in
-``tests/python/tirx/codegen/test_ptx_dialect.py`` cover registration,
-argument handling, helper generation, and assembly. A source check can
-confirm the intended spelling; an assembler test must also exercise the
-form on a supporting target. The table's ``cert_arch`` selects an
-architecture for certification tests and does not replace that check.
-
-The :doc:`PTX API </reference/python/backend.cuda.ptx>` exposes instruction
-lookup and inspection. The next chapters connect instruction operands
-to :doc:`CUDA layouts <layouts>` and :doc:`tile operations <tile_operations>`.
+Add a code-generation test in
+``tests/python/tirx/codegen/test_ptx_dialect.py`` to check the emitted
+instruction and assemble it for a supporting target. The entry's
+``cert_arch`` selects the target for certification tests. The
+:doc:`PTX reference </reference/python/backend.cuda.ptx>` describes entry
+fields, special operands, and generators for editor stubs and coverage
+reports.

@@ -18,45 +18,20 @@
 IKET Profiling
 ==============
 
-In this chapter, we will introduce in-kernel event tracing with NVIDIA
-IKET. A launch timer measures the whole kernel; event ranges and marks
-help locate time spent within it. We will bracket a small affine
-computation, run it under the official IKET tool, and locate the resulting
-trace files.
+In this chapter, we will add NVIDIA IKET events to a kernel and capture
+a timeline of its execution. Named ranges and checkpoints help relate
+execution time to individual phases of the computation. We will use a
+small affine kernel to demonstrate the annotation and capture workflow.
 
-The Profiling Interfaces
-------------------------
+The example requires a CUDA-enabled TIRx build, an SM90-or-newer GPU,
+NVRTC through ``cuda-bindings``, and the ``run-iket`` executable supplied
+by ``nvidia-cutlass-dsl-libs-base``.
 
-The CUDA backend provides device annotations and host orchestration:
-
-.. list-table::
-   :header-rows: 1
-   :widths: 35 65
-
-   * - Interface
-     - Role
-   * - ``IketProfiler``
-     - Construct event annotations inside TVMScript and compile an instrumented module.
-   * - ``iket.run(workload, ...)``
-     - Replay a saved Python entry point under the official tracker and capture processes.
-   * - ``iket.profile(command, ...)``
-     - Profile a separate replayable command.
-   * - ``IketProfileResult``
-     - Locate JSON, Perfetto, and HTML artifacts from a successful capture.
-
-The current lowering requires an SM90 or newer GPU. The environment also
-needs CUDA support, NVRTC through ``cuda-bindings``, and the official
-``run-iket`` entry point supplied by ``nvidia-cutlass-dsl-libs-base``.
-The host API validates that installation before starting a capture.
-This chapter uses ``tvm_tirx.backend.cuda.iket``; the separate
-``tvm_tirx.testing.bench.CudaProfiler`` uses a different recording API.
-
-Annotations in a Kernel
------------------------
+Annotate a computation
+----------------------
 
 Save the following kernel and the host code below in
-``profile_affine.py``. The kernel computes ``B[i] = 2 * A[i] + 1`` for
-32 values:
+``profile_affine.py``. Each thread computes ``B[i] = 2 * A[i] + 1``:
 
 .. code-block:: python
 
@@ -78,35 +53,19 @@ Save the following kernel and the host code below in
            B[tid] = T.float32(2) * value + T.float32(1)
            profiler.range_pop()
 
-``range_push`` begins the named range and ``range_pop`` ends it.
-The ``loaded`` mark identifies a point between the tensor read and the
-remaining computation. These annotations construct IR calls; the
-instrumented device code records their events during the capture.
+``IketProfiler`` inserts the event annotations. ``range_push("affine")``
+begins a named range, and ``range_pop()`` ends it. The ``loaded`` mark
+places a checkpoint after the tensor read. These events will appear in
+the captured trace. They do not replace synchronization needed by the
+kernel's data dependencies.
 
-The profiler supports two range forms:
+Capture the kernel
+------------------
 
-.. list-table::
-   :header-rows: 1
-   :widths: 35 65
-
-   * - Form
-     - Use
-   * - ``mark(name)``
-     - Record a named checkpoint.
-   * - ``range_push(name)`` / ``range_pop()``
-     - Bracket nested regions in stack order.
-   * - ``range_start(name)`` / ``range_end(token)``
-     - Connect a start and end through the returned uint32 token.
-
-The markers identify regions to measure. The kernel still needs the
-synchronization required by its actual data dependencies.
-
-A Capture Run
--------------
-
-The host workload compiles the instrumented function, launches it, and
-checks the output. GPU work belongs inside this callable because IKET
-replays it during tracking and capture:
+The host workload compiles the instrumented kernel, runs it, and checks
+its result. GPU initialization, compilation, and execution belong inside
+``workload`` because IKET replays this callable during its tracking and
+capture passes:
 
 .. code-block:: python
 
@@ -127,35 +86,22 @@ replays it during tracking and capture:
        print(result.html)
 
 Run the saved script with ``python profile_affine.py``.
-``IketProfiler.compile`` enables the module's IKET lowering. The
-``iket.run`` call starts the official tool's tracker and capture passes
-with the saved script. After those passes finish, it returns the artifact
-paths in the parent process. Each invocation of the example should use
-a fresh output directory, or explicitly pass ``clobber=True`` to replace
-an earlier capture.
+``IketProfiler.compile`` enables the profiling lowering, while
+``iket.run`` replays the script under NVIDIA's tracker and capture tools.
+After the capture completes, the parent process receives the result and
+prints the artifact paths. Use a fresh output directory for each capture,
+or pass ``clobber=True`` to replace an earlier capture.
 
-A command-based workflow can instead call ``iket.profile`` from a
-separate driver script with an argument list such as
-``[sys.executable, "profile_workload.py"]``. That workload must compile
-and run its instrumented kernel without starting another profile.
+Read the trace
+--------------
 
-The Trace and the Lowering
---------------------------
+``result.perfetto`` identifies the timeline file, ``result.html`` the
+HTML report, and ``result.trace_json`` the JSON trace. The timeline shows
+the ``affine`` range and the ``loaded`` checkpoint within the kernel's
+execution. Instrumentation adds work, so measure the uninstrumented
+kernel separately when assessing its overall performance.
 
-For this single-kernel example, ``result.trace_json``, ``result.perfetto``,
-and ``result.html`` identify the JSON trace, Perfetto timeline, and HTML
-report. A workload with several artifacts can use the corresponding
-``json_traces``, ``perfetto_traces``, and ``html_reports`` collections.
-The timeline connects the ``affine`` range and ``loaded`` checkpoint to
-the captured kernel execution. Instrumentation adds work, so compare
-regions and measure the uninstrumented kernel separately for overall
-performance.
-
-The native ``LowerIket`` pass runs after host/device splitting. It checks
-event declarations and token use, assigns event IDs, and emits the
-metadata and device event helpers that the official IKET tools consume.
-The implementation is in ``src/backend/cuda/transform/lower_iket.cc``;
-Python orchestration lives in ``python/tvm_tirx/backend/cuda/iket.py``.
-
-The :doc:`IKET API </reference/python/backend.cuda.iket>` describes capture
-options and result fields.
+The :doc:`IKET API </reference/python/backend.cuda.iket>` covers token-based
+ranges, command-based capture with ``iket.profile``, and capture options.
+The :doc:`backend implementation <backend_implementation>` explains where
+the profiling annotations are lowered in the compilation pipeline.
