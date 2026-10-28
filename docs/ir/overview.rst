@@ -159,6 +159,51 @@ the following chapters show selected fields of individual objects. Each
 branch names a field, list entry, or mapping entry; for example,
 ``seq[0]`` can refer to an ``ir.Bind`` stored inside an ``ir.SeqStmt``.
 
+Inspecting a Program Tree
+-------------------------
+
+The inheritance diagram above describes classes. To see the objects inside a
+particular program, use :func:`tvm_tirx.ir.format_tree`. It reads reflected
+fields, so the same formatter works for downstream types and operations.
+For the CPU ``add_one`` function from Quick Start:
+
+.. code-block:: python
+
+   from tvm_tirx import ir
+
+   print(ir.format_tree(add_one.body, hide_fields=("loc", "ty"), inline_width=50))
+
+This view omits source locations and expression types to emphasize the loop
+and its computation:
+
+.. code-block:: text
+
+   SeqStmt
+   └── seq: Array
+       └── [0]: For(kind=0)
+           ├── var: Var(name='i')
+           ├── begin: IntImm(value=0)
+           ├── end: Var(name='n')
+           ├── step: IntImm(value=1)
+           ├── body: SeqStmt
+           │   └── seq: Array
+           │       └── [0]: TensorStore
+           │           ├── dest: Var(name='B')
+           │           ├── indices: [Var(name='i')]
+           │           └── value: Add
+           │               ├── a: TensorLoad
+           │               │   ├── source: Var(name='A')
+           │               │   └── indices: [Var(name='i')]
+           │               └── b: FloatImm(value=1.0)
+           └── annotations: {}
+
+Each edge names a reflected field or container index. ``SeqStmt`` wrappers
+remain visible even when they contain only one statement. The default view
+hides only ``loc`` and fields that match known reflected defaults; it retains
+expression types. ``max_depth`` bounds expansion, and ``inline_width=0``
+expands child objects instead of combining them on a line. The result is
+inspection text; use :doc:`printing_and_parsing` for TVMScript and round trips.
+
 .. _choose-a-chapter:
 
 What to Read Next

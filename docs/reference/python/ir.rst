@@ -219,6 +219,7 @@ IR helpers
    :toctree: generated/
 
    const
+   format_tree
    make_node
    assert_structural_equal
    load_json
