@@ -60,7 +60,8 @@ Structural Walk
 
 ``tvm_ffi.structural_walk`` automatically traverses IR. Its callbacks can
 collect nodes, check properties, or stop the traversal when a matching value
-is found.
+is found. We will first collect variables, then examine callback selection
+and traversal order, and finally distinguish variable definitions from uses.
 
 .. code-block:: text
 
@@ -117,9 +118,8 @@ objects.
 ``order="post"`` calls the handler after the children; ``order="pre"`` calls
 it before them. The corresponding enum values are
 ``tvm_ffi.WalkOrder.POSTORDER`` and ``PREORDER``. The optional
-``with_def_region_kind`` table uses the same selection forms, but calls
-``handler(value, kind)`` with a ``tvm_ffi.DefRegionKind``. Entries in
-``callbacks`` are tried first; this table is consulted only when none matches.
+``with_def_region_kind`` argument provides definition/use information to
+callbacks; the final example in this section introduces that information.
 
 The callback's return value controls traversal:
 
@@ -130,11 +130,12 @@ The callback's return value controls traversal:
    * - Callback returns
      - Effect
    * - ``None`` or ``tvm_ffi.WalkResult.ADVANCE``
-     - Continue normally.
+     - Traversal continues normally.
    * - ``tvm_ffi.WalkResult.SKIP``
-     - In pre-order, omit this value's children and continue elsewhere.
+     - In pre-order, this value's children are omitted; traversal continues
+       elsewhere.
    * - ``tvm_ffi.VisitInterrupt(payload)``
-     - Stop the whole walk and return the interrupt to the caller.
+     - The whole walk stops and returns the interrupt to the caller.
 
 ``structural_walk`` returns ``None`` on completion or the ``VisitInterrupt`` on
 early exit. It does not return collected nodes or a rewritten root. Callbacks
@@ -159,8 +160,13 @@ The output is:
 
    (x + 1) * (y + 2)
 
+``ir.Var("x", "int32")`` creates a symbolic integer variable. The overloaded
+``+`` and ``*`` operators construct IR nodes; the Python integers become
+typed ``ir.IntImm`` constants. Constructing or walking ``expr`` does not
+assign values to ``x`` and ``y`` or calculate a numeric result.
+
 The diagram below shows the arithmetic operands. Binary arithmetic nodes
-store their operands in ``a`` and ``b``:
+store their left and right operands in ``a`` and ``b``, respectively:
 
 .. code-block:: text
 
@@ -199,7 +205,9 @@ The output is:
 The walker calls ``on_var(x)`` and ``on_var(y)``. The callback receives the
 variable objects themselves, which is why the final line can read their
 ``name`` fields. The unmatched ``Mul`` and ``Add`` nodes still receive default
-descent. ``on_var`` returns ``None`` implicitly, so traversal continues.
+descent: the type filter selects callback invocations, not entire subtrees.
+``on_var`` returns ``None`` implicitly, so traversal continues. The list is
+populated by the callback; it is not the return value of ``structural_walk``.
 
 A tuple of classes shares one callback across those classes. Here, additions
 and multiplications both call ``on_arithmetic``:
@@ -398,9 +406,15 @@ a pre-order walk can keep a visited set and return ``SKIP`` on repeats.
 .. _ir-definition-regions:
 
 The optional ``with_def_region_kind`` table distinguishes variable definitions
-from uses. ``ir.prim.Let(var, value, body)`` binds a value to a local variable
-while evaluating its body. Here, ``tmp`` is defined once and used twice in
-``tmp + tmp``:
+from uses. It accepts the same callback forms as ``callbacks``, but the
+selected function receives ``(value, kind)``. Here, ``kind`` is a
+``tvm_ffi.DefRegionKind`` describing the position at which the value occurs.
+Entries in ``callbacks`` are tried first; ``with_def_region_kind`` is
+consulted only when none matches. It is a fallback table, so registering the
+same type in both tables does not run both functions.
+
+``ir.prim.Let(var, value, body)`` binds a value to a local variable in its
+body. Here, ``tmp`` is defined once and used twice in ``tmp + tmp``:
 
 .. code-block:: python
 
@@ -422,7 +436,8 @@ The output is:
 
    ['DEF_SIMPLE', 'NONE', 'NONE']
 
-The first occurrence defines ``tmp``; the other two use it in the body.
+All three callbacks receive the same ``tmp`` object. Their kinds differ
+because the first occurrence defines it and the other two use it in the body.
 ``NONE`` means an ordinary use, ``DEF_SIMPLE`` marks a simple variable
 definition, and ``DEF_PATTERN`` marks a pattern definition, which can bind
 symbols through a type. The inputs ``x`` and ``y`` remain ordinary uses.
@@ -431,7 +446,10 @@ Structural Map
 --------------
 
 ``tvm_ffi.structural_map`` applies replacement rules with automatic recursion,
-supporting substitutions and rewrites throughout the IR.
+supporting substitutions and rewrites throughout the IR. We will replace
+symbolic variables with constants, then fold the resulting arithmetic.
+These are separate rules: replacing a variable does not itself evaluate
+the expression containing it.
 
 .. code-block:: text
 
@@ -441,7 +459,10 @@ supporting substitutions and rewrites throughout the IR.
 ``root`` is the expression, statement, function, module, type, or FFI container
 to transform. ``callbacks`` specifies Python replacement functions and
 optional type filters. Each function receives the current value and returns
-the value to install at that position. The table uses functions defined in
+the value to install at that position. In ``(ir.Var, specialize_var)``,
+``ir.Var`` is the class to match and ``specialize_var`` is a Python function
+passed without calling it. The mapper supplies the actual variable object
+when it calls ``specialize_var(var)``. The table uses functions defined in
 this section's examples:
 
 .. list-table::
@@ -453,7 +474,8 @@ this section's examples:
    * - ``(ir.Var, specialize_var)``
      - ``specialize_var(var)`` returns a replacement for a variable.
    * - ``((ir.prim.Add, ir.prim.Mul), fold_arithmetic)``
-     - The same ``fold_arithmetic(node)`` function handles either operator class.
+     - Either operator class selects ``fold_arithmetic(node)``. Each call
+       receives one node, not a pair of operands.
    * - ``[(ir.Var, specialize_var), (ir.prim.Add, fold_arithmetic)]``
      - Variables and additions have separate replacement functions.
    * - ``keep_value``
@@ -472,9 +494,8 @@ Each callback returns the value to install: either the input unchanged or a
 valid replacement. ``None`` does not mean "keep this value."
 ``structural_map`` returns the transformed root.
 
-``with_def_region_kind`` accepts the same entry forms, but its callbacks receive
-two arguments, ``(value, kind)``, where ``kind`` is a ``tvm_ffi.DefRegionKind``.
-This table is tried only if no callback in ``callbacks`` matches. ``order`` accepts
+The optional ``with_def_region_kind`` table supports rewrites that distinguish
+definitions from uses, as shown near the end of this section. ``order`` accepts
 ``"post"`` (the default), ``"pre"``, or the corresponding
 ``tvm_ffi.WalkOrder.POSTORDER`` and ``PREORDER`` enum values.
 
@@ -490,10 +511,12 @@ to its result:
      - After the callback
    * - ``"pre"``
      - The value before child mapping.
-     - Map the returned value's children, then return the rebuilt value.
+     - The mapper processes the returned value's children and returns the
+       rebuilt value.
    * - ``"post"``
      - The value with its children already mapped.
-     - Return its result without descending into the replacement again.
+     - The mapper returns the callback's result without descending into
+       that replacement again.
 
 In both cases, the mapper invokes a selected callback once at that position;
 it does not repeatedly apply rules until nothing changes. A callback must not
@@ -510,6 +533,11 @@ We will start with an expression to transform:
    x = ir.Var("x", "int32")
    y = ir.Var("y", "int32")
    expr = (x + 1) * (y + 2)
+
+The root is a multiplication with two addition children. Each arithmetic
+node stores its left and right operands in ``a`` and ``b``. The variables
+and integer constants are also IR expressions, so a replacement for a
+variable must be a compatible expression object.
 
 A callback can return each value unchanged. Passing that function directly
 applies it without a type filter:
@@ -548,6 +576,9 @@ The output is:
    (x + 1) * (y + 2)
 
 The mapped result contains integer IR constants with the variables' types.
+``var.ty`` is the variable's IR type; ``ir.const(8, var.ty)`` constructs a
+constant of that type. ``same_as`` compares symbol identities rather than
+printed names, so a different variable named ``x`` would remain unchanged.
 The source expression remains available. ``T.Add(8, 1)`` is the printer's
 explicit form for an addition node whose operands are constants: structural
 mapping replaces fields without automatically evaluating the arithmetic.
@@ -590,7 +621,11 @@ is nonconstant or a divisor is zero:
 
 The output is ``45``. The callback replaces the two additions with 9 and 5
 before it receives the enclosing multiplication, so it can replace that
-node with 45 as well.
+node with 45 as well. ``arithmetic_types`` is a tuple of alternative node
+classes sharing this rule. The type filter ensures that ``node.a`` and
+``node.b`` exist; variables and constants follow default mapping instead.
+``int(node.a)`` reads the Python integer stored in an ``ir.IntImm``, and
+``ir.const(value, node.ty)`` wraps the computed integer back in IR.
 
 Starting again from ``bound``, the same callback in pre-order gives a different
 result:
@@ -666,12 +701,53 @@ their parent multiplication. That result, 9, becomes the dividend of the outer
 division, which folds to 2. Each parent receives its rewritten children, so
 one post-order traversal folds all four arithmetic nodes.
 
-With ``with_def_region_kind``, the replacement callback receives
-``(value, kind)``. ``NONE`` marks an ordinary use, ``DEF_SIMPLE`` a simple
-definition, and ``DEF_PATTERN`` a pattern definition that can bind symbols
-through a type. The callback still returns the unchanged value or a valid
-replacement. Definition sites must remain valid, including the variable bound
-by a ``Let`` expression.
+The examples so far replace free variables with constants. A definition site
+has a different requirement: the variable bound by a ``Let`` expression must
+remain a variable. ``with_def_region_kind`` supplies this context to a
+replacement callback as ``(value, kind)``. It accepts the same entry forms as
+``callbacks`` and is tried only when no entry in ``callbacks`` matches.
+``NONE`` marks an ordinary use, ``DEF_SIMPLE`` a simple definition, and
+``DEF_PATTERN`` a pattern definition that can bind symbols through a type.
+
+The following example renames a local variable by returning the same new
+symbol at its definition and both uses:
+
+.. code-block:: python
+
+   tmp = ir.Var("tmp", "int32")
+   scoped_expr = ir.prim.Let(tmp, expr, tmp + tmp)
+   renamed_tmp = ir.Var("renamed_tmp", tmp.ty)
+   rename_contexts = []
+
+   def rename_tmp(var, kind):
+       if var.same_as(tmp):
+           rename_contexts.append(kind.name)
+           return renamed_tmp
+       return var
+
+   renamed_expr = tvm_ffi.structural_map(
+       scoped_expr,
+       with_def_region_kind=(ir.Var, rename_tmp),
+       order="pre",
+   )
+   print(rename_contexts)
+   print(renamed_expr.var.name)
+   print(renamed_expr.body.a.same_as(renamed_expr.var))
+   print(renamed_expr.body.b.same_as(renamed_expr.var))
+
+The output is:
+
+.. code-block:: text
+
+   ['DEF_SIMPLE', 'NONE', 'NONE']
+   renamed_tmp
+   True
+   True
+
+The kinds identify the three positions, while the identity checks confirm
+that both uses refer to the new definition. Creating a fresh variable on
+every callback invocation would give the uses different identities. The
+original ``scoped_expr`` still binds ``tmp``.
 
 Passing an ordinary Python reference preserves the source through
 copy-on-write. Default mapping reuses unchanged children and copies changed
@@ -686,16 +762,20 @@ Structural Visitor
 ------------------
 
 ``tvm_ffi.structural_visit`` inspects values while letting each matched
-callback choose which children to visit and in what order.
+callback choose which children to visit and in what order. Unlike a walk,
+a matched visitor callback does not automatically continue to the children.
+We will start by observing that behavior, then add recursive calls and
+control their order.
 
 .. code-block:: text
 
    tvm_ffi.structural_visit(root, callbacks=())
 
 ``root`` is the expression, statement, function, module, type, or FFI container
-where visiting starts. A callback is a Python function that receives the
-current value and the active visitor. ``callbacks`` determines which function
-handles each value, with the following forms:
+where visiting starts. A callback receives the current value and the active
+visitor. For example, ``(ir.Expr, visit_expr)``
+selects expression objects and calls the supplied function as
+``visit_expr(node, visitor)``. ``callbacks`` accepts the following forms:
 
 .. list-table::
    :header-rows: 1
@@ -706,7 +786,8 @@ handles each value, with the following forms:
    * - ``(ir.Expr, visit_expr)``
      - Expression nodes are passed to ``visit_expr(node, visitor)``.
    * - ``((ir.prim.Add, ir.prim.Mul), visit_expr)``
-     - Either operator class selects the same ``visit_expr`` function.
+     - Either operator class selects ``visit_expr(node, visitor)``. Each
+       invocation receives one matching node and the active visitor.
    * - ``[(ir.prim.Mul, visit_left), (ir.Expr, visit_expr)]``
      - Multiplications select ``visit_left``; other expressions select
        ``visit_expr``. Entries are tried in order.
@@ -726,8 +807,9 @@ objects.
 
 The callback receives two arguments, ``(value, visitor)``. ``value`` is the
 current object; the supplied ``tvm_ffi.StructuralVisitor`` carries the same
-callbacks into recursive calls.
-A matched callback owns descent; it can choose these operations:
+callbacks into recursive calls. ``structural_visit`` creates this visitor for
+the traversal; the caller does not construct or pass one separately.
+A matched callback controls descent through these operations:
 
 .. list-table::
    :header-rows: 1
@@ -736,14 +818,14 @@ A matched callback owns descent; it can choose these operations:
    * - Within the callback
      - Effect
    * - ``visitor.visit(child)``
-     - Run callback selection and traversal on the chosen child.
+     - The chosen child goes through callback selection and visiting.
    * - ``visitor.default_visit(value)``
-     - Bypass callback selection for this value and traverse its registered
-       children. Child visits still use the same callbacks.
-   * - Return ``None`` without recursive calls.
-     - Finish this callback without visiting children.
-   * - Return ``tvm_ffi.VisitInterrupt(payload)``.
-     - Stop traversal and return the interrupt to the caller.
+     - This value's callback is bypassed and its registered children are
+       visited. Child visits still use the same callbacks.
+   * - ``return None`` without recursive calls
+     - The callback finishes without visiting children.
+   * - ``return tvm_ffi.VisitInterrupt(payload)``
+     - The interrupt reports an early exit to the calling traversal.
 
 Both visitor methods return ``None`` or ``VisitInterrupt``. Child interrupts
 reach the caller when the callback returns them. ``structural_visit``
@@ -770,6 +852,11 @@ We will inspect the following expression:
            return str(int(node))
        return type(node).__name__
 
+``expr`` has a multiplication at its root, with ``x + 1`` in ``expr.a``
+and ``y + 2`` in ``expr.b``. Additions and multiplications both store their
+operands in ``a`` and ``b``. ``describe`` gives each expression a short label
+so that the traces show which callbacks ran.
+
 This callback records the current node but does not recurse:
 
 .. code-block:: python
@@ -782,8 +869,9 @@ This callback records the current node but does not recurse:
    print(visited)
 
 The output is ``['Mul']``. The root matches the callback, which returns
-without visiting children. To continue through the registered structure,
-call ``visitor.default_visit(node)``:
+without visiting children. A walk with this type filter would continue
+automatically. Here, continuation requires a recursive call inside the
+callback:
 
 .. code-block:: python
 
@@ -805,12 +893,38 @@ The output is:
 ``default_visit(node)`` bypasses the current callback for that node and
 visits its registered children. Child visits dispatch through the same
 callback table. This gives us the same order as a pre-order walk.
-Moving the observation after ``default_visit`` gives post-order behavior;
-propagate any ``VisitInterrupt`` returned by the recursive call before
-continuing the observation.
+For the root multiplication, the sequence is: record ``Mul``, visit its
+left addition and descendants, then visit its right addition and descendants.
 
-``visitor.visit(child)`` dispatches on a selected child. For example, visit
-only the multiplication's left operand and collect variables reached there:
+Moving the observation after the recursive call gives post-order behavior:
+
+.. code-block:: python
+
+   post_visited = []
+
+   def visit_post(node, visitor):
+       interrupted = visitor.default_visit(node)
+       if interrupted is not None:
+           return interrupted
+       post_visited.append(describe(node))
+       return None
+
+   tvm_ffi.structural_visit(expr, (ir.Expr, visit_post))
+   print(post_visited)
+
+The output is:
+
+.. code-block:: text
+
+   ['x', '1', 'Add', 'y', '2', 'Add', 'Mul']
+
+The callback checks for an interrupt before recording the parent, so an early
+exit in a child prevents further observations. The position of the recursive
+call determines when the parent is recorded; there is no separate ``order``
+argument.
+
+``visitor.visit(child)`` dispatches on a selected child. The next example
+visits only the multiplication's left operand and collects variables there:
 
 .. code-block:: python
 
@@ -838,6 +952,70 @@ Default descent from the current node proceeds through
 Calling ``visitor.visit(node)`` on that same current node would invoke its
 callback again rather than advance to the children.
 
+Explicit child calls can also change the order within a node. Here, every
+addition and multiplication visits its right operand before its left:
+
+.. code-block:: python
+
+   reversed_variables = []
+
+   def visit_right_first(node, visitor):
+       for child in (node.b, node.a):
+           interrupted = visitor.visit(child)
+           if interrupted is not None:
+               return interrupted
+       return None
+
+   def record_variable(var, visitor):
+       reversed_variables.append(var.name)
+
+   tvm_ffi.structural_visit(
+       expr,
+       [
+           ((ir.prim.Add, ir.prim.Mul), visit_right_first),
+           (ir.Var, record_variable),
+       ],
+   )
+   print(reversed_variables)
+
+The output is ``['y', 'x']``. The root visits ``y + 2`` before ``x + 1``;
+each addition likewise visits its constant before its variable. The callback
+returns a child's interrupt before starting the next child, preserving early
+exit across explicitly arranged calls.
+
+Work before and after recursion can maintain state for the current path.
+The following callback records the ancestry of each variable:
+
+.. code-block:: python
+
+   path = []
+   variable_paths = []
+
+   def visit_with_path(node, visitor):
+       path.append(describe(node))
+       try:
+           if isinstance(node, ir.Var):
+               variable_paths.append("/".join(path))
+           return visitor.default_visit(node)
+       finally:
+           path.pop()
+
+   tvm_ffi.structural_visit(expr, (ir.Expr, visit_with_path))
+   print(variable_paths)
+   print(path)
+
+The output is:
+
+.. code-block:: text
+
+   ['Mul/Add/x', 'Mul/Add/y']
+   []
+
+Each recursive call sees the ancestors pushed by its callers. The ``finally``
+block removes the current node on return, including an interrupted or failed
+visit. The empty final path shows that state from the left subtree does not
+remain when the right subtree is visited.
+
 An early exit must propagate through recursive calls. This callback finds
 ``y`` and returns any interrupt produced while visiting children:
 
@@ -857,11 +1035,41 @@ propagate any child interrupt before visiting the next child.
 ``visitor.def_region_kind()`` reports the current ``tvm_ffi.DefRegionKind``:
 ``NONE`` for ordinary uses, ``DEF_SIMPLE`` for simple definitions, or
 ``DEF_PATTERN`` for pattern definitions. Default descent enters the regions
-registered by IR nodes. For custom definition traversal,
+registered by IR nodes. This callback reads the context while default visiting
+handles a ``Let`` expression's structure:
+
+.. code-block:: python
+
+   tmp = ir.Var("tmp", "int32")
+   scoped_expr = ir.prim.Let(tmp, expr, tmp + tmp)
+   variable_contexts = []
+
+   def record_context(var, visitor):
+       variable_contexts.append((var.name, visitor.def_region_kind().name))
+
+   tvm_ffi.structural_visit(scoped_expr, (ir.Var, record_context))
+   print([kind for name, kind in variable_contexts if name == "tmp"])
+
+The output is:
+
+.. code-block:: text
+
+   ['DEF_SIMPLE', 'NONE', 'NONE']
+
+The callback receives the same variable object at three positions: one
+definition and two uses. Its context comes from the active visitor rather
+than an additional callback parameter.
+
+For custom definition traversal,
 ``visitor.with_def_region_kind(kind, callback)`` runs a zero-argument callable
 in a scoped region and returns its result. Outside ``DEF_PATTERN``, it applies
 the requested kind and restores the previous kind afterward; an enclosing
 ``DEF_PATTERN`` continues to apply even if a nested call requests another kind.
+For example,
+``visitor.with_def_region_kind(tvm_ffi.DefRegionKind.DEF_SIMPLE, lambda: visitor.visit(node.var))``
+visits a selected definition child in a simple-definition region and returns
+any interrupt from that visit. Default visiting already handles this for
+``Let``; an explicit child traversal must preserve the appropriate regions.
 
 The callbacks above are different from a node type's custom ``__s_visit__``
 hook. In an engine callback, ``default_visit(node)`` bypasses that callback;
@@ -873,16 +1081,22 @@ Structural Mutator
 
 ``tvm_ffi.structural_mutate`` combines replacement with explicit control over
 recursion. Its callbacks can select which children to rewrite and arrange
-recursive calls around their local transformations.
+recursive calls around their local transformations. A callback returns the
+complete result for its current position, including any child changes it
+chooses to make. We will first compare returning an unchanged node with
+requesting default mutation, then rewrite a selected child and fold a deeper
+expression.
 
 .. code-block:: text
 
    tvm_ffi.structural_mutate(root, callbacks=())
 
 ``root`` is the expression, statement, function, module, type, or FFI container
-to transform. A callback is a Python function that receives the current value
-and the active mutator, then returns the replacement value. ``callbacks``
-selects that function using the following forms:
+to transform. A callback receives the current value and the active mutator,
+then returns the replacement value. ``callbacks``
+selects that function. In ``(ir.Var, replace_var)``, ``ir.Var`` is the class
+to match and ``replace_var`` is the function supplied by the caller; the
+engine invokes it as ``replace_var(var, mutator)``. The accepted forms are:
 
 .. list-table::
    :header-rows: 1
@@ -893,7 +1107,8 @@ selects that function using the following forms:
    * - ``(ir.Var, replace_var)``
      - Variables are passed to ``replace_var(var, mutator)``.
    * - ``((ir.prim.Add, ir.prim.Mul), mutate_and_fold)``
-     - Either operator class selects the same ``mutate_and_fold`` function.
+     - Either operator class selects ``mutate_and_fold(node, mutator)``.
+       Each invocation receives one matching node and the active mutator.
    * - ``[(ir.prim.Mul, mutate_left), (ir.Var, replace_var)]``
      - Multiplications select ``mutate_left`` and variables select ``replace_var``.
    * - ``mutate_and_fold``
@@ -911,8 +1126,10 @@ follow default mutation. ``object`` or ``typing.Any`` matches all values, while
 
 The callback receives two arguments, ``(value, mutator)``, and returns the
 value to install. ``value`` is the current object. The supplied
-``tvm_ffi.StructuralMutator`` carries the same
-callbacks into recursive calls. The matched callback owns descent:
+``tvm_ffi.StructuralMutator`` carries the same callbacks into recursive calls.
+``structural_mutate`` creates it for the traversal; the caller receives it
+through the callback rather than constructing it. The matched callback
+controls descent through these operations:
 
 .. list-table::
    :header-rows: 1
@@ -921,14 +1138,15 @@ callbacks into recursive calls. The matched callback owns descent:
    * - Within the callback
      - Effect
    * - ``mutator.mutate(child)``
-     - Run callback selection and mutation on the chosen child; return its result.
+     - The chosen child goes through callback selection and mutation. The
+       method returns the resulting child.
    * - ``mutator.default_mutate(value)``
-     - Bypass this value's callback and return its default mutation, with child
-       callbacks applied through the same mutator.
-   * - ``return value`` without recursive calls.
-     - Keep this value with its children unprocessed.
+     - This value's callback is bypassed and default mutation returns the
+       node with its rewritten children. Child mutations use the same callbacks.
+   * - ``return value`` without recursive calls
+     - This value is retained with its children unprocessed.
    * - ``return replacement``
-     - Install the replacement without further traversal by the engine.
+     - The replacement is installed without further traversal by the engine.
 
 Unmatched values follow default mutation. ``structural_mutate`` returns the
 resulting root. Every matched callback must return a valid value, even when
@@ -943,8 +1161,7 @@ current value dispatches to its callback again. There is no ``order`` parameter:
 placing the local rewrite before or after recursive calls chooses the
 processing order.
 
-For example, construct an expression and replace variables only in its
-left operand:
+We will start with the same expression used by the other APIs:
 
 .. code-block:: python
 
@@ -955,7 +1172,55 @@ left operand:
    y = ir.Var("y", "int32")
    expr = (x + 1) * (y + 2)
 
-We can select just the left operand and preserve the original right operand:
+The multiplication's ``a`` and ``b`` fields contain ``x + 1`` and ``y + 2``.
+The following variable rule returns a typed IR constant. A separate callback
+matches the root multiplication and returns it without recursion:
+
+.. code-block:: python
+
+   def replace_var(var, mutator):
+       return ir.const(8, var.ty)
+
+   def keep_multiplication(node, mutator):
+       return node
+
+   unprocessed = tvm_ffi.structural_mutate(
+       expr,
+       [(ir.prim.Mul, keep_multiplication), (ir.Var, replace_var)],
+   )
+   print(unprocessed.same_as(expr))
+
+The output is ``True``. The multiplication callback returns the original
+root, so neither variable is reached. Returning a node unchanged does not
+request recursive mutation of that node.
+
+A callback can instead request default mutation of its current node:
+
+.. code-block:: python
+
+   def mutate_expr(node, mutator):
+       return mutator.default_mutate(node)
+
+   all_replaced = tvm_ffi.structural_mutate(
+       expr,
+       [(ir.Var, replace_var), (ir.Expr, mutate_expr)],
+   )
+   print(all_replaced)
+
+The output is ``T.Add(8, 1) * T.Add(8, 2)``. ``default_mutate`` processes
+both operands and returns a node containing their results. Each child goes
+through callback selection again. Variables match the first entry and become
+constants; additions and the multiplication match the broader ``ir.Expr``
+entry and request default mutation. This is why the more specific variable
+entry appears first. Arithmetic remains unevaluated until a callback folds it.
+
+If only ``(ir.Var, replace_var)`` were registered, unmatched arithmetic nodes
+would follow default mutation automatically and produce the same result.
+The explicit ``mutate_expr`` callback shows how a matched node can request
+that behavior.
+
+We can now select just the left operand and preserve the original right
+operand:
 
 .. code-block:: python
 
@@ -964,9 +1229,6 @@ We can select just the left operand and preserve the original right operand:
        if left.same_as(node.a):
            return node
        return ir.prim.Mul(left, node.b, loc=node.loc)
-
-   def replace_var(var, mutator):
-       return ir.const(8, var.ty)
 
    partial = tvm_ffi.structural_mutate(
        expr,
@@ -989,13 +1251,21 @@ The output is:
 
 ``mutator.mutate(node.a)`` applies callback dispatch to the selected child.
 The unmatched addition follows default mutation, reaching ``x`` and replacing
-it with 8. The root callback returns a new multiplication that shares the
-original right subtree. Its source location is retained through ``loc``.
+it with 8. This recursive call returns the new left operand; it does not
+assign to ``node.a``. The root callback installs that result by constructing
+a new multiplication. If the left operand were unchanged, the identity check
+would return the original multiplication instead.
+
+The right operand is passed directly to the constructor, so ``y`` is never
+offered to ``replace_var`` in this traversal. The ``True`` identity check
+confirms that the output shares that entire subtree with the input.
+``loc=node.loc`` preserves the multiplication's source location. The final
+line shows that the input expression still contains both symbolic variables.
 
 ``mutator.default_mutate(node)`` rewrites the current node's children without
-invoking its callback again on that node. To fold
-``((8 + 1) * (3 - 2)) // 4`` from its leaves to its root, construct the
-arithmetic nodes and define a local rule:
+invoking its callback again on that node. The next example constructs
+``((8 + 1) * (3 - 2)) // 4`` as IR, then folds it from its leaves to its root
+with a local rule:
 
 .. code-block:: python
 
@@ -1036,9 +1306,16 @@ arithmetic nodes and define a local rule:
 
 The output is ``2``. The explicit recursive call processes the addition and
 subtraction before multiplication, and multiplication before division. This
-gives the same result as the post-order map. A map is shorter when this order
-is all a rewrite needs; a mutator lets each callback arrange its own recursive
-calls.
+gives the same result as the post-order map. ``rewritten`` is the current
+node with its child results installed: when division is reached after descent,
+its operands are the constants 9 and 4. The local rule returns the constant 2.
+The ``isinstance`` check keeps the arithmetic rule from accessing ``a`` and
+``b`` on variables or literals, which also match ``ir.Expr``.
+
+The explicit constructors preserve the arithmetic as IR rather than letting
+Python evaluate ``((8 + 1) * (3 - 2)) // 4`` before traversal starts. A map is
+shorter when uniform post-order folding is all a rewrite needs; a mutator
+allows a different sequence of recursive calls for each matched node.
 
 The engine does not traverse a mutator callback's returned replacement again.
 We can observe this by replacing a variable with a newly constructed addition:
@@ -1074,15 +1351,63 @@ The output is:
 Neither new literal is passed to ``observe_literal``. If a replacement's
 children need processing, the callback must explicitly request that descent.
 This lets a callback determine exactly which parts of a replacement are
-already complete.
+already complete. For example, ``mutator.default_mutate(replacement)`` would
+process those new children without dispatching on the addition itself.
 
-The supplied ``mutator`` also exposes ``def_region_kind()`` to inspect
-definition/use context and ``with_def_region_kind(kind, callback)`` to run a
-zero-argument callable in a scoped definition region. The kinds are
-``tvm_ffi.DefRegionKind.NONE``, ``DEF_SIMPLE``, and ``DEF_PATTERN``. The scoped
-method returns the callable's result and restores the previous kind afterward;
-an enclosing ``DEF_PATTERN`` takes precedence over a nested requested kind.
-Default mutation already applies the definition regions registered by IR nodes.
+Rewriting a bound variable requires consistent identities at its definition
+and uses. ``mutator.def_region_kind()`` reports ``tvm_ffi.DefRegionKind.NONE``
+for ordinary uses, ``DEF_SIMPLE`` for simple definitions, or ``DEF_PATTERN``
+for pattern definitions. Default mutation supplies the regions registered by
+IR nodes. The following callback creates a new symbol at a simple definition
+and reuses it at later occurrences:
+
+.. code-block:: python
+
+   tmp = ir.Var("tmp", "int32")
+   scoped_expr = ir.prim.Let(tmp, expr, tmp + tmp)
+
+   def rename_local(var, mutator):
+       replacement = mutator.var_remap_get(var)
+       if replacement is not None:
+           return replacement
+       if mutator.def_region_kind() == tvm_ffi.DefRegionKind.DEF_SIMPLE:
+           replacement = ir.Var(var.name + "_renamed", var.ty)
+           mutator.var_remap_set(var, replacement)
+           return replacement
+       return var
+
+   renamed_local = tvm_ffi.structural_mutate(scoped_expr, (ir.Var, rename_local))
+   print(renamed_local.var.name)
+   print(renamed_local.body.a.same_as(renamed_local.var))
+   print(renamed_local.body.b.same_as(renamed_local.var))
+   print(scoped_expr.var.name)
+
+The output is:
+
+.. code-block:: text
+
+   tmp_renamed
+   True
+   True
+   tmp
+
+``var_remap_get(var)`` looks up a replacement by variable identity and returns
+``None`` when none is recorded. ``var_remap_set(var, replacement)`` records the
+mapping for this mutator. The callback creates ``tmp_renamed`` at the definition;
+both uses then retrieve that same object. The free inputs ``x`` and ``y``
+remain unchanged. Because a matched callback handles the variable itself,
+it consults the remap explicitly rather than assuming that default mutation
+will apply it afterward. This remap handles variable identities; it is not a
+cache for every rewritten arithmetic node.
+
+For custom definition traversal,
+``mutator.with_def_region_kind(kind, callback)`` runs a zero-argument callable
+in a scoped region and returns its result. For example,
+``mutator.with_def_region_kind(tvm_ffi.DefRegionKind.DEF_SIMPLE, lambda: mutator.mutate(node.var))``
+returns the result of mutating a selected definition child. The previous kind
+is restored afterward; an enclosing ``DEF_PATTERN`` takes precedence over a
+nested requested kind. Default mutation already performs the required
+definition traversal for ``Let``.
 
 Ordinary Python references preserve the source through copy-on-write, as in
 the left-operand example. Default mutation copies changed paths and reuses
