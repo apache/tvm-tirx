@@ -2012,8 +2012,24 @@ llvm::Value* CodeGenLLVM::CreateMaskedStore(const CallObj* op) {
             << "The masked store intrinsic does not support declaring store as volatile.";
         llvm::Value* to_store =
             subelement_i == -1 ? value : builder_->CreateExtractElement(value, subelement_i);
-        last_store = builder_->CreateMaskedStore(to_store, buffer_ptr.addr, llvm::Align(alignment),
-                                                 predicate);
+
+        if (predicate->getType()->isVectorTy()) {
+          last_store = builder_->CreateMaskedStore(to_store, buffer_ptr.addr,
+                                                   llvm::Align(alignment), predicate);
+          return last_store;
+        }
+
+        // llvm.masked.store only accepts vectors: store a scalar lane as a 1-element vector.
+        llvm::Type* vector_type = llvm::FixedVectorType::get(to_store->getType(), 1);
+        llvm::Type* mask_vector_type = llvm::FixedVectorType::get(predicate->getType(), 1);
+
+        llvm::Value* vector_value = builder_->CreateInsertElement(
+            llvm::UndefValue::get(vector_type), to_store, ConstInt32(0));
+        llvm::Value* mask = builder_->CreateInsertElement(llvm::UndefValue::get(mask_vector_type),
+                                                          predicate, ConstInt32(0));
+
+        last_store = builder_->CreateMaskedStore(vector_value, buffer_ptr.addr,
+                                                 llvm::Align(alignment), mask);
         return last_store;
       };
   BufferAccessHelper(buffer, indices, predicate, value_dtype, make_store);
