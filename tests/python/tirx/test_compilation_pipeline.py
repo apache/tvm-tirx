@@ -99,7 +99,7 @@ def test_verify_memory_rejects_host_store_to_gpu_tensor():
     def kernel(A: T.Tensor((1,), "float32")):
         A[0] = T.float32(1)
 
-    with pytest.raises(RuntimeError, match="Did you forget to bind"):
+    with pytest.raises(RuntimeError, match="accessed outside a GPU kernel scope"):
         _prepare_for_cuda(kernel)
 
 
@@ -109,7 +109,7 @@ def test_verify_memory_rejects_host_store_to_gpu_tensor_view():
         A_view = T.decl_tensor(A.data, ty_args=[T.Tensor((1,), "float32")])
         A_view[0] = T.float32(1)
 
-    with pytest.raises(RuntimeError, match="Did you forget to bind"):
+    with pytest.raises(RuntimeError, match="accessed outside a GPU kernel scope"):
         _prepare_for_cuda(kernel)
 
 

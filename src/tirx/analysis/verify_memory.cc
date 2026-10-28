@@ -169,8 +169,7 @@ class MemoryAccessVerifier final : public StmtExprVisitor {
     // The verification fails in this case.
     std::stringstream s;
     s << "Variable `" << var
-      << "` is directly accessed by host memory (it is not contained in a thread environment or in "
-         "the function arguments.";
+      << "` refers to GPU memory, but is accessed outside a GPU kernel scope.";
     errs_.push_back(s.str());
   }
 
