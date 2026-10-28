@@ -59,6 +59,11 @@ The four entry points have these Python call signatures:
    tvm_ffi.structural_visit(root, callbacks=())
    tvm_ffi.structural_mutate(root, callbacks=())
 
+The first examples use ``root`` and ``callbacks``, with ``order`` when needed.
+The definition-region argument can stay at its default until we reach
+:ref:`ir-definition-regions`. In the callback examples below, ``ir`` refers
+to ``tvm_tirx.ir``.
+
 ``root`` is the value at which traversal starts. It can be an expression,
 statement, function, module, type, or FFI container. The root itself participates
 in callback selection, as do values reached through structural descent.
@@ -135,8 +140,8 @@ The output is:
 
    (x + 1) * (y + 2)
 
-The expression has this structure. Binary arithmetic nodes store their
-operands in ``a`` and ``b``:
+The diagram below shows the arithmetic operands. Binary arithmetic nodes
+store their operands in ``a`` and ``b``:
 
 .. code-block:: text
 
@@ -148,10 +153,11 @@ operands in ``a`` and ``b``:
        ├── a: Var       y
        └── b: IntImm    2
 
-Each node type registers its structural fields with TVM FFI. The structural
-operations follow these fields and registered child traversal, so a callback
-can focus on the node types it handles. The examples below run in order and
-share the variables defined above.
+Structural traversal also reaches types and other registered fields omitted
+from this diagram. The traces below select ``ir.Expr`` to display only
+expression nodes. Each node type registers its structural fields or custom
+child traversal with TVM FFI, so callbacks can focus on the types they handle.
+The examples below run in order and share the variables defined above.
 
 Structural Walk
 ---------------
@@ -174,7 +180,7 @@ value controls that recursion:
    * - ``tvm_ffi.VisitInterrupt(payload)``
      - Stop the whole walk and return the interrupt to the caller.
 
-The entry point returns ``None`` on completion or the ``VisitInterrupt`` on
+``structural_walk`` returns ``None`` on completion or the ``VisitInterrupt`` on
 early exit. It does not return collected nodes or a rewritten root. Store
 observations in callback state, such as a list, and read an early-exit payload
 through the returned interrupt's ``value`` field.
@@ -315,8 +321,9 @@ Structural Map
 A map applies replacement rules with automatic recursion. Its normal callback
 is called as ``handler(value)``; a ``with_def_region_kind`` handler is called
 as ``handler(value, kind)``. Each handler must return the value to keep at
-that position: either its input unchanged or a valid replacement. The entry
-point returns the resulting root. Assign that result to use the transformed IR.
+that position: either its input unchanged or a valid replacement.
+``structural_map`` returns the resulting root. Assign that result to use the
+transformed IR.
 
 The ``order`` argument determines both the callback's input and what happens
 to its result:
@@ -402,7 +409,8 @@ The output is ``45``. The callback replaces the two additions with 9 and 5
 before it receives the enclosing multiplication, so it can replace that
 node with 45 as well.
 
-The same callback in pre-order gives a different result:
+Starting again from ``bound``, the same callback in pre-order gives a different
+result:
 
 .. code-block:: python
 
@@ -426,9 +434,12 @@ nothing changes. Falling off a callback returns ``None``; it does not mean
 Structural Visitor
 ------------------
 
+Walk processes children in their registered order. A visitor lets a callback
+choose which children to visit and in what order.
+
 ``structural_visit`` calls its handler as ``handler(value, visitor)``.
-``visitor`` is the active ``tvm_ffi.StructuralVisitor``, supplied by the
-entry point rather than constructed by the callback. A matched callback
+``visitor`` is the active ``tvm_ffi.StructuralVisitor``, supplied by
+``structural_visit`` rather than constructed by the callback. A matched callback
 owns recursion: it chooses whether, when, and which children to visit.
 Unmatched node types still follow default structural descent.
 
@@ -449,9 +460,9 @@ Unmatched node types still follow default structural descent.
      - Stop traversal and return the interrupt to the caller.
 
 Both visitor methods return ``None`` or ``VisitInterrupt``. Return a child
-interrupt from the callback so it reaches the entry point. The entry point
-has the same return contract as walk: ``None`` on completion, otherwise the
-interrupt. ``WalkResult`` is a walk-only control signal; visitors select
+interrupt from the callback so it reaches the caller. ``structural_visit``
+returns ``None`` on completion, otherwise the interrupt, just like walk.
+``WalkResult`` is a walk-only control signal; visitors select
 subtrees through their recursive calls instead.
 
 Requesting Default Descent
@@ -530,9 +541,10 @@ callback again rather than advance to the children.
 Structural Mutator
 ------------------
 
+A mutator combines the visitor's control over child traversal with replacement.
 ``structural_mutate`` calls its handler as ``handler(value, mutator)``.
 ``mutator`` is the active ``tvm_ffi.StructuralMutator`` supplied by the
-entry point. The callback returns the value to install at this position and
+call. The callback returns the value to install at this position and
 owns all recursive processing of its matched value:
 
 .. list-table::
@@ -551,8 +563,8 @@ owns all recursive processing of its matched value:
    * - ``return replacement``
      - Install the replacement without further traversal by the engine.
 
-Unmatched values follow default mutation. The entry point returns the resulting
-root, which the caller must retain. Every matched callback must return a valid
+Unmatched values follow default mutation. ``structural_mutate`` returns the
+resulting root, which the caller must retain. Every matched callback must return a valid
 value, even when unchanged; ``None`` does not request default mutation or mean
 "keep the input." There is no ``SKIP`` or ``VisitInterrupt`` control result.
 
@@ -565,10 +577,9 @@ the processing order.
 Rewriting Selected Children
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Suppose we want to replace variables only in the left subtree. A map would
-apply its variable rule throughout the expression. A mutator can select the
-left operand, rewrite it, and rebuild the multiplication with its original
-right operand:
+The visitor above examined only the left operand. We can make the same choice
+while replacing variables: select the left operand, rewrite it, and rebuild
+the multiplication with its original right operand:
 
 .. code-block:: python
 
@@ -609,8 +620,9 @@ Requesting Default Mutation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 ``mutator.default_mutate(node)`` rewrites the current node's children without
-invoking its engine callback again on that node. We can use it to write an
-explicit bottom-up transformation:
+invoking its callback again on that node. We will reuse ``bound``, where both
+variables have already been replaced with constants, and perform the same
+bottom-up fold as the post-order map:
 
 .. code-block:: python
 
@@ -626,9 +638,7 @@ explicit bottom-up transformation:
 The output is ``45``. Child mutation happens before the local fold, giving
 the same result as the post-order map. A map is shorter when this automatic
 order is all a rewrite needs; a mutator lets each callback arrange its own
-recursive calls. As with visiting, calling ``mutator.mutate(node)`` on the
-current node re-enters that node's callback. Call ``default_mutate`` for
-default descent, or ``mutate`` on a chosen child.
+recursive calls.
 
 Returned Replacements Are Final
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -669,58 +679,13 @@ children need processing, the callback must explicitly request that descent.
 This lets a callback determine exactly which parts of a replacement are
 already complete.
 
-Ownership and Shared Objects
-----------------------------
-
-Container hooks visit ``Array`` and ``List`` elements, and ``Map`` and
-``Dict`` values. Map and dictionary keys remain structural anchors, so a
-mapping callback does not replace them. Reflected fields marked
-``structural_eq="ignore"`` are also omitted from default traversal.
-
-The examples pass ordinary Python references. Mapping and mutation preserve
-the source through copy-on-write, reuse unchanged children, and return the
-original node when default descent makes no changes. A map callback must
-not modify its input in place. The name "mutator" describes the replacement
-operation; using ``structural_mutate`` does not itself request in-place writes.
-Ownership-transfer and optional native in-place hooks are separate mechanisms
-covered by TVM FFI's ownership contract. For ownership-aware implementations,
-a ``structural_mutate`` callback may accept a third positional argument,
-``handler(value, mutator, inplace_mode)``. This integer compares with
-``tvm_ffi.InplaceMode.DISALLOW`` and ``ALLOW``; ``ALLOW`` permits storage reuse
-only along a uniquely owned path. Passing ``root._move()`` to map or mutate
-transfers ownership of that Python reference. The two-argument callbacks and
-ordinary references used in this chapter do not need that mechanism.
-
-Walks visit occurrences rather than deduplicating shared objects:
-
-.. code-block:: python
-
-   shared = x + 1
-   twice = ir.prim.Mul(shared, shared)
-   additions = []
-   tvm_ffi.structural_walk(twice, (ir.prim.Add, additions.append))
-   print(len(additions))
-   print(additions[0].same_as(additions[1]))
-
-The output is:
-
-.. code-block:: text
-
-   2
-   True
-
-There are two occurrences of the same addition. To visit an object once,
-a pre-order walk can keep a visited set and return ``SKIP`` on repeats.
-Map callbacks also run at each occurrence; a rewrite that must preserve
-shared outputs keeps its own memo. The default variable-remapping behavior
-helps keep variable definitions and uses consistent, but it does not turn
-all callbacks into a graph-wide memoized rewrite.
-
 Working on Functions and Types
 ------------------------------
 
-The same operations work on statements, functions, modules, and type objects.
-For example, use the add-one function from the walkthrough:
+We can now apply the same variable-substitution rule to a complete function.
+The root changes from an arithmetic expression to a function, whose structural
+children include both its parameter types and its body. We will use the
+add-one function from the walkthrough:
 
 .. literalinclude:: ../get_started/examples/add_one_cpu.py
    :language: python
@@ -729,8 +694,9 @@ For example, use the add-one function from the walkthrough:
 
 .. _ir-shape-specialization:
 
-The dimension ``n`` occurs in both tensor types and the loop bound. A map
-can specialize these uses together:
+The dimension ``n`` occurs in both tensor types and the loop bound. As in
+``specialize_var``, an identity test selects the symbol to replace. A map
+can specialize these occurrences together:
 
 .. code-block:: python
 
@@ -792,11 +758,60 @@ loop binder; the resulting definition sites must remain valid.
 Visit and mutate expose the current kind through
 ``visitor.def_region_kind()`` and ``mutator.def_region_kind()`` instead of
 accepting a separate callback table. Each also provides
-``with_def_region_kind(kind, callback)``: it calls the zero-argument callable
-under that definition kind, restores the previous kind afterward, and returns
-the callable's result. Default descent already enters the definition regions
-registered by IR nodes; explicit scopes are for callbacks implementing their
-own definition traversal.
+``with_def_region_kind(kind, callback)``, which runs a zero-argument callable
+and returns its result. Outside a ``DEF_PATTERN`` region, the requested kind
+applies during that call and the previous kind is restored afterward. An
+enclosing ``DEF_PATTERN`` remains active even if a nested call requests another
+kind. Default descent already enters the definition regions registered by IR
+nodes; explicit scopes are for callbacks implementing their own definition
+traversal.
+
+Ownership and Shared Objects
+----------------------------
+
+Container hooks visit ``Array`` and ``List`` elements, and ``Map`` and
+``Dict`` values. Map and dictionary keys remain structural anchors, so a
+mapping callback does not replace them. Reflected fields marked
+``structural_eq="ignore"`` are also omitted from default traversal.
+
+The examples pass ordinary Python references. Mapping and mutation preserve
+the source through copy-on-write, reuse unchanged children, and return the
+original node when default descent makes no changes. A map callback must
+not modify its input in place. The name "mutator" describes the replacement
+operation; using ``structural_mutate`` does not itself request in-place writes.
+Ownership-transfer and optional native in-place hooks are separate mechanisms
+covered by TVM FFI's ownership contract. For ownership-aware implementations,
+a ``structural_mutate`` callback may accept a third positional argument,
+``handler(value, mutator, inplace_mode)``. This integer compares with
+``tvm_ffi.InplaceMode.DISALLOW`` and ``ALLOW``; ``ALLOW`` permits storage reuse
+only along a uniquely owned path. Passing ``root._move()`` to map or mutate
+transfers ownership of that Python reference. The two-argument callbacks and
+ordinary references used in this chapter do not need that mechanism.
+
+Walks visit occurrences rather than deduplicating shared objects:
+
+.. code-block:: python
+
+   shared = x + 1
+   twice = ir.prim.Mul(shared, shared)
+   additions = []
+   tvm_ffi.structural_walk(twice, (ir.prim.Add, additions.append))
+   print(len(additions))
+   print(additions[0].same_as(additions[1]))
+
+The output is:
+
+.. code-block:: text
+
+   2
+   True
+
+There are two occurrences of the same addition. To visit an object once,
+a pre-order walk can keep a visited set and return ``SKIP`` on repeats.
+Map callbacks also run at each occurrence; a rewrite that must preserve
+shared outputs keeps its own memo. The default variable-remapping behavior
+helps keep variable definitions and uses consistent, but it does not turn
+all callbacks into a graph-wide memoized rewrite.
 
 Further Tools
 -------------
