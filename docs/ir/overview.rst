@@ -171,38 +171,28 @@ For the CPU ``add_one`` function from Quick Start:
 
    from tvm_tirx import ir
 
-   print(ir.format_tree(add_one.body, hide_fields=("loc", "ty"), inline_width=50))
+   print(ir.format_tree(add_one.body, inline_width=50))
 
-This view omits source locations and expression types to emphasize the loop
-and its computation:
+This view folds compact loop fields into the header and shows variable names
+at use sites. The loop variable keeps its full declaration, including its type:
 
 .. code-block:: text
 
    SeqStmt
-   └── seq: Array
-       └── [0]: For(kind=0)
-           ├── var: Var(name='i')
-           ├── begin: IntImm(value=0)
-           ├── end: Var(name='n')
-           ├── step: IntImm(value=1)
-           ├── body: SeqStmt
-           │   └── seq: Array
-           │       └── [0]: TensorStore
-           │           ├── dest: Var(name='B')
-           │           ├── indices: [Var(name='i')]
-           │           └── value: Add
-           │               ├── a: TensorLoad
-           │               │   ├── source: Var(name='A')
-           │               │   └── indices: [Var(name='i')]
-           │               └── b: FloatImm(value=1.0)
-           └── annotations: {}
+   └── seq[0]: For(var=Var(ty=PrimType(dtype=int32), name='i'), begin=IntImm(ty=PrimType(dtype=int32), value=0), end=n, step=IntImm(ty=PrimType(dtype=int32), value=1), kind=0, annotations={})
+       └── body: SeqStmt
+           └── seq[0]: TensorStore(dest=B, indices=[i])
+               └── value: Add(ty=PrimType(dtype=float32), b=FloatImm(ty=PrimType(dtype=float32), value=1.0))
+                   └── a: TensorLoad(ty=PrimType(dtype=float32), source=A, indices=[i])
 
-Each edge names a reflected field or container index. ``SeqStmt`` wrappers
-remain visible even when they contain only one statement. The default view
-hides only ``loc`` and fields that match known reflected defaults; it retains
+Each edge names a reflected field, with array indices folded into labels such
+as ``seq[0]``. ``SeqStmt`` wrappers remain visible even when they contain only
+one statement. Reflected definition flags identify binding sites, including
+parameters and loop variables; ordinary variable references print by name.
+The default view hides only ``loc`` and fields that match known reflected defaults; it retains
 expression types. ``max_depth`` bounds expansion, and ``inline_width=0``
-expands child objects instead of combining them on a line. The result is
-inspection text; use :doc:`printing_and_parsing` for TVMScript and round trips.
+expands child objects instead of combining them in headers or on one line.
+The result is inspection text; use :doc:`printing_and_parsing` for TVMScript and round trips.
 
 .. _choose-a-chapter:
 

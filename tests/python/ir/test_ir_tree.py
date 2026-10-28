@@ -21,7 +21,7 @@ from typing import Any
 
 import pytest
 import tvm_ffi
-from tvm_ffi.dataclasses import py_class
+from tvm_ffi.dataclasses import field, py_class
 
 import tvm_tirx.testing
 from tvm_tirx import ir
@@ -52,7 +52,7 @@ def test_quick_start(device):
     text = ir.format_tree(function, inline_width=0)
     for name in (
         "Function",
-        "params:",
+        "params",
         "name='A'",
         "name='B'",
         "TensorType",
@@ -66,7 +66,7 @@ def test_quick_start(device):
     assert "loc:" not in text
     assert "global_symbol" in text
     if device == "cpu":
-        assert "For(kind=0)" in text
+        assert "For(" in text and "kind=0" in text
     else:
         assert "RegionStmt" in text
         assert "If" in text
@@ -103,7 +103,7 @@ def test_extension_fields_and_defaults():
     extension = TreeExtension(label="extension", child=ir.Var("x", "int32"))
     text = ir.format_tree(extension)
     assert "label='extension'" in text  # Inherited field, no registered formatter.
-    assert "name='x'" in text
+    assert "child=x" in text
     assert "count=" not in text
     assert "count=0" in ir.format_tree(extension, show_defaults=True)
     extension.count = 2
@@ -129,10 +129,10 @@ def test_locations_and_containers():
 def test_object_map_keys_and_shared_references():
     var = ir.Var("shared", "int32")
     text = ir.format_tree(tvm_ffi.convert({var: 7}), inline_width=0)
-    assert "name='shared'" in text
+    assert "shared" in text
     assert "[1]: 7" in text
     text = ir.format_tree([var, var], inline_width=0)
-    assert text.count("name='shared'") == 2
+    assert text.count("shared") == 2
     assert "<cycle>" not in text
 
 
@@ -160,6 +160,55 @@ def test_depth_and_cycles(inline_width):
 def test_invalid_limits(options):
     with pytest.raises(ValueError):
         ir.format_tree(None, **options)
+
+
+@py_class("testing.tree.Binding")
+class TreeBinding(tvm_ffi.Object):
+    declaration: Any = field(structural_eq="def-simple")
+    value: Any
+
+
+def test_reflected_binding_sites_and_indexed_edges():
+    var = ir.Var("item", "int32")
+    # A downstream binder participates through field metadata, not a node table
+    # or a field-name heuristic. Containers preserve the declaration role.
+    text = ir.format_tree(TreeBinding(declaration=[var], value=var), inline_width=0)
+    assert "declaration[0]: Var(name='item')" in text
+    assert "ty: PrimType(dtype=int32)" in text
+    assert "value=item" in text
+    assert "Array" not in text
+    seq = ir.SeqStmt([ir.Evaluate(var), ir.Evaluate(var)])
+    text = ir.format_tree(seq, inline_width=0)
+    assert "seq[0]: Evaluate(value=item)" in text
+    assert "seq[1]: Evaluate(value=item)" in text
+
+
+def test_loop_header_and_variable_uses():
+    @T.function
+    def copy(A: T.Tensor((4,), T.float32), B: T.Tensor((4,), T.float32)):
+        for i in range(4):
+            B[i] = A[i]
+
+    text = ir.format_tree(copy.body, inline_width=80)
+    header = next(line for line in text.splitlines() if "For(" in line)
+    for field_name in (
+        "var=Var(",
+        "ty=PrimType(dtype=int32)",
+        "begin=",
+        "end=",
+        "step=",
+        "annotations={}",
+    ):
+        assert field_name in header
+    assert "seq[0]: For(" in header
+    assert "TensorStore(dest=B, indices=[i])" in text
+    assert "source=A" in text
+    assert "name='A'" not in text
+    # Parameter definitions retain the full variable object and its type.
+    full = ir.format_tree(copy, inline_width=0)
+    assert "params[0]: Var(name='A')" in full
+    assert "params[1]: Var(name='B')" in full
+    assert "ty: TensorType" in full
 
 
 def test_invalid_field_filter():
