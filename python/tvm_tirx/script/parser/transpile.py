@@ -174,7 +174,7 @@ class ModuleContext:
         self.environment = environment
         # Generated name of the shared IR namespace used for module frames and MISSING.
         self.ir_prefix = ir_prefix
-        # Entry callback creates/reuses a LocationEntry and emits its AST table reference
+        # Entry callback creates/reuses a LocationEntry and emits its AST name reference
         # for _call_dialect, binding locations and expression instrumentation.
         self.make_loc_expr = make_loc_expr
         # _call and _attach_loc omit native source instrumentation when false.
@@ -344,7 +344,7 @@ class IRBuilderTranspiler(ast.NodeTransformer):
             or node is self.binding_expression
         ):
             return value
-        # _L[i](value)
+        # _L_i(value)
         return ast.copy_location(ast.Call(self.module.make_loc_expr(node), [value], []), node)
 
     @staticmethod
@@ -462,7 +462,7 @@ class IRBuilderTranspiler(ast.NodeTransformer):
         #     Module.f
         #
         # Builder:
-        #     _L[i](Module.f)
+        #     _L_i(Module.f)
         # -------------------------------------------------
         # Keeping the module owner prevents a local f from shadowing its GlobalVar.
         root = node
@@ -496,7 +496,7 @@ class IRBuilderTranspiler(ast.NodeTransformer):
         #     [a, b]
         #
         # Builder:
-        #     _L[i]([a, b])
+        #     _L_i([a, b])
         # -------------------------------------------------
         result = self.generic_visit(node)
         return result if self.bypass_ast_rewrite else self._attach_loc(result, node)
@@ -527,7 +527,7 @@ class IRBuilderTranspiler(ast.NodeTransformer):
         #     buffer[index]
         #
         # Builder:
-        #     _L[i](buffer[index])
+        #     _L_i(buffer[index])
         # -------------------------------------------------
         node.value = self.visit(node.value)
         node.slice = self._rewrite_index(node.slice)
@@ -613,11 +613,11 @@ class IRBuilderTranspiler(ast.NodeTransformer):
         #     f(a)
         #
         # Builder:
-        #     _L[i].ctx(lambda: f(a))
+        #     _L_i.ctx(lambda: f(a))
         # -------------------------------------------------
         # Calls retain their construction context; bind_ owns ordinary RHS attribution.
         if self.module.track_loc and callee is None:
-            # _L[i].ctx(lambda: callee(*args, **keywords))
+            # _L_i.ctx(lambda: callee(*args, **keywords))
             return ast.copy_location(
                 ast.Call(
                     ast.Attribute(self.module.make_loc_expr(node), "ctx", ast.Load()),
@@ -650,7 +650,7 @@ class IRBuilderTranspiler(ast.NodeTransformer):
         #     a + b
         #
         # Builder:
-        #     _L[i](a + b)
+        #     _L_i(a + b)
         # -------------------------------------------------
         return (
             self._attach_loc(self.generic_visit(node), node)
@@ -1164,7 +1164,7 @@ class IRBuilderTranspiler(ast.NodeTransformer):
         #     f()
         #
         # Builder:
-        #     X.emit_(_L[i].ctx(lambda: f()), loc=_L[i])
+        #     X.emit_(_L_i.ctx(lambda: f()), loc=_L_i)
         # -------------------------------------------------
         if self.bypass_ast_rewrite:
             return self.generic_visit(node)
@@ -1878,7 +1878,7 @@ class IRBuilderTranspiler(ast.NodeTransformer):
                         [translated, ast.Name(const_args, ast.Load())],
                         [],
                     )
-                # x = X.arg_("x", annotation, loc=_L[i])
+                # x = X.arg_("x", annotation, loc=_L_i)
                 fallback = self._call_dialect("arg_", [ast.Constant(name), translated], parameter)
             # Constexprs have no ABI slot. Optional None parameters retain a slot
             # while binding Python None for later annotations and body guards.

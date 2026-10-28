@@ -427,7 +427,7 @@ def bind_(
         # Source
         x = value
         # Generated builder
-        x = X.bind_(value, name="x", loc=_L[0], value_loc=_L[1])
+        x = X.bind_(value, name="x", loc=_L_0, value_loc=_L_1)
 
         # TIRx concise scope entry
         tid = T.launch_thread("threadIdx.x", 128)
@@ -596,7 +596,7 @@ def emit_(value: Any, *, loc: _Loc = None) -> None:
         # Source
         T.evaluate(1)
         # Generated builder
-        X.emit_(X.evaluate(1), loc=_L[0])
+        X.emit_(X.evaluate(1), loc=_L_0)
     """
     raise NotImplementedError
 

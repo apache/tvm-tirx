@@ -604,17 +604,14 @@ def _prepare_transpiler(
 
     builder_name, ir_prefix = make_fresh_name("_X"), make_fresh_name("_I")
     namespace[ir_prefix] = builder_ir
-    loc_table_name = make_fresh_name("_L") if track_loc else None
     if track_loc:
         # Entries contain fixed native metadata only. The existing rewrite creates
         # them on demand; there is no location collection pass or retained AST.
         source_name = SourceName(filename)
-        loc_entries: list[LocationEntry] = []
-        loc_indices: dict[tuple[int, int, int, int], int] = {}
-        namespace[loc_table_name] = loc_entries
+        loc_names: dict[tuple[int, int, int, int], str] = {}
 
     def make_loc_expr(node: ast.AST) -> ast.expr:
-        """Materialize a needed location and emit its injected table reference."""
+        """Materialize a needed location and emit its injected name."""
         if not track_loc:
             return ast.copy_location(ast.Constant(None), node)
         coordinates = (
@@ -623,14 +620,11 @@ def _prepare_transpiler(
             node.end_lineno,
             node.end_col_offset + 1,
         )
-        index = loc_indices.get(coordinates)
-        if index is None:
-            index = len(loc_entries)
-            loc_indices[coordinates] = index
-            loc_entries.append(LocationEntry(SourceLoc(source_name, *coordinates)))
-        location = ast.Subscript(
-            ast.Name(loc_table_name, ast.Load()), ast.Constant(index), ast.Load()
-        )
+        name = loc_names.get(coordinates)
+        if name is None:
+            name = loc_names[coordinates] = make_fresh_name("_L_")
+            namespace[name] = LocationEntry(SourceLoc(source_name, *coordinates))
+        location = ast.Name(name, ast.Load())
         return ast.copy_location(location, node)
 
     context = ModuleContext(
