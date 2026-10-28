@@ -69,9 +69,10 @@ and traversal order, and finally distinguish variable definitions from uses.
        root, callbacks=(), with_def_region_kind=(), order="post")
 
 ``root`` is the expression, statement, function, module, type, or FFI container
-where traversal starts. The ``callbacks`` parameter determines which Python
-function runs for a matching node. For example, this walk prints the names
-of the variables in ``(x + 1) * (y + 2)``:
+where traversal starts. The ``callbacks`` parameter accepts a ``(Type, handler)``
+pair, where ``Type`` is the node class to match and ``handler`` is the function
+to call for each match. For example, the following walk prints the names of
+the variables in ``(x + 1) * (y + 2)``:
 
 .. code-block:: python
 
@@ -94,18 +95,10 @@ The output is:
    x
    y
 
-``root=expr`` starts the walk at the multiplication. In
-``callbacks=(ir.Var, on_var)``, ``ir.Var`` selects variable nodes and
-``on_var`` is the function to call for each one. The walker calls
-``on_var(x)`` and then ``on_var(y)``. Each call receives the variable object,
-and ``var.name`` reads its name. The arithmetic nodes and constants do not
-match ``ir.Var``, so they do not call ``on_var``; traversal still follows
-the arithmetic operands to reach the variables.
-
-This is the ``(Type, handler)`` form of the ``callbacks`` parameter:
-``Type`` is ``ir.Var`` and ``handler`` is ``on_var``. The argument contains
-the function ``on_var`` itself; the walker calls it later with each matching
-variable.
+Here, ``ir.Var`` is the class to match and ``on_var`` is the handler.
+Starting at ``expr``, the walker calls ``on_var(x)`` and then ``on_var(y)``.
+Each call receives a variable object and prints its name through ``var.name``.
+The arithmetic nodes and constants are traversed without calling ``on_var``.
 
 The following table lists the forms accepted by ``callbacks``. The function
 names are defined in this section's examples:
