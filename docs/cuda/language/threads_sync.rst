@@ -17,13 +17,14 @@
 
 .. Adapted from Apache TVM: https://tvm.apache.org/docs/_sources/tirx/native_basics/cuda/threads_sync.rst
 
-CUDA C++/PTX intrinsics
+CUDA and PTX interfaces
 =======================
 
-In this chapter, we will call CUDA device helpers and PTX instructions
-directly, then include a device function written in CUDA C++. TVMScript
-exposes these interfaces through ``T.cuda``, ``T.ptx``, and
-``T.cuda.func_call``.
+In this chapter, we will use three interfaces for CUDA programming in
+TVMScript. Backend intrinsics under ``T.cuda`` provide common operations,
+such as synchronization and warp shuffles. ``T.ptx`` lets us specify
+individual PTX instructions. ``T.cuda.func_call`` embeds CUDA C++ source
+so a kernel can call a custom ``__device__`` function.
 
 Calling backend intrinsics
 --------------------------
@@ -103,7 +104,7 @@ This kernel uses ``add.rn.f32`` to add two float32 values in each thread;
             T.ptx.add.rn.f32(result, A[tid], B[tid])
             C[tid] = result
 
-``result`` supplies the writable destination. The PTX call puts the sum
+``result`` is the writable destination. The PTX call puts the sum
 in that register, and the next statement stores it in ``C``. The call
 itself has no return value. A CUDA helper such as ``__shfl_xor_sync``
 can instead return an expression, as in the preceding reduction.
@@ -119,11 +120,13 @@ predication and special operands. The :doc:`PTX Tablegen guide
 </cuda/ptx_tablegen>` explains how instruction definitions generate these
 interfaces and their CUDA helpers.
 
-Inlining raw CUDA
------------------
+Calling CUDA C++ device functions
+---------------------------------
 
-For something with no intrinsic at all, inject a ``__device__`` function from a
-source string with ``T.cuda.func_call(name, *args, ..., ty=...)``:
+A kernel can also reuse a CUDA C++ device function by including its source
+and calling it through ``T.cuda.func_call``. The example below defines a
+small ReLU function, which returns the input when it is positive and zero
+otherwise:
 
 .. code-block:: python
 
@@ -138,7 +141,8 @@ source string with ``T.cuda.func_call(name, *args, ..., ty=...)``:
         tx = T.cuda.thread_idx("x")
         B[tx] = T.cuda.func_call("my_relu", A[tx], SRC, ty="float32")
 
-The source is emitted verbatim and the call is wired in:
+The generated CUDA source includes ``my_relu`` and calls it for each
+element:
 
 .. code-block:: c++
 

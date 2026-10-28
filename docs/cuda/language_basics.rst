@@ -21,18 +21,16 @@ CUDA Language Basics
 ====================
 
 In this chapter, we will introduce the CUDA interfaces for writing and running
-TIRx kernels. You choose the launch configuration, assign work to threads,
-allocate shared and per-thread storage, and synchronize data accesses where
-needed. Loops, branches, and device intrinsics describe the computation, which
-TIRx compiles into CUDA device code. The following sections explain these
-interfaces and show how to inspect the resulting IR and generated CUDA.
+TIRx kernels. We will explore how to express computations with explicit control
+over GPU threads and memory, then compile the kernels and inspect their IR and
+generated CUDA code.
 
 * :doc:`language/functions` covers function parameters, symbolic shapes,
   launch configuration, control flow, specialization, and reusable fragments.
 * :doc:`language/tensors` covers element types, vector accesses, shared and
   per-thread storage, mutable scalars, and tensor views.
-* :doc:`language/threads_sync` shows how to call CUDA helpers and PTX
-  instructions, and include custom CUDA functions.
+* :doc:`language/threads_sync` covers three ways to use CUDA functionality:
+  backend intrinsics, PTX instructions, and custom CUDA C++ device functions.
 * :doc:`language/compiling` explains compiler configuration and how to
   inspect the IR and generated CUDA.
 

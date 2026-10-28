@@ -49,13 +49,13 @@ symbolic length ``n``:
         if i < n:
             B[i] = A[i] + 1
 
-``A`` supplies the input and ``B`` receives the result. The body describes
+``A`` is the input tensor, and ``B`` holds the result. The body describes
 the launch, the index assigned to each thread, and the guarded tensor store.
 
 Parameters
 ----------
 
-The parameter annotations specify what the caller supplies:
+The parameter annotations specify the types of arguments a kernel accepts:
 
 .. list-table::
    :header-rows: 1
@@ -75,47 +75,57 @@ The parameter annotations specify what the caller supplies:
      - A handle value
    * - ``T.constexpr`` (``@T.jit``)
      - A compile-time parameter
-     - Supplied to ``.specialize(...)``
+     - Passed to ``.specialize(...)``
 
-Runtime arguments are positional and follow the parameter order. Tensors
-can be CUDA PyTorch tensors or TIRx runtime tensors. For example, a scaling
-function can accept its multiplier as a runtime float32 parameter:
+We can extend ``add_one`` so each call chooses the amount to add.
+The ``increment: T.float32`` parameter controls that amount:
 
 .. code-block:: python
 
     @T.function
-    def scale(
+    def add_scalar(
         A: T.Tensor((n,), T.float32),
         B: T.Tensor((n,), T.float32),
-        factor: T.float32,
+        increment: T.float32,
     ):
         T.device_entry(launch=T.cuda.LaunchConfig(grid=((n + 255) // 256,), block=(256,)))
         i = T.cuda.block_idx("x") * 256 + T.cuda.thread_idx("x")
         if i < n:
-            B[i] = A[i] * factor
+            B[i] = A[i] + increment
 
-For an input of 100 elements, we can supply ``factor`` after the two
-tensor arguments and check the scaled values:
+We can compile this version and choose the increment when we call it:
 
 .. code-block:: python
 
     import torch
 
-    a = torch.arange(100, dtype=torch.float32, device="cuda")
+    a = torch.arange(4, dtype=torch.float32, device="cuda")
     b = torch.empty_like(a)
-    scale_compiled = tirx.compile(scale, target="cuda")
-    scale_compiled(a, b, 3.0)
-    torch.testing.assert_close(b, 3 * a)
+    add_scalar_compiled = tirx.compile(add_scalar, target="cuda")
+    add_scalar_compiled(a, b, 0.5)
+    torch.testing.assert_close(b, a + 0.5)
+
+``a`` and ``b`` are CUDA PyTorch tensors, while ``0.5`` is a Python float
+passed directly as ``increment``. The compiled function derives ``n``
+from the tensor shapes, so the call needs no separate length argument.
 
 .. _cuda-symbolic-shapes:
 
 Symbolic shapes
 ---------------
 
-The symbol ``n`` appears in both parameter shapes and in the computation.
-Its value comes from the input shape when the compiled function is called;
-the output must have the same length. One compiled function can serve
-multiple lengths:
+A kernel may need to handle tensors of different sizes. A symbolic shape
+uses symbols for dimensions whose values are determined at runtime. In
+``add_one``, ``T.dynamic`` declares the symbol ``n`` for the tensor length:
+
+.. code-block:: python
+
+    n = T.dynamic("n")
+
+Both ``A`` and ``B`` use ``T.Tensor((n,), T.float32)``, so their lengths
+must match. The compiled function gets the value of ``n`` from the input
+tensor's shape when it is called. We can use the same compiled function
+with inputs of length 100 and 200:
 
 .. code-block:: python
 
@@ -126,27 +136,49 @@ multiple lengths:
         add_one_compiled(a, b)
         torch.testing.assert_close(b, a + 1)
 
-The host launcher reads ``n`` from the tensor shape and passes it to the
-device kernel. The caller supplies only ``a`` and ``b``; both calls above
-reuse ``add_one_compiled``.
+The first call uses an input of shape ``(100,)``, so ``n`` is 100.
+The second uses shape ``(200,)``, so ``n`` is 200. Each value determines
+the launch's block count and the ``i < n`` bounds check in ``add_one``.
+The caller passes only ``a`` and ``b``; the compiled function derives
+``n`` from their shapes without recompilation.
 
 Launch configuration
 --------------------
 
-``T.device_entry`` begins the device computation. As a standalone
-statement, it covers the remaining statements in the enclosing body. An
-explicit ``with T.device_entry(...):`` block sets the boundary through
-indentation; :ref:`tvmscript-region-syntax` explains both forms.
+Each call to ``add_one`` needs enough GPU threads for its current length
+``n``. CUDA organizes threads into blocks. The launch configuration sets
+the number of blocks (``grid``) and the number of threads in each block
+(``block``).
 
-In ``add_one``, ``block=(256,)`` launches 256 threads per block, and
-``grid=((n + 255) // 256,)`` launches enough blocks to cover ``n`` elements.
-``block_idx("x")`` gives the block index and ``thread_idx("x")`` the thread
-index within that block. Their combination gives each thread its element
-index ``i``. The ``if i < n`` condition skips any threads beyond the tensor.
+In TVMScript, ``T.device_entry`` marks the start of the GPU computation.
+Its ``launch`` argument sets that configuration. The corresponding
+statements in ``add_one`` are:
+
+.. code-block:: python
+
+    T.device_entry(launch=T.cuda.LaunchConfig(grid=((n + 255) // 256,), block=(256,)))
+    i = T.cuda.block_idx("x") * 256 + T.cuda.thread_idx("x")
+    if i < n:
+        B[i] = A[i] + 1
+
+``block=(256,)`` gives each block 256 threads. The grid rounds ``n / 256``
+up to provide at least ``n`` threads. For an input of 300 elements, this
+launches two blocks, or 512 threads in total.
+
+``T.cuda.block_idx("x")`` gives the block index.
+``T.cuda.thread_idx("x")`` gives the thread index within that block. The index
+formula assigns a distinct element position ``i`` to each thread. The
+``if i < n`` condition lets the first 300 threads write their results and
+skips the remaining threads in this example.
+
+In ``add_one``, the statements after ``T.device_entry(...)`` form the GPU
+computation. The same section can also be written inside a
+``with T.device_entry(...):`` block. :ref:`tvmscript-region-syntax`
+explains both forms.
 
 ``grid`` and ``block`` accept an integer or up to three dimensions.
 ``LaunchConfig`` also supports cluster and stream settings, while
-``KernelAttributes`` supplies compile-time kernel properties such as launch
+``KernelAttributes`` sets compile-time kernel properties such as launch
 bounds. The :doc:`CUDA launch API </reference/python/backend.cuda.launch>`
 covers these options; the
 :doc:`CUDA script API </reference/python/backend.cuda.script>` lists the
@@ -171,23 +203,26 @@ four consecutive elements to each thread, using 64 threads per block:
             if i < n:
                 B[i] = A[i] + 1
 
-Each block still covers up to ``64 * 4 = 256`` elements. ``T.unroll(4)``
-requests expansion of the four iterations during lowering. The bounds
-check applies to each element, so the last thread can handle a partial
-group of four.
+The launch creates 64 threads per block, and the loop assigns four
+consecutive elements to each thread, covering up to ``64 * 4 = 256``
+elements. A regular ``range(4)`` would process the four offsets
+sequentially within each thread. The example uses ``T.unroll(4)`` to ask
+the compiler to expand the loop into four copies of its body, one for
+each offset.
 
-A regular ``range`` loop executes sequentially within each thread.
-``T.vectorized`` marks a vectorized loop, and ``T.grid`` expresses nested
-loops. Kernels also support ``if`` / ``else``, ``while``, ``break``, and
-``continue``. Mutable counters and accumulators are described in
-:doc:`tensors`; the :doc:`TIRx script API </reference/python/tirx.script>`
-provides the loop helpers and their parameters.
+The ``if i < n`` condition checks each element individually. A thread
+whose four-element group crosses the end of the tensor therefore writes
+only the valid positions.
+
+The :doc:`TIRx script API </reference/python/tirx.script>` also describes
+loop forms for vectorized operations (``T.vectorized``) and
+multidimensional iteration (``T.grid``).
 
 Compile-time specialization
 ---------------------------
 
 A symbolic dimension varies at runtime. When a size should be fixed before
-compilation, ``@T.jit`` lets us declare it as ``T.constexpr`` and supply it
+compilation, ``@T.jit`` lets us declare it as ``T.constexpr`` and set it
 through ``.specialize(...)``. Parsing happens at specialization time, and
 the result is an ordinary ``tirx.Function``.
 
@@ -216,8 +251,8 @@ Python file so the annotation can refer to ``N`` before specialization:
 
 ``kernel`` has length 256 fixed in its parameter types and body. It can be
 compiled with ``tirx.compile`` and called with its two tensor arguments;
-``N`` is already supplied. In contrast, ``@T.function`` parses immediately,
-and the symbolic ``n`` in ``add_one`` remains a runtime dimension. The
+``N`` was fixed during specialization. In contrast, ``@T.function`` parses
+immediately, and the symbolic ``n`` in ``add_one`` remains a runtime dimension. The
 :doc:`JIT API </reference/python/tirx.script.jit>` covers optional
 parameters and specialization rules.
 
@@ -226,24 +261,42 @@ parameters and specialization rules.
 Reusable code fragments
 -----------------------
 
-Several kernels may need the same bounds check and store. ``@T.inline``
-lets us write that fragment once:
+A kernel can use small functions to reuse common pieces of code. For
+example, the bounds check and store in ``add_one_four`` handle one element:
+
+.. code-block:: python
+
+    if i < n:
+        B[i] = A[i] + 1
+
+We can put these two statements in a function marked with ``@T.inline``:
 
 .. code-block:: python
 
     @T.inline
-    def add_one_if_valid(A, B, i, length):
-        if i < length:
+    def add_one_if_valid(A, B, i, n):
+        if i < n:
             B[i] = A[i] + 1
 
-The loop body in ``add_one_four`` can then use the helper:
+Each loop iteration in ``add_one_four`` can then call this function to
+process its element:
 
 .. code-block:: python
 
     for offset in T.unroll(4):
-        add_one_if_valid(A, B, base + offset, n)
+        i = base + offset
+        add_one_if_valid(A, B, i, n)
 
-TVMScript expands the helper body at each call site during parsing, using
-the supplied tensors, index, and length. The resulting kernel contains the
-bounds checks and stores, with no separate runtime call to the helper.
-The :func:`inline API <tvm_tirx.tirx.script.inline>` describes its options.
+During parsing, TVMScript expands ``add_one_if_valid(...)`` into its two
+statements. The loop above is therefore equivalent to:
+
+.. code-block:: python
+
+    for offset in T.unroll(4):
+        i = base + offset
+        if i < n:
+            B[i] = A[i] + 1
+
+Other kernels can call ``add_one_if_valid`` in the same way to reuse the
+update. The GPU executes the expanded checks and stores directly. The
+:func:`inline API <tvm_tirx.tirx.script.inline>` describes its options.

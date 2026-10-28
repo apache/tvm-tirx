@@ -87,7 +87,7 @@ Load completion
 
 The load reports completion through ``mbar``, an eight-byte barrier object
 in shared memory. Its initialization expects one arrival per phase.
-``arrive.expect_tx`` supplies that arrival and registers the tile's
+``arrive.expect_tx`` performs that arrival and registers the tile's
 ``8 * 32 * 4 = 1024`` transaction bytes. The initial fence and CTA barrier
 publish the initialized barrier before lane 0 issues the transfer.
 

@@ -127,7 +127,7 @@ The load's source and destination expose the same group and repeat
 coordinates. Within each atom, the four global words must be consecutive
 and 16-byte aligned; the destination words must belong to the selected
 thread. These requirements come from the chosen instruction, and lowering
-checks them against the supplied views.
+checks that the input and output views meet them.
 
 An existing tensor may need a ``view`` or ``rearrange`` to expose these axes,
 or a ``sub`` to select a region. These operations reuse its storage. They

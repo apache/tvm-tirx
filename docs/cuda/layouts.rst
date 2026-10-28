@@ -21,8 +21,8 @@ Axis Layouts for CUDA
 =====================
 
 In this chapter, we will use axis layouts to place tensor elements across
-CUDA threads and memory. A layout supplies the physical coordinates behind
-a logical index: for a local tensor, these can identify the lane that owns
+CUDA threads and memory. A layout maps a logical index to physical
+coordinates: for a local tensor, these can identify the lane that owns
 a value and its storage position within that thread.
 
 For the mapping model and its hardware motivation, see `Data Layout and
@@ -107,7 +107,7 @@ physical placement:
 ``R[2 : 1 @ warpid]`` places a copy of each value in the corresponding lane
 of warps 0 and 1. The fixed offset ``+ 4`` shifts local positions from
 ``0..3`` to ``4..7``. These objects describe placement; the kernel or tile
-operation supplies the computation and data movement.
+operation specifies what to compute and move.
 
 ``apply`` returns the base physical coordinate, including the fixed
 offset. It does not enumerate replicas; those remain in ``layout.replica``.

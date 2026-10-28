@@ -15,14 +15,13 @@
     specific language governing permissions and limitations
     under the License.
 
-CUDA Backend Implementation
-===========================
+CUDA Backend Source Guide
+==========================
 
-In this chapter, we will follow the GPU add-one program from
-:doc:`Quick Start </get_started/quick_start>` through the CUDA backend.
-The compilation stages connect the program's IR to device code and its
-runtime launch. Their source locations help identify where to add an
-instruction or investigate a lowering problem.
+In this chapter, we will find the source files involved in extending or
+debugging the CUDA backend. We will follow ``T.cuda.thread_idx("x")`` from
+the :doc:`GPU add-one example </get_started/quick_start>` to its IR operator
+and CUDA output, then locate the compilation and runtime entry points.
 
 The source tree
 ---------------
@@ -35,76 +34,79 @@ CUDA support has three main parts:
 
    * - Directory
      - Responsibility
-   * - ``include/tvm/backend/cuda/``
+   * - `include/tvm/backend/cuda/ <https://github.com/apache/tvm-tirx/tree/main/include/tvm/backend/cuda>`__
      - Public C++ operator declarations, attributes, and backend contracts.
-   * - ``src/backend/cuda/``
+   * - `src/backend/cuda/ <https://github.com/apache/tvm-tirx/tree/main/src/backend/cuda>`__
      - Native operators, lowering passes, code generation, and runtime support.
-   * - ``python/tvm_tirx/backend/cuda/``
+   * - `python/tvm_tirx/backend/cuda/ <https://github.com/apache/tvm-tirx/tree/main/python/tvm_tirx/backend/cuda>`__
      - Script namespaces, PTX instruction tables, tile patterns, compiler configuration, and profiling orchestration.
 
-The Python backend's ``register_backend()`` installs the ``T.cuda`` and
-``T.ptx`` namespaces and loads its axis, tile, and code-generation
-registrations. ``script.py`` supplies the CUDA authoring interfaces;
-their calls and device regions use the shared IR object system.
+Trace a CUDA operation
+-----------------------
 
-From TVMScript to a CUDA kernel
--------------------------------
-
-The GPU add-one function contains a device region, an index calculation,
-and a guarded tensor store. Its compilation follows this path:
+The add-one kernel uses ``T.cuda.thread_idx("x")`` to get each thread's
+position within its block. This call connects three parts of the backend:
 
 .. code-block:: text
 
-   TVMScript -> IR function with a device region
-       -> target binding and tile dispatch
-       -> layout lowering and tensor flattening
-       -> host/device splitting and calling convention
-       -> host module + CUDA device source
-       -> device compilation and runtime launch
+   TVMScript: T.cuda.thread_idx("x")
+       -> IR call: tirx.cuda.thread_idx, argument "x", result type int32
+       -> CUDA C++: ((int)threadIdx.x)
 
-``python/tvm_tirx/tirx/compilation_pipeline.py`` defines the shared
-pipeline. ``TileDispatch`` expands tile operations into their selected
-implementations. ``LowerTensorLayouts`` maps logical tensor accesses to
-threads and storage, and ``FlattenTensor`` converts them to linear
-accesses. In add-one, there are no tile calls to expand; the accesses to
-``A[i]`` and ``B[i]`` still go through layout lowering and flattening.
+The script namespace is installed by ``register_backend()`` in
+`python/tvm_tirx/backend/cuda/__init__.py
+<https://github.com/apache/tvm-tirx/blob/main/python/tvm_tirx/backend/cuda/__init__.py>`__.
+`python/tvm_tirx/backend/cuda/script.py
+<https://github.com/apache/tvm-tirx/blob/main/python/tvm_tirx/backend/cuda/script.py>`__
+exposes the registered CUDA operators under ``T.cuda``.
 
-``SplitHostDevice`` extracts the device region as a kernel and leaves
-its launch in the host function. ``LowerIket`` then handles profiling
-annotations when present, and ``MakePackedAPI`` prepares the host calling
-convention. The CUDA source generator in
-``src/backend/cuda/codegen/codegen_cuda.cc`` emits the device code,
-including ``blockIdx.x`` and ``threadIdx.x`` for add-one's index.
-The :doc:`compiling and inspecting guide <language/compiling>` shows how
-to retrieve that source from a compiled program.
+The operator itself is registered in
+`src/backend/cuda/op/target_builtin.cc
+<https://github.com/apache/tvm-tirx/blob/main/src/backend/cuda/op/target_builtin.cc>`__.
+Its definition requires an axis string and infers an int32 result.
+TVMScript constructs an ``ir.Call`` referring to that operator, with
+``"x"`` as its argument.
 
-Instruction calls and execution
--------------------------------
+``CodeGenCUDA::Dispatch_`` in
+`src/backend/cuda/codegen/codegen_cuda.cc
+<https://github.com/apache/tvm-tirx/blob/main/src/backend/cuda/codegen/codegen_cuda.cc>`__
+recognizes the operator and emits ``((int)threadIdx.x)``. These locations
+let us trace the script interface, argument rules, and generated expression
+separately when investigating an incorrect result.
 
-Native CUDA operators under ``src/backend/cuda/op/`` define their
-argument requirements, result types, and effects. For an intrinsic call,
-the CUDA source generator can retrieve a Python callback through
-``tirx.intrinsics.cuda.get_codegen``. The registry in
-``python/tvm_tirx/backend/cuda/codegen/registry.py`` connects operator
-names to callbacks that emit a CUDA expression or a device helper call.
+PTX instruction calls use Python code-generation callbacks. The CUDA
+source generator looks them up through ``tirx.intrinsics.cuda.get_codegen``,
+registered in
+`python/tvm_tirx/backend/cuda/codegen/registry.py
+<https://github.com/apache/tvm-tirx/blob/main/python/tvm_tirx/backend/cuda/codegen/registry.py>`__.
+The :doc:`PTX Tablegen guide <ptx_tablegen>` follows that path for
+``add.rn.f32``.
 
-PTX instructions use this mechanism to emit helpers containing inline
-assembly. The :doc:`PTX Tablegen <ptx_tablegen>` chapter follows one
-instruction from its table entry to that helper. Tile patterns in
-``python/tvm_tirx/backend/cuda/tile/patterns/`` prepare instruction calls
-from tensor regions before source generation.
+Compilation and launch
+-----------------------
 
-``compiler.py`` compiles the CUDA source through NVCC or NVRTC, using
-the architecture and options resolved by ``backend_config.py``. The
-implementations under ``src/backend/cuda/runtime/`` load the resulting
-device module, manage memory, and launch kernels with the requested
-grid and block dimensions.
+The shared pipeline in
+`python/tvm_tirx/tirx/compilation_pipeline.py
+<https://github.com/apache/tvm-tirx/blob/main/python/tvm_tirx/tirx/compilation_pipeline.py>`__
+lowers tensor accesses and separates device computation from host code.
+``SplitHostDevice`` extracts a device region into a kernel and leaves a
+launch in the host function. ``MakePackedAPI`` prepares the host entry
+point that accepts the input and output tensors.
+
+Once the CUDA source has been generated,
+`python/tvm_tirx/backend/cuda/compiler.py
+<https://github.com/apache/tvm-tirx/blob/main/python/tvm_tirx/backend/cuda/compiler.py>`__
+compiles it with NVCC or NVRTC. The runtime implementation in
+`src/backend/cuda/runtime/cuda_module.cc
+<https://github.com/apache/tvm-tirx/blob/main/src/backend/cuda/runtime/cuda_module.cc>`__
+loads the device module and launches kernels with their grid, block, and
+shared-memory settings. The :doc:`compiling and inspecting guide
+<language/compiling>` shows how to inspect the generated source.
 
 Where to make a change
 ----------------------
 
-These source locations provide starting points for an extension or a
-failing compilation stage:
+The following locations provide starting points for common changes:
 
 .. list-table::
    :header-rows: 1
@@ -113,15 +115,17 @@ failing compilation stage:
    * - Task
      - Starting point
    * - Add a PTX instruction form
-     - ``ptx/table.py`` and ``tests/python/tirx/codegen/test_ptx_dialect.py``.
+     - `python/tvm_tirx/backend/cuda/ptx/table.py <https://github.com/apache/tvm-tirx/blob/main/python/tvm_tirx/backend/cuda/ptx/table.py>`__ and `tests/python/tirx/codegen/test_ptx_dialect.py <https://github.com/apache/tvm-tirx/blob/main/tests/python/tirx/codegen/test_ptx_dialect.py>`__.
    * - Add a tensor instruction pattern
-     - ``tile/patterns/`` and ``tests/python/tirx/tile/cuda/``.
+     - `python/tvm_tirx/backend/cuda/tile/patterns/ <https://github.com/apache/tvm-tirx/tree/main/python/tvm_tirx/backend/cuda/tile/patterns>`__ and `tests/python/tirx/tile/cuda/ <https://github.com/apache/tvm-tirx/tree/main/tests/python/tirx/tile/cuda>`__.
    * - Change source compilation
-     - ``compiler.py``, ``backend_config.py``, and ``tvm_tirx.support.nvcc``.
+     - `python/tvm_tirx/backend/cuda/compiler.py <https://github.com/apache/tvm-tirx/blob/main/python/tvm_tirx/backend/cuda/compiler.py>`__, `python/tvm_tirx/backend/cuda/backend_config.py <https://github.com/apache/tvm-tirx/blob/main/python/tvm_tirx/backend/cuda/backend_config.py>`__, and `python/tvm_tirx/support/nvcc.py <https://github.com/apache/tvm-tirx/blob/main/python/tvm_tirx/support/nvcc.py>`__.
    * - Change CUDA axis semantics
-     - ``src/backend/cuda/layout/axis.cc`` and the Python ``axis`` namespace.
+     - `src/backend/cuda/layout/axis.cc <https://github.com/apache/tvm-tirx/blob/main/src/backend/cuda/layout/axis.cc>`__ and `python/tvm_tirx/backend/cuda/axis.py <https://github.com/apache/tvm-tirx/blob/main/python/tvm_tirx/backend/cuda/axis.py>`__.
    * - Change device loading or launching
-     - ``src/backend/cuda/runtime/`` and ``src/backend/cuda/launch/``.
+     - `src/backend/cuda/runtime/ <https://github.com/apache/tvm-tirx/tree/main/src/backend/cuda/runtime>`__ and `src/backend/cuda/launch/ <https://github.com/apache/tvm-tirx/tree/main/src/backend/cuda/launch>`__.
+   * - Change profiling annotation lowering
+     - ``LowerIket`` in `src/backend/cuda/transform/lower_iket.cc <https://github.com/apache/tvm-tirx/blob/main/src/backend/cuda/transform/lower_iket.cc>`__.
 
 The :doc:`CUDA backend API </reference/python/backend.cuda>` documents
 the public interfaces in these modules.

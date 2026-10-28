@@ -79,7 +79,7 @@ load. Thread 63 reads row 0, so the output shifts the rows cyclically.
 
 Each ``.v4.b32`` instruction transfers four 32-bit words. The row views and
 register tensor have shape ``(4,)``: one four-word atom with no repeat
-axes. The calls use the default thread scope, so each thread supplies its
+axes. The calls use the default thread scope, so each thread transfers its
 own row. The 16-byte alignment and four-element row stride keep every
 memory atom aligned.
 

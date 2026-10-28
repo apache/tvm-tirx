@@ -53,7 +53,7 @@ kernel select them explicitly:
    * - All four warps
      - Stage inputs, synchronize, load the completed result from TMEM, and write Out.
 
-``mma_shared_layout`` supplies the swizzled shared layouts for A and B.
+``mma_shared_layout`` constructs the swizzled shared layouts for A and B.
 Mode 3 selects a 128-byte swizzle; its 1024-byte period determines the
 shared allocation alignment used below.
 ``tmem_mma_operand_layout`` maps the float32 accumulator to TMEM lanes

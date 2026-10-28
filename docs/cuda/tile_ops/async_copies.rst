@@ -96,9 +96,9 @@ The ``cp.async.bulk.shared::cluster.shared::cta`` form uses a transaction
 barrier in the destination CTA. Both CTAs must have matching live shared
 allocations and initialize their barriers before the sender issues a copy.
 
-The sender supplies its local source address and the destination's remote
-shared and barrier addresses. For a 256-byte chunk, the receiver registers
-256 expected transaction bytes and waits for its barrier phase before
+The sender passes its local source address and the destination's remote
+shared and barrier addresses to the copy instruction. For a 256-byte chunk,
+the receiver registers 256 expected transaction bytes and waits for its barrier phase before
 reading the destination. Both CTAs synchronize before either exits or
 reuses the participating storage.
 

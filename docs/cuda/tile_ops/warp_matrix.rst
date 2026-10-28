@@ -170,7 +170,7 @@ shapes, lane mappings, and supported float16/bfloat16 forms.
 ``ldmatrix`` also supports ``.x1`` and ``.trans`` variants. The transpose
 acts on each matrix of 16-bit elements. ``stmatrix`` transfers a register
 fragment to shared memory on targets that support it, with the shared
-destination supplied first. The :ref:`matrix-transfer reference
+destination as its first argument. The :ref:`matrix-transfer reference
 <cuda-tile-contract-ldmatrix-stmatrix>` lists the required layouts and
 alignment. These tile calls do not insert barriers: synchronize before
 reading another thread's shared stores, or before other threads consume

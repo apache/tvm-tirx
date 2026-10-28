@@ -55,10 +55,13 @@ in generated CUDA source:
    * - ``float32x4``
      - ``float4``
 
-The ``x4`` suffix describes four float32 lanes within one vector value.
-The ``add_one_four`` function in :doc:`functions` processes four elements
-per thread with a loop. For a contiguous tensor of 256 elements, we can
-also read and compute those four elements as a vector:
+A ``float32x4`` value contains four float32 components, called lanes.
+CUDA C++ names this type ``float4``: each ``float`` is 32 bits, and ``4``
+is the number of components.
+
+We can extend the add-one kernel with vector accesses so each thread
+reads and updates four elements as a group. The thread assignment matches
+:ref:`add_one_four in Conditions and loops <cuda-kernel-control-flow>`:
 
 .. code-block:: python
 
@@ -74,21 +77,25 @@ also read and compute those four elements as a vector:
         vector_value = A[T.Ramp(tx * 4, 1, 4)]
         B[T.Ramp(tx * 4, 1, 4)] = vector_value + 1
 
-``T.Ramp(base, stride, lanes)`` selects evenly spaced indices. The index
-above selects ``4*tx``, ``4*tx + 1``, ``4*tx + 2``, and ``4*tx + 3``.
-The tensors have float32 elements, while the load produces one
-``float32x4`` intermediate. The addition adds one to each lane, and the
-store writes those four results to the corresponding positions in ``B``.
+``T.Ramp(tx * 4, 1, 4)`` selects the four consecutive indices ``4*tx``,
+``4*tx + 1``, ``4*tx + 2``, and ``4*tx + 3``. Its arguments specify the
+starting index, stride, and lane count. Because ``A`` has float32 elements,
+the read at these four positions produces ``vector_value`` with inferred
+dtype ``float32x4``.
 
-``align=16`` declares 16-byte-aligned data pointers. Each four-element
-group also starts at a multiple of 16 bytes, allowing aligned vector loads
-and stores. The 64 threads cover all ``64 * 4 = 256`` elements.
+``vector_value + 1`` adds one to each lane. The store uses the same indices
+to write the four results to the corresponding float32 elements in ``B``.
+
+With 64 threads and four elements per thread, the launch covers all 256
+elements. The ``align=16`` annotations declare 16-byte-aligned pointers;
+each four-float group also starts at a 16-byte boundary, allowing aligned
+vector loads and stores.
 
 Declaring tensors
 -----------------
 
-A parameter such as ``A: T.Tensor((128,), "float32")`` describes storage
-supplied by the caller. Inside a kernel, ``T.alloc_shared`` and
+A parameter such as ``A: T.Tensor((128,), "float32")`` describes a tensor
+passed by the caller. Inside a kernel, ``T.alloc_shared`` and
 ``T.alloc_local`` allocate scratch tensors. Both are conveniences for
 ``T.alloc_tensor``, whose tensor type specifies the shape, dtype, and scope.
 The ``scope`` selects the memory space:
@@ -106,9 +113,6 @@ The ``scope`` selects the memory space:
    * - ``"shared"``
      - ``T.alloc_shared``
      - Shared by threads in a block; size fixed at compile time
-   * - ``"shared.dyn"``
-     - ``SMEMPool``
-     - Shared by threads in a block; reserved at launch
    * - ``"local"``
      - ``T.alloc_local``
      - Private to each thread
@@ -127,8 +131,8 @@ one shared tensor and declare another view of the same elements:
         shared.data, ty_args=[T.Tensor((128,), "float32", scope="shared")]
     )
 
-``shared.data`` supplies the base pointer. Both names refer to the same
-storage, so a write through ``shared_view`` is also visible through
+``shared.data`` is the base pointer for ``shared_view``. Both names refer
+to the same storage, so a write through ``shared_view`` is also visible through
 ``shared``. The declaration does not allocate or copy data.
 
 The tensor's ``layout`` determines how logical indices map to storage;
@@ -166,26 +170,42 @@ stored from ``A[1]``.
 Dynamic shared memory
 ~~~~~~~~~~~~~~~~~~~~~
 
-Dynamic shared memory is reserved when the kernel launches. TIRx uses one
-backing allocation, with tensor views occupying different regions within
-it. :class:`SMEMPool <tvm_tirx.backend.cuda.lang.SMEMPool>` manages the offsets
-and total size. Inside a device region, we can reserve two scratch tensors:
+With dynamic shared memory, the kernel launch specifies how many bytes to
+reserve for each thread block. All threads in the block share this region.
+Tensors with scope ``"shared.dyn"`` use storage within it, and multiple
+tensors can occupy different byte ranges of the same region.
+
+The ``SMEMPool`` helper manages these ranges and their total size while
+TVMScript builds the kernel. The following version of ``shared_shift``
+uses it for the shared tensor:
 
 .. code-block:: python
 
     from tvm_tirx.backend.cuda.lang import SMEMPool
 
-    pool = SMEMPool()
-    left = pool.alloc((64,), "float32")
-    right = pool.alloc((64,), "float32")
-    pool.commit()
+    @T.function
+    def shared_shift_dynamic(
+        A: T.Tensor((128,), "float32"), B: T.Tensor((128,), "float32")
+    ):
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=128))
+        tx = T.cuda.thread_idx("x")
+        pool = SMEMPool()
+        shared = pool.alloc((128,), "float32")
+        pool.commit()
+        shared[tx] = A[tx]
+        T.cuda.cta_sync()
+        B[tx] = shared[(tx + 1) % 128]
 
-``left`` and ``right`` occupy separate regions of the same allocation.
-``pool.commit()`` records the required size after the allocations, so the
-launcher can reserve enough shared memory. The ``SMEMPool`` API describes
-alignment, storage reuse, and specialized allocation helpers. Additional
-launch settings are documented in the
-:doc:`CUDA launch API </reference/python/backend.cuda.launch>`.
+The pool needs ``128 * 4 = 512`` bytes per block. ``pool.alloc`` creates
+``shared`` as a tensor view into that region, and ``pool.commit()`` records
+the byte count for the launcher. The tensor shape is fixed here; its
+storage is requested through the launch configuration. The writes,
+barrier, and neighbor reads then use this shared tensor.
+
+Further ``pool.alloc`` calls place additional tensors within the same
+region. ``pool.commit()`` should follow all allocations. The
+:class:`SMEMPool API <tvm_tirx.backend.cuda.lang.SMEMPool>` covers alignment
+and storage reuse.
 
 Per-thread local storage
 ------------------------
@@ -213,11 +233,25 @@ guarantee register storage.
 Mutable scalars and ``let``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-An accumulator needs to change as a loop runs. A type-annotated assignment
-such as ``total: T.float32 = 0.0`` creates a mutable scalar backed by a
-one-element local tensor. A computed index that stays fixed can instead
-use an immutable ``T.let`` binding. This version sums each thread's four
-input elements into one output:
+In TVMScript, an ordinary assignment such as ``base = tx * 4`` creates an
+immutable binding whose type is inferred from the expression. With an
+explicit type annotation, its form determines whether the local scalar
+can be updated:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 55 45
+
+   * - Declaration
+     - Meaning
+   * - ``total: T.float32 = 0.0``
+     - Mutable float32 scalar, initialized to zero
+   * - ``base: T.let[T.int32] = tx * 4``
+     - Immutable value, with an explicit int32 type annotation
+
+A running sum needs the mutable form to retain updates between loop
+iterations. The following kernel sums four consecutive inputs per thread
+and writes one output for each sum:
 
 .. code-block:: python
 
@@ -231,9 +265,16 @@ input elements into one output:
             total += A[base + k]
         B[tx] = total
 
-``base`` names the first element assigned to the thread and cannot be
-reassigned. ``total`` accumulates the four values through repeated updates.
-The :doc:`TIRx script API </reference/python/tirx.script>` also provides
+``total`` retains the result of each addition for the next iteration.
+If thread 0 reads ``1, 2, 3, 4``, the running total is
+``0 → 1 → 3 → 6 → 10``, and ``B[0]`` receives 10.
+
+``base`` holds the group's starting index throughout the loop; the
+``T.let[T.int32]`` annotation states its type explicitly.
+
+TIRx represents ``total`` as a one-element local tensor, so each thread
+has its own accumulator. The
+:doc:`TIRx script API </reference/python/tirx.script>` also provides
 ``local_scalar``, ``shared_scalar``, and ``alloc_scalar`` for explicit
 scalar allocation.
 

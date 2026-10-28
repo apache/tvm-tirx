@@ -18,20 +18,20 @@
 IKET Profiling
 ==============
 
-In this chapter, we will add NVIDIA IKET events to a kernel and capture
-a timeline of its execution. Named ranges and checkpoints help relate
-execution time to individual phases of the computation. We will use a
-small affine kernel to demonstrate the annotation and capture workflow.
+In this chapter, we will use NVIDIA IKET to trace the execution of a
+small kernel that computes ``B[i] = 2 * A[i] + 1``. We will place a named
+range around the computation and a checkpoint after the input read, then
+capture a timeline and inspect the recorded events.
 
 The example requires a CUDA-enabled TIRx build, an SM90-or-newer GPU,
-NVRTC through ``cuda-bindings``, and the ``run-iket`` executable supplied
-by ``nvidia-cutlass-dsl-libs-base``.
+NVRTC through ``cuda-bindings``, and the ``run-iket`` executable from
+``nvidia-cutlass-dsl-libs-base``.
 
 Annotate a computation
 ----------------------
 
 Save the following kernel and the host code below in
-``profile_affine.py``. Each thread computes ``B[i] = 2 * A[i] + 1``:
+``profile_affine.py``:
 
 .. code-block:: python
 
@@ -118,5 +118,5 @@ separately when assessing its overall performance.
 
 The :doc:`IKET API </reference/python/backend.cuda.iket>` covers token-based
 ranges, command-based capture with ``iket.profile``, and capture options.
-The :doc:`backend implementation <backend_implementation>` explains where
+The :doc:`CUDA backend source guide <backend_implementation>` explains where
 the profiling annotations are lowered in the compilation pipeline.
