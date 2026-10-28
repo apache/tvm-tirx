@@ -69,12 +69,10 @@ and traversal order, and finally distinguish variable definitions from uses.
        root, callbacks=(), with_def_region_kind=(), order="post")
 
 ``root`` is the expression, statement, function, module, type, or FFI container
-where traversal starts.
-
-The ``callbacks`` parameter determines which Python function runs for each
-visited value. It accepts an entry of the form ``(Type, handler)``, where
-``Type`` is a class such as ``ir.Var`` and ``handler`` is a callable: a Python
-function or another object that supports function-call syntax, such as a
+where traversal starts. The ``callbacks`` parameter determines which Python
+function runs for each visited value. It accepts an entry of the form
+``(Type, handler)``, where ``Type`` is a class such as ``ir.Var`` and ``handler``
+is a callable: a Python function or another object that supports function-call syntax, such as a
 list's ``append`` method. For example, ``callbacks=(ir.Var, on_var)`` registers
 ``on_var`` for variables. The walker calls ``on_var(var)`` with the actual
 variable object as its single argument whenever it visits a variable.
