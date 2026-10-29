@@ -56,7 +56,7 @@ Structural Walk
 
 ``tvm_ffi.structural_walk`` automatically traverses IR. Its callbacks can
 collect nodes, check properties, or stop the traversal when a matching value
-is found.
+is found. The API has the following signature:
 
 .. code-block:: text
 
