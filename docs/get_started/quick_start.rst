@@ -181,7 +181,7 @@ program, while the original ``add_one`` stays unchanged.
 
 .. seealso::
 
-   :doc:`IR Walkthrough </ir/overview>` for a more in-depth introduction to the
+   :doc:`IR Overview </ir/overview>` for a more in-depth introduction to the
    main IR objects and their roles in the overall program structure.
 
 
