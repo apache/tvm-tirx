@@ -1187,8 +1187,57 @@ def test_masked_load_non_unit_stride():
                 ty="float32x2",
             )
 
-    with tvm_tirx.target.Target("llvm"):
-        tvm_tirx.tirx.compile(Module)
+    tvm_tirx.compile(Module, target="llvm")
+
+
+@pytest.mark.skipif(not env.has_llvm(), reason="need llvm")
+@pytest.mark.parametrize("n", [0, 1, 2])
+def test_masked_load_non_unit_stride_values(n):
+    @I.ir_module
+    class Module:
+        @T.function
+        def main(A: T.Tensor((3,), "float32"), B: T.Tensor((2,), "float32"), n: T.int32):
+            B[T.Ramp(0, 1, 2)] = T.call_intrin(
+                "tirx.masked_load",
+                A,
+                T.Ramp(0, 2, 2),
+                T.Ramp(0, 1, 2) < T.Broadcast(n, 2),
+                ty="float32x2",
+            )
+
+    f = tvm_tirx.compile(Module, target="llvm")
+    a = tvm_tirx.runtime.tensor(np.array([1.0, 2.0, 3.0], dtype="float32"))
+    b = tvm_tirx.runtime.tensor(np.full(2, -1.0, dtype="float32"))
+    f(a, b, n)
+    # Inactive lanes are poison, so only the active ones are checked.
+    np.testing.assert_array_equal(b.numpy()[:n], [1.0, 3.0][:n])
+
+
+@pytest.mark.skipif(not env.has_llvm(), reason="need llvm")
+@pytest.mark.parametrize(
+    "n, expected", [(0, [-1.0, -1.0, -1.0]), (1, [1.0, -1.0, -1.0]), (2, [1.0, -1.0, 2.0])]
+)
+def test_masked_store_non_unit_stride(n, expected):
+    @I.ir_module
+    class Module:
+        @T.function
+        def main(A: T.Tensor((2,), "float32"), B: T.Tensor((3,), "float32"), n: T.int32):
+            T.evaluate(
+                T.call_intrin(
+                    "tirx.masked_store",
+                    B,
+                    A[T.Ramp(0, 1, 2)],
+                    T.Ramp(0, 2, 2),
+                    T.Ramp(0, 1, 2) < T.Broadcast(n, 2),
+                    ty="void",
+                )
+            )
+
+    f = tvm_tirx.compile(Module, target="llvm")
+    a = tvm_tirx.runtime.tensor(np.array([1.0, 2.0], dtype="float32"))
+    b = tvm_tirx.runtime.tensor(np.full(3, -1.0, dtype="float32"))
+    f(a, b, n)
+    np.testing.assert_array_equal(b.numpy(), expected)
 
 
 def test_invalid_volatile_masked_buffer_load():
