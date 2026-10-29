@@ -130,10 +130,10 @@ the example and Python's built-in ``print`` function:
    * - ``((ir.prim.Add, ir.prim.Mul), print)``
      - Additions and multiplications are passed to ``print``, one node per call.
    * - ``[(ir.Var, on_var), (ir.IntImm, print)]``
-     - A list containing two ``(Type, handler)`` tuples. Variables are passed
+     - A Python list containing two ``(Type, handler)`` tuples. Variables are passed
        to ``on_var``; integer IR constants are passed to ``print``.
    * - ``((ir.Var, on_var), (ir.IntImm, print))``
-     - The same two entries in a tuple instead of a list. Matching behavior
+     - The same two entries in a Python tuple instead of a list. Matching behavior
        and entry order are unchanged.
    * - ``print``
      - Every visited value is passed to ``print``, with no type filter.
@@ -272,31 +272,10 @@ whereas returning an interrupt stops all remaining traversal.
 
 .. _ir-ffi-containers:
 
-An IR field can hold several child nodes in a TVM FFI container. These
-containers let Python and C++ share collections of values:
-
-.. list-table::
-   :header-rows: 1
-   :widths: 40 60
-
-   * - TVM FFI container
-     - Python container interface
-   * - ``tvm_ffi.Array``
-     - Read-only sequence, with indexing and iteration.
-   * - ``tvm_ffi.List``
-     - Mutable sequence, with indexing, iteration, and updates such as ``append``.
-   * - ``tvm_ffi.Map``
-     - Read-only key-value mapping, with lookup by key.
-   * - ``tvm_ffi.Dict``
-     - Mutable key-value mapping, with lookup, insertion, and deletion.
-
-All four are FFI objects. The list in ``callbacks=[...]`` is an ordinary
-Python list that holds callback rules.
-
-The default walk follows child nodes stored in these containers. It visits
-each sequence element or mapping value, while skipping mapping keys.
-The following example groups the variables in an FFI array and stores it
-as a value in an FFI map:
+The walker can also follow nodes stored in TVM FFI collections.
+``tvm_ffi.Array`` holds a sequence of values, and ``tvm_ffi.Map`` holds
+key-value pairs. The following example collects variables from an array
+stored inside a map:
 
 .. code-block:: python
 
@@ -321,6 +300,9 @@ The output is:
 ``[x, y]`` initializes the FFI array. The walk follows the map's ``"inputs"``
 value to that array, then visits ``x`` and ``y``. The string key ``"inputs"``
 is skipped.
+
+The same rules apply to the mutable sequence ``tvm_ffi.List`` and the mutable
+mapping ``tvm_ffi.Dict``.
 
 Each IR node type defines its children through structural fields or custom
 traversal hooks. Fields marked ``structural_eq="ignore"`` are skipped.
