@@ -38,7 +38,7 @@ The table below summarizes the four APIs and their roles:
      - ``tvm_ffi.structural_map``
      - ``tvm_ffi.structural_mutate``
 
-All four APIs operate on IR objects without executing the programs they
+Those operations work on IR objects without executing the programs they
 describe. Walk and map are higher-level APIs that handle recursion for you, letting
 callbacks focus on inspecting or replacing nodes. Visit and mutate give
 callbacks control over which children to process and in what order.
