@@ -272,10 +272,9 @@ whereas returning an interrupt stops all remaining traversal.
 
 .. _ir-ffi-containers:
 
-The walker can also follow nodes stored in TVM FFI collections.
-``tvm_ffi.Array`` holds a sequence of values, and ``tvm_ffi.Map`` holds
-key-value pairs. The following example collects variables from an array
-stored inside a map:
+We use TVM FFI's data structures here: ``tvm_ffi.Array`` for sequences and
+``tvm_ffi.Map`` for key-value mappings. The following example collects
+variables from an array stored inside a map:
 
 .. code-block:: python
 
