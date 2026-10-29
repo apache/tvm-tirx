@@ -581,6 +581,16 @@ def test_predicate():
     )
 
 
+@pytest.mark.parametrize("dtype", ["int32", "int64"])
+def test_predicate_with_cancelled_terms(dtype):
+    # i - i >= 0 is always true; the cancelled terms used to cause a divide by zero.
+    i = tvm_tirx.tirx.Var("i", dtype)
+    assert_iter_sum_pattern({i: (4, 0)}, var_dom([(i, 4)]), predicate=i - i >= 0)
+    assert_iter_map_simplify({i: i}, var_dom([(i, 4)]), predicate=i - i >= 0)
+    # i - i > 0 is never true.
+    assert_iter_sum_failure([i], var_dom([(i, 4)]), predicate=i - i > 0)
+
+
 def convert_division(divisions):
     if divisions is None or len(divisions) == 0:
         return []
