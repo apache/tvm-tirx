@@ -63,12 +63,11 @@ is found. The API has the following signature:
    tvm_ffi.structural_walk(
        root, callbacks=(), with_def_region_kind=(), order="post")
 
-``root`` is the expression, statement, function, module, type, or FFI container
-where traversal starts. The ``callbacks`` parameter can take a single
-``(Type, handler)`` tuple or a list or tuple of these entries. In each entry,
-``Type`` is the node class to match and ``handler`` is the function to call
-for each match. The following example uses a single entry to print the names
-of the variables in ``(x + 1) * (y + 2)``:
+``root`` is the value to traverse, such as an IR expression, a function,
+or an FFI container. The ``callbacks`` parameter accepts a ``(Type, handler)``
+tuple or a Python list or tuple of these pairs. ``Type`` is the class to
+match, and ``handler`` is called with each matching value. The following
+example prints the variable names in ``(x + 1) * (y + 2)``:
 
 .. code-block:: python
 
@@ -108,13 +107,12 @@ operands in ``a`` and ``b``:
 
 .. _ir-default-structural-traversal:
 
-The walker visits this structure automatically, starting at the multiplication
-and following each arithmetic node's operands. This is the default structural
-traversal.
+Each IR node type defines its child relationships. The walker follows
+them automatically; this is the default structural traversal.
 
-With ``callbacks=(ir.Var, on_var)``, the walker calls ``on_var`` only for
-variable nodes. It calls ``on_var(x)`` and then ``on_var(y)``, and each call
-prints the variable's name through ``var.name``.
+With ``callbacks=(ir.Var, on_var)``, only variable nodes are passed to
+``on_var``. The calls ``on_var(x)`` and ``on_var(y)`` each print the
+variable's ``name``.
 
 The following table lists the accepted callback forms, using ``on_var`` from
 the example and Python's built-in ``print`` function:
@@ -130,20 +128,18 @@ the example and Python's built-in ``print`` function:
    * - ``((ir.prim.Add, ir.prim.Mul), print)``
      - Additions and multiplications are passed to ``print``, one node per call.
    * - ``[(ir.Var, on_var), (ir.IntImm, print)]``
-     - A Python list containing two ``(Type, handler)`` tuples. Variables are passed
-       to ``on_var``; integer IR constants are passed to ``print``.
+     - A Python list of two ``(Type, handler)`` pairs. Variables are passed to
+       ``on_var``; integer IR constants are passed to ``print``.
    * - ``((ir.Var, on_var), (ir.IntImm, print))``
-     - The same two entries in a Python tuple instead of a list. Matching behavior
-       and entry order are unchanged.
+     - The same two pairs in a Python tuple, with the same matching order.
    * - ``print``
      - Every visited value is passed to ``print``, with no type filter.
    * - ``()``
-     - No functions are registered in ``callbacks``. The walker still visits
+     - The empty tuple selects no handlers. The walker still visits
        child nodes. This is the default when ``callbacks`` is omitted.
 
-The class in a ``callbacks`` entry also matches its subclasses. For example,
-``ir.Expr`` matches ``ir.Var`` because a variable is an expression. Here,
-``callbacks`` is a list of two ``(Type, handler)`` tuples that both match ``x``:
+A class in ``callbacks`` also matches objects of its subclasses. Since
+``ir.Var`` is a subclass of ``ir.Expr``, both pairs below match ``x``:
 
 .. code-block:: python
 
@@ -157,18 +153,19 @@ The class in a ``callbacks`` entry also matches its subclasses. For example,
    )
    print(selected)
 
-The output is ``['variable']``. Both entries match ``x``, but the walker
-checks them in order and calls only the first matching function. If the
-``ir.Expr`` entry came first, the expression handler would run instead.
+The output is ``['variable']``. The walker checks the pairs in order and
+calls only the first matching handler. If the ``ir.Expr`` pair came first,
+the expression handler would run instead.
 Returning ``None`` continues traversal; it does not try the next handler.
 
-When no entry matches a node, the walker still visits its children. For
+When no handler matches a node, the walker still visits its children. For
 example, a walk with only ``(ir.Var, on_var)`` still descends through the
 multiplication and additions in ``expr`` to reach ``x`` and ``y``.
 
-``order="post"`` calls the handler after the children; ``order="pre"`` calls
-it before them. The corresponding enum values are
-``tvm_ffi.WalkOrder.POSTORDER`` and ``PREORDER``.
+``order`` controls when a matching handler runs. ``order="post"`` (the default)
+calls it after the node's children have been visited; ``order="pre"`` calls it
+before them. The corresponding enum values are
+``tvm_ffi.WalkOrder.POSTORDER`` and ``tvm_ffi.WalkOrder.PREORDER``.
 
 The following trace records every expression node under both orders.
 ``ir.Expr`` matches variables, integer constants, and arithmetic nodes:
@@ -198,9 +195,9 @@ The output is:
    pre ['Mul', 'Add', 'x', '1', 'Add', 'y', '2']
    post ['x', '1', 'Add', 'y', '2', 'Add', 'Mul']
 
-Pre-order visits a parent before its children. Post-order, the default,
-visits the children before the parent. Within each binary expression, the
-registered child order visits ``a`` before ``b``.
+The pre-order trace records ``Mul`` before its ``Add`` children; the
+post-order trace records it after them. In both cases, each binary expression's
+left operand ``a`` is visited before its right operand ``b``.
 
 A callback can also control whether traversal continues, skips children,
 or stops entirely. Its return value determines what happens next:
@@ -212,7 +209,7 @@ or stops entirely. Its return value determines what happens next:
    * - Callback returns
      - Effect
    * - ``None`` or ``tvm_ffi.WalkResult.ADVANCE``
-     - Traversal continues normally.
+     - The walk continues.
    * - ``tvm_ffi.WalkResult.SKIP``
      - In pre-order, this value's children are omitted; traversal continues
        elsewhere.
@@ -246,12 +243,11 @@ The output is:
 
    ['Mul', 'Add', 'Add', 'y', '2']
 
-The first ``Add`` is observed, but its children ``x`` and ``1`` are skipped.
-The second subtree is still visited. ``same_as(x)`` checks the identity of
-the IR variable; another variable with the printed name ``x`` is a distinct
-symbol. A ``None`` or ``WalkResult.ADVANCE`` return continues traversal
-normally. Pruning takes effect in pre-order, since a post-order callback runs
-after the children have already been visited.
+The first ``Add`` is recorded, but its children ``x`` and ``1`` are skipped.
+The right subtree is still visited. ``same_as(x)`` checks IR object identity;
+another variable with the printed name ``x`` is a distinct symbol. Skipping
+children takes effect in pre-order, since a post-order callback runs after
+the children have already been visited.
 
 ``VisitInterrupt`` stops the entire traversal and carries a result:
 
@@ -266,15 +262,16 @@ after the children have already been visited.
    if found is not None:
        print(found.value.name)
 
-The output is ``y``. A completed walk returns ``None``; an interrupted walk
-returns the ``VisitInterrupt``. Returning ``SKIP`` only prunes one subtree,
-whereas returning an interrupt stops all remaining traversal.
+The output is ``y``. ``found`` holds the interrupt returned by ``find_y``,
+and ``found.value`` is the matching variable ``y``. The walk ends there,
+before visiting the remaining constant ``2``.
 
 .. _ir-ffi-containers:
 
-We use TVM FFI's data structures here: ``tvm_ffi.Array`` for sequences and
-``tvm_ffi.Map`` for key-value mappings. The following example collects
-variables from an array stored inside a map:
+A walk can also start from a collection of IR nodes. We use TVM FFI's data
+structures here: ``tvm_ffi.Array`` for sequences and ``tvm_ffi.Map`` for
+key-value mappings. The following example collects variables from an array
+stored inside a map:
 
 .. code-block:: python
 
@@ -303,10 +300,8 @@ is skipped.
 The same rules apply to the mutable sequence ``tvm_ffi.List`` and the mutable
 mapping ``tvm_ffi.Dict``.
 
-Each IR node type defines its children through structural fields or custom
-traversal hooks. Fields marked ``structural_eq="ignore"`` are skipped.
-
-The type in a ``callbacks`` entry determines which kinds of values match:
+FFI containers can hold ordinary values as well as IR objects. The callback
+type determines which of these values match:
 
 .. list-table::
    :header-rows: 1
@@ -324,8 +319,8 @@ The type in a ``callbacks`` entry determines which kinds of values match:
      - FFI objects, including IR nodes and FFI containers. Ordinary integers
        do not match this type.
 
-A walk visits every occurrence of a node, including repeated references
-to the same object:
+The same IR object can be referenced from more than one place.
+``structural_walk`` visits each reference:
 
 .. code-block:: python
 
@@ -343,21 +338,22 @@ The output is:
    2
    True
 
-There are two occurrences of the same addition. To visit an object once,
-a pre-order walk can keep a visited set and return ``SKIP`` on repeats.
+Both elements of ``additions`` refer to ``shared``. A pre-order handler can
+remember which objects it has already processed and return ``SKIP`` when it
+sees one again. The handler still runs for every reference; ``SKIP`` prevents
+another descent into the repeated node's children.
 
 .. _ir-definition-regions:
 
-A variable can appear where it is defined and where it is used.
-The optional ``with_def_region_kind`` argument lets a callback distinguish
-these occurrences. It accepts the same callback forms as ``callbacks``,
-but its handlers receive ``(value, kind)``. The ``kind`` is a
-``tvm_ffi.DefRegionKind`` describing the position currently being visited.
-The same variable object can therefore be visited with different kinds.
+``with_def_region_kind`` lets a callback tell whether a variable is being
+defined or used at each visit. It accepts the same callback forms as
+``callbacks``, but its handlers receive ``(value, kind)``. ``kind`` is the
+``tvm_ffi.DefRegionKind`` at the current position; it can differ between
+visits to the same variable object.
 
 ``ir.prim.Let(var, value, body)`` binds the result of ``value`` to ``var``
-within ``body``. In the following expression, ``tmp`` names the result of
-``expr``, and ``tmp + tmp`` uses that result twice:
+within ``body``. In this example, ``tmp`` is bound to the result of ``expr``
+and used twice in ``tmp + tmp``:
 
 .. code-block:: python
 
@@ -401,25 +397,22 @@ The five calls correspond to these positions:
      - ``tmp`` twice: references to the bound variable.
      - ``NONE``
 
-``Let``'s traversal rules mark ``var`` as a definition and visit ``value``
-and ``body`` as ordinary uses. The three visits to ``tmp`` receive the same
-variable object: one visit at its definition and two at its uses. The
-``NONE`` kind applies to uses of the bound ``tmp`` as well as the free
-inputs ``x`` and ``y``.
+``Let`` marks ``var`` as a definition. All three visits to ``tmp`` refer
+to the same object, but the two visits in ``body`` are uses and receive
+``NONE``. The visits to ``x`` and ``y`` in ``value`` are also uses.
 
-This distinction lets an analysis count variable uses without counting the
-definition itself: its callback records only visits with
+An analysis that counts variable uses can record only visits where
 ``kind == tvm_ffi.DefRegionKind.NONE``.
 
 .. _ir-pattern-definition-regions:
 
-Some definitions also introduce symbols through a variable's type. For
-example, a tensor parameter ``A`` with shape ``(n,)`` contains the symbolic
-dimension ``n`` in its type. Function parameter traversal uses
-``DEF_PATTERN`` for both ``A`` and the ``n`` reached through that type.
+A variable's type can itself contain variables. For a tensor parameter
+``A`` with shape ``(n,)``, the type of ``A`` contains the dimension variable
+``n``. Function parameter definitions use ``DEF_PATTERN``, which remains
+active as the walker enters the type. Both ``A`` and ``n`` therefore reach
+the callback with that kind.
 
-For a variable of this type, the two definition contexts affect visits as
-follows:
+For the same tensor variable, visiting under each definition kind gives:
 
 .. list-table::
    :header-rows: 1
@@ -435,14 +428,12 @@ follows:
      - ``DEF_PATTERN``
      - ``DEF_PATTERN``
 
-``DEF_PATTERN`` continues into the type, while ``DEF_SIMPLE`` applies to
-the variable itself. The IR node's traversal rules choose these contexts;
-the callback receives the current kind from the walker.
+IR node types define these contexts in their traversal rules. The walker
+passes the active kind to the callback.
 
-Entries in ``callbacks`` are tried before ``with_def_region_kind``. A value
-is handled by ``with_def_region_kind`` only when no entry in ``callbacks``
-matches, so a variable handler in ``callbacks`` would take precedence over
-``show_var_context`` in this example.
+``with_def_region_kind`` is consulted only when no handler in ``callbacks``
+matches the value. The ``Let`` example leaves ``callbacks`` empty so that
+``show_var_context`` handles every variable.
 
 Structural Map
 --------------
