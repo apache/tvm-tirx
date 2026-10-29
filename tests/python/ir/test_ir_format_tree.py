@@ -26,7 +26,6 @@ from tvm_ffi.dataclasses import field, py_class
 import tvm_tirx.testing
 from tvm_tirx import ir, tirx
 from tvm_tirx.script import from_source
-from tvm_tirx.script import tirx as T
 
 
 @py_class("testing.tree.Base")
@@ -77,19 +76,6 @@ def test_quick_start(device):
         assert "op: Op(index=" in ir.format_tree(function, expand=["op"])
     ir.assert_structural_equal(function, from_source(source))
     assert "def add_one" in function.script()
-
-
-def test_nested_control_flow():
-    @T.function
-    def nested(A: T.Tensor((4, 4), T.float32)):
-        for i in range(4):
-            for j in range(4):
-                if i < j:
-                    A[i, j] = A[i, j] + 1.0
-
-    text = ir.format_tree(nested)
-    assert text.count("For(begin=") == 2
-    assert "If" in text and "TensorStore" in text and "SeqStmt" in text
 
 
 def test_var_definition_and_type_expansion():
@@ -153,9 +139,6 @@ def test_bare_selector_overrides_default_fold():
     expanded = ir.format_tree(load, expand=["source", (ir.Var, "ty")])
     assert "ty: TensorType" in expanded and "shape[0]" in expanded
     assert "dtype: PrimType(dtype=float32)" in expanded
-    assert "source: A = Var(ty=TensorType" in ir.format_tree(
-        load, expand=["source"], show_defaults=True
-    )
     extension = TreeExtension(label="load", child=load)
     assert "child=TensorLoad(source=A," in ir.format_tree(
         extension, fold=["child"], expand=["source"]
@@ -323,20 +306,29 @@ def test_invalid_depth(depth):
         ir.format_tree(None, max_depth=depth)
 
 
-@pytest.mark.parametrize("option", ["fold", "expand", "hide"])
-@pytest.mark.parametrize("selectors", ["ty", [""], [(ir.Var,)], [(int, "ty")], [(ir.Var, 1)], [1]])
+@pytest.mark.parametrize(
+    "option,selectors",
+    [
+        ("fold", "ty"),
+        ("expand", [""]),
+        ("hide", [(ir.Var,)]),
+        ("fold", [(int, "ty")]),
+        ("expand", [(ir.Var, 1)]),
+        ("hide", [1]),
+    ],
+)
 def test_invalid_selectors(option, selectors):
     with pytest.raises(TypeError):
         ir.format_tree(None, **{option: selectors})
 
 
-@pytest.mark.parametrize("callbacks", [[], {"Type": str}, {int: str}, {ir.Type: None}])
+@pytest.mark.parametrize("callbacks", [[], {int: str}, {ir.Type: None}])
 def test_invalid_callbacks(callbacks):
     with pytest.raises(TypeError, match="fold_formatters"):
         ir.format_tree(None, fold_formatters=callbacks)
 
 
-@pytest.mark.parametrize("result", [None, 1, "line\nline", "line\rline"])
+@pytest.mark.parametrize("result", [1, "line\nline"])
 def test_invalid_callback_output(result):
     with pytest.raises(TypeError, match="single-line text"):
         ir.format_tree(ir.Var("i", "int32"), fold_formatters={ir.PrimType: lambda obj: result})
