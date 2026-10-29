@@ -56,10 +56,7 @@ Structural Walk
 
 ``tvm_ffi.structural_walk`` automatically traverses IR. Its callbacks can
 collect nodes, check properties, or stop the traversal when a matching value
-is found. We will start by printing variable names, then examine callback
-selection and traversal order, and finally distinguish variable definitions
-from uses. The examples in this section run in order and share the inputs
-created below.
+is found.
 
 .. code-block:: text
 
