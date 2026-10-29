@@ -348,42 +348,101 @@ a pre-order walk can keep a visited set and return ``SKIP`` on repeats.
 
 .. _ir-definition-regions:
 
-The optional ``with_def_region_kind`` table distinguishes variable definitions
-from uses. It accepts the same callback forms as ``callbacks``, but the
-selected function receives ``(value, kind)``. Here, ``kind`` is a
-``tvm_ffi.DefRegionKind`` describing the position at which the value occurs.
-Entries in ``callbacks`` are tried first; ``with_def_region_kind`` is
-consulted only when none matches. It is a fallback table, so registering the
-same type in both tables does not run both functions.
+A variable can appear where it is defined and where it is used.
+The optional ``with_def_region_kind`` argument lets a callback distinguish
+these occurrences. It accepts the same callback forms as ``callbacks``,
+but its handlers receive ``(value, kind)``. The ``kind`` is a
+``tvm_ffi.DefRegionKind`` describing the position currently being visited.
+The same variable object can therefore be visited with different kinds.
 
-``ir.prim.Let(var, value, body)`` binds a value to a local variable in its
-body. Here, ``tmp`` is defined once and used twice in ``tmp + tmp``:
+``ir.prim.Let(var, value, body)`` binds the result of ``value`` to ``var``
+within ``body``. In the following expression, ``tmp`` names the result of
+``expr``, and ``tmp + tmp`` uses that result twice:
 
 .. code-block:: python
 
    tmp = ir.Var("tmp", "int32")
    scoped_expr = ir.prim.Let(tmp, expr, tmp + tmp)
-   regions = []
+
+   def show_var_context(var, kind):
+       print(var.name, kind.name)
+
    tvm_ffi.structural_walk(
        scoped_expr,
-       with_def_region_kind=(
-           ir.Var,
-           lambda var, kind: regions.append((var.name, kind.name)),
-       ),
+       with_def_region_kind=(ir.Var, show_var_context),
    )
-   print([kind for name, kind in regions if name == "tmp"])
 
 The output is:
 
 .. code-block:: text
 
-   ['DEF_SIMPLE', 'NONE', 'NONE']
+   tmp DEF_SIMPLE
+   x NONE
+   y NONE
+   tmp NONE
+   tmp NONE
 
-All three callbacks receive the same ``tmp`` object. Their kinds differ
-because the first occurrence defines it and the other two use it in the body.
-``NONE`` means an ordinary use, ``DEF_SIMPLE`` marks a simple variable
-definition, and ``DEF_PATTERN`` marks a pattern definition, which can bind
-symbols through a type. The inputs ``x`` and ``y`` remain ordinary uses.
+The five calls correspond to these positions:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 30 38 32
+
+   * - Field
+     - Variables visited
+     - Kind
+   * - ``Let.var``
+     - ``tmp``: the variable being defined.
+     - ``DEF_SIMPLE``
+   * - ``Let.value``
+     - ``x`` and ``y``: inputs to the bound expression.
+     - ``NONE``
+   * - ``Let.body``
+     - ``tmp`` twice: references to the bound variable.
+     - ``NONE``
+
+``Let``'s traversal rules mark ``var`` as a definition and visit ``value``
+and ``body`` as ordinary uses. The three visits to ``tmp`` receive the same
+variable object: one visit at its definition and two at its uses. The
+``NONE`` kind applies to uses of the bound ``tmp`` as well as the free
+inputs ``x`` and ``y``.
+
+This distinction lets an analysis count variable uses without counting the
+definition itself: its callback records only visits with
+``kind == tvm_ffi.DefRegionKind.NONE``.
+
+.. _ir-pattern-definition-regions:
+
+Some definitions also introduce symbols through a variable's type. For
+example, a tensor parameter ``A`` with shape ``(n,)`` contains the symbolic
+dimension ``n`` in its type. Function parameter traversal uses
+``DEF_PATTERN`` for both ``A`` and the ``n`` reached through that type.
+
+For a variable of this type, the two definition contexts affect visits as
+follows:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 32 32 36
+
+   * - Definition context
+     - Visit to ``A``
+     - Visit to ``n`` in ``A``'s type
+   * - ``DEF_SIMPLE``
+     - ``DEF_SIMPLE``
+     - ``NONE``
+   * - ``DEF_PATTERN``
+     - ``DEF_PATTERN``
+     - ``DEF_PATTERN``
+
+``DEF_PATTERN`` continues into the type, while ``DEF_SIMPLE`` applies to
+the variable itself. The IR node's traversal rules choose these contexts;
+the callback receives the current kind from the walker.
+
+Entries in ``callbacks`` are tried before ``with_def_region_kind``. A value
+is handled by ``with_def_region_kind`` only when no entry in ``callbacks``
+matches, so a variable handler in ``callbacks`` would take precedence over
+``show_var_context`` in this example.
 
 Structural Map
 --------------
