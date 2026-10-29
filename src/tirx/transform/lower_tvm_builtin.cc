@@ -302,7 +302,7 @@ class BuiltinLower : public StmtExprMutator {
     TVM_FFI_ICHECK(device_type_) << "Unknown device type in current IR";
     TVM_FFI_ICHECK(device_id_) << "Unknown device id in current IR";
     Stmt throw_last_error =
-        Evaluate(Call(PrimType::Int(32), throw_last_error_op(), {}).as_or_throw<PrimExpr>());
+        Evaluate(Call(PrimType::Void(), throw_last_error_op(), {}).as_or_throw<PrimExpr>());
 
     Stmt alloc_nullptr_check =
         If(Call(PrimType::Bool(), isnullptr_op(), {op->var.as_or_throw<TensorVar>().data()})
@@ -711,7 +711,7 @@ class BuiltinLower : public StmtExprMutator {
     TVM_FFI_ICHECK(device_type_) << "Unknown device type in current IR";
     TVM_FFI_ICHECK(device_id_) << "Unknown device id in current IR";
     Stmt throw_last_error =
-        Evaluate(Call(PrimType::Int(32), throw_last_error_op(), {}).as_or_throw<PrimExpr>());
+        Evaluate(Call(PrimType::Void(), throw_last_error_op(), {}).as_or_throw<PrimExpr>());
 
     const auto* dtype_node = let->var->ty.as<PtrTypeObj>()->element_type.as<PrimTypeObj>();
     TVM_FFI_ICHECK(dtype_node);

@@ -245,7 +245,7 @@ def test_lower_overflow_int32():
                 ty_args=[T.Tensor((822083584,), T.float32)],
             )
             if T.isnullptr(T_subtract.data):
-                T.throw_last_error(ty="int32")
+                T.throw_last_error()
             rxplaceholder_red_1 = T.decl_tensor(
                 rxplaceholder_red.data, ty_args=[T.Tensor((T.int64(32),), T.float32)]
             )
@@ -260,7 +260,7 @@ def test_lower_overflow_int32():
                     cse_v1: T.let[T.int32] = ax1 * 25690112 + ax2
                     T_subtract_1[cse_v1] = rxplaceholder_1[cse_v1] - rxplaceholder_red_1[ax1]
             if T.free_workspace(1, 0, T_subtract.data) != 0:
-                T.throw_last_error(ty="int32")
+                T.throw_last_error()
 
     After = tvm_tirx.tirx.transform.LowerTVMBuiltin()(Before)
     tvm_tirx.ir.assert_structural_equal(After, Expected)
@@ -290,14 +290,42 @@ def test_lower_device_allocate():
                 ty_args=[T.Tensor((16,), T.float32)],
             )
             if T.isnullptr(ptr.data):
-                T.throw_last_error(ty="int32")
+                T.throw_last_error()
             buf = T.decl_tensor(ptr.data, ty_args=[T.Tensor((16,), T.float32)])
             buf[0] = T.float32(0.0)
             if T.free_workspace(2, 0, ptr.data) != 0:
-                T.throw_last_error(ty="int32")
+                T.throw_last_error()
 
     After = tvm_tirx.tirx.transform.LowerTVMBuiltin()(Before)
     tvm_tirx.ir.assert_structural_equal(After, Expected)
+
+
+def test_lower_nd_allocation_error_type():
+    """Scoped allocation failures retain the declared void result type."""
+
+    @I.ir_module
+    class Before:
+        @T.function
+        def main(shape: T.Ptr(T.int64)):
+            T.func_attr({"target": T.target("llvm")})
+            with T.device_context(4, 0):  # kDLOpenCL
+                ptr = T.opencl.nd_mem_alloc_with_scope(
+                    "global.texture", 2, shape, ty=T.Ptr(T.float32)
+                )
+                T.evaluate(ptr)
+
+    after = tvm_tirx.tirx.transform.LowerTVMBuiltin()(Before)
+    throws = []
+
+    def collect_throws(node):
+        if isinstance(node, tvm_tirx.ir.Call) and node.op.same_as(
+            tvm_tirx.ir.Op.get("tirx.throw_last_error")
+        ):
+            throws.append(node)
+
+    tvm_ffi.structural_walk(after, collect_throws)
+    assert len(throws) == 2
+    assert all(call.ty == T.void for call in throws)
 
 
 def test_lower_cpu_allocation():

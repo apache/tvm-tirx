@@ -286,7 +286,7 @@ Function MakePackedAPI(Function func) {
       Stmt check_status = If(
           status != IntImm::Int32(0),
           SeqStmt({Evaluate(
-              Call(PrimType::Int(32), tirx::throw_last_error_op(), {}).as_or_throw<PrimExpr>())}));
+              Call(PrimType::Void(), tirx::throw_last_error_op(), {}).as_or_throw<PrimExpr>())}));
       body = SeqStmt({set_device, check_status, body});
     }
   }
