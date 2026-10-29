@@ -18,9 +18,10 @@
 IR Overview
 ===========
 
-One primary design goal of TIRx is to allow developers and agents to quickly
-access every stage of compilation, not only its input and output, and to
-work with every stage in the same way, so they can customize the compiler.
+TIRx gives developers and agents direct access to the programs and
+transformations at each stage of compilation. They can inspect the
+intermediate program, apply an existing pass, or add their own compiler
+components.
 
 TIRx represents a program as a tree of intermediate representation (IR)
 nodes, such as functions, statements, and values. The tree is similar to the
@@ -159,10 +160,10 @@ same way, registering new operators, defining new types, and adding their own
 TVMScript namespaces from Python, C++, or Rust, while reusing TIRx as a
 foundation.
 
-Every IR node can also carry a source location
-(:py:class:`ir.Location <tvm_tirx.ir.Location>`) in its ``loc`` field, which
-records where the node comes from in the source code and can be used for
-diagnostics.
+IR nodes can also carry source locations
+(:py:class:`ir.Location <tvm_tirx.ir.Location>`). For example, an expression's
+``loc`` field records where it came from in the source, so a diagnostic
+can point back to the original code.
 
 .. _choose-a-chapter:
 
