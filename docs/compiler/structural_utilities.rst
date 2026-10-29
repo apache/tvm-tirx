@@ -116,109 +116,8 @@ With ``callbacks=(ir.Var, on_var)``, the walker calls ``on_var`` only for
 variable nodes. It calls ``on_var(x)`` and then ``on_var(y)``, and each call
 prints the variable's name through ``var.name``.
 
-The callback can also collect variable objects in a list for later use:
-
-.. code-block:: python
-
-   variables = []
-
-   def collect_var(var):
-       variables.append(var)
-
-   tvm_ffi.structural_walk(expr, callbacks=(ir.Var, collect_var))
-   print([var.name for var in variables])
-
-The output is:
-
-.. code-block:: text
-
-   ['x', 'y']
-
-The walker calls ``collect_var(x)`` and ``collect_var(y)``. The callback
-receives the variable objects themselves, which is why the final line can
-read their ``name`` fields. The unmatched ``Mul`` and ``Add`` nodes still receive default
-descent: the type filter selects callback invocations, not entire subtrees.
-``collect_var`` returns ``None`` implicitly, so traversal continues. The list is
-populated by the callback; it is not the return value of ``structural_walk``.
-
-A tuple of classes shares one callback across those classes. Here, additions
-and multiplications both call ``on_arithmetic``:
-
-.. code-block:: python
-
-   operator_names = []
-
-   def on_arithmetic(node):
-       operator_names.append(type(node).__name__)
-
-   tvm_ffi.structural_walk(
-       expr, ((ir.prim.Add, ir.prim.Mul), on_arithmetic)
-   )
-   print(operator_names)
-
-The output is ``['Add', 'Add', 'Mul']``. The type tuple lists alternatives:
-``on_arithmetic`` receives one node per call, whether that node is an
-addition or a multiplication.
-
-A Python list or tuple of ``(Type, handler)`` pairs assigns different
-functions to different types:
-
-.. code-block:: python
-
-   leaves = []
-
-   def on_name(var):
-       leaves.append(("var", var.name))
-
-   def on_int(value):
-       leaves.append(("int", int(value)))
-
-   tvm_ffi.structural_walk(
-       expr, [(ir.Var, on_name), (ir.IntImm, on_int)]
-   )
-   print(leaves)
-
-The output is:
-
-.. code-block:: text
-
-   [('var', 'x'), ('int', 1), ('var', 'y'), ('int', 2)]
-
-Here, ``on_name`` receives ``ir.Var`` objects and ``on_int`` receives
-``ir.IntImm`` objects. The type entries determine which function runs;
-the functions read the fields or convert the values they receive.
-
-A function passed directly as ``callbacks`` runs for every visited value,
-with no type filter. Its body can check types before reading fields
-specific to a node class:
-
-.. code-block:: python
-
-   bare_variables = []
-   visited_types = []
-
-   def on_value(value):
-       visited_types.append(type(value).__name__)
-       if isinstance(value, ir.Var):
-           bare_variables.append(value.name)
-
-   tvm_ffi.structural_walk(expr, on_value)
-   print(visited_types)
-   print(bare_variables)
-
-The output is:
-
-.. code-block:: text
-
-   ['Var', 'IntImm', 'Add', 'Var', 'IntImm', 'Add', 'Mul']
-   ['x', 'y']
-
-``on_value`` receives all seven expression nodes, including arithmetic nodes
-and integer constants. Only variable names enter ``bare_variables``, because
-the callback body performs that type check itself.
-
-The callback forms illustrated above are summarized below. An empty
-``callbacks`` argument selects no handlers:
+The following table lists the accepted callback forms, using ``on_var`` from
+the example and Python's built-in ``print`` function:
 
 .. list-table::
    :header-rows: 1
@@ -228,18 +127,16 @@ The callback forms illustrated above are summarized below. An empty
      - Meaning
    * - ``(ir.Var, on_var)``
      - Variables are passed to ``on_var``.
-   * - ``((ir.prim.Add, ir.prim.Mul), on_arithmetic)``
-     - Either an addition or a multiplication is passed to the same
-       ``on_arithmetic`` function.
-   * - ``[(ir.Var, on_name), (ir.IntImm, on_int)]``
+   * - ``((ir.prim.Add, ir.prim.Mul), print)``
+     - Additions and multiplications are passed to ``print``, one node per call.
+   * - ``[(ir.Var, on_var), (ir.IntImm, print)]``
      - A list containing two ``(Type, handler)`` tuples. Variables are passed
-       to ``on_name``; integer IR constants are passed to ``on_int``.
-   * - ``((ir.Var, on_name), (ir.IntImm, on_int))``
+       to ``on_var``; integer IR constants are passed to ``print``.
+   * - ``((ir.Var, on_var), (ir.IntImm, print))``
      - The same two entries in a tuple instead of a list. Matching behavior
        and entry order are unchanged.
-   * - ``on_value``
-     - The function is passed on its own, with no type filter. It can receive
-       any kind of value visited by the walker.
+   * - ``print``
+     - Every visited value is passed to ``print``, with no type filter.
    * - ``()``
      - No functions are registered in ``callbacks``. The walker still visits
        child nodes. This is the default when ``callbacks`` is omitted.
