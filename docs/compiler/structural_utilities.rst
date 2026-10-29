@@ -43,9 +43,9 @@ describe. Walk and map are higher-level APIs that handle recursion, letting
 callbacks focus on inspecting or replacing nodes. Visit and mutate let
 callbacks make recursive calls explicitly, so they can choose which children
 to process, control the order, and manage state before and after each call.
-Each section uses the same arithmetic expression
-to make these differences easy to compare and includes its own setup so you
-can run the examples independently.
+To illustrate these differences, we will apply each API to the same arithmetic
+expression, with a separate setup in each section so you can run the examples
+independently.
 
 Structural Walk
 ---------------
