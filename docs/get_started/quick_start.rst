@@ -124,8 +124,8 @@ Inspect and Transform the Program
 
 Besides compiling and running ``add_one``, we can also look inside it. The
 ``add_one`` returned by ``@T.function`` is a tree of program elements,
-commonly called an intermediate representation (IR). To inspect the CPU
-function defined above, print its tree:
+commonly called an intermediate representation (IR). To see how the program
+is structured, we can use ``format_tree`` to display its IR as a tree:
 
 .. code-block:: python
 

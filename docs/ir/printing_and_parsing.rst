@@ -68,11 +68,6 @@ The same method works on modules and smaller IR objects. For example,
 ``add_one.params[0].ty.script()`` returns ``T.Tensor((n,), T.float32)``
 for the input tensor type.
 
-For a field-by-field view of an object, :func:`tvm_tirx.ir.format_tree` returns
-a compact text tree. See the :doc:`overview` for an example of inspecting the
-add-one body. The tree includes reflected extension fields without requiring
-a TVMScript printer for their types.
-
 .. _parsing-source:
 
 Parsing TVMScript
