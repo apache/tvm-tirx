@@ -119,8 +119,109 @@ With ``callbacks=(ir.Var, on_var)``, the walker calls ``on_var`` only for
 variable nodes. It calls ``on_var(x)`` and then ``on_var(y)``, and each call
 prints the variable's name through ``var.name``.
 
-The following table lists the forms accepted by ``callbacks``. The function
-names are defined in this section's examples:
+The callback can also collect variable objects in a list for later use:
+
+.. code-block:: python
+
+   variables = []
+
+   def collect_var(var):
+       variables.append(var)
+
+   tvm_ffi.structural_walk(expr, callbacks=(ir.Var, collect_var))
+   print([var.name for var in variables])
+
+The output is:
+
+.. code-block:: text
+
+   ['x', 'y']
+
+The walker calls ``collect_var(x)`` and ``collect_var(y)``. The callback
+receives the variable objects themselves, which is why the final line can
+read their ``name`` fields. The unmatched ``Mul`` and ``Add`` nodes still receive default
+descent: the type filter selects callback invocations, not entire subtrees.
+``collect_var`` returns ``None`` implicitly, so traversal continues. The list is
+populated by the callback; it is not the return value of ``structural_walk``.
+
+A tuple of classes shares one callback across those classes. Here, additions
+and multiplications both call ``on_arithmetic``:
+
+.. code-block:: python
+
+   operator_names = []
+
+   def on_arithmetic(node):
+       operator_names.append(type(node).__name__)
+
+   tvm_ffi.structural_walk(
+       expr, ((ir.prim.Add, ir.prim.Mul), on_arithmetic)
+   )
+   print(operator_names)
+
+The output is ``['Add', 'Add', 'Mul']``. The type tuple lists alternatives:
+``on_arithmetic`` receives one node per call, whether that node is an
+addition or a multiplication.
+
+A Python list or tuple of ``(Type, handler)`` pairs assigns different
+functions to different types:
+
+.. code-block:: python
+
+   leaves = []
+
+   def on_name(var):
+       leaves.append(("var", var.name))
+
+   def on_int(value):
+       leaves.append(("int", int(value)))
+
+   tvm_ffi.structural_walk(
+       expr, [(ir.Var, on_name), (ir.IntImm, on_int)]
+   )
+   print(leaves)
+
+The output is:
+
+.. code-block:: text
+
+   [('var', 'x'), ('int', 1), ('var', 'y'), ('int', 2)]
+
+Here, ``on_name`` receives ``ir.Var`` objects and ``on_int`` receives
+``ir.IntImm`` objects. The type entries determine which function runs;
+the functions read the fields or convert the values they receive.
+
+A function passed directly as ``callbacks`` runs for every visited value,
+with no type filter. Its body can check types before reading fields
+specific to a node class:
+
+.. code-block:: python
+
+   bare_variables = []
+   visited_types = []
+
+   def on_value(value):
+       visited_types.append(type(value).__name__)
+       if isinstance(value, ir.Var):
+           bare_variables.append(value.name)
+
+   tvm_ffi.structural_walk(expr, on_value)
+   print(visited_types)
+   print(bare_variables)
+
+The output is:
+
+.. code-block:: text
+
+   ['Var', 'IntImm', 'Add', 'Var', 'IntImm', 'Add', 'Mul']
+   ['x', 'y']
+
+``on_value`` receives all seven expression nodes, including arithmetic nodes
+and integer constants. Only variable names enter ``bare_variables``, because
+the callback body performs that type check itself.
+
+The callback forms illustrated above are summarized below. An empty
+``callbacks`` argument selects no handlers:
 
 .. list-table::
    :header-rows: 1
@@ -171,10 +272,114 @@ When no entry matches a node, the walker still visits its children. For
 example, a walk with only ``(ir.Var, on_var)`` still descends through the
 multiplication and additions in ``expr`` to reach ``x`` and ``y``.
 
+``order="post"`` calls the handler after the children; ``order="pre"`` calls
+it before them. The corresponding enum values are
+``tvm_ffi.WalkOrder.POSTORDER`` and ``PREORDER``.
+
+The following trace records every expression node under both orders.
+``ir.Expr`` matches variables, integer constants, and arithmetic nodes:
+
+.. code-block:: python
+
+   def describe(node):
+       if isinstance(node, ir.Var):
+           return node.name
+       if isinstance(node, ir.IntImm):
+           return str(int(node))
+       return type(node).__name__
+
+   for order in ("pre", "post"):
+       trace = []
+       tvm_ffi.structural_walk(
+           expr,
+           (ir.Expr, lambda node: trace.append(describe(node))),
+           order=order,
+       )
+       print(order, trace)
+
+The output is:
+
+.. code-block:: text
+
+   pre ['Mul', 'Add', 'x', '1', 'Add', 'y', '2']
+   post ['x', '1', 'Add', 'y', '2', 'Add', 'Mul']
+
+Pre-order visits a parent before its children. Post-order, the default,
+visits the children before the parent. Within each binary expression, the
+registered child order visits ``a`` before ``b``.
+
+A callback can also control whether traversal continues, skips children,
+or stops entirely. Its return value determines what happens next:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 40 60
+
+   * - Callback returns
+     - Effect
+   * - ``None`` or ``tvm_ffi.WalkResult.ADVANCE``
+     - Traversal continues normally.
+   * - ``tvm_ffi.WalkResult.SKIP``
+     - In pre-order, this value's children are omitted; traversal continues
+       elsewhere.
+   * - ``tvm_ffi.VisitInterrupt(payload)``
+     - The whole walk stops and returns the interrupt to the caller.
+
+``structural_walk`` returns ``None`` on completion or ``VisitInterrupt`` on
+early exit. The interrupt's ``value`` field holds the payload from the
+callback.
+
+A pre-order callback can return ``WalkResult.SKIP`` to omit the current
+node's children. We can skip the addition containing ``x`` while continuing
+through the rest of the expression:
+
+.. code-block:: python
+
+   trace = []
+
+   def skip_left_add(node):
+       trace.append(describe(node))
+       if isinstance(node, ir.prim.Add) and node.a.same_as(x):
+           return tvm_ffi.WalkResult.SKIP
+       return None
+
+   tvm_ffi.structural_walk(expr, (ir.Expr, skip_left_add), order="pre")
+   print(trace)
+
+The output is:
+
+.. code-block:: text
+
+   ['Mul', 'Add', 'Add', 'y', '2']
+
+The first ``Add`` is observed, but its children ``x`` and ``1`` are skipped.
+The second subtree is still visited. ``same_as(x)`` checks the identity of
+the IR variable; another variable with the printed name ``x`` is a distinct
+symbol. A ``None`` or ``WalkResult.ADVANCE`` return continues traversal
+normally. Pruning takes effect in pre-order, since a post-order callback runs
+after the children have already been visited.
+
+``VisitInterrupt`` stops the entire traversal and carries a result:
+
+.. code-block:: python
+
+   def find_y(var):
+       if var.same_as(y):
+           return tvm_ffi.VisitInterrupt(var)
+       return None
+
+   found = tvm_ffi.structural_walk(expr, (ir.Var, find_y))
+   if found is not None:
+       print(found.value.name)
+
+The output is ``y``. A completed walk returns ``None``; an interrupted walk
+returns the ``VisitInterrupt``. Returning ``SKIP`` only prunes one subtree,
+whereas returning an interrupt stops all remaining traversal.
+
 .. _ir-ffi-containers:
 
-IR fields can hold collections of child nodes. TVM FFI provides container
-objects so that Python and C++ can share these collections:
+The same walk can traverse collections of IR nodes. TVM FFI provides
+container objects so that Python and C++ can share these collections:
 
 .. list-table::
    :header-rows: 1
@@ -244,213 +449,8 @@ The type in a ``callbacks`` entry determines which kinds of values match:
      - FFI objects, including IR nodes and FFI containers. Ordinary integers
        do not match this type.
 
-``order="post"`` calls the handler after the children; ``order="pre"`` calls
-it before them. The corresponding enum values are
-``tvm_ffi.WalkOrder.POSTORDER`` and ``PREORDER``. The optional
-``with_def_region_kind`` argument provides definition/use information to
-callbacks; the final example in this section introduces that information.
-
-The callback's return value controls traversal:
-
-.. list-table::
-   :header-rows: 1
-   :widths: 40 60
-
-   * - Callback returns
-     - Effect
-   * - ``None`` or ``tvm_ffi.WalkResult.ADVANCE``
-     - Traversal continues normally.
-   * - ``tvm_ffi.WalkResult.SKIP``
-     - In pre-order, this value's children are omitted; traversal continues
-       elsewhere.
-   * - ``tvm_ffi.VisitInterrupt(payload)``
-     - The whole walk stops and returns the interrupt to the caller.
-
-``structural_walk`` returns ``None`` on completion or the ``VisitInterrupt`` on
-early exit. It does not return collected nodes or a rewritten root. Callbacks
-can record observations in state such as a list. An early-exit payload is
-available through the returned interrupt's ``value`` field.
-
-The callback can also collect variable objects in a list for later use:
-
-.. code-block:: python
-
-   variables = []
-
-   def collect_var(var):
-       variables.append(var)
-
-   tvm_ffi.structural_walk(expr, callbacks=(ir.Var, collect_var))
-   print([var.name for var in variables])
-
-The output is:
-
-.. code-block:: text
-
-   ['x', 'y']
-
-The walker calls ``collect_var(x)`` and ``collect_var(y)``. The callback
-receives the variable objects themselves, which is why the final line can read their
-``name`` fields. The unmatched ``Mul`` and ``Add`` nodes still receive default
-descent: the type filter selects callback invocations, not entire subtrees.
-``collect_var`` returns ``None`` implicitly, so traversal continues. The list is
-populated by the callback; it is not the return value of ``structural_walk``.
-
-A tuple of classes shares one callback across those classes. Here, additions
-and multiplications both call ``on_arithmetic``:
-
-.. code-block:: python
-
-   operator_names = []
-
-   def on_arithmetic(node):
-       operator_names.append(type(node).__name__)
-
-   tvm_ffi.structural_walk(
-       expr, ((ir.prim.Add, ir.prim.Mul), on_arithmetic)
-   )
-   print(operator_names)
-
-The output is ``['Add', 'Add', 'Mul']``. The type tuple lists alternatives:
-``on_arithmetic`` receives one node per call, whether that node is an
-addition or a multiplication.
-
-A list of entries assigns different functions to different types:
-
-.. code-block:: python
-
-   leaves = []
-
-   def on_name(var):
-       leaves.append(("var", var.name))
-
-   def on_int(value):
-       leaves.append(("int", int(value)))
-
-   tvm_ffi.structural_walk(
-       expr, [(ir.Var, on_name), (ir.IntImm, on_int)]
-   )
-   print(leaves)
-
-The output is:
-
-.. code-block:: text
-
-   [('var', 'x'), ('int', 1), ('var', 'y'), ('int', 2)]
-
-Here, ``on_name`` receives ``ir.Var`` objects and ``on_int`` receives
-``ir.IntImm`` objects. The type entries determine which function runs;
-the functions read the fields or convert the values they receive.
-
-A callable passed on its own, without a ``(Type, handler)`` entry, is also
-called a bare callable. It has no type filter. Its body can check types
-before accessing fields specific to a node class:
-
-.. code-block:: python
-
-   bare_variables = []
-   visited_types = []
-
-   def on_value(value):
-       visited_types.append(type(value).__name__)
-       if isinstance(value, ir.Var):
-           bare_variables.append(value.name)
-
-   tvm_ffi.structural_walk(expr, on_value)
-   print(visited_types)
-   print(bare_variables)
-
-The output is:
-
-.. code-block:: text
-
-   ['Var', 'IntImm', 'Add', 'Var', 'IntImm', 'Add', 'Mul']
-   ['x', 'y']
-
-``on_value`` receives all seven expression nodes, including arithmetic nodes
-and integer constants. Only variable names enter ``bare_variables``, because
-the callback body performs that type check itself.
-
-To see when callbacks run, we can record every expression node. ``ir.Expr``
-matches its concrete subclasses, including variables and arithmetic nodes:
-
-.. code-block:: python
-
-   def describe(node):
-       if isinstance(node, ir.Var):
-           return node.name
-       if isinstance(node, ir.IntImm):
-           return str(int(node))
-       return type(node).__name__
-
-   for order in ("pre", "post"):
-       trace = []
-       tvm_ffi.structural_walk(
-           expr,
-           (ir.Expr, lambda node: trace.append(describe(node))),
-           order=order,
-       )
-       print(order, trace)
-
-The output is:
-
-.. code-block:: text
-
-   pre ['Mul', 'Add', 'x', '1', 'Add', 'y', '2']
-   post ['x', '1', 'Add', 'y', '2', 'Add', 'Mul']
-
-Pre-order visits a parent before its children. Post-order, the default,
-visits the children before the parent. Within each binary expression, the
-registered child order visits ``a`` before ``b``.
-
-A pre-order callback can return ``WalkResult.SKIP`` to omit the current
-node's children. We can skip the addition containing ``x`` while continuing
-through the rest of the expression:
-
-.. code-block:: python
-
-   trace = []
-
-   def skip_left_add(node):
-       trace.append(describe(node))
-       if isinstance(node, ir.prim.Add) and node.a.same_as(x):
-           return tvm_ffi.WalkResult.SKIP
-       return None
-
-   tvm_ffi.structural_walk(expr, (ir.Expr, skip_left_add), order="pre")
-   print(trace)
-
-The output is:
-
-.. code-block:: text
-
-   ['Mul', 'Add', 'Add', 'y', '2']
-
-The first ``Add`` is observed, but its children ``x`` and ``1`` are skipped.
-The second subtree is still visited. ``same_as(x)`` checks the identity of
-the IR variable; another variable with the printed name ``x`` is a distinct
-symbol. A ``None`` or ``WalkResult.ADVANCE`` return continues traversal
-normally. Pruning takes effect in pre-order, since a post-order callback runs
-after the children have already been visited.
-
-``VisitInterrupt`` stops the entire traversal and carries a result:
-
-.. code-block:: python
-
-   def find_y(var):
-       if var.same_as(y):
-           return tvm_ffi.VisitInterrupt(var)
-       return None
-
-   found = tvm_ffi.structural_walk(expr, (ir.Var, find_y))
-   if found is not None:
-       print(found.value.name)
-
-The output is ``y``. A completed walk returns ``None``; an interrupted walk
-returns the ``VisitInterrupt``. Returning ``SKIP`` only prunes one subtree,
-whereas returning an interrupt stops all remaining traversal.
-
-A walk visits occurrences rather than deduplicating shared objects:
+A walk visits every occurrence of a node, including repeated references
+to the same object:
 
 .. code-block:: python
 
