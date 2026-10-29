@@ -160,10 +160,8 @@ as operands:
 Expression Arguments
 ~~~~~~~~~~~~~~~~~~~~
 
-A call can also receive a computation as an argument.
-As an extension of the scalar add-one expression, we can apply sigmoid to
-``scalar_value + 1``. The variable ``scalar_value`` has type
-``ir.PrimType("float32")``:
+A call can also receive a computation as an argument. We can add one to
+a float32 scalar and pass the result to sigmoid:
 
 .. code-block:: python
 
@@ -171,10 +169,10 @@ As an extension of the scalar add-one expression, we can apply sigmoid to
    scalar_plus_one = scalar_value + 1
    activated_plus_one = ir.prim.sigmoid(scalar_plus_one)
 
-``ir.prim.sigmoid(...)`` constructs and returns an ``ir.Call`` object.
-``activated_plus_one`` refers to this call, which is also a primitive
-expression because its result type is ``ir.PrimType("float32")``.
-We can construct the same call explicitly:
+``activated_plus_one`` is the ``ir.Call`` returned by the
+``ir.prim.sigmoid`` helper. Its result type is ``ir.PrimType("float32")``,
+so it is also a primitive expression. We can construct the same call
+explicitly:
 
 .. code-block:: python
 

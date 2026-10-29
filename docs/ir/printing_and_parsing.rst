@@ -167,29 +167,35 @@ or see how a compiler pass changes the program.
 Highlighting IR Objects
 ~~~~~~~~~~~~~~~~~~~~~~~
 
-The function's body lets us reach the addition in ``B[i] = A[i] + 1``.
-To find this expression in the printed program, we can ask the printer to
-underline it:
+An analysis may need to identify an expression in a diagnostic. We can
+reach the addition in ``B[i] = A[i] + 1`` through the function's body,
+then ask the printer to underline it and attach a message about its type:
 
 .. code-block:: python
 
    loop = add_one.body[0]
    store = loop.body[0]
    addition = store.value
-   marked_source = add_one.script(obj_to_underline=[addition])
+   marked_source = add_one.script(
+       obj_to_underline=[addition],
+       obj_to_annotate={addition: "result dtype: float32"},
+       print_line_numbers=True,
+       num_context_lines=1,
+   )
    print(marked_source)
 
 The marked lines include:
 
 .. code-block:: text
 
-   B[i] = A[i] + T.float32(1.0)
-          ^^^^^^^^^^^^^^^^^^^^^
+   7     for i in range(n):
+   8         B[i] = A[i] + T.float32(1.0)  # result dtype: float32
+                    ^^^^^^^^^^^^^^^^^^^^^
 
-``obj_to_underline`` selects the IR objects to mark. For a diagnostic,
-``print_line_numbers=True`` adds line numbers, ``obj_to_annotate`` can
-attach messages to selected objects, and ``num_context_lines`` limits the
-surrounding source.
+``obj_to_underline`` selects the expression to mark, and ``obj_to_annotate``
+attaches the message. The line numbers refer to this printed source.
+``num_context_lines=1`` keeps one surrounding line, so the diagnostic
+shows the loop containing the addition.
 
 For interactive inspection,
 :meth:`add_one.show() <tvm_tirx.tirx.Function.show>` displays highlighted

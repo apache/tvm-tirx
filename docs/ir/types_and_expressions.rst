@@ -65,8 +65,8 @@ for scalar and vector values, tensor types, and function types:
      - A tensor's shape, element type, and storage properties
      - ``shape``, ``dtype``, ``scope``, ``data_alignment``, ``layout``
 
-Next, we will look at two common types in tensor programs in more detail:
-``ir.PrimType`` for scalar and vector values, and ``tirx.TensorType`` for tensors.
+We will examine primitive and tensor types first, then look at the
+pointer type used for a tensor's data address.
 
 .. _user-ir-prim-type:
 
@@ -148,6 +148,22 @@ The dimension ``n`` is symbolic: it is not fixed to a particular number
 when the function is compiled. Each call determines ``n`` from the length
 of ``A``. Since ``B`` uses the same symbol in its type, its length must
 match ``A``. The loop then uses ``n`` as its bound.
+
+PtrType
+~~~~~~~
+
+Some low-level operations take a memory address. The ``data`` property
+of a tensor parameter constructs an expression for its data pointer:
+
+.. code-block:: python
+
+   data_pointer = add_one.params[0].data
+   pointer_type = data_pointer.ty
+
+``pointer_type`` is an ``ir.PtrType``. Its ``element_type`` is
+``ir.PrimType("float32")``, and its ``scope`` is ``"global"``, matching
+the tensor's storage. This type describes the elements addressed by the
+pointer. The tensor's ``TensorType`` also records their shape.
 
 Expressions
 -----------
@@ -326,6 +342,29 @@ operands are the index and tensor length:
    └── b: ir.Var                    n
 
 The comparison checks whether the thread has a valid element to process.
+
+Boolean operations combine comparisons into a single condition. For
+example, both checks must hold for a scalar to lie in the interval
+``[0, 1)``:
+
+.. code-block:: python
+
+   in_unit_interval = ir.prim.And(scalar_value >= 0, scalar_value < 1)
+
+The ``And`` node holds the two comparisons in ``a`` and ``b``. Its result
+type is ``ir.PrimType("bool")``.
+
+An operation can also change the dtype of a value. To produce a float16
+version of the add-one result, we can use a cast:
+
+.. code-block:: python
+
+   half_plus_one = ir.prim.Cast("float16", scalar_plus_one)
+
+The cast's ``value`` field refers to ``scalar_plus_one``. Its ``ty`` is
+``ir.PrimType("float16")``, which tells code generation to convert the
+float32 result to float16.
+
 The :doc:`ir.prim </reference/python/ir.prim>` API reference lists other
 operations and their construction helpers.
 
@@ -369,6 +408,25 @@ scalar add-one example in PrimType uses this constructor:
 
 ``ir.Var("scalar_value", "float32")`` creates a variable whose ``name``
 is ``"scalar_value"`` and whose ``ty`` is ``ir.PrimType("float32")``.
+
+Tuples
+~~~~~~
+
+An expression can group several values into a tuple. For example, we can
+keep the original scalar and its add-one result together, then select
+the second value:
+
+.. code-block:: python
+
+   paired_values = ir.Tuple([scalar_value, scalar_plus_one])
+   second_value = ir.TupleGetItem(paired_values, 1)
+
+``paired_values.fields`` holds the two expressions. Its type is an
+``ir.TupleType`` whose ``fields`` holds their types: two
+``ir.PrimType("float32")`` objects. ``TupleGetItem`` records the tuple
+in ``tuple_value`` and the selected position in ``index``. Index 1
+selects ``scalar_plus_one``, so ``second_value`` has type
+``ir.PrimType("float32")``.
 
 .. _user-ir-call:
 

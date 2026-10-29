@@ -356,3 +356,34 @@ the element is positive, the store records its index and ``break`` ends
 the loop. These statements become
 ``ir.Continue`` and ``ir.Break`` inside their enclosing loop; neither
 has operands or a nested body.
+
+Assertions and returns
+~~~~~~~~~~~~~~~~~~~~~~
+
+A function can check a precondition before computing its result. This
+function adds one to the first input element and returns the value.
+The assertion ensures that the tensor has an element to read:
+
+.. code-block:: python
+
+   @T.function
+   def first_plus_one(A: T.Tensor((n,), T.float32)) -> T.float32:
+       assert n > 0, "the input must contain at least one element"
+       return A[0] + 1
+
+The ``assert`` becomes an ``ir.AssertStmt``. Its ``condition`` holds
+``n > 0``, its ``error_kind`` names ``RuntimeError``, and its
+``message_parts`` contains the error message. An empty input raises that
+error before the tensor read. Otherwise, execution reaches the
+``ir.Return``, whose ``value`` is the addition expression:
+
+.. code-block:: text
+
+   first_plus_one.body: ir.SeqStmt
+   ├── seq[0]: ir.AssertStmt                 assert n > 0, ...
+   └── seq[1]: ir.Return
+       └── value: ir.prim.Add                A[0] + 1
+
+The return annotation ``-> T.float32`` declares the result type. For an
+input starting with ``3.5``, the function returns ``4.5`` directly to its
+caller. It needs no output tensor parameter.

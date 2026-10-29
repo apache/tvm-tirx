@@ -27,9 +27,9 @@ implementation and locate definitions through global references.
 Functions
 ---------
 
-A function declares its parameters and the computation that uses them.
-This CPU function accepts two tensors of length ``n`` and
-writes each input value plus one to the output:
+We can inspect a small CPU function to see how its parameters and body
+fit together. It accepts two tensors of length ``n`` and writes each
+input value plus one to the output:
 
 .. literalinclude:: ../../examples/quick_start/add_one_cpu.py
    :language: python
@@ -199,9 +199,9 @@ the module. The function's ``attrs["global_symbol"]`` specifies its
 exported name for code generation. Both names are ``"add_one"`` in this
 example, but they serve these separate purposes.
 
-``tvm_tirx.compile`` accepts a module as well as a standalone function. We
-can compile ``module`` for the CPU with LLVM,
-then create CPU tensors and call its exported ``add_one`` function:
+``tvm_tirx.compile`` accepts a module as well as a standalone function.
+We can compile ``module`` for the CPU with LLVM, then call its exported
+``add_one`` function with input and output tensors:
 
 .. code-block:: python
 
