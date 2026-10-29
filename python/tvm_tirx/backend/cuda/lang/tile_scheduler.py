@@ -282,7 +282,7 @@ class ClusterPersistentScheduler2D(BaseTileScheduler):
             self.m_idx = tile_row * CLUSTER_M + cluster_m_offset
             self.n_idx = tile_col * CLUSTER_N + cluster_n_offset
 
-        if self._serpentine:
+        if T.constexpr(self._serpentine):
             self._update_serpentine(tile_linear, set_tile_coords)
         else:
             self._update_group_major(tile_linear, set_tile_coords)
