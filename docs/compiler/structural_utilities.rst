@@ -18,9 +18,11 @@
 Traversing and Transforming IR
 ==============================
 
-TVM FFI provides four structural operations for inspecting and rewriting IR.
-In this chapter, we will explain how each operation works and show how to use
+This chapter introduces TVM FFI's structural operations for inspecting and
+rewriting IR. We will explain how each operation works and show how to use
 its API.
+
+The table below summarizes the four APIs and their roles:
 
 .. list-table::
    :header-rows: 1
