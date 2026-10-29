@@ -272,8 +272,8 @@ whereas returning an interrupt stops all remaining traversal.
 
 .. _ir-ffi-containers:
 
-The same walk can traverse collections of IR nodes. TVM FFI provides
-container objects so that Python and C++ can share these collections:
+An IR field can hold several child nodes in a TVM FFI container. These
+containers let Python and C++ share collections of values:
 
 .. list-table::
    :header-rows: 1
@@ -293,8 +293,8 @@ container objects so that Python and C++ can share these collections:
 All four are FFI objects. The list in ``callbacks=[...]`` is an ordinary
 Python list that holds callback rules.
 
-The walker visits the elements of ``tvm_ffi.Array`` and ``tvm_ffi.List``.
-For ``tvm_ffi.Map`` and ``tvm_ffi.Dict``, it visits values and skips keys.
+The default walk follows child nodes stored in these containers. It visits
+each sequence element or mapping value, while skipping mapping keys.
 The following example groups the variables in an FFI array and stores it
 as a value in an FFI map:
 
