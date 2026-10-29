@@ -40,10 +40,10 @@ The table below summarizes the four APIs and their roles:
 
 Those operations work on IR objects without executing the programs they
 describe. Walk and map are higher-level APIs that handle recursion for you, letting
-callbacks focus on inspecting or replacing nodes. Visit and mutate give
-callbacks control over which children to process and in what order.
-Their callbacks make the recursive calls explicitly and can manage state
-before and after each call. Each section uses the same arithmetic expression
+callbacks focus on inspecting or replacing nodes. Visit and mutate let
+callbacks make recursive calls explicitly, so they can choose which children
+to process, control the order, and manage state before and after each call.
+Each section uses the same arithmetic expression
 to make these differences easy to compare and includes its own setup so you
 can run the examples independently.
 
