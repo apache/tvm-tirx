@@ -90,7 +90,7 @@ from .stmt import (
 
 # Load passes after the common IR classes used by transformations are registered.
 from . import transform
-from .tree import format_tree
+from .format_tree import DEFAULT_FIELD_RULES, DEFAULT_FOLD_FORMATTERS, format_tree
 
 # Connect exposure after the shared IR wrappers are ready.
 from ._expose_api import _install_exposure_callbacks

@@ -171,61 +171,79 @@ For the CPU ``add_one`` function from Quick Start:
 
    from tvm_tirx import ir
 
-   print(ir.format_tree(add_one.body, inline_width=50))
-
-This view folds compact loop fields into the header and shows variable names
-at use sites. The loop variable keeps its full declaration, including its type:
+   print(ir.format_tree(add_one))
 
 .. code-block:: text
 
-   SeqStmt
-   └── seq[0]: For(var=Var(ty=PrimType(dtype=int32), name='i'), begin=IntImm(ty=PrimType(dtype=int32), value=0), end=n, step=IntImm(ty=PrimType(dtype=int32), value=1), kind=0, annotations={})
-       └── body: SeqStmt
-           └── seq[0]: TensorStore(dest=B, indices=[i])
-               └── value: Add(ty=PrimType(dtype=float32), b=FloatImm(ty=PrimType(dtype=float32), value=1.0))
-                   └── a: TensorLoad(ty=PrimType(dtype=float32), source=A, indices=[i])
+   Function
+   ├── params[0]: A = Var(ty=TensorType(shape=[n], dtype=float32))
+   ├── params[1]: B = Var(ty=TensorType(shape=[n], dtype=float32))
+   └── body: SeqStmt
+       └── seq[0]: For(begin=IntImm(value=0), end=n)
+           ├── var: i = Var(ty=int32)
+           └── body: SeqStmt
+               └── seq[0]: TensorStore(dest=B, indices=[i])
+                   └── value: Add
+                       ├── a: TensorLoad(source=A, indices=[i])
+                       └── b: FloatImm(value=1.0)
 
 Each edge names a reflected field, with array indices folded into labels such
-as ``seq[0]``. ``SeqStmt`` wrappers remain visible even when they contain only
-one statement. Reflected definition flags identify binding sites, including
+as ``seq[0]``. ``SeqStmt`` wrappers remain visible even when they contain one
+statement. Reflected definition flags identify binding sites, including
 parameters and loop variables; ordinary variable references print by name.
-The default view hides only ``loc`` and fields that match known reflected defaults; it retains
-expression types. ``max_depth`` bounds expansion, and ``inline_width=0``
-expands child objects instead of combining them in headers or on one line.
-The result is inspection text; use :doc:`printing_and_parsing` for TVMScript and round trips.
+Folded variables print by name, including ``n`` in each parameter's shape.
+Expanded definitions show ``name = Var(...)``; explicitly expanding the
+parameter types reveals both occurrences of the shared ``n`` declaration.
 
-To choose the detail level for particular fields, use ``fold_fields`` and
-``expand_fields``. For example, inspect the loop variable from the same body:
+Objects expand by default. The standard profile folds source/destination,
+indices, operation references, and loop bounds into headers. Folded primitive
+types and operations use their dtype and registered name. Loop variables keep
+their own declaration edges. Expression types
+are hidden except for variable declarations, as are source locations and
+function attributes/return types. Fields structurally equal to a reflected
+default are omitted. For loops declare defaults for sequential execution,
+empty annotations, and an ``int32`` unit step; a differently typed or nonunit
+step stays visible. ``show_defaults=True`` exposes defaults while keeping
+hidden fields hidden.
+
+To inspect a particular field, pass ``fold``, ``expand``, or ``hide`` selectors.
+A class/field pair applies to that class and its subclasses:
 
 .. code-block:: python
 
    loop_var = add_one.body.seq[0].var
-   print(ir.format_tree(loop_var, fold_fields=("ty",)))
+   print(ir.format_tree(loop_var, expand=[(ir.Var, "ty")]))
 
 .. code-block:: text
 
-   Var(ty=PrimType(...), name='i')
-
-Expanding that field reveals its dtype on a separate edge:
-
-.. code-block:: python
-
-   print(ir.format_tree(loop_var, expand_fields=("ty",)))
-
-.. code-block:: text
-
-   Var(name='i')
+   i = Var
    └── ty: PrimType(dtype=int32)
 
-These controls match exact reflected field names at every occurrence,
-including extension fields. Folding replaces a composite field with a type
-summary; expanding reveals that field while its descendants follow the normal
-layout rules. For example, ``expand_fields=("begin", "end")`` moves the loop
-bounds out of the header. Expanding a variable reference shows its fields,
-and expanding an array retains the array level. Selected fields are shown
-even when they match reflected defaults. Hidden fields and ``max_depth``
-remain in effect, and expansion does not open a folded ancestor. A field
-cannot be both folded and expanded.
+A bare name such as ``expand=["source"]`` means
+``expand=[(tvm_ffi.Object, "source")]``. Expanding a variable use reveals its
+declaration, and expanding ``op`` reveals the operation's reflected fields.
+Folding recursively inlines the visible subtree; a folded ancestor keeps its
+descendants folded or hidden even if an inner field requests expansion.
+
+These options partially override :data:`tvm_tirx.ir.DEFAULT_FIELD_RULES`.
+``None`` and empty collections both keep the defaults. Caller selectors replace
+the default action for the exact same class/field key, then the most specific
+matching class wins. Thus ``expand=[(ir.Var, "ty")]`` replaces the variable
+rule, while a broader ``expand=[(ir.Expr, "ty")]`` preserves that exception.
+If the caller puts one key in several collections, expansion wins over folding,
+which wins over hiding. Explicit selections also expose default-valued fields.
+
+``fold_formatters`` partially overrides
+:data:`tvm_tirx.ir.DEFAULT_FOLD_FORMATTERS` with class-to-callable entries, for
+example ``{ir.PrimType: lambda node: str(node.dtype)}``. The most specific
+callback runs only for folded objects and returns single-line text. Expanding
+the object still shows its reflected structure. Caller collections and shared
+default dictionaries are never mutated by formatting.
+
+``max_depth`` limits object/container traversal and displays ``...`` at the
+boundary; cycles display ``<cycle>``. Folded text is not width-truncated.
+Expand selected fields to split long headers. The result is inspection text;
+use :doc:`printing_and_parsing` for TVMScript and round trips.
 
 .. _choose-a-chapter:
 

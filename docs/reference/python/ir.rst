@@ -238,3 +238,16 @@ Supporting functions
 
    ~base.register_script_printer
    ~base.register_dialect_script_method
+
+Tree Formatting Defaults
+------------------------
+
+.. data:: tvm_tirx.ir.DEFAULT_FIELD_RULES
+
+   Standard field actions, keyed by ``(class, field_name)``. Values are
+   ``"fold"``, ``"expand"``, or ``"hide"``.
+
+.. data:: tvm_tirx.ir.DEFAULT_FOLD_FORMATTERS
+
+   Standard folded representations, keyed by class. Callbacks take an object
+   and return single-line text.
