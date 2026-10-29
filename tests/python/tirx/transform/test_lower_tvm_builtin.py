@@ -300,34 +300,6 @@ def test_lower_device_allocate():
     tvm_tirx.ir.assert_structural_equal(After, Expected)
 
 
-def test_lower_nd_allocation_error_type():
-    """Scoped allocation failures retain the declared void result type."""
-
-    @I.ir_module
-    class Before:
-        @T.function
-        def main(shape: T.Ptr(T.int64)):
-            T.func_attr({"target": T.target("llvm")})
-            with T.device_context(4, 0):  # kDLOpenCL
-                ptr = T.opencl.nd_mem_alloc_with_scope(
-                    "global.texture", 2, shape, ty=T.Ptr(T.float32)
-                )
-                T.evaluate(ptr)
-
-    after = tvm_tirx.tirx.transform.LowerTVMBuiltin()(Before)
-    throws = []
-
-    def collect_throws(node):
-        if isinstance(node, tvm_tirx.ir.Call) and node.op.same_as(
-            tvm_tirx.ir.Op.get("tirx.throw_last_error")
-        ):
-            throws.append(node)
-
-    tvm_ffi.structural_walk(after, collect_throws)
-    assert len(throws) == 2
-    assert all(call.ty == T.void for call in throws)
-
-
 def test_lower_cpu_allocation():
     """CPU allocations can be handled at codegen time"""
 

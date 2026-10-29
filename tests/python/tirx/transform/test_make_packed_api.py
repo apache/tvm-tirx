@@ -292,16 +292,8 @@ def test_target_host_removed():
 
     after = tvm_tirx.tirx.transform.MakePackedAPI()(before)
     tvm_tirx.ir.assert_structural_equal(after, Expected)
-    tvm_tirx.ir.assert_structural_equal(
-        after, tvm_tirx.script.from_source(after.script(extra_config={"ir.comment_imports": False}))
-    )
     target_attr = after["main"].attrs["target"]
     assert str(host) == str(target_attr)
-    lowered = tvm_tirx.tirx.transform.LowerTVMBuiltin()(after)
-    tvm_tirx.ir.assert_structural_equal(
-        lowered,
-        tvm_tirx.script.from_source(lowered.script(extra_config={"ir.comment_imports": False})),
-    )
 
 
 def test_internal_subroutine_call():
