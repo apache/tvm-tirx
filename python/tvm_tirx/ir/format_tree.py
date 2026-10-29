@@ -14,7 +14,7 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-"""Reflection-driven text trees for inspecting IR and extension objects."""
+"""Text trees for inspecting IR and extension objects."""
 
 from collections.abc import Callable, Iterable, Mapping
 from typing import Any
@@ -29,23 +29,30 @@ from .type import PrimType
 
 FieldSelector = str | tuple[type, str]
 
-# A small presentation profile; all other object fields expand generically.
-# Exact caller keys replace these entries before inheritance is considered.
-DEFAULT_FIELD_RULES = {
-    (tvm_ffi.Object, "loc"): "hide",
-    (BaseFunc, "attrs"): "hide",
-    (BaseFunc, "ret_type"): "hide",
-    (Expr, "ty"): "hide",
-    (Var, "ty"): "fold",
-    (tvm_ffi.Object, "source"): "fold",
-    (tvm_ffi.Object, "dest"): "fold",
-    (tvm_ffi.Object, "indices"): "fold",
-    (tvm_ffi.Object, "op"): "fold",
-    (For, "begin"): "fold",
-    (For, "end"): "fold",
-    (For, "step"): "fold",
-}
-"""Standard field actions, keyed by (class, field name)."""
+# Keep the public defaults in the same selector form as the keyword options.
+# Normalize them privately before applying exact-key caller overrides.
+DEFAULT_FOLD: tuple[FieldSelector, ...] = (
+    (Var, "ty"),
+    "source",
+    "dest",
+    "indices",
+    "op",
+    (For, "begin"),
+    (For, "end"),
+    (For, "step"),
+)
+"""Fields inlined with their parent by default."""
+
+DEFAULT_EXPAND: tuple[FieldSelector, ...] = ()
+"""Fields explicitly expanded by default; other objects expand automatically."""
+
+DEFAULT_HIDE: tuple[FieldSelector, ...] = (
+    "loc",
+    (BaseFunc, "attrs"),
+    (BaseFunc, "ret_type"),
+    (Expr, "ty"),
+)
+"""Fields omitted by default."""
 
 DEFAULT_FOLD_FORMATTERS = {
     PrimType: lambda node: str(node.dtype),
@@ -107,7 +114,15 @@ class _TreeFormatter:
     def __init__(self, max_depth, show_defaults, fold, expand, hide, fold_formatters):
         self.max_depth = max_depth
         self.show_defaults = show_defaults
-        self.rules = dict(DEFAULT_FIELD_RULES)
+        self.rules = {
+            _selector(selector): action
+            for action, selectors in (
+                ("hide", DEFAULT_HIDE),
+                ("fold", DEFAULT_FOLD),
+                ("expand", DEFAULT_EXPAND),
+            )
+            for selector in selectors
+        }
         self.explicit = set()
         # Normalize first: a bare name and its Object pair are the same key.
         # Applying collections in this order gives expand > fold > hide.
@@ -304,53 +319,67 @@ def format_tree(
     max_depth: int | None = None,
     show_defaults: bool = False,
 ) -> str:
-    """Render reflected fields as a text tree.
+    """Display an object's fields as a text tree.
 
     Objects expand into labelled edges, arrays into indexed edges such as
     ``seq[0]``, and scalar fields stay in headers. SeqStmt wrappers remain.
-    Expanded variables display ``name = Var(...)`` at roots and definition
-    sites, and their names at use sites. Folded variables use their names
-    regardless of the definition role. Definition roles follow FFI's ``def-simple`` and
-    ``def-pattern`` field flags; custom structural visitors are not interpreted.
-    Repeated expanded occurrences in a definition pattern each show the declaration.
-    This inspection format is not a serialization format.
+    Expanded variable definitions display ``name = Var(...)`` at each
+    occurrence, even when several definitions refer to the same variable.
+    Variable uses and folded variables display names. Explicit expansion
+    reveals the details of a variable use.
+
+    Field selectors are bare names that match every object, or ``(class, name)``
+    pairs that match a class and its subclasses. More-specific classes take
+    precedence. Caller selections replace the default action for the exact
+    same selector; if it appears in multiple caller options, expand wins over
+    fold, which wins over hide. Explicit fold or expand selections also expose
+    default-valued fields. Container keys are not field selectors. None and
+    empty collections retain the standard defaults. Formatting never changes the supplied
+    collections or the shared defaults.
 
     Parameters
     ----------
     value : Any
-        IR or FFI object, container, or scalar to inspect.
-    fold, expand, hide : iterable of str or (class, str), optional
-        Partial overrides of :data:`DEFAULT_FIELD_RULES`. A bare field name
-        means ``(tvm_ffi.Object, name)``. Exact keys replace default actions,
-        then the most specific class in the object's Python MRO wins. An exact
-        key in multiple caller collections resolves as expand > fold > hide.
-        None and empty collections both inherit the standard profile.
-        Fold recursively inlines visible fields; expand exposes tree edges;
-        hide omits a field. Explicit expansion also reveals variable references.
-        An enclosing fold constrains descendants to fold or hide. Explicit
-        selections expose reflected defaults. Container keys
-        are not field selectors.
+        IR object, extension object, container, or scalar to inspect.
+    fold : iterable of str or (class, str), optional
+        Fields to inline with their parent. Standard fold selections are
+        listed in :data:`~tvm_tirx.ir.DEFAULT_FOLD`. By default, variable types,
+        source/destination, indices, operation references, and loop bounds
+        are folded. Folding
+        includes the visible subtree; descendants stay folded or hidden even
+        if an inner field requests expansion.
+    expand : iterable of str or (class, str), optional
+        Fields to show on separate tree edges. Standard expansion selections
+        are listed in :data:`~tvm_tirx.ir.DEFAULT_EXPAND`. Objects expand automatically
+        unless another rule folds or hides them. Expanding a variable use shows its declaration.
+    hide : iterable of str or (class, str), optional
+        Fields to omit. Standard hide selections are listed in
+        :data:`~tvm_tirx.ir.DEFAULT_HIDE`: source locations, function attributes/return
+        types, and expression types except variable types.
     fold_formatters : mapping of class to callable, optional
-        Partial overrides of :data:`DEFAULT_FOLD_FORMATTERS`. Most-specific
-        matching callbacks take an object and return single-line text. They
-        apply only inside folds; expanded objects retain reflected structure.
+        Partial overrides of :data:`~tvm_tirx.ir.DEFAULT_FOLD_FORMATTERS`. The most specific
+        matching callback takes an object and returns single-line text. These
+        callbacks apply only inside folds; expansion shows the object's fields.
     max_depth : int, optional
         Maximum number of object/container edges from the root (depth zero).
         Deeper children display ``...``. Indexed arrays still count toward
         depth. None means no depth limit. Cycles display ``<cycle>``.
     show_defaults : bool
-        Include fields structurally equal to their reflected defaults, using
-        ``map_free_vars=False``. Fields without defaults remain visible.
-        Hidden fields remain hidden. The standard profile hides locations,
-        function attributes/return types, and expression types except Var.ty.
+        Include fields structurally equal to their declared defaults. Different
+        types and distinct free variables remain distinguishable. By default,
+        matching fields are omitted; fields without declared defaults remain
+        visible. Hidden fields stay hidden.
+        For loops omit default sequential kind, empty annotations, and an
+        ``int32`` unit step; differently typed or nonunit steps remain visible.
 
     Returns
     -------
     text : str
         A tree without a trailing newline. Folded text is not width-truncated;
         expand selected fields to split long headers. Shared children can
-        appear repeatedly. Maps with scalar keys sort by key type and repr;
-        other maps show key/value pairs in iteration order.
+        appear repeatedly. Maps with scalar keys sort by key type and text;
+        other maps show key/value pairs in iteration order. This inspection
+        text is not a serialization format.
 
     Examples
     --------

@@ -242,12 +242,20 @@ Supporting functions
 Tree Formatting Defaults
 ------------------------
 
-.. data:: tvm_tirx.ir.DEFAULT_FIELD_RULES
+.. data:: DEFAULT_FOLD
 
-   Standard field actions, keyed by ``(class, field_name)``. Values are
-   ``"fold"``, ``"expand"``, or ``"hide"``.
+   Tuple of field selectors to inline with their parent by default.
 
-.. data:: tvm_tirx.ir.DEFAULT_FOLD_FORMATTERS
+.. data:: DEFAULT_EXPAND
+
+   Tuple of field selectors to expand explicitly by default. This is empty
+   because objects already expand unless a rule folds or hides them.
+
+.. data:: DEFAULT_HIDE
+
+   Tuple of field selectors to omit by default.
+
+.. data:: DEFAULT_FOLD_FORMATTERS
 
    Standard folded representations, keyed by class. Callbacks take an object
    and return single-line text.

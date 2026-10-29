@@ -105,7 +105,8 @@ def test_extension_fields_and_defaults():
 
 def test_rule_overlay_specificity_and_nonmutation():
     var = ir.Var("i", "int32")
-    rules = dict(ir.DEFAULT_FIELD_RULES)
+    defaults = (ir.DEFAULT_FOLD, ir.DEFAULT_EXPAND, ir.DEFAULT_HIDE)
+    assert all(isinstance(selectors, tuple) for selectors in defaults)
     formatters = dict(ir.DEFAULT_FOLD_FORMATTERS)
     baseline = ir.format_tree(var)
     assert ir.format_tree(var, fold=None, expand=None, hide=None, fold_formatters=None) == baseline
@@ -124,7 +125,7 @@ def test_rule_overlay_specificity_and_nonmutation():
     )
     assert "child: PrimType(dtype=int32)" in text
     assert "child=int32" in ir.format_tree(extension, hide=["child"], fold=["child"])
-    assert ir.DEFAULT_FIELD_RULES == rules
+    assert (ir.DEFAULT_FOLD, ir.DEFAULT_EXPAND, ir.DEFAULT_HIDE) == defaults
     assert ir.DEFAULT_FOLD_FORMATTERS == formatters
 
 
