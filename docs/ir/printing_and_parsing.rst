@@ -370,7 +370,7 @@ An explicit ``with`` block shows the same region through indentation:
 
    @T.function
    def add_one(A: T.Tensor((n,), T.float32), B: T.Tensor((n,), T.float32)):
-       with T.device_entry(launch=T.cuda.LaunchConfig(grid=((n + 255) // 256,), block=(256,))):
+       with T.device_entry(launch=T.cuda.LaunchConfig(grid=T.ceildiv(n, 256), block=256)):
            i = T.cuda.block_idx("x") * 256 + T.cuda.thread_idx("x")
            if i < n:
                B[i] = A[i] + 1

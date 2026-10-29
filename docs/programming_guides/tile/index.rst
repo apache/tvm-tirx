@@ -17,21 +17,21 @@
 
 .. Adapted from Apache TVM: https://tvm.apache.org/docs/_sources/tirx/tile_ops.rst
 
-CUDA Tile Operations
-====================
+Tile Operations
+===============
 
-In this chapter, we will use CUDA tile operations to apply a computation
-to tensor regions. ``T.cuda.tile.apply`` repeats a specified PTX instruction,
-such as a vector load or matrix multiplication. ``T.cuda.tile.ewise``
-applies a scalar TIRx function to register elements. You choose the operand
-views, instruction variants, and synchronization required by the kernel.
+This guide shows how to use CUDA tile operations to apply a computation to
+tensor regions. ``T.cuda.tile.apply`` repeats a specified PTX instruction, such
+as a vector load or matrix multiplication. ``T.cuda.tile.ewise`` applies a
+scalar TIRx function to register elements. You choose the operand views,
+instruction variants, and synchronization required by the kernel.
 
 Start with :doc:`tile_patterns` for a load, compute, and store example and
 an explanation of how operand axes divide the work across threads. The
 :doc:`instruction reference </reference/python/backend.cuda.tile.instructions>`
 lists each family's parameters, operand layouts, and alignment requirements.
 
-CUDA instruction guides
+CUDA Instruction Guides
 -----------------------
 
 The guides below show how to use these interfaces for data movement,
@@ -42,8 +42,8 @@ examples include the completion protocol required by their instruction family.
    :maxdepth: 1
 
    tile_patterns
-   tile_ops/data_movement
-   tile_ops/arithmetic
+   data_movement
+   arithmetic
 
 Asynchronous Transfers
 ~~~~~~~~~~~~~~~~~~~~~~
@@ -51,8 +51,8 @@ Asynchronous Transfers
 .. toctree::
    :maxdepth: 1
 
-   tile_ops/async_copies
-   tile_ops/tma
+   async_copies
+   tma
 
 Matrix Instructions
 ~~~~~~~~~~~~~~~~~~~
@@ -60,5 +60,5 @@ Matrix Instructions
 .. toctree::
    :maxdepth: 1
 
-   tile_ops/warp_matrix
-   tile_ops/blackwell_tensor_cores
+   warp_matrix
+   blackwell_tensor_cores

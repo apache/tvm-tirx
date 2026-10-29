@@ -21,18 +21,17 @@
 TMA Transfers
 =============
 
-In this chapter, we will use the Tensor Memory Accelerator (TMA) to move
-multidimensional tiles between global and shared memory. One thread issues
-the transfer using a TensorMap descriptor, which records the global
-shape, strides, element format, and tile configuration. TIRx prepares this
-descriptor in the host launcher from the tensor operand and explicit
-``box`` parameters.
+This guide shows how to use the Tensor Memory Accelerator (TMA) to move
+multidimensional tiles between global and shared memory. One thread issues the
+transfer using a TensorMap descriptor, which records the global shape, strides,
+element format, and tile configuration. TIRx prepares this descriptor in the
+host launcher from the tensor operand and explicit ``box`` parameters.
 
 TMA requires a Hopper-or-later GPU. The `Async Data Movement: TMA
 <https://mlc.ai/modern-gpu-programming-for-mlsys/chapter_tma/index.html>`_
 chapter explains its hardware role and layout support in detail.
 
-A tile load, computation, and store
+A Tile Load, Computation, and Store
 -----------------------------------
 
 The following kernel loads an ``(8, 32)`` float32 tile, adds one to each
@@ -82,7 +81,7 @@ The shared tensor has the same tile shape. ``layout="default"`` gives it
 contiguous row-major storage, and ``align=128`` aligns its base. The load
 takes ``shared, A``; the store reverses the direction with ``B, shared``.
 
-Load completion
+Load Completion
 ---------------
 
 The load reports completion through ``mbar``, an eight-byte barrier object
@@ -99,7 +98,7 @@ expected arrivals and transaction bytes have been satisfied. The
 <https://mlc.ai/modern-gpu-programming-for-mlsys/chapter_async_barriers/index.html>`_
 explains phases and reuse across pipeline stages.
 
-Store completion
+Store Completion
 ----------------
 
 After the updates, each thread executes the proxy fence to make its
@@ -113,7 +112,7 @@ A TMA store uses a bulk async group. Lane 0 commits its store with
 that wait finishes, allowing the shared buffer to be reused. These bulk
 groups are distinct from the ordinary copy groups used by :doc:`async_copies`.
 
-Compile and run
+Compile and Run
 ---------------
 
 The host launcher needs tensor-map encoding support, available with an

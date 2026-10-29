@@ -17,7 +17,7 @@
 
 .. Adapted from Apache TVM: https://tvm.apache.org/docs/_sources/tirx/cuda_tile_patterns.rst
 
-Tile operands and execution
+Tile Operands and Execution
 ===========================
 
 A CUDA tile operation repeats a chosen computation over a tensor region.
@@ -26,7 +26,7 @@ A CUDA tile operation repeats a chosen computation over a tensor region.
 operand views describe which values each thread handles and how many times
 it repeats that computation.
 
-Reading an operand's shape
+Reading an Operand's Shape
 --------------------------
 
 Suppose each of 64 threads processes twelve float32 values. A
@@ -58,7 +58,7 @@ repetitions and the threads that execute them. The register layout below
 maps the first two coordinates to ``warpid`` and ``laneid``, leaving
 ``3 * 4 = 12`` local positions per thread.
 
-A load, compute, and store example
+A Load, Compute, and Store Example
 ----------------------------------
 
 The kernel uses this layout to load the values, add one to each, and
@@ -106,7 +106,7 @@ We can compile and check the result:
     compiled(a, b)
     torch.testing.assert_close(b, a + 1)
 
-Execution scope and scalar functions
+Execution Scope and Scalar Functions
 ------------------------------------
 
 The kernel's ``LaunchConfig`` launches 64 threads; ``scope="cta"``
@@ -120,7 +120,7 @@ the group shapes listed in the :ref:`coordinate reference
 instruction atom. For the same register view, ``(2, 32)`` still selects a
 thread, while ``(3, 4)`` now specifies twelve scalar invocations.
 
-Preparing operand views
+Preparing Operand Views
 -----------------------
 
 The load's source and destination expose the same group and repeat
@@ -133,8 +133,8 @@ An existing tensor may need a ``view`` or ``rearrange`` to expose these axes,
 or a ``sub`` to select a region. These operations reuse its storage. They
 can change the coordinates used to access values, but a transfer between
 threads or memory spaces still requires an explicit load, store, or other
-communication instruction. See :doc:`language/tensors` for tensor views and
-:doc:`layouts` for their physical placement.
+communication instruction. See :doc:`/programming_guides/types_tensors_memory` for tensor views and
+:doc:`/programming_guides/data_layout` for their physical placement.
 
 The dtype describes storage elements. In the example, one element is one
 32-bit word. An instruction that packs two float16 values into one 32-bit
@@ -143,7 +143,7 @@ pack values automatically. The :ref:`instruction reference
 <cuda-tile-instruction-contracts>` lists the required operand order,
 representation, alignment, and optional parameters for each family.
 
-Synchronization belongs to the caller
+Synchronization Belongs to the Caller
 -------------------------------------
 
 The example uses thread-private registers, so no thread waits for another.
@@ -154,6 +154,6 @@ that synchronization.
 Asynchronous instructions also require their own completion protocol.
 ``cp.async`` uses copy groups and waits; TMA loads use transaction barriers;
 ``tcgen05`` operations have their own commit and wait instructions. The
-corresponding :doc:`instruction guides <tile_operations>` show these calls
+corresponding :doc:`instruction guides <index>` show these calls
 alongside the data movement. Selecting an execution scope does not perform
 thread election or complete an asynchronous transfer.

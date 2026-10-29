@@ -22,12 +22,12 @@
 Asynchronous Copies
 ===================
 
-In this chapter, we will copy data asynchronously and wait before using
-it. A kernel can issue a transfer, perform independent work, then wait for
-completion. The copy instruction and its completion calls are separate
-parts of that sequence.
+This guide shows how to copy data asynchronously and wait before using it. A
+kernel can issue a transfer, perform independent work, then wait for
+completion. The copy instruction and its completion calls are separate parts of
+that sequence.
 
-A global-to-shared copy
+A Global-to-Shared Copy
 -----------------------
 
 ``cp.async`` copies a short contiguous chunk directly from global to

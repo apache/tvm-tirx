@@ -15,19 +15,19 @@
     specific language governing permissions and limitations
     under the License.
 
-IKET Profiling
-==============
+Profiling with IKET
+===================
 
-In this chapter, we will use NVIDIA IKET to trace the execution of a
-small kernel that computes ``B[i] = 2 * A[i] + 1``. We will place a named
-range around the computation and a checkpoint after the input read, then
-capture a timeline and inspect the recorded events.
+This guide shows how to use NVIDIA IKET to trace the execution of a small
+kernel that computes ``B[i] = 2 * A[i] + 1``. We will place a named range
+around the computation and a checkpoint after the input read, then capture a
+timeline and inspect the recorded events.
 
 The example requires a CUDA-enabled TIRx build, an SM90-or-newer GPU,
 NVRTC through ``cuda-bindings``, and the ``run-iket`` executable from
 ``nvidia-cutlass-dsl-libs-base``.
 
-Annotate a computation
+Annotate a Computation
 ----------------------
 
 Save the following kernel and the host code below in
@@ -44,7 +44,7 @@ Save the following kernel and the host code below in
    def profiled_affine(
        A: T.Tensor((32,), T.float32), B: T.Tensor((32,), T.float32)
    ):
-       with T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(32,))):
+       with T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=32)):
            profiler = IketProfiler()
            tid = T.cuda.thread_idx("x")
            profiler.range_push("affine")
@@ -59,7 +59,7 @@ places a checkpoint after the tensor read. These events will appear in
 the captured trace. They do not replace synchronization needed by the
 kernel's data dependencies.
 
-Capture the kernel
+Capture the Kernel
 ------------------
 
 The host workload compiles the instrumented kernel, runs it, and checks
@@ -92,7 +92,7 @@ After the capture completes, the parent process receives the result and
 prints the artifact paths. Use a fresh output directory for each capture,
 or pass ``clobber=True`` to replace an earlier capture.
 
-Read the trace
+Read the Trace
 --------------
 
 ``result.perfetto`` identifies the timeline file, ``result.html`` the
@@ -118,5 +118,5 @@ separately when assessing its overall performance.
 
 The :doc:`IKET API </reference/python/backend.cuda.iket>` covers token-based
 ranges, command-based capture with ``iket.profile``, and capture options.
-The :doc:`CUDA backend source guide <backend_implementation>` explains where
+The :doc:`CUDA Backend Development </dev/cuda/index>` explains where
 the profiling annotations are lowered in the compilation pipeline.

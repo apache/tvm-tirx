@@ -147,7 +147,8 @@ def ewise(function, dst, *inputs, scope="thread", **kwargs):
     Unlike ``apply``, ``ewise`` has no trailing instruction atom: every coordinate
     after the group prefix selects one scalar invocation. See the
     :ref:`scalar function contract <cuda-tile-contract-ewise>` for restrictions and
-    the :doc:`operand guide </cuda/tile_patterns>` for an example.
+    the :doc:`Tile Operands and Execution guide
+    </programming_guides/tile/tile_patterns>` for an example.
     """
     if len(inputs) == 1 and isinstance(inputs[0], Tuple | tuple | list):
         values = inputs[0]

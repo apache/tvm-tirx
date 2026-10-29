@@ -28,13 +28,13 @@
 Arithmetic and Type Conversion
 ==============================
 
-In this chapter, we will compute with the register values loaded by tile
+This guide shows how to compute with the register values loaded by tile
 operations. ``apply`` selects a native arithmetic or conversion instruction;
-``ewise`` applies a scalar TIRx function to each value. We will use an
-affine transformation followed by ReLU, then convert float32 values to
-float16 and express a SiLU activation as a scalar function.
+``ewise`` applies a scalar TIRx function to each value. We will use an affine
+transformation followed by ReLU, then convert float32 values to float16 and
+express a SiLU activation as a scalar function.
 
-An affine transformation and ReLU
+An Affine Transformation and ReLU
 ---------------------------------
 
 A common activation step scales each value, adds a bias, and clamps the
@@ -119,7 +119,7 @@ approximation, and subnormal handling. Packed forms such as
 the :ref:`register instruction reference <cuda-tile-contract-registers>`
 specifies those representations and the predication options.
 
-Numeric conversion
+Numeric Conversion
 ------------------
 
 The same flow can produce float16 output. ``cvt.rn.f16.f32`` converts one
@@ -160,7 +160,7 @@ Packed conversions such as ``cvt.rn.f16x2.f32`` place two converted values
 in one uint32 carrier. Their operand order and supported inverse forms
 are specified in the :ref:`conversion reference <cuda-tile-contract-cvt>`.
 
-Scalar function compositions
+Scalar Function Compositions
 ----------------------------
 
 A scalar TIRx function can describe a longer computation. For example,

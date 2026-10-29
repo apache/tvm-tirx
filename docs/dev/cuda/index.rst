@@ -15,13 +15,13 @@
     specific language governing permissions and limitations
     under the License.
 
-CUDA Backend Source Guide
-==========================
+CUDA Backend Development
+========================
 
-In this chapter, we will find the source files involved in extending or
-debugging the CUDA backend. We will follow ``T.cuda.thread_idx("x")`` from
-the :doc:`GPU add-one example </get_started/quick_start>` to its IR operator
-and CUDA output, then locate the compilation and runtime entry points.
+This guide shows how to find the source files involved in extending or
+debugging the CUDA backend. We will follow ``T.cuda.thread_idx("x")`` from the
+:doc:`GPU add-one example </get_started/quick_start>` to its IR operator and
+CUDA output, then locate the compilation and runtime entry points.
 
 The source tree
 ---------------
@@ -79,7 +79,7 @@ source generator looks them up through ``tirx.intrinsics.cuda.get_codegen``,
 registered in
 `python/tvm_tirx/backend/cuda/codegen/registry.py
 <https://github.com/apache/tvm-tirx/blob/main/python/tvm_tirx/backend/cuda/codegen/registry.py>`__.
-The :doc:`PTX Tablegen guide <ptx_tablegen>` follows that path for
+The :doc:`PTX TableGen guide <ptx_tablegen>` follows that path for
 ``add.rn.f32``.
 
 Compilation and launch
@@ -100,8 +100,8 @@ compiles it with NVCC or NVRTC. The runtime implementation in
 `src/backend/cuda/runtime/cuda_module.cc
 <https://github.com/apache/tvm-tirx/blob/main/src/backend/cuda/runtime/cuda_module.cc>`__
 loads the device module and launches kernels with their grid, block, and
-shared-memory settings. The :doc:`compiling and inspecting guide
-<language/compiling>` shows how to inspect the generated source.
+shared-memory settings. The :doc:`Compiling and Inspecting guide
+</programming_guides/compiling>` shows how to inspect the generated source.
 
 Where to make a change
 ----------------------
@@ -129,3 +129,9 @@ The following locations provide starting points for common changes:
 
 The :doc:`CUDA backend API </reference/python/backend.cuda>` documents
 the public interfaces in these modules.
+
+.. toctree::
+   :hidden:
+   :maxdepth: 1
+
+   ptx_tablegen

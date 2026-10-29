@@ -17,12 +17,13 @@
 
 .. Adapted from Apache TVM: https://tvm.apache.org/docs/_sources/tirx/native_basics/cuda/compiling.rst
 
-Compiling and inspecting
+Compiling and Inspecting
 ========================
 
-In this chapter, we will compile a CUDA function with a chosen target and
+This guide shows how to compile a CUDA function with a chosen target and
 compiler options, then inspect its IR and generated code. The examples reuse
-``add_one`` from the GPU program in :doc:`Quick Start </get_started/quick_start>`.
+``add_one`` from the GPU program in :doc:`Quick Start
+</get_started/quick_start>`.
 
 Compiling for CUDA
 ------------------
@@ -55,7 +56,7 @@ input and output tensors just as in Quick Start. The
 :class:`BackendConfig API <tvm_tirx.backend.cuda.BackendConfig>` describes
 other compiler settings.
 
-Overriding options for a kernel
+Overriding Options for a Kernel
 -------------------------------
 
 A kernel can override the target's settings through its ``device_entry``.
@@ -65,7 +66,7 @@ its ``T.device_entry`` statement with:
 .. code-block:: python
 
     T.device_entry(
-        launch=T.cuda.LaunchConfig(grid=((n + 255) // 256,), block=(256,)),
+        launch=T.cuda.LaunchConfig(grid=T.ceildiv(n, 256), block=256),
         backend_config={"cuda": {
             "nvrtc": ["--use_fast_math", "--generate-line-info"],
         }},

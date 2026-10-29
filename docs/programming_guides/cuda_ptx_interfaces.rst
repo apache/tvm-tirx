@@ -17,16 +17,16 @@
 
 .. Adapted from Apache TVM: https://tvm.apache.org/docs/_sources/tirx/native_basics/cuda/threads_sync.rst
 
-CUDA and PTX interfaces
-=======================
+Calling CUDA and PTX
+====================
 
-In this chapter, we will use three interfaces for CUDA programming in
-TVMScript. Backend intrinsics under ``T.cuda`` provide common operations,
-such as synchronization and warp shuffles. ``T.ptx`` lets us specify
-individual PTX instructions. ``T.cuda.func_call`` embeds CUDA C++ source
-so a kernel can call a custom ``__device__`` function.
+This guide shows how to use three interfaces for CUDA programming in TVMScript.
+Backend intrinsics under ``T.cuda`` provide common operations, such as
+synchronization and warp shuffles. ``T.ptx`` lets us specify individual PTX
+instructions. ``T.cuda.func_call`` embeds CUDA C++ source so a kernel can call
+a custom ``__device__`` function.
 
-Calling backend intrinsics
+Calling Backend Intrinsics
 --------------------------
 
 The backend provides helpers for thread synchronization, data movement,
@@ -77,12 +77,12 @@ The device helper calls CUDA's ``__shfl_xor_sync``:
 
     v_ptr[0] = v_ptr[0] + __shfl_xor_sync(0xFFFFFFFF, v_ptr[0], i_ptr[0], 32);
 
-The :doc:`TMA guide </cuda/tile_ops/tma>` shows a complete barrier
+The :doc:`TMA Transfers guide </programming_guides/tile/tma>` shows a complete barrier
 initialization, arrival, and phase wait around an asynchronous transfer.
 
 .. _cuda-direct-ptx:
 
-Calling PTX instructions
+Calling PTX Instructions
 ------------------------
 
 ``T.ptx`` selects individual PTX instructions. PTX names its destination
@@ -116,11 +116,11 @@ as in ``T.ptx.ld.global_.b32``; PTX's ``::`` becomes ``__``, as in
 spelling, which is convenient for longer instruction names.
 
 The :doc:`PTX reference </reference/python/backend.cuda.ptx>` covers
-predication and special operands. The :doc:`PTX Tablegen guide
-</cuda/ptx_tablegen>` explains how instruction definitions generate these
+predication and special operands. The :doc:`PTX TableGen guide
+</dev/cuda/ptx_tablegen>` explains how instruction definitions generate these
 interfaces and their CUDA helpers.
 
-Calling CUDA C++ device functions
+Calling CUDA C++ Device Functions
 ---------------------------------
 
 A kernel can also reuse a CUDA C++ device function by including its source
@@ -137,7 +137,7 @@ otherwise:
 
     @T.function
     def relu_cuda(A: T.Tensor((256,), "float32"), B: T.Tensor((256,), "float32")):
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(256,)))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=256))
         tx = T.cuda.thread_idx("x")
         B[tx] = T.cuda.func_call("my_relu", A[tx], SRC, ty="float32")
 

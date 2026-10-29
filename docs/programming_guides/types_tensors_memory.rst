@@ -19,15 +19,15 @@
    https://tvm.apache.org/docs/_sources/tirx/native_basics/cuda/data_types.rst
    https://tvm.apache.org/docs/_sources/tirx/native_basics/cuda/tensors.rst
 
-Types, tensors and memory
-=========================
+Types, Tensors, and Memory
+==========================
 
-In this chapter, we will look at how CUDA kernels represent values and manage
-their storage. A tensor's dtype describes its elements, and its scope selects
-the memory space. We will extend the add-one computation with vector accesses,
-shared storage, and thread-private values, then create views of existing data.
+This guide looks at how CUDA kernels represent values and manage their storage.
+A tensor's dtype describes its elements, and its scope selects the memory
+space. We will extend the add-one computation with vector accesses, shared
+storage, and thread-private values, then create views of existing data.
 
-Element types and vector accesses
+Element Types and Vector Accesses
 ---------------------------------
 
 Tensor elements and intermediate values can be integers, floating-point
@@ -60,8 +60,7 @@ CUDA C++ names this type ``float4``: each ``float`` is 32 bits, and ``4``
 is the number of components.
 
 We can extend the add-one kernel with vector accesses so each thread
-reads and updates four elements as a group. The thread assignment matches
-:ref:`add_one_four in Conditions and loops <cuda-kernel-control-flow>`:
+reads and updates four elements as a group:
 
 .. code-block:: python
 
@@ -91,7 +90,7 @@ elements. The ``align=16`` annotations declare 16-byte-aligned pointers;
 each four-float group also starts at a 16-byte boundary, allowing aligned
 vector loads and stores.
 
-Declaring tensors
+Declaring Tensors
 -----------------
 
 A parameter such as ``A: T.Tensor((128,), "float32")`` describes a tensor
@@ -137,13 +136,13 @@ to the same storage, so a write through ``shared_view`` is also visible through
 
 The tensor's ``layout`` determines how logical indices map to storage;
 ``align`` specifies data-pointer alignment in bytes. The
-:doc:`Tensor Layout </cuda/layouts>` guide covers explicit layouts, and the
+:doc:`Data Layout </programming_guides/data_layout>` guide covers explicit layouts, and the
 :class:`TensorType API <tvm_tirx.tirx.TensorType>` lists the full parameters.
 
-Shared memory
+Shared Memory
 -------------
 
-Static shared memory
+Static Shared Memory
 ~~~~~~~~~~~~~~~~~~~~
 
 ``T.alloc_shared`` creates a shared tensor with a size known at compile
@@ -167,7 +166,7 @@ reached it, making those writes visible before the neighboring reads.
 For example, thread 0 writes ``A[0]`` but reads the value that thread 1
 stored from ``A[1]``.
 
-Dynamic shared memory
+Dynamic Shared Memory
 ~~~~~~~~~~~~~~~~~~~~~
 
 With dynamic shared memory, the kernel launch specifies how many bytes to
@@ -207,7 +206,7 @@ region. ``pool.commit()`` should follow all allocations. The
 :class:`SMEMPool API <tvm_tirx.backend.cuda.lang.SMEMPool>` covers alignment
 and storage reuse.
 
-Per-thread local storage
+Per-Thread Local Storage
 ------------------------
 
 ``T.alloc_local`` creates storage private to each thread. For example,
@@ -230,7 +229,7 @@ Every thread has its own ``values`` array. The CUDA compiler may place its
 elements in registers when the accesses permit; local scope alone does not
 guarantee register storage.
 
-Mutable scalars and ``let``
+Mutable Scalars and ``let``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 In TVMScript, an ordinary assignment such as ``base = tx * 4`` creates an
@@ -278,7 +277,7 @@ has its own accumulator. The
 ``local_scalar``, ``shared_scalar``, and ``alloc_scalar`` for explicit
 scalar allocation.
 
-Tensor views and pointers
+Tensor Views and Pointers
 -------------------------
 
 Tensor variables provide methods for accessing addresses and creating
@@ -333,7 +332,7 @@ the coordinates; the tensor's layout determines their physical placement.
 
 ``sub`` selects a region to pass to an operation. For example,
 ``matrix.sub[i, :]`` selects its four-element row ``i``. A tile load can
-then read that region into registers, as shown in :doc:`/cuda/tile_ops/data_movement`.
+then read that region into registers, as shown in :doc:`/programming_guides/tile/data_movement`.
 
 A dtype view changes the storage units used to access the bytes. Inside
 a device region, eight float16 elements can be viewed as four uint32 words:
@@ -346,20 +345,20 @@ a device region, eight float16 elements can be viewed as four uint32 words:
 ``packed_words`` has shape ``(4,)``. Each word contains the bits of two
 adjacent float16 elements. This is the representation used by instructions
 that accept packed half values; a numeric conversion uses ``cvt`` instead,
-as shown in :doc:`/cuda/tile_ops/arithmetic`.
+as shown in :doc:`/programming_guides/tile/arithmetic`.
 
 All these views and regions reuse the original storage. The
 :class:`TensorType API <tvm_tirx.tirx.TensorType>` covers the available
-methods and options, while :doc:`/cuda/layouts` explains explicit storage
+methods and options, while :doc:`/programming_guides/data_layout` explains explicit storage
 mappings, including layouts distributed across threads.
 
-Tensor memory
+Tensor Memory
 -------------
 
 Blackwell tensor memory uses ``scope="tmem"`` and must be reserved and
 released explicitly. ``T.cuda.decl_tmem`` declares a tensor at an allocated
 tensor-memory address; access uses ``tcgen05`` instructions. The
-:doc:`Blackwell Tensor Core guide </cuda/tile_ops/blackwell_tensor_cores>` shows the
+:doc:`Blackwell Tensor Cores guide </programming_guides/tile/blackwell_tensor_cores>` shows the
 allocation, synchronization, transfer, and release steps together. The
 :func:`decl_tmem API <tvm_tirx.backend.cuda.script.decl_tmem>` describes its
 arguments.

@@ -106,7 +106,8 @@ def apply(instruction, *operands, scope="thread", **parameters):
 
     Notes
     -----
-    The :doc:`operand guide </cuda/tile_patterns>` explains the coordinate
+    The :doc:`Tile Operands and Execution guide
+    </programming_guides/tile/tile_patterns>` explains the coordinate
     conventions with a complete load, compute, and store example.
     """
     if isinstance(instruction, StringImm):

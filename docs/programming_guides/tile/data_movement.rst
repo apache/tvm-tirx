@@ -22,10 +22,10 @@
 Data Movement
 =============
 
-In this chapter, we will move tensor data between global memory, shared
-memory, and thread-local registers. The instruction determines the source
-and destination spaces, while tensor views select the values to transfer.
-All three instruction families take the destination first:
+This guide shows how to move tensor data between global memory, shared memory,
+and thread-local registers. The instruction determines the source and
+destination spaces, while tensor views select the values to transfer. All three
+instruction families take the destination first:
 
 .. list-table::
    :header-rows: 1
@@ -44,7 +44,7 @@ All three instruction families take the destination first:
      - ``destination, source``
      - Register values within the same thread
 
-A shared-memory exchange
+A Shared-Memory Exchange
 ------------------------
 
 A block can use shared memory to exchange data between threads. In this
@@ -100,7 +100,7 @@ The two global/shared transfers pass through the caller's register tensor.
 For a direct asynchronous global-to-shared transfer, see :doc:`async_copies`,
 which includes the required completion calls.
 
-Register copies and initialization
+Register Copies and Initialization
 ----------------------------------
 
 Inside this kernel, we can save loaded values before reusing ``registers``

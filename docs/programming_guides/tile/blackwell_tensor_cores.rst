@@ -15,16 +15,16 @@
     specific language governing permissions and limitations
     under the License.
 
-Blackwell Tensor Core Operations
-================================
+Blackwell Tensor Cores
+======================
 
-In this chapter, we will multiply float16 matrices with ``tcgen05.mma``
-and retrieve its float32 result from Tensor Memory (TMEM). The example
-targets ``sm_100a`` and requires a GPU with that instruction support,
-such as a B200. TMEM holds the accumulator while the Tensor Core reads
-the input tiles from shared memory.
+This guide shows how to multiply float16 matrices with ``tcgen05.mma`` and
+retrieve its float32 result from Tensor Memory (TMEM). The example targets
+``sm_100a`` and requires a GPU with that instruction support, such as a B200.
+TMEM holds the accumulator while the Tensor Core reads the input tiles from
+shared memory.
 
-The accumulator's lifetime
+The Accumulator's Lifetime
 --------------------------
 
 The example computes ``Out = A @ B.T`` with A of shape ``(128, 64)`` and
@@ -175,7 +175,7 @@ On a supported GPU, we can check the product as follows:
     compiled(a, b, out)
     torch.testing.assert_close(out, a.float() @ b.float().T, rtol=2e-4, atol=2e-4)
 
-Other TMEM transfers
+Other TMEM Transfers
 --------------------
 
 The accumulator above needs no initial fill because the first MMA ignores

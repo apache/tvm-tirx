@@ -15,15 +15,14 @@
     specific language governing permissions and limitations
     under the License.
 
-PTX Tablegen
+PTX TableGen
 ============
 
-In this chapter, we will follow ``add.rn.f32`` from a TVMScript call to
-generated inline PTX. TIRx uses table-driven generation: one instruction
-description defines its operands and modifiers, and the backend uses that
-description to check calls and generate CUDA helpers. We will inspect
-this description and its generated code, then see how to add support for
-another instruction form.
+This guide follows ``add.rn.f32`` from a TVMScript call to generated inline
+PTX. TIRx uses table-driven generation: one instruction description defines its
+operands and modifiers, and the backend uses that description to check calls
+and generate CUDA helpers. We will inspect this description and its generated
+code, then see how to add support for another instruction form.
 
 Operands and Modifiers
 -----------------------

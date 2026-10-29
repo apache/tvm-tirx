@@ -17,20 +17,20 @@
 
 .. Adapted from Apache TVM: https://tvm.apache.org/docs/_sources/tirx/layout.rst
 
-Axis Layouts for CUDA
-=====================
+Data Layout
+===========
 
-In this chapter, we will use axis layouts to place tensor elements across
-CUDA threads and memory. A layout maps a logical index to physical
-coordinates: for a local tensor, these can identify the lane that owns
-a value and its storage position within that thread.
+This guide shows how to use axis layouts to place tensor elements across CUDA
+threads and memory. A layout maps a logical index to physical coordinates: for
+a local tensor, these can identify the lane that owns a value and its storage
+position within that thread.
 
 For the mapping model and its hardware motivation, see `Data Layout and
 Its Notation
 <https://mlc.ai/modern-gpu-programming-for-mlsys/chapter_data_layout/index.html>`_
 in Modern GPU Programming for MLSys.
 
-Mapping elements to lanes
+Mapping Elements to Lanes
 -------------------------
 
 A ``TileLayout`` maps logical coordinates to named physical axes.
@@ -66,7 +66,7 @@ The `interactive layout demo
 <https://mlc.ai/modern-gpu-programming-for-mlsys/_static/tirx-layout-demo/index.html>`_
 lets you select logical elements and inspect their physical coordinates.
 
-Attaching a layout to a tensor
+Attaching a Layout to a Tensor
 ------------------------------
 
 The ``layout`` argument attaches this placement to a tensor. The following
@@ -93,7 +93,7 @@ exposes those four local positions as ``lane_values``, without allocating
 new storage. Each thread reads row ``lane`` from ``A``, adds one through
 this local view, and writes the values to the same row of ``B``.
 
-Replication and offsets
+Replication and Offsets
 -----------------------
 
 A layout can also describe copies of each logical value or shift its
@@ -117,7 +117,7 @@ For the full shard, replica, and offset model, see
 The :class:`TileLayout API <tvm_tirx.tirx.TileLayout>` describes the
 constructor and layout operations.
 
-Swizzled shared memory
+Swizzled Shared Memory
 ----------------------
 
 Shared-memory access patterns can concentrate on the same memory banks.
@@ -156,7 +156,7 @@ section explains bank conflicts and the XOR mapping with interactive
 figures. The :class:`ComposeLayout API <tvm_tirx.tirx.ComposeLayout>` covers
 its parameters.
 
-Instruction-specific layouts
+Instruction-Specific Layouts
 ----------------------------
 
 Tensor Core instructions require particular operand layouts. The CUDA
@@ -166,8 +166,8 @@ backend provides :func:`mma_shared_layout
 <tvm_tirx.backend.cuda.layout.tmem_mma_operand_layout>` for TMEM operands.
 The :func:`tmem_datapath_layout API
 <tvm_tirx.backend.cuda.layout.tmem_datapath_layout>` lists the datapaths,
-shapes, and sub-slab options. The :doc:`tile operation guides
-</cuda/tile_operations>` show how to prepare these operands and synchronize
+shapes, and sub-slab options. The :doc:`Tile Operations guides
+</programming_guides/tile/index>` show how to prepare these operands and synchronize
 their use.
 
 For the hardware data paths behind these choices, see

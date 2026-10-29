@@ -18,13 +18,13 @@
 Warp Matrix Instructions
 ========================
 
-In this chapter, we will multiply two float16 matrices with a warp of
-32 threads. ``ldmatrix`` loads matrix fragments from shared memory into
-registers, and ``mma.sync`` multiplies those fragments with float32
-accumulation. The example computes ``Out = A @ B.T`` for A of shape
-``(16, 16)`` and B of shape ``(8, 16)`` on an SM80-or-later GPU.
+This guide shows how to multiply two float16 matrices with a warp of 32
+threads. ``ldmatrix`` loads matrix fragments from shared memory into registers,
+and ``mma.sync`` multiplies those fragments with float32 accumulation. The
+example computes ``Out = A @ B.T`` for A of shape ``(16, 16)`` and B of shape
+``(8, 16)`` on an SM80-or-later GPU.
 
-From shared memory to a matrix product
+From Shared Memory to a Matrix Product
 --------------------------------------
 
 All 32 lanes cooperate on one ``16 x 8`` output tile. The data follows
@@ -158,7 +158,7 @@ product:
     compiled(a, b, out)
     torch.testing.assert_close(out, a.float() @ b.float().T, rtol=2e-4, atol=2e-4)
 
-Other fragment shapes and transfers
+Other Fragment Shapes and Transfers
 -----------------------------------
 
 A longer K dimension needs multiple MMA issues. The tile interface

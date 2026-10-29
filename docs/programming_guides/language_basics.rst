@@ -20,15 +20,14 @@
    https://tvm.apache.org/docs/_sources/tirx/native_basics/cuda/control_flow.rst
    https://tvm.apache.org/docs/_sources/tirx/native_basics/cuda/parser_utils.rst
 
-Defining and launching kernels
-==============================
+Language Basics
+===============
 
-In this chapter, we will define CUDA functions, configure their launches,
-and assign work to threads. We will use the GPU add-one program from
-:doc:`Quick Start </get_started/quick_start>`, then extend it with a runtime
-parameter, a loop, and compile-time specialization.
+This guide shows how to define CUDA functions, configure their launches, and
+assign work to threads. We will use the GPU add-one program from :doc:`Quick
+Start </get_started/quick_start>`, then extend it with a runtime parameter.
 
-A CUDA function
+A CUDA Function
 ---------------
 
 The ``@T.function`` decorator constructs a ``tirx.Function`` from a
@@ -44,7 +43,7 @@ symbolic length ``n``:
 
     @T.function
     def add_one(A: T.Tensor((n,), T.float32), B: T.Tensor((n,), T.float32)):
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=((n + 255) // 256,), block=(256,)))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=T.ceildiv(n, 256), block=256))
         i = T.cuda.block_idx("x") * 256 + T.cuda.thread_idx("x")
         if i < n:
             B[i] = A[i] + 1
@@ -88,7 +87,7 @@ The ``increment: T.float32`` parameter controls that amount:
         B: T.Tensor((n,), T.float32),
         increment: T.float32,
     ):
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=((n + 255) // 256,), block=(256,)))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=T.ceildiv(n, 256), block=256))
         i = T.cuda.block_idx("x") * 256 + T.cuda.thread_idx("x")
         if i < n:
             B[i] = A[i] + increment
@@ -111,7 +110,7 @@ from the tensor shapes, so the call needs no separate length argument.
 
 .. _cuda-symbolic-shapes:
 
-Symbolic shapes
+Symbolic Shapes
 ---------------
 
 A kernel may need to handle tensors of different sizes. A symbolic shape
@@ -142,7 +141,7 @@ the launch's block count and the ``i < n`` bounds check in ``add_one``.
 The caller passes only ``a`` and ``b``; the compiled function derives
 ``n`` from their shapes without recompilation.
 
-Launch configuration
+Launch Configuration
 --------------------
 
 Each call to ``add_one`` needs enough GPU threads for its current length
@@ -156,13 +155,13 @@ statements in ``add_one`` are:
 
 .. code-block:: python
 
-    T.device_entry(launch=T.cuda.LaunchConfig(grid=((n + 255) // 256,), block=(256,)))
+    T.device_entry(launch=T.cuda.LaunchConfig(grid=T.ceildiv(n, 256), block=256))
     i = T.cuda.block_idx("x") * 256 + T.cuda.thread_idx("x")
     if i < n:
         B[i] = A[i] + 1
 
-``block=(256,)`` gives each block 256 threads. The grid rounds ``n / 256``
-up to provide at least ``n`` threads. For an input of 300 elements, this
+``block=256`` gives each block 256 threads. ``T.ceildiv(n, 256)`` rounds
+``n / 256`` up to provide at least ``n`` threads. For an input of 300 elements, this
 launches two blocks, or 512 threads in total.
 
 ``T.cuda.block_idx("x")`` gives the block index.
@@ -183,120 +182,3 @@ bounds. The :doc:`CUDA launch API </reference/python/backend.cuda.launch>`
 covers these options; the
 :doc:`CUDA script API </reference/python/backend.cuda.script>` lists the
 coordinate helpers for blocks, threads, warps, and lanes.
-
-.. _cuda-kernel-control-flow:
-
-Conditions and loops
---------------------
-
-A thread can process several elements with a loop. This version assigns
-four consecutive elements to each thread, using 64 threads per block:
-
-.. code-block:: python
-
-    @T.function
-    def add_one_four(A: T.Tensor((n,), T.float32), B: T.Tensor((n,), T.float32)):
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=((n + 255) // 256,), block=(64,)))
-        base = T.cuda.block_idx("x") * 256 + T.cuda.thread_idx("x") * 4
-        for offset in T.unroll(4):
-            i = base + offset
-            if i < n:
-                B[i] = A[i] + 1
-
-The launch creates 64 threads per block, and the loop assigns four
-consecutive elements to each thread, covering up to ``64 * 4 = 256``
-elements. A regular ``range(4)`` would process the four offsets
-sequentially within each thread. The example uses ``T.unroll(4)`` to ask
-the compiler to expand the loop into four copies of its body, one for
-each offset.
-
-The ``if i < n`` condition checks each element individually. A thread
-whose four-element group crosses the end of the tensor therefore writes
-only the valid positions.
-
-The :doc:`TIRx script API </reference/python/tirx.script>` also describes
-loop forms for vectorized operations (``T.vectorized``) and
-multidimensional iteration (``T.grid``).
-
-Compile-time specialization
----------------------------
-
-A symbolic dimension varies at runtime. When a size should be fixed before
-compilation, ``@T.jit`` lets us declare it as ``T.constexpr`` and set it
-through ``.specialize(...)``. Parsing happens at specialization time, and
-the result is an ordinary ``tirx.Function``.
-
-The following definition specializes the add-one function for a fixed
-length. Put ``from __future__ import annotations`` at the beginning of the
-Python file so the annotation can refer to ``N`` before specialization:
-
-.. code-block:: python
-
-    from __future__ import annotations
-    from tvm_tirx.script import tirx as T
-
-    @T.jit
-    def add_one_fixed(
-        A: T.Tensor((N,), T.float32),
-        B: T.Tensor((N,), T.float32),
-        *,
-        N: T.constexpr,
-    ):
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=((N + 255) // 256,), block=(256,)))
-        i = T.cuda.block_idx("x") * 256 + T.cuda.thread_idx("x")
-        if i < N:
-            B[i] = A[i] + 1
-
-    kernel = add_one_fixed.specialize(N=256)
-
-``kernel`` has length 256 fixed in its parameter types and body. It can be
-compiled with ``tvm_tirx.compile`` and called with its two tensor arguments;
-``N`` was fixed during specialization. In contrast, ``@T.function`` parses
-immediately, and the symbolic ``n`` in ``add_one`` remains a runtime dimension. The
-:doc:`JIT API </reference/python/tirx.script.jit>` covers optional
-parameters and specialization rules.
-
-.. _cuda-inline-functions:
-
-Reusable code fragments
------------------------
-
-A kernel can use small functions to reuse common pieces of code. For
-example, the bounds check and store in ``add_one_four`` handle one element:
-
-.. code-block:: python
-
-    if i < n:
-        B[i] = A[i] + 1
-
-We can put these two statements in a function marked with ``@T.inline``:
-
-.. code-block:: python
-
-    @T.inline
-    def add_one_if_valid(A, B, i, n):
-        if i < n:
-            B[i] = A[i] + 1
-
-Each loop iteration in ``add_one_four`` can then call this function to
-process its element:
-
-.. code-block:: python
-
-    for offset in T.unroll(4):
-        i = base + offset
-        add_one_if_valid(A, B, i, n)
-
-During parsing, TVMScript expands ``add_one_if_valid(...)`` into its two
-statements. The loop above is therefore equivalent to:
-
-.. code-block:: python
-
-    for offset in T.unroll(4):
-        i = base + offset
-        if i < n:
-            B[i] = A[i] + 1
-
-Other kernels can call ``add_one_if_valid`` in the same way to reuse the
-update. The GPU executes the expanded checks and stores directly. The
-:func:`inline API <tvm_tirx.tirx.script.inline>` describes its options.
