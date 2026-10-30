@@ -473,7 +473,7 @@ allocation. ``g`` is the group number and ``lane_id`` is its lane:
    print(prover.can_prove(fits_allocation))
    print(prover.can_prove(fits_allocation, sym.ProofStrength.SYMBOLIC_BOUND))
 
-The output is:
+The following output is from a build without Z3:
 
 .. code-block:: text
 
@@ -486,8 +486,9 @@ Here, native analysis combines the group and lane ranges to prove
 are still outside the original tensor, so accesses to that tensor still
 need tail handling.
 
-At this proof strength, a build with ``TVM_TIRX_USE_Z3=ON`` can also use a Z3
-fallback after native reasoning fails.
+In a build with ``TVM_TIRX_USE_Z3=ON``, both ``DEFAULT`` and
+``SYMBOLIC_BOUND`` try Z3 after native reasoning fails. A default query may
+already succeed through this fallback.
 ``prover.is_z3_enabled`` reports whether the current build supports it.
 The :py:class:`~tvm_tirx.sym.Analyzer` reference documents solver timeouts,
 resource limits, and proof diagnostics. A ``False`` result still means
