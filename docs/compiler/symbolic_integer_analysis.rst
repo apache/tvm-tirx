@@ -18,214 +18,180 @@
 Symbolic Integer Analysis
 =========================
 
-In this chapter, we will use the add-one loop to introduce symbolic integer
-analysis for tensor shapes, loop bounds, and element indices. A pass that
-combines four scalar accesses into one vector access needs to preserve their
-positions and establish that the whole group is within the tensor. The
-length may only be known at runtime, so these decisions require reasoning about symbolic
-expressions. We will start from the loop's known range, examine grouped
-indices and a neighboring-element access, and then analyze the iteration
-mapping and region covered by those groups.
+Before combining four scalar accesses into one vector access, a compiler
+pass needs to check the index calculation and make sure all four elements
+are within the tensor. When the tensor length is known only at runtime,
+these questions involve symbolic expressions. We will use
+:py:class:`~tvm_tirx.sym.Analyzer` to simplify those expressions, find their
+bounds, and prove conditions using facts from loops and branches. We will
+then use the same groups of four to examine coordinate mappings and
+accessed regions.
 
-The Analyzer
-------------
-
-:class:`sym.Analyzer <tvm_tirx.sym.Analyzer>` answers queries about integer
-IR expressions. It combines algebraic rules with facts supplied by a pass,
-such as a loop variable's range. The same analyzer can use those facts
-across several queries:
+The core types separate the facts an analysis knows, the analyzer that
+uses them, and the results of its queries:
 
 .. list-table::
    :header-rows: 1
-   :widths: 32 28 40
+   :widths: 35 65
 
-   * - Query
-     - Arguments
-     - Result
-   * - ``simplify(expr)``
-     - An IR expression.
-     - An equivalent IR expression in a simpler form.
-   * - ``int_set(expr)``
-     - An integer IR expression.
-     - A ``sym.IntSet`` covering its possible values, including symbolic bounds.
-   * - ``const_int_bound(expr)``
-     - An integer IR expression.
-     - A ``sym.ConstIntBound`` with inclusive numeric bounds.
-   * - ``modular_set(expr)``
-     - An integer IR expression.
-     - A ``sym.ModularSet`` describing divisibility and remainders.
-   * - ``can_prove(expr)``
-     - A boolean IR expression.
-     - ``True`` if the condition is established from the known facts.
-   * - ``can_prove_equal(lhs, rhs)``
-     - Two integer IR expressions.
-     - ``True`` if their values are established to be equal.
+   * - Type
+     - Purpose
+   * - :py:class:`~tvm_tirx.sym.Analyzer`
+     - Uses known facts to simplify expressions, infer bounds, and prove conditions.
+   * - :py:class:`~tvm_tirx.sym.ConstraintContext`
+     - Holds facts valid at a particular point in the program.
+   * - :py:class:`~tvm_tirx.sym.RangeConstraint`
+     - Records a variable's range of possible values.
+   * - :py:class:`~tvm_tirx.sym.PredicateConstraint`
+     - Records a condition known to hold at that program point.
+   * - :py:class:`~tvm_tirx.sym.BindingConstraint`
+     - Records the value captured when a variable is bound.
+   * - :py:class:`~tvm_tirx.sym.IntSet`, :py:class:`~tvm_tirx.sym.IntervalSet`
+     - Describe possible integer values. ``IntervalSet`` represents an inclusive
+       interval whose endpoints can contain symbolic expressions.
+   * - :py:class:`~tvm_tirx.sym.ConstIntBound`
+     - Gives inclusive numeric lower and upper bounds.
+   * - :py:class:`~tvm_tirx.sym.ModularSet`
+     - Describes integer divisibility and remainder patterns.
 
-These calls show the required arguments. The expressions describe
-calculations in the program, and the analyzer uses its known facts to
-reason about their runtime values.
+We will first record a loop's range in a constraint context, then use an
+analyzer to simplify and check its indices. The queries will show how to
+interpret the different result types.
 
-Facts from the Program
-----------------------
+Starting from a Loop
+--------------------
 
-The analyzer needs facts from the point in the program where a rewrite
-would occur. We will use the add-one CPU function from the
-:doc:`IR Walkthrough </ir/overview>`:
-
-.. literalinclude:: ../../examples/quick_start/add_one_cpu.py
-   :language: python
-   :start-at: from tvm_tirx.script import tirx as T
-   :end-at:         B[i] = A[i] + 1
-
-In this loop, the index satisfies ``0 <= i < n``. We can obtain the actual
-loop variable and symbolic dimension from the function's fields:
+The following function adds one to each element of ``A`` and writes the
+result to ``B``. ``T.dynamic("n")`` creates a symbolic length shared by the
+tensor shapes and loop bound:
 
 .. code-block:: python
 
    from tvm_tirx import ir, sym, tirx
+   from tvm_tirx.script import tirx as T
 
-   loop = add_one.body[0]
-   i = loop.var
-   n = add_one.params[0].ty.shape[0]
-   analyzer = sym.Analyzer()
+   n = T.dynamic("n")
 
-The loop bounds belong to the loop statement, while the variable ``i``
-records a name and type. A query on ``i`` therefore does not automatically
-include those bounds. The pass supplies them through a ``RangeConstraint``;
-a ``ConstraintContext`` stores the facts for the current program point:
+   @T.function
+   def add_one(A: T.Tensor((n,), T.float32), B: T.Tensor((n,), T.float32)):
+       for i in range(n):
+           B[i] = A[i] + 1
+
+Inside the loop, ``i`` satisfies ``0 <= i < n``. We can obtain that
+variable from the loop's IR and ask an analyzer whether ``i < n`` holds:
 
 .. code-block:: python
 
-   range_fact = sym.RangeConstraint(i, ir.Range(0, n))
-   context = sym.ConstraintContext()
-   context.append(range_fact)
-   analyzer.sync_constraint_context(context)
+   loop = add_one.body[0]  # The for loop is the function's first statement.
+   i = loop.var
+   analyzer = sym.Analyzer()
+   print(analyzer.can_prove(i < n))
 
-``ir.Range(0, n)`` describes the half-open interval ``[0, n)``: zero is
-included and ``n`` is excluded. In general, ``ir.Range(begin, end)`` takes
-endpoints; ``ir.Range.from_min_extent(begin, extent)`` takes a starting value
-and size. Here, the range starts at zero and has extent ``n``:
+The output is ``False``, meaning the analyzer has not proved the condition.
+It has only received the expression ``i < n``. The variable ``i`` records
+its name and type, while its bounds belong to the surrounding loop. The
+analyzer needs those bounds as facts before it can use them in a proof.
 
-.. code-block:: text
+A ``ConstraintContext`` holds such facts. Add the loop range, then
+synchronize the analyzer with the context:
 
-   range_fact: sym.RangeConstraint
-   ├── var → ir.Var                     i
-   └── range: ir.Range
-       ├── begin: ir.IntImm              0
-       └── extent: ir.Var                n
+.. code-block:: python
 
-``sync_constraint_context`` makes these facts available to subsequent
-queries. The analyzer captures the context at synchronization, so later
-additions need another synchronization. A pass moving to another part
-of the program must supply the context valid there.
+   loop_context = sym.ConstraintContext()
+   loop_context.append(sym.RangeConstraint(i, ir.Range(loop.begin, loop.end)))
+   analyzer.sync_constraint_context(loop_context)
+   print(analyzer.can_prove(i < n))
 
-Simplifying Index Expressions
------------------------------
+The output is now ``True``. ``ir.Range(begin, end)`` describes a half-open
+interval, including ``begin`` and excluding ``end``. Here it is ``[0, n)``,
+matching the values taken by ``i``. Subsequent queries on this analyzer can
+use the same range fact.
 
-A vectorization pass can split the loop index ``i`` into a group start
-and a lane within a group of four. The address calculation may later
-recombine these parts, leaving division and remainder operations that can
-be removed. The group starts at ``(i // 4) * 4``, and ``i % 4`` gives its
-lane. For example, index 6 belongs to the group starting at 4 and occupies
-lane 2. The analyzer can simplify the recombined expression:
+Splitting and Recombining an Index
+----------------------------------
+
+To group consecutive elements in fours, split an index into its group's
+starting position and its position within that group, called a lane.
+For example, index 6 belongs to the group starting at 4 and occupies
+lane 2. Division and remainder express this split:
 
 .. code-block:: python
 
    group_start = (i // 4) * 4
    lane = i % 4
-   simplified = analyzer.simplify(group_start + lane)
-   print(simplified)
+   recombined = group_start + lane
+   print(analyzer.simplify(recombined))
+   print(analyzer.can_prove_equal(recombined, i))
 
 The output is:
 
 .. code-block:: text
 
    i
+   True
 
-``simplified`` is the IR expression a pass can use to replace the longer
-index calculation.
+``simplify`` returns a simpler IR expression that a pass can use in place
+of the longer calculation. ``can_prove_equal`` instead returns a boolean:
+it confirms that the two expressions compute the same value, even though
+their node structures differ.
 
-Bounds and Divisibility
------------------------
+Checking a Group's Bounds
+--------------------------
 
-The loop range guarantees that ``A[i]`` is in bounds. A computation that
-also reads ``A[i + 1]`` needs to establish a bound for that new index.
-``int_set`` can bound its possible values before the pass decides whether
-the access needs a guard:
+Recombining the group start and lane recovers the scalar index ``i``.
+To read the whole group, we also need to check the lane positions,
+the group's start, and whether its last element is within the tensor.
 
-.. code-block:: python
-
-   next_index = i + 1
-   possible_values = analyzer.int_set(next_index)
-   print(analyzer.simplify(possible_values.min_value))
-   print(analyzer.simplify(possible_values.max_value))
-
-The output is:
-
-.. code-block:: text
-
-   1
-   n
-
-For this expression, ``int_set`` returns a ``sym.IntervalSet``. Its
-``min_value`` and ``max_value`` fields are integer IR expressions, so
-the endpoints can depend on ``n``. The interval is inclusive: ``i + 1``
-can reach ``n`` on the last iteration. This matters because the final
-valid tensor index is ``n - 1``.
-
-The grouping calculation gives another bounds query: the lane must select
-one of the group's four positions. Its bounds are numeric, so
-``const_int_bound`` can report them directly:
+First, find the lane's numeric bounds with ``const_int_bound``:
 
 .. code-block:: python
 
    lane_bounds = analyzer.const_int_bound(lane)
    print(lane_bounds.min_value, lane_bounds.max_value)
 
-The output is:
-
-.. code-block:: text
-
-   0 3
-
-These endpoints are also inclusive, describing the four lane positions.
-Bounds cover every possible value; for more complex expressions, an
-inferred interval may also contain values that never occur.
-
-The start offset also matters for a vector access. A pass can use
-``modular_set`` to check whether every group starts on a multiple of four:
+The output is ``0 3``. Both endpoints are inclusive, so the lane selects
+one of four positions. We can also check whether each group starts at a
+multiple of four:
 
 .. code-block:: python
 
-   multiples = analyzer.modular_set(group_start)
-   print(multiples.coeff, multiples.base)
+   starts = analyzer.modular_set(group_start)
+   print(starts.coeff, starts.base)
+
+The output is ``4 0``. A modular set describes values of the form
+``coeff*k + base`` for integer ``k``, so the group starts at ``4*k``.
+This establishes the element offset's divisibility. Aligned vector
+accesses also depend on the tensor's base-address alignment.
+
+The loop index has symbolic bounds because the tensor length is not fixed.
+``int_set`` can express those bounds in terms of ``n``:
+
+.. code-block:: python
+
+   indices = analyzer.int_set(i)
+   print(analyzer.simplify(indices.min_value))
+   print(analyzer.simplify(indices.max_value))
 
 The output is:
 
 .. code-block:: text
 
-   4 0
+   0
+   n - 1
 
-``coeff`` and ``base`` describe values of the form ``coeff*k + base``
-for integer ``k``. Every group therefore starts on a four-element boundary.
-A vectorization pass can use this offset information together with the
-base-address alignment and access bounds.
+For this expression, the result is an ``IntervalSet`` with inclusive
+endpoints. Unlike ``const_int_bound``, these endpoints are IR expressions
+and can contain variables. In general, a computed bound covers the
+possible values and may also include values that never occur.
 
-Proving Conditions
-------------------
-
-A compiler pass often needs a yes-or-no answer before it removes a check
-or replaces an index. A proof query asks whether the required condition
-holds for every value allowed by the known facts. The following calls
-check the original index, the neighboring index, the regrouped index, and
-the last element of its group of four:
+Every scalar index ``i`` is within those bounds. A full group ends at
+``group_start + 3``, which can be larger than ``i``. We can ask whether
+that last index is also in bounds:
 
 .. code-block:: python
 
    group_last = group_start + 3
    print(analyzer.can_prove(i < n))
-   print(analyzer.can_prove(next_index < n))
-   print(analyzer.can_prove_equal(group_start + lane, i))
    print(analyzer.can_prove(group_last < n))
 
 The output is:
@@ -234,69 +200,39 @@ The output is:
 
    True
    False
-   True
-   False
 
-The known range proves ``i < n``, so a redundant check of this condition
-inside the loop can be removed. The neighboring index can reach ``n``,
-so ``i + 1 < n`` cannot be established for every iteration. That access
-needs a guard or an iteration range that excludes the last element.
+For example, when ``n = 6`` and ``i = 5``, the group starts at 4 and ends
+at 7. The original scalar access is valid, but indices 6 and 7 are outside
+the tensor. A pass must handle this partial group, for example by using
+scalar accesses for the tail.
 
-The final query checks the group's last index. The original index
-can be valid while part of its group lies beyond the tensor: with ``n = 6``
-and ``i = 5``, the group starts at 4 and ends at 7. Offsets 6 and 7 are out
-of bounds. The lane range and alignment established earlier do not by
-themselves justify a full vector access; a pass also needs to establish
-``group_last < n`` or handle the partial group.
-
-In general, ``False`` means that the analyzer did not prove a condition;
-it does not prove the opposite condition. A pass cannot use that result
-to justify removing a bounds check.
-
-``can_prove_equal`` compares expression values. Here, its ``True`` result
-confirms that a pass can replace ``group_start + lane`` with ``i`` while
-preserving the element index, even though their IR structures differ.
+A ``False`` proof result means the analyzer did not establish the condition.
+It does not prove the opposite. In this case we have a concrete
+counterexample, but other queries may need additional facts or stronger
+reasoning.
 
 .. _symbolic-constraint-management:
 
-Managing Facts Across Program Points
-------------------------------------
+Following Facts into a Branch
+------------------------------
 
-A range is one kind of premise. ``sym.ConstraintContext`` can also record
-bindings and boolean conditions:
-
-.. list-table::
-   :header-rows: 1
-   :widths: 30 30 40
-
-   * - Constraint
-     - Fields
-     - Meaning
-   * - ``sym.RangeConstraint``
-     - ``var``, ``range``
-     - A half-open superset of a variable's possible values, without stride.
-   * - ``sym.BindingConstraint``
-     - ``var``, ``value``
-     - The primitive value captured at a variable's binding.
-   * - ``sym.PredicateConstraint``
-     - ``condition``, ``assume_always``
-     - A boolean premise whose lifetime is supplied by the collector.
-
-These are data objects; an analyzer consumes the premises after
-synchronization. For example, a branch that checks ``i + 1 < n`` supplies
-the additional condition needed by the neighboring-element access. A
-snapshot lets us represent the true branch of that check without changing
-the loop's context:
+One way to handle partial groups is to test ``group_last < n`` before
+taking a path that accesses all four elements. Inside the true branch,
+that test becomes an additional fact. If the last element is in bounds,
+the earlier element at ``group_start + 2`` is also safe. We can represent
+the branch with a snapshot of the loop context and ask the analyzer to
+prove this consequence:
 
 .. code-block:: python
 
-   branch_context = context.snapshot()
-   branch_context.append(sym.PredicateConstraint(i + 1 < n))
+   third_index = group_start + 2
+   branch_context = loop_context.snapshot()
+   branch_context.append(sym.PredicateConstraint(group_last < n))
    analyzer.sync_constraint_context(branch_context)
-   print(analyzer.can_prove(i + 1 < n))
+   print(analyzer.can_prove(third_index < n))
 
-   analyzer.sync_constraint_context(context)
-   print(analyzer.can_prove(i + 1 < n))
+   analyzer.sync_constraint_context(loop_context)
+   print(analyzer.can_prove(third_index < n))
 
 The output is:
 
@@ -305,47 +241,33 @@ The output is:
    True
    False
 
-Switching back removes the branch-only premise. Appending facts to a context
-requires another synchronization; an unchanged context is inexpensive to
-synchronize. An empty ``ConstraintContext`` removes all collected premises.
-``analyzer.clone()`` makes an independent analyzer with the same accumulated
-facts when an analysis needs to explore alternatives.
+The first query uses the branch condition to prove that the third element
+is in bounds.
+Synchronizing with ``loop_context`` again models leaving the branch and
+removes the branch-only fact. The original context remains unchanged
+because we extended a snapshot.
 
-Appending the predicate represents a condition already known to hold at
-that program point, such as entering the true branch of an existing test.
-It does not prove that the test is true for every loop iteration.
-
-TIRx's :ref:`constraint-aware traversals <ir-traversal-with-constraints>`
-collect these facts from program constructs. Bindings become available
-after visiting their values. Positive-step loops supply body ranges;
-branches and while bodies supply guards. Primitive ``Let`` expressions
-supply body-local bindings. Lazy ``if_then_else`` arguments receive separate
-guards; eager ``Select`` operands do not. Ordinary assertions require a
-pure condition, while ``tirx.assume_always`` supplies an explicit guarantee
-of predicate truth throughout its scope.
-
-The traversal context is live and callbacks must not append to it.
-``list(constraints)`` retains a separate sequence of premise handles;
-``constraints.snapshot()`` captures a context that can be extended
-independently. Both still share the premise objects and their expressions,
-which must remain unchanged through aliases.
-
-A binding such as ``x = A[0]`` captures a value, while a later ``A[0]`` may
-observe a write. Collection does not snapshot memory. The built-in analyzer
-conservatively ignores bindings, range bounds, and predicates with impure
-expressions; custom consumers must also respect premise lifetimes and
-memory effects. The examples in this chapter use scalar dimensions and
-indices.
+Adding the predicate represents a test that has already succeeded at this
+program point. It does not show that the test is true on every iteration.
+Likewise, appending a fact to a context affects an analyzer only after
+``sync_constraint_context`` is called. Keeping the context synchronized is
+what makes the same analyzer usable at different points in a program.
 
 .. _ir-traversal-with-constraints:
 
-Analyzing a Guard During Traversal
-----------------------------------
+Getting Facts During Traversal
+------------------------------
 
-We have supplied facts manually so far. TIRx extends the structural
-operations from :doc:`structural_utilities` with traversal that collects
-constraints at each program point. We can connect that collector to an
-analyzer for a redundant add-one check:
+In a pass over a complete function, manually reconstructing the facts for
+every statement would be tedious. TIRx provides
+:py:func:`~tvm_tirx.tirx.structural.structural_walk_with_constraint_context` to collect
+them while walking the IR. Its callback receives both the current value
+and the facts valid there.
+
+The group check above protects accesses that may extend beyond the tensor.
+We will now examine a scalar check, ``i < n``, which repeats a condition
+already guaranteed by the loop. We can use the traversal to identify this
+unnecessary check:
 
 .. code-block:: python
 
@@ -368,28 +290,38 @@ analyzer for a redundant add-one check:
    )
    print(proven_guards)
 
-The output is ``[True]``. The callback receives the loop range valid at the
-``ir.If``. Synchronization makes that range available to the analyzer, which
-proves the condition. The pre-order callback runs before entering either
-branch, so the proof uses the surrounding loop facts. A condition's own
-premise inside its true branch would not establish that the test is redundant.
+The output is ``[True]``. At the ``ir.If`` node, the callback synchronizes
+the analyzer with the surrounding loop's range. That range is enough to
+prove ``i < n``. A pass can therefore remove this check.
 
-Synchronize at every callback that makes a query; this also removes facts
-when traversal returns to an outer scope. These steps provide the analysis
-needed by the pass example in :doc:`writing_passes`. The remaining sections
-extend the grouped-index example to coordinate mappings, access regions,
-and stronger proofs.
+The pre-order callback runs before entering either branch. This matters
+because using the condition as a fact inside its own true branch would
+only show that it holds there, not that the test is redundant. Synchronize
+at each callback that makes a query so facts from a previous program point
+are replaced by the ones valid now.
+
+Do not append facts to the context passed to the callback or modify the
+facts it contains. To explore an additional assumption, extend a snapshot
+as in the branch example. The
+:doc:`TIRx traversal API </reference/python/tirx>`
+describes the collection rules for bindings, loops, branches, and other
+constructs. :doc:`writing_passes` uses the same guarded function in a
+transformation pipeline.
 
 .. _symbolic-iteration-maps:
 
 Mapping Groups and Lanes
--------------------------
+------------------------
 
-The group-of-four calculation describes a coordinate transformation as
-well as an arithmetic identity. To examine the whole mapping, consider a
-fixed domain of sixteen indices. This example uses a fresh analyzer for that
-independent domain. ``detect_iter_map`` takes the output coordinates and
-the input domains:
+Bounds tell us whether a group's accesses fit. To replace a linear loop
+with group and lane loops, we also need to check that the coordinate mapping
+covers each original index exactly once. Consider a fixed length of 16,
+which forms four complete groups. ``k // 4`` selects a group, and
+``k % 4`` selects a lane within it.
+
+``detect_iter_map`` analyzes these coordinates over the input domain.
+``check_level="bijective"`` asks it to check that every group-and-lane pair
+has exactly one input index. We use a fresh analyzer for this fixed domain:
 
 .. code-block:: python
 
@@ -403,17 +335,10 @@ the input domains:
    )
    assert len(detected.indices) == 2, detected.errors
 
-Each input index selects a group and lane:
-
-.. code-block:: text
-
-   k in [0, 16) ──→ (k // 4, k % 4)
-                         │       │
-                     group     lane
-                     [0, 4)    [0, 4)
-
-Bijectivity establishes that each output coordinate has exactly one input.
-We can then recover that input from symbolic output coordinates:
+The two entries in ``detected.indices`` describe the group and lane
+coordinates. If detection fails, the array is empty and ``errors`` gives
+diagnostics. With a successful bijective mapping, we can recover the
+original index from the output coordinates:
 
 .. code-block:: python
 
@@ -430,24 +355,14 @@ The output is:
    lane_index + group * 4
    True
 
-``inverse[k]`` expresses the original coordinate in terms of the output
-coordinates: group 1, lane 2 recovers index 6. The value proof confirms this
-formula even though its printed operand order differs from
-``group * 4 + lane_index``.
+The recovered expression gives the original index. For example, group 1
+and lane 2 give index 6. The equality query confirms the expected formula
+regardless of the printed operand order.
 
-``check_level="surjective"`` checks output coverage
-without requiring a unique preimage; ``"nocheck"`` skips that validation.
-The enum is ``sym.iter_affine_map.IterMapLevel``. An unchecked match does
-not justify inversion. Detection failure gives an empty ``indices`` array
-and diagnostic ``errors``.
-
-The detected coordinates are ``IterSumExpr`` objects, derived from
-``IterMapExpr``. ``IterMark`` records a source and extent;
-``IterSplitExpr`` selects and scales a component; ``IterSumExpr`` combines
-components with a base. ``sym.normalize_iter_map_to_expr`` converts them
-back to ordinary IR expressions.
-
-``tirx.IndexMap`` packages a coordinate transformation for reuse:
+The detector checks an index calculation over a specified domain.
+:py:class:`~tvm_tirx.tirx.IndexMap` instead records a coordinate rule that a
+pass can apply to indices and shapes. We can define the same split into
+groups and lanes as an index map:
 
 .. code-block:: python
 
@@ -462,30 +377,28 @@ The output is:
    [1, 2]
    [4, 4]
 
-``map_indices`` applies the map and ``map_shape`` infers output extents.
-``inverse`` derives an inverse over a supplied domain;
-``non_surjective_inverse`` also returns a padding predicate when the image
-does not fill the output space. ``is_equivalent_to`` compares coordinate
-mappings with symbolic reasoning. These operations accept an analyzer to
-reuse its facts. An index map describes coordinates; a pass must still
-rewrite accesses and establish that the program transformation is valid.
+``map_indices`` maps index 6 to group 1, lane 2. ``map_shape`` maps the
+16-element shape to four groups of four lanes. These queries describe
+the coordinate transformation. A pass uses that information when rewriting
+loops and tensor accesses.
 
 .. _symbolic-region-analysis:
 
 Covering an Accessed Region
 ---------------------------
 
-The earlier ``int_set(i + 1)`` query covered the values of one expression.
-A region query can cover several elements at each iteration. Suppose four
-iterations each access a contiguous group of four elements:
+The mapping tells us how to name individual elements. We may also need to
+find the whole region accessed by a loop, for example to size a scratch
+tensor. Suppose group 0 accesses elements 0 through 3, group 1 accesses
+4 through 7, and so on. Each group's access is a range starting at
+``group * 4`` with extent 4:
 
 .. code-block:: python
 
-   tile = ir.Var("tile", "int32")
-   region = [ir.Range.from_min_extent(tile * 4, 4)]
+   region = [ir.Range.from_min_extent(group * 4, 4)]
    covered = sym.estimate_region_strict_bound(
        region,
-       {tile: ir.Range(0, 4)},
+       {group: ir.Range(0, 4)},
        predicate=True,
        analyzer=map_analyzer,
    )
@@ -500,157 +413,83 @@ The output is:
    0
    15
 
-``predicate=True`` includes every iteration in the supplied domain. The
-result covers all sixteen elements. The input region is a list of
-half-open ranges; the returned integer-set endpoints are inclusive.
-``ir.Range(begin, end)`` supplies endpoints, while
-``ir.Range.from_min_extent(begin, extent)`` supplies a size.
+``from_min_extent`` takes a starting value and a size. The estimator combines
+that range over all four group indices. ``predicate=True`` includes every
+iteration, and the result covers all sixteen elements. The input ranges
+are half-open, while the returned integer-set endpoints are inclusive.
+A scratch tensor covering indices 0 through 15 therefore needs 16 elements.
 
-Different estimators provide different coverage guarantees:
+Here the groups fill one contiguous interval. If each group accessed only
+two elements, the accessed indices would instead be ``[0, 1]``, ``[4, 5]``,
+``[8, 9]``, and ``[12, 13]``. An upper bound of ``[0, 13]`` would cover all
+those accesses but also include the gaps. The estimator's guarantee matters
+when using its result:
 
 .. list-table::
    :header-rows: 1
-   :widths: 43 57
+   :widths: 30 70
 
-   * - API
-     - Interpretation
-   * - ``sym.estimate_region_upper_bound``
-     - Cover every accessed point, possibly adding points.
-   * - ``sym.estimate_region_lower_bound``
-     - Find a covered subregion, possibly discarding accessed points.
-   * - ``sym.estimate_region_strict_bound``
-     - Require a result without discarding or relaxing the region.
+   * - Estimator
+     - Guarantee
+   * - ``estimate_region_upper_bound``
+     - Includes every accessed point, and may include additional points.
+   * - ``estimate_region_lower_bound``
+     - Includes only accessed points, but may omit some of them.
+   * - ``estimate_region_strict_bound``
+     - Represents the accessed region without adding or omitting points.
 
-A lower bound cannot justify allocating only that subregion for all
-accesses. Lower and strict estimation may return ``None``; upper bounds
-may be wider than the actual region. These queries describe geometry and
-do not establish memory dependencies or aliasing properties.
+A lower bound alone does not guarantee enough storage for every access.
+Strict and lower-bound estimation can return ``None`` when they cannot
+produce the required result. The
+:doc:`symbolic analysis API </reference/python/sym>` covers other region
+queries and iteration-map operations.
 
-For example, accessing only two elements from each group would touch
-``[0, 1]``, ``[4, 5]``, ``[8, 9]``, and ``[12, 13]``. An upper bound of
-``[0, 13]`` covers every access and also includes the gaps. Being inside
-such a bound does not imply that an element was accessed.
+Stronger Proofs
+----------------
 
-``sym.IntSet`` is the base integer-set interface. ``sym.IntervalSet(lo, hi)``
-constructs inclusive intervals, ``IntSet.single_point`` represents one
-value, and ``IntSet.vector`` covers a vector expression's lanes.
-``is_nothing()`` and ``is_everything()`` inspect empty and universal sets.
-``sym.int_set.pos_inf()`` and ``neg_inf()`` construct symbolic infinities;
-``union_lower_bound`` computes a lower bound for a union of regions.
+The default proof strength can be inconclusive even when a condition follows
+from the known facts. Consider scratch storage rounded up to a multiple of
+four. It has ``(n + 3) // 4`` complete groups. When ``n = 6``, for example,
+there are two groups and room for eight elements.
 
-Stronger Proofs with Z3
------------------------
-
-The preceding examples use the native analyzers. More complex expressions
-can benefit from stronger reasoning. ``can_prove`` accepts
-``sym.ProofStrength.SYMBOLIC_BOUND`` to request symbolic-bound reasoning
-and, when available, a Z3 fallback after native reasoning fails. Its default
-``ProofStrength.DEFAULT`` uses native reasoning without that solver fallback.
-
-The earlier group calculation used a constant width of four. A group can
-also have a symbolic width and starting offset. In this example, ``start``,
-``index``, and ``width`` are positive. Rounding ``index - start`` down to a
-multiple of ``width`` and adding ``start`` gives a group start at or before
-``index``:
+We want to prove that any group and lane select an index within this padded
+allocation. ``g`` is the group number and ``lane_id`` is its lane:
 
 .. code-block:: python
 
-   start = ir.Var("start", "int32")
-   index = ir.Var("index", "int32")
-   width = ir.Var("width", "int32")
-   proof_context = sym.ConstraintContext()
-   for var in (start, index, width):
-       proof_context.append(sym.PredicateConstraint(var > 0))
+   group_count = (n + 3) // 4
+   padded_length = group_count * 4
+   g = ir.Var("g", "int32")
+   lane_id = ir.Var("lane_id", "int32")
 
+   padded_context = sym.ConstraintContext()
+   padded_context.append(sym.PredicateConstraint(n >= 0))
+   padded_context.append(sym.RangeConstraint(g, ir.Range(0, group_count)))
+   padded_context.append(sym.RangeConstraint(lane_id, ir.Range(0, 4)))
    prover = sym.Analyzer()
-   prover.sync_constraint_context(proof_context)
-   tile_start = ((index - start) // width) * width + start
-   condition = tile_start <= index
+   prover.sync_constraint_context(padded_context)
 
-   if prover.is_z3_enabled:
-       prover.set_z3_timeout_ms(1000)
-       assert prover.can_prove(condition, sym.ProofStrength.SYMBOLIC_BOUND)
+   fits_allocation = g * 4 + lane_id < padded_length
+   print(prover.can_prove(fits_allocation))
+   print(prover.can_prove(fits_allocation, sym.ProofStrength.SYMBOLIC_BOUND))
 
-Build with ``TVM_TIRX_USE_Z3=ON`` and check ``is_z3_enabled`` before using
-solver-specific configuration or diagnostics. Installing Python's
-``z3-solver`` package alone does not enable the native backend. A ``False``
-proof result still means unproved, including when translation is unsupported
-or the solver reaches a resource limit.
+The output is:
 
-``set_z3_rlimit`` supplies a deterministic solver budget; zero disables that
-limit. ``get_smtlib2(expr=None)`` exports the current problem, optionally
-with a negated goal, and ``get_z3_stats()`` exposes solver statistics. These
-methods and ``set_z3_timeout_ms`` require a Z3-enabled build.
+.. code-block:: text
 
-Further Analysis Tools
------------------------
+   False
+   True
 
-The examples above cover the analysis workflow. The following index groups
-additional entry points by the tasks they support; full signatures are in
-the API references linked below:
+``SYMBOLIC_BOUND`` requests additional reasoning with symbolic bounds.
+Here, native analysis combines the group and lane ranges to prove
+``g * 4 + lane_id < padded_length``. With ``n = 6``, the final two positions
+are still outside the original tensor, so accesses to that tensor still
+need tail handling.
 
-.. list-table::
-   :header-rows: 1
-   :widths: 43 57
-
-   * - Tool
-     - Use
-   * - ``Analyzer.rewrite_simplify`` and ``canonical_simplify``
-     - Request a simplification stage directly. ``simplify(steps=2)`` runs
-       rewriting followed by canonicalization by default.
-   * - ``Analyzer.try_compare``
-     - Return ``sym.CompareResult`` using directly known comparisons and
-       constant offsets. ``UNKNOWN`` does not establish an ordering.
-   * - ``Analyzer.int_set(expr, dom_map)``
-     - Supply explicit variable domains as ``IntSet`` objects. Omitting the
-       mapping uses accumulated domains.
-   * - ``Analyzer.const_int_bound_is_bound``
-     - Check whether the constant-bound analyzer has a variable domain.
-   * - ``Analyzer.set_maximum_rewrite_steps``, ``rewrite_simplify_stats``,
-       and ``reset_rewrite_simplify_stats``
-     - Bound and inspect native rewriting work. Exceeding a positive step
-       limit raises an error.
-   * - ``sym.iter_map_simplify``
-     - Simplify indices using iteration-map detection; return the original
-       expressions if no match is found.
-   * - ``sym.normalize_to_iter_sum``
-     - Decompose an expression into an iteration sum, leaving undetected
-       parts in its base.
-   * - ``sym.subspace_divide``
-     - Separate selected iterators' contribution from the remaining space,
-       with outer and inner predicates.
-   * - ``sym.deduce_bound``
-     - Derive a target variable's integer set from a condition, using hint
-       and relaxation domains.
-   * - ``tirx.analysis.detect_linear_equation``
-     - Recover coefficients and a base relative to selected variables.
-   * - ``tirx.analysis.detect_clip_bound``
-     - Recognize lower and upper bounds in a clip condition.
-
-For example, linear detection recovers the strides of a flattened index:
-
-.. code-block:: python
-
-   row = ir.Var("row", "int32")
-   column = ir.Var("column", "int32")
-   coefficients = tirx.analysis.detect_linear_equation(row * 16 + column, [row, column])
-   print([int(value) for value in coefficients])
-
-The output is ``[16, 1, 0]``: the row coefficient, column coefficient, and
-base. Linear and clip detection return an empty list on failure. A missing
-individual clip bound can be ``None``. Iter-map detection, simplification,
-normalization, subspace division, region queries, and ``IndexMap`` methods
-can reuse an explicitly supplied analyzer; synchronize its facts before
-calling them.
-
-Arithmetic analysis must respect the expression's dtype and division
-semantics. ``sym.allow_uint_as_index()`` explicitly opts into no-wraparound
-assumptions for unsigned scalar indices during compile-time layout proofs.
-The caller must justify those assumptions; they do not follow from the
-unsigned dtype alone.
-
-The native counterparts are in ``tvm/sym/analyzer.h``, ``constraint.h``,
-``int_set.h``, and ``iter_affine_map.h``. :doc:`/reference/python/sym`,
-:doc:`/reference/python/tirx.analysis`, and :class:`tvm_tirx.tirx.IndexMap`
-provide the full signatures. Continue with :doc:`writing_passes` to apply
-these tools in a transformation pipeline and inspect the resulting IR.
+At this proof strength, a build with ``TVM_TIRX_USE_Z3=ON`` can also use a Z3
+fallback after native reasoning fails.
+``prover.is_z3_enabled`` reports whether the current build supports it.
+The :py:class:`~tvm_tirx.sym.Analyzer` reference documents solver timeouts,
+resource limits, and proof diagnostics. A ``False`` result still means
+unproved, including when the solver cannot handle a condition or reaches
+a limit.

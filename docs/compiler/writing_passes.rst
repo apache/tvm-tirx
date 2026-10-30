@@ -18,24 +18,24 @@
 Writing and Debugging Passes
 ============================
 
-In this chapter, we will use the variable-substitution technique from
-:doc:`structural_utilities` to specialize a tensor program's dynamic dimension
-and package the rewrite as a compiler pass. We will combine it with statement
-simplification, check the resulting program, and inspect the intermediate
-stages. The example continues the add-one program used in the
-:doc:`IR Walkthrough </ir/overview>`.
+Suppose we want a version of an add-one function for tensors of length 128.
+We will write a pass that fixes its symbolic length, then combine it with
+statement simplification. A compiler pass packages an IR transformation so
+the pass manager can run it as part of a pipeline. As we build this pipeline,
+we will check its result, inspect the intermediate programs, and save one
+to reproduce a single transformation.
 
-Starting from a Function
-------------------------
+Starting Program
+----------------
 
-Consider the add-one loop with the extra bounds check introduced in the
-:ref:`constraint-aware traversal example <ir-traversal-with-constraints>`:
+The following function adds one to each input element. ``T.dynamic("n")``
+creates a symbolic length, so the tensor shapes and loop bound use the same
+variable ``n``:
 
 .. code-block:: python
 
    import tvm_ffi
    from tvm_tirx import ir, tirx
-   from tvm_tirx.script import from_source
    from tvm_tirx.script import tirx as T
 
    n = T.dynamic("n")
@@ -46,24 +46,27 @@ Consider the add-one loop with the extra bounds check introduced in the
            if i < n:
                B[i] = A[i] + 1
 
-A pass takes an ``ir.IRModule`` and returns a module, so we first place the
-function in one:
+The bounds check is deliberately redundant: ``range(n)`` already guarantees
+``i < n``. This gives us two changes to make. Our pass will replace ``n``
+with 128 in the shapes and body. The existing ``StmtSimplify`` pass will
+remove the unnecessary check. The resulting function will accept tensors
+of length 128 rather than a length determined at runtime.
+
+Passes run on an ``ir.IRModule``, which holds named functions. We place our
+function in a module before transforming it:
 
 .. code-block:: python
 
    before = ir.IRModule({"guarded_add_one": guarded_add_one})
 
-The module gives transformations a common entry point for named functions.
-Its functions remain directly accessible as IR objects, as described in
-:doc:`/ir/functions_and_modules`.
+Writing a Function Pass
+-----------------------
 
-Packaging the Shape Specialization
-----------------------------------
-
-A function pass adapts a transformation over one ``tirx.Function`` to the
-module interface. The following factory takes a dimension and its replacement
-extent, then returns a pass configured for that substitution. Its inner
-callback performs the actual rewrite:
+The replacement rule matches the original variable ``n`` and returns an
+integer constant in its place. We can use ``structural_map`` from
+:doc:`structural_utilities` to apply this rule throughout a function.
+The :py:func:`~tvm_tirx.tirx.transform.function_pass` decorator turns the
+rewrite into a pass:
 
 .. code-block:: python
 
@@ -72,122 +75,85 @@ callback performs the actual rewrite:
 
        @tirx.transform.function_pass(opt_level=0, name="SpecializeDimension")
        def transform(func, mod, ctx):
+           def replace_dimension(var):
+               if var.same_as(dimension):
+                   return replacement
+               return var
+
            return tvm_ffi.structural_map(
-               func,
-               (ir.Var, lambda v: replacement if v.same_as(dimension) else v),
-               order="pre",
+               func, (ir.Var, replace_dimension), order="pre"
            )
 
        return transform
+
+The inner callback ``transform`` receives a function, its module, and the
+active pass context. This rewrite uses only ``func`` and returns the
+rewritten function. The pass manager calls it for each TIRx function in
+the module. ``same_as`` selects the original dimension object, so unrelated
+variables with the printed name ``n`` stay unchanged.
+
+``specialize_dimension`` creates a pass configured for a particular
+dimension and extent. Calling that pass with a module runs the rewrite:
+
+.. code-block:: python
 
    specialize = specialize_dimension(n, 128)
    specialized = specialize(before)
    print(int(specialized["guarded_add_one"].params[0].ty.shape[0]))
 
-The output is ``128``. The callback receives a function, its module, and
-the active ``PassContext`` containing execution settings. It returns the
-resulting function, and the pass manager applies it to each TIRx function
-in the module. This factory selects a specific dimension object; unrelated
-variables with the same printed name are unaffected. Its replacement
-extent must be valid for the tensor types being specialized.
+The output is ``128``. ``params[0]`` is parameter ``A``, and
+``ty.shape[0]`` is its first dimension. The rewrite also changes ``B``'s
+shape, the loop bound, and the condition to use 128. It leaves the original
+module ``before`` unchanged.
 
-The two calls have separate roles: ``specialize_dimension(n, 128)`` creates
-a pass object, and ``specialize(before)`` runs that pass on the module.
-``opt_level=0`` makes this pass eligible in a sequential pipeline whose
-optimization level is at least zero.
+Running a Pipeline
+------------------
 
-For a body-only change, ``func.with_body(new_body)`` preserves the function's
-other fields. ``tirx.transform.Apply(callback)`` is a shorter adapter when
-the callback only needs the function. ``ir.transform.module_pass`` instead
-adapts a ``(module, context) -> module`` callback for transformations that add
-or remove functions or coordinate changes across function boundaries.
-Both pass decorators also accept classes implementing ``transform_function``
-or ``transform_module``, respectively.
-
-Combining Transformation Stages
--------------------------------
-
-Specialization changes the shapes and loop bound. The function still
-contains ``if i < 128`` inside a loop that already guarantees that condition.
-The guard was also redundant in the original dynamic loop: ``range(n)``
-already guarantees ``i < n``. The two passes therefore demonstrate separate
-changes: specialization fixes the shapes, and
-``tirx.transform.StmtSimplify`` removes the redundant branch using loop facts.
-We can sequence them:
+The specialized function still contains ``if i < 128``. We can follow our
+pass with ``StmtSimplify`` to remove that check. ``Sequential`` runs the
+passes in the order listed:
 
 .. code-block:: python
 
-   pipeline = ir.transform.Sequential([
-       specialize_dimension(n, 128),
-       tirx.transform.StmtSimplify(),
-   ])
+   simplify = tirx.transform.StmtSimplify()
+   pipeline = ir.transform.Sequential([specialize, simplify])
 
    with ir.transform.PassContext(opt_level=2):
        after = pipeline(before)
 
-   after["guarded_add_one"].show()
+   print(after["guarded_add_one"].script())
 
-The displayed function includes:
+The function now has fixed shapes and no bounds check:
 
-.. code-block:: python
+.. code-block:: text
 
    @T.function
    def guarded_add_one(A: T.Tensor((128,), T.float32), B: T.Tensor((128,), T.float32)):
        for i in range(128):
            B[i] = A[i] + T.float32(1.0)
 
-The stages produce these changes:
-
-.. code-block:: text
-
-   before       shapes (n,),   loop range(n),   guard i < n
-      │ SpecializeDimension
-   specialized  shapes (128,), loop range(128), guard i < 128
-      │ tirx.StmtSimplify
-   after        shapes (128,), loop range(128), direct tensor store
-
-``PassContext`` supplies the optimization level, required and disabled pass
-names, configuration, and instruments. ``Sequential`` uses that context to
-select eligible passes and runs them in the listed order.
-Setting ``opt_level=2`` selects among the passes supplied to this pipeline;
-it does not construct a pipeline automatically.
-``PassContext.current()`` retrieves the active context;
-``PassContext.list_configs()`` lists registered configuration options.
-
-The simplifier connects the tools from the preceding chapters. In
-``src/tirx/transform/stmt_simplify.cc``, ``StmtSimplifier`` derives from
-``StmtExprMutatorWithConstraintContext``. It obtains a synchronized analyzer
-to simplify expressions and conditions. The loop range supplies the premise
-for eliminating this guard. More involved rewrites must also account for
-effects, types, and scope; the native pass handles those concerns for its
-supported transformations.
+``PassContext`` sets execution options for the pipeline. Its optimization
+level of 2 allows our level-0 pass and the built-in simplifier to run.
+``Sequential`` specifies the transformations and their order.
 
 Checking the Result
 --------------------
 
-We can check the result's well-formedness and inspect the expected loop:
+First, check that the transformed module is well formed. For example,
+each variable use must have a valid definition, and a tensor load's result
+type must agree with its source and indices:
 
 .. code-block:: python
 
    assert tirx.analysis.check_well_formed(after)
-   result = after["guarded_add_one"]
-   print(int(result.params[0].ty.shape[0]))
-   print(type(result.body[0].body[0]).__name__)
-   print(before["guarded_add_one"].params[0].ty.shape[0].same_as(n))
 
-The output is:
-
-.. code-block:: text
-
-   128
-   TensorStore
-   True
-
-The result has the fixed shape and direct tensor store, while the source
-module still has its symbolic shape. To check the whole function, construct
-an independent expected program and compare their structures:
+We also want to check that it has the structure we intended. We can parse
+an independently written version of the expected function, then compare it
+with the result:
 
 .. code-block:: python
+
+   from tvm_tirx.script import from_source
 
    expected = from_source(
        """
@@ -198,137 +164,88 @@ an independent expected program and compare their structures:
    """,
        extra_vars={"T": T},
    )
-   ir.assert_structural_equal(result, expected)
+   ir.assert_structural_equal(after["guarded_add_one"], expected)
 
-This comparison checks the intended IR, including the loop and tensor
-accesses. Well-formedness checks variable definitions and scope, tensor
-access invariants, loop control, and thread bindings. It raises on invalid
-IR by default; ``assert_mode=False`` requests a boolean result.
-Neither check establishes semantic equivalence for arbitrary transformations.
-A pass also needs a correctness argument and execution tests for the behavior
-it changes, on a build with the relevant backend.
+This comparison checks both fixed tensor shapes and the loop with a direct
+store in its body. Neither well-formedness nor structural comparison proves
+that an arbitrary rewrite preserves computation. Here, specialization
+restricts the accepted length to 128, and removing the guard is valid because
+the loop already ensures ``i < 128``.
 
-Other checks address more local questions:
+Inspecting a Pass's Input and Output
+------------------------------------
 
-.. list-table::
-   :header-rows: 1
-   :widths: 40 60
-
-   * - Tool
-     - Use
-   * - ``tirx.analysis.undefined_vars(fragment, defs=...)``
-     - Find variable uses without preceding definitions, with optional
-       enclosing definitions supplied by the caller.
-   * - ``call.validate()``
-     - Invoke the operator's registered call validator, if present.
-   * - ``ir.reinfer_type(call)``
-     - Derive a result type from current inputs without changing ``call.ty``
-       or invoking its validator.
-   * - ``tirx.analysis.verify_memory(function)``
-     - Check for illegal host-side access to device memory at a stage with
-       the required target and device-scope information.
-
-Changing arguments may require rebuilding dependent types and binders.
-Preserve source locations, attributes, and annotations when reconstructing
-nodes so subsequent diagnostics and passes retain their context.
-``ir.unique_name_supply.UniqueNameSupply`` helps reserve or generate printed
-names; a new variable still needs a fresh identity and valid definition site.
-
-Inspecting Intermediate Programs
---------------------------------
-
-When a result differs from expectations, inspect where the difference first
-appears. ``script()`` returns TVMScript source and ``show()`` displays it.
-Pass instruments automate inspection over a pipeline. For example, print
-the input to statement simplification and its output:
+If the structural comparison fails, we need to find which stage produced
+the unexpected IR. A pass instrument can print the module immediately
+before and after a selected pass. To inspect statement simplification,
+use its ``info.name`` in both name lists:
 
 .. code-block:: python
 
    from tvm_tirx.ir.transform.instrument import PassPrintingInstrument
 
    printing = PassPrintingInstrument(
-       ["tirx.StmtSimplify"],
-       ["tirx.StmtSimplify"],
+       print_before_pass_names=[simplify.info.name],
+       print_after_pass_names=[simplify.info.name],
    )
    with ir.transform.PassContext(opt_level=2, instruments=[printing]):
        inspected = pipeline(before)
 
-The first printed program still contains ``if i < 128``; the second has the
-direct store. Pass names match exactly; a pass object's ``info.name`` gives
-the name to use. ``PrintBeforeAll`` and ``PrintAfterAll`` observe all executed
-passes, and ``ir.transform.PrintIR`` can be inserted
-as an explicit pipeline stage. Printer annotations and source highlighting
-are described in :doc:`/ir/printing_and_parsing`.
+The output has two labeled programs, ``Print IR before: tirx.StmtSimplify``
+and ``Print IR after: tirx.StmtSimplify``. Both have length 128. The first
+still contains ``if i < 128``, and the second has the direct store. This
+shows the boundary between the two transformations: specialization has
+already fixed the length when the simplifier receives the module.
 
-A custom instrument can check each stage. We can combine one with timing
-and numbered source dumps:
+The instrument observes the pipeline without changing it. To inspect our
+own pass instead, use ``specialize.info.name`` in the lists.
 
-.. code-block:: python
+Saving and Reproducing a Stage
+------------------------------
 
-   from tvm_tirx.ir.transform.instrument import DumpIR, PassTimingInstrument
-
-   @ir.transform.pass_instrument
-   class CheckWellFormed:
-       def run_after_pass(self, mod, info):
-           tirx.analysis.check_well_formed(mod)
-
-   timing = PassTimingInstrument()
-   with ir.transform.PassContext(
-       opt_level=2,
-       instruments=[CheckWellFormed(), timing, DumpIR("validation/pass_ir")],
-   ):
-       observed = pipeline(before)
-       profile = timing.render()
-
-   print(profile)
-
-The printed profile lists executed passes and their timings; the measured
-durations vary between runs. ``timing.render()`` must run inside its context,
-and the resulting string remains available afterward. ``DumpIR`` saves files
-such as ``000_SpecializeDimension.py`` and ``001_tirx.StmtSimplify.py`` in
-``validation/pass_ir``. These contain the intermediate programs we inspected
-above. Instruments also observe nested passes, so the sequential pipeline
-itself produces another observation. The custom checker is appropriate here
-because every stage is expected to produce well-formed IR.
-
-Reproducing a Stage
--------------------
-
-A saved intermediate program can be parsed for a focused experiment. Include
-imports when producing standalone source:
+Once we have identified a stage to investigate, we can save its input and
+run that pass on its own. ``specialized`` is the module produced earlier by
+our pass, before statement simplification. Save it as TVMScript with imports
+included so it can be parsed independently:
 
 .. code-block:: python
 
-   stage_source = after.script(extra_config={"ir.comment_imports": False})
-   restored_stage = from_source(stage_source)
-   ir.assert_structural_equal(after, restored_stage)
+   from pathlib import Path
 
-For registered object graphs, JSON provides another representation:
+   stage_file = Path("before_simplify.py")
+   stage_file.write_text(
+       specialized.script(extra_config={"ir.comment_imports": False}),
+       encoding="utf-8",
+   )
+
+In a separate experiment, load this file and apply only ``StmtSimplify``.
+There is no need to recreate the original symbolic dimension or rerun the
+specialization pass:
 
 .. code-block:: python
 
-   restored_graph = ir.load_json(ir.save_json(after))
-   ir.assert_structural_equal(after, restored_graph)
+   from pathlib import Path
 
-These forms preserve the program for inspection and reconstruction. Execution
-also needs the relevant build, operator registrations, and external resources.
+   from tvm_tirx import tirx
+   from tvm_tirx.script import from_source
 
-Native Implementation Tools
----------------------------
+   restored = from_source(Path("before_simplify.py").read_text(encoding="utf-8"))
+   reproduced = tirx.transform.StmtSimplify()(restored)
+   print(reproduced["guarded_add_one"].script())
 
-The Python pipeline above completes the transformation and debugging example.
-For implementations in C++, the following headers provide tools for pass
-management, analysis, and scoped state.
+The printed function has the same fixed shapes and direct store as before.
+If we run this loading code in the original Python session, we can also
+compare ``reproduced`` with the full pipeline's result, ``after``:
 
-Native passes use ``tvm/ir/transform.h`` for the pass manager and
-``tvm/tirx/stmt_functor_with_constraint_context.h`` for constraint-aware
-statement mutation. ``tvm::SideEffect`` from ``tvm/ir/expr.h`` supports effect
-queries; ``ScopeStack`` and ``With`` from ``tvm/ir/scope_stack.h`` and
-``with_context.h`` support scoped native state. The native analysis headers
-``tvm/ir/analysis.h`` and ``tvm/tirx/analysis.h`` also expose undefined-variable
-analysis, checks, ``CalculateExprComplexity``, and ``FindEntryFunc``.
+.. code-block:: python
 
-See :doc:`/reference/python/ir.transform`,
-:doc:`/reference/python/ir.transform.instrument`, and
-:doc:`/reference/python/tirx.transform` for the full pass interfaces, and
-:doc:`/dev/source_build` for building the backends used to execute a program.
+   ir.assert_structural_equal(reproduced, after)
+
+The saved input can now serve as a small reproducer when investigating a
+simplifier change.
+
+The :doc:`pass API </reference/python/ir.transform>` and
+:doc:`TIRx transformation API </reference/python/tirx.transform>` cover
+other pass forms and built-in transformations. The
+:doc:`instrument API </reference/python/ir.transform.instrument>` also
+provides tools for dumping every stage and measuring pass timings.
