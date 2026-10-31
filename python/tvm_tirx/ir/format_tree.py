@@ -213,8 +213,11 @@ class _TreeFormatter:
                         and role != "ignore"
                         else None
                     )
-                if isinstance(value, For) and field.name == "kind" and child in ForKind:
-                    child = ForKind(child)  # Stored as an int; show the enum name.
+                if isinstance(value, For) and field.name == "kind":
+                    try:
+                        child = ForKind(child)  # Stored as an int; show the enum name.
+                    except ValueError:
+                        pass  # Keep unknown enum values as integers.
                 entries.append((field.name, child, role, action))
             return name, "object", entries
         return type(value).__name__, "opaque", []

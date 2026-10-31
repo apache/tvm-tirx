@@ -244,6 +244,11 @@ def test_native_loop_defaults_and_structural_comparison():
     )
 
 
+@pytest.mark.parametrize("kind", [-1, 4])
+def test_unknown_loop_kind_remains_an_integer(kind):
+    assert f"kind={kind}" in ir.format_tree(make_loop(kind=kind))
+
+
 @py_class("testing.tree.DefaultVar")
 class TreeDefaultVar(tvm_ffi.Object):
     value: Any = ir.Var("default", "int32")
