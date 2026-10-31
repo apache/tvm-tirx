@@ -20,3 +20,6 @@ cd "$(dirname "$0")"
 
 # Print, parse, and build add_one
 python printing_and_parsing.py
+
+# Functions, modules, and global variables
+python functions_and_modules.py
