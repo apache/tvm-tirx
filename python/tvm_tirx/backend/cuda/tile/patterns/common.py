@@ -59,6 +59,10 @@ class Context:
     def __init__(self, sctx, atom_scope="thread"):
         self.sctx = sctx
         self.analyzer = Analyzer()
+        # Reuse layout-query state across this instruction's address walk.
+        # Keep it separate from the bounded verifier so address construction
+        # does not depend on its evolving group/repeat/descriptor premises.
+        self.layout_analyzer = Analyzer()
         self.constraints = ConstraintContext()
         self.static_ranges = {}
         for var, extent in sctx.launch_params.values():
@@ -281,7 +285,11 @@ class Region:
         )
 
     def physical(self, atom, repeat=None):
-        result = dict(self.layout.apply(*self.indices(atom, repeat), shape=self.ty.shape))
+        result = dict(
+            self.layout.apply(
+                *self.indices(atom, repeat), shape=self.ty.shape, analyzer=self.ctx.layout_analyzer
+            )
+        )
         return {key: self.ctx.analyzer.simplify(value) for key, value in result.items()}
 
     def memory(self, atom):

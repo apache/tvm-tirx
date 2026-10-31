@@ -29,7 +29,8 @@ using namespace tvm::prim;
 
 namespace {
 
-PrimExpr ApplyFullSwizzle(const ComposeLayoutObj* layout, const PrimExpr& m) {
+PrimExpr ApplyFullSwizzle(const ComposeLayoutObj* layout, const PrimExpr& m,
+                          const sym::Analyzer& analyzer) {
   auto swizzle = [&](const PrimExpr& x) -> PrimExpr {
     if (layout->swizzle_inner) {
       return x ^ ((x & layout->outer_mask) >> layout->atom_len);
@@ -37,7 +38,6 @@ PrimExpr ApplyFullSwizzle(const ComposeLayoutObj* layout, const PrimExpr& m) {
     return x ^ ((x & layout->inner_mask) << layout->atom_len);
   };
   int base = 1 << layout->per_element;
-  sym::Analyzer analyzer;
   PrimVar m_once("compose_m", m.ty());
   PrimExpr quotient = floordiv(m_once, base);
   PrimVar quotient_once("compose_q", quotient.ty());
@@ -131,8 +131,8 @@ std::optional<PrimExpr> DivideExactTerm(const PrimExpr& term, int64_t divisor,
 }
 
 ffi::Map<ffi::String, PrimExpr> ApplyStructured(const ComposeLayoutObj* layout,
-                                                const TileLayout& tile,
-                                                ffi::Array<PrimExpr> coord) {
+                                                const TileLayout& tile, ffi::Array<PrimExpr> coord,
+                                                const sym::Analyzer& analyzer) {
   // Normalize the bounded TileLayout terms as m = B + D + K, where B is a
   // multiple of one atom, D is dynamic and contained in that atom, and K is
   // the constant remainder.  If D + K is provably carry-free, the swizzle is
@@ -146,18 +146,17 @@ ffi::Map<ffi::String, PrimExpr> ApplyStructured(const ComposeLayoutObj* layout,
   TVM_FFI_ICHECK_EQ(coord.size(), tile->shard.size())
       << "Coordinate size must match the number of shard axes";
 
-  sym::Analyzer analyzer;
   for (size_t i = 0; i < tile->shard.size(); ++i) {
     if (analyzer->CanProveEqual(tile->shard[i]->extent, 1)) {
       coord.Set(i, IntImm(coord[i].ty(), 0));
     }
   }
 
-  auto mapped = tile.Apply(coord);
+  auto mapped = tile.Apply(coord, analyzer);
   TVM_FFI_ICHECK(mapped.size() == 1 && mapped.find("m") != mapped.end());
   PrimExpr m = mapped["m"];
   auto fallback = [&]() {
-    return ffi::Map<ffi::String, PrimExpr>{{"m", ApplyFullSwizzle(layout, m)}};
+    return ffi::Map<ffi::String, PrimExpr>{{"m", ApplyFullSwizzle(layout, m, analyzer)}};
   };
 
   if (layout->swizzle_len == 0) return mapped;
@@ -347,13 +346,14 @@ PrimExpr layout_detail::GetSpan(const ComposeLayoutObj* layout,
 }
 
 ffi::Map<ffi::String, PrimExpr> layout_detail::Apply(const ComposeLayoutObj* layout,
-                                                     ffi::Array<PrimExpr> coord) {
-  return ApplyStructured(layout, layout->tile_layout, std::move(coord));
+                                                     ffi::Array<PrimExpr> coord,
+                                                     const sym::Analyzer& analyzer) {
+  return ApplyStructured(layout, layout->tile_layout, std::move(coord), analyzer);
 }
 
-ffi::Map<ffi::String, PrimExpr> layout_detail::Apply(const ComposeLayoutObj* layout,
-                                                     PrimExpr coord) {
-  auto res = layout->tile_layout.Apply(coord);
+ffi::Map<ffi::String, PrimExpr> layout_detail::Apply(const ComposeLayoutObj* layout, PrimExpr coord,
+                                                     const sym::Analyzer& analyzer) {
+  auto res = layout->tile_layout.Apply(coord, analyzer);
   TVM_FFI_ICHECK(res.size() == 1 && res.find("m") != res.end());
   auto m = res["m"];
   // Inline the swizzle XOR (formerly SwizzleLayoutNode::Apply): the swizzle
@@ -366,21 +366,21 @@ ffi::Map<ffi::String, PrimExpr> layout_detail::Apply(const ComposeLayoutObj* lay
     }
   };
   auto base = 1 << layout->per_element;
-  sym::Analyzer analyzer;
   return {
       {"m", analyzer->Simplify((f(floordiv(m, base)) << layout->per_element) + floormod(m, base))}};
 }
 
 ffi::Map<ffi::String, PrimExpr> layout_detail::Apply(const ComposeLayoutObj* layout,
                                                      const ffi::Array<PrimExpr>& coord,
-                                                     const ffi::Array<PrimExpr>& shape) {
+                                                     const ffi::Array<PrimExpr>& shape,
+                                                     const sym::Analyzer& analyzer) {
   TVM_FFI_ICHECK_EQ(coord.size(), shape.size())
       << "ValueError: The size of coord and shape should be equal";
-  auto grouped = TryGroup(layout->tile_layout, shape);
+  auto grouped = TryGroup(layout->tile_layout, shape, analyzer);
   if (!grouped.has_value()) {
-    auto mapped = layout->tile_layout.Apply(coord, shape);
+    auto mapped = layout->tile_layout.Apply(coord, shape, analyzer);
     TVM_FFI_ICHECK(mapped.size() == 1 && mapped.find("m") != mapped.end());
-    return {{"m", ApplyFullSwizzle(layout, mapped["m"])}};
+    return {{"m", ApplyFullSwizzle(layout, mapped["m"], analyzer)}};
   }
 
   const auto& [grouped_tile, separators] = grouped.value();
@@ -402,7 +402,7 @@ ffi::Map<ffi::String, PrimExpr> layout_detail::Apply(const ComposeLayoutObj* lay
       shard_coord.Set(i, split[j]);
     }
   }
-  return ApplyStructured(layout, grouped_tile, std::move(shard_coord));
+  return ApplyStructured(layout, grouped_tile, std::move(shard_coord), analyzer);
 }
 
 Layout layout_detail::Canonicalize(const ComposeLayoutObj* layout) {
