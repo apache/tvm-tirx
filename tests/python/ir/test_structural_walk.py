@@ -15,10 +15,11 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import pytest
 import tvm_ffi
 
 import tvm_tirx.testing
-from tvm_tirx import tirx
+from tvm_tirx import ir, tirx
 
 
 def test_mixed_iter_type_detection_interrupts_walk():
@@ -43,6 +44,22 @@ def test_mixed_iter_type_detection_interrupts_walk():
     assert any(var.same_as(spatial) for var in visited)
     assert any(var.same_as(reduction) for var in visited)
     assert not any(var.same_as(unreachable) for var in visited)
+
+
+def test_callback_error_underlines_traversal_root():
+    addition = tirx.Var("x", "int32") + 1
+    root = ir.SeqStmt([ir.Evaluate(addition)])
+
+    def fail(node):
+        raise ValueError("unexpected addition")
+
+    with pytest.raises(ValueError, match="unexpected addition") as caught:
+        tvm_ffi.structural_walk(root, (type(addition), fail))
+    message = str(caught.value)
+    assert message.count("Location (TVMScript):") == 1
+    assert "x + 1" in message
+    assert "^" in message
+    assert caught.value.__tvm_ffi_error__.extra_context is None
 
 
 if __name__ == "__main__":

@@ -458,14 +458,12 @@ TVM_TIRX_DLL Pass PrintIR(ffi::String header = "");
  * its visit context so outer handlers do not append the location again.
  *
  * \param err The original error.
- * \param mod The module containing the visited nodes.
- * \param context The operation description preceding the location.
- * \param func Optional function to search before falling back to the module.
+ * \param root The IR root containing the visited nodes.
+ * \param context Optional operation description preceding the location.
  * \return The enriched error, or the original error on fallback.
  */
-TVM_TIRX_DLL ffi::Error EnrichErrorWithContext(
-    const ffi::Error& err, const IRModule& mod, ffi::String context,
-    ffi::Optional<GlobalVar> func = ffi::Optional<GlobalVar>(std::nullopt));
+TVM_TIRX_DLL ffi::Error EnrichErrorWithContext(const ffi::Error& err, const ffi::ObjectRef& root,
+                                               ffi::String context = "");
 
 /*!
  * \brief Enrich a pass-time error with a TVMScript-rendered, underlined source

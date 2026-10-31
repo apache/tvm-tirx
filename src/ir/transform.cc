@@ -316,56 +316,43 @@ std::optional<std::string> RenderScriptWithUnderline(const ffi::ObjectRef& node,
 }
 }  // namespace
 
-ffi::Error EnrichErrorWithContext(const ffi::Error& err, const IRModule& mod, ffi::String context,
-                                  ffi::Optional<GlobalVar> func) {
-  namespace ffi = tvm::ffi;
-  // No visit-context payload => nothing to resolve; return the error untouched.
-  // (The enriched error below drops the payload, so an outer catch that
-  // re-enriches lands here and returns unchanged — no double location block.)
+ffi::Error EnrichErrorWithContext(const ffi::Error& err, const ffi::ObjectRef& root,
+                                  ffi::String context) {
   auto visit_ctx = ffi::VisitErrorContext::TryGetFromError(err);
   if (!visit_ctx) return err;
-
-  // Resolve + render against the local function when requested, else the module.
-  // Fall back to the module root if the function is missing or yields no path.
-  ffi::ObjectRef root = mod;
-  if (func.has_value()) {
-    if (auto bf = mod->functions.Get(func.value())) {
-      root = bf.value();
-    } else {
-      func = ffi::Optional<GlobalVar>(std::nullopt);
-    }
-  }
-
-  auto try_render = [&](const ffi::ObjectRef& search_root) -> std::optional<std::string> {
-    // Prefer the precise throw site. Prefix matches may include unrelated
-    // leaves of an enclosing statement before the full match in traversal order.
-    auto paths = ffi::VisitErrorContext::FindAccessPaths(search_root, visit_ctx.value());
+  try {
+    auto paths = ffi::VisitErrorContext::FindAccessPaths(root, visit_ctx.value());
     if (paths.empty()) {
-      paths = ffi::VisitErrorContext::FindAccessPaths(search_root, visit_ctx.value(),
+      paths = ffi::VisitErrorContext::FindAccessPaths(root, visit_ctx.value(),
                                                       /*allow_prefix_match=*/true);
     }
-    if (paths.empty()) return std::nullopt;
-    return RenderScriptWithUnderline(search_root, paths[0]);
-  };
+    if (paths.empty()) return err;
+    auto snippet = RenderScriptWithUnderline(root, paths[0]);
+    if (!snippet) return err;
 
-  std::optional<std::string> snippet = try_render(root);
-  if (!snippet && func.has_value()) {
-    // Function-local resolution failed; retry against the whole module.
-    snippet = try_render(mod);
+    // Successful rendering consumes the visit context, so enclosing boundaries
+    // do not append a second location. Preserve the original failure and trace.
+    std::ostringstream suffix;
+    suffix << "\n\n";
+    if (!context.empty()) suffix << context << "\n";
+    suffix << kLocationMarker << "\n" << snippet.value();
+    return ffi::Error(err.kind(), err.message() + suffix.str(), err.backtrace(), err.cause_chain(),
+                      std::nullopt);
+  } catch (...) {
+    return err;
   }
-  if (!snippet) return err;
-
-  // Append the operation context + underlined TVMScript location. Preserve kind,
-  // original message, and backtrace; drop the VisitErrorContext payload so an
-  // outer catch does not re-enrich.
-  std::ostringstream suffix;
-  suffix << "\n\n" << context << "\n" << kLocationMarker << "\n" << snippet.value();
-  return ffi::Error(err.kind(), err.message() + suffix.str(), err.backtrace());
 }
 
 ffi::Error EnrichPassErrorWithContext(const ffi::Error& err, const IRModule& mod,
                                       ffi::String pass_name, ffi::Optional<GlobalVar> func) {
-  return EnrichErrorWithContext(err, mod, "Error in pass: " + pass_name, func);
+  ffi::String context = "Error in pass: " + pass_name;
+  if (func.has_value()) {
+    if (auto root = mod->functions.Get(func.value())) {
+      ffi::Error enriched = EnrichErrorWithContext(err, root.value(), context);
+      if (!enriched.same_as(err)) return enriched;
+    }
+  }
+  return EnrichErrorWithContext(err, mod, context);
 }
 
 IRModule Pass::operator()(IRModule mod, const PassContext& pass_ctx) const {

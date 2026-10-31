@@ -24,6 +24,7 @@
 #define TVM_SCRIPT_PRINTER_SUPPORT_H_
 
 #include <tvm/ffi/extra/dataclass.h>
+#include <tvm/ffi/extra/visit_error_context.h>
 #include <tvm/ffi/reflection/registry.h>
 #include <tvm/ir/expr.h>
 #include <tvm/script/printer/config.h>
@@ -33,14 +34,36 @@ namespace tvm {
 namespace script {
 namespace printer {
 
-/*! \brief Register TVMScript as the FFI repr renderer for ObjectType. */
+/*!
+ * \brief Render an IR object for its registered repr callback.
+ *
+ * Tries to translate \p obj directly; on error falls back to a plain
+ * address string. Defined in src/script/printer/printer.cc so that
+ * <tvm/runtime/logging.h> is not pulled into this public header.
+ */
+TVM_TIRX_DLL ffi::String RedirectReprPrinterMethod(const ffi::ObjectRef& obj);
+
+/*!
+ * \brief Render visit-error context through the shared IR error renderer.
+ * \param error The original callback error, with traversal breadcrumbs.
+ * \param root The original structural operation root.
+ * \return The enriched error, or the original error if rendering is unavailable.
+ */
+TVM_TIRX_DLL ffi::Error RedirectVisitErrorEnrichMethod(const ffi::Error& error,
+                                                       const ffi::ObjectRef& root);
+
+/*! \brief Register TVMScript repr and visit-error rendering for ObjectType. */
 template <typename ObjectType>
 void RegisterScriptRepr() {
   namespace refl = ffi::reflection;
-  refl::TypeAttrDef<ObjectType>().def(ffi::type_attr::kRepr.name,
-                                      [](ffi::ObjectRef obj, ffi::Function) -> ffi::String {
-                                        return RedirectedReprPrinterMethod(obj);
-                                      });
+  refl::TypeAttrDef<ObjectType>()
+      .def(ffi::type_attr::kRepr.name,
+           [](ffi::ObjectRef obj, ffi::Function) -> ffi::String {
+             return RedirectReprPrinterMethod(obj);
+           })
+      .def(ffi::type_attr::kEnrichVisitError.name, [](ffi::Error error, ffi::ObjectRef root) {
+        return RedirectVisitErrorEnrichMethod(error, root);
+      });
 }
 
 /*!

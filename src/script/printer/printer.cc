@@ -21,10 +21,12 @@
 #include <tvm/ffi/reflection/accessor.h>
 #include <tvm/ffi/reflection/registry.h>
 #include <tvm/ir/function.h>
+#include <tvm/ir/transform.h>
 #include <tvm/runtime/logging.h>
 #include <tvm/script/printer/doc.h>
 #include <tvm/script/printer/doc_translator.h>
 #include <tvm/script/printer/printer.h>
+#include <tvm/script/printer/support.h>
 
 #include <algorithm>
 #include <functional>
@@ -435,6 +437,25 @@ ffi::String RenderScript(const ffi::ObjectRef& obj, const PrinterConfig& config)
 
 }  // namespace
 
+ffi::String RedirectReprPrinterMethod(const ffi::ObjectRef& obj) {
+  try {
+    PrinterConfig config;
+    config->extra_config.Set("ir.comment_imports", true);
+    // Call translation directly so an unsupported type cannot recurse through ffi repr.
+    return RenderScript(obj, config);
+  } catch (const tvm::ffi::Error& e) {
+    LOG(WARNING) << "TVMScript printer falls back to the basic address printer with the error:\n"
+                 << e.what();
+    std::ostringstream os;
+    os << obj->GetTypeKey() << '(' << obj.get() << ')';
+    return os.str();
+  }
+}
+
+ffi::Error RedirectVisitErrorEnrichMethod(const ffi::Error& error, const ffi::ObjectRef& root) {
+  return transform::EnrichErrorWithContext(error, root);
+}
+
 }  // namespace printer
 }  // namespace script
 namespace {
@@ -468,21 +489,6 @@ ffi::String Script(const ffi::ObjectRef& node, const ffi::Optional<PrinterConfig
     return RenderFallbackWithInvisiblePathInfo(ffi::ReprPrint(ffi::Any(node)), config);
   }
   return script::printer::RenderScript(node, config);
-}
-
-ffi::String RedirectedReprPrinterMethod(const ffi::ObjectRef& obj) {
-  try {
-    PrinterConfig config;
-    config->extra_config.Set("ir.comment_imports", true);
-    // Call translation directly so an unsupported type cannot recurse through ffi repr.
-    return script::printer::RenderScript(obj, config);
-  } catch (const tvm::ffi::Error& e) {
-    LOG(WARNING) << "TVMScript printer falls back to the basic address printer with the error:\n"
-                 << e.what();
-    std::ostringstream os;
-    os << obj->GetTypeKey() << '(' << obj.get() << ')';
-    return os.str();
-  }
 }
 
 }  // namespace tvm

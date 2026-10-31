@@ -20,8 +20,8 @@
  * \file tvm/script/printer/config.h
  * \brief Configuration object for the TVMScript printer.
  *
- * Contains PrinterConfig / PrinterConfigObj, GetBuiltinKeywords, GetExtraConfig,
- * and RedirectedReprPrinterMethod. Translation APIs live in doc_translator.h,
+ * Contains PrinterConfig / PrinterConfigObj, GetBuiltinKeywords, and GetExtraConfig.
+ * Translation APIs live in doc_translator.h, registration helpers live in support.h,
  * and text entry points live in printer.h.
  */
 #ifndef TVM_SCRIPT_PRINTER_CONFIG_H_
@@ -121,15 +121,6 @@ class TVM_TIRX_DLL PrinterConfig : public ffi::ObjectRef {
 
   TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(PrinterConfig, ffi::ObjectRef, PrinterConfigObj);
 };
-
-/*!
- * \brief Render an IR object for its registered repr callback.
- *
- * Tries to translate \p obj directly; on error falls back to a plain
- * address string.  Defined in src/script/printer/script_printer.cc so that
- * <tvm/runtime/logging.h> is not pulled into this public header.
- */
-TVM_TIRX_DLL ffi::String RedirectedReprPrinterMethod(const ffi::ObjectRef& obj);
 
 }  // namespace tvm
 #endif  // TVM_SCRIPT_PRINTER_CONFIG_H_
