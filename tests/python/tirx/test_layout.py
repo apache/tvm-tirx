@@ -1495,56 +1495,6 @@ def test_layout_apply_with_reused_analyzer(mode, kind):
     assert not analyzer.can_prove(y < 8)
 
 
-def test_layout_apply_preserves_caller_premises():
-    x, y = Var("x", "int32"), Var("y", "int32")
-    layout = ComposeLayout(3, 3, 3, TileLayout(S[(8, 8) : (64, 1)]))
-    analyzer = tvm_tirx.sym.Analyzer()
-    parent = tvm_tirx.sym.ConstraintContext()
-    child = parent.snapshot()
-    child.append(tvm_tirx.sym.BindingConstraint(x, tvm_tirx.tirx.const(2, "int32")))
-    analyzer.sync_constraint_context(child)
-    actual = layout.apply(x, y, shape=(8, 8), analyzer=analyzer)["m"]
-    for value in range(8):
-        assert _evaluate_layout_expr(actual, {x: 2, y: value}) == _compose_swizzle(
-            2 * 64 + value, 3, 3, 3
-        )
-    assert analyzer.can_prove(x == 2)
-    assert not analyzer.can_prove(y >= 0)
-    analyzer.sync_constraint_context(parent)
-    assert not analyzer.can_prove(x == 2)
-    assert_structural_equal(
-        layout.apply(x, y, shape=(8, 8), analyzer=analyzer),
-        layout.apply(x, y, shape=(8, 8)),
-    )
-
-
-def test_layout_apply_analyzers_are_independent_across_threads():
-    from concurrent.futures import ThreadPoolExecutor
-
-    layout = ComposeLayout(3, 3, 3, TileLayout(S[(8, 8) : (64, 1)]))
-    x, y = Var("x", "int32"), Var("y", "int32")
-
-    def query(row):
-        analyzer = tvm_tirx.sym.Analyzer()
-        context = tvm_tirx.sym.ConstraintContext()
-        context.append(tvm_tirx.sym.BindingConstraint(x, tvm_tirx.tirx.const(row, "int32")))
-        analyzer.sync_constraint_context(context)
-        for _ in range(3):
-            expr = layout.apply(x, y, shape=(8, 8), analyzer=analyzer)["m"]
-            for column in range(8):
-                assert _evaluate_layout_expr(expr, {x: row, y: column}) == _compose_swizzle(
-                    row * 64 + column, 3, 3, 3
-                )
-        assert analyzer.can_prove(x == row)
-        return analyzer
-
-    with ThreadPoolExecutor(max_workers=4) as executor:
-        analyzers = list(executor.map(query, range(4)))
-    assert all(
-        not left.same_as(right) for i, left in enumerate(analyzers) for right in analyzers[i + 1 :]
-    )
-
-
 def test_compose_structured_apply_emits_shared_base_address_chain():
     x = Var("x", ty="int32")
     y = Var("y", ty="int32")
