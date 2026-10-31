@@ -335,11 +335,10 @@ def test_invalid_callback_output(result):
         ir.format_tree(ir.Var("i", "int32"), fold_formatters={ir.PrimType: lambda obj: result})
 
 
-if __name__ == "__main__":
-    tvm_tirx.testing.main()
-
-
-
 def test_ffi_enum_renders_as_type_and_name():
     tensor_type = tirx.TensorType((4,), "float32", scope="shared")
     assert ir.format_tree(tensor_type).startswith("TensorType(scope=MemoryScope(shared))")
+
+
+if __name__ == "__main__":
+    tvm_tirx.testing.main()
