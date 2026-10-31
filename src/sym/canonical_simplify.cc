@@ -1437,9 +1437,14 @@ UnchangedOr<PrimExpr> CanonicalSimplifier::Impl::Mutate_(const prim::LTObj* op,
       PrimExpr normalized = divisible->Normalize() < IntImm(dtype, 0);
       return DirectMutate(normalized, inplace_mode).ValueOrUnchanged(std::move(normalized));
     } else if (extra->args.size() == 1 && extra->args[0]->scale == 1 &&
-               extra->args[0]->upper_factor.has_value() &&
-               *extra->args[0]->upper_factor % (gcd * extra->args[0]->lower_factor) == 0) {
-      // Case 2. xn == ((yn % m) // L), scale = +1, m % (d*L) == 0.
+               extra->args[0]->upper_factor.has_value() && *extra->args[0]->upper_factor > 0 &&
+               extra->args[0]->lower_factor > 0 &&
+               *extra->args[0]->upper_factor % (gcd * extra->args[0]->lower_factor) == 0 &&
+               (extra->args[0]->DivModeCompatibleTo(kFloorDiv) ||
+                analyzer_->CanProveGreaterEqual(extra->args[0]->index, 0))) {
+      // Case 2. xn == ((yn % m) // L), scale = +1, m, L > 0, m % (d*L) == 0.
+      // The reconstruction uses floor operations. For truncation, require
+      // a nonnegative index with positive split factors.
       // S + xn < 0 with S divisible by d  ⇔  S/d + xn // d < 0, because
       // xn % d ∈ [0, d) lets us drop the remainder via the Case 1 argument,
       // and xn // d = (yn // (d*L)) % (m/(d*L)).
