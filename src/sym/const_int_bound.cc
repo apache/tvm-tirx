@@ -280,6 +280,12 @@ class ConstIntBoundAnalyzer::Impl final
     ret.min_value = InfAwareAdd(a.min_value, -b.max_value);
     ret.max_value = InfAwareAdd(a.max_value, -b.min_value);
 
+    PrimType dtype = op->ty.as_or_throw<PrimType>();
+    if (dtype.code() == DLDataTypeCode::kDLUInt && !AllowUIntAsIndex::Enabled() &&
+        ret.min_value < 0) {
+      return Everything(dtype);
+    }
+
     return ret;
   }
 

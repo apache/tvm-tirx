@@ -135,6 +135,20 @@ class TestCastBound(BaseCompare):
         return request.param
 
 
+def test_unsigned_sub_underflow_requires_index_mode():
+    x = tvm_tirx.tirx.Var("x", "uint32")
+    expr = x % 7 - 6
+    analyzer = tvm_tirx.sym.Analyzer()
+
+    bound = analyzer.const_int_bound(expr)
+    assert (bound.min_value, bound.max_value) == (0, 2**32 - 1)
+    with tvm_tirx.sym.allow_uint_as_index():
+        bound = analyzer.const_int_bound(expr)
+        assert (bound.min_value, bound.max_value) == (-6, 0)
+    bound = analyzer.const_int_bound(expr)
+    assert (bound.min_value, bound.max_value) == (0, 2**32 - 1)
+
+
 class TestAddSubBound(BaseCompare):
     x = tvm_tirx.tirx.Var("x", "int64")
     y = tvm_tirx.tirx.Var("y", "int64")
