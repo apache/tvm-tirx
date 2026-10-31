@@ -59,10 +59,57 @@ The output is:
 
 The body is a sequence holding one ``For`` loop. The loop's body is
 another sequence holding one ``TensorStore``, which writes the
-expression ``A[i] + 1`` to ``B[i]``. ``ir.Stmt`` is the base class of
-all statements. The rest of this chapter introduces sequences and
-stores, then loops, branches, and loop exits, then assertions and
-returns, and finally regions, the main place for extensions.
+expression ``A[i] + 1`` to ``B[i]``.
+
+``ir.Stmt`` is the base class of all statements. The following table
+lists the statement classes, and the sections below introduce them in
+turn, ending with regions, the main place for extensions:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 22 38 40
+
+   * - Class
+     - Represents
+     - Fields
+   * - ``ir.SeqStmt``
+     - Statements that run in order
+     - ``seq``
+   * - ``ir.Bind``
+     - A variable definition
+     - ``var``, ``value``
+   * - ``ir.TensorStore``
+     - A write to a tensor element
+     - ``dest``, ``indices``, ``value``
+   * - ``ir.Evaluate``
+     - An expression run for its effect
+     - ``value``
+   * - ``ir.For``
+     - A loop over an integer range
+     - ``var``, ``begin``, ``end``, ``step``, ``kind``, ``body``,
+       ``annotations``
+   * - ``ir.While``
+     - A loop that runs while a condition holds
+     - ``condition``, ``body``
+   * - ``ir.If``
+     - A choice between two sequences
+     - ``condition``, ``then_case``, ``else_case``
+   * - ``ir.Continue``
+     - Skip to the next iteration of the innermost loop
+     - None
+   * - ``ir.Break``
+     - Leave the innermost loop
+     - None
+   * - ``ir.AssertStmt``
+     - A run-time check that raises an error
+     - ``condition``, ``error_kind``, ``message_parts``
+   * - ``ir.Return``
+     - A function return
+     - ``value``
+   * - ``ir.RegionStmt``
+     - An operator-defined statement with a nested body
+     - ``op``, ``args``, ``attrs``, ``body_params``, ``body``,
+       ``result_vars``
 
 Sequences, Bindings, and Stores
 -------------------------------
@@ -409,54 +456,3 @@ statements inside the region.
    writes a region, and :doc:`../advanced/defining_ir_extensions` walks
    through a complete extension with its own type, operators, and
    lowering pass.
-
-Statement Classes
------------------
-
-The following table lists the statement classes:
-
-.. list-table::
-   :header-rows: 1
-   :widths: 22 38 40
-
-   * - Class
-     - Represents
-     - Fields
-   * - ``ir.SeqStmt``
-     - Statements that run in order
-     - ``seq``
-   * - ``ir.Bind``
-     - A variable definition
-     - ``var``, ``value``
-   * - ``ir.TensorStore``
-     - A write to a tensor element
-     - ``dest``, ``indices``, ``value``
-   * - ``ir.Evaluate``
-     - An expression run for its effect
-     - ``value``
-   * - ``ir.For``
-     - A loop over an integer range
-     - ``var``, ``begin``, ``end``, ``step``, ``kind``, ``body``,
-       ``annotations``
-   * - ``ir.While``
-     - A loop that runs while a condition holds
-     - ``condition``, ``body``
-   * - ``ir.If``
-     - A choice between two sequences
-     - ``condition``, ``then_case``, ``else_case``
-   * - ``ir.Continue``
-     - Skip to the next iteration of the innermost loop
-     - None
-   * - ``ir.Break``
-     - Leave the innermost loop
-     - None
-   * - ``ir.AssertStmt``
-     - A run-time check that raises an error
-     - ``condition``, ``error_kind``, ``message_parts``
-   * - ``ir.Return``
-     - A function return
-     - ``value``
-   * - ``ir.RegionStmt``
-     - An operator-defined statement with a nested body
-     - ``op``, ``args``, ``attrs``, ``body_params``, ``body``,
-       ``result_vars``
