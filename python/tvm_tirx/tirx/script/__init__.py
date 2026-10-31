@@ -32,7 +32,7 @@ def _initialize() -> None:
     _initializing = True
     try:
         from tvm_tirx.ir._expose_api import _init_exposed_type_api
-        from tvm_tirx.script.parser import entry, register_namespace
+        from tvm_tirx.script.parser import entry, protocol_registry, register_namespace
         from tvm_tirx.tirx.layout import Axis
 
         from . import ir_builder as builder
@@ -53,6 +53,62 @@ def _initialize() -> None:
             ),
             jit=make_jit(builder, namespace_path="tirx.jit"),
         )
+        globals()["function"].builder = entry.make_decorator(
+            builder, namespace_path="tirx.function.builder"
+        )
+        globals()["function"].builder.__doc__ = """Build a TIRx function with Python body semantics.
+
+        Use at the definition site with inspectable source. Assignments, loops,
+        conditionals and returns execute as Python; explicit ``T.serial``-family
+        frames, ``T.if_``/``T.then_``/``T.else_``, ``T.assign``, ``T.bind_`` and
+        ``T.return_`` construct IR. Signature annotations are re-evaluated from
+        source, including quoted expressions and postponed annotations.
+
+        Shares ``T.function`` options, source locations and module declarations.
+        Use ``T.call_global_var_(callee, args)`` for explicit IR function calls.
+        The resulting IR prints as ordinary ``@T.function`` TVMScript.
+
+        Examples
+        --------
+        Python loops execute while building; ``T.serial`` creates an IR loop:
+
+        .. code-block:: python
+
+            from tvm_tirx.script import tirx as T
+
+            @T.function.builder
+            def add_rows(A: T.Tensor((2, 4), T.float32), B: T.Tensor((2, 4), T.float32)):
+                for row in range(2):
+                    with T.serial(4) as col:
+                        T.assign(B[row, col], A[row, col] + 1)
+
+        Mixed modules share declarations, so explicit calls can refer to a later
+        function:
+
+        .. code-block:: python
+
+            @T.ir_module
+            class Module:
+                @T.function.builder
+                def main(A: T.Tensor((4,), T.int32)):
+                    with T.serial(4) as i:
+                        T.assign(A[i], T.call_global_var_(Module.add_one, [A[i]]))
+
+                @T.function
+                def add_one(value: T.int32) -> T.int32:
+                    return value + 1
+        """
+        for name, syntax in {
+            "serial": "for",
+            "parallel": "for",
+            "unroll": "for",
+            "vectorized": "for",
+            "grid": "for",
+            "for_": "for",
+            "if_": "if",
+            "while_": "while",
+        }.items():
+            protocol_registry.WITH_FRAME_SUGAR[f"tirx.{name}"] = syntax
         namespace = _sys.modules[__name__]
         register_namespace("tirx", namespace)
         register_namespace("Axis", Axis)
