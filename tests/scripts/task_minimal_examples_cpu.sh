@@ -19,7 +19,7 @@
 set -euxo pipefail
 
 # Keep this explicit list limited to examples that run in a few seconds.
-examples=(examples/quick_start)
+examples=(examples/quick_start examples/ir_walkthrough)
 for example in "${examples[@]}"; do
     uv run --no-sync bash "${example}/run_all_cpu.sh"
 done

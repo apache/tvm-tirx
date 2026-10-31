@@ -204,6 +204,8 @@ include = [
 line-length = 100
 indent-width = 4
 target-version = "py310"
+# The printed form of a function declares symbols with Python 3.12 type parameters.
+per-file-target-version = { "examples/ir_walkthrough/add_one_printed.py" = "py312" }
 exclude = ["3rdparty", "build", "dist", ".venv", ".ruff_cache", "node_modules"]
 
 [tool.ruff.lint]
