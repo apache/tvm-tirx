@@ -18,8 +18,12 @@
 set -ex
 cd "$(dirname "$0")"
 
-# Print, parse, and build add_one
-python printing_and_parsing.py
+# The imported printed example uses Python 3.12 type-parameter syntax.
+if python -c 'import sys; sys.exit(sys.version_info < (3, 12))'; then
+    python printing_and_parsing.py
+else
+    echo "Skipping printing_and_parsing.py: requires Python 3.12 or newer."
+fi
 
 # Functions, modules, and global variables
 python functions_and_modules.py

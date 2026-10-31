@@ -189,6 +189,39 @@ def _recompose_builder(
         if original is None:
             # Only new defaults can redirect the already-translated text scopes.
             global_names.intersection_update(definition_scope)
+        if generated.preserve_python_scope and original is not None:
+            # Compile once with the existing wrapper, then restore live Python
+            # globals/cells while retaining generated declaration/location cells.
+            # Capturing injected values avoids writing into the source globals.
+            for captured in required.intersection(namespace) - global_names:
+                definition_scope.setdefault(captured, namespace[captured])
+            for captured in original.__code__.co_freevars:
+                if captured not in retained:
+                    definition_scope.setdefault(captured, None)
+
+            def restore(function, original=original, retained=retained):
+                cells = dict(zip(function.__code__.co_freevars, function.__closure__ or ()))
+                cells.update(
+                    (key, cell)
+                    for key, cell in zip(original.__code__.co_freevars, original.__closure__ or ())
+                    if key not in retained
+                )
+                rebound = FunctionType(
+                    function.__code__,
+                    original.__globals__,
+                    function.__name__,
+                    function.__defaults__,
+                    tuple(cells[key] for key in function.__code__.co_freevars) or None,
+                )
+                rebound.__kwdefaults__ = function.__kwdefaults__
+                return rebound
+
+            alias = make_fresh_name("_scope")
+            namespace[alias] = restore
+            body.decorator_list.append(ast.copy_location(ast.Name(alias, ast.Load()), body))
+            if global_names:
+                body.body.insert(0, ast.copy_location(ast.Global(sorted(global_names)), body))
+            continue
         source_closure = _read_closure_values(original) if original is not None else {}
         for captured in sorted(source_closure.keys() - retained - parameters):
             value = (
@@ -276,8 +309,13 @@ def _is_inside_ir_module(function: FunctionType, frame: FrameType) -> bool:
     return False
 
 
-def make_decorator(builder: object, *, namespace_path: str) -> Callable[..., Any]:
-    """Create a function decorator with an explicit construction namespace.
+def make_decorator(
+    builder: object,
+    *,
+    namespace_path: str,
+    definition_kind: protocol_registry.DefinitionKind = protocol_registry.DefinitionKind.FUNCTION,
+) -> Callable[..., Any]:
+    """Create a function decorator with an explicit namespace and construction kind.
 
     Parameters
     ----------
@@ -285,6 +323,9 @@ def make_decorator(builder: object, *, namespace_path: str) -> Callable[..., Any
         Namespace implementing the function construction protocol.
     namespace_path : str
         Canonical registered syntax key, such as "tirx.function".
+    definition_kind : protocol_registry.DefinitionKind, optional
+        Construction behavior registered for this syntax key. Defaults to FUNCTION;
+        pass BUILDER for explicit Python construction without sugar lowering.
 
     Returns
     -------
@@ -313,7 +354,7 @@ def make_decorator(builder: object, *, namespace_path: str) -> Callable[..., Any
     pass directly to ``builder.function_``; the language variant hook owns their defaults.
     """
 
-    protocol_registry.DEFINITION_KIND[namespace_path] = protocol_registry.DefinitionKind.FUNCTION
+    protocol_registry.DEFINITION_KIND[namespace_path] = definition_kind
 
     def decorator(function: FunctionType | None = None, **options: Any) -> Any:
         """Parse a Python function into a function of the selected IR language variant.

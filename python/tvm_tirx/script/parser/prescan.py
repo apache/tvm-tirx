@@ -145,10 +145,18 @@ def resolve_namespace_value(node: ast.AST | None, environment: Mapping[str, obje
 # serve separate purposes and retain their own declaration facts.
 def _match_special_func(node: ast.AST | None, namespaces: Mapping[str, str]) -> str | None:
     """Match direct X.member syntax without evaluating a callee or receiver."""
+    suffix = ""
+    if (
+        isinstance(node, ast.Attribute)
+        and node.attr == "builder"
+        and isinstance(node.value, ast.Attribute)
+        and node.value.attr == "function"
+    ):
+        node, suffix = node.value, ".builder"
     if isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name):
         root = namespaces.get(node.value.id)
         if root is not None:
-            return f"{root}.{node.attr}"
+            return f"{root}.{node.attr}{suffix}"
     return None
 
 
@@ -333,6 +341,7 @@ class PrescanCollector(ast.NodeVisitor):
                 protocol_registry.DEFINITION_KIND.get(path)
                 in (
                     protocol_registry.DefinitionKind.FUNCTION,
+                    protocol_registry.DefinitionKind.BUILDER,
                     protocol_registry.DefinitionKind.MACRO,
                 )
                 for path in paths
@@ -486,16 +495,24 @@ class PrescanCollector(ast.NodeVisitor):
         self.scope = node
         self.functions.append(node)
         self.bindings[node] = []
+        kind = None
         for decorator in node.decorator_list:
             target = decorator.func if isinstance(decorator, ast.Call) else decorator
-            if isinstance(target, ast.Attribute) and protocol_registry.DEFINITION_KIND.get(
+            kind = protocol_registry.DEFINITION_KIND.get(
                 _match_special_func(target, self.namespaces)
-            ) in (
+            )
+            if isinstance(target, ast.Attribute) and kind in (
                 protocol_registry.DefinitionKind.FUNCTION,
+                protocol_registry.DefinitionKind.BUILDER,
                 protocol_registry.DefinitionKind.MACRO,
                 protocol_registry.DefinitionKind.PYTHON,
             ):
-                namespace = resolve_namespace_value(target.value, self.environment)
+                namespace = resolve_namespace_value(
+                    target.value.value
+                    if kind == protocol_registry.DefinitionKind.BUILDER
+                    else target.value,
+                    self.environment,
+                )
                 if namespace is not None:
                     self.builder = namespace
                     break
@@ -551,14 +568,31 @@ class PrescanCollector(ast.NodeVisitor):
         self.visit(node.args)
         for parameter in getattr(node, "type_params", ()):
             self.visit(parameter)
-        for statement in node.body:
-            self.visit(statement)
+        if kind == protocol_registry.DefinitionKind.BUILDER:
+            # Only reserve identifiers against generated-name collisions. Python
+            # owns body bindings and aliases; sugar semantic analysis stops here.
+            for statement in node.body:
+                for child in ast.walk(statement):
+                    # Include nested definitions, arguments, import roots/aliases
+                    # and pattern captures, whose names need not be ast.Name nodes.
+                    self.names.update(
+                        value.split(".")[0]
+                        for field in ("id", "name", "arg", "asname", "rest")
+                        if isinstance(value := getattr(child, field, None), str)
+                    )
+                    # These declarations store their identifiers in a name list.
+                    if isinstance(child, ast.Global | ast.Nonlocal):
+                        self.names.update(child.names)
+        else:
+            for statement in node.body:
+                self.visit(statement)
         for decorator in node.decorator_list:
             self.visit(decorator)
         if node.returns:
             self._check_annotation(node.returns)
             self.visit(node.returns)
-        self._validate_symbols(node)
+        if kind != protocol_registry.DefinitionKind.BUILDER:
+            self._validate_symbols(node)
         self.functions.pop()
         self.scope, self.builder = old_scope, old_builder
 
