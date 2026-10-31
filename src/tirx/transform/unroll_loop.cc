@@ -261,6 +261,11 @@ class LoopUnroller : public StmtExprMutator {
     return StmtExprMutator::Mutate_(op, inplace_mode);
   }
 
+  UnchangedOr<Stmt> Mutate_(const AssertStmtObj* op, InplaceMode inplace_mode) final {
+    ++step_count_;
+    return StmtExprMutator::Mutate_(op, inplace_mode);
+  }
+
   UnchangedOr<Stmt> Mutate_(const SeqStmtObj* op, InplaceMode inplace_mode) final {
     ffi::Array<Stmt> seq;
     bool changed = false;
