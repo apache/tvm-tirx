@@ -557,5 +557,14 @@ def test_simplify_le_negative_scale_extra():
     ck.verify(expr_true, tvm_tirx.tirx.const(True, "bool"))
 
 
+def test_simplify_lt_truncmod():
+    ck = CanonicalChecker()
+    x, z = tirx.Var("x", "int32"), tirx.Var("z", "int32")
+    # With z=-2,x=0 this is true; reconstructing with floor operations makes
+    # it false. The index has no nonnegative bound to make the modes agree.
+    expr = tirx.truncmod(z, 12) < x * 3
+    ck.verify(expr, expr)
+
+
 if __name__ == "__main__":
     tvm_tirx.testing.main()
