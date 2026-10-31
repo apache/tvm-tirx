@@ -59,7 +59,7 @@ def _tmem_operand(ctx, operand, expected, atom_shape):
     for var, size in zip(coords, atom_shape):
         ctx.add_range(var, Range(0, size))
     physical = operand.physical(coords)
-    image = expected.apply(*coords, shape=atom_shape)
+    image = expected.apply(*coords, shape=atom_shape, analyzer=ctx.layout_analyzer)
     if set(physical) - {"TLane", "TCol"}:
         raise ValueError(f"{operand.name}: expected a TMEM image")
     for axis in ("TLane", "TCol"):

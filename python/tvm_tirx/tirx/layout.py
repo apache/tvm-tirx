@@ -71,7 +71,12 @@ class Layout(tvm_ffi.Object):
 
     # Note: no backward-compat alias; `cosize` is removed.
 
-    def apply(self, *coord: list[Expr], shape: list[Expr] | None = None) -> dict[str, Expr]:
+    def apply(
+        self,
+        *coord: list[Expr],
+        shape: list[Expr] | None = None,
+        analyzer: "tvm_tirx.sym.Analyzer | None" = None,
+    ) -> dict[str, Expr]:
         """Apply the layout on the input coordinate and get the mapped output.
 
         Input cases:
@@ -80,11 +85,18 @@ class Layout(tvm_ffi.Object):
         - shape is provided -> turn the coord with shape into a 1D coordinate
         - shape is not provided -> use the default shape
 
+        analyzer optionally supplies caller-owned analysis state for repeated
+        queries. Its premises may simplify the result; this method adds no
+        persistent premises and does not retain the analyzer. Concurrent calls
+        must use separate analyzers. Without it, analysis state is temporary.
+
         Returns
         -------
         Dict[str, Expr]
             The mapped output (axis name -> value on the axis)
         """
+        if analyzer is not None:
+            return _ffi_api.LayoutApplyWithAnalyzer(self, coord, shape, analyzer)
         if shape is not None:
             return _ffi_api.LayoutApplyWithShape(self, coord, shape)  # pylint: disable=no-member
         if len(coord) == 1:

@@ -1474,6 +1474,27 @@ def test_compose_structured_apply_falls_back_to_full_swizzle(case):
         assert _evaluate_layout_expr(actual, values) == _evaluate_layout_expr(expected, values)
 
 
+@pytest.mark.parametrize("mode", ["coordinates", "linear", "shaped"])
+@pytest.mark.parametrize("kind", ["tile", "compose", "full_swizzle"])
+def test_layout_apply_with_reused_analyzer(mode, kind):
+    tile = TileLayout(S[(8, 8) : (64, 1)] + 8)
+    layout = tile if kind == "tile" else ComposeLayout(3, 3, 3, tile, kind != "full_swizzle")
+    analyzer = tvm_tirx.sym.Analyzer()
+    x, y = Var("x", "int32"), Var("y", "int32")
+    for offset in (0, 1, 3, 0):
+        if mode == "linear":
+            coords, options = (x + offset,), {}
+        else:
+            coords = (x, y + offset)
+            options = {"shape": (8, 8)} if mode == "shaped" else {}
+        expected = layout.apply(*coords, **options)
+        actual = layout.apply(*coords, analyzer=analyzer, **options)
+        assert_structural_equal(actual, expected)
+    # The shape's coordinate bounds must not become persistent assumptions.
+    assert not analyzer.can_prove(x >= 0)
+    assert not analyzer.can_prove(y < 8)
+
+
 def test_compose_structured_apply_emits_shared_base_address_chain():
     x = Var("x", ty="int32")
     y = Var("y", ty="int32")

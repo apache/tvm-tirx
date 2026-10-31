@@ -72,6 +72,22 @@ class Layout : public ffi::ObjectRef {
   TVM_TIRX_DLL ffi::Map<ffi::String, PrimExpr> Apply(const ffi::Array<PrimExpr>& coord,
                                                      const ffi::Array<PrimExpr>& shape) const;
 
+  /*!
+   * \brief Apply a layout while reusing caller-owned analysis state.
+   *
+   * The analyzer's current premises may simplify the result. No persistent
+   * premises are added, and the layout does not retain the analyzer. Repeated
+   * related queries can reuse its caches and solver; concurrent queries must
+   * use separate analyzers. The overloads above create temporary analysis state.
+   */
+  TVM_TIRX_DLL ffi::Map<ffi::String, PrimExpr> Apply(ffi::Array<PrimExpr> coord,
+                                                     const sym::Analyzer& analyzer) const;
+  TVM_TIRX_DLL ffi::Map<ffi::String, PrimExpr> Apply(PrimExpr coord,
+                                                     const sym::Analyzer& analyzer) const;
+  TVM_TIRX_DLL ffi::Map<ffi::String, PrimExpr> Apply(const ffi::Array<PrimExpr>& coord,
+                                                     const ffi::Array<PrimExpr>& shape,
+                                                     const sym::Analyzer& analyzer) const;
+
   /*! \brief Turn the layout to canonical form */
   TVM_TIRX_DLL Layout Canonicalize() const;
 
