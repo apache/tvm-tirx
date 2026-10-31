@@ -46,6 +46,7 @@ class DefinitionKind(IntEnum):
     """Construction behavior of a definition's canonical source decorator."""
 
     FUNCTION = auto()
+    BUILDER = auto()
     MACRO = auto()
     PYTHON = auto()
 
@@ -53,6 +54,8 @@ class DefinitionKind(IntEnum):
 SCALAR_ANNOTATION_DTYPE: dict[str, object] = {}
 MUTABLE_CELL_DECL: dict[str, frozenset[str]] = {}
 DEFINITION_KIND: dict[str, DefinitionKind] = {}
+# Explicit control frames with a required source-language statement form.
+WITH_FRAME_SUGAR: dict[str, str] = {}
 
 
 def register_scalar_annotation(

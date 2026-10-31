@@ -139,6 +139,7 @@ class GeneratedBuilder(NamedTuple):
     original_func_name: str
     # Generated bindings preserved while restoring source globals/closures.
     protected_names: set[str]
+    preserve_python_scope: bool = False
 
 
 class ModuleContext:
@@ -222,12 +223,18 @@ class FunctionContext:
     restored in ``finally``, so neither successful nor failed nesting leaks state.
     """
 
-    def __init__(self, current_scope: ast.AST | None, dialect_prefix: str) -> None:
+    def __init__(
+        self,
+        current_scope: ast.AST | None,
+        dialect_prefix: str,
+        kind: protocol_registry.DefinitionKind = protocol_registry.DefinitionKind.FUNCTION,
+    ) -> None:
         # Active source function (or None before root lowering); declaration rewriting
         # uses it to select lexical prescan facts.
         self.current_scope = current_scope
         # Namespace identifier used by _call_dialect for this function's builder operations.
         self.dialect_prefix = dialect_prefix
+        self.kind = kind
         # Only reads that cross a Python scope boundary need definition snapshots.
         self.definition_captures: str | None = None
         self.capture_names: set[str] = set()
@@ -254,6 +261,7 @@ class IRBuilderTranspiler(ast.NodeTransformer):
         # Bypass syntax-to-builder lowering.
         # Still traverse children and instrument source calls with locs.
         self.bypass_ast_rewrite = False
+        self._instrument_locations = True
         # Only free reads that cross a scope boundary use the definition snapshot.
         self.annotation_reads: set[ast.Name] = set()
         # Only this expression's result is already located by its enclosing emit_.
@@ -262,6 +270,28 @@ class IRBuilderTranspiler(ast.NodeTransformer):
         # An ordinary binding owns this RHS's attachment through value_loc;
         # nested operations still receive their own locations and call contexts.
         self.binding_expression: ast.expr | None = None
+
+    def _visit_python_statement(self, node: ast.stmt) -> ast.stmt:
+        result = self.generic_visit(node)
+        if not self.module.track_loc or not self._instrument_locations:
+            return result
+        from tvm_tirx.script.ir_builder import IRBuilder
+
+        # Helpers and void calls can emit IR without returning a value to locate.
+        # Keep their statement location active without a lambda changing Python scope.
+        current = ast.Call(self._inject(IRBuilder.current), [], [])
+        context = ast.Call(
+            ast.Attribute(current, "with_loc", ast.Load()),
+            [ast.Attribute(self.module.make_loc_expr(node), "loc", ast.Load())],
+            [],
+        )
+        return ast.copy_location(ast.With([ast.withitem(context)], [result]), node)
+
+    # Python-only statements share traversal and statement locations.
+    visit_Try = _visit_python_statement
+    visit_Match = _visit_python_statement
+    visit_Raise = _visit_python_statement
+    visit_Delete = _visit_python_statement
 
     def _inject(self, value: object, prefix: str = "_host") -> ast.Name:
         name = self.module.make_fresh_name(prefix)
@@ -399,15 +429,15 @@ class IRBuilderTranspiler(ast.NodeTransformer):
         return result
 
     @contextmanager
-    def _bypass_rewrite(self) -> Iterator[None]:
-        # Only constexpr operands and module host syntax keep Python operators.
-        # The same visitor still instruments their source calls and restores mode.
-        old = self.bypass_ast_rewrite
-        self.bypass_ast_rewrite = True
+    def _bypass_rewrite(self, *, instrument_locations: bool = False) -> Iterator[None]:
+        # Sugar lowering and source attribution are independent: builder bodies
+        # keep Python operators while retaining the shared location machinery.
+        old = self.bypass_ast_rewrite, self._instrument_locations
+        self.bypass_ast_rewrite, self._instrument_locations = True, instrument_locations
         try:
             yield
         finally:
-            self.bypass_ast_rewrite = old
+            self.bypass_ast_rewrite, self._instrument_locations = old
 
     @contextmanager
     def _rewrite_annotation(self, reads: set[ast.Name]) -> Iterator[None]:
@@ -429,6 +459,8 @@ class IRBuilderTranspiler(ast.NodeTransformer):
         #     expr
         # -------------------------------------------------
         # The same visitor keeps Python operators and still instruments nested source calls.
+        if self.bypass_ast_rewrite and self._instrument_locations:
+            return None
         if not isinstance(node, ast.Call) or not self._is_constexpr_annotation(node.func):
             return None
         if len(node.args) != 1 or node.keywords or isinstance(node.args[0], ast.Starred):
@@ -474,9 +506,7 @@ class IRBuilderTranspiler(ast.NodeTransformer):
         result = self.generic_visit(node)
         return (
             self._attach_loc(result, node)
-            if isinstance(node.ctx, ast.Load)
-            and not self.bypass_ast_rewrite
-            and not fixed_namespace
+            if isinstance(node.ctx, ast.Load) and self._instrument_locations and not fixed_namespace
             else result
         )
 
@@ -499,7 +529,12 @@ class IRBuilderTranspiler(ast.NodeTransformer):
         #     _L_i([a, b])
         # -------------------------------------------------
         result = self.generic_visit(node)
-        return result if self.bypass_ast_rewrite else self._attach_loc(result, node)
+        return (
+            self._attach_loc(result, node)
+            if self._instrument_locations
+            and not isinstance(getattr(node, "ctx", None), ast.Store | ast.Del)
+            else result
+        )
 
     visit_Tuple = visit_List
     visit_Set = visit_List
@@ -531,7 +566,7 @@ class IRBuilderTranspiler(ast.NodeTransformer):
         # -------------------------------------------------
         node.value = self.visit(node.value)
         node.slice = self._rewrite_index(node.slice)
-        if not self.bypass_ast_rewrite and isinstance(node.ctx, ast.Load):
+        if self._instrument_locations and isinstance(node.ctx, ast.Load):
             return self._attach_loc(node, node)
         return node
 
@@ -539,13 +574,13 @@ class IRBuilderTranspiler(ast.NodeTransformer):
         """Recognize fixed source module aliases from existing binding records."""
         if not isinstance(node, ast.Name):
             return False
-        if node.id == self.module.module_name:
-            return True
         records = [
             item
             for item in self.module.prescan_ctx.bindings.get(self.function.current_scope, ())
             if item.name == node.id
         ]
+        if node.id == self.module.module_name:
+            return True
         return bool(records) and all(item.kind == BindingKind.MODULE_ALIAS for item in records)
 
     def _visit_direct_operand(self, node: ast.expr) -> ast.expr:
@@ -576,12 +611,13 @@ class IRBuilderTranspiler(ast.NodeTransformer):
         if marker is not None:
             with self._bypass_rewrite():
                 return self.visit(marker)
-        global_call = (
-            isinstance(node.func, ast.Name) and node.func.id in self.module.global_func_names
-        ) or (
-            isinstance(node.func, ast.Attribute)
-            and self._is_module_owner(node.func.value)
-            and node.func.attr in self.module.global_func_names
+        global_call = not self.bypass_ast_rewrite and (
+            (isinstance(node.func, ast.Name) and node.func.id in self.module.global_func_names)
+            or (
+                isinstance(node.func, ast.Attribute)
+                and self._is_module_owner(node.func.value)
+                and node.func.attr in self.module.global_func_names
+            )
         )
         # Visit source callee/arguments first. A normalized range callee is
         # assembled afterward, but its original arguments keep normal rewriting.
@@ -599,7 +635,7 @@ class IRBuilderTranspiler(ast.NodeTransformer):
         # Builder:
         #     X.call_global_var_(declared_global, [x, y])
         # -------------------------------------------------
-        if global_call and not self.bypass_ast_rewrite:
+        if global_call:
             if node.keywords:
                 self._raise_error(node, "Global function calls require positional arguments")
             node = self._call(
@@ -617,6 +653,8 @@ class IRBuilderTranspiler(ast.NodeTransformer):
         # -------------------------------------------------
         # Calls retain their construction context; bind_ owns ordinary RHS attribution.
         if self.module.track_loc and callee is None:
+            if self.function.kind == protocol_registry.DefinitionKind.BUILDER:
+                return self._attach_loc(node, node)
             # _L_i.ctx(lambda: callee(*args, **keywords))
             return ast.copy_location(
                 ast.Call(
@@ -642,7 +680,7 @@ class IRBuilderTranspiler(ast.NodeTransformer):
             return self._attach_loc(
                 self._call(self.function.dialect_prefix, "not_", [node.operand], node), node
             )
-        return self._attach_loc(node, node) if not self.bypass_ast_rewrite else node
+        return self._attach_loc(node, node) if self._instrument_locations else node
 
     def visit_BinOp(self, node: ast.BinOp) -> ast.expr:
         # -------------------- Pattern --------------------
@@ -654,7 +692,7 @@ class IRBuilderTranspiler(ast.NodeTransformer):
         # -------------------------------------------------
         return (
             self._attach_loc(self.generic_visit(node), node)
-            if not self.bypass_ast_rewrite
+            if self._instrument_locations
             else self.generic_visit(node)
         )
 
@@ -668,7 +706,11 @@ class IRBuilderTranspiler(ast.NodeTransformer):
         # -------------------------------------------------
         # Unmarked IR operands use X.and_ or X.or_.
         if self.bypass_ast_rewrite:
-            return self.generic_visit(node)
+            return (
+                self._attach_loc(self.generic_visit(node), node)
+                if self._instrument_locations
+                else self.generic_visit(node)
+            )
 
         def lower(position: int) -> ast.expr:
             value = node.values[position]
@@ -706,7 +748,11 @@ class IRBuilderTranspiler(ast.NodeTransformer):
         # -------------------------------------------------
         # Unmarked tests use X.if_then_else_.
         if self.bypass_ast_rewrite:
-            return self.generic_visit(node)
+            return (
+                self._attach_loc(self.generic_visit(node), node)
+                if self._instrument_locations
+                else self.generic_visit(node)
+            )
         marker = self._read_constexpr_operand(node.test)
         if marker is not None:
             with self._bypass_rewrite():
@@ -751,7 +797,11 @@ class IRBuilderTranspiler(ast.NodeTransformer):
         # -------------------------------------------------
         # Only names and numeric literals may be repeated in a simple chain.
         if self.bypass_ast_rewrite:
-            return self.generic_visit(node)
+            return (
+                self._attach_loc(self.generic_visit(node), node)
+                if self._instrument_locations
+                else self.generic_visit(node)
+            )
         operands = [node.left, *node.comparators]
         if len(node.ops) > 1:
             for operand in operands:
@@ -777,7 +827,7 @@ class IRBuilderTranspiler(ast.NodeTransformer):
         )
         return self._attach_loc(result, node)
 
-    def visit_NamedExpr(self, node: ast.NamedExpr) -> NoReturn:
+    def visit_NamedExpr(self, node: ast.NamedExpr) -> ast.expr:
         # -------------------- Pattern --------------------
         # Python source:
         #     (x := value)
@@ -785,6 +835,8 @@ class IRBuilderTranspiler(ast.NodeTransformer):
         # Builder:
         #     raise SyntaxError("Assignment expressions are unsupported")
         # -------------------------------------------------
+        if self.function.kind == protocol_registry.DefinitionKind.BUILDER:
+            return self.generic_visit(node)
         # Source assignment expressions have no builder declaration contract.
         self._raise_error(node, "Unsupported expression: NamedExpr")
 
@@ -809,6 +861,8 @@ class IRBuilderTranspiler(ast.NodeTransformer):
         # Builder:
         #     X.setitem_(a, slice(start, stop, step), value)
         # -------------------------------------------------
+        if self.bypass_ast_rewrite:
+            return self.generic_visit(node)
         if isinstance(node, ast.Slice):
             return ast.copy_location(
                 ast.Call(
@@ -1025,7 +1079,7 @@ class IRBuilderTranspiler(ast.NodeTransformer):
         #     b = X.bind_(temporary, name="b")
         # -------------------------------------------------
         if self.bypass_ast_rewrite:
-            return self.generic_visit(node)
+            return self._visit_python_statement(node)
         ordinary = any(self._uses_ordinary_binding(target) for target in node.targets)
         value_loc = self.module.make_loc_expr(node.value) if ordinary else None
         if len(node.targets) == 1 and isinstance(node.targets[0], ast.Name):
@@ -1077,7 +1131,7 @@ class IRBuilderTranspiler(ast.NodeTransformer):
             )
         return result
 
-    def visit_AnnAssign(self, node: ast.AnnAssign) -> ast.AnnAssign | list[ast.stmt]:
+    def visit_AnnAssign(self, node: ast.AnnAssign) -> ast.stmt | list[ast.stmt]:
         # -------------------- Pattern --------------------
         # Python source:
         #     x: X.int32 = value
@@ -1086,7 +1140,7 @@ class IRBuilderTranspiler(ast.NodeTransformer):
         #     x = X.decl_mutable_cell_(value, ty=X.int32, name="x")
         # -------------------------------------------------
         if self.bypass_ast_rewrite:
-            return self.generic_visit(node)
+            return self._visit_python_statement(node)
         if not isinstance(node.target, ast.Name):
             self._raise_error(node.target, "An annotated binding requires a name")
         ordinary = self._uses_ordinary_binding(node.target)
@@ -1100,7 +1154,7 @@ class IRBuilderTranspiler(ast.NodeTransformer):
             annotation = self.visit(node.annotation)
         return self._bind(node.target, value, node, ty=annotation, value_loc=value_loc)
 
-    def visit_AugAssign(self, node: ast.AugAssign) -> ast.AugAssign | list[ast.stmt]:
+    def visit_AugAssign(self, node: ast.AugAssign) -> ast.stmt | list[ast.stmt]:
         key: ast.expr
         load: ast.expr
         value: ast.expr
@@ -1116,7 +1170,7 @@ class IRBuilderTranspiler(ast.NodeTransformer):
         # -------------------------------------------------
         # Base, index, load and RHS each evaluate once; name targets use declaration dispatch.
         if self.bypass_ast_rewrite:
-            return self.generic_visit(node)
+            return self._visit_python_statement(node)
         if isinstance(node.target, ast.Name):
             value = ast.copy_location(
                 ast.BinOp(ast.Name(node.target.id, ast.Load()), node.op, self.visit(node.value)),
@@ -1158,7 +1212,7 @@ class IRBuilderTranspiler(ast.NodeTransformer):
         )
         return statements
 
-    def visit_Expr(self, node: ast.Expr) -> ast.Expr:
+    def visit_Expr(self, node: ast.Expr) -> ast.stmt:
         # -------------------- Pattern --------------------
         # Python source:
         #     f()
@@ -1167,7 +1221,7 @@ class IRBuilderTranspiler(ast.NodeTransformer):
         #     X.emit_(_L_i.ctx(lambda: f()), loc=_L_i)
         # -------------------------------------------------
         if self.bypass_ast_rewrite:
-            return self.generic_visit(node)
+            return self._visit_python_statement(node)
         previous, self.emitted_expression = self.emitted_expression, node.value
         try:
             value = self.visit(node.value)
@@ -1175,7 +1229,7 @@ class IRBuilderTranspiler(ast.NodeTransformer):
             self.emitted_expression = previous
         return ast.copy_location(ast.Expr(self._call_dialect("emit_", [value], node)), node)
 
-    def visit_Return(self, node: ast.Return) -> ast.Return | ast.Expr:
+    def visit_Return(self, node: ast.Return) -> ast.stmt:
         # -------------------- Pattern --------------------
         # Python source:
         #     return x
@@ -1184,8 +1238,10 @@ class IRBuilderTranspiler(ast.NodeTransformer):
         #     X.return_(x)
         # -------------------------------------------------
         # Macro and bypass modes retain ordinary Python return.
+        if self.bypass_ast_rewrite:
+            return self._visit_python_statement(node)
         value = self.visit(node.value) if node.value else None
-        if self.preserve_return or self.bypass_ast_rewrite:
+        if self.preserve_return:
             return ast.copy_location(ast.Return(value), node)
         return ast.copy_location(
             ast.Expr(self._call_dialect("return_", [] if value is None else [value], node)), node
@@ -1219,7 +1275,7 @@ class IRBuilderTranspiler(ast.NodeTransformer):
             else ast.copy_location(ast.Expr(self._call_dialect("continue_", [], node)), node)
         )
 
-    def visit_Assert(self, node: ast.Assert) -> ast.Assert | ast.Expr:
+    def visit_Assert(self, node: ast.Assert) -> ast.stmt:
         # -------------------- Pattern --------------------
         # Python source:
         #     assert condition, message
@@ -1228,7 +1284,7 @@ class IRBuilderTranspiler(ast.NodeTransformer):
         #     X.assert_(condition, message)
         # -------------------------------------------------
         if self.bypass_ast_rewrite:
-            return self.generic_visit(node)
+            return self._visit_python_statement(node)
         message = self.visit(node.msg) if node.msg else ast.Constant("")
         return ast.copy_location(
             ast.Expr(self._call_dialect("assert_", [self.visit(node.test), message], node)), node
@@ -1242,7 +1298,7 @@ class IRBuilderTranspiler(ast.NodeTransformer):
             ast.copy_location(ast.Expr(ast.Call(ast.Name(name, ast.Load()), [], [])), node),
         ]
 
-    def visit_If(self, node: ast.If) -> ast.If | list[ast.stmt]:
+    def visit_If(self, node: ast.If) -> ast.stmt | list[ast.stmt]:
         # -------------------- Pattern --------------------
         # Python source:
         #     if I.constexpr(flag):
@@ -1254,7 +1310,7 @@ class IRBuilderTranspiler(ast.NodeTransformer):
         # -------------------------------------------------
         marker = self._read_constexpr_operand(node.test)
         if self.bypass_ast_rewrite:
-            return self.generic_visit(node)
+            return self._visit_python_statement(node)
         if marker is not None:
             with self._bypass_rewrite():
                 condition = self.visit(marker)
@@ -1354,7 +1410,7 @@ class IRBuilderTranspiler(ast.NodeTransformer):
         #         X.emit_(body(i))
         # -------------------------------------------------
         if self.bypass_ast_rewrite:
-            return self.generic_visit(node)
+            return self._visit_python_statement(node)
         if node.orelse:
             self._raise_error(node, "A construction loop does not support an else clause")
         if (
@@ -1427,7 +1483,7 @@ class IRBuilderTranspiler(ast.NodeTransformer):
         #         X.emit_(body())
         # -------------------------------------------------
         if self.bypass_ast_rewrite:
-            return self.generic_visit(node)
+            return self._visit_python_statement(node)
         if node.orelse:
             self._raise_error(node, "A construction loop does not support an else clause")
         context = self._call_dialect("while_", [self.visit(node.test)], node)
@@ -1449,8 +1505,17 @@ class IRBuilderTranspiler(ast.NodeTransformer):
         # -------------------------------------------------
         # Ordinary regions use Python locals; native dataflow outputs retain identity.
         if self.bypass_ast_rewrite:
-            return self.generic_visit(node)
+            return self._visit_python_statement(node)
         item, rest = node.items[0], node.items[1:]
+        if isinstance(item.context_expr, ast.Call):
+            key = self.module.prescan_ctx._match_special_func(item.context_expr.func)
+            syntax = protocol_registry.WITH_FRAME_SUGAR.get(key)
+            if syntax is not None:
+                self._raise_error(
+                    item.context_expr,
+                    f"Explicit control-flow frame {key} is not allowed in script syntax; "
+                    f"use a {syntax} statement or @T.function.builder",
+                )
         body: list[ast.stmt] = (
             [ast.copy_location(ast.With(rest, node.body), node)] if rest else node.body
         )
@@ -1516,11 +1581,20 @@ class IRBuilderTranspiler(ast.NodeTransformer):
         # -------------------------------------------------
         if self.bypass_ast_rewrite:
             return node
-        kind, _ = self.read_function_metadata(node, allow_python=True)
+        kind, _, _ = self.read_function_metadata(node, allow_python=True)
         if kind is None:
             return node
         declaration, _, body = self.create_function_builder_fragments(node, local_function=True)
         return [*declaration, body]
+
+    def visit_match_case(self, node: ast.match_case) -> ast.match_case:
+        if not self.bypass_ast_rewrite:
+            return self.generic_visit(node)
+        # Pattern attributes are syntax, not expressions that can be wrapped.
+        if node.guard is not None:
+            node.guard = self.visit(node.guard)
+        node.body = self.transform_statements(node.body)
+        return node
 
     def visit_Nonlocal(self, node: ast.Nonlocal) -> ast.Pass:
         # -------------------- Pattern --------------------
@@ -1530,6 +1604,8 @@ class IRBuilderTranspiler(ast.NodeTransformer):
         # Builder:
         #     pass
         # -------------------------------------------------
+        if self.bypass_ast_rewrite:
+            return node
         # Source closure declarations do not mutate the host closure during build.
         return ast.copy_location(ast.Pass(), node)
 
@@ -1550,7 +1626,7 @@ class IRBuilderTranspiler(ast.NodeTransformer):
 
     def read_function_metadata(
         self, node: ast.FunctionDef, *, allow_python: bool = False
-    ) -> tuple[object | None, ast.Dict]:
+    ) -> tuple[object | None, ast.Dict, protocol_registry.DefinitionKind | None]:
         """Read the construction namespace from a qualified source decorator."""
         for decorator in node.decorator_list:
             target = decorator.func if isinstance(decorator, ast.Call) else decorator
@@ -1562,12 +1638,20 @@ class IRBuilderTranspiler(ast.NodeTransformer):
                 protocol_registry.DefinitionKind.MACRO,
                 protocol_registry.DefinitionKind.PYTHON,
             ):
-                return None, ast.Dict([], [])
-            if kind != protocol_registry.DefinitionKind.FUNCTION:
+                return None, ast.Dict([], []), kind
+            if kind not in (
+                protocol_registry.DefinitionKind.FUNCTION,
+                protocol_registry.DefinitionKind.BUILDER,
+            ):
                 continue
             # A matched decorator is a direct member of a fixed root. Construction
             # needs that root's actual builder, not another syntax/value resolution.
-            namespace = self.module.environment[target.value.id]
+            root = (
+                target.value.value
+                if kind == protocol_registry.DefinitionKind.BUILDER
+                else target.value
+            )
+            namespace = self.module.environment[root.id]
             if (
                 self.module.root_function_kwargs is not None
                 and self.module.module_name is None
@@ -1576,12 +1660,16 @@ class IRBuilderTranspiler(ast.NodeTransformer):
                 # The public root decorator already evaluated its arguments once.
                 # Even an empty mapping overrides the source options expression.
                 kwargs = self.module.root_function_kwargs
-                return namespace, ast.copy_location(
-                    ast.Dict(
-                        [ast.Constant(key) for key in kwargs],
-                        [self._inject(value) for value in kwargs.values()],
+                return (
+                    namespace,
+                    ast.copy_location(
+                        ast.Dict(
+                            [ast.Constant(key) for key in kwargs],
+                            [self._inject(value) for value in kwargs.values()],
+                        ),
+                        node,
                     ),
-                    node,
+                    kind,
                 )
             keys, values = [], []
             if isinstance(decorator, ast.Call):
@@ -1591,9 +1679,9 @@ class IRBuilderTranspiler(ast.NodeTransformer):
                     if keyword.arg != "check_well_formed":
                         keys.append(ast.Constant(keyword.arg) if keyword.arg is not None else None)
                         values.append(keyword.value)
-            return namespace, ast.copy_location(ast.Dict(keys, values), node)
+            return namespace, ast.copy_location(ast.Dict(keys, values), node), kind
         if allow_python:
-            return None, ast.Dict([], [])
+            return None, ast.Dict([], []), None
         self._raise_error(
             node,
             f"Function {node.name!r} requires a qualified construction decorator "
@@ -2096,17 +2184,21 @@ class IRBuilderTranspiler(ast.NodeTransformer):
         definition snapshot. Signature assignments expose each parameter to later
         annotations, while body helpers preserve source globals and closures.
         """
-        kind, options = self.read_function_metadata(node)
-        builder = self._function_namespace(node, kind)
+        namespace, options, kind = self.read_function_metadata(node)
+        builder = self._function_namespace(node, namespace)
         frame, body_name = self.module.make_fresh_name("_fn"), self.module.make_fresh_name("_build")
         # Keep the shared module context, but activate fresh lexical state for this
         # function. Saving its caller locally avoids a context ownership back-reference.
         old = self.function
-        self.function = FunctionContext(node, builder)
+        self.function = FunctionContext(node, builder, kind)
         try:
             parameters = [*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs]
             if node.args.vararg or node.args.kwarg:
                 self._raise_error(node, "IR signatures require ordinary named parameters")
+            if kind == protocol_registry.DefinitionKind.BUILDER and (
+                node.args.defaults or any(value is not None for value in node.args.kw_defaults)
+            ):
+                self._raise_error(node, "Builder parameters cannot have defaults")
             annotations = [parameter.annotation for parameter in parameters]
             returns = node.returns
             captures = self.module.make_fresh_name("_definition")
@@ -2148,7 +2240,7 @@ class IRBuilderTranspiler(ast.NodeTransformer):
                     )
                 )
             with self._bypass_rewrite():
-                options = self.visit(options)
+                options.values = [self.visit(value) for value in options.values]
             frame_declaration, body_entry = self._create_function_frame(
                 node,
                 options,
@@ -2165,19 +2257,31 @@ class IRBuilderTranspiler(ast.NodeTransformer):
                 frame=frame,
                 const_args=const_args,
             )
-            body.extend(self.transform_statements(node.body))
+            # Builder mode shares declarations and locations, but its body keeps
+            # Python control flow and bindings; only explicit calls construct IR.
+            if kind == protocol_registry.DefinitionKind.BUILDER:
+                with self._bypass_rewrite(instrument_locations=True):
+                    body.extend(self.transform_statements(node.body))
+            else:
+                body.extend(self.transform_statements(node.body))
             definition = self._create_definition(body_name, body, node)
             if not local_function:
                 protected = (
                     {item.name for item in getattr(node, "type_params", ())}
                     | {node.name}
                     | set(self.module.global_func_names)
-                    | self.module.prescan_ctx.namespaces.keys()
                 )
+                if kind != protocol_registry.DefinitionKind.BUILDER:
+                    protected |= self.module.prescan_ctx.namespaces.keys()
                 if self.module.module_name:
                     protected.add(self.module.module_name)
                 self.module.generated_builders.append(
-                    GeneratedBuilder(definition, node.name, protected)
+                    GeneratedBuilder(
+                        definition,
+                        node.name,
+                        protected,
+                        kind == protocol_registry.DefinitionKind.BUILDER,
+                    )
                 )
             # -------------------- Pattern --------------------
             # Python source:
@@ -2351,7 +2455,7 @@ class IRBuilderTranspiler(ast.NodeTransformer):
                         body.append(self._assign(target.id, value, target))
                 continue
             function = member
-            kind, _ = self.read_function_metadata(function)
+            kind, _, _ = self.read_function_metadata(function)
             if kind is None:
                 # -------------------- Pattern --------------------
                 # Python source:
