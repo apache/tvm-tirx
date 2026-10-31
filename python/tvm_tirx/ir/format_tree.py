@@ -16,15 +16,17 @@
 # under the License.
 """Text trees for inspecting IR and extension objects."""
 
+import enum
 from collections.abc import Callable, Iterable, Mapping
 from typing import Any
 
 import tvm_ffi
+from tvm_ffi.dataclasses import Enum as _FFIEnum
 
 from .expr import Expr, Var
 from .function import BaseFunc
 from .op import Op
-from .stmt import For
+from .stmt import For, ForKind
 from .type import PrimType
 
 FieldSelector = str | tuple[type, str]
@@ -68,6 +70,8 @@ _FFI_VALUES = (tvm_ffi.Object, tvm_ffi.Array, tvm_ffi.List, tvm_ffi.Map, tvm_ffi
 
 
 def _scalar(value):
+    if isinstance(value, enum.Enum | _FFIEnum):
+        return f"{type(value).__name__}({value.name})"
     if isinstance(value, tvm_ffi.dtype):
         return str(value)
     if isinstance(value, str):
@@ -209,6 +213,8 @@ class _TreeFormatter:
                         and role != "ignore"
                         else None
                     )
+                if isinstance(value, For) and field.name == "kind" and child in ForKind:
+                    child = ForKind(child)  # Stored as an int; show the enum name.
                 entries.append((field.name, child, role, action))
             return name, "object", entries
         return type(value).__name__, "opaque", []

@@ -226,12 +226,12 @@ def test_native_loop_defaults_and_structural_comparison():
     assert "For(var=i," in ir.format_tree(loop, fold=[(ir.For, "var")])
     assert "step=" not in text and "kind=" not in text and "annotations" not in text
     assert "step=IntImm(value=1)" in ir.format_tree(loop, show_defaults=True)
-    assert "kind=0" in ir.format_tree(loop, show_defaults=True)
+    assert "kind=ForKind(DEFAULT)" in ir.format_tree(loop, show_defaults=True)
     assert "annotations: {}" in ir.format_tree(loop, expand=[(ir.For, "annotations")])
     assert "step=IntImm(value=1)" in ir.format_tree(loop, fold=[(ir.For, "step")])
     assert "step=IntImm(value=2)" in ir.format_tree(make_loop(step=2))
     assert "step=IntImm(value=1)" in ir.format_tree(make_loop(dtype="int64"))
-    assert "kind=1" in ir.format_tree(make_loop(kind=ir.ForKind.PARALLEL))
+    assert "kind=ForKind(PARALLEL)" in ir.format_tree(make_loop(kind=ir.ForKind.PARALLEL))
     assert "'tag': 1" in ir.format_tree(make_loop(annotations={"tag": 1}))
     # Metadata defaults also participate in generic reflected construction.
     constructed = ir.make_node(
@@ -337,3 +337,9 @@ def test_invalid_callback_output(result):
 
 if __name__ == "__main__":
     tvm_tirx.testing.main()
+
+
+
+def test_ffi_enum_renders_as_type_and_name():
+    tensor_type = tirx.TensorType((4,), "float32", scope="shared")
+    assert ir.format_tree(tensor_type).startswith("TensorType(scope=MemoryScope(shared))")
