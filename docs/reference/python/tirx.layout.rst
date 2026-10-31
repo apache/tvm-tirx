@@ -44,3 +44,16 @@ Classes
      - :obj:`tvm_tirx.tirx.TileLayout`
    * - ``ComposeLayout``
      - :obj:`tvm_tirx.tirx.ComposeLayout`
+
+Reusing layout analysis
+-----------------------
+
+``Layout.apply(..., analyzer=analyzer)`` reuses a caller-owned
+:class:`tvm_tirx.sym.Analyzer` across related coordinate queries. The analyzer's
+premises may simplify the result; applying a layout does not add persistent
+premises or retain the analyzer. Calls without this argument use temporary
+analysis state. Concurrent queries must use separate analyzers.
+
+CUDA tile lowering owns a dedicated layout analyzer for each instruction's
+address walk, separate from the analyzer that verifies group, repeat, and
+descriptor constraints.

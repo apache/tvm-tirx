@@ -218,13 +218,16 @@ PrimExpr layout_detail::GetSpan(const TileLayoutObj* layout, ffi::Optional<ffi::
   return analyzer->Simplify(result);
 }
 
-ffi::Map<ffi::String, PrimExpr> layout_detail::Apply(const TileLayoutObj* layout, PrimExpr coord) {
-  return Apply(layout, SplitCoord(coord, ffi::GetRef<TileLayout>(layout).GetShardShape()));
+ffi::Map<ffi::String, PrimExpr> layout_detail::Apply(const TileLayoutObj* layout, PrimExpr coord,
+                                                     const sym::Analyzer& analyzer) {
+  return Apply(layout, SplitCoord(coord, ffi::GetRef<TileLayout>(layout).GetShardShape()),
+               analyzer);
 }
 
 ffi::Map<ffi::String, PrimExpr> layout_detail::Apply(const TileLayoutObj* layout,
                                                      const ffi::Array<PrimExpr>& coord,
-                                                     const ffi::Array<PrimExpr>& shape) {
+                                                     const ffi::Array<PrimExpr>& shape,
+                                                     const sym::Analyzer& analyzer) {
   TVM_FFI_ICHECK_EQ(coord.size(), shape.size())
       << "ValueError: The size of coord and shape should be equal";
   // Group-first path: if this layout can be regrouped by ``shape`` (the input
@@ -234,7 +237,7 @@ ffi::Map<ffi::String, PrimExpr> layout_detail::Apply(const TileLayoutObj* layout
   // symbolic form small (local mod/divs) and avoids the cross-dim noise of the
   // flatten+split-against-shard-shape round-trip. Equivalent numerical output,
   // much friendlier for sym.Analyzer downstream.
-  if (auto grouped_opt = TryGroup(ffi::GetRef<TileLayout>(layout), shape);
+  if (auto grouped_opt = TryGroup(ffi::GetRef<TileLayout>(layout), shape, analyzer);
       grouped_opt.has_value()) {
     auto& [grouped, seps] = *grouped_opt;
     ffi::Array<PrimExpr> per_shard_coords;
@@ -255,15 +258,15 @@ ffi::Map<ffi::String, PrimExpr> layout_detail::Apply(const TileLayoutObj* layout
         per_shard_coords.Set(i, split[j]);
       }
     }
-    return grouped.Apply(per_shard_coords);
+    return grouped.Apply(per_shard_coords, analyzer);
   }
   // Fallback: flatten across input shape then split against shard shape.
-  return Apply(layout, FlattenCoord(coord, shape));
+  return Apply(layout, FlattenCoord(coord, shape), analyzer);
 }
 
 ffi::Map<ffi::String, PrimExpr> layout_detail::Apply(const TileLayoutObj* layout,
-                                                     Array<PrimExpr> coord) {
-  sym::Analyzer analyzer;
+                                                     Array<PrimExpr> coord,
+                                                     const sym::Analyzer& analyzer) {
   TVM_FFI_ICHECK_EQ(coord.size(), layout->shard.size())
       << "Coordinate size must match the number of shard axes";
   std::unordered_map<ffi::String, PrimExpr> result;

@@ -150,6 +150,37 @@ def _dispatch(
     return run_dispatch(T.cuda.tile.apply(T.ptx[opcode], dst, src, scope=scope), ctx)
 
 
+def test_layout_analysis_state_is_local_to_one_instruction(monkeypatch):
+    from tvm_tirx.backend.cuda.tile.patterns.common import Context
+    from tvm_tirx.tirx.layout import Layout
+
+    contexts, queries = [], []
+    original_init, original_apply = Context.__init__, Layout.apply
+
+    def record_init(self, *args, **kwargs):
+        original_init(self, *args, **kwargs)
+        contexts.append(self)
+
+    def record_apply(self, *args, **kwargs):
+        if kwargs.get("analyzer") is not None:
+            queries.append(kwargs["analyzer"])
+        return original_apply(self, *args, **kwargs)
+
+    monkeypatch.setattr(Context, "__init__", record_init)
+    monkeypatch.setattr(Layout, "apply", record_apply)
+    for _ in range(2):
+        start = len(queries)
+        _dispatch()
+        context = contexts[-1]
+        assert len(queries) - start > 1
+        assert all(analyzer.same_as(context.layout_analyzer) for analyzer in queries[start:])
+        assert not context.layout_analyzer.same_as(context.analyzer)
+        repeat = context.repeat[0]
+        assert context.analyzer.can_prove(repeat < context.repeat_shape[0])
+        assert not context.layout_analyzer.can_prove(repeat < context.repeat_shape[0])
+    assert not contexts[0].layout_analyzer.same_as(contexts[1].layout_analyzer)
+
+
 def test_contract_rejections():
     with pytest.raises(RuntimeError, match="consecutive elements"):
         _dispatch(src_layout=TileLayout(S[(2, 4) : (8, 2)]))
