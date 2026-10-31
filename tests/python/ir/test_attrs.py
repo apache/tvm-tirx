@@ -71,6 +71,21 @@ def test_assert_structural_equal_reports_mismatch():
     assert "and rhs at" in message
 
 
+def test_op_register_returns_new_op():
+    name = "test.python_register"
+    op = tvm_tirx.ir.Op.register(name, "Python registration test")
+    assert isinstance(op, tvm_tirx.ir.Op)
+    assert op.same_as(tvm_tirx.ir.Op.get(name))
+    assert op.name == name
+    assert op.doc == "Python registration test"
+    assert name in tvm_tirx.ir.Op.list_op_names()
+    assert len(op.args_info) == 0 and len(op.ty_args_info) == 0
+    assert op.var_args_info is None and op.var_ty_args_info is None
+    assert all(op.get_attr(key) is None for key in tvm_tirx.ir.Op.list_attr_names())
+    with pytest.raises(AttributeError, match=r"is registered before"):
+        tvm_tirx.ir.Op.register(name)
+
+
 def test_op_set_signature_metadata_and_counts():
     name = "test.python_set_signature"
     tvm_tirx.ir._ffi_api.RegisterOp(name, "Python signature test")

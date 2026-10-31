@@ -55,6 +55,36 @@ class Op(Expr):
         return _ffi_api.GetOp(op_name)
 
     @staticmethod
+    def register(op_name, doc=""):
+        """Register a new operator and return it.
+
+        The operator is added to the global registry for the rest of the
+        process, so ``Op.get(op_name)`` returns the same object afterwards. It
+        starts with an empty signature and no attributes: set them with
+        :py:meth:`set_signature` and :py:meth:`set_attr`, then call
+        :py:meth:`expose` to make it available to API destinations.
+
+        Parameters
+        ----------
+        op_name : str
+            The canonical operator name. It must not already be registered.
+        doc : str, optional
+            A short description of the operator.
+
+        Returns
+        -------
+        Op
+            The newly registered operator.
+
+        Raises
+        ------
+        AttributeError
+            If an operator with the same name is already registered.
+        """
+        _ffi_api.RegisterOp(op_name, doc)
+        return Op.get(op_name)
+
+    @staticmethod
     def list_op_names():
         """List registered operator names in unspecified order.
 
