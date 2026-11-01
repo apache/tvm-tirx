@@ -45,8 +45,7 @@ class StmtSimplifier : public StmtExprMutatorWithConstraintContext {
  public:
   using StmtExprMutatorWithConstraintContext::Mutate;
   using StmtExprMutatorWithConstraintContext::Mutate_;
-  explicit StmtSimplifier(const sym::ConstraintContext& context)
-      : StmtExprMutatorWithConstraintContext(context) {}
+  explicit StmtSimplifier(bool enable_z3) { GetSyncedAnalyzer()->SetZ3DefaultFallback(enable_z3); }
 
   Function Run(Function func);
 
@@ -240,16 +239,11 @@ ffi::Optional<bool> StmtSimplifier::ProveCondition(PrimExpr condition) {
 
 }  // namespace
 
-Function StmtSimplify(Function func, const sym::Analyzer& analyzer) {
-  return ffi::make_object<StmtSimplifier>(analyzer->GetConstraintContext())->Run(std::move(func));
-}
-
 namespace transform {
 
-Pass StmtSimplify() {
-  auto pass_func = [](Function f, IRModule m, PassContext ctx) {
-    sym::Analyzer analyzer;
-    return tirx::StmtSimplify(std::move(f), analyzer);
+Pass StmtSimplify(bool enable_z3) {
+  auto pass_func = [enable_z3](Function f, IRModule m, PassContext ctx) {
+    return ffi::make_object<StmtSimplifier>(enable_z3)->Run(std::move(f));
   };
   return CreateFunctionPass(pass_func, 0, "tirx.StmtSimplify");
 }

@@ -629,8 +629,15 @@ def RenormalizeSplitPattern():
     return _ffi_api.RenormalizeSplitPattern()  # type: ignore
 
 
-def StmtSimplify():
+def StmtSimplify(enable_z3: bool = False):
     """Run statement-level arithmetic simplifications on the TIR Function.
+
+    Parameters
+    ----------
+    enable_z3 : bool
+        Enable Z3 fallback for DEFAULT-strength proof queries in this pass.
+        Disabled by default. Native analysis runs first; explicit stronger
+        queries retain their existing behavior.
 
     Returns
     -------
@@ -665,7 +672,7 @@ def StmtSimplify():
 
         tvm.ir.assert_structural_equal(run_pass(), Expected)
     """
-    return _ffi_api.StmtSimplify()  # type: ignore
+    return _ffi_api.StmtSimplify(enable_z3)  # type: ignore
 
 
 def LowerThreadAllreduce():

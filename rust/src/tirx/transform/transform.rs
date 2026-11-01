@@ -311,7 +311,13 @@ pub fn split_host_device() -> Result<Pass> {
 
 /// Run statement-level arithmetic simplifications (`tirx.transform.StmtSimplify`).
 pub fn stmt_simplify() -> Result<Pass> {
-    tvm_ffi::cached_global_func!("tirx.transform.StmtSimplify").call_tuple(())?.try_into()
+    stmt_simplify_with_z3(false)
+}
+
+/// Configure DEFAULT-strength Z3 fallback in statement simplification.
+/// Native analysis runs first; explicit stronger queries retain their existing behavior.
+pub fn stmt_simplify_with_z3(enable_z3: bool) -> Result<Pass> {
+    tvm_ffi::cached_global_func!("tirx.transform.StmtSimplify").call_tuple((enable_z3,))?.try_into()
 }
 
 /// Plan storage by moving allocations and reusing compatible storage

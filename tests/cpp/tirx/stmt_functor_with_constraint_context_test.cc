@@ -27,24 +27,6 @@
 
 namespace tvm::tirx {
 namespace {
-TEST(ConstraintFunctor, MutatorEnablesDefaultZ3Fallback) {
-  PrimVar x("x", PrimType::Int(32)), y("y", PrimType::Int(32));
-  PrimExpr predicate = x * x + y * y >= IntImm::Int32(2) * x * y;
-  sym::Analyzer standalone;
-  bool has_z3 = standalone->z3_prover.IsEnabled();
-  EXPECT_FALSE(standalone->CanProve(predicate));
-  EXPECT_EQ(standalone->CanProve(predicate, sym::ProofStrength::kSymbolicBound), has_z3);
-
-  struct Probe : StmtExprMutatorWithConstraintContext {
-    using StmtExprMutatorWithConstraintContext::GetSyncedAnalyzer;
-    using StmtExprMutatorWithConstraintContext::StmtExprMutatorWithConstraintContext;
-  };
-  auto mutator = ffi::make_object<Probe>();
-  auto scoped = ffi::make_object<Probe>(sym::ConstraintContext());
-  EXPECT_EQ(mutator->GetSyncedAnalyzer()->CanProve(predicate), has_z3);
-  EXPECT_EQ(scoped->GetSyncedAnalyzer()->CanProve(predicate), has_z3);
-}
-
 TEST(ConstraintFunctorDeathTest, RuntimeVisitExpressionSpecializations) {
   // Type attributes are single-assignment; keep registration local to the child process.
   ASSERT_EXIT(([] {

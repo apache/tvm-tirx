@@ -316,8 +316,7 @@ class TVM_TIRX_DLL StmtExprVisitorWithConstraintContext
 class TVM_TIRX_DLL StmtExprMutatorWithConstraintContext
     : public ObjectMutatorWithConstraintContext {
  public:
-  /*! \brief Construct a mutator whose analyzer enables DEFAULT-strength Z3 fallback. */
-  StmtExprMutatorWithConstraintContext() : StmtExprMutatorWithConstraintContext(GlobalVTable()) {}
+  StmtExprMutatorWithConstraintContext() : ObjectMutatorWithConstraintContext(GlobalVTable()) {}
   /*! \brief Capture the supplied environment; the mutator owns its analyzer and local facts. */
   explicit StmtExprMutatorWithConstraintContext(const sym::ConstraintContext& context)
       : StmtExprMutatorWithConstraintContext() {
@@ -605,9 +604,7 @@ class TVM_TIRX_DLL StmtExprMutatorWithConstraintContext
 
   /*! \brief Construct with a finalized table extended by a native subclass. */
   explicit StmtExprMutatorWithConstraintContext(const VTable* table)
-      : ObjectMutatorWithConstraintContext(table) {
-    analyzer_->SetZ3DefaultFallback(true);
-  }
+      : ObjectMutatorWithConstraintContext(table) {}
 
   static void InitVTable(VTable* table);
 
