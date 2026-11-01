@@ -18,6 +18,14 @@
 
 set -euxo pipefail
 
+# Use the same bundled interpreter and toolchain for manylinux builds and consumers.
+if [ -d /opt/python ]; then
+    export PATH="/opt/python/cp312-cp312/bin:/opt/rh/gcc-toolset-14/root/usr/bin:/usr/local/cuda/bin:$HOME/.local/bin:$PATH"
+    test -x /opt/python/cp312-cp312/bin/python3
+    export CC=gcc CXX=g++
+    python3 -m pip install --user uv
+fi
+
 rm -rf dist
 unset PYTHONPATH TVM_LIBRARY_PATH TVM_FFI_LIBRARY_PATH TVM_TIRX_LIBRARY_PATH
 export PYTHONNOUSERSITE=1
@@ -25,4 +33,5 @@ uv venv --clear --python "$(command -v python3)"
 source .venv/bin/activate
 uv sync --only-group build
 uv build --wheel --no-build-isolation --offline --out-dir dist ./3rdparty/tvm-ffi
-uv pip install --no-deps --offline --reinstall dist/apache_tvm_ffi-*.whl
+# Binding checks import FFI's Python package, including its runtime dependencies.
+uv pip install --reinstall dist/apache_tvm_ffi-*.whl

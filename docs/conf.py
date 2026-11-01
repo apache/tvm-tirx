@@ -74,6 +74,9 @@ WARNINGS               = YES
 WARN_AS_ERROR          = NO
 """
 
+if "DOXYGEN_NUM_PROC_THREADS" in os.environ:
+    exhaleDoxygenStdin += f"\nNUM_PROC_THREADS = {os.environ['DOXYGEN_NUM_PROC_THREADS']}\n"
+
 exhaleAfterTitleDescription = """
 This page contains the full API index for the C++ API.
 """

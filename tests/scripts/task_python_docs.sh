@@ -19,11 +19,14 @@
 set -euxo pipefail
 
 source ./tests/scripts/test_task_install_dist_wheels.sh --group docs
+# Keep function-pointer XML compatible with Breathe.
+uv pip install mlc-doxygen-bin==1.17.0
 # cargo for the Rust API reference; the crate's build script finds the installed wheel's
 # libtvm_tirx_compiler through the tvm-tirx-config of the activated .venv.
 # Rust 1.84's rustdoc crashes on proc-macro doc links (rust-lang/rust#134715).
 source ./tests/scripts/task_install_rust.sh 1.85.1
 rm -rf docs/_build docs/reference/python/generated
-BUILD_CPP_DOCS=1 BUILD_RUST_DOCS=1 uv run --no-sync python -m sphinx -E -a -b html -d docs/_build/doctrees -W --keep-going docs docs/_build/html
+export DOXYGEN_NUM_PROC_THREADS=0
+BUILD_CPP_DOCS=1 BUILD_RUST_DOCS=1 uv run --no-sync python -m sphinx -j auto -E -a -b html -d docs/_build/doctrees -W --keep-going docs docs/_build/html
 git rev-parse HEAD > docs/_build/html/commit_hash
 tar -czf docs.tgz -C docs/_build/html .

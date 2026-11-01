@@ -1986,13 +1986,13 @@ UnchangedOr<PrimExpr> RewriteSimplifier::Impl::Mutate_(const prim::NotObj* op,
 }
 
 PrimExpr RewriteSimplifier::Impl::ApplyRewriteRules(prim::Not ret, InplaceMode inplace_mode) {
-  // Pattern var to match any expression
-  PVar<PrimExpr> x, y;
-  PVar<PrimExpr> lanes;
   if (IsVectorExpr(ret.get())) {
+    PVar<PrimExpr> x, lanes;
     TVM_TRY_REWRITE(!broadcast(x, lanes), broadcast(!x, lanes));
   }
 
+  // Pattern var to match any expression
+  PVar<PrimExpr> x, y;
   TVM_TRY_REWRITE(!(!x), x);
   TVM_TRY_REWRITE(!(x <= y), y < x);
   TVM_TRY_REWRITE(!(x >= y), x < y);

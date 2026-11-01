@@ -19,7 +19,7 @@ import org.jenkinsci.plugins.pipeline.modeldefinition.Utils
 
 // ------ Config ------
 // Keep image names aligned with docker-images.ini. Tags are resolved in prepare.
-image_platforms = [ci_arm: 'ARM', ci_cpu: 'CPU', ci_gpu: 'GPU']
+image_platforms = [ci_arm: 'ARM', ci_cpu: 'CPU', ci_gpu: 'GPU', ci_extra: 'EXTRA']
 // Resolve Hub inputs through the caller account ECR cache; false keeps public names.
 enable_docker_hub_cache = true
 max_time = 180
@@ -34,16 +34,16 @@ jenkins_scripts_root = 'ci/jenkins/scripts'
 images = image_platforms.collectEntries { name, platform -> [(name): ''] }
 source_images = [:]
 upstream_revision = null
-s3_prefix = "tvm/${env.BRANCH_NAME}/${env.BUILD_NUMBER}"
+s3_prefix = "tvm/${env.JOB_NAME}/${env.BUILD_NUMBER}"
 
 properties([parameters(image_platforms.collect { name, platform ->
   string(name: "${name}_param", defaultValue: '')
 })])
 
-// Shared utilities; platform Jenkinsfiles own stages, parallel groups and commands.
+// Shared utilities; the Jenkinsfile owns stages, parallel groups and commands.
 
 def per_exec_ws(folder) {
-  return "workspace/exec_${env.EXECUTOR_NUMBER}/" + folder
+  return "workspace/${env.JOB_NAME}/exec_${env.EXECUTOR_NUMBER}/" + folder
 }
 
 def update_upstream_revision(git_ref) {
@@ -219,7 +219,7 @@ def should_skip_ci(pr_number) {
 def prepare(node_type) {
   stage('Prepare') {
     node(node_type) {
-      ws("workspace/exec_${env.EXECUTOR_NUMBER}/tvm/prepare") {
+      ws(per_exec_ws('tvm/prepare')) {
         init_git()
 
         images.keySet().each { name ->
@@ -230,16 +230,23 @@ def prepare(node_type) {
           ).trim()
         }
         if (env.DETERMINE_DOCKER_IMAGES == 'yes') {
-          sh(
-            script: "./${jenkins_scripts_root}/determine_docker_images.py ${images.keySet().join(' ')}",
-            label: 'Decide whether to use tlcpack or tlcpackstaging for Docker images',
-          )
-          images.keySet().each { name ->
-            images[name] = sh(
-              script: "cat .docker-image-names/${name}",
-              label: "Find docker image name for ${name}",
-              returnStdout: true,
-            ).trim()
+          // Quay images have explicit published names. Older target-trusted
+          // helpers only understand Hub/ECR; keep using those helpers for EXTRA.
+          def images_to_check = images.findAll { name, image ->
+            !image.startsWith('quay.io/')
+          }.keySet().toList()
+          if (images_to_check) {
+            sh(
+              script: "./${jenkins_scripts_root}/determine_docker_images.py ${images_to_check.join(' ')}",
+              label: 'Decide whether to use tlcpack or tlcpackstaging for Docker images',
+            )
+            images_to_check.each { name ->
+              images[name] = sh(
+                script: "cat .docker-image-names/${name}",
+                label: "Find docker image name for ${name}",
+                returnStdout: true,
+              ).trim()
+            }
           }
         }
         def cache = ''
@@ -333,20 +340,8 @@ def download_artifacts(tag) {
 def docker_init(image) {
   // Forget compiler wrappers cached before the temporary sccache bypass.
   sh 'rm -f build/CMakeCache.txt 3rdparty/tvm-ffi/build/CMakeCache.txt'
-  // Clear out all Docker images that aren't going to be used
-  sh(
-    script: """
-    set -eux
-    docker image ls --all
-    IMAGES=\$(docker image ls --all --format '{{.Repository}}:{{.Tag}}  {{.ID}}')
-
-    echo -e "Found images:\\n\$IMAGES"
-    echo "\$IMAGES" | { grep -vE '${image}' || test \$? = 1; } | { xargs docker rmi || test \$? = 123; }
-
-    docker image ls --all
-    """,
-    label: 'Clean old Docker images',
-  )
+  // Other parallel branches may have pulled an image but not started it yet.
+  // Do not remove images from the shared daemon during a build.
 
   if (ecr_registry(image)) {
     ecr_pull(image)

@@ -16,16 +16,16 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# Compile the backends excluded from the GPU test wheel without running them.
+# Build the alternate backend wheel independently of the CUDA test artifacts.
 set -euxo pipefail
 
-# Keep these libraries separate from the published GPU wheel artifacts.
-unset PYTHONPATH TVM_LIBRARY_PATH TVM_FFI_LIBRARY_PATH TVM_TIRX_LIBRARY_PATH
-export PYTHONNOUSERSITE=1
-source .venv/bin/activate
-uv sync --only-group build
-uv pip install --no-deps --offline --reinstall dist/apache_tvm_ffi-*.whl
-uv run --no-sync cmake -S . -B build -GNinja -DCMAKE_BUILD_TYPE=RelWithDebInfo \
-    -DTVM_TIRX_USE_OPENCL=ON -DTVM_TIRX_USE_VULKAN=ON -DTVM_TIRX_USE_ROCM=ON \
+export CMAKE_ARGS="
+    -DTVM_TIRX_BUILD_TESTS=OFF
+    -DTVM_TIRX_USE_RUST=OFF
+    -DTVM_TIRX_USE_CUDA=OFF
+    -DTVM_TIRX_USE_OPENCL=ON
+    -DTVM_TIRX_USE_VULKAN=ON
+    -DTVM_TIRX_USE_ROCM=ON
     -DCMAKE_CXX_FLAGS=-Werror
-uv run --no-sync cmake --build build --target tvm_tirx_compiler tvm_runtime_opencl tvm_runtime_vulkan tvm_runtime_rocm
+"
+uv build --wheel --no-build-isolation --offline --out-dir dist .

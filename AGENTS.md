@@ -42,7 +42,7 @@ tests/scripts/      Build, wheel, test, and documentation entry points
 docs/               Sphinx Python reference and autosummary templates
 cmake/              Build modules, dependency finders, and package configuration
 3rdparty/           TVM FFI submodule and compiler support code
-ci/jenkins/         Linux CPU, GPU, and ARM pipelines
+ci/jenkins/         Unified Linux ARM, GPU, and EXTRA pipeline
 ci/wheel/           Wheel-build support
 .github/            GitHub Actions and reusable build actions
 ```
@@ -212,9 +212,11 @@ qualified and related namespaces adjacent in the Python API navigation.
 ## CI
 
 GitHub Actions runs macOS and Windows checks and a separate lint workflow.
-Jenkins runs Linux CPU, GPU, and ARM builds and tests. The GPU pipeline builds
-the documentation alongside tests after the wheel build. The executable entry
-points are in `tests/scripts/`; consult them for the exact CI environment.
+Jenkins uses `ci/jenkins/jenkinsfile.groovy` for parallel ARM, GPU, and EXTRA
+branches. GPU builds one CUDA wheel for CPU tests, GPU tests, and documentation. ARM runs
+the Rust unit tests; CUDA queries are skipped when its runtime is unavailable.
+EXTRA builds alternate GPU backends without tests. Executable entry points are
+in `tests/scripts/`.
 
 ## Further reading
 

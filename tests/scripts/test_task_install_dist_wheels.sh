@@ -18,6 +18,14 @@
 
 set -euxo pipefail
 
+# Use the same bundled interpreter and toolchain for manylinux builds and consumers.
+if [ -d /opt/python ]; then
+    export PATH="/opt/python/cp312-cp312/bin:/opt/rh/gcc-toolset-14/root/usr/bin:/usr/local/cuda/bin:$HOME/.local/bin:$PATH"
+    test -x /opt/python/cp312-cp312/bin/python3
+    export CC=gcc CXX=g++
+    python3 -m pip install --user uv
+fi
+
 unset PYTHONPATH TVM_LIBRARY_PATH TVM_FFI_LIBRARY_PATH TVM_TIRX_LIBRARY_PATH
 export PYTHONNOUSERSITE=1
 uv venv --clear --python "$(command -v python3)"

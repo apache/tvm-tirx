@@ -18,8 +18,11 @@
 
 set -euxo pipefail
 
+source ./tests/scripts/task_install_rust.sh
+
 export CMAKE_ARGS="
     -DTVM_TIRX_BUILD_TESTS=ON
+    -DTVM_TIRX_USE_RUST=ON
     -DTVM_TIRX_USE_CUDA=ON
     -DTVM_TIRX_USE_VULKAN=OFF
     -DTVM_TIRX_USE_OPENCL=OFF
@@ -29,3 +32,6 @@ export CMAKE_ARGS="
 uv build --wheel --no-build-isolation --offline --out-dir dist .
 
 ./build/tirx_cpptest
+
+# The generated Rust bindings must match the types of this build.
+uv run --no-sync python -m tvm_ffi.stub.cli rust/src --target rust --dlls build/lib/libtvm_tirx_compiler.so --check

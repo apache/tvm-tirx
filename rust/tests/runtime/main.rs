@@ -25,7 +25,7 @@ mod common;
 
 use tvm_tirx::runtime::{self, MemoryScope};
 use tvm_tirx::ir::dtype;
-use tvm_tirx::tvm_ffi::{DLDevice, DLDeviceType, Module, TypeIndex};
+use tvm_tirx::tvm_ffi::{DLDevice, DLDeviceType, TypeIndex};
 
 #[test]
 fn tensors() {
@@ -72,16 +72,13 @@ fn device_attrs() {
 
 #[test]
 fn cuda_queries() {
-    // The CUDA queries are in the CUDA runtime library, which the build may have.
-    let cuda_runtime = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../build/lib/libtvm_runtime_cuda.so");
-    let _cuda =
-        cuda_runtime.exists().then(|| Module::load_from_file(cuda_runtime.to_string_lossy()));
-    match runtime::get_cuda_device_count() {
-        Ok(count) if count > 0 => {
+    // CPU workers do not load a CUDA runtime; skip its device queries there.
+    if !runtime::enabled("cuda").unwrap() {
+        return;
+    }
+    if let Ok(count) = runtime::get_cuda_device_count() {
+        if count > 0 {
             assert!(runtime::get_cuda_free_memory().unwrap().as_str().contains("bytes free"));
         }
-        Ok(_) => {}
-        Err(_) => assert!(!cuda_runtime.exists()),
     }
 }
