@@ -456,9 +456,9 @@ class IntSetAnalyzer {
 class Z3Prover {
  public:
   /*!
-   * \brief Whether Z3 is available in this build and enabled for the owning analyzer.
+   * \brief Whether the Z3 backend is compiled into this build (TVM_TIRX_USE_Z3=ON).
    *
-   * \return true if the backend is available and enabled, false otherwise.
+   * \return true if the real Z3 prover is available, false for the stub.
    */
   TVM_TIRX_DLL bool IsEnabled() const;
 
@@ -555,8 +555,6 @@ class Z3Prover {
  */
 class TVM_TIRX_DLL AnalyzerObj : public ffi::Object {
  public:
-  /*! \brief Whether this analyzer may use Z3. Fixed at construction and preserved by Clone. */
-  const bool enable_z3;
   /*! \brief sub-analyzer: const integer bound */
   ConstIntBoundAnalyzer const_int_bound;
   /*! \brief sub-analyzer: modular set */
@@ -570,7 +568,16 @@ class TVM_TIRX_DLL AnalyzerObj : public ffi::Object {
   /*! \brief sub-analyzer using Z3 */
   Z3Prover z3_prover;
   /*! \brief Construct an analyzer with no accepted premises and default query settings. */
-  explicit AnalyzerObj(bool enable_z3 = true);
+  AnalyzerObj();
+  /*!
+   * \brief Set whether DEFAULT-strength queries try Z3 after native analysis fails.
+   *
+   * Enabled by default. This setting is local to the analyzer and preserved by Clone.
+   * Stronger proof queries and direct Z3 APIs are unaffected. Disabling the fallback
+   * does not clear accepted premises or existing solver state.
+   * \param enabled Whether to allow the DEFAULT-strength Z3 fallback.
+   */
+  void SetZ3DefaultFallback(bool enabled);
   /*!
    * \brief Synchronize all derived facts to the supplied premise environment.
    *
@@ -660,7 +667,8 @@ class TVM_TIRX_DLL AnalyzerObj : public ffi::Object {
    * \note Analyzer will call into sub-analyzers to get the result.
    * Do not use strength beyond default in sub-analyzers and
    * only use it in top-level predicate analysis.
-   * When Z3 is enabled for this analyzer, all strengths try it after native analysis fails.
+   * When built with Z3, all strengths try it after native analysis fails, unless
+   * SetZ3DefaultFallback(false) disables the fallback for DEFAULT-strength queries.
    * Z3's existing resource limit and timeout apply; unknown means cannot prove.
    */
   bool CanProve(const PrimExpr& cond, ProofStrength strength = ProofStrength::kDefault);
@@ -706,6 +714,8 @@ class TVM_TIRX_DLL AnalyzerObj : public ffi::Object {
 
  private:
   friend class detail::TempConstraintScope;
+  // Policy for DEFAULT-strength queries; explicit stronger queries can still use Z3.
+  bool z3_default_fallback_{true};
   // Record a value binding after AnalyzerObj validates and orders the premises.
   void IngestBinding(const Var& var, const PrimExpr& expr);
   // Record a half-open variable range from the accepted premise prefix.
@@ -739,8 +749,8 @@ class TVM_TIRX_DLL AnalyzerObj : public ffi::Object {
  */
 class Analyzer : public ffi::ObjectRef {
  public:
-  /*! \brief Construct a fresh analyzer, optionally disabling Z3 for this instance. */
-  explicit Analyzer(bool enable_z3 = true) : Analyzer(ffi::make_object<AnalyzerObj>(enable_z3)) {}
+  /*! \brief Construct a fresh analyzer. */
+  Analyzer() : Analyzer(ffi::make_object<AnalyzerObj>()) {}
   /*! \brief Adopt a reference to a non-null analyzer object. */
   explicit Analyzer(ffi::ObjectPtr<AnalyzerObj> n) : ffi::ObjectRef(std::move(n)) {
     TVM_FFI_ICHECK(this->get() != nullptr);

@@ -49,14 +49,15 @@ void AllowUIntAsIndex::ExitWithScope() {
   --depth_;
 }
 
-AnalyzerObj::AnalyzerObj(bool enable_z3)
-    : enable_z3(enable_z3),
-      const_int_bound(this),
+AnalyzerObj::AnalyzerObj()
+    : const_int_bound(this),
       modular_set(this),
       rewrite_simplify(this),
       canonical_simplify(this),
       int_set(this),
       z3_prover(this) {}
+
+void AnalyzerObj::SetZ3DefaultFallback(bool enabled) { z3_default_fallback_ = enabled; }
 
 ConstraintContext AnalyzerObj::GetConstraintContext() const {
   // Never return the sealed internal position: callers may extend this child.
@@ -314,9 +315,10 @@ bool AnalyzerObj::CanProve(const PrimExpr& expr, ProofStrength strength) {
     }
   }
 
-  // Native analysis runs first. Z3 is the final best-effort fallback at every
-  // strength, including default queries from recursive simplification.
-  if (z3_prover.CanProve(simplified)) {
+  // Native analysis runs first. Explicit stronger queries retain the Z3 fallback
+  // even when it is disabled for default queries from recursive simplification.
+  if ((z3_default_fallback_ || strength >= ProofStrength::kSymbolicBound) &&
+      z3_prover.CanProve(simplified)) {
     return true;
   }
   return false;
@@ -344,7 +346,8 @@ PrimExpr AnalyzerObj::Simplify(const PrimExpr& expr, int steps) {
 }
 
 Analyzer AnalyzerObj::Clone() const {
-  Analyzer cloned(enable_z3);
+  Analyzer cloned;
+  cloned->SetZ3DefaultFallback(z3_default_fallback_);
   cloned->const_int_bound.CopyFrom(this->const_int_bound);
   cloned->modular_set.CopyFrom(this->modular_set);
   cloned->rewrite_simplify.CopyFrom(this->rewrite_simplify);
@@ -359,8 +362,9 @@ TVM_FFI_STATIC_INIT_BLOCK() {
   namespace refl = tvm::ffi::reflection;
   refl::ObjectDef<AnalyzerObj>();
   refl::GlobalDef()
-      .def("sym.Analyzer", [](bool enable_z3) { return Analyzer(enable_z3); })
+      .def("sym.Analyzer", []() { return Analyzer(); })
       .def("sym.AnalyzerClone", [](Analyzer analyzer) { return analyzer->Clone(); })
+      .def_method("sym.AnalyzerSetZ3DefaultFallback", &AnalyzerObj::SetZ3DefaultFallback)
       .def_method("sym.AnalyzerSyncConstraintContext", &AnalyzerObj::SyncConstraintContext)
       .def_method("sym.AnalyzerGetConstraintContext", &AnalyzerObj::GetConstraintContext)
       .def("sym.AnalyzerConstIntBound",

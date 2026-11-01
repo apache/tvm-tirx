@@ -88,8 +88,9 @@ class Layout(tvm_ffi.Object):
         analyzer optionally supplies caller-owned analysis state for repeated
         queries. Its premises may simplify the result; this method adds no
         persistent premises and does not retain the analyzer. Concurrent calls
-        must use separate analyzers. Without it, a temporary analyzer with Z3
-        disabled is created; pass an analyzer explicitly to enable Z3.
+        must use separate analyzers. Without it, a temporary analyzer with the
+        DEFAULT-strength Z3 fallback disabled is created. Pass an analyzer
+        explicitly to control its proof settings.
 
         Returns
         -------
@@ -97,7 +98,8 @@ class Layout(tvm_ffi.Object):
             The mapped output (axis name -> value on the axis)
         """
         if analyzer is None:
-            analyzer = tvm_tirx.sym.Analyzer(enable_z3=False)
+            analyzer = tvm_tirx.sym.Analyzer()
+            analyzer.set_z3_default_fallback(False)
         if shape is not None:
             return _ffi_api.LayoutApplyWithShape(self, coord, shape, analyzer)  # pylint: disable=no-member
         if len(coord) == 1:

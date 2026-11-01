@@ -394,7 +394,8 @@ ffi::Array<PrimExpr> TensorTypeObj::ElemOffset(ffi::Array<PrimExpr> input_indice
       << "TensorType is " << shape.size() << "-dimensional, cannot be indexed with the "
       << input_indices.size() << "-dimensional indices provided.";
 
-  sym::Analyzer ana(false);
+  sym::Analyzer ana;
+  ana->SetZ3DefaultFallback(false);
   if (layout.has_value()) {
     auto mapped = layout.value().Apply(input_indices, shape, ana.get());
     if (mapped.empty() && shape.empty()) {

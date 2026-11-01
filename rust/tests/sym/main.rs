@@ -89,8 +89,7 @@ struct Fixture {
 fn fixture() -> Fixture {
     let x = var("x");
     // A typed `Analyzer` handle goes through `call_tuple` like any other object.
-    let analyzer: Analyzer =
-        global("sym.Analyzer").call_tuple((true,)).unwrap().try_into().unwrap();
+    let analyzer: Analyzer = global("sym.Analyzer").call_tuple(()).unwrap().try_into().unwrap();
     let constraints = context([range_constraint(&x, range(0, 16))]);
     global("sym.AnalyzerSyncConstraintContext")
         .call_packed(&[

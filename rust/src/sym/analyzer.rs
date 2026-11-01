@@ -416,16 +416,21 @@ pub struct AllowUintAsIndexScope(ExitOnDrop);
 impl Analyzer {
     /// A fresh analyzer that knows no facts (`sym.Analyzer`).
     pub fn new() -> Self {
-        Self::with_z3(true)
-    }
-
-    /// A fresh analyzer with Z3 explicitly enabled or disabled for this instance.
-    pub fn with_z3(enable_z3: bool) -> Self {
         support::infallible(
             tvm_ffi::cached_global_func!("sym.Analyzer")
-                .call_tuple((enable_z3,))
+                .call_tuple(())
                 .and_then(|any| any.try_into()),
         )
+    }
+
+    /// Set whether default-strength queries try Z3 after native analysis fails.
+    ///
+    /// Enabled by default and preserved by `deep_clone`. Stronger queries and direct Z3
+    /// APIs are unaffected. This does not clear accepted premises or solver state.
+    pub fn set_z3_default_fallback(&self, enabled: bool) -> Result<()> {
+        tvm_ffi::cached_global_func!("sym.AnalyzerSetZ3DefaultFallback")
+            .call_tuple((self, enabled))?;
+        Ok(())
     }
 
     /// A copy of the analyzer and the facts it knows (`sym.AnalyzerClone`).
@@ -543,7 +548,7 @@ impl Analyzer {
         result.try_into()
     }
 
-    /// Whether Z3 is available and enabled for this analyzer (`sym.AnalyzerIsZ3Enabled`).
+    /// Whether the analyzer was built with the Z3 prover (`sym.AnalyzerIsZ3Enabled`).
     pub fn is_z3_enabled(&self) -> Result<bool> {
         tvm_ffi::cached_global_func!("sym.AnalyzerIsZ3Enabled").call_tuple((self,))?.try_into()
     }

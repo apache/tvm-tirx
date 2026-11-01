@@ -1476,11 +1476,12 @@ def test_compose_structured_apply_falls_back_to_full_swizzle(case):
 
 @pytest.mark.parametrize("mode", ["coordinates", "linear", "shaped"])
 @pytest.mark.parametrize("kind", ["tile", "compose", "full_swizzle"])
-@pytest.mark.parametrize("enable_z3", [True, False])
-def test_layout_apply_with_reused_analyzer(mode, kind, enable_z3):
+@pytest.mark.parametrize("default_fallback", [True, False])
+def test_layout_apply_with_reused_analyzer(mode, kind, default_fallback):
     tile = TileLayout(S[(8, 8) : (64, 1)] + 8)
     layout = tile if kind == "tile" else ComposeLayout(3, 3, 3, tile, kind != "full_swizzle")
-    analyzer = tvm_tirx.sym.Analyzer(enable_z3=enable_z3)
+    analyzer = tvm_tirx.sym.Analyzer()
+    analyzer.set_z3_default_fallback(default_fallback)
     x, y = Var("x", "int32"), Var("y", "int32")
     for offset in (0, 1, 3, 0):
         if mode == "linear":
