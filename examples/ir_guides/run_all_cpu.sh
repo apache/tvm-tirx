@@ -27,3 +27,6 @@ fi
 
 # Functions, modules, and global variables
 python functions_and_modules.py
+
+# Structural walk, map, visit, and mutate
+python structural_utilities.py
