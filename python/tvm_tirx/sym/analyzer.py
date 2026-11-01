@@ -95,7 +95,7 @@ class Analyzer(tvm_ffi.Object):
     def set_z3_default_fallback(self, enabled: bool) -> None:
         """Set whether DEFAULT-strength queries try Z3 after native analysis fails.
 
-        Enabled by default. This setting is local to this analyzer and preserved
+        Disabled by default. This setting is local to this analyzer and preserved
         by clone(). Stronger proof queries and Z3-specific APIs are unaffected.
         Changing it does not clear accepted premises or existing solver state.
         Z3 must also be available in the native build.
@@ -339,10 +339,10 @@ class Analyzer(tvm_ffi.Object):
 
         strength: ProofStrength
             The proof strength. ``SYMBOLIC_BOUND`` additionally enables symbolic
-            bound analysis. When built with Z3 (``TVM_TIRX_USE_Z3=ON``), all
-            strengths, including ``DEFAULT``, try Z3 after native analysis fails
-            to prove the predicate. :py:meth:`set_z3_default_fallback` can disable
-            this fallback for ``DEFAULT`` without affecting stronger queries.
+            bound analysis. When built with Z3 (``TVM_TIRX_USE_Z3=ON``), explicit
+            stronger queries try Z3 after native analysis fails to prove the
+            predicate. ``DEFAULT`` queries only try Z3 when explicitly enabled
+            with :py:meth:`set_z3_default_fallback`.
             The existing Z3 timeout and resource limits apply; an unknown solver
             result means the predicate cannot be proved.
 

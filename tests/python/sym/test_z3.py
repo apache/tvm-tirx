@@ -26,14 +26,16 @@ import tvm_tirx.testing
 from tvm_tirx import tirx
 from tvm_tirx.sym import Analyzer, ProofStrength
 
-# Both strengths use Z3 after native analysis; SYMBOLIC_BOUND additionally
-# enables symbolic interval reasoning.
+# DEFAULT can opt into Z3; SYMBOLIC_BOUND retains its Z3 fallback and
+# additionally enables symbolic interval reasoning.
 SB = ProofStrength.SYMBOLIC_BOUND
 
 
 def _require_z3(analyzer):
     if not analyzer.is_z3_enabled:
         pytest.skip("Z3 prover is disabled in this build")
+    # Translation tests exercise the explicitly enabled DEFAULT fallback as well.
+    analyzer.set_z3_default_fallback(True)
 
 
 def implies(x, y):
@@ -914,7 +916,8 @@ def test_z3_default_fallback_nonlinear_inequality(default_fallback, strength):
     assert analyzer.can_prove(expr, strength) == (
         analyzer.is_z3_enabled and (not default_fallback or strength == SB)
     )
-    assert Analyzer().can_prove(expr) == analyzer.is_z3_enabled
+    assert not Analyzer().can_prove(expr)
+    assert Analyzer().can_prove(expr, SB) == analyzer.is_z3_enabled
     assert analyzer.can_prove(x == x)
     # Equality at x == y is a counterexample to the strict inequality.
     assert not analyzer.can_prove(x * x + y * y > 2 * (x * y))
@@ -935,7 +938,7 @@ def test_z3_default_fallback_clone_preserves_independent_resource_limit():
     assert analyzer.can_prove(expr)
     assert not cloned.can_prove(expr)
     assert cloned.can_prove(x == x)
-    assert Analyzer().can_prove(expr)
+    assert not Analyzer().can_prove(expr)
 
 
 @pytest.mark.parametrize("default_fallback", [True, False])
@@ -962,6 +965,7 @@ def test_z3_default_fallback_scopes_and_resource_limit(default_fallback):
     assert not analyzer.can_prove(positive_square)
 
     limited = Analyzer()
+    limited.set_z3_default_fallback(True)
     limited.set_z3_rlimit(1)
     a, b = tirx.Var("a", "int32"), tirx.Var("b", "int32")
     assert not limited.can_prove(a * a + b * b >= 2 * a * b)
