@@ -682,6 +682,17 @@ class IterMapRewriter : public tvm::ExprMutator {
       if (predicate_induced_max.has_value())
         predicate_induced_max = predicate_induced_max.value() - base;
     }
+    // A constraint without iterators (e.g. i - i >= 0) does not restrict any iterator.
+    if (expr->args.empty()) {
+      bool holds_min = !predicate_induced_min.has_value() ||
+                       analyzer_->CanProve(predicate_induced_min.value() <= 0);
+      bool holds_max = !predicate_induced_max.has_value() ||
+                       analyzer_->CanProve(predicate_induced_max.value() > 0);
+      if (!holds_min || !holds_max) {
+        ErrorLogger(this) << "Constraint without iterators is not always true.";
+      }
+      return expr;
+    }
     ffi::Optional<IterSumExpr> opt = TryFuseIters(expr, check_level_, false);
     TVM_FFI_ICHECK(!opt.has_value() || opt.value()->args.size() == 1);
     // scale should be 1
@@ -1246,7 +1257,13 @@ class IterMapRewriter : public tvm::ExprMutator {
         } else {
           rhs.CopyOnWrite()->scale = lvalue->scale - rhs->scale;
         }
-        lhs->args.Set(i, rhs);
+        // Terms that cancel out (e.g. i - i) must not stay as a zero-scale split,
+        // since later fusion divides by the smallest scale.
+        if (IsZero(rhs->scale)) {
+          lhs->args.erase(lhs->args.begin() + i);
+        } else {
+          lhs->args.Set(i, rhs);
+        }
         return;
       }
     }
