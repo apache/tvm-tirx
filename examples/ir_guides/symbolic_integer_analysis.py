@@ -58,6 +58,7 @@ assert str(index) == "i // 4 * 4 + i % 4"
 assert analyzer.simplify(index).same_as(loop_1d.var)
 
 # [prove.begin]
+analyzer.set_z3_default_fallback(True)
 loop = add_one_2d.body.seq[0]  # for i in range(n * 4)
 i = loop.var
 print(analyzer.can_prove(i // 4 < n))
@@ -111,6 +112,7 @@ def add_one_guarded(A: T.Tensor((n, 4), T.float32), B: T.Tensor((n, 4), T.float3
 from tvm_tirx import tirx
 
 guard_analyzer = sym.Analyzer()
+guard_analyzer.set_z3_default_fallback(True)
 proven = []
 
 
