@@ -1045,10 +1045,10 @@ impl From<bool> for IntImm {
 }
 
 /// What converts to an expression, possibly failing: anything that converts into an [`Expr`] (a
-/// node, a `Var`, a Rust `i32`, `f32` and the like), and an [`Ex`](crate::ir::prim::Ex), an
+/// node, a `Var`, a Rust `i32`, `f32` and the like), and an [`ExprResult`](crate::ir::prim::ExprResult), an
 /// expression under construction, which gives the first error any of its steps raised. The
 /// constructors and functions that can fail take their expression operands as `impl IntoExpr`, so
-/// an `Ex` passes straight in and `?` on their result covers it.
+/// an `ExprResult` passes straight in and `?` on their result covers it.
 pub trait IntoExpr {
     fn into_expr(self) -> Result<Expr>;
 }

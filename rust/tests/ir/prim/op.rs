@@ -20,10 +20,11 @@
 //! Tests of `ir::prim::op`: the type-promoting operators and the math functions written in Rust,
 //! against the native functions they follow (`prim._OpAdd` and the like). Every binary operator
 //! runs on every pair of a grid of operands, which must give the same expression or an error of
-//! the same kind with the same message. Literals are typed, and `-`, `!` and an `Ex` chain build,
+//! the same kind with the same message. Literals are typed, and `-`, `!` and an `ExprResult` chain build,
 //! as in C++.
 
-use tvm_tirx::ir::prim::op::{self, ex, Ex, PrimOps};
+use tvm_tirx::ir::prim::op::{self, ExprResult, PrimOps};
+use tvm_tirx::ir::IntoExpr;
 use tvm_tirx::ir::prim::{self, Add, Broadcast, BroadcastObj, Cast, CastObj, Not, Ramp, RampObj, Sub};
 use tvm_tirx::ir::{
     Call, Expr, FloatImm, IntImm, Location, Op, PrimType, Range, SourceLoc, SourceName, StringImm,
@@ -79,8 +80,8 @@ fn native1(name: &str, x: &Expr) -> Result<Any> {
     global(name).call_tuple((x.clone(), Location::unknown()))
 }
 
-fn same(built: Ex, expected: &Expr) -> bool {
-    structural_equal(&built.expr().unwrap(), expected)
+fn same(built: ExprResult, expected: &Expr) -> bool {
+    structural_equal(&built.into_expr().unwrap(), expected)
 }
 
 /// The cases where the Rust operator and the native one disagree, and how many were compared.
@@ -215,7 +216,7 @@ fn operands() -> Vec<Expr> {
     operands
 }
 
-type Binary = fn(&Expr, &Expr) -> Ex;
+type Binary = fn(&Expr, &Expr) -> ExprResult;
 
 #[test]
 fn binary_operators_agree_with_cpp() {
@@ -257,7 +258,7 @@ fn binary_operators_agree_with_cpp() {
             for b in &operands {
                 let native = native_op.call_tuple((a.clone(), b.clone(), Location::unknown()));
                 let what = || format!("{name}({}, {})", repr(a), repr(b));
-                outcome.check(what, operator(a, b).expr(), native);
+                outcome.check(what, operator(a, b).into_expr(), native);
             }
         }
         outcome.assert_agrees(name);
@@ -278,7 +279,7 @@ fn unary_and_ternary_operators_agree_with_cpp() {
     let bitwise_not = global("prim.BitwiseNot");
     for a in &operands {
         let native = bitwise_not.call_tuple((a.clone(), Location::unknown()));
-        match a.bitwise_not().expr() {
+        match a.bitwise_not().into_expr() {
             Ok(rust) => outcome.check(|| format!("~{}", repr(a)), Ok(rust), native),
             Err(_) => assert!(native.is_err(), "~{}: only Rust rejects it", repr(a)),
         }
@@ -302,7 +303,7 @@ fn unary_and_ternary_operators_agree_with_cpp() {
                 let native =
                     if_then_else.call_tuple((c.clone(), t.clone(), f.clone(), Location::unknown()));
                 let what = || format!("if_then_else({}, {}, {})", repr(c), repr(t), repr(f));
-                outcome.check(what, c.if_then_else(t, f).expr(), native);
+                outcome.check(what, c.if_then_else(t, f).into_expr(), native);
             }
         }
     }
@@ -318,19 +319,19 @@ fn literals_and_compound_expressions_agree_with_cpp() {
     let mut outcome = Outcome::default();
     outcome.check(
         || "x + 3".into(),
-        (ex(&x) + 3).expr(),
+        (&x + 3).into_expr(),
         add.call_tuple((x.clone(), imm("int64", 3), Location::unknown())),
     );
     outcome.check(
         || "3 + x".into(),
-        (3i32 + &x).expr(),
+        (3i32 + &x).into_expr(),
         add.call_tuple((imm("int64", 3), x.clone(), Location::unknown())),
     );
     let floordiv = global("prim._OpFloorDiv");
-    let rust = ((ex(&x) + 0) * 1).floordiv(1);
+    let rust = ((&x + 0) * 1).floordiv(1);
     outcome.check(
         || "((x + 0) * 1) // 1".into(),
-        rust.expr(),
+        rust.into_expr(),
         floordiv.call_tuple((x.clone(), imm("int64", 1), Location::unknown())),
     );
     // Unary minus folds a constant whose negation fits its type and is `0 - x` otherwise.
@@ -340,7 +341,7 @@ fn literals_and_compound_expressions_agree_with_cpp() {
         let ty: PrimType = value.ty.clone().try_cast().unwrap();
         let zero = op::make_const(ty, 0).unwrap();
         let native = sub.call_tuple((zero, value.clone(), Location::unknown()));
-        outcome.check(|| format!("-{}", repr(&value)), (-&value).expr(), native);
+        outcome.check(|| format!("-{}", repr(&value)), (-&value).into_expr(), native);
     }
     outcome.assert_agrees("literals");
 }
@@ -381,9 +382,9 @@ fn literals_are_typed_as_in_cpp() {
     ));
 }
 
-/// An `Ex` passes into the free functions and the constructors, which report its error.
+/// An `ExprResult` passes into the free functions and the constructors, which report its error.
 #[test]
-fn an_ex_passes_into_functions_and_constructors() {
+fn expression_results_pass_into_functions_and_constructors() {
     let _serial = serial();
     let x = var("x", PrimType::int(32));
     // C++ `floordiv(x + 1, 4)`.
@@ -405,7 +406,7 @@ fn an_ex_passes_into_functions_and_constructors() {
     // The first error of the chain is what the function or constructor reports.
     let f = var("f", PrimType::float(32));
     let failed = f.truncdiv(&x) + 1;
-    let expected = failed.clone().expr().err().unwrap();
+    let expected = failed.clone().into_expr().err().unwrap();
     for error in [
         op::floordiv(failed.clone(), 4).err().unwrap(),
         op::floordiv(4, &failed).err().unwrap(),
@@ -448,14 +449,14 @@ fn unary_operators_follow_neg_and_logical_not() {
     let p = var("p", PrimType::bool());
     // `-x` is `MakeConst(x.ty(), 0) - x`; a constant is negated in place when the result fits.
     assert!(same(-&x, &native2("prim._OpSub", imm("int32", 0), &x)));
-    assert!(same(-ex(imm("int32", 5)), &imm("int32", -5)));
+    assert!(same(-imm("int32", 5), &imm("int32", -5)));
     let min = imm("int64", i64::MIN);
-    assert!(same(-ex(&min), &native2("prim._OpSub", imm("int64", 0), &min)));
-    assert!(same(-ex(fimm("float32", 0.0)), &fimm("float32", -0.0)));
+    assert!(same(-&min, &native2("prim._OpSub", imm("int64", 0), &min)));
+    assert!(same(-fimm("float32", 0.0), &fimm("float32", -0.0)));
     // `!p` is the raw `Not`; a constant folds.
     let not_p = Not::new(&p, UNKNOWN_LOC).unwrap();
     assert!(same(!&p, &not_p.into()));
-    assert!(same(!ex(imm("bool", 1)), &imm("bool", 0)));
+    assert!(same(!imm("bool", 1), &imm("bool", 0)));
 }
 
 #[test]
@@ -464,7 +465,7 @@ fn select_folding_and_the_first_error() {
     let x = var("x", PrimType::int(32));
     let r = var("r", PrimType::int(32));
     // `select` is the raw constructor, built from operands under construction.
-    let built = r.greater_equal(0).select(&r, &r - 1).expr().unwrap();
+    let built = r.greater_equal(0).select(&r, &r - 1).into_expr().unwrap();
     let cond = native2("prim._OpGE", &r, imm("int32", 0));
     let minus = native2("prim._OpSub", &r, imm("int32", 1));
     let expected: Expr = global("prim.Select")
@@ -476,11 +477,11 @@ fn select_folding_and_the_first_error() {
     // The raw `Sub` does not fold; the operator does.
     let raw = Sub::new(3, 1, UNKNOWN_LOC).unwrap();
     assert!(!structural_equal(&Expr::from(raw), &imm("int32", 2)));
-    assert!(same(ex(imm("int32", 3)) - 1, &imm("int32", 2)));
+    assert!(same(imm("int32", 3) - 1, &imm("int32", 2)));
 
     // Integer division of a float raises natively; later steps pass the error through.
     let f = var("f", PrimType::float(32));
-    let Err(error) = (f.truncdiv(&x) + 1).less(&x).expr() else { panic!("expected an error") };
+    let Err(error) = (f.truncdiv(&x) + 1).less(&x).into_expr() else { panic!("expected an error") };
     let direct = global("prim._OpTruncDiv").call_tuple((
         Expr::from(&f),
         Expr::from(&x),
@@ -491,7 +492,7 @@ fn select_folding_and_the_first_error() {
     assert_eq!(error.message(), direct.message());
     // A literal next to a non-PrimType expression has no dtype to take: an error, not a panic.
     let string: Expr = StringImm::new("s", UNKNOWN_LOC).into();
-    assert!((ex(&string) + 1).expr().is_err());
+    assert!((&string + 1).into_expr().is_err());
 }
 
 /// Variables and constants of the types the math functions treat differently.
@@ -533,7 +534,7 @@ fn values() -> Vec<Expr> {
 #[test]
 fn unary_functions_agree_with_cpp() {
     let _serial = serial();
-    type Unary = fn(&Expr) -> Ex;
+    type Unary = fn(&Expr) -> ExprResult;
     let functions: [(&str, Unary); 11] = [
         ("prim.floor", |x| x.floor()),
         ("prim.ceil", |x| x.ceil()),
@@ -549,7 +550,7 @@ fn unary_functions_agree_with_cpp() {
     ];
     for (name, function) in functions {
         for x in values() {
-            agree(&format!("{name}({})", repr(&x)), function(&x).expr(), native1(name, &x));
+            agree(&format!("{name}({})", repr(&x)), function(&x).into_expr(), native1(name, &x));
         }
     }
     // `round` folds a tie to even, as `std::nearbyint` does.
@@ -616,7 +617,7 @@ fn cast_agrees_with_cpp() {
             let ty = prim(name);
             let native =
                 global("prim._cast").call_tuple((x.clone(), ty.clone(), Location::unknown()));
-            agree(&format!("cast({}, {name})", repr(x)), x.cast(ty).expr(), native);
+            agree(&format!("cast({}, {name})", repr(x)), x.cast(ty).into_expr(), native);
         }
     }
 }
@@ -674,7 +675,7 @@ fn pow_and_fmod_agree_with_cpp() {
     ];
     for (x, y) in &pairs {
         let native = global("prim._OpPow").call_tuple((x.clone(), y.clone(), Location::unknown()));
-        agree(&format!("pow({}, {})", repr(x), repr(y)), x.pow(y).expr(), native);
+        agree(&format!("pow({}, {})", repr(x), repr(y)), x.pow(y).into_expr(), native);
     }
     // `fmod` has no global: the sides are matched and the call is typed as them.
     let (h, f) = (prim_var("float16"), prim_var("float32"));
@@ -683,8 +684,8 @@ fn pow_and_fmod_agree_with_cpp() {
     let ty: Type = PrimType::float(32).into();
     let expected =
         Call::new(Some(&ty), fmod, [widened, f.clone()], None, Vec::<Type>::new(), UNKNOWN_LOC);
-    assert!(structural_equal(&h.fmod(&f).expr().unwrap(), &expected.unwrap()));
-    let error = prim_var("int32").fmod(imm("int32", 2)).expr().err().unwrap();
+    assert!(structural_equal(&h.fmod(&f).into_expr().unwrap(), &expected.unwrap()));
+    let error = prim_var("int32").fmod(imm("int32", 2)).into_expr().err().unwrap();
     assert!(error.message().contains("fmod only applies to float"), "{}", error.message());
 }
 
@@ -709,7 +710,7 @@ fn intrinsics_are_typed_calls() {
     let i = prim_var("int32");
     assert!(same(i.exp(), &call("int32", "prim.exp", vec![i.clone()])));
     assert!(same(i.clz(), &call("int32", "prim.clz", vec![i.clone()])));
-    let error = i.tan().expr().err().unwrap();
+    let error = i.tan().into_expr().err().unwrap();
     assert_eq!(error.kind(), TYPE_ERROR);
     assert!(error
         .message()
@@ -730,9 +731,12 @@ fn intrinsics_are_typed_calls() {
     assert!(same(x.copysign(&h), &call("float32", "prim.copysign", vec![x.clone(), h.clone()])));
     let fma = op::fma(&x, &h, &x).unwrap();
     assert!(structural_equal(&fma, &call("float32", "prim.fma", vec![x.clone(), h, x.clone()])));
-    assert!(same(ex(op::vscale()), &call("int32", "prim.vscale", vec![])));
+    assert!(same(ExprResult::from(op::vscale()), &call("int32", "prim.vscale", vec![])));
     // Two `vscale()` calls are equal: a bool, as every comparison folds to.
-    assert!(same(ex(op::vscale()).equal(ex(op::vscale())), &imm("bool", 1)));
+    assert!(same(
+        ExprResult::from(op::vscale()).equal(ExprResult::from(op::vscale())),
+        &imm("bool", 1)
+    ));
 }
 
 /// C++ `cast(value, t)` through its global.
@@ -755,7 +759,7 @@ fn cast_folds_and_broadcasts_as_cpp() {
     let (constant, overflowing) = (ramp(imm("int32", 0)), ramp(imm("int32", i32::MAX.into())));
 
     // A value already of the type is itself.
-    assert!(x.cast(PrimType::int(32)).expr().unwrap().same_as(&Expr::from(&x)));
+    assert!(x.cast(PrimType::int(32)).into_expr().unwrap().same_as(&Expr::from(&x)));
 
     let cases: Vec<(Expr, &str)> = vec![
         // A constant folds to the new type when it is the same value there; one the type cannot
@@ -783,7 +787,7 @@ fn cast_folds_and_broadcasts_as_cpp() {
         assert!(same(value.cast(prim(name)), &native_cast(value, name)), "{name}");
     }
     assert!(same(imm("int32", 5).cast(prim("int64")), &imm("int64", 5)));
-    let node = |value: &Expr, name: &str| value.cast(prim(name)).expr().unwrap();
+    let node = |value: &Expr, name: &str| value.cast(prim(name)).into_expr().unwrap();
     let broadcast = node(&Expr::from(&f), "int32x4");
     let element = &broadcast.as_node::<BroadcastObj>().unwrap().value;
     assert!(element.as_node::<CastObj>().is_some());
@@ -802,7 +806,9 @@ fn cast_folds_and_broadcasts_as_cpp() {
 
     // A void value cannot be cast, with the C++ error.
     let void = var("v", PrimType::void());
-    let Err(error) = void.cast(PrimType::int(32)).expr() else { panic!("a void value was cast") };
+    let Err(error) = void.cast(PrimType::int(32)).into_expr() else {
+        panic!("a void value was cast")
+    };
     assert_eq!(error.kind(), TYPE_ERROR);
     assert!(error.message().contains("void sentinel type"), "{}", error.message());
 }
@@ -934,4 +940,107 @@ fn make_const() {
     let broadcast: prim::Broadcast = vector.try_cast().unwrap();
     let lanes = broadcast.lanes.as_node::<prim::MulObj>().expect("vscale * 4");
     assert_eq!(int_value(lanes.b.clone()), 4);
+}
+
+#[test]
+fn concrete_node_operators_cover_owned_and_borrowed_operands() {
+    let _serial = serial();
+    let a = IntImm::int64(6);
+    let b = IntImm::int64(3);
+    macro_rules! check {
+        ($op:tt, $expected:expr) => {
+            for value in [&a $op &b, a.clone() $op &b, &a $op b.clone(), a.clone() $op b.clone()] {
+                let value: Expr = value.try_into().unwrap();
+                assert!(structural_equal(&value, &imm("int64", $expected)));
+            }
+        };
+    }
+    check!(+, 9);
+    check!(-, 3);
+    check!(*, 18);
+    check!(&, 2);
+    check!(|, 7);
+    check!(^, 5);
+    check!(<<, 48);
+    check!(>>, 0);
+    assert!(same(-&a, &imm("int64", -6)));
+    assert!(same(-a.clone(), &imm("int64", -6)));
+    let yes = IntImm::bool(true);
+    assert!(same(!&yes, &imm("bool", 0)));
+    assert!(same(!yes, &imm("bool", 0)));
+    assert!(same(a.floordiv(&b), &imm("int64", 2)));
+    assert!(same(a.less(&b), &imm("bool", 0)));
+}
+
+#[test]
+fn concrete_literals_and_tensor_load_keep_contextual_typing() {
+    let _serial = serial();
+    let x = IntImm::int64(6);
+    for value in [
+        &x + 2i32,
+        2i32 + &x,
+        x.clone() + 2i32,
+        2i32 + x.clone(),
+        &x + 2i64,
+        2i64 + &x,
+        x.clone() + 2i64,
+        2i64 + x.clone(),
+    ] {
+        assert!(same(value, &imm("int64", 8)));
+    }
+    for value in [&x + 0.5f32, 0.5f32 + &x, x.clone() + 0.5f32, 0.5f32 + x.clone()] {
+        assert!(same(value, &fimm("float32", 6.5)));
+    }
+    for value in [&x + 0.5f64, 0.5f64 + &x, x.clone() + 0.5f64, 0.5f64 + x.clone()] {
+        assert!(same(value, &fimm("float64", 6.5)));
+    }
+    let source = crate::tensor_var("A");
+    let load = tvm_tirx::ir::TensorLoad::new(&source, [0], UNKNOWN_LOC).unwrap();
+    let expected = native2("prim._OpMul", &load, fimm("float32", 2.0));
+    assert!(same(&load * 2, &expected));
+    let left_expected = native2("prim._OpMul", fimm("float32", 2.0), &load);
+    assert!(same(2 * &load, &left_expected));
+    assert!(same(load.clone() * 2, &expected));
+    assert!(same(2 * load, &left_expected));
+    let vector = Broadcast::new(IntImm::int64(6), 4, UNKNOWN_LOC).unwrap();
+    let expected = native2("prim._OpAdd", &vector, &vector);
+    assert!(same(&vector + 6, &expected));
+    assert!(Expr::try_from(StringImm::new("s", UNKNOWN_LOC) + 1).is_err());
+}
+
+#[test]
+fn expression_result_conversion_preserves_handles_and_first_error() {
+    use tvm_tirx::tvm_ffi::{Error, ObjectArc, VALUE_ERROR};
+    let _serial = serial();
+    let x = IntImm::int64(42);
+    let count = ObjectArc::strong_count(IntImm::data(&x));
+    let result = ExprResult::from(&x);
+    assert_eq!(ObjectArc::strong_count(IntImm::data(&x)), count + 1);
+    let borrowed = ExprResult::from(&result);
+    assert_eq!(ObjectArc::strong_count(IntImm::data(&x)), count + 2);
+    let expr: Expr = borrowed.try_into().unwrap();
+    assert!(expr.same_as(&x));
+    drop(expr);
+    drop(result);
+    assert_eq!(ObjectArc::strong_count(IntImm::data(&x)), count);
+    let moved: Expr = ExprResult::from(x.clone()).try_into().unwrap();
+    assert!(moved.same_as(&x));
+    assert_eq!(ObjectArc::strong_count(IntImm::data(&x)), count + 1);
+    drop(moved);
+    assert_eq!(ObjectArc::strong_count(IntImm::data(&x)), count);
+
+    let first = Error::new(VALUE_ERROR, "first constructor error", "");
+    let last = Error::new(TYPE_ERROR, "later constructor error", "");
+    let failed = ExprResult::from(Err::<IntImm, _>(first.clone()));
+    let later = ExprResult::from(Err::<Expr, _>(last));
+    let chain = (&failed + later).less(0);
+    let errors = [
+        Expr::try_from(chain).err().unwrap(),
+        Expr::try_from(2 + &failed).err().unwrap(),
+        Add::new(failed, 1, UNKNOWN_LOC).err().unwrap(),
+    ];
+    for error in errors {
+        assert_eq!(error.kind(), first.kind());
+        assert_eq!(error.message(), first.message());
+    }
 }

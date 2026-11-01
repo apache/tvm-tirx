@@ -35,10 +35,9 @@
 // tvm-ffi-stubgen(import-object): crate::ir::expr::FloatImm
 // tvm-ffi-stubgen(import-object): crate::ir::expr::StringImmObj
 // tvm-ffi-stubgen(import-object): crate::ir::location::UNKNOWN_LOC
-// tvm-ffi-stubgen(import-object): crate::ir::prim::op::Ex
+// tvm-ffi-stubgen(import-object): crate::ir::prim::op::ExprResult
 // tvm-ffi-stubgen(import-object): crate::ir::prim::op::PrimOps
 // tvm-ffi-stubgen(import-object): crate::ir::prim::op::add
-// tvm-ffi-stubgen(import-object): crate::ir::prim::op::ex
 // tvm-ffi-stubgen(import-object): crate::ir::prim::op::exp
 // tvm-ffi-stubgen(import-object): crate::ir::prim::op::log
 // tvm-ffi-stubgen(import-object): crate::ir::prim::op::match_types_at
@@ -63,10 +62,9 @@ use crate::ir::expr::IntoExpr;
 use crate::ir::expr::StringImmObj;
 use crate::ir::location::Location;
 use crate::ir::location::UNKNOWN_LOC;
-use crate::ir::prim::op::Ex;
+use crate::ir::prim::op::ExprResult;
 use crate::ir::prim::op::PrimOps;
 use crate::ir::prim::op::add;
-use crate::ir::prim::op::ex;
 use crate::ir::prim::op::exp;
 use crate::ir::prim::op::log;
 use crate::ir::prim::op::match_types_at;
@@ -308,8 +306,9 @@ pub fn reinterpret_at(
 pub fn fast_erf_float_expr(arg: impl IntoExpr, bits: u8) -> Result<Expr> {
     let dtype = PrimType::float(bits).dtype;
     // The C++ coefficients are `float` literals.
-    let constant =
-        |value: f32| -> Ex { FloatImm::from_dtype(dtype, f64::from(value), UNKNOWN_LOC).into() };
+    let constant = |value: f32| -> ExprResult {
+        FloatImm::from_dtype(dtype, f64::from(value), UNKNOWN_LOC).into()
+    };
     // alpha_1, alpha_3, ..., alpha_13: the odd coefficients of the numerator.
     #[allow(clippy::excessive_precision)]
     let alpha: [f32; 7] = [
@@ -330,7 +329,7 @@ pub fn fast_erf_float_expr(arg: impl IntoExpr, bits: u8) -> Result<Expr> {
         -2.13374055278905e-04,
         -1.45660718464996e-05,
     ];
-    let x = ex(arg.into_expr()?).min(constant(4.0)).max(constant(-4.0));
+    let x = arg.into_expr()?.min(constant(4.0)).max(constant(-4.0));
     let x2 = &x * &x;
     // Horner's rule from the highest coefficient down, as C++ writes it out.
     let mut p = &x2 * constant(alpha[6]) + constant(alpha[5]);
@@ -342,7 +341,7 @@ pub fn fast_erf_float_expr(arg: impl IntoExpr, bits: u8) -> Result<Expr> {
     for coefficient in beta[..3].iter().rev() {
         q = &x2 * q + constant(*coefficient);
     }
-    p.div(q).expr()
+    p.div(q).try_into()
 }
 
 /// A return from the current GPU thread, without a value (`tirx.gpu_thread_return`).

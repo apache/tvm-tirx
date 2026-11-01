@@ -30,7 +30,7 @@
 //!
 //! Each function builds at the unknown location, as the C++ default argument does; the `_at`
 //! variant takes a location. An operand is an expression, an expression under construction (an
-//! [`Ex`], see below) or a literal, typed as C++ types it: an integer next to an expression is
+//! [`ExprResult`], see below) or a literal, typed as C++ types it: an integer next to an expression is
 //! `MakeConst(other.ty(), v)`, an `f32` a float32 constant, an `f64` a float64 one, and a literal
 //! on its own the constant [`From`] makes of it (an `i32` is an `int32`):
 //!
@@ -44,10 +44,10 @@
 //! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
 //! ```
 //!
-//! `&x + 1` is the operator syntax of [`Ex`]: the C++ operators on an expression, a `Var` or an
-//! `Ex`, with literals typed the same way. An `Ex` holds the expression under construction or the
+//! `&x + 1` builds an [`ExprResult`]: the C++ operators on expression handles, with literals
+//! typed the same way. An `ExprResult` holds the expression under construction or the
 //! first error any step raised; it passes into any function or constructor that takes
-//! `impl IntoExpr`, whose `?` then reports that error, and [`Ex::expr`] takes the expression out.
+//! `impl IntoExpr`, whose `?` then reports that error, and `Expr::try_from` takes the expression out.
 //! The operations Rust has no operator for are the [`PrimOps`] methods (`x.floordiv(4)`,
 //! `x.less(y)`, `x.cast(ty)`).
 
@@ -302,7 +302,7 @@ fn check_operands(
 // ---------------------------------------------------------------------------------------------
 // Operands
 
-/// An operand of an operator: an expression, an expression under construction ([`Ex`]) or a
+/// An operand of an operator: an expression, an expression under construction ([`ExprResult`]) or a
 /// literal, which is typed after the expression it meets (C++
 /// `TVM_DEFINE_BINOP_CONST_VAL_OVERLOAD` and friends): an `i32` or `i64` is
 /// `MakeConst(other.ty(), v)`, an `f32` a float32 constant, an `f64` a float64 one. A literal
@@ -315,14 +315,14 @@ pub trait Operand {
 /// What an [`Operand`] is.
 #[doc(hidden)]
 pub enum OperandKind {
-    Expr(Ex),
+    Expr(ExprResult),
     Int32(i32),
     Int64(i64),
     Float32(f32),
     Float64(f64),
 }
 
-impl<T: Into<Ex>> Operand for T {
+impl<T: Into<ExprResult>> Operand for T {
     fn classify(self) -> OperandKind {
         OperandKind::Expr(self.into())
     }
@@ -356,27 +356,27 @@ impl Operand for f64 {
 }
 
 /// An operand next to `peer`: a literal is typed after it.
-fn typed_after(operand: OperandKind, peer: &Ex) -> Ex {
+fn typed_after(operand: OperandKind, peer: &ExprResult) -> ExprResult {
     let constant = |value: i64| {
-        Ex(peer.dtype().and_then(|dtype| make_const(PrimType::from_dtype(dtype)?, value)))
+        ExprResult(peer.dtype().and_then(|dtype| make_const(PrimType::from_dtype(dtype)?, value)))
     };
     match operand {
-        OperandKind::Expr(ex) => ex,
+        OperandKind::Expr(expr) => expr,
         OperandKind::Int32(value) => constant(i64::from(value)),
         OperandKind::Int64(value) => constant(value),
-        OperandKind::Float32(value) => Ex(Ok(FloatImm::float32(value).into())),
-        OperandKind::Float64(value) => Ex(Ok(FloatImm::float64(value).into())),
+        OperandKind::Float32(value) => ExprResult(Ok(FloatImm::float32(value).into())),
+        OperandKind::Float64(value) => ExprResult(Ok(FloatImm::float64(value).into())),
     }
 }
 
 /// An operand on its own: a literal is the constant [`From`] makes of it.
-fn on_its_own(operand: OperandKind) -> Ex {
+fn on_its_own(operand: OperandKind) -> ExprResult {
     match operand {
-        OperandKind::Expr(ex) => ex,
-        OperandKind::Int32(value) => Ex(Ok(IntImm::int32(value).into())),
-        OperandKind::Int64(value) => Ex(Ok(IntImm::int64(value).into())),
-        OperandKind::Float32(value) => Ex(Ok(FloatImm::float32(value).into())),
-        OperandKind::Float64(value) => Ex(Ok(FloatImm::float64(value).into())),
+        OperandKind::Expr(expr) => expr,
+        OperandKind::Int32(value) => ExprResult(Ok(IntImm::int32(value).into())),
+        OperandKind::Int64(value) => ExprResult(Ok(IntImm::int64(value).into())),
+        OperandKind::Float32(value) => ExprResult(Ok(FloatImm::float32(value).into())),
+        OperandKind::Float64(value) => ExprResult(Ok(FloatImm::float64(value).into())),
     }
 }
 
@@ -394,7 +394,7 @@ fn operands(a: impl Operand, b: impl Operand) -> Result<(Expr, Expr)> {
         }
         (a, b) => (on_its_own(a), on_its_own(b)),
     };
-    Ok((a.expr()?, b.expr()?))
+    Ok((a.into_expr()?, b.into_expr()?))
 }
 
 /// The functions without a location: each builds at the unknown location through its `_at`
@@ -1725,14 +1725,14 @@ binary_intrinsics! {
 }
 
 // ---------------------------------------------------------------------------------------------
-// `Ex`: expressions under construction
+// `ExprResult`: expressions under construction
 
 /// An expression being built by operators: either the expression, or the first error any step
-/// raised. Later steps pass an error through untouched. An `Ex` is an [`IntoExpr`], so it passes
+/// raised. Later steps pass an error through untouched. An `ExprResult` is an [`IntoExpr`], so it passes
 /// into any function or constructor that takes one, whose `?` then reports the error;
-/// [`Ex::expr`] takes the expression out.
+/// `Expr::try_from` takes the expression out.
 ///
-/// Any expression node converts into an `Ex`, as it converts into a C++ `PrimExpr`. The operators
+/// Any expression node converts into an `ExprResult`, as it converts into a C++ `PrimExpr`. The operators
 /// `+`, `-`, `*`, `&`, `|`, `^`, `<<`, `>>`, unary `-` and `!` are the C++ ones, typed after C++:
 /// an integer literal on either side is `MakeConst(other.ty(), v)`, an `f32` a float32 constant,
 /// an `f64` a float64 one. `/` and `%` are not defined: name the division
@@ -1741,15 +1741,19 @@ binary_intrinsics! {
 /// Comparisons, `&&` and `||` are [`PrimOps`] methods too, because Rust's comparison traits
 /// return `bool`.
 #[derive(Clone)]
-#[must_use = "an `Ex` holds the result; pass it on, or take it with `.expr()`"]
-pub struct Ex(Result<Expr>);
+#[must_use = "an `ExprResult` holds the result; pass it on, or convert it with `Expr::try_from`"]
+pub struct ExprResult(Result<Expr>);
 
-impl Ex {
-    /// The built expression, or the first error.
-    pub fn expr(self) -> Result<Expr> {
-        self.0
+impl TryFrom<ExprResult> for Expr {
+    type Error = Error;
+
+    /// The built expression, or the first error raised while constructing it.
+    fn try_from(value: ExprResult) -> Result<Self> {
+        value.0
     }
+}
 
+impl ExprResult {
     /// The dtype a literal next to this expression takes (`MakeConst(this.ty(), v)`).
     fn dtype(&self) -> Result<DLDataType> {
         match &self.0 {
@@ -1759,100 +1763,80 @@ impl Ex {
     }
 }
 
-impl IntoExpr for Ex {
+impl IntoExpr for ExprResult {
     fn into_expr(self) -> Result<Expr> {
         self.0
     }
 }
 
-impl IntoExpr for &Ex {
+impl IntoExpr for &ExprResult {
     fn into_expr(self) -> Result<Expr> {
         self.0.clone()
     }
 }
 
-/// `value` as an [`Ex`], to start an expression from something that is not one yet.
-pub fn ex(value: impl Into<Ex>) -> Ex {
-    value.into()
-}
-
-impl<T: Into<Expr>> From<Result<T>> for Ex {
+impl<T: Into<Expr>> From<Result<T>> for ExprResult {
     fn from(value: Result<T>) -> Self {
-        Ex(value.map(Into::into))
+        ExprResult(value.map(Into::into))
     }
 }
 
-impl From<&Ex> for Ex {
-    fn from(value: &Ex) -> Self {
+impl From<&ExprResult> for ExprResult {
+    fn from(value: &ExprResult) -> Self {
         value.clone()
     }
 }
 
-macro_rules! ex_from_nodes {
-    ($($ty:ty),+ $(,)?) => {
-        $(
-            impl From<$ty> for Ex {
-                fn from(value: $ty) -> Self {
-                    Ex(Ok(value.into()))
-                }
-            }
-            impl From<&$ty> for Ex {
-                fn from(value: &$ty) -> Self {
-                    Ex(Ok(value.clone().into()))
-                }
-            }
-        )+
-    };
-}
-
-ex_from_nodes!(
-    Expr, Var, IntImm, FloatImm, Call, TensorLoad, Add, And, BitwiseAnd, BitwiseNot, BitwiseOr,
-    BitwiseXor, Broadcast, Cast, Div, EQ, FloorDiv, FloorMod, GE, GT, LE, LShift, LT, Let, Max,
-    Min, Mod, Mul, NE, Not, Or, RShift, Ramp, Select, Shuffle, Sub,
-);
-
 /// `lhs <op> rhs`; a literal `rhs` is typed after `lhs`.
-fn binary(lhs: Ex, rhs: impl Operand, op: impl FnOnce(Expr, Expr) -> Result<Expr>) -> Ex {
+fn binary(
+    lhs: ExprResult,
+    rhs: impl Operand,
+    op: impl FnOnce(Expr, Expr) -> Result<Expr>,
+) -> ExprResult {
     let rhs = typed_after(rhs.classify(), &lhs);
     match (lhs.0, rhs.0) {
-        (Ok(a), Ok(b)) => Ex(op(a, b)),
-        (Err(error), _) | (_, Err(error)) => Ex(Err(error)),
+        (Ok(a), Ok(b)) => ExprResult(op(a, b)),
+        (Err(error), _) | (_, Err(error)) => ExprResult(Err(error)),
     }
 }
 
 /// `lhs <op> rhs` for a literal `lhs`, typed after `rhs`.
-fn binary_literal(lhs: impl Operand, rhs: Ex, op: impl FnOnce(Expr, Expr) -> Result<Expr>) -> Ex {
+fn binary_literal(
+    lhs: impl Operand,
+    rhs: ExprResult,
+    op: impl FnOnce(Expr, Expr) -> Result<Expr>,
+) -> ExprResult {
     let lhs = typed_after(lhs.classify(), &rhs);
     binary(lhs, rhs, op)
 }
 
 mod operators {
-    //! The operator traits of [`Ex`], and of the expressions and literals that start one.
+    //! The operator traits of [`ExprResult`], and of the expressions and literals that start one.
 
     use std::ops::{
         Add, AddAssign, BitAnd, BitOr, BitXor, Mul, MulAssign, Neg, Not, Shl, Shr, Sub, SubAssign,
     };
 
-    use super::{binary, binary_literal, Ex, Expr, Operand, Var};
+    use super::{binary, binary_literal, ExprResult, Operand};
 
     macro_rules! binary_operators {
         ($($Trait:ident::$method:ident => $op:ident),+ $(,)?) => {
             $(
-                impl<R: Operand> $Trait<R> for Ex {
-                    type Output = Ex;
-                    fn $method(self, rhs: R) -> Ex {
+                impl<R: Operand> $Trait<R> for ExprResult {
+                    type Output = ExprResult;
+                    fn $method(self, rhs: R) -> ExprResult {
                         binary(self, rhs, super::$op)
                     }
                 }
-                binary_operators!(@lhs $Trait::$method => $op; &Ex, Expr, &Expr, Var, &Var);
+                binary_operators!(@lhs $Trait::$method => $op; &ExprResult);
                 binary_operators!(@literal $Trait::$method => $op; i32, i64, f32, f64);
             )+
         };
         (@lhs $Trait:ident::$method:ident => $op:ident; $($lhs:ty),+) => {
             $(
                 impl<R: Operand> $Trait<R> for $lhs {
-                    type Output = Ex;
-                    fn $method(self, rhs: R) -> Ex {
+                    type Output = ExprResult;
+                    fn $method(self, rhs: R) -> ExprResult {
                         binary(self.into(), rhs, super::$op)
                     }
                 }
@@ -1860,14 +1844,14 @@ mod operators {
         };
         (@literal $Trait:ident::$method:ident => $op:ident; $($lit:ty),+) => {
             $(
-                binary_operators!(@literal_rhs $Trait::$method => $op; $lit; Ex, &Ex, Expr, &Expr, Var, &Var);
+                binary_operators!(@literal_rhs $Trait::$method => $op; $lit; ExprResult, &ExprResult);
             )+
         };
         (@literal_rhs $Trait:ident::$method:ident => $op:ident; $lit:ty; $($rhs:ty),+) => {
             $(
                 impl $Trait<$rhs> for $lit {
-                    type Output = Ex;
-                    fn $method(self, rhs: $rhs) -> Ex {
+                    type Output = ExprResult;
+                    fn $method(self, rhs: $rhs) -> ExprResult {
                         binary_literal(self, rhs.into(), super::$op)
                     }
                 }
@@ -1889,7 +1873,7 @@ mod operators {
     macro_rules! assign_operators {
         ($($Trait:ident::$method:ident => $op:ident),+ $(,)?) => {
             $(
-                impl<R: Operand> $Trait<R> for Ex {
+                impl<R: Operand> $Trait<R> for ExprResult {
                     fn $method(&mut self, rhs: R) {
                         *self = binary(self.clone(), rhs, super::$op);
                     }
@@ -1905,23 +1889,23 @@ mod operators {
             $(
                 /// C++ unary `-` (`neg`).
                 impl Neg for $ty {
-                    type Output = Ex;
-                    fn neg(self) -> Ex {
-                        Ex(super::neg(Ex::from(self)))
+                    type Output = ExprResult;
+                    fn neg(self) -> ExprResult {
+                        ExprResult(super::neg(ExprResult::from(self)))
                     }
                 }
                 /// C++ `!` (`logical_not`).
                 impl Not for $ty {
-                    type Output = Ex;
-                    fn not(self) -> Ex {
-                        Ex(super::logical_not(Ex::from(self)))
+                    type Output = ExprResult;
+                    fn not(self) -> ExprResult {
+                        ExprResult(super::logical_not(ExprResult::from(self)))
                     }
                 }
             )+
         };
     }
 
-    unary_operators!(Ex, &Ex, Expr, &Expr, Var, &Var);
+    unary_operators!(ExprResult, &ExprResult);
 }
 
 /// [`PrimOps`] methods that are a function of one expression.
@@ -1929,8 +1913,8 @@ macro_rules! unary_methods {
     ($($(#[$doc:meta])* $name:ident;)+) => {
         $(
             $(#[$doc])*
-            fn $name(&self) -> Ex {
-                Ex($name(self.to_ex()))
+            fn $name(&self) -> ExprResult {
+                ExprResult($name(self.to_expr_result()))
             }
         )+
     };
@@ -1942,52 +1926,52 @@ macro_rules! binary_methods {
     ($($(#[$doc:meta])* $name:ident;)+) => {
         $(
             $(#[$doc])*
-            fn $name(&self, rhs: impl Operand) -> Ex {
-                binary(self.to_ex(), rhs, $name)
+            fn $name(&self, rhs: impl Operand) -> ExprResult {
+                binary(self.to_expr_result(), rhs, $name)
             }
         )+
     };
 }
 
 /// The C++ `PrimExpr` operations that are functions rather than Rust operators, as methods of
-/// an [`Ex`], an [`Expr`] or a [`Var`]. Each takes an expression or a literal on the right, typed
+/// an [`ExprResult`] or an expression handle. Each takes an expression or a literal on the right, typed
 /// as for the operators, and leaves `self` usable; the comparisons are named after the C++
 /// functions (`less`, `equal`), since Rust's `eq` and `lt` return a `bool`.
 pub trait PrimOps {
-    /// This expression as an [`Ex`] (a reference-count increment).
-    fn to_ex(&self) -> Ex;
+    /// This expression as an [`ExprResult`] (a reference-count increment).
+    fn to_expr_result(&self) -> ExprResult;
 
     /// C++ `a < b` ([`lt`]).
-    fn less(&self, rhs: impl Operand) -> Ex {
-        binary(self.to_ex(), rhs, lt)
+    fn less(&self, rhs: impl Operand) -> ExprResult {
+        binary(self.to_expr_result(), rhs, lt)
     }
     /// C++ `a <= b` ([`le`]).
-    fn less_equal(&self, rhs: impl Operand) -> Ex {
-        binary(self.to_ex(), rhs, le)
+    fn less_equal(&self, rhs: impl Operand) -> ExprResult {
+        binary(self.to_expr_result(), rhs, le)
     }
     /// C++ `a > b` ([`gt`]).
-    fn greater(&self, rhs: impl Operand) -> Ex {
-        binary(self.to_ex(), rhs, gt)
+    fn greater(&self, rhs: impl Operand) -> ExprResult {
+        binary(self.to_expr_result(), rhs, gt)
     }
     /// C++ `a >= b` ([`ge`]).
-    fn greater_equal(&self, rhs: impl Operand) -> Ex {
-        binary(self.to_ex(), rhs, ge)
+    fn greater_equal(&self, rhs: impl Operand) -> ExprResult {
+        binary(self.to_expr_result(), rhs, ge)
     }
     /// C++ `a == b` ([`eq`]).
-    fn equal(&self, rhs: impl Operand) -> Ex {
-        binary(self.to_ex(), rhs, eq)
+    fn equal(&self, rhs: impl Operand) -> ExprResult {
+        binary(self.to_expr_result(), rhs, eq)
     }
     /// C++ `a != b` ([`ne`]).
-    fn not_equal(&self, rhs: impl Operand) -> Ex {
-        binary(self.to_ex(), rhs, ne)
+    fn not_equal(&self, rhs: impl Operand) -> ExprResult {
+        binary(self.to_expr_result(), rhs, ne)
     }
     /// C++ `a && b` ([`logical_and`]).
-    fn logical_and(&self, rhs: impl IntoExpr) -> Ex {
-        Ex(logical_and(self.to_ex(), rhs))
+    fn logical_and(&self, rhs: impl IntoExpr) -> ExprResult {
+        ExprResult(logical_and(self.to_expr_result(), rhs))
     }
     /// C++ `a || b` ([`logical_or`]).
-    fn logical_or(&self, rhs: impl IntoExpr) -> Ex {
-        Ex(logical_or(self.to_ex(), rhs))
+    fn logical_or(&self, rhs: impl IntoExpr) -> ExprResult {
+        ExprResult(logical_or(self.to_expr_result(), rhs))
     }
 
     binary_methods! {
@@ -2014,32 +1998,32 @@ pub trait PrimOps {
     }
 
     /// C++ `pow(a, b)` ([`pow`]).
-    fn pow(&self, rhs: impl IntoExpr) -> Ex {
-        Ex(pow(self.to_ex(), rhs))
+    fn pow(&self, rhs: impl IntoExpr) -> ExprResult {
+        ExprResult(pow(self.to_expr_result(), rhs))
     }
     /// C++ `fmod(a, b)` ([`fmod`]).
-    fn fmod(&self, rhs: impl IntoExpr) -> Ex {
-        Ex(fmod(self.to_ex(), rhs))
+    fn fmod(&self, rhs: impl IntoExpr) -> ExprResult {
+        ExprResult(fmod(self.to_expr_result(), rhs))
     }
     /// C++ `atan2(a, b)` ([`atan2`]).
-    fn atan2(&self, rhs: impl IntoExpr) -> Ex {
-        Ex(atan2(self.to_ex(), rhs))
+    fn atan2(&self, rhs: impl IntoExpr) -> ExprResult {
+        ExprResult(atan2(self.to_expr_result(), rhs))
     }
     /// C++ `nextafter(a, b)` ([`nextafter`]).
-    fn nextafter(&self, rhs: impl IntoExpr) -> Ex {
-        Ex(nextafter(self.to_ex(), rhs))
+    fn nextafter(&self, rhs: impl IntoExpr) -> ExprResult {
+        ExprResult(nextafter(self.to_expr_result(), rhs))
     }
     /// C++ `copysign(a, b)` ([`copysign`]).
-    fn copysign(&self, rhs: impl IntoExpr) -> Ex {
-        Ex(copysign(self.to_ex(), rhs))
+    fn copysign(&self, rhs: impl IntoExpr) -> ExprResult {
+        ExprResult(copysign(self.to_expr_result(), rhs))
     }
     /// C++ `hypot(a, b)` ([`hypot`]).
-    fn hypot(&self, rhs: impl IntoExpr) -> Ex {
-        Ex(hypot(self.to_ex(), rhs))
+    fn hypot(&self, rhs: impl IntoExpr) -> ExprResult {
+        ExprResult(hypot(self.to_expr_result(), rhs))
     }
     /// C++ `ldexp(a, b)` ([`ldexp`]).
-    fn ldexp(&self, rhs: impl IntoExpr) -> Ex {
-        Ex(ldexp(self.to_ex(), rhs))
+    fn ldexp(&self, rhs: impl IntoExpr) -> ExprResult {
+        ExprResult(ldexp(self.to_expr_result(), rhs))
     }
 
     unary_methods! {
@@ -2120,35 +2104,23 @@ pub trait PrimOps {
     }
 
     /// C++ `cast(a, t)` ([`cast`]).
-    fn cast(&self, ty: impl Into<PrimType>) -> Ex {
-        Ex(cast(self.to_ex(), ty))
+    fn cast(&self, ty: impl Into<PrimType>) -> ExprResult {
+        ExprResult(cast(self.to_expr_result(), ty))
     }
 
     /// C++ `if_then_else(self, t, f)` ([`if_then_else`]), with `self` the condition.
-    fn if_then_else(&self, t: impl IntoExpr, f: impl IntoExpr) -> Ex {
-        Ex(if_then_else(self.to_ex(), t, f))
+    fn if_then_else(&self, t: impl IntoExpr, f: impl IntoExpr) -> ExprResult {
+        ExprResult(if_then_else(self.to_expr_result(), t, f))
     }
 
     /// The raw `Select(self, t, f)` ([`Select::new`]), with `self` the condition.
-    fn select(&self, t: impl IntoExpr, f: impl IntoExpr) -> Ex {
-        Ex(Select::new(self.to_ex(), t, f, UNKNOWN_LOC).map(Into::into))
+    fn select(&self, t: impl IntoExpr, f: impl IntoExpr) -> ExprResult {
+        ExprResult(Select::new(self.to_expr_result(), t, f, UNKNOWN_LOC).map(Into::into))
     }
 }
 
-impl PrimOps for Ex {
-    fn to_ex(&self) -> Ex {
+impl PrimOps for ExprResult {
+    fn to_expr_result(&self) -> ExprResult {
         self.clone()
-    }
-}
-
-impl PrimOps for Expr {
-    fn to_ex(&self) -> Ex {
-        self.into()
-    }
-}
-
-impl PrimOps for Var {
-    fn to_ex(&self) -> Ex {
-        self.into()
     }
 }

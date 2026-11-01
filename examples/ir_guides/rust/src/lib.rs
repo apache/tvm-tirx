@@ -23,7 +23,7 @@
 
 use std::collections::HashMap;
 
-use tvm_tirx::ir::prim::{ex, make_const};
+use tvm_tirx::ir::prim::make_const;
 use tvm_tirx::ir::{
     Expr, For, ForObj, PrimType, Stmt, TensorStore, TensorStoreObj, Var, UNKNOWN_LOC,
 };
@@ -76,7 +76,7 @@ fn double_store(func: Function) -> Result<TensorStore> {
     let body = &func.body;
     let loop_: For = body.seq.get(0)?.try_cast()?;
     let store: TensorStore = loop_.body.seq.get(0)?.try_cast()?;
-    let doubled = ex(&store.value) * 2;
+    let doubled = &store.value * 2;
     TensorStore::new(&store.dest, store.indices.iter(), doubled, UNKNOWN_LOC)
 }
 // [create.end]
@@ -213,7 +213,7 @@ struct ReverseLoops {
 #[dispatch(mutate)]
 impl ReverseLoops {
     fn mutate_for(&mut self, loop_: For, mutator: &mut Mutator) -> Result<Any> {
-        let index = (ex(&loop_.end) - 1 - &loop_.var).expr()?;
+        let index = (&loop_.end - 1 - &loop_.var).try_into()?;
         self.reversed_index.insert(ObjectIdentity::of(&loop_.var), index);
         mutator.default_mutate(self, &loop_)
     }

@@ -124,8 +124,8 @@ any node as TVMScript.
    an error for an index out of range, and ``?`` passes it on.
 
 To create a node, we call the constructor of its handle type, such as
-|TensorStore::new|_. |ex|_ wraps an expression so that the usual Rust
-operators build IR; constructors accept the result directly. Let's build a store
+|TensorStore::new|_. The usual Rust operators build IR from expression
+handles; constructors accept their fallible result directly. Let's build a store
 that writes twice the value of the store in ``add_one``:
 
 .. literalinclude:: ../../examples/ir_guides/rust/src/lib.rs
@@ -398,8 +398,8 @@ both visits and mutations. A ``#[dispatch(mutate)]`` method that takes a
 trailing ``&mut Mutator`` gets the mutation counterpart of
 ``VisitContext``, with ``default_mutate`` for the children and
 ``def_region_kind()``. Let's reverse the loop
-by replacing each use of ``i`` with ``n - 1 - i``, built with ``ex`` as
-before:
+by replacing each use of ``i`` with ``n - 1 - i``. The standard
+``.try_into()?`` conversion extracts the built expression or returns its error:
 
 .. literalinclude:: ../../examples/ir_guides/rust/src/lib.rs
    :language: rust
@@ -459,7 +459,7 @@ Quick Reference
      - Downcasts to one type, as a ``Result`` handle or a borrowed
        ``Option``
      - ``isinstance(stmt, ir.For)``
-   * - |TensorStore::new|_, |ex|_\ ``(...)``, ``.expr()``
+   * - |TensorStore::new|_, expression operators, ``.try_into()?``
      - Creates a node; builds an expression with operators
      - ``ir.TensorStore(dest, indices, value)``, ``store.value * 2``
    * - |structural_walk|_\ ``(&func, callbacks, WalkOrder::PreOrder)``
@@ -516,8 +516,6 @@ Quick Reference
 .. _VisitCallbacks: https://docs.rs/tvm-ffi/0.1.15-post2/tvm_ffi/extra/structural_visit/struct.VisitCallbacks.html
 .. |MutateCallbacks| replace:: ``MutateCallbacks``
 .. _MutateCallbacks: https://docs.rs/tvm-ffi/0.1.15-post2/tvm_ffi/extra/structural_mutate/struct.MutateCallbacks.html
-.. |ex| replace:: ``ex``
-.. _ex: https://docs.rs/tvm-tirx/0.1.0-alpha.5/tvm_tirx/ir/prim/op/fn.ex.html
 .. |ObjectIdentity| replace:: ``ObjectIdentity``
 .. _ObjectIdentity: https://docs.rs/tvm-ffi/0.1.15-post2/tvm_ffi/object/struct.ObjectIdentity.html
 .. |StructuralVisitorWithConstraintContext| replace:: ``StructuralVisitorWithConstraintContext``
