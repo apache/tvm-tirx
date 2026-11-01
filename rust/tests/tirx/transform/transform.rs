@@ -55,14 +55,13 @@ fn passes() {
         tx::skip_assert().unwrap(),
         tx::split_host_device().unwrap(),
         tx::stmt_simplify().unwrap(),
-        tx::stmt_simplify_with_z3(false).unwrap(),
         tx::storage_rewrite().unwrap(),
         tx::tile_dispatch().unwrap(),
         tx::unroll_loop().unwrap(),
         tx::vectorize_loop(true).unwrap(),
         tx::verify_memory().unwrap(),
     ];
-    assert_eq!(passes.len(), 30);
+    assert_eq!(passes.len(), 29);
 }
 
 #[test]

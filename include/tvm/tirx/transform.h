@@ -135,12 +135,9 @@ TVM_TIRX_DLL Pass RenormalizeSplitPattern();
 /*!
  * \brief Run statement-level arithmetic simplifications on the TIR Function.
  *
- * \param enable_z3 Whether to enable DEFAULT-strength Z3 fallback in this pass.
- *        Enabled by default. Native analysis runs first; explicit stronger queries
- *        retain their existing behavior.
  * \return The pass.
  */
-TVM_TIRX_DLL Pass StmtSimplify(bool enable_z3 = true);
+TVM_TIRX_DLL Pass StmtSimplify();
 
 /*!
  * \brief Convert an IRModule to be SSA form.

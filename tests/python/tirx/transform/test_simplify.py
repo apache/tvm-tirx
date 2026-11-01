@@ -48,42 +48,6 @@ def test_stmt_simplify():
     tvm_tirx.ir.assert_structural_equal(after, expected)
 
 
-@pytest.mark.parametrize("enable_z3", [None, True, False])
-def test_stmt_simplify_z3_fallback(enable_z3):
-    uses_z3 = enable_z3 is not False and tvm_tirx.sym.Analyzer().is_z3_enabled
-
-    @T.function(private=True)
-    def before(A: T.Tensor((9, 16, 2), "bool")):
-        for x in T.serial(-4, 5):
-            for y in T.serial(16):
-                if y * y < 64:
-                    A[x + 4, y, 0] = 8 * x + y < 16
-                A[x + 4, y, 1] = 8 * x + y < 16
-
-    @T.function(private=True)
-    def expected_native(A: T.Tensor((9, 16, 2), "bool")):
-        for x in T.serial(-4, 5):
-            for y in T.serial(16):
-                if y * y < 64:
-                    A[x + 4, y, 0] = x * 8 + y < 16
-                A[x + 4, y, 1] = x * 8 + y < 16
-
-    @T.function(private=True)
-    def expected_z3(A: T.Tensor((9, 16, 2), "bool")):
-        for x in T.serial(-4, 5):
-            for y in T.serial(16):
-                if y * y < 64:
-                    A[x + 4, y, 0] = x < 2
-                A[x + 4, y, 1] = x * 8 + y < 16
-
-    kwargs = {} if enable_z3 is None else {"enable_z3": enable_z3}
-    after = tvm_tirx.tirx.transform.StmtSimplify(**kwargs)(tvm_tirx.IRModule({"main": before}))[
-        "main"
-    ]
-    # Only the guarded store may use y * y < 64 to prove y < 8.
-    tvm_tirx.ir.assert_structural_equal(after, expected_z3 if uses_z3 else expected_native)
-
-
 def test_thread_extent_simplify():
     @T.function(private=True)
     def before(A: T.handle("float32"), C: T.handle("float32"), n: T.int32):

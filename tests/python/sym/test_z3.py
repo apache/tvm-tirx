@@ -26,16 +26,14 @@ import tvm_tirx.testing
 from tvm_tirx import tirx
 from tvm_tirx.sym import Analyzer, ProofStrength
 
-# DEFAULT can opt into Z3; SYMBOLIC_BOUND retains its Z3 fallback and
-# additionally enables symbolic interval reasoning.
+# Both strengths use Z3 after native analysis; SYMBOLIC_BOUND additionally
+# enables symbolic interval reasoning.
 SB = ProofStrength.SYMBOLIC_BOUND
 
 
 def _require_z3(analyzer):
     if not analyzer.is_z3_enabled:
         pytest.skip("Z3 prover is disabled in this build")
-    # Translation tests exercise the explicitly enabled DEFAULT fallback as well.
-    analyzer.set_z3_default_fallback(True)
 
 
 def implies(x, y):
@@ -900,15 +898,18 @@ def test_z3_default_fallback_nonlinear_inequality():
     y = tirx.Var("y", "int32")
     # x*x + y*y - 2*x*y == (x-y)**2 >= 0 in the mathematical integer
     # model used for wide signed indices. This does not model int32 overflow.
-    # Native analysis cannot prove this; DEFAULT must explicitly opt into Z3.
+    # A fresh analyzer uses Z3 by default; disabling DEFAULT fallback preserves
+    # the stronger query's Z3 capability and survives cloning independently.
     expr = x * x + y * y >= 2 * (x * y)
-    assert not analyzer.can_prove(expr)
-    assert analyzer.can_prove(expr, SB) == analyzer.is_z3_enabled
-    analyzer.set_z3_default_fallback(True)
     assert analyzer.can_prove(expr) == analyzer.is_z3_enabled
-    cloned = analyzer.clone()
     analyzer.set_z3_default_fallback(False)
     assert not analyzer.can_prove(expr)
+    assert analyzer.can_prove(expr, SB) == analyzer.is_z3_enabled
+    cloned = analyzer.clone()
+    analyzer.set_z3_default_fallback(True)
+    assert analyzer.can_prove(expr) == analyzer.is_z3_enabled
+    assert not cloned.can_prove(expr)
+    cloned.set_z3_default_fallback(True)
     assert cloned.can_prove(expr) == analyzer.is_z3_enabled
     assert analyzer.can_prove(x == x)
     # Equality at x == y is a counterexample to the strict inequality.
@@ -927,7 +928,7 @@ def test_z3_default_fallback_clone_preserves_independent_resource_limit():
     assert analyzer.can_prove(expr)
     assert not cloned.can_prove(expr)
     assert cloned.can_prove(x == x)
-    assert Analyzer().can_prove(expr, SB)
+    assert Analyzer().can_prove(expr)
 
 
 def test_z3_default_fallback_scopes_and_resource_limit():
@@ -949,7 +950,6 @@ def test_z3_default_fallback_scopes_and_resource_limit():
     assert not analyzer.can_prove(positive_square)
 
     limited = Analyzer()
-    limited.set_z3_default_fallback(True)
     limited.set_z3_rlimit(1)
     a, b = tirx.Var("a", "int32"), tirx.Var("b", "int32")
     assert not limited.can_prove(a * a + b * b >= 2 * a * b)

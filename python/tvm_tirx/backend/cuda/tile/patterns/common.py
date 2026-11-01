@@ -59,10 +59,13 @@ class Context:
     def __init__(self, sctx, atom_scope="thread"):
         self.sctx = sctx
         self.analyzer = Analyzer()
+        # Repeated descriptor checks use native proofs before bounded verification.
+        self.analyzer.set_z3_default_fallback(False)
         # Reuse layout-query state across this instruction's address walk.
         # Keep it separate from the bounded verifier so address construction
         # does not depend on its evolving group/repeat/descriptor premises.
         self.layout_analyzer = Analyzer()
+        self.layout_analyzer.set_z3_default_fallback(False)
         self.constraints = ConstraintContext()
         self.static_ranges = {}
         for var, extent in sctx.launch_params.values():

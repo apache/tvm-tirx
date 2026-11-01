@@ -572,7 +572,7 @@ class TVM_TIRX_DLL AnalyzerObj : public ffi::Object {
   /*!
    * \brief Set whether DEFAULT-strength queries try Z3 after native analysis fails.
    *
-   * Disabled by default. This setting is local to the analyzer and preserved by Clone.
+   * Enabled by default. This setting is local to the analyzer and preserved by Clone.
    * Stronger proof queries and direct Z3 APIs are unaffected. Disabling the fallback
    * does not clear accepted premises or existing solver state.
    * \param enabled Whether to allow the DEFAULT-strength Z3 fallback.
@@ -667,8 +667,8 @@ class TVM_TIRX_DLL AnalyzerObj : public ffi::Object {
    * \note Analyzer will call into sub-analyzers to get the result.
    * Do not use strength beyond default in sub-analyzers and
    * only use it in top-level predicate analysis.
-   * When built with Z3, explicit stronger queries try it after native analysis fails.
-   * DEFAULT-strength queries only try Z3 when SetZ3DefaultFallback(true) enables it.
+   * When built with Z3, all strengths try it after native analysis fails.
+   * SetZ3DefaultFallback(false) disables this fallback only for DEFAULT-strength queries.
    * Z3's existing resource limit and timeout apply; unknown means cannot prove.
    */
   bool CanProve(const PrimExpr& cond, ProofStrength strength = ProofStrength::kDefault);
@@ -715,7 +715,7 @@ class TVM_TIRX_DLL AnalyzerObj : public ffi::Object {
  private:
   friend class detail::TempConstraintScope;
   // Policy for DEFAULT-strength queries; explicit stronger queries can still use Z3.
-  bool z3_default_fallback_{false};
+  bool z3_default_fallback_{true};
   // Record a value binding after AnalyzerObj validates and orders the premises.
   void IngestBinding(const Var& var, const PrimExpr& expr);
   // Record a half-open variable range from the accepted premise prefix.
