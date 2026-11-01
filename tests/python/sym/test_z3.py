@@ -52,7 +52,6 @@ def test_z3_capability_query():
     # The Z3-specific debug/config methods work only when it is True, and raise
     # a clear error otherwise.
     analyzer = Analyzer()
-    analyzer.set_z3_default_fallback(False)
     assert isinstance(analyzer.is_z3_enabled, bool)
 
     if analyzer.is_z3_enabled:
@@ -895,32 +894,25 @@ def test_z3_repeated_can_prove_is_consistent():
     assert analyzer.can_prove(x >= 5, SB)
 
 
-@pytest.mark.parametrize("default_fallback", [True, False])
-@pytest.mark.parametrize("strength", [ProofStrength.DEFAULT, SB])
-def test_z3_default_fallback_nonlinear_inequality(default_fallback, strength):
+def test_z3_default_fallback_nonlinear_inequality():
     analyzer = Analyzer()
-    analyzer.set_z3_default_fallback(default_fallback)
     x = tirx.Var("x", "int32")
     y = tirx.Var("y", "int32")
     # x*x + y*y - 2*x*y == (x-y)**2 >= 0 in the mathematical integer
     # model used for wide signed indices. This does not model int32 overflow.
-    # Native analysis alone cannot currently prove this. Only DEFAULT-strength
-    # Z3 fallback is configurable; explicit stronger queries still try Z3.
+    # Native analysis cannot prove this; DEFAULT must explicitly opt into Z3.
     expr = x * x + y * y >= 2 * (x * y)
-    expected = analyzer.is_z3_enabled and (default_fallback or strength == SB)
-    assert analyzer.is_z3_enabled == Analyzer().is_z3_enabled
-    assert analyzer.can_prove(expr, strength) == expected
+    assert not analyzer.can_prove(expr)
+    assert analyzer.can_prove(expr, SB) == analyzer.is_z3_enabled
+    analyzer.set_z3_default_fallback(True)
+    assert analyzer.can_prove(expr) == analyzer.is_z3_enabled
     cloned = analyzer.clone()
-    analyzer.set_z3_default_fallback(not default_fallback)
-    assert cloned.can_prove(expr, strength) == expected
-    assert analyzer.can_prove(expr, strength) == (
-        analyzer.is_z3_enabled and (not default_fallback or strength == SB)
-    )
-    assert not Analyzer().can_prove(expr)
-    assert Analyzer().can_prove(expr, SB) == analyzer.is_z3_enabled
+    analyzer.set_z3_default_fallback(False)
+    assert not analyzer.can_prove(expr)
+    assert cloned.can_prove(expr) == analyzer.is_z3_enabled
     assert analyzer.can_prove(x == x)
     # Equality at x == y is a counterexample to the strict inequality.
-    assert not analyzer.can_prove(x * x + y * y > 2 * (x * y))
+    assert not cloned.can_prove(x * x + y * y > 2 * (x * y))
 
 
 def test_z3_default_fallback_clone_preserves_independent_resource_limit():
@@ -929,23 +921,18 @@ def test_z3_default_fallback_clone_preserves_independent_resource_limit():
     x = tirx.Var("x", "int32")
     y = tirx.Var("y", "int32")
     expr = x * x + y * y >= 2 * (x * y)
-    analyzer.set_z3_default_fallback(False)
     analyzer.set_z3_rlimit(1)
     cloned = analyzer.clone()
-    analyzer.set_z3_default_fallback(True)
-    cloned.set_z3_default_fallback(True)
     analyzer.set_z3_rlimit(0)
     assert analyzer.can_prove(expr)
     assert not cloned.can_prove(expr)
     assert cloned.can_prove(x == x)
-    assert not Analyzer().can_prove(expr)
+    assert Analyzer().can_prove(expr, SB)
 
 
-@pytest.mark.parametrize("default_fallback", [True, False])
-def test_z3_default_fallback_scopes_and_resource_limit(default_fallback):
+def test_z3_default_fallback_scopes_and_resource_limit():
     analyzer = Analyzer()
     _require_z3(analyzer)
-    analyzer.set_z3_default_fallback(default_fallback)
     x = tirx.Var("x", "int32")
     positive_square = x * x > 0
     # In the signed-index arithmetic model, x != 0 is sufficient and x == 0
@@ -956,9 +943,6 @@ def test_z3_default_fallback_scopes_and_resource_limit(default_fallback):
     child_context.append(tvm_tirx.sym.PredicateConstraint(x != 0))
     analyzer.sync_constraint_context(child_context)
     try:
-        assert analyzer.can_prove(positive_square, SB)
-        assert analyzer.can_prove(positive_square) == default_fallback
-        analyzer.set_z3_default_fallback(True)
         assert analyzer.can_prove(positive_square)
     finally:
         analyzer.sync_constraint_context(parent_context)

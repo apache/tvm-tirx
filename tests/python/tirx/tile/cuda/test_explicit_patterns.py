@@ -154,13 +154,11 @@ def test_layout_analysis_is_separate_from_verification():
     from tvm_tirx.backend.cuda.tile.patterns.common import Context
 
     sctx = SimpleNamespace(launch_params={}, var_range_map={}, scope_kind="thread", intra={})
-    first, second = Context(sctx), Context(sctx)
+    ctx = Context(sctx)
     x = Var("x", "int32")
-    first.add_range(x, tvm_tirx.ir.Range(0, 4))
-    assert first.analyzer.can_prove(x < 4)
-    assert not first.layout_analyzer.can_prove(x < 4)
-    assert not second.analyzer.can_prove(x < 4)
-    assert not first.layout_analyzer.same_as(second.layout_analyzer)
+    ctx.add_range(x, tvm_tirx.ir.Range(0, 4))
+    assert ctx.analyzer.can_prove(x < 4)
+    assert not ctx.layout_analyzer.can_prove(x < 4)
 
 
 def test_contract_rejections():

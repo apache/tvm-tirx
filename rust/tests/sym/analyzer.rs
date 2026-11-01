@@ -88,7 +88,6 @@ fn rust_allocated_bounds_reach_the_native_analyzer() {
 #[test]
 fn bounds_and_simplification() {
     let analyzer = Analyzer::new();
-    analyzer.set_z3_default_fallback(false).unwrap();
     let x = var("x");
     let constraints = context([range_constraint(&x, range(0, 16))]);
     analyzer.sync_constraint_context(&constraints).unwrap();
