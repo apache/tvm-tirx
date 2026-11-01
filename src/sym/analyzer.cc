@@ -49,8 +49,9 @@ void AllowUIntAsIndex::ExitWithScope() {
   --depth_;
 }
 
-AnalyzerObj::AnalyzerObj()
-    : const_int_bound(this),
+AnalyzerObj::AnalyzerObj(bool enable_z3)
+    : enable_z3(enable_z3),
+      const_int_bound(this),
       modular_set(this),
       rewrite_simplify(this),
       canonical_simplify(this),
@@ -343,7 +344,7 @@ PrimExpr AnalyzerObj::Simplify(const PrimExpr& expr, int steps) {
 }
 
 Analyzer AnalyzerObj::Clone() const {
-  Analyzer cloned;
+  Analyzer cloned(enable_z3);
   cloned->const_int_bound.CopyFrom(this->const_int_bound);
   cloned->modular_set.CopyFrom(this->modular_set);
   cloned->rewrite_simplify.CopyFrom(this->rewrite_simplify);
@@ -358,7 +359,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
   namespace refl = tvm::ffi::reflection;
   refl::ObjectDef<AnalyzerObj>();
   refl::GlobalDef()
-      .def("sym.Analyzer", []() { return Analyzer(); })
+      .def("sym.Analyzer", [](bool enable_z3) { return Analyzer(enable_z3); })
       .def("sym.AnalyzerClone", [](Analyzer analyzer) { return analyzer->Clone(); })
       .def_method("sym.AnalyzerSyncConstraintContext", &AnalyzerObj::SyncConstraintContext)
       .def_method("sym.AnalyzerGetConstraintContext", &AnalyzerObj::GetConstraintContext)

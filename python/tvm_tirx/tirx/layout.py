@@ -88,20 +88,21 @@ class Layout(tvm_ffi.Object):
         analyzer optionally supplies caller-owned analysis state for repeated
         queries. Its premises may simplify the result; this method adds no
         persistent premises and does not retain the analyzer. Concurrent calls
-        must use separate analyzers. Without it, analysis state is temporary.
+        must use separate analyzers. Without it, a temporary analyzer with Z3
+        disabled is created; pass an analyzer explicitly to enable Z3.
 
         Returns
         -------
         Dict[str, Expr]
             The mapped output (axis name -> value on the axis)
         """
-        if analyzer is not None:
-            return _ffi_api.LayoutApplyWithAnalyzer(self, coord, shape, analyzer)
+        if analyzer is None:
+            analyzer = tvm_tirx.sym.Analyzer(enable_z3=False)
         if shape is not None:
-            return _ffi_api.LayoutApplyWithShape(self, coord, shape)  # pylint: disable=no-member
+            return _ffi_api.LayoutApplyWithShape(self, coord, shape, analyzer)  # pylint: disable=no-member
         if len(coord) == 1:
-            return _ffi_api.LayoutApplyLinear(self, coord[0])  # pylint: disable=no-member
-        return _ffi_api.LayoutApply(self, coord)  # pylint: disable=no-member
+            return _ffi_api.LayoutApplyLinear(self, coord[0], analyzer)  # pylint: disable=no-member
+        return _ffi_api.LayoutApply(self, coord, analyzer)  # pylint: disable=no-member
 
     def canonicalize(self) -> "Layout":
         """Canonicalize the layout by simplifying and fusing iterators where possible.

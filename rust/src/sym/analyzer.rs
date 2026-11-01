@@ -416,9 +416,14 @@ pub struct AllowUintAsIndexScope(ExitOnDrop);
 impl Analyzer {
     /// A fresh analyzer that knows no facts (`sym.Analyzer`).
     pub fn new() -> Self {
+        Self::with_z3(true)
+    }
+
+    /// A fresh analyzer with Z3 explicitly enabled or disabled for this instance.
+    pub fn with_z3(enable_z3: bool) -> Self {
         support::infallible(
             tvm_ffi::cached_global_func!("sym.Analyzer")
-                .call_tuple(())
+                .call_tuple((enable_z3,))
                 .and_then(|any| any.try_into()),
         )
     }
@@ -538,7 +543,7 @@ impl Analyzer {
         result.try_into()
     }
 
-    /// Whether the analyzer was built with the Z3 prover (`sym.AnalyzerIsZ3Enabled`).
+    /// Whether Z3 is available and enabled for this analyzer (`sym.AnalyzerIsZ3Enabled`).
     pub fn is_z3_enabled(&self) -> Result<bool> {
         tvm_ffi::cached_global_func!("sym.AnalyzerIsZ3Enabled").call_tuple((self,))?.try_into()
     }

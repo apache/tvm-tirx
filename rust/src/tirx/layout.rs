@@ -217,16 +217,23 @@ impl Layout {
     pub fn apply(
         &self,
         coord: impl IntoIterator<Item = impl IntoExpr>,
+        analyzer: &Analyzer,
     ) -> Result<Map<String, Expr>> {
         let coord = coord.into_iter().map(IntoExpr::into_expr).collect::<Result<Array<Expr>>>()?;
-        tvm_ffi::cached_global_func!("tirx.LayoutApply").call_tuple((self, &coord))?.try_into()
+        tvm_ffi::cached_global_func!("tirx.LayoutApply")
+            .call_tuple((self, &coord, analyzer))?
+            .try_into()
     }
 
     /// The coordinate on each axis of the element at the linear index `coord`
     /// (`tirx.LayoutApplyLinear`).
-    pub fn apply_linear(&self, coord: impl IntoExpr) -> Result<Map<String, Expr>> {
+    pub fn apply_linear(
+        &self,
+        coord: impl IntoExpr,
+        analyzer: &Analyzer,
+    ) -> Result<Map<String, Expr>> {
         tvm_ffi::cached_global_func!("tirx.LayoutApplyLinear")
-            .call_tuple((self, &coord.into_expr()?))?
+            .call_tuple((self, &coord.into_expr()?, analyzer))?
             .try_into()
     }
 
@@ -236,11 +243,12 @@ impl Layout {
         &self,
         coord: impl IntoIterator<Item = impl IntoExpr>,
         shape: impl IntoIterator<Item = impl IntoExpr>,
+        analyzer: &Analyzer,
     ) -> Result<Map<String, Expr>> {
         let coord = coord.into_iter().map(IntoExpr::into_expr).collect::<Result<Array<Expr>>>()?;
         let shape = shape.into_iter().map(IntoExpr::into_expr).collect::<Result<Array<Expr>>>()?;
         tvm_ffi::cached_global_func!("tirx.LayoutApplyWithShape")
-            .call_tuple((self, &coord, &shape))?
+            .call_tuple((self, &coord, &shape, analyzer))?
             .try_into()
     }
 

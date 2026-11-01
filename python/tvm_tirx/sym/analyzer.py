@@ -89,12 +89,17 @@ class Analyzer(tvm_ffi.Object):
     be passed to FFI APIs to share accumulated facts across calls.
     """
 
-    def __init__(self):
-        self.__init_handle_by_constructor__(_ffi_api.Analyzer)
+    def __init__(self, enable_z3: bool = True):
+        """Create an analyzer; enable_z3=False disables its Z3 backend at every proof strength.
+
+        The choice is local to this instance and preserved by clone(). Z3 must
+        also be available in the native build. Native analysis always runs first.
+        """
+        self.__init_handle_by_constructor__(_ffi_api.Analyzer, enable_z3)
 
     @property
     def is_z3_enabled(self) -> bool:
-        """Whether this build includes the Z3 backend (``USE_Z3=ON``).
+        """Whether Z3 is available in this build and enabled for this analyzer.
 
         The Z3-specific methods (:py:meth:`get_smtlib2`, :py:meth:`get_z3_stats`,
         :py:meth:`set_z3_timeout_ms`, :py:meth:`set_z3_rlimit`) only work when
@@ -105,8 +110,8 @@ class Analyzer(tvm_ffi.Object):
     def _check_z3_enabled(self) -> None:
         if not self.is_z3_enabled:
             raise RuntimeError(
-                "The Z3 backend is not available in this build. "
-                "Rebuild TVM with USE_Z3=ON to use Z3-specific Analyzer APIs."
+                "The Z3 backend is not enabled for this Analyzer or unavailable in this build. "
+                "Use Analyzer(enable_z3=True) with a USE_Z3=ON build for Z3-specific APIs."
             )
 
     def get_smtlib2(self, expr: ir.Expr | None = None) -> str:
@@ -115,8 +120,8 @@ class Analyzer(tvm_ffi.Object):
         Raises
         ------
         RuntimeError
-            If TVM was built without Z3 (``USE_Z3=OFF``), since there is no
-            solver state to export. Use :py:attr:`is_z3_enabled` to check first.
+            If Z3 is disabled for this analyzer or unavailable in the build,
+            since there is no solver state to export. Use :py:attr:`is_z3_enabled` to check first.
 
         Parameters
         ----------
@@ -132,7 +137,7 @@ class Analyzer(tvm_ffi.Object):
         Raises
         ------
         RuntimeError
-            If TVM was built without Z3 (``USE_Z3=OFF``).
+            If Z3 is disabled for this analyzer or unavailable in the build.
 
         Parameters
         ----------
@@ -151,7 +156,7 @@ class Analyzer(tvm_ffi.Object):
         Raises
         ------
         RuntimeError
-            If TVM was built without Z3 (``USE_Z3=OFF``).
+            If Z3 is disabled for this analyzer or unavailable in the build.
 
         Parameters
         ----------
@@ -167,7 +172,7 @@ class Analyzer(tvm_ffi.Object):
         Raises
         ------
         RuntimeError
-            If TVM was built without Z3 (``USE_Z3=OFF``).
+            If Z3 is disabled for this analyzer or unavailable in the build.
 
         Returns
         -------
@@ -324,7 +329,7 @@ class Analyzer(tvm_ffi.Object):
 
         strength: ProofStrength
             The proof strength. ``SYMBOLIC_BOUND`` additionally enables symbolic
-            bound analysis. When built with Z3 (``TVM_TIRX_USE_Z3=ON``), all
+            bound analysis. When Z3 is available and enabled for this analyzer, all
             strengths, including ``DEFAULT``, try Z3 after native analysis fails
             to prove the predicate. The existing Z3 timeout and resource limits
             apply; an unknown solver result means the predicate cannot be proved.

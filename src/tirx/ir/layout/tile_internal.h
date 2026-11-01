@@ -36,13 +36,13 @@ void CheckWellFormed(const TileLayoutObj* layout);
 PrimExpr GetSize(const TileLayoutObj* layout, ffi::Optional<ffi::String> axis_name);
 PrimExpr GetSpan(const TileLayoutObj* layout, ffi::Optional<ffi::String> axis_name);
 ffi::Map<ffi::String, PrimExpr> Apply(const TileLayoutObj* layout, ffi::Array<PrimExpr> coord,
-                                      const sym::Analyzer& analyzer);
+                                      sym::AnalyzerObj* analyzer);
 ffi::Map<ffi::String, PrimExpr> Apply(const TileLayoutObj* layout, PrimExpr coord,
-                                      const sym::Analyzer& analyzer);
+                                      sym::AnalyzerObj* analyzer);
 ffi::Map<ffi::String, PrimExpr> Apply(const TileLayoutObj* layout,
                                       const ffi::Array<PrimExpr>& coord,
                                       const ffi::Array<PrimExpr>& shape,
-                                      const sym::Analyzer& analyzer);
+                                      sym::AnalyzerObj* analyzer);
 Layout Canonicalize(const TileLayoutObj* layout);
 Layout Tile(const TileLayoutObj* layout, const TileLayout& outer,
             const ffi::Array<PrimExpr>& outer_shape, const ffi::Array<PrimExpr>& inner_shape);
@@ -51,13 +51,13 @@ void CheckWellFormed(const ComposeLayoutObj* layout);
 PrimExpr GetSize(const ComposeLayoutObj* layout, ffi::Optional<ffi::String> axis_name);
 PrimExpr GetSpan(const ComposeLayoutObj* layout, ffi::Optional<ffi::String> axis_name);
 ffi::Map<ffi::String, PrimExpr> Apply(const ComposeLayoutObj* layout, ffi::Array<PrimExpr> coord,
-                                      const sym::Analyzer& analyzer);
+                                      sym::AnalyzerObj* analyzer);
 ffi::Map<ffi::String, PrimExpr> Apply(const ComposeLayoutObj* layout, PrimExpr coord,
-                                      const sym::Analyzer& analyzer);
+                                      sym::AnalyzerObj* analyzer);
 ffi::Map<ffi::String, PrimExpr> Apply(const ComposeLayoutObj* layout,
                                       const ffi::Array<PrimExpr>& coord,
                                       const ffi::Array<PrimExpr>& shape,
-                                      const sym::Analyzer& analyzer);
+                                      sym::AnalyzerObj* analyzer);
 Layout Canonicalize(const ComposeLayoutObj* layout);
 Layout Tile(const ComposeLayoutObj* layout, const TileLayout& outer,
             const ffi::Array<PrimExpr>& outer_shape, const ffi::Array<PrimExpr>& inner_shape);
@@ -71,7 +71,7 @@ std::pair<TileLayout, std::vector<int64_t>> Group(TileLayout layout,
 // Same as Group but returns std::nullopt instead of fatal-checking when the
 // layout cannot be regrouped by ``shape``.
 std::optional<std::pair<TileLayout, std::vector<int64_t>>> TryGroup(
-    TileLayout layout, const ffi::Array<PrimExpr>& shape, const sym::Analyzer& analyzer);
+    TileLayout layout, const ffi::Array<PrimExpr>& shape, sym::AnalyzerObj* analyzer);
 
 }  // namespace tirx
 }  // namespace tvm

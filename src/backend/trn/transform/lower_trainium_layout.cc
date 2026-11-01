@@ -297,7 +297,7 @@ class TrainiumLayoutApplier : public tirx::StmtExprMutatorWithConstraintContext 
               .as_or_throw<Layout>();
       auto tile_layout = layout.as<TileLayoutObj>();
       if (IsTrainiumLayout(tile_layout)) {
-        auto coord = layout.Apply(indices, tensor.shape());
+        auto coord = layout.Apply(indices, tensor.shape(), GetSyncedAnalyzer());
         std::vector<PrimExpr> res;
         for (const auto& axis : tensor.scope() == scope_trn_psum
                                     ? ffi::Array<ffi::String>{"Bank", "P", "F"}
@@ -316,7 +316,7 @@ class TrainiumLayoutApplier : public tirx::StmtExprMutatorWithConstraintContext 
                    << "layout: unable to verify that the coordinate matches the current thread. "
                    << "Use .view() + .local() to decompose thread and memory axes.";
       }
-      auto res = layout.Canonicalize().Apply(indices, tensor.shape());
+      auto res = layout.Canonicalize().Apply(indices, tensor.shape(), GetSyncedAnalyzer());
       TVM_FFI_ICHECK_EQ(res.size(), 1) << "Expected a single element offset";
       return {GetSyncedAnalyzer()->Simplify((*res.begin()).second)};
     }

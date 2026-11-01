@@ -73,7 +73,7 @@ std::pair<TileLayout, std::vector<int64_t>> Group(TileLayout layout,
 }
 
 std::optional<std::pair<TileLayout, std::vector<int64_t>>> TryGroup(
-    TileLayout layout, const ffi::Array<PrimExpr>& shape, const sym::Analyzer& analyzer) {
+    TileLayout layout, const ffi::Array<PrimExpr>& shape, sym::AnalyzerObj* analyzer) {
   // Same algorithm as Group but returns std::nullopt instead of ICHECK-failing
   // on regroup impossibility. Used by Apply(coord, shape) to opportunistically
   // pick the group-first path with a fallback to flatten+split.

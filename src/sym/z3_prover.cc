@@ -979,21 +979,26 @@ class Z3Prover::Impl final : tvm::ExprFunctor<z3::expr(const Expr&)> {
   }
 };
 
-TVM_TIRX_DLL bool Z3Prover::IsEnabled() const { return true; }
+TVM_TIRX_DLL bool Z3Prover::IsEnabled() const { return impl_->analyzer->enable_z3; }
 TVM_TIRX_DLL bool Z3Prover::CanProve(const PrimExpr& expr) {
+  if (!IsEnabled()) return false;
   detail::TempConstraintScope query(impl_->analyzer);
   return impl_->CanProve(expr, detail::TempConstraintScope::Query(impl_->analyzer));
 }
 void Z3Prover::IngestBinding(const Var& var, const Range& new_range) {
+  if (!IsEnabled()) return;
   return impl_->IngestBinding(var, new_range, true);
 }
 void Z3Prover::IngestBinding(const Var& var, const PrimExpr& expr) {
+  if (!IsEnabled()) return;
   return impl_->IngestBinding(var, expr, true);
 }
 void Z3Prover::IngestPredicate(const PrimExpr& constraint) {
+  if (!IsEnabled()) return;
   impl_->AddPredicate(constraint, false);
 }
 ffi::String Z3Prover::GetSMTLIB2(const ffi::Optional<PrimExpr> expr) {
+  if (!IsEnabled()) return "; Z3 Prover is disabled for this analyzer.";
   detail::TempConstraintScope query(impl_->analyzer);
   return impl_->GetSMTLIB2(expr, detail::TempConstraintScope::Query(impl_->analyzer));
 }
@@ -1006,15 +1011,18 @@ void Z3Prover::Reset() {
 
 void Z3Prover::CopyFrom(const Z3Prover& other) { impl_->CopyFrom(*other.impl_); }
 ffi::String Z3Prover::GetStats() {
+  if (!IsEnabled()) return "; Z3 Prover is disabled for this analyzer.";
   detail::TempConstraintScope query(impl_->analyzer);
   return impl_->GetStats();
 }
 ffi::String Z3Prover::GetModel(const PrimExpr& expr) {
+  if (!IsEnabled()) return "; Z3 Prover is disabled for this analyzer.";
   detail::TempConstraintScope query(impl_->analyzer);
   return impl_->GetModel(expr, detail::TempConstraintScope::Query(impl_->analyzer));
 }
 TVM_TIRX_DLL int64_t Z3Prover::CountSatisfyingValues(const Var& var, int64_t max_count,
                                                      int64_t min_consecutive) {
+  if (!IsEnabled()) return -1;
   detail::TempConstraintScope query(impl_->analyzer);
   return impl_->CountSatisfyingValues(var, max_count, min_consecutive,
                                       detail::TempConstraintScope::Query(impl_->analyzer));

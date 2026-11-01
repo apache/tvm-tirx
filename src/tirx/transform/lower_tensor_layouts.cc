@@ -322,7 +322,7 @@ class LayoutApplier : public StmtExprMutatorWithConstraintContext {
         auto tile = layout.as_or_throw<TileLayout>();
         layout = TileLayout(tile->shard, tile->replica, {});
       }
-      auto res = layout.Canonicalize().Apply(indices, logical_type->shape);
+      auto res = layout.Canonicalize().Apply(indices, logical_type->shape, GetSyncedAnalyzer());
       if (res.empty() && logical_type->shape.empty()) {
         return {IntImm(logical_type->DefaultIndexType(), 0)};
       }

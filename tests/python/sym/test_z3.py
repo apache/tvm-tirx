@@ -892,16 +892,22 @@ def test_z3_repeated_can_prove_is_consistent():
     assert analyzer.can_prove(x >= 5, SB)
 
 
-def test_z3_default_fallback_nonlinear_inequality():
-    analyzer = Analyzer()
+@pytest.mark.parametrize("enable_z3", [True, False])
+@pytest.mark.parametrize("strength", [ProofStrength.DEFAULT, SB])
+def test_z3_default_fallback_nonlinear_inequality(enable_z3, strength):
+    analyzer = Analyzer(enable_z3=enable_z3)
     x = tirx.Var("x", "int32")
     y = tirx.Var("y", "int32")
     # x*x + y*y - 2*x*y == (x-y)**2 >= 0 in the mathematical integer
     # model used for wide signed indices. This does not model int32 overflow.
-    # A fresh analyzer must prove this without an option or explicit strength
-    # when Z3 is available. Native analysis alone cannot currently prove it.
+    # Native analysis alone cannot currently prove this. Disabling Z3 applies
+    # to both proof strengths and is preserved by cloning, locally to this instance.
     expr = x * x + y * y >= 2 * (x * y)
-    assert analyzer.can_prove(expr) == analyzer.is_z3_enabled
+    assert analyzer.is_z3_enabled == (enable_z3 and Analyzer().is_z3_enabled)
+    assert analyzer.can_prove(expr, strength) == analyzer.is_z3_enabled
+    cloned = analyzer.clone()
+    assert cloned.is_z3_enabled == analyzer.is_z3_enabled
+    assert cloned.can_prove(expr, strength) == analyzer.is_z3_enabled
     assert analyzer.can_prove(x == x)
     # Equality at x == y is a counterexample to the strict inequality.
     assert not analyzer.can_prove(x * x + y * y > 2 * (x * y))

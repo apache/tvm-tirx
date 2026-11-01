@@ -456,9 +456,9 @@ class IntSetAnalyzer {
 class Z3Prover {
  public:
   /*!
-   * \brief Whether the Z3 backend is compiled into this build (TVM_TIRX_USE_Z3=ON).
+   * \brief Whether Z3 is available in this build and enabled for the owning analyzer.
    *
-   * \return true if the real Z3 prover is available, false for the stub.
+   * \return true if the backend is available and enabled, false otherwise.
    */
   TVM_TIRX_DLL bool IsEnabled() const;
 
@@ -555,6 +555,8 @@ class Z3Prover {
  */
 class TVM_TIRX_DLL AnalyzerObj : public ffi::Object {
  public:
+  /*! \brief Whether this analyzer may use Z3. Fixed at construction and preserved by Clone. */
+  const bool enable_z3;
   /*! \brief sub-analyzer: const integer bound */
   ConstIntBoundAnalyzer const_int_bound;
   /*! \brief sub-analyzer: modular set */
@@ -568,7 +570,7 @@ class TVM_TIRX_DLL AnalyzerObj : public ffi::Object {
   /*! \brief sub-analyzer using Z3 */
   Z3Prover z3_prover;
   /*! \brief Construct an analyzer with no accepted premises and default query settings. */
-  AnalyzerObj();
+  explicit AnalyzerObj(bool enable_z3 = true);
   /*!
    * \brief Synchronize all derived facts to the supplied premise environment.
    *
@@ -658,7 +660,7 @@ class TVM_TIRX_DLL AnalyzerObj : public ffi::Object {
    * \note Analyzer will call into sub-analyzers to get the result.
    * Do not use strength beyond default in sub-analyzers and
    * only use it in top-level predicate analysis.
-   * When built with Z3, all strengths try it after native analysis fails.
+   * When Z3 is enabled for this analyzer, all strengths try it after native analysis fails.
    * Z3's existing resource limit and timeout apply; unknown means cannot prove.
    */
   bool CanProve(const PrimExpr& cond, ProofStrength strength = ProofStrength::kDefault);
@@ -737,8 +739,8 @@ class TVM_TIRX_DLL AnalyzerObj : public ffi::Object {
  */
 class Analyzer : public ffi::ObjectRef {
  public:
-  /*! \brief Construct a fresh analyzer. */
-  Analyzer() : Analyzer(ffi::make_object<AnalyzerObj>()) {}
+  /*! \brief Construct a fresh analyzer, optionally disabling Z3 for this instance. */
+  explicit Analyzer(bool enable_z3 = true) : Analyzer(ffi::make_object<AnalyzerObj>(enable_z3)) {}
   /*! \brief Adopt a reference to a non-null analyzer object. */
   explicit Analyzer(ffi::ObjectPtr<AnalyzerObj> n) : ffi::ObjectRef(std::move(n)) {
     TVM_FFI_ICHECK(this->get() != nullptr);

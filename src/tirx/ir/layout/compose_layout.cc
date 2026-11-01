@@ -30,7 +30,7 @@ using namespace tvm::prim;
 namespace {
 
 PrimExpr ApplyFullSwizzle(const ComposeLayoutObj* layout, const PrimExpr& m,
-                          const sym::Analyzer& analyzer) {
+                          sym::AnalyzerObj* analyzer) {
   auto swizzle = [&](const PrimExpr& x) -> PrimExpr {
     if (layout->swizzle_inner) {
       return x ^ ((x & layout->outer_mask) >> layout->atom_len);
@@ -46,7 +46,7 @@ PrimExpr ApplyFullSwizzle(const ComposeLayoutObj* layout, const PrimExpr& m,
   return prim::Let(m_once, m, prim::Let(quotient_once, quotient, body));
 }
 
-void AddExpr(std::optional<PrimExpr>* sum, const PrimExpr& term, const sym::Analyzer& analyzer) {
+void AddExpr(std::optional<PrimExpr>* sum, const PrimExpr& term, sym::AnalyzerObj* analyzer) {
   if (IsZero(term)) return;
   if (sum->has_value()) {
     *sum = analyzer->Simplify(sum->value() + term);
@@ -74,7 +74,7 @@ bool MulWithoutOverflow(int64_t lhs, int64_t rhs, int64_t* result) {
 }
 
 void CollectOffsetTerms(const PrimExpr& expr, int sign, std::vector<PrimExpr>* dynamic_terms,
-                        int64_t* constant, bool* valid, const sym::Analyzer& analyzer) {
+                        int64_t* constant, bool* valid, sym::AnalyzerObj* analyzer) {
   if (!*valid) return;
   PrimExpr simplified = analyzer->Simplify(expr);
   if (const auto* imm = simplified.as<IntImmObj>()) {
@@ -104,7 +104,7 @@ void CollectOffsetTerms(const PrimExpr& expr, int sign, std::vector<PrimExpr>* d
 }
 
 std::optional<PrimExpr> DivideExactTerm(const PrimExpr& term, int64_t divisor,
-                                        const sym::Analyzer& analyzer) {
+                                        sym::AnalyzerObj* analyzer) {
   PrimExpr simplified = analyzer->Simplify(term);
   if (const auto* imm = simplified.as<IntImmObj>()) {
     if (imm->value % divisor != 0) return std::nullopt;
@@ -132,7 +132,7 @@ std::optional<PrimExpr> DivideExactTerm(const PrimExpr& term, int64_t divisor,
 
 ffi::Map<ffi::String, PrimExpr> ApplyStructured(const ComposeLayoutObj* layout,
                                                 const TileLayout& tile, ffi::Array<PrimExpr> coord,
-                                                const sym::Analyzer& analyzer) {
+                                                sym::AnalyzerObj* analyzer) {
   // Normalize the bounded TileLayout terms as m = B + D + K, where B is a
   // multiple of one atom, D is dynamic and contained in that atom, and K is
   // the constant remainder.  If D + K is provably carry-free, the swizzle is
@@ -347,12 +347,12 @@ PrimExpr layout_detail::GetSpan(const ComposeLayoutObj* layout,
 
 ffi::Map<ffi::String, PrimExpr> layout_detail::Apply(const ComposeLayoutObj* layout,
                                                      ffi::Array<PrimExpr> coord,
-                                                     const sym::Analyzer& analyzer) {
+                                                     sym::AnalyzerObj* analyzer) {
   return ApplyStructured(layout, layout->tile_layout, std::move(coord), analyzer);
 }
 
 ffi::Map<ffi::String, PrimExpr> layout_detail::Apply(const ComposeLayoutObj* layout, PrimExpr coord,
-                                                     const sym::Analyzer& analyzer) {
+                                                     sym::AnalyzerObj* analyzer) {
   auto res = layout->tile_layout.Apply(coord, analyzer);
   TVM_FFI_ICHECK(res.size() == 1 && res.find("m") != res.end());
   auto m = res["m"];
@@ -373,7 +373,7 @@ ffi::Map<ffi::String, PrimExpr> layout_detail::Apply(const ComposeLayoutObj* lay
 ffi::Map<ffi::String, PrimExpr> layout_detail::Apply(const ComposeLayoutObj* layout,
                                                      const ffi::Array<PrimExpr>& coord,
                                                      const ffi::Array<PrimExpr>& shape,
-                                                     const sym::Analyzer& analyzer) {
+                                                     sym::AnalyzerObj* analyzer) {
   TVM_FFI_ICHECK_EQ(coord.size(), shape.size())
       << "ValueError: The size of coord and shape should be equal";
   auto grouped = TryGroup(layout->tile_layout, shape, analyzer);

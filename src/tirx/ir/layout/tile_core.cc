@@ -219,7 +219,7 @@ PrimExpr layout_detail::GetSpan(const TileLayoutObj* layout, ffi::Optional<ffi::
 }
 
 ffi::Map<ffi::String, PrimExpr> layout_detail::Apply(const TileLayoutObj* layout, PrimExpr coord,
-                                                     const sym::Analyzer& analyzer) {
+                                                     sym::AnalyzerObj* analyzer) {
   return Apply(layout, SplitCoord(coord, ffi::GetRef<TileLayout>(layout).GetShardShape()),
                analyzer);
 }
@@ -227,7 +227,7 @@ ffi::Map<ffi::String, PrimExpr> layout_detail::Apply(const TileLayoutObj* layout
 ffi::Map<ffi::String, PrimExpr> layout_detail::Apply(const TileLayoutObj* layout,
                                                      const ffi::Array<PrimExpr>& coord,
                                                      const ffi::Array<PrimExpr>& shape,
-                                                     const sym::Analyzer& analyzer) {
+                                                     sym::AnalyzerObj* analyzer) {
   TVM_FFI_ICHECK_EQ(coord.size(), shape.size())
       << "ValueError: The size of coord and shape should be equal";
   // Group-first path: if this layout can be regrouped by ``shape`` (the input
@@ -266,7 +266,7 @@ ffi::Map<ffi::String, PrimExpr> layout_detail::Apply(const TileLayoutObj* layout
 
 ffi::Map<ffi::String, PrimExpr> layout_detail::Apply(const TileLayoutObj* layout,
                                                      Array<PrimExpr> coord,
-                                                     const sym::Analyzer& analyzer) {
+                                                     sym::AnalyzerObj* analyzer) {
   TVM_FFI_ICHECK_EQ(coord.size(), layout->shard.size())
       << "Coordinate size must match the number of shard axes";
   std::unordered_map<ffi::String, PrimExpr> result;
