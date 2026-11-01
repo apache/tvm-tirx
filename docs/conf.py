@@ -53,8 +53,14 @@ breathe_default_project = "tvm-tirx"
 
 breathe_projects = {"tvm-tirx": "./_build/doxygen/xml"}
 
-exhaleDoxygenStdin = """
-INPUT = ../include
+# The C++ reference also documents the TVM-FFI structural utilities, which TIRx uses directly.
+_ffi_structural_headers = " ".join(
+    f"../3rdparty/tvm-ffi/include/tvm/ffi/extra/structural_{name}.h"
+    for name in ("visit", "mutate", "equal", "hash", "key")
+)
+
+exhaleDoxygenStdin = f"""
+INPUT = ../include {_ffi_structural_headers}
 INCLUDE_PATH = ../include ../3rdparty/tvm-ffi/include
 PREDEFINED             += TVM_TIRX_DLL= TVM_RUNTIME_DLL= TVM_RUNTIME_DLL_EXPORT= \
                           TVM_FFI_DLL= TVM_FFI_DLL_EXPORT= TVM_FFI_INLINE= \
@@ -62,7 +68,11 @@ PREDEFINED             += TVM_TIRX_DLL= TVM_RUNTIME_DLL= TVM_RUNTIME_DLL_EXPORT=
                           TVM_FFI_COLD_CODE= \
                           TVM_FFI_PREDICT_FALSE(x)=x TVM_FFI_PREDICT_TRUE(x)=x \
                           __cplusplus=202002
-EXCLUDE_SYMBOLS        += *detail* *TypeTraits* std tvm::ffi tvm::ffi::* TVM_* \
+# tvm::ffi symbols come only from the structural headers in INPUT; their engines are internal.
+# The TVM_* patterns exclude every macro except TVM_FFI_S_*, which those headers reference.
+EXCLUDE_SYMBOLS        += *detail* *TypeTraits* std \
+                          TVM_[A-EG-Z]* TVM_F[A-EG-Z]* TVM_FFI_[A-RTV-Z]* TVM_FFI_S[A-Z]* \
+                          TVM_FFI_U* *_IMPL_ *Engine *EngineBase UnsafeInit tvm::ffi::type_attr \
                           *_type_* *use_default_type_traits_v* *object_ref_contains_v* \
                           WithAttr MatchesOneOf MakeConst FInferType TFixedReturnType \
                           FRegionGetBodyParams FRegionValidate FTileOpDispatch
