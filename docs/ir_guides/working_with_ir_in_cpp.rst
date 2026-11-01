@@ -54,8 +54,9 @@ The examples are packaged as ``tirx_ir_guide_examples`` under
 `examples/ir_guides <https://github.com/apache/tvm-tirx/tree/main/examples/ir_guides>`__.
 Installing the package builds the C++ source, ``cpp/working_with_ir.cc``,
 into a library; ``CMakeLists.txt`` and ``pyproject.toml`` in the same
-directory show how. We install without build isolation, so the build uses
-the TIRx we already have installed instead of fetching one from PyPI:
+directory show how. Install TIRx from the same source tree to keep the IR
+APIs aligned. We install without build isolation to build against that
+installation instead of fetching one from PyPI:
 
 .. code-block:: bash
 
@@ -168,10 +169,10 @@ loop or a store. |ObjectRef::as|_ and its relatives offer three forms:
 
 .. note::
 
-   A function's body is optional, so ``func->body`` is an
-   ``ffi::Optional<SeqStmt>`` and ``value()`` unwraps it. The loop variable
-   is stored as a ``PrimVar``, which views a ``Var`` as a ``PrimExpr``, so
-   we read its name through ``as<VarObj>()``.
+   A function's ``body`` is always a ``SeqStmt``. A declaration has an empty
+   body and the ``declaration`` attribute set to true. The loop variable is
+   stored as a ``PrimVar``, which views a ``Var`` as a ``PrimExpr``, so we
+   read its name through ``as<VarObj>()``.
 
 To create a node, we call the constructor of its reference class, and
 arithmetic operators on ``PrimExpr`` build new expressions. Let's build a

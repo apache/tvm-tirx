@@ -55,8 +55,9 @@ The examples are packaged as ``tirx_ir_guide_examples`` under
 `examples/ir_guides <https://github.com/apache/tvm-tirx/tree/main/examples/ir_guides>`__.
 When cargo is available, installing the package builds the Rust crate in
 ``rust/`` into a library; ``CMakeLists.txt`` and ``pyproject.toml`` in the
-same directory show how. We install without build isolation, so the build
-uses the TIRx we already have installed instead of fetching one from PyPI:
+same directory show how. The crate uses the bindings from this checkout,
+so install TIRx from the same source tree. We install without build isolation
+to build against that installation instead of fetching one from PyPI:
 
 .. code-block:: bash
 
@@ -119,9 +120,9 @@ any node as TVMScript.
 
 .. note::
 
-   A function's ``body`` is an ``Option``; ``as_ref().expect(...)``
-   borrows and unwraps it. ``get`` on an array returns an error for an index out of
-   range, and ``?`` passes it on.
+   A function's ``body`` is always a ``SeqStmt``. A declaration has an empty
+   body and the ``declaration`` attribute set to true. ``get`` on an array
+   returns an error for an index out of range, and ``?`` passes it on.
 
 To create a node, we call the constructor of its handle type, such as
 |TensorStore::new|_. |ex|_ wraps an expression so that the usual Rust

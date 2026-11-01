@@ -49,7 +49,7 @@ ffi::String Inspect(const tirx::Function& func) {
   for (const Var& param : func->params) {
     os << "param " << param->name << "\n";
   }
-  SeqStmt body = func->body.value();
+  SeqStmt body = func->body;
   if (const ForObj* loop = body[0].as<ForObj>()) {
     os << "loop over " << loop->var.as<VarObj>()->name << " up to " << loop->end << "\n";
     if (const TensorStoreObj* store = loop->body[0].as<TensorStoreObj>()) {
@@ -62,7 +62,7 @@ ffi::String Inspect(const tirx::Function& func) {
 
 // [create.begin]
 TensorStore DoubleStore(const tirx::Function& func) {
-  For loop = func->body.value()[0].as_or_throw<For>();
+  For loop = func->body[0].as_or_throw<For>();
   TensorStore store = loop->body[0].as_or_throw<TensorStore>();
   PrimExpr doubled = store->value * 2;
   return TensorStore(store->dest, store->indices, doubled);

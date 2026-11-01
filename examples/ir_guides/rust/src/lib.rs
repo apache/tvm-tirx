@@ -43,7 +43,7 @@ fn inspect(func: Function) -> Result<tvm_ffi::String> {
     for param in func.params.iter() {
         lines.push(format!("param {}", param.name.as_str()));
     }
-    let body = func.body.as_ref().expect("add_one has a body");
+    let body = &func.body;
     for stmt in body.seq.iter() {
         describe(stmt, "", &mut lines)?;
     }
@@ -73,7 +73,7 @@ fn describe(stmt: Stmt, indent: &str, lines: &mut Vec<String>) -> Result<()> {
 
 // [create.begin]
 fn double_store(func: Function) -> Result<TensorStore> {
-    let body = func.body.as_ref().expect("add_one has a body");
+    let body = &func.body;
     let loop_: For = body.seq.get(0)?.try_cast()?;
     let store: TensorStore = loop_.body.seq.get(0)?.try_cast()?;
     let doubled = ex(&store.value) * 2;

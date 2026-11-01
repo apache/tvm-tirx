@@ -27,4 +27,5 @@ name = "tirx_ir_guide_examples_rust"
 crate-type = ["cdylib"]
 
 [dependencies]
-tvm-tirx = "0.1.0-alpha.5"
+# Use the bindings from this checkout to match the current IR node fields.
+tvm-tirx = { path = "../../../rust" }
