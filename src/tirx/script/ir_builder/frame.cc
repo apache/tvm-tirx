@@ -88,13 +88,14 @@ void FunctionFrameObj::ExitWithScope() {
   }
   TVM_FFI_CHECK(!is_declaration || stmts.empty(), ValueError)
       << "A function declaration cannot contain body statements";
-  ffi::Optional<tvm::SeqStmt> body = std::nullopt;
-  if (!is_declaration) body = AsStmt(stmts);
+  // The marker belongs to this signature, not the frame reused for its body.
+  auto function_attrs = attrs;
+  if (is_declaration) function_attrs.Set(tvm::attr::kDeclaration.name, true);
   tvm::tirx::Function func(
       /*params=*/args,
-      /*body=*/body,
+      /*body=*/AsStmt(stmts),
       /*ret_type=*/ret_type.value_or(TupleType::Empty()),
-      /*attrs=*/attrs.defined() ? DictAttrs(attrs) : DictAttrs(),
+      /*attrs=*/DictAttrs(function_attrs),
       /*loc=*/loc);
   func = FinalizeFunction(std::move(func));
   function = func;
@@ -109,18 +110,12 @@ void FunctionFrameObj::ExitWithScope() {
            "function scope, if it's defined in a Module";
     const ir::IRModuleFrame& frame = opt_frame.value();
     const ffi::String& func_name = name.value_or("");
-    if (!frame->global_var_map.count(func_name) ||
-        !frame->functions.count(frame->global_var_map.at(func_name))) {
-      // Case. First time visiting the function.
+    if (!frame->global_var_map.count(func_name)) {
+      // A complete function can also be registered on its first visit.
       global_var = ir::DeclFunction(func_name, func);
-    }
-    // Define the function.
-    // Note we do checks to disallow redefinition of functions inside the `DefFunction`.
-    if (!global_var.has_value()) {
+    } else {
       TVM_FFI_CHECK(!is_declaration, ValueError) << "function " << func_name << " already exists";
       global_var = frame->global_var_map.at(func_name);
-    }
-    if (!is_declaration) {
       ir::DefFunction(func_name, func);
     }
   } else {

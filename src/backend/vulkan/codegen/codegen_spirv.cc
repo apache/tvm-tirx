@@ -114,7 +114,7 @@ const VarObj* AsBufferVarObj(const Expr& expr) {
 CodeGenSPIRV::CodeGenSPIRV(Target target) : spirv_support_(target) {}
 
 runtime::SPIRVShader CodeGenSPIRV::BuildFunction(const Function& f, const std::string& name) {
-  TVM_FFI_CHECK(f->body.has_value(), ValueError)
+  TVM_FFI_CHECK(!f->GetAttr(tvm::attr::kDeclaration).value_or(false), ValueError)
       << "Kernel code generation requires a function body";
   this->InitFuncState();
   TVM_FFI_ICHECK(f->HasNonzeroAttr(tvm::tirx::attr::kNoAlias.name))
@@ -178,7 +178,7 @@ runtime::SPIRVShader CodeGenSPIRV::BuildFunction(const Function& f, const std::s
       }
     }
   }
-  this->Dispatch(f->body.value());
+  this->Dispatch(f->body);
   builder_->SetLocalSize(func_ptr, workgroup_size_);
   builder_->MakeInst(spv::OpReturn);
   builder_->MakeInst(spv::OpFunctionEnd);

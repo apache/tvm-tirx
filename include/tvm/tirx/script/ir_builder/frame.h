@@ -55,7 +55,7 @@ class TVM_TIRX_DLL FunctionFrameObj : public ir::StmtFrameObj {
   ffi::Map<ffi::String, Any> attrs;
   /*! \brief Whether it is a persistent kernel. */
   bool persistent;
-  /*! \brief Whether this frame declares a bodyless signature. */
+  /*! \brief Whether this frame collects a signature for later definition. */
   bool is_declaration{false};
   /*! \brief Finalized function and its module identity. */
   ffi::Optional<tvm::tirx::Function> function;

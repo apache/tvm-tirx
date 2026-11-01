@@ -52,9 +52,13 @@ fn functions_agree_with_cpp() {
         [(FfiString::from("note"), Any::from(1i64))].into_iter().collect();
     let attrs = DictAttrs::new(note);
     for (what, body, ret_type) in [
-        ("Function", Some(body.clone()), &int32),
-        ("Function(void)", Some(body.clone()), &missing),
-        ("Function(no body)", None, &int32),
+        ("Function", body.clone(), &int32),
+        ("Function(void)", body.clone(), &missing),
+        (
+            "Function(empty body)",
+            SeqStmt::new(Vec::<tvm_tirx::ir::Stmt>::new(), UNKNOWN_LOC),
+            &int32,
+        ),
     ] {
         let native_function = native(
             "tirx.Function",
@@ -68,7 +72,7 @@ fn functions_agree_with_cpp() {
         );
         agree(
             what,
-            Ok(Function::new(params.iter(), body.as_ref(), ret_type, &attrs, UNKNOWN_LOC)),
+            Ok(Function::new(params.iter(), &body, ret_type, &attrs, UNKNOWN_LOC)),
             native_function,
         );
     }

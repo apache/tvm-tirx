@@ -2269,7 +2269,7 @@ namespace transform {
 
 Pass StorageRewrite() {
   auto pass_func = [](Function f, IRModule m, PassContext ctx) {
-    if (!f->body.has_value()) return f;
+    if (f->GetAttr(tvm::attr::kDeclaration).value_or(false)) return f;
     bool enable_reuse = true;
     bool reuse_require_exact_matched_dtype = false;
     bool merge_static_smem = ctx->GetConfig<bool>("tirx.merge_static_smem").value_or(false);
@@ -2287,9 +2287,8 @@ Pass StorageRewrite() {
       reuse_require_exact_matched_dtype = true;
     }
     auto* n = f.CopyOnWrite();
-    n->body = ffi::make_object<StoragePlanRewriter>()->Rewrite(std::move(n->body).value(),
-                                                               n->params, true, enable_reuse,
-                                                               reuse_require_exact_matched_dtype);
+    n->body = ffi::make_object<StoragePlanRewriter>()->Rewrite(
+        std::move(n->body), n->params, true, enable_reuse, reuse_require_exact_matched_dtype);
     // Parameters may not be rewritten, but internal allocations may.
     return PointerValueTypeRewrite(std::move(f), true, false, false, true, true, true, false);
   };
@@ -2303,7 +2302,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
 
 Pass PointerValueTypeRewrite() {
   auto pass_func = [](Function f, IRModule m, PassContext ctx) {
-    if (!f->body.has_value()) return f;
+    if (f->GetAttr(tvm::attr::kDeclaration).value_or(false)) return f;
     return PointerValueTypeRewrite(std::move(f));
   };
   return CreateFunctionPass(pass_func, 0, "tirx.PointerValueTypeRewrite");

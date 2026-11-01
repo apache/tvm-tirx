@@ -21,7 +21,7 @@
 //! Tensor functions.
 //!
 //! The objects `python/tvm_tirx/tirx/function.py` defines. A [`Function`] is a
-//! [`BaseFunc`] with parameters, a return type and an optional body, built with [`Function::new`];
+//! [`BaseFunc`] with parameters, a return type and a required sequence body, built with [`Function::new`];
 //! [`renew_def`] gives its variables fresh definitions.
 
 // `custom-new` reserves `new` for a constructor with the C++ one's semantics (`ty` derived from the
@@ -67,7 +67,7 @@ pub struct FunctionObj {
     base: BaseFuncObj,
     pub params: Array<Var>,
     pub ret_type: Type,
-    pub body: Option<SeqStmt>,
+    pub body: SeqStmt,
 }
 
 const _: () = {
@@ -102,7 +102,7 @@ impl FunctionObj {
         attrs: DictAttrs,
         params: Array<Var>,
         ret_type: Type,
-        body: Option<SeqStmt>,
+        body: SeqStmt,
     ) -> Self {
         let base = BaseFuncObj::new(loc, ty, attrs);
         Self { base, params, ret_type, body }
@@ -117,7 +117,7 @@ impl Function {
         attrs: impl Into<DictAttrs>,
         params: impl Into<Array<Var>>,
         ret_type: impl Into<Type>,
-        body: impl Into<Option<SeqStmt>>,
+        body: impl Into<SeqStmt>,
     ) -> Self {
         let obj = FunctionObj::new(
             loc.into(),
@@ -140,7 +140,7 @@ impl Function {
     /// (C++ `Function(params, body, ret_type, attrs, loc)`).
     pub fn new(
         params: impl IntoIterator<Item = impl Into<Var>>,
-        body: Option<&SeqStmt>,
+        body: &SeqStmt,
         ret_type: impl Into<Type>,
         attrs: impl Into<DictAttrs>,
         loc: impl Into<Location>,
@@ -153,7 +153,7 @@ impl Function {
         };
         let param_types = params.iter().map(|param| param.ty.clone()).collect::<Vec<Type>>();
         let ty = FuncType::new(param_types, ret_type.clone());
-        Self::from_fields(loc.into(), ty, attrs.into(), params, ret_type, body.cloned())
+        Self::from_fields(loc.into(), ty, attrs.into(), params, ret_type, body.clone())
     }
 }
 

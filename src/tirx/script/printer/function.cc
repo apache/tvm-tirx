@@ -94,9 +94,8 @@ void PrintFunction(DocTranslatorObj* d, const tirx::FunctionObj* func, ExprDoc d
         }
         if (!decorator_keys.empty())
           decorator = decorator->Call({}, decorator_keys, decorator_values);
-        ffi::Array<StmtDoc> body;
-        if (func->body.has_value())
-          body = ToStmtDocArray(d->WithDocScope([&]() { d->Translate(func->body.value()); }));
+        ffi::Array<StmtDoc> body =
+            ToStmtDocArray(d->WithDocScope([&]() { d->Translate(func->body); }));
         std::vector<std::pair<ffi::String, ffi::Any>> attrs;
         for (const auto& [key, value] : func->attrs->dict) {
           if (key != tvm::attr::kGlobalSymbol.name &&

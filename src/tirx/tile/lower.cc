@@ -632,11 +632,11 @@ namespace transform {
 
 Pass TileDispatch() {
   auto pass_func = [](Function f, IRModule m, PassContext ctx) {
-    if (!f->body.has_value()) return f;
+    if (f->GetAttr(tvm::attr::kDeclaration).value_or(false)) return f;
     Target target = ResolveTarget(f);
     auto* n = f.CopyOnWrite();
-    n->body = TileDispatcher::LowerOpCalls(n->body.value(), target);
-    if (!NoOpCallVerifier::Verify(n->body.value())) {
+    n->body = TileDispatcher::LowerOpCalls(n->body, target);
+    if (!NoOpCallVerifier::Verify(n->body)) {
       LOG(FATAL) << "Failed to lower the TIRx program: " << f;
     }
     return f;

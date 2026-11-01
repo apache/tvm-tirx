@@ -290,6 +290,11 @@ class WellFormednessVerifier : public StmtExprVisitor {
   }
 
   Result Visit_(const FunctionObj* op) {
+    if (op->GetAttr(tvm::attr::kDeclaration).value_or(false)) {
+      Verify(false) << "ValueError: Function at <current location> is a declaration, "
+                       "but a definition is required.";
+      return std::nullopt;
+    }
     int enclosing_depth = loop_depth_;
     loop_depth_ = 0;
     WithScope([&]() -> Result {

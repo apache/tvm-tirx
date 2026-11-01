@@ -240,11 +240,11 @@ namespace transform {
 
 Pass HoistIf() {
   auto pass_func = [](Function f, IRModule m, PassContext ctx) {
-    if (!f->body.has_value()) return f;
+    if (f->GetAttr(tvm::attr::kDeclaration).value_or(false)) return f;
     auto* n = f.CopyOnWrite();
     Stmt body = ffi::make_object<IfHoister>()
-                    ->Mutate(n->body.value(), InplaceMode::kAllow)
-                    .ValueOrUnchanged(n->body.value());
+                    ->Mutate(n->body, InplaceMode::kAllow)
+                    .ValueOrUnchanged(n->body);
     n->body = tirx::ConvertSSA(std::move(body));
     return f;
   };

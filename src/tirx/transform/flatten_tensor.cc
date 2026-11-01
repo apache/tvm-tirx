@@ -65,7 +65,7 @@ class TensorFlattener : public StmtExprMutatorWithConstraintContext {
   using StmtExprMutatorWithConstraintContext::Mutate;
   using StmtExprMutatorWithConstraintContext::Mutate_;
   static Function Flatten(Function func) {
-    if (!func->body.has_value()) return func;
+    if (func->GetAttr(tvm::attr::kDeclaration).value_or(false)) return func;
     auto pass = ffi::make_object<TensorFlattener>(sym::ConstraintContext());
     pass->AddParamConstraints(func);
     for (const Var& param : func->params) {
@@ -74,8 +74,8 @@ class TensorFlattener : public StmtExprMutatorWithConstraintContext {
         pass->Define(tensor.value());
       }
     }
-    auto body_result = pass->Mutate(func->body, InplaceMode::kDisallow)
-                           .as_or_throw<UnchangedOr<ffi::Optional<SeqStmt>>>();
+    auto body_result =
+        pass->Mutate(func->body, InplaceMode::kDisallow).as_or_throw<UnchangedOr<SeqStmt>>();
     bool body_unchanged = body_result.UnchangedOrSameAs(func->body);
     auto body = std::move(body_result).ValueOrUnchanged(func->body);
 
@@ -89,7 +89,7 @@ class TensorFlattener : public StmtExprMutatorWithConstraintContext {
           if (!old_buf.value().same_as(new_buf)) {
             body = SeqStmt({Bind(new_buf, Call(new_buf.ty(), decl_tensor_op(),
                                                {old_buf.value().data()}, {}, {new_buf.ty()})),
-                            std::move(body).value()});
+                            std::move(body)});
             body_unchanged = false;
           }
         }

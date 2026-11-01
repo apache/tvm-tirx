@@ -307,7 +307,7 @@ void CodeGenCUDA::InitFuncState(const Function& func) {
 void CodeGenCUDA::DeclareFunction(const GlobalVar& gvar, const Function& func) {
   if (!RegisterFunctionName(gvar, func)) return;
   // Definitions supply their body-derived qualifiers in AddFunction.
-  if (!func->body.has_value()) {
+  if (func->GetAttr(tvm::attr::kDeclaration).value_or(false)) {
     InitFuncState(func);
     PrintFunctionSignature(GetFunctionName(gvar), func, fwd_decl_stream);
     fwd_decl_stream << ";\n";
@@ -316,7 +316,7 @@ void CodeGenCUDA::DeclareFunction(const GlobalVar& gvar, const Function& func) {
 
 void CodeGenCUDA::AddFunction(const GlobalVar& gvar, const Function& func) {
   DeclareFunction(gvar, func);
-  if (!func->body.has_value()) return;
+  if (func->GetAttr(tvm::attr::kDeclaration).value_or(false)) return;
   InitFuncState(func);
   std::ostringstream parameters;
   PrintFunctionParameters(func, parameters);
@@ -327,7 +327,7 @@ void CodeGenCUDA::AddFunction(const GlobalVar& gvar, const Function& func) {
   stream << " {\n";
   PreFunctionBody(func);
   int func_scope = BeginScope();
-  PrintStmt(func->body.value());
+  PrintStmt(func->body);
   EndScope(func_scope);
   PrintIndent();
   stream << "}\n\n";

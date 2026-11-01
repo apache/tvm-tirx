@@ -213,6 +213,16 @@ class BaseFunc : public Expr {
  */
 namespace attr {
 /*!
+ * \brief Whether this function declares a signature without an implementation.
+ *
+ * TIRx declarations carry an empty SeqStmt body. An empty body alone is a
+ * definition; only this attribute marks a declaration.
+ *
+ * Type: bool
+ */
+inline constexpr ffi::reflection::AttrKey<bool> kDeclaration{"declaration"};
+
+/*!
  * \brief Indicates the special calling convention.
  *
  * Type: IntImm

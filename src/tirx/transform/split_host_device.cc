@@ -691,7 +691,7 @@ class DeviceKernelMutator : public StmtExprMutator {
         write_ptr->ret_type = VoidType();
         Target target = func->GetAttr(tvm::attr::kTarget).value();
         bool preserve_early_returns = target->kind->name == "cuda";
-        write_ptr->body = ReturnRemover::Apply(write_ptr->body.value(), !preserve_early_returns);
+        write_ptr->body = ReturnRemover::Apply(write_ptr->body, !preserve_early_returns);
       }
 
       func = WithAttrs(std::move(func),

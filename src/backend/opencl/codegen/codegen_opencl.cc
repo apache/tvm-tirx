@@ -132,8 +132,8 @@ CodeGenOpenCL::CodeGenOpenCL() {
 void CodeGenOpenCL::InitFuncState(const Function& f) {
   CodeGenC::InitFuncState(f);
   texture_access_qualifiers_.clear();
-  if (f->body.has_value()) {
-    this->SetTextureScope(ffi::make_object<InferTextureAccess>()->Infer(f->body.value()));
+  if (!f->GetAttr(tvm::attr::kDeclaration).value_or(false)) {
+    this->SetTextureScope(ffi::make_object<InferTextureAccess>()->Infer(f->body));
   }
   for (Var arg : f->params) {
     auto ptr_type = arg->ty.as<PtrTypeObj>();

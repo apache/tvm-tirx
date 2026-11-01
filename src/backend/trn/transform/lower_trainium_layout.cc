@@ -355,9 +355,9 @@ namespace transform {
 
 Pass LowerTrainiumLayout() {
   auto pass_func = [](Function f, IRModule m, PassContext ctx) {
-    if (!f->body.has_value()) return f;
+    if (f->GetAttr(tvm::attr::kDeclaration).value_or(false)) return f;
     auto* n = f.CopyOnWrite();
-    auto [body, params] = TrainiumLayoutApplier::Lower(n->body.value(), n->params);
+    auto [body, params] = TrainiumLayoutApplier::Lower(n->body, n->params);
     n->body = std::move(body);
     n->params = std::move(params);
     return f;

@@ -84,8 +84,8 @@ void CodeGenAArch64::SetComputeScopeAttributes(llvm::Function* func) {
 void CodeGenAArch64::SetPStateAttributes(llvm::Function* func, const Function& f) {
   // These string Function attrs are exposed directly through T.func_attr and with_attr.
   if (auto sm = f->GetAttr<ffi::String>(tvm::codegen::aarch64::attr::kPStateSM)) {
-    // A locally streaming body does not change a bodyless declaration's interface.
-    if (sm.value() != "body" || f->body.has_value()) {
+    // A locally streaming body does not change a declaration's interface.
+    if (sm.value() != "body" || !f->GetAttr(tvm::attr::kDeclaration).value_or(false)) {
       func->addFnAttr(MakeStringRef("aarch64_pstate_sm_" + sm.value()));
     }
   }

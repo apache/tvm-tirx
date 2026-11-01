@@ -153,6 +153,9 @@ void CodeGenC::PrintFunctionParameters(const Function& func, std::ostream& os) {
 }
 
 bool CodeGenC::RegisterFunctionName(const GlobalVar& gvar, const Function& func) {
+  TVM_FFI_CHECK(!func->GetAttr(tvm::attr::kDeclaration).value_or(false) || func->body->seq.empty(),
+                ValueError)
+      << "Function declaration " << gvar->name_hint << " must have an empty body";
   if (internal_functions_.count(gvar)) return false;
 
   auto function_name = [&]() -> ffi::String {
@@ -194,7 +197,7 @@ void CodeGenC::AddFunction(const GlobalVar& gvar, const Function& f) {
   // If the function has already been forward-declared, this is a
   // no-op.
   DeclareFunction(gvar, f);
-  if (!f->body.has_value()) return;
+  if (f->GetAttr(tvm::attr::kDeclaration).value_or(false)) return;
   auto function_name = GetFunctionName(gvar);
 
   // clear previous generated state.
@@ -204,7 +207,7 @@ void CodeGenC::AddFunction(const GlobalVar& gvar, const Function& f) {
   stream << " {\n";
   this->PreFunctionBody(f);
   int func_scope = this->BeginScope();
-  this->PrintStmt(f->body.value());
+  this->PrintStmt(f->body);
   this->EndScope(func_scope);
   this->PrintIndent();
   this->stream << "}\n\n";

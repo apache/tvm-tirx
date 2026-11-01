@@ -46,7 +46,7 @@ TVM_TIRX_DLL IRModuleFrame IRModule();
  * \brief Declare a Function without given the specific function implementation.
  * \note It is usually used in cross-function call. And we can specify the function by `DefFunction`
  * \param func_name The function unique name.
- * \param func_signature A Function w/o body, which used to specify the function signature
+ * \param func_signature A Function marked with attr::kDeclaration, specifying the signature
  *                       (i.e. func params and func return type/shape).
  * \return The corresponding GlobalVar.
  */

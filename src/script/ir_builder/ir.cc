@@ -98,12 +98,18 @@ void DefFunction(const ffi::String& func_name, const BaseFunc& func) {
   TVM_FFI_CHECK(it != frame->global_var_map.end(), ValueError)
       << "function " << func_name << " does not exist, please declare it first.";
   const GlobalVar& gv = (*it).second;
-  frame->functions.Set(gv, func);
+  TVM_FFI_CHECK(!func->GetAttr(tvm::attr::kDeclaration).value_or(false), ValueError)
+      << "function " << func_name << " requires a definition";
+  auto previous = frame->functions.Get(gv);
+  TVM_FFI_CHECK(!previous || previous.value()->GetAttr(tvm::attr::kDeclaration).value_or(false),
+                ValueError)
+      << "function " << func_name << " has already been defined";
   if (auto ty = GetGlobalVarType(func)) {
     gv->ty = ty.value();
   } else {
     TVM_FFI_THROW(InternalError) << "Unsupported function type: " << func->GetTypeKey();
   }
+  frame->functions.Set(gv, func);
 }
 
 void ModuleAttrs(ffi::Map<ffi::String, Any> attrs, bool allow_overwrite) {

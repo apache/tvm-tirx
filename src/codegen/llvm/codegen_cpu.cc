@@ -232,6 +232,10 @@ llvm::DISubprogram* CodeGenCPU::CreateDebugFunction(const GlobalVar& gvar, const
 }
 
 void CodeGenCPU::AddFunction(const GlobalVar& gvar, const Function& func) {
+  if (func->GetAttr(tvm::attr::kDeclaration).value_or(false)) {
+    DeclareFunction(gvar, func);
+    return;
+  }
   di_subprogram_ = CreateDebugFunction(gvar, func);
   EmitDebugLocation(func->loc);
   CodeGenLLVM::AddFunction(gvar, func);

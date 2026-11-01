@@ -97,9 +97,7 @@ TEST(ThreadScope, TypedCallAndDispatchWithoutPython) {
   auto result = transform::TileDispatch()(IRModule({{main, func}}));
   auto lowered = result->Lookup(main).as_or_throw<Function>();
   EXPECT_EQ(*invoked, 1);
-  EXPECT_EQ(
-      lowered->body.value()->seq[0].as_or_throw<Evaluate>()->value.as_or_throw<IntImm>()->value,
-      37);
+  EXPECT_EQ(lowered->body->seq[0].as_or_throw<Evaluate>()->value.as_or_throw<IntImm>()->value, 37);
   EXPECT_THROW(refl::ObjectCreator("tirx.tensor.ScopeAttrs")({}), ffi::Error);
   EXPECT_THROW(refl::ObjectCreator("tirx.tensor.ScopeAttrs")({{"scope", ffi::String("inner")}}),
                ffi::Error);

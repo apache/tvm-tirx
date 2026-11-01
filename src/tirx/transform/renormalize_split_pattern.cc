@@ -215,7 +215,7 @@ Pass RenormalizeSplitPattern() {
     auto* n = f.CopyOnWrite();
     n->body = ffi::make_object<SplitPatternReNormalizer>(sym::ConstraintContext())
                   ->Mutate(n->body, InplaceMode::kAllow)
-                  .as_or_throw<UnchangedOr<ffi::Optional<SeqStmt>>>()
+                  .as_or_throw<UnchangedOr<SeqStmt>>()
                   .ValueOrUnchanged(std::move(n->body));
     return f;
   };

@@ -258,7 +258,7 @@ class TVM_TIRX_DLL StmtExprMutator : public tvm::ExprMutator {
     return ffi::Optional<SeqStmt>(std::move(result).ValueUnchecked());
   }
 
-  /*! \brief Mutate an optional statement, preserving an absent function body. */
+  /*! \brief Mutate an optional statement, preserving absence. */
   TVM_FFI_INLINE UnchangedOr<ffi::Optional<Stmt>> Mutate(
       const ffi::Optional<Stmt>& stmt, InplaceMode inplace_mode = InplaceMode::kDisallow) {
     if (!stmt.has_value()) return ffi::Unchanged();

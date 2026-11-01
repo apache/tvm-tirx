@@ -74,6 +74,10 @@ void CodeGenCHost::AddFunction(const GlobalVar& gvar, const Function& func) {
 
 void CodeGenCHost::AddFunction(const GlobalVar& gvar, const Function& func,
                                bool emit_fwd_func_decl) {
+  if (func->GetAttr(tvm::attr::kDeclaration).value_or(false)) {
+    DeclareFunction(gvar, func);
+    return;
+  }
   auto global_symbol = func->GetAttr(tvm::attr::kGlobalSymbol);
   if (global_symbol) {
     function_names_.push_back(global_symbol.value());

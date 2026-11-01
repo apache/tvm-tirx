@@ -882,12 +882,12 @@ namespace transform {
  */
 Pass CommonSubexprElim() {
   auto pass_func = [](Function f, IRModule m, PassContext ctx) {
-    if (!f->body.has_value()) return f;
-    auto [insert_before, expr_remap] = CSEPlanner::Plan(f->body.value());
+    if (f->GetAttr(tvm::attr::kDeclaration).value_or(false)) return f;
+    auto [insert_before, expr_remap] = CSEPlanner::Plan(f->body);
     if (!insert_before.empty()) {
       auto* n = f.CopyOnWrite();
       n->body = ffi::make_object<CSERewriter>(std::move(insert_before), std::move(expr_remap))
-                    ->Rewrite(f->body.value());
+                    ->Rewrite(f->body);
     }
     return f;
   };

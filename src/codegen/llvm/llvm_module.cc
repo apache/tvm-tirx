@@ -263,6 +263,7 @@ void LLVMModuleObj::Init(const IRModule& mod, const Target& target) {
       continue;
     }
     auto f = kv.second.as_or_throw<tirx::Function>();
+    if (f->GetAttr(tvm::attr::kDeclaration).value_or(false)) continue;
     auto global_symbol = f->GetAttr(tvm::attr::kGlobalSymbol);
     bool is_entry_func = f->HasNonzeroAttr(tvm::tirx::attr::kIsEntryFunc.name);
 

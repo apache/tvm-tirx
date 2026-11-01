@@ -54,7 +54,7 @@ TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> FunctionMutate(
                                     }));
   TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<Type>, mapped_ret_type,
                                     mutator->MutateExpected(self->ret_type));
-  TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<ffi::Optional<Stmt>>, mapped_body,
+  TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<Stmt>, mapped_body,
                                     mutator->MutateExpected(self->body));
   if (mapped_params.UnchangedOrSameAs(self->params) &&
       mapped_ret_type.UnchangedOrSameAs(self->ret_type) &&
@@ -66,9 +66,7 @@ TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> FunctionMutate(
   copy->ret_type = std::move(mapped_ret_type).ValueOrUnchanged(std::move(copy->ret_type));
   if (!mapped_body.IsUnchanged()) {
     auto replacement = std::move(mapped_body).ValueUnchecked();
-    copy->body = replacement.has_value()
-                     ? ffi::Optional<SeqStmt>(SeqStmt(std::move(replacement).value()))
-                     : std::nullopt;
+    copy->body = SeqStmt(std::move(replacement));
   }
   copy->ty = copy->func_type_annotation();
   return ffi::Any(std::move(copy));
@@ -87,7 +85,7 @@ TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> FunctionMaybeInplaceMut
   TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(
       ffi::UnchangedOr<Type>, mapped_ret_type,
       mutator->MutateExpected(self->ret_type, ffi::InplaceMode::kAllow));
-  TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<ffi::Optional<Stmt>>, mapped_body,
+  TVM_FFI_S_MUTATE_ASSIGN_OR_RETURN(ffi::UnchangedOr<Stmt>, mapped_body,
                                     mutator->MutateExpected(self->body, ffi::InplaceMode::kAllow));
   if (!mapped_params.UnchangedOrSameAs(self->params)) {
     self->params = std::move(mapped_params).ValueUnchecked();
@@ -97,9 +95,7 @@ TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> FunctionMaybeInplaceMut
   }
   if (!(mapped_body.IsUnchanged() || ffi::AnyView(mapped_body).same_as(self->body))) {
     auto replacement = std::move(mapped_body).ValueUnchecked();
-    self->body = replacement.has_value()
-                     ? ffi::Optional<SeqStmt>(SeqStmt(std::move(replacement).value()))
-                     : std::nullopt;
+    self->body = SeqStmt(std::move(replacement));
   }
   // A nested signature node may change in place without replacing params or ret_type.
   self->ty = self->func_type_annotation();
@@ -109,14 +105,15 @@ TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> FunctionMaybeInplaceMut
 }  // namespace
 
 // Get the function type of a Function
-Function::Function(ffi::Array<tvm::Var> params, ffi::Optional<SeqStmt> body, Type ret_type,
-                   DictAttrs attrs, Location loc)
+Function::Function(ffi::Array<tvm::Var> params, SeqStmt body, Type ret_type, DictAttrs attrs,
+                   Location loc)
     : BaseFunc(ffi::UnsafeInit{}) {
+  TVM_FFI_ICHECK(body.defined());
   if (ret_type.as<MissingType>().has_value()) {
     ret_type = VoidType();
   }
 
-  auto n = ffi::make_object<FunctionObj>();
+  auto n = ffi::make_object<FunctionObj>(ffi::UnsafeInit{});
   n->params = std::move(params);
   n->body = std::move(body);
   n->ret_type = std::move(ret_type);
@@ -161,9 +158,8 @@ TVM_FFI_STATIC_INIT_BLOCK() {
             ffi::FStructuralMutate::FromNative<&FunctionMaybeInplaceMutate>());
 
   refl::GlobalDef().def(
-      "tirx.Function",
-      [](ffi::Array<tvm::Var> params, ffi::Optional<SeqStmt> body, Type ret_type, DictAttrs attrs,
-         Location loc) { return Function(params, body, ret_type, attrs, loc); });
+      "tirx.Function", [](ffi::Array<tvm::Var> params, SeqStmt body, Type ret_type, DictAttrs attrs,
+                          Location loc) { return Function(params, body, ret_type, attrs, loc); });
   refl::GlobalDef().def("tirx.RenewDef", RenewDef);
 }
 

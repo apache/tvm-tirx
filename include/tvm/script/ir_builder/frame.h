@@ -47,8 +47,8 @@ class IRModuleFrameObj : public IRBuilderFrameObj {
   /*! \brief A map from string names to global variables that ensures global uniqueness. */
   ffi::Map<ffi::String, GlobalVar> global_var_map;
   /*!
-   * \brief A map from GlobalVar to all global functions.
-   * \note Only defined functions are in the map, while declared functions are not included.
+   * \brief A map from GlobalVar to global functions and pending declarations.
+   * \note Declarations carry attr::kDeclaration until replaced by a definition.
    */
   ffi::Map<GlobalVar, BaseFunc> functions;
   /*! \brief IRModule's attributes. */

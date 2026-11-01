@@ -201,7 +201,7 @@ CodeGenWebGPU::CodeGenWebGPU(Target target) : target_(target) {
 }
 
 runtime::FunctionInfo CodeGenWebGPU::AddFunction(const Function& f, bool skip_readonly_decl) {
-  TVM_FFI_CHECK(f->body.has_value(), ValueError)
+  TVM_FFI_CHECK(!f->GetAttr(tvm::attr::kDeclaration).value_or(false), ValueError)
       << "Kernel code generation requires a function body";
   // clear previous generated state.
   this->InitFuncState(f);
@@ -241,7 +241,7 @@ runtime::FunctionInfo CodeGenWebGPU::AddFunction(const Function& f, bool skip_re
   // runtime classifies storage-buffer arguments by the serialized "handle" dtype.
   constexpr DLDataType kRuntimeOpaqueHandleType{kDLOpaqueHandle, 64, 1};
 
-  WebGPUWorkGroupInfo info = WebGPUWorkgroupInfoCollector::Collect(f->body.value());
+  WebGPUWorkGroupInfo info = WebGPUWorkgroupInfoCollector::Collect(f->body);
 
   std::vector<Var> pod_args;
   int num_buffer = 0;
@@ -354,7 +354,7 @@ runtime::FunctionInfo CodeGenWebGPU::AddFunction(const Function& f, bool skip_re
                << val_pod_args << "." << packGridDimX << ") { return; }\n";
   // the function scope.
   int func_scope = this->BeginScope();
-  this->PrintStmt(f->body.value());
+  this->PrintStmt(f->body);
   this->EndScope(func_scope);
   this->PrintIndent();
   this->stream << "}\n\n";

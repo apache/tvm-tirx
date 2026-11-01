@@ -390,10 +390,10 @@ namespace transform {
 
 Pass LowerTensorLayouts() {
   auto pass_func = [](Function f, IRModule m, PassContext ctx) {
-    if (!f->body.has_value()) return f;
+    if (f->GetAttr(tvm::attr::kDeclaration).value_or(false)) return f;
     Target target = ResolveTarget(f);
     auto* n = f.CopyOnWrite();
-    auto [body, params] = LayoutApplier::Flatten(n->body.value(), n->params, target);
+    auto [body, params] = LayoutApplier::Flatten(n->body, n->params, target);
     n->body = std::move(body);
     n->params = std::move(params);
     return f;

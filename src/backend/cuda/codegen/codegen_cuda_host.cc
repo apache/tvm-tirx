@@ -138,7 +138,7 @@ class CodeGenCUDAHost : public CodeGenCHost {
   }
 
   void AddFunction(const GlobalVar& gvar, const Function& func) override {
-    if (!func->body.has_value()) {
+    if (func->GetAttr(tvm::attr::kDeclaration).value_or(false)) {
       DeclareFunction(gvar, func);
       return;
     }
@@ -148,7 +148,7 @@ class CodeGenCUDAHost : public CodeGenCHost {
     PrintFunctionSignature(GetFunctionName(gvar), func, stream);
     stream << " {\n  TVM_FFI_SAFE_CALL_BEGIN();\n  try {\n";
     int scope = BeginScope();
-    PrintStmt(func->body.value());
+    PrintStmt(func->body);
     EndScope(scope);
     // CUDADeviceGuard reports errors by throwing. Clear the reported CUDA
     // last-error state so a subsequent successful launch is not blamed for it.

@@ -50,6 +50,7 @@ inline ffi::Map<ffi::String, runtime::FunctionInfo> ExtractFuncInfo(const IRModu
     TVM_FFI_ICHECK(kv.second->IsInstance<tirx::FunctionObj>())
         << "Can only lower IR Module with Functions";
     auto f = kv.second.as_or_throw<tirx::Function>();
+    if (f->GetAttr(tvm::attr::kDeclaration).value_or(false)) continue;
 
     ffi::Array<DLDataType> arg_types;
     ffi::Array<runtime::ArgExtraTags> arg_extra_tags;

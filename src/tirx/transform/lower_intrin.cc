@@ -411,7 +411,7 @@ Pass LowerIntrin() {
     n->body =
         ffi::make_object<IntrinInjecter>(sym::ConstraintContext(), target.value(), enable_fast_math)
             ->Mutate(n->body, InplaceMode::kAllow)
-            .as_or_throw<UnchangedOr<ffi::Optional<SeqStmt>>>()
+            .as_or_throw<UnchangedOr<SeqStmt>>()
             .ValueOrUnchanged(n->body);
     return f;
   };

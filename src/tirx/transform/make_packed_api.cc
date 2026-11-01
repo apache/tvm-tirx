@@ -221,7 +221,7 @@ ffi::Optional<ffi::String> RequiresPackedAPI(const Function& func) {
 }
 
 Function MakePackedAPI(Function func) {
-  if (!func->body.has_value()) return func;
+  if (func->GetAttr(tvm::attr::kDeclaration).value_or(false)) return func;
   auto global_symbol = RequiresPackedAPI(func);
   if (!global_symbol.has_value()) {
     return func;
@@ -272,8 +272,8 @@ Function MakePackedAPI(Function func) {
                                       ffi::symbol::tvm_ffi_symbol_prefix + global_symbol.value()}});
 
   Stmt body = ffi::make_object<ReturnRewriter>(v_result)
-                  ->Mutate(func_ptr->body.value(), InplaceMode::kAllow)
-                  .ValueOrUnchanged(func_ptr->body.value());
+                  ->Mutate(func_ptr->body, InplaceMode::kAllow)
+                  .ValueOrUnchanged(func_ptr->body);
   body = RegionStmt(tirx::compute_scope_op(), {StringImm(name_hint + "_compute_")}, {}, DictAttrs(),
                     body);
   // Set device context
@@ -311,7 +311,7 @@ Function MakePackedAPI(Function func) {
   func_ptr->body = body;
   func_ptr->params = args;
 
-  ffi::Array<Var> undefined = UndefinedVars(func_ptr->body.value(), func_ptr->params);
+  ffi::Array<Var> undefined = UndefinedVars(func_ptr->body, func_ptr->params);
   TVM_FFI_ICHECK_EQ(undefined.size(), 0)
       << "In Function " << name_hint << " variables " << undefined
       << " are used, but are not passed in as API arguments";
@@ -342,10 +342,10 @@ Pass MakePackedAPI() {
     for (const auto& [gvar, base_func] : mptr->functions) {
       if (auto opt = base_func.as<Function>()) {
         auto func = opt.value();
-        if (!func->body.has_value()) continue;
+        if (func->GetAttr(tvm::attr::kDeclaration).value_or(false)) continue;
         auto orig_func = func;
 
-        if (auto body = SubroutineCallRewriter::Apply(packed_func_methods, func->body.value())) {
+        if (auto body = SubroutineCallRewriter::Apply(packed_func_methods, func->body)) {
           func.CopyOnWrite()->body = body.value();
         }
 

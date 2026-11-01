@@ -251,16 +251,15 @@ namespace transform {
 
 Pass RemoveNoOp() {
   auto pass_func = [](Function f, IRModule m, PassContext ctx) {
-    if (!f->body.has_value()) return f;
+    if (f->GetAttr(tvm::attr::kDeclaration).value_or(false)) return f;
     RemoveNoOpConfig config = ctx->GetConfigOrDefault<RemoveNoOpConfig>("tirx.RemoveNoOp");
 
     bool ignore_profiler_call = config->ignore_profiler_call;
 
     {
       auto* write_ptr = f.CopyOnWrite();
-      write_ptr->body =
-          NoOpRemover::Apply(std::move(write_ptr->body).value(), sym::ConstraintContext(),
-                             ignore_profiler_call, config->max_simplification_steps);
+      write_ptr->body = NoOpRemover::Apply(std::move(write_ptr->body), sym::ConstraintContext(),
+                                           ignore_profiler_call, config->max_simplification_steps);
     }
     return f;
   };

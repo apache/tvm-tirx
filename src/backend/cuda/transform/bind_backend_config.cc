@@ -50,9 +50,8 @@ class BackendConfigBinder : public StmtExprMutator {
             .cast<ffi::Array<ffi::Any>>();
     target_ = resolved[0].cast<Target>();
     defaults_ = resolved[1].cast<ffi::String>();
-    if (!func->body.has_value()) return func;
-    auto body =
-        Mutate(func->body.value(), InplaceMode::kDisallow).ValueOrUnchanged(func->body.value());
+    if (func->GetAttr(tvm::attr::kDeclaration).value_or(false)) return func;
+    auto body = Mutate(func->body, InplaceMode::kDisallow).ValueOrUnchanged(func->body);
     func.CopyOnWrite()->body = body;
     return WithAttrs(func, {{tvm::attr::kTarget.name, target_}, {"backend_config", defaults_}});
   }
@@ -102,9 +101,8 @@ class DeviceHelperSpecializer : public StmtExprMutator {
         active_(active) {}
 
   Function Rewrite(Function func) {
-    if (!func->body.has_value()) return func;
-    auto body =
-        Mutate(func->body.value(), InplaceMode::kDisallow).ValueOrUnchanged(func->body.value());
+    if (func->GetAttr(tvm::attr::kDeclaration).value_or(false)) return func;
+    auto body = Mutate(func->body, InplaceMode::kDisallow).ValueOrUnchanged(func->body);
     func.CopyOnWrite()->body = body;
     return func;
   }
@@ -219,9 +217,9 @@ Pass SpecializeEntryHelpers() {
       pending.pop_back();
       if (!reachable.insert(gv.get()).second) continue;
       auto func = result->Lookup(gv).as<Function>();
-      if (!func || !func.value()->body.has_value()) continue;
+      if (!func || func.value()->GetAttr(tvm::attr::kDeclaration).value_or(false)) continue;
       auto collector = ffi::make_object<HelperCallCollector>();
-      collector->Visit(func.value()->body.value());
+      collector->Visit(func.value()->body);
       for (auto callee : collector->calls) {
         if (result->functions.count(callee)) pending.push_back(callee);
       }

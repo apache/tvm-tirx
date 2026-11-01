@@ -103,7 +103,9 @@ void IRModuleFrameObj::ExitWithScope() {
   for (const auto& kv : functions) {
     const GlobalVar& gv = kv.first;
     const BaseFunc& func = kv.second;
-    TVM_FFI_CHECK(func.defined(), ValueError) << "function " << gv->name_hint << " is not defined";
+    TVM_FFI_CHECK(func.defined() && !func->GetAttr(tvm::attr::kDeclaration).value_or(false),
+                  ValueError)
+        << "function " << gv->name_hint << " is declared but not defined";
     func_map.Set(gv, func);
   }
   IRBuilder builder = IRBuilder::Current();

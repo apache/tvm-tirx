@@ -61,7 +61,7 @@ class BuiltinLower : public StmtExprMutator {
   using StmtExprMutator::Mutate;
   using StmtExprMutator::Mutate_;
   static Function Build(Function func) {
-    if (!func->body.has_value()) return func;
+    if (func->GetAttr(tvm::attr::kDeclaration).value_or(false)) return func;
     ffi::Optional<PrimExpr> device_type = std::nullopt;
     bool preserve_ffi_kernel = false;
     if (auto target = func->GetAttr(tvm::attr::kTarget)) {
@@ -71,7 +71,7 @@ class BuiltinLower : public StmtExprMutator {
     }
 
     auto mutator = ffi::make_object<BuiltinLower>(device_type, preserve_ffi_kernel);
-    func.CopyOnWrite()->body = mutator->VisitBodyAndRealizeAlloca(func->body.value());
+    func.CopyOnWrite()->body = mutator->VisitBodyAndRealizeAlloca(func->body);
     return func;
   }
 

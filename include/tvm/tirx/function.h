@@ -53,8 +53,10 @@ class FunctionObj : public BaseFuncObj {
   ffi::Array<tvm::Var> params;
   /*! \brief The return type of the function. */
   Type ret_type = Type::Missing();
-  /*! \brief The body of the function, absent for a declaration. */
-  ffi::Optional<SeqStmt> body;
+  /*! \brief The body of the function, empty for a marked declaration. */
+  SeqStmt body;
+
+  explicit FunctionObj(ffi::UnsafeInit tag) : body(tag) {}
 
   static void RegisterReflection() {
     namespace refl = tvm::ffi::reflection;
@@ -108,7 +110,8 @@ class Function : public BaseFunc {
    *
    * \param params The parameters of the function.
    *
-   * \param body The body of the function, or std::nullopt for a declaration.
+   * \param body The body of the function. Declarations use an empty sequence and
+   * tvm::attr::kDeclaration.
    *
    * \param ret_type The return type of the function.
    *
@@ -116,9 +119,8 @@ class Function : public BaseFunc {
    *
    * \param loc The location of this object in the source code.
    */
-  TVM_TIRX_DLL Function(ffi::Array<tvm::Var> params, ffi::Optional<SeqStmt> body,
-                        Type ret_type = VoidType(), DictAttrs attrs = DictAttrs(),
-                        Location loc = UnknownLoc());
+  TVM_TIRX_DLL Function(ffi::Array<tvm::Var> params, SeqStmt body, Type ret_type = VoidType(),
+                        DictAttrs attrs = DictAttrs(), Location loc = UnknownLoc());
 
   explicit Function(ffi::ObjectPtr<FunctionObj> node) : BaseFunc(std::move(node)) {}
 

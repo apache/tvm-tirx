@@ -320,9 +320,9 @@ namespace transform {
 
 Pass NarrowDataType(int target_bits) {
   auto pass_func = [target_bits](Function f, IRModule m, PassContext ctx) {
-    if (!f->body.has_value()) return f;
+    if (f->GetAttr(tvm::attr::kDeclaration).value_or(false)) return f;
     auto* n = f.CopyOnWrite();
-    n->body = ffi::make_object<NarrowDataTypeRewriter>(target_bits)->Rewrite(n->body.value());
+    n->body = ffi::make_object<NarrowDataTypeRewriter>(target_bits)->Rewrite(n->body);
     return f;
   };
   return CreateFunctionPass(pass_func, 0, "tirx.NarrowDataType");

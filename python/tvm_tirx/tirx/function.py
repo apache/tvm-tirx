@@ -34,14 +34,15 @@ class Function(BaseFunc, Scriptable):
     """A TIRx function definition or declaration.
 
     The function's ``ty`` is a FuncType derived from parameter types and
-    ``ret_type``. A present body is normalized to a SeqStmt.
+    ``ret_type``. The body is normalized to a SeqStmt.
+    A declaration has an empty body and the ``declaration`` attribute set to True.
 
     Parameters
     ----------
     params : list[tvm_tirx.ir.Var]
         Input parameters, in calling order.
-    body : Stmt or Sequence[Stmt] or None
-        The function body, or None for a declaration without an implementation.
+    body : Stmt or Sequence[Stmt]
+        The function body. An empty sequence is a valid body.
     ret_type : tvm_tirx.ir.Type, optional
         The declared return type. Omitting it or supplying MissingType produces
         an empty TupleType, the type returned by the C++ VoidType() helper.
@@ -52,12 +53,12 @@ class Function(BaseFunc, Scriptable):
         The source location of the function.
     """
 
-    body: SeqStmt | None
+    body: SeqStmt
 
     def __init__(
         self,
         params,
-        body: Stmt | Sequence[Stmt] | None,
+        body: Stmt | Sequence[Stmt],
         ret_type=None,
         attrs=None,
         loc: Location = UNKNOWN_LOC,
@@ -83,13 +84,13 @@ class Function(BaseFunc, Scriptable):
             loc,
         )  # type: ignore
 
-    def with_body(self, new_body: Stmt | Sequence[Stmt] | None, loc: Location = UNKNOWN_LOC):
+    def with_body(self, new_body: Stmt | Sequence[Stmt], loc: Location = UNKNOWN_LOC):
         """Create a function with the same parameters, return type, and attributes but a new body.
 
         Parameters
         ----------
-        new_body : Stmt | Sequence[Stmt] | None
-            The new body, or None for a declaration.
+        new_body : Stmt | Sequence[Stmt]
+            The new body.
 
         loc : Location, optional
             The source location of the new function. Defaults to UNKNOWN_LOC;

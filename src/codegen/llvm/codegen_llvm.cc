@@ -294,6 +294,9 @@ std::tuple<std::string, llvm::Function::LinkageTypes> CodeGenLLVM::GetLinkage(
 }
 
 llvm::Function* CodeGenLLVM::DeclareFunctionInternal(const GlobalVar& gvar, const Function& func) {
+  TVM_FFI_CHECK(!func->GetAttr(tvm::attr::kDeclaration).value_or(false) || func->body->seq.empty(),
+                ValueError)
+      << "Function declaration " << gvar->name_hint << " must have an empty body";
   if (auto it = functions_.find(gvar.get()); it != functions_.end()) {
     return it->second;
   }
@@ -349,7 +352,7 @@ void CodeGenLLVM::AddFunctionInternal(const GlobalVar& gvar, const Function& f) 
   this->InitFuncState();
 
   function_ = DeclareFunctionInternal(gvar, f);
-  if (!f->body.has_value()) return;
+  if (f->GetAttr(tvm::attr::kDeclaration).value_or(false)) return;
 
   // set var map and align information
   auto arg_it = function_->arg_begin();
@@ -368,7 +371,7 @@ void CodeGenLLVM::AddFunctionInternal(const GlobalVar& gvar, const Function& f) 
   llvm::LLVMContext* ctx = llvm_target_->GetContext();
   llvm::BasicBlock* entry = llvm::BasicBlock::Create(*ctx, "entry", function_);
   builder_->SetInsertPoint(entry);
-  this->Dispatch(f->body.value());
+  this->Dispatch(f->body);
 
   // Body-local alignment assumptions need not hold on paths that returned
   // before reaching them. Keep them as llvm.assume instead of strengthening

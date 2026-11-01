@@ -33,10 +33,10 @@ namespace transform {
 
 Pass DecorateDeviceScope() {
   auto pass_func = [](Function f, IRModule m, PassContext ctx) {
-    if (!f->body.has_value()) return f;
+    if (f->GetAttr(tvm::attr::kDeclaration).value_or(false)) return f;
     static const Op device_scope = Op::Get("tirx.device_scope");
     auto* n = f.CopyOnWrite();
-    n->body = RegionStmt(device_scope, {}, {}, DictAttrs(), std::move(n->body).value());
+    n->body = RegionStmt(device_scope, {}, {}, DictAttrs(), std::move(n->body));
     return f;
   };
   return CreateFunctionPass(pass_func, 0, "tirx.DecorateDeviceScope");

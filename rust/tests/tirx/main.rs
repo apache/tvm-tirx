@@ -98,7 +98,7 @@ fn void_function(params: Vec<Var>) -> Function {
         .try_into()
         .unwrap();
     let missing: Type = global("ir.MissingType").call_tuple(()).unwrap().try_into().unwrap();
-    Function::new(params, Some(&body), missing, DictAttrs::new(Map::new()), UNKNOWN_LOC)
+    Function::new(params, &body, missing, DictAttrs::new(Map::new()), UNKNOWN_LOC)
 }
 
 fn module_of(name: &str, func: &Function) -> IRModule {

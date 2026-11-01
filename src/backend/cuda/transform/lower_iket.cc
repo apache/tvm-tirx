@@ -1199,24 +1199,24 @@ IRModule LowerIketImpl(IRModule module) {
   if (!IketEnabled(module)) {
     for (const auto& [global_var, base_function] : module->functions) {
       const auto* function_node = base_function.as<FunctionObj>();
-      if (!function_node || !function_node->body.has_value()) continue;
+      if (!function_node || function_node->GetAttr(tvm::attr::kDeclaration).value_or(false))
+        continue;
       Function function = ffi::GetRef<Function>(function_node);
       auto collector = ffi::make_object<AnnotationCollector>();
       collector->Visit(function->body);
-      TokenTensorSet tokens = CollectTokenTensors(function->body.value());
+      TokenTensorSet tokens = CollectTokenTensors(function->body);
       if (!collector->has_annotations && tokens.empty()) continue;
       if (collector->has_annotations) {
         auto verifier = ffi::make_object<TokenVerifier>(tokens);
         verifier->Visit(function->body);
-        TokenDeclarationMap token_declarations = CollectTokenDeclarations(function->body.value());
+        TokenDeclarationMap token_declarations = CollectTokenDeclarations(function->body);
         auto schema_verifier =
             ffi::make_object<RangeEndSchemaVerifier>(token_declarations, &collector->declarations);
         schema_verifier->Visit(function->body);
         ValidateRangeSchemas(collector->declarations);
       }
       auto strip = ffi::make_object<StripIket>(std::move(tokens));
-      Stmt stripped =
-          strip->Mutate(function->body.value()).ValueOrUnchanged(function->body.value());
+      Stmt stripped = strip->Mutate(function->body).ValueOrUnchanged(function->body);
       Stmt body =
           ffi::make_object<RemoveStrippedIketNoOps>()->Mutate(stripped).ValueOrUnchanged(stripped);
       if (!function->body.same_as(body)) {
@@ -1230,7 +1230,7 @@ IRModule LowerIketImpl(IRModule module) {
   std::vector<KernelIketInfo> kernels;
   for (const auto& [global_var, base_function] : module->functions) {
     const auto* function_node = base_function.as<FunctionObj>();
-    if (!function_node || !function_node->body.has_value()) continue;
+    if (!function_node || function_node->GetAttr(tvm::attr::kDeclaration).value_or(false)) continue;
     Function function = ffi::GetRef<Function>(function_node);
     auto collector = ffi::make_object<AnnotationCollector>();
     collector->Visit(function->body);
@@ -1240,10 +1240,10 @@ IRModule LowerIketImpl(IRModule module) {
     TVM_FFI_CHECK(IsCudaDeviceFunction(function), ValueError)
         << "IKET annotations are only valid in a split CUDA device kernel";
 
-    TokenTensorSet tokens = CollectTokenTensors(function->body.value());
+    TokenTensorSet tokens = CollectTokenTensors(function->body);
     auto verifier = ffi::make_object<TokenVerifier>(tokens);
     verifier->Visit(function->body);
-    TokenDeclarationMap token_declarations = CollectTokenDeclarations(function->body.value());
+    TokenDeclarationMap token_declarations = CollectTokenDeclarations(function->body);
     auto schema_verifier =
         ffi::make_object<RangeEndSchemaVerifier>(token_declarations, &collector->declarations);
     schema_verifier->Visit(function->body);

@@ -53,8 +53,8 @@ def test_structural_map_specializes_function_signature():
     # place while a nested TensorType changes. The cached FuncType must follow.
     def declaration():
         return Function(
-            [Var("tensor", TensorType((n,), "float32"))], None, TensorType((n,), "float32")
-        )
+            [Var("tensor", TensorType((n,), "float32"))], [], TensorType((n,), "float32")
+        ).with_attr("declaration", True)
 
     inplace = declaration()
     inplace = tvm_ffi.structural_map(

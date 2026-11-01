@@ -81,7 +81,7 @@ CodeGenTrainium::CodeGenTrainium(Target target) : target_(target) {
 }
 
 void CodeGenTrainium::AddFunction(const GlobalVar& gvar, const Function& func) {
-  TVM_FFI_CHECK(func->body.has_value(), ValueError)
+  TVM_FFI_CHECK(!func->GetAttr(tvm::attr::kDeclaration).value_or(false), ValueError)
       << "Kernel code generation requires a function body";
   // NOTE: There is no inter-function calls among Trainium kernels.
   // For now we keep the Trainium codegen without inter-function call
@@ -141,7 +141,7 @@ void CodeGenTrainium::AddFunction(const GlobalVar& gvar, const Function& func) {
   // the function scope.
   stream << "):\n";
   int func_scope = this->BeginScope();
-  this->PrintStmt(func->body.value());
+  this->PrintStmt(func->body);
   this->PrintIndent();
   stream << "return ";
   for (size_t i = 0; i < output_vids.size(); i++) {

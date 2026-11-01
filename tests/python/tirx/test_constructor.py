@@ -352,9 +352,10 @@ def test_math_unary_constructor_preserves_bfloat16():
     assert y.ty == tvm_tirx.ir.PrimType("bfloat16")
 
 
-def test_function_declaration_optional_body_roundtrip():
-    declaration = tvm_tirx.tirx.Function([], None)
-    assert declaration.body is None
+def test_function_declaration_required_body_roundtrip():
+    declaration = tvm_tirx.tirx.Function([], []).with_attr("declaration", True)
+    assert isinstance(declaration.body, tvm_tirx.ir.SeqStmt)
+    assert len(declaration.body) == 0
     assert len(declaration.with_body(tvm_tirx.ir.Evaluate(0)).body) == 0
     restored = tvm_tirx.ir.load_json(tvm_tirx.ir.save_json(declaration))
     tvm_tirx.ir.assert_structural_equal(declaration, restored, map_free_vars=True)

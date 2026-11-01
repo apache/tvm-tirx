@@ -368,10 +368,10 @@ namespace transform {
 
 Pass UnrollLoop() {
   auto pass_func = [=](Function f, IRModule m, PassContext ctx) {
-    if (!f->body.has_value()) return f;
+    if (f->GetAttr(tvm::attr::kDeclaration).value_or(false)) return f;
     auto* n = f.CopyOnWrite();
     auto cfg = ctx->GetConfigOrDefault<UnrollLoopConfig>("tirx.UnrollLoop");
-    n->body = UnrollLoop(std::move(f->body).value(), cfg);
+    n->body = UnrollLoop(std::move(f->body), cfg);
     return f;
   };
   return CreateFunctionPass(pass_func, 0, "tirx.UnrollLoop");
