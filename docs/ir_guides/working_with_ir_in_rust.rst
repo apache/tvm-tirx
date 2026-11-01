@@ -120,9 +120,8 @@ any node as TVMScript.
 
 .. note::
 
-   A function's ``body`` is always a ``SeqStmt``. A declaration has an empty
-   body and the ``declaration`` attribute set to true. ``get`` on an array
-   returns an error for an index out of range, and ``?`` passes it on.
+   A function's ``body`` is always a ``SeqStmt``. ``get`` on an array returns
+   an error for an index out of range, and ``?`` passes it on.
 
 To create a node, we call the constructor of its handle type, such as
 |TensorStore::new|_. |ex|_ wraps an expression so that the usual Rust

@@ -169,10 +169,9 @@ loop or a store. |ObjectRef::as|_ and its relatives offer three forms:
 
 .. note::
 
-   A function's ``body`` is always a ``SeqStmt``. A declaration has an empty
-   body and the ``declaration`` attribute set to true. The loop variable is
-   stored as a ``PrimVar``, which views a ``Var`` as a ``PrimExpr``, so we
-   read its name through ``as<VarObj>()``.
+   A function's ``body`` is always a ``SeqStmt``. The loop variable is stored
+   as a ``PrimVar``, which views a ``Var`` as a ``PrimExpr``, so we read its
+   name through ``as<VarObj>()``.
 
 To create a node, we call the constructor of its reference class, and
 arithmetic operators on ``PrimExpr`` build new expressions. Let's build a
