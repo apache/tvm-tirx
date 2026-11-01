@@ -898,13 +898,22 @@ def test_z3_default_fallback_nonlinear_inequality():
     y = tirx.Var("y", "int32")
     # x*x + y*y - 2*x*y == (x-y)**2 >= 0 in the mathematical integer
     # model used for wide signed indices. This does not model int32 overflow.
-    # A fresh analyzer must prove this without an option or explicit strength
-    # when Z3 is available. Native analysis alone cannot currently prove it.
+    # A fresh analyzer uses Z3 by default; disabling DEFAULT fallback preserves
+    # the stronger query's Z3 capability and survives cloning independently.
     expr = x * x + y * y >= 2 * (x * y)
     assert analyzer.can_prove(expr) == analyzer.is_z3_enabled
+    analyzer.set_z3_default_fallback(False)
+    assert not analyzer.can_prove(expr)
+    assert analyzer.can_prove(expr, SB) == analyzer.is_z3_enabled
+    cloned = analyzer.clone()
+    analyzer.set_z3_default_fallback(True)
+    assert analyzer.can_prove(expr) == analyzer.is_z3_enabled
+    assert not cloned.can_prove(expr)
+    cloned.set_z3_default_fallback(True)
+    assert cloned.can_prove(expr) == analyzer.is_z3_enabled
     assert analyzer.can_prove(x == x)
     # Equality at x == y is a counterexample to the strict inequality.
-    assert not analyzer.can_prove(x * x + y * y > 2 * (x * y))
+    assert not cloned.can_prove(x * x + y * y > 2 * (x * y))
 
 
 def test_z3_default_fallback_clone_preserves_independent_resource_limit():

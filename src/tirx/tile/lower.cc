@@ -174,7 +174,9 @@ class TileDispatcher : public StmtExprMutator {
  public:
   using StmtExprMutator::Mutate;
   using StmtExprMutator::Mutate_;
-  explicit TileDispatcher(const Target& target) : target_(target) {}
+  explicit TileDispatcher(const Target& target) : target_(target) {
+    analyzer_->SetZ3DefaultFallback(false);
+  }
 
   static Stmt LowerOpCalls(const Stmt& stmt, const Target& target) {
     return ffi::make_object<TileDispatcher>(target)

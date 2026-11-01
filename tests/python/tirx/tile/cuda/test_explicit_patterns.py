@@ -150,6 +150,21 @@ def _dispatch(
     return run_dispatch(T.cuda.tile.apply(T.ptx[opcode], dst, src, scope=scope), ctx)
 
 
+def test_layout_analysis_is_separate_from_verification():
+    from tvm_tirx.backend.cuda.tile.patterns.common import Context
+
+    sctx = SimpleNamespace(launch_params={}, var_range_map={}, scope_kind="thread", intra={})
+    ctx = Context(sctx)
+    x = Var("x", "int32")
+    ctx.add_range(x, tvm_tirx.ir.Range(0, 4))
+    assert ctx.analyzer.can_prove(x < 4)
+    assert not ctx.layout_analyzer.can_prove(x < 4)
+    a, b = Var("a", "int32"), Var("b", "int32")
+    predicate = a * a + b * b >= 2 * a * b
+    assert not ctx.analyzer.can_prove(predicate)
+    assert not ctx.layout_analyzer.can_prove(predicate)
+
+
 def test_contract_rejections():
     with pytest.raises(RuntimeError, match="consecutive elements"):
         _dispatch(src_layout=TileLayout(S[(2, 4) : (8, 2)]))

@@ -128,7 +128,7 @@ def _tensor_map(ctx, region, rank, box, encoding):
         strides = [prod(ty.shape[i + 1 :]) for i in range(tensor_rank)]
         base = {"m": sum(i * s for i, s in zip(starts, strides))}
     else:
-        base = layout.apply(*starts, shape=ty.shape)
+        base = layout.apply(*starts, shape=ty.shape, analyzer=ctx.layout_analyzer)
     if set(base) - {"m"}:
         raise ValueError("TMA global view must use only the memory axis")
     if layout is not None:
@@ -138,7 +138,9 @@ def _tensor_map(ctx, region, rank, box, encoding):
         unit = list(starts)
         unit[i] += 1
         if layout is not None:
-            stride = ctx.analyzer.simplify(layout.apply(*unit, shape=ty.shape)["m"] - base["m"])
+            stride = ctx.analyzer.simplify(
+                layout.apply(*unit, shape=ty.shape, analyzer=ctx.layout_analyzer)["m"] - base["m"]
+            )
             # A unit dimension has no address movement; choose the smallest
             # legal descriptor stride for this unobserved coordinate.
             if ctx.analyzer.can_prove(size == 1):
@@ -148,7 +150,11 @@ def _tensor_map(ctx, region, rank, box, encoding):
         ctx.add_range(var, Range(0, size))
         coordinates.append(var)
     if layout is not None:
-        actual = layout.apply(*(a + b for a, b in zip(starts, coordinates)), shape=ty.shape)["m"]
+        actual = layout.apply(
+            *(a + b for a, b in zip(starts, coordinates)),
+            shape=ty.shape,
+            analyzer=ctx.layout_analyzer,
+        )["m"]
         ctx.require(
             actual == base["m"] + sum(c * s for c, s in zip(coordinates, strides)),
             "TMA global view must be rectangular with fixed strides; "

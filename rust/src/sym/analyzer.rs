@@ -423,6 +423,16 @@ impl Analyzer {
         )
     }
 
+    /// Set whether default-strength queries try Z3 after native analysis fails.
+    ///
+    /// Enabled by default and preserved by `deep_clone`. Stronger queries and direct Z3
+    /// APIs are unaffected. This does not clear accepted premises or solver state.
+    pub fn set_z3_default_fallback(&self, enabled: bool) -> Result<()> {
+        tvm_ffi::cached_global_func!("sym.AnalyzerSetZ3DefaultFallback")
+            .call_tuple((self, enabled))?;
+        Ok(())
+    }
+
     /// A copy of the analyzer and the facts it knows (`sym.AnalyzerClone`).
     pub fn deep_clone(&self) -> Result<Self> {
         tvm_ffi::cached_global_func!("sym.AnalyzerClone").call_tuple((self,))?.try_into()

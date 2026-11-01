@@ -92,6 +92,21 @@ class Analyzer(tvm_ffi.Object):
     def __init__(self):
         self.__init_handle_by_constructor__(_ffi_api.Analyzer)
 
+    def set_z3_default_fallback(self, enabled: bool) -> None:
+        """Set whether DEFAULT-strength queries try Z3 after native analysis fails.
+
+        Enabled by default. This setting is local to this analyzer and preserved
+        by clone(). Stronger proof queries and Z3-specific APIs are unaffected.
+        Changing it does not clear accepted premises or existing solver state.
+        Z3 must also be available in the native build.
+
+        Parameters
+        ----------
+        enabled : bool
+            Whether to allow the DEFAULT-strength Z3 fallback.
+        """
+        _ffi_api.AnalyzerSetZ3DefaultFallback(self, enabled)
+
     @property
     def is_z3_enabled(self) -> bool:
         """Whether this build includes the Z3 backend (``USE_Z3=ON``).
@@ -324,10 +339,12 @@ class Analyzer(tvm_ffi.Object):
 
         strength: ProofStrength
             The proof strength. ``SYMBOLIC_BOUND`` additionally enables symbolic
-            bound analysis. When built with Z3 (``TVM_TIRX_USE_Z3=ON``), all
-            strengths, including ``DEFAULT``, try Z3 after native analysis fails
-            to prove the predicate. The existing Z3 timeout and resource limits
-            apply; an unknown solver result means the predicate cannot be proved.
+            bound analysis. When built with Z3 (``TVM_TIRX_USE_Z3=ON``), explicit
+            stronger queries try Z3 after native analysis fails to prove the
+            predicate. ``DEFAULT`` queries also try Z3 by default; this can be
+            disabled with :py:meth:`set_z3_default_fallback`.
+            The existing Z3 timeout and resource limits apply; an unknown solver
+            result means the predicate cannot be proved.
 
         Returns
         -------

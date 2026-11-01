@@ -52,20 +52,27 @@ PrimExpr Layout::GetSpan(ffi::Optional<ffi::String> axis_name) const {
                         [&](const auto* node) { return layout_detail::GetSpan(node, axis_name); });
 }
 
-ffi::Map<ffi::String, PrimExpr> Layout::Apply(ffi::Array<PrimExpr> coord) const {
-  return DispatchLayout(
-      *this, [&](const auto* node) { return layout_detail::Apply(node, std::move(coord)); });
+ffi::Map<ffi::String, PrimExpr> Layout::Apply(ffi::Array<PrimExpr> coord,
+                                              sym::AnalyzerObj* analyzer) const {
+  TVM_FFI_ICHECK(analyzer != nullptr);
+  return DispatchLayout(*this, [&](const auto* node) {
+    return layout_detail::Apply(node, std::move(coord), analyzer);
+  });
 }
 
-ffi::Map<ffi::String, PrimExpr> Layout::Apply(PrimExpr coord) const {
-  return DispatchLayout(
-      *this, [&](const auto* node) { return layout_detail::Apply(node, std::move(coord)); });
+ffi::Map<ffi::String, PrimExpr> Layout::Apply(PrimExpr coord, sym::AnalyzerObj* analyzer) const {
+  TVM_FFI_ICHECK(analyzer != nullptr);
+  return DispatchLayout(*this, [&](const auto* node) {
+    return layout_detail::Apply(node, std::move(coord), analyzer);
+  });
 }
 
 ffi::Map<ffi::String, PrimExpr> Layout::Apply(const ffi::Array<PrimExpr>& coord,
-                                              const ffi::Array<PrimExpr>& shape) const {
-  return DispatchLayout(*this,
-                        [&](const auto* node) { return layout_detail::Apply(node, coord, shape); });
+                                              const ffi::Array<PrimExpr>& shape,
+                                              sym::AnalyzerObj* analyzer) const {
+  TVM_FFI_ICHECK(analyzer != nullptr);
+  return DispatchLayout(
+      *this, [&](const auto* node) { return layout_detail::Apply(node, coord, shape, analyzer); });
 }
 
 Layout Layout::Canonicalize() const {
@@ -90,13 +97,16 @@ TVM_FFI_STATIC_INIT_BLOCK() {
     return layout.GetSpan(axis_name);
   });
   def.def("tirx.LayoutApplyWithShape",
-          [](Layout layout, ffi::Array<PrimExpr> coord, ffi::Array<PrimExpr> shape) {
-            return layout.Apply(coord, shape);
-          });
+          [](Layout layout, ffi::Array<PrimExpr> coord, ffi::Array<PrimExpr> shape,
+             const sym::Analyzer& analyzer) { return layout.Apply(coord, shape, analyzer.get()); });
   def.def("tirx.LayoutApply",
-          [](Layout layout, ffi::Array<PrimExpr> coord) { return layout.Apply(coord); });
+          [](Layout layout, ffi::Array<PrimExpr> coord, const sym::Analyzer& analyzer) {
+            return layout.Apply(std::move(coord), analyzer.get());
+          });
   def.def("tirx.LayoutApplyLinear",
-          [](Layout layout, PrimExpr coord) { return layout.Apply(coord); });
+          [](Layout layout, PrimExpr coord, const sym::Analyzer& analyzer) {
+            return layout.Apply(std::move(coord), analyzer.get());
+          });
   def.def("tirx.LayoutCanonicalize", [](Layout layout) { return layout.Canonicalize(); });
   def.def("tirx.LayoutTile", [](Layout layout, TileLayout outer, ffi::Array<PrimExpr> outer_shape,
                                 ffi::Array<PrimExpr> inner_shape) {

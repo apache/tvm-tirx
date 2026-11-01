@@ -66,11 +66,22 @@ class Layout : public ffi::ObjectRef {
   /*! \brief Get the span of the layout (of some axis) */
   TVM_TIRX_DLL PrimExpr GetSpan(ffi::Optional<ffi::String> axis_name = std::nullopt) const;
 
-  /*! \brief Apply layout on the input coordinate and get the mapped output */
-  TVM_TIRX_DLL ffi::Map<ffi::String, PrimExpr> Apply(ffi::Array<PrimExpr> coord) const;
-  TVM_TIRX_DLL ffi::Map<ffi::String, PrimExpr> Apply(PrimExpr coord) const;
+  /*!
+   * \brief Apply a layout using caller-owned analysis state.
+   *
+   * The analyzer is required and must outlive the call. Its current premises
+   * may simplify the result. The layout adds no persistent premises and does
+   * not retain the analyzer.
+   * Related queries can reuse its caches and solver. Concurrent queries must
+   * use separate analyzers.
+   */
+  TVM_TIRX_DLL ffi::Map<ffi::String, PrimExpr> Apply(ffi::Array<PrimExpr> coord,
+                                                     sym::AnalyzerObj* analyzer) const;
+  TVM_TIRX_DLL ffi::Map<ffi::String, PrimExpr> Apply(PrimExpr coord,
+                                                     sym::AnalyzerObj* analyzer) const;
   TVM_TIRX_DLL ffi::Map<ffi::String, PrimExpr> Apply(const ffi::Array<PrimExpr>& coord,
-                                                     const ffi::Array<PrimExpr>& shape) const;
+                                                     const ffi::Array<PrimExpr>& shape,
+                                                     sym::AnalyzerObj* analyzer) const;
 
   /*! \brief Turn the layout to canonical form */
   TVM_TIRX_DLL Layout Canonicalize() const;

@@ -71,7 +71,12 @@ class Layout(tvm_ffi.Object):
 
     # Note: no backward-compat alias; `cosize` is removed.
 
-    def apply(self, *coord: list[Expr], shape: list[Expr] | None = None) -> dict[str, Expr]:
+    def apply(
+        self,
+        *coord: list[Expr],
+        shape: list[Expr] | None = None,
+        analyzer: "tvm_tirx.sym.Analyzer | None" = None,
+    ) -> dict[str, Expr]:
         """Apply the layout on the input coordinate and get the mapped output.
 
         Input cases:
@@ -80,16 +85,26 @@ class Layout(tvm_ffi.Object):
         - shape is provided -> turn the coord with shape into a 1D coordinate
         - shape is not provided -> use the default shape
 
+        analyzer optionally supplies caller-owned analysis state for repeated
+        queries. Its premises may simplify the result; this method adds no
+        persistent premises and does not retain the analyzer. Concurrent calls
+        must use separate analyzers. Without it, a temporary analyzer with the
+        DEFAULT-strength Z3 fallback disabled is created. Pass an analyzer
+        explicitly to control its proof settings.
+
         Returns
         -------
         Dict[str, Expr]
             The mapped output (axis name -> value on the axis)
         """
+        if analyzer is None:
+            analyzer = tvm_tirx.sym.Analyzer()
+            analyzer.set_z3_default_fallback(False)
         if shape is not None:
-            return _ffi_api.LayoutApplyWithShape(self, coord, shape)  # pylint: disable=no-member
+            return _ffi_api.LayoutApplyWithShape(self, coord, shape, analyzer)  # pylint: disable=no-member
         if len(coord) == 1:
-            return _ffi_api.LayoutApplyLinear(self, coord[0])  # pylint: disable=no-member
-        return _ffi_api.LayoutApply(self, coord)  # pylint: disable=no-member
+            return _ffi_api.LayoutApplyLinear(self, coord[0], analyzer)  # pylint: disable=no-member
+        return _ffi_api.LayoutApply(self, coord, analyzer)  # pylint: disable=no-member
 
     def canonicalize(self) -> "Layout":
         """Canonicalize the layout by simplifying and fusing iterators where possible.

@@ -20,6 +20,7 @@
 //! Tests of `tirx::layout`: layout axes, tile layouts and swizzled layouts.
 
 use tvm_tirx::ir::Expr;
+use tvm_tirx::sym::Analyzer;
 use tvm_tirx::tirx::{Axis, ComposeLayout, Iter, Layout, TileLayout};
 use tvm_tirx::tvm_ffi::{Map, String as FfiString};
 
@@ -38,6 +39,7 @@ fn memory_axes() {
 #[test]
 fn layouts() {
     let _serial = serial();
+    let analyzer = Analyzer::new();
     let tile = tile_8x8();
     let layout = Layout::from(&tile);
     layout.check_well_formed().unwrap();
@@ -45,9 +47,9 @@ fn layouts() {
     assert_eq!(as_i64(&layout.span(Some("m")).unwrap()), 64);
     let key = FfiString::from("m");
     let at = |coord: Map<FfiString, Expr>| as_i64(&coord.get(&key).unwrap().unwrap());
-    assert_eq!(at(layout.apply([int32(1), int32(2)]).unwrap()), 10);
-    assert_eq!(at(layout.apply_linear(int32(10)).unwrap()), 10);
-    assert_eq!(at(layout.apply_with_shape([int32(10)], [int32(64)]).unwrap()), 10);
+    assert_eq!(at(layout.apply([int32(1), int32(2)], &analyzer).unwrap()), 10);
+    assert_eq!(at(layout.apply_linear(int32(10), &analyzer).unwrap()), 10);
+    assert_eq!(at(layout.apply_with_shape([int32(10)], [int32(64)], &analyzer).unwrap()), 10);
     let canonical = layout.canonicalize().unwrap();
     assert_eq!(as_i64(&canonical.size(None).unwrap()), 64);
 
@@ -64,7 +66,7 @@ fn layouts() {
     // Memory offset 10 becomes 10 ^ ((10 >> 3) & 3) = 11.
     let swizzled = ComposeLayout::new(0, 2, 3, &tile, true).unwrap();
     assert_eq!(swizzled.atom_len().unwrap(), 3);
-    assert_eq!(at(Layout::from(&swizzled).apply([int32(1), int32(2)]).unwrap()), 11);
+    assert_eq!(at(Layout::from(&swizzled).apply([int32(1), int32(2)], &analyzer).unwrap()), 11);
 }
 
 #[test]

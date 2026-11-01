@@ -1474,6 +1474,22 @@ def test_compose_structured_apply_falls_back_to_full_swizzle(case):
         assert _evaluate_layout_expr(actual, values) == _evaluate_layout_expr(expected, values)
 
 
+def test_layout_apply_with_reused_analyzer():
+    tile = TileLayout(S[(8, 8) : (64, 1)] + 8)
+    analyzer = tvm_tirx.sym.Analyzer()
+    x, y = Var("x", "int32"), Var("y", "int32")
+    for layout in (tile, ComposeLayout(3, 3, 3, tile), ComposeLayout(3, 3, 3, tile, False)):
+        for coords, options in (
+            ((x, y), {}),
+            ((x * 8 + y,), {}),
+            ((x, y), {"shape": (8, 8)}),
+        ):
+            expected = layout.apply(*coords, **options)
+            assert_structural_equal(layout.apply(*coords, analyzer=analyzer, **options), expected)
+    assert not analyzer.can_prove(x >= 0)
+    assert not analyzer.can_prove(y < 8)
+
+
 def test_compose_structured_apply_emits_shared_base_address_chain():
     x = Var("x", ty="int32")
     y = Var("y", ty="int32")
