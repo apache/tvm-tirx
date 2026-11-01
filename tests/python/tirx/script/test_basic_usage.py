@@ -357,7 +357,7 @@ def test_roundtrip_unary_inplace():
     # fmt: off
     @T.function
     def test(A: T.Tensor((128,), "float32", scope="global")) -> None:
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=1 * 32))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=1 * 32))
         cta_id = T.cuda.block_idx('x')
         warp_id = T.cuda.warp_id()
         lane_id = T.cuda.lane_id()
@@ -405,7 +405,7 @@ def test_roundtrip_unary_different_dst_src():
         A: T.Tensor((128,), "float32", scope="global"),
         B: T.Tensor((128,), "float32", scope="global"),
     ) -> None:
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=1 * 32))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=1 * 32))
         cta_id = T.cuda.block_idx('x')
         warp_id = T.cuda.warp_id()
         lane_id = T.cuda.lane_id()
@@ -776,7 +776,7 @@ def test_roundtrip_serial_unroll_false():
     @T.function
     def test(A: T.Tensor((128,), 'float32', scope='global')) -> None:
 
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=1 * 32))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=1 * 32))
         cta_id = T.cuda.block_idx('x')
         warp_id = T.cuda.warp_id()
         lane_id = T.cuda.lane_id()
@@ -798,7 +798,7 @@ def test_roundtrip_serial_unroll_true():
     @T.function
     def test(A: T.Tensor((128,), 'float32', scope='global')) -> None:
 
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=1 * 32))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=1 * 32))
         cta_id = T.cuda.block_idx('x')
         warp_id = T.cuda.warp_id()
         lane_id = T.cuda.lane_id()
@@ -820,7 +820,7 @@ def test_roundtrip_serial_unroll_count():
     @T.function
     def test(A: T.Tensor((128,), 'float32', scope='global')) -> None:
 
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=1 * 32))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=1 * 32))
         cta_id = T.cuda.block_idx('x')
         warp_id = T.cuda.warp_id()
         lane_id = T.cuda.lane_id()
@@ -842,7 +842,7 @@ def test_roundtrip_serial_unroll_false_with_other_annotations():
     @T.function
     def test(A: T.Tensor((128,), 'float32', scope='global')) -> None:
 
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=1 * 32))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=1 * 32))
         cta_id = T.cuda.block_idx('x')
         warp_id = T.cuda.warp_id()
         lane_id = T.cuda.lane_id()

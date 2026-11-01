@@ -882,7 +882,7 @@ def test_lower_layout():
     class Before:
         @T.function(private=True)
         def main(A: T.Tensor((128, 32), "float16", layout="default")) -> None:
-            T.device_entry(launch=T.cuda.LaunchConfig(grid=(1, 1, 1), block=(128,)))
+            T.device_entry(launch=T.cuda.LaunchConfig(grid=(1, 1, 1), block=128))
             bx, by, bz = (T.cuda.block_idx("x"), T.cuda.block_idx("y"), T.cuda.block_idx("z"))
             _lane = T.cuda.lane_id()
             tid = T.cuda.thread_idx("x")
@@ -1011,7 +1011,7 @@ def test_lower_decl_tensor_pointer():
     class Before:
         @T.function(private=True)
         def main():
-            T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(128,)))
+            T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=128))
             buf = T.alloc_tensor(ty_args=[T.Tensor([1024], "uint8", scope="shared.dyn")])
             A = T.decl_tensor(
                 buf.data,
@@ -1087,7 +1087,7 @@ def test_lower_cleanup_accepts_bool_elect_sync_else_path():
     class Before:
         @T.function(private=True)
         def main(A: T.Tensor((32,), "int32", scope="global", layout="default")):
-            T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=1 * 32))
+            T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=1 * 32))
             lane_id = T.cuda.lane_id()
             if T.cuda.elect_sync() != T.uint32(0):
                 A[lane_id] = 1
@@ -1224,7 +1224,7 @@ def test_lower_tensor_offset():
     class Before:
         @T.function(private=True)
         def main():
-            T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(128,)))
+            T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=128))
             A = T.alloc_tensor(ty_args=[T.Tensor([64, 64], "float16", scope="local")])
             A0 = T.decl_tensor(
                 A.ptr_to([32, 32]),

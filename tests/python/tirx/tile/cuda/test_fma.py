@@ -67,7 +67,7 @@ def test_fma_scalar_scalar():
 
     @T.function
     def test_func(A: T.Tensor((N,), dtype, layout=TileLayout(S[N]))) -> None:
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(N,)))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=N))
         _bx = T.cuda.block_idx("x")
         tx = T.cuda.thread_idx("x")
         buf = T.alloc_tensor(
@@ -110,7 +110,7 @@ def test_fma_tensor_scale_scalar_bias():
         A: T.Tensor((N,), dtype, layout=TileLayout(S[N])),
         B: T.Tensor((N,), dtype, layout=TileLayout(S[N])),
     ) -> None:
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(1,)))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=1))
         _bx = T.cuda.block_idx("x")
         _tx = T.cuda.thread_idx("x")
         acc = T.alloc_tensor(
@@ -164,7 +164,7 @@ def test_fma_no_layout(layout):
 
     @T.function
     def test_func(A: T.Tensor((N,), dtype, layout=TileLayout(S[N]))) -> None:
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(1,)))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=1))
         _bx = T.cuda.block_idx("x")
         _tx = T.cuda.thread_idx("x")
         buf = T.alloc_local([N], dtype, layout=layout)
@@ -212,7 +212,7 @@ def test_fma_warpgroup_thread_row_layout():
         A: T.Tensor((rows, cols), dtype, layout=TileLayout(S[rows, cols])),
         B: T.Tensor((rows, cols), dtype, layout=TileLayout(S[rows, cols])),
     ) -> None:
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=1 * 128))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=1 * 128))
         _bx = T.cuda.block_idx("x")
         wg_id = T.cuda.warpgroup_id()
         tid = T.cuda.thread_in_warpgroup()
@@ -273,7 +273,7 @@ def test_fma_f32_sm100_packed_f32x2_dispatch():
         C: T.Tensor(shape, "float32", layout=lay),
         D: T.Tensor(shape, "float32", layout=lay),
     ) -> None:
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(64,)))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=64))
         _bx = T.cuda.block_idx("x")
         tx = T.cuda.thread_idx("x")
         ra = T.alloc_tensor(

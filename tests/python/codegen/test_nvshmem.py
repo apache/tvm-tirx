@@ -50,7 +50,7 @@ def cuda_source(monkeypatch):
 def test_thread_info(cuda_source):
     @T.function
     def main(res: T.Tensor((2,), "int32")):
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(32,)))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=32))
         res[0] = T.nvshmem.my_pe()
         res[1] = T.nvshmem.n_pes()
 
@@ -69,7 +69,7 @@ def test_transfer(cuda_source, scope, nelems, op_name):
 
     @T.function
     def main(A: T.Tensor((64,), "float32"), B: T.Tensor((64,), "float32")):
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(64,)))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=64))
         tid = T.cuda.thread_idx("x")
         warp_id = T.cuda.warp_id()
         my_pe = T.nvshmem.my_pe()
@@ -97,7 +97,7 @@ def test_signal_op(cuda_source, sig_op):
 
     @T.function
     def main(res: T.Tensor((1,), "uint64")):
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(32,)))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=32))
         my_pe = T.nvshmem.my_pe()
         n_pes = T.nvshmem.n_pes()
         if T.constexpr(sig_op == "add"):
@@ -132,7 +132,7 @@ def test_put_signal(cuda_source, scope, nelems, cmp_value):
         B: T.Tensor((64,), "float32"),
         signal_array: T.Tensor((1,), "uint64"),
     ):
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(64,)))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=64))
         tid = T.cuda.thread_idx("x")
         warp_id = T.cuda.warp_id()
         my_pe = T.nvshmem.my_pe()
@@ -165,7 +165,7 @@ def test_fence_barrier(cuda_source):
         B: T.Tensor((64,), "float32"),
         res: T.Tensor((1,), "uint64"),
     ):
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(64,)))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=64))
         tid = T.cuda.thread_idx("x")
         my_pe = T.nvshmem.my_pe()
         n_pes = T.nvshmem.n_pes()

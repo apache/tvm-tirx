@@ -331,7 +331,7 @@ def test_binary_op_local_subcta_trivial(thread_scope, rhs_kind, op_type):
         B: T.Tensor(b_shape, dtype, layout=TileLayout(S[b_shape])),
         C: T.Tensor(c_shape, dtype, layout=TileLayout(S[c_shape])),
     ) -> None:
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(256,)))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=256))
         wg_id = T.cuda.warpgroup_id()
         warp_id = T.cuda.warp_id()
         _bx = T.cuda.block_idx("x")
@@ -546,7 +546,7 @@ def test_binary_op_packed_f32x2_explicit(op_type):
         A: T.Tensor(a_shape, dtype, layout=TileLayout(S[a_shape])),
         B: T.Tensor(b_shape, dtype, layout=TileLayout(S[b_shape])),
     ) -> None:
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(64,)))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=64))
         _bx = T.cuda.block_idx("x")
         tx = T.cuda.thread_idx("x")
         A_local = T.alloc_tensor(
@@ -636,7 +636,7 @@ def test_binary_op_warpgroup_thread_row_layout(op_name):
         B: T.Tensor((rows, cols), dtype, layout=TileLayout(S[rows, cols])),
         C: T.Tensor((rows, cols), dtype, layout=TileLayout(S[rows, cols])),
     ) -> None:
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=1 * 128))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=1 * 128))
         _bx = T.cuda.block_idx("x")
         wg_id = T.cuda.warpgroup_id()
         tid = T.cuda.thread_in_warpgroup()
@@ -752,7 +752,7 @@ def test_binary_op_warpgroup_wg_local_emits_packed_f32x2(op_name, ptx_op):
         B: T.Tensor((rows, cols), dtype, layout=TileLayout(S[rows, cols])),
         C: T.Tensor((rows, cols), dtype, layout=TileLayout(S[rows, cols])),
     ) -> None:
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=1 * 128))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=1 * 128))
         _bx = T.cuda.block_idx("x")
         _wg_id = T.cuda.warpgroup_id()
         tid = T.cuda.thread_in_warpgroup()
@@ -851,7 +851,7 @@ def test_fma_warpgroup_wg_local_emits_packed_f32x2():
         A: T.Tensor((rows, cols), dtype, layout=TileLayout(S[rows, cols])),
         C: T.Tensor((rows, cols), dtype, layout=TileLayout(S[rows, cols])),
     ) -> None:
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=1 * 128))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=1 * 128))
         _bx = T.cuda.block_idx("x")
         _wg_id = T.cuda.warpgroup_id()
         tid = T.cuda.thread_in_warpgroup()
@@ -900,7 +900,7 @@ def test_binary_add_f32_sm100_packed_f32x2_dispatch():
     def k(
         A: T.Tensor(shape, "float32", layout=lay), B: T.Tensor(shape, "float32", layout=lay)
     ) -> None:
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(64,)))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=64))
         _bx = T.cuda.block_idx("x")
         tx = T.cuda.thread_idx("x")
         ra = T.alloc_tensor(
@@ -950,7 +950,7 @@ def test_binary_maximum_reg():
     def relu_max(
         A: T.Tensor((N,), "float32"), B: T.Tensor((N,), "float32"), C: T.Tensor((N,), "float32")
     ) -> None:
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=4 * 32))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=4 * 32))
         tid = T.cuda.thread_in_warpgroup()
         a_reg = T.alloc_local((1,), "float32", layout="default")
         b_reg = T.alloc_local((1,), "float32", layout="default")
@@ -987,7 +987,7 @@ def test_binary_add_f16_scalar_fallback_dispatch():
     def k(
         A: T.Tensor(shape, "float16", layout=lay), B: T.Tensor(shape, "float16", layout=lay)
     ) -> None:
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(64,)))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=64))
         _bx = T.cuda.block_idx("x")
         tx = T.cuda.thread_idx("x")
         ra = T.alloc_tensor(
@@ -1040,7 +1040,7 @@ def test_mul_tcgen05_16x256b_atom_warpgroup_dispatch():
         A: T.Tensor((128, regs_per_thread), "float32"),
         B: T.Tensor((128, regs_per_thread), "float32"),
     ) -> None:
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=1 * 128))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=1 * 128))
         _lane = T.cuda.lane_id()
         tid = T.cuda.thread_in_warpgroup()
         src = T.alloc_tensor(
@@ -1117,7 +1117,7 @@ def test_mul_scalar_broadcast():
         A: T.Tensor((N,), dtype, layout=TileLayout(S[N])),
         Scale: T.Tensor((1,), dtype, layout=TileLayout(S[1])),
     ) -> None:
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(1,)))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=1))
         _bx = T.cuda.block_idx("x")
         _tx = T.cuda.thread_idx("x")
         a_local = T.alloc_tensor(
@@ -1168,7 +1168,7 @@ def test_add_rounding_mode():
 
     @T.function
     def test_func(A: T.Tensor((N,), dtype, layout=TileLayout(S[N]))) -> None:
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(1,)))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=1))
         _bx = T.cuda.block_idx("x")
         _tx = T.cuda.thread_idx("x")
         buf = T.alloc_tensor(
@@ -1220,7 +1220,7 @@ def test_sub_tensor_tensor_rounding():
         A: T.Tensor((N,), dtype, layout=TileLayout(S[N])),
         B: T.Tensor((N,), dtype, layout=TileLayout(S[N])),
     ) -> None:
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(1,)))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=1))
         _bx = T.cuda.block_idx("x")
         _tx = T.cuda.thread_idx("x")
         a_buf = T.alloc_tensor(

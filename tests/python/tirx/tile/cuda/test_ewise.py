@@ -598,7 +598,7 @@ def test_unary_op_local_thread_wise(op_type, dtype):
 
     @T.function
     def kernel(A: T.Tensor(shape, dtype, layout=TileLayout(S[shape]))) -> None:
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(64,)))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=64))
         _bx = T.cuda.block_idx("x")
         tid = T.cuda.thread_idx("x")
         a_local = T.alloc_tensor(

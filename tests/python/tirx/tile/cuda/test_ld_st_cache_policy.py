@@ -29,7 +29,7 @@ from tvm_tirx.testing import env
 def _build_g2l2g_kernel(n_elements, dtype, load, store):
     @T.function
     def kernel(A: T.Tensor((n_elements,), dtype), B: T.Tensor((n_elements,), dtype)) -> None:
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(1,)))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=1))
         reg = T.alloc_local((n_elements,), dtype, layout="default")
         T.cuda.tile.apply(T.ptx[load], reg.view("uint32"), A.view("uint32"))
         T.cuda.tile.apply(T.ptx[store], B.view("uint32"), reg.view("uint32"))
@@ -40,7 +40,7 @@ def _build_g2l2g_kernel(n_elements, dtype, load, store):
 def _build_g2s2g_kernel(n_elements, dtype, load, store):
     @T.function
     def kernel(A: T.Tensor((n_elements,), dtype), B: T.Tensor((n_elements,), dtype)) -> None:
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(1,)))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=1))
         smem = T.alloc_tensor(
             ty_args=[T.Tensor((n_elements,), dtype, scope="shared", layout="default")]
         )
@@ -129,7 +129,7 @@ def test_copy_vec_128b_nc_global_to_shared():
 def test_copy_vec_nc_rejects_non_global_src():
     @T.function
     def kernel(B: T.Tensor((4,), "float32")) -> None:
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(1,)))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=1))
         smem = T.alloc_tensor(ty_args=[T.Tensor((4,), "float32", scope="shared", layout="default")])
         reg = T.alloc_local((4,), "float32", layout="default")
         T.cuda.tile.apply(T.ptx["ld.global.nc.v4.u32"], reg.view("uint32"), smem.view("uint32"))

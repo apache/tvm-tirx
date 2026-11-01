@@ -99,7 +99,7 @@ def test_lower_scope_id():
     class Before1:
         @T.function(private=True)
         def main() -> None:
-            T.device_entry(launch=T.cuda.LaunchConfig(grid=(3, 4, 5), block=(32,)))
+            T.device_entry(launch=T.cuda.LaunchConfig(grid=(3, 4, 5), block=32))
             bx, by, bz = (T.cuda.block_idx("x"), T.cuda.block_idx("y"), T.cuda.block_idx("z"))
             tx = T.cuda.thread_idx("x")
             T.evaluate(bx + by + bz + tx)
@@ -320,7 +320,7 @@ def test_lower_ordinary_cta_has_no_cluster_launch_tags():
     class Before:
         @T.function(private=True)
         def main() -> None:
-            T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(32,)))
+            T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=32))
 
     @I.ir_module
     class Expected:
@@ -357,15 +357,13 @@ def test_lower_explicit_singleton_cluster_launch_tags_survive_when_unused():
     class Before:
         @T.function(private=True)
         def cluster_2d() -> None:
-            T.device_entry(launch=T.cuda.LaunchConfig(grid=(1, 1), block=(32,), cluster=(1, 1)))
+            T.device_entry(launch=T.cuda.LaunchConfig(grid=(1, 1), block=32, cluster=(1, 1)))
             unused_cbx, unused_cby = (T.cuda.cluster_cta_id("x"), T.cuda.cluster_cta_id("y"))
             unused_bx, unused_by = (T.cuda.block_idx("x"), T.cuda.block_idx("y"))
 
         @T.function(private=True)
         def cluster_3d() -> None:
-            T.device_entry(
-                launch=T.cuda.LaunchConfig(grid=(1, 1, 1), block=(32,), cluster=(1, 1, 1))
-            )
+            T.device_entry(launch=T.cuda.LaunchConfig(grid=(1, 1, 1), block=32, cluster=(1, 1, 1)))
             unused_cbx, unused_cby, unused_cbz = (
                 T.cuda.cluster_cta_id("x"),
                 T.cuda.cluster_cta_id("y"),
@@ -452,7 +450,7 @@ def test_lower_multi_cta_cluster_launch_tags_remain_unchanged():
     class Before:
         @T.function(private=True)
         def main() -> None:
-            T.device_entry(launch=T.cuda.LaunchConfig(grid=(2, 1), block=(32,), cluster=(2, 1)))
+            T.device_entry(launch=T.cuda.LaunchConfig(grid=(2, 1), block=32, cluster=(2, 1)))
             unused_cbx, unused_cby = (T.cuda.cluster_cta_id("x"), T.cuda.cluster_cta_id("y"))
             unused_bx, unused_by = (T.cuda.block_idx("x"), T.cuda.block_idx("y"))
 
@@ -502,7 +500,7 @@ def test_lower_singleton_cluster_preserves_preferred_cluster_tags():
         def main() -> None:
             T.device_entry(
                 launch=T.cuda.LaunchConfig(
-                    grid=(2, 2), block=(32,), cluster=(1, 1), preferred_cluster=[2, 2]
+                    grid=(2, 2), block=32, cluster=(1, 1), preferred_cluster=[2, 2]
                 )
             )
             unused_cbx, unused_cby = (T.cuda.cluster_cta_id("x"), T.cuda.cluster_cta_id("y"))
@@ -562,7 +560,7 @@ def test_lower_scope_id2():
     class Before:
         @T.function(private=True)
         def main():
-            T.device_entry(launch=T.cuda.LaunchConfig(grid=(3, 4, 5), block=(256,)))
+            T.device_entry(launch=T.cuda.LaunchConfig(grid=(3, 4, 5), block=256))
             bx, by, bz = (T.cuda.block_idx("x"), T.cuda.block_idx("y"), T.cuda.block_idx("z"))
             warp_id = T.cuda.warp_id()
             tx = T.cuda.thread_idx("x")
@@ -632,7 +630,7 @@ def test_lower_scope_id3():
     class Before:
         @T.function(private=True)
         def main():
-            T.device_entry(launch=T.cuda.LaunchConfig(grid=(3, 4, 5), block=(128,)))
+            T.device_entry(launch=T.cuda.LaunchConfig(grid=(3, 4, 5), block=128))
             bx, by, bz = (T.cuda.block_idx("x"), T.cuda.block_idx("y"), T.cuda.block_idx("z"))
             warp_id = T.cuda.warp_id()
             tx = T.cuda.thread_idx("x")
@@ -711,7 +709,7 @@ def test_lower_separate_scope_id_def():
     class Before:
         @T.function(private=True)
         def main():
-            T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(128,)))
+            T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=128))
             tx = T.cuda.thread_idx("x")
             if tx == 0:
                 T.evaluate(tx)
@@ -760,7 +758,7 @@ def test_lower_uint32_scope_id_casts_at_bind():
     class Before:
         @T.function(private=True)
         def main():
-            T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(128,)))
+            T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=128))
             tx = T.cast(T.cuda.thread_idx("x"), ty="uint32")
             for k in T.serial(4, dtype="uint32"):
                 T.evaluate(tx + k)
@@ -819,7 +817,7 @@ def test_lower_exec_context_infers_plain_predicate_for_dispatch():
             A: T.Tensor((1,), "float32", scope="global", layout="default"),
             B: T.Tensor((1,), "float32", scope="global", layout="default"),
         ):
-            T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=4 * 32))
+            T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=4 * 32))
             warp_id = T.cuda.warp_id()
             lane_id = T.cuda.lane_id()
             if (warp_id == 0) & (lane_id == 0):
@@ -1102,7 +1100,7 @@ def test_lower_exec_context_infers_warpgroup_range_predicate_for_dispatch():
             A: T.Tensor((1,), "float32", scope="global", layout="default"),
             B: T.Tensor((1,), "float32", scope="global", layout="default"),
         ):
-            T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=2 * 128))
+            T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=2 * 128))
             wg_id = T.cuda.warpgroup_id()
             _lane = T.cuda.lane_id()
             if wg_id == 0:
@@ -1200,7 +1198,7 @@ def test_lower_exec_context_tracks_cta_thread_range_predicate_for_dispatch():
             A: T.Tensor((1,), "float32", scope="global", layout="default"),
             B: T.Tensor((1,), "float32", scope="global", layout="default"),
         ):
-            T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(256,)))
+            T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=256))
             tid = T.cuda.thread_idx("x")
             if (0 <= tid) & (tid < 128):
                 getattr(T.cuda.tile, variant)(B[0:1], A[0:1])
@@ -1276,7 +1274,7 @@ def test_lower_exec_context_tracks_cta_thread_single_warp_range_predicate():
             A: T.Tensor((1,), "float32", scope="global", layout="default"),
             B: T.Tensor((1,), "float32", scope="global", layout="default"),
         ):
-            T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(256,)))
+            T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=256))
             tid = T.cuda.thread_idx("x")
             if (34 <= tid) & (tid < 40):
                 getattr(T.cuda.tile, variant)(B[0:1], A[0:1])
@@ -1352,7 +1350,7 @@ def test_lower_exec_context_tracks_warpgroup_thread_range_predicate():
             A: T.Tensor((1,), "float32", scope="global", layout="default"),
             B: T.Tensor((1,), "float32", scope="global", layout="default"),
         ):
-            T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=2 * 128))
+            T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=2 * 128))
             wg_id = T.cuda.warpgroup_id()
             tid_in_wg = T.cuda.thread_in_warpgroup()
             if wg_id == 1:
@@ -1440,7 +1438,7 @@ def test_lower_exec_context_tracks_dependent_conjunctive_predicate():
             A: T.Tensor((1,), "float32", scope="global", layout="default"),
             B: T.Tensor((1,), "float32", scope="global", layout="default"),
         ):
-            T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=2 * 128))
+            T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=2 * 128))
             wg_id = T.cuda.warpgroup_id()
             tid_in_wg = T.cuda.thread_in_warpgroup()
             if ((32 <= tid_in_wg) & (tid_in_wg < 64)) & (wg_id == 1):
@@ -1513,7 +1511,7 @@ def test_lower_exec_context_keeps_plain_predicate_condition():
     class Before:
         @T.function(private=True)
         def main(A: T.Tensor((1,), "float32", scope="global", layout="default")):
-            T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=2 * 128))
+            T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=2 * 128))
             wg_id = T.cuda.warpgroup_id()
             _lane = T.cuda.lane_id()
             if wg_id == 0:
@@ -1578,7 +1576,7 @@ def test_lower_exec_context_keeps_plain_scope_predicate_condition():
     class Before:
         @T.function(private=True)
         def main(A: T.Tensor((1,), "float32", scope="global", layout="default")):
-            T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=2 * 128))
+            T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=2 * 128))
             wg_id = T.cuda.warpgroup_id()
             _lane = T.cuda.lane_id()
             if wg_id == 0:
@@ -1643,7 +1641,7 @@ def test_simplify_uses_floor_div_scope_predicate_as_context_fact():
     class Before:
         @T.function(private=True)
         def main(A: T.Tensor((16,), "float32", scope="global", layout="default")):
-            T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=2 * 128))
+            T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=2 * 128))
             wg_id = T.cuda.warpgroup_id()
             warp_id = T.cuda.warp_in_warpgroup()
             lane_id = T.cuda.lane_id()
@@ -1741,7 +1739,7 @@ def test_lower_exec_context_selector_filter_for_elect_sync():
             A: T.Tensor((1,), "float32", scope="global", layout="default"),
             B: T.Tensor((1,), "float32", scope="global", layout="default"),
         ):
-            T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=1 * 32))
+            T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=1 * 32))
             lane_id = T.cuda.lane_id()
             if T.cuda.elect_sync():
                 getattr(T.cuda.tile, variant)(B[0:1], A[0:1])
@@ -1831,7 +1829,7 @@ def test_lower_exec_context_scope_guard_mixes_structural_and_selector():
             A: T.Tensor((1,), "float32", scope="global", layout="default"),
             B: T.Tensor((1,), "float32", scope="global", layout="default"),
         ):
-            T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=4 * 32))
+            T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=4 * 32))
             warp_id = T.cuda.warp_id()
             lane_id = T.cuda.lane_id()
             if (warp_id == 0) & T.cuda.elect_sync():
@@ -1918,7 +1916,7 @@ def test_lower_exec_context_tracks_factorized_cta_predicate():
             A: T.Tensor((1,), "float32", scope="global", layout="default"),
             B: T.Tensor((1,), "float32", scope="global", layout="default"),
         ):
-            T.device_entry(launch=T.cuda.LaunchConfig(grid=(2, 3), block=(32,), cluster=(2, 3)))
+            T.device_entry(launch=T.cuda.LaunchConfig(grid=(2, 3), block=32, cluster=(2, 3)))
             cbx, cby = (T.cuda.cluster_cta_id("x"), T.cuda.cluster_cta_id("y"))
             if cbx == 0:
                 getattr(T.cuda.tile, variant)(B[0:1], A[0:1])
@@ -2003,7 +2001,7 @@ def test_lower_exec_context_keeps_kernel_cta_predicate_out_of_cluster_active_set
             A: T.Tensor((1,), "float32", scope="global", layout="default"),
             B: T.Tensor((1,), "float32", scope="global", layout="default"),
         ):
-            T.device_entry(launch=T.cuda.LaunchConfig(grid=(8,), block=(32,), cluster=(2,)))
+            T.device_entry(launch=T.cuda.LaunchConfig(grid=8, block=32, cluster=2))
             bx = T.cuda.block_idx("x")
             cbx = T.cuda.cluster_cta_id("x")
             if bx == 0:
@@ -2088,7 +2086,7 @@ def test_lower_exec_context_tracks_cta_axis_modulo_predicate():
             A: T.Tensor((1,), "float32", scope="global", layout="default"),
             B: T.Tensor((1,), "float32", scope="global", layout="default"),
         ):
-            T.device_entry(launch=T.cuda.LaunchConfig(grid=(4, 2), block=(32,), cluster=(4, 2)))
+            T.device_entry(launch=T.cuda.LaunchConfig(grid=(4, 2), block=32, cluster=(4, 2)))
             cbx, cby = (T.cuda.cluster_cta_id("x"), T.cuda.cluster_cta_id("y"))
             if cbx % 2 == 0:
                 getattr(T.cuda.tile, variant)(B[0:1], A[0:1])
@@ -2166,7 +2164,7 @@ def test_lower_exec_context_tracks_cta_id_in_pair_predicate():
             A: T.Tensor((1,), "float32", scope="global", layout="default"),
             B: T.Tensor((1,), "float32", scope="global", layout="default"),
         ):
-            T.device_entry(launch=T.cuda.LaunchConfig(grid=(4, 2), block=(32,), cluster=(4, 2)))
+            T.device_entry(launch=T.cuda.LaunchConfig(grid=(4, 2), block=32, cluster=(4, 2)))
             cbx, cby = (T.cuda.cluster_cta_id("x"), T.cuda.cluster_cta_id("y"))
             cta_id_in_pair = T.cuda.cta_pair_id()
             if cta_id_in_pair == 0:
@@ -2270,7 +2268,7 @@ def test_lower_exec_context_tracks_two_cta_pair_predicates():
             A: T.Tensor((1,), "float32", scope="global", layout="default"),
             B: T.Tensor((1,), "float32", scope="global", layout="default"),
         ):
-            T.device_entry(launch=T.cuda.LaunchConfig(grid=(2,), block=(32,), cluster=(2,)))
+            T.device_entry(launch=T.cuda.LaunchConfig(grid=2, block=32, cluster=2))
             cta_id_in_pair = T.cuda.cta_pair_id()
             if cta_id_in_pair == 0:
                 getattr(T.cuda.tile, zero_variant)(B[0:1], A[0:1])
@@ -2368,7 +2366,7 @@ def test_lower_exec_context_tracks_cta_id_in_pair_after_axis_predicate():
             A: T.Tensor((1,), "float32", scope="global", layout="default"),
             B: T.Tensor((1,), "float32", scope="global", layout="default"),
         ):
-            T.device_entry(launch=T.cuda.LaunchConfig(grid=(3, 2), block=(32,), cluster=(3, 2)))
+            T.device_entry(launch=T.cuda.LaunchConfig(grid=(3, 2), block=32, cluster=(3, 2)))
             cbx, cby = (T.cuda.cluster_cta_id("x"), T.cuda.cluster_cta_id("y"))
             cta_id_in_pair = T.cuda.cta_pair_id()
             if cbx == 0:
@@ -2523,7 +2521,7 @@ def test_lower_preferred_cluster():
         def main() -> None:
             T.device_entry(
                 launch=T.cuda.LaunchConfig(
-                    grid=(8, 2), block=(128,), cluster=(2, 1), preferred_cluster=[2, 2]
+                    grid=(8, 2), block=128, cluster=(2, 1), preferred_cluster=[2, 2]
                 )
             )
             bx = T.cuda.block_idx("x")

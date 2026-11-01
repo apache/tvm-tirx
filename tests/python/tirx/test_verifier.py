@@ -91,7 +91,7 @@ def test_layout():
     # fmt: off
     @T.function(check_well_formed=False)
     def test1():
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(32,), block=4 * 32))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=32, block=4 * 32))
         _lane = T.cuda.lane_id()
         A = T.alloc_tensor(ty_args=[T.Tensor((2,), "float32", layout=T.TileLayout(T.S[2, 1]))])
 
@@ -103,7 +103,7 @@ def test_layout():
     # fmt: off
     @T.function(check_well_formed=False)
     def test2():
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(32,), block=4 * 32))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=32, block=4 * 32))
         _lane = T.cuda.lane_id()
         A = T.alloc_tensor(
             ty_args=[
@@ -160,12 +160,12 @@ def test_device_func():
     # fmt: off
     @T.function(check_well_formed=False)
     def test1(A: T.Tensor((128,), "float32")):
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(128,)))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=128))
         T.cuda.tile.apply(T.ptx['mov.b32'], A, 0., scope='cta')
 
     @T.function(check_well_formed=False)
     def test2(A: T.Tensor((128,), "float32")):
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(128,), block=(128,)))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=128, block=128))
         T.cuda.tile.apply(T.ptx['mov.b32'], A, 0.)
     # fmt: on
     verify(test1)

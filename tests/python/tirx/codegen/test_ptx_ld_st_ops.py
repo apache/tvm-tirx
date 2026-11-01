@@ -85,7 +85,7 @@ def _shared_scratch_copy_kernel(num_bytes: int):
 
     @T.function
     def func(out: T.Tensor((nelems,), smem_dtype)):
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=1 * 32))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=1 * 32))
         lane = T.cuda.lane_id()
         src_buf = T.alloc_tensor(ty_args=[T.Tensor((nelems,), smem_dtype, scope="shared")])
         dst_buf = T.alloc_tensor(ty_args=[T.Tensor((nelems,), smem_dtype, scope="shared")])
@@ -119,7 +119,7 @@ def test_ptx_ld_st_codegen_emits_shared_asm():
     @T.function
     def copy_kernel(D: T.Tensor((4,), 'uint32')) -> None:
 
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=4 * 32))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=4 * 32))
         tid_in_wg = T.cuda.thread_in_warpgroup()
         smem = T.alloc_tensor(ty_args=[T.Tensor((4,), "uint32", scope="shared")])
         reg = T.alloc_local((4,), "uint32", layout="default")
@@ -146,7 +146,7 @@ def test_ptx_ld_st_codegen_emits_shared_asm():
 def test_ptx_ld_st_raw_shared_address_codegen():
     @T.function
     def main(out: T.Tensor((2,), "uint64")):
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=(32,)))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=32))
         tx = T.cuda.thread_idx("x")
         smem = T.alloc_tensor(ty_args=[T.Tensor((2,), "uint64", scope="shared")])
         values = T.alloc_local((4,), "uint32")
@@ -172,7 +172,7 @@ def test_ptx_ld_st_immediate_offset_codegen():
 
     @T.function
     def main(src: T.Tensor((4,), "uint64"), out: T.Tensor((4,), "uint64")):
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=(32,)))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=32))
         tx = T.cuda.thread_idx("x")
         values = T.alloc_local((2,), "uint64")
         if tx == 0:
@@ -195,7 +195,7 @@ def test_ptx_ld_global_nc_v8_codegen():
 
     @T.function
     def copy_kernel(src: T.Tensor((8,), "int32"), out: T.Tensor((8,), "int32")) -> None:
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=(32,)))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=32))
         tx = T.cuda.thread_idx("x")
         tmp = T.alloc_local((8,), "int32")
         if tx == 0:
@@ -224,7 +224,7 @@ def test_ptx_ld_global_nc_v4_u64_256b_codegen():
 
     @T.function
     def copy_kernel(src: T.Tensor((4,), "uint64"), out: T.Tensor((4,), "uint64")) -> None:
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=(32,)))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=32))
         tx = T.cuda.thread_idx("x")
         tmp = T.alloc_local((4,), "uint64")
         if tx == 0:
@@ -249,7 +249,7 @@ def test_ptx_ld_vector_scatter_dst_codegen():
 
     @T.function
     def copy_kernel(src: T.Tensor((4,), "int32"), out: T.Tensor((4,), "int32")) -> None:
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=(32,)))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=32))
         tx = T.cuda.thread_idx("x")
         tmp0 = T.alloc_local((1,), "int32")
         tmp1 = T.alloc_local((1,), "int32")

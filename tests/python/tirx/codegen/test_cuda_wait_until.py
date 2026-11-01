@@ -46,7 +46,7 @@ def rendezvous(backoff_ns=None, ptx_type=None):
 
     @T.function
     def kernel(state: T.Tensor((1,), "int32"), participants: T.int32):
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(2,), block=(32,)))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=2, block=32))
         lane = T.cuda.thread_idx("x")
         spin = T.alloc_local((1,), "int32")
         phase = T.alloc_local((1,), "int32")
@@ -71,7 +71,7 @@ def packed_contribution():
 
     @T.function
     def kernel(slot: T.Tensor((1,), "uint64"), out: T.Tensor((1,), "uint64"), n: T.int32):
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(2,), block=(32,)))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=2, block=32))
         lane = T.cuda.thread_idx("x")
         observed = T.alloc_local((1,), "uint64")
         if lane == 0:
@@ -298,7 +298,7 @@ def test_a_wide_word_cannot_be_waited_on():
 
         @T.function
         def kernel(response: T.Tensor((2,), "uint64")):
-            T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(32,)))
+            T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=32))
             lane = T.cuda.thread_idx("x")
             seen = T.local_scalar("uint64")
             if lane == 0:

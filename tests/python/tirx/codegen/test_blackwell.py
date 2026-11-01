@@ -100,7 +100,7 @@ def test_tmem_alloc_dealloc_relinquish():
     # fmt: off
     @T.function
     def test_tmem(A: T.Tensor((16, 16), "float16")):
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(128,)))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=128))
         cta_id = T.cuda.block_idx('x')
         warp_id = T.cuda.warp_id()
         lane_id = T.cuda.lane_id()
@@ -137,7 +137,7 @@ def test_mbarrier_try_wait_once_codegen():
     # fmt: off
     @T.function
     def test_try_wait_once(A: T.Tensor((16, 16), "float16")):
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(128,)))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=128))
         bar = T.shared_scalar("uint64")
         ok = T.local_scalar("uint32")
         ok_no_hint = T.local_scalar("uint32")
@@ -165,7 +165,7 @@ def test_mbarrier_remote_view_codegen():
     # fmt: off
     @T.function
     def test_remote_view():
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=1 * 2, block=(128,), cluster=(2,)))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1 * 2, block=128, cluster=2))
         pool = SMEMPool()
         bar = MBarrier(pool, 1)
         pool.commit()
@@ -197,7 +197,7 @@ def test_mbarrier_local_arrive_forwards_predicate_and_count():
     # fmt: off
     @T.function
     def test_local_arrive():
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=(32,)))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=32))
         thread = T.cuda.thread_idx('x')
         pool = SMEMPool()
         bar = MBarrier(pool, 1)
@@ -230,7 +230,7 @@ def test_tma_mbarrier_remote_view_codegen():
     # fmt: off
     @T.function
     def test_remote_view():
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=1 * 2, block=(128,), cluster=(2,)))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1 * 2, block=128, cluster=2))
         pool = SMEMPool()
         bar = TMABar(pool, 1)
         pool.commit()
@@ -255,7 +255,7 @@ def test_mbarrier_remote_view_rejects_invalid_operations():
         # fmt: off
         @T.function
         def invalid_init():
-            T.device_entry(launch=T.cuda.LaunchConfig(grid=(2,), block=(128,)))
+            T.device_entry(launch=T.cuda.LaunchConfig(grid=2, block=128))
             pool = SMEMPool()
             bar = MBarrier(pool, 1)
             bar.remote_view(0).init(1)
@@ -265,7 +265,7 @@ def test_mbarrier_remote_view_rejects_invalid_operations():
         # fmt: off
         @T.function
         def invalid_wait():
-            T.device_entry(launch=T.cuda.LaunchConfig(grid=(2,), block=(128,)))
+            T.device_entry(launch=T.cuda.LaunchConfig(grid=2, block=128))
             pool = SMEMPool()
             bar = MBarrier(pool, 1)
             bar.remote_view(0).wait(0, 0)
@@ -275,7 +275,7 @@ def test_mbarrier_remote_view_rejects_invalid_operations():
         # fmt: off
         @T.function
         def ambiguous_mbarrier_arrive():
-            T.device_entry(launch=T.cuda.LaunchConfig(grid=(2,), block=(128,)))
+            T.device_entry(launch=T.cuda.LaunchConfig(grid=2, block=128))
             pool = SMEMPool()
             bar = MBarrier(pool, 1)
             bar.remote_view(0).arrive(0, remote=1)
@@ -285,7 +285,7 @@ def test_mbarrier_remote_view_rejects_invalid_operations():
         # fmt: off
         @T.function
         def ambiguous_tma_arrive():
-            T.device_entry(launch=T.cuda.LaunchConfig(grid=(2,), block=(128,)))
+            T.device_entry(launch=T.cuda.LaunchConfig(grid=2, block=128))
             pool = SMEMPool()
             bar = TMABar(pool, 1)
             bar.remote_view(0).arrive(0, tx_count=128, remote=1)
@@ -298,7 +298,7 @@ def test_mbarrier_remote_view_rejects_invalid_operations():
         # fmt: off
         @T.function
         def nested_remote_view():
-            T.device_entry(launch=T.cuda.LaunchConfig(grid=(2,), block=(128,)))
+            T.device_entry(launch=T.cuda.LaunchConfig(grid=2, block=128))
             pool = SMEMPool()
             bar = MBarrier(pool, 1)
             bar.remote_view(0).remote_view(1)
@@ -311,7 +311,7 @@ def test_fence_before_after_thread_sync():
     # fmt: off
     @T.function
     def test_fence(A: T.Tensor((16, 16), "float16")):
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(128,)))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=128))
         cta_id = T.cuda.block_idx('x')
         warp_id = T.cuda.warp_id()
         lane_id = T.cuda.lane_id()
@@ -340,7 +340,7 @@ def test_tcgen05_ld_st_roundtrip():
     # fmt: off
     @T.function
     def test_ld_st(A: T.Tensor((HEIGHT, WIDTH), "float32"), B: T.Tensor((HEIGHT, WIDTH), "float32")):  # noqa: E501
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(128,)))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=128))
         cta_id = T.cuda.block_idx('x')
         warp_id = T.cuda.warp_id()
         lane_id = T.cuda.lane_id()
@@ -420,7 +420,7 @@ def test_tcgen05_cp_ld_roundtrip():
     @T.function
     def test_cp_ld(A: T.Tensor((HEIGHT, WIDTH), dtype, layout=T.TileLayout(T.S[(HEIGHT, WIDTH // 4, 4) : (4, HEIGHT * 4, 1)])),  # noqa: E501
                    B: T.Tensor((HEIGHT, WIDTH), dtype, layout=T.TileLayout(T.S[(HEIGHT, WIDTH // 4, 4) : (4, HEIGHT * 4, 1)]))):  # noqa: E501
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(128,)))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=128))
         cta_id = T.cuda.block_idx('x')
         warp_id = T.cuda.warp_id()
         lane_id = T.cuda.lane_id()
@@ -566,7 +566,7 @@ def test_tcgen05_mma_ss_no_tma(swizzle):
     def test_mma_ss_no_tma(A: T.Tensor((M, K), a_type, layout=T.TileLayout(T.S[M, K])),
                            B: T.Tensor((N, K), b_type, layout=T.TileLayout(T.S[N, K])),
                            C: T.Tensor((M, N), d_type)):
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(128,)))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=128))
         cta_id = T.cuda.block_idx('x')
         warp_id = T.cuda.warp_id()
         lane_id = T.cuda.lane_id()
@@ -735,7 +735,7 @@ def test_tcgen05_mma_pred_codegen():
     # fmt: off
     @T.function
     def test_mma_pred():
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=(1,)))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=1))
         tmem_addr = T.alloc_tensor(ty_args=[T.Tensor((1,), "uint32", scope="local")])
         desc_a = T.alloc_tensor(ty_args=[T.Tensor((1,), "uint64", scope="local")])
         desc_b = T.alloc_tensor(ty_args=[T.Tensor((1,), "uint64", scope="local")])

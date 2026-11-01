@@ -266,7 +266,7 @@ def test_bind_target_with_tirx_device_entry():
         def main(A: T.Tensor((1,), "int32")):
             T.func_attr({"global_symbol": "main"})
             host_value: T.let[T.int32] = Before.add(1, 2)
-            T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=(1,)))
+            T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=1))
             tx = T.cuda.thread_idx("x")
             A[tx] = Before.add(host_value, 3)
 
@@ -297,7 +297,7 @@ def test_bind_target_with_tirx_device_entry():
                 }
             )
             host_value: T.let[T.int32] = Expected.add_host(1, 2)
-            T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=(1,)))
+            T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=1))
             tx = T.cuda.thread_idx("x")
             A[tx] = Expected.add(host_value, 3)
 

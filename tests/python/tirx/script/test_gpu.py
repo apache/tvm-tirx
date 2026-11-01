@@ -88,7 +88,7 @@ def test_roundtrip_scopeid_deferred():
     @T.function(private=True)
     def test(_: T.Tensor((64,), 'float32', scope='global')) -> None:
 
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=4 * 2, block=4 * 32, cluster=(2,)))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=4 * 2, block=4 * 32, cluster=2))
         bx = T.cuda.block_idx('x')                       # deferred kernel→cta
         cbx = T.cuda.cluster_cta_id('x')
         clx = T.cuda.cluster_id('x')
@@ -107,7 +107,7 @@ def test_roundtrip_scopeid_deferred():
 def test_thread_scope_filter_guard_roundtrip():
     @T.function(private=True)
     def test(A: T.Tensor((1,), "float32", scope="global")) -> None:
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(128,)))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=128))
         tx = T.cuda.thread_idx("x")
         if (0 <= tx) & (tx < 1):
             A[0] = T.float32(1)
@@ -454,7 +454,7 @@ def test_roundtrip_persistent_decorator():
     @T.function(persistent=True)
     def test(A: T.Tensor((128,), 'float32', scope='global')) -> None:
 
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=1 * 32))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=1 * 32))
         cta_id = T.cuda.block_idx('x')
         warp_id = T.cuda.warp_id()
         lane_id = T.cuda.lane_id()
@@ -475,7 +475,7 @@ def test_roundtrip_persistent_not_present():
     @T.function
     def test(A: T.Tensor((128,), 'float32', scope='global')) -> None:
 
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=1 * 32))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=1 * 32))
         cta_id = T.cuda.block_idx('x')
         warp_id = T.cuda.warp_id()
         lane_id = T.cuda.lane_id()
@@ -591,7 +591,7 @@ def test_scope_id_dtype_uint32():
     @T.function
     def func(A: T.Tensor((128,), 'float32')):
 
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(128,)))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=128))
         bx = T.cuda.block_idx('x')
         tx = T.cast(T.cuda.thread_idx('x'), ty="uint32")
         A[tx] = T.float32(bx)
@@ -621,7 +621,7 @@ def test_scope_id_dtype_uint32_lane_and_warp():
     @T.function
     def func(A: T.Tensor((32,), 'float32')):
 
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=4 * 32))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=4 * 32))
         _ = T.cuda.block_idx('x')
         warp = T.cast(T.cuda.warp_id(), ty="uint32")
         lane = T.cast(T.cuda.lane_id(), ty="uint32")
@@ -666,7 +666,7 @@ def test_scope_id_dtype_uint32_deferred_extent():
     @T.function
     def func(A: T.Tensor((32,), 'float32')):
 
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=4 * 32))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=4 * 32))
         _ = T.cuda.block_idx('x')
         lane = T.cast(T.cuda.lane_id(), ty="uint32")
         warp = T.cuda.warp_id()

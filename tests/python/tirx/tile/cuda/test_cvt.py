@@ -75,7 +75,7 @@ def test_cast_thread_local(shape, A_dtype, B_dtype):
         A: T.Tensor(shape, A_dtype, layout=TileLayout(S[shape])),
         B: T.Tensor(shape, B_dtype, layout=TileLayout(S[shape])),
     ) -> None:
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(256,)))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=256))
         cta_id = T.cuda.block_idx("x")
         tid = T.cuda.thread_idx("x")
         A_local = T.alloc_local(shape, dtype=A_dtype, layout=TileLayout(S[shape]))
@@ -142,7 +142,7 @@ def test_cast_warpgroup_local_view(A_dtype, B_dtype):
         A: T.Tensor(g_shape, A_dtype, layout=g_layout),
         B: T.Tensor(g_shape, B_dtype, layout=g_layout),
     ) -> None:
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=1 * 128))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=1 * 128))
         cta_id = T.cuda.block_idx("x")
         wg_id = T.cuda.warpgroup_id()
         tid_in_wg = T.cuda.thread_in_warpgroup()
@@ -215,7 +215,7 @@ def test_cast_cta_local_view(A_dtype, B_dtype):
         A: T.Tensor(g_shape, A_dtype, layout=g_layout),
         B: T.Tensor(g_shape, B_dtype, layout=g_layout),
     ) -> None:
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(N_THREADS,)))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=N_THREADS))
         cta_id = T.cuda.block_idx("x")
         tx_var = T.cuda.thread_idx("x")
         reg_src = T.alloc_tensor(
@@ -292,7 +292,7 @@ def test_cast_warpgroup_src_layout_to_flat_uses_vec2_intrinsic(A_dtype, B_dtype)
         A: T.Tensor(g_shape, A_dtype, layout=g_layout),
         B: T.Tensor(g_shape, B_dtype, layout=g_layout),
     ) -> None:
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=1 * 128))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=1 * 128))
         cta_id = T.cuda.block_idx("x")
         wg_id = T.cuda.warpgroup_id()
         tid = T.cuda.thread_in_warpgroup()
@@ -380,7 +380,7 @@ def test_cast_local_view_sliced(A_dtype, B_dtype, slice_start, slice_end):
         A: T.Tensor(g_shape, A_dtype, layout=g_layout),
         B: T.Tensor(g_shape, B_dtype, layout=g_layout),
     ) -> None:
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(N_THREADS,)))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=N_THREADS))
         _bx = T.cuda.block_idx("x")
         tx = T.cuda.thread_idx("x")
         reg_src = T.alloc_tensor(
@@ -460,7 +460,7 @@ def test_cast_mixed_axes_and_subregion(slice_start, slice_end):
         A: T.Tensor(full_shape, "float32", layout=g_layout),
         B: T.Tensor(full_shape, "float16", layout=g_layout),
     ) -> None:
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=N_WARPS * 32))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=N_WARPS * 32))
         cta_id = T.cuda.block_idx("x")
         warp_id = T.cuda.warp_id()
         lane_id = T.cuda.lane_id()
@@ -526,7 +526,7 @@ def test_cast_validate_extent_mismatch_rejected():
         A: T.Tensor(view_shape, "float32", layout=g_layout),
         B: T.Tensor(view_shape, "float16", layout=g_layout),
     ) -> None:
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=2 * 32))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=2 * 32))
         cta_id = T.cuda.block_idx("x")
         warp_id = T.cuda.warp_id()
         lane_id = T.cuda.lane_id()
@@ -584,7 +584,7 @@ def test_cast_vec2_packed_dispatch(src_dtype, dst_dtype, intrinsic):
     def k(
         A: T.Tensor(shape, src_dtype, layout=lay), B: T.Tensor(shape, dst_dtype, layout=lay)
     ) -> None:
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(64,)))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=64))
         _bx = T.cuda.block_idx("x")
         tx = T.cuda.thread_idx("x")
         ra = T.alloc_tensor(
@@ -651,7 +651,7 @@ def test_cast_wg_rejects_thread_local_view():
         A: T.Tensor((_SL_ROWS, _SL_COLS), "float32", layout=TileLayout(S[_SL_ROWS, _SL_COLS])),
         B: T.Tensor((_SL_ROWS, _SL_COLS), "float16", layout=TileLayout(S[_SL_ROWS, _SL_COLS])),
     ) -> None:
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=1 * 128))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=1 * 128))
         _bx = T.cuda.block_idx("x")
         _wg = T.cuda.warpgroup_id()
         tid = T.cuda.thread_in_warpgroup()
@@ -700,7 +700,7 @@ def test_cast_cta_rejects_thread_local_view():
         A: T.Tensor((_SL_ROWS, _SL_COLS), "float32", layout=TileLayout(S[_SL_ROWS, _SL_COLS])),
         B: T.Tensor((_SL_ROWS, _SL_COLS), "float16", layout=TileLayout(S[_SL_ROWS, _SL_COLS])),
     ) -> None:
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(_SL_ROWS,)))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=_SL_ROWS))
         _bx = T.cuda.block_idx("x")
         tx_var = T.cuda.thread_idx("x")
         src = T.alloc_tensor(
@@ -749,7 +749,7 @@ def test_cast_wg_rejects_partial_thread_coverage():
         A: T.Tensor((half, _SL_COLS), "float32", layout=TileLayout(S[half, _SL_COLS])),
         B: T.Tensor((half, _SL_COLS), "float16", layout=TileLayout(S[half, _SL_COLS])),
     ) -> None:
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=1 * 128))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=1 * 128))
         _bx = T.cuda.block_idx("x")
         _wg = T.cuda.warpgroup_id()
         tid = T.cuda.thread_in_warpgroup()
@@ -798,7 +798,7 @@ def test_cast_wg_accepts_wg_level_layout():
         A: T.Tensor((_SL_ROWS, _SL_COLS), "float32", layout=TileLayout(S[_SL_ROWS, _SL_COLS])),
         B: T.Tensor((_SL_ROWS, _SL_COLS), "float16", layout=TileLayout(S[_SL_ROWS, _SL_COLS])),
     ) -> None:
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=1 * 128))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=1 * 128))
         _bx = T.cuda.block_idx("x")
         _wg = T.cuda.warpgroup_id()
         tid = T.cuda.thread_in_warpgroup()
@@ -846,7 +846,7 @@ def test_cast_thread_accepts_local_view():
         A: T.Tensor((_SL_ROWS, _SL_COLS), "float32", layout=TileLayout(S[_SL_ROWS, _SL_COLS])),
         B: T.Tensor((_SL_ROWS, _SL_COLS), "float16", layout=TileLayout(S[_SL_ROWS, _SL_COLS])),
     ) -> None:
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(_SL_ROWS,)))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=_SL_ROWS))
         _bx = T.cuda.block_idx("x")
         tx_var = T.cuda.thread_idx("x")
         src = T.alloc_tensor(
@@ -901,7 +901,7 @@ def _tcgen05_cast_warpgroup_kernel():
 
     @T.function
     def kernel(A: T.Tensor((m, k), "bfloat16"), B: T.Tensor((m, k), "float32")) -> None:
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=1 * 128))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=1 * 128))
         _lane = T.cuda.lane_id()
         tid_wg = T.cuda.thread_in_warpgroup()
         lane = T.cuda.lane_id()

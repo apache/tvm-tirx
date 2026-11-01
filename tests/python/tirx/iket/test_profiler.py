@@ -51,7 +51,7 @@ def _source_codegen_without_cuda(monkeypatch):
 
 @T.function
 def serial_a(out: T.Tensor((32,), "int32")):
-    T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=(32,)))
+    T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=32))
     iket = IketProfiler()
     tx = T.cuda.thread_idx("x")
     iket.mark("a")
@@ -60,7 +60,7 @@ def serial_a(out: T.Tensor((32,), "int32")):
 
 @T.function
 def serial_b(out: T.Tensor((32,), "int32")):
-    T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=(32,)))
+    T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=32))
     iket = IketProfiler()
     tx = T.cuda.thread_idx("x")
     iket.mark("b")
@@ -69,14 +69,14 @@ def serial_b(out: T.Tensor((32,), "int32")):
 
 @T.function
 def plain_entry(out: T.Tensor((32,), "int32")):
-    T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=(32,)))
+    T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=32))
     tx = T.cuda.thread_idx("x")
     out[tx] = tx + 7
 
 
 @T.function
 def push_pop_kernel(out: T.Tensor((32,), "int32")):
-    T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=(32,)))
+    T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=32))
     iket = IketProfiler()
     tx = T.cuda.thread_idx("x")
     iket.range_push("outer")
@@ -89,7 +89,7 @@ def push_pop_kernel(out: T.Tensor((32,), "int32")):
 
 @T.function
 def token_loop(n: T.int32, out: T.Tensor((32,), "int32")):
-    T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=(32,)))
+    T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=32))
     iket = IketProfiler()
     tx = T.cuda.thread_idx("x")
     token: T.uint32 = iket.sentinel_token("sentinel")
@@ -105,7 +105,7 @@ def token_loop(n: T.int32, out: T.Tensor((32,), "int32")):
 
 @T.function
 def payload_kernel(out: T.Tensor((32,), "int32")):
-    T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=(32,)))
+    T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=32))
     iket = IketProfiler()
     tx = T.cuda.thread_idx("x")
     iket.mark("payload", tx)
@@ -114,7 +114,7 @@ def payload_kernel(out: T.Tensor((32,), "int32")):
 
 @T.function
 def payload_types(n: T.int64, out: T.Tensor((32,), "int32")):
-    T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=(32,)))
+    T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=32))
     iket = IketProfiler()
     tx = T.cuda.thread_idx("x")
     iket.mark("bool", tx == 0)
@@ -137,7 +137,7 @@ def payload_types(n: T.int64, out: T.Tensor((32,), "int32")):
 
 @T.function
 def payload_presence_mismatch(out: T.Tensor((32,), "int32")):
-    T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=(32,)))
+    T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=32))
     iket = IketProfiler()
     tx = T.cuda.thread_idx("x")
     token: T.uint32 = iket.range_start("mismatch", tx)
@@ -147,7 +147,7 @@ def payload_presence_mismatch(out: T.Tensor((32,), "int32")):
 
 @T.function
 def payload_type_mismatch(out: T.Tensor((32,), "int32")):
-    T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=(32,)))
+    T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=32))
     iket = IketProfiler()
     tx = T.cuda.thread_idx("x")
     token: T.uint32 = iket.range_start("mismatch", tx)
@@ -157,7 +157,7 @@ def payload_type_mismatch(out: T.Tensor((32,), "int32")):
 
 @T.function
 def sentinel_only_payload(out: T.Tensor((32,), "int32")):
-    T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=(32,)))
+    T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=32))
     iket = IketProfiler()
     tx = T.cuda.thread_idx("x")
     token: T.uint32 = iket.sentinel_token("not-a-declaration")
@@ -167,7 +167,7 @@ def sentinel_only_payload(out: T.Tensor((32,), "int32")):
 
 @T.function
 def payload_float16(out: T.Tensor((32,), "int32")):
-    T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=(32,)))
+    T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=32))
     iket = IketProfiler()
     tx = T.cuda.thread_idx("x")
     iket.mark("bad", T.float16(1))
@@ -176,7 +176,7 @@ def payload_float16(out: T.Tensor((32,), "int32")):
 
 @T.function
 def payload_bfloat16(out: T.Tensor((32,), "int32")):
-    T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=(32,)))
+    T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=32))
     iket = IketProfiler()
     tx = T.cuda.thread_idx("x")
     iket.mark("bad", T.bfloat16(1))
@@ -185,7 +185,7 @@ def payload_bfloat16(out: T.Tensor((32,), "int32")):
 
 @T.function
 def payload_pointer(out: T.Tensor((32,), "int32")):
-    T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=(32,)))
+    T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=32))
     tx = T.cuda.thread_idx("x")
     T.evaluate(tvm_tirx.tirx.call_intrin("tirx.cuda.iket_mark", "bad", out.data, ty=""))
     out[tx] = tx
@@ -199,7 +199,7 @@ def payload_vector(out: T.Tensor((1,), "int32x4")):
 
 @T.function
 def schema_i32(out: T.Tensor((32,), "int32")):
-    T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=(32,)))
+    T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=32))
     iket = IketProfiler()
     tx = T.cuda.thread_idx("x")
     iket.mark("shared-schema", T.int32(tx))
@@ -208,7 +208,7 @@ def schema_i32(out: T.Tensor((32,), "int32")):
 
 @T.function
 def schema_u32(out: T.Tensor((32,), "int32")):
-    T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=(32,)))
+    T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=32))
     iket = IketProfiler()
     tx = T.cuda.thread_idx("x")
     iket.mark("shared-schema", T.uint32(tx))
@@ -217,7 +217,7 @@ def schema_u32(out: T.Tensor((32,), "int32")):
 
 @T.function
 def schema_no_payload(out: T.Tensor((32,), "int32")):
-    T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=(32,)))
+    T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=32))
     iket = IketProfiler()
     tx = T.cuda.thread_idx("x")
     iket.mark("shared-schema")
@@ -226,7 +226,7 @@ def schema_no_payload(out: T.Tensor((32,), "int32")):
 
 @T.function
 def marks_30(out: T.Tensor((32,), "int32")):
-    T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=(32,)))
+    T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=32))
     iket = IketProfiler()
     tx = T.cuda.thread_idx("x")
     iket.mark("e00")
@@ -264,7 +264,7 @@ def marks_30(out: T.Tensor((32,), "int32")):
 
 @T.function
 def marks_31(out: T.Tensor((32,), "int32")):
-    T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=(32,)))
+    T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=32))
     iket = IketProfiler()
     tx = T.cuda.thread_idx("x")
     iket.mark("e00")
@@ -423,7 +423,7 @@ def test_regular_lowering_strips_annotations_and_tokens():
     def make_kernel(with_annotation):
         @T.function
         def main(out: T.Tensor((32,), "int32")):
-            T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=(32,)))
+            T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=32))
             iket = IketProfiler()
             tx = T.cuda.thread_idx("x")
             if with_annotation and tx % 2 == 0:

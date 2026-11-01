@@ -213,7 +213,7 @@ def test_reg_roundtrip_gapped_permuted_storage():
     @T.function
     def kernel(A: T.Tensor(shape, 'float32'), B: T.Tensor(shape, 'float32')) -> None:
 
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(32,)))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=32))
         _lane = T.cuda.lane_id()
         reg = T.alloc_tensor(ty_args=[T.Tensor(shape, "float32", scope="local", layout=r_layout)])
         T.cuda.tile.apply(T.ptx["ld.global.v4.b32"], reg.view(32, 4), A.view(32, 4), scope="warp")
@@ -279,7 +279,7 @@ def test_copy_g2l_l2g_vec_load(task, dtype):
     def copy_sync(
         A: T.Tensor(g_shape, dtype, layout=layoutA), B: T.Tensor(g_shape, dtype, layout=layoutB)
     ) -> None:
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(2,), block=(thread_cnt,)))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=2, block=thread_cnt))
         A_local = T.alloc_tensor(
             ty_args=[T.Tensor(l_shape, dtype, scope="local", layout=layoutLocal)]
         )
@@ -321,7 +321,7 @@ def test_copy_g2l_l2g_vec_load(task, dtype):
 
 @T.function
 def _nc_strided_reg_copy(src: T.Tensor((1024,), "int32", layout="default")) -> None:
-    T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=(128,)))
+    T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=128))
     tid = T.cuda.thread_in_warpgroup()
     dst = T.alloc_local((4, 4), "int32", layout="default")
     if tid == 0:
@@ -335,7 +335,7 @@ def _nc_strided_reg_copy(src: T.Tensor((1024,), "int32", layout="default")) -> N
 
 @T.function
 def _plain_strided_reg_copy(src: T.Tensor((1024,), "int32", layout="default")) -> None:
-    T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=(128,)))
+    T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=128))
     tid = T.cuda.thread_in_warpgroup()
     dst = T.alloc_local((4, 4), "int32", layout="default")
     if tid == 0:
@@ -378,7 +378,7 @@ def test_reg_copy_linear_shared_explicit_repeats():
 
     @T.function
     def kernel(A: T.Tensor(shape, "float16", layout=linear_layout)) -> None:
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(n_threads,)))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=n_threads))
         tid = T.cuda.thread_in_warpgroup()
         reg = T.alloc_tensor(
             ty_args=[
@@ -425,7 +425,7 @@ def test_reg_copy_wg_local_to_swizzled_shared_uses_structured_compose_apply():
         A: T.Tensor(g_shape, "float16", layout=g_layout),
         B: T.Tensor(g_shape, "float16", layout=g_layout),
     ) -> None:
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(N_THREADS,)))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=N_THREADS))
         tid = T.cuda.thread_in_warpgroup()
         reg = T.alloc_tensor(
             ty_args=[
@@ -477,7 +477,7 @@ def test_ptx_st_from_src_f32_vector_preserves_values():
 
     @T.function
     def kernel(B: T.Tensor((4,), "float32")) -> None:
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(1,)))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=1))
         smem = T.alloc_tensor(ty_args=[T.Tensor((4,), "float32", scope="shared", layout="default")])
         reg = T.alloc_local((4,), "float32", layout="default")
         out = T.alloc_local((4,), "float32", layout="default")
@@ -518,7 +518,7 @@ def test_ptx_st_from_src_f32_vector_preserves_values():
 def test_copy_forced_vec_width_codegen(variant, dtype, n_elements, expected_st, expected_ld):
     @T.function
     def kernel(B: T.Tensor((n_elements,), dtype)) -> None:
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(1,)))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=1))
         smem = T.alloc_tensor(
             ty_args=[T.Tensor((n_elements,), dtype, scope="shared", layout="default")]
         )
@@ -557,7 +557,7 @@ def test_copy_forced_vec_dynamic_swizzled_shared_uses_vector_ptx():
 
     @T.function
     def kernel(B: T.Tensor((128, 4), "float32")) -> None:
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(128,)))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=128))
         tid = T.cuda.thread_idx("x")
         smem = T.alloc_tensor(
             ty_args=[T.Tensor((64, 256), "float32", scope="shared", layout=smem_layout)]
@@ -605,7 +605,7 @@ def test_copy_forced_vec_dynamic_swizzled_shared_uses_vector_ptx():
 def test_copy_explicit_vector_instructions():
     @T.function
     def kernel(B: T.Tensor((4,), "float32")) -> None:
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(1,)))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=1))
         smem = T.alloc_tensor(ty_args=[T.Tensor((4,), "float32", scope="shared", layout="default")])
         reg = T.alloc_tensor(
             ty_args=[T.Tensor((4,), "float32", scope="local", layout=TileLayout(S[4]))]
@@ -637,7 +637,7 @@ def test_copy_explicit_vector_instructions():
 def test_copy_forced_vec_rejects_size_mismatch():
     @T.function
     def kernel(B: T.Tensor((4,), "float32")) -> None:
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(1,)))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=1))
         smem = T.alloc_tensor(ty_args=[T.Tensor((4,), "float32", scope="shared", layout="default")])
         reg = T.alloc_local((4,), "float32", layout="default")
         T.cuda.tile.apply(T.ptx["st.shared.v2.b32"], smem, reg)
@@ -655,7 +655,7 @@ def test_copy_forced_vec_rejects_size_mismatch():
 def test_copy_vector_rejects_missing_thread_axis():
     @T.function
     def kernel(B: T.Tensor((4,), "float32")) -> None:
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(32,)))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=32))
         _lane = T.cuda.lane_id()
         smem = T.alloc_tensor(ty_args=[T.Tensor((4,), "float32", scope="shared", layout="default")])
         reg = T.alloc_tensor(
@@ -793,7 +793,7 @@ def _build_tcgen05_d_epilogue_deposit():
         smem_cd_mma = T.alloc_tensor(
             ty_args=[T.Tensor((m, n), _TCGEN05_D_DTYPE, scope="shared", layout=smem_layout)]
         )
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=1 * 128))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=1 * 128))
         _lane = T.cuda.lane_id()
         T.cuda.tile.apply(
             T.ptx["st.shared.v2.u32"],
@@ -853,7 +853,7 @@ def _build_tcgen05_d_epilogue_deposit_roundtrip():
     def kernel(
         A: T.Tensor((m, n), _TCGEN05_D_DTYPE), B: T.Tensor((m, n), _TCGEN05_D_DTYPE)
     ) -> None:
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=1 * 128))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=1 * 128))
         _lane = T.cuda.lane_id()
         tid_wg = T.cuda.thread_in_warpgroup()
         lane = T.cuda.lane_id()

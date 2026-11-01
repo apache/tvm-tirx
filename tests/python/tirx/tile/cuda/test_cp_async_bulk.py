@@ -166,9 +166,7 @@ def test_dsmem(shape, dtype, src_spec, dst_spec, expected):
 
     @T.function
     def dsmem_copy(A: T.Tensor(shape, dtype), B: T.Tensor(shape, dtype)) -> None:
-        T.device_entry(
-            launch=T.cuda.LaunchConfig(grid=(CLUSTER_N,), block=(1,), cluster=(CLUSTER_N,))
-        )
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=CLUSTER_N, block=1, cluster=CLUSTER_N))
         cbx = T.cuda.cluster_cta_id("x")
         tid = T.cuda.thread_idx("x")
         pool = SMEMPool()

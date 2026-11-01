@@ -134,7 +134,7 @@ def test_unary_op_vectorized(shape, op_type, thread_scope, storage_scope):
 def test_mov_handles_scalar_regions():
     @T.function
     def kernel(B: T.Tensor((1,), "float32")) -> None:
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(1,)))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=1))
         src = T.alloc_local((1,), "float32", layout="default")
         dst = T.alloc_local((4,), "float32", layout="default")
         src[0] = T.cast(7, ty="float32")

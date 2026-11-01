@@ -54,7 +54,7 @@ def test_cta_sum_4_warps():
     @T.function
     def func(out: T.Tensor((N,), 'float32')):
 
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(N,)))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=N))
         cta_id = T.cuda.block_idx('x')
         warp_id = T.cuda.warp_id()
         lane_id = T.cuda.lane_id()
@@ -82,7 +82,7 @@ def test_cta_sum_8_warps():
     @T.function
     def func(out: T.Tensor((N,), 'float32')):
 
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(N,)))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=N))
         cta_id = T.cuda.block_idx('x')
         warp_id = T.cuda.warp_id()
         lane_id = T.cuda.lane_id()
@@ -109,7 +109,7 @@ def test_cta_max_4_warps():
     @T.function
     def func(out: T.Tensor((N,), 'float32')):
 
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(N,)))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=N))
         cta_id = T.cuda.block_idx('x')
         warp_id = T.cuda.warp_id()
         lane_id = T.cuda.lane_id()
@@ -135,7 +135,7 @@ def test_cta_min_4_warps():
     @T.function
     def func(out: T.Tensor((N,), 'float32')):
 
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(N,)))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=N))
         cta_id = T.cuda.block_idx('x')
         warp_id = T.cuda.warp_id()
         lane_id = T.cuda.lane_id()
@@ -161,7 +161,7 @@ def test_cta_sum_1_warp():
     @T.function
     def func(out: T.Tensor((N,), 'float32')):
 
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(N,)))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=N))
         cta_id = T.cuda.block_idx('x')
         warp_id = T.cuda.warp_id()
         lane_id = T.cuda.lane_id()
@@ -188,7 +188,7 @@ def test_cta_sum_all_warp_counts(num_warps):
     @T.function
     def func(out: T.Tensor((N,), 'float32')):
 
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(N,)))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=N))
         cta_id = T.cuda.block_idx('x')
         warp_id = T.cuda.warp_id()
         lane_id = T.cuda.lane_id()

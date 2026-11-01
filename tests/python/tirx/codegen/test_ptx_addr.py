@@ -86,7 +86,7 @@ def test_ptx_addr_table_validation_rejects_wrong_operand_classes():
 def test_ptx_addr_coercion_ir_order_and_shared_codegen():
     @T.function
     def kernel(global_buf: T.Tensor((8,), "uint64"), raw_shared: T.uint32, raw_global: T.uint64):
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=(32,)))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=32))
         tx = T.cuda.thread_idx("x")
         shared_buf = T.alloc_tensor(ty_args=[T.Tensor((8,), "uint64", scope="shared")])
         value = T.local_scalar("uint64")
@@ -119,7 +119,7 @@ def test_ptx_addr_scalar_vector_cache_predicate_and_multi_address_codegen():
         dst: T.Tensor((64,), "uint32"),
         policy: T.Tensor((1,), "uint64"),
     ):
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=(32,)))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=32))
         tx = T.cuda.thread_idx("x")
         shared_buf = T.alloc_tensor(ty_args=[T.Tensor((64,), "uint32", scope="shared")])
         barrier = T.alloc_tensor(ty_args=[T.Tensor((1,), "uint64", scope="shared")])
@@ -194,7 +194,7 @@ def test_ptx_addr_zero_sign_boundaries_and_helper_names():
 def test_ptx_addr_unrolled_expression_and_dynamic_rejection():
     @T.function
     def unrolled(src: T.Tensor((16,), "uint32")):
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=(32,)))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=32))
         tx = T.cuda.thread_idx("x")
         value = T.local_scalar("uint32")
         if tx == 0:
@@ -208,14 +208,14 @@ def test_ptx_addr_unrolled_expression_and_dynamic_rejection():
 
     @T.function
     def thread_dynamic(src: T.Tensor((16,), "uint32")):
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=(32,)))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=32))
         tx = T.cuda.thread_idx("x")
         value = T.local_scalar("uint32")
         T.ptx.ld.global_.b32(value, T.ptx.addr(src.data, tx * 4))
 
     @T.function
     def loop_dynamic(src: T.Tensor((16,), "uint32")):
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=(32,)))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=32))
         tx = T.cuda.thread_idx("x")
         value = T.local_scalar("uint32")
         if tx == 0:

@@ -495,7 +495,7 @@ def _make_cp_kernel_cta2(s_full, s_shape, t_full, t_shape, dtype, cfg, W32, n_co
 
     @T.function(check_well_formed=False)
     def kernel(A: T.Tensor((2, *s_shape), dtype), B: T.Tensor((256, W32), "uint32")):
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(2,), block=4 * 32, cluster=(2, 1)))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=2, block=4 * 32, cluster=(2, 1)))
         warp_id = T.cuda.warp_id()
         cbx, cby = (T.cuda.cluster_cta_id("x"), T.cuda.cluster_cta_id("y"))
         cta_id = T.cuda.block_idx("x")

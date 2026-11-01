@@ -102,7 +102,7 @@ def test_gemm_tcgen05_cta_group_1(task):
     def gemm_async(
         A: T.Tensor(A_shape, A_dtype), B: T.Tensor(B_shape, B_dtype), C: T.Tensor(C_shape, C_dtype)
     ) -> None:
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=1 * 4 * 32))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=1 * 4 * 32))
         warp_id = T.cuda.warp_id()
         cta_id = T.cuda.block_idx("x")
         wg_id = T.cuda.warpgroup_id()
@@ -278,7 +278,7 @@ def test_gemm_tcgen05_cta_group_1_layout_f_m64():
     def gemm_layout_f(
         A: T.Tensor(A_shape, A_dtype), B: T.Tensor(B_shape, B_dtype), C: T.Tensor(C_shape, C_dtype)
     ) -> None:
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=4 * 32))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=4 * 32))
         warp_id = T.cuda.warp_id()
         cta_id = T.cuda.block_idx("x")
         wg_id = T.cuda.warpgroup_id()
@@ -494,7 +494,7 @@ def test_gemm_tcgen05_cta_group_2(task):
     def gemm_async(
         A: T.Tensor(A_shape, A_dtype), B: T.Tensor(B_shape, B_dtype), C: T.Tensor(C_shape, C_dtype)
     ) -> None:
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(2,), block=1 * 4 * 32, cluster=(2, 1)))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=2, block=1 * 4 * 32, cluster=(2, 1)))
         warp_id = T.cuda.warp_id()
         cbx, cby = (T.cuda.cluster_cta_id("x"), T.cuda.cluster_cta_id("y"))
         cta_id = T.cuda.block_idx("x")
@@ -716,7 +716,7 @@ def test_gemm_tcgen05_cta_group_2_layout_b():
         B: T.Tensor((N_logical, K), B_dtype),
         C: T.Tensor(C_shape, C_dtype),
     ) -> None:
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(2,), block=1 * 4 * 32, cluster=(2, 1)))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=2, block=1 * 4 * 32, cluster=(2, 1)))
         warp_id = T.cuda.warp_id()
         cbx, cby = (T.cuda.cluster_cta_id("x"), T.cuda.cluster_cta_id("y"))
         cta_id = T.cuda.block_idx("x")
@@ -930,7 +930,7 @@ def test_gemm_tcgen05_cta_group_2_datapath_b_readback():
         B: T.Tensor((n_logical, k), input_dtype),
         C: T.Tensor(c_shape, c_dtype),
     ) -> None:
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(2,), block=4 * 32, cluster=(2, 1)))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=2, block=4 * 32, cluster=(2, 1)))
         warp_id = T.cuda.warp_id()
         cbx, cby = (T.cuda.cluster_cta_id("x"), T.cuda.cluster_cta_id("y"))
         wg_id = T.cuda.warpgroup_id()
@@ -1175,7 +1175,7 @@ def test_gemm_block_scaled_fp8_cta_group_1(task):
         SFA_in: T.Tensor((128,), "uint32"),
         SFB_in: T.Tensor((128,), "uint32"),
     ) -> None:
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=1 * 4 * 32))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=1 * 4 * 32))
         warp_id = T.cuda.warp_id()
         cta_id = T.cuda.block_idx("x")
         wg_id = T.cuda.warpgroup_id()
@@ -1492,7 +1492,7 @@ def test_gemm_block_scaled_fp8_cta_group_2(task):
         SFA_in: T.Tensor((M_total,), "uint32"),
         SFB_in: T.Tensor((128,), "uint32"),
     ) -> None:
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(2,), block=1 * 4 * 32, cluster=(2, 1)))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=2, block=1 * 4 * 32, cluster=(2, 1)))
         warp_id = T.cuda.warp_id()
         cbx, cby = (T.cuda.cluster_cta_id("x"), T.cuda.cluster_cta_id("y"))
         cta_id = T.cuda.block_idx("x")
@@ -1868,7 +1868,7 @@ def test_gemm_block_scaled_nvfp4_cta_group_1():
         SFA_in: T.Tensor((128,), "uint32"),
         SFB_in: T.Tensor((128,), "uint32"),
     ) -> None:
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=1 * 4 * 32))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=1 * 4 * 32))
         warp_id = T.cuda.warp_id()
         cta_id = T.cuda.block_idx("x")
         wg_id = T.cuda.warpgroup_id()
@@ -2192,7 +2192,7 @@ def test_gemm_block_scaled_nvfp4_cta_group_2():
         SFA_in: T.Tensor((M_total,), "uint32"),
         SFB_in: T.Tensor((128,), "uint32"),
     ) -> None:
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(2,), block=1 * 4 * 32, cluster=(2, 1)))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=2, block=1 * 4 * 32, cluster=(2, 1)))
         warp_id = T.cuda.warp_id()
         cbx, cby = (T.cuda.cluster_cta_id("x"), T.cuda.cluster_cta_id("y"))
         cta_id = T.cuda.block_idx("x")
@@ -2553,7 +2553,7 @@ def test_gemm_block_scaled_fp8_sf_id():
         SFA_in: T.Tensor((128,), "uint32"),
         SFB_in: T.Tensor((128,), "uint32"),
     ) -> None:
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=1 * 4 * 32))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=1 * 4 * 32))
         warp_id = T.cuda.warp_id()
         cta_id = T.cuda.block_idx("x")
         wg_id = T.cuda.warpgroup_id()
@@ -3085,7 +3085,7 @@ def test_gemm_tcgen05_arbitrary_tiles(task, copy_perm, a_major, b_major):
         C: T.Tensor(C_shape, C_dtype),
     ) -> None:
         ag = A.permute(*copy_perm)
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=1 * 4 * 32))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=1 * 4 * 32))
         warp_id = T.cuda.warp_id()
         cta_id = T.cuda.block_idx("x")
         wg_id = T.cuda.warpgroup_id()
@@ -3469,7 +3469,7 @@ def _run_dense_gemm(
     def gemm_async(
         A: T.Tensor(A_shape, A_dtype), B: T.Tensor(B_shape, B_dtype), C: T.Tensor(C_shape, C_dtype)
     ) -> None:
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=4 * 32))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=4 * 32))
         warp_id = T.cuda.warp_id()
         wg_id = T.cuda.warpgroup_id()
         tid_in_wg = T.cuda.thread_in_warpgroup()

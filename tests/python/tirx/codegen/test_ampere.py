@@ -98,7 +98,7 @@ def test_ptx_mma_m16n8k16(a_type, no_c_ptr):
         B: T.Tensor((16, 8), b_type),
         C: T.Tensor((16, 8), "float32"),
     ):
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(32,)))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=32))
         cta_id = T.cuda.block_idx('x')
         tx = T.cuda.thread_idx('x')
         D_local = T.alloc_local([4], "float32")
@@ -175,7 +175,7 @@ def test_ptx_mma_m16n8k8(a_type, no_c_ptr):
         B: T.Tensor((8, 8), b_type),
         C: T.Tensor((16, 8), "float32"),
     ):
-        T.device_entry(launch=T.cuda.LaunchConfig(grid=(1,), block=(32,)))
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=32))
         cta_id = T.cuda.block_idx('x')
         tx = T.cuda.thread_idx('x')
         D_local = T.alloc_local([4], "float32")
