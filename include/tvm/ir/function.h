@@ -209,14 +209,11 @@ class BaseFunc : public Expr {
 /*!
  * \brief Generic attribute names that can be attached to any function.
  *
- * \sa tvm::tirx::attr, tvm::relax::attr
+ * \sa tvm::tirx::attr
  */
 namespace attr {
 /*!
- * \brief Whether this function declares a signature without an implementation.
- *
- * TIRx declarations carry an empty SeqStmt body. An empty body alone is a
- * definition; only this attribute marks a declaration.
+ * \brief Whether this function is a declaration.
  *
  * Type: bool
  */
