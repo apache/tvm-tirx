@@ -93,9 +93,7 @@ replace the index with ``i`` and drop the division and the remainder.
 Not every question can be answered so directly. In ``add_one_2d``, the row
 index ``i // 4`` must stay below ``n`` for the access to be valid.
 :py:meth:`can_prove <tvm_tirx.sym.Analyzer.can_prove>` checks whether a
-condition always holds. For the symbolic proofs below, we explicitly enable
-the DEFAULT-strength Z3 fallback, which requires a build with Z3 support.
-Native analysis still runs first:
+condition always holds:
 
 .. literalinclude:: ../../examples/ir_guides/symbolic_integer_analysis.py
    :language: python
