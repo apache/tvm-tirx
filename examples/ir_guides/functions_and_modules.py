@@ -37,10 +37,12 @@ class Module:
 
 # [module.end]
 
+# [ty.begin]
 add_one = Module["add_one"]
+print(add_one.ty)
+# [ty.end]
 assert [p.name for p in add_one.params] == ["A", "B"]
 assert len(add_one.ret_type.fields) == 0
-print(add_one.ty)
 assert add_one.attrs["global_symbol"] == "add_one"
 
 
