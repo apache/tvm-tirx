@@ -48,17 +48,9 @@ def test_stmt_simplify():
     tvm_tirx.ir.assert_structural_equal(after, expected)
 
 
-@pytest.mark.parametrize(
-    "pass_factory",
-    [
-        tvm_tirx.tirx.transform.StmtSimplify,
-        tvm_tirx.tirx.transform.StmtSimplifyWithZ3DefaultFallback,
-    ],
-)
-def test_stmt_simplify_z3_fallback(pass_factory):
-    uses_z3 = pass_factory is tvm_tirx.tirx.transform.StmtSimplifyWithZ3DefaultFallback
-    if uses_z3 and not tvm_tirx.sym.Analyzer().is_z3_enabled:
-        pytest.skip("Z3 is not enabled")
+@pytest.mark.parametrize("enable_z3", [None, True, False])
+def test_stmt_simplify_z3_fallback(enable_z3):
+    uses_z3 = enable_z3 is not False and tvm_tirx.sym.Analyzer().is_z3_enabled
 
     @T.function(private=True)
     def before(A: T.Tensor((9, 16, 2), "bool")):
@@ -84,7 +76,10 @@ def test_stmt_simplify_z3_fallback(pass_factory):
                     A[x + 4, y, 0] = x < 2
                 A[x + 4, y, 1] = x * 8 + y < 16
 
-    after = pass_factory()(tvm_tirx.IRModule({"main": before}))["main"]
+    kwargs = {} if enable_z3 is None else {"enable_z3": enable_z3}
+    after = tvm_tirx.tirx.transform.StmtSimplify(**kwargs)(tvm_tirx.IRModule({"main": before}))[
+        "main"
+    ]
     # Only the guarded store may use y * y < 64 to prove y < 8.
     tvm_tirx.ir.assert_structural_equal(after, expected_z3 if uses_z3 else expected_native)
 
