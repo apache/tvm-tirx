@@ -76,10 +76,15 @@ def function_pass(
 ) -> Callable | FunctionPass:
     """Create a TIRx function pass from a callback or class.
 
-    The callback receives ``(function, module, context)`` and returns the
-    transformed Function. A decorated class instead implements
-    ``transform_function(self, function, module, context)``. With no
-    ``pass_func``, returns a decorator for either form.
+    A function pass applies a transformation to each TIRx Function in a module
+    and returns the module with the transformed functions. The callback
+    receives ``(function, module, context)``, where ``module`` is the input
+    module and ``context`` is the current :py:class:`~tvm_tirx.ir.transform.PassContext`,
+    and returns the transformed Function; returning ``None`` removes the
+    function from the module. A decorated class instead implements
+    ``transform_function(self, function, module, context)``, and its
+    constructor arguments configure the pass. With no ``pass_func``, returns
+    a decorator for either form.
 
     Parameters
     ----------
@@ -95,6 +100,53 @@ def function_pass(
     result : FunctionPass, type, or Callable
         A pass instance for a callback, a pass class for a class, or a decorator
         when ``pass_func`` is omitted.
+
+    Examples
+    --------
+    Specialize the length ``n`` of a function's tensors to a constant. The
+    function form fixes the length; the class form takes it as an argument:
+
+    .. code-block:: python
+
+        import tvm_ffi
+        from tvm_tirx import ir, tirx
+        from tvm_tirx.script import ir as I
+        from tvm_tirx.script import tirx as T
+
+        n = T.dynamic("n")
+
+
+        @I.ir_module
+        class Module:
+            @T.function
+            def add_one(A: T.Tensor((n,), T.float32), B: T.Tensor((n,), T.float32)):
+                for i in range(n):
+                    B[i] = A[i] + 1
+
+
+        def replace_n(var):
+            return ir.const(64, var.ty) if var.same_as(n) else var
+
+
+        @tirx.transform.function_pass(opt_level=0)
+        def specialize(func, mod, ctx):
+            return tvm_ffi.structural_map(func, (ir.Var, replace_n))
+
+
+        @tirx.transform.function_pass(opt_level=0)
+        class Specialize:
+            def __init__(self, size):
+                self.size = size
+
+            def replace_n(self, var):
+                return ir.const(self.size, var.ty) if var.same_as(n) else var
+
+            def transform_function(self, func, mod, ctx):
+                return tvm_ffi.structural_map(func, (ir.Var, self.replace_n))
+
+
+        print(specialize(Module).script())  # for i in range(64):
+        print(Specialize(32)(Module).script())  # for i in range(32):
     """
 
     if opt_level is None:

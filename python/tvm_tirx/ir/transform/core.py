@@ -27,10 +27,13 @@ from . import _ffi_transform_api
 
 @tvm_ffi.register_object("transform.PassInfo")
 class PassInfo(tvm_ffi.Object):
-    """The class contains the meta data required by a pass. It is the
-    container of information needed by running an optimization or analysis.
-    This class can be extended by adding new members when more meta data is
-    needed.
+    """Metadata of a pass: its name and optimization level.
+
+    Every pass carries a ``PassInfo``, available as :py:attr:`Pass.info`.
+    :py:class:`PassContext` uses the name in ``required_pass`` and
+    ``disabled_pass``, and :py:class:`Sequential` compares the optimization
+    level with the context's ``opt_level``. Pass instruments receive the
+    ``PassInfo`` of each pass they observe.
 
     Parameters
     ----------
@@ -39,6 +42,15 @@ class PassInfo(tvm_ffi.Object):
 
     name : str
         The pass name.
+
+    Examples
+    --------
+    .. code-block:: python
+
+        from tvm_tirx import tirx
+
+        info = tirx.transform.StmtSimplify().info
+        print(info.name, info.opt_level)  # tirx.StmtSimplify 0
     """
 
     def __init__(self, opt_level, name):
@@ -49,6 +61,12 @@ class PassInfo(tvm_ffi.Object):
 class PassInstrument(tvm_ffi.Object):
     """A pass instrument implementation.
 
+    An instrument observes the passes that run inside a
+    :py:class:`PassContext`, for example to print, time, or skip them. Install
+    it with ``PassContext(instruments=[...])``; it then sees every pass that
+    runs while the context is active, whether the pass is called directly or
+    by a :py:class:`Sequential`.
+
     To use, a user class can either subclass from PassInstrument
     directly, or can apply the :py:func:`pass_instrument` wrapper.  In
     either case, the `enter_pass_ctx`, `exit_pass_ctx`, `should_run`,
@@ -56,6 +74,29 @@ class PassInstrument(tvm_ffi.Object):
     adjust the instrument's behavior.  See the no-op implementations
     in this class definition for more information on each.
 
+    Examples
+    --------
+    Record the name of every pass that runs:
+
+    .. code-block:: python
+
+        from tvm_tirx import tirx
+        from tvm_tirx.ir.transform import PassContext, pass_instrument
+
+
+        @pass_instrument
+        class RecordNames:
+            def __init__(self):
+                self.names = []
+
+            def run_before_pass(self, mod, info):
+                self.names.append(info.name)
+
+
+        recorder = RecordNames()
+        with PassContext(instruments=[recorder]):
+            tirx.transform.StmtSimplify()(mod)
+        print(recorder.names)  # ['tirx.StmtSimplify']
     """
 
     def __init__(self):
@@ -190,12 +231,46 @@ def _wrap_class_pass_instrument(pi_cls):
 
 
 def pass_instrument(pi_cls=None):
-    """Decorate a pass instrument.
+    """Decorate a class as a pass instrument.
+
+    The class does not need to inherit from :py:class:`PassInstrument`. It
+    defines any of ``enter_pass_ctx``, ``exit_pass_ctx``, ``should_run``,
+    ``run_before_pass``, and ``run_after_pass``, with the signatures
+    documented on :py:class:`PassInstrument`; the decorator returns a
+    :py:class:`PassInstrument` subclass that calls them.
 
     Parameters
     ----------
     pi_cls : class
         Instrument class. See example below.
+
+    Returns
+    -------
+    result : type or Callable
+        The instrument class, or a decorator when ``pi_cls`` is omitted.
+
+    Examples
+    --------
+    Skip a pass by name. ``should_run`` returns ``False`` for the pass to
+    skip:
+
+    .. code-block:: python
+
+        from tvm_tirx import tirx
+        from tvm_tirx.ir.transform import PassContext, pass_instrument
+
+
+        @pass_instrument
+        class SkipPass:
+            def __init__(self, skipped_name):
+                self.skipped_name = skipped_name
+
+            def should_run(self, mod, info):
+                return info.name != self.skipped_name
+
+
+        with PassContext(instruments=[SkipPass("tirx.StmtSimplify")]):
+            after = tirx.transform.StmtSimplify()(mod)  # returns mod unchanged
     """
 
     def create_pass_instrument(pi_cls):
@@ -213,10 +288,18 @@ def pass_instrument(pi_cls=None):
 class PassContext(tvm_ffi.Object):
     """Scope optimization levels, pass selection, instruments, and pass options.
 
+    Use a ``PassContext`` as a ``with`` block. Every pass that runs inside the
+    block, called directly or by a :py:class:`Sequential`, sees this context
+    as :py:meth:`PassContext.current` and receives it as the ``ctx`` argument
+    of its callback. Outside any ``with`` block, a default context with
+    ``opt_level=2`` and no other options is active.
+
     Parameters
     ----------
     opt_level : Optional[int]
         Maximum optimization level enabled in sequential pipelines (default 2).
+        A :py:class:`Sequential` skips a child pass whose ``info.opt_level``
+        is higher. Calling a pass directly ignores this level.
 
     required_pass : Optional[Union[List[str], Set[str], Tuple[str]]]
         Pass names to enable regardless of their optimization level.
@@ -225,10 +308,25 @@ class PassContext(tvm_ffi.Object):
         Pass names to skip in sequential pipelines, even if required.
 
     instruments : Optional[Sequence[PassInstrument]]
-        The list of pass instrument implementations.
+        The list of pass instrument implementations. They observe every pass
+        that runs inside the context.
 
     config : Optional[Dict[str, Object]]
-        Additional configurations for specific passes.
+        Additional configurations for specific passes. Keys must be
+        registered option names, which :py:meth:`list_configs` lists; an
+        unknown key raises an error.
+
+    Examples
+    --------
+    .. code-block:: python
+
+        from tvm_tirx import tirx
+        from tvm_tirx.ir.transform import PassContext, Sequential
+
+        pipeline = Sequential([tirx.transform.StmtSimplify(), my_pass])
+        with PassContext(opt_level=3, disabled_pass=["tirx.StmtSimplify"]):
+            assert PassContext.current().opt_level == 3
+            after = pipeline(mod)  # runs only my_pass
     """
 
     def __init__(
@@ -300,10 +398,26 @@ class PassContext(tvm_ffi.Object):
 class Pass(tvm_ffi.Object):
     """Base interface for callable IRModule transformations and analyses.
 
-    Obtain a concrete pass from a pass factory or :func:`module_pass`, then
-    call ``after = pass_object(before)``. The :attr:`info` property exposes
-    its name and optimization level. The base class defines no transformation
-    of its own.
+    Obtain a concrete pass from a pass factory, :func:`module_pass`, or
+    :func:`tvm_tirx.tirx.transform.function_pass`, then call
+    ``after = pass_object(before)``: a pass takes an IRModule and returns the
+    transformed IRModule. The call runs under the current
+    :py:class:`PassContext`, whose instruments observe it. A direct call
+    always runs the pass; the optimization level and the
+    ``required_pass``/``disabled_pass`` options apply when a
+    :py:class:`Sequential` runs it. The :attr:`info` property exposes its name
+    and optimization level. The base class defines no transformation of its
+    own.
+
+    Examples
+    --------
+    .. code-block:: python
+
+        from tvm_tirx import tirx
+
+        simplify = tirx.transform.StmtSimplify()
+        after = simplify(mod)
+        print(simplify.info.name)  # tirx.StmtSimplify
     """
 
     __slots__ = ("__dict__",)
@@ -347,7 +461,11 @@ class Sequential(Pass):
     executed sequentially using this class.
 
     Passes run in the given order, subject to the optimization level and
-    the required/disabled pass controls in PassContext.
+    the required/disabled pass controls in PassContext. A child pass runs when
+    its ``info.opt_level`` is at most the context's ``opt_level`` or its name
+    is in ``required_pass``, and never when its name is in ``disabled_pass``.
+    A ``Sequential`` is itself a pass, so it can be nested in another
+    ``Sequential``.
 
     Parameters
     ----------
@@ -361,6 +479,25 @@ class Sequential(Pass):
 
     name : Optional[str]
         The name of the sequential pass.
+
+    Examples
+    --------
+    .. code-block:: python
+
+        from tvm_tirx import tirx
+        from tvm_tirx.ir.transform import PassContext, Sequential
+
+
+        @tirx.transform.function_pass(opt_level=3)
+        def expensive(func, mod, ctx):
+            return func
+
+
+        pipeline = Sequential([tirx.transform.StmtSimplify(), expensive])
+        with PassContext(opt_level=2):
+            after = pipeline(mod)  # skips expensive, whose opt_level is 3
+        with PassContext(opt_level=2, required_pass=["expensive"]):
+            after = pipeline(mod)  # runs both passes
     """
 
     def __init__(self, passes=None, opt_level=0, name="sequential"):

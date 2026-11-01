@@ -30,3 +30,6 @@ python functions_and_modules.py
 
 # Structural walk, map, visit, and mutate
 python structural_utilities.py
+
+# Symbolic integer analysis: simplify, prove, and constraint contexts
+python symbolic_integer_analysis.py
