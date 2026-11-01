@@ -53,6 +53,7 @@ Passes
    CommonSubexprElim
    RenormalizeSplitPattern
    StmtSimplify
+   StmtSimplifyWithZ3DefaultFallback
    LowerThreadAllreduce
    ConvertSSA
    MakePackedAPI

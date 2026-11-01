@@ -41,11 +41,15 @@ using namespace tvm::prim;
 
 namespace {
 
+enum class Z3DefaultFallback { kDisabled, kEnabled };
+
 class StmtSimplifier : public StmtExprMutatorWithConstraintContext {
  public:
   using StmtExprMutatorWithConstraintContext::Mutate;
   using StmtExprMutatorWithConstraintContext::Mutate_;
-  explicit StmtSimplifier(bool enable_z3) { GetSyncedAnalyzer()->SetZ3DefaultFallback(enable_z3); }
+  explicit StmtSimplifier(Z3DefaultFallback z3_default_fallback) {
+    GetSyncedAnalyzer()->SetZ3DefaultFallback(z3_default_fallback == Z3DefaultFallback::kEnabled);
+  }
 
   Function Run(Function func);
 
@@ -237,20 +241,28 @@ ffi::Optional<bool> StmtSimplifier::ProveCondition(PrimExpr condition) {
   }
 }
 
+transform::Pass MakeStmtSimplifyPass(Z3DefaultFallback z3_default_fallback) {
+  auto pass_func = [z3_default_fallback](Function f, IRModule m, transform::PassContext ctx) {
+    return ffi::make_object<StmtSimplifier>(z3_default_fallback)->Run(std::move(f));
+  };
+  return transform::CreateFunctionPass(pass_func, 0, "tirx.StmtSimplify");
+}
+
 }  // namespace
 
 namespace transform {
 
-Pass StmtSimplify(bool enable_z3) {
-  auto pass_func = [enable_z3](Function f, IRModule m, PassContext ctx) {
-    return ffi::make_object<StmtSimplifier>(enable_z3)->Run(std::move(f));
-  };
-  return CreateFunctionPass(pass_func, 0, "tirx.StmtSimplify");
+Pass StmtSimplify() { return MakeStmtSimplifyPass(Z3DefaultFallback::kDisabled); }
+
+Pass StmtSimplifyWithZ3DefaultFallback() {
+  return MakeStmtSimplifyPass(Z3DefaultFallback::kEnabled);
 }
 
 TVM_FFI_STATIC_INIT_BLOCK() {
   namespace refl = tvm::ffi::reflection;
-  refl::GlobalDef().def("tirx.transform.StmtSimplify", StmtSimplify);
+  refl::GlobalDef()
+      .def("tirx.transform.StmtSimplify", StmtSimplify)
+      .def("tirx.transform.StmtSimplifyWithZ3DefaultFallback", StmtSimplifyWithZ3DefaultFallback);
 }
 
 }  // namespace transform
