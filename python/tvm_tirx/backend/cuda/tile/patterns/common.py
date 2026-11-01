@@ -47,6 +47,9 @@ from tvm_tirx.script import tirx as T
 from tvm_tirx.sym import Analyzer, ConstraintContext, RangeConstraint
 from tvm_tirx.tirx.layout import TileLayout
 
+# Larger coordinate domains should try symbolic proof before enumeration.
+_MAX_EARLY_VERIFICATION_POINTS = 16
+
 
 def scalar(value):
     """Read a constant field stored as an ordinary IR operand."""
@@ -59,8 +62,6 @@ class Context:
     def __init__(self, sctx, atom_scope="thread"):
         self.sctx = sctx
         self.analyzer = Analyzer()
-        # Repeated descriptor checks use native proofs before bounded verification.
-        self.analyzer.set_z3_default_fallback(False)
         # Reuse layout-query state across this instruction's address walk.
         # Keep it separate from the bounded verifier so address construction
         # does not depend on its evolving group/repeat/descriptor premises.
@@ -179,7 +180,8 @@ class Context:
             ),
             order="post",
         )
-        if self.analyzer.can_prove(condition):
+        simplified = self.analyzer.simplify(condition)
+        if isinstance(simplified, IntImm) and int(simplified) != 0:
             return
         # Bitwise swizzles are not fully covered by the arithmetic analyzer.
         # Check the already fixed group/repeat and enclosing-loop coordinates
@@ -199,7 +201,16 @@ class Context:
                 (range(n) for n in [*self.group_shape, *(self.repeat_shape or ())]),
             )
         )
-        if variables and all(var in domain for var in variables):
+        can_enumerate = bool(variables) and all(var in domain for var in variables)
+        verify_first = (
+            can_enumerate
+            and prod(len(domain[var]) for var in variables) <= _MAX_EARLY_VERIFICATION_POINTS
+        )
+        # Small complete domains are cheap to check directly, even when their
+        # bitwise address expressions are expensive for symbolic proof.
+        if not verify_first and self.analyzer.can_prove(condition):
+            return
+        if can_enumerate:
             for values in product(*(domain[var] for var in variables)):
                 replacements = dict(zip(variables, values))
                 expr = tvm_ffi.structural_map(
@@ -211,6 +222,10 @@ class Context:
                     break
             else:
                 return
+        # A failed point may be excluded by premises known to the analyzer.
+        # Preserve symbolic proof after an inconclusive early enumeration.
+        if verify_first and self.analyzer.can_prove(condition):
+            return
         raise ValueError(f"{message}: cannot prove {self.analyzer.simplify(condition)}")
 
     def loops(self, shape):
