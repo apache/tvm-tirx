@@ -117,6 +117,9 @@ autosummary_generate = True
 templates_path = ["_templates"]
 exclude_patterns = ["_build", "_stubs"]
 html_theme = "sphinx_book_theme"
+html_static_path = ["_static"]
+# Colors the sphinx-tabs tabs with the theme, in its light and dark modes.
+html_css_files = ["css/tabs_theme.css"]
 
 autodoc_default_options = {
     "members": True,
