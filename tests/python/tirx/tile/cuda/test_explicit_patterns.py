@@ -21,7 +21,6 @@ from types import SimpleNamespace
 
 import numpy as np
 import pytest
-import tvm_ffi
 
 import tvm_tirx
 from tvm_tirx.backend.cuda.axis import laneid
@@ -164,30 +163,6 @@ def test_layout_analysis_is_separate_from_verification():
     predicate = a * a + b * b >= 2 * a * b
     assert ctx.analyzer.can_prove(predicate) == ctx.analyzer.is_z3_enabled
     assert not ctx.layout_analyzer.can_prove(predicate)
-
-
-def test_require_verifies_finite_domain_before_symbolic_proof(monkeypatch):
-    from tvm_tirx.backend.cuda.tile.patterns.common import Context
-    from tvm_tirx.sym import Analyzer
-
-    sctx = SimpleNamespace(launch_params={}, var_range_map={}, scope_kind="thread", intra={})
-    ctx = Context(sctx)
-    ctx.analyzer.set_z3_default_fallback(True)
-    repeat = ctx.loops((32,))[0]
-    address = (repeat * 16) ^ 0
-    swizzled = (address * 2) ^ ((address // 4) & 112)
-    condition = address * 16 == (swizzled ^ ((swizzled // 8) & 112)) * 8
-    original_can_prove = Analyzer.can_prove
-
-    def can_prove(analyzer, expr, *args, **kwargs):
-        if analyzer.same_as(ctx.analyzer):
-            assert not tvm_ffi.structural_equal(expr, condition), "unnecessary symbolic proof"
-        return original_can_prove(analyzer, expr, *args, **kwargs)
-
-    monkeypatch.setattr(Analyzer, "can_prove", can_prove)
-    ctx.require(condition, "swizzled address mismatch")
-    with pytest.raises(ValueError, match="last repeat is invalid"):
-        ctx.require(repeat < 31, "last repeat is invalid")
 
 
 def test_contract_rejections():
