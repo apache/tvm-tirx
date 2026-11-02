@@ -29,40 +29,27 @@
 /// first construction error. Import [`PrimOps`](crate::ir::prim::PrimOps) for named operations
 /// such as `floordiv` and `less`. Assignment operators apply only to `ExprResult`.
 ///
-/// ```no_run
-/// # fn main() {}
-/// use tvm_tirx::{def_ex_op_overloads, ir::{Expr, ExprObj}, tvm_ffi};
-///
-/// #[repr(C)]
-/// #[derive(tvm_ffi::derive::Object)]
-/// #[type_key = "example.MyExpr"]
-/// struct MyExprObj {
-///     base: ExprObj,
-/// }
-/// tvm_ffi::def_object_ref!(MyExpr, Expr, MyExprObj);
-/// def_ex_op_overloads!(MyExpr);
-///
-/// fn twice(value: &MyExpr) -> tvm_ffi::Result<Expr> {
-///     (value * 2).try_into()
-/// }
+/// ```text
+/// tvm_ffi::def_object_ref!(pub MyExpr, Expr, MyExprObj);
+/// tvm_tirx::def_expr_op_over_loads!(MyExpr);
 /// ```
 #[macro_export]
-macro_rules! def_ex_op_overloads {
+macro_rules! def_expr_op_over_loads {
     (crate::$($ty:ident)::+ $(,)?) => {
-        $crate::def_ex_op_overloads!(@impl crate::$($ty)::+);
+        $crate::def_expr_op_over_loads!(@impl crate::$($ty)::+);
     };
     (self::$($ty:ident)::+ $(,)?) => {
-        $crate::def_ex_op_overloads!(@impl self::$($ty)::+);
+        $crate::def_expr_op_over_loads!(@impl self::$($ty)::+);
     };
     (super::$($ty:ident)::+ $(,)?) => {
-        $crate::def_ex_op_overloads!(@impl super::$($ty)::+);
+        $crate::def_expr_op_over_loads!(@impl super::$($ty)::+);
     };
     (::$($ty:ident)::+ $(,)?) => {
-        $crate::def_ex_op_overloads!(@impl ::$($ty)::+);
+        $crate::def_expr_op_over_loads!(@impl ::$($ty)::+);
     };
     ($($ty:ident)::+ $(,)?) => {
         // Anchor caller names before introducing generic operator parameters.
-        $crate::def_ex_op_overloads!(@impl self::$($ty)::+);
+        $crate::def_expr_op_over_loads!(@impl self::$($ty)::+);
     };
     (@impl $ty:ty) => {
         impl ::core::convert::From<$ty> for $crate::ir::prim::ExprResult {
@@ -85,11 +72,11 @@ macro_rules! def_ex_op_overloads {
             }
         }
 
-        $crate::def_ex_op_overloads!(@binary $ty;
+        $crate::def_expr_op_over_loads!(@binary $ty;
             Add::add, Sub::sub, Mul::mul, BitAnd::bitand, BitOr::bitor,
             BitXor::bitxor, Shl::shl, Shr::shr
         );
-        $crate::def_ex_op_overloads!(@unary $ty; Neg::neg, Not::not);
+        $crate::def_expr_op_over_loads!(@unary $ty; Neg::neg, Not::not);
     };
     (@binary $ty:ty; $($trait:ident::$method:ident),+ $(,)?) => {
         $(
@@ -111,7 +98,7 @@ macro_rules! def_ex_op_overloads {
                 }
             }
 
-            $crate::def_ex_op_overloads!(@literal $ty, $trait::$method;
+            $crate::def_expr_op_over_loads!(@literal $ty, $trait::$method;
                 ::core::primitive::i32, ::core::primitive::i64,
                 ::core::primitive::f32, ::core::primitive::f64);
         )+

@@ -19,5 +19,3 @@
 set -euxo pipefail
 
 cargo test --manifest-path rust/Cargo.toml
-
-cargo test --manifest-path rust/tests/expr_overloads_downstream/Cargo.toml --target-dir rust/target

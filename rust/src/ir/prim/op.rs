@@ -1732,7 +1732,7 @@ binary_intrinsics! {
 /// into any function or constructor that takes one, whose `?` then reports the error;
 /// `Expr::try_from` takes the expression out.
 ///
-/// Any expression node converts into an `ExprResult`, as it converts into a C++ `PrimExpr`. The operators
+/// Registered expression wrappers convert into an `ExprResult`. The operators
 /// `+`, `-`, `*`, `&`, `|`, `^`, `<<`, `>>`, unary `-` and `!` are the C++ ones, typed after C++:
 /// an integer literal on either side is `MakeConst(other.ty(), v)`, an `f32` a float32 constant,
 /// an `f64` a float64 one. `/` and `%` are not defined: name the division

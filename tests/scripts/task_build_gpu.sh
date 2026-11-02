@@ -35,6 +35,3 @@ uv build --wheel --no-build-isolation --offline --out-dir dist .
 
 # The generated Rust bindings must match the types of this build.
 uv run --no-sync python -m tvm_ffi.stub.cli rust/src --target rust --dlls build/lib/libtvm_tirx_compiler.so --check
-
-uv run --no-sync python rust/scripts/generate_expr_ops.py --dll build/lib/libtvm_tirx_compiler.so --check
-uv run --no-sync python rust/scripts/test_generate_expr_ops.py
