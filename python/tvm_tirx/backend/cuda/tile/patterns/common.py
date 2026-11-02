@@ -59,8 +59,6 @@ class Context:
     def __init__(self, sctx, atom_scope="thread"):
         self.sctx = sctx
         self.analyzer = Analyzer()
-        # Repeated descriptor checks use native proofs before bounded verification.
-        self.analyzer.set_z3_default_fallback(False)
         # Reuse layout-query state across this instruction's address walk.
         # Keep it separate from the bounded verifier so address construction
         # does not depend on its evolving group/repeat/descriptor premises.
@@ -179,7 +177,8 @@ class Context:
             ),
             order="post",
         )
-        if self.analyzer.can_prove(condition):
+        simplified = self.analyzer.simplify(condition)
+        if isinstance(simplified, IntImm) and int(simplified) != 0:
             return
         # Bitwise swizzles are not fully covered by the arithmetic analyzer.
         # Check the already fixed group/repeat and enclosing-loop coordinates
@@ -211,6 +210,10 @@ class Context:
                     break
             else:
                 return
+        # A failed point may be excluded by premises known to the analyzer.
+        # Preserve symbolic proof after an inconclusive enumeration.
+        if self.analyzer.can_prove(condition):
+            return
         raise ValueError(f"{message}: cannot prove {self.analyzer.simplify(condition)}")
 
     def loops(self, shape):

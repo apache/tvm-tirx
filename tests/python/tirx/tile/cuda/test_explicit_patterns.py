@@ -161,7 +161,7 @@ def test_layout_analysis_is_separate_from_verification():
     assert not ctx.layout_analyzer.can_prove(x < 4)
     a, b = Var("a", "int32"), Var("b", "int32")
     predicate = a * a + b * b >= 2 * a * b
-    assert not ctx.analyzer.can_prove(predicate)
+    assert ctx.analyzer.can_prove(predicate) == ctx.analyzer.is_z3_enabled
     assert not ctx.layout_analyzer.can_prove(predicate)
 
 
