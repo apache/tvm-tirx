@@ -428,10 +428,10 @@ fn located_variants() {
     let located: prim::FloorDiv = op::floordiv_at(&x, 4, here.clone()).unwrap().try_cast().unwrap();
     assert!(located.loc.same_as(&here));
     let unlocated: prim::FloorDiv = op::floordiv(&x, 4).unwrap().try_cast().unwrap();
-    assert!(unlocated.loc.as_node::<UnknownLocObj>().is_some());
+    assert!(unlocated.loc.downcast_ref::<UnknownLocObj>().is_some());
     // A folded constant is at the unknown location, as C++ `TryConstFold` builds it.
     let folded: IntImm = op::add_at(1, 2, here.clone()).unwrap().try_cast().unwrap();
-    assert!(folded.loc.as_node::<UnknownLocObj>().is_some());
+    assert!(folded.loc.downcast_ref::<UnknownLocObj>().is_some());
     let cast: Cast = op::cast_at(&x, PrimType::int(64), here.clone()).unwrap().try_cast().unwrap();
     assert!(cast.loc.same_as(&here));
     let call: Call =
@@ -789,14 +789,14 @@ fn cast_folds_and_broadcasts_as_cpp() {
     assert!(same(imm("int32", 5).cast(prim("int64")), &imm("int64", 5)));
     let node = |value: &Expr, name: &str| value.cast(prim(name)).into_expr().unwrap();
     let broadcast = node(&Expr::from(&f), "int32x4");
-    let element = &broadcast.as_node::<BroadcastObj>().unwrap().value;
-    assert!(element.as_node::<CastObj>().is_some());
-    assert!(node(&imm("int32", -5), "uint8").as_node::<CastObj>().is_some());
-    assert!(node(&constant, "int64x4").as_node::<RampObj>().is_some());
-    assert!(node(&overflowing, "int64x4").as_node::<CastObj>().is_some());
-    assert!(node(&ramp(x.clone().into()), "int64x4").as_node::<CastObj>().is_some());
-    assert!(node(&constant, "float32x4").as_node::<CastObj>().is_some());
-    assert!(node(&constant, "int16x4").as_node::<CastObj>().is_some());
+    let element = &broadcast.downcast_ref::<BroadcastObj>().unwrap().value;
+    assert!(element.downcast_ref::<CastObj>().is_some());
+    assert!(node(&imm("int32", -5), "uint8").downcast_ref::<CastObj>().is_some());
+    assert!(node(&constant, "int64x4").downcast_ref::<RampObj>().is_some());
+    assert!(node(&overflowing, "int64x4").downcast_ref::<CastObj>().is_some());
+    assert!(node(&ramp(x.clone().into()), "int64x4").downcast_ref::<CastObj>().is_some());
+    assert!(node(&constant, "float32x4").downcast_ref::<CastObj>().is_some());
+    assert!(node(&constant, "int16x4").downcast_ref::<CastObj>().is_some());
     let raw: Expr = Cast::new(PrimType::int(64), &x, UNKNOWN_LOC).unwrap().into();
     assert!(same(x.cast(PrimType::int(64)), &raw));
 
@@ -938,6 +938,6 @@ fn make_const() {
     let vector = op::make_const(scalable.clone(), 1).unwrap();
     assert!(structural_equal(&vector.ty, &scalable));
     let broadcast: prim::Broadcast = vector.try_cast().unwrap();
-    let lanes = broadcast.lanes.as_node::<prim::MulObj>().expect("vscale * 4");
+    let lanes = broadcast.lanes.downcast_ref::<prim::MulObj>().expect("vscale * 4");
     assert_eq!(int_value(lanes.b.clone()), 4);
 }

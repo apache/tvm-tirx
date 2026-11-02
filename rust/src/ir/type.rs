@@ -683,7 +683,7 @@ impl PtrType {
     /// (C++ `PtrType(element_type, scope)`).
     pub fn new(element_type: impl Into<Type>, scope: &MemoryScope) -> Result<Self> {
         let element_type = element_type.into();
-        if element_type.as_node::<MissingTypeObj>().is_some() {
+        if element_type.downcast_ref::<MissingTypeObj>().is_some() {
             let condition = "!element_type.as<MissingType>().has_value()";
             let message = "PtrType element_type cannot be Type::Missing()";
             return Err(support::check_failed(tvm_ffi::INTERNAL_ERROR, condition, message));

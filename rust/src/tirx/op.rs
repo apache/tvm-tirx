@@ -208,12 +208,12 @@ pub fn reinterpret_at(
     loc: impl Into<Location>,
 ) -> Result<Expr> {
     let (ty, value, loc) = (ty.into(), value.into_expr()?, loc.into());
-    let target_is_pointer = ty.as_node::<PtrTypeObj>().is_some();
-    let source_is_pointer = value.ty.as_node::<PtrTypeObj>().is_some();
+    let target_is_pointer = ty.downcast_ref::<PtrTypeObj>().is_some();
+    let source_is_pointer = value.ty.downcast_ref::<PtrTypeObj>().is_some();
     let type_error = |condition: &str, message: std::string::String| {
         Err(support::check_failed(TYPE_ERROR, condition, &message))
     };
-    if value.as_node::<StringImmObj>().is_some() {
+    if value.downcast_ref::<StringImmObj>().is_some() {
         if !target_is_pointer {
             let message = format!(
                 "String reinterpret requires a pointer target, but got {}",
@@ -221,9 +221,9 @@ pub fn reinterpret_at(
             );
             return type_error("target_ty.as<PtrTypeObj>()", message);
         }
-    } else if let Some(target) = ty.as_node::<PrimTypeObj>() {
+    } else if let Some(target) = ty.downcast_ref::<PrimTypeObj>() {
         let target_dtype = target.dtype;
-        if let Some(source) = value.ty.as_node::<PrimTypeObj>() {
+        if let Some(source) = value.ty.downcast_ref::<PrimTypeObj>() {
             let source_dtype = source.dtype;
             if source_dtype == target_dtype {
                 return Ok(value);
@@ -279,7 +279,7 @@ pub fn reinterpret_at(
             );
             return type_error("target_ty.as<PtrTypeObj>()", message);
         }
-        if let Some(source) = value.ty.as_node::<PrimTypeObj>() {
+        if let Some(source) = value.ty.downcast_ref::<PrimTypeObj>() {
             if !is_scalar_int64(source.dtype) {
                 let condition = "source_dtype.value().IsScalar() && source_dtype.value().bits() == 64 && \
                                  source_dtype.value().MatchesCode(DLDataTypeCode::kDLInt, DLDataTypeCode::kDLUInt)";

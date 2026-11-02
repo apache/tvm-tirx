@@ -94,7 +94,7 @@ fn first_arg_type(call: &CallObj) -> Result<Type> {
 }
 
 fn only_variables(call: &CallObj) -> Result<()> {
-    match call.args.iter().all(|arg| arg.as_node::<VarObj>().is_some()) {
+    match call.args.iter().all(|arg| arg.downcast_ref::<VarObj>().is_some()) {
         true => Ok(()),
         false => Err(Error::new(VALUE_ERROR, "arguments must be variables", "")),
     }

@@ -110,8 +110,8 @@ fn agree_up_to<T: AnyCompatible>(
             );
             if let (Ok(rust), Ok(native)) = (Expr::try_from(rust), Expr::try_from(native)) {
                 assert!(structural_equal(&rust.ty, &native.ty), "{what}: the types differ");
-                let shared = native.ty.as_node::<PrimTypeObj>().is_some()
-                    || native.ty.as_node::<MissingTypeObj>().is_some();
+                let shared = native.ty.downcast_ref::<PrimTypeObj>().is_some()
+                    || native.ty.downcast_ref::<MissingTypeObj>().is_some();
                 if shared {
                     assert!(rust.ty.same_as(&native.ty), "{what}: the shared type is not shared");
                 }

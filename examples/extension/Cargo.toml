@@ -26,4 +26,5 @@ publish = false
 crate-type = ["cdylib"]
 
 [dependencies]
-tvm-tirx = "0.1.0-alpha.5"
+# Use this checkout so the Rust API and native libraries share the same FFI revision.
+tvm-tirx = { path = "../../rust" }

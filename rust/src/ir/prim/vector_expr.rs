@@ -372,7 +372,7 @@ impl Shuffle {
 /// The vector type of `element` elements over `lanes`, and the lanes a `Ramp` or `Broadcast` keeps:
 /// a constant count as an `int32` constant, or a scalable count as `vscale * factor`.
 fn vector_lanes(element: DLDataType, lanes: Expr) -> Result<(DLDataType, Expr)> {
-    if let Some(imm) = lanes.as_node::<IntImmObj>() {
+    if let Some(imm) = lanes.downcast_ref::<IntImmObj>() {
         let Some(count) = imm.value.to_i64().and_then(|count| i32::try_from(count).ok()) else {
             return Err(tvm_ffi::Error::new(tvm_ffi::INTERNAL_ERROR, "bad optional access", ""));
         };
@@ -411,17 +411,17 @@ pub(crate) fn vscale_lanes(factor: i32) -> Result<Expr> {
 
 /// `factor` when `lanes` is `factor * vscale` or `vscale * factor` (C++ `ExtractVscaleFactor`).
 fn vscale_factor(lanes: &Expr) -> Result<Option<i32>> {
-    let Some(mul) = lanes.as_node::<MulObj>() else { return Ok(None) };
+    let Some(mul) = lanes.downcast_ref::<MulObj>() else { return Ok(None) };
     let vscale = support::cached_op("prim.vscale")?;
     let is_vscale =
-        |expr: &Expr| expr.as_node::<CallObj>().is_some_and(|call| call.op.same_as(&vscale));
+        |expr: &Expr| expr.downcast_ref::<CallObj>().is_some_and(|call| call.op.same_as(&vscale));
     let factor = |imm: &IntImmObj| imm.value.to_i64().and_then(|value| i32::try_from(value).ok());
-    if let Some(imm) = mul.a.as_node::<IntImmObj>() {
+    if let Some(imm) = mul.a.downcast_ref::<IntImmObj>() {
         if is_vscale(&mul.b) {
             return Ok(factor(imm));
         }
     }
-    if let Some(imm) = mul.b.as_node::<IntImmObj>() {
+    if let Some(imm) = mul.b.downcast_ref::<IntImmObj>() {
         if is_vscale(&mul.a) {
             return Ok(factor(imm));
         }

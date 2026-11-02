@@ -147,7 +147,7 @@ impl Function {
     ) -> Self {
         let params = params.into_iter().map(Into::into).collect::<Array<Var>>();
         let ret_type: Type = ret_type.into();
-        let ret_type = match ret_type.as_node::<MissingTypeObj>() {
+        let ret_type = match ret_type.downcast_ref::<MissingTypeObj>() {
             Some(_) => TupleType::new(Vec::<Type>::new(), UnknownLoc::new()).into(),
             None => ret_type,
         };
