@@ -90,7 +90,7 @@ jobs:
         run: &prepare_release_metadata |
           uv pip install tomlkit setuptools-scm
           python ci/wheel/prepare_release_metadata.py
-          python ci/wheel/tvm_ffi_version.py rewrite --version "$TVM_FFI_VERSION"
+          python ci/wheel/detect_tvm_ffi_version.py rewrite --version "$TVM_FFI_VERSION"
 
   build_crate:
     name: ${{ matrix.name }}

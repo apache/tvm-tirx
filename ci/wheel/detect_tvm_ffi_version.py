@@ -17,9 +17,9 @@
 
 """Detect the source TVM FFI release or prepare the crate's registry dependency.
 
-Run ``python ci/wheel/tvm_ffi_version.py detect`` to print the release version
+Run ``python ci/wheel/detect_tvm_ffi_version.py detect`` to print the release version
 without changing the checkout. After preparing wheel metadata, run
-``python ci/wheel/tvm_ffi_version.py rewrite --version VERSION`` to replace the
+``python ci/wheel/detect_tvm_ffi_version.py rewrite --version VERSION`` to replace the
 crate's source dependency with the exact registry version. GitHub output/env
 files are written when their environment variables are set.
 """

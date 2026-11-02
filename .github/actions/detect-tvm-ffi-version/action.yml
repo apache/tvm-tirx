@@ -23,7 +23,7 @@ runs:
     - name: Detect the TVM FFI release version
       id: detect
       shell: bash
-      run: python ci/wheel/tvm_ffi_version.py detect
+      run: python ci/wheel/detect_tvm_ffi_version.py detect
 outputs:
   version:
     description: The release version without the v prefix.
