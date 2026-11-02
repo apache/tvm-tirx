@@ -73,6 +73,7 @@
 // tvm-ffi-stubgen(import-object): crate::ir::expr::IntImm
 // tvm-ffi-stubgen(import-object): crate::ir::expr::IntImmObj
 // tvm-ffi-stubgen(import-object): crate::ir::expr::IntoExpr
+// tvm-ffi-stubgen(import-object): crate::ir::expr::PrimExpr
 // tvm-ffi-stubgen(import-object): crate::ir::expr::TensorLoad
 // tvm-ffi-stubgen(import-object): crate::ir::expr::Var
 // tvm-ffi-stubgen(import-object): crate::ir::location::Location
@@ -127,6 +128,7 @@ use crate::ir::expr::FloatImmObj;
 use crate::ir::expr::IntImm;
 use crate::ir::expr::IntImmObj;
 use crate::ir::expr::IntoExpr;
+use crate::ir::expr::PrimExpr;
 use crate::ir::expr::TensorLoad;
 use crate::ir::expr::Var;
 use crate::ir::location::Location;
@@ -358,7 +360,9 @@ impl Operand for f64 {
 /// An operand next to `peer`: a literal is typed after it.
 fn typed_after(operand: OperandKind, peer: &ExprResult) -> ExprResult {
     let constant = |value: i64| {
-        ExprResult(peer.dtype().and_then(|dtype| make_const(PrimType::from_dtype(dtype)?, value)))
+        ExprResult::checked(
+            peer.dtype().and_then(|dtype| make_const(PrimType::from_dtype(dtype)?, value)),
+        )
     };
     match operand {
         OperandKind::Expr(expr) => expr,
@@ -1727,12 +1731,14 @@ binary_intrinsics! {
 // ---------------------------------------------------------------------------------------------
 // `ExprResult`: expressions under construction
 
-/// An expression being built by operators: either the expression, or the first error any step
-/// raised. Later steps pass an error through untouched. An `ExprResult` is an [`IntoExpr`], so it passes
-/// into any function or constructor that takes one, whose `?` then reports the error;
-/// `Expr::try_from` takes the expression out.
+/// An expression being built by operators: either the expression, a [`PrimExpr`], or the first
+/// error any step raised. Later steps pass an error through untouched. An `ExprResult` is an
+/// [`IntoExpr`], so it passes into any function or constructor that takes one, whose `?` then
+/// reports the error; `PrimExpr::try_from` takes the expression out without a further check, and
+/// `Expr::try_from` takes it out as an `Expr`.
 ///
-/// Registered expression wrappers convert into an `ExprResult`. The operators
+/// Registered expression wrappers convert into an `ExprResult`; one whose type is not a
+/// `PrimType` is a TypeError there. The operators
 /// `+`, `-`, `*`, `&`, `|`, `^`, `<<`, `>>`, unary `-` and `!` are the C++ ones, typed after C++:
 /// an integer literal on either side is `MakeConst(other.ty(), v)`, an `f32` a float32 constant,
 /// an `f64` a float64 one. `/` and `%` are not defined: name the division
@@ -1741,13 +1747,23 @@ binary_intrinsics! {
 /// Comparisons, `&&` and `||` are [`PrimOps`] methods too, because Rust's comparison traits
 /// return `bool`.
 #[derive(Clone)]
-#[must_use = "an `ExprResult` holds the result; pass it on, or convert it with `Expr::try_from`"]
-pub struct ExprResult(Result<Expr>);
+#[must_use = "an `ExprResult` holds the result; pass it on, or convert it with `PrimExpr::try_from`"]
+pub struct ExprResult(Result<PrimExpr>);
 
 impl TryFrom<ExprResult> for Expr {
     type Error = Error;
 
     /// The built expression, or the first error raised while constructing it.
+    fn try_from(value: ExprResult) -> Result<Self> {
+        value.0.map(Into::into)
+    }
+}
+
+impl TryFrom<ExprResult> for PrimExpr {
+    type Error = Error;
+
+    /// The built expression, which every step checks is a `PrimExpr`, or the first error raised
+    /// while building it.
     fn try_from(value: ExprResult) -> Result<Self> {
         value.0
     }
@@ -1757,7 +1773,7 @@ impl ExprResult {
     /// The dtype a literal next to this expression takes (`MakeConst(this.ty(), v)`).
     fn dtype(&self) -> Result<DLDataType> {
         match &self.0 {
-            Ok(expr) => support::prim_dtype(expr),
+            Ok(expr) => Ok(expr.dtype()),
             Err(error) => Err(error.clone()),
         }
     }
@@ -1765,19 +1781,27 @@ impl ExprResult {
 
 impl IntoExpr for ExprResult {
     fn into_expr(self) -> Result<Expr> {
-        self.0
+        self.0.map(Into::into)
     }
 }
 
 impl IntoExpr for &ExprResult {
     fn into_expr(self) -> Result<Expr> {
-        self.0.clone()
+        self.0.clone().map(Into::into)
     }
 }
 
 impl<T: Into<Expr>> From<Result<T>> for ExprResult {
     fn from(value: Result<T>) -> Self {
-        ExprResult(value.map(Into::into))
+        ExprResult::checked(value.map(Into::into))
+    }
+}
+
+impl ExprResult {
+    /// A step's result, checked to be a `PrimExpr`; an expression of another type is a TypeError,
+    /// raised where it enters the chain.
+    fn checked(value: Result<Expr>) -> Self {
+        ExprResult(value.and_then(PrimExpr::try_from))
     }
 }
 
@@ -1795,7 +1819,7 @@ fn binary(
 ) -> ExprResult {
     let rhs = typed_after(rhs.classify(), &lhs);
     match (lhs.0, rhs.0) {
-        (Ok(a), Ok(b)) => ExprResult(op(a, b)),
+        (Ok(a), Ok(b)) => ExprResult::checked(op(a.into(), b.into())),
         (Err(error), _) | (_, Err(error)) => ExprResult(Err(error)),
     }
 }
@@ -1891,14 +1915,14 @@ mod operators {
                 impl Neg for $ty {
                     type Output = ExprResult;
                     fn neg(self) -> ExprResult {
-                        ExprResult(super::neg(ExprResult::from(self)))
+                        ExprResult::checked(super::neg(ExprResult::from(self)))
                     }
                 }
                 /// C++ `!` (`logical_not`).
                 impl Not for $ty {
                     type Output = ExprResult;
                     fn not(self) -> ExprResult {
-                        ExprResult(super::logical_not(ExprResult::from(self)))
+                        ExprResult::checked(super::logical_not(ExprResult::from(self)))
                     }
                 }
             )+
@@ -1914,7 +1938,7 @@ macro_rules! unary_methods {
         $(
             $(#[$doc])*
             fn $name(&self) -> ExprResult {
-                ExprResult($name(self.to_expr_result()))
+                ExprResult::checked($name(self.to_expr_result()))
             }
         )+
     };
@@ -1967,11 +1991,11 @@ pub trait PrimOps {
     }
     /// C++ `a && b` ([`logical_and`]).
     fn logical_and(&self, rhs: impl IntoExpr) -> ExprResult {
-        ExprResult(logical_and(self.to_expr_result(), rhs))
+        ExprResult::checked(logical_and(self.to_expr_result(), rhs))
     }
     /// C++ `a || b` ([`logical_or`]).
     fn logical_or(&self, rhs: impl IntoExpr) -> ExprResult {
-        ExprResult(logical_or(self.to_expr_result(), rhs))
+        ExprResult::checked(logical_or(self.to_expr_result(), rhs))
     }
 
     binary_methods! {
@@ -1999,31 +2023,31 @@ pub trait PrimOps {
 
     /// C++ `pow(a, b)` ([`pow`]).
     fn pow(&self, rhs: impl IntoExpr) -> ExprResult {
-        ExprResult(pow(self.to_expr_result(), rhs))
+        ExprResult::checked(pow(self.to_expr_result(), rhs))
     }
     /// C++ `fmod(a, b)` ([`fmod`]).
     fn fmod(&self, rhs: impl IntoExpr) -> ExprResult {
-        ExprResult(fmod(self.to_expr_result(), rhs))
+        ExprResult::checked(fmod(self.to_expr_result(), rhs))
     }
     /// C++ `atan2(a, b)` ([`atan2`]).
     fn atan2(&self, rhs: impl IntoExpr) -> ExprResult {
-        ExprResult(atan2(self.to_expr_result(), rhs))
+        ExprResult::checked(atan2(self.to_expr_result(), rhs))
     }
     /// C++ `nextafter(a, b)` ([`nextafter`]).
     fn nextafter(&self, rhs: impl IntoExpr) -> ExprResult {
-        ExprResult(nextafter(self.to_expr_result(), rhs))
+        ExprResult::checked(nextafter(self.to_expr_result(), rhs))
     }
     /// C++ `copysign(a, b)` ([`copysign`]).
     fn copysign(&self, rhs: impl IntoExpr) -> ExprResult {
-        ExprResult(copysign(self.to_expr_result(), rhs))
+        ExprResult::checked(copysign(self.to_expr_result(), rhs))
     }
     /// C++ `hypot(a, b)` ([`hypot`]).
     fn hypot(&self, rhs: impl IntoExpr) -> ExprResult {
-        ExprResult(hypot(self.to_expr_result(), rhs))
+        ExprResult::checked(hypot(self.to_expr_result(), rhs))
     }
     /// C++ `ldexp(a, b)` ([`ldexp`]).
     fn ldexp(&self, rhs: impl IntoExpr) -> ExprResult {
-        ExprResult(ldexp(self.to_expr_result(), rhs))
+        ExprResult::checked(ldexp(self.to_expr_result(), rhs))
     }
 
     unary_methods! {
@@ -2105,17 +2129,17 @@ pub trait PrimOps {
 
     /// C++ `cast(a, t)` ([`cast`]).
     fn cast(&self, ty: impl Into<PrimType>) -> ExprResult {
-        ExprResult(cast(self.to_expr_result(), ty))
+        ExprResult::checked(cast(self.to_expr_result(), ty))
     }
 
     /// C++ `if_then_else(self, t, f)` ([`if_then_else`]), with `self` the condition.
     fn if_then_else(&self, t: impl IntoExpr, f: impl IntoExpr) -> ExprResult {
-        ExprResult(if_then_else(self.to_expr_result(), t, f))
+        ExprResult::checked(if_then_else(self.to_expr_result(), t, f))
     }
 
     /// The raw `Select(self, t, f)` ([`Select::new`]), with `self` the condition.
     fn select(&self, t: impl IntoExpr, f: impl IntoExpr) -> ExprResult {
-        ExprResult(Select::new(self.to_expr_result(), t, f, UNKNOWN_LOC).map(Into::into))
+        ExprResult::checked(Select::new(self.to_expr_result(), t, f, UNKNOWN_LOC).map(Expr::from))
     }
 }
 
