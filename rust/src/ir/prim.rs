@@ -35,7 +35,6 @@
 
 mod const_fold;
 pub mod expr;
-mod expr_ops;
 pub mod op;
 pub mod vector_expr;
 

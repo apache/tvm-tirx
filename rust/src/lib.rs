@@ -305,6 +305,7 @@ impl Drop for ExitOnDrop {
 pub mod backend;
 pub mod codegen;
 pub mod ir;
+mod r#macro;
 pub mod runtime;
 pub mod script;
 pub mod sym;
