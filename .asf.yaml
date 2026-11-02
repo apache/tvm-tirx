@@ -16,8 +16,8 @@
 # under the License.
 
 github:
-  description: "Open ML Compiler Foundation"
-  homepage: https://tvm.apache.org/
+  description: "Open ML Compiler Foundation for the Agentic Era"
+  homepage: https://tvm.apache.org/tirx
   labels:
     - compiler
     - tirx
