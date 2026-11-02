@@ -1302,14 +1302,17 @@ def _naive_compose_expr(tile, coords, per_element=3, swizzle_len=3, atom_len=3, 
 
 
 @pytest.mark.parametrize("swizzle_len", [3, 2, 1, 0])
-def test_compose_structured_apply_uses_bounded_normal_form(swizzle_len):
+@pytest.mark.parametrize("z3_default_fallback", [False, True])
+def test_compose_structured_apply_uses_bounded_normal_form(swizzle_len, z3_default_fallback):
     x = Var("x", ty="int32")
     y = Var("y", ty="int32")
     tile = TileLayout(S[(8, 8) : (64, 1)] + 72)
     layout = ComposeLayout(3, swizzle_len, 3, tile)
+    analyzer = tvm_tirx.sym.Analyzer()
+    analyzer.set_z3_default_fallback(z3_default_fallback)
 
-    actual = layout.apply(x, y)["m"]
-    shaped = layout.apply(x, y, shape=(8, 8))["m"]
+    actual = layout.apply(x, y, analyzer=analyzer)["m"]
+    shaped = layout.apply(x, y, shape=(8, 8), analyzer=analyzer)["m"]
     if swizzle_len == 0:
         expected = x * 64 + y + 72
     else:
