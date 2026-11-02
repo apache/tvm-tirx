@@ -81,45 +81,7 @@ jobs:
       # Resolve the registry version from the source gitlink, not the placeholder in its crate.
       - id: ffi
         name: Check the tvm-ffi release
-        shell: bash
-        run: |
-          python - <<'PY'
-          import os
-          import re
-          import subprocess
-
-          submodule = subprocess.check_output(
-              ["git", "rev-parse", "HEAD:3rdparty/tvm-ffi"], text=True
-          ).strip()
-          refs = dict(
-              (ref, sha)
-              for sha, ref in (
-                  line.split()
-                  for line in subprocess.check_output(
-                      ["git", "ls-remote", "https://github.com/apache/tvm-ffi", "refs/tags/v*"],
-                      text=True,
-                  ).splitlines()
-              )
-          )
-          # Prefer the peeled commit for annotated tags; lightweight tags point at it directly.
-          versions = sorted(
-              ref.removeprefix("refs/tags/v")
-              for ref, sha in refs.items()
-              if re.fullmatch(
-                  r"refs/tags/v[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?",
-                  ref,
-              )
-              and refs.get(ref + "^{}", sha) == submodule
-          )
-          if len(versions) != 1:
-              raise SystemExit(
-                  f"3rdparty/tvm-ffi at {submodule} must match exactly one apache/tvm-ffi "
-                  f"release tag; found {versions}"
-              )
-          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8", newline="\n") as output:
-              output.write(f"version={versions[0]}\n")
-          print(f"TVM FFI {versions[0]} at {submodule}")
-          PY
+        uses: ./.github/actions/detect-tvm-ffi-version
 
       - name: Prepare matching release metadata
         shell: bash
@@ -128,28 +90,7 @@ jobs:
         run: &prepare_release_metadata |
           uv pip install tomlkit setuptools-scm
           python ci/wheel/prepare_release_metadata.py
-          python - <<'PY'
-          import os
-          from pathlib import Path
-
-          import tomlkit
-
-          main = tomlkit.parse(Path("pyproject.toml").read_text(encoding="utf-8"))
-          crate_path = Path("rust/Cargo.toml")
-          crate = tomlkit.parse(crate_path.read_text(encoding="utf-8"))
-          tvm_ffi = os.environ["TVM_FFI_VERSION"]
-          if not tvm_ffi:
-              raise SystemExit("TVM_FFI_VERSION must come from the verified submodule release tag")
-          # Remove the source path entirely. An exact requirement preserves prerelease releases
-          # such as 0.1.15-post2, which a caret requirement could replace with the older 0.1.15.
-          crate["dependencies"]["tvm-ffi"] = f"={tvm_ffi}"
-          crate_path.write_text(tomlkit.dumps(crate), encoding="utf-8")
-          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8", newline="\n") as env:
-              env.write(f"RELEASE_VERSION={main['project']['version']}\n")
-              env.write(f"CRATE_VERSION={crate['package']['version']}\n")
-              env.write(f"TVM_FFI_VERSION={tvm_ffi}\n")
-          print(f"Crate tvm-tirx {crate['package']['version']} with crates.io tvm-ffi {tvm_ffi}")
-          PY
+          python ci/wheel/tvm_ffi_version.py rewrite --version "$TVM_FFI_VERSION"
 
   build_crate:
     name: ${{ matrix.name }}
