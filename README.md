@@ -15,4 +15,25 @@
 <!--- specific language governing permissions and limitations -->
 <!--- under the License. -->
 
-# TVM TIRx
+# TVM TIRx: Open ML Compiler Foundation for the Agentic Era
+
+📚 [Documentation](https://tvm.apache.org/tirx/) | 🚀 [Quick Start](https://tvm.apache.org/tirx/get_started/quick_start.html)
+
+Apache TVM TIRx is a minimal, open ML compiler foundation for the agentic era.
+
+## Features
+
+- **Minimal, stable core IR** - a small, stable set of core AST nodes, designed for common needs and for extension.
+- **Predictable utilities** - TVM-FFI bridge generation, symbolic integer analysis, structural traversal and mapping, and minimal code generation for CUDA and host LLVM.
+- **Dynamic extension by design** - all compiler APIs are open, so developers and agents can iterate quickly on extensions in separate packages that link to TIRx dynamically, without rebuilding one monolithic bundle.
+- **First-class cross-language support** - Python, C++, and native Rust. Prototype an analysis or extension in Python, then bake it into Rust or C++; extensions work across all supported languages.
+- **Built on stable toolchains** - a minimal layer for ML compilation needs that connects to stable compiler toolchains and leverages their backend capabilities when possible.
+
+## Documentation
+
+Check out the [documentation site](https://tvm.apache.org/tirx/) for the full documentation, including:
+
+- [Quick Start](https://tvm.apache.org/tirx/get_started/quick_start.html)
+- [IR Guides](https://tvm.apache.org/tirx/ir_guides/overview.html)
+- [Programming Guides](https://tvm.apache.org/tirx/programming_guides/index.html)
+- [Extending TIRx](https://tvm.apache.org/tirx/advanced/extending_ir_in_rust.html)
