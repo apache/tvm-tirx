@@ -15,7 +15,7 @@
 <!--- specific language governing permissions and limitations -->
 <!--- under the License. -->
 
-# TVM TIRx: Open ML Compiler Foundation for the Agentic Era
+# TVM TIRx: ML Compiler Foundation for the Agentic Era
 
 📚 [Documentation](https://tvm.apache.org/tirx/) | 🚀 [Quick Start](https://tvm.apache.org/tirx/get_started/quick_start.html)
 
