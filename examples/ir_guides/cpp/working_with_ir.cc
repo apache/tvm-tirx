@@ -18,11 +18,11 @@
  */
 /*!
  * \file working_with_ir.cc
- * \brief C++ fragments that inspect, traverse, and rewrite add_one.
+ * \brief C++ fragments that build IR, and that traverse and rewrite add_one.
  *
- * Each function receives IR objects from Python and is registered as the
- * global function tirx_ir_guide_examples.cpp.<name>; working_with_ir_in_cpp.py
- * calls each function on add_one.
+ * Each function is registered as the global function
+ * tirx_ir_guide_examples.cpp.<name>; working_with_ir_in_cpp.py calls the object
+ * system functions without arguments and the others on add_one.
  */
 // [includes.begin]
 #include <tvm/ffi/extra/structural_equal.h>
@@ -30,10 +30,12 @@
 #include <tvm/ffi/extra/structural_mutate.h>
 #include <tvm/ffi/extra/structural_visit.h>
 #include <tvm/ffi/reflection/registry.h>
+#include <tvm/ir/expr_functor.h>
 #include <tvm/tirx/function.h>
 #include <tvm/tirx/stmt_functor.h>
 // [includes.end]
 
+#include <optional>
 #include <sstream>
 #include <string>
 #include <unordered_map>
@@ -43,31 +45,100 @@ namespace {
 
 using namespace tvm;
 
-// [inspect.begin]
-ffi::String Inspect(const tirx::Function& func) {
+/*! \brief Print an object the way TVMScript writes it. */
+std::string Print(const ffi::ObjectRef& node) {
   std::ostringstream os;
-  for (const Var& param : func->params) {
-    os << "param " << param->name << "\n";
-  }
-  SeqStmt body = func->body;
-  if (const ForObj* loop = body[0].as<ForObj>()) {
-    os << "loop over " << loop->var.as<VarObj>()->name << " up to " << loop->end << "\n";
-    if (const TensorStoreObj* store = loop->body[0].as<TensorStoreObj>()) {
-      os << "  store to " << store->dest.as<VarObj>()->name << ": " << store->value;
-    }
-  }
+  os << node;
   return os.str();
 }
-// [inspect.end]
 
-// [create.begin]
-TensorStore DoubleStore(const tirx::Function& func) {
-  For loop = func->body[0].as_or_throw<For>();
-  TensorStore store = loop->body[0].as_or_throw<TensorStore>();
-  PrimExpr doubled = store->value * 2;
-  return TensorStore(store->dest, store->indices, doubled);
+// [construct.begin]
+PrimExpr XTimes2Plus1() {
+  PrimVar x("x", PrimType::Int(32));
+  return x * 2 + 1;
 }
-// [create.end]
+
+ffi::String Construct() { return Print(XTimes2Plus1()); }
+// [construct.end]
+
+// [objects.begin]
+ffi::Array<ffi::String> Objects() {
+  prim::Add add = XTimes2Plus1().as_or_throw<prim::Add>();
+  prim::Add alias = add;
+  return {"a = " + Print(add->a), "b = " + Print(add->b),
+          std::string("same object: ") + (alias.same_as(add) ? "true" : "false")};
+}
+// [objects.end]
+
+// [cow.begin]
+ffi::Array<ffi::String> CopyOnWrite() {
+  prim::Add add = XTimes2Plus1().as_or_throw<prim::Add>();
+  prim::Add changed = add;
+  changed.CopyOnWrite()->b = 3;
+  return {"add = " + Print(add), "changed = " + Print(changed)};
+}
+// [cow.end]
+
+// [casts.begin]
+ffi::Array<ffi::String> Casts() {
+  Expr value = XTimes2Plus1();
+  const prim::AddObj* node = value.as<prim::AddObj>();
+  std::optional<prim::Add> add = value.as<prim::Add>();
+  std::optional<prim::Mul> mul = value.as<prim::Mul>();
+  ffi::Array<ffi::String> lines = {
+      std::string("as<AddObj>: ") + (node != nullptr ? "pointer" : "nullptr"),
+      std::string("as<Add>: ") + (add.has_value() ? "Add" : "nullopt"),
+      std::string("as<Mul>: ") + (mul.has_value() ? "Mul" : "nullopt")};
+  try {
+    value.as_or_throw<prim::Mul>();
+  } catch (const ffi::Error& err) {
+    lines.push_back("as_or_throw<Mul>: " + std::string(err.message()));
+  }
+  return lines;
+}
+// [casts.end]
+
+// [views.begin]
+ffi::Array<ffi::String> TypedViews() {
+  Var i("i", PrimType::Int(32));
+  Var f("f", PrimType::Float(32));
+  ffi::Array<ffi::String> lines = {
+      std::string("i as PrimExpr: ") + (i.as<PrimExpr>().has_value() ? "yes" : "no"),
+      std::string("i as IntExpr: ") + (i.as<IntExpr>().has_value() ? "yes" : "no"),
+      std::string("f as IntExpr: ") + (f.as<IntExpr>().has_value() ? "yes" : "no")};
+  try {
+    f.as_or_throw<IntExpr>();
+  } catch (const ffi::Error& err) {
+    lines.push_back("as_or_throw<IntExpr>: " + std::string(err.message()));
+  }
+  return lines;
+}
+// [views.end]
+
+// [describe.begin]
+class Describe : public ExprFunctor<std::string(const Expr&)> {
+ public:
+  using ExprFunctor::Dispatch_;
+
+  std::string Dispatch_(const prim::AddObj* add) override {
+    return "(" + Dispatch(add->a) + " + " + Dispatch(add->b) + ")";
+  }
+  std::string Dispatch_(const prim::MulObj* mul) override {
+    return "(" + Dispatch(mul->a) + " * " + Dispatch(mul->b) + ")";
+  }
+  std::string Dispatch_(const VarObj* var) override { return var->name; }
+  std::string Dispatch_(const IntImmObj* imm) override { return Print(ffi::GetRef<IntImm>(imm)); }
+  std::string DispatchDefault_(const ffi::Object*) override { return "<other>"; }
+};
+// [describe.end]
+
+// [dispatch_use.begin]
+ffi::Array<ffi::String> Dispatching() {
+  PrimVar x("x", PrimType::Int(32));
+  Describe describe;
+  return {describe(XTimes2Plus1()), describe(x - 1)};
+}
+// [dispatch_use.end]
 
 // [walk.begin]
 ffi::Array<ffi::String> TensorsWritten(const tirx::Function& func) {
@@ -209,8 +280,12 @@ tirx::Function ReverseLoop(const tirx::Function& func) {
 TVM_FFI_STATIC_INIT_BLOCK() {
   namespace refl = tvm::ffi::reflection;
   refl::GlobalDef()
-      .def("tirx_ir_guide_examples.cpp.inspect", Inspect)
-      .def("tirx_ir_guide_examples.cpp.double_store", DoubleStore)
+      .def("tirx_ir_guide_examples.cpp.construct", Construct)
+      .def("tirx_ir_guide_examples.cpp.objects", Objects)
+      .def("tirx_ir_guide_examples.cpp.copy_on_write", CopyOnWrite)
+      .def("tirx_ir_guide_examples.cpp.casts", Casts)
+      .def("tirx_ir_guide_examples.cpp.typed_views", TypedViews)
+      .def("tirx_ir_guide_examples.cpp.dispatching", Dispatching)
       .def("tirx_ir_guide_examples.cpp.tensors_written", TensorsWritten)
       .def("tirx_ir_guide_examples.cpp.trace_statements", TraceStatements)
       .def("tirx_ir_guide_examples.cpp.find_write", FindWrite)
