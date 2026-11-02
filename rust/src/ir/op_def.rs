@@ -423,10 +423,10 @@ fn call_hook<N, R: Into<Any>>(node: *const N, hook: impl Fn(&N) -> Result<R>) ->
 /// order, [`var_args`](sig::var_args) and [`var_ty_args`](sig::var_ty_args) a variadic tail of
 /// each, and [`call_attrs`](sig::call_attrs) the type of `Call.attrs`. As an argument type, a node
 /// type, such as [`StringImm`](super::StringImm) or [`Var`], accepts an instance of it, as C++
-/// `TypeTraits<T>::CheckAnyStrict` does, and [`Expr`] or [`Type`] accepts any.
-/// [`PrimExpr`](sig::PrimExpr), [`IntExpr`](sig::IntExpr) and [`PrimVar`](sig::PrimVar) are the
-/// C++ view types, which also check the expression's type, as is
-/// [`TensorVar`](crate::tirx::TensorVar). Implement [`ArgType`](sig::ArgType) for another check.
+/// `TypeTraits<T>::CheckAnyStrict` does, and [`Expr`] or [`Type`] accepts any. The typed views
+/// [`PrimExpr`](super::PrimExpr) and [`IntExpr`](super::IntExpr) also check the expression's type;
+/// [`PrimVar`](sig::PrimVar) and [`TensorVar`](crate::tirx::TensorVar) check a variable's type, as
+/// the C++ view types of those names do. Implement [`ArgType`](sig::ArgType) for another check.
 pub mod sig {
     use super::*;
     use crate::ir::expr::ExprObj;
@@ -455,43 +455,14 @@ pub mod sig {
         fn type_str() -> std::string::String {
             T::type_str()
         }
-    }
-
-    /// C++ `PrimExpr`: an expression whose type is a `PrimType`.
-    pub struct PrimExpr;
-
-    impl ArgType for PrimExpr {
-        fn check(value: &TVMFFIAny) -> bool {
-            prim_dtype(value).is_some()
-        }
-
-        fn type_str() -> std::string::String {
-            "ir.PrimExpr".into()
-        }
 
         fn mismatch(value: &TVMFFIAny) -> std::string::String {
-            typed_expr_mismatch(value)
+            T::get_mismatch_type_info(value)
         }
     }
 
-    /// C++ `IntExpr`: a `PrimExpr` of a scalar signed or unsigned integer type.
-    pub struct IntExpr;
-
-    impl ArgType for IntExpr {
-        fn check(value: &TVMFFIAny) -> bool {
-            prim_dtype(value).is_some_and(|dtype| {
-                dtype.lanes == 1 && matches!(dtype.code, support::INT | support::UINT)
-            })
-        }
-
-        fn type_str() -> std::string::String {
-            "ir.IntExpr".into()
-        }
-
-        fn mismatch(value: &TVMFFIAny) -> std::string::String {
-            typed_expr_mismatch(value)
-        }
-    }
+    /// The typed views, which are argument types as they are.
+    pub use crate::ir::expr::{IntExpr, PrimExpr};
 
     /// C++ `PrimVar`: a `Var`, not a subclass, whose type is a `PrimType`.
     pub struct PrimVar;
@@ -520,20 +491,6 @@ pub mod sig {
             (is_object && Expr::check_any_strict(value))
                 .then(|| &*(value.data_union.v_obj as *const ExprObj))
         }
-    }
-
-    fn prim_dtype(value: &TVMFFIAny) -> Option<tvm_ffi::DLDataType> {
-        Some(expr(value)?.ty.downcast_ref::<PrimTypeObj>()?.dtype)
-    }
-
-    /// C++ `TypeTraits<TypedExpr<T>>::GetMismatchTypeInfo`: an expression with its type.
-    fn typed_expr_mismatch(value: &TVMFFIAny) -> std::string::String {
-        let Some(expr) = expr(value) else { return support::type_key(value.type_index) };
-        let ty = match expr.ty.downcast_ref::<PrimTypeObj>() {
-            Some(prim) => support::dtype_name(prim.dtype),
-            None => support::type_key(AnyView::from(&expr.ty).type_index()),
-        };
-        format!("{}[ty={ty}]", support::type_key(value.type_index))
     }
 
     /// A required value argument of type `T` (C++ `sig::arg<T>`); [`Expr`] accepts any.
