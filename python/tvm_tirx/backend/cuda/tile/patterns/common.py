@@ -63,7 +63,6 @@ class Context:
         # Keep it separate from the bounded verifier so address construction
         # does not depend on its evolving group/repeat/descriptor premises.
         self.layout_analyzer = Analyzer()
-        self.layout_analyzer.set_z3_default_fallback(False)
         self.constraints = ConstraintContext()
         self.static_ranges = {}
         for var, extent in sctx.launch_params.values():

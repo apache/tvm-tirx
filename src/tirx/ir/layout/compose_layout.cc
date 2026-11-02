@@ -201,16 +201,20 @@ ffi::Map<ffi::String, PrimExpr> ApplyStructured(const ComposeLayoutObj* layout,
       if (!value.has_value() || !add_constant(*value)) return fallback();
       continue;
     }
+    PrimExpr simplified_extent = analyzer->Simplify(iter->extent);
+    const auto* extent_imm = simplified_extent.as<IntImmObj>();
+    auto extent = extent_imm ? extent_imm->value.as<int64_t>() : std::nullopt;
+    int64_t term_max = 0;
+    bool has_bound =
+        extent.has_value() && *extent > 0 && MulWithoutOverflow(*extent - 1, *stride, &term_max);
+    // Classify terms contained in one atom before attempting symbolic division.
+    // Their layout bounds already suffice for the existing carry check.
+    if (has_bound && term_max < atom && add_low(term, term_max)) continue;
     if (auto quotient = DivideExactTerm(term, atom, analyzer); quotient.has_value()) {
       add_high(term, quotient.value());
       continue;
     }
-    PrimExpr simplified_extent = analyzer->Simplify(iter->extent);
-    const auto* extent_imm = simplified_extent.as<IntImmObj>();
-    auto extent = extent_imm ? extent_imm->value.as<int64_t>() : std::nullopt;
-    if (!extent.has_value() || *extent <= 0) return fallback();
-    int64_t term_max;
-    if (!MulWithoutOverflow(*extent - 1, *stride, &term_max)) return fallback();
+    if (!has_bound) return fallback();
 
     // A single structured coordinate may span multiple atoms even when its
     // stride is smaller than one atom.  If the stride divides the atom, split

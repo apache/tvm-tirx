@@ -162,7 +162,7 @@ def test_layout_analysis_is_separate_from_verification():
     a, b = Var("a", "int32"), Var("b", "int32")
     predicate = a * a + b * b >= 2 * a * b
     assert ctx.analyzer.can_prove(predicate) == ctx.analyzer.is_z3_enabled
-    assert not ctx.layout_analyzer.can_prove(predicate)
+    assert ctx.layout_analyzer.can_prove(predicate) == ctx.layout_analyzer.is_z3_enabled
 
 
 def test_contract_rejections():
