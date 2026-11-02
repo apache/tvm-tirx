@@ -36,20 +36,24 @@ def add_one(A: T.Tensor((n,), T.float32), B: T.Tensor((n,), T.float32)):
         B[i] = A[i] + 1
 
 
-summary = tirx_ir_guide_examples.rust.inspect(add_one)
-print(summary)
-assert summary.splitlines() == [
-    "param A",
-    "param B",
-    "loop over i up to n",
-    "  store to B: A[i] + T.float32(1.0)",
+# The object system examples build their own IR and take no arguments.
+print(tirx_ir_guide_examples.rust.construct())
+assert tirx_ir_guide_examples.rust.construct() == "x * 2 + 1"
+
+print("\n".join(tirx_ir_guide_examples.rust.objects()))
+print("\n".join(tirx_ir_guide_examples.rust.casts()))
+print("\n".join(tirx_ir_guide_examples.rust.matching()))
+assert list(tirx_ir_guide_examples.rust.objects()) == ["a = x * 2", "b = 1", "same object: true"]
+assert list(tirx_ir_guide_examples.rust.casts()) == [
+    "back to Add: x * 2 + 1",
+    "as Mul: Cannot convert from type `prim.Add` to `prim.Mul`",
 ]
+assert list(tirx_ir_guide_examples.rust.matching()) == ["((x * 2) + 1)", "<other>"]
 
-doubled = tirx_ir_guide_examples.rust.double_store(add_one)
-print(doubled.script())
-assert isinstance(doubled, ir.TensorStore)
-assert not doubled.same_as(add_one.body.seq[0].body.seq[0])  # add_one is unchanged
+print(tirx_ir_guide_examples.rust.count())
+assert tirx_ir_guide_examples.rust.count() == "variables: 1, additions: 1"
 
+# The remaining examples take add_one.
 print(list(tirx_ir_guide_examples.rust.written_tensors(add_one)))
 assert list(tirx_ir_guide_examples.rust.written_tensors(add_one)) == ["B"]
 
@@ -79,11 +83,6 @@ assert list(tirx_ir_guide_examples.rust.definitions(add_one)) == [
 
 print(list(tirx_ir_guide_examples.rust.compare_specialized(add_one, n)))
 assert list(tirx_ir_guide_examples.rust.compare_specialized(add_one, n)) == [False, True]
-
-print(list(tirx_ir_guide_examples.rust.trace_statements(add_one, True)))
-print(list(tirx_ir_guide_examples.rust.trace_statements(add_one, False)))
-assert list(tirx_ir_guide_examples.rust.trace_statements(add_one, True)) == ["loop i", "write B"]
-assert list(tirx_ir_guide_examples.rust.trace_statements(add_one, False)) == ["write B", "loop i"]
 
 print(list(tirx_ir_guide_examples.rust.loops_around_writes(add_one)))
 assert list(tirx_ir_guide_examples.rust.loops_around_writes(add_one)) == ["B inside [i]"]
