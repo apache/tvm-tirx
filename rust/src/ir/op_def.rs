@@ -19,8 +19,7 @@
 
 //! Registering operators from Rust: C++ `OpDef`, with its signature descriptors ([`sig`]) and
 //! attribute keys ([`op_attr`]), whose chains a [`tvm_ffi::static_init_block!`] runs to define
-//! operators, as C++ defines them in a `TVM_FFI_STATIC_INIT_BLOCK`; and the handles that keep
-//! operators in `static`s.
+//! operators, as C++ defines them in a `TVM_FFI_STATIC_INIT_BLOCK`.
 //!
 //! Every hook an operator gets here is native, as the C++ ones are: a Rust function compiled into
 //! the C ABI adapter that C++ `NativeFunctionView` calls through a function pointer, without
@@ -34,17 +33,12 @@
 //! links its own copy of a crate they share, runs once.
 
 use std::any::TypeId;
-use std::cell::RefCell;
 use std::ffi::c_void;
 use std::marker::PhantomData;
 use std::panic::{catch_unwind, AssertUnwindSafe};
-use std::sync::atomic::{AtomicPtr, AtomicUsize, Ordering};
-use std::sync::OnceLock;
 
-use tvm_ffi::tvm_ffi_sys::{TVMFFIAny, TVMFFIObject, TVMFFITypeIndex};
-use tvm_ffi::{
-    Any, AnyView, Array, Error, ObjectArc, ObjectRefCore, Result, String, TYPE_ERROR, VALUE_ERROR,
-};
+use tvm_ffi::tvm_ffi_sys::{TVMFFIAny, TVMFFITypeIndex};
+use tvm_ffi::{Any, AnyView, Array, Error, ObjectRefCore, Result, String, TYPE_ERROR, VALUE_ERROR};
 
 use super::attrs::Attrs;
 use super::expr::{CallObj, Expr, Var};
@@ -342,121 +336,6 @@ impl CallEffectKind {
 impl From<CallEffectKind> for Any {
     fn from(kind: CallEffectKind) -> Self {
         Any::from(kind as i64)
-    }
-}
-
-/// A handle to an operator, kept in a `static` as C++ keeps one in `const Op& xxx_op()`. The
-/// operator is looked up by name once per thread; [`OpHandle::get`] returns it and
-/// [`OpHandle::is`] compares with it. The [`tvm_ffi::static_init_block!`]s that define operators
-/// run when their program or library loads; where the loader does not run them, the first lookup
-/// of an operator that is not registered runs them, with [`tvm_ffi::run_static_init_blocks`].
-///
-/// ```no_run
-/// use tvm_tirx::ir::sig::{self, IntExpr};
-/// use tvm_tirx::ir::{Call, CallObj, Expr, OpDef, OpHandle, PrimType, Type, Var, UNKNOWN_LOC};
-/// use tvm_tirx::tvm_ffi::{self, Result};
-///
-/// fn first_arg_type(call: &CallObj) -> Result<Type> {
-///     Ok(call.args.get(0)?.ty.clone())
-/// }
-///
-/// tvm_ffi::static_init_block! {
-///     OpDef::new("my_ext.clamp", "Clamp an index to a bound.")
-///         .signature((sig::arg::<IntExpr>("index", ""), sig::arg::<IntExpr>("bound", "")))
-///         .set_infer_type(first_arg_type);
-/// }
-///
-/// static CLAMP: OpHandle = OpHandle::new("my_ext.clamp");
-/// static LAUNCH_THREAD: OpHandle = OpHandle::new("tirx.launch_thread");
-///
-/// let index = Var::new("i", PrimType::int(32), UNKNOWN_LOC);
-/// let bound = Var::new("n", PrimType::int(32), UNKNOWN_LOC);
-/// let args = [Expr::from(&index), Expr::from(&bound)];
-/// let clamped = Call::new(None, CLAMP.get()?, args, None, Vec::<Type>::new(), UNKNOWN_LOC)?;
-/// assert!(CLAMP.is(&clamped.op) && !LAUNCH_THREAD.is(&clamped.op));
-/// # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
-/// ```
-pub struct OpHandle {
-    name: &'static str,
-    /// This handle's slot in each thread's cache of fetched operators.
-    slot: OnceLock<usize>,
-    /// The operator once fetched, for identity tests: operators are registry singletons that
-    /// live for the process, and `is` is the hot path of every pass that looks at `Call::op`.
-    object: AtomicPtr<TVMFFIObject>,
-}
-
-/// The number of slots handed out to handles.
-static SLOTS: AtomicUsize = AtomicUsize::new(0);
-
-thread_local! {
-    /// The operators this thread fetched, by handle slot.
-    static FETCHED: RefCell<Vec<Option<Op>>> = const { RefCell::new(Vec::new()) };
-}
-
-impl OpHandle {
-    /// The operator `name`, registered in C++, in Python or by a Rust [`OpDef`].
-    pub const fn new(name: &'static str) -> Self {
-        Self { name, slot: OnceLock::new(), object: AtomicPtr::new(std::ptr::null_mut()) }
-    }
-
-    pub fn name(&self) -> &'static str {
-        self.name
-    }
-
-    /// The operator. One that is not registered runs the blocks first; if it is still missing, the
-    /// error says so, followed by the failures of the blocks, if any.
-    pub fn get(&self) -> Result<Op> {
-        self.with(Op::clone)
-    }
-
-    /// Whether `value`, such as a Call's `op`, is this operator (C++ `value.same_as(op)`). No
-    /// value is an operator that cannot be fetched, such as one this build does not register.
-    pub fn is(&self, value: &impl ObjectRefCore) -> bool {
-        let cached = self.object.load(Ordering::Acquire);
-        if !cached.is_null() {
-            // SAFETY: the pointer is only compared, never dereferenced.
-            let pointer = unsafe { ObjectArc::as_raw(ObjectRefCore::data(value)) };
-            return pointer.cast::<TVMFFIObject>().cast_mut() == cached;
-        }
-        self.with(|op| {
-            // Keep one reference so the pointer stays valid for the process (a second thread
-            // racing here leaks one more, which is harmless for a registry singleton).
-            // SAFETY: the raw pointer is never turned back into an `ObjectArc`.
-            let pointer = unsafe { ObjectArc::into_raw(Op::into_data(op.clone())) };
-            self.object.store(pointer.cast::<TVMFFIObject>().cast_mut(), Ordering::Release);
-            value.same_as(op)
-        })
-        .unwrap_or(false)
-    }
-
-    /// `use_op` applied to the operator, fetched into this thread's slot the first time.
-    fn with<R>(&self, use_op: impl FnOnce(&Op) -> R) -> Result<R> {
-        let slot = *self.slot.get_or_init(|| SLOTS.fetch_add(1, Ordering::Relaxed));
-        let cached = FETCHED.with(|fetched| fetched.borrow().get(slot).cloned().flatten());
-        let op = match cached {
-            Some(op) => op,
-            None => {
-                let op = Op::get(self.name).or_else(|missing| {
-                    let registered = tvm_ffi::run_static_init_blocks();
-                    Op::get(self.name).map_err(|_| match registered {
-                        Ok(()) => missing,
-                        Err(failed) => {
-                            let message = format!("{}\n{}", missing.message(), failed.message());
-                            Error::new(missing.kind(), &message, "")
-                        }
-                    })
-                })?;
-                FETCHED.with(|fetched| {
-                    let mut fetched = fetched.borrow_mut();
-                    if fetched.len() <= slot {
-                        fetched.resize(slot + 1, None);
-                    }
-                    fetched[slot] = Some(op.clone());
-                });
-                op
-            }
-        };
-        Ok(use_op(&op))
     }
 }
 

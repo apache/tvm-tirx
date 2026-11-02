@@ -18,8 +18,7 @@
  */
 
 //! Tests of `ir::op_def`: operators registered from Rust, by an `OpDef` or in static init blocks,
-//! which run when the test binary loads or at the first lookup through an `OpHandle`, are used by
-//! the native registry, `Call` constructor and validation, and their type inference, validators
+//! which run when the test binary loads, are used by the native registry, `Call` constructor and validation, and their type inference, validators
 //! and region contracts are native hooks; and types registered with them.
 //!
 //! The registry does not synchronize registration, so the tests take `serial()`; the tests
@@ -32,8 +31,8 @@ use tvm_tirx::ir::op_attr::{CALL_EFFECT_KIND, FIXED_RETURN_TYPE};
 use tvm_tirx::ir::sig::{self, IntExpr, PrimExpr, PrimVar};
 use tvm_tirx::ir::{
     register_type, AttrKey, Attrs, Call, CallEffectKind, CallObj, DictAttrs, Evaluate, Expr,
-    FuncType, IntImm, Op, OpDef, OpHandle, PrimType, RegionStmt, RegionStmtObj, StringImm, Type,
-    TypeObj, Var, VarObj, UNKNOWN_LOC,
+    FuncType, IntImm, Op, OpDef, PrimType, RegionStmt, RegionStmtObj, StringImm, Type, TypeObj,
+    Var, VarObj, UNKNOWN_LOC,
 };
 use tvm_tirx::tirx::{CallFFIKernelAttr, TensorVar};
 use tvm_tirx::tvm_ffi::static_init::{StaticInitBlock, STATIC_INIT_BLOCKS};
@@ -487,12 +486,6 @@ fn is_block_registered(block: &StaticInitBlock) -> bool {
     Function::get_global(&block.marker()).is_ok()
 }
 
-static IDENTITY: OpHandle = OpHandle::new("rust_test.defined_identity");
-static LAUNCH: OpHandle = OpHandle::new("rust_test.launch");
-static PANICKING: OpHandle = OpHandle::new("rust_test.panicking_region");
-static LAUNCH_THREAD: OpHandle = OpHandle::new("tirx.launch_thread");
-static UNREGISTERED: OpHandle = OpHandle::new("rust_test.unregistered");
-
 fn launch_body_params(call: &CallObj) -> Result<Array<Var>> {
     let tag = call.args.get(0)?.try_cast::<StringImm>()?;
     let extent_ty: PrimType = call.args.get(1)?.ty.clone().try_cast()?;
@@ -593,7 +586,6 @@ fn static_init_blocks_define_operators_and_types() {
     // The blocks ran when the test binary loaded; a block that fails does not keep the others from
     // registering theirs.
     let identity = Op::get("rust_test.defined_identity").unwrap();
-    assert!(identity.same_as(&IDENTITY.get().unwrap()));
     assert_eq!(identity.doc.as_str(), "Return the value.\n\nThe documentation is dedented.");
     assert_eq!(identity.args_info.get(0).unwrap().name.as_str(), "value");
     let effect = Op::attr_map::<i64>("TCallEffectKind").unwrap().unwrap();
@@ -652,29 +644,26 @@ fn static_init_blocks_define_operators_and_types() {
     assert_eq!(failing.len(), 2);
     assert!(!failing.into_iter().any(is_block_registered));
 
-    // The handle keeps the operator: the Rust `FInferType` types a Call of it, and another thread
-    // sees the same operator.
-    assert!(IDENTITY.get().unwrap().same_as(&identity));
+    // The Rust `FInferType` types a Call of the operator. The registry keeps one object per name,
+    // for every lookup and thread, so `same_as` tests which operator a Call is to.
     let x = var("x", "int32");
     let call = call(&identity, vec![Expr::from(&x)]).unwrap();
     assert!(call.ty.same_as(&x.ty), "the Rust FInferType types the Call");
-    assert!(IDENTITY.is(&call.op));
-    assert!(!LAUNCH_THREAD.is(&call.op));
-    let name = std::thread::spawn(|| IDENTITY.get().unwrap().name.as_str().to_string());
+    assert!(call.op.same_as(&Op::get("rust_test.defined_identity").unwrap()));
+    let native = Op::get("tirx.launch_thread").unwrap();
+    assert!(!call.op.same_as(&native));
+    let name = std::thread::spawn(|| {
+        Op::get("rust_test.defined_identity").unwrap().name.as_str().to_string()
+    });
     assert_eq!(name.join().unwrap(), "rust_test.defined_identity");
-
-    // A handle to an operator C++ registers looks it up; one to an operator nothing registers
-    // fails, with the failures of the blocks.
-    assert!(LAUNCH_THREAD.get().unwrap().same_as(&Op::get("tirx.launch_thread").unwrap()));
     assert_error(
-        UNREGISTERED.get(),
+        Op::get("rust_test.unregistered"),
         ATTRIBUTE_ERROR,
-        "Operator rust_test.unregistered is not registered\n2 static init blocks failed:",
+        "Operator rust_test.unregistered is not registered",
     );
-    assert!(!UNREGISTERED.is(&call.op));
 
     // The region hooks are native function pointers.
-    let launch = LAUNCH.get().unwrap();
+    let launch = Op::get("rust_test.launch").unwrap();
     for key in ["FRegionGetBodyParams", "FRegionValidate"] {
         let hooks = Op::attr_map::<*mut c_void>(key).unwrap().unwrap();
         assert!(hooks.get(&launch).unwrap().is_some(), "{key}");
@@ -682,7 +671,6 @@ fn static_init_blocks_define_operators_and_types() {
 
     // The `RegionStmt` constructor checks a region of the Rust operator as it checks one of
     // `tirx.launch_thread`: the same outcome, and the same error but for the operator's name.
-    let native = LAUNCH_THREAD.get().unwrap();
     let extent: Expr = int32(8);
     let wide: Expr = IntImm::from_dtype(parse_dtype("int64"), 8, UNKNOWN_LOC).unwrap().into();
     let flag: Expr = IntImm::bool(true).into();
@@ -712,7 +700,7 @@ fn static_init_blocks_define_operators_and_types() {
     }
 
     // A panic in a hook becomes an error instead of unwinding into C++.
-    let panicking = PANICKING.get().unwrap();
+    let panicking = Op::get("rust_test.panicking_region").unwrap();
     let body = Evaluate::new(0, UNKNOWN_LOC);
     let empty = DictAttrs::new(Map::new());
     let built = RegionStmt::new(
