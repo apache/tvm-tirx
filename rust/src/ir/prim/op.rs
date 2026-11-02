@@ -242,7 +242,7 @@ fn call(ty: Option<&Type>, op: &'static str, args: Vec<Expr>, loc: Location) -> 
 
 /// Whether `expr` is a call of `prim.vscale`.
 fn is_vscale_call(expr: &Expr) -> Result<bool> {
-    let Some(call) = expr.as_node::<CallObj>() else { return Ok(false) };
+    let Some(call) = expr.downcast_ref::<CallObj>() else { return Ok(false) };
     Ok(call.op.same_as(&support::cached_op("prim.vscale")?))
 }
 
@@ -573,7 +573,7 @@ fn fold_cast(value: &Expr, to: DLDataType) -> Result<Option<Expr>> {
     let float = |value: f64, loc: &Location| -> Result<Option<Expr>> {
         Ok(Some(FloatImm::from_dtype(to, value, loc.clone())?.into()))
     };
-    if let Some(imm) = value.as_node::<IntImmObj>() {
+    if let Some(imm) = value.downcast_ref::<IntImmObj>() {
         if integer {
             if const_fold::is_representable(&imm.value, to) {
                 return int(imm.value.clone(), &imm.loc);
@@ -594,7 +594,7 @@ fn fold_cast(value: &Expr, to: DLDataType) -> Result<Option<Expr>> {
                 return float(source, &imm.loc);
             }
         }
-    } else if let Some(imm) = value.as_node::<FloatImmObj>() {
+    } else if let Some(imm) = value.downcast_ref::<FloatImmObj>() {
         let from = support::prim_dtype(value)?;
         if imm.value.is_finite() && from.bits == 16 {
             let bfloat = match from.code {
@@ -690,11 +690,11 @@ pub fn cast_at(
     if !lanes_match {
         return Err(support::check_failed(INTERNAL_ERROR, "lanes_match", ""));
     }
-    if let Some(broadcast) = value.as_node::<BroadcastObj>() {
+    if let Some(broadcast) = value.downcast_ref::<BroadcastObj>() {
         let value = cast_at(broadcast.value.clone(), element, loc.clone())?;
         return Ok(Broadcast::new(value, broadcast.lanes.clone(), loc)?.into());
     }
-    if let Some(ramp) = value.as_node::<RampObj>() {
+    if let Some(ramp) = value.downcast_ref::<RampObj>() {
         // Casting the base and the stride is valid only when every lane is the same integer in
         // both types: widening must not remove an overflow of the source, and a floating-point
         // cast need not be affine.
@@ -937,13 +937,13 @@ pub fn eq_at(a: impl Operand, b: impl Operand, loc: impl Into<Location>) -> Resu
 pub fn neg_at(a: impl IntoExpr, loc: impl Into<Location>) -> Result<Expr> {
     let (a, loc) = (a.into_expr()?, loc.into());
     let dtype = support::prim_dtype(&a)?;
-    if let Some(imm) = a.as_node::<IntImmObj>() {
+    if let Some(imm) = a.downcast_ref::<IntImmObj>() {
         let value = -imm.value.clone();
         if const_fold::is_representable(&value, dtype) {
             return Ok(IntImm::from_dtype(dtype, value, loc)?.into());
         }
     }
-    if let Some(imm) = a.as_node::<FloatImmObj>() {
+    if let Some(imm) = a.downcast_ref::<FloatImmObj>() {
         return Ok(FloatImm::from_dtype(dtype, -imm.value, loc)?.into());
     }
     sub(make_const_at(PrimType::from_dtype(dtype)?, 0, loc)?, a)
@@ -1163,7 +1163,7 @@ pub fn if_then_else_at(
         return Err(support::check_failed(INTERNAL_ERROR, condition, message));
     }
     let (true_value, false_value) = match_types_at(true_value, false_value, loc.clone())?;
-    if let Some(imm) = cond.as_node::<IntImmObj>() {
+    if let Some(imm) = cond.downcast_ref::<IntImmObj>() {
         return Ok(if imm.value.is_zero() { false_value } else { true_value });
     }
     let ty = true_value.ty.clone();
@@ -1311,7 +1311,7 @@ fn rounding(x: Expr, op: &'static str, fold: fn(f64) -> f64, loc: Location) -> R
     if matches!(dtype.code, support::INT | support::UINT | support::BOOL) {
         return Ok(x);
     }
-    if let Some(imm) = x.as_node::<FloatImmObj>() {
+    if let Some(imm) = x.downcast_ref::<FloatImmObj>() {
         return Ok(FloatImm::from_dtype(dtype, fold(imm.value), imm.loc.clone())?.into());
     }
     let ty = x.ty.clone();
@@ -1379,7 +1379,7 @@ fn absolute(x: Expr, loc: Location) -> Result<Expr> {
     let dtype = support::prim_dtype(&x)?;
     match dtype.code {
         support::INT => integer_abs(x, loc),
-        support::FLOAT | support::BFLOAT => match x.as_node::<FloatImmObj>() {
+        support::FLOAT | support::BFLOAT => match x.downcast_ref::<FloatImmObj>() {
             Some(imm) => Ok(FloatImm::from_dtype(dtype, imm.value.abs(), imm.loc.clone())?.into()),
             None => {
                 let ty = x.ty.clone();
@@ -1401,7 +1401,7 @@ fn absolute(x: Expr, loc: Location) -> Result<Expr> {
 /// value of its type; anything else is `select(x >= 0, x, -x)`.
 fn integer_abs(x: Expr, loc: Location) -> Result<Expr> {
     let dtype = support::prim_dtype(&x)?;
-    if let Some(imm) = x.as_node::<IntImmObj>() {
+    if let Some(imm) = x.downcast_ref::<IntImmObj>() {
         let value = match imm.value.is_negative() {
             true => -imm.value.clone(),
             false => imm.value.clone(),
@@ -1444,7 +1444,7 @@ fn finite(x: Expr, loc: Location) -> Result<Expr> {
 }
 
 fn likely_hint(cond: Expr, loc: Location) -> Result<Expr> {
-    if cond.as_node::<IntImmObj>().is_some() {
+    if cond.downcast_ref::<IntImmObj>().is_some() {
         return Ok(cond);
     }
     let ty = cond.ty.clone();

@@ -125,7 +125,7 @@ fn fast_erf_follows_the_native_lowering() {
         let x = var("x", ty.clone());
         let rust = fast_erf_float_expr(&x, bits).unwrap();
         assert!(structural_equal(&rust.ty, &ty));
-        assert!(rust.as_node::<tvm_tirx::ir::prim::DivObj>().is_some(), "p / q");
+        assert!(rust.downcast_ref::<tvm_tirx::ir::prim::DivObj>().is_some(), "p / q");
         if let Some(rule) = &rule {
             let ty: Type = ty.into();
             let call: Expr = Call::new(

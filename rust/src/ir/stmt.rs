@@ -470,7 +470,7 @@ impl For {
             if ty.dtype == var_ty.dtype {
                 return Ok(expr);
             }
-            if let Some(imm) = expr.as_node::<IntImmObj>() {
+            if let Some(imm) = expr.downcast_ref::<IntImmObj>() {
                 if !int_imm_value_fits(&imm.value, var_ty.dtype)? {
                     let message = format!(
                         "Literal value {} is not representable in the loop variable's dtype ({})",
@@ -865,7 +865,7 @@ fn region_body_params(op: &Op, args: &Array<Expr>, attrs: &DictAttrs) -> Result<
     let params: Array<Var> = get_body_params.call_as(&signature)?;
     let mut definitions = std::collections::HashSet::new();
     for param in params.iter() {
-        if param.ty.as_node::<MissingTypeObj>().is_some() {
+        if param.ty.downcast_ref::<MissingTypeObj>().is_some() {
             let condition = "!param->ty.as<MissingType>().has_value()";
             let message = format!("FRegionGetBodyParams for {name} must return typed variables");
             return Err(support::check_failed(tvm_ffi::VALUE_ERROR, condition, &message));
@@ -951,12 +951,13 @@ impl SeqStmt {
 
 /// `seq` with each nested sequence replaced by its statements and the no-ops removed.
 fn flatten(seq: Array<Stmt>) -> Array<Stmt> {
-    let nested_or_no_op = |stmt: &Stmt| stmt.as_node::<SeqStmtObj>().is_some() || is_no_op(stmt);
+    let nested_or_no_op =
+        |stmt: &Stmt| stmt.downcast_ref::<SeqStmtObj>().is_some() || is_no_op(stmt);
     if !seq.iter().any(|stmt| nested_or_no_op(&stmt)) {
         return seq;
     }
     fn append(stmt: Stmt, flattened: &mut Vec<Stmt>) {
-        match stmt.as_node::<SeqStmtObj>() {
+        match stmt.downcast_ref::<SeqStmtObj>() {
             Some(nested) => nested.seq.iter().for_each(|child| append(child, flattened)),
             None if is_no_op(&stmt) => {}
             None => flattened.push(stmt),
@@ -969,15 +970,15 @@ fn flatten(seq: Array<Stmt>) -> Array<Stmt> {
 
 /// Whether `stmt` is `Evaluate(0)`, the no-op a sequence drops (C++ `IsSeqStmtNoOp`).
 fn is_no_op(stmt: &Stmt) -> bool {
-    stmt.as_node::<EvaluateObj>()
-        .and_then(|evaluate| evaluate.value.as_node::<IntImmObj>())
+    stmt.downcast_ref::<EvaluateObj>()
+        .and_then(|evaluate| evaluate.value.downcast_ref::<IntImmObj>())
         .is_some_and(|imm| imm.value == BigInt::from(0i64))
 }
 
 /// A statement as a body, as C++ converts a `Stmt` to a `SeqStmt`: a sequence as it is, any other
 /// statement as the sequence of it at its location (C++ `SeqStmt(stmt)`).
 fn into_body(stmt: Stmt) -> Result<SeqStmt> {
-    if stmt.as_node::<SeqStmtObj>().is_some() {
+    if stmt.downcast_ref::<SeqStmtObj>().is_some() {
         return Ok(tvm_ffi::ObjectRefCast::try_cast(stmt).expect("a SeqStmt"));
     }
     let loc = stmt.loc.clone();

@@ -24,15 +24,16 @@
 
 use std::collections::HashMap;
 
-use tvm_tirx::ir::prim::{make_const, Add, AddObj, Mul};
+use tvm_tirx::ir::prim::{make_const, Add, AddObj, Mul, MulObj};
 use tvm_tirx::ir::{
-    Expr, For, ForObj, IntImm, PrimType, TensorStore, TensorStoreObj, Var, VarObj, UNKNOWN_LOC,
+    Expr, For, ForObj, IntImmObj, PrimType, TensorStore, TensorStoreObj, Var, VarObj, UNKNOWN_LOC,
 };
 use tvm_tirx::script::script;
 use tvm_tirx::tirx::Function;
 use tvm_tirx::tvm_ffi::{
-    self, dispatch, match_any, Any, Array, DefRegionKind, Mutator, ObjectIdentity, ObjectRefCast,
-    ObjectRefCore, Result, VisitCallbacks, VisitContext, VisitInterrupt, WalkOrder, WalkResult,
+    self, dispatch, match_any, Any, AnyView, Array, DefRegionKind, MutationView, Mutator,
+    ObjectIdentity, ObjectRefCast, ObjectRefCore, Result, VisitCallbacks, VisitContext,
+    VisitInterrupt, WalkOrder, WalkResult,
 };
 
 /// A Python list of strings.
@@ -86,11 +87,11 @@ fn casts() -> Result<Strings> {
 // [describe.begin]
 fn describe(expr: &Expr) -> Result<String> {
     let text = match_any! {
-        expr.clone() {
-            Add(add) => format!("({} + {})", describe(&add.a)?, describe(&add.b)?),
-            Mul(mul) => format!("({} * {})", describe(&mul.a)?, describe(&mul.b)?),
-            Var(var) => var.name.as_str().to_owned(),
-            IntImm(imm) => imm.value.to_string(),
+        AnyView::from(expr) {
+            AddObj(ref add) => format!("({} + {})", describe(&add.a)?, describe(&add.b)?),
+            MulObj(ref mul) => format!("({} * {})", describe(&mul.a)?, describe(&mul.b)?),
+            VarObj(ref var) => var.name.as_str().to_owned(),
+            IntImmObj(ref imm) => imm.value.to_string(),
             _ => "<other>".to_owned(),
         }
     };
@@ -240,10 +241,12 @@ struct ReverseLoops {
 
 #[dispatch(mutate)]
 impl ReverseLoops {
-    fn mutate_for(&mut self, loop_: For, mutator: &mut Mutator) -> Result<Any> {
+    fn mutate_for(&mut self, value: MutationView<'_, For>, mutator: &mut Mutator) -> Result<Any> {
+        let view = value.as_any_view();
+        let loop_ = view.downcast_ref::<ForObj>().unwrap();
         let index = (&loop_.end - 1 - &loop_.var).try_into()?;
         self.reversed_index.insert(ObjectIdentity::of(&loop_.var), index);
-        mutator.default_mutate(self, &loop_)
+        mutator.default_maybe_inplace_mutate(self, value)
     }
 
     fn mutate_var(&mut self, var: Var, mutator: &mut Mutator) -> Expr {

@@ -1961,7 +1961,7 @@ impl Let {
         let (var, value, body) = (var.into(), value.into_expr()?, body.into_expr()?);
         let value_dtype = support::prim_dtype(&value)?;
         support::prim_dtype(&body)?;
-        let Some(var_ty) = var.ty.as_node::<PrimTypeObj>() else {
+        let Some(var_ty) = var.ty.downcast_ref::<PrimTypeObj>() else {
             let message = format!(
                 "Cannot treat type `{}` as type `ir.PrimType`",
                 support::type_key(AnyView::from(&var.ty).type_index())

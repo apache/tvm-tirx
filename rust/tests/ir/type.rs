@@ -30,7 +30,7 @@ use tvm_tirx::ir::{
 use tvm_tirx::tvm_ffi::{self, def_object_ref, rs_class, structural_map};
 use tvm_tirx::tvm_ffi::{
     Any, AnyView, Array, DLDataType, DLDataTypeExt, DefRegionKind, FieldGetter, MapDispatch,
-    ObjectCore, ObjectRefCore, Result, ShallowCopy, String as FfiString, StructuralView, WalkOrder,
+    ObjectCore, ObjectRefCore, Result, ShallowCopy, String as FfiString, WalkOrder,
 };
 
 use super::{scope};
@@ -263,8 +263,8 @@ fn rust_type_cpp_deep_copy_goes_through_the_shallow_copy_and_the_setters() {
 struct IncrementIntegers;
 
 impl MapDispatch for IncrementIntegers {
-    fn dispatch_map(&mut self, value: &StructuralView, _: DefRegionKind) -> Option<Result<Any>> {
-        value.cast::<i64>().map(|integer| Ok(Any::from(integer + 1)))
+    fn dispatch_map(&mut self, value: AnyView<'_>, _: DefRegionKind) -> Option<Result<Any>> {
+        value.try_as::<i64>().map(|integer| Ok(Any::from(integer + 1)))
     }
 }
 
@@ -303,7 +303,7 @@ fn rust_type_converts_through_any_and_the_type_hierarchy() {
     let _serial = serial();
     let value = int_float_pair(1, "");
     let as_type: Type = value.clone().into();
-    assert!(as_type.as_node::<PairTypeObj>().is_some());
+    assert!(as_type.downcast_ref::<PairTypeObj>().is_some());
     let any = Any::from(as_type);
     assert_eq!(any.type_index(), PairTypeObj::type_index());
     let back = PairType::try_from(any).unwrap();
@@ -315,7 +315,7 @@ fn rust_type_of_a_variable_takes_part_in_ir() {
     let _serial = serial();
     // The type of a variable, as `PrimType` or `TupleType` is one.
     let x = Var::new("x", int_float_pair(7, "seven"), UNKNOWN_LOC);
-    assert_eq!(x.ty.as_node::<PairTypeObj>().unwrap().tag, 7);
+    assert_eq!(x.ty.downcast_ref::<PairTypeObj>().unwrap().tag, 7);
     assert!(structural_equal(&x.ty, &int_float_pair(7, "other")));
     assert!(!structural_equal(&x.ty, &int_float_pair(8, "seven")));
 
@@ -323,8 +323,8 @@ fn rust_type_of_a_variable_takes_part_in_ir() {
     let stmt = Evaluate::new(x.clone(), UNKNOWN_LOC);
     let copy = global("ffi.DeepCopy").call_packed(&[AnyView::from(&stmt)]).unwrap();
     let copy = Evaluate::try_from(copy).unwrap();
-    let copied = copy.value.as_node::<VarObj>().unwrap();
-    let ty = copied.ty.as_node::<PairTypeObj>().unwrap();
+    let copied = copy.value.downcast_ref::<VarObj>().unwrap();
+    let ty = copied.ty.downcast_ref::<PairTypeObj>().unwrap();
     assert_eq!((ty.tag, ty.note.as_str()), (7, "seven"));
     assert!(structural_equal(&copied.ty, &x.ty));
 }

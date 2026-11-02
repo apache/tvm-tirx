@@ -23,7 +23,6 @@ with them. A copy of the library is a second library with the same blocks, as li
 the same crate have.
 """
 
-import json
 import os
 import re
 import shutil
@@ -92,12 +91,9 @@ def define_ir_library():
 
 @pytest.fixture(scope="module")
 def extension_package(tmp_path_factory):
-    """The my_ext package of examples/extension, laid out as its wheel installs it, built against
-    rust/ in place of the published tvm-tirx crate."""
-    rust_dir = json.dumps(str(RUST_DIR))  # a TOML string, as `--config` takes
-    debug_dir = cargo_build(
-        EXTENSION_DIR / "Cargo.toml", "--config", f"patch.crates-io.tvm-tirx.path={rust_dir}"
-    )
+    """The my_ext package of examples/extension, built from its declared source dependency and
+    laid out as its wheel installs it."""
+    debug_dir = cargo_build(EXTENSION_DIR / "Cargo.toml")
     root = tmp_path_factory.mktemp("extension")
     package = shutil.copytree(EXTENSION_DIR / "python" / "my_ext", root / "my_ext")
     shutil.copy(debug_dir / library_name("my_ext"), package)

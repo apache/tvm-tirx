@@ -214,7 +214,7 @@ pub(crate) fn shared<T: Clone + 'static>(
 /// The type of a primitive expression. C++ takes such an argument as a `PrimExpr`, whose
 /// conversion accepts only an expression of a `PrimType`.
 pub(crate) fn prim_type(expr: &Expr) -> Result<PrimType> {
-    match expr.ty.as_node::<PrimTypeObj>() {
+    match expr.ty.downcast_ref::<PrimTypeObj>() {
         Some(_) => Ok(tvm_ffi::ObjectRefCast::try_cast(expr.ty.clone()).expect("a PrimType")),
         None => Err(not_a_prim_expr(expr)),
     }
@@ -222,7 +222,7 @@ pub(crate) fn prim_type(expr: &Expr) -> Result<PrimType> {
 
 /// The dtype of a primitive expression ([`prim_type`]).
 pub(crate) fn prim_dtype(expr: &Expr) -> Result<DLDataType> {
-    match expr.ty.as_node::<PrimTypeObj>() {
+    match expr.ty.downcast_ref::<PrimTypeObj>() {
         Some(ty) => Ok(ty.dtype),
         None => Err(not_a_prim_expr(expr)),
     }

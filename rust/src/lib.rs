@@ -205,7 +205,7 @@
 //! fn main() {
 //!     let pair = PairType::new(PrimType::int(32), PrimType::float(32));
 //!     let ty: Type = pair.into(); // an `ir.Type` that C++ sees as `my_ext.PairType`
-//!     assert!(ty.as_node::<PairTypeObj>().is_some());
+//!     assert!(ty.downcast_ref::<PairTypeObj>().is_some());
 //! }
 //! ```
 //!

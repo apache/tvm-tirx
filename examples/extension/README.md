@@ -30,12 +30,16 @@ pipeline. The tutorial in `docs/advanced/` walks through the code.
 
 ## Install and Run
 
-With Rust 1.84 or newer, from the repository root:
+After building and installing TIRx from this checkout, with Rust 1.84 or newer,
+run from the repository root in the same Python environment:
 
 ```bash
-pip install ./examples/extension
+uv pip install scikit-build-core
+uv pip install --no-build-isolation --no-deps ./examples/extension
 python examples/extension/run_example.py
 ```
 
-The build compiles the library against the published `tvm-tirx` crate and the
-`apache-tvm-tirx` package, which the extension also depends on at run time.
+The build uses this checkout's `tvm-tirx` crate and pinned TVM FFI sources.
+Disabling build isolation keeps the native libraries from the same checkout
+available to cargo, instead of installing a released package in a temporary
+build environment.

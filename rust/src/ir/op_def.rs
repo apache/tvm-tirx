@@ -509,7 +509,7 @@ pub mod sig {
     /// Whether `value` is a `Var`, not a subclass, whose type is an `N`.
     pub fn var_of_type<N: ObjectCore>(value: &TVMFFIAny) -> bool {
         value.type_index == crate::ir::expr::VarObj::type_index()
-            && expr(value).is_some_and(|var| var.ty.as_node::<N>().is_some())
+            && expr(value).is_some_and(|var| var.ty.downcast_ref::<N>().is_some())
     }
 
     /// The expression `value` holds, if it holds one.
@@ -523,13 +523,13 @@ pub mod sig {
     }
 
     fn prim_dtype(value: &TVMFFIAny) -> Option<tvm_ffi::DLDataType> {
-        Some(expr(value)?.ty.as_node::<PrimTypeObj>()?.dtype)
+        Some(expr(value)?.ty.downcast_ref::<PrimTypeObj>()?.dtype)
     }
 
     /// C++ `TypeTraits<TypedExpr<T>>::GetMismatchTypeInfo`: an expression with its type.
     fn typed_expr_mismatch(value: &TVMFFIAny) -> std::string::String {
         let Some(expr) = expr(value) else { return support::type_key(value.type_index) };
-        let ty = match expr.ty.as_node::<PrimTypeObj>() {
+        let ty = match expr.ty.downcast_ref::<PrimTypeObj>() {
             Some(prim) => support::dtype_name(prim.dtype),
             None => support::type_key(AnyView::from(&expr.ty).type_index()),
         };
@@ -713,7 +713,7 @@ pub mod sig {
 
         fn check(call: &CallObj, op: &OpObj, _: (usize, usize), _: (usize, usize)) -> Result<()> {
             let actual = match &call.attrs {
-                Some(attrs) if attrs.as_node::<T::ContainerType>().is_some() => return Ok(()),
+                Some(attrs) if attrs.downcast_ref::<T::ContainerType>().is_some() => return Ok(()),
                 Some(attrs) => {
                     format!("`{}`", support::type_key(AnyView::from(attrs).type_index()))
                 }
@@ -841,7 +841,7 @@ pub mod sig {
                 "a signature has at most one variadic tail of each kind and one call_attrs"
             )
         };
-        let Some(op) = call.op.as_node::<OpObj>() else {
+        let Some(op) = call.op.downcast_ref::<OpObj>() else {
             return Err(Error::new(TYPE_ERROR, "Invalid Op Call", ""));
         };
         let count = |label: &str, expected: usize, tail: bool, unit: &str, got: usize| {

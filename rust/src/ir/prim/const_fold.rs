@@ -80,12 +80,12 @@ pub(super) fn is_in_float32_range(value: f64) -> bool {
 
 /// The value of an integer constant.
 pub(super) fn int(expr: &Expr) -> Option<&BigInt> {
-    expr.as_node::<IntImmObj>().map(|imm| &imm.value)
+    expr.downcast_ref::<IntImmObj>().map(|imm| &imm.value)
 }
 
 /// The value of a float constant.
 fn float(expr: &Expr) -> Option<f64> {
-    expr.as_node::<FloatImmObj>().map(|imm| imm.value)
+    expr.downcast_ref::<FloatImmObj>().map(|imm| imm.value)
 }
 
 /// C++ `IntImm(dtype, value)`.

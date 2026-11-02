@@ -463,7 +463,7 @@ impl Tuple {
     ) -> Self {
         let fields = fields.into_iter().map(Into::into).collect::<Array<Expr>>();
         let ty: Type =
-            match fields.iter().any(|field| field.ty.as_node::<MissingTypeObj>().is_some()) {
+            match fields.iter().any(|field| field.ty.downcast_ref::<MissingTypeObj>().is_some()) {
                 true => MissingType::new().into(),
                 false => {
                     let field_types = fields.iter().map(|field| field.ty.clone());
@@ -556,7 +556,7 @@ impl TupleGetItem {
                 &message,
             ));
         }
-        let ty: Type = match tuple_value.ty.as_node::<TupleTypeObj>() {
+        let ty: Type = match tuple_value.ty.downcast_ref::<TupleTypeObj>() {
             Some(tuple_type) => {
                 let size = tuple_type.fields.len();
                 if index as usize >= size {
@@ -1213,7 +1213,7 @@ impl GenericConst {
     ) -> Result<Self> {
         use TVMFFITypeIndex::*;
         let (ty, value) = (ty.into(), value.into());
-        if ty.as_node::<MissingTypeObj>().is_some() {
+        if ty.downcast_ref::<MissingTypeObj>().is_some() {
             let condition = "!ty.as<MissingType>().has_value()";
             let message = "GenericConst requires an expression type";
             return Err(support::check_failed(tvm_ffi::TYPE_ERROR, condition, message));
@@ -1477,7 +1477,7 @@ impl Call {
     /// Check the call against the contract its operator registered: the operator's validator, if
     /// it has one (C++ `Call::Validate`).
     pub fn validate(&self) -> Result<()> {
-        let Some(op) = self.op.as_node::<OpObj>() else { return Ok(()) };
+        let Some(op) = self.op.downcast_ref::<OpObj>() else { return Ok(()) };
         if op.validator().type_index() == TVMFFITypeIndex::kTVMFFINone as i32 {
             return Ok(());
         }
@@ -1488,8 +1488,8 @@ impl Call {
     /// `TFixedReturnType`, else what its `FInferType` infers; the return type of a callee of a
     /// function type; otherwise a missing type (C++ `Call::ReinferType`).
     pub fn reinfer_type(&self) -> Result<Type> {
-        let Some(op) = self.op.as_node::<OpObj>() else {
-            return match self.op.ty.as_node::<FuncTypeObj>() {
+        let Some(op) = self.op.downcast_ref::<OpObj>() else {
+            return match self.op.ty.downcast_ref::<FuncTypeObj>() {
                 Some(func_type) => Ok(func_type.ret_type.clone()),
                 None => Ok(MissingType::new().into()),
             };
@@ -1809,7 +1809,7 @@ impl Range {
         let (begin, end) = (begin.into_expr()?, end.into_expr()?);
         support::prim_dtype(&begin)?;
         support::prim_dtype(&end)?;
-        if let Some(add) = end.as_node::<AddObj>() {
+        if let Some(add) = end.downcast_ref::<AddObj>() {
             if crate::ir::prim::expr_deep_equal(add.a.clone(), begin.clone())? {
                 return Ok(add.b.clone());
             }
@@ -1818,7 +1818,7 @@ impl Range {
             }
         }
         let is_zero =
-            begin.as_node::<IntImmObj>().is_some_and(|imm| imm.value == BigInt::from(0i64));
+            begin.downcast_ref::<IntImmObj>().is_some_and(|imm| imm.value == BigInt::from(0i64));
         match is_zero {
             true => Ok(end),
             false => crate::ir::prim::op::sub(end, begin),
