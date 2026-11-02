@@ -230,10 +230,11 @@ def prepare(node_type) {
           ).trim()
         }
         if (env.DETERMINE_DOCKER_IMAGES == 'yes') {
-          // Quay images have explicit published names. Older target-trusted
-          // helpers only understand Hub/ECR; keep using those helpers for EXTRA.
+          // Quay and digest-pinned images have explicit published names. The
+          // target-trusted helper only understands Hub/ECR name:tag specs;
+          // keep using it for tag-pinned images such as EXTRA.
           def images_to_check = images.findAll { name, image ->
-            !image.startsWith('quay.io/')
+            !image.startsWith('quay.io/') && !image.contains('@')
           }.keySet().toList()
           if (images_to_check) {
             sh(
