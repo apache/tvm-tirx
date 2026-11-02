@@ -58,6 +58,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       sha: ${{ steps.source.outputs.sha }}
+      tvm_ffi_version: ${{ steps.ffi.outputs.version }}
     steps:
       - name: Checkout source
         uses: actions/checkout@v6.0.2
@@ -77,44 +78,78 @@ jobs:
         shell: bash
         run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
+      # Resolve the registry version from the source gitlink, not the placeholder in its crate.
+      - id: ffi
+        name: Check the tvm-ffi release
+        shell: bash
+        run: |
+          python - <<'PY'
+          import os
+          import re
+          import subprocess
+
+          submodule = subprocess.check_output(
+              ["git", "rev-parse", "HEAD:3rdparty/tvm-ffi"], text=True
+          ).strip()
+          refs = dict(
+              (ref, sha)
+              for sha, ref in (
+                  line.split()
+                  for line in subprocess.check_output(
+                      ["git", "ls-remote", "https://github.com/apache/tvm-ffi", "refs/tags/v*"],
+                      text=True,
+                  ).splitlines()
+              )
+          )
+          # Prefer the peeled commit for annotated tags; lightweight tags point at it directly.
+          versions = sorted(
+              ref.removeprefix("refs/tags/v")
+              for ref, sha in refs.items()
+              if re.fullmatch(
+                  r"refs/tags/v[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?",
+                  ref,
+              )
+              and refs.get(ref + "^{}", sha) == submodule
+          )
+          if len(versions) != 1:
+              raise SystemExit(
+                  f"3rdparty/tvm-ffi at {submodule} must match exactly one apache/tvm-ffi "
+                  f"release tag; found {versions}"
+              )
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8", newline="\n") as output:
+              output.write(f"version={versions[0]}\n")
+          print(f"TVM FFI {versions[0]} at {submodule}")
+          PY
+
       - name: Prepare matching release metadata
         shell: bash
+        env:
+          TVM_FFI_VERSION: ${{ steps.ffi.outputs.version }}
         run: &prepare_release_metadata |
           uv pip install tomlkit setuptools-scm
           python ci/wheel/prepare_release_metadata.py
           python - <<'PY'
           import os
-          import tomllib
           from pathlib import Path
 
-          main = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))
-          crate = tomllib.loads(Path("rust/Cargo.toml").read_text(encoding="utf-8"))
-          tvm_ffi = crate["dependencies"]["tvm-ffi"]
-          tvm_ffi = tvm_ffi["version"] if isinstance(tvm_ffi, dict) else tvm_ffi
-          # A caret requirement on a tvm-ffi release such as 0.1.15-post2, a SemVer pre-release,
-          # would select an older release such as 0.1.15.
-          if not tvm_ffi.startswith("="):
-              raise SystemExit(f"rust/Cargo.toml must pin tvm-ffi exactly, not to {tvm_ffi!r}")
+          import tomlkit
+
+          main = tomlkit.parse(Path("pyproject.toml").read_text(encoding="utf-8"))
+          crate_path = Path("rust/Cargo.toml")
+          crate = tomlkit.parse(crate_path.read_text(encoding="utf-8"))
+          tvm_ffi = os.environ["TVM_FFI_VERSION"]
+          if not tvm_ffi:
+              raise SystemExit("TVM_FFI_VERSION must come from the verified submodule release tag")
+          # Remove the source path entirely. An exact requirement preserves prerelease releases
+          # such as 0.1.15-post2, which a caret requirement could replace with the older 0.1.15.
+          crate["dependencies"]["tvm-ffi"] = f"={tvm_ffi}"
+          crate_path.write_text(tomlkit.dumps(crate), encoding="utf-8")
           with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8", newline="\n") as env:
               env.write(f"RELEASE_VERSION={main['project']['version']}\n")
               env.write(f"CRATE_VERSION={crate['package']['version']}\n")
-              env.write(f"TVM_FFI_VERSION={tvm_ffi[1:]}\n")
+              env.write(f"TVM_FFI_VERSION={tvm_ffi}\n")
+          print(f"Crate tvm-tirx {crate['package']['version']} with crates.io tvm-ffi {tvm_ffi}")
           PY
-
-      # The crate depends on the crates.io release of the tvm-ffi the wheels are built with.
-      - name: Check the tvm-ffi release
-        shell: bash
-        run: |
-          tag="v${TVM_FFI_VERSION}"
-          submodule=$(git ls-tree HEAD 3rdparty/tvm-ffi | awk '{print $3}')
-          # An annotated tag lists the commit it points to as "<tag>^{}", after the tag itself.
-          release=$(git ls-remote https://github.com/apache/tvm-ffi "refs/tags/${tag}" "refs/tags/${tag}^{}" |
-            sort -k2 | tail -n 1 | cut -f1)
-          if [[ "${submodule}" != "${release}" ]]; then
-            echo "::error::3rdparty/tvm-ffi is at ${submodule}, but the crate depends on tvm-ffi ${TVM_FFI_VERSION}, whose tag ${tag} is at ${release:-no commit}"
-            exit 1
-          fi
-          echo "Crate tvm-tirx ${CRATE_VERSION} for wheel ${RELEASE_VERSION}, with tvm-ffi ${TVM_FFI_VERSION} at ${release}"
 
   build_crate:
     name: ${{ matrix.name }}
@@ -160,6 +195,8 @@ jobs:
 
       - name: Prepare matching release metadata
         shell: bash
+        env:
+          TVM_FFI_VERSION: ${{ needs.check_release.outputs.tvm_ffi_version }}
         run: *prepare_release_metadata
 
       - name: Download TIRx wheel
@@ -201,7 +238,7 @@ jobs:
         working-directory: rust
         run: cargo +stable test --release
 
-      # Packages and verifies the crate; only the release metadata edits above are uncommitted.
+      # Packages and verifies the crate with the release metadata and registry dependency edits.
       - name: Dry-run crate publication
         working-directory: rust
         run: cargo +stable publish --dry-run --registry crates-io --allow-dirty
@@ -241,6 +278,8 @@ jobs:
 
       - name: Prepare matching release metadata
         shell: bash
+        env:
+          TVM_FFI_VERSION: ${{ needs.check_release.outputs.tvm_ffi_version }}
         run: *prepare_release_metadata
 
       - name: Set up Rust

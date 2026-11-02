@@ -22,9 +22,10 @@
 #
 # TVM_TIRX_USE_RUST is ON, OFF or AUTO. AUTO builds the library when it can: with the crate's
 # sources (a source distribution has none), with a cargo at least as new as the crate's
-# rust-version, and with the crate's dependencies, which `cargo fetch` gets from crates.io or finds
-# in cargo's cache. rustup's cargo ($CARGO_HOME/bin or ~/.cargo/bin) is preferred over one on PATH,
-# which may be an older system cargo; set TVM_TIRX_CARGO to choose another.
+# rust-version, with the initialized tvm-ffi submodule, and with registry dependencies available
+# through `cargo fetch` or cargo's cache. rustup's cargo ($CARGO_HOME/bin or ~/.cargo/bin) is
+# preferred over one on PATH, which may be an older system cargo; set TVM_TIRX_CARGO to choose
+# another.
 #
 # A build without the library removes the one an earlier build left, which `import tvm_tirx` would
 # load otherwise.
