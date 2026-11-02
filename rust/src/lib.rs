@@ -110,7 +110,7 @@
 //! ```no_run
 //! use tvm_tirx::ir::op_attr::CALL_EFFECT_KIND;
 //! use tvm_tirx::ir::sig::{self, IntExpr};
-//! use tvm_tirx::ir::{register_type, CallEffectKind, CallObj, OpDef, OpHandle, Type};
+//! use tvm_tirx::ir::{register_type, CallEffectKind, CallObj, Op, OpDef, Type};
 //! use tvm_tirx::tvm_ffi::{self, Result};
 //! # use tvm_tirx::ir::TypeObj;
 //! # use tvm_tirx::tvm_ffi::{def_object_ref, rs_class, ObjectRefCore};
@@ -133,13 +133,15 @@
 //!     register_type::<PairType>()?;
 //! }
 //!
-//! static CLAMP: OpHandle = OpHandle::new("my_ext.clamp");
+//! let clamp = Op::get("my_ext.clamp")?;
+//! # Ok::<(), tvm_ffi::Error>(())
 //! ```
 //!
-//! An [`ir::OpHandle`] in a `static` keeps an operator as C++ keeps one in `const Op& xxx_op()`.
 //! A block runs when its program or library loads, as a C++ one does, wherever in it the block
-//! is. Every library built on the crate exports [`tvm_ffi::run_static_init_blocks`], which
-//! reports the errors of the blocks that failed, as the TVM FFI function `tirx_register_ir`.
+//! is. [`ir::Op::get`] then returns the operator, as C++ `Op::Get` does: the registry keeps one
+//! object per name, so `call.op.same_as(&clamp)` tests whether a call is to it. Every library
+//! built on the crate exports [`tvm_ffi::run_static_init_blocks`], which reports the errors of the
+//! blocks that failed, as the TVM FFI function `tirx_register_ir`.
 //!
 //! # The library Python loads
 //!
