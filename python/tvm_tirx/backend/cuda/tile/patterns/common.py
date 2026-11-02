@@ -47,9 +47,6 @@ from tvm_tirx.script import tirx as T
 from tvm_tirx.sym import Analyzer, ConstraintContext, RangeConstraint
 from tvm_tirx.tirx.layout import TileLayout
 
-# Larger coordinate domains should try symbolic proof before enumeration.
-_MAX_EARLY_VERIFICATION_POINTS = 16
-
 
 def scalar(value):
     """Read a constant field stored as an ordinary IR operand."""
@@ -201,16 +198,7 @@ class Context:
                 (range(n) for n in [*self.group_shape, *(self.repeat_shape or ())]),
             )
         )
-        can_enumerate = bool(variables) and all(var in domain for var in variables)
-        verify_first = (
-            can_enumerate
-            and prod(len(domain[var]) for var in variables) <= _MAX_EARLY_VERIFICATION_POINTS
-        )
-        # Small complete domains are cheap to check directly, even when their
-        # bitwise address expressions are expensive for symbolic proof.
-        if not verify_first and self.analyzer.can_prove(condition):
-            return
-        if can_enumerate:
+        if variables and all(var in domain for var in variables):
             for values in product(*(domain[var] for var in variables)):
                 replacements = dict(zip(variables, values))
                 expr = tvm_ffi.structural_map(
@@ -223,8 +211,8 @@ class Context:
             else:
                 return
         # A failed point may be excluded by premises known to the analyzer.
-        # Preserve symbolic proof after an inconclusive early enumeration.
-        if verify_first and self.analyzer.can_prove(condition):
+        # Preserve symbolic proof after an inconclusive enumeration.
+        if self.analyzer.can_prove(condition):
             return
         raise ValueError(f"{message}: cannot prove {self.analyzer.simplify(condition)}")
 

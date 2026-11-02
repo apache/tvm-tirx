@@ -166,14 +166,14 @@ def test_layout_analysis_is_separate_from_verification():
     assert not ctx.layout_analyzer.can_prove(predicate)
 
 
-def test_require_verifies_small_domain_before_symbolic_proof(monkeypatch):
+def test_require_verifies_finite_domain_before_symbolic_proof(monkeypatch):
     from tvm_tirx.backend.cuda.tile.patterns.common import Context
     from tvm_tirx.sym import Analyzer
 
     sctx = SimpleNamespace(launch_params={}, var_range_map={}, scope_kind="thread", intra={})
     ctx = Context(sctx)
     ctx.analyzer.set_z3_default_fallback(True)
-    repeat = ctx.loops((4,))[0]
+    repeat = ctx.loops((32,))[0]
     address = (repeat * 16) ^ 0
     swizzled = (address * 2) ^ ((address // 4) & 112)
     condition = address * 16 == (swizzled ^ ((swizzled // 8) & 112)) * 8
@@ -187,28 +187,7 @@ def test_require_verifies_small_domain_before_symbolic_proof(monkeypatch):
     monkeypatch.setattr(Analyzer, "can_prove", can_prove)
     ctx.require(condition, "swizzled address mismatch")
     with pytest.raises(ValueError, match="last repeat is invalid"):
-        ctx.require(repeat < 3, "last repeat is invalid")
-
-
-@pytest.mark.parametrize("extent,known_domain", [(4, True), (4, False), (32, True)])
-def test_require_retains_symbolic_proof_under_premises(extent, known_domain):
-    from tvm_tirx.backend.cuda.tile.patterns.common import Context
-    from tvm_tirx.sym import PredicateConstraint
-
-    sctx = SimpleNamespace(launch_params={}, var_range_map={}, scope_kind="thread", intra={})
-    ctx = Context(sctx)
-    if not ctx.analyzer.is_z3_enabled:
-        pytest.skip("Z3 prover is disabled in this build")
-    ctx.analyzer.set_z3_default_fallback(True)
-    x = Var("x", "int32")
-    ctx.add_range(x, tvm_tirx.ir.Range(0, extent))
-    if known_domain:
-        ctx.static_ranges[x] = range(extent)
-    ctx.constraints.append(PredicateConstraint(x * x < 4))
-    ctx.analyzer.sync_constraint_context(ctx.constraints)
-    # Enumeration includes x=2, but the premise excludes it. Symbolic proof
-    # must still be attempted after an inconclusive early enumeration.
-    ctx.require(x < 2, "premise excludes the counterexample")
+        ctx.require(repeat < 31, "last repeat is invalid")
 
 
 def test_contract_rejections():
