@@ -1045,10 +1045,10 @@ impl From<bool> for IntImm {
 }
 
 /// What converts to an expression, possibly failing: anything that converts into an [`Expr`] (a
-/// node, a `Var`, a Rust `i32`, `f32` and the like), and an [`Ex`](crate::ir::prim::Ex), an
+/// node, a `Var`, a Rust `i32`, `f32` and the like), and an [`ExprResult`](crate::ir::prim::ExprResult), an
 /// expression under construction, which gives the first error any of its steps raised. The
 /// constructors and functions that can fail take their expression operands as `impl IntoExpr`, so
-/// an `Ex` passes straight in and `?` on their result covers it.
+/// an `ExprResult` passes straight in and `?` on their result covers it.
 pub trait IntoExpr {
     fn into_expr(self) -> Result<Expr>;
 }
@@ -1825,3 +1825,53 @@ impl Range {
         }
     }
 }
+
+// Operator attachment is separate from generated layouts and upcasts. Keep the native
+// primitive-expression counterparts here, plus Expr, Var and Call for general handles whose
+// primitive type is checked when an operator is applied.
+crate::def_expr_op_over_loads!(Expr);
+crate::def_expr_op_over_loads!(Var);
+crate::def_expr_op_over_loads!(Call);
+crate::def_expr_op_over_loads!(IntImm);
+crate::def_expr_op_over_loads!(FloatImm);
+crate::def_expr_op_over_loads!(TensorLoad);
+
+// Primitive operator and vector reference classes inherit C++ PrimExpr.
+crate::def_expr_op_over_loads!(crate::ir::prim::Cast);
+crate::def_expr_op_over_loads!(crate::ir::prim::LShift);
+crate::def_expr_op_over_loads!(crate::ir::prim::RShift);
+crate::def_expr_op_over_loads!(crate::ir::prim::BitwiseAnd);
+crate::def_expr_op_over_loads!(crate::ir::prim::BitwiseOr);
+crate::def_expr_op_over_loads!(crate::ir::prim::BitwiseXor);
+crate::def_expr_op_over_loads!(crate::ir::prim::BitwiseNot);
+crate::def_expr_op_over_loads!(crate::ir::prim::Add);
+crate::def_expr_op_over_loads!(crate::ir::prim::Sub);
+crate::def_expr_op_over_loads!(crate::ir::prim::Mul);
+crate::def_expr_op_over_loads!(crate::ir::prim::Div);
+crate::def_expr_op_over_loads!(crate::ir::prim::Mod);
+crate::def_expr_op_over_loads!(crate::ir::prim::FloorDiv);
+crate::def_expr_op_over_loads!(crate::ir::prim::FloorMod);
+crate::def_expr_op_over_loads!(crate::ir::prim::Min);
+crate::def_expr_op_over_loads!(crate::ir::prim::Max);
+crate::def_expr_op_over_loads!(crate::ir::prim::EQ);
+crate::def_expr_op_over_loads!(crate::ir::prim::NE);
+crate::def_expr_op_over_loads!(crate::ir::prim::LT);
+crate::def_expr_op_over_loads!(crate::ir::prim::LE);
+crate::def_expr_op_over_loads!(crate::ir::prim::GT);
+crate::def_expr_op_over_loads!(crate::ir::prim::GE);
+crate::def_expr_op_over_loads!(crate::ir::prim::And);
+crate::def_expr_op_over_loads!(crate::ir::prim::Or);
+crate::def_expr_op_over_loads!(crate::ir::prim::Not);
+crate::def_expr_op_over_loads!(crate::ir::prim::Select);
+crate::def_expr_op_over_loads!(crate::ir::prim::Let);
+crate::def_expr_op_over_loads!(crate::ir::prim::Ramp);
+crate::def_expr_op_over_loads!(crate::ir::prim::Broadcast);
+crate::def_expr_op_over_loads!(crate::ir::prim::Shuffle);
+
+// These symbolic reference classes also inherit C++ PrimExpr. The opaque Rust mirrors retain
+// their existing allocation restrictions; attaching operators only forwards their handles.
+crate::def_expr_op_over_loads!(crate::sym::iter_affine_map::IterMapExpr);
+crate::def_expr_op_over_loads!(crate::sym::iter_affine_map::IterSplitExpr);
+crate::def_expr_op_over_loads!(crate::sym::iter_affine_map::IterSumExpr);
+crate::def_expr_op_over_loads!(crate::sym::analyzer::SplitExpr);
+crate::def_expr_op_over_loads!(crate::sym::analyzer::SumExpr);

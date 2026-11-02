@@ -24,7 +24,7 @@
 
 use std::collections::HashMap;
 
-use tvm_tirx::ir::prim::{ex, make_const, Add, AddObj, Mul};
+use tvm_tirx::ir::prim::{make_const, Add, AddObj, Mul};
 use tvm_tirx::ir::{
     Expr, For, ForObj, IntImm, PrimType, TensorStore, TensorStoreObj, Var, VarObj, UNKNOWN_LOC,
 };
@@ -46,7 +46,7 @@ fn lines(items: impl IntoIterator<Item = String>) -> Strings {
 // [construct.begin]
 fn x_times_2_plus_1() -> Result<(Var, Expr)> {
     let x = Var::new("x", PrimType::int(32), UNKNOWN_LOC);
-    let expr = (ex(&x) * 2 + 1).expr()?;
+    let expr = (&x * 2 + 1).try_into()?;
     Ok((x, expr))
 }
 
@@ -101,7 +101,7 @@ fn describe(expr: &Expr) -> Result<String> {
 // [matching.begin]
 fn matching() -> Result<Strings> {
     let (x, expr) = x_times_2_plus_1()?;
-    let difference = (ex(&x) - 1).expr()?;
+    let difference = (&x - 1).try_into()?;
     Ok(lines([describe(&expr)?, describe(&difference)?]))
 }
 // [matching.end]
@@ -241,7 +241,7 @@ struct ReverseLoops {
 #[dispatch(mutate)]
 impl ReverseLoops {
     fn mutate_for(&mut self, loop_: For, mutator: &mut Mutator) -> Result<Any> {
-        let index = (ex(&loop_.end) - 1 - &loop_.var).expr()?;
+        let index = (&loop_.end - 1 - &loop_.var).try_into()?;
         self.reversed_index.insert(ObjectIdentity::of(&loop_.var), index);
         mutator.default_mutate(self, &loop_)
     }
