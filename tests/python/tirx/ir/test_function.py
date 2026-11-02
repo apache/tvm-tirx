@@ -14,9 +14,71 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-"""Test TIRx function structural mutation."""
+"""Test TIRx function structural operations."""
 
+import pytest
 import tvm_ffi
+
+from tvm_tirx import ir, tirx
+
+
+@pytest.mark.parametrize("as_map_key", [False, True])
+def test_parameter_attr_json_roundtrip(as_map_key):
+    x = ir.Var("x", "int32")
+    func = tirx.Function([x], [ir.Return(x + 1)], ir.PrimType("int32"))
+    func = func.with_attr("parameter", {x: 7} if as_map_key else x)
+
+    restored = ir.load_json(ir.save_json(func))
+    attr = restored.attrs["parameter"]
+    restored_ref = next(iter(attr)) if as_map_key else attr
+    assert restored_ref.same_as(restored.params[0])
+    assert not restored.params[0].same_as(x)
+    ir.assert_structural_equal(func, restored)
+    ir.assert_structural_equal(restored, func)
+    assert tvm_ffi.structural_hash(func) == tvm_ffi.structural_hash(restored)
+
+
+@pytest.mark.parametrize("as_map_key", [False, True])
+def test_parameter_attr_alpha_equivalence(as_map_key):
+    def make_function(name):
+        x = ir.Var(name, "int32")
+        func = tirx.Function([x], [ir.Return(x + 1)], ir.PrimType("int32"))
+        return func.with_attr("parameter", {x: 7} if as_map_key else x)
+
+    lhs = make_function("x")
+    rhs = make_function("renamed")
+    ir.assert_structural_equal(lhs, rhs)
+    ir.assert_structural_equal(rhs, lhs)
+    assert tvm_ffi.structural_hash(lhs) == tvm_ffi.structural_hash(rhs)
+
+
+@pytest.mark.parametrize("as_map_key", [False, True])
+def test_parameter_attr_distinguishes_parameters(as_map_key):
+    x = ir.Var("x", "int32")
+    y = ir.Var("x", "int32")
+    func = tirx.Function([x, y], [ir.Return(x + y)], ir.PrimType("int32"))
+    lhs = func.with_attr("parameter", {x: 7} if as_map_key else x)
+    rhs = func.with_attr("parameter", {y: 7} if as_map_key else y)
+
+    assert not tvm_ffi.structural_equal(lhs, rhs)
+    assert not tvm_ffi.structural_equal(rhs, lhs)
+
+
+@pytest.mark.parametrize("as_map_key", [False, True])
+def test_function_attr_preserves_free_variable_identity(as_map_key):
+    def make_function(free_var):
+        x = ir.Var("x", "int32")
+        func = tirx.Function([x], [ir.Return(x + 1)], ir.PrimType("int32"))
+        return func.with_attr("free_var", {free_var: 7} if as_map_key else free_var)
+
+    free_var = ir.Var("x", "int32")
+    lhs = make_function(free_var)
+    rhs = make_function(free_var)
+    other = make_function(ir.Var("x", "int32"))
+    ir.assert_structural_equal(lhs, rhs)
+    assert tvm_ffi.structural_hash(lhs) == tvm_ffi.structural_hash(rhs)
+    assert not tvm_ffi.structural_equal(lhs, other)
+    assert not tvm_ffi.structural_equal(other, lhs)
 
 
 def test_structural_map_specializes_function_signature():
