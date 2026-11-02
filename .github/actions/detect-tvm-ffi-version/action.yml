@@ -1,0 +1,30 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+name: Detect TVM FFI Version
+description: Resolve the committed TVM FFI submodule to exactly one Apache release tag.
+runs:
+  using: composite
+  steps:
+    - name: Detect the TVM FFI release version
+      id: detect
+      shell: bash
+      run: python ci/wheel/detect_tvm_ffi_version.py detect
+outputs:
+  version:
+    description: The release version without the v prefix.
+    value: ${{ steps.detect.outputs.version }}

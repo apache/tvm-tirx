@@ -37,9 +37,9 @@ name = "tvm_tirx"
 crate-type = ["rlib", "cdylib"]
 
 [dependencies]
-# The release of 3rdparty/tvm-ffi. An exact requirement, since 0.1.15-post2 is a pre-release of
-# 0.1.15 for semver, and a caret requirement would select the older 0.1.15.
-tvm-ffi = "=0.1.15-post2"
+# Develop against the submodule sources, including changes between tvm-ffi releases.
+# Release CI replaces this with an exact crates.io version from the submodule release tag.
+tvm-ffi = { path = "../3rdparty/tvm-ffi/rust/tvm-ffi" }
 
 # A library of operators and a type defined in Rust, which `tests/python/ir/test_op_rust.py` loads.
 [[example]]

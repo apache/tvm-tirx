@@ -58,6 +58,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       sha: ${{ steps.source.outputs.sha }}
+      tvm_ffi_version: ${{ steps.ffi.outputs.version }}
     steps:
       - name: Checkout source
         uses: actions/checkout@v6.0.2
@@ -77,44 +78,19 @@ jobs:
         shell: bash
         run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
+      # Resolve the registry version from the source gitlink, not the placeholder in its crate.
+      - id: ffi
+        name: Check the tvm-ffi release
+        uses: ./.github/actions/detect-tvm-ffi-version
+
       - name: Prepare matching release metadata
         shell: bash
+        env:
+          TVM_FFI_VERSION: ${{ steps.ffi.outputs.version }}
         run: &prepare_release_metadata |
           uv pip install tomlkit setuptools-scm
           python ci/wheel/prepare_release_metadata.py
-          python - <<'PY'
-          import os
-          import tomllib
-          from pathlib import Path
-
-          main = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))
-          crate = tomllib.loads(Path("rust/Cargo.toml").read_text(encoding="utf-8"))
-          tvm_ffi = crate["dependencies"]["tvm-ffi"]
-          tvm_ffi = tvm_ffi["version"] if isinstance(tvm_ffi, dict) else tvm_ffi
-          # A caret requirement on a tvm-ffi release such as 0.1.15-post2, a SemVer pre-release,
-          # would select an older release such as 0.1.15.
-          if not tvm_ffi.startswith("="):
-              raise SystemExit(f"rust/Cargo.toml must pin tvm-ffi exactly, not to {tvm_ffi!r}")
-          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8", newline="\n") as env:
-              env.write(f"RELEASE_VERSION={main['project']['version']}\n")
-              env.write(f"CRATE_VERSION={crate['package']['version']}\n")
-              env.write(f"TVM_FFI_VERSION={tvm_ffi[1:]}\n")
-          PY
-
-      # The crate depends on the crates.io release of the tvm-ffi the wheels are built with.
-      - name: Check the tvm-ffi release
-        shell: bash
-        run: |
-          tag="v${TVM_FFI_VERSION}"
-          submodule=$(git ls-tree HEAD 3rdparty/tvm-ffi | awk '{print $3}')
-          # An annotated tag lists the commit it points to as "<tag>^{}", after the tag itself.
-          release=$(git ls-remote https://github.com/apache/tvm-ffi "refs/tags/${tag}" "refs/tags/${tag}^{}" |
-            sort -k2 | tail -n 1 | cut -f1)
-          if [[ "${submodule}" != "${release}" ]]; then
-            echo "::error::3rdparty/tvm-ffi is at ${submodule}, but the crate depends on tvm-ffi ${TVM_FFI_VERSION}, whose tag ${tag} is at ${release:-no commit}"
-            exit 1
-          fi
-          echo "Crate tvm-tirx ${CRATE_VERSION} for wheel ${RELEASE_VERSION}, with tvm-ffi ${TVM_FFI_VERSION} at ${release}"
+          python ci/wheel/detect_tvm_ffi_version.py rewrite --version "$TVM_FFI_VERSION"
 
   build_crate:
     name: ${{ matrix.name }}
@@ -160,6 +136,8 @@ jobs:
 
       - name: Prepare matching release metadata
         shell: bash
+        env:
+          TVM_FFI_VERSION: ${{ needs.check_release.outputs.tvm_ffi_version }}
         run: *prepare_release_metadata
 
       - name: Download TIRx wheel
@@ -201,7 +179,7 @@ jobs:
         working-directory: rust
         run: cargo +stable test --release
 
-      # Packages and verifies the crate; only the release metadata edits above are uncommitted.
+      # Packages and verifies the crate with the release metadata and registry dependency edits.
       - name: Dry-run crate publication
         working-directory: rust
         run: cargo +stable publish --dry-run --registry crates-io --allow-dirty
@@ -241,6 +219,8 @@ jobs:
 
       - name: Prepare matching release metadata
         shell: bash
+        env:
+          TVM_FFI_VERSION: ${{ needs.check_release.outputs.tvm_ffi_version }}
         run: *prepare_release_metadata
 
       - name: Set up Rust
