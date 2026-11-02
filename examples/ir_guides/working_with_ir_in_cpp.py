@@ -14,7 +14,7 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-"""Call the C++ functions of tirx_ir_guide_examples on add_one.
+"""Call the C++ functions of tirx_ir_guide_examples.
 
 Install the package first, building against the installed TIRx:
 
@@ -36,20 +36,34 @@ def add_one(A: T.Tensor((n,), T.float32), B: T.Tensor((n,), T.float32)):
         B[i] = A[i] + 1
 
 
-summary = tirx_ir_guide_examples.cpp.inspect(add_one)
-print(summary)
-assert summary.splitlines() == [
-    "param A",
-    "param B",
-    "loop over i up to n",
-    "  store to B: A[i] + T.float32(1.0)",
+# The object system examples build their own IR and take no arguments.
+print(tirx_ir_guide_examples.cpp.construct())
+print("\n".join(tirx_ir_guide_examples.cpp.objects()))
+print("\n".join(tirx_ir_guide_examples.cpp.copy_on_write()))
+print("\n".join(tirx_ir_guide_examples.cpp.casts()))
+print("\n".join(tirx_ir_guide_examples.cpp.typed_views()))
+print("\n".join(tirx_ir_guide_examples.cpp.dispatching()))
+assert tirx_ir_guide_examples.cpp.construct() == "x * 2 + 1"
+assert list(tirx_ir_guide_examples.cpp.objects()) == ["a = x * 2", "b = 1", "same object: true"]
+assert list(tirx_ir_guide_examples.cpp.copy_on_write()) == [
+    "add = x * 2 + 1",
+    "changed = x * 2 + 3",
 ]
+assert list(tirx_ir_guide_examples.cpp.casts()) == [
+    "as<AddObj>: pointer",
+    "as<Add>: Add",
+    "as<Mul>: nullopt",
+    "as_or_throw<Mul>: Cannot treat type `prim.Add` as type `prim.Mul`",
+]
+assert list(tirx_ir_guide_examples.cpp.typed_views()) == [
+    "i as PrimExpr: yes",
+    "i as IntExpr: yes",
+    "f as IntExpr: no",
+    "as_or_throw<IntExpr>: Cannot treat type `ir.Var[ty=float32]` as type `ir.IntExpr`",
+]
+assert list(tirx_ir_guide_examples.cpp.dispatching()) == ["((x * 2) + 1)", "<other>"]
 
-doubled = tirx_ir_guide_examples.cpp.double_store(add_one)
-print(doubled.script())
-assert isinstance(doubled, ir.TensorStore)
-assert not doubled.same_as(add_one.body.seq[0].body.seq[0])  # add_one is unchanged
-
+# The remaining examples take add_one.
 writes = tirx_ir_guide_examples.cpp.tensors_written(add_one)
 print(list(writes))
 assert list(writes) == ["B"]
