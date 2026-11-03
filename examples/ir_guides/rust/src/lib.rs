@@ -125,7 +125,7 @@ fn first_write(func: Function) -> Result<Option<TensorStore>> {
     let find_write = |store: TensorStore| WalkResult::interrupt_with(store);
     let found = tvm_ffi::structural_walk(&func, find_write, WalkOrder::PostOrder)?;
     match found {
-        Some(interrupt) => Ok(Some(interrupt.value.try_into()?)),
+        Some(interrupt) => Ok(Some(interrupt.value.clone().try_into()?)),
         None => Ok(None),
     }
 }
@@ -177,7 +177,7 @@ struct Counter {
     adds: usize,
 }
 
-#[dispatch(walk)]
+#[dispatch(walk, (AnyView<'_>, DefRegionKind), Result<WalkResult>)]
 impl Counter {
     fn walk_var(&mut self, _var: &VarObj, _kind: DefRegionKind) -> Result<WalkResult> {
         self.vars += 1;
@@ -207,7 +207,7 @@ struct LoopNest {
     writes: Vec<String>,
 }
 
-#[dispatch(visit)]
+#[dispatch(visit, (AnyView<'_>, &mut StructuralVisitorView<'_, Self>), Result<Option<VisitInterrupt>>)]
 impl LoopNest {
     fn visit_for(
         &mut self,
@@ -242,7 +242,7 @@ struct ReverseLoops {
     reversed_index: HashMap<ObjectIdentity, Expr>,
 }
 
-#[dispatch(mutate, MutationView)]
+#[dispatch(mutate, (MutationView<'_>, &mut StructuralMutatorView<'_, Self>), Result<Any>)]
 impl ReverseLoops {
     fn mutate_for(
         &mut self,
