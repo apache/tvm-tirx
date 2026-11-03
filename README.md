@@ -21,7 +21,7 @@
 
 **We believe that, in the future, all GPU kernels will be developed, optimized, and verified by AI agents.**
 
-And we believe they'll need a **minimal, stable, and extensible DSL and compiler foundation** to power agent-driven kernel development loops. That's what we're building with TIRx.
+Our vision is to give agents a **minimal, stable, and extensible DSL and compiler foundation** to write and optimize kernels, build the analyses they need, and ultimately verify correctness. That's what we're building with TIRx.
 
 But wait, **why would agents need DSLs and compilers at all?** We've been asking ourselves the same question. Read our [blog post](#) for our take.
 
