@@ -582,7 +582,7 @@ void CodeGenC::Dispatch_(const FloatImmObj* op, std::ostream& os) {  // NOLINT(*
   PrintConst(op, os, this);
 }
 void CodeGenC::Dispatch_(const StringImmObj* op, std::ostream& os) {  // NOLINT(*)
-  os << "\"" << op->value << "\"";
+  PrintEscapedCString(op->value, os);
 }
 
 template <typename T>
@@ -980,22 +980,23 @@ void CodeGenC::DispatchDeclTensor(const BindObj* op, const CallObj* buffer_call)
   }
 
   alloc_storage_scope_[buffer.get()] = scope;
+  PtrType pointer_type(PrimType(dtype), scope);
+  // Packed argument decoding may already have established this typed view.
+  const auto* cast = data.as<CallObj>();
+  Expr initializer = data;
+  if (!(cast && cast->op.same_as(tirx::reinterpret_op()) &&
+        ffi::StructuralEqual()(cast->ty, pointer_type))) {
+    initializer = Call(pointer_type, tirx::reinterpret_op(), {data});
+  }
+  // An initializer such as stack_alloca emits preparation statements. Emit
+  // those before starting the declaration so they cannot split its initializer.
+  std::string value = PrintExpr(initializer);
   this->PrintIndent();
   if (IsScopePartOfType()) {
     PrintStorageScope(scope, stream);
   }
-  PtrType pointer_type(PrimType(dtype), scope);
   PrintType(pointer_type, stream);
-  stream << ' ' << AllocVarID(buffer.get()) << " = ";
-  // Packed argument decoding may already have established this typed view.
-  const auto* cast = data.as<CallObj>();
-  if (cast && cast->op.same_as(tirx::reinterpret_op()) &&
-      ffi::StructuralEqual()(cast->ty, pointer_type)) {
-    PrintExpr(data, stream);
-  } else {
-    PrintExpr(Call(pointer_type, tirx::reinterpret_op(), {data}), stream);
-  }
-  stream << ";\n";
+  stream << ' ' << AllocVarID(buffer.get()) << " = " << value << ";\n";
   RegisterHandleType(buffer.get(), PrimType(dtype));
 }
 
@@ -1357,6 +1358,10 @@ void CodeGenC::PrintEscapedCString(const std::string& str, std::ostream& os) {
       case '\\':
         os << "\\\\";
         break;
+      case '?':
+        // Prevent C trigraph replacement before string literals are parsed.
+        os << "\\?";
+        break;
       case '\n':
         os << "\\n";
         break;
@@ -1379,13 +1384,14 @@ void CodeGenC::PrintEscapedCString(const std::string& str, std::ostream& os) {
         os << "\\v";
         break;
       case '\0':
-        os << "\\0";
+        os << "\\000";
         break;
       default:
         if (c < 0x20 || c >= 0x7f) {
-          // Non-printable: emit as hex escape
-          os << "\\x" << std::setfill('0') << std::setw(2) << std::hex << static_cast<int>(c)
-             << std::dec;
+          // Three octal digits encode exactly one byte. Hex escapes can
+          // consume following hex digits, including ordinary ASCII text.
+          os << '\\' << static_cast<char>('0' + ((c >> 6) & 7))
+             << static_cast<char>('0' + ((c >> 3) & 7)) << static_cast<char>('0' + (c & 7));
         } else {
           os << static_cast<char>(c);
         }

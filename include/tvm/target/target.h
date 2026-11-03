@@ -183,12 +183,7 @@ class Target : public ffi::ObjectRef {
    * \param target The Target typed object with host field undefined for target
    * \param host The Target typed object for target host
    */
-  explicit Target(Target target, ffi::Optional<Target> host) {
-    ffi::ObjectPtr<TargetObj> n = ffi::make_object<TargetObj>(*target.get());
-    n->host =
-        host.has_value() ? ffi::Optional<ffi::ObjectRef>(std::move(host).value()) : std::nullopt;
-    data_ = std::move(n);
-  }
+  explicit Target(Target target, ffi::Optional<Target> host) : Target(WithHost(target, host)) {}
   explicit Target(ffi::UnsafeInit tag, ffi::ObjectPtr<TargetObj> n) : ffi::ObjectRef(tag) {
     data_ = std::move(n);
   }
@@ -200,9 +195,7 @@ class Target : public ffi::ObjectRef {
   /*! \return The target with the host stripped out */
   Target WithoutHost() const {
     if ((*this)->GetHost()) {
-      auto output = ffi::make_object<TargetObj>(*get());
-      output->host = std::nullopt;
-      return Target(ffi::UnsafeInit{}, std::move(output));
+      return WithHost(*this, std::nullopt);
     } else {
       return *this;
     }

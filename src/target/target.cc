@@ -54,6 +54,7 @@ class TargetInternal {
     ffi::ObjectPtr<TargetObj> n = ffi::make_object<TargetObj>(*target.get());
     n->host =
         target_host.has_value() ? ffi::Optional<ffi::ObjectRef>(target_host.value()) : std::nullopt;
+    n->str_repr_ = ffi::String();
     return Target(ffi::UnsafeInit{}, std::move(n));
   }
 
