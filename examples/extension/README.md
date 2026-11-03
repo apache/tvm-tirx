@@ -30,7 +30,7 @@ pipeline. The tutorial in `docs/advanced/` walks through the code.
 
 ## Install and Run
 
-After building and installing TIRx from this checkout, with Rust 1.84 or newer,
+After building and installing TIRx from this checkout, with Rust 1.95 or newer,
 run from the repository root in the same Python environment:
 
 ```bash
