@@ -34,7 +34,7 @@ harnesses on top. The Python package is `tvm_tirx`; the distribution is
 include/tvm/        C++ public headers (ir, sym, tirx, target, runtime, backends)
 src/                C++ compiler and runtime implementations
 python/tvm_tirx/    Python package and reflected C++ bindings
-rust/               Rust bindings (stubgen)
+rust/               Rust bindings (stubgen) and extension tools
 tests/cpp/          GoogleTest C++ tests
 tests/python/       pytest tests organized by owning namespace and backend
 tests/lint/         ASF header and file-type checks

@@ -21,7 +21,7 @@ version = "0.1.0-alpha.5"
 edition = "2021"
 # The oldest toolchain that builds the crate and tvm-ffi; CMake checks cargo against it.
 rust-version = "1.84"
-description = "Rust bindings for the TVM TIRx compiler"
+description = "Rust API for the TVM TIRx compiler: IR bindings and IR extensions"
 license = "Apache-2.0"
 homepage = "https://tvm.apache.org/tirx/"
 documentation = "https://tvm.apache.org/tirx/reference/rust/"
