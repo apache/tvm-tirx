@@ -225,12 +225,6 @@ EXTENSION_CHECKS = """
     expect_error(TypeError, "real expects a complex value", my_ext.real, a_var)
     expect_error(TypeError, "imag expects a complex value", my_ext.imag, a_var)
 
-    # Explicit result types must not let invalid calls escape validation.
-    for name, args in (("complex", [a_var, b_var]), ("cmul", [z, z]), ("real", [z]), ("imag", [z])):
-        invalid = ir.Call(f"my_ext.{name}", args, ty="int32")
-        expect_error(TypeError, "incorrect result type", invalid.validate)
-    invalid = ir.Call("my_ext.cmul", [a_var, z], ty=z.ty)
-    expect_error(TypeError, "expects a complex value", invalid.validate)
     bad_type = my_ext.Complex(T.int32)
     expect_error(TypeError, "expected a scalar float", my_ext.real, ir.Var("bad", bad_type))
 
@@ -291,6 +285,32 @@ EXTENSION_CHECKS = """
 """
 
 
+# The validators of the Rust operators check a call whose result type is given explicitly.
+VALIDATOR_CHECKS = """
+    for name, args in (("complex", [a_var, b_var]), ("cmul", [z, z]), ("real", [z]), ("imag", [z])):
+        invalid = ir.Call(f"my_ext.{name}", args, ty="int32")
+        expect_error(TypeError, "incorrect result type", invalid.validate)
+    invalid = ir.Call("my_ext.cmul", [a_var, z], ty=z.ty)
+    expect_error(TypeError, "expects a complex value", invalid.validate)
+"""
+
+
+# The operators of the Python prototype validate the number of arguments, as their signatures
+# declare; its pass checks the types of the calls it lowers.
+PROTOTYPE_CHECKS = """
+    invalid_calls = [
+        (ir.Call(f"my_ext.{name}", args, ty="int32"), "incorrect result type")
+        for name, args in (("complex", [a_var, b_var]), ("cmul", [z, z]), ("real", [z]))
+    ]
+    invalid_calls.append((ir.Call("my_ext.cmul", [a_var, z], ty=z.ty), "expects a complex value"))
+    for invalid, message in invalid_calls:
+        invalid.validate()
+        invalid_func = tirx.Function([a_var, b_var], ir.SeqStmt([ir.Evaluate(invalid)]))
+        expect_error(TypeError, message, lower, ir.IRModule({"main": invalid_func}))
+    expect_error(TypeError, "argument", ir.Call("my_ext.real", [z, z], ty="float32").validate)
+"""
+
+
 def test_library_is_loaded_on_import():
     """``import tvm_tirx`` loads libtvm_tirx_rust, when the build has it, as a backend."""
     from tvm_ffi.libinfo import _find_library_by_basename  # pylint: disable=import-outside-toplevel
@@ -308,7 +328,17 @@ def test_library_is_loaded_on_import():
 @pytest.mark.skipif(not tvm_tirx.runtime.enabled("llvm"), reason="LLVM is not enabled")
 def test_extension_example(extension_package):
     script = EXTENSION_DIR / "run_example.py"
-    run_python(script.read_text(), EXTENSION_CHECKS, python_path=[extension_package])
+    run_python(
+        script.read_text(), EXTENSION_CHECKS, VALIDATOR_CHECKS, python_path=[extension_package]
+    )
+
+
+@pytest.mark.skipif(not tvm_tirx.runtime.enabled("llvm"), reason="LLVM is not enabled")
+def test_extension_prototype():
+    """The Python prototype of the extension runs the same example and checks."""
+    script = EXTENSION_DIR / "run_example.py"
+    prototype = EXTENSION_DIR / "my_ext_py"
+    run_python(script.read_text(), EXTENSION_CHECKS, PROTOTYPE_CHECKS, python_path=[prototype])
 
 
 def test_rust_operators_are_registered_by_their_library(define_ir_library):

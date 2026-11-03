@@ -148,6 +148,8 @@ html_theme_options = {
     "repository_branch": "main",
     "path_to_docs": "docs",
     "use_repository_button": True,
+    # Replaced by a link to the page's source file, see _add_source_link_button.
+    "use_download_button": False,
     "show_toc_level": 2,
     "max_navbar_depth": 4,
     "collapse_navbar": True,
@@ -253,9 +255,40 @@ def _link_nested_class_to_enclosing_class(app, docname, source):
         )
 
 
+# Pages generated during the build, which have no source file in the repository.
+_GENERATED_DOC_DIRS = ("reference/python/generated/", "reference/cpp/generated/")
+
+
+def _add_source_link_button(app, pagename, templatename, context, doctree):
+    """Add a header button, next to the fullscreen one, that links the page's source on GitHub."""
+    suffix = context.get("page_source_suffix")
+    if not suffix or pagename.startswith(_GENERATED_DOC_DIRS):
+        return
+    opts = html_theme_options
+    url = "/".join(
+        [opts["repository_url"], "blob", opts["repository_branch"], opts["path_to_docs"]]
+    )
+    buttons = context["header_buttons"]
+    labels = [button.get("label") for button in buttons]
+    index = labels.index("fullscreen-button") if "fullscreen-button" in labels else len(buttons)
+    buttons.insert(
+        index,
+        {
+            "type": "link",
+            "url": f"{url}/{pagename}{suffix}",
+            "tooltip": "Source file on GitHub",
+            "icon": "fas fa-file-code",
+            "label": "source-link-button",
+            "classes": "pst-navbar-icon",
+        },
+    )
+
+
 def setup(app):
     _prepare_stub_files()
     _build_rust_docs()
     app.connect("source-read", _mark_exhale_root_orphan)
     app.connect("source-read", _link_nested_class_to_enclosing_class)
+    # After the theme's own header buttons, which it adds at priority 501.
+    app.connect("html-page-context", _add_source_link_button, priority=502)
     app.connect("build-finished", _copy_rust_docs_to_output)
