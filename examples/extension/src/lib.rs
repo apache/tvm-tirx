@@ -25,13 +25,13 @@ use tvm_tirx::ir::sig::{self, PrimExpr};
 use tvm_tirx::ir::transform::{Pass, PassContext, PassInfo};
 use tvm_tirx::ir::{
     dtype, register_type, Bind, Call, CallEffectKind, CallObj, Expr, IRModule, Op, OpDef, PrimType,
-    SeqStmt, Stmt, Type, TypeObj, Var,
+    SeqStmt, Type, TypeObj, Var,
 };
 use tvm_tirx::tirx::transform::FunctionPass;
 use tvm_tirx::tirx::Function;
 use tvm_tirx::tvm_ffi::{
-    self, def_object_ref, dispatch, rs_class, Error, ObjectRefCast, ObjectRefCore, Result,
-    WalkOrder,
+    self, def_object_ref, dispatch, rs_class, Any, DefRegionKind, Error, ObjectRefCast,
+    ObjectRefCore, Result, WalkOrder,
 };
 
 // begin type
@@ -210,12 +210,12 @@ impl Lowering {
 
 #[dispatch(map)]
 impl Lowering {
-    fn map_sequence(&mut self, seq: SeqStmt) -> SeqStmt {
-        SeqStmt::new(seq.seq.iter(), seq.loc.clone())
+    fn map_sequence(&mut self, seq: SeqStmt, _kind: DefRegionKind) -> Result<Any> {
+        Ok(SeqStmt::new(seq.seq.iter(), seq.loc.clone()).into())
     }
 
     // begin lowering
-    fn map_call(&mut self, call: Call) -> Result<Expr> {
+    fn map_call(&mut self, call: Call) -> Result<Any> {
         let ops = &self.ops;
         if ops.contains(&call.op) {
             validate_call(&call)?;
@@ -238,12 +238,12 @@ impl Lowering {
         }
         if call.op.same_as(&ops.real) || call.op.same_as(&ops.imag) {
             let (re, im) = self.parts(&call.args.get(0)?)?;
-            return Ok(if call.op.same_as(&ops.real) { re } else { im });
+            return Ok(if call.op.same_as(&ops.real) { re.into() } else { im.into() });
         }
         Ok(call.into())
     }
 
-    fn map_bind(&mut self, bind: Bind) -> Result<Stmt> {
+    fn map_bind(&mut self, bind: Bind) -> Result<Any> {
         if let Some(ty) = bind.var.ty.downcast_ref::<ComplexTypeObj>() {
             let (re, im) = self.parts(&bind.value)?;
             let name = bind.var.name.as_str();

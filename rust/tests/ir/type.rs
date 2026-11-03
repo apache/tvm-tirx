@@ -27,10 +27,10 @@ use tvm_tirx::ir::{
     UNKNOWN_LOC, Location, dtype, Evaluate, FuncType, MissingType, NoneType, PrimType, PtrType,
     TensorRegionType, TupleType, Type, TypeObj, Var, VarObj,
 };
-use tvm_tirx::tvm_ffi::{self, def_object_ref, rs_class, structural_map};
+use tvm_tirx::tvm_ffi::{def_object_ref, dispatch, rs_class, structural_map};
 use tvm_tirx::tvm_ffi::{
-    Any, AnyView, Array, DLDataType, DLDataTypeExt, DefRegionKind, FieldGetter, MapDispatch,
-    ObjectCore, ObjectRefCore, Result, ShallowCopy, String as FfiString, WalkOrder,
+    Any, AnyView, Array, DLDataType, DLDataTypeExt, DefRegionKind, FieldGetter, ObjectCore,
+    ObjectRefCore, Result, ShallowCopy, String as FfiString, WalkOrder,
 };
 
 use super::{scope};
@@ -262,9 +262,10 @@ fn rust_type_cpp_deep_copy_goes_through_the_shallow_copy_and_the_setters() {
 /// Adds one to every integer leaf.
 struct IncrementIntegers;
 
-impl MapDispatch for IncrementIntegers {
-    fn dispatch_map(&mut self, value: AnyView<'_>, _: DefRegionKind) -> Option<Result<Any>> {
-        value.try_as::<i64>().map(|integer| Ok(Any::from(integer + 1)))
+#[dispatch(map)]
+impl IncrementIntegers {
+    fn map_integer(&mut self, value: i64, _: DefRegionKind) -> Result<Any> {
+        Ok(Any::from(value + 1))
     }
 }
 

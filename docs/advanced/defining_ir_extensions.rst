@@ -180,7 +180,7 @@ once per run and keeps them. ``Lowering`` implements the rewrites with them:
       }
       #[dispatch(map)]
       impl Lowering {
-          fn map_sequence(&mut self, seq: SeqStmt) -> SeqStmt { ... }
+          fn map_sequence(&mut self, seq: SeqStmt, _kind: DefRegionKind) -> Result<Any> { ... }
    :append: }
 
 ``ops`` holds the four operators, ``bindings`` records each complex variable

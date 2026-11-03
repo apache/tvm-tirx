@@ -29,3 +29,5 @@ crate-type = ["cdylib"]
 [dependencies]
 # Use the bindings from this checkout to match the current IR node fields.
 tvm-tirx = { path = "../../../rust" }
+# Procedural macros resolve the FFI crate directly; use the same pinned sources.
+tvm-ffi = { path = "../../../3rdparty/tvm-ffi/rust/tvm-ffi" }
