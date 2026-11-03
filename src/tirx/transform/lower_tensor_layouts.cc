@@ -118,7 +118,12 @@ class LayoutApplier : public StmtExprMutatorWithConstraintContext {
         if (auto mapped = VarRemapGetExpected(root).value(); mapped != nullptr) {
           root = mapped.as_or_throw<Var>();
         }
-        return root.as_or_throw<TensorVar>().data();
+        Expr data = root.as_or_throw<TensorVar>().data();
+        // Preserve a view's pointer type when resolving its physical storage.
+        if (!ffi::StructuralEqual()(data->ty, op->ty)) {
+          return reinterpret(op->ty, std::move(data), op->loc);
+        }
+        return data;
       }
     }
     return StmtExprMutatorWithConstraintContext::Mutate_(op, inplace_mode);
