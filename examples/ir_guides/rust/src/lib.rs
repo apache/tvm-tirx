@@ -31,8 +31,8 @@ use tvm_tirx::ir::{
 use tvm_tirx::script::script;
 use tvm_tirx::tirx::Function;
 use tvm_tirx::tvm_ffi::{
-    self, dispatch, match_any, Any, AnyView, Array, DefRegionKind, MutationView, Mutator,
-    ObjectIdentity, ObjectRefCast, ObjectRefCore, Result, VisitCallbacks, VisitContext,
+    self, dispatch, match_any, Any, AnyView, Array, DefRegionKind, MutationView, ObjectIdentity,
+    ObjectRefCast, ObjectRefCore, Result, StructuralMutatorView, StructuralVisitorView,
     VisitInterrupt, WalkOrder, WalkResult,
 };
 
@@ -179,14 +179,14 @@ struct Counter {
 
 #[dispatch(walk)]
 impl Counter {
-    fn walk_var(&mut self, _var: &VarObj) -> WalkResult {
+    fn walk_var(&mut self, _var: &VarObj, _kind: DefRegionKind) -> Result<WalkResult> {
         self.vars += 1;
-        WalkResult::Advance
+        Ok(WalkResult::Advance)
     }
 
-    fn walk_add(&mut self, _add: &AddObj) -> WalkResult {
+    fn walk_add(&mut self, _add: &AddObj) -> Result<WalkResult> {
         self.adds += 1;
-        WalkResult::Advance
+        Ok(WalkResult::Advance)
     }
 }
 // [counter.end]
@@ -207,29 +207,32 @@ struct LoopNest {
     writes: Vec<String>,
 }
 
-fn visit_for(
-    loop_: &ForObj,
-    visitor: &mut VisitContext<'_, LoopNest>,
-) -> Result<Option<VisitInterrupt>> {
-    visitor.state_mut().loops.push(loop_.var.name.as_str().to_owned());
-    let result = visitor.visit_children()?;
-    visitor.state_mut().loops.pop();
-    Ok(result)
-}
+#[dispatch(visit)]
+impl LoopNest {
+    fn visit_for(
+        &mut self,
+        loop_: &ForObj,
+        visitor: &mut StructuralVisitorView<'_, Self>,
+    ) -> Result<Option<VisitInterrupt>> {
+        self.loops.push(loop_.var.name.as_str().to_owned());
+        let result = visitor.default_visit(self, loop_);
+        self.loops.pop();
+        result
+    }
 
-fn visit_store(store: &TensorStoreObj, visitor: &mut VisitContext<'_, LoopNest>) -> Result<()> {
-    let loops = visitor.state().loops.join(", ");
-    let write = format!("{} inside [{}]", script(&store.dest)?.as_str(), loops);
-    visitor.state_mut().writes.push(write);
-    Ok(())
+    fn visit_store(&mut self, store: &TensorStoreObj) -> Result<Option<VisitInterrupt>> {
+        let loops = self.loops.join(", ");
+        let write = format!("{} inside [{}]", script(&store.dest)?.as_str(), loops);
+        self.writes.push(write);
+        Ok(None)
+    }
 }
 
 fn loops_around_writes(func: Function) -> Result<Strings> {
-    let mut visitor = VisitCallbacks::new(LoopNest::default(), (visit_for, visit_store));
+    let mut visitor = LoopNest::default();
     tvm_ffi::structural_visit(&func, &mut visitor)?;
-    let state = visitor.into_state();
-    assert!(state.loops.is_empty());
-    Ok(state.writes.iter().map(tvm_ffi::String::from).collect())
+    assert!(visitor.loops.is_empty());
+    Ok(visitor.writes.iter().map(tvm_ffi::String::from).collect())
 }
 // [visit.end]
 
@@ -239,22 +242,28 @@ struct ReverseLoops {
     reversed_index: HashMap<ObjectIdentity, Expr>,
 }
 
-#[dispatch(mutate)]
+#[dispatch(mutate, MutationView)]
 impl ReverseLoops {
-    fn mutate_for(&mut self, value: MutationView<'_, For>, mutator: &mut Mutator) -> Result<Any> {
-        let view = value.as_any_view();
-        let loop_ = view.downcast_ref::<ForObj>().unwrap();
-        let index = (&loop_.end - 1 - &loop_.var).try_into()?;
-        self.reversed_index.insert(ObjectIdentity::of(&loop_.var), index);
-        mutator.default_maybe_inplace_mutate(self, value)
+    fn mutate_for(
+        &mut self,
+        value: MutationView<'_, For>,
+        mutator: &mut StructuralMutatorView<'_, Self>,
+    ) -> Result<Any> {
+        let index = (&value.end - 1 - &value.var).try_into()?;
+        self.reversed_index.insert(ObjectIdentity::of(&value.var), index);
+        mutator.default_mutate(self, value).map(Into::into)
     }
 
-    fn mutate_var(&mut self, var: Var, mutator: &mut Mutator) -> Expr {
+    fn mutate_var(
+        &mut self,
+        var: Var,
+        mutator: &mut StructuralMutatorView<'_, Self>,
+    ) -> Result<Any> {
         let is_use = mutator.def_region_kind() == DefRegionKind::None;
-        match self.reversed_index.get(&ObjectIdentity::of(&var)) {
-            Some(index) if is_use => index.clone(),
+        Ok(match self.reversed_index.get(&ObjectIdentity::of(&var)) {
+            Some(index) if is_use => index.clone().into(),
             _ => var.into(),
-        }
+        })
     }
 }
 

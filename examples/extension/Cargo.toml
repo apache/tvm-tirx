@@ -28,3 +28,5 @@ crate-type = ["cdylib"]
 [dependencies]
 # Use this checkout so the Rust API and native libraries share the same FFI revision.
 tvm-tirx = { path = "../../rust" }
+# Procedural macros resolve the FFI crate directly; use the same pinned sources.
+tvm-ffi = { path = "../../3rdparty/tvm-ffi/rust/tvm-ffi" }

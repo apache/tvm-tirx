@@ -87,7 +87,9 @@ assert list(tirx_ir_guide_examples.rust.compare_specialized(add_one, n)) == [Fal
 print(list(tirx_ir_guide_examples.rust.loops_around_writes(add_one)))
 assert list(tirx_ir_guide_examples.rust.loops_around_writes(add_one)) == ["B inside [i]"]
 
+original_script = add_one.script()
 add_one_reversed = tirx_ir_guide_examples.rust.reverse_loops(add_one)
 print(add_one_reversed.script())
 assert "B[n - 1 - i] = A[n - 1 - i] + T.float32(1.0)" in add_one_reversed.script()
 assert add_one_reversed.body.seq[0].var.same_as(add_one.body.seq[0].var)
+assert add_one.script() == original_script  # the Python-held input remains unchanged
