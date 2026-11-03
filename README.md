@@ -15,25 +15,24 @@
 <!--- specific language governing permissions and limitations -->
 <!--- under the License. -->
 
-# TVM TIRx: ML Compiler Foundation for the Agentic Era
+# TVM TIRx
 
 📚 [Documentation](https://tvm.apache.org/tirx/) | 🚀 [Quick Start](https://tvm.apache.org/tirx/get_started/quick_start.html)
 
-Apache TVM TIRx is a minimal, open ML compiler foundation for the agentic era.
+**We believe that, in the future, all GPU kernels will be developed, optimized, and verified by AI agents.**
+
+And we believe they'll need a **minimal, stable, and extensible DSL and compiler foundation** to power agent-driven kernel development loops. That's what we're building with TIRx.
+
+But wait, **why would agents need DSLs and compilers at all?** We've been asking ourselves the same question. Read our [blog post](#) for our take.
 
 ## Features
 
-- **Minimal, stable core IR** - a small, stable set of core AST nodes, designed for common needs and for extension.
-- **Predictable utilities** - TVM-FFI bridge generation, symbolic integer analysis, structural traversal and mapping, and minimal code generation for CUDA and host LLVM.
-- **Dynamic extension by design** - all compiler APIs are open, so developers and agents can iterate quickly on extensions in separate packages that link to TIRx dynamically, without rebuilding one monolithic bundle.
-- **First-class cross-language support** - Python, C++, and native Rust. Prototype an analysis or extension in Python, then bake it into Rust or C++; extensions work across all supported languages.
-- **Built on stable toolchains** - a minimal layer for ML compilation needs that connects to stable compiler toolchains and leverages their backend capabilities when possible.
+- **Minimal, stable core IR** — a small, stable set of core AST nodes, designed for common needs and extensions.
+- **Predictable utilities** — TVM-FFI bridge generation, symbolic integer analysis, structural traversal and mapping, and minimal code generation for CUDA and host LLVM.
+- **Dynamic extension by design** — agents can build and iterate on extensions in independent packages, without rebuilding a monolithic compiler.
+- **First-class cross-language support** — Python, C++, and Rust, allowing agents to prototype rapidly and move performance-critical components across languages.
+- **Built on stable toolchains** — leverage established compiler backends instead of reinventing them.
 
 ## Documentation
 
-Check out the [documentation site](https://tvm.apache.org/tirx/) for the full documentation, including:
-
-- [Quick Start](https://tvm.apache.org/tirx/get_started/quick_start.html)
-- [IR Guides](https://tvm.apache.org/tirx/ir_guides/overview.html)
-- [Programming Guides](https://tvm.apache.org/tirx/programming_guides/index.html)
-- [Extending TIRx](https://tvm.apache.org/tirx/advanced/extending_ir_in_rust.html)
+Check out the [documentation](https://tvm.apache.org/tirx/) to get started.
