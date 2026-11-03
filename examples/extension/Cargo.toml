@@ -26,7 +26,8 @@ publish = false
 crate-type = ["cdylib"]
 
 [dependencies]
-# Use this checkout so the Rust API and native libraries share the same FFI revision.
+# This example builds against this checkout. A standalone extension depends on
+# the published releases instead, e.g. tvm-tirx = "<version>".
 tvm-tirx = { path = "../../rust" }
 # Procedural macros resolve the FFI crate directly; use the same pinned sources.
 tvm-ffi = { path = "../../3rdparty/tvm-ffi/rust/tvm-ffi" }

@@ -177,7 +177,7 @@ EXTENSION_CHECKS = """
     a_var, b_var = ir.Var("a", "float32"), ir.Var("b", "float32")
     z = my_ext.complex(a_var, b_var)
     assert isinstance(z.ty, my_ext.Complex)
-    assert tvm_ffi.structural_equal(z.ty.elem, ir.PrimType("float32"))
+    assert tvm_ffi.structural_equal(z.ty.dtype, ir.PrimType("float32"))
     assert tvm_ffi.structural_equal(ir.load_json(ir.save_json(z.ty)), z.ty)
     text = complex_product.script()
     parsed = tvm_tirx.script.parse(text, extra_vars={"T": T, "my_ext": my_ext})
