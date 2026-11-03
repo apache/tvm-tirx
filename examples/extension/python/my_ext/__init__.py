@@ -18,16 +18,11 @@
 
 from pathlib import Path
 
-from tvm_ffi.libinfo import load_lib_module
-
+import tvm_tirx
 from tvm_tirx import ir, tirx
-from tvm_tirx.ir._expose_api import _init_exposed_op_api, _init_exposed_type_api
-from tvm_tirx.script.ir_builder.base import auto_emit_void_call
 
 # begin load
-_init_exposed_op_api("my_ext", __name__, wrapper=auto_emit_void_call)
-_init_exposed_type_api("my_ext", __name__)
-_LIB = load_lib_module("my-ext", "my_ext", extra_lib_paths=[Path(__file__).parent])
+_LIB = tvm_tirx.load_extension(__name__, "my_ext", lib_dir=Path(__file__).parent)
 # end load
 
 

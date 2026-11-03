@@ -61,6 +61,7 @@ if TYPE_CHECKING or not _is_config_mode():
 
     if not _RUNTIME_ONLY:
         from .tirx import compile
+        from .extension import load_extension
 
     from .ir import prim
 

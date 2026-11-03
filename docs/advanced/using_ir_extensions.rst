@@ -31,19 +31,20 @@ TVMScript, Python also needs a module that holds their builders. Definitions
 under ``tirx.`` go to ``T``, but an extension namespace such as ``my_ext`` is
 published only into a module that the extension declares. The package's
 :download:`__init__.py <../../examples/extension/python/my_ext/__init__.py>`
-therefore declares itself as that module before it loads the library:
+therefore loads the library with :func:`tvm_tirx.load_extension`:
 
 .. literalinclude:: ../../examples/extension/python/my_ext/__init__.py
    :language: python
    :start-after: # begin load
    :end-before: # end load
 
-The two ``_init_exposed_*_api`` calls, internal to ``tvm_tirx.ir`` for now,
-publish the operators and the type into ``my_ext``; ``auto_emit_void_call``
-gives its builders the TVMScript behavior of the ``T`` builders.
-``load_lib_module`` finds the library that the package installs next to
-``__init__.py``. To parse printed IR that uses the extension, pass the package
-as well, as in ``extra_vars={"T": T, "my_ext": my_ext}``.
+``load_extension`` declares ``my_ext`` as the module of the ``my_ext.``
+builders, then loads the library that the package installs next to
+``__init__.py``. As the library registers its type and operators, their
+builders are published into ``my_ext`` and behave in TVMScript like the ``T``
+builders. ``load_extension`` returns the loaded library, whose exported
+functions are its attributes. To parse printed IR that uses the extension, pass
+the package as well, as in ``extra_vars={"T": T, "my_ext": my_ext}``.
 
 The registered type and operators let the IR express complex values;
 ``LowerComplex`` turns them into a form the backend can compile. The default

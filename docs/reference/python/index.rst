@@ -189,12 +189,14 @@ Classes
 Functions
 ---------
 
-Use :func:`compile` to build a TIRx function or module into an executable.
+Use :func:`compile` to build a TIRx function or module into an executable, and
+:func:`load_extension` to load an extension library into its Python module.
 
 .. autosummary::
    :toctree: generated/
 
    compile
+   load_extension
 
 .. list-table::
    :header-rows: 1
