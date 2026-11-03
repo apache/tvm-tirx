@@ -44,58 +44,6 @@ use tvm_ffi::String;
 use tvm_ffi::UnsafeInit;
 // tvm-ffi-stubgen(end)
 
-// tvm-ffi-stubgen(begin): object/ir.SourceName
-/// Complete: reflected fields fill [24, 40) exactly.
-#[repr(C)]
-#[derive(tvm_ffi::derive::Object)]
-#[type_key = "ir.SourceName"]
-#[type_final]
-pub struct SourceNameObj {
-    base: Object,
-    pub name: String,
-}
-
-const _: () = {
-    assert!(::core::mem::size_of::<SourceNameObj>() == 40);
-    assert!(::core::mem::align_of::<SourceNameObj>() == 8);
-};
-
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct SourceName {
-    base: ObjectArc<SourceNameObj>,
-}
-
-impl Deref for SourceName {
-    type Target = SourceNameObj;
-    fn deref(&self) -> &SourceNameObj {
-        &self.base
-    }
-}
-
-impl SourceNameObj {
-    pub(crate) fn new(name: String) -> Self {
-        let base = Object::new();
-        Self { base, name }
-    }
-}
-
-impl SourceName {
-    /// Lossless complete-field allocation.
-    pub fn new(name: impl Into<String>) -> Self {
-        let obj = SourceNameObj::new(name.into());
-        Self { base: ObjectArc::new(obj) }
-    }
-}
-// tvm-ffi-stubgen(end)
-
-impl SourceName {
-    /// The source name `name`, interned so that equal names share one object (`ir.SourceName`).
-    pub fn get(name: &str) -> Result<Self> {
-        tvm_ffi::cached_global_func!("ir.SourceName").call_tuple((String::from(name),))?.try_into()
-    }
-}
-
 // tvm-ffi-stubgen(begin): object/ir.Location
 /// Complete: reflected fields fill [24, 24) exactly.
 #[repr(C)]
@@ -152,6 +100,14 @@ unsafe impl UnsafeInit for LocationObj {
     }
 }
 // tvm-ffi-stubgen(end)
+
+impl Location {
+    /// The shared [`UnknownLoc`] as a [`Location`] value; [`UNKNOWN_LOC`] is the same location as
+    /// a constructor argument.
+    pub fn unknown() -> Self {
+        UnknownLoc::new().into()
+    }
+}
 
 // tvm-ffi-stubgen(begin): object/ir.UnknownLoc
 /// Complete: reflected fields fill [24, 24) exactly.
@@ -216,14 +172,6 @@ impl UnknownLoc {
         support::shared(&UNKNOWN_LOC, || {
             tvm_ffi::cached_global_func!("ir.UnknownLoc").call_tuple(())?.try_into()
         })
-    }
-}
-
-impl Location {
-    /// The shared [`UnknownLoc`] as a [`Location`] value; [`UNKNOWN_LOC`] is the same location as
-    /// a constructor argument.
-    pub fn unknown() -> Self {
-        UnknownLoc::new().into()
     }
 }
 
@@ -371,3 +319,55 @@ tvm_ffi::impl_object_upcast!(CallSiteLoc => Location);
 // tvm-ffi-stubgen(end)
 
 // `ir.CallSiteLoc` stores its arguments as given: the generated `CallSiteLoc::new` is the same.
+
+// tvm-ffi-stubgen(begin): object/ir.SourceName
+/// Complete: reflected fields fill [24, 40) exactly.
+#[repr(C)]
+#[derive(tvm_ffi::derive::Object)]
+#[type_key = "ir.SourceName"]
+#[type_final]
+pub struct SourceNameObj {
+    base: Object,
+    pub name: String,
+}
+
+const _: () = {
+    assert!(::core::mem::size_of::<SourceNameObj>() == 40);
+    assert!(::core::mem::align_of::<SourceNameObj>() == 8);
+};
+
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct SourceName {
+    base: ObjectArc<SourceNameObj>,
+}
+
+impl Deref for SourceName {
+    type Target = SourceNameObj;
+    fn deref(&self) -> &SourceNameObj {
+        &self.base
+    }
+}
+
+impl SourceNameObj {
+    pub(crate) fn new(name: String) -> Self {
+        let base = Object::new();
+        Self { base, name }
+    }
+}
+
+impl SourceName {
+    /// Lossless complete-field allocation.
+    pub fn new(name: impl Into<String>) -> Self {
+        let obj = SourceNameObj::new(name.into());
+        Self { base: ObjectArc::new(obj) }
+    }
+}
+// tvm-ffi-stubgen(end)
+
+impl SourceName {
+    /// The source name `name`, interned so that equal names share one object (`ir.SourceName`).
+    pub fn get(name: &str) -> Result<Self> {
+        tvm_ffi::cached_global_func!("ir.SourceName").call_tuple((String::from(name),))?.try_into()
+    }
+}

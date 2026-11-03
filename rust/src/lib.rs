@@ -26,9 +26,9 @@
 //! - [`ir`]: the shared IR (expressions, statements, types, functions, modules and operators),
 //!   with the primitive expressions in [`ir::prim`] and the pass infrastructure in
 //!   [`ir::transform`].
-//! - [`tirx`]: tensor functions and types, index maps, layouts, thread scopes, tile instructions
-//!   and the TIRx passes.
-//! - [`sym`]: symbolic analysis: the analyzer, integer sets and iterator maps.
+//! - [`tirx`]: tensor functions and types, index maps, layouts, thread scopes, structural
+//!   traversals, tile instructions and the TIRx passes.
+//! - [`sym`]: symbolic analysis: the analyzer, constraints, integer sets and iterator maps.
 //! - [`target`]: compilation targets and target kinds.
 //! - [`backend`]: backend-specific objects, such as the attributes of CUDA instructions.
 //! - [`runtime`]: the runtime objects the IR refers to, tensor allocation and runtime queries.

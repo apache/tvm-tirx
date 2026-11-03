@@ -45,6 +45,45 @@ use tvm_ffi::Result;
 use tvm_ffi::String;
 // tvm-ffi-stubgen(end)
 
+// tvm-ffi-stubgen(begin): object/transform.Pass
+/// Opaque: no metadata of its own: total_size is unknown. Fields are read through the C ABI getters.
+#[repr(C)]
+#[derive(tvm_ffi::derive::Object)]
+#[type_key = "transform.Pass"]
+pub struct PassObj {
+    base: Object,
+}
+
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct Pass {
+    base: ObjectArc<PassObj>,
+}
+
+impl Deref for Pass {
+    type Target = PassObj;
+    fn deref(&self) -> &PassObj {
+        &self.base
+    }
+}
+// tvm-ffi-stubgen(end)
+
+impl Pass {
+    /// The name and optimization level of the pass (`transform.Info`).
+    pub fn info(&self) -> Result<PassInfo> {
+        tvm_ffi::cached_global_func!("transform.Info").call_tuple((self,))?.try_into()
+    }
+
+    /// Run the pass on `module`, which it consumes, under the current pass context
+    /// (`transform.RunPass`).
+    pub fn run(&self, module: impl Into<IRModule>) -> Result<IRModule> {
+        let module = tvm_ffi::RValueRef::new(module.into());
+        tvm_ffi::cached_global_func!("transform.RunPass")
+            .call_packed(&[tvm_ffi::AnyView::from(self), tvm_ffi::AnyView::from(&module)])?
+            .try_into()
+    }
+}
+
 // tvm-ffi-stubgen(begin): object/transform.PassInfo
 /// Complete: reflected fields fill [24, 48) exactly (alignment padding [28, 32)).
 #[repr(C)]
@@ -91,34 +130,129 @@ impl PassInfo {
 }
 // tvm-ffi-stubgen(end)
 
-// tvm-ffi-stubgen(begin): object/transform.PassInstrument
-/// Opaque: bytes [40, 48) of [24, 48) are not accounted for by reflected fields. Fields are read through the C ABI getters.
+// `PassInfo::new` above has the semantics of the native `transform.PassInfo`, which only stores
+// its fields.
+
+// tvm-ffi-stubgen(begin): object/transform.ModulePass
+/// Opaque: parent 'transform.Pass' is opaque (layout-unknown). Fields are read through the C ABI getters.
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
-#[type_key = "transform.PassInstrument"]
-pub struct PassInstrumentObj {
-    base: Object,
+#[type_key = "transform.ModulePass"]
+#[type_final]
+pub struct ModulePassObj {
+    base: PassObj,
 }
 
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct PassInstrument {
-    base: ObjectArc<PassInstrumentObj>,
+pub struct ModulePass {
+    base: ObjectArc<ModulePassObj>,
 }
 
-impl Deref for PassInstrument {
-    type Target = PassInstrumentObj;
-    fn deref(&self) -> &PassInstrumentObj {
+impl Deref for ModulePass {
+    type Target = ModulePassObj;
+    fn deref(&self) -> &ModulePassObj {
         &self.base
     }
 }
 
-impl PassInstrumentObj {
-    pub fn name(&self) -> Result<String> {
-        FieldGetter::new(Self::type_index(), "name")?.get(self)
+impl Deref for ModulePassObj {
+    type Target = PassObj;
+    fn deref(&self) -> &PassObj {
+        &self.base
     }
 }
+
+impl ModulePassObj {
+    pub fn pass_info(&self) -> Result<PassInfo> {
+        FieldGetter::new(Self::type_index(), "pass_info")?.get(self)
+    }
+}
+
+tvm_ffi::impl_object_upcast!(ModulePass => Pass);
 // tvm-ffi-stubgen(end)
+
+impl ModulePass {
+    /// The pass that applies `pass_func` to the module it runs on, which `pass_func` receives
+    /// by value (`transform.MakeModulePass`).
+    ///
+    /// The pass may run on any thread, so `pass_func` is `Send + Sync`.
+    pub fn new(
+        pass_func: impl Fn(IRModule, PassContext) -> Result<IRModule> + Send + Sync + 'static,
+        pass_info: impl Into<PassInfo>,
+    ) -> Self {
+        let pass_func = tvm_ffi::Function::from_typed(
+            move |module: tvm_ffi::RValueRef<IRModule>, ctx: PassContext| {
+                pass_func(module.into_inner(), ctx)
+            },
+        );
+        support::infallible(
+            tvm_ffi::cached_global_func!("transform.MakeModulePass")
+                .call_tuple((&pass_func, &pass_info.into()))
+                .and_then(|any| any.try_into()),
+        )
+    }
+}
+
+// tvm-ffi-stubgen(begin): object/transform.Sequential
+/// Opaque: parent 'transform.Pass' is opaque (layout-unknown). Fields are read through the C ABI getters.
+#[repr(C)]
+#[derive(tvm_ffi::derive::Object)]
+#[type_key = "transform.Sequential"]
+#[type_final]
+pub struct SequentialObj {
+    base: PassObj,
+}
+
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct Sequential {
+    base: ObjectArc<SequentialObj>,
+}
+
+impl Deref for Sequential {
+    type Target = SequentialObj;
+    fn deref(&self) -> &SequentialObj {
+        &self.base
+    }
+}
+
+impl Deref for SequentialObj {
+    type Target = PassObj;
+    fn deref(&self) -> &PassObj {
+        &self.base
+    }
+}
+
+impl SequentialObj {
+    pub fn pass_info(&self) -> Result<PassInfo> {
+        FieldGetter::new(Self::type_index(), "pass_info")?.get(self)
+    }
+
+    pub fn passes(&self) -> Result<Array<Pass>> {
+        FieldGetter::new(Self::type_index(), "passes")?.get(self)
+    }
+}
+
+tvm_ffi::impl_object_upcast!(Sequential => Pass);
+// tvm-ffi-stubgen(end)
+
+impl Sequential {
+    /// The pass that runs `passes` in order, skipping those the current pass context disables or
+    /// whose level exceeds its `opt_level` (`transform.Sequential`).
+    pub fn new(
+        passes: impl IntoIterator<Item = impl Into<Pass>>,
+        opt_level: i32,
+        name: &str,
+    ) -> Self {
+        let passes = passes.into_iter().map(Into::into).collect::<Array<Pass>>();
+        support::infallible(
+            tvm_ffi::cached_global_func!("transform.Sequential")
+                .call_tuple((&passes, opt_level, String::from(name)))
+                .and_then(|any| any.try_into()),
+        )
+    }
+}
 
 // tvm-ffi-stubgen(begin): object/transform.PassContext
 /// Complete: reflected fields fill [24, 64) exactly (alignment padding [28, 32)).
@@ -187,134 +321,6 @@ impl PassContext {
 }
 // tvm-ffi-stubgen(end)
 
-// tvm-ffi-stubgen(begin): object/transform.Pass
-/// Opaque: no metadata of its own: total_size is unknown. Fields are read through the C ABI getters.
-#[repr(C)]
-#[derive(tvm_ffi::derive::Object)]
-#[type_key = "transform.Pass"]
-pub struct PassObj {
-    base: Object,
-}
-
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct Pass {
-    base: ObjectArc<PassObj>,
-}
-
-impl Deref for Pass {
-    type Target = PassObj;
-    fn deref(&self) -> &PassObj {
-        &self.base
-    }
-}
-// tvm-ffi-stubgen(end)
-
-// tvm-ffi-stubgen(begin): object/transform.ModulePass
-/// Opaque: parent 'transform.Pass' is opaque (layout-unknown). Fields are read through the C ABI getters.
-#[repr(C)]
-#[derive(tvm_ffi::derive::Object)]
-#[type_key = "transform.ModulePass"]
-#[type_final]
-pub struct ModulePassObj {
-    base: PassObj,
-}
-
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct ModulePass {
-    base: ObjectArc<ModulePassObj>,
-}
-
-impl Deref for ModulePass {
-    type Target = ModulePassObj;
-    fn deref(&self) -> &ModulePassObj {
-        &self.base
-    }
-}
-
-impl Deref for ModulePassObj {
-    type Target = PassObj;
-    fn deref(&self) -> &PassObj {
-        &self.base
-    }
-}
-
-impl ModulePassObj {
-    pub fn pass_info(&self) -> Result<PassInfo> {
-        FieldGetter::new(Self::type_index(), "pass_info")?.get(self)
-    }
-}
-
-tvm_ffi::impl_object_upcast!(ModulePass => Pass);
-// tvm-ffi-stubgen(end)
-
-// tvm-ffi-stubgen(begin): object/transform.Sequential
-/// Opaque: parent 'transform.Pass' is opaque (layout-unknown). Fields are read through the C ABI getters.
-#[repr(C)]
-#[derive(tvm_ffi::derive::Object)]
-#[type_key = "transform.Sequential"]
-#[type_final]
-pub struct SequentialObj {
-    base: PassObj,
-}
-
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct Sequential {
-    base: ObjectArc<SequentialObj>,
-}
-
-impl Deref for Sequential {
-    type Target = SequentialObj;
-    fn deref(&self) -> &SequentialObj {
-        &self.base
-    }
-}
-
-impl Deref for SequentialObj {
-    type Target = PassObj;
-    fn deref(&self) -> &PassObj {
-        &self.base
-    }
-}
-
-impl SequentialObj {
-    pub fn pass_info(&self) -> Result<PassInfo> {
-        FieldGetter::new(Self::type_index(), "pass_info")?.get(self)
-    }
-
-    pub fn passes(&self) -> Result<Array<Pass>> {
-        FieldGetter::new(Self::type_index(), "passes")?.get(self)
-    }
-}
-
-tvm_ffi::impl_object_upcast!(Sequential => Pass);
-// tvm-ffi-stubgen(end)
-
-// `PassInfo::new` above has the semantics of the native `transform.PassInfo`, which only stores
-// its fields.
-
-/// A pass context in effect while it is alive: [`PassContext::enter`].
-///
-/// The entered pass contexts are a stack of the thread, so a scope stays on the thread that
-/// opened it, and the scopes end in the reverse order they were opened: drop the innermost one
-/// first.
-///
-/// ```compile_fail
-/// fn send<T: Send>() {}
-/// send::<tvm_tirx::ir::transform::PassContextScope>();
-/// ```
-#[must_use = "the pass context is exited when the scope is dropped"]
-pub struct PassContextScope(PassContext, crate::ThreadBound);
-
-impl Drop for PassContextScope {
-    fn drop(&mut self) {
-        // A destructor cannot report the error, and exiting the innermost context does not fail.
-        let _ = tvm_ffi::cached_global_func!("transform.ExitPassContext").call_tuple((&self.0,));
-    }
-}
-
 impl PassContext {
     /// A pass context with its `config` checked and converted to the registered option types;
     /// `None` is the empty configuration (`transform.PassContext`).
@@ -369,60 +375,54 @@ impl PassContext {
     }
 }
 
-impl Pass {
-    /// The name and optimization level of the pass (`transform.Info`).
-    pub fn info(&self) -> Result<PassInfo> {
-        tvm_ffi::cached_global_func!("transform.Info").call_tuple((self,))?.try_into()
-    }
+/// A pass context in effect while it is alive: [`PassContext::enter`].
+///
+/// The entered pass contexts are a stack of the thread, so a scope stays on the thread that
+/// opened it, and the scopes end in the reverse order they were opened: drop the innermost one
+/// first.
+///
+/// ```compile_fail
+/// fn send<T: Send>() {}
+/// send::<tvm_tirx::ir::transform::PassContextScope>();
+/// ```
+#[must_use = "the pass context is exited when the scope is dropped"]
+pub struct PassContextScope(PassContext, crate::ThreadBound);
 
-    /// Run the pass on `module`, which it consumes, under the current pass context
-    /// (`transform.RunPass`).
-    pub fn run(&self, module: impl Into<IRModule>) -> Result<IRModule> {
-        let module = tvm_ffi::RValueRef::new(module.into());
-        tvm_ffi::cached_global_func!("transform.RunPass")
-            .call_packed(&[tvm_ffi::AnyView::from(self), tvm_ffi::AnyView::from(&module)])?
-            .try_into()
+impl Drop for PassContextScope {
+    fn drop(&mut self) {
+        // A destructor cannot report the error, and exiting the innermost context does not fail.
+        let _ = tvm_ffi::cached_global_func!("transform.ExitPassContext").call_tuple((&self.0,));
     }
 }
 
-impl ModulePass {
-    /// The pass that applies `pass_func` to the module it runs on, which `pass_func` receives
-    /// by value (`transform.MakeModulePass`).
-    ///
-    /// The pass may run on any thread, so `pass_func` is `Send + Sync`.
-    pub fn new(
-        pass_func: impl Fn(IRModule, PassContext) -> Result<IRModule> + Send + Sync + 'static,
-        pass_info: impl Into<PassInfo>,
-    ) -> Self {
-        let pass_func = tvm_ffi::Function::from_typed(
-            move |module: tvm_ffi::RValueRef<IRModule>, ctx: PassContext| {
-                pass_func(module.into_inner(), ctx)
-            },
-        );
-        support::infallible(
-            tvm_ffi::cached_global_func!("transform.MakeModulePass")
-                .call_tuple((&pass_func, &pass_info.into()))
-                .and_then(|any| any.try_into()),
-        )
+// tvm-ffi-stubgen(begin): object/transform.PassInstrument
+/// Opaque: bytes [40, 48) of [24, 48) are not accounted for by reflected fields. Fields are read through the C ABI getters.
+#[repr(C)]
+#[derive(tvm_ffi::derive::Object)]
+#[type_key = "transform.PassInstrument"]
+pub struct PassInstrumentObj {
+    base: Object,
+}
+
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct PassInstrument {
+    base: ObjectArc<PassInstrumentObj>,
+}
+
+impl Deref for PassInstrument {
+    type Target = PassInstrumentObj;
+    fn deref(&self) -> &PassInstrumentObj {
+        &self.base
     }
 }
 
-impl Sequential {
-    /// The pass that runs `passes` in order, skipping those the current pass context disables or
-    /// whose level exceeds its `opt_level` (`transform.Sequential`).
-    pub fn new(
-        passes: impl IntoIterator<Item = impl Into<Pass>>,
-        opt_level: i32,
-        name: &str,
-    ) -> Self {
-        let passes = passes.into_iter().map(Into::into).collect::<Array<Pass>>();
-        support::infallible(
-            tvm_ffi::cached_global_func!("transform.Sequential")
-                .call_tuple((&passes, opt_level, String::from(name)))
-                .and_then(|any| any.try_into()),
-        )
+impl PassInstrumentObj {
+    pub fn name(&self) -> Result<String> {
+        FieldGetter::new(Self::type_index(), "name")?.get(self)
     }
 }
+// tvm-ffi-stubgen(end)
 
 /// The pass that logs `header` and the module, which it returns unchanged (`transform.PrintIR`).
 pub fn print_ir(header: &str) -> Result<Pass> {

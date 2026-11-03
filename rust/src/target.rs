@@ -93,63 +93,6 @@ impl TargetObj {
 }
 // tvm-ffi-stubgen(end)
 
-// tvm-ffi-stubgen(begin): object/target.TargetKind
-/// Opaque: bytes [56, 152) of [24, 152) are not accounted for by reflected fields. Fields are read through the C ABI getters.
-#[repr(C)]
-#[derive(tvm_ffi::derive::Object)]
-#[type_key = "target.TargetKind"]
-#[type_final]
-pub struct TargetKindObj {
-    base: Object,
-}
-
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct TargetKind {
-    base: ObjectArc<TargetKindObj>,
-}
-
-impl Deref for TargetKind {
-    type Target = TargetKindObj;
-    fn deref(&self) -> &TargetKindObj {
-        &self.base
-    }
-}
-
-impl TargetKindObj {
-    pub fn name(&self) -> Result<String> {
-        FieldGetter::new(Self::type_index(), "name")?.get(self)
-    }
-
-    pub fn default_device_type(&self) -> Result<i64> {
-        FieldGetter::new(Self::type_index(), "default_device_type")?.get(self)
-    }
-
-    pub fn default_keys(&self) -> Result<Array<String>> {
-        FieldGetter::new(Self::type_index(), "default_keys")?.get(self)
-    }
-}
-// tvm-ffi-stubgen(end)
-
-/// The target, in effect as the current one while it is alive: [`Target::scope`].
-///
-/// The current targets are a stack of the thread, so a scope stays on the thread that opened it,
-/// and the scopes end in the reverse order they were opened: drop the innermost one first.
-///
-/// ```compile_fail
-/// fn send<T: Send>() {}
-/// send::<tvm_tirx::target::TargetScope>();
-/// ```
-#[must_use = "the target stops being the current one when the scope is dropped"]
-pub struct TargetScope(Target, crate::ThreadBound);
-
-impl Drop for TargetScope {
-    fn drop(&mut self) {
-        // A destructor cannot report the error; the scopes end in the order they were opened.
-        let _ = tvm_ffi::cached_global_func!("target.TargetExitScope").call_tuple((&self.0,));
-    }
-}
-
 impl Target {
     /// The target a tag (`"nvidia/nvidia-a100"`), a kind name (`"llvm"`) or a JSON config
     /// describes (`target.Target`).
@@ -214,6 +157,63 @@ impl Target {
         tvm_ffi::cached_global_func!("target.ListTargetKinds").call_tuple(())?.try_into()
     }
 }
+
+/// The target, in effect as the current one while it is alive: [`Target::scope`].
+///
+/// The current targets are a stack of the thread, so a scope stays on the thread that opened it,
+/// and the scopes end in the reverse order they were opened: drop the innermost one first.
+///
+/// ```compile_fail
+/// fn send<T: Send>() {}
+/// send::<tvm_tirx::target::TargetScope>();
+/// ```
+#[must_use = "the target stops being the current one when the scope is dropped"]
+pub struct TargetScope(Target, crate::ThreadBound);
+
+impl Drop for TargetScope {
+    fn drop(&mut self) {
+        // A destructor cannot report the error; the scopes end in the order they were opened.
+        let _ = tvm_ffi::cached_global_func!("target.TargetExitScope").call_tuple((&self.0,));
+    }
+}
+
+// tvm-ffi-stubgen(begin): object/target.TargetKind
+/// Opaque: bytes [56, 152) of [24, 152) are not accounted for by reflected fields. Fields are read through the C ABI getters.
+#[repr(C)]
+#[derive(tvm_ffi::derive::Object)]
+#[type_key = "target.TargetKind"]
+#[type_final]
+pub struct TargetKindObj {
+    base: Object,
+}
+
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct TargetKind {
+    base: ObjectArc<TargetKindObj>,
+}
+
+impl Deref for TargetKind {
+    type Target = TargetKindObj;
+    fn deref(&self) -> &TargetKindObj {
+        &self.base
+    }
+}
+
+impl TargetKindObj {
+    pub fn name(&self) -> Result<String> {
+        FieldGetter::new(Self::type_index(), "name")?.get(self)
+    }
+
+    pub fn default_device_type(&self) -> Result<i64> {
+        FieldGetter::new(Self::type_index(), "default_device_type")?.get(self)
+    }
+
+    pub fn default_keys(&self) -> Result<Array<String>> {
+        FieldGetter::new(Self::type_index(), "default_keys")?.get(self)
+    }
+}
+// tvm-ffi-stubgen(end)
 
 impl TargetKind {
     /// The options of the kind, by name, with their type keys (`target.ListTargetKindOptions`).

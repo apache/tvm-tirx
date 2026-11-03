@@ -84,6 +84,99 @@ use tvm_ffi::ObjectRefCore;
 use tvm_ffi::Result;
 // tvm-ffi-stubgen(end)
 
+// ---------------------------------------------------------------------------------------------
+// What the node constructors check
+
+/// What the constructor of a binary node checks of its operands, and the type it gives the node
+/// (`TVM_DEFINE_BINOP_CONSTRUCTOR` and its siblings in `src/ir/prim/expr.cc`).
+#[derive(Clone, Copy)]
+enum Operands {
+    /// `Add`, `Min`, ...: operands of one type, which is the node's.
+    Arith,
+    /// `LShift`, `BitwiseAnd`, ...: as `Arith`, of an integer type, or boolean if allowed.
+    Bitwise { allow_bool: bool },
+    /// `EQ`, `LT`, ...: operands of one type; the node is boolean.
+    Compare,
+}
+
+/// The type of the binary node `node` of `a` and `b`, after the checks of its C++ constructor.
+fn binary_type(node: &str, operands: Operands, a: &Expr, b: &Expr) -> Result<Type> {
+    let (a_dtype, b_dtype) = (support::prim_dtype(a)?, support::prim_dtype(b)?);
+    if a_dtype != b_dtype {
+        let message = format!(
+            "mismatched types. {} vs. {}\n",
+            support::dtype_name(a_dtype),
+            support::dtype_name(b_dtype)
+        );
+        let condition = "a_ty->dtype == b_ty->dtype";
+        return Err(support::check_failed(tvm_ffi::TYPE_ERROR, condition, &message));
+    }
+    match operands {
+        Operands::Arith => Ok(a.ty.clone()),
+        Operands::Bitwise { allow_bool } => {
+            let code = a_dtype.code;
+            if matches!(code, support::INT | support::UINT) || (allow_bool && code == support::BOOL)
+            {
+                return Ok(a.ty.clone());
+            }
+            let condition = format!(
+                "a.ty().MatchesCode(DLDataTypeCode::kDLInt, DLDataTypeCode::kDLUInt) || \
+                 ({allow_bool} && a.ty().MatchesCode(DLDataTypeCode::kDLBool))"
+            );
+            let operands = if allow_bool { "integer or boolean" } else { "integer" };
+            let message = format!("{node} requires {operands} operands");
+            Err(support::check_failed(tvm_ffi::TYPE_ERROR, &condition, &message))
+        }
+        Operands::Compare => Ok(bool_type(a_dtype)?.into()),
+    }
+}
+
+/// The boolean type with the lanes of `dtype` (C++ `PrimType(DLDataType{kDLBool, 8, lanes})`).
+fn bool_type(operand: DLDataType) -> Result<PrimType> {
+    use crate::ir::dtype;
+    PrimType::from_dtype(dtype::with_lanes(dtype::bool(), operand.lanes))
+}
+
+/// The type of the logical node of `a` and `b`, after the checks of the C++ `And` and `Or`
+/// constructors: boolean operands of one type.
+fn logical_type(a: &Expr, b: &Expr) -> Result<Type> {
+    let (a_dtype, b_dtype) = (support::prim_dtype(a)?, support::prim_dtype(b)?);
+    for (dtype, operand) in [(a_dtype, "a_ty"), (b_dtype, "b_ty")] {
+        if dtype.code != support::BOOL {
+            let condition = format!("{operand}.MatchesCode(DLDataTypeCode::kDLBool)");
+            return Err(support::check_failed(tvm_ffi::INTERNAL_ERROR, &condition, ""));
+        }
+    }
+    if a_dtype != b_dtype {
+        return Err(support::check_failed(tvm_ffi::TYPE_ERROR, "a_ty == b_ty", "mismatched types"));
+    }
+    Ok(bool_type(a_dtype)?.into())
+}
+
+/// `impl $node { pub fn new(a, b, loc) }` for each binary node, with the checks of its C++
+/// constructor.
+macro_rules! binary_new {
+    ($($node:ident: $operands:expr, $doc:literal;)+) => {
+        $(
+            impl $node {
+                #[doc = $doc]
+                pub fn new(
+                    a: impl IntoExpr,
+                    b: impl IntoExpr,
+                    loc: impl Into<Location>,
+                ) -> Result<Self> {
+                    let (a, b) = (a.into_expr()?, b.into_expr()?);
+                    let ty = binary_type(stringify!($node), $operands, &a, &b)?;
+                    Ok(Self::from_fields(loc.into(), ty, a, b))
+                }
+            }
+        )+
+    };
+}
+
+// ---------------------------------------------------------------------------------------------
+// Casts
+
 // tvm-ffi-stubgen(begin): object/prim.Cast
 /// Complete: reflected fields fill [40, 48) exactly.
 #[repr(C)]
@@ -141,6 +234,28 @@ impl Cast {
 
 tvm_ffi::impl_object_upcast!(Cast => Expr);
 // tvm-ffi-stubgen(end)
+
+impl Cast {
+    /// The node converting `value` to `ty`, which has as many lanes as `value`
+    /// (C++ `Cast(ty, value, loc)`).
+    pub fn new(
+        ty: impl Into<PrimType>,
+        value: impl IntoExpr,
+        loc: impl Into<Location>,
+    ) -> Result<Self> {
+        let (ty, value) = (ty.into(), value.into_expr()?);
+        let value_dtype = support::prim_dtype(&value)?;
+        if ty.dtype.lanes != value_dtype.lanes {
+            let condition = "ty->dtype.lanes == value_expr_ty->dtype.lanes";
+            let (lhs, rhs) = (ty.dtype.lanes, value_dtype.lanes);
+            return Err(support::compare_failed(tvm_ffi::INTERNAL_ERROR, condition, lhs, rhs, ""));
+        }
+        Ok(Self::from_fields(loc.into(), ty, value))
+    }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Bitwise operations
 
 // tvm-ffi-stubgen(begin): object/prim.LShift
 /// Complete: reflected fields fill [40, 56) exactly.
@@ -202,6 +317,11 @@ impl LShift {
 tvm_ffi::impl_object_upcast!(LShift => Expr);
 // tvm-ffi-stubgen(end)
 
+binary_new! {
+    LShift: Operands::Bitwise { allow_bool: false },
+        "The node `a << b` over integer operands of the same type (C++ `LShift(a, b, loc)`).";
+}
+
 // tvm-ffi-stubgen(begin): object/prim.RShift
 /// Complete: reflected fields fill [40, 56) exactly.
 #[repr(C)]
@@ -261,6 +381,11 @@ impl RShift {
 
 tvm_ffi::impl_object_upcast!(RShift => Expr);
 // tvm-ffi-stubgen(end)
+
+binary_new! {
+    RShift: Operands::Bitwise { allow_bool: false },
+        "The node `a >> b` over integer operands of the same type (C++ `RShift(a, b, loc)`).";
+}
 
 // tvm-ffi-stubgen(begin): object/prim.BitwiseAnd
 /// Complete: reflected fields fill [40, 56) exactly.
@@ -322,6 +447,12 @@ impl BitwiseAnd {
 tvm_ffi::impl_object_upcast!(BitwiseAnd => Expr);
 // tvm-ffi-stubgen(end)
 
+binary_new! {
+    BitwiseAnd: Operands::Bitwise { allow_bool: true },
+        "The node `a & b` over integer or boolean operands of the same type \
+         (C++ `BitwiseAnd(a, b, loc)`).";
+}
+
 // tvm-ffi-stubgen(begin): object/prim.BitwiseOr
 /// Complete: reflected fields fill [40, 56) exactly.
 #[repr(C)]
@@ -381,6 +512,12 @@ impl BitwiseOr {
 
 tvm_ffi::impl_object_upcast!(BitwiseOr => Expr);
 // tvm-ffi-stubgen(end)
+
+binary_new! {
+    BitwiseOr: Operands::Bitwise { allow_bool: true },
+        "The node `a | b` over integer or boolean operands of the same type \
+         (C++ `BitwiseOr(a, b, loc)`).";
+}
 
 // tvm-ffi-stubgen(begin): object/prim.BitwiseXor
 /// Complete: reflected fields fill [40, 56) exactly.
@@ -442,6 +579,12 @@ impl BitwiseXor {
 tvm_ffi::impl_object_upcast!(BitwiseXor => Expr);
 // tvm-ffi-stubgen(end)
 
+binary_new! {
+    BitwiseXor: Operands::Bitwise { allow_bool: true },
+        "The node `a ^ b` over integer or boolean operands of the same type \
+         (C++ `BitwiseXor(a, b, loc)`).";
+}
+
 // tvm-ffi-stubgen(begin): object/prim.BitwiseNot
 /// Complete: reflected fields fill [40, 48) exactly.
 #[repr(C)]
@@ -495,6 +638,23 @@ impl BitwiseNot {
 
 tvm_ffi::impl_object_upcast!(BitwiseNot => Expr);
 // tvm-ffi-stubgen(end)
+
+impl BitwiseNot {
+    /// The node `~a` over an integer or boolean operand (C++ `BitwiseNot(a, loc)`).
+    pub fn new(a: impl IntoExpr, loc: impl Into<Location>) -> Result<Self> {
+        let a = a.into_expr()?;
+        if !matches!(support::prim_dtype(&a)?.code, support::INT | support::UINT | support::BOOL) {
+            let condition = "a_ty.MatchesCode(DLDataTypeCode::kDLInt, DLDataTypeCode::kDLUInt) || \
+                             a_ty.MatchesCode(DLDataTypeCode::kDLBool)";
+            let message = "BitwiseNot requires an integer or boolean operand";
+            return Err(support::check_failed(tvm_ffi::TYPE_ERROR, condition, message));
+        }
+        Ok(Self::from_fields(loc.into(), a.ty.clone(), a))
+    }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Arithmetic
 
 // tvm-ffi-stubgen(begin): object/prim.Add
 /// Complete: reflected fields fill [40, 56) exactly.
@@ -556,6 +716,10 @@ impl Add {
 tvm_ffi::impl_object_upcast!(Add => Expr);
 // tvm-ffi-stubgen(end)
 
+binary_new! {
+    Add: Operands::Arith, "The node `a + b` over operands of the same type (C++ `Add(a, b, loc)`).";
+}
+
 // tvm-ffi-stubgen(begin): object/prim.Sub
 /// Complete: reflected fields fill [40, 56) exactly.
 #[repr(C)]
@@ -615,6 +779,10 @@ impl Sub {
 
 tvm_ffi::impl_object_upcast!(Sub => Expr);
 // tvm-ffi-stubgen(end)
+
+binary_new! {
+    Sub: Operands::Arith, "The node `a - b` over operands of the same type (C++ `Sub(a, b, loc)`).";
+}
 
 // tvm-ffi-stubgen(begin): object/prim.Mul
 /// Complete: reflected fields fill [40, 56) exactly.
@@ -676,6 +844,10 @@ impl Mul {
 tvm_ffi::impl_object_upcast!(Mul => Expr);
 // tvm-ffi-stubgen(end)
 
+binary_new! {
+    Mul: Operands::Arith, "The node `a * b` over operands of the same type (C++ `Mul(a, b, loc)`).";
+}
+
 // tvm-ffi-stubgen(begin): object/prim.Div
 /// Complete: reflected fields fill [40, 56) exactly.
 #[repr(C)]
@@ -735,6 +907,10 @@ impl Div {
 
 tvm_ffi::impl_object_upcast!(Div => Expr);
 // tvm-ffi-stubgen(end)
+
+binary_new! {
+    Div: Operands::Arith, "The node `a / b` over operands of the same type (C++ `Div(a, b, loc)`).";
+}
 
 // tvm-ffi-stubgen(begin): object/prim.Mod
 /// Complete: reflected fields fill [40, 56) exactly.
@@ -796,6 +972,11 @@ impl Mod {
 tvm_ffi::impl_object_upcast!(Mod => Expr);
 // tvm-ffi-stubgen(end)
 
+binary_new! {
+    Mod: Operands::Arith,
+        "The node `a % b`, truncated, over operands of the same type (C++ `Mod(a, b, loc)`).";
+}
+
 // tvm-ffi-stubgen(begin): object/prim.FloorDiv
 /// Complete: reflected fields fill [40, 56) exactly.
 #[repr(C)]
@@ -855,6 +1036,11 @@ impl FloorDiv {
 
 tvm_ffi::impl_object_upcast!(FloorDiv => Expr);
 // tvm-ffi-stubgen(end)
+
+binary_new! {
+    FloorDiv: Operands::Arith,
+        "The node `floor(a / b)` over operands of the same type (C++ `FloorDiv(a, b, loc)`).";
+}
 
 // tvm-ffi-stubgen(begin): object/prim.FloorMod
 /// Complete: reflected fields fill [40, 56) exactly.
@@ -916,6 +1102,12 @@ impl FloorMod {
 tvm_ffi::impl_object_upcast!(FloorMod => Expr);
 // tvm-ffi-stubgen(end)
 
+binary_new! {
+    FloorMod: Operands::Arith,
+        "The node `a - floor(a / b) * b` over operands of the same type \
+         (C++ `FloorMod(a, b, loc)`).";
+}
+
 // tvm-ffi-stubgen(begin): object/prim.Min
 /// Complete: reflected fields fill [40, 56) exactly.
 #[repr(C)]
@@ -975,6 +1167,11 @@ impl Min {
 
 tvm_ffi::impl_object_upcast!(Min => Expr);
 // tvm-ffi-stubgen(end)
+
+binary_new! {
+    Min: Operands::Arith,
+        "The node `min(a, b)` over operands of the same type (C++ `Min(a, b, loc)`).";
+}
 
 // tvm-ffi-stubgen(begin): object/prim.Max
 /// Complete: reflected fields fill [40, 56) exactly.
@@ -1036,6 +1233,14 @@ impl Max {
 tvm_ffi::impl_object_upcast!(Max => Expr);
 // tvm-ffi-stubgen(end)
 
+binary_new! {
+    Max: Operands::Arith,
+        "The node `max(a, b)` over operands of the same type (C++ `Max(a, b, loc)`).";
+}
+
+// ---------------------------------------------------------------------------------------------
+// Comparisons
+
 // tvm-ffi-stubgen(begin): object/prim.EQ
 /// Complete: reflected fields fill [40, 56) exactly.
 #[repr(C)]
@@ -1095,6 +1300,11 @@ impl EQ {
 
 tvm_ffi::impl_object_upcast!(EQ => Expr);
 // tvm-ffi-stubgen(end)
+
+binary_new! {
+    EQ: Operands::Compare,
+        "The node the boolean `a == b` over operands of the same type (C++ `EQ(a, b, loc)`).";
+}
 
 // tvm-ffi-stubgen(begin): object/prim.NE
 /// Complete: reflected fields fill [40, 56) exactly.
@@ -1156,6 +1366,11 @@ impl NE {
 tvm_ffi::impl_object_upcast!(NE => Expr);
 // tvm-ffi-stubgen(end)
 
+binary_new! {
+    NE: Operands::Compare,
+        "The node the boolean `a != b` over operands of the same type (C++ `NE(a, b, loc)`).";
+}
+
 // tvm-ffi-stubgen(begin): object/prim.LT
 /// Complete: reflected fields fill [40, 56) exactly.
 #[repr(C)]
@@ -1215,6 +1430,11 @@ impl LT {
 
 tvm_ffi::impl_object_upcast!(LT => Expr);
 // tvm-ffi-stubgen(end)
+
+binary_new! {
+    LT: Operands::Compare,
+        "The node the boolean `a < b` over operands of the same type (C++ `LT(a, b, loc)`).";
+}
 
 // tvm-ffi-stubgen(begin): object/prim.LE
 /// Complete: reflected fields fill [40, 56) exactly.
@@ -1276,6 +1496,11 @@ impl LE {
 tvm_ffi::impl_object_upcast!(LE => Expr);
 // tvm-ffi-stubgen(end)
 
+binary_new! {
+    LE: Operands::Compare,
+        "The node the boolean `a <= b` over operands of the same type (C++ `LE(a, b, loc)`).";
+}
+
 // tvm-ffi-stubgen(begin): object/prim.GT
 /// Complete: reflected fields fill [40, 56) exactly.
 #[repr(C)]
@@ -1335,6 +1560,11 @@ impl GT {
 
 tvm_ffi::impl_object_upcast!(GT => Expr);
 // tvm-ffi-stubgen(end)
+
+binary_new! {
+    GT: Operands::Compare,
+        "The node the boolean `a > b` over operands of the same type (C++ `GT(a, b, loc)`).";
+}
 
 // tvm-ffi-stubgen(begin): object/prim.GE
 /// Complete: reflected fields fill [40, 56) exactly.
@@ -1396,6 +1626,14 @@ impl GE {
 tvm_ffi::impl_object_upcast!(GE => Expr);
 // tvm-ffi-stubgen(end)
 
+binary_new! {
+    GE: Operands::Compare,
+        "The node the boolean `a >= b` over operands of the same type (C++ `GE(a, b, loc)`).";
+}
+
+// ---------------------------------------------------------------------------------------------
+// Logical operations
+
 // tvm-ffi-stubgen(begin): object/prim.And
 /// Complete: reflected fields fill [40, 56) exactly.
 #[repr(C)]
@@ -1455,6 +1693,15 @@ impl And {
 
 tvm_ffi::impl_object_upcast!(And => Expr);
 // tvm-ffi-stubgen(end)
+
+impl And {
+    /// The node the boolean `a && b` over boolean operands (C++ `And(a, b, loc)`).
+    pub fn new(a: impl IntoExpr, b: impl IntoExpr, loc: impl Into<Location>) -> Result<Self> {
+        let (a, b) = (a.into_expr()?, b.into_expr()?);
+        let ty = logical_type(&a, &b)?;
+        Ok(Self::from_fields(loc.into(), ty, a, b))
+    }
+}
 
 // tvm-ffi-stubgen(begin): object/prim.Or
 /// Complete: reflected fields fill [40, 56) exactly.
@@ -1516,6 +1763,15 @@ impl Or {
 tvm_ffi::impl_object_upcast!(Or => Expr);
 // tvm-ffi-stubgen(end)
 
+impl Or {
+    /// The node the boolean `a || b` over boolean operands (C++ `Or(a, b, loc)`).
+    pub fn new(a: impl IntoExpr, b: impl IntoExpr, loc: impl Into<Location>) -> Result<Self> {
+        let (a, b) = (a.into_expr()?, b.into_expr()?);
+        let ty = logical_type(&a, &b)?;
+        Ok(Self::from_fields(loc.into(), ty, a, b))
+    }
+}
+
 // tvm-ffi-stubgen(begin): object/prim.Not
 /// Complete: reflected fields fill [40, 48) exactly.
 #[repr(C)]
@@ -1569,6 +1825,22 @@ impl Not {
 
 tvm_ffi::impl_object_upcast!(Not => Expr);
 // tvm-ffi-stubgen(end)
+
+impl Not {
+    /// The node the boolean `!a` over a boolean operand (C++ `Not(a, loc)`).
+    pub fn new(a: impl IntoExpr, loc: impl Into<Location>) -> Result<Self> {
+        let a = a.into_expr()?;
+        let a_dtype = support::prim_dtype(&a)?;
+        if a_dtype.code != support::BOOL {
+            let condition = "a_ty.MatchesCode(DLDataTypeCode::kDLBool)";
+            return Err(support::check_failed(tvm_ffi::INTERNAL_ERROR, condition, ""));
+        }
+        Ok(Self::from_fields(loc.into(), bool_type(a_dtype)?, a))
+    }
+}
+
+// ---------------------------------------------------------------------------------------------
+// `Select` and `Let`
 
 // tvm-ffi-stubgen(begin): object/prim.Select
 /// Complete: reflected fields fill [40, 64) exactly.
@@ -1644,6 +1916,55 @@ impl Select {
 tvm_ffi::impl_object_upcast!(Select => Expr);
 // tvm-ffi-stubgen(end)
 
+impl Select {
+    /// The node choosing `true_value` where `condition` holds and `false_value` elsewhere, which
+    /// evaluates both (C++ `Select(condition, true_value, false_value, loc)`).
+    pub fn new(
+        condition: impl IntoExpr,
+        true_value: impl IntoExpr,
+        false_value: impl IntoExpr,
+        loc: impl Into<Location>,
+    ) -> Result<Self> {
+        let (condition, true_value, false_value) =
+            (condition.into_expr()?, true_value.into_expr()?, false_value.into_expr()?);
+        let condition_dtype = support::prim_dtype(&condition)?;
+        let true_dtype = support::prim_dtype(&true_value)?;
+        let false_dtype = support::prim_dtype(&false_value)?;
+        if condition_dtype.code != support::BOOL {
+            let condition = "condition_ty.MatchesCode(DLDataTypeCode::kDLBool)";
+            return Err(support::check_failed(tvm_ffi::INTERNAL_ERROR, condition, ""));
+        }
+        // C++ `GetLanesOrVScaleFactor(ty)`.
+        let lanes_or_vscale_factor = |dtype: DLDataType| -> Result<i32> {
+            match support::is_scalable_vector(dtype) {
+                true => Ok(-(support::encoded_lanes(dtype) as i32)),
+                false => support::lanes(dtype),
+            }
+        };
+        if lanes_or_vscale_factor(condition_dtype)? != lanes_or_vscale_factor(true_dtype)?
+            && !support::is_scalar(condition_dtype)
+        {
+            let condition = "GetLanesOrVScaleFactor(condition_ty) == \
+                             GetLanesOrVScaleFactor(true_ty) || condition_ty.IsScalar()";
+            return Err(support::check_failed(tvm_ffi::INTERNAL_ERROR, condition, ""));
+        }
+        if false_dtype != true_dtype {
+            let message = format!(
+                "mismatched types. False type: {}; True type: {}",
+                support::dtype_name(false_dtype),
+                support::dtype_name(true_dtype)
+            );
+            return Err(support::check_failed(
+                tvm_ffi::TYPE_ERROR,
+                "false_ty == true_ty",
+                &message,
+            ));
+        }
+        let ty = true_value.ty.clone();
+        Ok(Self::from_fields(loc.into(), ty, condition, true_value, false_value))
+    }
+}
+
 // tvm-ffi-stubgen(begin): object/prim.Let
 /// Complete: reflected fields fill [40, 64) exactly.
 #[repr(C)]
@@ -1705,249 +2026,6 @@ impl Let {
 
 tvm_ffi::impl_object_upcast!(Let => Expr);
 // tvm-ffi-stubgen(end)
-
-impl Cast {
-    /// The node converting `value` to `ty`, which has as many lanes as `value`
-    /// (C++ `Cast(ty, value, loc)`).
-    pub fn new(
-        ty: impl Into<PrimType>,
-        value: impl IntoExpr,
-        loc: impl Into<Location>,
-    ) -> Result<Self> {
-        let (ty, value) = (ty.into(), value.into_expr()?);
-        let value_dtype = support::prim_dtype(&value)?;
-        if ty.dtype.lanes != value_dtype.lanes {
-            let condition = "ty->dtype.lanes == value_expr_ty->dtype.lanes";
-            let (lhs, rhs) = (ty.dtype.lanes, value_dtype.lanes);
-            return Err(support::compare_failed(tvm_ffi::INTERNAL_ERROR, condition, lhs, rhs, ""));
-        }
-        Ok(Self::from_fields(loc.into(), ty, value))
-    }
-}
-
-/// What the constructor of a binary node checks of its operands, and the type it gives the node
-/// (`TVM_DEFINE_BINOP_CONSTRUCTOR` and its siblings in `src/ir/prim/expr.cc`).
-#[derive(Clone, Copy)]
-enum Operands {
-    /// `Add`, `Min`, ...: operands of one type, which is the node's.
-    Arith,
-    /// `LShift`, `BitwiseAnd`, ...: as `Arith`, of an integer type, or boolean if allowed.
-    Bitwise { allow_bool: bool },
-    /// `EQ`, `LT`, ...: operands of one type; the node is boolean.
-    Compare,
-}
-
-/// The type of the binary node `node` of `a` and `b`, after the checks of its C++ constructor.
-fn binary_type(node: &str, operands: Operands, a: &Expr, b: &Expr) -> Result<Type> {
-    let (a_dtype, b_dtype) = (support::prim_dtype(a)?, support::prim_dtype(b)?);
-    if a_dtype != b_dtype {
-        let message = format!(
-            "mismatched types. {} vs. {}\n",
-            support::dtype_name(a_dtype),
-            support::dtype_name(b_dtype)
-        );
-        let condition = "a_ty->dtype == b_ty->dtype";
-        return Err(support::check_failed(tvm_ffi::TYPE_ERROR, condition, &message));
-    }
-    match operands {
-        Operands::Arith => Ok(a.ty.clone()),
-        Operands::Bitwise { allow_bool } => {
-            let code = a_dtype.code;
-            if matches!(code, support::INT | support::UINT) || (allow_bool && code == support::BOOL)
-            {
-                return Ok(a.ty.clone());
-            }
-            let condition = format!(
-                "a.ty().MatchesCode(DLDataTypeCode::kDLInt, DLDataTypeCode::kDLUInt) || \
-                 ({allow_bool} && a.ty().MatchesCode(DLDataTypeCode::kDLBool))"
-            );
-            let operands = if allow_bool { "integer or boolean" } else { "integer" };
-            let message = format!("{node} requires {operands} operands");
-            Err(support::check_failed(tvm_ffi::TYPE_ERROR, &condition, &message))
-        }
-        Operands::Compare => Ok(bool_type(a_dtype)?.into()),
-    }
-}
-
-/// The boolean type with the lanes of `dtype` (C++ `PrimType(DLDataType{kDLBool, 8, lanes})`).
-fn bool_type(operand: DLDataType) -> Result<PrimType> {
-    use crate::ir::dtype;
-    PrimType::from_dtype(dtype::with_lanes(dtype::bool(), operand.lanes))
-}
-
-/// `impl $node { pub fn new(a, b, loc) }` for each binary node, with the checks of its C++
-/// constructor.
-macro_rules! binary_new {
-    ($($node:ident: $operands:expr, $doc:literal;)+) => {
-        $(
-            impl $node {
-                #[doc = $doc]
-                pub fn new(
-                    a: impl IntoExpr,
-                    b: impl IntoExpr,
-                    loc: impl Into<Location>,
-                ) -> Result<Self> {
-                    let (a, b) = (a.into_expr()?, b.into_expr()?);
-                    let ty = binary_type(stringify!($node), $operands, &a, &b)?;
-                    Ok(Self::from_fields(loc.into(), ty, a, b))
-                }
-            }
-        )+
-    };
-}
-
-binary_new! {
-    LShift: Operands::Bitwise { allow_bool: false },
-        "The node `a << b` over integer operands of the same type (C++ `LShift(a, b, loc)`).";
-    RShift: Operands::Bitwise { allow_bool: false },
-        "The node `a >> b` over integer operands of the same type (C++ `RShift(a, b, loc)`).";
-    BitwiseAnd: Operands::Bitwise { allow_bool: true },
-        "The node `a & b` over integer or boolean operands of the same type \
-         (C++ `BitwiseAnd(a, b, loc)`).";
-    BitwiseOr: Operands::Bitwise { allow_bool: true },
-        "The node `a | b` over integer or boolean operands of the same type \
-         (C++ `BitwiseOr(a, b, loc)`).";
-    BitwiseXor: Operands::Bitwise { allow_bool: true },
-        "The node `a ^ b` over integer or boolean operands of the same type \
-         (C++ `BitwiseXor(a, b, loc)`).";
-    Add: Operands::Arith, "The node `a + b` over operands of the same type (C++ `Add(a, b, loc)`).";
-    Sub: Operands::Arith, "The node `a - b` over operands of the same type (C++ `Sub(a, b, loc)`).";
-    Mul: Operands::Arith, "The node `a * b` over operands of the same type (C++ `Mul(a, b, loc)`).";
-    Div: Operands::Arith, "The node `a / b` over operands of the same type (C++ `Div(a, b, loc)`).";
-    Mod: Operands::Arith,
-        "The node `a % b`, truncated, over operands of the same type (C++ `Mod(a, b, loc)`).";
-    FloorDiv: Operands::Arith,
-        "The node `floor(a / b)` over operands of the same type (C++ `FloorDiv(a, b, loc)`).";
-    FloorMod: Operands::Arith,
-        "The node `a - floor(a / b) * b` over operands of the same type \
-         (C++ `FloorMod(a, b, loc)`).";
-    Min: Operands::Arith,
-        "The node `min(a, b)` over operands of the same type (C++ `Min(a, b, loc)`).";
-    Max: Operands::Arith,
-        "The node `max(a, b)` over operands of the same type (C++ `Max(a, b, loc)`).";
-    EQ: Operands::Compare,
-        "The node the boolean `a == b` over operands of the same type (C++ `EQ(a, b, loc)`).";
-    NE: Operands::Compare,
-        "The node the boolean `a != b` over operands of the same type (C++ `NE(a, b, loc)`).";
-    LT: Operands::Compare,
-        "The node the boolean `a < b` over operands of the same type (C++ `LT(a, b, loc)`).";
-    LE: Operands::Compare,
-        "The node the boolean `a <= b` over operands of the same type (C++ `LE(a, b, loc)`).";
-    GT: Operands::Compare,
-        "The node the boolean `a > b` over operands of the same type (C++ `GT(a, b, loc)`).";
-    GE: Operands::Compare,
-        "The node the boolean `a >= b` over operands of the same type (C++ `GE(a, b, loc)`).";
-}
-
-/// The type of the logical node of `a` and `b`, after the checks of the C++ `And` and `Or`
-/// constructors: boolean operands of one type.
-fn logical_type(a: &Expr, b: &Expr) -> Result<Type> {
-    let (a_dtype, b_dtype) = (support::prim_dtype(a)?, support::prim_dtype(b)?);
-    for (dtype, operand) in [(a_dtype, "a_ty"), (b_dtype, "b_ty")] {
-        if dtype.code != support::BOOL {
-            let condition = format!("{operand}.MatchesCode(DLDataTypeCode::kDLBool)");
-            return Err(support::check_failed(tvm_ffi::INTERNAL_ERROR, &condition, ""));
-        }
-    }
-    if a_dtype != b_dtype {
-        return Err(support::check_failed(tvm_ffi::TYPE_ERROR, "a_ty == b_ty", "mismatched types"));
-    }
-    Ok(bool_type(a_dtype)?.into())
-}
-
-impl And {
-    /// The node the boolean `a && b` over boolean operands (C++ `And(a, b, loc)`).
-    pub fn new(a: impl IntoExpr, b: impl IntoExpr, loc: impl Into<Location>) -> Result<Self> {
-        let (a, b) = (a.into_expr()?, b.into_expr()?);
-        let ty = logical_type(&a, &b)?;
-        Ok(Self::from_fields(loc.into(), ty, a, b))
-    }
-}
-
-impl Or {
-    /// The node the boolean `a || b` over boolean operands (C++ `Or(a, b, loc)`).
-    pub fn new(a: impl IntoExpr, b: impl IntoExpr, loc: impl Into<Location>) -> Result<Self> {
-        let (a, b) = (a.into_expr()?, b.into_expr()?);
-        let ty = logical_type(&a, &b)?;
-        Ok(Self::from_fields(loc.into(), ty, a, b))
-    }
-}
-
-impl BitwiseNot {
-    /// The node `~a` over an integer or boolean operand (C++ `BitwiseNot(a, loc)`).
-    pub fn new(a: impl IntoExpr, loc: impl Into<Location>) -> Result<Self> {
-        let a = a.into_expr()?;
-        if !matches!(support::prim_dtype(&a)?.code, support::INT | support::UINT | support::BOOL) {
-            let condition = "a_ty.MatchesCode(DLDataTypeCode::kDLInt, DLDataTypeCode::kDLUInt) || \
-                             a_ty.MatchesCode(DLDataTypeCode::kDLBool)";
-            let message = "BitwiseNot requires an integer or boolean operand";
-            return Err(support::check_failed(tvm_ffi::TYPE_ERROR, condition, message));
-        }
-        Ok(Self::from_fields(loc.into(), a.ty.clone(), a))
-    }
-}
-
-impl Not {
-    /// The node the boolean `!a` over a boolean operand (C++ `Not(a, loc)`).
-    pub fn new(a: impl IntoExpr, loc: impl Into<Location>) -> Result<Self> {
-        let a = a.into_expr()?;
-        let a_dtype = support::prim_dtype(&a)?;
-        if a_dtype.code != support::BOOL {
-            let condition = "a_ty.MatchesCode(DLDataTypeCode::kDLBool)";
-            return Err(support::check_failed(tvm_ffi::INTERNAL_ERROR, condition, ""));
-        }
-        Ok(Self::from_fields(loc.into(), bool_type(a_dtype)?, a))
-    }
-}
-
-impl Select {
-    /// The node choosing `true_value` where `condition` holds and `false_value` elsewhere, which
-    /// evaluates both (C++ `Select(condition, true_value, false_value, loc)`).
-    pub fn new(
-        condition: impl IntoExpr,
-        true_value: impl IntoExpr,
-        false_value: impl IntoExpr,
-        loc: impl Into<Location>,
-    ) -> Result<Self> {
-        let (condition, true_value, false_value) =
-            (condition.into_expr()?, true_value.into_expr()?, false_value.into_expr()?);
-        let condition_dtype = support::prim_dtype(&condition)?;
-        let true_dtype = support::prim_dtype(&true_value)?;
-        let false_dtype = support::prim_dtype(&false_value)?;
-        if condition_dtype.code != support::BOOL {
-            let condition = "condition_ty.MatchesCode(DLDataTypeCode::kDLBool)";
-            return Err(support::check_failed(tvm_ffi::INTERNAL_ERROR, condition, ""));
-        }
-        // C++ `GetLanesOrVScaleFactor(ty)`.
-        let lanes_or_vscale_factor = |dtype: DLDataType| -> Result<i32> {
-            match support::is_scalable_vector(dtype) {
-                true => Ok(-(support::encoded_lanes(dtype) as i32)),
-                false => support::lanes(dtype),
-            }
-        };
-        if lanes_or_vscale_factor(condition_dtype)? != lanes_or_vscale_factor(true_dtype)?
-            && !support::is_scalar(condition_dtype)
-        {
-            let condition = "GetLanesOrVScaleFactor(condition_ty) == \
-                             GetLanesOrVScaleFactor(true_ty) || condition_ty.IsScalar()";
-            return Err(support::check_failed(tvm_ffi::INTERNAL_ERROR, condition, ""));
-        }
-        if false_dtype != true_dtype {
-            let message = format!(
-                "mismatched types. False type: {}; True type: {}",
-                support::dtype_name(false_dtype),
-                support::dtype_name(true_dtype)
-            );
-            return Err(support::check_failed(
-                tvm_ffi::TYPE_ERROR,
-                "false_ty == true_ty",
-                &message,
-            ));
-        }
-        let ty = true_value.ty.clone();
-        Ok(Self::from_fields(loc.into(), ty, condition, true_value, false_value))
-    }
-}
 
 impl Let {
     /// The node binding `var` to `value` in `body`, of the type of `body`

@@ -53,52 +53,6 @@ use tvm_ffi::Result;
 use tvm_ffi::String;
 // tvm-ffi-stubgen(end)
 
-// tvm-ffi-stubgen(begin): object/ir.ArgumentInfo
-/// Complete: reflected fields fill [24, 56) exactly.
-#[repr(C)]
-#[derive(tvm_ffi::derive::Object)]
-#[type_key = "ir.ArgumentInfo"]
-#[type_final]
-pub struct ArgumentInfoObj {
-    base: Object,
-    pub name: String,
-    pub doc: String,
-}
-
-const _: () = {
-    assert!(::core::mem::size_of::<ArgumentInfoObj>() == 56);
-    assert!(::core::mem::align_of::<ArgumentInfoObj>() == 8);
-};
-
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct ArgumentInfo {
-    base: ObjectArc<ArgumentInfoObj>,
-}
-
-impl Deref for ArgumentInfo {
-    type Target = ArgumentInfoObj;
-    fn deref(&self) -> &ArgumentInfoObj {
-        &self.base
-    }
-}
-
-impl ArgumentInfoObj {
-    pub(crate) fn new(name: String, doc: String) -> Self {
-        let base = Object::new();
-        Self { base, name, doc }
-    }
-}
-
-impl ArgumentInfo {
-    /// Lossless complete-field allocation.
-    pub fn new(name: impl Into<String>, doc: impl Into<String>) -> Self {
-        let obj = ArgumentInfoObj::new(name.into(), doc.into());
-        Self { base: ObjectArc::new(obj) }
-    }
-}
-// tvm-ffi-stubgen(end)
-
 /// Complete field view of a native operator registry entry; construction is registry-only.
 ///
 /// Hand-written (the block is `skip`ped): `attrs_type_index`, `validator`, and
@@ -253,6 +207,52 @@ impl Op {
 }
 
 tvm_ffi::impl_object_upcast!(Op => Expr);
+
+// tvm-ffi-stubgen(begin): object/ir.ArgumentInfo
+/// Complete: reflected fields fill [24, 56) exactly.
+#[repr(C)]
+#[derive(tvm_ffi::derive::Object)]
+#[type_key = "ir.ArgumentInfo"]
+#[type_final]
+pub struct ArgumentInfoObj {
+    base: Object,
+    pub name: String,
+    pub doc: String,
+}
+
+const _: () = {
+    assert!(::core::mem::size_of::<ArgumentInfoObj>() == 56);
+    assert!(::core::mem::align_of::<ArgumentInfoObj>() == 8);
+};
+
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct ArgumentInfo {
+    base: ObjectArc<ArgumentInfoObj>,
+}
+
+impl Deref for ArgumentInfo {
+    type Target = ArgumentInfoObj;
+    fn deref(&self) -> &ArgumentInfoObj {
+        &self.base
+    }
+}
+
+impl ArgumentInfoObj {
+    pub(crate) fn new(name: String, doc: String) -> Self {
+        let base = Object::new();
+        Self { base, name, doc }
+    }
+}
+
+impl ArgumentInfo {
+    /// Lossless complete-field allocation.
+    pub fn new(name: impl Into<String>, doc: impl Into<String>) -> Self {
+        let obj = ArgumentInfoObj::new(name.into(), doc.into());
+        Self { base: ObjectArc::new(obj) }
+    }
+}
+// tvm-ffi-stubgen(end)
 
 /// `OpAttrMap<T>` (`include/tvm/ir/op.h`): one live attribute column of the operator registry.
 ///

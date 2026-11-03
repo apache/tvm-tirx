@@ -184,121 +184,427 @@ use tvm_ffi::VALUE_ERROR;
 // tvm-ffi-stubgen(end)
 
 // ---------------------------------------------------------------------------------------------
-// Types
+// `ExprResult`: expressions under construction
 
-/// The `float4` code C++ `IsFloat4Type` matches.
-const FLOAT4: DLDataTypeCode = DLDataTypeCode::kDLFloat4_e2m1fn;
+/// An expression being built by operators: either the expression, a [`PrimExpr`], or the first
+/// error any step raised. Later steps pass an error through untouched. An `ExprResult` is an
+/// [`IntoExpr`], so it passes into any function or constructor that takes one, whose `?` then
+/// reports the error; `PrimExpr::try_from` takes the expression out without a further check, and
+/// `Expr::try_from` takes it out as an `Expr`.
+///
+/// Registered expression wrappers convert into an `ExprResult`; one whose type is not a
+/// `PrimType` is a TypeError there. The operators
+/// `+`, `-`, `*`, `&`, `|`, `^`, `<<`, `>>`, unary `-` and `!` are the C++ ones, typed after C++:
+/// an integer literal on either side is `MakeConst(other.ty(), v)`, an `f32` a float32 constant,
+/// an `f64` a float64 one. `/` and `%` are not defined: name the division
+/// ([`PrimOps::truncdiv`], [`PrimOps::floordiv`], [`PrimOps::div`], ...), as C++ requires of `%`
+/// and of `/` next to a literal (`DivAmbiguityError`); C++ `/` between two expressions is `div`.
+/// Comparisons, `&&` and `||` are [`PrimOps`] methods too, because Rust's comparison traits
+/// return `bool`.
+#[derive(Clone)]
+#[must_use = "an `ExprResult` holds the result; pass it on, or convert it with `PrimExpr::try_from`"]
+pub struct ExprResult(Result<PrimExpr>);
 
-/// C++ `IsFloat8Type`.
-fn is_float8(code: u8) -> bool {
-    support::float8_bound(code).is_some()
+impl TryFrom<ExprResult> for Expr {
+    type Error = Error;
+
+    /// The built expression, or the first error raised while constructing it.
+    fn try_from(value: ExprResult) -> Result<Self> {
+        value.0.map(Into::into)
+    }
 }
 
-/// C++ `IsFloat6Type`.
-fn is_float6(code: u8) -> bool {
-    support::float6_bound(code).is_some()
+impl TryFrom<ExprResult> for PrimExpr {
+    type Error = Error;
+
+    /// The built expression, which every step checks is a `PrimExpr`, or the first error raised
+    /// while building it.
+    fn try_from(value: ExprResult) -> Result<Self> {
+        value.0
+    }
 }
 
-/// The largest finite value of a float8 or float6 type, and whether the type is unsigned, its
-/// minimum then 0 (C++ `max_value` and `min_value`).
-fn small_float_bound(code: u8) -> Option<(f64, bool)> {
-    support::float8_bound(code).or_else(|| support::float6_bound(code).map(|max| (max, false)))
-}
-
-fn is_float4(code: u8) -> bool {
-    FLOAT4 as u8 == code
-}
-
-/// C++ `MatchesElementType(kDLBfloat, 16)`.
-fn is_bfloat16(dtype: DLDataType) -> bool {
-    dtype.code == support::BFLOAT && dtype.bits == 16
-}
-
-/// A vector of any kind: fixed length or scalable.
-fn is_vector(dtype: DLDataType) -> bool {
-    support::is_scalable_vector(dtype) || support::is_fixed_length_vector(dtype)
-}
-
-/// The vscale factor a scalable vector type encodes (C++ `VScaleFactor`).
-fn vscale_factor(dtype: DLDataType) -> i32 {
-    -i32::from(support::encoded_lanes(dtype))
-}
-
-/// The lanes of a vector type as an expression: the count, or `factor * vscale()` for a scalable
-/// vector (C++ `BroadcastToMatchLanes` and `cast`).
-fn lanes_of(dtype: DLDataType) -> Result<Expr> {
-    match support::is_scalable_vector(dtype) {
-        true => {
-            let factor = IntImm::int32(vscale_factor(dtype));
-            Ok(Mul::new(factor, vscale()?, UNKNOWN_LOC)?.into())
+impl ExprResult {
+    /// The dtype a literal next to this expression takes (`MakeConst(this.ty(), v)`).
+    fn dtype(&self) -> Result<DLDataType> {
+        match &self.0 {
+            Ok(expr) => Ok(expr.dtype()),
+            Err(error) => Err(error.clone()),
         }
-        false => Ok(IntImm::int32(support::lanes(dtype)?).into()),
     }
 }
 
-/// `Call(ty, Op::Get(op), args, {}, {}, loc)`; without `ty` the constructor infers the type.
-fn call(ty: Option<&Type>, op: &'static str, args: Vec<Expr>, loc: Location) -> Result<Expr> {
-    let op = support::cached_op(op)?;
-    Ok(Call::new(ty, op, args, None, Vec::<Type>::new(), loc)?.into())
-}
-
-/// Whether `expr` is a call of `prim.vscale`.
-fn is_vscale_call(expr: &Expr) -> Result<bool> {
-    let Some(call) = expr.downcast_ref::<CallObj>() else { return Ok(false) };
-    Ok(call.op.same_as(&support::cached_op("prim.vscale")?))
-}
-
-/// The `TVM_FFI_ICHECK` an operation makes of an operand's type code: `codes` is the C++ text
-/// of the accepted codes, `message` what it reports.
-fn check_code(
-    operand: &Expr,
-    side: &str,
-    accepted: &[u8],
-    codes: &str,
-    message: impl FnOnce() -> String,
-) -> Result<()> {
-    if accepted.contains(&support::prim_dtype(operand)?.code) {
-        return Ok(());
+impl IntoExpr for ExprResult {
+    fn into_expr(self) -> Result<Expr> {
+        self.0.map(Into::into)
     }
-    let condition = format!("{side}.ty().MatchesCode({codes})");
-    Err(support::check_failed(INTERNAL_ERROR, &condition, &message()))
 }
 
-const INTEGER: [u8; 2] = [support::INT, support::UINT];
-const INTEGER_CODES: &str = "DLDataTypeCode::kDLInt, DLDataTypeCode::kDLUInt";
-const INTEGER_OR_BOOL: [u8; 3] = [support::INT, support::UINT, support::BOOL];
-const INTEGER_OR_BOOL_CODES: &str =
-    "DLDataTypeCode::kDLInt, DLDataTypeCode::kDLUInt, DLDataTypeCode::kDLBool";
-const BOOL_CODES: &str = "DLDataTypeCode::kDLBool";
-
-/// `TVM_FFI_ICHECK(x.ty().MatchesCode(kDLInt, kDLUInt)) << x` of the integer divisions, on both
-/// operands.
-fn check_integers(a: &Expr, b: &Expr) -> Result<()> {
-    check_code(a, "a", &INTEGER, INTEGER_CODES, || support::repr(a))?;
-    check_code(b, "b", &INTEGER, INTEGER_CODES, || support::repr(b))
-}
-
-/// The operand checks of an operator `symbol` (`what` names it) that takes `kind` arguments:
-/// integers, integers or booleans, or booleans.
-fn check_operands(
-    a: &Expr,
-    b: &Expr,
-    symbol: &str,
-    what: &str,
-    kind: &str,
-    (accepted, codes): (&[u8], &str),
-) -> Result<()> {
-    for (operand, side, which) in [(a, "a", "LHS"), (b, "b", "RHS")] {
-        check_code(operand, side, accepted, codes, || {
-            format!(
-                "Expected {kind} argument as {which} of {symbol} operator ({what}), but received \
-                 {} of type {}",
-                support::repr(operand),
-                support::repr(&operand.ty)
-            )
-        })?;
+impl IntoExpr for &ExprResult {
+    fn into_expr(self) -> Result<Expr> {
+        self.0.clone().map(Into::into)
     }
-    Ok(())
+}
+
+impl<T: Into<Expr>> From<Result<T>> for ExprResult {
+    fn from(value: Result<T>) -> Self {
+        ExprResult::checked(value.map(Into::into))
+    }
+}
+
+impl ExprResult {
+    /// A step's result, checked to be a `PrimExpr`; an expression of another type is a TypeError,
+    /// raised where it enters the chain.
+    fn checked(value: Result<Expr>) -> Self {
+        ExprResult(value.and_then(PrimExpr::try_from))
+    }
+}
+
+impl From<&ExprResult> for ExprResult {
+    fn from(value: &ExprResult) -> Self {
+        value.clone()
+    }
+}
+
+/// `lhs <op> rhs`; a literal `rhs` is typed after `lhs`.
+fn binary(
+    lhs: ExprResult,
+    rhs: impl Operand,
+    op: impl FnOnce(Expr, Expr) -> Result<Expr>,
+) -> ExprResult {
+    let rhs = typed_after(rhs.classify(), &lhs);
+    match (lhs.0, rhs.0) {
+        (Ok(a), Ok(b)) => ExprResult::checked(op(a.into(), b.into())),
+        (Err(error), _) | (_, Err(error)) => ExprResult(Err(error)),
+    }
+}
+
+/// `lhs <op> rhs` for a literal `lhs`, typed after `rhs`.
+fn binary_literal(
+    lhs: impl Operand,
+    rhs: ExprResult,
+    op: impl FnOnce(Expr, Expr) -> Result<Expr>,
+) -> ExprResult {
+    let lhs = typed_after(lhs.classify(), &rhs);
+    binary(lhs, rhs, op)
+}
+
+mod operators {
+    //! The operator traits of [`ExprResult`], and of the expressions and literals that start one.
+
+    use std::ops::{
+        Add, AddAssign, BitAnd, BitOr, BitXor, Mul, MulAssign, Neg, Not, Shl, Shr, Sub, SubAssign,
+    };
+
+    use super::{binary, binary_literal, ExprResult, Operand};
+
+    macro_rules! binary_operators {
+        ($($Trait:ident::$method:ident => $op:ident),+ $(,)?) => {
+            $(
+                impl<R: Operand> $Trait<R> for ExprResult {
+                    type Output = ExprResult;
+                    fn $method(self, rhs: R) -> ExprResult {
+                        binary(self, rhs, super::$op)
+                    }
+                }
+                binary_operators!(@lhs $Trait::$method => $op; &ExprResult);
+                binary_operators!(@literal $Trait::$method => $op; i32, i64, f32, f64);
+            )+
+        };
+        (@lhs $Trait:ident::$method:ident => $op:ident; $($lhs:ty),+) => {
+            $(
+                impl<R: Operand> $Trait<R> for $lhs {
+                    type Output = ExprResult;
+                    fn $method(self, rhs: R) -> ExprResult {
+                        binary(self.into(), rhs, super::$op)
+                    }
+                }
+            )+
+        };
+        (@literal $Trait:ident::$method:ident => $op:ident; $($lit:ty),+) => {
+            $(
+                binary_operators!(@literal_rhs $Trait::$method => $op; $lit; ExprResult, &ExprResult);
+            )+
+        };
+        (@literal_rhs $Trait:ident::$method:ident => $op:ident; $lit:ty; $($rhs:ty),+) => {
+            $(
+                impl $Trait<$rhs> for $lit {
+                    type Output = ExprResult;
+                    fn $method(self, rhs: $rhs) -> ExprResult {
+                        binary_literal(self, rhs.into(), super::$op)
+                    }
+                }
+            )+
+        };
+    }
+
+    binary_operators!(
+        Add::add => add,
+        Sub::sub => sub,
+        Mul::mul => mul,
+        BitAnd::bitand => bitwise_and,
+        BitOr::bitor => bitwise_or,
+        BitXor::bitxor => bitwise_xor,
+        Shl::shl => shift_left,
+        Shr::shr => shift_right,
+    );
+
+    macro_rules! assign_operators {
+        ($($Trait:ident::$method:ident => $op:ident),+ $(,)?) => {
+            $(
+                impl<R: Operand> $Trait<R> for ExprResult {
+                    fn $method(&mut self, rhs: R) {
+                        *self = binary(self.clone(), rhs, super::$op);
+                    }
+                }
+            )+
+        };
+    }
+
+    assign_operators!(AddAssign::add_assign => add, SubAssign::sub_assign => sub, MulAssign::mul_assign => mul);
+
+    macro_rules! unary_operators {
+        ($($ty:ty),+) => {
+            $(
+                /// C++ unary `-` (`neg`).
+                impl Neg for $ty {
+                    type Output = ExprResult;
+                    fn neg(self) -> ExprResult {
+                        ExprResult::checked(super::neg(ExprResult::from(self)))
+                    }
+                }
+                /// C++ `!` (`logical_not`).
+                impl Not for $ty {
+                    type Output = ExprResult;
+                    fn not(self) -> ExprResult {
+                        ExprResult::checked(super::logical_not(ExprResult::from(self)))
+                    }
+                }
+            )+
+        };
+    }
+
+    unary_operators!(ExprResult, &ExprResult);
+}
+
+// ---------------------------------------------------------------------------------------------
+// `PrimOps`: the operations Rust has no operator for
+
+/// [`PrimOps`] methods that are a function of one expression.
+macro_rules! unary_methods {
+    ($($(#[$doc:meta])* $name:ident;)+) => {
+        $(
+            $(#[$doc])*
+            fn $name(&self) -> ExprResult {
+                ExprResult::checked($name(self.to_expr_result()))
+            }
+        )+
+    };
+}
+
+/// [`PrimOps`] methods that are a function of two expressions, the second typed after the first
+/// when it is a literal.
+macro_rules! binary_methods {
+    ($($(#[$doc:meta])* $name:ident;)+) => {
+        $(
+            $(#[$doc])*
+            fn $name(&self, rhs: impl Operand) -> ExprResult {
+                binary(self.to_expr_result(), rhs, $name)
+            }
+        )+
+    };
+}
+
+/// The C++ `PrimExpr` operations that are functions rather than Rust operators, as methods of
+/// an [`ExprResult`] or an expression handle. Each takes an expression or a literal on the right, typed
+/// as for the operators, and leaves `self` usable; the comparisons are named after the C++
+/// functions (`less`, `equal`), since Rust's `eq` and `lt` return a `bool`.
+pub trait PrimOps {
+    /// This expression as an [`ExprResult`] (a reference-count increment).
+    fn to_expr_result(&self) -> ExprResult;
+
+    /// C++ `a < b` ([`lt`]).
+    fn less(&self, rhs: impl Operand) -> ExprResult {
+        binary(self.to_expr_result(), rhs, lt)
+    }
+    /// C++ `a <= b` ([`le`]).
+    fn less_equal(&self, rhs: impl Operand) -> ExprResult {
+        binary(self.to_expr_result(), rhs, le)
+    }
+    /// C++ `a > b` ([`gt`]).
+    fn greater(&self, rhs: impl Operand) -> ExprResult {
+        binary(self.to_expr_result(), rhs, gt)
+    }
+    /// C++ `a >= b` ([`ge`]).
+    fn greater_equal(&self, rhs: impl Operand) -> ExprResult {
+        binary(self.to_expr_result(), rhs, ge)
+    }
+    /// C++ `a == b` ([`eq`]).
+    fn equal(&self, rhs: impl Operand) -> ExprResult {
+        binary(self.to_expr_result(), rhs, eq)
+    }
+    /// C++ `a != b` ([`ne`]).
+    fn not_equal(&self, rhs: impl Operand) -> ExprResult {
+        binary(self.to_expr_result(), rhs, ne)
+    }
+    /// C++ `a && b` ([`logical_and`]).
+    fn logical_and(&self, rhs: impl IntoExpr) -> ExprResult {
+        ExprResult::checked(logical_and(self.to_expr_result(), rhs))
+    }
+    /// C++ `a || b` ([`logical_or`]).
+    fn logical_or(&self, rhs: impl IntoExpr) -> ExprResult {
+        ExprResult::checked(logical_or(self.to_expr_result(), rhs))
+    }
+
+    binary_methods! {
+        /// C++ `div`: `a / b`, truncating for integers.
+        div;
+        /// C++ `truncdiv`.
+        truncdiv;
+        /// C++ `truncmod`.
+        truncmod;
+        /// C++ `floordiv`.
+        floordiv;
+        /// C++ `floormod`.
+        floormod;
+        /// C++ `indexdiv`.
+        indexdiv;
+        /// C++ `indexmod`.
+        indexmod;
+        /// C++ `ceildiv`.
+        ceildiv;
+        /// C++ `min`.
+        min;
+        /// C++ `max`.
+        max;
+    }
+
+    /// C++ `pow(a, b)` ([`pow`]).
+    fn pow(&self, rhs: impl IntoExpr) -> ExprResult {
+        ExprResult::checked(pow(self.to_expr_result(), rhs))
+    }
+    /// C++ `fmod(a, b)` ([`fmod`]).
+    fn fmod(&self, rhs: impl IntoExpr) -> ExprResult {
+        ExprResult::checked(fmod(self.to_expr_result(), rhs))
+    }
+    /// C++ `atan2(a, b)` ([`atan2`]).
+    fn atan2(&self, rhs: impl IntoExpr) -> ExprResult {
+        ExprResult::checked(atan2(self.to_expr_result(), rhs))
+    }
+    /// C++ `nextafter(a, b)` ([`nextafter`]).
+    fn nextafter(&self, rhs: impl IntoExpr) -> ExprResult {
+        ExprResult::checked(nextafter(self.to_expr_result(), rhs))
+    }
+    /// C++ `copysign(a, b)` ([`copysign`]).
+    fn copysign(&self, rhs: impl IntoExpr) -> ExprResult {
+        ExprResult::checked(copysign(self.to_expr_result(), rhs))
+    }
+    /// C++ `hypot(a, b)` ([`hypot`]).
+    fn hypot(&self, rhs: impl IntoExpr) -> ExprResult {
+        ExprResult::checked(hypot(self.to_expr_result(), rhs))
+    }
+    /// C++ `ldexp(a, b)` ([`ldexp`]).
+    fn ldexp(&self, rhs: impl IntoExpr) -> ExprResult {
+        ExprResult::checked(ldexp(self.to_expr_result(), rhs))
+    }
+
+    unary_methods! {
+        /// C++ `~a` ([`bitwise_not`]).
+        bitwise_not;
+        /// C++ `floor`.
+        floor;
+        /// C++ `ceil`.
+        ceil;
+        /// C++ `round`.
+        round;
+        /// C++ `nearbyint`.
+        nearbyint;
+        /// C++ `trunc`.
+        trunc;
+        /// C++ `abs`.
+        abs;
+        /// C++ `isnan`.
+        isnan;
+        /// C++ `isinf`.
+        isinf;
+        /// C++ `isfinite`.
+        isfinite;
+        /// C++ `likely`.
+        likely;
+        /// C++ `assume`.
+        assume;
+        /// C++ `clz`.
+        clz;
+        /// C++ `exp`.
+        exp;
+        /// C++ `exp2`.
+        exp2;
+        /// C++ `exp10`.
+        exp10;
+        /// C++ `erf`.
+        erf;
+        /// C++ `sigmoid`.
+        sigmoid;
+        /// C++ `sqrt`.
+        sqrt;
+        /// C++ `rsqrt`.
+        rsqrt;
+        /// C++ `log`.
+        log;
+        /// C++ `log2`.
+        log2;
+        /// C++ `log10`.
+        log10;
+        /// C++ `log1p`.
+        log1p;
+        /// C++ `popcount`.
+        popcount;
+        /// C++ `tanh`.
+        tanh;
+        /// C++ `tan`.
+        tan;
+        /// C++ `cos`.
+        cos;
+        /// C++ `cosh`.
+        cosh;
+        /// C++ `sin`.
+        sin;
+        /// C++ `sinh`.
+        sinh;
+        /// C++ `asin`.
+        asin;
+        /// C++ `acos`.
+        acos;
+        /// C++ `atan`.
+        atan;
+        /// C++ `acosh`.
+        acosh;
+        /// C++ `asinh`.
+        asinh;
+        /// C++ `atanh`.
+        atanh;
+    }
+
+    /// C++ `cast(a, t)` ([`cast`]).
+    fn cast(&self, ty: impl Into<PrimType>) -> ExprResult {
+        ExprResult::checked(cast(self.to_expr_result(), ty))
+    }
+
+    /// C++ `if_then_else(self, t, f)` ([`if_then_else`]), with `self` the condition.
+    fn if_then_else(&self, t: impl IntoExpr, f: impl IntoExpr) -> ExprResult {
+        ExprResult::checked(if_then_else(self.to_expr_result(), t, f))
+    }
+
+    /// The raw `Select(self, t, f)` ([`Select::new`]), with `self` the condition.
+    fn select(&self, t: impl IntoExpr, f: impl IntoExpr) -> ExprResult {
+        ExprResult::checked(Select::new(self.to_expr_result(), t, f, UNKNOWN_LOC).map(Expr::from))
+    }
+}
+
+impl PrimOps for ExprResult {
+    fn to_expr_result(&self) -> ExprResult {
+        self.clone()
+    }
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -1729,422 +2035,119 @@ binary_intrinsics! {
 }
 
 // ---------------------------------------------------------------------------------------------
-// `ExprResult`: expressions under construction
+// Data type queries and operand checks the operators share
 
-/// An expression being built by operators: either the expression, a [`PrimExpr`], or the first
-/// error any step raised. Later steps pass an error through untouched. An `ExprResult` is an
-/// [`IntoExpr`], so it passes into any function or constructor that takes one, whose `?` then
-/// reports the error; `PrimExpr::try_from` takes the expression out without a further check, and
-/// `Expr::try_from` takes it out as an `Expr`.
-///
-/// Registered expression wrappers convert into an `ExprResult`; one whose type is not a
-/// `PrimType` is a TypeError there. The operators
-/// `+`, `-`, `*`, `&`, `|`, `^`, `<<`, `>>`, unary `-` and `!` are the C++ ones, typed after C++:
-/// an integer literal on either side is `MakeConst(other.ty(), v)`, an `f32` a float32 constant,
-/// an `f64` a float64 one. `/` and `%` are not defined: name the division
-/// ([`PrimOps::truncdiv`], [`PrimOps::floordiv`], [`PrimOps::div`], ...), as C++ requires of `%`
-/// and of `/` next to a literal (`DivAmbiguityError`); C++ `/` between two expressions is `div`.
-/// Comparisons, `&&` and `||` are [`PrimOps`] methods too, because Rust's comparison traits
-/// return `bool`.
-#[derive(Clone)]
-#[must_use = "an `ExprResult` holds the result; pass it on, or convert it with `PrimExpr::try_from`"]
-pub struct ExprResult(Result<PrimExpr>);
+/// The `float4` code C++ `IsFloat4Type` matches.
+const FLOAT4: DLDataTypeCode = DLDataTypeCode::kDLFloat4_e2m1fn;
 
-impl TryFrom<ExprResult> for Expr {
-    type Error = Error;
-
-    /// The built expression, or the first error raised while constructing it.
-    fn try_from(value: ExprResult) -> Result<Self> {
-        value.0.map(Into::into)
-    }
+/// C++ `IsFloat8Type`.
+fn is_float8(code: u8) -> bool {
+    support::float8_bound(code).is_some()
 }
 
-impl TryFrom<ExprResult> for PrimExpr {
-    type Error = Error;
-
-    /// The built expression, which every step checks is a `PrimExpr`, or the first error raised
-    /// while building it.
-    fn try_from(value: ExprResult) -> Result<Self> {
-        value.0
-    }
+/// C++ `IsFloat6Type`.
+fn is_float6(code: u8) -> bool {
+    support::float6_bound(code).is_some()
 }
 
-impl ExprResult {
-    /// The dtype a literal next to this expression takes (`MakeConst(this.ty(), v)`).
-    fn dtype(&self) -> Result<DLDataType> {
-        match &self.0 {
-            Ok(expr) => Ok(expr.dtype()),
-            Err(error) => Err(error.clone()),
+/// The largest finite value of a float8 or float6 type, and whether the type is unsigned, its
+/// minimum then 0 (C++ `max_value` and `min_value`).
+fn small_float_bound(code: u8) -> Option<(f64, bool)> {
+    support::float8_bound(code).or_else(|| support::float6_bound(code).map(|max| (max, false)))
+}
+
+fn is_float4(code: u8) -> bool {
+    FLOAT4 as u8 == code
+}
+
+/// C++ `MatchesElementType(kDLBfloat, 16)`.
+fn is_bfloat16(dtype: DLDataType) -> bool {
+    dtype.code == support::BFLOAT && dtype.bits == 16
+}
+
+/// A vector of any kind: fixed length or scalable.
+fn is_vector(dtype: DLDataType) -> bool {
+    support::is_scalable_vector(dtype) || support::is_fixed_length_vector(dtype)
+}
+
+/// The vscale factor a scalable vector type encodes (C++ `VScaleFactor`).
+fn vscale_factor(dtype: DLDataType) -> i32 {
+    -i32::from(support::encoded_lanes(dtype))
+}
+
+/// The lanes of a vector type as an expression: the count, or `factor * vscale()` for a scalable
+/// vector (C++ `BroadcastToMatchLanes` and `cast`).
+fn lanes_of(dtype: DLDataType) -> Result<Expr> {
+    match support::is_scalable_vector(dtype) {
+        true => {
+            let factor = IntImm::int32(vscale_factor(dtype));
+            Ok(Mul::new(factor, vscale()?, UNKNOWN_LOC)?.into())
         }
+        false => Ok(IntImm::int32(support::lanes(dtype)?).into()),
     }
 }
 
-impl IntoExpr for ExprResult {
-    fn into_expr(self) -> Result<Expr> {
-        self.0.map(Into::into)
-    }
+/// `Call(ty, Op::Get(op), args, {}, {}, loc)`; without `ty` the constructor infers the type.
+fn call(ty: Option<&Type>, op: &'static str, args: Vec<Expr>, loc: Location) -> Result<Expr> {
+    let op = support::cached_op(op)?;
+    Ok(Call::new(ty, op, args, None, Vec::<Type>::new(), loc)?.into())
 }
 
-impl IntoExpr for &ExprResult {
-    fn into_expr(self) -> Result<Expr> {
-        self.0.clone().map(Into::into)
-    }
+/// Whether `expr` is a call of `prim.vscale`.
+fn is_vscale_call(expr: &Expr) -> Result<bool> {
+    let Some(call) = expr.downcast_ref::<CallObj>() else { return Ok(false) };
+    Ok(call.op.same_as(&support::cached_op("prim.vscale")?))
 }
 
-impl<T: Into<Expr>> From<Result<T>> for ExprResult {
-    fn from(value: Result<T>) -> Self {
-        ExprResult::checked(value.map(Into::into))
+/// The `TVM_FFI_ICHECK` an operation makes of an operand's type code: `codes` is the C++ text
+/// of the accepted codes, `message` what it reports.
+fn check_code(
+    operand: &Expr,
+    side: &str,
+    accepted: &[u8],
+    codes: &str,
+    message: impl FnOnce() -> String,
+) -> Result<()> {
+    if accepted.contains(&support::prim_dtype(operand)?.code) {
+        return Ok(());
     }
+    let condition = format!("{side}.ty().MatchesCode({codes})");
+    Err(support::check_failed(INTERNAL_ERROR, &condition, &message()))
 }
 
-impl ExprResult {
-    /// A step's result, checked to be a `PrimExpr`; an expression of another type is a TypeError,
-    /// raised where it enters the chain.
-    fn checked(value: Result<Expr>) -> Self {
-        ExprResult(value.and_then(PrimExpr::try_from))
-    }
+const INTEGER: [u8; 2] = [support::INT, support::UINT];
+const INTEGER_CODES: &str = "DLDataTypeCode::kDLInt, DLDataTypeCode::kDLUInt";
+const INTEGER_OR_BOOL: [u8; 3] = [support::INT, support::UINT, support::BOOL];
+const INTEGER_OR_BOOL_CODES: &str =
+    "DLDataTypeCode::kDLInt, DLDataTypeCode::kDLUInt, DLDataTypeCode::kDLBool";
+const BOOL_CODES: &str = "DLDataTypeCode::kDLBool";
+
+/// `TVM_FFI_ICHECK(x.ty().MatchesCode(kDLInt, kDLUInt)) << x` of the integer divisions, on both
+/// operands.
+fn check_integers(a: &Expr, b: &Expr) -> Result<()> {
+    check_code(a, "a", &INTEGER, INTEGER_CODES, || support::repr(a))?;
+    check_code(b, "b", &INTEGER, INTEGER_CODES, || support::repr(b))
 }
 
-impl From<&ExprResult> for ExprResult {
-    fn from(value: &ExprResult) -> Self {
-        value.clone()
+/// The operand checks of an operator `symbol` (`what` names it) that takes `kind` arguments:
+/// integers, integers or booleans, or booleans.
+fn check_operands(
+    a: &Expr,
+    b: &Expr,
+    symbol: &str,
+    what: &str,
+    kind: &str,
+    (accepted, codes): (&[u8], &str),
+) -> Result<()> {
+    for (operand, side, which) in [(a, "a", "LHS"), (b, "b", "RHS")] {
+        check_code(operand, side, accepted, codes, || {
+            format!(
+                "Expected {kind} argument as {which} of {symbol} operator ({what}), but received \
+                 {} of type {}",
+                support::repr(operand),
+                support::repr(&operand.ty)
+            )
+        })?;
     }
-}
-
-/// `lhs <op> rhs`; a literal `rhs` is typed after `lhs`.
-fn binary(
-    lhs: ExprResult,
-    rhs: impl Operand,
-    op: impl FnOnce(Expr, Expr) -> Result<Expr>,
-) -> ExprResult {
-    let rhs = typed_after(rhs.classify(), &lhs);
-    match (lhs.0, rhs.0) {
-        (Ok(a), Ok(b)) => ExprResult::checked(op(a.into(), b.into())),
-        (Err(error), _) | (_, Err(error)) => ExprResult(Err(error)),
-    }
-}
-
-/// `lhs <op> rhs` for a literal `lhs`, typed after `rhs`.
-fn binary_literal(
-    lhs: impl Operand,
-    rhs: ExprResult,
-    op: impl FnOnce(Expr, Expr) -> Result<Expr>,
-) -> ExprResult {
-    let lhs = typed_after(lhs.classify(), &rhs);
-    binary(lhs, rhs, op)
-}
-
-mod operators {
-    //! The operator traits of [`ExprResult`], and of the expressions and literals that start one.
-
-    use std::ops::{
-        Add, AddAssign, BitAnd, BitOr, BitXor, Mul, MulAssign, Neg, Not, Shl, Shr, Sub, SubAssign,
-    };
-
-    use super::{binary, binary_literal, ExprResult, Operand};
-
-    macro_rules! binary_operators {
-        ($($Trait:ident::$method:ident => $op:ident),+ $(,)?) => {
-            $(
-                impl<R: Operand> $Trait<R> for ExprResult {
-                    type Output = ExprResult;
-                    fn $method(self, rhs: R) -> ExprResult {
-                        binary(self, rhs, super::$op)
-                    }
-                }
-                binary_operators!(@lhs $Trait::$method => $op; &ExprResult);
-                binary_operators!(@literal $Trait::$method => $op; i32, i64, f32, f64);
-            )+
-        };
-        (@lhs $Trait:ident::$method:ident => $op:ident; $($lhs:ty),+) => {
-            $(
-                impl<R: Operand> $Trait<R> for $lhs {
-                    type Output = ExprResult;
-                    fn $method(self, rhs: R) -> ExprResult {
-                        binary(self.into(), rhs, super::$op)
-                    }
-                }
-            )+
-        };
-        (@literal $Trait:ident::$method:ident => $op:ident; $($lit:ty),+) => {
-            $(
-                binary_operators!(@literal_rhs $Trait::$method => $op; $lit; ExprResult, &ExprResult);
-            )+
-        };
-        (@literal_rhs $Trait:ident::$method:ident => $op:ident; $lit:ty; $($rhs:ty),+) => {
-            $(
-                impl $Trait<$rhs> for $lit {
-                    type Output = ExprResult;
-                    fn $method(self, rhs: $rhs) -> ExprResult {
-                        binary_literal(self, rhs.into(), super::$op)
-                    }
-                }
-            )+
-        };
-    }
-
-    binary_operators!(
-        Add::add => add,
-        Sub::sub => sub,
-        Mul::mul => mul,
-        BitAnd::bitand => bitwise_and,
-        BitOr::bitor => bitwise_or,
-        BitXor::bitxor => bitwise_xor,
-        Shl::shl => shift_left,
-        Shr::shr => shift_right,
-    );
-
-    macro_rules! assign_operators {
-        ($($Trait:ident::$method:ident => $op:ident),+ $(,)?) => {
-            $(
-                impl<R: Operand> $Trait<R> for ExprResult {
-                    fn $method(&mut self, rhs: R) {
-                        *self = binary(self.clone(), rhs, super::$op);
-                    }
-                }
-            )+
-        };
-    }
-
-    assign_operators!(AddAssign::add_assign => add, SubAssign::sub_assign => sub, MulAssign::mul_assign => mul);
-
-    macro_rules! unary_operators {
-        ($($ty:ty),+) => {
-            $(
-                /// C++ unary `-` (`neg`).
-                impl Neg for $ty {
-                    type Output = ExprResult;
-                    fn neg(self) -> ExprResult {
-                        ExprResult::checked(super::neg(ExprResult::from(self)))
-                    }
-                }
-                /// C++ `!` (`logical_not`).
-                impl Not for $ty {
-                    type Output = ExprResult;
-                    fn not(self) -> ExprResult {
-                        ExprResult::checked(super::logical_not(ExprResult::from(self)))
-                    }
-                }
-            )+
-        };
-    }
-
-    unary_operators!(ExprResult, &ExprResult);
-}
-
-/// [`PrimOps`] methods that are a function of one expression.
-macro_rules! unary_methods {
-    ($($(#[$doc:meta])* $name:ident;)+) => {
-        $(
-            $(#[$doc])*
-            fn $name(&self) -> ExprResult {
-                ExprResult::checked($name(self.to_expr_result()))
-            }
-        )+
-    };
-}
-
-/// [`PrimOps`] methods that are a function of two expressions, the second typed after the first
-/// when it is a literal.
-macro_rules! binary_methods {
-    ($($(#[$doc:meta])* $name:ident;)+) => {
-        $(
-            $(#[$doc])*
-            fn $name(&self, rhs: impl Operand) -> ExprResult {
-                binary(self.to_expr_result(), rhs, $name)
-            }
-        )+
-    };
-}
-
-/// The C++ `PrimExpr` operations that are functions rather than Rust operators, as methods of
-/// an [`ExprResult`] or an expression handle. Each takes an expression or a literal on the right, typed
-/// as for the operators, and leaves `self` usable; the comparisons are named after the C++
-/// functions (`less`, `equal`), since Rust's `eq` and `lt` return a `bool`.
-pub trait PrimOps {
-    /// This expression as an [`ExprResult`] (a reference-count increment).
-    fn to_expr_result(&self) -> ExprResult;
-
-    /// C++ `a < b` ([`lt`]).
-    fn less(&self, rhs: impl Operand) -> ExprResult {
-        binary(self.to_expr_result(), rhs, lt)
-    }
-    /// C++ `a <= b` ([`le`]).
-    fn less_equal(&self, rhs: impl Operand) -> ExprResult {
-        binary(self.to_expr_result(), rhs, le)
-    }
-    /// C++ `a > b` ([`gt`]).
-    fn greater(&self, rhs: impl Operand) -> ExprResult {
-        binary(self.to_expr_result(), rhs, gt)
-    }
-    /// C++ `a >= b` ([`ge`]).
-    fn greater_equal(&self, rhs: impl Operand) -> ExprResult {
-        binary(self.to_expr_result(), rhs, ge)
-    }
-    /// C++ `a == b` ([`eq`]).
-    fn equal(&self, rhs: impl Operand) -> ExprResult {
-        binary(self.to_expr_result(), rhs, eq)
-    }
-    /// C++ `a != b` ([`ne`]).
-    fn not_equal(&self, rhs: impl Operand) -> ExprResult {
-        binary(self.to_expr_result(), rhs, ne)
-    }
-    /// C++ `a && b` ([`logical_and`]).
-    fn logical_and(&self, rhs: impl IntoExpr) -> ExprResult {
-        ExprResult::checked(logical_and(self.to_expr_result(), rhs))
-    }
-    /// C++ `a || b` ([`logical_or`]).
-    fn logical_or(&self, rhs: impl IntoExpr) -> ExprResult {
-        ExprResult::checked(logical_or(self.to_expr_result(), rhs))
-    }
-
-    binary_methods! {
-        /// C++ `div`: `a / b`, truncating for integers.
-        div;
-        /// C++ `truncdiv`.
-        truncdiv;
-        /// C++ `truncmod`.
-        truncmod;
-        /// C++ `floordiv`.
-        floordiv;
-        /// C++ `floormod`.
-        floormod;
-        /// C++ `indexdiv`.
-        indexdiv;
-        /// C++ `indexmod`.
-        indexmod;
-        /// C++ `ceildiv`.
-        ceildiv;
-        /// C++ `min`.
-        min;
-        /// C++ `max`.
-        max;
-    }
-
-    /// C++ `pow(a, b)` ([`pow`]).
-    fn pow(&self, rhs: impl IntoExpr) -> ExprResult {
-        ExprResult::checked(pow(self.to_expr_result(), rhs))
-    }
-    /// C++ `fmod(a, b)` ([`fmod`]).
-    fn fmod(&self, rhs: impl IntoExpr) -> ExprResult {
-        ExprResult::checked(fmod(self.to_expr_result(), rhs))
-    }
-    /// C++ `atan2(a, b)` ([`atan2`]).
-    fn atan2(&self, rhs: impl IntoExpr) -> ExprResult {
-        ExprResult::checked(atan2(self.to_expr_result(), rhs))
-    }
-    /// C++ `nextafter(a, b)` ([`nextafter`]).
-    fn nextafter(&self, rhs: impl IntoExpr) -> ExprResult {
-        ExprResult::checked(nextafter(self.to_expr_result(), rhs))
-    }
-    /// C++ `copysign(a, b)` ([`copysign`]).
-    fn copysign(&self, rhs: impl IntoExpr) -> ExprResult {
-        ExprResult::checked(copysign(self.to_expr_result(), rhs))
-    }
-    /// C++ `hypot(a, b)` ([`hypot`]).
-    fn hypot(&self, rhs: impl IntoExpr) -> ExprResult {
-        ExprResult::checked(hypot(self.to_expr_result(), rhs))
-    }
-    /// C++ `ldexp(a, b)` ([`ldexp`]).
-    fn ldexp(&self, rhs: impl IntoExpr) -> ExprResult {
-        ExprResult::checked(ldexp(self.to_expr_result(), rhs))
-    }
-
-    unary_methods! {
-        /// C++ `~a` ([`bitwise_not`]).
-        bitwise_not;
-        /// C++ `floor`.
-        floor;
-        /// C++ `ceil`.
-        ceil;
-        /// C++ `round`.
-        round;
-        /// C++ `nearbyint`.
-        nearbyint;
-        /// C++ `trunc`.
-        trunc;
-        /// C++ `abs`.
-        abs;
-        /// C++ `isnan`.
-        isnan;
-        /// C++ `isinf`.
-        isinf;
-        /// C++ `isfinite`.
-        isfinite;
-        /// C++ `likely`.
-        likely;
-        /// C++ `assume`.
-        assume;
-        /// C++ `clz`.
-        clz;
-        /// C++ `exp`.
-        exp;
-        /// C++ `exp2`.
-        exp2;
-        /// C++ `exp10`.
-        exp10;
-        /// C++ `erf`.
-        erf;
-        /// C++ `sigmoid`.
-        sigmoid;
-        /// C++ `sqrt`.
-        sqrt;
-        /// C++ `rsqrt`.
-        rsqrt;
-        /// C++ `log`.
-        log;
-        /// C++ `log2`.
-        log2;
-        /// C++ `log10`.
-        log10;
-        /// C++ `log1p`.
-        log1p;
-        /// C++ `popcount`.
-        popcount;
-        /// C++ `tanh`.
-        tanh;
-        /// C++ `tan`.
-        tan;
-        /// C++ `cos`.
-        cos;
-        /// C++ `cosh`.
-        cosh;
-        /// C++ `sin`.
-        sin;
-        /// C++ `sinh`.
-        sinh;
-        /// C++ `asin`.
-        asin;
-        /// C++ `acos`.
-        acos;
-        /// C++ `atan`.
-        atan;
-        /// C++ `acosh`.
-        acosh;
-        /// C++ `asinh`.
-        asinh;
-        /// C++ `atanh`.
-        atanh;
-    }
-
-    /// C++ `cast(a, t)` ([`cast`]).
-    fn cast(&self, ty: impl Into<PrimType>) -> ExprResult {
-        ExprResult::checked(cast(self.to_expr_result(), ty))
-    }
-
-    /// C++ `if_then_else(self, t, f)` ([`if_then_else`]), with `self` the condition.
-    fn if_then_else(&self, t: impl IntoExpr, f: impl IntoExpr) -> ExprResult {
-        ExprResult::checked(if_then_else(self.to_expr_result(), t, f))
-    }
-
-    /// The raw `Select(self, t, f)` ([`Select::new`]), with `self` the condition.
-    fn select(&self, t: impl IntoExpr, f: impl IntoExpr) -> ExprResult {
-        ExprResult::checked(Select::new(self.to_expr_result(), t, f, UNKNOWN_LOC).map(Expr::from))
-    }
-}
-
-impl PrimOps for ExprResult {
-    fn to_expr_result(&self) -> ExprResult {
-        self.clone()
-    }
+    Ok(())
 }

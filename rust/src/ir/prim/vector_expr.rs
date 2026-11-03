@@ -136,6 +136,50 @@ impl Ramp {
 tvm_ffi::impl_object_upcast!(Ramp => Expr);
 // tvm-ffi-stubgen(end)
 
+impl Ramp {
+    /// The vector of `lanes` values from `base` by `stride`, with `stride` cast to the type of
+    /// `base` (C++ `Ramp(base, stride, lanes, loc)`).
+    pub fn new(
+        base: impl IntoExpr,
+        stride: impl IntoExpr,
+        lanes: impl IntoExpr,
+        loc: impl Into<Location>,
+    ) -> Result<Self> {
+        let (base, stride, lanes) = (base.into_expr()?, stride.into_expr()?, lanes.into_expr()?);
+        let base_ty = support::prim_type(&base)?;
+        let stride_ty = support::prim_type(&stride)?;
+        support::prim_dtype(&lanes)?;
+        let (base_dtype, stride_dtype) = (base_ty.dtype, stride_ty.dtype);
+        // Only 32-bit and 64-bit integers step through the lanes of a ramp.
+        let index = |dtype: DLDataType| {
+            support::is_scalar(dtype)
+                && matches!(dtype.code, support::INT | support::UINT)
+                && matches!(dtype.bits, 32 | 64)
+        };
+        for (field, ty) in [("base", &base_ty), ("stride", &stride_ty)] {
+            if !index(ty.dtype) {
+                let condition = format!(
+                    "{field}_ty.IsScalar() && \
+                     {field}_ty.MatchesCode(DLDataTypeCode::kDLInt, DLDataTypeCode::kDLUInt) && \
+                     ({field}_ty.bits() == 32 || {field}_ty.bits() == 64)"
+                );
+                let message = format!(
+                    "Ramp {field} must be scalar int32, int64, uint32, or uint64, but got {}",
+                    support::repr(ty)
+                );
+                return Err(support::check_failed(tvm_ffi::TYPE_ERROR, &condition, &message));
+            }
+        }
+        let stride = match stride_dtype == base_dtype {
+            true => stride,
+            false => cast(stride, PrimType::from_dtype(base_dtype)?)?,
+        };
+        let (dtype, lanes) = vector_lanes(base_dtype, lanes)?;
+        let ty = PrimType::from_dtype(dtype)?;
+        Ok(Self::from_fields(loc.into(), ty, base, stride, lanes))
+    }
+}
+
 // tvm-ffi-stubgen(begin): object/prim.Broadcast
 /// Complete: reflected fields fill [40, 56) exactly.
 #[repr(C)]
@@ -195,6 +239,25 @@ impl Broadcast {
 
 tvm_ffi::impl_object_upcast!(Broadcast => Expr);
 // tvm-ffi-stubgen(end)
+
+impl Broadcast {
+    /// The vector of `lanes` copies of the scalar `value` (C++ `Broadcast(value, lanes, loc)`).
+    pub fn new(
+        value: impl IntoExpr,
+        lanes: impl IntoExpr,
+        loc: impl Into<Location>,
+    ) -> Result<Self> {
+        let (value, lanes) = (value.into_expr()?, lanes.into_expr()?);
+        let value_dtype = support::prim_dtype(&value)?;
+        support::prim_dtype(&lanes)?;
+        if !support::is_scalar(value_dtype) {
+            return Err(support::check_failed(tvm_ffi::INTERNAL_ERROR, "value_ty.IsScalar()", ""));
+        }
+        let (dtype, lanes) = vector_lanes(value_dtype, lanes)?;
+        let ty = PrimType::from_dtype(dtype)?;
+        Ok(Self::from_fields(loc.into(), ty, value, lanes))
+    }
+}
 
 // tvm-ffi-stubgen(begin): object/prim.Shuffle
 /// Complete: reflected fields fill [40, 56) exactly.
@@ -256,69 +319,6 @@ impl Shuffle {
 tvm_ffi::impl_object_upcast!(Shuffle => Expr);
 // tvm-ffi-stubgen(end)
 
-impl Ramp {
-    /// The vector of `lanes` values from `base` by `stride`, with `stride` cast to the type of
-    /// `base` (C++ `Ramp(base, stride, lanes, loc)`).
-    pub fn new(
-        base: impl IntoExpr,
-        stride: impl IntoExpr,
-        lanes: impl IntoExpr,
-        loc: impl Into<Location>,
-    ) -> Result<Self> {
-        let (base, stride, lanes) = (base.into_expr()?, stride.into_expr()?, lanes.into_expr()?);
-        let base_ty = support::prim_type(&base)?;
-        let stride_ty = support::prim_type(&stride)?;
-        support::prim_dtype(&lanes)?;
-        let (base_dtype, stride_dtype) = (base_ty.dtype, stride_ty.dtype);
-        // Only 32-bit and 64-bit integers step through the lanes of a ramp.
-        let index = |dtype: DLDataType| {
-            support::is_scalar(dtype)
-                && matches!(dtype.code, support::INT | support::UINT)
-                && matches!(dtype.bits, 32 | 64)
-        };
-        for (field, ty) in [("base", &base_ty), ("stride", &stride_ty)] {
-            if !index(ty.dtype) {
-                let condition = format!(
-                    "{field}_ty.IsScalar() && \
-                     {field}_ty.MatchesCode(DLDataTypeCode::kDLInt, DLDataTypeCode::kDLUInt) && \
-                     ({field}_ty.bits() == 32 || {field}_ty.bits() == 64)"
-                );
-                let message = format!(
-                    "Ramp {field} must be scalar int32, int64, uint32, or uint64, but got {}",
-                    support::repr(ty)
-                );
-                return Err(support::check_failed(tvm_ffi::TYPE_ERROR, &condition, &message));
-            }
-        }
-        let stride = match stride_dtype == base_dtype {
-            true => stride,
-            false => cast(stride, PrimType::from_dtype(base_dtype)?)?,
-        };
-        let (dtype, lanes) = vector_lanes(base_dtype, lanes)?;
-        let ty = PrimType::from_dtype(dtype)?;
-        Ok(Self::from_fields(loc.into(), ty, base, stride, lanes))
-    }
-}
-
-impl Broadcast {
-    /// The vector of `lanes` copies of the scalar `value` (C++ `Broadcast(value, lanes, loc)`).
-    pub fn new(
-        value: impl IntoExpr,
-        lanes: impl IntoExpr,
-        loc: impl Into<Location>,
-    ) -> Result<Self> {
-        let (value, lanes) = (value.into_expr()?, lanes.into_expr()?);
-        let value_dtype = support::prim_dtype(&value)?;
-        support::prim_dtype(&lanes)?;
-        if !support::is_scalar(value_dtype) {
-            return Err(support::check_failed(tvm_ffi::INTERNAL_ERROR, "value_ty.IsScalar()", ""));
-        }
-        let (dtype, lanes) = vector_lanes(value_dtype, lanes)?;
-        let ty = PrimType::from_dtype(dtype)?;
-        Ok(Self::from_fields(loc.into(), ty, value, lanes))
-    }
-}
-
 impl Shuffle {
     /// The vector of the lanes at `indices` of the concatenated `vectors`
     /// (C++ `Shuffle(vectors, indices, loc)`).
@@ -368,6 +368,9 @@ impl Shuffle {
         Ok(Self::from_fields(loc.into(), ty, vectors, indices))
     }
 }
+
+// ---------------------------------------------------------------------------------------------
+// Lanes the constructors share
 
 /// The vector type of `element` elements over `lanes`, and the lanes a `Ramp` or `Broadcast` keeps:
 /// a constant count as an `int32` constant, or a scalable count as `vscale * factor`.
