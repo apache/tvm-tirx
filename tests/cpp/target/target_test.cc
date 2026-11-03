@@ -141,6 +141,30 @@ TEST(TargetCreation, RoundTripCanonicalizerFeaturesNestedHost) {
   ASSERT_TRUE(reconstructed_host.value()->GetAttr<ffi::String>("mcpu").has_value());
 }
 
+TEST(TargetCreation, HostConstructorInvalidatesStringCache) {
+  Target original(ffi::Map<ffi::String, ffi::Any>{{"kind", ffi::String("cuda")},
+                                                  {"arch", ffi::String("sm_80")}});
+  ffi::String original_string = original->str();
+  Target combined(original, Target("c"));
+  EXPECT_EQ(Target(combined->str())->GetHost().value()->kind->name, "c");
+  EXPECT_FALSE(original->GetHost().has_value());
+  EXPECT_EQ(original->str(), original_string);
+}
+
+TEST(TargetCreation, WithoutHostInvalidatesStringCache) {
+  Target original(ffi::Map<ffi::String, ffi::Any>{
+      {"kind", ffi::String("cuda")},
+      {"arch", ffi::String("sm_80")},
+      {"host", ffi::Map<ffi::String, ffi::Any>{{"kind", ffi::String("c")}}},
+  });
+  ffi::String original_string = original->str();
+  Target without_host = original.WithoutHost();
+  EXPECT_FALSE(Target(without_host->str())->GetHost().has_value());
+  EXPECT_TRUE(original->GetHost().has_value());
+  EXPECT_EQ(original->str(), original_string);
+  EXPECT_TRUE(without_host.WithoutHost().same_as(without_host));
+}
+
 TEST(TargetCreationFail, UnknownNonFeatureKeyStillFails) {
   // Verify that unknown non-feature.* keys still fail schema validation
   ffi::Map<ffi::String, ffi::Any> config = {

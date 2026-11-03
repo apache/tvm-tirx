@@ -15,6 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import shutil
+
 import numpy as np
 import pytest
 
@@ -397,6 +399,54 @@ def test_unsupported_vector_diagnostic():
     index = next(i for i, line in enumerate(lines) if expression in line)
     start = lines[index].index(expression)
     assert lines[index + 1] == " " * start + "^" * len(expression)
+
+
+@pytest.mark.parametrize(
+    "message,index",
+    [
+        ('"\\\n', 0),
+        ("\0" + "7", 0),
+        ("éF", 1),
+        ("??=", 0),
+    ],
+)
+def test_string_literal_escapes(message, index, tmp_path):
+    compiler = shutil.which("cc") or shutil.which("gcc") or shutil.which("clang")
+    if compiler is None:
+        pytest.skip("A C11 compiler is required")
+    expected = message.encode("utf-8")
+    size = len(expected)
+
+    @T.function
+    def read_literal(Out: T.Tensor((1,), "uint8")):
+        data = T.decl_tensor(
+            T.reinterpret(message, ty=T.Ptr("uint8")), ty_args=[T.Tensor((size,), "uint8")]
+        )
+        # The chosen index stays in bounds even if a broken escape shortens the literal.
+        Out[0] = data[index]
+
+    compiled = tvm_tirx.compile(read_literal, target="c")
+    path = str(tmp_path / "literal.so")
+    compiled.export_library(path, cc=compiler, options=["-std=c11"])
+    loaded = tvm_tirx.runtime.load_module(path)
+    out = tvm_tirx.runtime.tensor(np.zeros(1, dtype="uint8"))
+    loaded["read_literal"](out)
+    assert out.numpy()[0] == expected[index]
+
+
+def test_decl_tensor_stack_initializer():
+    @T.function
+    def stack_initializer(Out: T.Tensor((2,), "int64")):
+        local = T.decl_tensor(T.stack_alloca("shape", 2), ty_args=[T.Tensor((2,), "int64")])
+        local[0] = T.int64(17)
+        local[1] = T.int64(23)
+        Out[0] = local[0]
+        Out[1] = local[1]
+
+    executable = tvm_tirx.compile(stack_initializer, target="c")
+    out = tvm_tirx.runtime.tensor(np.zeros(2, dtype="int64"))
+    executable(out)
+    np.testing.assert_array_equal(out.numpy(), [17, 23])
 
 
 if __name__ == "__main__":
