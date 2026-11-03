@@ -30,8 +30,8 @@ use tvm_tirx::ir::{
 use tvm_tirx::tirx::transform::FunctionPass;
 use tvm_tirx::tirx::Function;
 use tvm_tirx::tvm_ffi::{
-    self, def_object_ref, dispatch, rs_class, Any, DefRegionKind, Error, ObjectRefCast,
-    ObjectRefCore, Result, WalkOrder,
+    self, def_object_ref, dispatch, rs_class, Any, AnyView, Error, ObjectRefCast, ObjectRefCore,
+    Result, Unchanged, WalkOrder,
 };
 
 // begin type
@@ -210,7 +210,7 @@ impl Lowering {
 
 #[dispatch(map)]
 impl Lowering {
-    fn map_sequence(&mut self, seq: SeqStmt, _kind: DefRegionKind) -> Result<Any> {
+    fn map_sequence(&mut self, seq: SeqStmt) -> Result<Any> {
         Ok(SeqStmt::new(seq.seq.iter(), seq.loc.clone()).into())
     }
 
@@ -298,7 +298,11 @@ fn lower_function(
     _ctx: PassContext,
 ) -> Result<Option<Function>> {
     let mut lowering = Lowering { ops: ComplexOps::get()?, bindings: Vec::new() };
-    let rewritten = tvm_ffi::structural_map(func, &mut lowering, WalkOrder::PostOrder)?;
+    let rewritten = tvm_ffi::structural_map(
+        func,
+        |value: AnyView<'_>| lowering.dispatch(value).unwrap_or_else(|| Ok(Unchanged.into())),
+        WalkOrder::PostOrder,
+    )?;
     let ops = &lowering.ops;
     let checked = tvm_ffi::structural_map(
         rewritten,

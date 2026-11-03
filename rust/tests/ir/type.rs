@@ -27,10 +27,10 @@ use tvm_tirx::ir::{
     UNKNOWN_LOC, Location, dtype, Evaluate, FuncType, MissingType, NoneType, PrimType, PtrType,
     TensorRegionType, TupleType, Type, TypeObj, Var, VarObj,
 };
-use tvm_tirx::tvm_ffi::{def_object_ref, dispatch, rs_class, structural_map};
+use tvm_tirx::tvm_ffi::{def_object_ref, rs_class, structural_map};
 use tvm_tirx::tvm_ffi::{
-    Any, AnyView, Array, DLDataType, DLDataTypeExt, DefRegionKind, FieldGetter, ObjectCore,
-    ObjectRefCore, Result, ShallowCopy, String as FfiString, WalkOrder,
+    Any, AnyView, Array, DLDataType, DLDataTypeExt, FieldGetter, ObjectCore, ObjectRefCore, Result,
+    ShallowCopy, String as FfiString, WalkOrder,
 };
 
 use super::{scope};
@@ -259,23 +259,13 @@ fn rust_type_cpp_deep_copy_goes_through_the_shallow_copy_and_the_setters() {
     assert_eq!(copy.note.as_str(), "seven");
 }
 
-/// Adds one to every integer leaf.
-struct IncrementIntegers;
-
-#[dispatch(map)]
-impl IncrementIntegers {
-    fn map_integer(&mut self, value: i64, _: DefRegionKind) -> Result<Any> {
-        Ok(Any::from(value + 1))
-    }
-}
-
 #[test]
 fn rust_type_rust_engines_descend_through_the_fields() {
     let _serial = serial();
     let value = int_float_pair(7, "seven");
     // Shared with `value`, so the engine copies the node through `__ffi_shallow_copy__`.
     let mapped =
-        structural_map(value.clone(), &mut IncrementIntegers, WalkOrder::PostOrder).unwrap();
+        structural_map(value.clone(), |value: i64| value + 1, WalkOrder::PostOrder).unwrap();
     let mapped = PairType::try_from(mapped).unwrap();
     assert!(!mapped.same_as(&value));
     assert_eq!(mapped.tag, 8);
