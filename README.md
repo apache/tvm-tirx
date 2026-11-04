@@ -19,13 +19,13 @@
 
 📚 [Documentation](https://tvm.apache.org/tirx/) | 🚀 [Quick Start](https://tvm.apache.org/tirx/get_started/quick_start.html)
 
-**We believe that, in the future, all GPU kernels will be developed, optimized, and verified by AI agents.**
+We believe that, in the future, **all GPU kernels will be developed, optimized, and verified by AI agents.**
 
-You might wonder: **If my Claude or Codex can just spit out CUDA, PTX, or even SASS directly, why bother with another compiler layer?** We've been asking ourselves the same question.
+You might wonder: If my Claude or Codex can just spit out CUDA, PTX, or even SASS directly, **why bother with another compiler layer?** We've been asking ourselves the same question.
 
-Our answer is **yes, but perhaps not in the form we know today**. Even when agents generate code directly, analysis and independent verification still need structured program representations and precisely defined semantics. A minimal, extensible compiler foundation provides these shared building blocks while leaving agents free to explore their own optimization strategies.
+Our answer is yes, but perhaps not in the form we know today. Even when agents generate code directly, analysis and independent verification still need structured program representations and precisely defined semantics. A minimal, extensible compiler foundation provides these shared building blocks while leaving agents free to explore their own optimization strategies.
 
-**TIRx is our attempt to build a minimal, stable, and extensible DSL and compiler foundation for that future**, enabling agents to write and optimize kernels, develop their own analyses, and eventually verify correctness.
+TIRx is our attempt to build a **minimal, stable, and extensible DSL and compiler foundation** for that future, enabling agents to write and optimize kernels, develop their own analyses, and eventually verify correctness.
 
 ## Features
 
