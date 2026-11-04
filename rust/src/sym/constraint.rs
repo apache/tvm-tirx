@@ -26,6 +26,20 @@
 //! boolean `condition` its collector vouches for. A [`ConstraintContext`] holds the constraints in
 //! effect at a point of a traversal, ancestors' first; the structural visitor and mutator of
 //! [`tirx::structural`](crate::tirx::structural) keep one for each value they reach.
+//!
+//! The context representation mirrors `include/tvm/sym/constraint.h`, including
+//! its private parent, captured prefix and append-only array. It requires matching
+//! native headers/builds: stub generation cannot certify these private fields.
+//! Context handles use ordinary FFI ownership. Their native-mutated array makes
+//! typed handles neither Send nor Sync. Erasing them into ObjectRef or a packed Function
+//! does not enforce that confinement; callers retain the ordinary FFI obligation
+//! to prevent concurrent context access. Constraint and IR nodes remain shared.
+
+// tvm-ffi-stubgen(ty-map): sym.ConstraintContext -> crate::sym::constraint::ConstraintContext
+
+use std::cell::UnsafeCell;
+use std::mem::{align_of, offset_of, size_of};
+use tvm_ffi::{AnyView, Array, Error, ObjectCore, Result, VALUE_ERROR};
 
 // tvm-ffi-stubgen(begin): import-section
 use crate::ir::expr::Expr;
@@ -151,30 +165,6 @@ impl BindingConstraint {
 tvm_ffi::impl_object_upcast!(BindingConstraint => Constraint);
 // tvm-ffi-stubgen(end)
 
-// tvm-ffi-stubgen(begin): object/sym.ConstraintContext
-/// Opaque: bytes [24, 48) of [24, 48) are not accounted for by reflected fields. Fields are read through the C ABI getters.
-#[repr(C)]
-#[derive(tvm_ffi::derive::Object)]
-#[type_key = "sym.ConstraintContext"]
-#[type_final]
-pub struct ConstraintContextObj {
-    base: Object,
-}
-
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct ConstraintContext {
-    base: ObjectArc<ConstraintContextObj>,
-}
-
-impl Deref for ConstraintContext {
-    type Target = ConstraintContextObj;
-    fn deref(&self) -> &ConstraintContextObj {
-        &self.base
-    }
-}
-// tvm-ffi-stubgen(end)
-
 // tvm-ffi-stubgen(begin): object/sym.PredicateConstraint
 /// Complete: reflected fields fill [24, 40) exactly (alignment padding [33, 40)).
 #[repr(C)]
@@ -284,3 +274,139 @@ impl RangeConstraint {
 
 tvm_ffi::impl_object_upcast!(RangeConstraint => Constraint);
 // tvm-ffi-stubgen(end)
+
+/// Native-compatible stable-identity constraint context.
+///
+/// Only the local array changes after construction. Its handle is replaced by
+/// native append, so shared context inspection must use interior mutability.
+/// Parent links and their captured local prefix are immutable and acyclic.
+#[repr(C)]
+#[derive(tvm_ffi::derive::Object)]
+#[type_key = "sym.ConstraintContext"]
+#[type_final]
+pub struct ConstraintContextObj {
+    base: Object,
+    parent: Option<ObjectArc<ConstraintContextObj>>,
+    parent_prefix_size: i64,
+    constraints: UnsafeCell<Array<Constraint>>,
+}
+
+/// An owning reference to a live context. Clones share identity and later appends.
+/// Use [`ConstraintContextObj::snapshot`] to capture the current prefix.
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct ConstraintContext {
+    base: ObjectArc<ConstraintContextObj>,
+}
+
+impl Deref for ConstraintContext {
+    type Target = ConstraintContextObj;
+    fn deref(&self) -> &Self::Target {
+        &self.base
+    }
+}
+
+impl ConstraintContext {
+    /// Construct an empty root using the complete native-compatible layout.
+    pub fn new() -> Result<Self> {
+        Self::allocate(None, 0)
+    }
+
+    /// Capture a prefix of the parent's local entries and start an empty child.
+    /// Earlier ancestor prefixes are inherited unchanged; later appends are excluded.
+    pub fn with_parent_prefix_size(parent: Self, parent_prefix_size: i64) -> Result<Self> {
+        if parent_prefix_size < 0 || parent_prefix_size > parent.local_size() {
+            return Err(Error::new(
+                VALUE_ERROR,
+                "Constraint context parent local prefix is out of bounds",
+                "",
+            ));
+        }
+        Self::allocate(Some(parent.base), parent_prefix_size)
+    }
+
+    fn allocate(parent: Option<ObjectArc<ConstraintContextObj>>, prefix: i64) -> Result<Self> {
+        Ok(Self {
+            base: ObjectArc::new(ConstraintContextObj {
+                base: Object::new(),
+                parent,
+                parent_prefix_size: prefix,
+                // Start with an empty Rust array. Native Append owns all growth;
+                // never install a nonempty Rust allocation in this mutable field.
+                constraints: UnsafeCell::new(Array::default()),
+            }),
+        })
+    }
+}
+
+impl ConstraintContextObj {
+    /// Append through the existing native operation, retaining its array COW behavior.
+    /// A running native visitor reserves its active context for semantic hooks;
+    /// that visitor contract forbids observer appends during traversal. Standalone
+    /// contexts and [`Self::for_each`] permit append.
+    /// Premise nodes and referenced expressions must not be mutated through aliases.
+    pub fn append(&self, constraint: &Constraint) -> Result<()> {
+        tvm_ffi::cached_global_func!("sym.ConstraintContextAppend")
+            .call_packed(&[AnyView::from(self), AnyView::from(constraint)])?;
+        Ok(())
+    }
+
+    /// Number of local facts, excluding captured ancestors.
+    pub fn local_size(&self) -> i64 {
+        // No callback or mutation occurs during this short borrow.
+        unsafe { (&*self.constraints.get()).len() as i64 }
+    }
+
+    /// Capture the visible prefix in an independently extensible child.
+    pub fn snapshot(&self) -> Result<ConstraintContext> {
+        let parent = AnyView::from(self)
+            .try_as::<ConstraintContext>()
+            .expect("context has its registered native type");
+        ConstraintContext::with_parent_prefix_size(parent, self.local_size())
+    }
+
+    fn local_array(&self) -> Array<Constraint> {
+        // Hold an owning clone before any callback; native append then uses COW.
+        unsafe { (&*self.constraints.get()).clone() }
+    }
+
+    /// Visit a fixed inherited/local prefix. A callback may append without entering
+    /// this iteration; each borrowed fact is valid only during its callback.
+    pub fn for_each(&self, mut callback: impl FnMut(&Constraint)) {
+        let retained = AnyView::from(self)
+            .try_as::<ConstraintContext>()
+            .expect("context has its registered native type");
+        retained.for_each_prefix(retained.local_size(), &mut callback);
+    }
+
+    fn for_each_prefix(&self, prefix: i64, callback: &mut impl FnMut(&Constraint)) {
+        let local = self.local_array();
+        if let Some(parent) = &self.parent {
+            parent.for_each_prefix(self.parent_prefix_size, callback);
+        }
+        for constraint in local.iter().take(prefix as usize) {
+            callback(&constraint);
+        }
+    }
+
+    /// Return an independent sequence in inherited/local order. Later context
+    /// appends do not change it; fact nodes and expressions remain shared.
+    pub fn to_array(&self) -> Array<Constraint> {
+        if self.parent.is_none() {
+            return self.local_array();
+        }
+        let mut facts = Vec::new();
+        self.for_each(|fact| facts.push(fact.clone()));
+        Array::new(facts)
+    }
+}
+
+// These verify the Rust mirror against the matching x86_64 header layout, not
+// an arbitrary loaded binary's hidden fields. Stub generation cannot certify them.
+const _: () = {
+    assert!(size_of::<ConstraintContextObj>() == 48);
+    assert!(align_of::<ConstraintContextObj>() == 8);
+    assert!(offset_of!(ConstraintContextObj, parent) == 24);
+    assert!(offset_of!(ConstraintContextObj, parent_prefix_size) == 32);
+    assert!(offset_of!(ConstraintContextObj, constraints) == 40);
+};

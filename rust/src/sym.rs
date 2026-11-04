@@ -27,6 +27,7 @@
 // An object registered under `sym` that no file has a block for yet is generated here, to be moved
 // to the file of the Python module that defines it.
 // tvm-ffi-stubgen(prefix): sym
+// tvm-ffi-stubgen(skip): sym.ConstraintContext
 
 pub mod analyzer;
 pub mod constraint;
