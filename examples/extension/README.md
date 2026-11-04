@@ -27,6 +27,7 @@ pipeline. The tutorial in `docs/advanced/` walks through the code.
 - `CMakeLists.txt`, `pyproject.toml`: build the library and install it into the package
 - `python/my_ext/`: loads the library and registers the pipeline
 - `run_example.py`: compiles a function that uses the extension and checks it against NumPy
+- `my_ext_py/my_ext.py`: the same extension written in Python, a prototype that needs no build
 
 ## Install and Run
 
@@ -43,3 +44,9 @@ The build uses this checkout's `tvm-tirx` crate and pinned TVM FFI sources.
 Disabling build isolation keeps the native libraries from the same checkout
 available to cargo, instead of installing a released package in a temporary
 build environment.
+
+To run the example with the Python prototype instead, without building anything:
+
+```bash
+PYTHONPATH=examples/extension/my_ext_py python examples/extension/run_example.py
+```
