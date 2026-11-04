@@ -26,13 +26,17 @@ use std::collections::HashMap;
 
 use tvm_tirx::ir::prim::{make_const, Add, AddObj, Mul, MulObj};
 use tvm_tirx::ir::{
-    Expr, For, ForObj, IntImmObj, PrimType, TensorStore, TensorStoreObj, Var, VarObj, UNKNOWN_LOC,
+    Expr, For, ForObj, If, IfObj, IntImmObj, PrimType, TensorStore, TensorStoreObj, Var, VarObj,
+    UNKNOWN_LOC,
 };
 use tvm_tirx::script::script;
+use tvm_tirx::sym::{Analyzer, ConstraintContext, ProofStrength};
+use tvm_tirx::tirx::structural_map_with_constraint_context::structural_map_with_constraint_context;
+use tvm_tirx::tirx::structural_walk_with_constraint_context::structural_walk_with_constraint_context;
 use tvm_tirx::tirx::Function;
 use tvm_tirx::tvm_ffi::{
     self, dispatch, match_any, Any, AnyView, Array, DefRegionKind, MutationView, ObjectIdentity,
-    ObjectRefCast, ObjectRefCore, Result, StructuralMutatorView, StructuralVisitorView,
+    ObjectRefCast, ObjectRefCore, Result, StructuralMutatorView, StructuralVisitorView, Unchanged,
     VisitInterrupt, WalkOrder, WalkResult,
 };
 
@@ -309,6 +313,42 @@ fn reverse_loops(func: Function) -> Result<Function> {
 }
 // [mutate.end]
 
+// [check_guard.begin]
+fn proven_guards(func: Function) -> Result<Array<bool>> {
+    let analyzer = Analyzer::new();
+    let mut proven = Vec::new();
+    structural_walk_with_constraint_context(
+        &func,
+        |branch: &IfObj, constraints: &ConstraintContext| -> Result<WalkResult> {
+            analyzer.sync_constraint_context(constraints)?;
+            proven.push(analyzer.can_prove(branch.condition.clone(), ProofStrength::Default)?);
+            Ok(WalkResult::Advance)
+        },
+        WalkOrder::PreOrder,
+    )?;
+    Ok(proven.into_iter().collect())
+}
+// [check_guard.end]
+
+// [remove_guard.begin]
+fn remove_redundant_guards(func: Function) -> Result<Function> {
+    let analyzer = Analyzer::new();
+    structural_map_with_constraint_context(
+        func,
+        |branch: If, constraints: &ConstraintContext| -> Result<Any> {
+            analyzer.sync_constraint_context(constraints)?;
+            Ok(if analyzer.can_prove(branch.condition.clone(), ProofStrength::Default)? {
+                branch.then_case.clone().into()
+            } else {
+                Unchanged.into()
+            })
+        },
+        WalkOrder::PreOrder,
+    )?
+    .try_into()
+}
+// [remove_guard.end]
+
 tvm_ffi::static_init_block! {
     tvm_ffi::Function::register_global_typed(
         "tirx_ir_guide_examples.rust.construct",
@@ -374,5 +414,15 @@ tvm_ffi::static_init_block! {
         "tirx_ir_guide_examples.rust.reverse_loops",
         reverse_loops,
         "Reverse every loop.",
+    )?;
+    tvm_ffi::Function::register_global_typed(
+        "tirx_ir_guide_examples.rust.proven_guards",
+        proven_guards,
+        "Check each guard against the facts at that point.",
+    )?;
+    tvm_ffi::Function::register_global_typed(
+        "tirx_ir_guide_examples.rust.remove_redundant_guards",
+        remove_redundant_guards,
+        "Remove guards that the facts already prove.",
     )?;
 }
