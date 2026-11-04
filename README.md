@@ -23,7 +23,7 @@
 
 You might wonder: **If my Claude or Codex can just spit out CUDA, PTX, or even SASS directly, why bother with another compiler layer?** We've been asking ourselves the same question.
 
-Our conclusion is that **compilers are still useful, but their role is changing**. Agents can drive the optimization process, while a shared compiler foundation provides reusable ways to represent kernels, analyze their behavior, and generate executable code. That foundation should give agents the freedom to build their own abstractions and transformations as they explore new strategies.
+Our answer is **yes, but perhaps not in the form we know today**. Even when agents generate code directly, analysis and independent verification still need structured program representations and precisely defined semantics. A minimal, extensible compiler foundation provides these shared building blocks while leaving agents free to explore their own optimization strategies.
 
 **TIRx is our attempt to build a minimal, stable, and extensible DSL and compiler foundation for that future**, enabling agents to write and optimize kernels, develop their own analyses, and eventually verify correctness.
 
