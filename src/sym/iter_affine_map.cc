@@ -1246,7 +1246,12 @@ class IterMapRewriter : public tvm::ExprMutator {
         } else {
           rhs.CopyOnWrite()->scale = lvalue->scale - rhs->scale;
         }
-        lhs->args.Set(i, rhs);
+        // Iterator fusion divides by the scale, so discard cancelled terms.
+        if (IsZero(rhs->scale)) {
+          lhs->args.erase(lhs->args.begin() + i);
+        } else {
+          lhs->args.Set(i, rhs);
+        }
         return;
       }
     }

@@ -1353,6 +1353,17 @@ def test_iter_map_simplify_predicate_fallback_requires_no_padding():
     tvm_tirx.ir.assert_structural_equal(simplified, [index])
 
 
+def test_cancelled_iter_map_terms():
+    i = tvm_tirx.tirx.Var("i", "int32")
+    dom_map = var_dom([(i, 4)])
+    predicate = i - i >= 0
+    result = tvm_tirx.sym.detect_iter_map([i], dom_map, predicate=predicate)
+    assert len(result.indices) == 0
+    assert len(result.errors) != 0
+    simplified = tvm_tirx.sym.iter_map_simplify([i], dom_map, predicate=predicate)
+    tvm_tirx.ir.assert_structural_equal(simplified, [i])
+
+
 def test_iter_map_simplify_symbolic_reshape():
     n = tvm_tirx.tirx.Var("n", "int64")
     fused = tvm_tirx.tirx.Var("fused", "int64")
