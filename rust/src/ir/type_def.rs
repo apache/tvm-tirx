@@ -18,10 +18,10 @@
  */
 
 //! Registering IR types from Rust: [`register_type`], which a [`tvm_ffi::static_init_block!`]
-//! calls for an `rs_class` type, as C++ registers a type with `refl::ObjectDef` in a
+//! calls for an `rs_object` type, as C++ registers a type with `refl::ObjectDef` in a
 //! `TVM_FFI_STATIC_INIT_BLOCK`.
 //!
-//! `rs_class` registers the fields of a type and, as C++ `refl::ObjectDef` does, a creator of an
+//! `rs_object` registers the fields of a type and, as C++ `refl::ObjectDef` does, a creator of an
 //! object whose fields are undefined, which tvm-ffi fills through the reflection of the fields to
 //! construct the type from Python (the `__ffi_init__` it generates) and to read it from a JSON
 //! graph (`__ffi_new__`). [`register_type`] registers the type when its program or library loads
@@ -31,8 +31,8 @@ use tvm_ffi::{Function, ObjectCore, ObjectRefCore, Result, String};
 
 use super::support;
 
-/// Register the IR type of the reference `R`, an `rs_class` type, as C++ registers one with
-/// `refl::ObjectDef`: the type, with the `__ffi_new__` and `__ffi_init__` `rs_class` registers,
+/// Register the IR type of the reference `R`, an `rs_object` type, as C++ registers one with
+/// `refl::ObjectDef`: the type, with the `__ffi_new__` and `__ffi_init__` `rs_object` registers,
 /// then, when the receiver is installed, a request for its constructor in registered destinations
 /// (`ir.expose_type`); an absent receiver is a no-op, and an installed receiver's error is
 /// returned. With an explicitly declared `my_ext` type API destination, Python then constructs the
@@ -48,10 +48,10 @@ use super::support;
 ///
 /// ```no_run
 /// use tvm_tirx::ir::{register_type, Location, Type, TypeObj};
-/// use tvm_tirx::tvm_ffi::{self, def_object_ref, rs_class, ObjectRefCore};
+/// use tvm_tirx::tvm_ffi::{self, def_object_ref, rs_object, ObjectRefCore};
 ///
 /// /// The type of a pair of values, printed as `my_ext.Pair(first, second)`.
-/// #[rs_class("my_ext.PairType", final)]
+/// #[rs_object("my_ext.PairType", final)]
 /// pub struct PairTypeObj {
 ///     base: TypeObj,
 ///     pub first: Type,

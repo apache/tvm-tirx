@@ -38,7 +38,7 @@ use tvm_tirx::tirx::{CallFFIKernelAttr, TensorVar};
 use tvm_tirx::tvm_ffi::static_init::{StaticInitBlock, STATIC_INIT_BLOCKS};
 use tvm_tirx::tvm_ffi::tvm_ffi_sys::TVMFFITypeIndex;
 use tvm_tirx::tvm_ffi::{
-    self, def_object_ref, rs_class, run_static_init_blocks, Any, AnyView, Array, Error, ErrorKind,
+    self, def_object_ref, rs_object, run_static_init_blocks, Any, AnyView, Array, Error, ErrorKind,
     Function, Map, ObjectCore, ObjectRefCast, ObjectRefCore, Result, String as FfiString,
     ATTRIBUTE_ERROR, INTERNAL_ERROR, TYPE_ERROR, VALUE_ERROR,
 };
@@ -414,7 +414,7 @@ fn accept(_call: &CallObj) -> Result<()> {
 }
 
 /// A type and a count, registered with the operators when the test binary loads.
-#[rs_class("rust_test.BlockType", final)]
+#[rs_object("rust_test.BlockType", final)]
 pub struct BlockTypeObj {
     base: TypeObj,
     pub elem: Type,
