@@ -36,6 +36,15 @@ def add_one(A: T.Tensor((n,), T.float32), B: T.Tensor((n,), T.float32)):
         B[i] = A[i] + 1
 
 
+# [add_one_guarded.begin]
+@T.function
+def add_one_guarded(A: T.Tensor((n, 4), T.float32), B: T.Tensor((n, 4), T.float32)):
+    for i in range(n * 4):
+        if i // 4 < n:
+            B[i // 4, i % 4] = A[i // 4, i % 4] + 1
+    # [add_one_guarded.end]
+
+
 # The object system examples build their own IR and take no arguments.
 print(tirx_ir_guide_examples.rust.construct())
 assert tirx_ir_guide_examples.rust.construct() == "x * 2 + 1"
@@ -96,3 +105,11 @@ print(add_one_reversed.script())
 assert "B[n - 1 - i] = A[n - 1 - i] + T.float32(1.0)" in add_one_reversed.script()
 assert add_one_reversed.body.seq[0].var.same_as(add_one.body.seq[0].var)
 assert add_one.script() == original_script  # the Python-held input remains unchanged
+
+print(list(tirx_ir_guide_examples.rust.proven_guards(add_one_guarded)))
+assert list(tirx_ir_guide_examples.rust.proven_guards(add_one_guarded)) == [True]
+
+add_one_unguarded = tirx_ir_guide_examples.rust.remove_redundant_guards(add_one_guarded)
+print(add_one_unguarded.script())
+assert "if " not in add_one_unguarded.script()
+assert "if i // 4 < n:" in add_one_guarded.script()  # the input is unchanged
