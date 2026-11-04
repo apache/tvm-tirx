@@ -26,10 +26,8 @@ use std::borrow::BorrowMut;
 
 use tvm_ffi::{
     Any, AnyView, DefRegionKind, Dispatcher, IntoDispatcher, MutationView, Object, Result,
-    WalkOrder,
+    UnchangedOr, WalkOrder,
 };
-
-use tvm_ffi::tvm_ffi_sys::TVMFFITypeIndex;
 
 use super::structural_mutate_with_constraint_context::{
     structural_mutate_with_constraint_context, StructuralMutatorWithConstraintContextView,
@@ -46,11 +44,13 @@ impl<'v, 'c, 'r, 'a, D, const PRE: bool>
             MutationView<'v>,
             &'c mut StructuralMutatorWithConstraintContextView<'r, MapMutator<'a, D, PRE>>,
         ),
-        Option<Result<Any>>,
+        Option<Result<UnchangedOr<Any>>>,
     > for &mut MapMutator<'a, D, PRE>
 where
-    for<'s, 'b, 'ctx> &'s mut D:
-        Dispatcher<(AnyView<'b>, &'ctx ConstraintContext, DefRegionKind), Option<Result<Any>>>,
+    for<'s, 'b, 'ctx> &'s mut D: Dispatcher<
+        (AnyView<'b>, &'ctx ConstraintContext, DefRegionKind),
+        Option<Result<UnchangedOr<Any>>>,
+    >,
 {
     #[inline(always)]
     fn dispatch_tuple(
@@ -59,22 +59,24 @@ where
             MutationView<'v>,
             &'c mut StructuralMutatorWithConstraintContextView<'r, MapMutator<'a, D, PRE>>,
         ),
-    ) -> Option<Result<Any>> {
+    ) -> Option<Result<UnchangedOr<Any>>> {
         Some(self.map(value, mutator))
     }
 }
 
 impl<D, const PRE: bool> MapMutator<'_, D, PRE>
 where
-    for<'s, 'v, 'c> &'s mut D:
-        Dispatcher<(AnyView<'v>, &'c ConstraintContext, DefRegionKind), Option<Result<Any>>>,
+    for<'s, 'v, 'c> &'s mut D: Dispatcher<
+        (AnyView<'v>, &'c ConstraintContext, DefRegionKind),
+        Option<Result<UnchangedOr<Any>>>,
+    >,
 {
     #[inline(always)]
     fn map(
         &mut self,
         value: MutationView<'_>,
         mutator: &mut StructuralMutatorWithConstraintContextView<'_, Self>,
-    ) -> Result<Any> {
+    ) -> Result<UnchangedOr<Any>> {
         let kind = mutator.def_region_kind();
         if PRE {
             let mode = value.inplace_mode();
@@ -88,12 +90,13 @@ where
                 ))
             };
             let Some(result) = result else {
-                return mutator.default_mutate(self, value).map(Into::into);
+                return mutator.default_mutate(self, value);
             };
-            let mut mapped = result?;
-            if mapped.type_index() == TVMFFITypeIndex::kTVMFFIUnchanged as i32 {
-                return mutator.default_mutate(self, value).map(Into::into);
+            let mapped = result?;
+            if mapped.is_unchanged() {
+                return mutator.default_mutate(self, value);
             }
+            let mut mapped: Any = mapped.into();
             let same_object = value
                 .downcast_ref::<Object>()
                 .zip(mapped.downcast_ref::<Object>())
@@ -101,13 +104,13 @@ where
             if same_object {
                 // An identity callback must not make a unique root appear shared.
                 drop(mapped);
-                return mutator.default_mutate(self, value).map(Into::into);
+                return mutator.default_mutate(self, value);
             }
             // An owned replacement can lend a capability, restricted by the
             // original path's permission. The shared engine checks live aliases.
             let replacement = MutationView::from(&mut mapped).with_inplace_mode(mode);
             let result = mutator.default_mutate(self, replacement)?;
-            Ok(result.value_or(mapped))
+            Ok(UnchangedOr::changed(result.value_or(mapped)))
         } else {
             // SAFETY: this private adapter runs only inside the shared engine
             // callback. The engine owns the root; recursive callers keep each
@@ -118,9 +121,7 @@ where
             // let the reborrow escape this callback.
             let original: AnyView<'_> = unsafe { std::mem::transmute(value.as_any_view()) };
             let mapped = mutator.default_mutate(self, value)?;
-            let unchanged = mapped.is_unchanged();
-            let mapped: Any = mapped.into();
-            let current = if unchanged { original } else { AnyView::from(&mapped) };
+            let current = if mapped.is_unchanged() { original } else { AnyView::from(&mapped) };
             // Scoped native hooks have restored the incoming context here.
             let result = unsafe {
                 self.mapper.dispatch_tuple((
@@ -132,11 +133,7 @@ where
             match result {
                 Some(result) => {
                     let result = result?;
-                    Ok(if result.type_index() == TVMFFITypeIndex::kTVMFFIUnchanged as i32 {
-                        mapped
-                    } else {
-                        result
-                    })
+                    Ok(if result.is_unchanged() { mapped } else { result })
                 }
                 None => Ok(mapped),
             }
@@ -169,13 +166,15 @@ where
     O: BorrowMut<D>,
     for<'v, 'c> H: IntoDispatcher<
         (AnyView<'v>, &'c ConstraintContext, DefRegionKind),
-        Option<Result<Any>>,
+        Option<Result<UnchangedOr<Any>>>,
         M,
         Target = D,
         Output = O,
     >,
-    for<'s, 'v, 'c> &'s mut D:
-        Dispatcher<(AnyView<'v>, &'c ConstraintContext, DefRegionKind), Option<Result<Any>>>,
+    for<'s, 'v, 'c> &'s mut D: Dispatcher<
+        (AnyView<'v>, &'c ConstraintContext, DefRegionKind),
+        Option<Result<UnchangedOr<Any>>>,
+    >,
 {
     let mut storage = mapper.into_dispatcher();
     let mapper = storage.borrow_mut();

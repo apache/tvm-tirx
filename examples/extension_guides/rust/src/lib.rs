@@ -31,7 +31,7 @@ use tvm_tirx::tirx::transform::FunctionPass;
 use tvm_tirx::tirx::Function;
 use tvm_tirx::tvm_ffi::{
     self, def_object_ref, dispatch, rs_object, Any, AnyView, Error, ObjectRefCast, ObjectRefCore,
-    Result, Unchanged, WalkOrder,
+    Result, Unchanged, UnchangedOr, WalkOrder,
 };
 
 // begin type
@@ -192,14 +192,14 @@ impl Lowering {
     }
 }
 
-#[dispatch(map, (AnyView<'_>,), Result<Any>)]
+#[dispatch(map, (AnyView<'_>,), Result<UnchangedOr<Any>>)]
 impl Lowering {
-    fn map_sequence(&mut self, seq: SeqStmt) -> Result<Any> {
+    fn map_sequence(&mut self, seq: SeqStmt) -> Result<UnchangedOr<Any>> {
         Ok(SeqStmt::new(seq.seq.iter(), seq.loc.clone()).into())
     }
 
     // begin lowering
-    fn map_call(&mut self, call: Call) -> Result<Any> {
+    fn map_call(&mut self, call: Call) -> Result<UnchangedOr<Any>> {
         if is_complex_op(&call.op)? {
             validate_call(&call)?;
         }
@@ -227,7 +227,7 @@ impl Lowering {
         Ok(call.into())
     }
 
-    fn map_bind(&mut self, bind: Bind) -> Result<Any> {
+    fn map_bind(&mut self, bind: Bind) -> Result<UnchangedOr<Any>> {
         if let Some(ty) = bind.var.ty.downcast_ref::<ComplexTypeObj>() {
             let (re, im) = self.parts(&bind.value)?;
             let name = bind.var.name.as_str();

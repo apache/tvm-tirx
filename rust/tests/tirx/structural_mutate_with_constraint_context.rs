@@ -25,7 +25,9 @@ use tvm_tirx::tirx::structural_mutate_with_constraint_context::{
     structural_mutate_with_constraint_context as mutate,
     StructuralMutatorWithConstraintContextView as View,
 };
-use tvm_tirx::tvm_ffi::{dispatch, Any, DefRegionKind, MutationView, ObjectRefCore, Result, Unchanged};
+use tvm_tirx::tvm_ffi::{
+    dispatch, Any, DefRegionKind, MutationView, ObjectRefCore, Result, Unchanged, UnchangedOr,
+};
 
 use super::{int32, op};
 use crate::common::serial;
@@ -41,13 +43,13 @@ struct Rewrite {
     restored: bool,
 }
 
-#[dispatch(mutate, (MutationView<'_>, &mut View<'_, Self>), Result<Any>)]
+#[dispatch(mutate, (MutationView<'_>, &mut View<'_, Self>), Result<UnchangedOr<Any>>)]
 impl Rewrite {
     fn mutate_integer(
         &mut self,
         node: MutationView<'_, IntImm>,
         _: &mut View<'_, Self>,
-    ) -> Result<Any> {
+    ) -> Result<UnchangedOr<Any>> {
         if node.value.to_i64().unwrap() == 4 {
             Ok(int32(8).into())
         } else {
@@ -58,28 +60,28 @@ impl Rewrite {
         &mut self,
         node: MutationView<'_, Var>,
         view: &mut View<'_, Self>,
-    ) -> Result<Any> {
+    ) -> Result<UnchangedOr<Any>> {
         self.definitions.push(view.def_region_kind());
-        view.default_mutate(self, node).map(Into::into)
+        view.default_mutate(self, node)
     }
     fn mutate_evaluate(
         &mut self,
         node: MutationView<'_, Evaluate>,
         view: &mut View<'_, Self>,
-    ) -> Result<Any> {
+    ) -> Result<UnchangedOr<Any>> {
         let marker = node.value.downcast_ref::<IntImmObj>().unwrap().value.to_i64().unwrap();
         self.facts.push((marker, view.base().constraints().to_array().iter().collect()));
-        view.default_mutate(self, node).map(Into::into)
+        view.default_mutate(self, node)
     }
     fn mutate_for(
         &mut self,
         node: MutationView<'_, For>,
         view: &mut View<'_, Self>,
-    ) -> Result<Any> {
+    ) -> Result<UnchangedOr<Any>> {
         let before = view.base().constraints().to_array().len();
         let result = view.default_mutate(self, node);
         self.restored = view.base().constraints().to_array().len() == before;
-        result.map(Into::into)
+        result
     }
 }
 
@@ -144,21 +146,21 @@ fn alias_acquired_in_callback_forces_copying_default_descent() {
     struct Alias {
         saved: Option<Any>,
     }
-    #[dispatch(mutate, (MutationView<'_>, &mut View<'_, Self>), Result<Any>)]
+    #[dispatch(mutate, (MutationView<'_>, &mut View<'_, Self>), Result<UnchangedOr<Any>>)]
     impl Alias {
         fn mutate_for(
             &mut self,
             node: MutationView<'_, For>,
             view: &mut View<'_, Self>,
-        ) -> Result<Any> {
+        ) -> Result<UnchangedOr<Any>> {
             self.saved = Some(node.as_any_view().into());
-            view.default_mutate(self, node).map(Into::into)
+            view.default_mutate(self, node)
         }
         fn mutate_integer(
             &mut self,
             node: MutationView<'_, IntImm>,
             _: &mut View<'_, Self>,
-        ) -> Result<Any> {
+        ) -> Result<UnchangedOr<Any>> {
             Ok(if node.value.to_i64() == Some(4) { int32(8).into() } else { Unchanged.into() })
         }
     }
