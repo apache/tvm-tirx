@@ -91,3 +91,14 @@ print(
     )
 )
 # [highlight.end]
+
+
+# [function_builder.begin]
+@T.function.builder
+def add_one(A: T.Tensor((n,), T.float32), B: T.Tensor((n,), T.float32)):
+    with T.serial(n) as i:
+        T.assign(B[i], A[i] + 1)
+    # [function_builder.end]
+
+
+ir.assert_structural_equal(add_one, built)
