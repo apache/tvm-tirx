@@ -21,7 +21,10 @@
 //! Expressions: variables, constants, calls, tuples and tensor accesses.
 //!
 //! The objects `python/tvm_tirx/ir/expr.py` defines. [`Expr`] is the base of every expression and
-//! carries its type and location. The primitive arithmetic and vector expressions are in
+//! carries its type and location; [`PrimExpr`] and [`IntExpr`] are views of an `Expr` checked to be
+//! typed by a `PrimType` and by a scalar integer type (C++ `TypedExpr`). A constructor or function
+//! that can fail takes its expression operands as [`IntoExpr`], which an expression under
+//! construction ([`ExprResult`]) also is. The primitive arithmetic and vector expressions are in
 //! [`prim`](super::prim). The constructors are `new`, or `from_dtype` and the like where `new`
 //! allocates the fields as given; they are written in Rust after the C++ constructors, with their
 //! checks, defaults and errors. The constants of the common types are [`IntImm::int32`],
@@ -221,293 +224,61 @@ impl Expr {
     }
 }
 
-// tvm-ffi-stubgen(begin): object/ir.StagingExpr
-/// Complete: reflected fields fill [40, 40) exactly.
-#[repr(C)]
-#[derive(tvm_ffi::derive::Object)]
-#[type_key = "ir.StagingExpr"]
-pub struct StagingExprObj {
-    base: ExprObj,
+// ---------------------------------------------------------------------------------------------
+// Conversions into an expression
+
+/// What converts to an expression, possibly failing: anything that converts into an [`Expr`] (a
+/// node, a `Var`, a Rust `i32`, `f32` and the like), and an [`ExprResult`], an
+/// expression under construction, which gives the first error any of its steps raised. The
+/// constructors and functions that can fail take their expression operands as `impl IntoExpr`, so
+/// an `ExprResult` passes straight in and `?` on their result covers it.
+pub trait IntoExpr {
+    fn into_expr(self) -> Result<Expr>;
 }
 
-const _: () = {
-    assert!(::core::mem::size_of::<StagingExprObj>() == 40);
-    assert!(::core::mem::align_of::<StagingExprObj>() == 8);
-};
-
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct StagingExpr {
-    base: ObjectArc<StagingExprObj>,
-}
-
-impl Deref for StagingExpr {
-    type Target = StagingExprObj;
-    fn deref(&self) -> &StagingExprObj {
-        &self.base
+impl<T: Into<Expr>> IntoExpr for T {
+    fn into_expr(self) -> Result<Expr> {
+        Ok(self.into())
     }
 }
 
-impl Deref for StagingExprObj {
-    type Target = ExprObj;
-    fn deref(&self) -> &ExprObj {
-        &self.base
+// Rust literals, as C++ converts them into an expression: an `i32` and an `f32` through the
+// constructors `PrimExpr(int32_t)` and `PrimExpr(float)`, the others as constants of their type.
+
+impl From<i32> for Expr {
+    fn from(value: i32) -> Self {
+        IntImm::int32(value).into()
     }
 }
 
-impl StagingExprObj {
-    pub fn new(loc: Location, ty: Type) -> Self {
-        let base = ExprObj::new(loc, ty);
-        Self { base }
+impl From<i64> for Expr {
+    fn from(value: i64) -> Self {
+        IntImm::int64(value).into()
     }
 }
 
-impl StagingExpr {
-    /// Lossless complete-field allocation.
-    pub fn new(loc: impl Into<Location>, ty: impl Into<Type>) -> Self {
-        let obj = StagingExprObj::new(loc.into(), ty.into());
-        Self { base: ObjectArc::new(obj) }
+impl From<bool> for Expr {
+    fn from(value: bool) -> Self {
+        IntImm::bool(value).into()
     }
 }
 
-impl ShallowCopy for StagingExprObj {
-    fn shallow_copy(&self) -> Self {
-        Self { base: ShallowCopy::shallow_copy(&self.base) }
+impl From<f32> for Expr {
+    fn from(value: f32) -> Self {
+        FloatImm::float32(value).into()
     }
 }
 
-unsafe impl UnsafeInit for StagingExprObj {
-    unsafe fn drop_defined_fields(this: *mut Self) {
-        unsafe {
-            UnsafeInit::drop_defined_fields(addr_of_mut!((*this).base));
-        }
+impl From<f64> for Expr {
+    fn from(value: f64) -> Self {
+        FloatImm::float64(value).into()
     }
 }
-
-tvm_ffi::impl_object_upcast!(StagingExpr => Expr);
-// tvm-ffi-stubgen(end)
-
-// tvm-ffi-stubgen(begin): object/ir.OpaqueExpr
-/// Complete: reflected fields fill [40, 40) exactly.
-#[repr(C)]
-#[derive(tvm_ffi::derive::Object)]
-#[type_key = "ir.OpaqueExpr"]
-pub struct OpaqueExprObj {
-    base: ExprObj,
-}
-
-const _: () = {
-    assert!(::core::mem::size_of::<OpaqueExprObj>() == 40);
-    assert!(::core::mem::align_of::<OpaqueExprObj>() == 8);
-};
-
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct OpaqueExpr {
-    base: ObjectArc<OpaqueExprObj>,
-}
-
-impl Deref for OpaqueExpr {
-    type Target = OpaqueExprObj;
-    fn deref(&self) -> &OpaqueExprObj {
-        &self.base
-    }
-}
-
-impl Deref for OpaqueExprObj {
-    type Target = ExprObj;
-    fn deref(&self) -> &ExprObj {
-        &self.base
-    }
-}
-
-impl OpaqueExprObj {
-    pub fn new(loc: Location, ty: Type) -> Self {
-        let base = ExprObj::new(loc, ty);
-        Self { base }
-    }
-}
-
-impl OpaqueExpr {
-    /// Lossless complete-field allocation.
-    pub fn new(loc: impl Into<Location>, ty: impl Into<Type>) -> Self {
-        let obj = OpaqueExprObj::new(loc.into(), ty.into());
-        Self { base: ObjectArc::new(obj) }
-    }
-}
-
-impl ShallowCopy for OpaqueExprObj {
-    fn shallow_copy(&self) -> Self {
-        Self { base: ShallowCopy::shallow_copy(&self.base) }
-    }
-}
-
-unsafe impl UnsafeInit for OpaqueExprObj {
-    unsafe fn drop_defined_fields(this: *mut Self) {
-        unsafe {
-            UnsafeInit::drop_defined_fields(addr_of_mut!((*this).base));
-        }
-    }
-}
-
-tvm_ffi::impl_object_upcast!(OpaqueExpr => Expr);
-// tvm-ffi-stubgen(end)
 
 // ---------------------------------------------------------------------------------------------
 // Typed views: `PrimExpr` and `IntExpr` (C++ `TypedExpr`)
 
-/// Define a view: a reference to an `ExprObj` whose type `$accepts` accepts, named `$type_str`
-/// like the C++ type, which an `Any` holding no expression converts into by `$fallback`.
-macro_rules! typed_expr_view {
-    (
-        $(#[$meta:meta])*
-        $name:ident, $type_str:literal, accepts = $accepts:path, fallback = $fallback:path
-    ) => {
-        $(#[$meta])*
-        #[repr(transparent)]
-        #[derive(Clone)]
-        pub struct $name {
-            base: ObjectArc<ExprObj>,
-        }
-
-        // SAFETY: `base` is the reference; `from_data` requires its caller to have checked it.
-        unsafe impl ObjectRefCore for $name {
-            type ContainerType = ExprObj;
-
-            #[inline]
-            fn data(this: &Self) -> &ObjectArc<ExprObj> {
-                &this.base
-            }
-
-            #[inline]
-            fn into_data(this: Self) -> ObjectArc<ExprObj> {
-                this.base
-            }
-
-            /// The view of `data`.
-            ///
-            /// # Safety
-            ///
-            /// The type of `data` is one the view accepts.
-            #[inline]
-            unsafe fn from_data(data: ObjectArc<ExprObj>) -> Self {
-                Self { base: data }
-            }
-        }
-
-        // SAFETY: a view is an `Expr` whose `check_any_strict` accepts fewer values; the other
-        // conversions are the `Expr` ones.
-        unsafe impl AnyCompatible for $name {
-            #[inline]
-            unsafe fn is_undefined(field: *const Self) -> bool {
-                unsafe { ObjectArc::is_null(::core::ptr::addr_of!((*field).base)) }
-            }
-
-            fn type_str() -> std::string::String {
-                $type_str.into()
-            }
-
-            fn get_mismatch_type_info(data: &TVMFFIAny) -> std::string::String {
-                typed_expr_mismatch(data)
-            }
-
-            #[inline(always)]
-            unsafe fn copy_to_any_view(src: &Self, data: &mut TVMFFIAny) {
-                unsafe { <Expr as AnyCompatible>::copy_to_any_view(src.as_expr(), data) }
-            }
-
-            #[inline(always)]
-            unsafe fn move_to_any(src: Self, data: &mut TVMFFIAny) {
-                unsafe { <Expr as AnyCompatible>::move_to_any(src.into(), data) }
-            }
-
-            #[inline(always)]
-            unsafe fn check_any_strict(data: &TVMFFIAny) -> bool {
-                unsafe { prim_dtype(data) }.is_some_and($accepts)
-            }
-
-            unsafe fn copy_from_any_view_after_check(data: &TVMFFIAny) -> Self {
-                let expr = unsafe { <Expr as AnyCompatible>::copy_from_any_view_after_check(data) };
-                Self { base: ObjectRefCore::into_data(expr) }
-            }
-
-            unsafe fn move_from_any_after_check(data: &mut TVMFFIAny) -> Self {
-                let expr = unsafe { <Expr as AnyCompatible>::move_from_any_after_check(data) };
-                Self { base: ObjectRefCore::into_data(expr) }
-            }
-
-            unsafe fn try_cast_from_any_view(data: &TVMFFIAny) -> std::result::Result<Self, ()> {
-                unsafe {
-                    if Self::check_any_strict(data) {
-                        Ok(Self::copy_from_any_view_after_check(data))
-                    } else {
-                        $fallback(data).ok_or(())
-                    }
-                }
-            }
-        }
-
-        tvm_ffi::impl_try_from_any!($name);
-        tvm_ffi::impl_arg_into_ref!($name);
-        tvm_ffi::impl_into_arg_holder_default!($name);
-        crate::def_expr_op_over_loads!($name);
-
-        impl From<&$name> for $name {
-            fn from(value: &$name) -> Self {
-                value.clone()
-            }
-        }
-
-        /// The expression object, to read, as [`Expr`] dereferences to it.
-        impl Deref for $name {
-            type Target = ExprObj;
-
-            fn deref(&self) -> &ExprObj {
-                &self.base
-            }
-        }
-
-        impl $name {
-            /// This expression as an [`Expr`], borrowed.
-            #[inline]
-            pub fn as_expr(&self) -> &Expr {
-                // SAFETY: `Expr` is a `repr(C)` struct of the one `ObjectArc<ExprObj>` the view
-                // holds, and every value of the view is an `Expr`.
-                unsafe { &*(self as *const Self as *const Expr) }
-            }
-
-            /// The type of this expression (C++ `PrimExpr::ty()`), which the view guarantees.
-            pub fn ty(&self) -> PrimType {
-                self.base.ty.clone().try_cast().expect("a view is typed by a `PrimType`")
-            }
-
-            /// The dtype of this expression's type.
-            pub fn dtype(&self) -> DLDataType {
-                let ty = self.base.ty.downcast_ref::<PrimTypeObj>();
-                ty.expect("a view is typed by a `PrimType`").dtype
-            }
-        }
-
-        /// The view of an expression whose type it accepts; a TypeError names any other.
-        impl TryFrom<Expr> for $name {
-            type Error = Error;
-
-            fn try_from(value: Expr) -> Result<Self> {
-                value.try_cast()
-            }
-        }
-
-        impl TryFrom<&Expr> for $name {
-            type Error = Error;
-
-            fn try_from(value: &Expr) -> Result<Self> {
-                value.clone().try_cast()
-            }
-        }
-    };
-}
-
-typed_expr_view! {
+crate::r#macro::typed_expr_view! {
     /// An expression typed by a `PrimType` (C++ `PrimExpr`): a constant, a variable, an operator
     /// on scalars or vectors, or a call that returns one.
     ///
@@ -549,7 +320,7 @@ typed_expr_view! {
     PrimExpr, "ir.PrimExpr", accepts = any_prim, fallback = prim_literal
 }
 
-typed_expr_view! {
+crate::r#macro::typed_expr_view! {
     /// A [`PrimExpr`] of a scalar signed or unsigned integer type of any width (C++ `IntExpr`),
     /// such as an index or an extent.
     IntExpr, "ir.IntExpr", accepts = scalar_int, fallback = int_literal
@@ -742,6 +513,141 @@ fn int_imm(value: i64) -> IntImm {
         Err(_) => IntImm::int64(value),
     }
 }
+
+// ---------------------------------------------------------------------------------------------
+// Expression nodes
+
+// tvm-ffi-stubgen(begin): object/ir.StagingExpr
+/// Complete: reflected fields fill [40, 40) exactly.
+#[repr(C)]
+#[derive(tvm_ffi::derive::Object)]
+#[type_key = "ir.StagingExpr"]
+pub struct StagingExprObj {
+    base: ExprObj,
+}
+
+const _: () = {
+    assert!(::core::mem::size_of::<StagingExprObj>() == 40);
+    assert!(::core::mem::align_of::<StagingExprObj>() == 8);
+};
+
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct StagingExpr {
+    base: ObjectArc<StagingExprObj>,
+}
+
+impl Deref for StagingExpr {
+    type Target = StagingExprObj;
+    fn deref(&self) -> &StagingExprObj {
+        &self.base
+    }
+}
+
+impl Deref for StagingExprObj {
+    type Target = ExprObj;
+    fn deref(&self) -> &ExprObj {
+        &self.base
+    }
+}
+
+impl StagingExprObj {
+    pub fn new(loc: Location, ty: Type) -> Self {
+        let base = ExprObj::new(loc, ty);
+        Self { base }
+    }
+}
+
+impl StagingExpr {
+    /// Lossless complete-field allocation.
+    pub fn new(loc: impl Into<Location>, ty: impl Into<Type>) -> Self {
+        let obj = StagingExprObj::new(loc.into(), ty.into());
+        Self { base: ObjectArc::new(obj) }
+    }
+}
+
+impl ShallowCopy for StagingExprObj {
+    fn shallow_copy(&self) -> Self {
+        Self { base: ShallowCopy::shallow_copy(&self.base) }
+    }
+}
+
+unsafe impl UnsafeInit for StagingExprObj {
+    unsafe fn drop_defined_fields(this: *mut Self) {
+        unsafe {
+            UnsafeInit::drop_defined_fields(addr_of_mut!((*this).base));
+        }
+    }
+}
+
+tvm_ffi::impl_object_upcast!(StagingExpr => Expr);
+// tvm-ffi-stubgen(end)
+
+// tvm-ffi-stubgen(begin): object/ir.OpaqueExpr
+/// Complete: reflected fields fill [40, 40) exactly.
+#[repr(C)]
+#[derive(tvm_ffi::derive::Object)]
+#[type_key = "ir.OpaqueExpr"]
+pub struct OpaqueExprObj {
+    base: ExprObj,
+}
+
+const _: () = {
+    assert!(::core::mem::size_of::<OpaqueExprObj>() == 40);
+    assert!(::core::mem::align_of::<OpaqueExprObj>() == 8);
+};
+
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct OpaqueExpr {
+    base: ObjectArc<OpaqueExprObj>,
+}
+
+impl Deref for OpaqueExpr {
+    type Target = OpaqueExprObj;
+    fn deref(&self) -> &OpaqueExprObj {
+        &self.base
+    }
+}
+
+impl Deref for OpaqueExprObj {
+    type Target = ExprObj;
+    fn deref(&self) -> &ExprObj {
+        &self.base
+    }
+}
+
+impl OpaqueExprObj {
+    pub fn new(loc: Location, ty: Type) -> Self {
+        let base = ExprObj::new(loc, ty);
+        Self { base }
+    }
+}
+
+impl OpaqueExpr {
+    /// Lossless complete-field allocation.
+    pub fn new(loc: impl Into<Location>, ty: impl Into<Type>) -> Self {
+        let obj = OpaqueExprObj::new(loc.into(), ty.into());
+        Self { base: ObjectArc::new(obj) }
+    }
+}
+
+impl ShallowCopy for OpaqueExprObj {
+    fn shallow_copy(&self) -> Self {
+        Self { base: ShallowCopy::shallow_copy(&self.base) }
+    }
+}
+
+unsafe impl UnsafeInit for OpaqueExprObj {
+    unsafe fn drop_defined_fields(this: *mut Self) {
+        unsafe {
+            UnsafeInit::drop_defined_fields(addr_of_mut!((*this).base));
+        }
+    }
+}
+
+tvm_ffi::impl_object_upcast!(OpaqueExpr => Expr);
+// tvm-ffi-stubgen(end)
 
 // tvm-ffi-stubgen(begin): object/ir.GlobalVar
 /// Complete: reflected fields fill [40, 56) exactly.
@@ -1250,18 +1156,6 @@ impl From<f64> for FloatImm {
     }
 }
 
-impl From<f32> for Expr {
-    fn from(value: f32) -> Self {
-        FloatImm::float32(value).into()
-    }
-}
-
-impl From<f64> for Expr {
-    fn from(value: f64) -> Self {
-        FloatImm::float64(value).into()
-    }
-}
-
 /// The checks of C++ `FloatImm(ty, value)`: a scalar floating-point type whose range holds a
 /// finite `value`.
 fn check_float_imm(dtype: DLDataType, value: f64) -> Result<()> {
@@ -1461,39 +1355,6 @@ impl From<i64> for IntImm {
 impl From<bool> for IntImm {
     fn from(value: bool) -> Self {
         Self::bool(value)
-    }
-}
-
-/// What converts to an expression, possibly failing: anything that converts into an [`Expr`] (a
-/// node, a `Var`, a Rust `i32`, `f32` and the like), and an [`ExprResult`], an
-/// expression under construction, which gives the first error any of its steps raised. The
-/// constructors and functions that can fail take their expression operands as `impl IntoExpr`, so
-/// an `ExprResult` passes straight in and `?` on their result covers it.
-pub trait IntoExpr {
-    fn into_expr(self) -> Result<Expr>;
-}
-
-impl<T: Into<Expr>> IntoExpr for T {
-    fn into_expr(self) -> Result<Expr> {
-        Ok(self.into())
-    }
-}
-
-impl From<i32> for Expr {
-    fn from(value: i32) -> Self {
-        IntImm::int32(value).into()
-    }
-}
-
-impl From<i64> for Expr {
-    fn from(value: i64) -> Self {
-        IntImm::int64(value).into()
-    }
-}
-
-impl From<bool> for Expr {
-    fn from(value: bool) -> Self {
-        IntImm::bool(value).into()
     }
 }
 

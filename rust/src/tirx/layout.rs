@@ -62,111 +62,6 @@ struct FfiEnumObj {
 }
 // tvm-ffi-stubgen(end)
 
-// tvm-ffi-stubgen(begin): object/tirx.Axis
-/// Opaque: parent 'ffi.Enum' is opaque (no-mirror). Fields are read through the C ABI getters.
-#[repr(C)]
-#[derive(tvm_ffi::derive::Object)]
-#[type_key = "tirx.Axis"]
-#[type_final]
-pub struct AxisObj {
-    base: FfiEnumObj,
-}
-
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct Axis {
-    base: ObjectArc<AxisObj>,
-}
-
-impl Deref for Axis {
-    type Target = AxisObj;
-    fn deref(&self) -> &AxisObj {
-        &self.base
-    }
-}
-// tvm-ffi-stubgen(end)
-
-impl Axis {
-    /// The axis named `name`, registered on first use (`tirx.AxisGet`).
-    pub fn get(name: &str) -> Result<Self> {
-        tvm_ffi::cached_global_func!("tirx.AxisGet").call_tuple((String::from(name),))?.try_into()
-    }
-
-    /// Whether the axis indexes threads (`tirx.AxisIsThreadAxis`).
-    pub fn is_thread(&self) -> Result<bool> {
-        tvm_ffi::cached_global_func!("tirx.AxisIsThreadAxis").call_tuple((self,))?.try_into()
-    }
-
-    /// Whether the axis indexes memory (`tirx.AxisIsMemoryAxis`).
-    pub fn is_memory(&self) -> Result<bool> {
-        tvm_ffi::cached_global_func!("tirx.AxisIsMemoryAxis").call_tuple((self,))?.try_into()
-    }
-
-    /// The backend that registered the axis, if any (`tirx.AxisGetBackend`).
-    pub fn backend(&self) -> Result<Option<String>> {
-        tvm_ffi::cached_global_func!("tirx.AxisGetBackend").call_tuple((self,))?.try_into()
-    }
-
-    /// The thread scope a thread axis spans, if any (`tirx.AxisGetScope`).
-    pub fn get_scope(&self) -> Result<Option<ThreadScope>> {
-        tvm_ffi::cached_global_func!("tirx.AxisGetScope").call_tuple((self,))?.try_into()
-    }
-
-    /// The thread scope a thread axis indexes within its scope, if any (`tirx.AxisGetSubscope`).
-    pub fn get_subscope(&self) -> Result<Option<ThreadScope>> {
-        tvm_ffi::cached_global_func!("tirx.AxisGetSubscope").call_tuple((self,))?.try_into()
-    }
-}
-
-// tvm-ffi-stubgen(begin): object/tirx.Iter
-/// Complete: reflected fields fill [24, 48) exactly.
-#[repr(C)]
-#[derive(tvm_ffi::derive::Object)]
-#[type_key = "tirx.Iter"]
-#[type_final]
-pub struct IterObj {
-    base: Object,
-    pub extent: Expr,
-    pub stride: Expr,
-    pub axis: Axis,
-}
-
-const _: () = {
-    assert!(::core::mem::size_of::<IterObj>() == 48);
-    assert!(::core::mem::align_of::<IterObj>() == 8);
-};
-
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct Iter {
-    base: ObjectArc<IterObj>,
-}
-
-impl Deref for Iter {
-    type Target = IterObj;
-    fn deref(&self) -> &IterObj {
-        &self.base
-    }
-}
-
-impl IterObj {
-    pub(crate) fn new(extent: Expr, stride: Expr, axis: Axis) -> Self {
-        let base = Object::new();
-        Self { base, extent, stride, axis }
-    }
-}
-
-impl Iter {
-    /// Lossless complete-field allocation.
-    pub fn new(extent: impl Into<Expr>, stride: impl Into<Expr>, axis: impl Into<Axis>) -> Self {
-        let obj = IterObj::new(extent.into(), stride.into(), axis.into());
-        Self { base: ObjectArc::new(obj) }
-    }
-}
-// tvm-ffi-stubgen(end)
-
-// The native `tirx.Iter` stores its fields as given, as the generated `Iter::new` does.
-
 // tvm-ffi-stubgen(begin): object/tirx.Layout
 /// Opaque: no metadata of its own: total_size is unknown. Fields are read through the C ABI getters.
 #[repr(C)]
@@ -275,87 +170,6 @@ impl Layout {
     }
 }
 
-// tvm-ffi-stubgen(begin): object/tirx.ComposeLayout
-/// Opaque: parent 'tirx.Layout' is opaque (layout-unknown). Fields are read through the C ABI getters.
-#[repr(C)]
-#[derive(tvm_ffi::derive::Object)]
-#[type_key = "tirx.ComposeLayout"]
-#[type_final]
-pub struct ComposeLayoutObj {
-    base: LayoutObj,
-}
-
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct ComposeLayout {
-    base: ObjectArc<ComposeLayoutObj>,
-}
-
-impl Deref for ComposeLayout {
-    type Target = ComposeLayoutObj;
-    fn deref(&self) -> &ComposeLayoutObj {
-        &self.base
-    }
-}
-
-impl Deref for ComposeLayoutObj {
-    type Target = LayoutObj;
-    fn deref(&self) -> &LayoutObj {
-        &self.base
-    }
-}
-
-impl ComposeLayoutObj {
-    pub fn per_element(&self) -> Result<i64> {
-        FieldGetter::new(Self::type_index(), "per_element")?.get(self)
-    }
-
-    pub fn swizzle_len(&self) -> Result<i64> {
-        FieldGetter::new(Self::type_index(), "swizzle_len")?.get(self)
-    }
-
-    pub fn atom_len(&self) -> Result<i64> {
-        FieldGetter::new(Self::type_index(), "atom_len")?.get(self)
-    }
-
-    pub fn swizzle_inner(&self) -> Result<bool> {
-        FieldGetter::new(Self::type_index(), "swizzle_inner")?.get(self)
-    }
-
-    pub fn inner_mask(&self) -> Result<i64> {
-        FieldGetter::new(Self::type_index(), "inner_mask")?.get(self)
-    }
-
-    pub fn outer_mask(&self) -> Result<i64> {
-        FieldGetter::new(Self::type_index(), "outer_mask")?.get(self)
-    }
-
-    pub fn tile_layout(&self) -> Result<TileLayout> {
-        FieldGetter::new(Self::type_index(), "tile_layout")?.get(self)
-    }
-}
-
-tvm_ffi::impl_object_upcast!(ComposeLayout => Layout);
-// tvm-ffi-stubgen(end)
-
-impl ComposeLayout {
-    /// `tile_layout` with its memory coordinate swizzled: above the low `per_element` bits, the
-    /// `swizzle_len` bits `atom_len` bits apart are XORed, into the lower group if
-    /// `swizzle_inner` (`tirx.ComposeLayout`).
-    pub fn new(
-        per_element: i32,
-        swizzle_len: i32,
-        atom_len: i32,
-        tile_layout: impl Into<TileLayout>,
-        swizzle_inner: bool,
-    ) -> Result<Self> {
-        let tile_layout = tile_layout.into();
-        tvm_ffi::cached_global_func!("tirx.ComposeLayout")
-            .call_tuple((per_element, swizzle_len, atom_len, &tile_layout, swizzle_inner))?
-            .try_into()
-    }
-}
-
 // tvm-ffi-stubgen(begin): object/tirx.TileLayout
 /// Opaque: parent 'tirx.Layout' is opaque (layout-unknown). Fields are read through the C ABI getters.
 #[repr(C)]
@@ -453,5 +267,191 @@ impl TileLayout {
             .call_tuple((self,))?
             .try_into()?;
         pair.map(|pair| Ok((pair.get(0)?.try_into()?, pair.get(1)?.try_into()?))).transpose()
+    }
+}
+
+// tvm-ffi-stubgen(begin): object/tirx.Iter
+/// Complete: reflected fields fill [24, 48) exactly.
+#[repr(C)]
+#[derive(tvm_ffi::derive::Object)]
+#[type_key = "tirx.Iter"]
+#[type_final]
+pub struct IterObj {
+    base: Object,
+    pub extent: Expr,
+    pub stride: Expr,
+    pub axis: Axis,
+}
+
+const _: () = {
+    assert!(::core::mem::size_of::<IterObj>() == 48);
+    assert!(::core::mem::align_of::<IterObj>() == 8);
+};
+
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct Iter {
+    base: ObjectArc<IterObj>,
+}
+
+impl Deref for Iter {
+    type Target = IterObj;
+    fn deref(&self) -> &IterObj {
+        &self.base
+    }
+}
+
+impl IterObj {
+    pub(crate) fn new(extent: Expr, stride: Expr, axis: Axis) -> Self {
+        let base = Object::new();
+        Self { base, extent, stride, axis }
+    }
+}
+
+impl Iter {
+    /// Lossless complete-field allocation.
+    pub fn new(extent: impl Into<Expr>, stride: impl Into<Expr>, axis: impl Into<Axis>) -> Self {
+        let obj = IterObj::new(extent.into(), stride.into(), axis.into());
+        Self { base: ObjectArc::new(obj) }
+    }
+}
+// tvm-ffi-stubgen(end)
+
+// The native `tirx.Iter` stores its fields as given, as the generated `Iter::new` does.
+
+// tvm-ffi-stubgen(begin): object/tirx.Axis
+/// Opaque: parent 'ffi.Enum' is opaque (no-mirror). Fields are read through the C ABI getters.
+#[repr(C)]
+#[derive(tvm_ffi::derive::Object)]
+#[type_key = "tirx.Axis"]
+#[type_final]
+pub struct AxisObj {
+    base: FfiEnumObj,
+}
+
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct Axis {
+    base: ObjectArc<AxisObj>,
+}
+
+impl Deref for Axis {
+    type Target = AxisObj;
+    fn deref(&self) -> &AxisObj {
+        &self.base
+    }
+}
+// tvm-ffi-stubgen(end)
+
+impl Axis {
+    /// The axis named `name`, registered on first use (`tirx.AxisGet`).
+    pub fn get(name: &str) -> Result<Self> {
+        tvm_ffi::cached_global_func!("tirx.AxisGet").call_tuple((String::from(name),))?.try_into()
+    }
+
+    /// Whether the axis indexes threads (`tirx.AxisIsThreadAxis`).
+    pub fn is_thread(&self) -> Result<bool> {
+        tvm_ffi::cached_global_func!("tirx.AxisIsThreadAxis").call_tuple((self,))?.try_into()
+    }
+
+    /// Whether the axis indexes memory (`tirx.AxisIsMemoryAxis`).
+    pub fn is_memory(&self) -> Result<bool> {
+        tvm_ffi::cached_global_func!("tirx.AxisIsMemoryAxis").call_tuple((self,))?.try_into()
+    }
+
+    /// The backend that registered the axis, if any (`tirx.AxisGetBackend`).
+    pub fn backend(&self) -> Result<Option<String>> {
+        tvm_ffi::cached_global_func!("tirx.AxisGetBackend").call_tuple((self,))?.try_into()
+    }
+
+    /// The thread scope a thread axis spans, if any (`tirx.AxisGetScope`).
+    pub fn get_scope(&self) -> Result<Option<ThreadScope>> {
+        tvm_ffi::cached_global_func!("tirx.AxisGetScope").call_tuple((self,))?.try_into()
+    }
+
+    /// The thread scope a thread axis indexes within its scope, if any (`tirx.AxisGetSubscope`).
+    pub fn get_subscope(&self) -> Result<Option<ThreadScope>> {
+        tvm_ffi::cached_global_func!("tirx.AxisGetSubscope").call_tuple((self,))?.try_into()
+    }
+}
+
+// tvm-ffi-stubgen(begin): object/tirx.ComposeLayout
+/// Opaque: parent 'tirx.Layout' is opaque (layout-unknown). Fields are read through the C ABI getters.
+#[repr(C)]
+#[derive(tvm_ffi::derive::Object)]
+#[type_key = "tirx.ComposeLayout"]
+#[type_final]
+pub struct ComposeLayoutObj {
+    base: LayoutObj,
+}
+
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct ComposeLayout {
+    base: ObjectArc<ComposeLayoutObj>,
+}
+
+impl Deref for ComposeLayout {
+    type Target = ComposeLayoutObj;
+    fn deref(&self) -> &ComposeLayoutObj {
+        &self.base
+    }
+}
+
+impl Deref for ComposeLayoutObj {
+    type Target = LayoutObj;
+    fn deref(&self) -> &LayoutObj {
+        &self.base
+    }
+}
+
+impl ComposeLayoutObj {
+    pub fn per_element(&self) -> Result<i64> {
+        FieldGetter::new(Self::type_index(), "per_element")?.get(self)
+    }
+
+    pub fn swizzle_len(&self) -> Result<i64> {
+        FieldGetter::new(Self::type_index(), "swizzle_len")?.get(self)
+    }
+
+    pub fn atom_len(&self) -> Result<i64> {
+        FieldGetter::new(Self::type_index(), "atom_len")?.get(self)
+    }
+
+    pub fn swizzle_inner(&self) -> Result<bool> {
+        FieldGetter::new(Self::type_index(), "swizzle_inner")?.get(self)
+    }
+
+    pub fn inner_mask(&self) -> Result<i64> {
+        FieldGetter::new(Self::type_index(), "inner_mask")?.get(self)
+    }
+
+    pub fn outer_mask(&self) -> Result<i64> {
+        FieldGetter::new(Self::type_index(), "outer_mask")?.get(self)
+    }
+
+    pub fn tile_layout(&self) -> Result<TileLayout> {
+        FieldGetter::new(Self::type_index(), "tile_layout")?.get(self)
+    }
+}
+
+tvm_ffi::impl_object_upcast!(ComposeLayout => Layout);
+// tvm-ffi-stubgen(end)
+
+impl ComposeLayout {
+    /// `tile_layout` with its memory coordinate swizzled: above the low `per_element` bits, the
+    /// `swizzle_len` bits `atom_len` bits apart are XORed, into the lower group if
+    /// `swizzle_inner` (`tirx.ComposeLayout`).
+    pub fn new(
+        per_element: i32,
+        swizzle_len: i32,
+        atom_len: i32,
+        tile_layout: impl Into<TileLayout>,
+        swizzle_inner: bool,
+    ) -> Result<Self> {
+        let tile_layout = tile_layout.into();
+        tvm_ffi::cached_global_func!("tirx.ComposeLayout")
+            .call_tuple((per_element, swizzle_len, atom_len, &tile_layout, swizzle_inner))?
+            .try_into()
     }
 }

@@ -19,3 +19,6 @@
 //! Macros for defining Rust IR bindings.
 
 mod def_expr_op_overloads;
+mod typed_expr_view;
+
+pub(crate) use typed_expr_view::typed_expr_view;
