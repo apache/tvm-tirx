@@ -174,6 +174,10 @@ class Target(tvm_ffi.Object):
         """Detects Target associated with the given device. If the device does not exist,
         there will be an Error.
 
+        CUDA devices with compute capability 9.0 or later use the architecture-specific
+        ``sm_XXa`` variant, matching ``Target("cuda")``. Code compiled for this variant
+        is specific to that compute capability.
+
         Parameters
         ----------
         dev : Union[str, Device]

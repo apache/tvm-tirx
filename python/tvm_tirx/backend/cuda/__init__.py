@@ -47,13 +47,19 @@ _LAZY_SUBMODULES = {
 def _detect_target_from_device(dev):
     from tvm_tirx.target import Target  # pylint: disable=import-outside-toplevel
 
+    compute_version = dev.compute_version.replace(".", "")
+    arch = "sm_" + compute_version
+    # Match UpdateCUDAAttrs when inferring an architecture for a local device.
+    if int(compute_version) >= 90:
+        arch += "a"
+
     return Target(
         {
             "kind": "cuda",
             "max_shared_memory_per_block": dev.max_shared_memory_per_block,
             "max_threads_per_block": dev.max_threads_per_block,
             "thread_warp_size": dev.warp_size,
-            "arch": "sm_" + dev.compute_version.replace(".", ""),
+            "arch": arch,
         }
     )
 

@@ -364,6 +364,36 @@ def test_target_features():
     assert not target_with_features.features.is_missing
 
 
+@pytest.mark.parametrize(
+    "compute_version, expected_arch",
+    [
+        ("8.0", "sm_80"),
+        ("8.9", "sm_89"),
+        ("9.0", "sm_90a"),
+        ("10.0", "sm_100a"),
+        ("10.3", "sm_103a"),
+        ("12.0", "sm_120a"),
+    ],
+)
+@pytest.mark.parametrize("input_form", ["string", "device"])
+def test_target_from_device_cuda_arch(monkeypatch, compute_version, expected_arch, input_form):
+    attrs = {
+        "exist": True,
+        "compute_version": compute_version,
+        "max_shared_memory_per_block": 49152,
+        "max_threads_per_block": 1024,
+        "warp_size": 32,
+    }
+
+    def get_attr(dev, name):
+        assert dev.index == 1
+        return attrs[name]
+
+    monkeypatch.setattr(tvm_tirx.runtime.Device, "get_attr", get_attr)
+    target = Target.from_device("cuda:1" if input_form == "string" else tvm_tirx.cuda(1))
+    assert target.arch == expected_arch
+
+
 @pytest.mark.gpu
 @pytest.mark.skipif(not env.has_cuda(), reason="need cuda")
 @pytest.mark.parametrize("input_form", ["string", "device"])
@@ -375,7 +405,7 @@ def test_target_from_device_cuda(input_form):
         assert target.attrs["max_threads_per_block"] == dev.max_threads_per_block
         assert int(target.attrs["max_shared_memory_per_block"]) == dev.max_shared_memory_per_block
         assert int(target.attrs["thread_warp_size"]) == dev.warp_size
-        assert str(target.attrs.get("arch", "")) == "sm_" + dev.compute_version.replace(".", "")
+        assert target.arch == Target("cuda").arch
 
     tvm_tirx.testing.run_with_gpu_lock(run_and_check)
 
