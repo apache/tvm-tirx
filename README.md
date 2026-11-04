@@ -21,9 +21,11 @@
 
 **We believe that, in the future, all GPU kernels will be developed, optimized, and verified by AI agents.**
 
-**TIRx is our attempt to build a minimal, stable, and extensible DSL and compiler foundation for that future**, enabling agents to write and optimize kernels, develop their own analyses, and eventually verify correctness.
-
 You might wonder: **If my Claude or Codex can just spit out CUDA, PTX, or even SASS directly, why bother with another compiler layer?** We've been asking ourselves the same question.
+
+Our conclusion is that **compilers are still useful, but their role is changing**. Agents can drive the optimization process, while a shared compiler foundation provides reusable ways to represent kernels, analyze their behavior, and generate executable code. That foundation should give agents the freedom to build their own abstractions and transformations as they explore new strategies.
+
+**TIRx is our attempt to build a minimal, stable, and extensible DSL and compiler foundation for that future**, enabling agents to write and optimize kernels, develop their own analyses, and eventually verify correctness.
 
 ## Features
 
