@@ -18,16 +18,13 @@
 [project]
 name = "my-ext"
 version = "0.1.0"
-description = "A TIRx extension written in Rust: a complex type, its operators, and a lowering pass"
+description = "A TIRx extension written in Python: a complex type, its operators, and a lowering pass"
 requires-python = ">=3.10"
 dependencies = ["apache-tvm-tirx"]
 
 [build-system]
-# apache-tvm-tirx provides tvm-tirx-config and tvm-ffi-config, which the cargo build runs.
-requires = ["scikit-build-core>=0.11", "apache-tvm-tirx"]
-build-backend = "scikit_build_core.build"
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
 
-[tool.scikit-build]
-wheel.py-api = "py3"
-wheel.packages = ["python/my_ext"]
-cmake.build-type = "Release"
+[tool.setuptools]
+packages = ["my_ext"]

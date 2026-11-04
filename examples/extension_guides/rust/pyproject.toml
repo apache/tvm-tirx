@@ -15,19 +15,19 @@
 # specific language governing permissions and limitations
 # under the License.
 
-[package]
+[project]
 name = "my-ext"
 version = "0.1.0"
-edition = "2021"
-publish = false
+description = "A TIRx extension written in Rust: a complex type, its operators, and a lowering pass"
+requires-python = ">=3.10"
+dependencies = ["apache-tvm-tirx"]
 
-[lib]
-# The shared library that the Python package loads.
-crate-type = ["cdylib"]
+[build-system]
+# apache-tvm-tirx provides tvm-tirx-config and tvm-ffi-config, which the cargo build runs.
+requires = ["scikit-build-core>=0.11", "apache-tvm-tirx"]
+build-backend = "scikit_build_core.build"
 
-[dependencies]
-# This example builds against this checkout. A standalone extension depends on
-# the published releases instead, e.g. tvm-tirx = "<version>".
-tvm-tirx = { path = "../../rust" }
-# Procedural macros resolve the FFI crate directly; use the same pinned sources.
-tvm-ffi = { path = "../../3rdparty/tvm-ffi/rust/tvm-ffi" }
+[tool.scikit-build]
+wheel.py-api = "py3"
+wheel.packages = ["my_ext"]
+cmake.build-type = "Release"

@@ -16,7 +16,7 @@
 # under the License.
 """A Python prototype of my_ext: the complex type, its operators, and the pass that lowers them.
 
-It defines the same names as the Rust package in ``python/my_ext``, so ``run_example.py`` runs
+It defines the same names as the Rust package in ``rust/my_ext``, so ``run_example.py`` runs
 with either; a process loads one of them.
 """
 

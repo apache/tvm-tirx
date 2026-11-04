@@ -15,19 +15,25 @@
 <!--- specific language governing permissions and limitations -->
 <!--- under the License. -->
 
-# TIRx Extension Example
+# TIRx Extension Guide Examples
 
-A Python package, `my-ext`, that extends TIRx from Rust: a complex-number type,
-operators that build and multiply complex values, and a pass that lowers them to
-scalar arithmetic. Importing `my_ext` loads the Rust library, provides the
-`my_ext.*` builders for TVMScript, and registers the `my_ext` compilation
-pipeline. The tutorial in `docs/advanced/` walks through the code.
+The `my_ext` package that the extension guides in `docs/advanced/` walk through:
+a complex-number type, operators that build and multiply complex values, and a
+pass that lowers them to scalar arithmetic. Importing `my_ext` registers them,
+provides the `my_ext.*` builders for TVMScript, and registers the `my_ext`
+compilation pipeline.
 
-- `src/lib.rs`: the type, operators, and pass, built by cargo as a shared library
-- `CMakeLists.txt`, `pyproject.toml`: build the library and install it into the package
-- `python/my_ext/`: loads the library and registers the pipeline
+The extension is written twice, as two Python projects that install the same
+distribution, `my-ext`, and the same package, `my_ext`:
+
+- `rust/`: the extension in Rust
+  - `src/lib.rs`: the type, operators, and pass, built by cargo as a shared library
+  - `CMakeLists.txt`, `pyproject.toml`: build the library and install it into the package
+  - `my_ext/`: loads the library and registers the pipeline
+- `python/`: the same extension in Python, a prototype that needs no build
+  - `pyproject.toml`: the pure Python project
+  - `my_ext/`: the type, operators, pass, and pipeline
 - `run_example.py`: compiles a function that uses the extension and checks it against NumPy
-- `my_ext_py/my_ext.py`: the same extension written in Python, a prototype that needs no build
 
 ## Install and Run
 
@@ -36,8 +42,8 @@ run from the repository root in the same Python environment:
 
 ```bash
 uv pip install scikit-build-core
-uv pip install --no-build-isolation --no-deps ./examples/extension
-python examples/extension/run_example.py
+uv pip install --no-build-isolation --no-deps ./examples/extension_guides/rust
+python examples/extension_guides/run_example.py
 ```
 
 The build uses this checkout's `tvm-tirx` crate and pinned TVM FFI sources.
@@ -45,8 +51,10 @@ Disabling build isolation keeps the native libraries from the same checkout
 available to cargo, instead of installing a released package in a temporary
 build environment.
 
-To run the example with the Python prototype instead, without building anything:
+To run the example with the Python version instead, install it in place of the
+Rust one:
 
 ```bash
-PYTHONPATH=examples/extension/my_ext_py python examples/extension/run_example.py
+uv pip install --no-deps ./examples/extension_guides/python
+python examples/extension_guides/run_example.py
 ```
