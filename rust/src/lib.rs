@@ -114,8 +114,8 @@
 //! use tvm_tirx::ir::{register_type, CallEffectKind, CallObj, Op, OpDef, Type};
 //! use tvm_tirx::tvm_ffi::{self, Result};
 //! # use tvm_tirx::ir::TypeObj;
-//! # use tvm_tirx::tvm_ffi::{def_object_ref, rs_class, ObjectRefCore};
-//! # #[rs_class("my_ext.PairType", final)]
+//! # use tvm_tirx::tvm_ffi::{def_object_ref, rs_object, ObjectRefCore};
+//! # #[rs_object("my_ext.PairType", final)]
 //! # pub struct PairTypeObj { base: TypeObj, pub first: Type, pub second: Type }
 //! # def_object_ref!(pub PairType, Type, PairTypeObj);
 //!
@@ -172,7 +172,7 @@
 //!
 //! # Defining a type in Rust
 //!
-//! [`tvm_ffi::rs_class`] defines a new IR type, a type of expressions as [`ir::PrimType`] and
+//! [`tvm_ffi::rs_object`] defines a new IR type, a type of expressions as [`ir::PrimType`] and
 //! [`ir::TupleType`] are, from its object struct, whose first field `base` is the [`ir::TypeObj`]
 //! it extends, which holds the location. It registers the type under `ir.Type` with the
 //! reflection of every other field, so that the C++ structural equality and hashing, deep copy,
@@ -182,10 +182,10 @@
 //!
 //! ```no_run
 //! use tvm_tirx::ir::{Location, PrimType, Type, TypeObj};
-//! use tvm_tirx::tvm_ffi::{self, def_object_ref, rs_class, ObjectRefCore};
+//! use tvm_tirx::tvm_ffi::{self, def_object_ref, rs_object, ObjectRefCore};
 //!
 //! /// The type of a pair of values.
-//! #[rs_class("my_ext.PairType", final)]
+//! #[rs_object("my_ext.PairType", final)]
 //! pub struct PairTypeObj {
 //!     base: TypeObj,
 //!     pub first: Type,

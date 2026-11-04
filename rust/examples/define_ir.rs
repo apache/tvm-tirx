@@ -34,7 +34,7 @@ use tvm_tirx::ir::{
     register_type, CallEffectKind, CallObj, DictAttrs, Expr, OpDef, PrimType, Type, TypeObj, Var,
     UNKNOWN_LOC,
 };
-use tvm_tirx::tvm_ffi::{self, def_object_ref, rs_class, Array, ObjectRefCast, Result};
+use tvm_tirx::tvm_ffi::{self, def_object_ref, rs_object, Array, ObjectRefCast, Result};
 
 fn first_arg_type(call: &CallObj) -> Result<Type> {
     Ok(call.args.get(0)?.ty.clone())
@@ -49,7 +49,7 @@ fn loop_index(call: &CallObj) -> Result<Array<Var>> {
 // A type, which Python constructs from its fields, `T.ExamplePair(T.int32, T.float32)`, as it
 // constructs a C++ type.
 /// The type of a pair of values.
-#[rs_class("tirx.ExamplePairType", final)]
+#[rs_object("tirx.ExamplePairType", final)]
 pub struct ExamplePairTypeObj {
     base: TypeObj,
     pub first: Type,

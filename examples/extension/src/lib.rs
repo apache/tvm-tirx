@@ -30,13 +30,13 @@ use tvm_tirx::ir::{
 use tvm_tirx::tirx::transform::FunctionPass;
 use tvm_tirx::tirx::Function;
 use tvm_tirx::tvm_ffi::{
-    self, def_object_ref, dispatch, rs_class, Any, AnyView, Error, ObjectRefCast, ObjectRefCore,
+    self, def_object_ref, dispatch, rs_object, Any, AnyView, Error, ObjectRefCast, ObjectRefCore,
     Result, Unchanged, WalkOrder,
 };
 
 // begin type
 /// A complex number whose real and imaginary parts share a scalar type.
-#[rs_class("my_ext.ComplexType", final)]
+#[rs_object("my_ext.ComplexType", final)]
 pub struct ComplexTypeObj {
     base: TypeObj,
     pub dtype: PrimType,

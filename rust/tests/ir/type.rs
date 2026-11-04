@@ -17,7 +17,7 @@
  * under the License.
  */
 
-//! Tests of `ir::type`, and of an `ir.Type` defined in Rust with `rs_class` over the generated
+//! Tests of `ir::type`, and of an `ir.Type` defined in Rust with `rs_object` over the generated
 //! `TypeObj`: seen through the FFI type table, the C++ engines (structural equality and hashing,
 //! deep copy, `repr`, TVMScript), the Rust engines and the IR that uses it.
 
@@ -27,7 +27,7 @@ use tvm_tirx::ir::{
     UNKNOWN_LOC, Location, dtype, Evaluate, FuncType, MissingType, NoneType, PrimType, PtrType,
     TensorRegionType, TupleType, Type, TypeObj, Var, VarObj,
 };
-use tvm_tirx::tvm_ffi::{def_object_ref, rs_class, structural_map};
+use tvm_tirx::tvm_ffi::{def_object_ref, rs_object, structural_map};
 use tvm_tirx::tvm_ffi::{
     Any, AnyView, Array, DLDataType, DLDataTypeExt, FieldGetter, ObjectCore, ObjectRefCore, Result,
     ShallowCopy, String as FfiString, WalkOrder,
@@ -116,7 +116,7 @@ fn types_agree_with_cpp() {
 }
 
 /// A pair of types with a tag, defined in Rust.
-#[rs_class("testing.rust.PairType", final)]
+#[rs_object("testing.rust.PairType", final)]
 pub struct PairTypeObj {
     base: TypeObj,
     /// The first element.
