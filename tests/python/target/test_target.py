@@ -375,7 +375,7 @@ def test_target_from_device_cuda(input_form):
         assert target.attrs["max_threads_per_block"] == dev.max_threads_per_block
         assert int(target.attrs["max_shared_memory_per_block"]) == dev.max_shared_memory_per_block
         assert int(target.attrs["thread_warp_size"]) == dev.warp_size
-        assert str(target.attrs.get("arch", "")) == "sm_" + dev.compute_version.replace(".", "")
+        assert target.arch == Target("cuda").arch
 
     tvm_tirx.testing.run_with_gpu_lock(run_and_check)
 
