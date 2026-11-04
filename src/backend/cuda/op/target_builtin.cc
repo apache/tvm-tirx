@@ -137,6 +137,7 @@ void RegisterCudaTargetBuiltins() {
                  sig::arg<IntExpr>("num_groups", "The number of groups."),
                  sig::arg<IntExpr>("group_id", "The group identifier."))
       .set_attr(tvm::op_attr::kCallEffectKind, CallEffectKind::kOpaque)
+      .set_attr(tvm::op_attr::kFixedReturnType, PrimType::Void())
       .expose();
 
   OpDef("tirx.cuda.timer_start")
@@ -147,6 +148,7 @@ void RegisterCudaTargetBuiltins() {
                  sig::arg<IntExpr>("profiler_write_stride", "The profiler write stride."),
                  sig::arg("leader_cond", "The leader condition."))
       .set_attr(tvm::op_attr::kCallEffectKind, CallEffectKind::kOpaque)
+      .set_attr(tvm::op_attr::kFixedReturnType, PrimType::Void())
       .expose();
 
   OpDef("tirx.cuda.timer_end")
@@ -157,6 +159,7 @@ void RegisterCudaTargetBuiltins() {
                  sig::arg<IntExpr>("profiler_write_stride", "The profiler write stride."),
                  sig::arg("leader_cond", "The leader condition."))
       .set_attr(tvm::op_attr::kCallEffectKind, CallEffectKind::kOpaque)
+      .set_attr(tvm::op_attr::kFixedReturnType, PrimType::Void())
       .expose();
 
   OpDef("tirx.cuda.timer_finalize")
@@ -166,6 +169,7 @@ void RegisterCudaTargetBuiltins() {
                  sig::arg<IntExpr>("profiler_write_stride", "The profiler write stride."),
                  sig::arg("leader_cond", "The leader condition."))
       .set_attr(tvm::op_attr::kCallEffectKind, CallEffectKind::kOpaque)
+      .set_attr(tvm::op_attr::kFixedReturnType, PrimType::Void())
       .expose();
 
   RegisterDeviceIntrinsics();
@@ -213,6 +217,7 @@ void RegisterDeviceIntrinsics() {
   RegisterDeviceIntrinsic(OpDef("tirx.cuda.wait_until"), CallEffectKind::kOpaque, sig::arg("dst"),
                           sig::arg("ptr"), sig::arg("condition"), sig::arg("scope"),
                           sig::arg("space"), sig::arg("ptx_type"), sig::arg<IntExpr>("backoff_ns"))
+      .set_attr(tvm::op_attr::kFixedReturnType, PrimType::Void())
       .expose();
   RegisterDeviceIntrinsic(OpDef("tirx.cuda.ballot_sync"), CallEffectKind::kOpaque,
                           sig::arg<IntExpr>("mask"), sig::arg("pred"))
@@ -415,6 +420,7 @@ void RegisterDeviceIntrinsics() {
   RegisterDeviceIntrinsic(OpDef("tirx.nvshmem.getmem_nbi_block"), CallEffectKind::kOpaque,
                           sig::arg("dst"), sig::arg("src"), sig::arg<IntExpr>("nelems"),
                           sig::arg<IntExpr>("pe"))
+      .set_attr(tvm::op_attr::kFixedReturnType, PrimType::Void())
       .expose();
   RegisterDeviceIntrinsic(OpDef("tirx.nvshmem.getmem_nbi_warp"), CallEffectKind::kOpaque,
                           sig::arg("dst"), sig::arg("src"), sig::arg<IntExpr>("nelems"),
