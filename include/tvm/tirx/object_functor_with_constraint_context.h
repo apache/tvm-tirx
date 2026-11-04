@@ -87,7 +87,10 @@ class TVM_TIRX_DLL ObjectVisitorWithConstraintContext
  * values use structural fallback. Errors propagate without restoring the context.
  */
 class TVM_TIRX_DLL ObjectMutatorWithConstraintContext
-    : public StructuralMutatorWithConstraintContextObj {
+    : public ffi::detail::StructuralMutatorEngineBase<StructuralMutatorWithConstraintContextObj> {
+  using EngineBase =
+      ffi::detail::StructuralMutatorEngineBase<StructuralMutatorWithConstraintContextObj>;
+
  public:
   ObjectMutatorWithConstraintContext() : ObjectMutatorWithConstraintContext(GlobalVTable()) {}
   ObjectMutatorWithConstraintContext(const ObjectMutatorWithConstraintContext&) = delete;
@@ -114,7 +117,7 @@ class TVM_TIRX_DLL ObjectMutatorWithConstraintContext
       const ffi::Object*, ObjectMutatorWithConstraintContext*, ffi::InplaceMode)>;
 
   explicit ObjectMutatorWithConstraintContext(const VTable* table)
-      : StructuralMutatorWithConstraintContextObj(StructuralVTable()), native_vtable_(table) {}
+      : EngineBase(StructuralVTable()), native_vtable_(table) {}
 
   static void InitVTable(VTable* table) {}
 

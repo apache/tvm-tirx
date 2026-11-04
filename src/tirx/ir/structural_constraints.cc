@@ -1028,7 +1028,8 @@ TVM_FFI_STATIC_INIT_BLOCK() {
       .def("tirx.StructuralMutatorWithConstraintContext",
            [] {
              return StructuralMutatorWithConstraintContext(
-                 ffi::make_object<StructuralMutatorWithConstraintContextObj>());
+                 ffi::make_object<
+                     ffi::StructuralMutateEngine<StructuralMutatorWithConstraintContextObj>>());
            })
       .def("tirx.StructuralVisitorWithConstraintContextDefaultVisit",
            [](StructuralVisitorWithConstraintContext visitor, ffi::AnyView value) {

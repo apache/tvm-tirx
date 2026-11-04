@@ -33,17 +33,14 @@ namespace tirx {
 /*!
  * \brief Mutates values using their structural mutation behavior while maintaining
  * the constraint context relevant to each callback.
- * Constraints use the resulting expressions and bindings.
+ * Constraints use the resulting expressions and bindings. This semantic base contains
+ * only context state; concrete structural engines own the identity-remap environment.
  * \sa ffi::StructuralMutator, sym::ConstraintContext
  */
-class StructuralMutatorWithConstraintContextObj : public ffi::StructuralMapEngineBase {
+class StructuralMutatorWithConstraintContextObj : public ffi::StructuralMutatorObj {
  public:
   using MutatorObjType = StructuralMutatorWithConstraintContextObj;
   using StateTupleType = std::tuple<const sym::ConstraintContext&>;
-  /*!
-   * \brief Construct a mutator using constraint-aware default descent.
-   */
-  StructuralMutatorWithConstraintContextObj();
   /*!
    * \brief Active effective premises. Consumers must not append during traversal.
    * Retain this handle and constraints->LocalSize() for a stable position, or use
@@ -95,7 +92,7 @@ class StructuralMutatorWithConstraintContextObj : public ffi::StructuralMapEngin
 
  protected:
   explicit StructuralMutatorWithConstraintContextObj(const ffi::StructuralMutatorVTable* vtable)
-      : ffi::StructuralMapEngineBase(vtable) {}
+      : ffi::StructuralMutatorObj(vtable) {}
 
   StateTupleType StateTuple() const noexcept { return {constraints}; }
 
@@ -205,23 +202,6 @@ inline constexpr ffi::reflection::AttrKey<FStructuralMutateWithConstraintContext
     kStructuralMaybeInplaceMutateWithConstraintContext{
         "__s_maybe_inplace_mutate_with_constraint_context__"};
 }  // namespace type_attr
-
-inline StructuralMutatorWithConstraintContextObj::StructuralMutatorWithConstraintContextObj()
-    : StructuralMutatorWithConstraintContextObj([] {
-        static const ffi::StructuralMutatorVTable table{
-            [](ffi::StructuralMutatorObj* self, ffi::AnyView value) noexcept {
-              return ffi::details::ExpectedUnsafe::MoveToTVMFFIAny(
-                  static_cast<StructuralMutatorWithConstraintContextObj*>(self)
-                      ->DefaultMutateExpected(value, ffi::InplaceMode::kDisallow));
-            },
-            [](ffi::StructuralMutatorObj* self, ffi::AnyView value) noexcept {
-              return ffi::details::ExpectedUnsafe::MoveToTVMFFIAny(
-                  static_cast<StructuralMutatorWithConstraintContextObj*>(self)
-                      ->DefaultMutateExpected(value, ffi::InplaceMode::kAllow));
-            },
-            DispatchVarRemapGet, DispatchVarRemapSet};
-        return &table;
-      }()) {}
 
 inline ffi::Expected<ffi::UnchangedOr<ffi::Any>>
 StructuralMutatorWithConstraintContextObj::DefaultMutateExpected(ffi::AnyView value,

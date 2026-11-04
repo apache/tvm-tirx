@@ -36,6 +36,8 @@ pub mod layout;
 pub mod op;
 pub mod op_attr;
 pub mod structural;
+pub mod structural_map_with_constraint_context;
+pub mod structural_mutate_with_constraint_context;
 pub mod structural_visit_with_constraint_context;
 pub mod structural_walk_with_constraint_context;
 pub mod tensor;
