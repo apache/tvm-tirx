@@ -37,7 +37,7 @@ import pytest
 import tvm_tirx
 
 RUST_DIR = Path(__file__).resolve().parents[3] / "rust"
-EXTENSION_DIR = RUST_DIR.parent / "examples" / "extension"
+EXTENSION_DIR = RUST_DIR.parent / "examples" / "extension_guides"
 
 
 def find_cargo():
@@ -91,11 +91,11 @@ def define_ir_library():
 
 @pytest.fixture(scope="module")
 def extension_package(tmp_path_factory):
-    """The my_ext package of examples/extension, built from its declared source dependency and
-    laid out as its wheel installs it."""
-    debug_dir = cargo_build(EXTENSION_DIR / "Cargo.toml")
+    """The my_ext package of examples/extension_guides/rust, built from its declared source
+    dependency and laid out as its wheel installs it."""
+    debug_dir = cargo_build(EXTENSION_DIR / "rust" / "Cargo.toml")
     root = tmp_path_factory.mktemp("extension")
-    package = shutil.copytree(EXTENSION_DIR / "python" / "my_ext", root / "my_ext")
+    package = shutil.copytree(EXTENSION_DIR / "rust" / "my_ext", root / "my_ext")
     shutil.copy(debug_dir / library_name("my_ext"), package)
     return root
 
@@ -169,7 +169,7 @@ ROUND_TRIP = """
 # Checks of the extension beyond those of its example script: the type, printing and parsing,
 # invalid calls, chained products, float64 parts, and what the lowering rejects.
 EXTENSION_CHECKS = """
-    # Run after examples/extension/run_example.py, whose names it uses.
+    # Run after examples/extension_guides/run_example.py, whose names it uses.
     import tvm_ffi
     from tvm_tirx import ir, tirx
 
@@ -337,7 +337,7 @@ def test_extension_example(extension_package):
 def test_extension_prototype():
     """The Python prototype of the extension runs the same example and checks."""
     script = EXTENSION_DIR / "run_example.py"
-    prototype = EXTENSION_DIR / "my_ext_py"
+    prototype = EXTENSION_DIR / "python"
     run_python(script.read_text(), EXTENSION_CHECKS, PROTOTYPE_CHECKS, python_path=[prototype])
 
 
