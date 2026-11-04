@@ -33,7 +33,7 @@ use tvm_ffi::object::ObjectRef;
 use tvm_ffi::tvm_ffi_sys::{TVMFFIAny, TVMFFITypeIndex};
 use tvm_ffi::{
     Any, Dispatcher, InplaceMode, IntoDispatcher, MutationView, ObjectArc, ObjectCore,
-    ObjectRefCore, Result, StructuralMutatorObj, StructuralMutatorView,
+    ObjectRefCore, Result, StructuralMutatorObj, StructuralMutatorView, UnchangedOr,
 };
 
 use super::StructuralMutatorWithConstraintContextObj;
@@ -152,14 +152,14 @@ where
     O: BorrowMut<D>,
     for<'v, 'c, 'r> H: IntoDispatcher<
         (MutationView<'v>, &'c mut StructuralMutatorWithConstraintContextView<'r, D>),
-        Option<Result<Any>>,
+        Option<Result<UnchangedOr<Any>>>,
         M,
         Target = D,
         Output = O,
     >,
     for<'s, 'v, 'c, 'r> &'s mut D: Dispatcher<
         (MutationView<'v>, &'c mut StructuralMutatorWithConstraintContextView<'r, D>),
-        Option<Result<Any>>,
+        Option<Result<UnchangedOr<Any>>>,
     >,
 {
     StructuralMutateEngine::<StructuralMutatorWithConstraintContextBase>::mutate_root(

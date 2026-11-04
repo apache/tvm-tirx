@@ -37,7 +37,7 @@ use tvm_tirx::tirx::Function;
 use tvm_tirx::tvm_ffi::{
     self, dispatch, match_any, Any, AnyView, Array, DefRegionKind, MutationView, ObjectIdentity,
     ObjectRefCast, ObjectRefCore, Result, StructuralMutatorView, StructuralVisitorView, Unchanged,
-    VisitInterrupt, WalkOrder, WalkResult,
+    UnchangedOr, VisitInterrupt, WalkOrder, WalkResult,
 };
 
 /// A Python list of strings.
@@ -283,27 +283,27 @@ struct ReverseLoops {
     reversed_index: HashMap<ObjectIdentity, Expr>,
 }
 
-#[dispatch(mutate, (MutationView<'_>, &mut StructuralMutatorView<'_, Self>), Result<Any>)]
+#[dispatch(mutate, (MutationView<'_>, &mut StructuralMutatorView<'_, Self>), Result<UnchangedOr<Any>>)]
 impl ReverseLoops {
     fn mutate_for(
         &mut self,
         value: MutationView<'_, For>,
         mutator: &mut StructuralMutatorView<'_, Self>,
-    ) -> Result<Any> {
+    ) -> Result<UnchangedOr<Any>> {
         let index = (&value.end - 1 - &value.var).try_into()?;
         self.reversed_index.insert(ObjectIdentity::of(&value.var), index);
-        mutator.default_mutate(self, value).map(Into::into)
+        mutator.default_mutate(self, value)
     }
 
     fn mutate_var(
         &mut self,
         var: Var,
         mutator: &mut StructuralMutatorView<'_, Self>,
-    ) -> Result<Any> {
+    ) -> Result<UnchangedOr<Any>> {
         let is_use = mutator.def_region_kind() == DefRegionKind::None;
         Ok(match self.reversed_index.get(&ObjectIdentity::of(&var)) {
             Some(index) if is_use => index.clone().into(),
-            _ => var.into(),
+            _ => Unchanged.into(),
         })
     }
 }
@@ -335,7 +335,7 @@ fn remove_redundant_guards(func: Function) -> Result<Function> {
     let analyzer = Analyzer::new();
     structural_map_with_constraint_context(
         func,
-        |branch: If, constraints: &ConstraintContext| -> Result<Any> {
+        |branch: If, constraints: &ConstraintContext| -> Result<UnchangedOr<Any>> {
             analyzer.sync_constraint_context(constraints)?;
             Ok(if analyzer.can_prove(branch.condition.clone(), ProofStrength::Default)? {
                 branch.then_case.clone().into()
