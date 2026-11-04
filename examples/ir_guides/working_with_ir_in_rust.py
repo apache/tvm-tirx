@@ -50,6 +50,9 @@ assert list(tirx_ir_guide_examples.rust.casts()) == [
 ]
 assert list(tirx_ir_guide_examples.rust.matching()) == ["((x * 2) + 1)", "<other>"]
 
+print(tirx_ir_guide_examples.rust.print())
+assert tirx_ir_guide_examples.rust.print() == "(x + 1) + 2"
+
 print(tirx_ir_guide_examples.rust.count())
 assert tirx_ir_guide_examples.rust.count() == "variables: 1, additions: 1"
 

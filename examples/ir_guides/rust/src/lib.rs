@@ -107,6 +107,43 @@ fn matching() -> Result<Strings> {
 }
 // [matching.end]
 
+// [printer.begin]
+struct Printer;
+
+#[dispatch(print, (AnyView<'_>, bool), String)]
+impl Printer {
+    fn print_add(&self, add: &AddObj, nested: bool) -> String {
+        let text = format!("{} + {}", self.show(&add.a, true), self.show(&add.b, true));
+        if nested {
+            format!("({text})")
+        } else {
+            text
+        }
+    }
+
+    fn print_var(&self, var: &VarObj) -> String {
+        var.name.as_str().to_owned()
+    }
+
+    fn print_imm(&self, imm: &IntImmObj) -> String {
+        imm.value.to_string()
+    }
+
+    fn show(&self, expr: &Expr, nested: bool) -> String {
+        let text = self.dispatch(AnyView::from(expr), nested);
+        text.unwrap_or_else(|| "<other>".to_owned())
+    }
+}
+// [printer.end]
+
+// [print.begin]
+fn print() -> Result<tvm_ffi::String> {
+    let x = Var::new("x", PrimType::int(32), UNKNOWN_LOC);
+    let expr = (&x + 1 + 2).try_into()?;
+    Ok(Printer.show(&expr, false).into())
+}
+// [print.end]
+
 // [walk.begin]
 fn written_tensors(func: Function) -> Result<Strings> {
     let mut writes = Vec::new();
@@ -292,6 +329,11 @@ tvm_ffi::static_init_block! {
         "tirx_ir_guide_examples.rust.matching",
         matching,
         "Describe expressions by matching their nodes.",
+    )?;
+    tvm_ffi::Function::register_global_typed(
+        "tirx_ir_guide_examples.rust.print",
+        print,
+        "Print an addition with a dispatch struct.",
     )?;
     tvm_ffi::Function::register_global_typed(
         "tirx_ir_guide_examples.rust.count",
