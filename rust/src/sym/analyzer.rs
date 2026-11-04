@@ -39,6 +39,7 @@
 // tvm-ffi-stubgen(import-object): crate::ir::expr::Range
 // tvm-ffi-stubgen(import-object): crate::ir::expr::Var
 // tvm-ffi-stubgen(import-object): crate::sym::int_set::IntSet
+// tvm-ffi-stubgen(import-object): crate::sym::constraint::ConstraintContext
 // tvm-ffi-stubgen(import-object): crate::ir::support
 // tvm-ffi-stubgen(import-object): crate::ir::expr::IntoExpr
 
@@ -50,6 +51,7 @@ use crate::ir::expr::IntoExpr;
 use crate::ir::expr::Range;
 use crate::ir::expr::Var;
 use crate::ir::support;
+use crate::sym::constraint::ConstraintContext;
 use crate::sym::int_set::IntSet;
 use std::ops::Deref;
 use tvm_ffi::Error;
@@ -115,13 +117,24 @@ impl Analyzer {
 
     /// Synchronize with a `sym.ConstraintContext` captured at its current position.
     ///
-    /// The context is an opaque FFI object until typed constraint bindings are available.
     /// Switching contexts removes facts that are no longer present. Mutating the context
-    /// after this call takes effect only after another synchronization.
-    pub fn sync_constraint_context(&self, context: &tvm_ffi::object::ObjectRef) -> Result<()> {
+    /// after this call takes effect only after another synchronization. Constraint and
+    /// expression nodes are shared and must not be mutated through aliases. Reentrant
+    /// synchronization is rejected; discard the analyzer if premise ingestion fails.
+    pub fn sync_constraint_context(&self, context: &ConstraintContext) -> Result<()> {
         tvm_ffi::cached_global_func!("sym.AnalyzerSyncConstraintContext")
             .call_packed(&[tvm_ffi::AnyView::from(self), tvm_ffi::AnyView::from(context)])?;
         Ok(())
+    }
+
+    /// Snapshot the accepted premises in an independently extensible context.
+    ///
+    /// Fact and expression nodes remain shared. Appending to this context changes the
+    /// analyzer only after [`Self::sync_constraint_context`] is called again.
+    pub fn get_constraint_context(&self) -> Result<ConstraintContext> {
+        tvm_ffi::cached_global_func!("sym.AnalyzerGetConstraintContext")
+            .call_tuple((self,))?
+            .try_into()
     }
 
     /// The constant bounds of `expr` (`sym.AnalyzerConstIntBound`).

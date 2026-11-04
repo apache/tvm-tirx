@@ -28,7 +28,7 @@ mod int_set;
 mod iter_affine_map;
 
 use tvm_tirx::ir::{UNKNOWN_LOC, dtype, Expr, IntImm, Location, PrimType, Range, Var};
-use tvm_tirx::sym::Analyzer;
+use tvm_tirx::sym::{Analyzer, ConstraintContext};
 use tvm_tirx::tvm_ffi::String as FfiString;
 use tvm_tirx::tvm_ffi::object::ObjectRef;
 
@@ -54,9 +54,8 @@ fn range(begin: i64, extent: i64) -> Range {
     Range::from_fields(int32(begin), int32(extent), Location::unknown())
 }
 
-// Constraint data is passed opaquely until the Rust bindings expose typed contexts.
-fn context(constraints: impl IntoIterator<Item = ObjectRef>) -> ObjectRef {
-    let context: ObjectRef = global("sym.ConstraintContext")
+fn context(constraints: impl IntoIterator<Item = ObjectRef>) -> ConstraintContext {
+    let context: ConstraintContext = global("sym.ConstraintContext")
         .call_tuple((None::<ObjectRef>, 0_i64))
         .unwrap()
         .try_into()

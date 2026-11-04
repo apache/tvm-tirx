@@ -28,6 +28,7 @@ mod function;
 mod index_map;
 mod layout;
 mod op;
+mod structural;
 mod tensor;
 mod thread_scope;
 mod tile;

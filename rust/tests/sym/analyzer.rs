@@ -117,7 +117,7 @@ fn contexts_restore_parent_facts() {
     let analyzer = Analyzer::new();
     let x = var("x");
     let x_mod_3 = op("prim._OpFloorMod", &x, int32(3));
-    let parent = context([]);
+    let parent = analyzer.get_constraint_context().unwrap();
     let child = context([predicate_constraint(op("prim._OpEQ", &x_mod_3, int32(0)))]);
     analyzer.sync_constraint_context(&child).unwrap();
     assert_eq!(analyzer.modular_set(&x).unwrap().coeff, 3);

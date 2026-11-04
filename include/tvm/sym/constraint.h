@@ -195,14 +195,13 @@ class ConstraintContextObj : public ffi::Object {
   /*!
    * \brief Capture an inherited prefix and start an empty local sequence.
    * \param parent Non-null parent context.
-   * \param parent_local_prefix Number of parent-local entries to capture.
+   * \param parent_prefix_size Number of parent-local entries to capture.
    * \throws ffi::Error If parent is null or the prefix is outside [0, parent->LocalSize()].
    */
-  ConstraintContextObj(ffi::ObjectPtr<ConstraintContextObj> parent, int64_t parent_local_prefix)
-      : parent_(std::move(parent)), parent_prefix_size_(parent_local_prefix) {
-    TVM_FFI_CHECK(
-        parent_ && 0 <= parent_local_prefix && parent_local_prefix <= parent_->LocalSize(),
-        ValueError)
+  ConstraintContextObj(ffi::ObjectPtr<ConstraintContextObj> parent, int64_t parent_prefix_size)
+      : parent_(std::move(parent)), parent_prefix_size_(parent_prefix_size) {
+    TVM_FFI_CHECK(parent_ && 0 <= parent_prefix_size && parent_prefix_size <= parent_->LocalSize(),
+                  ValueError)
         << "Constraint context parent local prefix is out of bounds";
   }
   // Context nodes have stable identity; use Snapshot to capture their current position.
@@ -309,16 +308,16 @@ class ConstraintContext : public ffi::ObjectRef {
   /*! \brief Construct an empty root. */
   ConstraintContext() : ffi::ObjectRef(ffi::make_object<ConstraintContextObj>()) {}
   /*!
-   * \brief Construct a child capturing [0, parent_local_prefix) of its parent's local entries.
+   * \brief Construct a child capturing [0, parent_prefix_size) of its parent's local entries.
    * Later parent appends do not enter this child's effective constraints.
    * \param parent Context supplying inherited constraints.
-   * \param parent_local_prefix Number of parent-local entries to capture, between zero
+   * \param parent_prefix_size Number of parent-local entries to capture, between zero
    * and parent->LocalSize(), inclusive.
    * \throws ffi::Error If the prefix is outside that range.
    */
-  ConstraintContext(ConstraintContext parent, int64_t parent_local_prefix)
+  ConstraintContext(ConstraintContext parent, int64_t parent_prefix_size)
       : ffi::ObjectRef(ffi::make_object<ConstraintContextObj>(
-            ffi::GetObjectPtr<ConstraintContextObj>(parent.get()), parent_local_prefix)) {}
+            ffi::GetObjectPtr<ConstraintContextObj>(parent.get()), parent_prefix_size)) {}
   /*! \brief Adopt a reference to a non-null context object. */
   explicit ConstraintContext(ffi::ObjectPtr<ConstraintContextObj> node)
       : ffi::ObjectRef(std::move(node)) {}
