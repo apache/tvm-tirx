@@ -17,7 +17,7 @@
 
 # TVM TIRx: ML Compiler Foundation for the Agentic Era
 
-📚 [Documentation](https://tvm.apache.org/tirx/) | 🚀 [Quick Start](https://tvm.apache.org/tirx/get_started/quick_start.html)
+📚 [Documentation](https://tvm.apache.org/tirx/) | 🚀 [Quick Start](https://tvm.apache.org/tirx/get_started/quick_start.html) | 📝 [Blog Post](https://tvm.apache.org/2026/11/03/rethinking-abstractions-in-the-agentic-era)
 
 We believe that, in the future, **all GPU kernels will be developed, optimized, and verified by AI agents.**
 
