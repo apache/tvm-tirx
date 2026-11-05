@@ -20,9 +20,21 @@
 
 //! Source locations of IR nodes, for diagnostics.
 //!
-//! The objects `python/tvm_tirx/ir/location.py` defines. A [`Location`] is an [`UnknownLoc`], a
-//! [`SourceLoc`] (a span in a [`SourceName`]), or a [`CallSiteLoc`] (a callee location seen from a
-//! caller). [`Location::unknown`] and [`SourceName::get`] wrap the native constructors.
+//! A [`Location`] is an [`UnknownLoc`], a [`SourceLoc`] (a span in a [`SourceName`]), or a
+//! [`CallSiteLoc`] (a callee location seen from a caller).
+//!
+//! # Examples
+//!
+//! ```
+//! use tvm_tirx::ir::{PrimType, SourceLoc, SourceName, Var};
+//! use tvm_tirx::tvm_ffi::ObjectRefCore;
+//!
+//! let span = SourceLoc::new(SourceName::get("kernel.py")?, 3, 1, 3, 10);
+//!
+//! let x = Var::new("x", PrimType::int(32), &span);
+//! assert!(x.loc.same_as(&span));
+//! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
+//! ```
 
 // `custom-new` reserves `new` for a constructor with the native one's semantics (the shared
 // `UnknownLoc` instance); the generated `from_fields` allocates the fields as given.
@@ -102,8 +114,8 @@ unsafe impl UnsafeInit for LocationObj {
 // tvm-ffi-stubgen(end)
 
 impl Location {
-    /// The shared [`UnknownLoc`] as a [`Location`] value; [`UNKNOWN_LOC`] is the same location as
-    /// a constructor argument.
+    /// Return the shared [`UnknownLoc`] as a [`Location`] value; [`UNKNOWN_LOC`] is the same
+    /// location as a constructor argument.
     pub fn unknown() -> Self {
         UnknownLoc::new().into()
     }
@@ -163,8 +175,8 @@ tvm_ffi::impl_object_upcast!(UnknownLoc => Location);
 // tvm-ffi-stubgen(end)
 
 impl UnknownLoc {
-    /// The shared unknown location (`ir.UnknownLoc`), which IR constructors default to, fetched
-    /// once per thread.
+    /// Return the shared unknown location, which IR constructors default to, fetched once per
+    /// thread (`ir.UnknownLoc`).
     pub fn new() -> Self {
         thread_local! {
             static UNKNOWN_LOC: std::cell::OnceCell<UnknownLoc> = const { std::cell::OnceCell::new() };
@@ -175,9 +187,10 @@ impl UnknownLoc {
     }
 }
 
-/// The unknown location as the `loc` argument of a constructor, which takes any
-/// `impl Into<Location>`: `Var::new("x", ty, UNKNOWN_LOC)`. [`Location::unknown`] is the same
-/// location as a value.
+/// A marker for the unknown location as the `loc` argument of a constructor, which takes any
+/// `impl Into<Location>`: `Var::new("x", ty, UNKNOWN_LOC)`.
+///
+/// [`Location::unknown`] is the same location as a value.
 #[derive(Clone, Copy, Debug)]
 pub struct Unknown;
 
@@ -366,7 +379,8 @@ impl SourceName {
 // tvm-ffi-stubgen(end)
 
 impl SourceName {
-    /// The source name `name`, interned so that equal names share one object (`ir.SourceName`).
+    /// Return the source name `name`, interned so that equal names share one object
+    /// (`ir.SourceName`).
     pub fn get(name: &str) -> Result<Self> {
         tvm_ffi::cached_global_func!("ir.SourceName").call_tuple((String::from(name),))?.try_into()
     }

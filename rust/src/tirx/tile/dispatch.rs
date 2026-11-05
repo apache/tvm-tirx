@@ -20,10 +20,32 @@
 
 //! The context of tile instruction dispatch.
 //!
-//! The objects `python/tvm_tirx/tirx/tile/dispatch.py` defines. A [`DispatchContext`] gives a
-//! lowering the target, the thread scope, the launch parameters, the ranges of the variables, the
-//! callbacks and the state shared between dispatches. Its methods request allocations and
-//! statements from the lowering, and cache objects across dispatches.
+//! A [`DispatchContext`] gives a lowering its target, thread scope, launch parameters and variable
+//! ranges, and the state shared between dispatches.
+//!
+//! # Examples
+//!
+//! ```
+//! use tvm_tirx::ir::{Evaluate, IntImm, PrimType, Var, UNKNOWN_LOC};
+//! use tvm_tirx::target::Target;
+//! use tvm_tirx::tirx::tile::DispatchContext;
+//! use tvm_tirx::tirx::ThreadScope;
+//! use tvm_tirx::tvm_ffi::Map;
+//!
+//! let tx = Var::new("tx", PrimType::int(32), UNKNOWN_LOC);
+//! let ctx = DispatchContext::new(
+//!     Target::new("cuda")?,
+//!     ThreadScope::get("cuda.warp")?,
+//!     [("threadIdx.x", tx, 32.into())],
+//!     &Map::new(), false, &Map::new(), &Map::new(), &Map::new(), &Map::new(),
+//!     "warp",
+//! )?;
+//!
+//! ctx.cache_set("my_ext.zero", &IntImm::int32(0))?;
+//! assert!(ctx.cache_get("my_ext.zero")?.is_some());
+//! ctx.add_init_stmt(Evaluate::new(1, UNKNOWN_LOC), false)?;
+//! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
+//! ```
 
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
@@ -122,11 +144,15 @@ impl DispatchContextObj {
 // tvm-ffi-stubgen(end)
 
 impl DispatchContext {
-    /// The context of a dispatch for `target` at `thread_scope` (`tirx.DispatchContext`).
+    /// Create the context of a dispatch for `target` at `thread_scope` (`tirx.DispatchContext`).
     ///
-    /// `launch_params` maps each launch parameter name to its variable and extent, `inter` and
-    /// `intra` each axis to its `[extent, offset]` across and within teams, and `scope_kind` names
-    /// the backend execution scope, such as CUDA's `warp`.
+    /// `launch_params` maps each launch parameter to its variable and extent; `inter` and `intra`
+    /// map each axis to its `[extent, offset]` across and within teams.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the backend of `thread_scope` is not the target's kind, or `scope_kind`
+    /// is neither empty nor the local name of `thread_scope`.
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         target: impl Into<Target>,
@@ -165,7 +191,8 @@ impl DispatchContext {
     }
 
     /// Request the allocation of the tensor variable `tensor`, placed at `allocated_addr` and
-    /// annotated with `annotations`; only while `alloc_only` (`tirx.DispatchContextAddAllocTensor`).
+    /// annotated with `annotations`; only while `alloc_only`
+    /// (`tirx.DispatchContextAddAllocTensor`).
     pub fn add_alloc_tensor(
         &self,
         tensor: impl Into<Var>,
@@ -210,7 +237,7 @@ impl DispatchContext {
         Ok(())
     }
 
-    /// The object cached under `key` across dispatches, if any
+    /// Return the object cached under `key` across dispatches, if any
     /// (`tirx.DispatchContextSharedStateGet`).
     pub fn cache_get(&self, key: &str) -> Result<Option<ObjectRef>> {
         tvm_ffi::cached_global_func!("tirx.DispatchContextSharedStateGet")

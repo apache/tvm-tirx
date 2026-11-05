@@ -19,8 +19,22 @@
 
 #![allow(dead_code, unused_imports)]
 
-//! The functions `python/tvm_tirx/tirx/analysis/analysis.py` defines, over the native
-//! `tirx.analysis.*` functions.
+//! The analyses of tensor-level IR (`tirx.analysis.*`).
+//!
+//! # Examples
+//!
+//! ```
+//! use tvm_tirx::ir::{Expr, PrimType, Var, UNKNOWN_LOC};
+//! use tvm_tirx::tirx::analysis;
+//! use tvm_tirx::tvm_ffi::ObjectRefCore;
+//!
+//! let x = Var::new("x", PrimType::int(32), UNKNOWN_LOC);
+//! let y = Var::new("y", PrimType::int(32), UNKNOWN_LOC);
+//! let sum: Expr = (&x + &y).try_into()?;
+//! let undefined = analysis::undefined_vars(sum, [&x])?;
+//! assert!(undefined.len() == 1 && undefined.get(0)?.same_as(&y));
+//! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
+//! ```
 
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
@@ -44,14 +58,18 @@ use tvm_ffi::Array;
 use tvm_ffi::Result;
 // tvm-ffi-stubgen(end)
 
-/// Whether `func` has no illegal direct memory access from the host (`tirx.analysis.VerifyMemory`).
+/// Return whether `func` has no illegal direct memory access from the host
+/// (`tirx.analysis.VerifyMemory`).
+///
+/// A function without a target attribute, or not of the default calling convention, is not checked
+/// and passes.
 pub fn verify_memory(func: impl Into<Function>) -> Result<bool> {
     tvm_ffi::cached_global_func!("tirx.analysis.VerifyMemory")
         .call_tuple((&func.into(),))?
         .try_into()
 }
 
-/// The variables `node`, a statement or an expression, uses but neither defines nor finds in
+/// Return the variables `node`, a statement or an expression, uses but neither defines nor finds in
 /// `defs` (`tirx.analysis.UndefinedVars`).
 pub fn undefined_vars(
     node: impl Into<Any>,
@@ -63,7 +81,7 @@ pub fn undefined_vars(
         .try_into()
 }
 
-/// Whether `func` is well formed; invalid IR raises an error instead if `assert_mode`
+/// Return whether `func` is well formed; invalid IR raises an error instead if `assert_mode`
 /// (`tirx.analysis.CheckWellFormed`).
 pub fn check_well_formed(func: impl Into<Function>, assert_mode: bool) -> Result<bool> {
     tvm_ffi::cached_global_func!("tirx.analysis.CheckWellFormed")
@@ -71,16 +89,16 @@ pub fn check_well_formed(func: impl Into<Function>, assert_mode: bool) -> Result
         .try_into()
 }
 
-/// Whether the TIRx functions of `module` are well formed; invalid IR raises an error instead if
-/// `assert_mode` (`tirx.analysis.CheckWellFormed`).
+/// Return whether the TIRx functions of `module` are well formed; invalid IR raises an error
+/// instead if `assert_mode` (`tirx.analysis.CheckWellFormed`).
 pub fn check_well_formed_module(module: impl Into<IRModule>, assert_mode: bool) -> Result<bool> {
     tvm_ffi::cached_global_func!("tirx.analysis.CheckWellFormed")
         .call_tuple((&module.into(), assert_mode))?
         .try_into()
 }
 
-/// The coefficients `c` of `expr = sum(vars[i] * c[i]) + c[n]`, each invariant of `vars`, or an
-/// empty array if `expr` has no such form (`tirx.analysis.DetectLinearEquation`).
+/// Return the coefficients `c` of `expr = sum(vars[i] * c[i]) + c[n]`, each invariant of `vars`, or
+/// an empty array if `expr` has no such form (`tirx.analysis.DetectLinearEquation`).
 pub fn detect_linear_equation(
     expr: impl IntoExpr,
     vars: impl IntoIterator<Item = impl Into<Var>>,
@@ -91,8 +109,8 @@ pub fn detect_linear_equation(
         .try_into()
 }
 
-/// The minimum and maximum of each of `vars` that the clip bound `expr` sets, concatenated with
-/// `None` for no bound, or an empty array if `expr` is not a clip bound
+/// Return the minimum and maximum of each of `vars` that the clip bound `expr` sets, concatenated
+/// with `None` for no bound, or an empty array if `expr` is not a clip bound
 /// (`tirx.analysis.DetectClipBound`).
 pub fn detect_clip_bound(
     expr: impl IntoExpr,

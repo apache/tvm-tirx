@@ -20,8 +20,20 @@
 
 //! Types of TIRx operations.
 //!
-//! The objects `python/tvm_tirx/tirx/type.py` defines. [`TensorMapType`] is the type of a tensor
-//! map; it has no fields of its own.
+//! [`TensorMapType`] is the type of a tensor map.
+//!
+//! # Examples
+//!
+//! ```
+//! use tvm_tirx::ir::UNKNOWN_LOC;
+//! use tvm_tirx::script::script;
+//! use tvm_tirx::tirx::TensorMapType;
+//!
+//! let ty = TensorMapType::new(UNKNOWN_LOC);
+//! assert_eq!(script(&ty)?, "T.TensorMap()");
+//!
+//! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
+//! ```
 
 // tvm-ffi-stubgen(begin): import-section
 use crate::ir::location::Location;

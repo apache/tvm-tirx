@@ -18,10 +18,7 @@
  */
 #![allow(dead_code, unused_imports)]
 
-//! The CUDA backend: the `tirx.cuda` namespace.
-//!
-//! Laid out like `python/tvm_tirx/backend/cuda/`. Its objects keep their `tirx.cuda.*` type keys;
-//! they are here because Python defines them in `tvm_tirx.backend.cuda`.
+//! The CUDA backend: the objects of the `tirx.cuda` namespace.
 
 // An object registered under `tirx.cuda` that no file has a block for yet is generated here, to be
 // moved to the file of the Python module that defines it.

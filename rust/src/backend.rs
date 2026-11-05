@@ -18,8 +18,6 @@
  */
 #![allow(dead_code, unused_imports)]
 
-//! Backend-specific objects.
-//!
-//! Laid out like `python/tvm_tirx/backend/`: [`cuda`] holds the attributes of CUDA instructions.
+//! Backend-specific objects, such as the attributes of CUDA instructions in [`cuda`].
 
 pub mod cuda;

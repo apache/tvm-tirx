@@ -20,10 +20,8 @@
 
 //! The attributes of tile instruction calls.
 //!
-//! The objects `python/tvm_tirx/tirx/tile/instruction.py` registers. Their type keys are
-//! `tirx.tensor.*`. [`ScopeAttrs`] holds the thread scope of an instruction, and [`TrnAttrs`] the
-//! scope and options of a Trainium (`trn`) instruction. [`configure_tensor_instruction`] installs
-//! the validator of a tile instruction operator.
+//! [`ScopeAttrs`] holds the thread scope of an instruction and [`TrnAttrs`] the scope and options
+//! of a Trainium (`trn`) instruction; their type keys are `tirx.tensor.*`.
 
 // Every object registered under `tirx.tensor` has its block in this file.
 // tvm-ffi-stubgen(prefix): tirx.tensor
@@ -200,8 +198,12 @@ impl TrnAttrs {
 tvm_ffi::impl_object_upcast!(TrnAttrs => Attrs);
 // tvm-ffi-stubgen(end)
 
-/// The tensor region `value` covers: a `TensorLoad` converted, a `TensorRegion` as is
+/// Return the tensor region `value` covers: a `TensorLoad` converted, a [`TensorRegion`] as is
 /// (`tirx.AsTensorRegion`).
+///
+/// # Errors
+///
+/// Returns an error if `value` is neither.
 pub fn as_tensor_region(value: impl IntoExpr) -> Result<TensorRegion> {
     tvm_ffi::cached_global_func!("tirx.AsTensorRegion")
         .call_tuple((&value.into_expr()?,))?
@@ -211,9 +213,40 @@ pub fn as_tensor_region(value: impl IntoExpr) -> Result<TensorRegion> {
 /// Validate the calls of the tile instruction `op` with `validator`, after the checks of its
 /// operand count, void type and registered attributes (`tirx.ConfigureTensorInstruction`).
 ///
-/// An operator takes a custom validator once; `validator` reports an invalid call as an error.
-/// The operator registry keeps it for the process and calls it from any thread, so it is
-/// `Send + Sync`.
+/// An operator takes one custom validator, which reports an invalid call as an error.
+///
+/// # Errors
+///
+/// Returns an error if `op` already has a custom validator.
+///
+/// # Examples
+///
+/// ```
+/// use tvm_tirx::ir::{Attrs, Call, OpDef, PrimType, Type, UNKNOWN_LOC};
+/// use tvm_tirx::tirx::tile::{configure_tensor_instruction, ScopeAttrs, ScopeAttrsObj};
+/// use tvm_tirx::tirx::ThreadScope;
+/// use tvm_tirx::tvm_ffi::{ensure, ObjectRefCore, Result, VALUE_ERROR};
+///
+/// let op = OpDef::new("my_ext.tile_fill", "Fill a tile.")
+///     .add_arg("value", "The fill value.")
+///     .attrs_type_key("tirx.tensor.ScopeAttrs")
+///     .op()?;
+/// configure_tensor_instruction(&op, |call| {
+///     let attrs = call.attrs.as_ref().and_then(|attrs| attrs.downcast_ref::<ScopeAttrsObj>());
+///     let at_warp = attrs.unwrap().scope.same_as(&ThreadScope::get("cuda.warp")?);
+///     ensure!(at_warp, VALUE_ERROR, "my_ext.tile_fill runs per warp");
+///     Ok(())
+/// })?;
+///
+/// # let call_at = |scope| -> Result<Call> {
+/// #     let attrs = Attrs::from(ScopeAttrs::new(ThreadScope::get(scope)?));
+/// #     let void = Type::from(PrimType::void());
+/// #     Call::new(Some(&void), &op, [0], Some(&attrs), Vec::<Type>::new(), UNKNOWN_LOC)
+/// # };
+/// assert!(call_at("cuda.warp")?.validate().is_ok());
+/// assert!(call_at("cuda.cta")?.validate().is_err());
+/// # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
+/// ```
 pub fn configure_tensor_instruction(
     op: impl Into<Op>,
     validator: impl Fn(Call) -> Result<()> + Send + Sync + 'static,

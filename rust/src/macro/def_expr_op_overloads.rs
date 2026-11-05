@@ -18,20 +18,35 @@
  */
 //! Expression operators for existing reference wrappers.
 
-/// Add primitive-expression operators to an existing reference wrapper.
+/// Add the primitive-expression operators to an existing reference wrapper.
 ///
-/// Pass a module-scope path to a type implementing `Clone` and `Into<Expr>`. Define its object
-/// layout, reference wrapper and ancestor upcasts separately, using `tvm_ffi::def_object_ref!` or
-/// generated bindings. For a deeper parent, also provide the upcast to `Expr`.
+/// The type, a module-scope path to a reference wrapper implementing `Clone` and `Into<Expr>`, gets
+/// the operators `+`, `-`, `*`, `&`, `|`, `^`, `<<`, `>>`, unary `-` and `!` and
+/// [`PrimOps`](crate::ir::prim::PrimOps), all returning an
+/// [`ExprResult`](crate::ir::prim::ExprResult).
 ///
-/// Owned operands move their handle; borrowed operands clone the handle. Operators return
-/// [`ExprResult`](crate::ir::prim::ExprResult), preserving contextual literal typing and the
-/// first construction error. Import [`PrimOps`](crate::ir::prim::PrimOps) for named operations
-/// such as `floordiv` and `less`. Assignment operators apply only to `ExprResult`.
+/// # Examples
 ///
-/// ```text
-/// tvm_ffi::def_object_ref!(pub MyExpr, Expr, MyExprObj);
-/// tvm_tirx::def_expr_op_over_loads!(MyExpr);
+/// ```
+/// use tvm_tirx::ir::{Expr, ExprObj, Location, PrimType};
+/// use tvm_tirx::sym::Analyzer;
+/// use tvm_tirx::tvm_ffi::{self, def_object_ref, rs_object, ObjectRefCore};
+///
+/// #[rs_object("my_ext.ThreadIndex", final)]
+/// pub struct ThreadIndexObj {
+///     base: ExprObj,
+///     pub axis: i64,
+/// }
+/// def_object_ref!(pub ThreadIndex, Expr, ThreadIndexObj);
+/// tvm_tirx::def_expr_op_over_loads!(ThreadIndex);
+///
+/// # fn main() -> tvm_tirx::tvm_ffi::Result<()> {
+/// let base = ExprObj::new(Location::unknown(), PrimType::int(32).into());
+/// let tx = ThreadIndex::from(ThreadIndexObj::new(base, 0));
+/// let analyzer = Analyzer::new();
+/// assert!(analyzer.can_prove_equal(&tx * 4 + &tx, &tx * 5)?);
+/// # Ok(())
+/// # }
 /// ```
 #[macro_export]
 macro_rules! def_expr_op_over_loads {

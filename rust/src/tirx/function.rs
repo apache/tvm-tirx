@@ -20,9 +20,26 @@
 
 //! Tensor functions.
 //!
-//! The objects `python/tvm_tirx/tirx/function.py` defines. A [`Function`] is a
-//! [`BaseFunc`] with parameters, a return type and a required sequence body, built with [`Function::new`];
-//! [`renew_def`] gives its variables fresh definitions.
+//! A [`Function`] is a [`BaseFunc`] with parameters, a return type and a sequence body.
+//!
+//! # Examples
+//!
+//! ```
+//! use tvm_tirx::ir::{DictAttrs, PrimType, Return, SeqStmt, Var, UNKNOWN_LOC};
+//! use tvm_tirx::script::script;
+//! use tvm_tirx::tirx::{renew_def, Function};
+//! use tvm_tirx::tvm_ffi::{Map, ObjectRefCore};
+//!
+//! let x = Var::new("x", PrimType::int(32), UNKNOWN_LOC);
+//! let body = SeqStmt::new([Return::new(&x, UNKNOWN_LOC)], UNKNOWN_LOC);
+//! let attrs = DictAttrs::new(Map::new());
+//! let identity = Function::new([&x], &body, PrimType::int(32), attrs, UNKNOWN_LOC);
+//! assert!(script(&identity)?.as_str().contains("def main(x: T.int32) -> T.int32:"));
+//!
+//! let copy = renew_def(&identity)?;
+//! assert!(!copy.params.get(0)?.same_as(&x));
+//! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
+//! ```
 
 // `custom-new` reserves `new` for a constructor with the C++ one's semantics (`ty` derived from the
 // signature); the generated `from_fields` allocates the fields as given.
@@ -135,9 +152,8 @@ tvm_ffi::impl_object_upcast!(Function => Expr, Function => BaseFunc);
 // tvm-ffi-stubgen(end)
 
 impl Function {
-    /// The function of `params`, `body`, `ret_type` and `attrs`, of the function type from the
-    /// types of `params` to `ret_type`; a missing return type becomes void, the empty tuple type
-    /// (C++ `Function(params, body, ret_type, attrs, loc)`).
+    /// Create the function of `params`, `body`, `ret_type` and `attrs`; a missing return type
+    /// becomes void (C++ `Function(params, body, ret_type, attrs, loc)`).
     pub fn new(
         params: impl IntoIterator<Item = impl Into<Var>>,
         body: &SeqStmt,
@@ -157,7 +173,7 @@ impl Function {
     }
 }
 
-/// `func` with fresh variable definitions, their uses remapped (`tirx.RenewDef`).
+/// Return `func` with fresh variable definitions, their uses remapped (`tirx.RenewDef`).
 pub fn renew_def(func: impl Into<Function>) -> Result<Function> {
     tvm_ffi::cached_global_func!("tirx.RenewDef").call_tuple((&func.into(),))?.try_into()
 }

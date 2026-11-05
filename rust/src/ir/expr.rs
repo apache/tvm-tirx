@@ -20,16 +20,25 @@
 
 //! Expressions: variables, constants, calls, tuples and tensor accesses.
 //!
-//! The objects `python/tvm_tirx/ir/expr.py` defines. [`Expr`] is the base of every expression and
-//! carries its type and location; [`PrimExpr`] and [`IntExpr`] are views of an `Expr` checked to be
-//! typed by a `PrimType` and by a scalar integer type (C++ `TypedExpr`). A constructor or function
-//! that can fail takes its expression operands as [`IntoExpr`], which an expression under
-//! construction ([`ExprResult`]) also is. The primitive arithmetic and vector expressions are in
-//! [`prim`](super::prim). The constructors are `new`, or `from_dtype` and the like where `new`
-//! allocates the fields as given; they are written in Rust after the C++ constructors, with their
-//! checks, defaults and errors. The constants of the common types are [`IntImm::int32`],
-//! [`IntImm::int64`], [`IntImm::bool`], [`FloatImm::float32`] and [`FloatImm::float64`], and an
-//! `i32`, `i64`, `bool`, `f32` or `f64` converts into an [`Expr`] as C++ converts it implicitly.
+//! The objects `python/tvm_tirx/ir/expr.py` defines. [`Expr`] is the base of every expression;
+//! [`PrimExpr`] and [`IntExpr`] are views of one checked to have a primitive or integer type. The
+//! primitive arithmetic and vector expressions are in [`prim`](super::prim).
+//!
+//! # Examples
+//!
+//! ```
+//! use tvm_tirx::ir::{Call, Op, PrimExpr, PrimType, Type, Var, UNKNOWN_LOC};
+//! use tvm_tirx::script::script;
+//!
+//! let i = Var::new("i", PrimType::int(32), UNKNOWN_LOC);
+//! let f = Var::new("f", PrimType::float(32), UNKNOWN_LOC);
+//! let index = PrimExpr::try_from(&i * 4 + 1)?;
+//! assert_eq!(script(&index)?, "i * 4 + 1");
+//!
+//! let exp = Call::new(None, Op::get("prim.exp")?, [&f], None, Vec::<Type>::new(), UNKNOWN_LOC)?;
+//! assert_eq!(script(&exp)?, "T.exp(f)");
+//! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
+//! ```
 
 // `custom-new` reserves `new` for a constructor with the C++ one's semantics (defaults, implicit
 // conversions, a derived type); the generated `from_fields` allocates the fields as given.
@@ -186,11 +195,12 @@ unsafe impl UnsafeInit for ExprObj {
 }
 // tvm-ffi-stubgen(end)
 
-/// One index of [`Expr::subscript`]: an expression, or a `start:stop:step` slice whose missing
-/// bounds are `None`.
+/// An index of [`Expr::subscript`]: an expression, or a `start:stop:step` slice.
 #[derive(Clone)]
 pub enum Subscript {
+    /// The point index of an expression.
     Index(Expr),
+    /// The slice `start:stop:step`, whose missing bounds are `None`.
     Slice(Option<Expr>, Option<Expr>, Option<Expr>),
 }
 
@@ -209,7 +219,13 @@ impl From<&Subscript> for Any {
 }
 
 impl Expr {
-    /// `self[indices]`, as the subscript rule of its type realizes it (`ir.SubscriptExprRealize`).
+    /// Return `self[indices]`, as the subscript rule of its type realizes it: a [`TupleGetItem`] of
+    /// a tuple, a [`TensorLoad`] or [`TensorRegion`] of a tensor (`ir.SubscriptExprRealize`).
+    ///
+    /// # Errors
+    ///
+    /// Returns a `TypeError` if the type of the expression has no subscript rule, or the error the
+    /// rule raises.
     pub fn subscript(
         &self,
         indices: impl IntoIterator<Item = Subscript>,
@@ -227,12 +243,29 @@ impl Expr {
 // ---------------------------------------------------------------------------------------------
 // Conversions into an expression
 
-/// What converts to an expression, possibly failing: anything that converts into an [`Expr`] (a
-/// node, a `Var`, a Rust `i32`, `f32` and the like), and an [`ExprResult`], an
-/// expression under construction, which gives the first error any of its steps raised. The
-/// constructors and functions that can fail take their expression operands as `impl IntoExpr`, so
-/// an `ExprResult` passes straight in and `?` on their result covers it.
+/// A value that converts into an expression, possibly failing: anything that converts into an
+/// [`Expr`], or an [`ExprResult`] under construction.
+///
+/// A function that takes `impl IntoExpr` returns the first error of an `ExprResult` operand, and a
+/// `TypeError` for an operand that is not a [`PrimExpr`] where it takes one.
+///
+/// # Examples
+///
+/// ```
+/// use tvm_tirx::ir::prim::Add;
+/// use tvm_tirx::ir::{PrimType, Var, UNKNOWN_LOC};
+/// use tvm_tirx::script::script;
+///
+/// let x = Var::new("x", PrimType::int(32), UNKNOWN_LOC);
+/// let sum = Add::new(&x + 1, 2, UNKNOWN_LOC)?;
+/// assert_eq!(script(&sum)?, "x + 1 + 2");
+///
+/// let f = Var::new("f", PrimType::float(32), UNKNOWN_LOC);
+/// assert!(Add::new(&f << 1, 2, UNKNOWN_LOC).is_err());
+/// # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
+/// ```
 pub trait IntoExpr {
+    /// Convert into an expression, or return the first error an [`ExprResult`] raised.
     fn into_expr(self) -> Result<Expr>;
 }
 
@@ -282,39 +315,42 @@ crate::r#macro::typed_expr_view! {
     /// An expression typed by a `PrimType` (C++ `PrimExpr`): a constant, a variable, an operator
     /// on scalars or vectors, or a call that returns one.
     ///
-    /// `PrimExpr` and [`IntExpr`] are typed views (C++ `TypedExpr`). A view holds an `ir.Expr` as
-    /// [`Expr`] does, and adds what the object class does not say: the type of the expression. An
-    /// `ir.Call` is a `PrimExpr` when its `ty` is a `PrimType`, and an `IntExpr` when that type is
-    /// a scalar integer. The views are checked when they are made, so a function that takes one
-    /// needs no check of its own:
+    /// `PrimExpr` and [`IntExpr`] are typed views (C++ `TypedExpr`): an [`Expr`] checked when the
+    /// view is made, so a function that takes one needs no check of its own. A view converts into
+    /// an `Expr` for free; an `Expr` converts into a view only through `TryFrom`, whose error names
+    /// the expression and its type.
     ///
-    /// - A view converts into the views and the [`Expr`] it refines for free (`From`): an
-    ///   `IntExpr` into a `PrimExpr` and both into an `Expr`. Borrowed, an `IntExpr` is a
-    ///   `PrimExpr` through `AsRef`, and both views read their object through `Deref`, as an
-    ///   `Expr` does.
-    /// - An `Expr` converts into a view only through a check (`TryFrom`,
-    ///   `ObjectRefCast::try_cast`), as an `Any` does. A failed check names the expression and its
-    ///   type, `ir.StringImm[ty=ir.StringType]`.
-    /// - [`IntImm`], [`FloatImm`] and [`TensorLoad`] are typed by a `PrimType` when they are made,
-    ///   so they convert into a `PrimExpr` for free. Rust literals convert as they convert into an
-    ///   `Expr`: an `i32` and an `f32` as C++ `PrimExpr(int32_t)` and `PrimExpr(float)` convert
-    ///   them.
-    /// - The operators build a `PrimExpr`: each step of an [`ExprResult`] is checked, so
-    ///   `PrimExpr::try_from(a + b)?` reports only the errors of the operators.
-    /// - The view holds its object privately and gives it out only to read, so its type cannot be
-    ///   changed; the one way past the check is the `unsafe` [`ObjectRefCore::from_data`].
+    /// # Examples
+    ///
+    /// ```
+    /// use tvm_tirx::ir::{dtype, Expr, PrimExpr, PrimType, StringImm, Var, UNKNOWN_LOC};
+    ///
+    /// fn is_scalar(expr: &PrimExpr) -> bool {
+    ///     expr.dtype().lanes == 1
+    /// }
+    ///
+    /// let x = Var::new("x", PrimType::int(32), UNKNOWN_LOC);
+    /// assert!(is_scalar(&PrimExpr::try_from(&x + 1)?));
+    ///
+    /// let text = Expr::from(StringImm::new("hi", UNKNOWN_LOC));
+    /// let error = PrimExpr::try_from(text).err().unwrap();
+    /// assert!(error.message().contains("ir.StringImm[ty=ir.StringType]"));
+    /// # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
+    /// ```
+    ///
+    /// An `Expr` is not a `PrimExpr` until it is checked, nor a `PrimExpr` an `IntExpr`:
     ///
     /// ```compile_fail
     /// # use tvm_tirx::ir::{Expr, PrimExpr};
     /// fn widen(expr: Expr) -> PrimExpr {
-    ///     expr // An `Expr` is not a `PrimExpr` until it is checked.
+    ///     expr
     /// }
     /// ```
     ///
     /// ```compile_fail
     /// # use tvm_tirx::ir::{IntExpr, PrimExpr};
     /// fn narrow(expr: PrimExpr) -> IntExpr {
-    ///     expr.into() // Nor is a `PrimExpr` an `IntExpr`.
+    ///     expr.into()
     /// }
     /// ```
     PrimExpr, "ir.PrimExpr", accepts = any_prim, fallback = prim_literal
@@ -323,6 +359,21 @@ crate::r#macro::typed_expr_view! {
 crate::r#macro::typed_expr_view! {
     /// A [`PrimExpr`] of a scalar signed or unsigned integer type of any width (C++ `IntExpr`),
     /// such as an index or an extent.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use tvm_tirx::ir::{IntExpr, PrimType, Var, UNKNOWN_LOC};
+    /// use tvm_tirx::script::script;
+    ///
+    /// let i = Var::new("i", PrimType::int(64), UNKNOWN_LOC);
+    /// let offset = IntExpr::try_from(&i * 4)?;
+    /// assert_eq!(script(&offset)?, "i * T.int64(4)");
+    ///
+    /// let f = Var::new("f", PrimType::float(32), UNKNOWN_LOC);
+    /// assert!(IntExpr::try_from(&f * 4).is_err());
+    /// # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
+    /// ```
     IntExpr, "ir.IntExpr", accepts = scalar_int, fallback = int_literal
 }
 
@@ -372,16 +423,14 @@ impl From<i32> for PrimExpr {
     }
 }
 
-/// An `i64` is an `int64` constant. (C++ converts an `int64_t` held by an `Any` to `int32` when
-/// the value fits.)
+/// An `i64` is an `int64` constant.
 impl From<i64> for PrimExpr {
     fn from(value: i64) -> Self {
         IntImm::int64(value).into()
     }
 }
 
-/// A `bool` is a boolean constant, as C++ converts a `bool` held by an `Any`. (C++ promotes a
-/// `bool` argument to `PrimExpr(int32_t)`, an `int32` constant.)
+/// A `bool` is a boolean constant.
 impl From<bool> for PrimExpr {
     fn from(value: bool) -> Self {
         IntImm::bool(value).into()
@@ -395,16 +444,14 @@ impl From<f32> for PrimExpr {
     }
 }
 
-/// An `f64` is a `float64` constant, as C++ types a `double` next to an expression. (C++ converts
-/// a `double` held by an `Any` to `float32`.)
+/// An `f64` is a `float64` constant.
 impl From<f64> for PrimExpr {
     fn from(value: f64) -> Self {
         FloatImm::float64(value).into()
     }
 }
 
-/// An `i32` is an `int32` constant. (C++ `IntExpr` converts only an int held by an `Any`, as
-/// `PrimExpr` does.)
+/// An `i32` is an `int32` constant.
 impl From<i32> for IntExpr {
     fn from(value: i32) -> Self {
         int_constant(IntImm::int32(value))
@@ -708,7 +755,7 @@ tvm_ffi::impl_object_upcast!(GlobalVar => Expr);
 // tvm-ffi-stubgen(end)
 
 impl GlobalVar {
-    /// The global variable `name_hint`, of a missing type (C++ `GlobalVar(name_hint, loc)`).
+    /// Create the global variable `name_hint`, of a missing type (C++ `GlobalVar(name_hint, loc)`).
     pub fn new(name_hint: &str, loc: impl Into<Location>) -> Self {
         let ty = MissingType::new();
         Self::from_fields(loc.into(), ty, String::from(name_hint))
@@ -774,7 +821,7 @@ tvm_ffi::impl_object_upcast!(Tuple => Expr);
 // tvm-ffi-stubgen(end)
 
 impl Tuple {
-    /// The tuple of `fields`, typed by the types of its fields when they are all known
+    /// Create the tuple of `fields`, typed by the types of its fields when they are all known
     /// (C++ `Tuple(fields, loc)`).
     pub fn new(
         fields: impl IntoIterator<Item = impl Into<Expr>>,
@@ -854,8 +901,13 @@ tvm_ffi::impl_object_upcast!(TupleGetItem => Expr);
 // tvm-ffi-stubgen(end)
 
 impl TupleGetItem {
-    /// Field `index` of `tuple_value`, typed by the field type and checked against the tuple type
-    /// when it is known (C++ `TupleGetItem(tuple, index, loc)`).
+    /// Create the access to field `index` of `tuple_value`, typed by the field type and checked
+    /// against the tuple type when it is known (C++ `TupleGetItem(tuple, index, loc)`).
+    ///
+    /// # Errors
+    ///
+    /// Returns an `IndexError` if `index` is negative, or not less than the number of fields of a
+    /// tuple of known type.
     pub fn from_tuple(
         tuple_value: impl IntoExpr,
         index: i32,
@@ -963,8 +1015,13 @@ tvm_ffi::impl_object_upcast!(TensorLoad => Expr, TensorLoad => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 impl TensorLoad {
-    /// The element of `source` at `indices`, typed by the element type of `source`: the type the
+    /// Create the load of the element of `source` at `indices`, typed by the element type that the
     /// type of `source` infers (C++ `TensorLoad(source, indices, loc)`).
+    ///
+    /// # Errors
+    ///
+    /// Returns a `TypeError` if the type of `source` does not support `TensorLoad`, or the error
+    /// its type inference raises.
     pub fn new(
         source: impl IntoExpr,
         indices: impl IntoIterator<Item = impl IntoExpr>,
@@ -1114,21 +1171,26 @@ tvm_ffi::impl_object_upcast!(FloatImm => Expr, FloatImm => Constant, FloatImm =>
 // tvm-ffi-stubgen(end)
 
 impl FloatImm {
-    /// The floating-point constant `value` of type `dtype`, checked to fit it
+    /// Create the floating-point constant `value` of type `dtype`, checked to fit it
     /// (C++ `FloatImm(PrimType(dtype), value, loc)`).
+    ///
+    /// # Errors
+    ///
+    /// Returns a `ValueError` if `dtype` is not a scalar floating-point type, or a finite `value`
+    /// is out of its range.
     pub fn from_dtype(dtype: DLDataType, value: f64, loc: impl Into<Location>) -> Result<Self> {
         let ty = PrimType::from_dtype(dtype)?;
         check_float_imm(dtype, value)?;
         Ok(Self::new(loc.into(), ty, value))
     }
 
-    /// The `float32` constant `value` at the unknown location, which every `f32` is
+    /// Create the `float32` constant `value` at the unknown location
     /// (C++ `FloatImm(PrimType::Float(32), value)`).
     pub fn float32(value: f32) -> Self {
         Self::builtin(dtype::float(32), value as f64)
     }
 
-    /// The `float64` constant `value` at the unknown location, which every `f64` is
+    /// Create the `float64` constant `value` at the unknown location
     /// (C++ `FloatImm(PrimType::Float(64), value)`).
     pub fn float64(value: f64) -> Self {
         Self::builtin(dtype::float(64), value)
@@ -1148,8 +1210,7 @@ impl From<f32> for FloatImm {
     }
 }
 
-/// An `f64` is a `float64` constant. (C++ converts a `double` held by an `Any` to `float32`, as
-/// [`prim::convert`](crate::ir::prim::convert) does.)
+/// An `f64` is a `float64` constant.
 impl From<f64> for FloatImm {
     fn from(value: f64) -> Self {
         Self::float64(value)
@@ -1300,8 +1361,13 @@ tvm_ffi::impl_object_upcast!(IntImm => Expr, IntImm => Constant, IntImm => PrimE
 // tvm-ffi-stubgen(end)
 
 impl IntImm {
-    /// The integer constant `value` of the scalar integer or boolean type `dtype`, checked to fit
-    /// it (C++ `IntImm(PrimType(dtype), value, loc)`).
+    /// Create the integer constant `value` of the scalar integer or boolean type `dtype`, checked
+    /// to fit it (C++ `IntImm(PrimType(dtype), value, loc)`).
+    ///
+    /// # Errors
+    ///
+    /// Returns a `ValueError` if `dtype` is not a scalar integer or boolean type, or `value` is out
+    /// of its range.
     pub fn from_dtype(
         dtype: DLDataType,
         value: impl Into<BigInt>,
@@ -1312,19 +1378,17 @@ impl IntImm {
         Ok(Self::new(loc.into(), ty, value))
     }
 
-    /// The `int32` constant `value` at the unknown location, which every `i32` is
-    /// (C++ `IntImm::Int32(value)`).
+    /// Create the `int32` constant `value` at the unknown location (C++ `IntImm::Int32(value)`).
     pub fn int32(value: i32) -> Self {
         Self::builtin(dtype::int(32), value)
     }
 
-    /// The `int64` constant `value` at the unknown location, which every `i64` is
-    /// (C++ `IntImm::Int64(value)`).
+    /// Create the `int64` constant `value` at the unknown location (C++ `IntImm::Int64(value)`).
     pub fn int64(value: i64) -> Self {
         Self::builtin(dtype::int(64), value)
     }
 
-    /// The boolean constant `value` at the unknown location (C++ `IntImm::Bool(value)`).
+    /// Create the boolean constant `value` at the unknown location (C++ `IntImm::Bool(value)`).
     pub fn bool(value: bool) -> Self {
         Self::builtin(dtype::bool(), value)
     }
@@ -1343,8 +1407,7 @@ impl From<i32> for IntImm {
     }
 }
 
-/// An `i64` is an `int64` constant. (C++ converts an `int64_t` held by an `Any` to `int32` when
-/// the value fits, as [`prim::convert`](crate::ir::prim::convert) does.)
+/// An `i64` is an `int64` constant.
 impl From<i64> for IntImm {
     fn from(value: i64) -> Self {
         Self::int64(value)
@@ -1485,8 +1548,13 @@ tvm_ffi::impl_object_upcast!(GenericConst => Expr, GenericConst => Constant);
 // tvm-ffi-stubgen(end)
 
 impl GenericConst {
-    /// The constant `value` of type `ty`, checked to have a type and not to be a primitive literal
-    /// (C++ `GenericConst(ty, value, loc)`).
+    /// Create the constant `value` of type `ty`, checked to have a type and not to be a primitive
+    /// literal (C++ `GenericConst(ty, value, loc)`).
+    ///
+    /// # Errors
+    ///
+    /// Returns a `TypeError` if `ty` is a [`MissingType`], or `value` is an integer, a boolean, a
+    /// float or a string.
     pub fn checked(
         ty: impl Into<Type>,
         value: impl Into<Any>,
@@ -1573,8 +1641,8 @@ tvm_ffi::impl_object_upcast!(DataTypeImm => Expr, DataTypeImm => Constant);
 // tvm-ffi-stubgen(end)
 
 impl DataTypeImm {
-    /// The data type `value` as a constant of type [`AnyType`]
-    /// (C++ `DataTypeImm(value, loc)`).
+    /// Create the data type `value` as a constant of type [`AnyType`] (C++ `DataTypeImm(value,
+    /// loc)`).
     pub fn from_dtype(value: DLDataType, loc: impl Into<Location>) -> Self {
         let ty = AnyType::new(UnknownLoc::new());
         Self::new(loc.into(), ty, value)
@@ -1640,8 +1708,7 @@ tvm_ffi::impl_object_upcast!(StringImm => Expr, StringImm => Constant);
 // tvm-ffi-stubgen(end)
 
 impl StringImm {
-    /// The string constant `value`, of type [`StringType`]
-    /// (C++ `StringImm(value, loc)`).
+    /// Create the string constant `value`, of type [`StringType`] (C++ `StringImm(value, loc)`).
     pub fn new(value: &str, loc: impl Into<Location>) -> Self {
         let ty = StringType::new(UnknownLoc::new());
         Self::from_fields(loc.into(), ty, String::from(value))
@@ -1727,8 +1794,15 @@ tvm_ffi::impl_object_upcast!(Call => Expr);
 // tvm-ffi-stubgen(end)
 
 impl Call {
-    /// The call of `op` on `args`, of type `ty` or the type [`Call::reinfer_type`] gives it when
-    /// `None` (C++ `Call(ty, op, args, attrs, ty_args, loc)`). The call is not validated.
+    /// Create the call of `op` on `args`, of type `ty` or the type
+    /// [`reinfer_type`](Self::reinfer_type) gives it when `None` (C++ `Call(ty, op, args, attrs,
+    /// ty_args, loc)`).
+    ///
+    /// The call is not validated; [`validate`](Self::validate) checks it.
+    ///
+    /// # Errors
+    ///
+    /// Returns the error of the type inference when `ty` is `None`.
     pub fn new(
         ty: Option<&Type>,
         op: impl IntoExpr,
@@ -1755,8 +1829,12 @@ impl Call {
         ))
     }
 
-    /// Check the call against the contract its operator registered: the operator's validator, if
-    /// it has one (C++ `Call::Validate`).
+    /// Check the call against the contract its operator registered: the operator's validator, if it
+    /// has one (C++ `Call::Validate`).
+    ///
+    /// # Errors
+    ///
+    /// Returns the error the validator raises.
     pub fn validate(&self) -> Result<()> {
         let Some(op) = self.op.downcast_ref::<OpObj>() else { return Ok(()) };
         if op.validator().type_index() == TVMFFITypeIndex::kTVMFFINone as i32 {
@@ -1765,9 +1843,13 @@ impl Call {
         support::NativeHook::from_any(op.validator().clone())?.call_void(self)
     }
 
-    /// The result type the operator infers from the current inputs, without changing the call: its
-    /// `TFixedReturnType`, else what its `FInferType` infers; the return type of a callee of a
-    /// function type; otherwise a missing type (C++ `Call::ReinferType`).
+    /// Return the result type the operator infers from the current inputs, without changing the
+    /// call (C++ `Call::ReinferType`).
+    ///
+    /// # Errors
+    ///
+    /// Returns the error of the operator's `FInferType`, or a `TypeError` if its `TFixedReturnType`
+    /// is not a type.
     pub fn reinfer_type(&self) -> Result<Type> {
         let Some(op) = self.op.downcast_ref::<OpObj>() else {
             return match self.op.ty.downcast_ref::<FuncTypeObj>() {
@@ -1920,8 +2002,8 @@ tvm_ffi::impl_object_upcast!(Var => Expr);
 // tvm-ffi-stubgen(end)
 
 impl Var {
-    /// The variable `name` of type `ty` (C++ `Var(name, ty, loc)`); a variable whose type is not
-    /// known yet takes [`MissingType::new`].
+    /// Create the variable `name` of type `ty` (C++ `Var(name, ty, loc)`); a variable whose type is
+    /// not known yet takes [`MissingType::new`].
     pub fn new(name: &str, ty: impl Into<Type>, loc: impl Into<Location>) -> Self {
         Self::from_fields(loc.into(), ty.into(), String::from(name))
     }
@@ -1988,7 +2070,7 @@ tvm_ffi::impl_object_upcast!(LambdaExpr => Expr, LambdaExpr => StagingExpr);
 // tvm-ffi-stubgen(end)
 
 impl LambdaExpr {
-    /// The lambda of `vars` that evaluates to `body`, of the function type from the types of
+    /// Create the lambda of `vars` that evaluates to `body`, of the function type from the types of
     /// `vars` to the type of `body` (C++ `LambdaExpr(vars, body, loc)`).
     pub fn new(
         vars: impl IntoIterator<Item = impl Into<Var>>,
@@ -2001,7 +2083,11 @@ impl LambdaExpr {
         Self::from_fields(loc.into(), ty, vars, body)
     }
 
-    /// The body with `arguments` substituted for the variables (`ir.LambdaExprApply`).
+    /// Return the body with `arguments` substituted for the variables (`ir.LambdaExprApply`).
+    ///
+    /// # Errors
+    ///
+    /// Returns a `ValueError` if the number of arguments is not the number of variables.
     pub fn apply(&self, arguments: impl IntoIterator<Item = impl IntoExpr>) -> Result<Expr> {
         let arguments =
             arguments.into_iter().map(IntoExpr::into_expr).collect::<Result<Array<Expr>>>()?;
@@ -2063,7 +2149,7 @@ impl Range {
 // tvm-ffi-stubgen(end)
 
 impl Range {
-    /// The range `[begin, end)` (C++ `Range(begin, end, loc)`);
+    /// Create the range `[begin, end)` (C++ `Range(begin, end, loc)`);
     /// [`from_min_extent`](Self::from_min_extent) takes the extent instead of the end.
     pub fn new(begin: impl IntoExpr, end: impl IntoExpr, loc: impl Into<Location>) -> Result<Self> {
         let (begin, end) = (begin.into_expr()?, end.into_expr()?);
@@ -2071,7 +2157,7 @@ impl Range {
         Ok(Self::from_fields(begin, extent, loc.into()))
     }
 
-    /// The range of `extent` values from `min_value` (C++ `Range::FromMinExtent`).
+    /// Create the range of `extent` values from `min_value` (C++ `Range::FromMinExtent`).
     pub fn from_min_extent(
         min_value: impl IntoExpr,
         extent: impl IntoExpr,
@@ -2083,8 +2169,7 @@ impl Range {
         Ok(Self::from_fields(min_value, extent, loc.into()))
     }
 
-    /// The extent `end - begin` of the range `[begin, end)`: the other operand when `end` adds
-    /// `begin` to it, `end` when `begin` is zero, else `end - begin` folded
+    /// Return the extent `end - begin` of the range `[begin, end)`, folded
     /// (C++ `Range::GetExtentFromBeginEnd`).
     pub fn get_extent_from_begin_end(begin: impl IntoExpr, end: impl IntoExpr) -> Result<Expr> {
         let (begin, end) = (begin.into_expr()?, end.into_expr()?);

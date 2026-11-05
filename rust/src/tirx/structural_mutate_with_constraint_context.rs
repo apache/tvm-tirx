@@ -17,11 +17,7 @@
  * under the License.
  */
 
-//! Constraint-aware structural mutation through the shared Rust engine.
-//!
-//! The native semantic base carries only lexical context state. Rust owns its
-//! dispatcher and remaps in `StructuralMutateEngine<Base>`; native constraint
-//! hooks recurse through that engine's vtable and collect facts from results.
+//! Constraint-aware structural mutation: rewrite values with the facts in scope.
 
 use std::borrow::BorrowMut;
 use std::cell::UnsafeCell;
@@ -39,11 +35,9 @@ use tvm_ffi::{
 use super::StructuralMutatorWithConstraintContextObj;
 use crate::sym::ConstraintContext;
 
-/// Complete native-compatible semantic base, without an owning object conversion.
+/// The base of a constraint-aware mutator, holding the constraint context of the current value.
 ///
-/// Native hooks may replace the current context during descent through a shared
-/// view. All native-mutated state is interior mutable. This representation
-/// requires the matching native header/build, including the private scope flag.
+/// Its layout mirrors the native one, so it requires the matching native build.
 #[repr(C)]
 pub struct StructuralMutatorWithConstraintContextBase {
     base: StructuralMutatorObj,
@@ -52,8 +46,8 @@ pub struct StructuralMutatorWithConstraintContextBase {
 }
 
 impl StructuralMutatorWithConstraintContextBase {
-    /// Clone the current live context without retaining a borrow of its field.
-    /// Use `snapshot()` on the returned handle to freeze its current prefix.
+    /// Return the constraint context in effect at the current value; `snapshot()` it to keep its
+    /// current prefix.
     #[inline]
     pub fn constraints(&self) -> ConstraintContext {
         unsafe { (&*self.constraints.get()).clone() }
@@ -129,20 +123,53 @@ unsafe impl StructuralMutatorBase for StructuralMutatorWithConstraintContextBase
     }
 }
 
-/// Scoped constraint mutator view. Pass the handler's actual `self` to recursive
-/// operations and use `view.base().constraints()` to inspect resulting premises.
-/// Callbacks follow the shared engine's non-escaping, non-unwinding contract.
+/// The running constraint-aware mutation, passed to each handler; `view.base().constraints()` gives
+/// the facts in scope.
 pub type StructuralMutatorWithConstraintContextView<'a, D> =
     StructuralMutatorView<'a, D, StructuralMutatorWithConstraintContextBase>;
 
-/// Mutate using native lexical binding, predicate and range semantics.
+/// Mutate `root` with `dispatcher`, which sees the facts of the bindings, guards and ranges in
+/// scope.
 ///
-/// The first matching handler owns descent. Use `view.default_mutate(self, value)`
-/// for constraint-aware default descent and `view.mutate(self, child)` to dispatch
-/// recursively. A moved unique root may reuse storage; retained roots copy.
-/// Specialized hooks obey the ordinary synchronous mutation ABI and registration
-/// trust contract. They must not retain the runtime or append through observer
-/// context handles during descent. Errors terminate the traversal.
+/// The first matching handler owns descent: `view.default_mutate(self, value)` rewrites the
+/// children, `view.mutate(self, child)` one child. Handlers must not append to the context or
+/// panic; an error stops the traversal.
+///
+/// # Examples
+///
+/// ```
+/// use tvm_tirx::ir::{Bind, Evaluate, Expr, PrimType, SeqStmt, Stmt, Var, UNKNOWN_LOC};
+/// use tvm_tirx::script::script;
+/// use tvm_tirx::sym::Analyzer;
+/// use tvm_tirx::tirx::structural_mutate_with_constraint_context::{
+///     structural_mutate_with_constraint_context as mutate,
+///     StructuralMutatorWithConstraintContextView as View,
+/// };
+/// use tvm_tirx::tvm_ffi::{dispatch, Any, MutationView, Result, UnchangedOr};
+///
+/// struct Simplify;
+///
+/// #[dispatch(mutate, (MutationView<'_>, &mut View<'_, Self>), Result<UnchangedOr<Any>>)]
+/// impl Simplify {
+///     fn mutate_evaluate(
+///         &mut self,
+///         node: MutationView<'_, Evaluate>,
+///         mutator: &mut View<'_, Self>,
+///     ) -> Result<UnchangedOr<Any>> {
+///         let analyzer = Analyzer::new();
+///         analyzer.sync_constraint_context(&mutator.base().constraints())?;
+///         Ok(Evaluate::new(analyzer.simplify(&node.value, 2)?, UNKNOWN_LOC).into())
+///     }
+/// }
+///
+/// let x = Var::new("x", PrimType::int(32), UNKNOWN_LOC);
+/// let bind = Stmt::from(Bind::new(&x, 4, UNKNOWN_LOC)?);
+/// let use_x = Evaluate::new(Expr::try_from(&x * 2)?, UNKNOWN_LOC);
+/// let root = SeqStmt::new([bind, use_x.into()], UNKNOWN_LOC);
+/// let result = SeqStmt::try_from(mutate(root, Simplify)?)?;
+/// assert_eq!(script(&result)?, "x: T.let[T.int32] = 4\nT.evaluate(8)");
+/// # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
+/// ```
 pub fn structural_mutate_with_constraint_context<R, H, M, D, O>(
     root: R,
     dispatcher: H,

@@ -18,10 +18,7 @@
  */
 #![allow(dead_code, unused_imports)]
 
-//! The TIRx passes: function passes and pass configurations.
-//!
-//! Laid out like `python/tvm_tirx/tirx/transform/`: [`function_pass`] holds the function pass, and
-//! [`mod@transform`] the configurations of the passes `transform.py` defines.
+//! The TIRx passes ([`mod@transform`]) and function passes ([`function_pass`]).
 
 // An object registered under `tirx.transform` that no file has a block for yet is generated here,
 // to be moved to the file of the Python module that defines it.

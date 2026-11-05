@@ -18,13 +18,34 @@
  */
 #![allow(dead_code, unused_imports)]
 
-//! Iterator maps: index expressions decomposed into splits of iterators.
+//! Iterator maps: index expressions as sums of splits of iterators.
 //!
-//! The objects `python/tvm_tirx/sym/iter_affine_map.py` defines. An [`IterMark`] is an iterator
-//! `source` with its `extent`; an [`IterSplitExpr`] is `(source // lower_factor) % extent * scale`;
-//! an [`IterSumExpr`] is a sum of splits plus `base_`. An [`IterMapResult`] holds the detected
-//! `indices`, the `errors` and the `padding_predicate`. The functions of `iter_affine_map.py`,
-//! which detect, simplify, divide and invert iterator maps, are here too.
+//! An [`IterSumExpr`] is a sum of [`IterSplitExpr`]s `(source // lower_factor) % extent * scale`
+//! plus `base_`. [`detect_iter_map`] detects them, and its [`IterMapResult`] reports `errors`.
+//!
+//! # Examples
+//!
+//! ```
+//! use tvm_tirx::ir::{PrimType, Range, Var, UNKNOWN_LOC};
+//! use tvm_tirx::script::script;
+//! use tvm_tirx::sym::{self, IterMapLevel};
+//! use tvm_tirx::tvm_ffi::Map;
+//!
+//! let x = Var::new("x", PrimType::int(32), UNKNOWN_LOC);
+//! let y = Var::new("y", PrimType::int(32), UNKNOWN_LOC);
+//! let four = Range::from_min_extent(0, 4, UNKNOWN_LOC)?;
+//! let iters = Map::from_iter([(x.clone(), four.clone()), (y.clone(), four)]);
+//!
+//! let bijective = IterMapLevel::Bijective;
+//! let map = sym::detect_iter_map([&x * 4 + &y], &iters, true, bijective, None, true)?;
+//! assert!(map.errors.is_empty());
+//!
+//! let o = Var::new("o", PrimType::int(32), UNKNOWN_LOC);
+//! let inverse = sym::inverse_affine_iter_map(map.indices.iter(), [&o])?;
+//! assert_eq!(script(&inverse.get(&x)?.unwrap())?, "o // 4");
+//! assert_eq!(script(&inverse.get(&y)?.unwrap())?, "o % 4");
+//! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
+//! ```
 
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
@@ -286,7 +307,7 @@ tvm_ffi::impl_object_upcast!(IterSumExpr => Expr, IterSumExpr => IterMapExpr);
 // `IterMark::new` is generated: the native `sym.IterMark` constructor stores the fields as given.
 
 impl IterSplitExpr {
-    /// The split `(source // lower_factor) % extent * scale` (`sym.IterSplitExpr`).
+    /// Create the split `(source // lower_factor) % extent * scale` (`sym.IterSplitExpr`).
     pub fn new(
         source: impl Into<IterMark>,
         lower_factor: impl IntoExpr,
@@ -305,7 +326,7 @@ impl IterSplitExpr {
 }
 
 impl IterSumExpr {
-    /// The sum of the splits `args` plus `base` (`sym.IterSumExpr`).
+    /// Create the sum of the splits `args` plus `base` (`sym.IterSumExpr`).
     pub fn new(
         args: impl IntoIterator<Item = impl Into<IterSplitExpr>>,
         base: impl Into<Expr>,
@@ -319,7 +340,7 @@ impl IterSumExpr {
     }
 }
 
-/// How strictly an iterator map is checked: `sym::IterMapLevel`.
+/// How strictly an iterator map is checked, the C++ `sym::IterMapLevel`.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 #[repr(i32)]
 pub enum IterMapLevel {
@@ -332,10 +353,10 @@ pub enum IterMapLevel {
     NoCheck = 3,
 }
 
-/// Detect `indices` as iterator maps of the iterators `input_iters` under `predicate`; the
-/// `indices` of the result are empty when they are not (`sym.DetectIterMap`).
+/// Detect `indices` as iterator maps of the iterators `input_iters` under `predicate`
+/// (`sym.DetectIterMap`).
 ///
-/// With `simplify_trivial_iterators`, the iterators of extent 1 become constants.
+/// When they are not, the `indices` of the result are empty and its `errors` say why.
 pub fn detect_iter_map(
     indices: impl IntoIterator<Item = impl IntoExpr>,
     input_iters: &Map<Var, Range>,
@@ -358,8 +379,8 @@ pub fn detect_iter_map(
         .try_into()
 }
 
-/// `index` as a sum of splits of the iterators `input_iters`, with what is not detected in its
-/// `base` (`sym.NormalizeToIterSum`).
+/// Return `index` as a sum of splits of the iterators `input_iters`, with what is not detected in
+/// its `base` (`sym.NormalizeToIterSum`).
 pub fn normalize_to_iter_sum(
     index: impl IntoExpr,
     input_iters: &Map<Var, Range>,
@@ -370,8 +391,8 @@ pub fn normalize_to_iter_sum(
         .try_into()
 }
 
-/// Simplify `indices` through iterator map detection; they are returned unchanged when they are
-/// not iterator maps (`sym.IterMapSimplify`).
+/// Simplify `indices` through iterator map detection, or return them unchanged when they are not
+/// iterator maps (`sym.IterMapSimplify`).
 pub fn iter_map_simplify(
     indices: impl IntoIterator<Item = impl IntoExpr>,
     input_iters: &Map<Var, Range>,
@@ -394,7 +415,7 @@ pub fn iter_map_simplify(
         .try_into()
 }
 
-/// The plain expression of the iterator map `expr` (`sym.NormalizeIterMapToExpr`).
+/// Return the plain expression of the iterator map `expr` (`sym.NormalizeIterMapToExpr`).
 pub fn normalize_iter_map_to_expr(expr: impl IntoExpr) -> Result<Expr> {
     tvm_ffi::cached_global_func!("sym.NormalizeIterMapToExpr")
         .call_tuple((&expr.into_expr()?,))?
@@ -402,9 +423,10 @@ pub fn normalize_iter_map_to_expr(expr: impl IntoExpr) -> Result<Expr> {
 }
 
 /// Divide each binding into an outer map of the iterators not in `sub_iters` and an inner map of
-/// those in it: one `[outer, inner]` pair of marks per binding, then a pair whose `extent`s are
-/// the outer and inner predicates, or empty when the bindings cannot be divided
-/// (`sym.SubspaceDivide`).
+/// those in it (`sym.SubspaceDivide`).
+///
+/// The result is one `[outer, inner]` pair of marks per binding, then a pair whose `extent`s are
+/// the outer and inner predicates, or empty when the bindings cannot be divided.
 pub fn subspace_divide(
     bindings: impl IntoIterator<Item = impl IntoExpr>,
     input_iters: &Map<Var, Range>,
@@ -431,7 +453,7 @@ pub fn subspace_divide(
         .try_into()
 }
 
-/// The inputs of the bijective iterator map `iter_map` as expressions of its `outputs`
+/// Return the inputs of the bijective iterator map `iter_map` as expressions of its `outputs`
 /// (`sym.InverseAffineIterMap`).
 pub fn inverse_affine_iter_map(
     iter_map: impl IntoIterator<Item = impl Into<IterSumExpr>>,

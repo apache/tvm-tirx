@@ -21,10 +21,25 @@
 //! Scalar expressions: casts, arithmetic, bitwise and logical operations, comparisons, `Select`
 //! and `Let`.
 //!
-//! The objects `python/tvm_tirx/ir/prim/expr.py` defines. A binary operation such as [`Add`]
-//! holds its operands `a` and `b`. Their `new` is written in Rust after the C++ constructor: it
-//! checks the operand types and derives the result type. The type-promoting operators are in
-//! [`super::op`].
+//! The objects `python/tvm_tirx/ir/prim/expr.py` defines. Their `new` checks the operand types,
+//! and never promotes them as the operators of [`super::op`] do.
+//!
+//! # Examples
+//!
+//! ```
+//! use tvm_tirx::ir::prim::{Add, Select, LT};
+//! use tvm_tirx::ir::{PrimType, Var, UNKNOWN_LOC};
+//! use tvm_tirx::script::script;
+//!
+//! let x = Var::new("x", PrimType::int(32), UNKNOWN_LOC);
+//! let next = Add::new(&x, 1, UNKNOWN_LOC)?;
+//! let capped = Select::new(LT::new(&x, 8, UNKNOWN_LOC)?, next, 8, UNKNOWN_LOC)?;
+//! assert_eq!(script(&capped)?, "T.Select(x < 8, x + 1, 8)");
+//!
+//! let f = Var::new("f", PrimType::float(32), UNKNOWN_LOC);
+//! assert!(Add::new(&x, &f, UNKNOWN_LOC).is_err());
+//! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
+//! ```
 
 // `custom-new` reserves `new` for a constructor with the C++ one's semantics (operand type checks
 // and the derived result type); the generated `from_fields` allocates the fields as given.
@@ -160,6 +175,11 @@ macro_rules! binary_new {
         $(
             impl $node {
                 #[doc = $doc]
+                ///
+                /// # Errors
+                ///
+                /// Returns a `TypeError` if the operand types differ, or do not suit the node, such
+                /// as a float for a bitwise node.
                 pub fn new(
                     a: impl IntoExpr,
                     b: impl IntoExpr,
@@ -236,8 +256,12 @@ tvm_ffi::impl_object_upcast!(Cast => Expr);
 // tvm-ffi-stubgen(end)
 
 impl Cast {
-    /// The node converting `value` to `ty`, which has as many lanes as `value`
+    /// Create the node converting `value` to `ty`, which has as many lanes as `value`
     /// (C++ `Cast(ty, value, loc)`).
+    ///
+    /// # Errors
+    ///
+    /// Returns an `InternalError` if `ty` and the type of `value` have different numbers of lanes.
     pub fn new(
         ty: impl Into<PrimType>,
         value: impl IntoExpr,
@@ -319,7 +343,8 @@ tvm_ffi::impl_object_upcast!(LShift => Expr);
 
 binary_new! {
     LShift: Operands::Bitwise { allow_bool: false },
-        "The node `a << b` over integer operands of the same type (C++ `LShift(a, b, loc)`).";
+        "Create the node `a << b` of integer operands of one type, as C++ \
+         `LShift(a, b, loc)` does.";
 }
 
 // tvm-ffi-stubgen(begin): object/prim.RShift
@@ -384,7 +409,8 @@ tvm_ffi::impl_object_upcast!(RShift => Expr);
 
 binary_new! {
     RShift: Operands::Bitwise { allow_bool: false },
-        "The node `a >> b` over integer operands of the same type (C++ `RShift(a, b, loc)`).";
+        "Create the node `a >> b` of integer operands of one type, as C++ \
+         `RShift(a, b, loc)` does.";
 }
 
 // tvm-ffi-stubgen(begin): object/prim.BitwiseAnd
@@ -449,8 +475,8 @@ tvm_ffi::impl_object_upcast!(BitwiseAnd => Expr);
 
 binary_new! {
     BitwiseAnd: Operands::Bitwise { allow_bool: true },
-        "The node `a & b` over integer or boolean operands of the same type \
-         (C++ `BitwiseAnd(a, b, loc)`).";
+        "Create the node `a & b` of integer or boolean operands of one type, as C++ \
+         `BitwiseAnd(a, b, loc)` does.";
 }
 
 // tvm-ffi-stubgen(begin): object/prim.BitwiseOr
@@ -515,8 +541,8 @@ tvm_ffi::impl_object_upcast!(BitwiseOr => Expr);
 
 binary_new! {
     BitwiseOr: Operands::Bitwise { allow_bool: true },
-        "The node `a | b` over integer or boolean operands of the same type \
-         (C++ `BitwiseOr(a, b, loc)`).";
+        "Create the node `a | b` of integer or boolean operands of one type, as C++ \
+         `BitwiseOr(a, b, loc)` does.";
 }
 
 // tvm-ffi-stubgen(begin): object/prim.BitwiseXor
@@ -581,8 +607,8 @@ tvm_ffi::impl_object_upcast!(BitwiseXor => Expr);
 
 binary_new! {
     BitwiseXor: Operands::Bitwise { allow_bool: true },
-        "The node `a ^ b` over integer or boolean operands of the same type \
-         (C++ `BitwiseXor(a, b, loc)`).";
+        "Create the node `a ^ b` of integer or boolean operands of one type, as C++ \
+         `BitwiseXor(a, b, loc)` does.";
 }
 
 // tvm-ffi-stubgen(begin): object/prim.BitwiseNot
@@ -640,7 +666,11 @@ tvm_ffi::impl_object_upcast!(BitwiseNot => Expr);
 // tvm-ffi-stubgen(end)
 
 impl BitwiseNot {
-    /// The node `~a` over an integer or boolean operand (C++ `BitwiseNot(a, loc)`).
+    /// Create the node `~a` over an integer or boolean operand (C++ `BitwiseNot(a, loc)`).
+    ///
+    /// # Errors
+    ///
+    /// Returns a `TypeError` if `a` is not of an integer or boolean type.
     pub fn new(a: impl IntoExpr, loc: impl Into<Location>) -> Result<Self> {
         let a = a.into_expr()?;
         if !matches!(support::prim_dtype(&a)?.code, support::INT | support::UINT | support::BOOL) {
@@ -717,7 +747,8 @@ tvm_ffi::impl_object_upcast!(Add => Expr);
 // tvm-ffi-stubgen(end)
 
 binary_new! {
-    Add: Operands::Arith, "The node `a + b` over operands of the same type (C++ `Add(a, b, loc)`).";
+    Add: Operands::Arith,
+        "Create the node `a + b` of operands of one type, as C++ `Add(a, b, loc)` does.";
 }
 
 // tvm-ffi-stubgen(begin): object/prim.Sub
@@ -781,7 +812,8 @@ tvm_ffi::impl_object_upcast!(Sub => Expr);
 // tvm-ffi-stubgen(end)
 
 binary_new! {
-    Sub: Operands::Arith, "The node `a - b` over operands of the same type (C++ `Sub(a, b, loc)`).";
+    Sub: Operands::Arith,
+        "Create the node `a - b` of operands of one type, as C++ `Sub(a, b, loc)` does.";
 }
 
 // tvm-ffi-stubgen(begin): object/prim.Mul
@@ -845,7 +877,8 @@ tvm_ffi::impl_object_upcast!(Mul => Expr);
 // tvm-ffi-stubgen(end)
 
 binary_new! {
-    Mul: Operands::Arith, "The node `a * b` over operands of the same type (C++ `Mul(a, b, loc)`).";
+    Mul: Operands::Arith,
+        "Create the node `a * b` of operands of one type, as C++ `Mul(a, b, loc)` does.";
 }
 
 // tvm-ffi-stubgen(begin): object/prim.Div
@@ -909,7 +942,8 @@ tvm_ffi::impl_object_upcast!(Div => Expr);
 // tvm-ffi-stubgen(end)
 
 binary_new! {
-    Div: Operands::Arith, "The node `a / b` over operands of the same type (C++ `Div(a, b, loc)`).";
+    Div: Operands::Arith,
+        "Create the node `a / b` of operands of one type, as C++ `Div(a, b, loc)` does.";
 }
 
 // tvm-ffi-stubgen(begin): object/prim.Mod
@@ -974,7 +1008,7 @@ tvm_ffi::impl_object_upcast!(Mod => Expr);
 
 binary_new! {
     Mod: Operands::Arith,
-        "The node `a % b`, truncated, over operands of the same type (C++ `Mod(a, b, loc)`).";
+        "Create the truncated node `a % b` of operands of one type, as C++ `Mod(a, b, loc)` does.";
 }
 
 // tvm-ffi-stubgen(begin): object/prim.FloorDiv
@@ -1039,7 +1073,8 @@ tvm_ffi::impl_object_upcast!(FloorDiv => Expr);
 
 binary_new! {
     FloorDiv: Operands::Arith,
-        "The node `floor(a / b)` over operands of the same type (C++ `FloorDiv(a, b, loc)`).";
+        "Create the node `floor(a / b)` of operands of one type, as C++ `FloorDiv(a, b, loc)` \
+         does.";
 }
 
 // tvm-ffi-stubgen(begin): object/prim.FloorMod
@@ -1104,8 +1139,8 @@ tvm_ffi::impl_object_upcast!(FloorMod => Expr);
 
 binary_new! {
     FloorMod: Operands::Arith,
-        "The node `a - floor(a / b) * b` over operands of the same type \
-         (C++ `FloorMod(a, b, loc)`).";
+        "Create the node `a - floor(a / b) * b` of operands of one type, as C++ \
+         `FloorMod(a, b, loc)` does.";
 }
 
 // tvm-ffi-stubgen(begin): object/prim.Min
@@ -1170,7 +1205,7 @@ tvm_ffi::impl_object_upcast!(Min => Expr);
 
 binary_new! {
     Min: Operands::Arith,
-        "The node `min(a, b)` over operands of the same type (C++ `Min(a, b, loc)`).";
+        "Create the node `min(a, b)` of operands of one type, as C++ `Min(a, b, loc)` does.";
 }
 
 // tvm-ffi-stubgen(begin): object/prim.Max
@@ -1235,7 +1270,7 @@ tvm_ffi::impl_object_upcast!(Max => Expr);
 
 binary_new! {
     Max: Operands::Arith,
-        "The node `max(a, b)` over operands of the same type (C++ `Max(a, b, loc)`).";
+        "Create the node `max(a, b)` of operands of one type, as C++ `Max(a, b, loc)` does.";
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -1303,7 +1338,8 @@ tvm_ffi::impl_object_upcast!(EQ => Expr);
 
 binary_new! {
     EQ: Operands::Compare,
-        "The node the boolean `a == b` over operands of the same type (C++ `EQ(a, b, loc)`).";
+        "Create the boolean node `a == b` of operands of one type, as C++ `EQ(a, b, loc)` \
+         does.";
 }
 
 // tvm-ffi-stubgen(begin): object/prim.NE
@@ -1368,7 +1404,8 @@ tvm_ffi::impl_object_upcast!(NE => Expr);
 
 binary_new! {
     NE: Operands::Compare,
-        "The node the boolean `a != b` over operands of the same type (C++ `NE(a, b, loc)`).";
+        "Create the boolean node `a != b` of operands of one type, as C++ `NE(a, b, loc)` \
+         does.";
 }
 
 // tvm-ffi-stubgen(begin): object/prim.LT
@@ -1433,7 +1470,8 @@ tvm_ffi::impl_object_upcast!(LT => Expr);
 
 binary_new! {
     LT: Operands::Compare,
-        "The node the boolean `a < b` over operands of the same type (C++ `LT(a, b, loc)`).";
+        "Create the boolean node `a < b` of operands of one type, as C++ `LT(a, b, loc)` \
+         does.";
 }
 
 // tvm-ffi-stubgen(begin): object/prim.LE
@@ -1498,7 +1536,8 @@ tvm_ffi::impl_object_upcast!(LE => Expr);
 
 binary_new! {
     LE: Operands::Compare,
-        "The node the boolean `a <= b` over operands of the same type (C++ `LE(a, b, loc)`).";
+        "Create the boolean node `a <= b` of operands of one type, as C++ `LE(a, b, loc)` \
+         does.";
 }
 
 // tvm-ffi-stubgen(begin): object/prim.GT
@@ -1563,7 +1602,8 @@ tvm_ffi::impl_object_upcast!(GT => Expr);
 
 binary_new! {
     GT: Operands::Compare,
-        "The node the boolean `a > b` over operands of the same type (C++ `GT(a, b, loc)`).";
+        "Create the boolean node `a > b` of operands of one type, as C++ `GT(a, b, loc)` \
+         does.";
 }
 
 // tvm-ffi-stubgen(begin): object/prim.GE
@@ -1628,7 +1668,8 @@ tvm_ffi::impl_object_upcast!(GE => Expr);
 
 binary_new! {
     GE: Operands::Compare,
-        "The node the boolean `a >= b` over operands of the same type (C++ `GE(a, b, loc)`).";
+        "Create the boolean node `a >= b` of operands of one type, as C++ `GE(a, b, loc)` \
+         does.";
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -1695,7 +1736,12 @@ tvm_ffi::impl_object_upcast!(And => Expr);
 // tvm-ffi-stubgen(end)
 
 impl And {
-    /// The node the boolean `a && b` over boolean operands (C++ `And(a, b, loc)`).
+    /// Create the boolean node `a && b` over boolean operands (C++ `And(a, b, loc)`).
+    ///
+    /// # Errors
+    ///
+    /// Returns an `InternalError` if an operand is not boolean, or a `TypeError` if the operand
+    /// types differ.
     pub fn new(a: impl IntoExpr, b: impl IntoExpr, loc: impl Into<Location>) -> Result<Self> {
         let (a, b) = (a.into_expr()?, b.into_expr()?);
         let ty = logical_type(&a, &b)?;
@@ -1764,7 +1810,12 @@ tvm_ffi::impl_object_upcast!(Or => Expr);
 // tvm-ffi-stubgen(end)
 
 impl Or {
-    /// The node the boolean `a || b` over boolean operands (C++ `Or(a, b, loc)`).
+    /// Create the boolean node `a || b` over boolean operands (C++ `Or(a, b, loc)`).
+    ///
+    /// # Errors
+    ///
+    /// Returns an `InternalError` if an operand is not boolean, or a `TypeError` if the operand
+    /// types differ.
     pub fn new(a: impl IntoExpr, b: impl IntoExpr, loc: impl Into<Location>) -> Result<Self> {
         let (a, b) = (a.into_expr()?, b.into_expr()?);
         let ty = logical_type(&a, &b)?;
@@ -1827,7 +1878,11 @@ tvm_ffi::impl_object_upcast!(Not => Expr);
 // tvm-ffi-stubgen(end)
 
 impl Not {
-    /// The node the boolean `!a` over a boolean operand (C++ `Not(a, loc)`).
+    /// Create the boolean node `!a` over a boolean operand (C++ `Not(a, loc)`).
+    ///
+    /// # Errors
+    ///
+    /// Returns an `InternalError` if `a` is not boolean.
     pub fn new(a: impl IntoExpr, loc: impl Into<Location>) -> Result<Self> {
         let a = a.into_expr()?;
         let a_dtype = support::prim_dtype(&a)?;
@@ -1917,8 +1972,13 @@ tvm_ffi::impl_object_upcast!(Select => Expr);
 // tvm-ffi-stubgen(end)
 
 impl Select {
-    /// The node choosing `true_value` where `condition` holds and `false_value` elsewhere, which
-    /// evaluates both (C++ `Select(condition, true_value, false_value, loc)`).
+    /// Create the node choosing `true_value` where `condition` holds and `false_value` elsewhere,
+    /// evaluating both, unlike [`op::if_then_else`](super::op::if_then_else) (C++ `Select`).
+    ///
+    /// # Errors
+    ///
+    /// Returns an `InternalError` if `condition` is not boolean or has other lanes than the values,
+    /// or a `TypeError` if the values are of different types.
     pub fn new(
         condition: impl IntoExpr,
         true_value: impl IntoExpr,
@@ -2028,8 +2088,13 @@ tvm_ffi::impl_object_upcast!(Let => Expr);
 // tvm-ffi-stubgen(end)
 
 impl Let {
-    /// The node binding `var` to `value` in `body`, of the type of `body`
+    /// Create the node binding `var` to `value` in `body`, of the type of `body`
     /// (C++ `Let(var, value, body, loc)`).
+    ///
+    /// # Errors
+    ///
+    /// Returns an `InternalError` if `value` is not of the type of `var`, or a `TypeError` if the
+    /// type of `var` is not a `PrimType`.
     pub fn new(
         var: impl Into<Var>,
         value: impl IntoExpr,

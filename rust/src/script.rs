@@ -20,7 +20,24 @@
 
 //! TVMScript: IR objects printed as the Python script that builds them.
 //!
-//! The printer of `python/tvm_tirx/script/printer/`.
+//! # Examples
+//!
+//! ```
+//! use tvm_tirx::ir::{DictAttrs, Expr, PrimExpr, PrimType, Return, SeqStmt, Var, UNKNOWN_LOC};
+//! use tvm_tirx::script::script;
+//! use tvm_tirx::tirx::Function;
+//! use tvm_tirx::tvm_ffi::Map;
+//!
+//! let x = Var::new("x", PrimType::int(32), UNKNOWN_LOC);
+//! assert_eq!(script(&PrimExpr::try_from(&x * 2 + 1)?)?, "x * 2 + 1");
+//!
+//! let body = SeqStmt::new([Return::new(Expr::try_from(&x + 1)?, UNKNOWN_LOC)], UNKNOWN_LOC);
+//! let attrs = DictAttrs::new(Map::new());
+//! let func = Function::new([&x], &body, PrimType::int(32), attrs, UNKNOWN_LOC);
+//! let text = script(&func)?;
+//! assert!(text.contains("def main(x: T.int32) -> T.int32:\n    return x + 1"));
+//! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
+//! ```
 
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
@@ -38,7 +55,8 @@ use tvm_ffi::Result;
 use tvm_ffi::String;
 // tvm-ffi-stubgen(end)
 
-/// The IR object `obj` as TVMScript, with the default printer config (`script.printer.Script`).
+/// Print the IR object `obj` as TVMScript, with the default printer config
+/// (`script.printer.Script`).
 pub fn script<T: ObjectRefCore + AnyCompatible>(obj: &T) -> Result<String> {
     tvm_ffi::cached_global_func!("script.printer.Script")
         .call_packed(&[AnyView::from(obj), AnyView::new()])?

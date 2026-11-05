@@ -20,9 +20,27 @@
 
 //! Index maps.
 //!
-//! The objects `python/tvm_tirx/tirx/index_map.py` defines. An [`IndexMap`] maps its
-//! `initial_indices` to its `final_indices`, as `(i, j) -> (j, i)` does, and may hold its inverse.
-//! Its methods apply it to indices, shapes and tensors, and invert it.
+//! An [`IndexMap`] maps its `initial_indices` to its `final_indices`, as `(i, j) -> (j, i)` does.
+//!
+//! # Examples
+//!
+//! ```
+//! use tvm_tirx::ir::{Expr, PrimType, Var, UNKNOWN_LOC};
+//! use tvm_tirx::script::script;
+//! use tvm_tirx::tirx::IndexMap;
+//! use tvm_tirx::tvm_ffi::{Array, Result};
+//!
+//! let i = Var::new("i", PrimType::int(32), UNKNOWN_LOC);
+//! let j = Var::new("j", PrimType::int(32), UNKNOWN_LOC);
+//! let final_indices = Array::new(vec![Expr::from(&j), Expr::from(&i)]);
+//! let transpose = IndexMap::new(Array::new(vec![i, j]), final_indices, None);
+//! assert_eq!(script(&transpose)?, "T.index_map(lambda i, j: (j, i))");
+//!
+//! let text = |exprs: Array<Expr>| exprs.iter().map(|e| script(&e)).collect::<Result<Vec<_>>>();
+//! assert_eq!(text(transpose.map_indices([1, 2], None)?)?, ["2", "1"]);
+//!
+//! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
+//! ```
 
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
@@ -111,7 +129,11 @@ impl IndexMap {
 // The native `tirx.IndexMap` stores its fields as given, as the generated `IndexMap::new` does.
 
 impl IndexMap {
-    /// The final indices `indices` map to (`tirx.IndexMapMapIndices`).
+    /// Return the final indices that `indices` map to (`tirx.IndexMapMapIndices`).
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the number of indices differs from that of `initial_indices`.
     pub fn map_indices(
         &self,
         indices: impl IntoIterator<Item = impl IntoExpr>,
@@ -124,7 +146,11 @@ impl IndexMap {
             .try_into()
     }
 
-    /// The shape a buffer of `shape` has after the mapping (`tirx.IndexMapMapShape`).
+    /// Return the shape a buffer of `shape` has after the mapping (`tirx.IndexMapMapShape`).
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the number of extents differs from that of `initial_indices`.
     pub fn map_shape(
         &self,
         shape: impl IntoIterator<Item = impl IntoExpr>,
@@ -136,15 +162,24 @@ impl IndexMap {
             .try_into()
     }
 
-    /// A copy of `tensor` with its elements moved to the mapped indices
+    /// Return a copy of `tensor` with its elements moved to the mapped indices
     /// (`tirx.IndexMapMapTensor`).
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the rank of `tensor` differs from the number of `initial_indices`.
     pub fn map_tensor(&self, tensor: &Tensor) -> Result<Tensor> {
         tvm_ffi::cached_global_func!("tirx.IndexMapMapTensor")
             .call_tuple((self, tensor))?
             .try_into()
     }
 
-    /// The inverse map, which must be bijective over `ranges` (`tirx.IndexMapInverse`).
+    /// Return the inverse map, which must be bijective over `ranges` (`tirx.IndexMapInverse`).
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the final indices are not affine in the initial ones, or the map is not
+    /// provably bijective over `ranges`.
     pub fn inverse(
         &self,
         ranges: impl IntoIterator<Item = impl Into<Range>>,
@@ -156,8 +191,8 @@ impl IndexMap {
             .try_into()
     }
 
-    /// The inverse of a map that may pad `ranges`, and the predicate under which the inverse maps
-    /// to an index in `ranges` (`tirx.IndexMapNonSurjectiveInverse`).
+    /// Return the inverse of a map that may pad `ranges`, and the predicate under which the inverse
+    /// maps to an index in `ranges` (`tirx.IndexMapNonSurjectiveInverse`).
     pub fn non_surjective_inverse(
         &self,
         ranges: impl IntoIterator<Item = impl Into<Range>>,

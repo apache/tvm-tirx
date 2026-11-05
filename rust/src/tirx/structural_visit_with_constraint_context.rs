@@ -17,16 +17,7 @@
  * under the License.
  */
 
-//! Structural visiting with the lexical constraint context.
-//!
-//! The shared Rust structural engine owns dispatch and recursion. This module
-//! supplies its complete native-compatible base and sparse constraint-aware
-//! default hooks; ordinary default traversal is reused when a hook is absent.
-//! Native semantic hooks create no analyzer and do not snapshot mutable IR reads.
-//!
-//! Hook and global-function registration follows the ordinary visitor/binding
-//! trust contract: registered hooks must honor the synchronous ABI, may not retain
-//! or concurrently use the visitor, and registration must not race with traversal.
+//! Constraint-aware structural visiting: visit values with the facts in scope.
 
 use std::borrow::BorrowMut;
 use std::cell::UnsafeCell;
@@ -43,16 +34,10 @@ use tvm_ffi::{
 use super::StructuralVisitorWithConstraintContextObj;
 use crate::sym::{ConstraintContext, ConstraintContextObj};
 
-/// Complete Rust representation of the native constraint-aware visitor base.
+/// The base of a constraint-aware visitor, holding the constraint context of the current value.
 ///
-/// This is distinct from the generated opaque
-/// [`StructuralVisitorWithConstraintContextObj`]. The engine allocates this
-/// complete representation and installs its own callback; no generated opaque
-/// object is allocated. The base has no owning object conversion.
-///
-/// Native semantic hooks can replace the active context and update the private
-/// scope flag through a shared [`StructuralVisitorView::base`] reference. Those
-/// fields use interior mutability; context access clones the current handle.
+/// Unlike the opaque [`StructuralVisitorWithConstraintContextObj`], its layout mirrors the native
+/// one, so it requires the matching native build.
 #[repr(C)]
 pub struct StructuralVisitorWithConstraintContextBase {
     base: StructuralVisitorObj,
@@ -61,9 +46,8 @@ pub struct StructuralVisitorWithConstraintContextBase {
 }
 
 impl StructuralVisitorWithConstraintContextBase {
-    /// Read the current live context. This ordinary owning handle may
-    /// outlive the visitor. Use [`ConstraintContextObj::snapshot`] to retain the
-    /// current prefix or [`ConstraintContextObj::to_array`] for a detached sequence.
+    /// Return the constraint context in effect at the current value; use
+    /// [`ConstraintContextObj::snapshot`] to keep its current prefix.
     pub fn constraints(&self) -> ConstraintContext {
         // No reference to the replaceable field survives this short clone.
         unsafe { (&*self.constraints.get()).clone() }
@@ -120,10 +104,8 @@ unsafe impl StructuralVisitorBase for StructuralVisitorWithConstraintContextBase
     }
 }
 
-/// Scoped access to the shared Rust engine with a constraint-aware base.
-///
-/// Pass the handler's `self` to recursive operations so the engine publishes the
-/// actual exclusive dispatcher reborrow. Inspect premises via `view.base()`.
+/// The running constraint-aware visit, passed to each handler; `view.base().constraints()` gives
+/// the facts in scope.
 ///
 /// ```compile_fail
 /// use tvm_tirx::tirx::structural_visit_with_constraint_context::StructuralVisitorWithConstraintContextView;
@@ -141,37 +123,48 @@ unsafe impl StructuralVisitorBase for StructuralVisitorWithConstraintContextBase
 pub type StructuralVisitorWithConstraintContextView<'a, D> =
     StructuralVisitorView<'a, D, StructuralVisitorWithConstraintContextBase>;
 
-/// Visit with native binding, range and guard semantics through the shared Rust
-/// engine. A matched dispatcher handler owns descent. Unmatched values use the
-/// base's specialized hook or ordinary structural fallback.
+/// Visit `root` with `visitor`, which sees the facts of the bindings, ranges and guards in scope.
+///
+/// A matched handler owns descent; other values are visited by default. Handlers return failures
+/// through `Result` and must not panic: a panic at the native callback boundary aborts the process.
+///
+/// # Examples
 ///
 /// ```
+/// use tvm_tirx::ir::prim::op::PrimOps;
+/// use tvm_tirx::ir::{Evaluate, EvaluateObj, For, ForKind, PrimType, Var, UNKNOWN_LOC};
+/// use tvm_tirx::sym::{Analyzer, ProofStrength};
 /// use tvm_tirx::tirx::structural_visit_with_constraint_context::{
 ///     structural_visit_with_constraint_context as visit,
-///     StructuralVisitorWithConstraintContextView,
+///     StructuralVisitorWithConstraintContextView as View,
 /// };
 /// use tvm_tirx::tvm_ffi::{dispatch, AnyView, Result, VisitInterrupt};
 ///
 /// #[derive(Default)]
-/// struct Count(usize);
-/// #[dispatch(visit, (AnyView<'_>, &mut StructuralVisitorWithConstraintContextView<'_, Self>), Result<Option<VisitInterrupt>>)]
-/// impl Count {
-///     fn visit_number(&mut self, _value: &i64, visitor: &mut StructuralVisitorWithConstraintContextView<'_, Self>)
-///         -> Result<Option<VisitInterrupt>> {
-///         assert_eq!(visitor.base().constraints().local_size(), 0);
-///         self.0 += 1;
-///         Ok(None)
+/// struct BelowSixteen(Vec<bool>);
+///
+/// #[dispatch(visit, (AnyView<'_>, &mut View<'_, Self>), Result<Option<VisitInterrupt>>)]
+/// impl BelowSixteen {
+///     fn visit_evaluate(
+///         &mut self,
+///         node: &EvaluateObj,
+///         visitor: &mut View<'_, Self>,
+///     ) -> Result<Option<VisitInterrupt>> {
+///         let analyzer = Analyzer::new();
+///         analyzer.sync_constraint_context(&visitor.base().constraints())?;
+///         self.0.push(analyzer.can_prove(node.value.less(16), ProofStrength::Default)?);
+///         visitor.default_visit(self, node)
 ///     }
 /// }
-/// let mut count = Count::default();
-/// visit(&7_i64, &mut count)?;
-/// assert_eq!(count.0, 1);
+///
+/// let i = Var::new("i", PrimType::int(32), UNKNOWN_LOC);
+/// let body = Evaluate::new(&i, UNKNOWN_LOC);
+/// let root = For::new(&i, 0, 16, 1, ForKind::Default, body, None, UNKNOWN_LOC)?;
+/// let mut proofs = BelowSixteen::default();
+/// visit(&root, &mut proofs)?;
+/// assert_eq!(proofs.0, [true]);
 /// # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
 /// ```
-///
-/// Callbacks must return failures through `Result` and must not panic: a panic
-/// reaching the non-unwinding native callback boundary aborts the process.
-/// Hooks and reflected metadata retain the ordinary visitor's trust obligations.
 pub fn structural_visit_with_constraint_context<'input, R, H, M, D, O>(
     root: R,
     visitor: H,

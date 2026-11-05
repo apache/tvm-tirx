@@ -17,11 +17,27 @@
  * under the License.
  */
 
-//! The DLPack data types by their fields, for a caller that knows the type it wants:
-//! `dtype::int(32)` where C++ writes `DataType::Int(32)`, instead of parsing `"int32"` with
-//! `DLDataType::try_from_str`. These are plain values with no native call, so they can be
-//! constants and can be compared; [`PrimType::int`](crate::ir::PrimType::int) and its siblings
-//! give the IR type of each.
+//! The DLPack data types by their fields: `dtype::int(32)` where C++ writes `DataType::Int(32)`.
+//!
+//! They are plain values, so they can be constants; [`PrimType::int`](crate::ir::PrimType::int)
+//! and its siblings give the IR type of each.
+//!
+//! # Examples
+//!
+//! ```
+//! use tvm_tirx::ir::{dtype, PrimType};
+//! use tvm_tirx::runtime;
+//! use tvm_tirx::script::script;
+//! use tvm_tirx::tvm_ffi::{DLDevice, DLDeviceType};
+//!
+//! let cpu = DLDevice::new(DLDeviceType::kDLCPU, 0);
+//! let tensor = runtime::empty(&[2, 3], dtype::float(32), cpu, None)?;
+//! assert_eq!(tensor.dtype(), dtype::float(32));
+//!
+//! let half4 = PrimType::from_dtype(dtype::with_lanes(dtype::float(16), 4))?;
+//! assert_eq!(script(&half4)?, "T.float16x4");
+//! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
+//! ```
 
 use tvm_ffi::DLDataType;
 use tvm_ffi::DLDataTypeCode;
@@ -31,44 +47,41 @@ const fn scalar(code: DLDataTypeCode, bits: u8) -> DLDataType {
     DLDataType { code: code as u8, bits, lanes: 1 }
 }
 
-/// The signed integer of `bits` bits (`int32` for 32).
+/// Return the signed integer type of `bits` bits, such as `int32` for 32 (C++
+/// `DataType::Int(bits)`).
 pub const fn int(bits: u8) -> DLDataType {
     scalar(DLDataTypeCode::kDLInt, bits)
 }
 
-/// The unsigned integer of `bits` bits (`uint8` for 8).
+/// Return the unsigned integer type of `bits` bits, such as `uint8` for 8.
 pub const fn uint(bits: u8) -> DLDataType {
     scalar(DLDataTypeCode::kDLUInt, bits)
 }
 
-/// The IEEE floating-point type of `bits` bits (`float32` for 32).
+/// Return the IEEE floating-point type of `bits` bits, such as `float32` for 32.
 pub const fn float(bits: u8) -> DLDataType {
     scalar(DLDataTypeCode::kDLFloat, bits)
 }
 
-/// The brain floating-point type of `bits` bits (`bfloat16` for 16).
+/// Return the brain floating-point type of `bits` bits, such as `bfloat16` for 16.
 pub const fn bfloat(bits: u8) -> DLDataType {
     scalar(DLDataTypeCode::kDLBfloat, bits)
 }
 
-/// The boolean type, stored in 8 bits (`bool`).
+/// Return the boolean type, `bool`, stored in 8 bits.
 pub const fn bool() -> DLDataType {
     scalar(DLDataTypeCode::kDLBool, 8)
 }
 
-/// The void type, which C++ encodes as `handle(0, 0)` (`DataType::Void()`).
+/// Return the void type, which C++ encodes as `handle(0, 0)` (`DataType::Void()`).
 pub const fn void() -> DLDataType {
     DLDataType { code: DLDataTypeCode::kDLOpaqueHandle as u8, bits: 0, lanes: 0 }
 }
 
-/// The vector of `lanes` elements of the scalar `dtype` (C++ `DataType::with_lanes`):
-/// `with_lanes(float(16), 4)` is `float16x4`. `lanes` is stored as the DLPack lane field: a
-/// fixed-length vector has fewer than 32768 lanes, and the values from 32768 up encode the
-/// scalable vectors of [`PrimType::with_scalable_lanes`], which [`PrimType::with_lanes`]
-/// rejects.
+/// Return the vector of `lanes` elements of the scalar `dtype`, such as `float16x4` (C++
+/// `DataType::with_lanes`).
 ///
-/// [`PrimType::with_scalable_lanes`]: crate::ir::PrimType::with_scalable_lanes
-/// [`PrimType::with_lanes`]: crate::ir::PrimType::with_lanes
+/// `lanes` is the raw DLPack lane field: values from 32768 up encode scalable vectors.
 pub const fn with_lanes(dtype: DLDataType, lanes: u16) -> DLDataType {
     DLDataType { code: dtype.code, bits: dtype.bits, lanes }
 }

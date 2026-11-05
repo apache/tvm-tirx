@@ -20,10 +20,28 @@
 
 //! The module: the unit of compilation.
 //!
-//! The objects `python/tvm_tirx/ir/module.py` defines. An [`IRModule`] maps global variables to
-//! functions, and holds the module attributes, the module-level information and the names of its
-//! global variables. [`IRModule::from_functions`] is written in Rust after the C++ constructor;
-//! the other methods wrap the native `ir.IRModule*` functions.
+//! An [`IRModule`] maps global variables to functions, with the module attributes and module-level
+//! information. Adding, updating or removing functions changes the module through every handle to
+//! it; [`IRModule::shallow_copy`] makes one to change independently.
+//!
+//! # Examples
+//!
+//! ```
+//! use tvm_tirx::ir::{BaseFunc, GlobalVar, IRModule, UNKNOWN_LOC};
+//! use tvm_tirx::tvm_ffi::{Map, ObjectRefCore};
+//! # use tvm_tirx::ir::{DictAttrs, PrimType, Return, SeqStmt, Var};
+//! # use tvm_tirx::tirx::Function;
+//! # let body = SeqStmt::new([Return::new(0, UNKNOWN_LOC)], UNKNOWN_LOC);
+//! # let attrs = DictAttrs::new(Map::new());
+//! # let func = Function::new(Vec::<Var>::new(), &body, PrimType::int(32), attrs, UNKNOWN_LOC);
+//!
+//! let main = GlobalVar::new("main", UNKNOWN_LOC);
+//! let functions = Map::from_iter([(main.clone(), BaseFunc::from(func))]);
+//! let module = IRModule::from_functions(&functions, None, &Map::new())?;
+//!
+//! assert!(module.lookup(&main)?.same_as(&module.lookup_name("main")?));
+//! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
+//! ```
 
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
@@ -117,9 +135,12 @@ impl IRModule {
 // tvm-ffi-stubgen(end)
 
 impl IRModule {
-    /// The module of `functions`, with the attributes `attrs` (empty if `None`) and the
-    /// module-level information `global_infos`; it indexes the functions by name, which must be
-    /// distinct (C++ `IRModule(functions, attrs, global_infos)`).
+    /// Create the module of `functions`, with the attributes `attrs` (empty if `None`) and the
+    /// module-level information `global_infos` (C++ `IRModule(functions, attrs, global_infos)`).
+    ///
+    /// # Errors
+    ///
+    /// Returns an `InternalError` if two global variables of `functions` have the same name.
     pub fn from_functions(
         functions: &Map<GlobalVar, BaseFunc>,
         attrs: Option<&DictAttrs>,
@@ -144,21 +165,30 @@ impl IRModule {
         Ok(Self::new(functions.clone(), attrs, global_infos.clone(), global_var_map))
     }
 
-    /// The module of `functions` and `expr`, a function bound to its global symbol or to `main`
-    /// (`ir.IRModuleFromExpr`).
+    /// Create the module of `functions` and `expr`, a function bound to its `global_symbol`, or to
+    /// `main` (made unique) when it has none (`ir.IRModuleFromExpr`).
+    ///
+    /// # Errors
+    ///
+    /// Returns a `TypeError` if `expr` is not a function.
     pub fn from_expr(expr: impl IntoExpr, functions: &Map<GlobalVar, BaseFunc>) -> Result<Self> {
         tvm_ffi::cached_global_func!("ir.IRModuleFromExpr")
             .call_tuple((&expr.into_expr()?, functions))?
             .try_into()
     }
 
-    /// A copy of the module that shares its functions (`ir.IRModuleClone`).
+    /// Return a copy of the module that shares its functions (`ir.IRModuleClone`).
+    ///
     pub fn shallow_copy(&self) -> Result<Self> {
         tvm_ffi::cached_global_func!("ir.IRModuleClone").call_tuple((self,))?.try_into()
     }
 
     /// Add `func` as `var`, replacing an existing definition; the native side currently ignores
     /// `update` (`ir.IRModuleAdd`).
+    ///
+    /// # Errors
+    ///
+    /// Returns an `InternalError` if the module has another global variable of the same name.
     pub fn add(
         &self,
         var: impl Into<GlobalVar>,
@@ -175,58 +205,75 @@ impl IRModule {
     }
 
     /// Remove the function named `name` (`ir.IRModuleRemove`).
+    ///
+    /// # Errors
+    ///
+    /// Returns a `ValueError` if the module has no global variable named `name`.
     pub fn remove(&self, name: &str) -> Result<()> {
         tvm_ffi::cached_global_func!("ir.IRModuleRemove").call_tuple((self, String::from(name)))?;
         Ok(())
     }
 
-    /// Remove the function of `var` (`ir.IRModuleRemove`).
+    /// Remove the function of `var`, if the module has one (`ir.IRModuleRemove`).
     pub fn remove_global_var(&self, var: impl Into<GlobalVar>) -> Result<()> {
         tvm_ffi::cached_global_func!("ir.IRModuleRemove").call_tuple((self, &var.into()))?;
         Ok(())
     }
 
-    /// Whether the module has a global variable named `name` (`ir.IRModuleContains`).
+    /// Return whether the module has a global variable named `name` (`ir.IRModuleContains`).
     pub fn contains(&self, name: &str) -> Result<bool> {
         tvm_ffi::cached_global_func!("ir.IRModuleContains")
             .call_tuple((self, String::from(name)))?
             .try_into()
     }
 
-    /// Whether the module defines a function for `var` (`ir.IRModuleContains`).
+    /// Return whether the module defines a function for `var` (`ir.IRModuleContains`).
     pub fn contains_global_var(&self, var: impl Into<GlobalVar>) -> Result<bool> {
         tvm_ffi::cached_global_func!("ir.IRModuleContains")
             .call_tuple((self, &var.into()))?
             .try_into()
     }
 
-    /// Whether the module has a global variable named `name` (`ir.IRModuleContainGlobalVar`).
+    /// Return whether the module has a global variable named `name`
+    /// (`ir.IRModuleContainGlobalVar`).
     pub fn has_global_var(&self, name: &str) -> Result<bool> {
         tvm_ffi::cached_global_func!("ir.IRModuleContainGlobalVar")
             .call_tuple((self, String::from(name)))?
             .try_into()
     }
 
-    /// The global variable named `name`; fails if there is none (`ir.IRModuleGetGlobalVar`).
+    /// Return the global variable named `name` (`ir.IRModuleGetGlobalVar`).
+    ///
+    /// # Errors
+    ///
+    /// Returns a `ValueError`, which lists the names the module has, if there is none.
     pub fn get_global_var(&self, name: &str) -> Result<GlobalVar> {
         tvm_ffi::cached_global_func!("ir.IRModuleGetGlobalVar")
             .call_tuple((self, String::from(name)))?
             .try_into()
     }
 
-    /// The global variables of the module, sorted by name (`ir.IRModuleGetGlobalVars`).
+    /// Return the global variables of the module, sorted by name (`ir.IRModuleGetGlobalVars`).
     pub fn get_global_vars(&self) -> Result<Array<GlobalVar>> {
         tvm_ffi::cached_global_func!("ir.IRModuleGetGlobalVars").call_tuple((self,))?.try_into()
     }
 
-    /// The function of `var`; fails if there is none (`ir.IRModuleLookup`).
+    /// Return the function of `var` (`ir.IRModuleLookup`).
+    ///
+    /// # Errors
+    ///
+    /// Returns an `InternalError` if the module has no function for `var`.
     pub fn lookup(&self, var: impl Into<GlobalVar>) -> Result<BaseFunc> {
         tvm_ffi::cached_global_func!("ir.IRModuleLookup")
             .call_tuple((self, &var.into()))?
             .try_into()
     }
 
-    /// The function named `name`; fails if there is none (`ir.IRModuleLookupStr`).
+    /// Return the function named `name` (`ir.IRModuleLookupStr`).
+    ///
+    /// # Errors
+    ///
+    /// Returns a `ValueError` if the module has no global variable named `name`.
     pub fn lookup_name(&self, name: &str) -> Result<BaseFunc> {
         tvm_ffi::cached_global_func!("ir.IRModuleLookupStr")
             .call_tuple((self, String::from(name)))?
@@ -234,12 +281,21 @@ impl IRModule {
     }
 
     /// Add or replace the functions of `other` in the module (`ir.IRModuleUpdate`).
+    ///
+    /// # Errors
+    ///
+    /// Returns an `InternalError` if a function of `other` has the name of another global variable
+    /// of the module.
     pub fn update(&self, other: &IRModule) -> Result<()> {
         tvm_ffi::cached_global_func!("ir.IRModuleUpdate").call_tuple((self, other))?;
         Ok(())
     }
 
     /// Set the function of `var` to `func` (`ir.IRModuleUpdateFunction`).
+    ///
+    /// # Errors
+    ///
+    /// Returns an `InternalError` if the module has another global variable of the same name.
     pub fn update_func(&self, var: impl Into<GlobalVar>, func: impl Into<BaseFunc>) -> Result<()> {
         tvm_ffi::cached_global_func!("ir.IRModuleUpdateFunction").call_tuple((
             self,
@@ -249,8 +305,7 @@ impl IRModule {
         Ok(())
     }
 
-    /// Set the module-level information `name` to `global_info`
-    /// (`ir.IRModuleUpdateGlobalInfo`).
+    /// Set the module-level information `name` to `global_info` (`ir.IRModuleUpdateGlobalInfo`).
     pub fn update_global_info(
         &self,
         name: &str,
@@ -265,7 +320,12 @@ impl IRModule {
         Ok(())
     }
 
-    /// The attribute `key` of the module, if set (`ir.IRModuleGetAttr`).
+    /// Return the attribute `key` of the module, or `None` if it is not set (`ir.IRModuleGetAttr`).
+    ///
+    /// # Errors
+    ///
+    /// Returns a `TypeError` if the value is not an object, such as a `bool` or a short string,
+    /// which is stored inline: the native function returns an `Optional<ObjectRef>`.
     pub fn get_attr(&self, key: &str) -> Result<Option<Any>> {
         let value = tvm_ffi::cached_global_func!("ir.IRModuleGetAttr")
             .call_tuple((self, String::from(key)))?;
@@ -273,28 +333,27 @@ impl IRModule {
         Ok((!is_none).then_some(value))
     }
 
-    /// The module with the attribute `key` set to `value` (`ir.IRModuleWithAttr`).
+    /// Return the module with the attribute `key` set to `value` (`ir.IRModuleWithAttr`).
     ///
-    /// Consumes `self`: the module is updated in place when this was its only handle, and copied
-    /// otherwise.
+    /// The module is updated in place when this was its only handle, and copied otherwise.
     pub fn with_attr(self, key: &str, value: impl Into<Any>) -> Result<IRModule> {
         tvm_ffi::cached_global_func!("ir.IRModuleWithAttr")
             .call_tuple((RValueRef::new(self), String::from(key), value.into()))?
             .try_into()
     }
 
-    /// The module with the attributes of `attrs` set (`ir.IRModuleWithAttrs`).
+    /// Return the module with the attributes of `attrs` set (`ir.IRModuleWithAttrs`).
     ///
-    /// Consumes `self`, as [`IRModule::with_attr`] does.
+    /// Consumes `self`, as [`with_attr`](Self::with_attr) does.
     pub fn with_attrs(self, attrs: &Map<String, Any>) -> Result<IRModule> {
         tvm_ffi::cached_global_func!("ir.IRModuleWithAttrs")
             .call_tuple((RValueRef::new(self), attrs))?
             .try_into()
     }
 
-    /// The module without the attribute `key` (`ir.IRModuleWithoutAttr`).
+    /// Return the module without the attribute `key` (`ir.IRModuleWithoutAttr`).
     ///
-    /// Consumes `self`, as [`IRModule::with_attr`] does.
+    /// Consumes `self`, as [`with_attr`](Self::with_attr) does.
     pub fn without_attr(self, key: &str) -> Result<IRModule> {
         tvm_ffi::cached_global_func!("ir.IRModuleWithoutAttr")
             .call_tuple((RValueRef::new(self), String::from(key)))?

@@ -21,11 +21,8 @@
 
 //! The attributes of CUDA instructions.
 //!
-//! The objects `python/tvm_tirx/backend/cuda/op.py` defines. [`TCGen05InstrDescriptorAttrs`] and
-//! [`TCGen05InstrDescriptorBlockScaledAttrs`] are the options of a `tcgen05` instruction
-//! descriptor: data types, the `M`/`N`/`K` shape, transposes and negations.
-//! [`TensorMapEncodeTiledAttr`] is the element data type, rank, interleave, swizzle and
-//! out-of-bound fill of a tiled tensor-map encoding.
+//! [`TCGen05InstrDescriptorAttrs`] and [`TCGen05InstrDescriptorBlockScaledAttrs`] describe a
+//! `tcgen05` instruction descriptor, and [`TensorMapEncodeTiledAttr`] a tiled tensor-map encoding.
 
 // tvm-ffi-stubgen(begin): import-section
 use crate::ir::attrs::Attrs;

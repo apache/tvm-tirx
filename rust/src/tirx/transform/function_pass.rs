@@ -20,9 +20,31 @@
 
 //! Function passes.
 //!
-//! The objects `python/tvm_tirx/tirx/transform/function_pass.py` defines. A [`FunctionPass`] is a
-//! [`Pass`] that transforms each TIRx function of a module, made from a Rust closure with
-//! [`FunctionPass::new`].
+//! A [`FunctionPass`] is a [`Pass`] that transforms each TIRx function of a module.
+//!
+//! # Examples
+//!
+//! ```
+//! use tvm_tirx::ir::transform::{Pass, PassInfo};
+//! use tvm_tirx::tirx::transform::FunctionPass;
+//! # use tvm_tirx::ir::{BaseFunc, DictAttrs, Evaluate, GlobalVar, IRModule, MissingType, SeqStmt};
+//! # use tvm_tirx::ir::{Var, UNKNOWN_LOC};
+//! # use tvm_tirx::tirx::Function;
+//! # use tvm_tirx::tvm_ffi::Map;
+//! # let body = SeqStmt::new([Evaluate::new(1, UNKNOWN_LOC)], UNKNOWN_LOC);
+//! # let attrs = DictAttrs::new(Map::new());
+//! # let main = Function::new(Vec::<Var>::new(), &body, MissingType::new(), attrs, UNKNOWN_LOC);
+//! # let functions = [(GlobalVar::new("main", UNKNOWN_LOC), BaseFunc::from(&main))];
+//! # let module = IRModule::from_functions(&functions.into_iter().collect(), None, &Map::new())?;
+//!
+//! let pass = FunctionPass::new(
+//!     |func, _module, _ctx| Ok((!func.params.is_empty()).then_some(func)),
+//!     PassInfo::new(0, "my_ext.RemoveNullary"),
+//! );
+//! let module = Pass::from(&pass).run(module)?;
+//! assert!(!module.contains("main")?);
+//! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
+//! ```
 
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
@@ -88,12 +110,12 @@ tvm_ffi::impl_object_upcast!(FunctionPass => Pass);
 // tvm-ffi-stubgen(end)
 
 impl FunctionPass {
-    /// The pass described by `pass_info` that replaces each TIRx function of a module by what
-    /// `pass_func` returns for it, the module and the pass context, or removes it for `None`
+    /// Create the pass described by `pass_info` that replaces each TIRx function of a module by
+    /// what `pass_func` returns for it, the module and the pass context, or removes it for `None`
     /// (`tirx.transform.CreateFunctionPass`).
     ///
-    /// `pass_func` owns the function it is given, so it can update it in place when it holds the
-    /// only reference. The pass may run on any thread, so `pass_func` is `Send + Sync`.
+    /// `pass_func` owns the function, so it can update it in place when it holds the only
+    /// reference.
     pub fn new(
         pass_func: impl Fn(Function, IRModule, PassContext) -> Result<Option<Function>>
             + Send

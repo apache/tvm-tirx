@@ -21,9 +21,6 @@
 
 /// Define a view: a reference to an `ExprObj` whose type `$accepts` accepts, named `$type_str`
 /// like the C++ type, which an `Any` holding no expression converts into by `$fallback`.
-///
-/// `ir/expr.rs` defines `PrimExpr` and `IntExpr` with it; the expansion names the types and
-/// traits that file imports.
 macro_rules! typed_expr_view {
     (
         $(#[$meta:meta])*
@@ -124,7 +121,7 @@ macro_rules! typed_expr_view {
             }
         }
 
-        /// The expression object, to read, as [`Expr`] dereferences to it.
+        /// Dereference to the expression object, to read, as [`Expr`] does.
         impl Deref for $name {
             type Target = ExprObj;
 
@@ -134,7 +131,7 @@ macro_rules! typed_expr_view {
         }
 
         impl $name {
-            /// This expression as an [`Expr`], borrowed.
+            /// Borrow this expression as an [`Expr`], without a reference-count increment.
             #[inline]
             pub fn as_expr(&self) -> &Expr {
                 // SAFETY: `Expr` is a `repr(C)` struct of the one `ObjectArc<ExprObj>` the view
@@ -142,19 +139,21 @@ macro_rules! typed_expr_view {
                 unsafe { &*(self as *const Self as *const Expr) }
             }
 
-            /// The type of this expression (C++ `PrimExpr::ty()`), which the view guarantees.
+            /// Return the type of this expression, the [`PrimType`] the view guarantees (C++
+            /// `PrimExpr::ty()`).
             pub fn ty(&self) -> PrimType {
                 self.base.ty.clone().try_cast().expect("a view is typed by a `PrimType`")
             }
 
-            /// The dtype of this expression's type.
+            /// Return the dtype of this expression's type.
             pub fn dtype(&self) -> DLDataType {
                 let ty = self.base.ty.downcast_ref::<PrimTypeObj>();
                 ty.expect("a view is typed by a `PrimType`").dtype
             }
         }
 
-        /// The view of an expression whose type it accepts; a TypeError names any other.
+        /// Convert an expression into the view; a `TypeError` names a type the view does not
+        /// accept.
         impl TryFrom<Expr> for $name {
             type Error = Error;
 

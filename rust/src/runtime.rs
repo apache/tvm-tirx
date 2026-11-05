@@ -18,11 +18,25 @@
  */
 #![allow(dead_code, unused_imports)]
 
-//! The runtime objects the IR refers to.
+//! The runtime objects the IR refers to, tensor allocation and runtime queries.
 //!
-//! A [`MemoryScope`], such as the `scope` of a [`PtrType`](crate::ir::PtrType), is an enum object
-//! that `python/tvm_tirx/runtime/memory_scope.py` defines. The runtime functions the Python package
-//! wraps are here too: tensor allocation and views, device attributes and runtime queries.
+//! A [`MemoryScope`] is the storage scope of a [`PtrType`](crate::ir::PtrType).
+//!
+//! # Examples
+//!
+//! ```
+//! use tvm_tirx::ir::dtype;
+//! use tvm_tirx::runtime;
+//! use tvm_tirx::tvm_ffi::{DLDevice, DLDeviceType};
+//!
+//! let cpu = DLDevice::new(DLDeviceType::kDLCPU, 0);
+//! let buffer = runtime::empty(&[2, 8], dtype::float(32), cpu, None)?;
+//!
+//! let bytes = runtime::create_view(&buffer, &[64], dtype::int(8), 0)?;
+//! assert_eq!(bytes.shape(), &[64]);
+//!
+//! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
+//! ```
 
 // No `prefix`: only the objects with a block below are bound, not all of `runtime`.
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
@@ -83,8 +97,11 @@ impl Deref for MemoryScope {
 // tvm-ffi-stubgen(end)
 
 impl MemoryScope {
-    /// Register the memory scope `name`; an error if it is already registered
-    /// (`runtime.MemoryScopeRegister`).
+    /// Register the memory scope `name` (`runtime.MemoryScopeRegister`).
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if `name` is empty, contains a null character, or is already registered.
     pub fn register(name: &str) -> Result<Self> {
         tvm_ffi::cached_global_func!("runtime.MemoryScopeRegister")
             .call_tuple((String::from(name),))?
@@ -92,8 +109,13 @@ impl MemoryScope {
     }
 }
 
-/// An uninitialized tensor on `device`, in the memory scope `mem_scope` or the global one
+/// Allocate an uninitialized tensor on `device`, in the memory scope `mem_scope` or the global one
 /// (`runtime.TensorAllocWithScope`).
+///
+/// # Errors
+///
+/// Returns an error if the allocator of `device` does not support `mem_scope`; the CPU one supports
+/// only the global scope.
 pub fn empty(
     shape: &[i64],
     dtype: DLDataType,
@@ -105,8 +127,12 @@ pub fn empty(
         .try_into()
 }
 
-/// A view of the storage of `source`, `relative_byte_offset` bytes past its data, with another
-/// shape and data type (`runtime.TensorCreateView`).
+/// Create a view of the storage of `source`, `relative_byte_offset` bytes past its data, with
+/// another shape and data type (`runtime.TensorCreateView`).
+///
+/// # Errors
+///
+/// Returns an error if `source` is not contiguous or the view does not fit in its storage.
 pub fn create_view(
     source: &Tensor,
     shape: &[i64],
@@ -118,8 +144,13 @@ pub fn create_view(
         .try_into()
 }
 
-/// The attribute `name` of `device`, such as `exist` or `max_threads_per_block`; `None` when the
-/// device does not report it (`runtime.GetDeviceAttr`).
+/// Return the attribute `name` of `device`, such as `exist` or `max_threads_per_block`, or `None`
+/// when the device does not report it (`runtime.GetDeviceAttr`).
+///
+/// # Errors
+///
+/// Returns an error if the runtime of the device is not enabled and `name` is not `exist`, which is
+/// then `false`.
 pub fn get_device_attr(device: DLDevice, name: &str) -> Result<Any> {
     tvm_ffi::cached_global_func!("runtime.GetDeviceAttr").call_tuple((
         device.device_type as i32,
@@ -128,15 +159,15 @@ pub fn get_device_attr(device: DLDevice, name: &str) -> Result<Any> {
     ))
 }
 
-/// Whether the runtime of the device or target kind `target` (`"cpu"`, `"cuda"`, `"llvm"`...) is
-/// enabled (`runtime.RuntimeEnabled`).
+/// Return whether the runtime of the device or target kind `target` (`"cpu"`, `"cuda"`,
+/// `"llvm"`...) is enabled (`runtime.RuntimeEnabled`).
 pub fn enabled(target: &str) -> Result<bool> {
     tvm_ffi::cached_global_func!("runtime.RuntimeEnabled")
         .call_tuple((String::from(target),))?
         .try_into()
 }
 
-/// The number of threads the runtime thread pool uses (`runtime.NumThreads`).
+/// Return the number of threads the runtime thread pool uses (`runtime.NumThreads`).
 pub fn num_threads() -> Result<i32> {
     tvm_ffi::cached_global_func!("runtime.NumThreads").call_tuple(())?.try_into()
 }
@@ -144,13 +175,21 @@ pub fn num_threads() -> Result<i32> {
 // The CUDA queries are in the CUDA runtime library, which may not be built or loaded: they are
 // looked up when called, and their absence is an error.
 
-/// The number of CUDA devices (`runtime.GetCudaDeviceCount`).
+/// Return the number of CUDA devices (`runtime.GetCudaDeviceCount`).
+///
+/// # Errors
+///
+/// Returns an error if the CUDA runtime is not built or loaded.
 pub fn get_cuda_device_count() -> Result<i32> {
     tvm_ffi::Function::get_global("runtime.GetCudaDeviceCount")?.call_tuple(())?.try_into()
 }
 
-/// The free and total memory of the current CUDA device, as a message
+/// Return the free and total memory of the current CUDA device, as a message
 /// (`runtime.GetCudaFreeMemory`).
+///
+/// # Errors
+///
+/// Returns an error if the CUDA runtime is not built or loaded.
 pub fn get_cuda_free_memory() -> Result<String> {
     tvm_ffi::Function::get_global("runtime.GetCudaFreeMemory")?.call_tuple(())?.try_into()
 }
