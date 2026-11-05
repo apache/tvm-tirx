@@ -75,39 +75,19 @@ TIRx programs use one TVMScript namespace alias:
 
    from tvm_tirx.script import tirx as T
 
-The namespace exposes three authoring layers. They share the same TIRx
-program, but enter the compiler at different levels:
+The core language supplies loops, branches, scalar expressions, and tensor
+accesses throughout a kernel. CUDA tile operations add an optional expansion
+layer over these constructs and native backend operations. All of them
+coexist in the same TIRx IR:
 
-.. list-table::
-   :header-rows: 1
-   :widths: 25 30 45
-
-   * - Authoring layer
-     - Syntax
-     - Representation and lowering
-   * - Core language
-     - ``T.*``
-     - Creates TIRx statements, expressions, tensors, and control flow.
-   * - Backend operations
-     - ``T.cuda.*`` and ``T.ptx.*``
-     - Creates backend calls directly; these calls bypass tile operation
-       dispatch.
-   * - Tile operations
-     - ``T.cuda.tile.*``
-     - Creates a tile call that is replaced by a target-specific
-       implementation during tile operation dispatch.
-
-``tvm_tirx.script.tirx`` is the construction syntax for the TIRx IR, not a
-separate IR. Tile operation dispatch and layout and scope lowering replace
-high-level TIRx nodes with lower-level TIRx statements and calls:
-
-.. code-block:: text
-
-   T.* ───────────────────────────▶ TIRx statements and expressions ──┐
-   T.cuda.* / T.ptx.* ────────────▶ backend calls ────────────────────┤
-   T.cuda.tile.* ─▶ tile call ─▶ tile operation dispatch ─────────────┤
-                                                                      ▼
-                                        layout and scope lowering ─▶ codegen
+.. figure:: images/authoring_layers.svg
+   :alt: Core language constructs span the whole TIRx program. The optional
+         CUDA tile layer expands through TileDispatch into core statements
+         and expressions, and native backend calls. Direct backend and PTX
+         calls form a thin interface. All constructs share the same TIRx IR,
+         followed by layout and further lowering before code generation.
+   :width: 100%
+   :align: center
 
 The model rests on three constructs:
 
@@ -116,12 +96,11 @@ The model rests on three constructs:
   Ordinary control flow selects the hardware roles that enter a region.
 - **Tensor layout** describes how a logical tensor maps to physical storage:
   which memory it lives in and how its elements are spread across threads and
-  per-thread storage. Tile operation dispatch reads these declarations to
-  choose an implementation.
-- **Tile operation dispatch** selects an implementation for each tile
-  operation according to the operation, the execution scope, the operand
-  layouts, and the target, then generates the loops and addressing that apply
-  it across the whole tile.
+  per-thread storage. Tile operation dispatch uses these declarations to
+  generate per-thread accesses.
+- **Tile operation dispatch** expands tile calls using the execution scope
+  and operand layouts. For CUDA, ``apply`` repeats the specified PTX
+  instruction, while ``ewise`` inlines the supplied scalar function.
 
 Across a full kernel, orchestration stays in ordinary source code, and the
 recurring hardware operations appear as tile operations.
