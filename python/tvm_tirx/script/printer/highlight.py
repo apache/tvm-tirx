@@ -113,20 +113,12 @@ def _get_pygments_style(
     """
     try:
         # pylint: disable=import-outside-toplevel
-        import pygments
-        from packaging import version
         from pygments.style import Style
         from pygments.token import Comment, Keyword, Name, Number, Operator, String
-
-        if version.parse(pygments.__version__) < version.parse("2.4.0"):
-            raise ImportError("Required Pygments version >= 2.4.0 but got " + pygments.__version__)
     except ImportError as err:
-        if err.name == "packaging":
-            name = "packaging"
-        elif err.name == "pygments":
-            name = "Pygments>=2.4.0"
-        else:
+        if err.name != "pygments":
             raise ValueError(f'Package "{err.name}" should not be used')
+        name = "Pygments"
 
         with warnings.catch_warnings():
             warnings.simplefilter("once", UserWarning)
