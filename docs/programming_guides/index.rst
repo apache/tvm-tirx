@@ -96,11 +96,12 @@ The model rests on three constructs:
   Ordinary control flow selects the hardware roles that enter a region.
 - **Tensor layout** describes how a logical tensor maps to physical storage:
   which memory it lives in and how its elements are spread across threads and
-  per-thread storage. Tile operation dispatch uses these declarations to
-  generate per-thread accesses.
-- **Tile operation dispatch** expands tile calls using the execution scope
-  and operand layouts. For CUDA, ``apply`` repeats the specified PTX
-  instruction, while ``ewise`` inlines the supplied scalar function.
+  per-thread storage. Tile operation dispatch reads these declarations to
+  choose an implementation.
+- **Tile operation dispatch** selects an implementation for each tile
+  operation according to the operation, the execution scope, the operand
+  layouts, and the target, then generates the loops and addressing that apply
+  it across the whole tile.
 
 Across a full kernel, orchestration stays in ordinary source code, and the
 recurring hardware operations appear as tile operations.
