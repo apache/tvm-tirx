@@ -97,7 +97,10 @@ fn tile_8x8() -> TileLayout {
 fn void_function(params: Vec<Var>) -> Function {
     let zero = global("ir.Evaluate").call_tuple((int32(0), Location::unknown())).unwrap();
     let body: SeqStmt = global("ir.SeqStmt")
-        .call_tuple((Array::<Stmt>::new(vec![zero.try_into().unwrap()]), Some(Location::unknown())))
+        .call_tuple((
+            Array::<Stmt>::from_vec(vec![zero.try_into().unwrap()]),
+            Some(Location::unknown()),
+        ))
         .unwrap()
         .try_into()
         .unwrap();

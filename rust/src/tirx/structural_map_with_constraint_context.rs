@@ -107,7 +107,7 @@ where
             // original path's permission. The shared engine checks live aliases.
             let replacement = MutationView::from(&mut mapped).with_inplace_mode(mode);
             let result = mutator.default_mutate(self, replacement)?;
-            Ok(UnchangedOr::changed(result.value_or(mapped)))
+            Ok(UnchangedOr::changed(result.value_or_unchanged(mapped)))
         } else {
             // SAFETY: this private adapter runs only inside the shared engine
             // callback. The engine owns the root; recursive callers keep each

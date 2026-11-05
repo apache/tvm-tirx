@@ -43,7 +43,7 @@ fn first_arg_type(call: &CallObj) -> Result<Type> {
 /// The variable a loop binds in its body: an index of the extent's type.
 fn loop_index(call: &CallObj) -> Result<Array<Var>> {
     let ty: PrimType = call.args.get(0)?.ty.clone().try_cast()?;
-    Ok(Array::new(vec![Var::new("i", ty, UNKNOWN_LOC)]))
+    Ok(Array::from_vec(vec![Var::new("i", ty, UNKNOWN_LOC)]))
 }
 
 // A type, which Python constructs from its fields, `T.ExamplePair(T.int32, T.float32)`, as it

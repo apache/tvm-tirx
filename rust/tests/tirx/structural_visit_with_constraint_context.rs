@@ -213,7 +213,7 @@ fn lazy_call_arms_gain_predicates_but_eager_select_arms_do_not() {
     let condition = Var::new("lazy_condition", PrimType::bool(), UNKNOWN_LOC);
     let lazy = prim::op::if_then_else(&condition, int32(21), int32(22)).unwrap();
     let eager = prim::Select::new(&condition, int32(31), int32(32), UNKNOWN_LOC).unwrap();
-    let root = Array::new(vec![lazy, eager.into()]);
+    let root = Array::from_vec(vec![lazy, eager.into()]);
     let mut seen = Leaves::default();
     visit(&root, &mut seen).unwrap();
     assert_eq!(

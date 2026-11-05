@@ -46,7 +46,7 @@ fn mark_is(mark: &IterMark, var: &Var, extent: i64) -> bool {
 #[test]
 fn iter_maps_decompose_into_marks_and_splits() {
     let Fixture { analyzer, x } = fixture();
-    let indices = Array::new(vec![
+    let indices = Array::from_vec(vec![
         op("prim._OpFloorDiv", &x, int32(4)),
         op("prim._OpFloorMod", &x, int32(4)),
     ]);

@@ -32,8 +32,8 @@
 //!
 //! let i = Var::new("i", PrimType::int(32), UNKNOWN_LOC);
 //! let j = Var::new("j", PrimType::int(32), UNKNOWN_LOC);
-//! let final_indices = Array::new(vec![Expr::from(&j), Expr::from(&i)]);
-//! let transpose = IndexMap::new(Array::new(vec![i, j]), final_indices, None);
+//! let final_indices = Array::from_vec(vec![Expr::from(&j), Expr::from(&i)]);
+//! let transpose = IndexMap::new(Array::from_vec(vec![i, j]), final_indices, None);
 //! assert_eq!(script(&transpose)?, "T.index_map(lambda i, j: (j, i))");
 //!
 //! let text = |exprs: Array<Expr>| exprs.iter().map(|e| script(&e)).collect::<Result<Vec<_>>>();
