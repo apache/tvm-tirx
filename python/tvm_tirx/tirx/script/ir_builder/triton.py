@@ -22,7 +22,6 @@ from typing import Any
 
 import triton
 import tvm_ffi
-from packaging import version
 from triton.runtime.jit import type_canonicalisation_dict
 
 import tvm_tirx
@@ -31,7 +30,7 @@ from tvm_tirx.ir import IntImm, PrimType, PtrType, is_prim_expr
 
 from .external_kernel import BaseKernel
 
-if version.parse(triton.__version__) < version.parse("3.3.0"):
+if tuple(int(part) for part in triton.__version__.split(".")[:2]) < (3, 3):
     raise ImportError(
         f"TIR Triton integration requires Triton >= 3.3.0, but found Triton {triton.__version__}"
     )

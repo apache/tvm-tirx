@@ -26,11 +26,11 @@ from tvm_tirx.testing import env
 try:
     import triton
     import triton.language as tl
-    from packaging import version
 except ImportError:
     pytestmark = pytest.skip("Triton is not available", allow_module_level=True)
 else:
-    if version.parse(triton.__version__) < version.parse("3.3.0"):
+    TRITON_VERSION = tuple(int(part) for part in triton.__version__.split(".")[:2])
+    if TRITON_VERSION < (3, 3):
         pytestmark = pytest.skip("Triton >= 3.3.0 is required", allow_module_level=True)
 
 
@@ -83,7 +83,7 @@ def test_triton_call_kernel():
     # Triton omits constexpr arguments and appends global scratch, plus profile
     # scratch starting in 3.5. This kernel requires no scratch allocation.
     scratch_args = [tvm_tirx.tirx.reinterpret(tvm_tirx.ir.IntImm("uint64", 0), ty="handle")]
-    if version.parse(triton.__version__) >= version.parse("3.5.0"):
+    if TRITON_VERSION >= (3, 5):
         scratch_args.append(tvm_tirx.tirx.reinterpret(tvm_tirx.ir.IntImm("uint64", 0), ty="handle"))
 
     # The thread extent is 256 because the kernel is compiled with num_warps=8.

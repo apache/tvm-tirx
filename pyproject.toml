@@ -17,7 +17,7 @@
 
 [project]
 name = "apache-tvm-tirx"
-version = "0.1.0b0"
+version = "0.1.0b1"
 description = "TVM TIRx"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
@@ -42,7 +42,6 @@ dependencies = [
   "apache-tvm-ffi-orcjit>=0.1.3",
   "ml_dtypes",
   "numpy",
-  "packaging",
 ]
 
 [project.urls]
@@ -84,7 +83,6 @@ test = [
   "pytest",
   "pytest-xdist",
   "z3-solver",
-  "packaging",
 ]
 lint = ["ruff", "pre-commit"]
 dev = [{ include-group = "test" }, { include-group = "lint" }]

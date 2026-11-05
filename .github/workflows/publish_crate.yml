@@ -159,7 +159,7 @@ jobs:
           else
             tirx=("apache-tvm-tirx==${RELEASE_VERSION}")
           fi
-          uv pip install "${tirx[@]}" "apache-tvm-ffi==${TVM_FFI_VERSION}"
+          uv pip install "${tirx[@]}" "apache-tvm-ffi==${TVM_FFI_VERSION}" packaging
           python - <<'PY'
           import os
           from importlib.metadata import version
