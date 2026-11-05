@@ -109,6 +109,40 @@ tvm_tirx.compile(search_sorted, target="cuda")(s, q, b)
 torch.testing.assert_close(b, torch.searchsorted(s, q).to(torch.int32))
 
 
+# [break_continue.begin]
+@T.function
+def sum_until_zero(A: T.Tensor((n, 8), T.int32), B: T.Tensor((n,), T.int32)):
+    T.device_entry(launch=T.cuda.LaunchConfig(grid=T.ceildiv(n, 128), block=128))
+    row = T.cuda.block_idx("x") * 128 + T.cuda.thread_idx("x")
+    if row < n:
+        total: T.int32 = 0
+        for j in range(8):
+            value = A[row, j]
+            if value < 0:
+                continue
+            if value == 0:
+                break
+            total += value
+        B[row] = total
+    # [break_continue.end]
+
+
+a = torch.tensor(
+    [
+        [2, -1, 3, 0, 9, 9, 9, 9],
+        [0, 4, 5, 6, 7, 8, 9, 10],
+        [-2, 1, -3, 2, 0, 4, 5, 6],
+        [1, 2, 3, 4, 5, 6, 7, 8],
+        [-1, -2, -3, -4, -5, -6, -7, -8],
+    ],
+    dtype=torch.int32,
+    device="cuda",
+)
+b = torch.empty(a.shape[0], dtype=torch.int32, device="cuda")
+tvm_tirx.compile(sum_until_zero, target="cuda")(a, b)
+torch.testing.assert_close(b, torch.tensor([5, 0, 3, 36, 0], dtype=torch.int32, device="cuda"))
+
+
 # [return.begin]
 @T.function
 def scale(A: T.Tensor((n,), T.float32), B: T.Tensor((n,), T.float32)):
