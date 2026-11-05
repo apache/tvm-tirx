@@ -909,7 +909,7 @@ fn region_body_params(op: &Op, args: &Array<Expr>, attrs: &DictAttrs) -> Result<
         op.clone(),
         args.clone(),
         Some(attrs.clone().into()),
-        Array::new(vec![]),
+        Array::from_vec(vec![]),
     );
     signature.validate()?;
     let params: Array<Var> = get_body_params.call_as(&signature)?;
@@ -1015,7 +1015,7 @@ fn flatten(seq: Array<Stmt>) -> Array<Stmt> {
     }
     let mut flattened = Vec::new();
     seq.iter().for_each(|stmt| append(stmt, &mut flattened));
-    Array::new(flattened)
+    Array::from_vec(flattened)
 }
 
 /// Whether `stmt` is `Evaluate(0)`, the no-op a sequence drops (C++ `IsSeqStmtNoOp`).
@@ -1032,7 +1032,7 @@ fn into_body(stmt: Stmt) -> Result<SeqStmt> {
         return Ok(tvm_ffi::ObjectRefCast::try_cast(stmt).expect("a SeqStmt"));
     }
     let loc = stmt.loc.clone();
-    Ok(SeqStmt::from_fields(loc, flatten(Array::new(vec![stmt]))))
+    Ok(SeqStmt::from_fields(loc, flatten(Array::from_vec(vec![stmt]))))
 }
 
 // tvm-ffi-stubgen(begin): object/ir.If

@@ -102,7 +102,7 @@ fn seq(stmts: impl IntoIterator<Item = impl Into<Stmt>>) -> SeqStmt {
 
 /// A function without parameters that returns `value`.
 fn function(value: i64) -> BaseFunc {
-    let params = Array::<Var>::new(vec![]);
+    let params = Array::<Var>::from_vec(vec![]);
     let body = Some(seq([Return::new(int32(value), UNKNOWN_LOC)]));
     let ret_type: Type = PrimType::int(32).into();
     let attrs = DictAttrs::new(Map::new());

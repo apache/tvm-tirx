@@ -416,7 +416,7 @@ impl ConstraintContextObj {
         }
         let mut facts = Vec::new();
         self.for_each(|fact| facts.push(fact.clone()));
-        Array::new(facts)
+        Array::from_vec(facts)
     }
 }
 

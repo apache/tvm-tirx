@@ -170,7 +170,7 @@ impl DispatchContext {
         let launch_params = launch_params
             .into_iter()
             .map(|(name, var, extent)| {
-                (String::from(name), Array::new(vec![Any::from(var), Any::from(extent)]))
+                (String::from(name), Array::from_vec(vec![Any::from(var), Any::from(extent)]))
             })
             .collect::<Map<String, Array<Any>>>();
         let scope_kind = String::from(scope_kind);

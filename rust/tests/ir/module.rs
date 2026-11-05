@@ -89,7 +89,7 @@ fn modules_agree_with_cpp() {
         [(FfiString::from("note"), Any::from(1i64))].into_iter().collect();
     let attrs = DictAttrs::new(note);
     let infos: Map<FfiString, Array<GlobalInfo>> =
-        [(FfiString::from("info"), Array::new(vec![]))].into_iter().collect();
+        [(FfiString::from("info"), Array::from_vec(vec![]))].into_iter().collect();
     let cases: Vec<ModuleCase> = vec![
         ("IRModule", vec![(main.clone(), function(0)), (other.clone(), function(1))], None),
         ("IRModule(attrs)", vec![(main.clone(), function(0))], Some(&attrs)),

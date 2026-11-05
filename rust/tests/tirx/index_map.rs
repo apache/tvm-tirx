@@ -31,8 +31,8 @@ fn index_maps() {
     let _serial = serial();
     let (i, j) = (var("i", PrimType::int(32)), var("j", PrimType::int(32)));
     let transpose = IndexMap::new(
-        Array::new(vec![i.clone(), j.clone()]),
-        Array::new(vec![Expr::from(&j), Expr::from(&i)]),
+        Array::from_vec(vec![i.clone(), j.clone()]),
+        Array::from_vec(vec![Expr::from(&j), Expr::from(&i)]),
         None,
     );
     let mapped = transpose.map_indices([int32(1), int32(2)], None).unwrap();
@@ -44,8 +44,8 @@ fn index_maps() {
 
     let k = var("k", PrimType::int(32));
     let split = IndexMap::new(
-        Array::new(vec![k.clone()]),
-        Array::new(vec![
+        Array::from_vec(vec![k.clone()]),
+        Array::from_vec(vec![
             op("prim._OpFloorDiv", &k, int32(4)),
             op("prim._OpFloorMod", &k, int32(4)),
         ]),

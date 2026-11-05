@@ -144,9 +144,9 @@ fn ops_registered_from_rust_are_used_natively() {
         .call_tuple((
             Option::<Type>::None,
             Expr::from(&op),
-            Array::<Expr>::new(vec![x.clone().into()]),
+            Array::<Expr>::from_vec(vec![x.clone().into()]),
             Option::<Attrs>::None,
-            Array::<Type>::new(vec![]),
+            Array::<Type>::from_vec(vec![]),
             tvm_tirx::ir::Location::unknown(),
         ))
         .unwrap()
@@ -503,7 +503,7 @@ fn launch_body_params(call: &CallObj) -> Result<Array<Var>> {
         );
         return Err(Error::new(VALUE_ERROR, &message, ""));
     }
-    Ok(Array::new(vec![Var::new("", extent_ty, UNKNOWN_LOC)]))
+    Ok(Array::from_vec(vec![Var::new("", extent_ty, UNKNOWN_LOC)]))
 }
 
 fn no_results_or_attributes(region: &RegionStmtObj) -> Result<()> {

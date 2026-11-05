@@ -104,7 +104,7 @@ impl OpDef {
     pub fn signature<S: Specs>(self, specs: S) -> Self {
         let mut description = sig::Description::default();
         specs.describe(&mut description);
-        let lists = description.into_lists().map(Array::new);
+        let lists = description.into_lists().map(Array::from_vec);
         let args: Vec<AnyView> = lists.iter().map(AnyView::from).collect();
         let def = self.invoke("_set_signature", &args).then(|op| {
             if !op.validator_is_custom() {

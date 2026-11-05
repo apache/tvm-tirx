@@ -380,7 +380,7 @@ fn calls_agree_with_cpp() {
     ];
     for (what, ty, op, args) in cases {
         let array: Array<Expr> = args.iter().cloned().collect();
-        let (attrs, ty_args) = (Option::<Attrs>::None, Array::<Type>::new(vec![]));
+        let (attrs, ty_args) = (Option::<Attrs>::None, Array::<Type>::from_vec(vec![]));
         let native_call = native(
             "ir.Call",
             &[

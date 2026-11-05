@@ -35,7 +35,7 @@ fn tensor_regions() {
         TensorType::new([int32(4)], PrimType::float(32), &scope, 0, None, UNKNOWN_LOC).unwrap();
     let tensor = var("T", &ty);
     let load: Expr = global("ir.TensorLoad")
-        .call_tuple((Expr::from(&tensor), Array::new(vec![int32(1)]), Location::unknown()))
+        .call_tuple((Expr::from(&tensor), Array::from_vec(vec![int32(1)]), Location::unknown()))
         .unwrap()
         .try_into()
         .unwrap();
