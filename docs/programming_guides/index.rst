@@ -80,7 +80,7 @@ accesses throughout a kernel. CUDA tile operations add an optional expansion
 layer over these constructs and native backend operations. All of them
 coexist in the same TIRx IR:
 
-.. figure:: images/authoring_layers.svg
+.. figure:: https://tvm.apache.org/images/docs/tirx/authoring_layers.svg
    :alt: Core language constructs span the whole TIRx program. The optional
          CUDA tile layer expands through TileDispatch into core statements
          and expressions, and native backend calls. Direct backend and PTX

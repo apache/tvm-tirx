@@ -60,7 +60,6 @@ ALLOW_EXTENSION = {
     "j2",
     # images
     "png",
-    "svg",
     # misc
     "properties",
     "template",
