@@ -58,6 +58,7 @@
 // tvm-ffi-stubgen(import-object): crate::ir::expr::IntoExpr
 
 // tvm-ffi-stubgen(begin): import-section
+use std::borrow::Borrow;
 use crate::ir::expr::Expr;
 use crate::ir::expr::ExprObj;
 use crate::ir::expr::IntoExpr;
@@ -317,9 +318,9 @@ impl IterSplitExpr {
         tvm_ffi::cached_global_func!("sym.IterSplitExpr")
             .call_tuple((
                 &source.into(),
-                &lower_factor.into_expr()?,
-                &extent.into_expr()?,
-                &scale.into_expr()?,
+                lower_factor.into_expr()?.borrow(),
+                extent.into_expr()?.borrow(),
+                scale.into_expr()?.borrow(),
             ))?
             .try_into()
     }
@@ -365,8 +366,9 @@ pub fn detect_iter_map(
     analyzer: Option<&Analyzer>,
     simplify_trivial_iterators: bool,
 ) -> Result<IterMapResult> {
-    let indices = indices.into_iter().map(IntoExpr::into_expr).collect::<Result<Array<Expr>>>()?;
-    let (predicate, analyzer) = (predicate.into_expr()?, analyzer.cloned());
+    let indices =
+        indices.into_iter().map(IntoExpr::into_owned_expr).collect::<Result<Array<Expr>>>()?;
+    let (predicate, analyzer) = (predicate.into_owned_expr()?, analyzer.cloned());
     tvm_ffi::cached_global_func!("sym.DetectIterMap")
         .call_packed(&[
             AnyView::from(&indices),
@@ -387,7 +389,7 @@ pub fn normalize_to_iter_sum(
     analyzer: Option<&Analyzer>,
 ) -> Result<IterSumExpr> {
     tvm_ffi::cached_global_func!("sym.NormalizeToIterSum")
-        .call_tuple((&index.into_expr()?, input_iters, analyzer.cloned()))?
+        .call_tuple((index.into_expr()?.borrow(), input_iters, analyzer.cloned()))?
         .try_into()
 }
 
@@ -401,8 +403,9 @@ pub fn iter_map_simplify(
     analyzer: Option<&Analyzer>,
     simplify_trivial_iterators: bool,
 ) -> Result<Array<Expr>> {
-    let indices = indices.into_iter().map(IntoExpr::into_expr).collect::<Result<Array<Expr>>>()?;
-    let (predicate, analyzer) = (predicate.into_expr()?, analyzer.cloned());
+    let indices =
+        indices.into_iter().map(IntoExpr::into_owned_expr).collect::<Result<Array<Expr>>>()?;
+    let (predicate, analyzer) = (predicate.into_owned_expr()?, analyzer.cloned());
     tvm_ffi::cached_global_func!("sym.IterMapSimplify")
         .call_packed(&[
             AnyView::from(&indices),
@@ -418,7 +421,7 @@ pub fn iter_map_simplify(
 /// Return the plain expression of the iterator map `expr` (`sym.NormalizeIterMapToExpr`).
 pub fn normalize_iter_map_to_expr(expr: impl IntoExpr) -> Result<Expr> {
     tvm_ffi::cached_global_func!("sym.NormalizeIterMapToExpr")
-        .call_tuple((&expr.into_expr()?,))?
+        .call_tuple((expr.into_expr()?.borrow(),))?
         .try_into()
 }
 
@@ -437,9 +440,9 @@ pub fn subspace_divide(
     simplify_trivial_iterators: bool,
 ) -> Result<Array<Array<IterMark>>> {
     let bindings =
-        bindings.into_iter().map(IntoExpr::into_expr).collect::<Result<Array<Expr>>>()?;
+        bindings.into_iter().map(IntoExpr::into_owned_expr).collect::<Result<Array<Expr>>>()?;
     let sub_iters = sub_iters.into_iter().map(Into::into).collect::<Array<Var>>();
-    let (predicate, analyzer) = (predicate.into_expr()?, analyzer.cloned());
+    let (predicate, analyzer) = (predicate.into_owned_expr()?, analyzer.cloned());
     tvm_ffi::cached_global_func!("sym.SubspaceDivide")
         .call_packed(&[
             AnyView::from(&bindings),
@@ -460,7 +463,8 @@ pub fn inverse_affine_iter_map(
     outputs: impl IntoIterator<Item = impl IntoExpr>,
 ) -> Result<Map<Var, Expr>> {
     let iter_map = iter_map.into_iter().map(Into::into).collect::<Array<IterSumExpr>>();
-    let outputs = outputs.into_iter().map(IntoExpr::into_expr).collect::<Result<Array<Expr>>>()?;
+    let outputs =
+        outputs.into_iter().map(IntoExpr::into_owned_expr).collect::<Result<Array<Expr>>>()?;
     tvm_ffi::cached_global_func!("sym.InverseAffineIterMap")
         .call_tuple((&iter_map, &outputs))?
         .try_into()

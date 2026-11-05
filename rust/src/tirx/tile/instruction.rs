@@ -36,6 +36,7 @@
 // tvm-ffi-stubgen(import-object): crate::ir::expr::IntoExpr
 
 // tvm-ffi-stubgen(begin): import-section
+use std::borrow::Borrow;
 use crate::ir::attrs::Attrs;
 use crate::ir::attrs::AttrsObj;
 use crate::ir::expr::Call;
@@ -206,7 +207,7 @@ tvm_ffi::impl_object_upcast!(TrnAttrs => Attrs);
 /// Returns an error if `value` is neither.
 pub fn as_tensor_region(value: impl IntoExpr) -> Result<TensorRegion> {
     tvm_ffi::cached_global_func!("tirx.AsTensorRegion")
-        .call_tuple((&value.into_expr()?,))?
+        .call_tuple((value.into_expr()?.borrow(),))?
         .try_into()
 }
 

@@ -185,7 +185,7 @@ pub fn logaddexp(a: impl IntoExpr, b: impl IntoExpr) -> Result<Expr> {
 
 /// Build [`logaddexp`] with the casts at `loc`.
 pub fn logaddexp_at(a: impl IntoExpr, b: impl IntoExpr, loc: impl Into<Location>) -> Result<Expr> {
-    let (a, b) = (a.into_expr()?, b.into_expr()?);
+    let (a, b) = (a.into_owned_expr()?, b.into_owned_expr()?);
     for (operand, side) in [(&a, "a"), (&b, "b")] {
         if support::prim_dtype(operand)?.code != support::FLOAT {
             let condition = format!("{side}.ty().MatchesCode(DLDataTypeCode::kDLFloat)");
@@ -228,7 +228,7 @@ pub fn reinterpret_at(
     value: impl IntoExpr,
     loc: impl Into<Location>,
 ) -> Result<Expr> {
-    let (ty, value, loc) = (ty.into(), value.into_expr()?, loc.into());
+    let (ty, value, loc) = (ty.into(), value.into_owned_expr()?, loc.into());
     let target_is_pointer = ty.downcast_ref::<PtrTypeObj>().is_some();
     let source_is_pointer = value.ty.downcast_ref::<PtrTypeObj>().is_some();
     let type_error = |condition: &str, message: std::string::String| {
@@ -350,7 +350,7 @@ pub fn fast_erf_float_expr(arg: impl IntoExpr, bits: u8) -> Result<Expr> {
         -2.13374055278905e-04,
         -1.45660718464996e-05,
     ];
-    let x = arg.into_expr()?.min(constant(4.0)).max(constant(-4.0));
+    let x = arg.into_owned_expr()?.min(constant(4.0)).max(constant(-4.0));
     let x2 = &x * &x;
     // Horner's rule from the highest coefficient down, as C++ writes it out.
     let mut p = &x2 * constant(alpha[6]) + constant(alpha[5]);

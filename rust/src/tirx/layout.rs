@@ -55,6 +55,7 @@
 // tvm-ffi-stubgen(import-object): crate::ir::expr::IntoExpr
 
 // tvm-ffi-stubgen(begin): import-section
+use std::borrow::Borrow;
 use crate::ir::expr::Expr;
 use crate::ir::expr::IntoExpr;
 use crate::ir::support;
@@ -142,7 +143,8 @@ impl Layout {
         coord: impl IntoIterator<Item = impl IntoExpr>,
         analyzer: &Analyzer,
     ) -> Result<Map<String, Expr>> {
-        let coord = coord.into_iter().map(IntoExpr::into_expr).collect::<Result<Array<Expr>>>()?;
+        let coord =
+            coord.into_iter().map(IntoExpr::into_owned_expr).collect::<Result<Array<Expr>>>()?;
         tvm_ffi::cached_global_func!("tirx.LayoutApply")
             .call_tuple((self, &coord, analyzer))?
             .try_into()
@@ -156,7 +158,7 @@ impl Layout {
         analyzer: &Analyzer,
     ) -> Result<Map<String, Expr>> {
         tvm_ffi::cached_global_func!("tirx.LayoutApplyLinear")
-            .call_tuple((self, &coord.into_expr()?, analyzer))?
+            .call_tuple((self, coord.into_expr()?.borrow(), analyzer))?
             .try_into()
     }
 
@@ -168,8 +170,10 @@ impl Layout {
         shape: impl IntoIterator<Item = impl IntoExpr>,
         analyzer: &Analyzer,
     ) -> Result<Map<String, Expr>> {
-        let coord = coord.into_iter().map(IntoExpr::into_expr).collect::<Result<Array<Expr>>>()?;
-        let shape = shape.into_iter().map(IntoExpr::into_expr).collect::<Result<Array<Expr>>>()?;
+        let coord =
+            coord.into_iter().map(IntoExpr::into_owned_expr).collect::<Result<Array<Expr>>>()?;
+        let shape =
+            shape.into_iter().map(IntoExpr::into_owned_expr).collect::<Result<Array<Expr>>>()?;
         tvm_ffi::cached_global_func!("tirx.LayoutApplyWithShape")
             .call_tuple((self, &coord, &shape, analyzer))?
             .try_into()
@@ -194,10 +198,14 @@ impl Layout {
         inner_shape: impl IntoIterator<Item = impl IntoExpr>,
     ) -> Result<Layout> {
         let outer = outer.into();
-        let outer_shape =
-            outer_shape.into_iter().map(IntoExpr::into_expr).collect::<Result<Array<Expr>>>()?;
-        let inner_shape =
-            inner_shape.into_iter().map(IntoExpr::into_expr).collect::<Result<Array<Expr>>>()?;
+        let outer_shape = outer_shape
+            .into_iter()
+            .map(IntoExpr::into_owned_expr)
+            .collect::<Result<Array<Expr>>>()?;
+        let inner_shape = inner_shape
+            .into_iter()
+            .map(IntoExpr::into_owned_expr)
+            .collect::<Result<Array<Expr>>>()?;
         tvm_ffi::cached_global_func!("tirx.LayoutTile")
             .call_tuple((self, &outer, &outer_shape, &inner_shape))?
             .try_into()
@@ -291,7 +299,8 @@ impl TileLayout {
         &self,
         shape: impl IntoIterator<Item = impl IntoExpr>,
     ) -> Result<(TileLayout, Array<i64>)> {
-        let shape = shape.into_iter().map(IntoExpr::into_expr).collect::<Result<Array<Expr>>>()?;
+        let shape =
+            shape.into_iter().map(IntoExpr::into_owned_expr).collect::<Result<Array<Expr>>>()?;
         let pair: Array<Any> = tvm_ffi::cached_global_func!("tirx.TileLayoutGroup")
             .call_tuple((self, &shape))?
             .try_into()?;

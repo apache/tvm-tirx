@@ -52,6 +52,7 @@
 // tvm-ffi-stubgen(import-object): crate::ir::expr::IntoExpr
 
 // tvm-ffi-stubgen(begin): import-section
+use std::borrow::Borrow;
 use crate::ir::expr::Expr;
 use crate::ir::expr::IntoExpr;
 use crate::ir::expr::Range;
@@ -106,14 +107,14 @@ impl IntSet {
     /// (`sym.IntSetVector`).
     pub fn vector(vec: impl IntoExpr) -> Result<Self> {
         tvm_ffi::cached_global_func!("sym.IntSetVector")
-            .call_tuple((&vec.into_expr()?,))?
+            .call_tuple((vec.into_expr()?.borrow(),))?
             .try_into()
     }
 
     /// Return the set that holds only `point` (`sym.IntSetSinglePoint`).
     pub fn single_point(point: impl IntoExpr) -> Result<Self> {
         tvm_ffi::cached_global_func!("sym.IntSetSinglePoint")
-            .call_tuple((&point.into_expr()?,))?
+            .call_tuple((point.into_expr()?.borrow(),))?
             .try_into()
     }
 }
@@ -185,7 +186,7 @@ pub fn estimate_region_lower_bound(
 ) -> Result<Option<Array<IntSet>>> {
     let region = region.into_iter().map(Into::into).collect::<Array<Range>>();
     tvm_ffi::cached_global_func!("sym.EstimateRegionLowerBound")
-        .call_tuple((&region, var_dom, &predicate.into_expr()?, analyzer.cloned()))?
+        .call_tuple((&region, var_dom, predicate.into_expr()?.borrow(), analyzer.cloned()))?
         .try_into()
 }
 
@@ -199,7 +200,7 @@ pub fn estimate_region_strict_bound(
 ) -> Result<Option<Array<IntSet>>> {
     let region = region.into_iter().map(Into::into).collect::<Array<Range>>();
     tvm_ffi::cached_global_func!("sym.EstimateRegionStrictBound")
-        .call_tuple((&region, var_dom, &predicate.into_expr()?, analyzer.cloned()))?
+        .call_tuple((&region, var_dom, predicate.into_expr()?.borrow(), analyzer.cloned()))?
         .try_into()
 }
 
@@ -213,7 +214,7 @@ pub fn estimate_region_upper_bound(
 ) -> Result<Array<IntSet>> {
     let region = region.into_iter().map(Into::into).collect::<Array<Range>>();
     tvm_ffi::cached_global_func!("sym.EstimateRegionUpperBound")
-        .call_tuple((&region, var_dom, &predicate.into_expr()?, analyzer.cloned()))?
+        .call_tuple((&region, var_dom, predicate.into_expr()?.borrow(), analyzer.cloned()))?
         .try_into()
 }
 
@@ -244,6 +245,6 @@ pub fn deduce_bound(
     relax_map: &Map<Var, IntSet>,
 ) -> Result<IntSet> {
     tvm_ffi::cached_global_func!("sym.DeduceBound")
-        .call_tuple((&var.into_expr()?, &cond.into_expr()?, hint_map, relax_map))?
+        .call_tuple((var.into_expr()?.borrow(), cond.into_expr()?.borrow(), hint_map, relax_map))?
         .try_into()
 }

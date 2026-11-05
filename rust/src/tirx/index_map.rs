@@ -140,7 +140,7 @@ impl IndexMap {
         analyzer: Option<&Analyzer>,
     ) -> Result<Array<Expr>> {
         let indices =
-            indices.into_iter().map(IntoExpr::into_expr).collect::<Result<Array<Expr>>>()?;
+            indices.into_iter().map(IntoExpr::into_owned_expr).collect::<Result<Array<Expr>>>()?;
         tvm_ffi::cached_global_func!("tirx.IndexMapMapIndices")
             .call_tuple((self, &indices, analyzer.cloned()))?
             .try_into()
@@ -156,7 +156,8 @@ impl IndexMap {
         shape: impl IntoIterator<Item = impl IntoExpr>,
         analyzer: Option<&Analyzer>,
     ) -> Result<Array<Expr>> {
-        let shape = shape.into_iter().map(IntoExpr::into_expr).collect::<Result<Array<Expr>>>()?;
+        let shape =
+            shape.into_iter().map(IntoExpr::into_owned_expr).collect::<Result<Array<Expr>>>()?;
         tvm_ffi::cached_global_func!("tirx.IndexMapMapShape")
             .call_tuple((self, &shape, analyzer.cloned()))?
             .try_into()

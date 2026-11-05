@@ -185,7 +185,7 @@ macro_rules! binary_new {
                     b: impl IntoExpr,
                     loc: impl Into<Location>,
                 ) -> Result<Self> {
-                    let (a, b) = (a.into_expr()?, b.into_expr()?);
+                    let (a, b) = (a.into_owned_expr()?, b.into_owned_expr()?);
                     let ty = binary_type(stringify!($node), $operands, &a, &b)?;
                     Ok(Self::from_fields(loc.into(), ty, a, b))
                 }
@@ -267,7 +267,7 @@ impl Cast {
         value: impl IntoExpr,
         loc: impl Into<Location>,
     ) -> Result<Self> {
-        let (ty, value) = (ty.into(), value.into_expr()?);
+        let (ty, value) = (ty.into(), value.into_owned_expr()?);
         let value_dtype = support::prim_dtype(&value)?;
         if ty.dtype.lanes != value_dtype.lanes {
             let condition = "ty->dtype.lanes == value_expr_ty->dtype.lanes";
@@ -672,7 +672,7 @@ impl BitwiseNot {
     ///
     /// Returns a `TypeError` if `a` is not of an integer or boolean type.
     pub fn new(a: impl IntoExpr, loc: impl Into<Location>) -> Result<Self> {
-        let a = a.into_expr()?;
+        let a = a.into_owned_expr()?;
         if !matches!(support::prim_dtype(&a)?.code, support::INT | support::UINT | support::BOOL) {
             let condition = "a_ty.MatchesCode(DLDataTypeCode::kDLInt, DLDataTypeCode::kDLUInt) || \
                              a_ty.MatchesCode(DLDataTypeCode::kDLBool)";
@@ -1743,7 +1743,7 @@ impl And {
     /// Returns an `InternalError` if an operand is not boolean, or a `TypeError` if the operand
     /// types differ.
     pub fn new(a: impl IntoExpr, b: impl IntoExpr, loc: impl Into<Location>) -> Result<Self> {
-        let (a, b) = (a.into_expr()?, b.into_expr()?);
+        let (a, b) = (a.into_owned_expr()?, b.into_owned_expr()?);
         let ty = logical_type(&a, &b)?;
         Ok(Self::from_fields(loc.into(), ty, a, b))
     }
@@ -1817,7 +1817,7 @@ impl Or {
     /// Returns an `InternalError` if an operand is not boolean, or a `TypeError` if the operand
     /// types differ.
     pub fn new(a: impl IntoExpr, b: impl IntoExpr, loc: impl Into<Location>) -> Result<Self> {
-        let (a, b) = (a.into_expr()?, b.into_expr()?);
+        let (a, b) = (a.into_owned_expr()?, b.into_owned_expr()?);
         let ty = logical_type(&a, &b)?;
         Ok(Self::from_fields(loc.into(), ty, a, b))
     }
@@ -1884,7 +1884,7 @@ impl Not {
     ///
     /// Returns an `InternalError` if `a` is not boolean.
     pub fn new(a: impl IntoExpr, loc: impl Into<Location>) -> Result<Self> {
-        let a = a.into_expr()?;
+        let a = a.into_owned_expr()?;
         let a_dtype = support::prim_dtype(&a)?;
         if a_dtype.code != support::BOOL {
             let condition = "a_ty.MatchesCode(DLDataTypeCode::kDLBool)";
@@ -1985,8 +1985,11 @@ impl Select {
         false_value: impl IntoExpr,
         loc: impl Into<Location>,
     ) -> Result<Self> {
-        let (condition, true_value, false_value) =
-            (condition.into_expr()?, true_value.into_expr()?, false_value.into_expr()?);
+        let (condition, true_value, false_value) = (
+            condition.into_owned_expr()?,
+            true_value.into_owned_expr()?,
+            false_value.into_owned_expr()?,
+        );
         let condition_dtype = support::prim_dtype(&condition)?;
         let true_dtype = support::prim_dtype(&true_value)?;
         let false_dtype = support::prim_dtype(&false_value)?;
@@ -2101,7 +2104,7 @@ impl Let {
         body: impl IntoExpr,
         loc: impl Into<Location>,
     ) -> Result<Self> {
-        let (var, value, body) = (var.into(), value.into_expr()?, body.into_expr()?);
+        let (var, value, body) = (var.into(), value.into_owned_expr()?, body.into_owned_expr()?);
         let value_dtype = support::prim_dtype(&value)?;
         support::prim_dtype(&body)?;
         let Some(var_ty) = var.ty.downcast_ref::<PrimTypeObj>() else {

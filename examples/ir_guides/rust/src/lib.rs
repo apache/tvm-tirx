@@ -24,11 +24,8 @@
 
 use std::collections::HashMap;
 
-use tvm_tirx::ir::prim::{make_const, Add, AddObj, Mul, MulObj};
-use tvm_tirx::ir::{
-    Expr, For, ForObj, If, IfObj, IntImmObj, PrimType, TensorStore, TensorStoreObj, Var, VarObj,
-    UNKNOWN_LOC,
-};
+use tvm_tirx::ir::prim::{make_const, Add, Mul};
+use tvm_tirx::ir::{Expr, For, If, IntImm, PrimType, TensorStore, Var, UNKNOWN_LOC};
 use tvm_tirx::script::script;
 use tvm_tirx::sym::{Analyzer, ConstraintContext, ProofStrength};
 use tvm_tirx::tirx::structural_map_with_constraint_context::structural_map_with_constraint_context;
@@ -92,10 +89,10 @@ fn casts() -> Result<Strings> {
 fn describe(expr: &Expr) -> Result<String> {
     let text = match_any! {
         AnyView::from(expr) {
-            AddObj(ref add) => format!("({} + {})", describe(&add.a)?, describe(&add.b)?),
-            MulObj(ref mul) => format!("({} * {})", describe(&mul.a)?, describe(&mul.b)?),
-            VarObj(ref var) => var.name.as_str().to_owned(),
-            IntImmObj(ref imm) => imm.value.to_string(),
+            Add(ref add) => format!("({} + {})", describe(&add.a)?, describe(&add.b)?),
+            Mul(ref mul) => format!("({} * {})", describe(&mul.a)?, describe(&mul.b)?),
+            Var(ref var) => var.name.as_str().to_owned(),
+            IntImm(ref imm) => imm.value.to_string(),
             _ => "<other>".to_owned(),
         }
     };
@@ -116,7 +113,7 @@ struct Printer;
 
 #[dispatch(print, (AnyView<'_>, bool), String)]
 impl Printer {
-    fn print_add(&self, add: &AddObj, nested: bool) -> String {
+    fn print_add(&self, add: &Add, nested: bool) -> String {
         let text = format!("{} + {}", self.show(&add.a, true), self.show(&add.b, true));
         if nested {
             format!("({text})")
@@ -125,11 +122,11 @@ impl Printer {
         }
     }
 
-    fn print_var(&self, var: &VarObj) -> String {
+    fn print_var(&self, var: &Var) -> String {
         var.name.as_str().to_owned()
     }
 
-    fn print_imm(&self, imm: &IntImmObj) -> String {
+    fn print_imm(&self, imm: &IntImm) -> String {
         imm.value.to_string()
     }
 
@@ -220,12 +217,12 @@ struct Counter {
 
 #[dispatch(walk, (AnyView<'_>, DefRegionKind), Result<WalkResult>)]
 impl Counter {
-    fn walk_var(&mut self, _var: &VarObj, _kind: DefRegionKind) -> Result<WalkResult> {
+    fn walk_var(&mut self, _var: &Var, _kind: DefRegionKind) -> Result<WalkResult> {
         self.vars += 1;
         Ok(WalkResult::Advance)
     }
 
-    fn walk_add(&mut self, _add: &AddObj) -> Result<WalkResult> {
+    fn walk_add(&mut self, _add: &Add) -> Result<WalkResult> {
         self.adds += 1;
         Ok(WalkResult::Advance)
     }
@@ -252,7 +249,7 @@ struct LoopNest {
 impl LoopNest {
     fn visit_for(
         &mut self,
-        loop_: &ForObj,
+        loop_: &For,
         visitor: &mut StructuralVisitorView<'_, Self>,
     ) -> Result<Option<VisitInterrupt>> {
         self.loops.push(loop_.var.name.as_str().to_owned());
@@ -261,7 +258,7 @@ impl LoopNest {
         result
     }
 
-    fn visit_store(&mut self, store: &TensorStoreObj) -> Result<Option<VisitInterrupt>> {
+    fn visit_store(&mut self, store: &TensorStore) -> Result<Option<VisitInterrupt>> {
         let loops = self.loops.join(", ");
         let write = format!("{} inside [{}]", script(&store.dest)?.as_str(), loops);
         self.writes.push(write);
@@ -319,9 +316,9 @@ fn proven_guards(func: Function) -> Result<Array<bool>> {
     let mut proven = Vec::new();
     structural_walk_with_constraint_context(
         &func,
-        |branch: &IfObj, constraints: &ConstraintContext| -> Result<WalkResult> {
+        |branch: &If, constraints: &ConstraintContext| -> Result<WalkResult> {
             analyzer.sync_constraint_context(constraints)?;
-            proven.push(analyzer.can_prove(branch.condition.clone(), ProofStrength::Default)?);
+            proven.push(analyzer.can_prove(&branch.condition, ProofStrength::Default)?);
             Ok(WalkResult::Advance)
         },
         WalkOrder::PreOrder,
@@ -337,7 +334,7 @@ fn remove_redundant_guards(func: Function) -> Result<Function> {
         func,
         |branch: If, constraints: &ConstraintContext| -> Result<UnchangedOr<Any>> {
             analyzer.sync_constraint_context(constraints)?;
-            Ok(if analyzer.can_prove(branch.condition.clone(), ProofStrength::Default)? {
+            Ok(if analyzer.can_prove(&branch.condition, ProofStrength::Default)? {
                 branch.then_case.clone().into()
             } else {
                 Unchanged.into()

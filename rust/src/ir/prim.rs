@@ -42,6 +42,7 @@ pub use op::*;
 pub use vector_expr::*;
 
 // tvm-ffi-stubgen(begin): import-section
+use std::borrow::Borrow;
 use crate::ir::expr::Expr;
 use crate::ir::expr::IntoExpr;
 use tvm_ffi::Result;
@@ -51,6 +52,6 @@ use tvm_ffi::Result;
 /// structural equality for that (`prim.expr_deep_equal`).
 pub fn expr_deep_equal(lhs: impl IntoExpr, rhs: impl IntoExpr) -> Result<bool> {
     tvm_ffi::cached_global_func!("prim.expr_deep_equal")
-        .call_tuple((&lhs.into_expr()?, &rhs.into_expr()?))?
+        .call_tuple((lhs.into_expr()?.borrow(), rhs.into_expr()?.borrow()))?
         .try_into()
 }
