@@ -733,6 +733,10 @@ IntSet IntSetAnalyzer::operator()(const PrimExpr& expr) {
 }
 
 void IntSetAnalyzer::IngestBinding(const Var& var, const PrimExpr& expr) {
+  if (!expr.ty().MatchesCode(DLDataTypeCode::kDLInt, DLDataTypeCode::kDLUInt,
+                             DLDataTypeCode::kDLBool)) {
+    return;
+  }
   impl_->SetBinding(var, (*this)(expr), true);
 }
 
