@@ -76,9 +76,11 @@ use crate::ir::support;
 use crate::runtime::MemoryScope;
 use crate::sym::analyzer::Analyzer;
 use crate::tirx::layout::Layout;
+use std::borrow::Borrow;
 use std::ops::Deref;
 use tvm_ffi::AnyView;
 use tvm_ffi::Array;
+use tvm_ffi::IntoObjectRef;
 use tvm_ffi::ObjectArc;
 use tvm_ffi::ObjectCore;
 use tvm_ffi::Result;
@@ -228,9 +230,9 @@ impl TensorType {
 /// # Errors
 ///
 /// Returns an error if the type of `tensor` is not a [`TensorType`].
-pub fn tensor_is_scalar(tensor: impl Into<Var>, alloc_or_decl: bool) -> Result<bool> {
+pub fn tensor_is_scalar(tensor: impl IntoObjectRef<Var>, alloc_or_decl: bool) -> Result<bool> {
     tvm_ffi::cached_global_func!("tirx.TensorIsScalar")
-        .call_tuple((&tensor.into(), alloc_or_decl))?
+        .call_tuple((tensor.into_object_ref().borrow(), alloc_or_decl))?
         .try_into()
 }
 

@@ -57,6 +57,7 @@ use crate::tirx::function::Function;
 use std::borrow::Borrow;
 use tvm_ffi::Any;
 use tvm_ffi::Array;
+use tvm_ffi::IntoObjectRef;
 use tvm_ffi::Result;
 // tvm-ffi-stubgen(end)
 
@@ -65,9 +66,9 @@ use tvm_ffi::Result;
 ///
 /// A function without a target attribute, or not of the default calling convention, is not checked
 /// and passes.
-pub fn verify_memory(func: impl Into<Function>) -> Result<bool> {
+pub fn verify_memory(func: impl IntoObjectRef<Function>) -> Result<bool> {
     tvm_ffi::cached_global_func!("tirx.analysis.VerifyMemory")
-        .call_tuple((&func.into(),))?
+        .call_tuple((func.into_object_ref().borrow(),))?
         .try_into()
 }
 
@@ -85,17 +86,20 @@ pub fn undefined_vars(
 
 /// Return whether `func` is well formed; invalid IR raises an error instead if `assert_mode`
 /// (`tirx.analysis.CheckWellFormed`).
-pub fn check_well_formed(func: impl Into<Function>, assert_mode: bool) -> Result<bool> {
+pub fn check_well_formed(func: impl IntoObjectRef<Function>, assert_mode: bool) -> Result<bool> {
     tvm_ffi::cached_global_func!("tirx.analysis.CheckWellFormed")
-        .call_tuple((&func.into(), assert_mode))?
+        .call_tuple((func.into_object_ref().borrow(), assert_mode))?
         .try_into()
 }
 
 /// Return whether the TIRx functions of `module` are well formed; invalid IR raises an error
 /// instead if `assert_mode` (`tirx.analysis.CheckWellFormed`).
-pub fn check_well_formed_module(module: impl Into<IRModule>, assert_mode: bool) -> Result<bool> {
+pub fn check_well_formed_module(
+    module: impl IntoObjectRef<IRModule>,
+    assert_mode: bool,
+) -> Result<bool> {
     tvm_ffi::cached_global_func!("tirx.analysis.CheckWellFormed")
-        .call_tuple((&module.into(), assert_mode))?
+        .call_tuple((module.into_object_ref().borrow(), assert_mode))?
         .try_into()
 }
 

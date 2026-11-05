@@ -41,7 +41,9 @@
 // tvm-ffi-stubgen(import-object): tvm_ffi::String
 
 // tvm-ffi-stubgen(begin): import-section
+use std::borrow::Borrow;
 use std::ops::Deref;
+use tvm_ffi::IntoObjectRef;
 use tvm_ffi::Object;
 use tvm_ffi::ObjectArc;
 use tvm_ffi::Result;
@@ -116,9 +118,9 @@ impl ThreadScope {
     /// # Errors
     ///
     /// Returns an error if the two scopes are of different backends.
-    pub fn is_higher_than(&self, other: impl Into<ThreadScope>) -> Result<bool> {
+    pub fn is_higher_than(&self, other: impl IntoObjectRef<ThreadScope>) -> Result<bool> {
         tvm_ffi::cached_global_func!("tirx.ScopeHigher")
-            .call_tuple((self, &other.into()))?
+            .call_tuple((self, other.into_object_ref().borrow()))?
             .try_into()
     }
 }

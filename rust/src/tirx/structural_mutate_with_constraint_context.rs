@@ -95,13 +95,10 @@ unsafe impl StructuralMutatorBase for StructuralMutatorWithConstraintContextBase
         let hook = if value.inplace_mode() == InplaceMode::Allow {
             lookup(*INPLACE).filter(|_| {
                 // Permission alone is insufficient after a callback retains an
-                // alias. The supported owning count includes this temporary;
-                // release it before invoking a hook or entering native descent.
-                borrowed.try_as::<ObjectRef>().is_some_and(|owner| {
-                    let unique = ObjectArc::strong_count(ObjectRef::data(&owner)) == 2;
-                    drop(owner);
-                    unique
-                })
+                // alias. Borrow in place so the count is the slot's own reference.
+                borrowed
+                    .downcast_ref::<ObjectRef>()
+                    .is_some_and(|owner| ObjectArc::strong_count(ObjectRef::data(owner)) == 1)
             })
         } else {
             None

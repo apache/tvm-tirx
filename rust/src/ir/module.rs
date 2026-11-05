@@ -65,6 +65,7 @@ use std::borrow::Borrow;
 use std::ops::Deref;
 use tvm_ffi::Any;
 use tvm_ffi::Array;
+use tvm_ffi::IntoObjectRef;
 use tvm_ffi::Map;
 use tvm_ffi::Object;
 use tvm_ffi::ObjectArc;
@@ -217,8 +218,9 @@ impl IRModule {
     }
 
     /// Remove the function of `var`, if the module has one (`ir.IRModuleRemove`).
-    pub fn remove_global_var(&self, var: impl Into<GlobalVar>) -> Result<()> {
-        tvm_ffi::cached_global_func!("ir.IRModuleRemove").call_tuple((self, &var.into()))?;
+    pub fn remove_global_var(&self, var: impl IntoObjectRef<GlobalVar>) -> Result<()> {
+        tvm_ffi::cached_global_func!("ir.IRModuleRemove")
+            .call_tuple((self, var.into_object_ref().borrow()))?;
         Ok(())
     }
 
@@ -230,9 +232,9 @@ impl IRModule {
     }
 
     /// Return whether the module defines a function for `var` (`ir.IRModuleContains`).
-    pub fn contains_global_var(&self, var: impl Into<GlobalVar>) -> Result<bool> {
+    pub fn contains_global_var(&self, var: impl IntoObjectRef<GlobalVar>) -> Result<bool> {
         tvm_ffi::cached_global_func!("ir.IRModuleContains")
-            .call_tuple((self, &var.into()))?
+            .call_tuple((self, var.into_object_ref().borrow()))?
             .try_into()
     }
 
@@ -265,9 +267,9 @@ impl IRModule {
     /// # Errors
     ///
     /// Returns an `InternalError` if the module has no function for `var`.
-    pub fn lookup(&self, var: impl Into<GlobalVar>) -> Result<BaseFunc> {
+    pub fn lookup(&self, var: impl IntoObjectRef<GlobalVar>) -> Result<BaseFunc> {
         tvm_ffi::cached_global_func!("ir.IRModuleLookup")
-            .call_tuple((self, &var.into()))?
+            .call_tuple((self, var.into_object_ref().borrow()))?
             .try_into()
     }
 

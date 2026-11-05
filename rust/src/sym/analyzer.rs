@@ -83,6 +83,7 @@ use crate::sym::int_set::IntSet;
 use std::borrow::Borrow;
 use std::ops::Deref;
 use tvm_ffi::Error;
+use tvm_ffi::IntoObjectRef;
 use tvm_ffi::Map;
 use tvm_ffi::Object;
 use tvm_ffi::ObjectArc;
@@ -178,9 +179,9 @@ impl Analyzer {
     }
 
     /// Return whether `var` has constant bounds recorded (`sym.AnalyzerConstIntBoundIsBound`).
-    pub fn const_int_bound_is_bound(&self, var: impl Into<Var>) -> Result<bool> {
+    pub fn const_int_bound_is_bound(&self, var: impl IntoObjectRef<Var>) -> Result<bool> {
         tvm_ffi::cached_global_func!("sym.AnalyzerConstIntBoundIsBound")
-            .call_tuple((self, &var.into()))?
+            .call_tuple((self, var.into_object_ref().borrow()))?
             .try_into()
     }
 
