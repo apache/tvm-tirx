@@ -15,6 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import pytest
+
 import tvm_tirx
 import tvm_tirx.testing
 from tvm_tirx import tirx
@@ -152,6 +154,64 @@ def test_select():
     ck.verify(
         tvm_tirx.tirx.Select(x > 0, x - 1, x + 1), {x: tvm_tirx.sym.IntervalSet(0, 10)}, (-1, 11)
     )
+
+
+@pytest.mark.parametrize("entry", ["query", "binding"])
+@pytest.mark.parametrize(
+    "case",
+    ["cast_mul", "cast_div", "nested", "comparison", "select_condition", "select_branch", "clamp"],
+)
+def test_float_subexpressions(entry, case):
+    i = tirx.Var("i", "int64")
+    scale = tirx.Var("scale", "float32")
+    coordinate = tirx.Cast("float32", i) * scale
+    index = tirx.Cast("int64", coordinate)
+    zero = tirx.const(0, "int64")
+    one = tirx.const(1, "int64")
+    cases = {
+        "cast_mul": (index, None),
+        "cast_div": (tirx.Cast("int64", tirx.Cast("float32", i) / scale), None),
+        "nested": (index + one, None),
+        "comparison": (coordinate > 0.0, (0, 1)),
+        "select_condition": (tirx.Select(coordinate > 0.0, one, zero), (0, 1)),
+        "select_branch": (tirx.Select(i < 2, index, zero), None),
+        "clamp": (tirx.max(tirx.min(index, 9), zero), (0, 9)),
+    }
+    expr, expected = cases[case]
+    analyzer = Analyzer()
+    if entry == "query":
+        result = analyzer.int_set(expr, {i: tvm_tirx.sym.IntervalSet(zero, tirx.const(4, "int64"))})
+    else:
+        context = tvm_tirx.sym.ConstraintContext()
+        context.append(
+            tvm_tirx.sym.RangeConstraint(i, tvm_tirx.ir.Range(zero, tirx.const(5, "int64")))
+        )
+        value = tirx.Var("value", str(expr.ty))
+        context.append(tvm_tirx.sym.BindingConstraint(value, expr))
+        analyzer.sync_constraint_context(context)
+        result = analyzer.int_set(value)
+    if expected is None:
+        assert result.is_everything()
+    else:
+        assert analyzer.can_prove_equal(result.min_value, expected[0])
+        assert analyzer.can_prove_equal(result.max_value, expected[1])
+
+
+def test_float_leaves_and_casts():
+    analyzer = Analyzer()
+    leaves = [
+        tvm_tirx.ir.FloatImm("float32", 3.5),
+        tirx.Var("scale", "float32"),
+        tirx.call_pure_extern("returns_float", ty="float32"),
+    ]
+    for leaf in leaves:
+        assert analyzer.int_set(leaf).is_everything()
+        assert analyzer.int_set(tirx.Cast("int64", leaf)).is_everything()
+
+    folded = analyzer.simplify(tirx.Cast("int64", leaves[0]))
+    result = analyzer.int_set(folded)
+    assert result.min_value.value == 3
+    assert result.max_value.value == 3
 
 
 def check_region_bound(expect_region, var_dom, mode, predicate=None):

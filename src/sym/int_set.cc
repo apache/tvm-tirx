@@ -411,6 +411,18 @@ class IntervalSetEvaluator : public tvm::ExprFunctor<IntervalSet(const Expr&)> {
         eval_vec_(eval_vec) {}
 
   IntervalSet Eval(const PrimExpr& val) { return this->Dispatch(val); }
+
+  IntervalSet Dispatch(const Expr& expr) override {
+    // Integer expressions can contain floating-point subexpressions, e.g. a cast
+    // or comparison. Stop at unsupported types before applying integer rules.
+    PrimExpr value = expr.as_or_throw<PrimExpr>();
+    if (!value.ty().MatchesCode(DLDataTypeCode::kDLInt, DLDataTypeCode::kDLUInt,
+                                DLDataTypeCode::kDLBool)) {
+      return IntervalSet::Everything();
+    }
+    return ExprFunctor::Dispatch(expr);
+  }
+
   // evaluate and relax the set
   IntervalSet Eval(IntervalSet val) {
     // avoid recursive indefinite recursive expansion.
