@@ -40,8 +40,8 @@ fn ordered_mapping_collects_result_facts_and_restores_scopes() {
     let _serial = serial();
     for order in [WalkOrder::PreOrder, WalkOrder::PostOrder] {
         for moved in [false, true] {
-            let x = Var::new("map_x", PrimType::int(32), UNKNOWN_LOC);
-            let i = Var::new("map_i", PrimType::int(32), UNKNOWN_LOC);
+            let x = PrimVar::new("map_x", PrimType::int(32), UNKNOWN_LOC);
+            let i = PrimVar::new("map_i", PrimType::int(32), UNKNOWN_LOC);
             let body = For::new(
                 &i,
                 int32(0),
@@ -191,7 +191,7 @@ fn replacement_order_identity_aliases_and_errors() {
     // handle separately must force copying even after callback entry.
     for order in [WalkOrder::PreOrder, WalkOrder::PostOrder] {
         for retain_alias in [false, true] {
-            let i = Var::new("map_alias", PrimType::int(32), UNKNOWN_LOC);
+            let i = PrimVar::new("map_alias", PrimType::int(32), UNKNOWN_LOC);
             let root = For::new(
                 &i,
                 int32(0),

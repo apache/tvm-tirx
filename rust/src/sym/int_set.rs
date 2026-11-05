@@ -25,13 +25,13 @@
 //!
 //! ```
 //! use tvm_tirx::ir::prim::op::PrimOps;
-//! use tvm_tirx::ir::{PrimType, Var, UNKNOWN_LOC};
+//! use tvm_tirx::ir::{PrimType, PrimVar, Var, UNKNOWN_LOC};
 //! use tvm_tirx::script::script;
 //! use tvm_tirx::sym::{self, Analyzer, IntSet, IntervalSet};
 //! use tvm_tirx::tvm_ffi::Map;
 //!
-//! let i = Var::new("i", PrimType::int(32), UNKNOWN_LOC);
-//! let dom_map = Map::from_iter([(i.clone(), IntSet::from(IntervalSet::new(0, 15)))]);
+//! let i = PrimVar::new("i", PrimType::int(32), UNKNOWN_LOC);
+//! let dom_map = Map::from_iter([(Var::from(&i), IntSet::from(IntervalSet::new(0, 15)))]);
 //! let set = Analyzer::new().int_set(&i * 2 + 1, Some(&dom_map))?;
 //! assert_eq!(script(&set)?, "sym.IntervalSet(min_value=1, max_value=31)");
 //!
@@ -50,15 +50,19 @@
 // tvm-ffi-stubgen(import-object): crate::sym::analyzer::Analyzer
 // tvm-ffi-stubgen(import-object): crate::ir::support
 // tvm-ffi-stubgen(import-object): crate::ir::expr::IntoExpr
-
+// tvm-ffi-stubgen(import-object): crate::ir::expr::PrimExpr
+// tvm-ffi-stubgen(import-object): std::borrow::Borrow
+// An interval is bounded by `PrimExpr`s, as C++ `IntervalSetObj` holds them.
+// tvm-ffi-stubgen(field): sym.IntervalSet.min_value -> PrimExpr
+// tvm-ffi-stubgen(field): sym.IntervalSet.max_value -> PrimExpr
 // tvm-ffi-stubgen(begin): import-section
-use std::borrow::Borrow;
-use crate::ir::expr::Expr;
 use crate::ir::expr::IntoExpr;
+use crate::ir::expr::PrimExpr;
 use crate::ir::expr::Range;
 use crate::ir::expr::Var;
 use crate::ir::support;
 use crate::sym::analyzer::Analyzer;
+use std::borrow::Borrow;
 use std::ops::Deref;
 use tvm_ffi::Array;
 use tvm_ffi::FieldGetter;
@@ -105,14 +109,14 @@ impl IntSet {
 
     /// Return the set of the lanes of the vector `vec`, or of its value for a scalar
     /// (`sym.IntSetVector`).
-    pub fn vector(vec: impl IntoExpr) -> Result<Self> {
+    pub fn vector(vec: impl IntoExpr<PrimExpr>) -> Result<Self> {
         tvm_ffi::cached_global_func!("sym.IntSetVector")
             .call_tuple((vec.into_expr()?.borrow(),))?
             .try_into()
     }
 
     /// Return the set that holds only `point` (`sym.IntSetSinglePoint`).
-    pub fn single_point(point: impl IntoExpr) -> Result<Self> {
+    pub fn single_point(point: impl IntoExpr<PrimExpr>) -> Result<Self> {
         tvm_ffi::cached_global_func!("sym.IntSetSinglePoint")
             .call_tuple((point.into_expr()?.borrow(),))?
             .try_into()
@@ -150,11 +154,11 @@ impl Deref for IntervalSetObj {
 }
 
 impl IntervalSetObj {
-    pub fn min_value(&self) -> Result<Expr> {
+    pub fn min_value(&self) -> Result<PrimExpr> {
         FieldGetter::new(Self::type_index(), "min_value")?.get(self)
     }
 
-    pub fn max_value(&self) -> Result<Expr> {
+    pub fn max_value(&self) -> Result<PrimExpr> {
         FieldGetter::new(Self::type_index(), "max_value")?.get(self)
     }
 }
@@ -165,7 +169,7 @@ tvm_ffi::impl_object_upcast!(IntervalSet => IntSet);
 impl IntervalSet {
     /// Create the interval `[min_value, max_value]`, whose bounds may be [`neg_inf`] and
     /// [`pos_inf`] (`sym.IntervalSet`).
-    pub fn new(min_value: impl Into<Expr>, max_value: impl Into<Expr>) -> Self {
+    pub fn new(min_value: impl Into<PrimExpr>, max_value: impl Into<PrimExpr>) -> Self {
         support::infallible(
             tvm_ffi::cached_global_func!("sym.IntervalSet")
                 .call_tuple((&min_value.into(), &max_value.into()))
@@ -181,7 +185,7 @@ impl IntervalSet {
 pub fn estimate_region_lower_bound(
     region: impl IntoIterator<Item = impl Into<Range>>,
     var_dom: &Map<Var, Range>,
-    predicate: impl IntoExpr,
+    predicate: impl IntoExpr<PrimExpr>,
     analyzer: Option<&Analyzer>,
 ) -> Result<Option<Array<IntSet>>> {
     let region = region.into_iter().map(Into::into).collect::<Array<Range>>();
@@ -195,7 +199,7 @@ pub fn estimate_region_lower_bound(
 pub fn estimate_region_strict_bound(
     region: impl IntoIterator<Item = impl Into<Range>>,
     var_dom: &Map<Var, Range>,
-    predicate: impl IntoExpr,
+    predicate: impl IntoExpr<PrimExpr>,
     analyzer: Option<&Analyzer>,
 ) -> Result<Option<Array<IntSet>>> {
     let region = region.into_iter().map(Into::into).collect::<Array<Range>>();
@@ -209,7 +213,7 @@ pub fn estimate_region_strict_bound(
 pub fn estimate_region_upper_bound(
     region: impl IntoIterator<Item = impl Into<Range>>,
     var_dom: &Map<Var, Range>,
-    predicate: impl IntoExpr,
+    predicate: impl IntoExpr<PrimExpr>,
     analyzer: Option<&Analyzer>,
 ) -> Result<Array<IntSet>> {
     let region = region.into_iter().map(Into::into).collect::<Array<Range>>();
@@ -219,12 +223,12 @@ pub fn estimate_region_upper_bound(
 }
 
 /// Return the symbolic positive infinity (`sym.PosInf`).
-pub fn pos_inf() -> Result<Expr> {
+pub fn pos_inf() -> Result<PrimExpr> {
     tvm_ffi::cached_global_func!("sym.PosInf").call_tuple(())?.try_into()
 }
 
 /// Return the symbolic negative infinity (`sym.NegInf`).
-pub fn neg_inf() -> Result<Expr> {
+pub fn neg_inf() -> Result<PrimExpr> {
     tvm_ffi::cached_global_func!("sym.NegInf").call_tuple(())?.try_into()
 }
 
@@ -239,8 +243,8 @@ pub fn union_lower_bound(sets: impl IntoIterator<Item = impl Into<IntSet>>) -> R
 /// sets and those of `relax_map` relaxed to theirs, or the empty set when no bound can be deduced
 /// (`sym.DeduceBound`).
 pub fn deduce_bound(
-    var: impl IntoExpr,
-    cond: impl IntoExpr,
+    var: impl IntoExpr<PrimExpr>,
+    cond: impl IntoExpr<PrimExpr>,
     hint_map: &Map<Var, IntSet>,
     relax_map: &Map<Var, IntSet>,
 ) -> Result<IntSet> {

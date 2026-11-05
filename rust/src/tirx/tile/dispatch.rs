@@ -26,13 +26,13 @@
 //! # Examples
 //!
 //! ```
-//! use tvm_tirx::ir::{Evaluate, IntImm, PrimType, Var, UNKNOWN_LOC};
+//! use tvm_tirx::ir::{Evaluate, IntImm, PrimType, PrimVar, UNKNOWN_LOC};
 //! use tvm_tirx::target::Target;
 //! use tvm_tirx::tirx::tile::DispatchContext;
 //! use tvm_tirx::tirx::ThreadScope;
 //! use tvm_tirx::tvm_ffi::Map;
 //!
-//! let tx = Var::new("tx", PrimType::int(32), UNKNOWN_LOC);
+//! let tx = PrimVar::new("tx", PrimType::int(32), UNKNOWN_LOC);
 //! let ctx = DispatchContext::new(
 //!     Target::new("cuda")?,
 //!     ThreadScope::get("cuda.warp")?,
@@ -53,10 +53,17 @@
 // tvm-ffi-stubgen(import-object): tvm_ffi::AnyView
 // tvm-ffi-stubgen(import-object): tvm_ffi::ObjectRefCast
 // tvm-ffi-stubgen(import-object): crate::ir::expr::IntoExpr
+// tvm-ffi-stubgen(import-object): crate::ir::expr::PrimExpr
+// tvm-ffi-stubgen(import-object): crate::ir::expr::PrimVar
+// tvm-ffi-stubgen(import-object): tvm_ffi::Array
+// The axis extents and offsets are `PrimExpr`s, as C++ `DispatchContextObj` holds them.
+// tvm-ffi-stubgen(field): tirx.DispatchContext.inter -> Map<String, Array<PrimExpr>>
+// tvm-ffi-stubgen(field): tirx.DispatchContext.intra -> Map<String, Array<PrimExpr>>
 
 // tvm-ffi-stubgen(begin): import-section
-use crate::ir::expr::Expr;
 use crate::ir::expr::IntoExpr;
+use crate::ir::expr::PrimExpr;
+use crate::ir::expr::PrimVar;
 use crate::ir::expr::Range;
 use crate::ir::expr::Var;
 use crate::ir::stmt::Stmt;
@@ -129,11 +136,11 @@ impl DispatchContextObj {
         FieldGetter::new(Self::type_index(), "shared_state")?.get(self)
     }
 
-    pub fn inter(&self) -> Result<Map<String, Array<Expr>>> {
+    pub fn inter(&self) -> Result<Map<String, Array<PrimExpr>>> {
         FieldGetter::new(Self::type_index(), "inter")?.get(self)
     }
 
-    pub fn intra(&self) -> Result<Map<String, Array<Expr>>> {
+    pub fn intra(&self) -> Result<Map<String, Array<PrimExpr>>> {
         FieldGetter::new(Self::type_index(), "intra")?.get(self)
     }
 
@@ -157,13 +164,13 @@ impl DispatchContext {
     pub fn new(
         target: impl Into<Target>,
         thread_scope: impl Into<ThreadScope>,
-        launch_params: impl IntoIterator<Item = (impl AsRef<str>, Var, Expr)>,
+        launch_params: impl IntoIterator<Item = (impl AsRef<str>, PrimVar, PrimExpr)>,
         var_range_map: &Map<Var, Range>,
         alloc_only: bool,
         callbacks: &Map<String, ObjectRef>,
         shared_state: &Map<String, ObjectRef>,
-        inter: &Map<String, Array<Expr>>,
-        intra: &Map<String, Array<Expr>>,
+        inter: &Map<String, Array<PrimExpr>>,
+        intra: &Map<String, Array<PrimExpr>>,
         scope_kind: &str,
     ) -> Result<Self> {
         let (target, thread_scope) = (target.into(), thread_scope.into());
@@ -196,14 +203,14 @@ impl DispatchContext {
     pub fn add_alloc_tensor(
         &self,
         tensor: impl Into<Var>,
-        allocated_addr: impl IntoIterator<Item = impl IntoExpr>,
+        allocated_addr: impl IntoIterator<Item = impl IntoExpr<PrimExpr>>,
         annotations: &Map<String, Any>,
     ) -> Result<()> {
         let tensor = tensor.into();
         let allocated_addr = allocated_addr
             .into_iter()
             .map(IntoExpr::into_owned_expr)
-            .collect::<Result<Array<Expr>>>()?;
+            .collect::<Result<Array<PrimExpr>>>()?;
         tvm_ffi::cached_global_func!("tirx.DispatchContextAddAllocTensor").call_tuple((
             self,
             &tensor,

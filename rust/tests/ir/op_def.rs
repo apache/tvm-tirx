@@ -110,7 +110,7 @@ fn ops_registered_from_rust_are_used_natively() {
     let (x, i, j) = (var("x", "float32"), var("i", "int32"), var("j", "int32"));
     let lanes = var("v", "int32x4");
     let text: Expr = StringImm::new("shared", UNKNOWN_LOC).into();
-    let one: Expr = int32(1);
+    let one: Expr = int32(1).into();
     let tensor = tensor_var("A");
     let int32_ty: Type = PrimType::int(32).into();
 
@@ -671,7 +671,7 @@ fn static_init_blocks_define_operators_and_types() {
 
     // The `RegionStmt` constructor checks a region of the Rust operator as it checks one of
     // `tirx.launch_thread`: the same outcome, and the same error but for the operator's name.
-    let extent: Expr = int32(8);
+    let extent: Expr = int32(8).into();
     let wide: Expr = IntImm::from_dtype(parse_dtype("int64"), 8, UNKNOWN_LOC).unwrap().into();
     let flag: Expr = IntImm::bool(true).into();
     let i = var("i", "int32");

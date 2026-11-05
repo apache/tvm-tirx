@@ -27,11 +27,11 @@
 //! # Examples
 //!
 //! ```
-//! use tvm_tirx::ir::{Call, Op, PrimExpr, PrimType, Type, Var, UNKNOWN_LOC};
+//! use tvm_tirx::ir::{Call, Op, PrimExpr, PrimType, PrimVar, Type, Var, UNKNOWN_LOC};
 //! use tvm_tirx::script::script;
 //!
-//! let i = Var::new("i", PrimType::int(32), UNKNOWN_LOC);
-//! let f = Var::new("f", PrimType::float(32), UNKNOWN_LOC);
+//! let i = PrimVar::new("i", PrimType::int(32), UNKNOWN_LOC);
+//! let f = PrimVar::new("f", PrimType::float(32), UNKNOWN_LOC);
 //! let index = PrimExpr::try_from(&i * 4 + 1)?;
 //! assert_eq!(script(&index)?, "i * 4 + 1");
 //!
@@ -59,6 +59,9 @@
 // tvm-ffi-stubgen(upcast): ir.IntImm -> PrimExpr
 // tvm-ffi-stubgen(upcast): ir.FloatImm -> PrimExpr
 // tvm-ffi-stubgen(upcast): ir.TensorLoad -> PrimExpr
+// A range is bounded by `PrimExpr`s, as C++ `RangeObj` holds `PrimExpr begin, extent`.
+// tvm-ffi-stubgen(field): ir.Range.begin -> PrimExpr
+// tvm-ffi-stubgen(field): ir.Range.extent -> PrimExpr
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
 // tvm-ffi-stubgen(import-object): crate::ir::prim::op::ExprResult
@@ -86,6 +89,8 @@
 // tvm-ffi-stubgen(import-object): crate::ir::r#type::TupleTypeObj
 // tvm-ffi-stubgen(import-object): crate::ir::support
 // tvm-ffi-stubgen(import-object): crate::ir::dtype
+// tvm-ffi-stubgen(import-object): std::borrow::Borrow
+// tvm-ffi-stubgen(import-object): tvm_ffi::object::IntoObjectRef
 
 // tvm-ffi-stubgen(begin): import-section
 use crate::ir::attrs::Attrs;
@@ -107,10 +112,9 @@ use crate::ir::r#type::TupleType;
 use crate::ir::r#type::TupleTypeObj;
 use crate::ir::r#type::Type;
 use crate::ir::support;
+use std::borrow::Borrow;
 use std::ops::Deref;
 use std::ptr::addr_of_mut;
-use std::borrow::Borrow;
-use tvm_ffi::object::IntoObjectRef;
 use tvm_ffi::Any;
 use tvm_ffi::AnyView;
 use tvm_ffi::Array;
@@ -125,6 +129,7 @@ use tvm_ffi::Result;
 use tvm_ffi::ShallowCopy;
 use tvm_ffi::String;
 use tvm_ffi::UnsafeInit;
+use tvm_ffi::object::IntoObjectRef;
 use tvm_ffi::object::is_instance_of;
 use tvm_ffi::reflection::drop_if_defined;
 use tvm_ffi::tvm_ffi_sys::TVMFFIAny;
@@ -245,26 +250,47 @@ impl Expr {
 // ---------------------------------------------------------------------------------------------
 // Conversions into an expression
 
-/// A value that converts into an expression, possibly failing: anything that converts into an
-/// [`Expr`], or an [`ExprResult`] under construction.
+/// A value that converts into the expression type `T`, possibly failing: a `T` or a subtype of it,
+/// owned or borrowed, a Rust literal, or an [`ExprResult`] under construction.
 ///
-/// A function that takes `impl IntoExpr` returns the first error of an `ExprResult` operand, and a
-/// `TypeError` for an operand that is not a [`PrimExpr`] where it takes one.
+/// `T` is [`Expr`] by default, and [`PrimExpr`] where C++ takes a `PrimExpr`. The subtypes of `T`
+/// are the types with an upcast to it, for which tvm-ffi generates an [`IntoObjectRef<T>`]; every
+/// `IntoObjectRef<T>` is an `IntoExpr<T>`, so a new expression type converts into each type it
+/// upcasts to without a list to maintain. The conversion never checks a type: an [`Expr`] or a
+/// [`Var`] is not a `PrimExpr` until it is checked, as in C++, by `downcast_ref`, which borrows it
+/// in place (C++ `as`), or `try_cast`, which takes it (C++ `as_or_throw`). Its one error is the
+/// first error an [`ExprResult`] operand raised.
 ///
 /// # Examples
 ///
 /// ```
 /// use tvm_tirx::ir::prim::Add;
-/// use tvm_tirx::ir::{PrimType, Var, UNKNOWN_LOC};
+/// use tvm_tirx::ir::{PrimExpr, PrimType, PrimVar, Var, UNKNOWN_LOC};
 /// use tvm_tirx::script::script;
+/// use tvm_tirx::tvm_ffi::ObjectRefCore;
 ///
-/// let x = Var::new("x", PrimType::int(32), UNKNOWN_LOC);
+/// let x = PrimVar::new("x", PrimType::int(32), UNKNOWN_LOC);
 /// let sum = Add::new(&x + 1, 2, UNKNOWN_LOC)?;
 /// assert_eq!(script(&sum)?, "x + 1 + 2");
 ///
-/// let f = Var::new("f", PrimType::float(32), UNKNOWN_LOC);
+/// let f = PrimVar::new("f", PrimType::float(32), UNKNOWN_LOC);
 /// assert!(Add::new(&f << 1, 2, UNKNOWN_LOC).is_err());
+///
+/// // A variable of any type is checked first, here borrowed in place.
+/// let var = Var::new("y", PrimType::int(32), UNKNOWN_LOC);
+/// let y = var.downcast_ref::<PrimVar>().expect("an int32 variable");
+/// assert_eq!(script(&Add::new(y, &x, UNKNOWN_LOC)?)?, "y + x");
 /// # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
+/// ```
+///
+/// An [`Expr`] is not an `IntoExpr<PrimExpr>`:
+///
+/// ```compile_fail
+/// # use tvm_tirx::ir::prim::Add;
+/// # use tvm_tirx::ir::{Expr, UNKNOWN_LOC};
+/// fn add(a: &Expr, b: &Expr) -> tvm_tirx::tvm_ffi::Result<Add> {
+///     Add::new(a, b, UNKNOWN_LOC)
+/// }
 /// ```
 pub trait IntoExpr<T = Expr> {
     /// The expression: an owned `T` for an owned value or a literal, or a borrowed `&T` for a
@@ -274,8 +300,7 @@ pub trait IntoExpr<T = Expr> {
     /// it takes ownership with [`into_owned_expr`](Self::into_owned_expr).
     type Output: Borrow<T> + Into<T>;
 
-    /// Convert into an expression, or return the first error an [`ExprResult`] raised, or a
-    /// `TypeError` for an operand that is not a `T`.
+    /// Convert into an expression, or return the first error an [`ExprResult`] raised.
     fn into_expr(self) -> Result<Self::Output>;
 
     /// Convert into an owned expression, as [`Cow::into_owned`](std::borrow::Cow::into_owned)
@@ -288,9 +313,10 @@ pub trait IntoExpr<T = Expr> {
     }
 }
 
-// Every expression type, owned or borrowed, through the `IntoObjectRef<Expr>` its upcast to
-// `Expr` generates; literals join through their own `IntoObjectRef<Expr>` below.
-impl<S: IntoObjectRef<Expr>> IntoExpr for S {
+// A `T` or a subtype of it, owned or borrowed, through the `IntoObjectRef<T>` its upcast to `T`
+// generates. Rust literals join through their own `IntoObjectRef` below, and `ExprResult`
+// implements `IntoExpr` for each target it builds.
+impl<T, S: IntoObjectRef<T>> IntoExpr<T> for S {
     type Output = S::Output;
 
     fn into_expr(self) -> Result<S::Output> {
@@ -298,62 +324,20 @@ impl<S: IntoObjectRef<Expr>> IntoExpr for S {
     }
 }
 
-// The same values as a `PrimExpr`, checked in place: an owned expression moves, and a borrowed
-// one borrows as `&PrimExpr`; an expression of another type is a `TypeError`.
-impl<S> IntoExpr<PrimExpr> for S
-where
-    S: IntoObjectRef<Expr>,
-    S::Output: ExprOutput,
-{
-    type Output = <S::Output as ExprOutput>::Prim;
-
-    fn into_expr(self) -> Result<Self::Output> {
-        self.into_object_ref().into_prim()
-    }
-}
-
-/// An owned or borrowed `Expr`, checked as the matching `PrimExpr`.
-#[doc(hidden)]
-pub trait ExprOutput: Borrow<Expr> + Into<Expr> {
-    /// `PrimExpr` for an owned expression, or `&PrimExpr` for a borrowed one.
-    type Prim: Borrow<PrimExpr> + Into<PrimExpr>;
-
-    /// Check the expression as a `PrimExpr`.
-    fn into_prim(self) -> Result<Self::Prim>;
-}
-
-impl ExprOutput for Expr {
-    type Prim = PrimExpr;
-
-    fn into_prim(self) -> Result<PrimExpr> {
-        PrimExpr::try_from(self)
-    }
-}
-
-impl<'a> ExprOutput for &'a Expr {
-    type Prim = &'a PrimExpr;
-
-    fn into_prim(self) -> Result<&'a PrimExpr> {
-        match self.downcast_ref::<PrimExpr>() {
-            Some(prim) => Ok(prim),
-            None => Err(PrimExpr::try_from(self).err().expect("the strict check failed")),
-        }
-    }
-}
-
-// Rust literals are expressions too, owned and built on conversion.
+// Rust literals are expressions too, owned and built on conversion, as `From` builds them.
 macro_rules! impl_literal_into_expr {
-    ($($t:ty),*) => {$(
-        impl IntoObjectRef<Expr> for $t {
-            type Output = Expr;
+    ($target:ty: $($t:ty),*) => {$(
+        impl IntoObjectRef<$target> for $t {
+            type Output = $target;
 
-            fn into_object_ref(self) -> Expr {
+            fn into_object_ref(self) -> $target {
                 self.into()
             }
         }
     )*};
 }
-impl_literal_into_expr!(i32, i64, bool, f32, f64);
+impl_literal_into_expr!(Expr: i32, i64, bool, f32, f64);
+impl_literal_into_expr!(PrimExpr: i32, i64, bool, f32, f64);
 
 // Rust literals, as C++ converts them into an expression: an `i32` and an `f32` through the
 // constructors `PrimExpr(int32_t)` and `PrimExpr(float)`, the others as constants of their type.
@@ -403,13 +387,13 @@ crate::r#macro::typed_expr_view! {
     /// # Examples
     ///
     /// ```
-    /// use tvm_tirx::ir::{dtype, Expr, PrimExpr, PrimType, StringImm, Var, UNKNOWN_LOC};
+    /// use tvm_tirx::ir::{dtype, Expr, PrimExpr, PrimType, PrimVar, StringImm, Var, UNKNOWN_LOC};
     ///
     /// fn is_scalar(expr: &PrimExpr) -> bool {
     ///     expr.dtype().lanes == 1
     /// }
     ///
-    /// let x = Var::new("x", PrimType::int(32), UNKNOWN_LOC);
+    /// let x = PrimVar::new("x", PrimType::int(32), UNKNOWN_LOC);
     /// assert!(is_scalar(&PrimExpr::try_from(&x + 1)?));
     ///
     /// let text = Expr::from(StringImm::new("hi", UNKNOWN_LOC));
@@ -433,7 +417,8 @@ crate::r#macro::typed_expr_view! {
     ///     expr.into()
     /// }
     /// ```
-    PrimExpr, "ir.PrimExpr", accepts = any_prim, fallback = prim_literal
+    PrimExpr, "ir.PrimExpr", base = Expr(ExprObj), check = is_prim_expr,
+    mismatch = typed_expr_mismatch, fallback = prim_literal
 }
 
 crate::r#macro::typed_expr_view! {
@@ -443,18 +428,19 @@ crate::r#macro::typed_expr_view! {
     /// # Examples
     ///
     /// ```
-    /// use tvm_tirx::ir::{IntExpr, PrimType, Var, UNKNOWN_LOC};
+    /// use tvm_tirx::ir::{IntExpr, PrimType, PrimVar, Var, UNKNOWN_LOC};
     /// use tvm_tirx::script::script;
     ///
-    /// let i = Var::new("i", PrimType::int(64), UNKNOWN_LOC);
+    /// let i = PrimVar::new("i", PrimType::int(64), UNKNOWN_LOC);
     /// let offset = IntExpr::try_from(&i * 4)?;
     /// assert_eq!(script(&offset)?, "i * T.int64(4)");
     ///
-    /// let f = Var::new("f", PrimType::float(32), UNKNOWN_LOC);
+    /// let f = PrimVar::new("f", PrimType::float(32), UNKNOWN_LOC);
     /// assert!(IntExpr::try_from(&f * 4).is_err());
     /// # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
     /// ```
-    IntExpr, "ir.IntExpr", accepts = scalar_int, fallback = int_literal
+    IntExpr, "ir.IntExpr", base = Expr(ExprObj), check = is_int_expr,
+    mismatch = typed_expr_mismatch, fallback = int_literal
 }
 
 tvm_ffi::impl_object_upcast!(PrimExpr => Expr, IntExpr => Expr, IntExpr => PrimExpr);
@@ -545,11 +531,6 @@ fn int_constant(constant: IntImm) -> IntExpr {
 
 // The checks and conversions of the views.
 
-/// Every `PrimType`.
-fn any_prim(_: DLDataType) -> bool {
-    true
-}
-
 /// A scalar signed or unsigned integer type.
 fn scalar_int(dtype: DLDataType) -> bool {
     dtype.lanes == 1 && matches!(dtype.code, support::INT | support::UINT)
@@ -574,6 +555,48 @@ unsafe fn expr_of(data: &TVMFFIAny) -> Option<&ExprObj> {
 /// `data` is a live FFI value.
 unsafe fn prim_dtype(data: &TVMFFIAny) -> Option<DLDataType> {
     Some(unsafe { expr_of(data) }?.ty.downcast_ref::<PrimTypeObj>()?.dtype)
+}
+
+/// Whether `data` holds an expression typed by a `PrimType`.
+///
+/// # Safety
+///
+/// `data` is a live FFI value.
+unsafe fn is_prim_expr(data: &TVMFFIAny) -> bool {
+    unsafe { prim_dtype(data) }.is_some()
+}
+
+/// Whether `data` holds an expression typed by a scalar integer type.
+///
+/// # Safety
+///
+/// `data` is a live FFI value.
+unsafe fn is_int_expr(data: &TVMFFIAny) -> bool {
+    unsafe { prim_dtype(data) }.is_some_and(scalar_int)
+}
+
+/// Whether `data` holds a `Var`, not a subclass, typed by a `PrimType` (C++
+/// `TypeTraits<PrimVar>::CheckAnyStrict`).
+///
+/// # Safety
+///
+/// `data` is a live FFI value.
+unsafe fn is_prim_var(data: &TVMFFIAny) -> bool {
+    crate::ir::op_def::sig::var_of_type::<PrimTypeObj>(data)
+}
+
+/// The type key of a value a [`PrimVar`] rejects (C++ `TypeTraits<PrimVar>::GetMismatchTypeInfo`).
+fn type_key_mismatch(data: &TVMFFIAny) -> std::string::String {
+    support::type_key(data.type_index)
+}
+
+/// No value that is not a variable converts into a [`PrimVar`].
+///
+/// # Safety
+///
+/// `data` is a live FFI value.
+unsafe fn no_literal<T>(_: &TVMFFIAny) -> Option<T> {
+    None
 }
 
 /// What a view names a value it rejects (C++ `TypeTraits<TypedExpr<T>>::GetMismatchTypeInfo`):
@@ -2081,6 +2104,55 @@ impl Var {
     }
 }
 
+crate::r#macro::typed_expr_view! {
+    /// A [`Var`] typed by a `PrimType` (C++ `PrimVar`): a scalar or vector variable, which takes
+    /// part in arithmetic as a [`PrimExpr`].
+    ///
+    /// A `PrimVar` is a view of a `Var`, as [`PrimExpr`] is of an `Expr`: [`PrimVar::new`] types it
+    /// by a `PrimType`, and a `Var` becomes one only through the check of C++ `PrimVar`, by
+    /// `downcast_ref`, which borrows it in place, or `try_cast`, which takes it. It converts into a
+    /// `Var`, a `PrimExpr` and an `Expr` for free, and reads the variable through `Deref`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use tvm_tirx::ir::{MissingType, PrimExpr, PrimType, PrimVar, Var, UNKNOWN_LOC};
+    /// use tvm_tirx::script::script;
+    /// use tvm_tirx::tvm_ffi::{ObjectRefCast, ObjectRefCore};
+    ///
+    /// let i = PrimVar::new("i", PrimType::int(32), UNKNOWN_LOC);
+    /// assert_eq!(i.name.as_str(), "i");
+    /// assert_eq!(script(&PrimExpr::try_from(&i * 4 + 1)?)?, "i * 4 + 1");
+    ///
+    /// let var: Var = i.into();
+    /// assert!(var.downcast_ref::<PrimVar>().is_some());
+    /// let untyped = Var::new("u", MissingType::new(), UNKNOWN_LOC);
+    /// assert!(untyped.try_cast::<PrimVar>().is_err());
+    /// # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
+    /// ```
+    ///
+    /// A `Var` takes no part in arithmetic until it is checked, as in C++:
+    ///
+    /// ```compile_fail
+    /// # use tvm_tirx::ir::{PrimType, Var, UNKNOWN_LOC};
+    /// let x = Var::new("x", PrimType::int(32), UNKNOWN_LOC);
+    /// let _ = &x + 1;
+    /// ```
+    PrimVar, "ir.Var", base = Var(VarObj), check = is_prim_var, mismatch = type_key_mismatch,
+    fallback = no_literal
+}
+
+tvm_ffi::impl_object_upcast!(PrimVar => Expr, PrimVar => Var, PrimVar => PrimExpr);
+
+impl PrimVar {
+    /// Create the variable `name` of the primitive type `ty` (C++ `PrimVar(name, ty, loc)`).
+    pub fn new(name: &str, ty: impl Into<PrimType>, loc: impl Into<Location>) -> Self {
+        let var = Var::new(name, ty.into(), loc);
+        // SAFETY: the variable is typed by a `PrimType`.
+        unsafe { Self::from_data(ObjectRefCore::into_data(var)) }
+    }
+}
+
 // tvm-ffi-stubgen(begin): object/ir.LambdaExpr
 /// Complete: reflected fields fill [40, 56) exactly.
 #[repr(C)]
@@ -2179,8 +2251,8 @@ impl LambdaExpr {
 #[type_final]
 pub struct RangeObj {
     base: Object,
-    pub begin: Expr,
-    pub extent: Expr,
+    pub begin: PrimExpr,
+    pub extent: PrimExpr,
     pub loc: Location,
 }
 
@@ -2203,7 +2275,7 @@ impl Deref for Range {
 }
 
 impl RangeObj {
-    pub(crate) fn new(begin: Expr, extent: Expr, loc: Location) -> Self {
+    pub(crate) fn new(begin: PrimExpr, extent: PrimExpr, loc: Location) -> Self {
         let base = Object::new();
         Self { base, begin, extent, loc }
     }
@@ -2212,8 +2284,8 @@ impl RangeObj {
 impl Range {
     /// Lossless complete-field allocation.
     pub fn from_fields(
-        begin: impl Into<Expr>,
-        extent: impl Into<Expr>,
+        begin: impl Into<PrimExpr>,
+        extent: impl Into<PrimExpr>,
         loc: impl Into<Location>,
     ) -> Self {
         let obj = RangeObj::new(begin.into(), extent.into(), loc.into());
@@ -2225,35 +2297,38 @@ impl Range {
 impl Range {
     /// Create the range `[begin, end)` (C++ `Range(begin, end, loc)`);
     /// [`from_min_extent`](Self::from_min_extent) takes the extent instead of the end.
-    pub fn new(begin: impl IntoExpr, end: impl IntoExpr, loc: impl Into<Location>) -> Result<Self> {
+    pub fn new(
+        begin: impl IntoExpr<PrimExpr>,
+        end: impl IntoExpr<PrimExpr>,
+        loc: impl Into<Location>,
+    ) -> Result<Self> {
         let (begin, end) = (begin.into_owned_expr()?, end.into_owned_expr()?);
-        let extent = Self::get_extent_from_begin_end(begin.clone(), end)?;
+        let extent = Self::get_extent_from_begin_end(&begin, end)?;
         Ok(Self::from_fields(begin, extent, loc.into()))
     }
 
     /// Create the range of `extent` values from `min_value` (C++ `Range::FromMinExtent`).
     pub fn from_min_extent(
-        min_value: impl IntoExpr,
-        extent: impl IntoExpr,
+        min_value: impl IntoExpr<PrimExpr>,
+        extent: impl IntoExpr<PrimExpr>,
         loc: impl Into<Location>,
     ) -> Result<Self> {
         let (min_value, extent) = (min_value.into_owned_expr()?, extent.into_owned_expr()?);
-        support::prim_dtype(&min_value)?;
-        support::prim_dtype(&extent)?;
         Ok(Self::from_fields(min_value, extent, loc.into()))
     }
 
     /// Return the extent `end - begin` of the range `[begin, end)`, folded
     /// (C++ `Range::GetExtentFromBeginEnd`).
-    pub fn get_extent_from_begin_end(begin: impl IntoExpr, end: impl IntoExpr) -> Result<Expr> {
+    pub fn get_extent_from_begin_end(
+        begin: impl IntoExpr<PrimExpr>,
+        end: impl IntoExpr<PrimExpr>,
+    ) -> Result<PrimExpr> {
         let (begin, end) = (begin.into_owned_expr()?, end.into_owned_expr()?);
-        support::prim_dtype(&begin)?;
-        support::prim_dtype(&end)?;
         if let Some(add) = end.downcast_ref::<AddObj>() {
-            if crate::ir::prim::expr_deep_equal(add.a.clone(), begin.clone())? {
+            if crate::ir::prim::expr_deep_equal(&add.a, &begin)? {
                 return Ok(add.b.clone());
             }
-            if crate::ir::prim::expr_deep_equal(add.b.clone(), begin.clone())? {
+            if crate::ir::prim::expr_deep_equal(&add.b, &begin)? {
                 return Ok(add.a.clone());
             }
         }
@@ -2266,12 +2341,9 @@ impl Range {
     }
 }
 
-// Operator attachment is separate from generated layouts and upcasts. Keep the native
-// primitive-expression counterparts here, plus Expr, Var and Call for general handles whose
-// primitive type is checked when an operator is applied.
-crate::def_expr_op_over_loads!(Expr);
-crate::def_expr_op_over_loads!(Var);
-crate::def_expr_op_over_loads!(Call);
+// The operators apply to the expressions typed by a `PrimType`, the subtypes of `PrimExpr`, as the
+// C++ operators take `PrimExpr`; the typed views get theirs from `typed_expr_view!`. An `Expr`, a
+// `Var` or a `Call` is checked first, with `downcast_ref` or `try_cast`.
 crate::def_expr_op_over_loads!(IntImm);
 crate::def_expr_op_over_loads!(FloatImm);
 crate::def_expr_op_over_loads!(TensorLoad);

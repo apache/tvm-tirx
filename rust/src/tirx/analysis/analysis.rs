@@ -24,12 +24,12 @@
 //! # Examples
 //!
 //! ```
-//! use tvm_tirx::ir::{Expr, PrimType, Var, UNKNOWN_LOC};
+//! use tvm_tirx::ir::{Expr, PrimType, PrimVar, Var, UNKNOWN_LOC};
 //! use tvm_tirx::tirx::analysis;
 //! use tvm_tirx::tvm_ffi::ObjectRefCore;
 //!
-//! let x = Var::new("x", PrimType::int(32), UNKNOWN_LOC);
-//! let y = Var::new("y", PrimType::int(32), UNKNOWN_LOC);
+//! let x = PrimVar::new("x", PrimType::int(32), UNKNOWN_LOC);
+//! let y = PrimVar::new("y", PrimType::int(32), UNKNOWN_LOC);
 //! let sum: Expr = (&x + &y).try_into()?;
 //! let undefined = analysis::undefined_vars(sum, [&x])?;
 //! assert!(undefined.len() == 1 && undefined.get(0)?.same_as(&y));
@@ -46,14 +46,15 @@
 // tvm-ffi-stubgen(import-object): tvm_ffi::Array
 // tvm-ffi-stubgen(import-object): tvm_ffi::Result
 // tvm-ffi-stubgen(import-object): crate::ir::expr::IntoExpr
+// tvm-ffi-stubgen(import-object): std::borrow::Borrow
 
 // tvm-ffi-stubgen(begin): import-section
-use std::borrow::Borrow;
 use crate::ir::expr::Expr;
 use crate::ir::expr::IntoExpr;
 use crate::ir::expr::Var;
 use crate::ir::module::IRModule;
 use crate::tirx::function::Function;
+use std::borrow::Borrow;
 use tvm_ffi::Any;
 use tvm_ffi::Array;
 use tvm_ffi::Result;

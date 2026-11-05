@@ -16,34 +16,36 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-//! The typed expression views, [`PrimExpr`](crate::ir::PrimExpr) and
-//! [`IntExpr`](crate::ir::IntExpr) (C++ `TypedExpr`).
+//! The typed expression views, [`PrimExpr`](crate::ir::PrimExpr),
+//! [`IntExpr`](crate::ir::IntExpr) and [`PrimVar`](crate::ir::PrimVar) (C++ `TypedExpr`).
 
-/// Define a view: a reference to an `ExprObj` whose type `$accepts` accepts, named `$type_str`
-/// like the C++ type, which an `Any` holding no expression converts into by `$fallback`.
+/// Define a view: a reference to a `$obj`, the object of the reference `$base`, that `$check`
+/// accepts, named `$type_str` and describing a rejected value by `$mismatch` like the C++ type
+/// traits, which an `Any` holding no such value converts into by `$fallback`.
 macro_rules! typed_expr_view {
     (
         $(#[$meta:meta])*
-        $name:ident, $type_str:literal, accepts = $accepts:path, fallback = $fallback:path
+        $name:ident, $type_str:literal, base = $base:ident($obj:ident), check = $check:path,
+        mismatch = $mismatch:path, fallback = $fallback:path
     ) => {
         $(#[$meta])*
         #[repr(transparent)]
         #[derive(Clone)]
         pub struct $name {
-            base: ObjectArc<ExprObj>,
+            base: ObjectArc<$obj>,
         }
 
         // SAFETY: `base` is the reference; `from_data` requires its caller to have checked it.
         unsafe impl ObjectRefCore for $name {
-            type ContainerType = ExprObj;
+            type ContainerType = $obj;
 
             #[inline]
-            fn data(this: &Self) -> &ObjectArc<ExprObj> {
+            fn data(this: &Self) -> &ObjectArc<$obj> {
                 &this.base
             }
 
             #[inline]
-            fn into_data(this: Self) -> ObjectArc<ExprObj> {
+            fn into_data(this: Self) -> ObjectArc<$obj> {
                 this.base
             }
 
@@ -53,7 +55,7 @@ macro_rules! typed_expr_view {
             ///
             /// The type of `data` is one the view accepts.
             #[inline]
-            unsafe fn from_data(data: ObjectArc<ExprObj>) -> Self {
+            unsafe fn from_data(data: ObjectArc<$obj>) -> Self {
                 Self { base: data }
             }
         }
@@ -71,7 +73,7 @@ macro_rules! typed_expr_view {
             }
 
             fn get_mismatch_type_info(data: &TVMFFIAny) -> std::string::String {
-                typed_expr_mismatch(data)
+                $mismatch(data)
             }
 
             #[inline(always)]
@@ -86,16 +88,17 @@ macro_rules! typed_expr_view {
 
             #[inline(always)]
             unsafe fn check_any_strict(data: &TVMFFIAny) -> bool {
-                unsafe { prim_dtype(data) }.is_some_and($accepts)
+                unsafe { $check(data) }
             }
 
             unsafe fn copy_from_any_view_after_check(data: &TVMFFIAny) -> Self {
-                let expr = unsafe { <Expr as AnyCompatible>::copy_from_any_view_after_check(data) };
+                let expr =
+                    unsafe { <$base as AnyCompatible>::copy_from_any_view_after_check(data) };
                 Self { base: ObjectRefCore::into_data(expr) }
             }
 
             unsafe fn move_from_any_after_check(data: &mut TVMFFIAny) -> Self {
-                let expr = unsafe { <Expr as AnyCompatible>::move_from_any_after_check(data) };
+                let expr = unsafe { <$base as AnyCompatible>::move_from_any_after_check(data) };
                 Self { base: ObjectRefCore::into_data(expr) }
             }
 
@@ -144,6 +147,26 @@ macro_rules! typed_expr_view {
             }
         }
 
+        // As `#[derive(ObjectRef)]` generates: the view converts into itself, owned or borrowed,
+        // so `$name` and `&$name` are an `IntoExpr<$name>`.
+        impl tvm_ffi::object::IntoObjectRef<$name> for $name {
+            type Output = $name;
+
+            #[inline(always)]
+            fn into_object_ref(self) -> $name {
+                self
+            }
+        }
+
+        impl<'a> tvm_ffi::object::IntoObjectRef<$name> for &'a $name {
+            type Output = &'a $name;
+
+            #[inline(always)]
+            fn into_object_ref(self) -> &'a $name {
+                self
+            }
+        }
+
         tvm_ffi::impl_try_from_any!($name);
         tvm_ffi::impl_arg_into_ref!($name);
         tvm_ffi::impl_into_arg_holder_default!($name);
@@ -155,11 +178,11 @@ macro_rules! typed_expr_view {
             }
         }
 
-        /// Dereference to the expression object, to read, as [`Expr`] does.
+        /// Dereference to the object, to read, as the reference it views does.
         impl Deref for $name {
-            type Target = ExprObj;
+            type Target = $obj;
 
-            fn deref(&self) -> &ExprObj {
+            fn deref(&self) -> &$obj {
                 &self.base
             }
         }
@@ -168,8 +191,8 @@ macro_rules! typed_expr_view {
             /// Borrow this expression as an [`Expr`], without a reference-count increment.
             #[inline]
             pub fn as_expr(&self) -> &Expr {
-                // SAFETY: `Expr` is a `repr(C)` struct of the one `ObjectArc<ExprObj>` the view
-                // holds, and every value of the view is an `Expr`.
+                // SAFETY: `Expr` is a `repr(C)` struct of one object pointer, as the view is, and
+                // every value of the view is an `Expr`.
                 unsafe { &*(self as *const Self as *const Expr) }
             }
 

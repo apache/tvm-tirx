@@ -41,10 +41,12 @@ pub use expr::*;
 pub use op::*;
 pub use vector_expr::*;
 
+// tvm-ffi-stubgen(import-object): std::borrow::Borrow
+
 // tvm-ffi-stubgen(begin): import-section
-use std::borrow::Borrow;
 use crate::ir::expr::Expr;
 use crate::ir::expr::IntoExpr;
+use std::borrow::Borrow;
 use tvm_ffi::Result;
 // tvm-ffi-stubgen(end)
 

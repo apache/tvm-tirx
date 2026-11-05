@@ -21,11 +21,13 @@
 //! against the native functions they follow.
 
 use tvm_tirx::ir::{
-    Call, Expr, FloatImm, FuncType, IntImm, Location, Op, PrimType, PtrType, StringImm, Type,
-    UNKNOWN_LOC,
+    Call, Expr, FloatImm, FuncType, IntImm, Location, Op, PrimExpr, PrimType, PrimVar, PtrType,
+    StringImm, Type, UNKNOWN_LOC,
 };
 use tvm_tirx::tirx::{fast_erf_float_expr, gpu_thread_return, logaddexp, reinterpret};
-use tvm_tirx::tvm_ffi::{AnyView, DLDataTypeExt, Function, ObjectRefCore, String as FfiString};
+use tvm_tirx::tvm_ffi::{
+    AnyView, DLDataTypeExt, Function, ObjectRefCast, ObjectRefCore, String as FfiString,
+};
 
 use super::{memory_scope, var};
 use crate::common::{agree, global, serial, structural_equal};
@@ -43,8 +45,8 @@ fn prim(name: &str) -> PrimType {
     PrimType::from_dtype(tvm_tirx::tvm_ffi::DLDataType::try_from_str(name).unwrap()).unwrap()
 }
 
-fn prim_var(name: &str) -> Expr {
-    var(&format!("v_{}", name.replace('x', "_")), prim(name)).into()
+fn prim_var(name: &str) -> PrimVar {
+    PrimVar::new(&format!("v_{}", name.replace('x', "_")), prim(name), UNKNOWN_LOC)
 }
 
 fn ptr(element: &str) -> Type {
@@ -54,7 +56,8 @@ fn ptr(element: &str) -> Type {
 #[test]
 fn ops() {
     let _serial = serial();
-    let (a, b) = (var("a", PrimType::float(32)), var("b", PrimType::float(32)));
+    let a = PrimVar::new("a", PrimType::float(32), UNKNOWN_LOC);
+    let b = PrimVar::new("b", PrimType::float(32), UNKNOWN_LOC);
     let sum = logaddexp(&a, &b).unwrap();
     assert!(structural_equal(&sum.ty, &PrimType::float(32)));
     let bits = reinterpret(PrimType::int(32), &a).unwrap();
@@ -66,16 +69,16 @@ fn ops() {
 #[test]
 fn logaddexp_agrees_with_cpp() {
     let _serial = serial();
-    let pairs: Vec<(Expr, Expr)> = vec![
-        (prim_var("float32"), var("w", PrimType::float(32)).into()),
-        (prim_var("float16"), prim_var("float32")),
-        (prim_var("float32"), IntImm::int32(2).into()),
-        (prim_var("float32x4"), prim_var("float32")),
+    let pairs: Vec<(PrimExpr, PrimExpr)> = vec![
+        (prim_var("float32").into(), PrimVar::new("w", PrimType::float(32), UNKNOWN_LOC).into()),
+        (prim_var("float16").into(), prim_var("float32").into()),
+        (prim_var("float32").into(), IntImm::int32(2).into()),
+        (prim_var("float32x4").into(), prim_var("float32").into()),
         (
-            prim_var("float32"),
+            prim_var("float32").into(),
             FloatImm::from_dtype(prim("float16").dtype, 0.5, UNKNOWN_LOC).unwrap().into(),
         ),
-        (prim_var("int32"), var("j", PrimType::int(32)).into()),
+        (prim_var("int32").into(), PrimVar::new("j", PrimType::int(32), UNKNOWN_LOC).into()),
     ];
     for (x, y) in &pairs {
         let native =
@@ -92,18 +95,18 @@ fn reinterpret_agrees_with_cpp() {
     let pointer = var("p", ptr("float32"));
     let function: Type = FuncType::new(Vec::<Type>::new(), PrimType::int(32)).into();
     let cases: Vec<(Type, Expr)> = vec![
-        (PrimType::int(32).into(), prim_var("float32")),
-        (PrimType::float(32).into(), prim_var("float32")),
-        (PrimType::int(64).into(), prim_var("float32")),
-        (prim("float32x4").into(), prim_var("int32x4")),
-        (prim("int16x2").into(), prim_var("float32")),
-        (ptr("int8"), prim_var("int64")),
-        (ptr("int8"), prim_var("int32")),
+        (PrimType::int(32).into(), prim_var("float32").into()),
+        (PrimType::float(32).into(), prim_var("float32").into()),
+        (PrimType::int(64).into(), prim_var("float32").into()),
+        (prim("float32x4").into(), prim_var("int32x4").into()),
+        (prim("int16x2").into(), prim_var("float32").into()),
+        (ptr("int8"), prim_var("int64").into()),
+        (ptr("int8"), prim_var("int32").into()),
         (PrimType::int(64).into(), pointer.clone().into()),
         (PrimType::int(32).into(), pointer.into()),
         (ptr("int8"), text.clone()),
         (PrimType::int(32).into(), text),
-        (function, prim_var("int32")),
+        (function, prim_var("int32").into()),
     ];
     for (ty, x) in cases {
         let native =
@@ -122,7 +125,7 @@ fn fast_erf_follows_the_native_lowering() {
     let rules = Op::attr_map::<Function>("metal.FLowerIntrinsic").unwrap();
     let rule = rules.and_then(|rules| rules.get(&erf).unwrap());
     for (ty, bits) in [(PrimType::float(32), 32), (PrimType::float(16), 16)] {
-        let x = var("x", ty.clone());
+        let x = PrimVar::new("x", ty.clone(), UNKNOWN_LOC);
         let rust = fast_erf_float_expr(&x, bits).unwrap();
         assert!(structural_equal(&rust.ty, &ty));
         assert!(rust.downcast_ref::<tvm_tirx::ir::prim::DivObj>().is_some(), "p / q");
@@ -149,7 +152,7 @@ fn fast_erf_follows_the_native_lowering() {
         }
     }
     // The operator chain checks its operands as C++ does: an integer argument is matched to the
-    // float constants, a non-primitive one is an error.
+    // float constants; a non-primitive one now fails the `PrimVar` check before the call.
     assert!(fast_erf_float_expr(prim_var("int32"), 32).is_ok());
-    assert!(fast_erf_float_expr(var("s", ptr("int8")), 32).is_err());
+    assert!(var("s", ptr("int8")).try_cast::<PrimVar>().is_err());
 }

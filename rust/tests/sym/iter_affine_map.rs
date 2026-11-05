@@ -19,7 +19,7 @@
 
 //! Tests of `sym::iter_affine_map`: iterator maps.
 
-use tvm_tirx::ir::{Expr, ExprObj, IntImm, Range, Var};
+use tvm_tirx::ir::{ExprObj, IntImm, PrimExpr, PrimVar, Range, Var};
 use tvm_tirx::sym::*;
 use tvm_tirx::tvm_ffi::{Array, Map, Object, ObjectIdentity, ObjectRefCast};
 
@@ -36,8 +36,8 @@ fn generated_types_match_the_registry() {
     );
 }
 
-fn mark_is(mark: &IterMark, var: &Var, extent: i64) -> bool {
-    let source: Var = mark.source.clone().try_cast().unwrap();
+fn mark_is(mark: &IterMark, var: &PrimVar, extent: i64) -> bool {
+    let source: PrimVar = mark.source.clone().try_cast().unwrap();
     let extent_imm: IntImm = mark.extent.clone().try_cast().unwrap();
     ObjectIdentity::of(&source) == ObjectIdentity::of(var)
         && extent_imm.value.to_i64() == Some(extent)
@@ -50,7 +50,7 @@ fn iter_maps_decompose_into_marks_and_splits() {
         op("prim._OpFloorDiv", &x, int32(4)),
         op("prim._OpFloorMod", &x, int32(4)),
     ]);
-    let iters: Map<Var, Range> = [(x.clone(), range(0, 16))].into_iter().collect();
+    let iters: Map<Var, Range> = [(Var::from(&x), range(0, 16))].into_iter().collect();
     let result: IterMapResult = global("sym.DetectIterMap")
         .call_tuple((indices, iters, int32(1), 0i32, analyzer, false))
         .unwrap()
@@ -62,7 +62,7 @@ fn iter_maps_decompose_into_marks_and_splits() {
         result.errors.iter().map(|e| e.to_string()).collect::<Vec<_>>()
     );
     assert_eq!(result.indices.len(), 2);
-    let as_int = |expr: Expr| expr.try_cast::<IntImm>().unwrap().value.to_i64().unwrap();
+    let as_int = |expr: PrimExpr| expr.try_cast::<IntImm>().unwrap().value.to_i64().unwrap();
     // Each index is one split of a mark of extent 4, whose source is itself a sum over the
     // mark of x on [0, 16): x // 4 takes lower factor 4 of it, x % 4 lower factor 1.
     let only_split = |sum: &IterSumExpr| -> IterSplitExpr {
@@ -90,9 +90,9 @@ fn iter_maps_decompose_into_marks_and_splits() {
 fn iter_maps() {
     let analyzer = Analyzer::new();
     let (x, y) = (var("x"), var("y"));
-    let dom = Map::from_iter([(x.clone(), range(0, 4)), (y.clone(), range(0, 4))]);
+    let dom = Map::from_iter([(Var::from(&x), range(0, 4)), (Var::from(&y), range(0, 4))]);
     let index = op("prim._OpAdd", op("prim._OpMul", &x, int32(4)), &y);
-    let predicate = Expr::from(true);
+    let predicate = PrimExpr::from(true);
 
     let detected =
         detect_iter_map([index.clone()], &dom, &predicate, IterMapLevel::Bijective, None, true)

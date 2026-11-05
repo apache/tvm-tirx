@@ -51,9 +51,9 @@
 // tvm-ffi-stubgen(import-object): crate::ir::expr::Expr
 // tvm-ffi-stubgen(import-object): crate::ir::support
 // tvm-ffi-stubgen(import-object): crate::ir::expr::IntoExpr
+// tvm-ffi-stubgen(import-object): std::borrow::Borrow
 
 // tvm-ffi-stubgen(begin): import-section
-use std::borrow::Borrow;
 use crate::ir::attrs::DictAttrs;
 use crate::ir::expr::Expr;
 use crate::ir::expr::GlobalVar;
@@ -61,6 +61,7 @@ use crate::ir::expr::IntoExpr;
 use crate::ir::function::BaseFunc;
 use crate::ir::global_info::GlobalInfo;
 use crate::ir::support;
+use std::borrow::Borrow;
 use std::ops::Deref;
 use tvm_ffi::Any;
 use tvm_ffi::Array;

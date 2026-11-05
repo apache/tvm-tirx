@@ -27,11 +27,11 @@
 //!
 //! ```
 //! use tvm_tirx::ir::prim::op::floordiv;
-//! use tvm_tirx::ir::{PrimType, Range, Var, UNKNOWN_LOC};
+//! use tvm_tirx::ir::{PrimType, PrimVar, Range, Var, UNKNOWN_LOC};
 //! use tvm_tirx::script::script;
 //! use tvm_tirx::sym::{Analyzer, ConstraintContext, RangeConstraint};
 //!
-//! let x = Var::new("x", PrimType::int(32), UNKNOWN_LOC);
+//! let x = PrimVar::new("x", PrimType::int(32), UNKNOWN_LOC);
 //! let context = ConstraintContext::new()?;
 //! let domain = Range::from_min_extent(0, 16, UNKNOWN_LOC)?;
 //! context.append(&RangeConstraint::new(x.clone(), domain).into())?;
@@ -62,18 +62,25 @@
 // tvm-ffi-stubgen(import-object): crate::sym::constraint::ConstraintContext
 // tvm-ffi-stubgen(import-object): crate::ir::support
 // tvm-ffi-stubgen(import-object): crate::ir::expr::IntoExpr
+// tvm-ffi-stubgen(import-object): crate::ir::expr::PrimExpr
+// The canonical forms are primitive expressions, as C++ `SplitExpr` and `SumExpr` derive from
+// `PrimExpr`.
+// tvm-ffi-stubgen(upcast): sym.SplitExpr -> PrimExpr
+// tvm-ffi-stubgen(upcast): sym.SumExpr -> PrimExpr
+// tvm-ffi-stubgen(import-object): std::borrow::Borrow
 
 // tvm-ffi-stubgen(begin): import-section
-use std::borrow::Borrow;
 use crate::ExitOnDrop;
 use crate::ir::expr::Expr;
 use crate::ir::expr::ExprObj;
 use crate::ir::expr::IntoExpr;
+use crate::ir::expr::PrimExpr;
 use crate::ir::expr::Range;
 use crate::ir::expr::Var;
 use crate::ir::support;
 use crate::sym::constraint::ConstraintContext;
 use crate::sym::int_set::IntSet;
+use std::borrow::Borrow;
 use std::ops::Deref;
 use tvm_ffi::Error;
 use tvm_ffi::Map;
@@ -88,7 +95,7 @@ use tvm_ffi::VALUE_ERROR;
 // The analyzer
 
 // tvm-ffi-stubgen(begin): object/sym.Analyzer
-/// Opaque: bytes [24, 160) of [24, 160) are not accounted for by reflected fields. Fields are read through the C ABI getters.
+/// Opaque: bytes [24, 120) of [24, 120) are not accounted for by reflected fields. Fields are read through the C ABI getters.
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "sym.Analyzer"]
@@ -164,7 +171,7 @@ impl Analyzer {
     }
 
     /// Return the constant bounds of `expr` under the known facts (`sym.AnalyzerConstIntBound`).
-    pub fn const_int_bound(&self, expr: impl IntoExpr) -> Result<ConstIntBound> {
+    pub fn const_int_bound(&self, expr: impl IntoExpr<PrimExpr>) -> Result<ConstIntBound> {
         tvm_ffi::cached_global_func!("sym.AnalyzerConstIntBound")
             .call_tuple((self, expr.into_expr()?.borrow()))?
             .try_into()
@@ -178,7 +185,7 @@ impl Analyzer {
     }
 
     /// Return the modular set `coeff * x + base` of `expr` (`sym.AnalyzerModularSet`).
-    pub fn modular_set(&self, expr: impl IntoExpr) -> Result<ModularSet> {
+    pub fn modular_set(&self, expr: impl IntoExpr<PrimExpr>) -> Result<ModularSet> {
         tvm_ffi::cached_global_func!("sym.AnalyzerModularSet")
             .call_tuple((self, expr.into_expr()?.borrow()))?
             .try_into()
@@ -188,7 +195,7 @@ impl Analyzer {
     /// (`sym.AnalyzerIntSet`).
     pub fn int_set(
         &self,
-        expr: impl IntoExpr,
+        expr: impl IntoExpr<PrimExpr>,
         dom_map: Option<&Map<Var, IntSet>>,
     ) -> Result<IntSet> {
         tvm_ffi::cached_global_func!("sym.AnalyzerIntSet")
@@ -198,21 +205,21 @@ impl Analyzer {
 
     /// Simplify `expr`, alternating the rewrite and canonical simplifiers `steps` times
     /// (`sym.AnalyzerSimplify`).
-    pub fn simplify(&self, expr: impl IntoExpr, steps: i32) -> Result<Expr> {
+    pub fn simplify(&self, expr: impl IntoExpr<PrimExpr>, steps: i32) -> Result<PrimExpr> {
         tvm_ffi::cached_global_func!("sym.AnalyzerSimplify")
             .call_tuple((self, expr.into_expr()?.borrow(), steps))?
             .try_into()
     }
 
     /// Simplify `expr` by rewrite rules (`sym.AnalyzerRewriteSimplify`).
-    pub fn rewrite_simplify(&self, expr: impl IntoExpr) -> Result<Expr> {
+    pub fn rewrite_simplify(&self, expr: impl IntoExpr<PrimExpr>) -> Result<PrimExpr> {
         tvm_ffi::cached_global_func!("sym.AnalyzerRewriteSimplify")
             .call_tuple((self, expr.into_expr()?.borrow()))?
             .try_into()
     }
 
     /// Simplify `expr` into canonical form (`sym.AnalyzerCanonicalSimplify`).
-    pub fn canonical_simplify(&self, expr: impl IntoExpr) -> Result<Expr> {
+    pub fn canonical_simplify(&self, expr: impl IntoExpr<PrimExpr>) -> Result<PrimExpr> {
         tvm_ffi::cached_global_func!("sym.AnalyzerCanonicalSimplify")
             .call_tuple((self, expr.into_expr()?.borrow()))?
             .try_into()
@@ -241,14 +248,22 @@ impl Analyzer {
     }
 
     /// Return whether `expr` is provably true (`sym.AnalyzerCanProve`).
-    pub fn can_prove(&self, expr: impl IntoExpr, strength: ProofStrength) -> Result<bool> {
+    pub fn can_prove(
+        &self,
+        expr: impl IntoExpr<PrimExpr>,
+        strength: ProofStrength,
+    ) -> Result<bool> {
         tvm_ffi::cached_global_func!("sym.AnalyzerCanProve")
             .call_tuple((self, expr.into_expr()?.borrow(), strength as i32))?
             .try_into()
     }
 
     /// Return whether `lhs == rhs` is provably true (`sym.AnalyzerCanProveEqual`).
-    pub fn can_prove_equal(&self, lhs: impl IntoExpr, rhs: impl IntoExpr) -> Result<bool> {
+    pub fn can_prove_equal(
+        &self,
+        lhs: impl IntoExpr<PrimExpr>,
+        rhs: impl IntoExpr<PrimExpr>,
+    ) -> Result<bool> {
         tvm_ffi::cached_global_func!("sym.AnalyzerCanProveEqual")
             .call_tuple((self, lhs.into_expr()?.borrow(), rhs.into_expr()?.borrow()))?
             .try_into()
@@ -256,7 +271,11 @@ impl Analyzer {
 
     /// Return the relation of `lhs` to `rhs` that the known comparisons imply
     /// (`sym.AnalyzerTryCompare`).
-    pub fn try_compare(&self, lhs: impl IntoExpr, rhs: impl IntoExpr) -> Result<CompareResult> {
+    pub fn try_compare(
+        &self,
+        lhs: impl IntoExpr<PrimExpr>,
+        rhs: impl IntoExpr<PrimExpr>,
+    ) -> Result<CompareResult> {
         let result: i64 = tvm_ffi::cached_global_func!("sym.AnalyzerTryCompare")
             .call_tuple((self, lhs.into_expr()?.borrow(), rhs.into_expr()?.borrow()))?
             .try_into()?;
@@ -270,7 +289,7 @@ impl Analyzer {
 
     /// Return the facts the Z3 prover knows, and `expr` to prove if given, as an SMT-LIB2 script
     /// (`sym.AnalyzerGetSMTLIB2`).
-    pub fn smtlib2(&self, expr: Option<&Expr>) -> Result<String> {
+    pub fn smtlib2(&self, expr: Option<&PrimExpr>) -> Result<String> {
         tvm_ffi::cached_global_func!("sym.AnalyzerGetSMTLIB2")
             .call_tuple((self, expr.cloned()))?
             .try_into()
@@ -610,7 +629,7 @@ impl Deref for SplitExprObj {
     }
 }
 
-tvm_ffi::impl_object_upcast!(SplitExpr => Expr, SplitExpr => CanonicalExpr);
+tvm_ffi::impl_object_upcast!(SplitExpr => Expr, SplitExpr => CanonicalExpr, SplitExpr => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 // tvm-ffi-stubgen(begin): object/sym.SumExpr
@@ -642,5 +661,5 @@ impl Deref for SumExprObj {
     }
 }
 
-tvm_ffi::impl_object_upcast!(SumExpr => Expr, SumExpr => CanonicalExpr);
+tvm_ffi::impl_object_upcast!(SumExpr => Expr, SumExpr => CanonicalExpr, SumExpr => PrimExpr);
 // tvm-ffi-stubgen(end)

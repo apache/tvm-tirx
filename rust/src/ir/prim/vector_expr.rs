@@ -28,10 +28,10 @@
 //!
 //! ```
 //! use tvm_tirx::ir::prim::{Broadcast, Ramp, Shuffle};
-//! use tvm_tirx::ir::{PrimExpr, PrimType, Var, UNKNOWN_LOC};
+//! use tvm_tirx::ir::{PrimExpr, PrimType, PrimVar, Var, UNKNOWN_LOC};
 //! use tvm_tirx::script::script;
 //!
-//! let i = Var::new("i", PrimType::int(32), UNKNOWN_LOC);
+//! let i = PrimVar::new("i", PrimType::int(32), UNKNOWN_LOC);
 //! let index = Ramp::new(&i * 4, 1, 4, UNKNOWN_LOC)?;
 //! assert_eq!(script(&index)?, "T.Ramp(i * 4, 1, 4)");
 //!
@@ -48,6 +48,21 @@
 // tvm-ffi-stubgen(custom-new): prim.Ramp
 // tvm-ffi-stubgen(custom-new): prim.Broadcast
 // tvm-ffi-stubgen(custom-new): prim.Shuffle
+// Every node is typed by a `PrimType` and holds `PrimExpr` operands, as in C++: its allocator
+// takes a `PrimType`, and it converts into a `PrimExpr` without a check.
+// tvm-ffi-stubgen(field): prim.Ramp.ty -> PrimType
+// tvm-ffi-stubgen(field): prim.Ramp.base -> PrimExpr
+// tvm-ffi-stubgen(field): prim.Ramp.stride -> PrimExpr
+// tvm-ffi-stubgen(field): prim.Ramp.lanes -> PrimExpr
+// tvm-ffi-stubgen(upcast): prim.Ramp -> PrimExpr
+// tvm-ffi-stubgen(field): prim.Broadcast.ty -> PrimType
+// tvm-ffi-stubgen(field): prim.Broadcast.value -> PrimExpr
+// tvm-ffi-stubgen(field): prim.Broadcast.lanes -> PrimExpr
+// tvm-ffi-stubgen(upcast): prim.Broadcast -> PrimExpr
+// tvm-ffi-stubgen(field): prim.Shuffle.ty -> PrimType
+// tvm-ffi-stubgen(field): prim.Shuffle.vectors -> Array<PrimExpr>
+// tvm-ffi-stubgen(field): prim.Shuffle.indices -> Array<PrimExpr>
+// tvm-ffi-stubgen(upcast): prim.Shuffle -> PrimExpr
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
 // tvm-ffi-stubgen(import-object): tvm_ffi::DLDataType
@@ -61,6 +76,8 @@
 // tvm-ffi-stubgen(import-object): crate::ir::prim::expr::Mul
 // tvm-ffi-stubgen(import-object): crate::ir::prim::expr::MulObj
 // tvm-ffi-stubgen(import-object): crate::ir::r#type::PrimType
+// tvm-ffi-stubgen(import-object): crate::ir::expr::PrimExpr
+// tvm-ffi-stubgen(import-object): tvm_ffi::Array
 // tvm-ffi-stubgen(import-object): crate::ir::r#type::Type
 // tvm-ffi-stubgen(import-object): crate::ir::support
 // tvm-ffi-stubgen(import-object): crate::ir::prim::op::cast
@@ -76,6 +93,7 @@ use crate::ir::expr::ExprObj;
 use crate::ir::expr::IntImm;
 use crate::ir::expr::IntImmObj;
 use crate::ir::expr::IntoExpr;
+use crate::ir::expr::PrimExpr;
 use crate::ir::location::Location;
 use crate::ir::location::UnknownLoc;
 use crate::ir::prim::expr::Mul;
@@ -100,9 +118,9 @@ use tvm_ffi::Result;
 #[type_final]
 pub struct RampObj {
     base: ExprObj,
-    pub base_: Expr,
-    pub stride: Expr,
-    pub lanes: Expr,
+    pub base_: PrimExpr,
+    pub stride: PrimExpr,
+    pub lanes: PrimExpr,
 }
 
 const _: () = {
@@ -131,8 +149,14 @@ impl Deref for RampObj {
 }
 
 impl RampObj {
-    pub(crate) fn new(loc: Location, ty: Type, base_: Expr, stride: Expr, lanes: Expr) -> Self {
-        let base = ExprObj::new(loc, ty);
+    pub(crate) fn new(
+        loc: Location,
+        ty: PrimType,
+        base_: PrimExpr,
+        stride: PrimExpr,
+        lanes: PrimExpr,
+    ) -> Self {
+        let base = ExprObj::new(loc, ty.into());
         Self { base, base_, stride, lanes }
     }
 }
@@ -141,17 +165,17 @@ impl Ramp {
     /// Lossless complete-field allocation.
     pub fn from_fields(
         loc: impl Into<Location>,
-        ty: impl Into<Type>,
-        base_: impl Into<Expr>,
-        stride: impl Into<Expr>,
-        lanes: impl Into<Expr>,
+        ty: impl Into<PrimType>,
+        base_: impl Into<PrimExpr>,
+        stride: impl Into<PrimExpr>,
+        lanes: impl Into<PrimExpr>,
     ) -> Self {
         let obj = RampObj::new(loc.into(), ty.into(), base_.into(), stride.into(), lanes.into());
         Self { base: ObjectArc::new(obj) }
     }
 }
 
-tvm_ffi::impl_object_upcast!(Ramp => Expr);
+tvm_ffi::impl_object_upcast!(Ramp => Expr, Ramp => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 impl Ramp {
@@ -164,16 +188,15 @@ impl Ramp {
     /// `uint64`, or an `InternalError` if `lanes` is neither a constant greater than 1 nor
     /// `vscale() * factor`.
     pub fn new(
-        base: impl IntoExpr,
-        stride: impl IntoExpr,
-        lanes: impl IntoExpr,
+        base: impl IntoExpr<PrimExpr>,
+        stride: impl IntoExpr<PrimExpr>,
+        lanes: impl IntoExpr<PrimExpr>,
         loc: impl Into<Location>,
     ) -> Result<Self> {
         let (base, stride, lanes) =
             (base.into_owned_expr()?, stride.into_owned_expr()?, lanes.into_owned_expr()?);
-        let base_ty = support::prim_type(&base)?;
-        let stride_ty = support::prim_type(&stride)?;
-        support::prim_dtype(&lanes)?;
+        let base_ty = base.ty();
+        let stride_ty = stride.ty();
         let (base_dtype, stride_dtype) = (base_ty.dtype, stride_ty.dtype);
         // Only 32-bit and 64-bit integers step through the lanes of a ramp.
         let index = |dtype: DLDataType| {
@@ -213,8 +236,8 @@ impl Ramp {
 #[type_final]
 pub struct BroadcastObj {
     base: ExprObj,
-    pub value: Expr,
-    pub lanes: Expr,
+    pub value: PrimExpr,
+    pub lanes: PrimExpr,
 }
 
 const _: () = {
@@ -243,8 +266,8 @@ impl Deref for BroadcastObj {
 }
 
 impl BroadcastObj {
-    pub(crate) fn new(loc: Location, ty: Type, value: Expr, lanes: Expr) -> Self {
-        let base = ExprObj::new(loc, ty);
+    pub(crate) fn new(loc: Location, ty: PrimType, value: PrimExpr, lanes: PrimExpr) -> Self {
+        let base = ExprObj::new(loc, ty.into());
         Self { base, value, lanes }
     }
 }
@@ -253,16 +276,16 @@ impl Broadcast {
     /// Lossless complete-field allocation.
     pub fn from_fields(
         loc: impl Into<Location>,
-        ty: impl Into<Type>,
-        value: impl Into<Expr>,
-        lanes: impl Into<Expr>,
+        ty: impl Into<PrimType>,
+        value: impl Into<PrimExpr>,
+        lanes: impl Into<PrimExpr>,
     ) -> Self {
         let obj = BroadcastObj::new(loc.into(), ty.into(), value.into(), lanes.into());
         Self { base: ObjectArc::new(obj) }
     }
 }
 
-tvm_ffi::impl_object_upcast!(Broadcast => Expr);
+tvm_ffi::impl_object_upcast!(Broadcast => Expr, Broadcast => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 impl Broadcast {
@@ -273,13 +296,12 @@ impl Broadcast {
     /// Returns an `InternalError` if `value` is a vector, or `lanes` is neither a constant greater
     /// than 1 nor `vscale() * factor`.
     pub fn new(
-        value: impl IntoExpr,
-        lanes: impl IntoExpr,
+        value: impl IntoExpr<PrimExpr>,
+        lanes: impl IntoExpr<PrimExpr>,
         loc: impl Into<Location>,
     ) -> Result<Self> {
         let (value, lanes) = (value.into_owned_expr()?, lanes.into_owned_expr()?);
-        let value_dtype = support::prim_dtype(&value)?;
-        support::prim_dtype(&lanes)?;
+        let value_dtype = value.dtype();
         if !support::is_scalar(value_dtype) {
             return Err(support::check_failed(tvm_ffi::INTERNAL_ERROR, "value_ty.IsScalar()", ""));
         }
@@ -297,8 +319,8 @@ impl Broadcast {
 #[type_final]
 pub struct ShuffleObj {
     base: ExprObj,
-    pub vectors: Array<Expr>,
-    pub indices: Array<Expr>,
+    pub vectors: Array<PrimExpr>,
+    pub indices: Array<PrimExpr>,
 }
 
 const _: () = {
@@ -327,8 +349,13 @@ impl Deref for ShuffleObj {
 }
 
 impl ShuffleObj {
-    pub(crate) fn new(loc: Location, ty: Type, vectors: Array<Expr>, indices: Array<Expr>) -> Self {
-        let base = ExprObj::new(loc, ty);
+    pub(crate) fn new(
+        loc: Location,
+        ty: PrimType,
+        vectors: Array<PrimExpr>,
+        indices: Array<PrimExpr>,
+    ) -> Self {
+        let base = ExprObj::new(loc, ty.into());
         Self { base, vectors, indices }
     }
 }
@@ -337,16 +364,16 @@ impl Shuffle {
     /// Lossless complete-field allocation.
     pub fn from_fields(
         loc: impl Into<Location>,
-        ty: impl Into<Type>,
-        vectors: impl Into<Array<Expr>>,
-        indices: impl Into<Array<Expr>>,
+        ty: impl Into<PrimType>,
+        vectors: impl Into<Array<PrimExpr>>,
+        indices: impl Into<Array<PrimExpr>>,
     ) -> Self {
         let obj = ShuffleObj::new(loc.into(), ty.into(), vectors.into(), indices.into());
         Self { base: ObjectArc::new(obj) }
     }
 }
 
-tvm_ffi::impl_object_upcast!(Shuffle => Expr);
+tvm_ffi::impl_object_upcast!(Shuffle => Expr, Shuffle => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 impl Shuffle {
@@ -358,21 +385,19 @@ impl Shuffle {
     /// Returns an `InternalError` if `vectors` or `indices` is empty, the vectors have different
     /// element types, or there are more indices than lanes.
     pub fn new(
-        vectors: impl IntoIterator<Item = impl IntoExpr>,
-        indices: impl IntoIterator<Item = impl IntoExpr>,
+        vectors: impl IntoIterator<Item = impl IntoExpr<PrimExpr>>,
+        indices: impl IntoIterator<Item = impl IntoExpr<PrimExpr>>,
         loc: impl Into<Location>,
     ) -> Result<Self> {
-        let vectors =
-            vectors.into_iter().map(IntoExpr::into_owned_expr).collect::<Result<Array<Expr>>>()?;
-        let indices =
-            indices.into_iter().map(IntoExpr::into_owned_expr).collect::<Result<Array<Expr>>>()?;
-        let dtypes = vectors
-            .iter()
-            .map(|vector| support::prim_dtype(&vector))
-            .collect::<Result<Vec<_>>>()?;
-        for index in indices.iter() {
-            support::prim_dtype(&index)?;
-        }
+        let vectors = vectors
+            .into_iter()
+            .map(IntoExpr::into_owned_expr)
+            .collect::<Result<Array<PrimExpr>>>()?;
+        let indices = indices
+            .into_iter()
+            .map(IntoExpr::into_owned_expr)
+            .collect::<Result<Array<PrimExpr>>>()?;
+        let dtypes = vectors.iter().map(|vector| vector.dtype()).collect::<Vec<_>>();
         let empty =
             |condition: &str| support::compare_failed(tvm_ffi::INTERNAL_ERROR, condition, 0, 0, "");
         let Some(first) = dtypes.first() else { return Err(empty("vectors.size() != 0U")) };
@@ -409,7 +434,7 @@ impl Shuffle {
 
 /// The vector type of `element` elements over `lanes`, and the lanes a `Ramp` or `Broadcast` keeps:
 /// a constant count as an `int32` constant, or a scalable count as `vscale * factor`.
-fn vector_lanes(element: DLDataType, lanes: Expr) -> Result<(DLDataType, Expr)> {
+fn vector_lanes(element: DLDataType, lanes: PrimExpr) -> Result<(DLDataType, PrimExpr)> {
     if let Some(imm) = lanes.downcast_ref::<IntImmObj>() {
         let Some(count) = imm.value.to_i64().and_then(|count| i32::try_from(count).ok()) else {
             return Err(tvm_ffi::Error::new(tvm_ffi::INTERNAL_ERROR, "bad optional access", ""));
@@ -434,25 +459,27 @@ fn vector_lanes(element: DLDataType, lanes: Expr) -> Result<(DLDataType, Expr)> 
 
 /// The lane count of a scalable vector of `factor` times `vscale` lanes, as C++ spells it:
 /// `vscale() * factor`, both `int32`.
-pub(crate) fn vscale_lanes(factor: i32) -> Result<Expr> {
+pub(crate) fn vscale_lanes(factor: i32) -> Result<PrimExpr> {
     let vscale = support::cached_op("prim.vscale")?;
-    let vscale = Call::new(
+    let vscale: Expr = Call::new(
         Some(&PrimType::int(32).into()),
         vscale,
         Vec::<Expr>::new(),
         None,
         Vec::<Type>::new(),
         UnknownLoc::new(),
-    )?;
-    Ok(Mul::new(vscale, IntImm::int32(factor), UnknownLoc::new())?.into())
+    )?
+    .into();
+    Ok(Mul::new(PrimExpr::try_from(vscale)?, IntImm::int32(factor), UnknownLoc::new())?.into())
 }
 
 /// `factor` when `lanes` is `factor * vscale` or `vscale * factor` (C++ `ExtractVscaleFactor`).
-fn vscale_factor(lanes: &Expr) -> Result<Option<i32>> {
+fn vscale_factor(lanes: &PrimExpr) -> Result<Option<i32>> {
     let Some(mul) = lanes.downcast_ref::<MulObj>() else { return Ok(None) };
     let vscale = support::cached_op("prim.vscale")?;
-    let is_vscale =
-        |expr: &Expr| expr.downcast_ref::<CallObj>().is_some_and(|call| call.op.same_as(&vscale));
+    let is_vscale = |expr: &PrimExpr| {
+        expr.downcast_ref::<CallObj>().is_some_and(|call| call.op.same_as(&vscale))
+    };
     let factor = |imm: &IntImmObj| imm.value.to_i64().and_then(|value| i32::try_from(value).ok());
     if let Some(imm) = mul.a.downcast_ref::<IntImmObj>() {
         if is_vscale(&mul.b) {

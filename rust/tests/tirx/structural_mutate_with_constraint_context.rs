@@ -89,8 +89,8 @@ impl Rewrite {
 fn result_facts_and_scope_restore_for_retained_and_moved_roots() {
     let _serial = serial();
     for moved in [false, true] {
-        let x = Var::new("mutated_x", PrimType::int(32), UNKNOWN_LOC);
-        let i = Var::new("mutated_i", PrimType::int(32), UNKNOWN_LOC);
+        let x = PrimVar::new("mutated_x", PrimType::int(32), UNKNOWN_LOC);
+        let i = PrimVar::new("mutated_i", PrimType::int(32), UNKNOWN_LOC);
         let body = For::new(
             &i,
             int32(0),
@@ -165,7 +165,7 @@ fn alias_acquired_in_callback_forces_copying_default_descent() {
         }
     }
     let mut alias = Alias::default();
-    let i = Var::new("aliased_i", PrimType::int(32), UNKNOWN_LOC);
+    let i = PrimVar::new("aliased_i", PrimType::int(32), UNKNOWN_LOC);
     let root =
         For::new(&i, int32(0), int32(4), int32(1), ForKind::Default, eval(11), None, UNKNOWN_LOC)
             .unwrap();

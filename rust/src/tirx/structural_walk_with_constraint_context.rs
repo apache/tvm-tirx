@@ -121,13 +121,13 @@ where
 /// # Examples
 ///
 /// ```
-/// use tvm_tirx::ir::{Evaluate, EvaluateObj, For, ForKind, PrimType, Var, UNKNOWN_LOC};
+/// use tvm_tirx::ir::{Evaluate, EvaluateObj, For, ForKind, PrimType, PrimVar, Var, UNKNOWN_LOC};
 /// use tvm_tirx::script::script;
 /// use tvm_tirx::sym::{ConstraintContext, RangeConstraintObj};
 /// use tvm_tirx::tirx::structural_walk_with_constraint_context as walk;
 /// use tvm_tirx::tvm_ffi::{ObjectRefCore, WalkOrder, WalkResult};
 ///
-/// let i = Var::new("i", PrimType::int(32), UNKNOWN_LOC);
+/// let i = PrimVar::new("i", PrimType::int(32), UNKNOWN_LOC);
 /// let body = Evaluate::new(&i, UNKNOWN_LOC);
 /// let root = For::new(&i, 0, 16, 1, ForKind::Default, body, None, UNKNOWN_LOC)?;
 ///

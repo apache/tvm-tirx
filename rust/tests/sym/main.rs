@@ -27,22 +27,24 @@ mod analyzer;
 mod int_set;
 mod iter_affine_map;
 
-use tvm_tirx::ir::{UNKNOWN_LOC, dtype, Expr, IntImm, Location, PrimType, Range, Var};
+use tvm_tirx::ir::{
+    UNKNOWN_LOC, dtype, Expr, IntImm, Location, PrimExpr, PrimType, PrimVar, Range, Var,
+};
 use tvm_tirx::sym::{Analyzer, ConstraintContext};
 use tvm_tirx::tvm_ffi::String as FfiString;
 use tvm_tirx::tvm_ffi::object::ObjectRef;
 
 use common::global;
 
-fn int32(value: i64) -> Expr {
+fn int32(value: i64) -> PrimExpr {
     IntImm::from_dtype(dtype::int(32), value, UNKNOWN_LOC).unwrap().into()
 }
 
-fn op(name: &str, a: impl Into<Expr>, b: impl Into<Expr>) -> Expr {
+fn op(name: &str, a: impl Into<Expr>, b: impl Into<Expr>) -> PrimExpr {
     global(name).call_tuple((a.into(), b.into(), Location::unknown())).unwrap().try_into().unwrap()
 }
 
-fn var(name: &str) -> Var {
+fn var(name: &str) -> PrimVar {
     global("ir.Var")
         .call_tuple((FfiString::from(name), PrimType::int(32), Location::unknown()))
         .unwrap()
@@ -71,17 +73,21 @@ fn context(constraints: impl IntoIterator<Item = ObjectRef>) -> ConstraintContex
     context
 }
 
-fn range_constraint(var: &Var, domain: Range) -> ObjectRef {
-    global("sym.RangeConstraint").call_tuple((var, domain)).unwrap().try_into().unwrap()
+fn range_constraint(var: impl Into<Var>, domain: Range) -> ObjectRef {
+    global("sym.RangeConstraint").call_tuple((var.into(), domain)).unwrap().try_into().unwrap()
 }
 
-fn predicate_constraint(predicate: Expr) -> ObjectRef {
-    global("sym.PredicateConstraint").call_tuple((predicate, false)).unwrap().try_into().unwrap()
+fn predicate_constraint(predicate: impl Into<PrimExpr>) -> ObjectRef {
+    global("sym.PredicateConstraint")
+        .call_tuple((predicate.into(), false))
+        .unwrap()
+        .try_into()
+        .unwrap()
 }
 
 struct Fixture {
     analyzer: Analyzer,
-    x: Var,
+    x: PrimVar,
 }
 
 /// An analyzer with `x` bound to `[0, 16)`, through the native functions only.

@@ -26,12 +26,12 @@
 //! # Examples
 //!
 //! ```
-//! use tvm_tirx::ir::{PrimType, Var, UNKNOWN_LOC};
+//! use tvm_tirx::ir::{PrimType, PrimVar, Var, UNKNOWN_LOC};
 //! use tvm_tirx::script::script;
 //! use tvm_tirx::tirx::{logaddexp, reinterpret};
 //!
-//! let x = Var::new("x", PrimType::float(32), UNKNOWN_LOC);
-//! let y = Var::new("y", PrimType::float(32), UNKNOWN_LOC);
+//! let x = PrimVar::new("x", PrimType::float(32), UNKNOWN_LOC);
+//! let y = PrimVar::new("y", PrimType::float(32), UNKNOWN_LOC);
 //! assert_eq!(script(&logaddexp(&x, &y)?)?, "T.log(T.exp(x) + T.exp(y))");
 //! assert_eq!(script(&reinterpret(PrimType::int(32), &x)?)?, "T.reinterpret(x, ty=T.int32)");
 //! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
@@ -63,6 +63,7 @@
 // tvm-ffi-stubgen(import-object): tvm_ffi::ObjectRefCore
 // tvm-ffi-stubgen(import-object): tvm_ffi::TYPE_ERROR
 // tvm-ffi-stubgen(import-object): crate::ir::expr::IntoExpr
+// tvm-ffi-stubgen(import-object): crate::ir::expr::PrimExpr
 
 // tvm-ffi-stubgen(begin): import-section
 use crate::ir::attrs::Attrs;
@@ -71,6 +72,7 @@ use crate::ir::expr::Call;
 use crate::ir::expr::Expr;
 use crate::ir::expr::FloatImm;
 use crate::ir::expr::IntoExpr;
+use crate::ir::expr::PrimExpr;
 use crate::ir::expr::StringImmObj;
 use crate::ir::location::Location;
 use crate::ir::location::UNKNOWN_LOC;
@@ -179,15 +181,19 @@ tvm_ffi::impl_object_upcast!(CallFFIKernelAttr => Attrs);
 /// # Errors
 ///
 /// Returns an error if an operand is not floating-point.
-pub fn logaddexp(a: impl IntoExpr, b: impl IntoExpr) -> Result<Expr> {
+pub fn logaddexp(a: impl IntoExpr<PrimExpr>, b: impl IntoExpr<PrimExpr>) -> Result<PrimExpr> {
     logaddexp_at(a, b, UNKNOWN_LOC)
 }
 
 /// Build [`logaddexp`] with the casts at `loc`.
-pub fn logaddexp_at(a: impl IntoExpr, b: impl IntoExpr, loc: impl Into<Location>) -> Result<Expr> {
+pub fn logaddexp_at(
+    a: impl IntoExpr<PrimExpr>,
+    b: impl IntoExpr<PrimExpr>,
+    loc: impl Into<Location>,
+) -> Result<PrimExpr> {
     let (a, b) = (a.into_owned_expr()?, b.into_owned_expr()?);
     for (operand, side) in [(&a, "a"), (&b, "b")] {
-        if support::prim_dtype(operand)?.code != support::FLOAT {
+        if operand.dtype().code != support::FLOAT {
             let condition = format!("{side}.ty().MatchesCode(DLDataTypeCode::kDLFloat)");
             let message = support::repr(operand);
             return Err(support::check_failed(INTERNAL_ERROR, &condition, &message));
@@ -324,7 +330,7 @@ pub fn reinterpret_at(
 
 /// Build a rational approximation of `erf(arg)` on `[-4, 4]` in `bits`-bit floats, as the Metal and
 /// WebGPU backends lower `erf` (C++ `tirx::fast_erf_float_expr(arg, bits)`).
-pub fn fast_erf_float_expr(arg: impl IntoExpr, bits: u8) -> Result<Expr> {
+pub fn fast_erf_float_expr(arg: impl IntoExpr<PrimExpr>, bits: u8) -> Result<PrimExpr> {
     let dtype = PrimType::float(bits).dtype;
     // The C++ coefficients are `float` literals.
     let constant = |value: f32| -> ExprResult {
@@ -366,12 +372,12 @@ pub fn fast_erf_float_expr(arg: impl IntoExpr, bits: u8) -> Result<Expr> {
 }
 
 /// Build a return from the current GPU thread, without a value (`tirx.gpu_thread_return`).
-pub fn gpu_thread_return() -> Result<Expr> {
+pub fn gpu_thread_return() -> Result<PrimExpr> {
     gpu_thread_return_at(UNKNOWN_LOC)
 }
 
 /// Build [`gpu_thread_return`] at `loc`.
-pub fn gpu_thread_return_at(loc: impl Into<Location>) -> Result<Expr> {
+pub fn gpu_thread_return_at(loc: impl Into<Location>) -> Result<PrimExpr> {
     let loc: Location = loc.into();
     tvm_ffi::cached_global_func!("tirx.gpu_thread_return").call_tuple((&loc,))?.try_into()
 }

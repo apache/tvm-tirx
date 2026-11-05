@@ -24,15 +24,15 @@
 //! as in C++.
 
 use tvm_tirx::ir::prim::op::{self, ExprResult, PrimOps};
-use tvm_tirx::ir::IntoExpr;
 use tvm_tirx::ir::prim::{self, Add, Broadcast, BroadcastObj, Cast, CastObj, Not, Ramp, RampObj, Sub};
 use tvm_tirx::ir::{
-    Call, Expr, FloatImm, IntImm, Location, Op, PrimType, Range, SourceLoc, SourceName, StringImm,
-    Type, UnknownLocObj, UNKNOWN_LOC,
+    Call, Expr, FloatImm, IntImm, Location, Op, PrimExpr, PrimType, Range, SourceLoc, SourceName,
+    StringImm, Type, UnknownLocObj, UNKNOWN_LOC,
 };
 use tvm_tirx::sym;
 use tvm_tirx::tvm_ffi::{
-    Any, AnyView, BigInt, ObjectRefCast, ObjectRefCore, Result, String as FfiString, TYPE_ERROR,
+    Any, AnyCompatible, AnyView, BigInt, ObjectRefCast, ObjectRefCore, Result, String as FfiString,
+    TYPE_ERROR,
 };
 
 use super::{dtype, int_value, var};
@@ -45,19 +45,19 @@ fn prim(name: &str) -> PrimType {
 }
 
 /// A variable of the primitive type `ty`, named after it.
-fn prim_var(ty: &str) -> Expr {
+fn prim_var(ty: &str) -> PrimExpr {
     var(&format!("v_{}", ty.replace('x', "_")), prim(ty)).into()
 }
 
-fn imm(ty: &str, value: i64) -> Expr {
+fn imm(ty: &str, value: i64) -> PrimExpr {
     IntImm::from_dtype(parse_dtype(ty), value, UNKNOWN_LOC).unwrap().into()
 }
 
-fn big_imm(ty: &str, value: BigInt) -> Expr {
+fn big_imm(ty: &str, value: BigInt) -> PrimExpr {
     IntImm::from_dtype(parse_dtype(ty), value, UNKNOWN_LOC).unwrap().into()
 }
 
-fn fimm(ty: &str, value: f64) -> Expr {
+fn fimm(ty: &str, value: f64) -> PrimExpr {
     FloatImm::from_dtype(parse_dtype(ty), value, UNKNOWN_LOC).unwrap().into()
 }
 
@@ -76,12 +76,12 @@ fn native2(name: &str, a: impl Into<Expr>, b: impl Into<Expr>) -> Expr {
 }
 
 /// The native unary function `name`.
-fn native1(name: &str, x: &Expr) -> Result<Any> {
-    global(name).call_tuple((x.clone(), Location::unknown()))
+fn native1(name: &str, x: impl Into<Expr>) -> Result<Any> {
+    global(name).call_tuple((x.into(), Location::unknown()))
 }
 
-fn same(built: ExprResult, expected: &Expr) -> bool {
-    structural_equal(&built.into_expr().unwrap(), expected)
+fn same(built: ExprResult, expected: &impl AnyCompatible) -> bool {
+    structural_equal(&PrimExpr::try_from(built).unwrap(), expected)
 }
 
 /// The cases where the Rust operator and the native one disagree, and how many were compared.
@@ -96,7 +96,12 @@ struct Outcome {
 impl Outcome {
     /// The Rust result and the native one agree: the same expression, or an error of the same
     /// kind with the same message.
-    fn check(&mut self, what: impl FnOnce() -> String, rust: Result<Expr>, native: Result<Any>) {
+    fn check(
+        &mut self,
+        what: impl FnOnce() -> String,
+        rust: Result<PrimExpr>,
+        native: Result<Any>,
+    ) {
         self.compared += 1;
         let mismatch = match (rust, native) {
             (Ok(rust), Ok(native)) => {
@@ -152,8 +157,8 @@ impl Outcome {
 /// Operands of every kind the operators treat differently: variables, constants including 0, 1,
 /// -1, the limits of each type and values that overflow, vectors, broadcasts, a ramp, the
 /// symbolic infinities and `vscale()` calls.
-fn operands() -> Vec<Expr> {
-    let mut operands: Vec<Expr> = [
+fn operands() -> Vec<PrimExpr> {
+    let mut operands: Vec<PrimExpr> = [
         "int8",
         "int16",
         "int32",
@@ -216,7 +221,7 @@ fn operands() -> Vec<Expr> {
     operands
 }
 
-type Binary = fn(&Expr, &Expr) -> ExprResult;
+type Binary = fn(&PrimExpr, &PrimExpr) -> ExprResult;
 
 #[test]
 fn binary_operators_agree_with_cpp() {
@@ -258,7 +263,7 @@ fn binary_operators_agree_with_cpp() {
             for b in &operands {
                 let native = native_op.call_tuple((a.clone(), b.clone(), Location::unknown()));
                 let what = || format!("{name}({}, {})", repr(a), repr(b));
-                outcome.check(what, operator(a, b).into_expr(), native);
+                outcome.check(what, operator(a, b).try_into(), native);
             }
         }
         outcome.assert_agrees(name);
@@ -279,7 +284,7 @@ fn unary_and_ternary_operators_agree_with_cpp() {
     let bitwise_not = global("prim.BitwiseNot");
     for a in &operands {
         let native = bitwise_not.call_tuple((a.clone(), Location::unknown()));
-        match a.bitwise_not().into_expr() {
+        match a.bitwise_not().try_into() {
             Ok(rust) => outcome.check(|| format!("~{}", repr(a)), Ok(rust), native),
             Err(_) => assert!(native.is_err(), "~{}: only Rust rejects it", repr(a)),
         }
@@ -287,7 +292,7 @@ fn unary_and_ternary_operators_agree_with_cpp() {
     outcome.assert_agrees("bitwise_neg");
 
     let mut outcome = Outcome::default();
-    let conditions: Vec<Expr> = vec![
+    let conditions: Vec<PrimExpr> = vec![
         prim_var("bool"),
         imm("bool", 0),
         imm("bool", 1),
@@ -295,7 +300,7 @@ fn unary_and_ternary_operators_agree_with_cpp() {
         prim_var("int32"),
         imm("int32", 1),
     ];
-    let values: Vec<Expr> = operands.iter().step_by(3).cloned().collect();
+    let values: Vec<PrimExpr> = operands.iter().step_by(3).cloned().collect();
     let if_then_else = global("prim._OpIfThenElse");
     for c in &conditions {
         for t in &values {
@@ -303,7 +308,7 @@ fn unary_and_ternary_operators_agree_with_cpp() {
                 let native =
                     if_then_else.call_tuple((c.clone(), t.clone(), f.clone(), Location::unknown()));
                 let what = || format!("if_then_else({}, {}, {})", repr(c), repr(t), repr(f));
-                outcome.check(what, c.if_then_else(t, f).into_expr(), native);
+                outcome.check(what, c.if_then_else(t, f).try_into(), native);
             }
         }
     }
@@ -319,29 +324,28 @@ fn literals_and_compound_expressions_agree_with_cpp() {
     let mut outcome = Outcome::default();
     outcome.check(
         || "x + 3".into(),
-        (&x + 3).into_expr(),
+        (&x + 3).try_into(),
         add.call_tuple((x.clone(), imm("int64", 3), Location::unknown())),
     );
     outcome.check(
         || "3 + x".into(),
-        (3i32 + &x).into_expr(),
+        (3i32 + &x).try_into(),
         add.call_tuple((imm("int64", 3), x.clone(), Location::unknown())),
     );
     let floordiv = global("prim._OpFloorDiv");
     let rust = ((&x + 0) * 1).floordiv(1);
     outcome.check(
         || "((x + 0) * 1) // 1".into(),
-        rust.into_expr(),
+        rust.try_into(),
         floordiv.call_tuple((x.clone(), imm("int64", 1), Location::unknown())),
     );
     // Unary minus folds a constant whose negation fits its type and is `0 - x` otherwise.
     let sub = global("prim._OpSub");
     for value in [imm("int64", i64::MIN), imm("int32", 5), fimm("float32", 2.5), prim_var("int32")]
     {
-        let ty: PrimType = value.ty.clone().try_cast().unwrap();
-        let zero = op::make_const(ty, 0).unwrap();
+        let zero = op::make_const(value.ty(), 0).unwrap();
         let native = sub.call_tuple((zero, value.clone(), Location::unknown()));
-        outcome.check(|| format!("-{}", repr(&value)), (-&value).into_expr(), native);
+        outcome.check(|| format!("-{}", repr(&value)), (-&value).try_into(), native);
     }
     outcome.assert_agrees("literals");
 }
@@ -393,8 +397,8 @@ fn expression_results_pass_into_functions_and_constructors() {
     assert!(structural_equal(&index, &native2("prim._OpFloorDiv", sum.clone(), imm("int32", 4))));
     assert!(structural_equal(&op::floor(&x + 1).unwrap(), &sum));
     let raw: Expr = Add::new(&x + 1, &x * 2, UNKNOWN_LOC).unwrap().into();
-    let product = native2("prim._OpMul", &x, imm("int32", 2));
-    let expected = Add::new(sum.clone(), product, UNKNOWN_LOC).unwrap();
+    let product = PrimExpr::try_from(native2("prim._OpMul", &x, imm("int32", 2))).unwrap();
+    let expected = Add::new(PrimExpr::try_from(&sum).unwrap(), product, UNKNOWN_LOC).unwrap();
     assert!(structural_equal(&raw, &expected));
     let range = Range::new(0, &x + 1, UNKNOWN_LOC).unwrap();
     assert!(structural_equal(&range.extent, &sum));
@@ -406,7 +410,7 @@ fn expression_results_pass_into_functions_and_constructors() {
     // The first error of the chain is what the function or constructor reports.
     let f = var("f", PrimType::float(32));
     let failed = f.truncdiv(&x) + 1;
-    let expected = failed.clone().into_expr().err().unwrap();
+    let expected = PrimExpr::try_from(failed.clone()).err().unwrap();
     for error in [
         op::floordiv(failed.clone(), 4).err().unwrap(),
         op::floordiv(4, &failed).err().unwrap(),
@@ -455,7 +459,7 @@ fn unary_operators_follow_neg_and_logical_not() {
     assert!(same(-fimm("float32", 0.0), &fimm("float32", -0.0)));
     // `!p` is the raw `Not`; a constant folds.
     let not_p = Not::new(&p, UNKNOWN_LOC).unwrap();
-    assert!(same(!&p, &not_p.into()));
+    assert!(same(!&p, &not_p));
     assert!(same(!imm("bool", 1), &imm("bool", 0)));
 }
 
@@ -465,7 +469,7 @@ fn select_folding_and_the_first_error() {
     let x = var("x", PrimType::int(32));
     let r = var("r", PrimType::int(32));
     // `select` is the raw constructor, built from operands under construction.
-    let built = r.greater_equal(0).select(&r, &r - 1).into_expr().unwrap();
+    let built = PrimExpr::try_from(r.greater_equal(0).select(&r, &r - 1)).unwrap();
     let cond = native2("prim._OpGE", &r, imm("int32", 0));
     let minus = native2("prim._OpSub", &r, imm("int32", 1));
     let expected: Expr = global("prim.Select")
@@ -481,7 +485,9 @@ fn select_folding_and_the_first_error() {
 
     // Integer division of a float raises natively; later steps pass the error through.
     let f = var("f", PrimType::float(32));
-    let Err(error) = (f.truncdiv(&x) + 1).less(&x).into_expr() else { panic!("expected an error") };
+    let Err(error) = PrimExpr::try_from((f.truncdiv(&x) + 1).less(&x)) else {
+        panic!("expected an error")
+    };
     let direct = global("prim._OpTruncDiv").call_tuple((
         Expr::from(&f),
         Expr::from(&x),
@@ -490,14 +496,14 @@ fn select_folding_and_the_first_error() {
     let direct = direct.err().expect("the native operation raises");
     assert_eq!(error.kind(), direct.kind());
     assert_eq!(error.message(), direct.message());
-    // A literal next to a non-PrimType expression has no dtype to take: an error, not a panic.
+    // The type system rejects `string + 1`; the check a non-PrimType operand needs fails.
     let string: Expr = StringImm::new("s", UNKNOWN_LOC).into();
-    assert!((&string + 1).into_expr().is_err());
+    assert!(PrimExpr::try_from(string).is_err());
 }
 
 /// Variables and constants of the types the math functions treat differently.
-fn values() -> Vec<Expr> {
-    let mut values: Vec<Expr> = [
+fn values() -> Vec<PrimExpr> {
+    let mut values: Vec<PrimExpr> = [
         "int32",
         "int64",
         "uint8",
@@ -534,7 +540,7 @@ fn values() -> Vec<Expr> {
 #[test]
 fn unary_functions_agree_with_cpp() {
     let _serial = serial();
-    type Unary = fn(&Expr) -> ExprResult;
+    type Unary = fn(&PrimExpr) -> ExprResult;
     let functions: [(&str, Unary); 11] = [
         ("prim.floor", |x| x.floor()),
         ("prim.ceil", |x| x.ceil()),
@@ -550,7 +556,11 @@ fn unary_functions_agree_with_cpp() {
     ];
     for (name, function) in functions {
         for x in values() {
-            agree(&format!("{name}({})", repr(&x)), function(&x).into_expr(), native1(name, &x));
+            agree(
+                &format!("{name}({})", repr(&x)),
+                PrimExpr::try_from(function(&x)),
+                native1(name, &x),
+            );
         }
     }
     // `round` folds a tie to even, as `std::nearbyint` does.
@@ -617,7 +627,7 @@ fn cast_agrees_with_cpp() {
             let ty = prim(name);
             let native =
                 global("prim._cast").call_tuple((x.clone(), ty.clone(), Location::unknown()));
-            agree(&format!("cast({}, {name})", repr(x)), x.cast(ty).into_expr(), native);
+            agree(&format!("cast({}, {name})", repr(x)), PrimExpr::try_from(x.cast(ty)), native);
         }
     }
 }
@@ -646,7 +656,7 @@ fn type_matching_agrees_with_the_native_operators() {
         ("float32x4", "int64"),
         ("int32x4", "int32x8"),
     ];
-    let raw_add = |x: Expr, y: Expr| -> Result<Expr> {
+    let raw_add = |x: PrimExpr, y: PrimExpr| -> Result<PrimExpr> {
         op::match_types(x, y).and_then(|(x, y)| Ok(Add::new(x, y, UNKNOWN_LOC)?.into()))
     };
     for (a, b) in pairs {
@@ -665,7 +675,7 @@ fn type_matching_agrees_with_the_native_operators() {
 #[test]
 fn pow_and_fmod_agree_with_cpp() {
     let _serial = serial();
-    let pairs: Vec<(Expr, Expr)> = vec![
+    let pairs: Vec<(PrimExpr, PrimExpr)> = vec![
         (prim_var("float32"), var("w", PrimType::float(32)).into()),
         (prim_var("float16"), prim_var("float32")),
         (prim_var("float32"), imm("int32", 2)),
@@ -675,30 +685,31 @@ fn pow_and_fmod_agree_with_cpp() {
     ];
     for (x, y) in &pairs {
         let native = global("prim._OpPow").call_tuple((x.clone(), y.clone(), Location::unknown()));
-        agree(&format!("pow({}, {})", repr(x), repr(y)), x.pow(y).into_expr(), native);
+        agree(&format!("pow({}, {})", repr(x), repr(y)), PrimExpr::try_from(x.pow(y)), native);
     }
     // `fmod` has no global: the sides are matched and the call is typed as them.
     let (h, f) = (prim_var("float16"), prim_var("float32"));
-    let widened: Expr = Cast::new(PrimType::float(32), &h, UNKNOWN_LOC).unwrap().into();
+    let widened: PrimExpr = Cast::new(PrimType::float(32), &h, UNKNOWN_LOC).unwrap().into();
     let fmod = Op::get("prim.fmod").unwrap();
     let ty: Type = PrimType::float(32).into();
     let expected =
         Call::new(Some(&ty), fmod, [widened, f.clone()], None, Vec::<Type>::new(), UNKNOWN_LOC);
-    assert!(structural_equal(&h.fmod(&f).into_expr().unwrap(), &expected.unwrap()));
-    let error = prim_var("int32").fmod(imm("int32", 2)).into_expr().err().unwrap();
+    assert!(structural_equal(&PrimExpr::try_from(h.fmod(&f)).unwrap(), &expected.unwrap()));
+    let error = PrimExpr::try_from(prim_var("int32").fmod(imm("int32", 2))).err().unwrap();
     assert!(error.message().contains("fmod only applies to float"), "{}", error.message());
 }
 
 #[test]
 fn intrinsics_are_typed_calls() {
     let _serial = serial();
-    let call = |name: &str, op: &str, args: Vec<Expr>| -> Expr {
+    // A call typed by a `PrimType`, checked to be a `PrimExpr`.
+    let call = |name: &str, op: &str, args: Vec<PrimExpr>| -> PrimExpr {
         let ty: Type = prim(name).into();
-        Call::new(Some(&ty), Op::get(op).unwrap(), args, None, Vec::<Type>::new(), UNKNOWN_LOC)
-            .unwrap()
-            .into()
+        let call =
+            Call::new(Some(&ty), Op::get(op).unwrap(), args, None, Vec::<Type>::new(), UNKNOWN_LOC);
+        PrimExpr::try_from(Expr::from(call.unwrap())).unwrap()
     };
-    let cast = |value: Expr, name: &str| -> Expr {
+    let cast = |value: PrimExpr, name: &str| -> PrimExpr {
         Cast::new(prim(name), value, UNKNOWN_LOC).unwrap().into()
     };
 
@@ -710,7 +721,7 @@ fn intrinsics_are_typed_calls() {
     let i = prim_var("int32");
     assert!(same(i.exp(), &call("int32", "prim.exp", vec![i.clone()])));
     assert!(same(i.clz(), &call("int32", "prim.clz", vec![i.clone()])));
-    let error = i.tan().into_expr().err().unwrap();
+    let error = PrimExpr::try_from(i.tan()).err().unwrap();
     assert_eq!(error.kind(), TYPE_ERROR);
     assert!(error
         .message()
@@ -740,9 +751,9 @@ fn intrinsics_are_typed_calls() {
 }
 
 /// C++ `cast(value, t)` through its global.
-fn native_cast(value: &Expr, name: &str) -> Expr {
+fn native_cast(value: impl Into<Expr>, name: &str) -> Expr {
     global("prim._cast")
-        .call_tuple((value.clone(), prim(name), Location::unknown()))
+        .call_tuple((value.into(), prim(name), Location::unknown()))
         .unwrap()
         .try_into()
         .unwrap()
@@ -753,25 +764,26 @@ fn cast_folds_and_broadcasts_as_cpp() {
     let _serial = serial();
     let x = var("x", PrimType::int(32));
     let f = var("f", PrimType::float(32));
-    let ramp =
-        |base: Expr| -> Expr { Ramp::new(base, imm("int32", 1), 4, UNKNOWN_LOC).unwrap().into() };
+    let ramp = |base: PrimExpr| -> PrimExpr {
+        Ramp::new(base, imm("int32", 1), 4, UNKNOWN_LOC).unwrap().into()
+    };
     // The last lane of `overflowing` is beyond the int32 range.
     let (constant, overflowing) = (ramp(imm("int32", 0)), ramp(imm("int32", i32::MAX.into())));
 
     // A value already of the type is itself.
-    assert!(x.cast(PrimType::int(32)).into_expr().unwrap().same_as(&Expr::from(&x)));
+    assert!(PrimExpr::try_from(x.cast(PrimType::int(32))).unwrap().same_as(&x));
 
-    let cases: Vec<(Expr, &str)> = vec![
+    let cases: Vec<(PrimExpr, &str)> = vec![
         // A constant folds to the new type when it is the same value there; one the type cannot
         // hold, and anything else, becomes a `Cast` node.
         (imm("int32", 5), "int64"),
         (fimm("float32", 2.5), "int32"),
         (imm("int32", 1), "float16"),
         (imm("int32", -5), "uint8"),
-        (Expr::from(&x), "int64"),
+        (x.clone().into(), "int64"),
         // A scalar cast to a vector type is broadcast, its element cast first if needed.
-        (Expr::from(&x), "int32x4"),
-        (Expr::from(&f), "int32x4"),
+        (x.clone().into(), "int32x4"),
+        (f.clone().into(), "int32x4"),
         (imm("int32", 3), "int64x4"),
         // A broadcast is cast element by element, and so is a ramp of constants cast to a 32-bit
         // or 64-bit integer type when every lane fits both types; any other ramp becomes a `Cast`
@@ -787,8 +799,8 @@ fn cast_folds_and_broadcasts_as_cpp() {
         assert!(same(value.cast(prim(name)), &native_cast(value, name)), "{name}");
     }
     assert!(same(imm("int32", 5).cast(prim("int64")), &imm("int64", 5)));
-    let node = |value: &Expr, name: &str| value.cast(prim(name)).into_expr().unwrap();
-    let broadcast = node(&Expr::from(&f), "int32x4");
+    let node = |value: &PrimExpr, name: &str| PrimExpr::try_from(value.cast(prim(name))).unwrap();
+    let broadcast = node(&f.clone().into(), "int32x4");
     let element = &broadcast.downcast_ref::<BroadcastObj>().unwrap().value;
     assert!(element.downcast_ref::<CastObj>().is_some());
     assert!(node(&imm("int32", -5), "uint8").downcast_ref::<CastObj>().is_some());
@@ -801,12 +813,12 @@ fn cast_folds_and_broadcasts_as_cpp() {
     assert!(same(x.cast(PrimType::int(64)), &raw));
 
     // The cast chains with the operators.
-    let sum = native2("prim._OpAdd", native_cast(&Expr::from(&x), "int64"), imm("int64", 1));
+    let sum = native2("prim._OpAdd", native_cast(&x, "int64"), imm("int64", 1));
     assert!(same(x.cast(PrimType::int(64)) + 1, &sum));
 
     // A void value cannot be cast, with the C++ error.
     let void = var("v", PrimType::void());
-    let Err(error) = void.cast(PrimType::int(32)).into_expr() else {
+    let Err(error) = PrimExpr::try_from(void.cast(PrimType::int(32))) else {
         panic!("a void value was cast")
     };
     assert_eq!(error.kind(), TYPE_ERROR);
@@ -857,9 +869,9 @@ fn arithmetic_operators() {
 fn comparison_and_logic_operators() {
     let _serial = serial();
     let x = var("x", PrimType::int(32));
-    let one = Expr::from(1);
+    let one = PrimExpr::from(1);
     for cmp in [op::eq, op::ne, op::lt, op::le, op::gt, op::ge] {
-        assert_eq!(dtype(&cmp(Expr::from(&x), one.clone()).unwrap()), "bool");
+        assert_eq!(dtype(&cmp(PrimExpr::from(&x), one.clone()).unwrap()), "bool");
     }
     assert!(op::lt(&x, &one).unwrap().try_cast::<prim::LT>().is_ok());
 
@@ -867,7 +879,7 @@ fn comparison_and_logic_operators() {
     assert!(op::all(conds.clone()).unwrap().try_cast::<prim::And>().is_ok());
     assert!(op::any(conds.clone()).unwrap().try_cast::<prim::Or>().is_ok());
     assert!(structural_equal(&op::all([&conds[0]]).unwrap(), &conds[0]));
-    assert!(op::any(Vec::<Expr>::new()).is_err());
+    assert!(op::any(Vec::<PrimExpr>::new()).is_err());
     assert!(structural_equal(
         &op::logical_and(&conds[0], &conds[1]).unwrap(),
         &op::all(conds.clone()).unwrap()
@@ -894,10 +906,10 @@ fn math_operators() {
     let _serial = serial();
     let f = var("f", PrimType::float(32));
     for unary in [op::ceil, op::floor, op::round, op::nearbyint, op::trunc] {
-        assert_eq!(dtype(&unary(Expr::from(&f)).unwrap()), "float32");
+        assert_eq!(dtype(&unary(PrimExpr::from(&f)).unwrap()), "float32");
     }
     for predicate in [op::isnan, op::isfinite, op::isinf] {
-        assert_eq!(dtype(&predicate(Expr::from(&f)).unwrap()), "bool");
+        assert_eq!(dtype(&predicate(PrimExpr::from(&f)).unwrap()), "bool");
     }
     assert_eq!(int_value(op::abs(-3).unwrap()), 3);
     assert_eq!(int_value(op::max_value(PrimType::int(8)).unwrap()), 127);

@@ -19,7 +19,7 @@
 
 //! Tests of `sym::int_set`: integer sets and region bounds.
 
-use tvm_tirx::ir::{Expr, IntImm, Location, Range, Var};
+use tvm_tirx::ir::{IntImm, Location, PrimExpr, Range, Var};
 use tvm_tirx::sym::*;
 use tvm_tirx::tvm_ffi::{Map, Object, ObjectRefCast};
 
@@ -41,14 +41,14 @@ fn interval_sets_are_read_through_accessors() {
         global("sym.IntervalSet").call_tuple((int32(min), int32(max))).unwrap().try_into().unwrap()
     };
     let dom_map: Map<Var, IntSet> =
-        [(x.clone(), interval(0, 15)), (y.clone(), interval(2, 5))].into_iter().collect();
+        [(Var::from(&x), interval(0, 15)), (Var::from(&y), interval(2, 5))].into_iter().collect();
     let set: IntSet = global("sym.AnalyzerIntSet")
         .call_tuple((analyzer, op("prim._OpAdd", &x, &y), dom_map))
         .unwrap()
         .try_into()
         .unwrap();
     let interval: IntervalSet = set.try_cast().unwrap();
-    let as_int = |expr: Expr| expr.try_cast::<IntImm>().unwrap().value.to_i64().unwrap();
+    let as_int = |expr: PrimExpr| expr.try_cast::<IntImm>().unwrap().value.to_i64().unwrap();
     assert_eq!(as_int(interval.min_value().unwrap()), 2);
     assert_eq!(as_int(interval.max_value().unwrap()), 20);
 }
@@ -85,16 +85,16 @@ fn int_sets() {
         &empty,
     )
     .unwrap();
-    let bound = analyzer.int_set(&x, Some(&Map::from_iter([(x.clone(), bound)]))).unwrap();
+    let bound = analyzer.int_set(&x, Some(&Map::from_iter([(Var::from(&x), bound)]))).unwrap();
     assert!(!bound.is_everything().unwrap());
 }
 
 #[test]
 fn region_bounds() {
     let x = var("x");
-    let var_dom = Map::from_iter([(x.clone(), range(0, 16))]);
+    let var_dom = Map::from_iter([(Var::from(&x), range(0, 16))]);
     let region = [Range::from_fields(x.clone(), int32(1), Location::unknown())];
-    let predicate = Expr::from(true);
+    let predicate = PrimExpr::from(true);
 
     let lower = estimate_region_lower_bound(region.clone(), &var_dom, &predicate, None).unwrap();
     assert_eq!(lower.unwrap().len(), 1);

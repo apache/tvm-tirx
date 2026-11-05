@@ -19,20 +19,20 @@
 
 //! Tests of `tirx::index_map`.
 
-use tvm_tirx::ir::{dtype, Expr, PrimType};
+use tvm_tirx::ir::{dtype, PrimExpr, PrimType, Var};
 use tvm_tirx::tirx::IndexMap;
 use tvm_tirx::tvm_ffi::{Array, DLDevice, DLDeviceType};
 
-use super::{as_i64, int32, op, range, var};
+use super::{as_i64, int32, op, prim_var, range};
 use crate::common::{serial, structural_equal};
 
 #[test]
 fn index_maps() {
     let _serial = serial();
-    let (i, j) = (var("i", PrimType::int(32)), var("j", PrimType::int(32)));
+    let (i, j) = (prim_var("i", PrimType::int(32)), prim_var("j", PrimType::int(32)));
     let transpose = IndexMap::new(
-        Array::from_vec(vec![i.clone(), j.clone()]),
-        Array::from_vec(vec![Expr::from(&j), Expr::from(&i)]),
+        Array::from_vec(vec![Var::from(&i), Var::from(&j)]),
+        Array::from_vec(vec![PrimExpr::from(&j), PrimExpr::from(&i)]),
         None,
     );
     let mapped = transpose.map_indices([int32(1), int32(2)], None).unwrap();
@@ -42,9 +42,9 @@ fn index_maps() {
     let inverse = transpose.inverse([range(4), range(8)], None).unwrap();
     assert_eq!(inverse.final_indices.len(), 2);
 
-    let k = var("k", PrimType::int(32));
+    let k = prim_var("k", PrimType::int(32));
     let split = IndexMap::new(
-        Array::from_vec(vec![k.clone()]),
+        Array::from_vec(vec![Var::from(&k)]),
         Array::from_vec(vec![
             op("prim._OpFloorDiv", &k, int32(4)),
             op("prim._OpFloorMod", &k, int32(4)),

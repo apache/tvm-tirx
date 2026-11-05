@@ -27,7 +27,7 @@
 //! # Examples
 //!
 //! ```
-//! use tvm_tirx::ir::{PrimType, Var, UNKNOWN_LOC};
+//! use tvm_tirx::ir::{PrimType, PrimVar, Var, UNKNOWN_LOC};
 //! use tvm_tirx::script::script;
 //! use tvm_tirx::sym::Analyzer;
 //! use tvm_tirx::tirx::{Axis, Iter, Layout, TileLayout};
@@ -38,8 +38,8 @@
 //! let layout = Layout::from(&TileLayout::new(shard, Vec::<Iter>::new(), &Map::new()));
 //! assert_eq!(script(&layout.size(None)?)?, "64");
 //!
-//! let i = Var::new("i", PrimType::int(32), UNKNOWN_LOC);
-//! let j = Var::new("j", PrimType::int(32), UNKNOWN_LOC);
+//! let i = PrimVar::new("i", PrimType::int(32), UNKNOWN_LOC);
+//! let j = PrimVar::new("j", PrimType::int(32), UNKNOWN_LOC);
 //! let offset = layout.apply([&i, &j], &Analyzer::new())?.get(&"m".into())?.unwrap();
 //! assert_eq!(script(&offset)?, "i * 8 + j");
 //! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
@@ -53,14 +53,19 @@
 // tvm-ffi-stubgen(import-object): tvm_ffi::String
 // tvm-ffi-stubgen(import-object): crate::ir::support
 // tvm-ffi-stubgen(import-object): crate::ir::expr::IntoExpr
-
+// tvm-ffi-stubgen(import-object): std::borrow::Borrow
+// tvm-ffi-stubgen(import-object): crate::ir::expr::PrimExpr
+// An iterator's extent and stride are `PrimExpr`s, as C++ `IterObj` holds them.
+// tvm-ffi-stubgen(field): tirx.Iter.extent -> PrimExpr
+// tvm-ffi-stubgen(field): tirx.Iter.stride -> PrimExpr
 // tvm-ffi-stubgen(begin): import-section
-use std::borrow::Borrow;
 use crate::ir::expr::Expr;
 use crate::ir::expr::IntoExpr;
+use crate::ir::expr::PrimExpr;
 use crate::ir::support;
 use crate::sym::analyzer::Analyzer;
 use crate::tirx::thread_scope::ThreadScope;
+use std::borrow::Borrow;
 use std::ops::Deref;
 use tvm_ffi::Any;
 use tvm_ffi::Array;
@@ -330,8 +335,8 @@ impl TileLayout {
 #[type_final]
 pub struct IterObj {
     base: Object,
-    pub extent: Expr,
-    pub stride: Expr,
+    pub extent: PrimExpr,
+    pub stride: PrimExpr,
     pub axis: Axis,
 }
 
@@ -354,7 +359,7 @@ impl Deref for Iter {
 }
 
 impl IterObj {
-    pub(crate) fn new(extent: Expr, stride: Expr, axis: Axis) -> Self {
+    pub(crate) fn new(extent: PrimExpr, stride: PrimExpr, axis: Axis) -> Self {
         let base = Object::new();
         Self { base, extent, stride, axis }
     }
@@ -362,7 +367,11 @@ impl IterObj {
 
 impl Iter {
     /// Lossless complete-field allocation.
-    pub fn new(extent: impl Into<Expr>, stride: impl Into<Expr>, axis: impl Into<Axis>) -> Self {
+    pub fn new(
+        extent: impl Into<PrimExpr>,
+        stride: impl Into<PrimExpr>,
+        axis: impl Into<Axis>,
+    ) -> Self {
         let obj = IterObj::new(extent.into(), stride.into(), axis.into());
         Self { base: ObjectArc::new(obj) }
     }

@@ -26,24 +26,24 @@
 //! # Examples
 //!
 //! ```
-//! use tvm_tirx::ir::{PrimType, Range, Var, UNKNOWN_LOC};
+//! use tvm_tirx::ir::{PrimType, PrimVar, Range, Var, UNKNOWN_LOC};
 //! use tvm_tirx::script::script;
 //! use tvm_tirx::sym::{self, IterMapLevel};
 //! use tvm_tirx::tvm_ffi::Map;
 //!
-//! let x = Var::new("x", PrimType::int(32), UNKNOWN_LOC);
-//! let y = Var::new("y", PrimType::int(32), UNKNOWN_LOC);
+//! let x = PrimVar::new("x", PrimType::int(32), UNKNOWN_LOC);
+//! let y = PrimVar::new("y", PrimType::int(32), UNKNOWN_LOC);
 //! let four = Range::from_min_extent(0, 4, UNKNOWN_LOC)?;
-//! let iters = Map::from_iter([(x.clone(), four.clone()), (y.clone(), four)]);
+//! let iters = Map::from_iter([(Var::from(&x), four.clone()), (Var::from(&y), four)]);
 //!
 //! let bijective = IterMapLevel::Bijective;
 //! let map = sym::detect_iter_map([&x * 4 + &y], &iters, true, bijective, None, true)?;
 //! assert!(map.errors.is_empty());
 //!
-//! let o = Var::new("o", PrimType::int(32), UNKNOWN_LOC);
+//! let o = PrimVar::new("o", PrimType::int(32), UNKNOWN_LOC);
 //! let inverse = sym::inverse_affine_iter_map(map.indices.iter(), [&o])?;
-//! assert_eq!(script(&inverse.get(&x)?.unwrap())?, "o // 4");
-//! assert_eq!(script(&inverse.get(&y)?.unwrap())?, "o % 4");
+//! assert_eq!(script(&inverse.get(&Var::from(&x))?.unwrap())?, "o // 4");
+//! assert_eq!(script(&inverse.get(&Var::from(&y))?.unwrap())?, "o % 4");
 //! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
 //! ```
 
@@ -56,16 +56,31 @@
 // tvm-ffi-stubgen(import-object): crate::sym::analyzer::Analyzer
 // tvm-ffi-stubgen(import-object): crate::ir::support
 // tvm-ffi-stubgen(import-object): crate::ir::expr::IntoExpr
-
+// tvm-ffi-stubgen(import-object): crate::ir::expr::PrimExpr
+// The iterator forms are primitive expressions, as C++ `IterMapExpr` derives from `PrimExpr`, and
+// their marks and padding predicate are `PrimExpr`s.
+// tvm-ffi-stubgen(upcast): sym.IterMapExpr -> PrimExpr
+// tvm-ffi-stubgen(upcast): sym.IterSplitExpr -> PrimExpr
+// tvm-ffi-stubgen(upcast): sym.IterSumExpr -> PrimExpr
+// tvm-ffi-stubgen(field): sym.IterMark.source -> PrimExpr
+// tvm-ffi-stubgen(field): sym.IterMark.extent -> PrimExpr
+// tvm-ffi-stubgen(field): sym.IterMapResult.padding_predicate -> PrimExpr
+// tvm-ffi-stubgen(nullable): sym.IterMapResult.padding_predicate
+// tvm-ffi-stubgen(import-object): std::borrow::Borrow
+// tvm-ffi-stubgen(field): sym.IterSplitExpr.lower_factor -> PrimExpr
+// tvm-ffi-stubgen(field): sym.IterSplitExpr.extent -> PrimExpr
+// tvm-ffi-stubgen(field): sym.IterSplitExpr.scale -> PrimExpr
+// tvm-ffi-stubgen(field): sym.IterSumExpr.base -> PrimExpr
 // tvm-ffi-stubgen(begin): import-section
-use std::borrow::Borrow;
 use crate::ir::expr::Expr;
 use crate::ir::expr::ExprObj;
 use crate::ir::expr::IntoExpr;
+use crate::ir::expr::PrimExpr;
 use crate::ir::expr::Range;
 use crate::ir::expr::Var;
 use crate::ir::support;
 use crate::sym::analyzer::Analyzer;
+use std::borrow::Borrow;
 use std::ops::Deref;
 use tvm_ffi::AnyView;
 use tvm_ffi::Array;
@@ -107,7 +122,7 @@ impl Deref for IterMapExprObj {
     }
 }
 
-tvm_ffi::impl_object_upcast!(IterMapExpr => Expr);
+tvm_ffi::impl_object_upcast!(IterMapExpr => Expr, IterMapExpr => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 // tvm-ffi-stubgen(begin): object/sym.IterMapResult
@@ -120,7 +135,7 @@ pub struct IterMapResultObj {
     base: Object,
     pub indices: Array<IterSumExpr>,
     pub errors: Array<String>,
-    pub padding_predicate: Option<Expr>,
+    pub padding_predicate: Option<PrimExpr>,
 }
 
 const _: () = {
@@ -145,7 +160,7 @@ impl IterMapResultObj {
     pub(crate) fn new(
         indices: Array<IterSumExpr>,
         errors: Array<String>,
-        padding_predicate: Option<Expr>,
+        padding_predicate: Option<PrimExpr>,
     ) -> Self {
         let base = Object::new();
         Self { base, indices, errors, padding_predicate }
@@ -157,7 +172,7 @@ impl IterMapResult {
     pub fn new(
         indices: impl Into<Array<IterSumExpr>>,
         errors: impl Into<Array<String>>,
-        padding_predicate: impl Into<Option<Expr>>,
+        padding_predicate: impl Into<Option<PrimExpr>>,
     ) -> Self {
         let obj = IterMapResultObj::new(indices.into(), errors.into(), padding_predicate.into());
         Self { base: ObjectArc::new(obj) }
@@ -173,8 +188,8 @@ impl IterMapResult {
 #[type_final]
 pub struct IterMarkObj {
     base: Object,
-    pub source: Expr,
-    pub extent: Expr,
+    pub source: PrimExpr,
+    pub extent: PrimExpr,
 }
 
 const _: () = {
@@ -196,7 +211,7 @@ impl Deref for IterMark {
 }
 
 impl IterMarkObj {
-    pub(crate) fn new(source: Expr, extent: Expr) -> Self {
+    pub(crate) fn new(source: PrimExpr, extent: PrimExpr) -> Self {
         let base = Object::new();
         Self { base, source, extent }
     }
@@ -204,7 +219,7 @@ impl IterMarkObj {
 
 impl IterMark {
     /// Lossless complete-field allocation.
-    pub fn new(source: impl Into<Expr>, extent: impl Into<Expr>) -> Self {
+    pub fn new(source: impl Into<PrimExpr>, extent: impl Into<PrimExpr>) -> Self {
         let obj = IterMarkObj::new(source.into(), extent.into());
         Self { base: ObjectArc::new(obj) }
     }
@@ -246,20 +261,20 @@ impl IterSplitExprObj {
         FieldGetter::new(Self::type_index(), "source")?.get(self)
     }
 
-    pub fn lower_factor(&self) -> Result<Expr> {
+    pub fn lower_factor(&self) -> Result<PrimExpr> {
         FieldGetter::new(Self::type_index(), "lower_factor")?.get(self)
     }
 
-    pub fn extent(&self) -> Result<Expr> {
+    pub fn extent(&self) -> Result<PrimExpr> {
         FieldGetter::new(Self::type_index(), "extent")?.get(self)
     }
 
-    pub fn scale(&self) -> Result<Expr> {
+    pub fn scale(&self) -> Result<PrimExpr> {
         FieldGetter::new(Self::type_index(), "scale")?.get(self)
     }
 }
 
-tvm_ffi::impl_object_upcast!(IterSplitExpr => Expr, IterSplitExpr => IterMapExpr);
+tvm_ffi::impl_object_upcast!(IterSplitExpr => Expr, IterSplitExpr => IterMapExpr, IterSplitExpr => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 // tvm-ffi-stubgen(begin): object/sym.IterSumExpr
@@ -297,12 +312,12 @@ impl IterSumExprObj {
         FieldGetter::new(Self::type_index(), "args")?.get(self)
     }
 
-    pub fn base_(&self) -> Result<Expr> {
+    pub fn base_(&self) -> Result<PrimExpr> {
         FieldGetter::new(Self::type_index(), "base")?.get(self)
     }
 }
 
-tvm_ffi::impl_object_upcast!(IterSumExpr => Expr, IterSumExpr => IterMapExpr);
+tvm_ffi::impl_object_upcast!(IterSumExpr => Expr, IterSumExpr => IterMapExpr, IterSumExpr => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 // `IterMark::new` is generated: the native `sym.IterMark` constructor stores the fields as given.
@@ -311,9 +326,9 @@ impl IterSplitExpr {
     /// Create the split `(source // lower_factor) % extent * scale` (`sym.IterSplitExpr`).
     pub fn new(
         source: impl Into<IterMark>,
-        lower_factor: impl IntoExpr,
-        extent: impl IntoExpr,
-        scale: impl IntoExpr,
+        lower_factor: impl IntoExpr<PrimExpr>,
+        extent: impl IntoExpr<PrimExpr>,
+        scale: impl IntoExpr<PrimExpr>,
     ) -> Result<Self> {
         tvm_ffi::cached_global_func!("sym.IterSplitExpr")
             .call_tuple((
@@ -330,7 +345,7 @@ impl IterSumExpr {
     /// Create the sum of the splits `args` plus `base` (`sym.IterSumExpr`).
     pub fn new(
         args: impl IntoIterator<Item = impl Into<IterSplitExpr>>,
-        base: impl Into<Expr>,
+        base: impl Into<PrimExpr>,
     ) -> Self {
         let args = args.into_iter().map(Into::into).collect::<Array<IterSplitExpr>>();
         support::infallible(
@@ -359,15 +374,15 @@ pub enum IterMapLevel {
 ///
 /// When they are not, the `indices` of the result are empty and its `errors` say why.
 pub fn detect_iter_map(
-    indices: impl IntoIterator<Item = impl IntoExpr>,
+    indices: impl IntoIterator<Item = impl IntoExpr<PrimExpr>>,
     input_iters: &Map<Var, Range>,
-    predicate: impl IntoExpr,
+    predicate: impl IntoExpr<PrimExpr>,
     check_level: IterMapLevel,
     analyzer: Option<&Analyzer>,
     simplify_trivial_iterators: bool,
 ) -> Result<IterMapResult> {
     let indices =
-        indices.into_iter().map(IntoExpr::into_owned_expr).collect::<Result<Array<Expr>>>()?;
+        indices.into_iter().map(IntoExpr::into_owned_expr).collect::<Result<Array<PrimExpr>>>()?;
     let (predicate, analyzer) = (predicate.into_owned_expr()?, analyzer.cloned());
     tvm_ffi::cached_global_func!("sym.DetectIterMap")
         .call_packed(&[
@@ -384,7 +399,7 @@ pub fn detect_iter_map(
 /// Return `index` as a sum of splits of the iterators `input_iters`, with what is not detected in
 /// its `base` (`sym.NormalizeToIterSum`).
 pub fn normalize_to_iter_sum(
-    index: impl IntoExpr,
+    index: impl IntoExpr<PrimExpr>,
     input_iters: &Map<Var, Range>,
     analyzer: Option<&Analyzer>,
 ) -> Result<IterSumExpr> {
@@ -396,15 +411,15 @@ pub fn normalize_to_iter_sum(
 /// Simplify `indices` through iterator map detection, or return them unchanged when they are not
 /// iterator maps (`sym.IterMapSimplify`).
 pub fn iter_map_simplify(
-    indices: impl IntoIterator<Item = impl IntoExpr>,
+    indices: impl IntoIterator<Item = impl IntoExpr<PrimExpr>>,
     input_iters: &Map<Var, Range>,
-    predicate: impl IntoExpr,
+    predicate: impl IntoExpr<PrimExpr>,
     check_level: IterMapLevel,
     analyzer: Option<&Analyzer>,
     simplify_trivial_iterators: bool,
-) -> Result<Array<Expr>> {
+) -> Result<Array<PrimExpr>> {
     let indices =
-        indices.into_iter().map(IntoExpr::into_owned_expr).collect::<Result<Array<Expr>>>()?;
+        indices.into_iter().map(IntoExpr::into_owned_expr).collect::<Result<Array<PrimExpr>>>()?;
     let (predicate, analyzer) = (predicate.into_owned_expr()?, analyzer.cloned());
     tvm_ffi::cached_global_func!("sym.IterMapSimplify")
         .call_packed(&[
@@ -419,7 +434,7 @@ pub fn iter_map_simplify(
 }
 
 /// Return the plain expression of the iterator map `expr` (`sym.NormalizeIterMapToExpr`).
-pub fn normalize_iter_map_to_expr(expr: impl IntoExpr) -> Result<Expr> {
+pub fn normalize_iter_map_to_expr(expr: impl IntoExpr<PrimExpr>) -> Result<PrimExpr> {
     tvm_ffi::cached_global_func!("sym.NormalizeIterMapToExpr")
         .call_tuple((expr.into_expr()?.borrow(),))?
         .try_into()
@@ -431,16 +446,16 @@ pub fn normalize_iter_map_to_expr(expr: impl IntoExpr) -> Result<Expr> {
 /// The result is one `[outer, inner]` pair of marks per binding, then a pair whose `extent`s are
 /// the outer and inner predicates, or empty when the bindings cannot be divided.
 pub fn subspace_divide(
-    bindings: impl IntoIterator<Item = impl IntoExpr>,
+    bindings: impl IntoIterator<Item = impl IntoExpr<PrimExpr>>,
     input_iters: &Map<Var, Range>,
     sub_iters: impl IntoIterator<Item = impl Into<Var>>,
-    predicate: impl IntoExpr,
+    predicate: impl IntoExpr<PrimExpr>,
     check_level: IterMapLevel,
     analyzer: Option<&Analyzer>,
     simplify_trivial_iterators: bool,
 ) -> Result<Array<Array<IterMark>>> {
     let bindings =
-        bindings.into_iter().map(IntoExpr::into_owned_expr).collect::<Result<Array<Expr>>>()?;
+        bindings.into_iter().map(IntoExpr::into_owned_expr).collect::<Result<Array<PrimExpr>>>()?;
     let sub_iters = sub_iters.into_iter().map(Into::into).collect::<Array<Var>>();
     let (predicate, analyzer) = (predicate.into_owned_expr()?, analyzer.cloned());
     tvm_ffi::cached_global_func!("sym.SubspaceDivide")
@@ -460,11 +475,11 @@ pub fn subspace_divide(
 /// (`sym.InverseAffineIterMap`).
 pub fn inverse_affine_iter_map(
     iter_map: impl IntoIterator<Item = impl Into<IterSumExpr>>,
-    outputs: impl IntoIterator<Item = impl IntoExpr>,
-) -> Result<Map<Var, Expr>> {
+    outputs: impl IntoIterator<Item = impl IntoExpr<PrimExpr>>,
+) -> Result<Map<Var, PrimExpr>> {
     let iter_map = iter_map.into_iter().map(Into::into).collect::<Array<IterSumExpr>>();
     let outputs =
-        outputs.into_iter().map(IntoExpr::into_owned_expr).collect::<Result<Array<Expr>>>()?;
+        outputs.into_iter().map(IntoExpr::into_owned_expr).collect::<Result<Array<PrimExpr>>>()?;
     tvm_ffi::cached_global_func!("sym.InverseAffineIterMap")
         .call_tuple((&iter_map, &outputs))?
         .try_into()

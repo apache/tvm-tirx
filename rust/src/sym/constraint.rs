@@ -28,10 +28,10 @@
 //!
 //! ```
 //! use tvm_tirx::ir::prim::op::{ge, lt};
-//! use tvm_tirx::ir::{PrimType, Var, UNKNOWN_LOC};
+//! use tvm_tirx::ir::{PrimType, PrimVar, Var, UNKNOWN_LOC};
 //! use tvm_tirx::sym::{Analyzer, ConstraintContext, PredicateConstraint, ProofStrength};
 //!
-//! let x = Var::new("x", PrimType::int(32), UNKNOWN_LOC);
+//! let x = PrimVar::new("x", PrimType::int(32), UNKNOWN_LOC);
 //! let outer = ConstraintContext::new()?;
 //! outer.append(&PredicateConstraint::new(ge(&x, 0)?, false).into())?;
 //! let inner = outer.snapshot()?;
@@ -50,9 +50,12 @@
 use std::cell::UnsafeCell;
 use std::mem::{align_of, offset_of, size_of};
 use tvm_ffi::{AnyView, Array, Error, ObjectCore, Result, VALUE_ERROR};
-
+// tvm-ffi-stubgen(import-object): crate::ir::expr::PrimExpr
+// A binding's value and a predicate are `PrimExpr`s, as in C++.
+// tvm-ffi-stubgen(field): sym.BindingConstraint.value -> PrimExpr
+// tvm-ffi-stubgen(field): sym.PredicateConstraint.condition -> PrimExpr
 // tvm-ffi-stubgen(begin): import-section
-use crate::ir::expr::Expr;
+use crate::ir::expr::PrimExpr;
 use crate::ir::expr::Range;
 use crate::ir::expr::Var;
 use std::ops::Deref;
@@ -129,7 +132,7 @@ unsafe impl UnsafeInit for ConstraintObj {
 pub struct BindingConstraintObj {
     base: ConstraintObj,
     pub var: Var,
-    pub value: Expr,
+    pub value: PrimExpr,
 }
 
 const _: () = {
@@ -158,7 +161,7 @@ impl Deref for BindingConstraintObj {
 }
 
 impl BindingConstraintObj {
-    pub(crate) fn new(var: Var, value: Expr) -> Self {
+    pub(crate) fn new(var: Var, value: PrimExpr) -> Self {
         let base = ConstraintObj::new();
         Self { base, var, value }
     }
@@ -166,7 +169,7 @@ impl BindingConstraintObj {
 
 impl BindingConstraint {
     /// Lossless complete-field allocation.
-    pub fn new(var: impl Into<Var>, value: impl Into<Expr>) -> Self {
+    pub fn new(var: impl Into<Var>, value: impl Into<PrimExpr>) -> Self {
         let obj = BindingConstraintObj::new(var.into(), value.into());
         Self { base: ObjectArc::new(obj) }
     }
@@ -183,7 +186,7 @@ tvm_ffi::impl_object_upcast!(BindingConstraint => Constraint);
 #[type_final]
 pub struct PredicateConstraintObj {
     base: ConstraintObj,
-    pub condition: Expr,
+    pub condition: PrimExpr,
     pub assume_always: bool,
 }
 
@@ -213,7 +216,7 @@ impl Deref for PredicateConstraintObj {
 }
 
 impl PredicateConstraintObj {
-    pub(crate) fn new(condition: Expr, assume_always: bool) -> Self {
+    pub(crate) fn new(condition: PrimExpr, assume_always: bool) -> Self {
         let base = ConstraintObj::new();
         Self { base, condition, assume_always }
     }
@@ -221,7 +224,7 @@ impl PredicateConstraintObj {
 
 impl PredicateConstraint {
     /// Lossless complete-field allocation.
-    pub fn new(condition: impl Into<Expr>, assume_always: bool) -> Self {
+    pub fn new(condition: impl Into<PrimExpr>, assume_always: bool) -> Self {
         let obj = PredicateConstraintObj::new(condition.into(), assume_always);
         Self { base: ObjectArc::new(obj) }
     }

@@ -19,7 +19,7 @@
 
 //! Tests of `tirx::tensor`: tensor types.
 
-use tvm_tirx::ir::{UNKNOWN_LOC, Location, Expr, PrimType, StringImm};
+use tvm_tirx::ir::{UNKNOWN_LOC, Location, Expr, PrimExpr, PrimType, StringImm};
 use tvm_tirx::tirx::{tensor_is_scalar, Layout, TensorType};
 use tvm_tirx::tvm_ffi::Array;
 
@@ -56,13 +56,13 @@ fn tensor_types_agree_with_cpp() {
     let float32 = PrimType::float(32);
     let layout: Layout = tile_8x8().into();
     let text: Expr = StringImm::new("s", UNKNOWN_LOC).into();
-    let cases: Vec<(&str, Vec<Expr>, i32, Option<Layout>)> = vec![
+    let cases: Vec<(&str, Vec<PrimExpr>, i32, Option<Layout>)> = vec![
         ("TensorType(default alignment)", vec![int32(1)], 0, None),
         ("TensorType(negative alignment)", vec![int32(4), int32(4)], -8, None),
         ("TensorType(alignment)", vec![int32(8), int32(8)], 128, Some(layout)),
     ];
     for (what, shape, alignment, layout) in cases {
-        let array: Array<Expr> = shape.iter().cloned().collect();
+        let array: Array<PrimExpr> = shape.iter().cloned().collect();
         let native_type = native(
             "tirx.TensorType",
             &[
@@ -91,6 +91,6 @@ fn tensor_types_agree_with_cpp() {
             (&Location::unknown()).into(),
         ],
     );
-    let rust = TensorType::new([text], &float32, &scope, 0, None, UNKNOWN_LOC);
-    agree_kind("TensorType(shape)", rust, native_type);
+    // A non-primitive extent is not a `PrimExpr`: the check comes before `TensorType::new`.
+    agree_kind("TensorType(shape)", PrimExpr::try_from(text), native_type);
 }

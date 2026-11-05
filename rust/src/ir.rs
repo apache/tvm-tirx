@@ -26,13 +26,15 @@
 //! # Examples
 //!
 //! ```
-//! use tvm_tirx::ir::{BaseFunc, DictAttrs, GlobalVar, IRModule, PrimType, Return, SeqStmt};
+//! use tvm_tirx::ir::{
+//!     BaseFunc, DictAttrs, GlobalVar, IRModule, PrimType, PrimVar, Return, SeqStmt,
+//! };
 //! use tvm_tirx::ir::{PrimExpr, Var, UNKNOWN_LOC};
 //! use tvm_tirx::script::script;
 //! use tvm_tirx::tirx::Function;
 //! use tvm_tirx::tvm_ffi::Map;
 //!
-//! let x = Var::new("x", PrimType::int(32), UNKNOWN_LOC);
+//! let x = PrimVar::new("x", PrimType::int(32), UNKNOWN_LOC);
 //! let y = PrimExpr::try_from(&x * 2 + 1)?;
 //!
 //! let body = SeqStmt::new([Return::new(&y, UNKNOWN_LOC)], UNKNOWN_LOC);

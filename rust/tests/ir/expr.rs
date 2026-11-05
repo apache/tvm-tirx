@@ -44,19 +44,22 @@ fn expressions() {
     assert!(GenericConst::checked(&i32_ty, Any::from(1i64), UNKNOWN_LOC).is_err());
     assert!(structural_equal(&constant.ty, &i32_ty));
 
-    let tuple = Tuple::new([Expr::from(&x), int32(1)], UNKNOWN_LOC);
+    let tuple = Tuple::new([PrimExpr::from(&x), int32(1)], UNKNOWN_LOC);
     let item = TupleGetItem::from_tuple(&tuple, 1, UNKNOWN_LOC).unwrap();
     assert!(structural_equal(&item.ty, &i32_ty));
     assert!(TupleGetItem::from_tuple(&tuple, 2, UNKNOWN_LOC).is_err());
     let subscripted =
-        Expr::from(&tuple).subscript([Subscript::Index(int32(0))], UNKNOWN_LOC).unwrap();
+        Expr::from(&tuple).subscript([Subscript::Index(int32(0).into())], UNKNOWN_LOC).unwrap();
     assert!(Expr::try_from(subscripted).is_ok());
 
     let a = tensor_var("A");
     let load = TensorLoad::new(&a, [&x], UNKNOWN_LOC).unwrap();
     assert_eq!(load.indices.len(), 1);
     let slice = Expr::from(&a)
-        .subscript([Subscript::Slice(Some(int32(0)), Some(int32(4)), None)], UNKNOWN_LOC)
+        .subscript(
+            [Subscript::Slice(Some(int32(0).into()), Some(int32(4).into()), None)],
+            UNKNOWN_LOC,
+        )
         .unwrap();
     assert!(Expr::try_from(slice).is_ok());
 
@@ -67,7 +70,7 @@ fn expressions() {
     assert!(structural_equal(&call.reinfer_type().unwrap(), &call.ty));
 
     let lambda = LambdaExpr::new([&x], op("prim._OpAdd", &x, int32(1)), UNKNOWN_LOC);
-    let applied = lambda.apply([int32(2)]).unwrap();
+    let applied = PrimExpr::try_from(lambda.apply([int32(2)]).unwrap()).unwrap();
     let analyzer = tvm_tirx::sym::Analyzer::new();
     assert!(analyzer.can_prove_equal(applied, int32(3)).unwrap());
 }
@@ -76,12 +79,13 @@ fn expressions() {
 fn ranges() {
     let _serial = serial();
     let range = Range::new(int32(0), int32(8), UNKNOWN_LOC).unwrap();
-    assert!(structural_equal(&range.extent, &int32(8)));
+    let extent: &PrimExpr = &range.extent;
+    assert!(structural_equal(extent, &int32(8)));
     let range = Range::new(int32(2), int32(8), UNKNOWN_LOC).unwrap();
     assert!(structural_equal(&range.extent, &int32(6)));
     let range = Range::from_min_extent(int32(2), int32(8), UNKNOWN_LOC).unwrap();
     assert!(structural_equal(&range.extent, &int32(8)));
-    let extent = Range::get_extent_from_begin_end(int32(2), int32(8)).unwrap();
+    let extent: PrimExpr = Range::get_extent_from_begin_end(int32(2), int32(8)).unwrap();
     assert!(structural_equal(&extent, &int32(6)));
 }
 
@@ -241,7 +245,7 @@ fn expressions_agree_with_cpp() {
     agree_fresh("Var(untyped)", Ok(Var::new("u", MissingType::new(), UNKNOWN_LOC)), native_untyped);
 
     for (what, fields) in [
-        ("Tuple(typed)", vec![Expr::from(&x), int32(1)]),
+        ("Tuple(typed)", vec![Expr::from(&x), int32(1).into()]),
         ("Tuple(untyped)", vec![Expr::from(&x), Expr::from(&untyped)]),
         ("Tuple(empty)", vec![]),
     ] {
@@ -250,7 +254,7 @@ fn expressions_agree_with_cpp() {
         agree(what, Ok(Tuple::new(fields, UNKNOWN_LOC)), native_tuple);
     }
 
-    let tuple: Expr = Tuple::new([Expr::from(&x), int32(1)], UNKNOWN_LOC).into();
+    let tuple: Expr = Tuple::new([PrimExpr::from(&x), int32(1)], UNKNOWN_LOC).into();
     for (what, value, index) in [
         ("TupleGetItem", tuple.clone(), 1),
         ("TupleGetItem(out of bounds)", tuple.clone(), 2),
@@ -265,26 +269,29 @@ fn expressions_agree_with_cpp() {
     }
 
     let a = tensor_var("A");
-    let load = |what: &str, source: Expr, indices: Vec<Expr>| {
-        let array: Array<Expr> = indices.iter().cloned().collect();
+    let load = |what: &str, source: Expr, indices: Vec<PrimExpr>| {
+        let array: Array<PrimExpr> = indices.iter().cloned().collect();
         let native_load = native(
             "ir.TensorLoad",
             &[(&source).into(), (&array).into(), (&Location::unknown()).into()],
         );
         agree(what, TensorLoad::new(&source, indices, UNKNOWN_LOC), native_load);
     };
-    load("TensorLoad", Expr::from(&a), vec![Expr::from(&x)]);
-    load("TensorLoad(rank)", Expr::from(&a), vec![Expr::from(&x), Expr::from(&x)]);
-    load("TensorLoad(no tensor)", Expr::from(&x), vec![Expr::from(&x)]);
+    load("TensorLoad", Expr::from(&a), vec![PrimExpr::from(&x)]);
+    load("TensorLoad(rank)", Expr::from(&a), vec![PrimExpr::from(&x), PrimExpr::from(&x)]);
+    load("TensorLoad(no tensor)", Expr::from(&x), vec![PrimExpr::from(&x)]);
     let text: Expr = StringImm::new("s", UNKNOWN_LOC).into();
     let array: Array<Expr> = [text.clone()].into_iter().collect();
     let native_load = native(
         "ir.TensorLoad",
         &[(&Expr::from(&a)).into(), (&array).into(), (&Location::unknown()).into()],
     );
-    agree_kind("TensorLoad(index)", TensorLoad::new(&a, [text], UNKNOWN_LOC), native_load);
+    // The type system rejects a string index; its check fails as the native conversion does.
+    let rust_load =
+        PrimExpr::try_from(text).and_then(|index| TensorLoad::new(&a, [index], UNKNOWN_LOC));
+    agree_kind("TensorLoad(index)", rust_load, native_load);
 
-    let vars: Array<Var> = [x.clone()].into_iter().collect();
+    let vars: Array<Var> = [Var::from(&x)].into_iter().collect();
     let body = op("prim._OpAdd", &x, int32(1));
     let native_lambda =
         native("ir.LambdaExpr", &[(&vars).into(), (&body).into(), (&Location::unknown()).into()]);
@@ -293,10 +300,10 @@ fn expressions_agree_with_cpp() {
     let x_plus_4 = op("prim._OpAdd", &x, int32(4));
     let four_plus_x = op("prim._OpAdd", int32(4), &x);
     for (what, begin, end) in [
-        ("Range(x, x + 4)", Expr::from(&x), x_plus_4.clone()),
-        ("Range(x, 4 + x)", Expr::from(&x), four_plus_x),
-        ("Range(0, n)", int32(0), Expr::from(&n)),
-        ("Range(x, n)", Expr::from(&x), Expr::from(&n)),
+        ("Range(x, x + 4)", PrimExpr::from(&x), x_plus_4.clone()),
+        ("Range(x, 4 + x)", PrimExpr::from(&x), four_plus_x),
+        ("Range(0, n)", int32(0), PrimExpr::from(&n)),
+        ("Range(x, n)", PrimExpr::from(&x), PrimExpr::from(&n)),
     ] {
         let native_range =
             native("ir.Range", &[(&begin).into(), (&end).into(), (&Location::unknown()).into()]);
@@ -423,7 +430,7 @@ fn calls_agree_with_cpp() {
     }
 }
 
-// Typed views: `PrimExpr` and `IntExpr`.
+// Typed views: `PrimExpr`, `IntExpr` and `PrimVar`.
 
 #[test]
 fn views_check_the_type() {
@@ -448,9 +455,8 @@ fn views_check_the_type() {
     let index = IntExpr::try_from(&i).unwrap();
     assert!(IntExpr::try_from(&x).is_err());
     assert!(IntExpr::try_from(PrimExpr::from(true)).is_err());
-    // A node type whose constructor takes any type converts only through a check.
-    let vector = Broadcast::new(&i, int32_lanes(4), UNKNOWN_LOC).unwrap();
-    let vector: PrimExpr = vector.try_cast().unwrap();
+    // A prim node is a `PrimExpr` without a check, but a vector one is no `IntExpr`.
+    let vector: PrimExpr = Broadcast::new(&prim, 4, UNKNOWN_LOC).unwrap().into();
     assert!(IntExpr::try_from(vector).is_err());
 
     // A view widens for free and reads as the views it refines.
@@ -477,9 +483,9 @@ fn constants_and_loads_are_views() {
     assert_eq!(indices.get(0).unwrap().dtype(), dtype::int(32));
     assert_eq!(PrimExpr::from(&load).dtype(), dtype::float(32));
 
-    // A load whose index is not a `PrimExpr` is not made.
-    let text = StringImm::new("s", UNKNOWN_LOC);
-    let error = TensorLoad::new(tensor_var("A"), [text], UNKNOWN_LOC).err().unwrap();
+    // A load takes `PrimExpr` indices: the type system rejects a string, whose check fails.
+    let text = Expr::from(StringImm::new("s", UNKNOWN_LOC));
+    let error = PrimExpr::try_from(text).err().unwrap();
     assert_eq!(error.kind(), TYPE_ERROR);
 
     // Rust literals.
@@ -527,8 +533,8 @@ fn operators_take_views() {
     let sum = PrimExpr::try_from(&i + &j + 1).unwrap();
     assert_eq!(sum.dtype(), dtype::int(32));
     assert_eq!(IntExpr::try_from(i.clone() * 2).unwrap().dtype(), dtype::int(32));
-    // An operand that is not a `PrimExpr` is a TypeError where it enters the chain.
-    let error = PrimExpr::try_from(Expr::from(tensor_var("A")) + 1).err().unwrap();
+    // An `Expr` has no operators: the type system rejects a tensor operand, whose check fails.
+    let error = PrimExpr::try_from(Expr::from(tensor_var("A"))).err().unwrap();
     assert_eq!(error.kind(), TYPE_ERROR);
     assert!(error.message().contains("ir.Var[ty=tirx.TensorType]"), "{error}");
     // `ObjectRefCast` downcasts between views as it does between node types.
@@ -536,9 +542,40 @@ fn operators_take_views() {
     assert_eq!(back.dtype(), dtype::int(32));
 }
 
-/// `int32` lanes of a vector.
-fn int32_lanes(lanes: i32) -> Expr {
-    IntImm::int32(lanes).into()
+#[test]
+fn prim_vars_are_views() {
+    let _serial = serial();
+    // `PrimVar::new` types the variable by a `PrimType`, and reads it as a `Var`.
+    let i = PrimVar::new("i", PrimType::int(32), UNKNOWN_LOC);
+    assert_eq!(i.name.as_str(), "i");
+    assert_eq!(i.dtype(), dtype::int(32));
+    assert_eq!(i.ty().dtype, dtype::int(32));
+
+    // It widens for free into a `Var`, a `PrimExpr` and an `Expr`: the same node.
+    let var: Var = i.clone().into();
+    let prim: PrimExpr = (&i).into();
+    let expr: Expr = i.clone().into();
+    assert!(var.same_as(&i) && prim.same_as(&i) && expr.same_as(&i));
+    let borrowed: &Var = i.as_ref();
+    assert!(borrowed.same_as(&i));
+    assert!(i.as_expr().same_as(&i));
+
+    // A `Var` narrows only through the check of C++ `PrimVar`: `downcast_ref` borrows it in place
+    // and `try_cast` takes it.
+    assert!(var.downcast_ref::<PrimVar>().unwrap().same_as(&i));
+    let vector = Var::new("v", PrimType::float(32).with_lanes(4).unwrap(), UNKNOWN_LOC);
+    assert_eq!(vector.try_cast::<PrimVar>().unwrap().dtype().lanes, 4);
+    let untyped = Var::new("u", MissingType::new(), UNKNOWN_LOC);
+    assert!(untyped.downcast_ref::<PrimVar>().is_none());
+    let error = untyped.try_cast::<PrimVar>().err().unwrap();
+    assert_eq!(error.kind(), TYPE_ERROR);
+    // C++ `TypeTraits<PrimVar>` names the variable class on both sides.
+    assert_eq!(error.message(), "Cannot convert from type `ir.Var` to `ir.Var`");
+    assert!(tensor_var("A").try_cast::<PrimVar>().is_err());
+
+    // It takes part in arithmetic as a `PrimExpr`.
+    let sum = PrimExpr::try_from(&i * 4 + 1).unwrap();
+    assert_eq!(sum.dtype(), dtype::int(32));
 }
 
 /// An `int32` variable as a `PrimExpr`.

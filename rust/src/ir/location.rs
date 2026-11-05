@@ -26,12 +26,12 @@
 //! # Examples
 //!
 //! ```
-//! use tvm_tirx::ir::{PrimType, SourceLoc, SourceName, Var};
+//! use tvm_tirx::ir::{PrimType, PrimVar, SourceLoc, SourceName, Var};
 //! use tvm_tirx::tvm_ffi::ObjectRefCore;
 //!
 //! let span = SourceLoc::new(SourceName::get("kernel.py")?, 3, 1, 3, 10);
 //!
-//! let x = Var::new("x", PrimType::int(32), &span);
+//! let x = PrimVar::new("x", PrimType::int(32), &span);
 //! assert!(x.loc.same_as(&span));
 //! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
 //! ```

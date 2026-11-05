@@ -51,7 +51,9 @@ use sig::{Checks, Specs};
 /// ```
 /// use tvm_tirx::ir::op_attr::CALL_EFFECT_KIND;
 /// use tvm_tirx::ir::sig::{self, IntExpr};
-/// use tvm_tirx::ir::{Call, CallEffectKind, CallObj, Op, OpDef, PrimType, Type, Var, UNKNOWN_LOC};
+/// use tvm_tirx::ir::{
+///     Call, CallEffectKind, CallObj, Op, OpDef, PrimType, PrimVar, Type, Var, UNKNOWN_LOC,
+/// };
 /// use tvm_tirx::script::script;
 /// use tvm_tirx::tvm_ffi::{self, Result};
 ///
@@ -67,7 +69,7 @@ use sig::{Checks, Specs};
 /// }
 ///
 /// let clamp = Op::get("my_ext.clamp")?;
-/// let i = Var::new("i", PrimType::int(32), UNKNOWN_LOC);
+/// let i = PrimVar::new("i", PrimType::int(32), UNKNOWN_LOC);
 /// let call = Call::new(None, clamp, [&i, &i], None, Vec::<Type>::new(), UNKNOWN_LOC)?;
 /// assert_eq!(script(&call.ty)?, "T.int32");
 /// call.validate()?;
@@ -436,8 +438,8 @@ fn call_hook<N, R: Into<Any>>(node: *const N, hook: impl Fn(&N) -> Result<R>) ->
 /// [`arg`](sig::arg) and [`ty_arg`](sig::ty_arg) are fixed value and type arguments,
 /// [`var_args`](sig::var_args) and [`var_ty_args`](sig::var_ty_args) variadic tails, and
 /// [`call_attrs`](sig::call_attrs) the type of `Call.attrs`. A node type accepts an instance of it,
-/// and the typed views such as [`PrimExpr`](super::PrimExpr) and [`PrimVar`](sig::PrimVar) also
-/// check its type; implement [`ArgType`](sig::ArgType) for another check.
+/// and the typed views such as [`PrimExpr`](super::PrimExpr) and [`PrimVar`](super::PrimVar)
+/// also check its type; implement [`ArgType`](sig::ArgType) for another check.
 pub mod sig {
     use super::*;
     use crate::ir::expr::ExprObj;
@@ -448,7 +450,7 @@ pub mod sig {
     /// A check of an argument against a type, C++ `TypeTraits<T>`.
     ///
     /// Every managed reference that is [`AnyCompatible`] implements it with its strict check;
-    /// implement it for another check, as [`PrimVar`] does.
+    /// implement it for another check, as [`TensorVar`](crate::tirx::TensorVar) does.
     pub trait ArgType: 'static {
         /// Return whether `value`, which is not None, is accepted, as C++ `CheckAnyStrict` does.
         fn check(value: &TVMFFIAny) -> bool;
@@ -477,22 +479,9 @@ pub mod sig {
         }
     }
 
-    /// The typed views, which are argument types as they are.
-    pub use crate::ir::expr::{IntExpr, PrimExpr};
-
-    /// An argument type that accepts a [`Var`], not a subclass, whose type is a `PrimType`, C++
-    /// `PrimVar`.
-    pub struct PrimVar;
-
-    impl ArgType for PrimVar {
-        fn check(value: &TVMFFIAny) -> bool {
-            var_of_type::<PrimTypeObj>(value)
-        }
-
-        fn type_str() -> std::string::String {
-            crate::ir::expr::VarObj::TYPE_KEY.into()
-        }
-    }
+    /// The typed views, which are argument types as they are: [`PrimVar`] checks as C++
+    /// `PrimVar` does.
+    pub use crate::ir::expr::{IntExpr, PrimExpr, PrimVar};
 
     /// Return whether `value` is a [`Var`], not a subclass, whose type is an `N`, such as
     /// `PrimTypeObj`: the check of [`PrimVar`] and of other variable argument types.

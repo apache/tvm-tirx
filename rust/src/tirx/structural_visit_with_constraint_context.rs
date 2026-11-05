@@ -132,7 +132,9 @@ pub type StructuralVisitorWithConstraintContextView<'a, D> =
 ///
 /// ```
 /// use tvm_tirx::ir::prim::op::PrimOps;
-/// use tvm_tirx::ir::{Evaluate, EvaluateObj, For, ForKind, PrimType, Var, UNKNOWN_LOC};
+/// use tvm_tirx::ir::{
+///     Evaluate, EvaluateObj, For, ForKind, PrimExpr, PrimType, PrimVar, UNKNOWN_LOC,
+/// };
 /// use tvm_tirx::sym::{Analyzer, ProofStrength};
 /// use tvm_tirx::tirx::structural_visit_with_constraint_context::{
 ///     structural_visit_with_constraint_context as visit,
@@ -152,12 +154,13 @@ pub type StructuralVisitorWithConstraintContextView<'a, D> =
 ///     ) -> Result<Option<VisitInterrupt>> {
 ///         let analyzer = Analyzer::new();
 ///         analyzer.sync_constraint_context(&visitor.base().constraints())?;
-///         self.0.push(analyzer.can_prove(node.value.less(16), ProofStrength::Default)?);
+///         let value = PrimExpr::try_from(&node.value)?;
+///         self.0.push(analyzer.can_prove(value.less(16), ProofStrength::Default)?);
 ///         visitor.default_visit(self, node)
 ///     }
 /// }
 ///
-/// let i = Var::new("i", PrimType::int(32), UNKNOWN_LOC);
+/// let i = PrimVar::new("i", PrimType::int(32), UNKNOWN_LOC);
 /// let body = Evaluate::new(&i, UNKNOWN_LOC);
 /// let root = For::new(&i, 0, 16, 1, ForKind::Default, body, None, UNKNOWN_LOC)?;
 /// let mut proofs = BelowSixteen::default();
