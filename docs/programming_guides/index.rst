@@ -80,14 +80,14 @@ accesses throughout a kernel. CUDA tile operations add an optional expansion
 layer over these constructs and native backend operations. All of them
 coexist in the same TIRx IR:
 
-.. figure:: https://tvm.apache.org/images/docs/tirx/authoring_layers.svg
-   :alt: Core language constructs span the whole TIRx program. The optional
-         CUDA tile layer expands through TileDispatch into core statements
-         and expressions, and native backend calls. Direct backend and PTX
-         calls form a thin interface. All constructs share the same TIRx IR,
-         followed by layout and further lowering before code generation.
-   :width: 100%
-   :align: center
+.. raw:: html
+
+   <iframe data-tirx-authoring-layers
+           src="https://tvm.apache.org/images/docs/tirx/authoring_layers.html"
+           title="TIRx authoring layers: core language, tile operations, and backend calls"
+           style="display: block; width: 100%; height: 480px; border: 0;"
+           loading="lazy"></iframe>
+   <script defer src="https://tvm.apache.org/images/docs/tirx/authoring_layers_embed.js"></script>
 
 The model rests on three constructs:
 
