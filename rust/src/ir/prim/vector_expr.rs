@@ -169,7 +169,8 @@ impl Ramp {
         lanes: impl IntoExpr,
         loc: impl Into<Location>,
     ) -> Result<Self> {
-        let (base, stride, lanes) = (base.into_expr()?, stride.into_expr()?, lanes.into_expr()?);
+        let (base, stride, lanes) =
+            (base.into_owned_expr()?, stride.into_owned_expr()?, lanes.into_owned_expr()?);
         let base_ty = support::prim_type(&base)?;
         let stride_ty = support::prim_type(&stride)?;
         support::prim_dtype(&lanes)?;
@@ -276,7 +277,7 @@ impl Broadcast {
         lanes: impl IntoExpr,
         loc: impl Into<Location>,
     ) -> Result<Self> {
-        let (value, lanes) = (value.into_expr()?, lanes.into_expr()?);
+        let (value, lanes) = (value.into_owned_expr()?, lanes.into_owned_expr()?);
         let value_dtype = support::prim_dtype(&value)?;
         support::prim_dtype(&lanes)?;
         if !support::is_scalar(value_dtype) {
@@ -362,9 +363,9 @@ impl Shuffle {
         loc: impl Into<Location>,
     ) -> Result<Self> {
         let vectors =
-            vectors.into_iter().map(IntoExpr::into_expr).collect::<Result<Array<Expr>>>()?;
+            vectors.into_iter().map(IntoExpr::into_owned_expr).collect::<Result<Array<Expr>>>()?;
         let indices =
-            indices.into_iter().map(IntoExpr::into_expr).collect::<Result<Array<Expr>>>()?;
+            indices.into_iter().map(IntoExpr::into_owned_expr).collect::<Result<Array<Expr>>>()?;
         let dtypes = vectors
             .iter()
             .map(|vector| support::prim_dtype(&vector))

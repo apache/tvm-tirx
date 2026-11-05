@@ -244,7 +244,7 @@ impl Bind {
         value: impl IntoExpr,
         loc: impl Into<Location>,
     ) -> Result<Self> {
-        let (var, value) = (var.into(), value.into_expr()?);
+        let (var, value) = (var.into(), value.into_owned_expr()?);
         if !support::structural_equal(&value.ty, &var.ty)? {
             let condition = "ffi::StructuralEqual()(value->ty, var->ty)";
             return Err(support::check_failed(tvm_ffi::INTERNAL_ERROR, condition, ""));
@@ -337,7 +337,7 @@ impl AssertStmt {
         message_parts: impl IntoIterator<Item = impl Into<StringImm>>,
         loc: impl Into<Location>,
     ) -> Result<Self> {
-        let (condition, error_kind) = (condition.into_expr()?, error_kind.into());
+        let (condition, error_kind) = (condition.into_owned_expr()?, error_kind.into());
         let message_parts = message_parts.into_iter().map(Into::into).collect::<Array<StringImm>>();
         let condition_ty = support::prim_type(&condition)?;
         if condition_ty.dtype.code != support::BOOL {
@@ -477,7 +477,7 @@ impl For {
         loc: impl Into<Location>,
     ) -> Result<Self> {
         let (var, begin, end, step) =
-            (var.into(), begin.into_expr()?, end.into_expr()?, step.into_expr()?);
+            (var.into(), begin.into_owned_expr()?, end.into_owned_expr()?, step.into_owned_expr()?);
         let var_expr: Expr = var.clone().into();
         let var_ty = support::prim_type(&var_expr)?;
         for expr in [&begin, &end, &step] {
@@ -635,7 +635,7 @@ impl While {
         body: impl Into<Stmt>,
         loc: impl Into<Location>,
     ) -> Result<Self> {
-        let condition = condition.into_expr()?;
+        let condition = condition.into_owned_expr()?;
         let condition_dtype = support::prim_dtype(&condition)?;
         let body = into_body(body.into())?;
         if !support::is_scalar(condition_dtype) {
@@ -723,9 +723,9 @@ impl TensorStore {
     ) -> Result<Self> {
         static VALIDATE: support::TypeAttr =
             support::TypeAttr::new("__tvm_tensor_store_validate__");
-        let (dest, value) = (dest.into_expr()?, value.into_expr()?);
+        let (dest, value) = (dest.into_owned_expr()?, value.into_owned_expr()?);
         let indices =
-            indices.into_iter().map(IntoExpr::into_expr).collect::<Result<Array<Expr>>>()?;
+            indices.into_iter().map(IntoExpr::into_owned_expr).collect::<Result<Array<Expr>>>()?;
         for index in indices.iter() {
             support::prim_dtype(&index)?;
         }
@@ -850,7 +850,8 @@ impl RegionStmt {
         loc: impl Into<Location>,
     ) -> Result<Self> {
         let (op, attrs, body) = (op.into(), attrs.into(), into_body(body.into())?);
-        let args = args.into_iter().map(IntoExpr::into_expr).collect::<Result<Array<Expr>>>()?;
+        let args =
+            args.into_iter().map(IntoExpr::into_owned_expr).collect::<Result<Array<Expr>>>()?;
         let body_params = body_params.into_iter().map(Into::into).collect::<Array<Var>>();
         let result_vars = result_vars.into_iter().map(Into::into).collect::<Array<Var>>();
         let name = op.name.as_str().to_string();
@@ -1110,7 +1111,7 @@ impl If {
         else_case: Option<&Stmt>,
         loc: impl Into<Location>,
     ) -> Result<Self> {
-        let condition = condition.into_expr()?;
+        let condition = condition.into_owned_expr()?;
         support::prim_dtype(&condition)?;
         let then_case = into_body(then_case.into())?;
         let else_case = else_case.map(|stmt| into_body(stmt.clone())).transpose()?;

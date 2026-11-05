@@ -109,6 +109,7 @@ use crate::ir::r#type::Type;
 use crate::ir::support;
 use std::ops::Deref;
 use std::ptr::addr_of_mut;
+use std::borrow::Borrow;
 use tvm_ffi::Any;
 use tvm_ffi::AnyView;
 use tvm_ffi::Array;
@@ -265,15 +266,111 @@ impl Expr {
 /// # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
 /// ```
 pub trait IntoExpr {
+    /// The expression: an owned [`Expr`] for an owned value or a literal, or a borrowed
+    /// `&Expr` for a reference, which converts without a reference-count change.
+    ///
+    /// A function that only reads the expression borrows it with `.borrow()`; one that keeps
+    /// it takes ownership with `.into()`, which clones only a borrowed expression.
+    type Output: Borrow<Expr> + Into<Expr>;
+
     /// Convert into an expression, or return the first error an [`ExprResult`] raised.
-    fn into_expr(self) -> Result<Expr>;
+    fn into_expr(self) -> Result<Self::Output>;
+
+    /// Convert into an owned expression, as [`Cow::into_owned`](std::borrow::Cow::into_owned)
+    /// does: an owned value moves, and only a borrowed expression is cloned.
+    fn into_owned_expr(self) -> Result<Expr>
+    where
+        Self: Sized,
+    {
+        self.into_expr().map(Into::into)
+    }
 }
 
-impl<T: Into<Expr>> IntoExpr for T {
+// An owned expression, typed view or literal converts into an owned `Expr`.
+impl<T: AnyCompatible + Into<Expr>> IntoExpr for T {
+    type Output = Expr;
+
     fn into_expr(self) -> Result<Expr> {
         Ok(self.into())
     }
 }
+
+// A reference to an expression, a typed view or a node borrows as `&Expr` through the upcast's
+// `AsRef`, without a reference-count change.
+macro_rules! impl_into_expr_ref {
+    ($($t:ty),*) => {$(
+        impl<'a> IntoExpr for &'a $t {
+            type Output = &'a Expr;
+
+            fn into_expr(self) -> Result<&'a Expr> {
+                Ok(self.as_ref())
+            }
+        }
+    )*};
+}
+// Every expression type with an upcast to `Expr`. A reference borrows as `&Expr`; the owned
+// blanket above cannot also cover references, because two blanket impls over `T` and `&T`
+// overlap for a downstream type. Add a new expression type here.
+impl_into_expr_ref!(
+    Expr,
+    crate::ir::expr::Call,
+    crate::ir::expr::Constant,
+    crate::ir::expr::DataTypeImm,
+    crate::ir::expr::FloatImm,
+    crate::ir::expr::GenericConst,
+    crate::ir::expr::GlobalVar,
+    crate::ir::expr::IntExpr,
+    crate::ir::expr::IntImm,
+    crate::ir::expr::LambdaExpr,
+    crate::ir::expr::OpaqueExpr,
+    crate::ir::expr::PrimExpr,
+    crate::ir::expr::StagingExpr,
+    crate::ir::expr::StringImm,
+    crate::ir::expr::TensorLoad,
+    crate::ir::expr::TensorRegion,
+    crate::ir::expr::Tuple,
+    crate::ir::expr::TupleGetItem,
+    crate::ir::expr::Var,
+    crate::ir::function::BaseFunc,
+    crate::ir::op::Op,
+    crate::ir::prim::expr::Add,
+    crate::ir::prim::expr::And,
+    crate::ir::prim::expr::BitwiseAnd,
+    crate::ir::prim::expr::BitwiseNot,
+    crate::ir::prim::expr::BitwiseOr,
+    crate::ir::prim::expr::BitwiseXor,
+    crate::ir::prim::expr::Cast,
+    crate::ir::prim::expr::Div,
+    crate::ir::prim::expr::EQ,
+    crate::ir::prim::expr::FloorDiv,
+    crate::ir::prim::expr::FloorMod,
+    crate::ir::prim::expr::GE,
+    crate::ir::prim::expr::GT,
+    crate::ir::prim::expr::LE,
+    crate::ir::prim::expr::LShift,
+    crate::ir::prim::expr::LT,
+    crate::ir::prim::expr::Let,
+    crate::ir::prim::expr::Max,
+    crate::ir::prim::expr::Min,
+    crate::ir::prim::expr::Mod,
+    crate::ir::prim::expr::Mul,
+    crate::ir::prim::expr::NE,
+    crate::ir::prim::expr::Not,
+    crate::ir::prim::expr::Or,
+    crate::ir::prim::expr::RShift,
+    crate::ir::prim::expr::Select,
+    crate::ir::prim::expr::Sub,
+    crate::ir::prim::vector_expr::Broadcast,
+    crate::ir::prim::vector_expr::Ramp,
+    crate::ir::prim::vector_expr::Shuffle,
+    crate::sym::analyzer::CanonicalExpr,
+    crate::sym::analyzer::SplitExpr,
+    crate::sym::analyzer::SumExpr,
+    crate::sym::iter_affine_map::IterMapExpr,
+    crate::sym::iter_affine_map::IterSplitExpr,
+    crate::sym::iter_affine_map::IterSumExpr,
+    crate::tirx::function::Function
+);
 
 // Rust literals, as C++ converts them into an expression: an `i32` and an `f32` through the
 // constructors `PrimExpr(int32_t)` and `PrimExpr(float)`, the others as constants of their type.
@@ -378,15 +475,6 @@ crate::r#macro::typed_expr_view! {
 }
 
 tvm_ffi::impl_object_upcast!(PrimExpr => Expr, IntExpr => Expr, IntExpr => PrimExpr);
-
-/// An `IntExpr` borrowed as the `PrimExpr` it is, as C++ `IntExpr` derives from `PrimExpr`.
-impl AsRef<PrimExpr> for IntExpr {
-    fn as_ref(&self) -> &PrimExpr {
-        // SAFETY: both views are `repr(transparent)` over an `ObjectArc<ExprObj>`, and every
-        // scalar integer type is a `PrimType`.
-        unsafe { &*(self as *const IntExpr as *const PrimExpr) }
-    }
-}
 
 impl TryFrom<PrimExpr> for IntExpr {
     type Error = Error;
@@ -913,7 +1001,7 @@ impl TupleGetItem {
         index: i32,
         loc: impl Into<Location>,
     ) -> Result<Self> {
-        let tuple_value = tuple_value.into_expr()?;
+        let tuple_value = tuple_value.into_owned_expr()?;
         if index < 0 {
             let message = format!(
                 "Index out of bounds: Tuple {} cannot be accessed with negative index {index}",
@@ -1029,10 +1117,10 @@ impl TensorLoad {
     ) -> Result<Self> {
         static INFER_TYPE: support::TypeAttr =
             support::TypeAttr::new("__tvm_tensor_load_infer_type__");
-        let (source, loc) = (source.into_expr()?, loc.into());
+        let (source, loc) = (source.into_owned_expr()?, loc.into());
         let indices = indices
             .into_iter()
-            .map(|index| PrimExpr::try_from(index.into_expr()?))
+            .map(|index| PrimExpr::try_from(index.into_owned_expr()?))
             .collect::<Result<Array<PrimExpr>>>()?;
         let ty_index = AnyView::from(&source.ty).type_index();
         let Some(infer) = INFER_TYPE.get(ty_index) else {
@@ -1811,8 +1899,9 @@ impl Call {
         ty_args: impl IntoIterator<Item = impl Into<Type>>,
         loc: impl Into<Location>,
     ) -> Result<Self> {
-        let (op, attrs, loc) = (op.into_expr()?, attrs.cloned(), loc.into());
-        let args = args.into_iter().map(IntoExpr::into_expr).collect::<Result<Array<Expr>>>()?;
+        let (op, attrs, loc) = (op.into_owned_expr()?, attrs.cloned(), loc.into());
+        let args =
+            args.into_iter().map(IntoExpr::into_owned_expr).collect::<Result<Array<Expr>>>()?;
         let ty_args = ty_args.into_iter().map(Into::into).collect::<Array<Type>>();
         if let Some(ty) = ty {
             return Ok(Self::from_fields(loc, ty.clone(), op, args, attrs, ty_args));
@@ -2089,8 +2178,10 @@ impl LambdaExpr {
     ///
     /// Returns a `ValueError` if the number of arguments is not the number of variables.
     pub fn apply(&self, arguments: impl IntoIterator<Item = impl IntoExpr>) -> Result<Expr> {
-        let arguments =
-            arguments.into_iter().map(IntoExpr::into_expr).collect::<Result<Array<Expr>>>()?;
+        let arguments = arguments
+            .into_iter()
+            .map(IntoExpr::into_owned_expr)
+            .collect::<Result<Array<Expr>>>()?;
         tvm_ffi::cached_global_func!("ir.LambdaExprApply")
             .call_tuple((self, &arguments))?
             .try_into()
@@ -2152,7 +2243,7 @@ impl Range {
     /// Create the range `[begin, end)` (C++ `Range(begin, end, loc)`);
     /// [`from_min_extent`](Self::from_min_extent) takes the extent instead of the end.
     pub fn new(begin: impl IntoExpr, end: impl IntoExpr, loc: impl Into<Location>) -> Result<Self> {
-        let (begin, end) = (begin.into_expr()?, end.into_expr()?);
+        let (begin, end) = (begin.into_owned_expr()?, end.into_owned_expr()?);
         let extent = Self::get_extent_from_begin_end(begin.clone(), end)?;
         Ok(Self::from_fields(begin, extent, loc.into()))
     }
@@ -2163,7 +2254,7 @@ impl Range {
         extent: impl IntoExpr,
         loc: impl Into<Location>,
     ) -> Result<Self> {
-        let (min_value, extent) = (min_value.into_expr()?, extent.into_expr()?);
+        let (min_value, extent) = (min_value.into_owned_expr()?, extent.into_owned_expr()?);
         support::prim_dtype(&min_value)?;
         support::prim_dtype(&extent)?;
         Ok(Self::from_fields(min_value, extent, loc.into()))
@@ -2172,7 +2263,7 @@ impl Range {
     /// Return the extent `end - begin` of the range `[begin, end)`, folded
     /// (C++ `Range::GetExtentFromBeginEnd`).
     pub fn get_extent_from_begin_end(begin: impl IntoExpr, end: impl IntoExpr) -> Result<Expr> {
-        let (begin, end) = (begin.into_expr()?, end.into_expr()?);
+        let (begin, end) = (begin.into_owned_expr()?, end.into_owned_expr()?);
         support::prim_dtype(&begin)?;
         support::prim_dtype(&end)?;
         if let Some(add) = end.downcast_ref::<AddObj>() {

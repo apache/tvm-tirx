@@ -191,7 +191,8 @@ impl TensorType {
         layout: Option<&Layout>,
         loc: impl Into<Location>,
     ) -> Result<Self> {
-        let shape = shape.into_iter().map(IntoExpr::into_expr).collect::<Result<Array<Expr>>>()?;
+        let shape =
+            shape.into_iter().map(IntoExpr::into_owned_expr).collect::<Result<Array<Expr>>>()?;
         for extent in shape.iter() {
             support::prim_dtype(&extent)?;
         }

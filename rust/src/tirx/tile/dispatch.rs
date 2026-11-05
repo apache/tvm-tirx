@@ -200,8 +200,10 @@ impl DispatchContext {
         annotations: &Map<String, Any>,
     ) -> Result<()> {
         let tensor = tensor.into();
-        let allocated_addr =
-            allocated_addr.into_iter().map(IntoExpr::into_expr).collect::<Result<Array<Expr>>>()?;
+        let allocated_addr = allocated_addr
+            .into_iter()
+            .map(IntoExpr::into_owned_expr)
+            .collect::<Result<Array<Expr>>>()?;
         tvm_ffi::cached_global_func!("tirx.DispatchContextAddAllocTensor").call_tuple((
             self,
             &tensor,

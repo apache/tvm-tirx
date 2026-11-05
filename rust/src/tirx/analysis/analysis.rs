@@ -48,6 +48,7 @@
 // tvm-ffi-stubgen(import-object): crate::ir::expr::IntoExpr
 
 // tvm-ffi-stubgen(begin): import-section
+use std::borrow::Borrow;
 use crate::ir::expr::Expr;
 use crate::ir::expr::IntoExpr;
 use crate::ir::expr::Var;
@@ -105,7 +106,7 @@ pub fn detect_linear_equation(
 ) -> Result<Array<Expr>> {
     let vars = vars.into_iter().map(Into::into).collect::<Array<Var>>();
     tvm_ffi::cached_global_func!("tirx.analysis.DetectLinearEquation")
-        .call_tuple((&expr.into_expr()?, &vars))?
+        .call_tuple((expr.into_expr()?.borrow(), &vars))?
         .try_into()
 }
 
@@ -118,6 +119,6 @@ pub fn detect_clip_bound(
 ) -> Result<Array<Option<Expr>>> {
     let vars = vars.into_iter().map(Into::into).collect::<Array<Var>>();
     tvm_ffi::cached_global_func!("tirx.analysis.DetectClipBound")
-        .call_tuple((&expr.into_expr()?, &vars))?
+        .call_tuple((expr.into_expr()?.borrow(), &vars))?
         .try_into()
 }

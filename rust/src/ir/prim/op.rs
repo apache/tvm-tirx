@@ -239,14 +239,21 @@ impl ExprResult {
 }
 
 impl IntoExpr for ExprResult {
+    type Output = Expr;
+
     fn into_expr(self) -> Result<Expr> {
         self.0.map(Into::into)
     }
 }
 
-impl IntoExpr for &ExprResult {
-    fn into_expr(self) -> Result<Expr> {
-        self.0.clone().map(Into::into)
+impl<'a> IntoExpr for &'a ExprResult {
+    type Output = &'a Expr;
+
+    fn into_expr(self) -> Result<&'a Expr> {
+        match &self.0 {
+            Ok(expr) => Ok(expr.as_ref()),
+            Err(error) => Err(error.clone()),
+        }
     }
 }
 
@@ -737,7 +744,7 @@ fn operands(a: impl Operand, b: impl Operand) -> Result<(Expr, Expr)> {
         }
         (a, b) => (on_its_own(a), on_its_own(b)),
     };
-    Ok((a.into_expr()?, b.into_expr()?))
+    Ok((a.into_owned_expr()?, b.into_owned_expr()?))
 }
 
 /// The functions without a location: each builds at the unknown location through its `_at`
@@ -1013,7 +1020,7 @@ pub fn cast_at(
     ty: impl Into<PrimType>,
     loc: impl Into<Location>,
 ) -> Result<Expr> {
-    let (value, ty, loc) = (value.into_expr()?, ty.into(), loc.into());
+    let (value, ty, loc) = (value.into_owned_expr()?, ty.into(), loc.into());
     let (from, to) = (support::prim_dtype(&value)?, ty.dtype);
     if from == to {
         return Ok(value);
@@ -1145,7 +1152,7 @@ pub fn match_types_at(
     b: impl IntoExpr,
     loc: impl Into<Location>,
 ) -> Result<(Expr, Expr)> {
-    let (a, b, loc) = (a.into_expr()?, b.into_expr()?, loc.into());
+    let (a, b, loc) = (a.into_owned_expr()?, b.into_owned_expr()?, loc.into());
     let (a_dtype, b_dtype) = (support::prim_dtype(&a)?, support::prim_dtype(&b)?);
     if a_dtype == b_dtype {
         return Ok((a, b));
@@ -1317,7 +1324,7 @@ pub fn eq_at(a: impl Operand, b: impl Operand, loc: impl Into<Location>) -> Resu
 
 /// Build [`neg`] at the location `loc`.
 pub fn neg_at(a: impl IntoExpr, loc: impl Into<Location>) -> Result<Expr> {
-    let (a, loc) = (a.into_expr()?, loc.into());
+    let (a, loc) = (a.into_owned_expr()?, loc.into());
     let dtype = support::prim_dtype(&a)?;
     if let Some(imm) = a.downcast_ref::<IntImmObj>() {
         let value = -imm.value.clone();
@@ -1489,7 +1496,7 @@ pub fn logical_and_at(
     b: impl IntoExpr,
     loc: impl Into<Location>,
 ) -> Result<Expr> {
-    let (a, b) = (a.into_expr()?, b.into_expr()?);
+    let (a, b) = (a.into_owned_expr()?, b.into_owned_expr()?);
     check_operands(&a, &b, "&&", "logical AND", "boolean", (&[support::BOOL], BOOL_CODES))?;
     match const_fold::and(&a, &b)? {
         Some(folded) => Ok(folded),
@@ -1499,7 +1506,7 @@ pub fn logical_and_at(
 
 /// Build [`logical_or`] at the location `loc`.
 pub fn logical_or_at(a: impl IntoExpr, b: impl IntoExpr, loc: impl Into<Location>) -> Result<Expr> {
-    let (a, b) = (a.into_expr()?, b.into_expr()?);
+    let (a, b) = (a.into_owned_expr()?, b.into_owned_expr()?);
     check_operands(&a, &b, "||", "logical OR", "boolean", (&[support::BOOL], BOOL_CODES))?;
     match const_fold::or(&a, &b)? {
         Some(folded) => Ok(folded),
@@ -1509,7 +1516,7 @@ pub fn logical_or_at(a: impl IntoExpr, b: impl IntoExpr, loc: impl Into<Location
 
 /// Build [`logical_not`] at the location `loc`.
 pub fn logical_not_at(a: impl IntoExpr, loc: impl Into<Location>) -> Result<Expr> {
-    let a = a.into_expr()?;
+    let a = a.into_owned_expr()?;
     check_code(&a, "a", &[support::BOOL], BOOL_CODES, || {
         format!(
             "Expected boolean argument for ! operator (logical NOT), but received {} of type {}",
@@ -1545,7 +1552,7 @@ fn fold_conditions(
     name: &str,
     op: fn(Expr, Expr, Location) -> Result<Expr>,
 ) -> Result<Expr> {
-    let mut conds = conds.into_iter().map(IntoExpr::into_expr);
+    let mut conds = conds.into_iter().map(IntoExpr::into_owned_expr);
     let Some(first) = conds.next() else {
         let message = format!("{name} must take at least 1 argument");
         return Err(Error::new(VALUE_ERROR, &message, ""));
@@ -1560,7 +1567,7 @@ pub fn if_then_else_at(
     false_value: impl IntoExpr,
     loc: impl Into<Location>,
 ) -> Result<Expr> {
-    let (cond, loc) = (cond.into_expr()?, loc.into());
+    let (cond, loc) = (cond.into_owned_expr()?, loc.into());
     if support::prim_dtype(&cond)?.code != support::BOOL {
         let condition = "cond.ty().MatchesCode(DLDataTypeCode::kDLBool)";
         let message = "if_then_else only accept the condition to be boolean type.";
@@ -1717,7 +1724,7 @@ bitwise!(
 
 /// Build [`bitwise_not`] at the location `loc`.
 pub fn bitwise_not_at(a: impl IntoExpr, loc: impl Into<Location>) -> Result<Expr> {
-    let a = a.into_expr()?;
+    let a = a.into_owned_expr()?;
     check_code(&a, "a", &INTEGER_OR_BOOL, INTEGER_OR_BOOL_CODES, || {
         format!(
             "Expected integer or boolean argument for ~ operator (bitwise NOT), but received {} \
@@ -1758,7 +1765,7 @@ macro_rules! unary {
 
             #[doc = concat!("Build [`", stringify!($name), "`] at the location `loc`.")]
             pub fn $at(x: impl IntoExpr, loc: impl Into<Location>) -> Result<Expr> {
-                $imp(x.into_expr()?, loc.into())
+                $imp(x.into_owned_expr()?, loc.into())
             }
         )+
     };
@@ -2031,12 +2038,12 @@ unlocated! {
 
 /// Build [`pow`] at the location `loc`.
 pub fn pow_at(x: impl IntoExpr, y: impl IntoExpr, loc: impl Into<Location>) -> Result<Expr> {
-    float_binary(x.into_expr()?, y.into_expr()?, "prim.pow", "power", loc.into())
+    float_binary(x.into_owned_expr()?, y.into_owned_expr()?, "prim.pow", "power", loc.into())
 }
 
 /// Build [`fmod`] at the location `loc`.
 pub fn fmod_at(x: impl IntoExpr, y: impl IntoExpr, loc: impl Into<Location>) -> Result<Expr> {
-    float_binary(x.into_expr()?, y.into_expr()?, "prim.fmod", "fmod", loc.into())
+    float_binary(x.into_owned_expr()?, y.into_owned_expr()?, "prim.fmod", "fmod", loc.into())
 }
 
 /// Build [`fma`] at the location `loc`.
@@ -2046,9 +2053,9 @@ pub fn fma_at(
     z: impl IntoExpr,
     loc: impl Into<Location>,
 ) -> Result<Expr> {
-    let x = x.into_expr()?;
+    let x = x.into_owned_expr()?;
     let ty = x.ty.clone();
-    call(Some(&ty), "prim.fma", vec![x, y.into_expr()?, z.into_expr()?], loc.into())
+    call(Some(&ty), "prim.fma", vec![x, y.into_owned_expr()?, z.into_owned_expr()?], loc.into())
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -2159,9 +2166,9 @@ macro_rules! binary_intrinsics {
                 y: impl IntoExpr,
                 loc: impl Into<Location>,
             ) -> Result<Expr> {
-                let x = x.into_expr()?;
+                let x = x.into_owned_expr()?;
                 let ty = x.ty.clone();
-                call(Some(&ty), $op, vec![x, y.into_expr()?], loc.into())
+                call(Some(&ty), $op, vec![x, y.into_owned_expr()?], loc.into())
             }
         )+
     };

@@ -53,6 +53,7 @@
 // tvm-ffi-stubgen(import-object): crate::ir::expr::IntoExpr
 
 // tvm-ffi-stubgen(begin): import-section
+use std::borrow::Borrow;
 use crate::ir::attrs::DictAttrs;
 use crate::ir::expr::Expr;
 use crate::ir::expr::GlobalVar;
@@ -173,7 +174,7 @@ impl IRModule {
     /// Returns a `TypeError` if `expr` is not a function.
     pub fn from_expr(expr: impl IntoExpr, functions: &Map<GlobalVar, BaseFunc>) -> Result<Self> {
         tvm_ffi::cached_global_func!("ir.IRModuleFromExpr")
-            .call_tuple((&expr.into_expr()?, functions))?
+            .call_tuple((expr.into_expr()?.borrow(), functions))?
             .try_into()
     }
 
