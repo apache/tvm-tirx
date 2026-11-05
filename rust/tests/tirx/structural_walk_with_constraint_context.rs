@@ -165,7 +165,7 @@ fn typed_walk_callbacks_collect_facts_and_restore_analyzer_scopes() {
             &root,
             |_: &EvaluateObj| {
                 calls += 1;
-                WalkResult::interrupt_with(19_i64)
+                WalkResult::InterruptWith(19_i64.into())
             },
             order,
         )
