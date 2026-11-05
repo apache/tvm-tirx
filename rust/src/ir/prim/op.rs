@@ -229,6 +229,22 @@ impl TryFrom<ExprResult> for PrimExpr {
 }
 
 impl ExprResult {
+    /// The built expression, or the first error the chain raised.
+    ///
+    /// This is [`IntoExpr::into_expr`] with the `Expr` target, so a direct call needs no
+    /// annotation; take `IntoExpr<PrimExpr>` for the `PrimExpr`.
+    ///
+    /// # Returns
+    ///
+    /// The expression.
+    ///
+    /// # Errors
+    ///
+    /// Returns the first error an operator in the chain raised.
+    pub fn into_expr(self) -> Result<Expr> {
+        self.0.map(Into::into)
+    }
+
     /// The dtype a literal next to this expression takes (`MakeConst(this.ty(), v)`).
     fn dtype(&self) -> Result<DLDataType> {
         match &self.0 {
@@ -252,6 +268,25 @@ impl<'a> IntoExpr for &'a ExprResult {
     fn into_expr(self) -> Result<&'a Expr> {
         match &self.0 {
             Ok(expr) => Ok(expr.as_ref()),
+            Err(error) => Err(error.clone()),
+        }
+    }
+}
+
+impl IntoExpr<PrimExpr> for ExprResult {
+    type Output = PrimExpr;
+
+    fn into_expr(self) -> Result<PrimExpr> {
+        self.0
+    }
+}
+
+impl<'a> IntoExpr<PrimExpr> for &'a ExprResult {
+    type Output = &'a PrimExpr;
+
+    fn into_expr(self) -> Result<&'a PrimExpr> {
+        match &self.0 {
+            Ok(prim) => Ok(prim),
             Err(error) => Err(error.clone()),
         }
     }
