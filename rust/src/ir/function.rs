@@ -20,10 +20,27 @@
 
 //! The base of every function.
 //!
-//! The objects `python/tvm_tirx/ir/function.py` defines. [`BaseFunc`] carries the type, location
-//! and attributes of a function; a dialect defines the function itself, such as
-//! [`Function`](crate::tirx::Function). Its attribute methods wrap the native `ir.BaseFunc*`
-//! functions.
+//! [`BaseFunc`] carries the type, location and attributes of a function; a dialect defines the
+//! function itself, such as [`Function`](crate::tirx::Function).
+//!
+//! # Examples
+//!
+//! ```
+//! use tvm_tirx::ir::{BaseFunc, DictAttrs, PrimType, Return, SeqStmt, Var, UNKNOWN_LOC};
+//! use tvm_tirx::script::script;
+//! use tvm_tirx::tirx::Function;
+//! use tvm_tirx::tvm_ffi::{Map, String};
+//!
+//! let body = SeqStmt::new([Return::new(0, UNKNOWN_LOC)], UNKNOWN_LOC);
+//! let attrs = DictAttrs::new(Map::new());
+//! let func = Function::new(Vec::<Var>::new(), &body, PrimType::int(32), attrs, UNKNOWN_LOC);
+//! let func = BaseFunc::from(func);
+//! assert!(script(&func)?.contains("@T.function(private=True)"));
+//!
+//! let exported = func.with_attr("global_symbol", String::from("main"))?;
+//! assert!(script(&exported)?.contains("@T.function\ndef main()"));
+//! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
+//! ```
 
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
@@ -121,12 +138,12 @@ tvm_ffi::impl_object_upcast!(BaseFunc => Expr);
 // tvm-ffi-stubgen(end)
 
 impl BaseFunc {
-    /// A new handle to the same function, as the native side returns it (`ir.BaseFuncCopy`).
+    /// Return a new handle to the same function, as the native side returns it (`ir.BaseFuncCopy`).
     pub fn copy(&self) -> Result<BaseFunc> {
         tvm_ffi::cached_global_func!("ir.BaseFuncCopy").call_tuple((self,))?.try_into()
     }
 
-    /// The function with the attribute `key` set to `value` (`ir.BaseFuncWithAttr`).
+    /// Return the function with the attribute `key` set to `value` (`ir.BaseFuncWithAttr`).
     ///
     /// Consumes `self`: the function is updated in place when this was its only handle, and copied
     /// otherwise.
@@ -136,18 +153,18 @@ impl BaseFunc {
             .try_into()
     }
 
-    /// The function with the attributes of `attrs` set (`ir.BaseFuncWithAttrs`).
+    /// Return the function with the attributes of `attrs` set (`ir.BaseFuncWithAttrs`).
     ///
-    /// Consumes `self`, as [`BaseFunc::with_attr`] does.
+    /// Consumes `self`, as [`with_attr`](Self::with_attr) does.
     pub fn with_attrs(self, attrs: &Map<String, Any>) -> Result<BaseFunc> {
         tvm_ffi::cached_global_func!("ir.BaseFuncWithAttrs")
             .call_tuple((RValueRef::new(self), attrs))?
             .try_into()
     }
 
-    /// The function without the attribute `key` (`ir.BaseFuncWithoutAttr`).
+    /// Return the function without the attribute `key` (`ir.BaseFuncWithoutAttr`).
     ///
-    /// Consumes `self`, as [`BaseFunc::with_attr`] does.
+    /// Consumes `self`, as [`with_attr`](Self::with_attr) does.
     pub fn without_attr(self, key: &str) -> Result<BaseFunc> {
         tvm_ffi::cached_global_func!("ir.BaseFuncWithoutAttr")
             .call_tuple((RValueRef::new(self), String::from(key)))?

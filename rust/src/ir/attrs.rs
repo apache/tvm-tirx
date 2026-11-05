@@ -22,6 +22,21 @@
 //!
 //! The objects `python/tvm_tirx/ir/attrs.py` defines. [`Attrs`] is the base of every attribute
 //! object, and [`DictAttrs`] holds named values in a map.
+//!
+//! # Examples
+//!
+//! ```
+//! use tvm_tirx::ir::{DictAttrs, IRModule};
+//! use tvm_tirx::tvm_ffi::{Any, Map, String};
+//!
+//! let dict: Map<String, Any> =
+//!     [("system_lib_prefix".into(), Any::from(String::from("my_lib_")))].into_iter().collect();
+//! let module = IRModule::from_functions(&Map::new(), Some(&DictAttrs::new(dict)), &Map::new())?;
+//!
+//! let prefix = module.attrs.dict.get(&"system_lib_prefix".into())?.unwrap();
+//! assert_eq!(prefix.try_as::<String>().unwrap(), "my_lib_");
+//! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
+//! ```
 
 // tvm-ffi-stubgen(begin): import-section
 use std::ops::Deref;

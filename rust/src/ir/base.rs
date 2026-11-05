@@ -20,8 +20,22 @@
 
 //! Functions of the global registry referred to by name.
 //!
-//! The objects `python/tvm_tirx/ir/base.py` defines. An [`EnvFunc`] keeps the name of a
-//! registered global function next to the function, so it can be serialized by name.
+//! The objects `python/tvm_tirx/ir/base.py` defines. An [`EnvFunc`] is a registered global
+//! function kept with its name, so it is serialized by name.
+//!
+//! # Examples
+//!
+//! ```
+//! use tvm_tirx::ir::EnvFunc;
+//! use tvm_tirx::tvm_ffi::{Function, Result};
+//!
+//! # let double = Function::from_typed(|x: i64| -> Result<i64> { Ok(x * 2) });
+//! # Function::register_global("my_ext.double", double)?;
+//! let double = EnvFunc::new("my_ext.double", Function::get_global("my_ext.double")?);
+//!
+//! assert_eq!(double.func.call_tuple((21_i64,))?.try_as::<i64>(), Some(42));
+//! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
+//! ```
 
 // tvm-ffi-stubgen(begin): import-section
 use std::ops::Deref;

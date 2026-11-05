@@ -20,8 +20,20 @@
 
 //! Thread scopes: the levels of a backend's thread hierarchy.
 //!
-//! The objects `python/tvm_tirx/tirx/thread_scope.py` defines. A [`ThreadScope`] is an enum
-//! object, such as `cuda.warp`, looked up by name with [`ThreadScope::get`].
+//! A [`ThreadScope`], such as `cuda.warp`, is looked up by name with [`ThreadScope::get`].
+//!
+//! # Examples
+//!
+//! ```
+//! use tvm_tirx::tirx::ThreadScope;
+//!
+//! let warp = ThreadScope::get("cuda.warp")?;
+//! assert_eq!((warp.backend()?, warp.local_name()?), ("cuda".into(), "warp".into()));
+//!
+//! let cta = ThreadScope::get("cuda.cta")?;
+//! assert!(cta.is_higher_than(&warp)?);
+//! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
+//! ```
 
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
@@ -70,30 +82,40 @@ impl Deref for ThreadScope {
 // tvm-ffi-stubgen(end)
 
 impl ThreadScope {
-    /// The thread scope named `name`, such as `cuda.warp` (`tirx.ThreadScopeGet`).
+    /// Look up the thread scope named `name`, such as `cuda.warp` (`tirx.ThreadScopeGet`).
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if no thread scope is registered as `name`.
     pub fn get(name: &str) -> Result<Self> {
         tvm_ffi::cached_global_func!("tirx.ThreadScopeGet")
             .call_tuple((String::from(name),))?
             .try_into()
     }
 
-    /// The backend that registered the scope, such as `cuda` (`tirx.ThreadScopeGetBackend`).
+    /// Return the backend that registered the scope, such as `cuda` (`tirx.ThreadScopeGetBackend`).
     pub fn backend(&self) -> Result<String> {
         tvm_ffi::cached_global_func!("tirx.ThreadScopeGetBackend").call_tuple((self,))?.try_into()
     }
 
-    /// The name of the scope within its backend, such as `warp` (`tirx.ThreadScopeGetLocalName`).
+    /// Return the name of the scope within its backend, such as `warp`
+    /// (`tirx.ThreadScopeGetLocalName`).
     pub fn local_name(&self) -> Result<String> {
         tvm_ffi::cached_global_func!("tirx.ThreadScopeGetLocalName").call_tuple((self,))?.try_into()
     }
 
-    /// The level of the scope in its backend's hierarchy; outer scopes rank lower
+    /// Return the level of the scope in its backend's hierarchy; outer scopes rank lower
     /// (`tirx.ThreadScopeGetRank`).
     pub fn rank(&self) -> Result<i64> {
         tvm_ffi::cached_global_func!("tirx.ThreadScopeGetRank").call_tuple((self,))?.try_into()
     }
 
-    /// Whether this scope is above `other` in the hierarchy of their backend (`tirx.ScopeHigher`).
+    /// Return whether this scope is above `other` in the hierarchy of their backend
+    /// (`tirx.ScopeHigher`).
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the two scopes are of different backends.
     pub fn is_higher_than(&self, other: impl Into<ThreadScope>) -> Result<bool> {
         tvm_ffi::cached_global_func!("tirx.ScopeHigher")
             .call_tuple((self, &other.into()))?

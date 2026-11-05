@@ -18,39 +18,30 @@
  */
 
 //! Registering IR types from Rust: [`register_type`], which a [`tvm_ffi::static_init_block!`]
-//! calls for an `rs_object` type, as C++ registers a type with `refl::ObjectDef` in a
-//! `TVM_FFI_STATIC_INIT_BLOCK`.
-//!
-//! `rs_object` registers the fields of a type and, as C++ `refl::ObjectDef` does, a creator of an
-//! object whose fields are undefined, which tvm-ffi fills through the reflection of the fields to
-//! construct the type from Python (the `__ffi_init__` it generates) and to read it from a JSON
-//! graph (`__ffi_new__`). [`register_type`] registers the type when its program or library loads
-//! and exposes its constructor to Python.
+//! calls for an `rs_object` type, as C++ registers a type with `refl::ObjectDef`.
 
 use tvm_ffi::{Function, ObjectCore, ObjectRefCore, Result, String};
 
 use super::support;
 
 /// Register the IR type of the reference `R`, an `rs_object` type, as C++ registers one with
-/// `refl::ObjectDef`: the type, with the `__ffi_new__` and `__ffi_init__` `rs_object` registers,
-/// then, when the receiver is installed, a request for its constructor in registered destinations
-/// (`ir.expose_type`); an absent receiver is a no-op, and an installed receiver's error is
-/// returned. With an explicitly declared `my_ext` type API destination, Python then constructs the
-/// type from its fields, `my_ext.Pair(T.int32, second=T.float32)`, as it constructs a C++ type, and
-/// a JSON graph holds it. Import `tvm_tirx` before loading the library so exposure requests reach
-/// Python. Import the extension module in Python scope, or supply it to text parsing through
-/// imports, `extra_vars` or explicit parser namespace registration; type exposure does not add
-/// parser defaults.
+/// `refl::ObjectDef`.
 ///
-/// Call it in a [`tvm_ffi::static_init_block!`], with the [`OpDef`](crate::ir::OpDef) chains of
-/// the operators, so that the type is registered when its program or library loads, as a C++ one
-/// is; the type's struct, reference and `impl`s are written outside the block, as any other:
+/// Call it in a [`tvm_ffi::static_init_block!`], so that the type is registered when its program or
+/// library loads. Python then constructs the type from its fields, as it constructs a C++ type, if
+/// `tvm_tirx` is imported before the library loads.
 ///
-/// ```no_run
-/// use tvm_tirx::ir::{register_type, Location, Type, TypeObj};
-/// use tvm_tirx::tvm_ffi::{self, def_object_ref, rs_object, ObjectRefCore};
+/// # Errors
 ///
-/// /// The type of a pair of values, printed as `my_ext.Pair(first, second)`.
+/// Returns the error of the installed `ir.expose_type` receiver.
+///
+/// # Examples
+///
+/// ```
+/// use tvm_tirx::ir::{register_type, Location, PrimType, Type, TypeObj, Var, UNKNOWN_LOC};
+/// use tvm_tirx::script::script;
+/// use tvm_tirx::tvm_ffi::{self, def_object_ref, rs_object};
+///
 /// #[rs_object("my_ext.PairType", final)]
 /// pub struct PairTypeObj {
 ///     base: TypeObj,
@@ -68,6 +59,12 @@ use super::support;
 ///
 /// tvm_ffi::static_init_block! {
 ///     register_type::<PairType>()?;
+/// }
+///
+/// fn main() -> tvm_ffi::Result<()> {
+///     let p = Var::new("p", PairType::new(PrimType::int(32), PrimType::float(32)), UNKNOWN_LOC);
+///     assert_eq!(script(&p.ty)?, "my_ext.Pair(T.int32, second=T.float32)");
+///     Ok(())
 /// }
 /// ```
 pub fn register_type<R: ObjectRefCore>() -> Result<()> {

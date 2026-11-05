@@ -20,9 +20,28 @@
 
 //! The TIRx passes and their configurations.
 //!
-//! The passes `python/tvm_tirx/tirx/transform/transform.py` defines, each a function that returns
-//! the [`Pass`], and their configurations: [`RemoveNoOpConfig`] for [`remove_no_op`], and
-//! [`UnrollLoopConfig`] for [`unroll_loop`].
+//! Each function returns a [`Pass`]; [`RemoveNoOpConfig`] and [`UnrollLoopConfig`] configure
+//! [`remove_no_op`] and [`unroll_loop`].
+//!
+//! # Examples
+//!
+//! ```
+//! use tvm_tirx::tirx::{transform, Function};
+//! use tvm_tirx::tvm_ffi::ObjectRefCast;
+//! # use tvm_tirx::ir::{BaseFunc, DictAttrs, Evaluate, GlobalVar, IRModule, MissingType, SeqStmt};
+//! # use tvm_tirx::ir::{Var, UNKNOWN_LOC};
+//! # use tvm_tirx::tvm_ffi::Map;
+//! # let body = SeqStmt::new([Evaluate::new(1, UNKNOWN_LOC)], UNKNOWN_LOC);
+//! # let attrs = DictAttrs::new(Map::new());
+//! # let main = Function::new(Vec::<Var>::new(), &body, MissingType::new(), attrs, UNKNOWN_LOC);
+//! # let functions = [(GlobalVar::new("main", UNKNOWN_LOC), BaseFunc::from(&main))];
+//! # let module = IRModule::from_functions(&functions.into_iter().collect(), None, &Map::new())?;
+//!
+//! let module = transform::remove_no_op()?.run(module)?;
+//! let main: Function = module.lookup_name("main")?.try_cast()?;
+//! assert!(main.body.seq.is_empty());
+//! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
+//! ```
 
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
@@ -180,7 +199,8 @@ pub fn bf16_storage_legalize() -> Result<Pass> {
     tvm_ffi::cached_global_func!("tirx.transform.BF16StorageLegalize").call_tuple(())?.try_into()
 }
 
-/// Bind `target` to the functions and classify host and device helpers (`tirx.transform.BindTarget`).
+/// Bind `target` to the functions and classify host and device helpers
+/// (`tirx.transform.BindTarget`).
 pub fn bind_target(target: impl Into<Target>) -> Result<Pass> {
     tvm_ffi::cached_global_func!("tirx.transform.BindTarget")
         .call_tuple((&target.into(),))?
@@ -216,8 +236,6 @@ pub fn fp8_storage_legalize() -> Result<Pass> {
 }
 
 /// Remove the TIRx functions for which `fcond` is false (`tirx.transform.Filter`).
-///
-/// The pass may run on any thread, so `fcond` is `Send + Sync`.
 pub fn filter(fcond: impl Fn(Function) -> Result<bool> + Send + Sync + 'static) -> Result<Pass> {
     let fcond = tvm_ffi::Function::from_typed(fcond);
     tvm_ffi::cached_global_func!("tirx.transform.Filter").call_tuple((&fcond,))?.try_into()

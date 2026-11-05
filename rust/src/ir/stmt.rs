@@ -20,10 +20,32 @@
 
 //! Statements: bindings, assertions, loops, conditionals, tensor stores and sequences.
 //!
-//! The objects `python/tvm_tirx/ir/stmt.py` defines. [`Stmt`] is the base of every statement and
-//! carries its location. The constructors are `new` (`checked` for [`While`]), written in Rust
-//! after the C++ ones with their checks; a body given as one statement is wrapped in a [`SeqStmt`],
-//! as C++ converts it.
+//! The objects `python/tvm_tirx/ir/stmt.py` defines. [`Stmt`] is the base of every statement; a
+//! body given as one statement is wrapped in a [`SeqStmt`].
+//!
+//! # Examples
+//!
+//! ```
+//! use tvm_tirx::ir::prim::op::PrimOps;
+//! use tvm_tirx::ir::{AssertStmt, Bind, For, ForKind, PrimType, SeqStmt, Stmt, StringImm, Var};
+//! use tvm_tirx::ir::UNKNOWN_LOC;
+//! use tvm_tirx::script::script;
+//!
+//! let i = Var::new("i", PrimType::int(32), UNKNOWN_LOC);
+//! let x = Var::new("x", PrimType::int(32), UNKNOWN_LOC);
+//! let bind = Bind::new(&x, &i + 1, UNKNOWN_LOC)?;
+//! let kind = StringImm::new("ValueError", UNKNOWN_LOC);
+//! let check = AssertStmt::new(x.less(17), kind, [StringImm::new("x", UNKNOWN_LOC)], UNKNOWN_LOC)?;
+//!
+//! let body = SeqStmt::new([Stmt::from(bind), check.into()], UNKNOWN_LOC);
+//! let loop_ = For::new(&i, 0, 16, 1, ForKind::Default, body, None, UNKNOWN_LOC)?;
+//! let expected = "\
+//! for i in range(16):
+//!     x: T.let[T.int32] = i + 1
+//!     assert x < 17, (\"ValueError\", [\"x\"])";
+//! assert_eq!(script(&loop_)?, expected);
+//! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
+//! ```
 
 // `custom-new` reserves `new` for a constructor with the C++ one's semantics (defaults, implicit
 // conversions, validation); the generated `from_fields` allocates the fields as given.
@@ -210,8 +232,13 @@ tvm_ffi::impl_object_upcast!(Bind => Stmt);
 // tvm-ffi-stubgen(end)
 
 impl Bind {
-    /// Bind `var` to `value`, of the same type, for the rest of the enclosing scope
-    /// (C++ `Bind(var, value, loc)`).
+    /// Create the statement binding `var` to `value`, of the same type, for the rest of the
+    /// enclosing scope (C++ `Bind(var, value, loc)`).
+    ///
+    /// # Errors
+    ///
+    /// Returns an `InternalError` if the type of `value` is not structurally equal to the type of
+    /// `var`.
     pub fn new(
         var: impl Into<Var>,
         value: impl IntoExpr,
@@ -298,8 +325,12 @@ tvm_ffi::impl_object_upcast!(AssertStmt => Stmt);
 // tvm-ffi-stubgen(end)
 
 impl AssertStmt {
-    /// Assert the boolean `condition`, raising an `error_kind` error with the message
-    /// `message_parts` when it fails (C++ `AssertStmt(condition, error_kind, message_parts, loc)`).
+    /// Create the statement asserting the boolean `condition`, raising an `error_kind` error with
+    /// the message `message_parts` when it fails (C++ `AssertStmt`).
+    ///
+    /// # Errors
+    ///
+    /// Returns an `InternalError` if `condition` is not boolean.
     pub fn new(
         condition: impl IntoExpr,
         error_kind: impl Into<StringImm>,
@@ -409,7 +440,7 @@ impl For {
 tvm_ffi::impl_object_upcast!(For => Stmt);
 // tvm-ffi-stubgen(end)
 
-/// The execution semantics of a [`For`] loop: `ir::ForKind`.
+/// How a [`For`] loop runs its iterations, as C++ `ir::ForKind`.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 #[repr(i32)]
 pub enum ForKind {
@@ -425,9 +456,15 @@ pub enum ForKind {
 }
 
 impl For {
-    /// The loop of the scalar integer `var` from `begin` to `end` by `step`, running `body` with
-    /// the `kind` semantics. A constant bound or step of another integer type is converted to the
-    /// type of `var` (C++ `For(var, begin, end, step, kind, body, annotations, loc)`).
+    /// Create the loop of the scalar integer `var` from `begin` to `end` by `step`, running `body`
+    /// with the `kind` semantics (C++ `For(var, begin, end, step, kind, body, annotations, loc)`).
+    ///
+    /// A constant bound or step of another integer type is converted to the type of `var`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an `InternalError` if `var`, a bound or the step is not a scalar integer, or a bound
+    /// or the step does not fit or match the type of `var`.
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         var: impl Into<Var>,
@@ -587,8 +624,12 @@ tvm_ffi::impl_object_upcast!(While => Stmt);
 // tvm-ffi-stubgen(end)
 
 impl While {
-    /// The loop running `body` while the scalar `condition` holds, checked to be well formed
+    /// Create the loop running `body` while the scalar `condition` holds, checked to be well formed
     /// (C++ `While(condition, body, loc)`).
+    ///
+    /// # Errors
+    ///
+    /// Returns an `InternalError` if `condition` is a vector.
     pub fn checked(
         condition: impl IntoExpr,
         body: impl Into<Stmt>,
@@ -667,8 +708,13 @@ tvm_ffi::impl_object_upcast!(TensorStore => Stmt);
 // tvm-ffi-stubgen(end)
 
 impl TensorStore {
-    /// Store `value` into the element of `dest` at `indices`, checked by the validation the type of
-    /// `dest` registers (C++ `TensorStore(dest, indices, value, loc)`).
+    /// Create the store of `value` into the element of `dest` at `indices`, checked by the
+    /// validation the type of `dest` registers (C++ `TensorStore(dest, indices, value, loc)`).
+    ///
+    /// # Errors
+    ///
+    /// Returns a `TypeError` if the type of `dest` does not support `TensorStore`, or the error its
+    /// validation raises.
     pub fn new(
         dest: impl IntoExpr,
         indices: impl IntoIterator<Item = impl IntoExpr>,
@@ -787,9 +833,13 @@ tvm_ffi::impl_object_upcast!(RegionStmt => Stmt);
 // tvm-ffi-stubgen(end)
 
 impl RegionStmt {
-    /// The region of the region operator `op` on `args`, whose `body` binds `body_params` and
-    /// defines `result_vars`, checked against the contract of the operator
-    /// (C++ `RegionStmt(op, args, body_params, attrs, body, result_vars, loc)`).
+    /// Create the region of the region operator `op` on `args`, whose `body` binds `body_params`
+    /// and defines `result_vars`, checked against the contract of the operator (C++ `RegionStmt`).
+    ///
+    /// # Errors
+    ///
+    /// Returns a `ValueError` if `body_params` do not match the parameters the operator gives or a
+    /// variable is defined twice, or the error of the operator's validators.
     pub fn new(
         op: impl Into<Op>,
         args: impl IntoIterator<Item = impl IntoExpr>,
@@ -941,8 +991,8 @@ tvm_ffi::impl_object_upcast!(SeqStmt => Stmt);
 // tvm-ffi-stubgen(end)
 
 impl SeqStmt {
-    /// The sequence of `seq`, with nested sequences and no-ops (`Evaluate(0)`) flattened
-    /// (C++ `SeqStmt(seq, loc)`).
+    /// Create the sequence of `seq`, with nested sequences flattened and no-ops (`Evaluate(0)`)
+    /// dropped (C++ `SeqStmt(seq, loc)`).
     pub fn new(seq: impl IntoIterator<Item = impl Into<Stmt>>, loc: impl Into<Location>) -> Self {
         let seq = seq.into_iter().map(Into::into).collect::<Array<Stmt>>();
         Self::from_fields(loc.into(), flatten(seq))
@@ -1052,7 +1102,7 @@ tvm_ffi::impl_object_upcast!(If => Stmt);
 // tvm-ffi-stubgen(end)
 
 impl If {
-    /// Run `then_case` if `condition` holds, else `else_case` if given
+    /// Create the statement running `then_case` if `condition` holds, else `else_case` if given
     /// (C++ `If(condition, then_case, else_case, loc)`).
     pub fn new(
         condition: impl IntoExpr,
@@ -1123,7 +1173,7 @@ tvm_ffi::impl_object_upcast!(Evaluate => Stmt);
 // tvm-ffi-stubgen(end)
 
 impl Evaluate {
-    /// Evaluate `value` for its side effects (C++ `Evaluate(value, loc)`).
+    /// Create the statement evaluating `value` for its side effects (C++ `Evaluate(value, loc)`).
     pub fn new(value: impl Into<Expr>, loc: impl Into<Location>) -> Self {
         Self::from_fields(loc.into(), value.into())
     }
@@ -1239,7 +1289,7 @@ tvm_ffi::impl_object_upcast!(Return => Stmt);
 // tvm-ffi-stubgen(end)
 
 impl Return {
-    /// Return `value` from the enclosing function (C++ `Return(value, loc)`).
+    /// Create the statement returning `value` from the enclosing function (C++ `Return`).
     pub fn new(value: impl Into<Expr>, loc: impl Into<Location>) -> Self {
         Self::from_fields(loc.into(), value.into())
     }

@@ -20,11 +20,10 @@
 
 //! Structural traversal with the facts in scope.
 //!
-//! The objects `python/tvm_tirx/tirx/structural.py` defines. A
-//! [`StructuralVisitorWithConstraintContext`] visits values, and a
-//! [`StructuralMutatorWithConstraintContext`] transforms them, as the structural visitor and
-//! mutator of TVM FFI do, while keeping the [`ConstraintContext`] of the facts in effect at the
-//! current value: bindings, ranges and guards. Each exposes it as its `constraints` field.
+//! A [`StructuralVisitorWithConstraintContext`] visits values and a
+//! [`StructuralMutatorWithConstraintContext`] transforms them, keeping the [`ConstraintContext`] of
+//! the bindings, ranges and guards in effect at the current value. From Rust, run them with the
+//! `structural_*_with_constraint_context` entry points.
 
 // tvm-ffi-stubgen(begin): import-section
 use crate::sym::constraint::ConstraintContext;

@@ -20,10 +20,30 @@
 
 //! Passes and the context they run in.
 //!
-//! The objects `python/tvm_tirx/ir/transform/core.py` defines. A [`Pass`] carries its
-//! [`PassInfo`] (name and optimization level); [`ModulePass`] and [`Sequential`] are passes over a
-//! module. A [`PassContext`] holds the optimization level, the required and disabled passes, the
-//! configuration and the instruments of a run; [`PassContext::enter`] makes it current.
+//! [`ModulePass`] and [`Sequential`] are [`Pass`]es over a module. A [`PassContext`] holds the
+//! optimization level, the required and disabled passes, the configuration and the instruments of a
+//! run; [`PassContext::enter`] makes it current.
+//!
+//! # Examples
+//!
+//! ```
+//! use tvm_tirx::ir::transform::{ModulePass, Pass, PassContext, PassInfo, PassInstrument};
+//! use tvm_tirx::ir::transform::Sequential;
+//! use tvm_tirx::ir::{IRModule, IntImm};
+//! use tvm_tirx::tvm_ffi::Map;
+//!
+//! let mark = |name: &'static str| {
+//!     let pass = move |module: IRModule, _ctx| module.with_attr(name, IntImm::bool(true));
+//!     ModulePass::new(pass, PassInfo::new(0, name))
+//! };
+//!
+//! let pipeline = Pass::from(Sequential::new([mark("a"), mark("b")], 0, "pipeline"));
+//! let ctx = PassContext::create(2, [""; 0], ["b"], Vec::<PassInstrument>::new(), None)?;
+//! let _scope = ctx.enter()?;
+//! let module = pipeline.run(IRModule::from_functions(&Map::new(), None, &Map::new())?)?;
+//! assert!(module.get_attr("a")?.is_some() && module.get_attr("b")?.is_none());
+//! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
+//! ```
 
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
@@ -69,13 +89,15 @@ impl Deref for Pass {
 // tvm-ffi-stubgen(end)
 
 impl Pass {
-    /// The name and optimization level of the pass (`transform.Info`).
+    /// Return the name and optimization level of the pass (`transform.Info`).
     pub fn info(&self) -> Result<PassInfo> {
         tvm_ffi::cached_global_func!("transform.Info").call_tuple((self,))?.try_into()
     }
 
     /// Run the pass on `module`, which it consumes, under the current pass context
     /// (`transform.RunPass`).
+    ///
+    /// An instrument's `should_run` hook may skip the pass, unless the context requires it.
     pub fn run(&self, module: impl Into<IRModule>) -> Result<IRModule> {
         let module = tvm_ffi::RValueRef::new(module.into());
         tvm_ffi::cached_global_func!("transform.RunPass")
@@ -173,8 +195,8 @@ tvm_ffi::impl_object_upcast!(ModulePass => Pass);
 // tvm-ffi-stubgen(end)
 
 impl ModulePass {
-    /// The pass that applies `pass_func` to the module it runs on, which `pass_func` receives
-    /// by value (`transform.MakeModulePass`).
+    /// Create a pass that applies `pass_func` to the module it runs on, which `pass_func` receives
+    /// by value with the pass context (`transform.MakeModulePass`).
     ///
     /// The pass may run on any thread, so `pass_func` is `Send + Sync`.
     pub fn new(
@@ -238,8 +260,11 @@ tvm_ffi::impl_object_upcast!(Sequential => Pass);
 // tvm-ffi-stubgen(end)
 
 impl Sequential {
-    /// The pass that runs `passes` in order, skipping those the current pass context disables or
-    /// whose level exceeds its `opt_level` (`transform.Sequential`).
+    /// Create a pass named `name`, of level `opt_level`, that runs `passes` in order
+    /// (`transform.Sequential`).
+    ///
+    /// It skips the passes the current pass context disables, and those whose level exceeds the
+    /// context's `opt_level` unless the context requires them.
     pub fn new(
         passes: impl IntoIterator<Item = impl Into<Pass>>,
         opt_level: i32,
@@ -322,8 +347,15 @@ impl PassContext {
 // tvm-ffi-stubgen(end)
 
 impl PassContext {
-    /// A pass context with its `config` checked and converted to the registered option types;
+    /// Create a pass context with `config` checked and converted to the registered option types;
     /// `None` is the empty configuration (`transform.PassContext`).
+    ///
+    /// A pass in `disabled_pass`, or above `opt_level` and not in `required_pass`, is skipped.
+    ///
+    /// # Errors
+    ///
+    /// Returns an `AttributeError` if `config` has an option that is not registered or a `None`
+    /// value, or the error of converting a value to its option type.
     pub fn create(
         opt_level: i32,
         required_pass: impl IntoIterator<Item = impl AsRef<str>>,
@@ -342,21 +374,31 @@ impl PassContext {
             .try_into()
     }
 
-    /// The innermost pass context in effect, or the default one
-    /// (`transform.GetCurrentPassContext`).
+    /// Return the innermost pass context in effect on this thread, or the default one when there is
+    /// none (`transform.GetCurrentPassContext`).
     pub fn current() -> Result<Self> {
         tvm_ffi::cached_global_func!("transform.GetCurrentPassContext").call_tuple(())?.try_into()
     }
 
-    /// Make this the current pass context until the returned scope is dropped
+    /// Make this the current pass context until the returned [`PassContextScope`] is dropped
     /// (`transform.EnterPassContext`, `transform.ExitPassContext`).
+    ///
+    /// # Errors
+    ///
+    /// Returns the error of an instrument's `enter_pass_ctx` hook; the instruments entered before
+    /// it are exited, and the context's instruments are cleared.
     pub fn enter(&self) -> Result<PassContextScope> {
         tvm_ffi::cached_global_func!("transform.EnterPassContext").call_tuple((self,))?;
         Ok(PassContextScope(self.clone(), crate::ThreadBound::default()))
     }
 
-    /// Replace the instruments, exiting the old ones and entering the new ones
+    /// Replace the instruments with `instruments`, exiting the old ones and entering the new ones
     /// (`transform.OverrideInstruments`).
+    ///
+    /// # Errors
+    ///
+    /// Returns the error of an old instrument's `exit_pass_ctx` hook or a new one's
+    /// `enter_pass_ctx` hook, after which the context has no instruments.
     pub fn override_instruments(
         &self,
         instruments: impl IntoIterator<Item = impl Into<PassInstrument>>,
@@ -368,18 +410,36 @@ impl PassContext {
         Ok(())
     }
 
-    /// The registered configuration options, each with its metadata such as its `type`
+    /// Return the registered configuration options, each with its metadata such as its `type`
     /// (`transform.ListConfigs`).
     pub fn list_configs() -> Result<Map<String, Map<String, String>>> {
         tvm_ffi::cached_global_func!("transform.ListConfigs").call_tuple(())?.try_into()
     }
 }
 
-/// A pass context in effect while it is alive: [`PassContext::enter`].
+/// A scope in which a pass context is the current one, returned by [`PassContext::enter`].
 ///
-/// The entered pass contexts are a stack of the thread, so a scope stays on the thread that
-/// opened it, and the scopes end in the reverse order they were opened: drop the innermost one
-/// first.
+/// The entered contexts are a stack of the thread: a scope stays on its thread, and the innermost
+/// scope is dropped first.
+///
+/// # Examples
+///
+/// ```
+/// use tvm_tirx::ir::transform::{PassContext, PassInstrument};
+///
+/// let outer = PassContext::create(3, [""; 0], [""; 0], Vec::<PassInstrument>::new(), None)?;
+/// let inner = PassContext::create(1, [""; 0], [""; 0], Vec::<PassInstrument>::new(), None)?;
+/// let outer_scope = outer.enter()?;
+/// let inner_scope = inner.enter()?;
+/// assert_eq!(PassContext::current()?.opt_level, 1);
+///
+/// drop(inner_scope);
+/// assert_eq!(PassContext::current()?.opt_level, 3);
+/// drop(outer_scope);
+/// # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
+/// ```
+///
+/// A scope cannot move to another thread:
 ///
 /// ```compile_fail
 /// fn send<T: Send>() {}
@@ -424,7 +484,8 @@ impl PassInstrumentObj {
 }
 // tvm-ffi-stubgen(end)
 
-/// The pass that logs `header` and the module, which it returns unchanged (`transform.PrintIR`).
+/// Create a pass that logs `header` and the module, which it returns unchanged
+/// (`transform.PrintIR`).
 pub fn print_ir(header: &str) -> Result<Pass> {
     tvm_ffi::cached_global_func!("transform.PrintIR")
         .call_tuple((String::from(header),))?

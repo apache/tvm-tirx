@@ -17,10 +17,7 @@
  * under the License.
  */
 
-//! Constraint-aware observation through the shared Rust visitor engine.
-//!
-//! This adapter chooses pre/post callback order and translates walk control;
-//! the visit engine and native constraint hooks own descent, scopes and reborrows.
+//! Constraint-aware structural walking: observe values with the facts in scope.
 
 use std::borrow::BorrowMut;
 use tvm_ffi::{
@@ -115,21 +112,38 @@ where
     }
 }
 
-/// Walk every occurrence with its active constraint context and optional definition
-/// region. Pre-order Skip prunes descent; post-order Skip completes the callback.
-/// Interrupt and errors stop traversal. The native hooks own fact timing and scope
-/// restoration; sequence/lazy-call hooks omit intermediate Array callbacks, as in C++.
+/// Walk every value of `root` with `walker`, in `order`, with the facts in scope at each value.
 ///
-/// As specified by the native visitor, observers must not append to its active
-/// context during traversal. Standalone contexts and `for_each` allow append.
-/// Observers must not panic across native callbacks.
-/// Cloned contexts remain live; capture a snapshot or array for a fixed prefix.
-/// Accepts the shared [`IntoDispatcher`] forms: owned or borrowed dispatchers,
-/// typed value or node callbacks, and nested callback tuples. Callbacks receive
-/// a leading prefix of `(value, &ConstraintContext, DefRegionKind)` and return an
-/// `IntoWalkResult`. Named dispatchers use that full argument tuple and return
-/// `Option<Result<WalkResult>>`; unmatched values advance normally.
-/// The local adapter adds context observation to the shared visitor engine.
+/// A callback takes a leading prefix of `(value, &ConstraintContext, DefRegionKind)` and returns a
+/// [`WalkResult`]: in pre-order `Skip` prunes the children, and `Interrupt` or an error stops the
+/// walk. Callbacks must not append to the context or panic.
+///
+/// # Examples
+///
+/// ```
+/// use tvm_tirx::ir::{Evaluate, EvaluateObj, For, ForKind, PrimType, Var, UNKNOWN_LOC};
+/// use tvm_tirx::script::script;
+/// use tvm_tirx::sym::{ConstraintContext, RangeConstraintObj};
+/// use tvm_tirx::tirx::structural_walk_with_constraint_context as walk;
+/// use tvm_tirx::tvm_ffi::{ObjectRefCore, WalkOrder, WalkResult};
+///
+/// let i = Var::new("i", PrimType::int(32), UNKNOWN_LOC);
+/// let body = Evaluate::new(&i, UNKNOWN_LOC);
+/// let root = For::new(&i, 0, 16, 1, ForKind::Default, body, None, UNKNOWN_LOC)?;
+///
+/// let mut ranges = Vec::new();
+/// let record = |_: &EvaluateObj, context: &ConstraintContext| {
+///     context.for_each(|fact| {
+///         if let Some(range) = fact.downcast_ref::<RangeConstraintObj>() {
+///             ranges.push(script(&range.range).unwrap());
+///         }
+///     });
+///     WalkResult::Advance
+/// };
+/// walk::structural_walk_with_constraint_context(&root, record, WalkOrder::PreOrder)?;
+/// assert_eq!(ranges, ["T.Range(0, 16)"]);
+/// # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
+/// ```
 pub fn structural_walk_with_constraint_context<'input, R, H, M, D, O>(
     root: R,
     walker: H,

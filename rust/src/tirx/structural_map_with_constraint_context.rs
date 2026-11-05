@@ -17,10 +17,7 @@
  * under the License.
  */
 
-//! Ordered constraint-aware mapping through the shared mutation engine.
-//!
-//! This adapter owns callback order only. The mutation engine owns dispatch,
-//! remaps and copy-on-write; native hooks own lexical facts and scope restoration.
+//! Constraint-aware structural mapping: rewrite each value with the facts in scope.
 
 use std::borrow::BorrowMut;
 
@@ -141,21 +138,39 @@ where
     }
 }
 
-/// Map every occurrence with the constraint facts active at that position.
+/// Map every value of `root` with `mapper`, in `order`, with the facts in scope at each value.
 ///
-/// Pre-order callbacks run before descending into the replacement's children;
-/// post-order callbacks see the rewritten value after its scope is restored.
-/// Facts for later siblings use the resulting bindings and expressions.
-/// `Unchanged` keeps the current value and still descends in pre-order.
-/// The root is consumed: moved unique roots may reuse storage, retained roots copy.
-/// Errors stop traversal without rolling back completed in-place changes.
+/// A callback takes a leading prefix of `(value, &ConstraintContext, DefRegionKind)` and returns a
+/// replacement, `Unchanged` or a `Result` of one; `Unchanged` still descends in pre-order.
+/// Callbacks must not append to the context or panic, and an error stops the traversal without
+/// undoing in-place changes.
 ///
-/// Accepts the shared [`IntoDispatcher`] forms: owned or borrowed dispatchers,
-/// typed callbacks, and nested tuples. Callbacks take a leading prefix of
-/// `(value, &ConstraintContext, DefRegionKind)` and return a replacement,
-/// `Unchanged`, or a `Result` thereof. Observers must not append to the active
-/// context or panic across native callbacks. Clone a context to retain its live
-/// handle, or use `snapshot()` / `to_array()` for a fixed prefix.
+/// # Examples
+///
+/// ```
+/// use tvm_tirx::ir::{Bind, Evaluate, PrimType, SeqStmt, Stmt, Var, UNKNOWN_LOC};
+/// use tvm_tirx::script::script;
+/// use tvm_tirx::sym::{BindingConstraintObj, ConstraintContext};
+/// use tvm_tirx::tirx::structural_map_with_constraint_context as map;
+/// use tvm_tirx::tvm_ffi::{Any, ObjectRefCore, Unchanged, WalkOrder};
+///
+/// let substitute = |var: Var, context: &ConstraintContext| -> Any {
+///     let mut value: Any = Unchanged.into();
+///     context.for_each(|fact| match fact.downcast_ref::<BindingConstraintObj>() {
+///         Some(binding) if binding.var.same_as(&var) => value = binding.value.clone().into(),
+///         _ => {}
+///     });
+///     value
+/// };
+///
+/// let x = Var::new("x", PrimType::int(32), UNKNOWN_LOC);
+/// let bind = Stmt::from(Bind::new(&x, 4, UNKNOWN_LOC)?);
+/// let root = SeqStmt::new([bind, Evaluate::new(&x, UNKNOWN_LOC).into()], UNKNOWN_LOC);
+/// let result =
+///     map::structural_map_with_constraint_context(root, substitute, WalkOrder::PreOrder)?;
+/// assert_eq!(script(&SeqStmt::try_from(result)?)?, "x: T.let[T.int32] = 4\nT.evaluate(4)");
+/// # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
+/// ```
 pub fn structural_map_with_constraint_context<R, H, M, D, O>(
     root: R,
     mapper: H,

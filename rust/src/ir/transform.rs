@@ -19,9 +19,6 @@
 #![allow(dead_code, unused_imports)]
 
 //! The pass infrastructure: passes, pass contexts and instrumentation.
-//!
-//! Laid out like `python/tvm_tirx/ir/transform/`: [`core`] holds the passes and their context, and
-//! [`instrument`] the pass instrumentation.
 
 // An object registered under `transform` that no file has a block for yet is generated here, to be
 // moved to the file of the Python module that defines it.

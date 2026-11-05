@@ -20,9 +20,24 @@
 
 //! Compilation targets.
 //!
-//! The objects `python/tvm_tirx/target/target.py` defines. A [`Target`] has a [`TargetKind`],
-//! keys, attributes and an optional host. The target functions of the Python package are here too:
-//! construction, the current target scope, the tag registry and the code generators of the kinds.
+//! A [`Target`] has a [`TargetKind`], keys, attributes and an optional host. It is created from a
+//! tag, a kind name or a config, and made the current target with [`Target::scope`].
+//!
+//! # Examples
+//!
+//! ```
+//! use tvm_tirx::target::Target;
+//! use tvm_tirx::tvm_ffi::ObjectRefCore;
+//!
+//! let cpu = Target::new(r#"{"kind": "llvm", "mcpu": "skylake"}"#)?;
+//! assert!(cpu.as_json()?.as_str().contains(r#""keys":["cpu"]"#));
+//!
+//! let scope = cpu.scope()?;
+//! assert!(Target::current(false)?.unwrap().same_as(&cpu));
+//! drop(scope);
+//! assert!(Target::current(true)?.is_none());
+//! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
+//! ```
 
 // Every object registered under `target` has its block in this file.
 // tvm-ffi-stubgen(prefix): target
@@ -94,71 +109,83 @@ impl TargetObj {
 // tvm-ffi-stubgen(end)
 
 impl Target {
-    /// The target a tag (`"nvidia/nvidia-a100"`), a kind name (`"llvm"`) or a JSON config
-    /// describes (`target.Target`).
+    /// Create the target that a tag (`"nvidia/nvidia-a100"`), a kind name (`"llvm"`) or a JSON
+    /// config describes (`target.Target`).
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the tag or the kind is not registered, or the JSON config is invalid.
     pub fn new(target: &str) -> Result<Self> {
         tvm_ffi::cached_global_func!("target.Target")
             .call_tuple((String::from(target),))?
             .try_into()
     }
 
-    /// The target a config map describes, such as `{"kind": "cuda", "arch": "sm_80"}` or a `tag`
-    /// with attribute overrides (`target.Target`).
+    /// Create the target that a config map describes, such as `{"kind": "cuda", "arch": "sm_80"}`
+    /// or a `tag` with attribute overrides (`target.Target`).
     ///
     /// The two-target form of `target.Target`, a target with a host, is [`Target::with_host`].
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the config is invalid, as [`new`](Self::new) does.
     pub fn from_config(config: &Map<String, Any>) -> Result<Self> {
         tvm_ffi::cached_global_func!("target.Target").call_tuple((config,))?.try_into()
     }
 
-    /// Make this the current target until the returned scope is dropped
+    /// Make this the current target until the returned [`TargetScope`] is dropped
     /// (`target.TargetEnterScope`, `target.TargetExitScope`).
     pub fn scope(&self) -> Result<TargetScope> {
         tvm_ffi::cached_global_func!("target.TargetEnterScope").call_tuple((self,))?;
         Ok(TargetScope(self.clone(), crate::ThreadBound::default()))
     }
 
-    /// The innermost current target; without one, `None` if `allow_none`, else an error
+    /// Return the innermost current target, or `None` if there is none and `allow_none` is `true`
     /// (`target.TargetCurrent`).
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if there is no current target and `allow_none` is `false`.
     pub fn current(allow_none: bool) -> Result<Option<Self>> {
         tvm_ffi::cached_global_func!("target.TargetCurrent").call_tuple((allow_none,))?.try_into()
     }
 
-    /// The config map that describes the target (`target.TargetExport`).
+    /// Return the config map that describes the target (`target.TargetExport`).
     pub fn export(&self) -> Result<Map<String, Any>> {
         tvm_ffi::cached_global_func!("target.TargetExport").call_tuple((self,))?.try_into()
     }
 
-    /// The target as JSON (`target.TargetAsJSON`).
+    /// Return the target as JSON, which [`new`](Self::new) parses back (`target.TargetAsJSON`).
     pub fn as_json(&self) -> Result<String> {
         tvm_ffi::cached_global_func!("target.TargetAsJSON").call_tuple((self,))?.try_into()
     }
 
-    /// A copy of the target with `host` as its host, or none (`target.WithHost`).
+    /// Return a copy of the target with `host` as its host, or none (`target.WithHost`).
     pub fn with_host(&self, host: Option<&Target>) -> Result<Self> {
         tvm_ffi::cached_global_func!("target.WithHost")
             .call_tuple((self, host.cloned()))?
             .try_into()
     }
 
-    /// The `DLDeviceType` of the devices the target runs on (`target.TargetGetDeviceType`).
+    /// Return the `DLDeviceType` of the devices the target runs on (`target.TargetGetDeviceType`).
     pub fn get_target_device_type(&self) -> Result<i32> {
         tvm_ffi::cached_global_func!("target.TargetGetDeviceType").call_tuple((self,))?.try_into()
     }
 
-    /// The `feature.<name>` attribute of the target, `None` when it has none
+    /// Return the `feature.<name>` attribute of the target, or `None` when it has none
     /// (`target.TargetGetFeature`).
     pub fn feature(&self, name: &str) -> Result<Any> {
         tvm_ffi::cached_global_func!("target.TargetGetFeature")
             .call_tuple((self, String::from(name)))
     }
 
-    /// The names of the registered target kinds (`target.ListTargetKinds`).
+    /// Return the names of the registered target kinds (`target.ListTargetKinds`).
     pub fn list_kinds() -> Result<Array<String>> {
         tvm_ffi::cached_global_func!("target.ListTargetKinds").call_tuple(())?.try_into()
     }
 }
 
-/// The target, in effect as the current one while it is alive: [`Target::scope`].
+/// A scope in which a target is the current one, returned by [`Target::scope`].
 ///
 /// The current targets are a stack of the thread, so a scope stays on the thread that opened it,
 /// and the scopes end in the reverse order they were opened: drop the innermost one first.
@@ -216,13 +243,17 @@ impl TargetKindObj {
 // tvm-ffi-stubgen(end)
 
 impl TargetKind {
-    /// The options of the kind, by name, with their type keys (`target.ListTargetKindOptions`).
+    /// Return the type key of each option of the kind, by name (`target.ListTargetKindOptions`).
     pub fn options(&self) -> Result<Map<String, String>> {
         tvm_ffi::cached_global_func!("target.ListTargetKindOptions").call_tuple((self,))?.try_into()
     }
 
-    /// The options of the kind named `kind_name`, by name, with their type keys
+    /// Return the options of the kind named `kind_name`, as [`options`](Self::options) does
     /// (`target.ListTargetKindOptionsFromName`).
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if no kind is named `kind_name`.
     pub fn options_from_name(kind_name: &str) -> Result<Map<String, String>> {
         tvm_ffi::cached_global_func!("target.ListTargetKindOptionsFromName")
             .call_tuple((String::from(kind_name),))?
@@ -230,13 +261,30 @@ impl TargetKind {
     }
 }
 
-/// The registered target tags, with their targets (`target.TargetTagListTags`).
+/// Return the registered target tags, with their targets (`target.TargetTagListTags`).
 pub fn list_tags() -> Result<Map<String, Target>> {
     tvm_ffi::cached_global_func!("target.TargetTagListTags").call_tuple(())?.try_into()
 }
 
 /// Register the tag `name` for the target `config` describes, replacing a previous one only if
 /// `override_`, and return that target (`target.TargetTagAddTag`).
+///
+/// # Errors
+///
+/// Returns an error if `name` is already registered and `override_` is `false`.
+///
+/// # Examples
+///
+/// ```
+/// use tvm_tirx::target::{self, Target};
+/// use tvm_tirx::tvm_ffi::{Any, Map, String};
+///
+/// let config: Map<String, Any> =
+///     [("kind".into(), Any::from(String::from("llvm")))].into_iter().collect();
+/// target::register_tag("my_ext/cpu", &config, false)?;
+/// assert_eq!(Target::new("my_ext/cpu")?.kind()?.name()?, "llvm");
+/// # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
+/// ```
 pub fn register_tag(name: &str, config: &Map<String, Any>, override_: bool) -> Result<Target> {
     tvm_ffi::cached_global_func!("target.TargetTagAddTag")
         .call_tuple((String::from(name), config, override_))?
@@ -244,9 +292,13 @@ pub fn register_tag(name: &str, config: &Map<String, Any>, override_: bool) -> R
 }
 
 /// Generate the code of `module` with the code generator `target.build.<kind>`, such as `llvm`,
-/// `c`, `cuda`, `cuda_host` or `nvptx`; an error when it is not built in.
+/// `c`, `cuda`, `cuda_host` or `nvptx`.
 ///
 /// [`crate::codegen::build_module`] picks the code generator of the target kind.
+///
+/// # Errors
+///
+/// Returns an error if the code generator is not built in, or the error it raises.
 pub fn build(kind: &str, module: impl Into<IRModule>, target: impl Into<Target>) -> Result<Module> {
     // The code generators are looked up by name: which ones exist depends on the build.
     tvm_ffi::Function::get_global(&format!("target.build.{kind}"))?

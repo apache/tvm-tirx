@@ -20,13 +20,24 @@
 
 //! Types: primitive, pointer, tuple, function and the special types.
 //!
-//! The objects `python/tvm_tirx/ir/type.py` defines. [`Type`] is the base of every type; a dialect
-//! extends it, as [`TensorType`](crate::tirx::TensorType) does. The constructors are `new`, written
-//! in Rust after the C++ ones; the shared types ([`MissingType::new`], [`NoneType::new`],
-//! [`TensorRegionType::new`] and [`PrimType::from_dtype`]) are the nodes C++ shares, fetched once
-//! per thread. The common
-//! primitive types are [`PrimType::int`], [`PrimType::float`], [`PrimType::bool`] and their
-//! siblings, as C++ writes `PrimType::Int(32)`.
+//! [`Type`] is the base of every type, which a dialect extends, as
+//! [`TensorType`](crate::tirx::TensorType) does. [`PrimType::int`], [`PrimType::float`] and their
+//! siblings are the common primitive types, as C++ writes `PrimType::Int(32)`.
+//!
+//! # Examples
+//!
+//! ```
+//! use tvm_tirx::ir::{FuncType, PrimType, TupleType, UNKNOWN_LOC};
+//! use tvm_tirx::script::script;
+//!
+//! let int32 = PrimType::int(32);
+//! assert_eq!(script(&PrimType::float(16).with_lanes(4)?)?, "T.float16x4");
+//!
+//! let pair = TupleType::new([&int32, &int32], UNKNOWN_LOC);
+//! let func = FuncType::new([&int32], &pair);
+//! assert_eq!(script(&func)?, "T.Func([T.int32], T.Tuple(T.int32, T.int32))");
+//! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
+//! ```
 
 // `custom-new` reserves `new` for a constructor with the C++ one's semantics (defaults, the shared
 // `MissingType`, `NoneType` and `TensorRegionType` nodes); the generated `from_fields`
@@ -181,8 +192,8 @@ tvm_ffi::impl_object_upcast!(MissingType => Type);
 // tvm-ffi-stubgen(end)
 
 impl MissingType {
-    /// The shared type of a node whose type is not known yet (`ir.MissingType`), fetched once per
-    /// thread.
+    /// Return the shared type of a node whose type is not known yet, fetched once per thread
+    /// (`ir.MissingType`).
     pub fn new() -> Self {
         thread_local! {
             static MISSING_TYPE: std::cell::OnceCell<MissingType> = const { std::cell::OnceCell::new() };
@@ -247,7 +258,7 @@ tvm_ffi::impl_object_upcast!(NoneType => Type);
 // tvm-ffi-stubgen(end)
 
 impl NoneType {
-    /// The shared type of the `None` value (`ir.NoneType`).
+    /// Return the shared type of the `None` value, fetched once per thread (`ir.NoneType`).
     pub fn new() -> Self {
         thread_local! {
             static NONE_TYPE: std::cell::OnceCell<NoneType> = const { std::cell::OnceCell::new() };
@@ -367,7 +378,7 @@ tvm_ffi::impl_object_upcast!(TensorRegionType => Type);
 // tvm-ffi-stubgen(end)
 
 impl TensorRegionType {
-    /// The shared type of a tensor region (`ir.TensorRegionType`).
+    /// Return the shared type of a tensor region, fetched once per thread (`ir.TensorRegionType`).
     pub fn new() -> Self {
         thread_local! {
             static TENSOR_REGION_TYPE: std::cell::OnceCell<TensorRegionType> =
@@ -490,8 +501,12 @@ tvm_ffi::impl_object_upcast!(PrimType => Type);
 // tvm-ffi-stubgen(end)
 
 impl PrimType {
-    /// The primitive type of `dtype`, checked to be a valid primitive type (`ir.PrimType`). C++
-    /// keeps one node per dtype and thread, so the node of each dtype is fetched once per thread.
+    /// Return the primitive type of `dtype`, checked to be a valid primitive type (`ir.PrimType`).
+    ///
+    /// # Errors
+    ///
+    /// Returns a `TypeError` if `dtype` is an opaque handle other than `void`: a pointer is a
+    /// [`PtrType`].
     pub fn from_dtype(dtype: DLDataType) -> Result<Self> {
         thread_local! {
             static PRIM_TYPES: std::cell::RefCell<std::collections::HashMap<(u8, u8, u16), PrimType>> =
@@ -513,41 +528,45 @@ impl PrimType {
         support::infallible(Self::from_dtype(dtype))
     }
 
-    /// The signed integer type of `bits` bits (C++ `PrimType::Int(bits)`).
+    /// Return the signed integer type of `bits` bits (C++ `PrimType::Int(bits)`).
     pub fn int(bits: u8) -> Self {
         Self::builtin(dtype::int(bits))
     }
 
-    /// The unsigned integer type of `bits` bits (C++ `PrimType::UInt(bits)`).
+    /// Return the unsigned integer type of `bits` bits (C++ `PrimType::UInt(bits)`).
     pub fn uint(bits: u8) -> Self {
         Self::builtin(dtype::uint(bits))
     }
 
-    /// The IEEE floating-point type of `bits` bits (C++ `PrimType::Float(bits)`).
+    /// Return the IEEE floating-point type of `bits` bits (C++ `PrimType::Float(bits)`).
     pub fn float(bits: u8) -> Self {
         Self::builtin(dtype::float(bits))
     }
 
-    /// The brain floating-point type of `bits` bits (C++ `PrimType::BFloat(bits)`).
+    /// Return the brain floating-point type of `bits` bits (C++ `PrimType::BFloat(bits)`).
     pub fn bfloat(bits: u8) -> Self {
         Self::builtin(dtype::bfloat(bits))
     }
 
-    /// The boolean type (C++ `PrimType::Bool()`).
+    /// Return the boolean type (C++ `PrimType::Bool()`).
     pub fn bool() -> Self {
         Self::builtin(dtype::bool())
     }
 
-    /// The void type (C++ `PrimType::Void()`).
+    /// Return the void type (C++ `PrimType::Void()`).
     pub fn void() -> Self {
         Self::builtin(dtype::void())
     }
 
-    /// The vector of `lanes` elements of this scalar type (C++ `PrimType::Int(bits, lanes)` and
-    /// `WithLanes(lanes)`), with the C++ checks of the result: `PrimType::float(16).with_lanes(4)`
-    /// is `float16x4`, and `PrimType::void().with_lanes(4)` is an error. `lanes` is a fixed
-    /// count, below 32768; [`with_scalable_lanes`](Self::with_scalable_lanes) builds the scalable
-    /// vectors.
+    /// Return the vector of `lanes` elements of this scalar type (C++ `PrimType::Int(bits, lanes)`
+    /// and `WithLanes(lanes)`).
+    ///
+    /// [`with_scalable_lanes`](Self::with_scalable_lanes) builds the scalable vectors.
+    ///
+    /// # Errors
+    ///
+    /// Returns a `ValueError` if `lanes` is 32768 or more, or a `TypeError` if the vector is of an
+    /// opaque handle, as that of `void` is.
     pub fn with_lanes(&self, lanes: u16) -> Result<Self> {
         if i16::try_from(lanes).is_err() {
             let message = format!("a fixed-length vector has fewer than 32768 lanes, not {lanes}");
@@ -556,8 +575,13 @@ impl PrimType {
         Self::from_dtype(dtype::with_lanes(self.dtype, lanes))
     }
 
-    /// The scalable vector of `factor` times `vscale` elements of this scalar type, with the C++
-    /// checks of the factor (C++ `PrimType::ScalableVector(code, bits, factor)`).
+    /// Return the scalable vector of `factor` times `vscale` elements of this scalar type, with the
+    /// C++ checks of the factor (C++ `PrimType::ScalableVector(code, bits, factor)`).
+    ///
+    /// # Errors
+    ///
+    /// Returns an `InternalError` if `factor` is 1 or less, or 32768 or more, or a `TypeError` if
+    /// the vector is of an opaque handle.
     pub fn with_scalable_lanes(&self, factor: u16) -> Result<Self> {
         Self::from_dtype(support::scalable_vector(self.dtype, i32::from(factor))?)
     }
@@ -679,8 +703,12 @@ tvm_ffi::impl_object_upcast!(PtrType => Type);
 // tvm-ffi-stubgen(end)
 
 impl PtrType {
-    /// A pointer to `element_type` in the memory `scope`; the element type must not be missing
-    /// (C++ `PtrType(element_type, scope)`).
+    /// Create the type of a pointer to `element_type` in the memory `scope`, at the unknown
+    /// location (C++ `PtrType(element_type, scope)`).
+    ///
+    /// # Errors
+    ///
+    /// Returns an `InternalError` if `element_type` is a [`MissingType`].
     pub fn new(element_type: impl Into<Type>, scope: &MemoryScope) -> Result<Self> {
         let element_type = element_type.into();
         if element_type.downcast_ref::<MissingTypeObj>().is_some() {
@@ -747,7 +775,8 @@ tvm_ffi::impl_object_upcast!(TupleType => Type);
 // tvm-ffi-stubgen(end)
 
 impl TupleType {
-    /// The type of a tuple of `fields` (C++ `TupleType(fields, loc)`).
+    /// Create the type of a tuple of `fields`, the void type if there are none
+    /// (C++ `TupleType(fields, loc)`).
     pub fn new(
         fields: impl IntoIterator<Item = impl Into<Type>>,
         loc: impl Into<Location>,
@@ -817,7 +846,8 @@ tvm_ffi::impl_object_upcast!(FuncType => Type);
 // tvm-ffi-stubgen(end)
 
 impl FuncType {
-    /// The type of a function from `arg_types` to `ret_type` (C++ `FuncType(arg_types, ret_type)`).
+    /// Create the type of a function from `arg_types` to `ret_type`, at the unknown location
+    /// (C++ `FuncType(arg_types, ret_type)`).
     pub fn new(
         arg_types: impl IntoIterator<Item = impl Into<Type>>,
         ret_type: impl Into<Type>,

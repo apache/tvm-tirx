@@ -20,10 +20,22 @@
 
 //! Attributes of TIRx operator calls.
 //!
-//! The objects `python/tvm_tirx/tirx/op/__init__.py` defines. A [`CallFFIKernelAttr`] holds the
-//! launch parameters, the launch fields, the number of kernel arguments and the kernel attributes
-//! of a `call_ffi_kernel`. The functions build the TIRx operator calls that have a native
-//! constructor.
+//! The functions build TIRx operator calls; a [`CallFFIKernelAttr`] holds the launch parameters of
+//! a `call_ffi_kernel`.
+//!
+//! # Examples
+//!
+//! ```
+//! use tvm_tirx::ir::{PrimType, Var, UNKNOWN_LOC};
+//! use tvm_tirx::script::script;
+//! use tvm_tirx::tirx::{logaddexp, reinterpret};
+//!
+//! let x = Var::new("x", PrimType::float(32), UNKNOWN_LOC);
+//! let y = Var::new("y", PrimType::float(32), UNKNOWN_LOC);
+//! assert_eq!(script(&logaddexp(&x, &y)?)?, "T.log(T.exp(x) + T.exp(y))");
+//! assert_eq!(script(&reinterpret(PrimType::int(32), &x)?)?, "T.reinterpret(x, ty=T.int32)");
+//! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
+//! ```
 
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
@@ -161,13 +173,17 @@ tvm_ffi::impl_object_upcast!(CallFFIKernelAttr => Attrs);
 // The native `tirx.CallFFIKernelAttr` stores its fields as given, as the generated
 // `CallFFIKernelAttr::new` does.
 
-/// `log(exp(a) + exp(b))` of the floating-point `a` and `b`, matched (C++ `tirx::logaddexp`,
-/// `tirx._OpLogAddExp`).
+/// Build `log(exp(a) + exp(b))` of the floating-point `a` and `b`, matched to one type
+/// (C++ `tirx::logaddexp`, `tirx._OpLogAddExp`).
+///
+/// # Errors
+///
+/// Returns an error if an operand is not floating-point.
 pub fn logaddexp(a: impl IntoExpr, b: impl IntoExpr) -> Result<Expr> {
     logaddexp_at(a, b, UNKNOWN_LOC)
 }
 
-/// [`logaddexp`] with the casts at `loc`.
+/// Build [`logaddexp`] with the casts at `loc`.
 pub fn logaddexp_at(a: impl IntoExpr, b: impl IntoExpr, loc: impl Into<Location>) -> Result<Expr> {
     let (a, b) = (a.into_expr()?, b.into_expr()?);
     for (operand, side) in [(&a, "a"), (&b, "b")] {
@@ -193,15 +209,20 @@ fn storage_bytes(dtype: DLDataType) -> Result<u64> {
     Ok((u64::from(dtype.bits) * support::lanes(dtype)? as u64).div_ceil(8))
 }
 
-/// `value` reinterpreted bit for bit as the primitive or pointer type `ty`: a value already of
-/// that type is itself; a string takes a pointer type, a pointer a scalar 64-bit integer type and
-/// a scalar 64-bit integer a pointer type; two primitive types must have the same size (C++
-/// `tirx::reinterpret(target_ty, value, loc)`, `tirx.reinterpret`).
+/// Reinterpret `value` bit for bit as the primitive or pointer type `ty`
+/// (C++ `tirx::reinterpret(target_ty, value, loc)`, `tirx.reinterpret`).
+///
+/// Besides primitive types of the same size, a string reinterprets as a pointer and a pointer as a
+/// scalar `int64`, and back.
+///
+/// # Errors
+///
+/// Returns an error for any other pair of types, or two primitive types of different sizes.
 pub fn reinterpret(ty: impl Into<Type>, value: impl IntoExpr) -> Result<Expr> {
     reinterpret_at(ty, value, UNKNOWN_LOC)
 }
 
-/// [`reinterpret`] at `loc`.
+/// Build [`reinterpret`] at `loc`.
 pub fn reinterpret_at(
     ty: impl Into<Type>,
     value: impl IntoExpr,
@@ -301,7 +322,7 @@ pub fn reinterpret_at(
     Ok(Call::new(Some(&ty), op, vec![value], None, Vec::<Type>::new(), loc)?.into())
 }
 
-/// A rational approximation of `erf(arg)` on `[-4, 4]` in `bits`-bit floats, as the Metal and
+/// Build a rational approximation of `erf(arg)` on `[-4, 4]` in `bits`-bit floats, as the Metal and
 /// WebGPU backends lower `erf` (C++ `tirx::fast_erf_float_expr(arg, bits)`).
 pub fn fast_erf_float_expr(arg: impl IntoExpr, bits: u8) -> Result<Expr> {
     let dtype = PrimType::float(bits).dtype;
@@ -344,12 +365,12 @@ pub fn fast_erf_float_expr(arg: impl IntoExpr, bits: u8) -> Result<Expr> {
     p.div(q).try_into()
 }
 
-/// A return from the current GPU thread, without a value (`tirx.gpu_thread_return`).
+/// Build a return from the current GPU thread, without a value (`tirx.gpu_thread_return`).
 pub fn gpu_thread_return() -> Result<Expr> {
     gpu_thread_return_at(UNKNOWN_LOC)
 }
 
-/// [`gpu_thread_return`] at `loc`.
+/// Build [`gpu_thread_return`] at `loc`.
 pub fn gpu_thread_return_at(loc: impl Into<Location>) -> Result<Expr> {
     let loc: Location = loc.into();
     tvm_ffi::cached_global_func!("tirx.gpu_thread_return").call_tuple((&loc,))?.try_into()

@@ -20,9 +20,8 @@
 
 //! Symbolic analysis of integer expressions.
 //!
-//! Laid out like `python/tvm_tirx/sym/`: [`analyzer`] holds the analyzer and its results,
-//! [`constraint`] the facts a traversal collects, [`int_set`] the integer sets, and
-//! [`iter_affine_map`] the iterator maps. The analyses run through the native `sym.*` functions.
+//! An [`Analyzer`] proves and simplifies under the facts of a [`ConstraintContext`]; [`int_set`]
+//! bounds expressions, and [`iter_affine_map`] detects iterator maps.
 
 // An object registered under `sym` that no file has a block for yet is generated here, to be moved
 // to the file of the Python module that defines it.

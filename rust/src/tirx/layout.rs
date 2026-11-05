@@ -20,11 +20,30 @@
 
 //! Layouts: how the indices of a tensor map to memory and to threads.
 //!
-//! The objects `python/tvm_tirx/tirx/layout.py` defines. [`Layout`] is the base. A [`TileLayout`]
-//! maps indices through the [`Iter`]s of its `shard` (distinct elements) and `replica` (copies),
-//! each an extent and a stride over an [`Axis`]. A [`ComposeLayout`] applies an XOR swizzle to the
-//! memory coordinate of a tile layout. The methods wrap the native `tirx.Layout*`, `tirx.Axis*` and
-//! `tirx.TileLayout*` functions; a [`Layout`] method takes a subclass through `Layout::from(&x)`.
+//! A [`TileLayout`] maps indices through the [`Iter`]s of its `shard` (distinct elements) and
+//! `replica` (copies), each an extent and a stride over an [`Axis`]; a [`ComposeLayout`] swizzles
+//! its memory coordinate. Both are [`Layout`]s.
+//!
+//! # Examples
+//!
+//! ```
+//! use tvm_tirx::ir::{PrimType, Var, UNKNOWN_LOC};
+//! use tvm_tirx::script::script;
+//! use tvm_tirx::sym::Analyzer;
+//! use tvm_tirx::tirx::{Axis, Iter, Layout, TileLayout};
+//! use tvm_tirx::tvm_ffi::Map;
+//!
+//! let m = Axis::get("m")?;
+//! let shard = [Iter::new(8, 8, m.clone()), Iter::new(8, 1, m)];
+//! let layout = Layout::from(&TileLayout::new(shard, Vec::<Iter>::new(), &Map::new()));
+//! assert_eq!(script(&layout.size(None)?)?, "64");
+//!
+//! let i = Var::new("i", PrimType::int(32), UNKNOWN_LOC);
+//! let j = Var::new("j", PrimType::int(32), UNKNOWN_LOC);
+//! let offset = layout.apply([&i, &j], &Analyzer::new())?.get(&"m".into())?.unwrap();
+//! assert_eq!(script(&offset)?, "i * 8 + j");
+//! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
+//! ```
 
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
@@ -86,21 +105,26 @@ impl Deref for Layout {
 // tvm-ffi-stubgen(end)
 
 impl Layout {
-    /// Check the invariants of the layout, raising an error if one does not hold
-    /// (`tirx.LayoutCheckWellFormed`).
+    /// Check the invariants of the layout (`tirx.LayoutCheckWellFormed`).
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if an invariant does not hold, such as thread axes whose scopes are not
+    /// connected, or a swizzle with negative lengths.
     pub fn check_well_formed(&self) -> Result<()> {
         tvm_ffi::cached_global_func!("tirx.LayoutCheckWellFormed").call_tuple((self,))?;
         Ok(())
     }
 
-    /// The number of elements the layout maps, along `axis_name` if given (`tirx.LayoutGetSize`).
+    /// Return the number of elements the layout maps, along `axis_name` if given
+    /// (`tirx.LayoutGetSize`).
     pub fn size(&self, axis_name: Option<&str>) -> Result<Expr> {
         tvm_ffi::cached_global_func!("tirx.LayoutGetSize")
             .call_tuple((self, axis_name.map(String::from)))?
             .try_into()
     }
 
-    /// The extent of the coordinates the layout reaches, along `axis_name` if given
+    /// Return the extent of the coordinates the layout reaches, along `axis_name` if given
     /// (`tirx.LayoutGetSpan`).
     pub fn span(&self, axis_name: Option<&str>) -> Result<Expr> {
         tvm_ffi::cached_global_func!("tirx.LayoutGetSpan")
@@ -108,7 +132,11 @@ impl Layout {
             .try_into()
     }
 
-    /// The coordinate on each axis of the element at `coord` (`tirx.LayoutApply`).
+    /// Return the coordinate on each axis of the element at `coord` (`tirx.LayoutApply`).
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if `coord` does not have one index for each iterator of the shard.
     pub fn apply(
         &self,
         coord: impl IntoIterator<Item = impl IntoExpr>,
@@ -120,7 +148,7 @@ impl Layout {
             .try_into()
     }
 
-    /// The coordinate on each axis of the element at the linear index `coord`
+    /// Return the coordinate on each axis of the element at the linear index `coord`
     /// (`tirx.LayoutApplyLinear`).
     pub fn apply_linear(
         &self,
@@ -132,7 +160,7 @@ impl Layout {
             .try_into()
     }
 
-    /// The coordinate on each axis of the element at `coord` of a tensor of `shape`
+    /// Return the coordinate on each axis of the element at `coord` of a tensor of `shape`
     /// (`tirx.LayoutApplyWithShape`).
     pub fn apply_with_shape(
         &self,
@@ -147,12 +175,18 @@ impl Layout {
             .try_into()
     }
 
-    /// The layout in canonical form (`tirx.LayoutCanonicalize`).
+    /// Return the layout in canonical form (`tirx.LayoutCanonicalize`).
     pub fn canonicalize(&self) -> Result<Layout> {
         tvm_ffi::cached_global_func!("tirx.LayoutCanonicalize").call_tuple((self,))?.try_into()
     }
 
-    /// This layout, of `inner_shape`, tiled by `outer`, of `outer_shape` (`tirx.LayoutTile`).
+    /// Return this layout, of `inner_shape`, tiled by `outer`, of `outer_shape`
+    /// (`tirx.LayoutTile`).
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if `outer_shape` and `inner_shape` differ in length, or a layout cannot be
+    /// grouped by its shape.
     pub fn tile(
         &self,
         outer: impl Into<TileLayout>,
@@ -218,7 +252,7 @@ tvm_ffi::impl_object_upcast!(TileLayout => Layout);
 // tvm-ffi-stubgen(end)
 
 impl TileLayout {
-    /// The tile layout of the `shard` and `replica` iterators, shifted by `offset`
+    /// Create the tile layout of the `shard` and `replica` iterators, shifted by `offset`
     /// (`tirx.TileLayout`).
     pub fn new(
         shard: impl IntoIterator<Item = impl Into<Iter>>,
@@ -234,7 +268,7 @@ impl TileLayout {
         )
     }
 
-    /// Whether the layout describes contiguous row-major memory
+    /// Return whether the layout describes contiguous row-major memory
     /// (`tirx.TileLayoutIsContiguous`).
     pub fn is_contiguous(&self, analyzer: Option<&Analyzer>) -> Result<bool> {
         tvm_ffi::cached_global_func!("tirx.TileLayoutIsContiguous")
@@ -242,13 +276,17 @@ impl TileLayout {
             .try_into()
     }
 
-    /// Whether the layout is the identity mapping onto memory (`tirx.TileLayoutIsTrivial`).
+    /// Return whether the layout is the identity mapping onto memory (`tirx.TileLayoutIsTrivial`).
     pub fn is_trivial(&self) -> Result<bool> {
         tvm_ffi::cached_global_func!("tirx.TileLayoutIsTrivial").call_tuple((self,))?.try_into()
     }
 
-    /// The layout regrouped by the dimensions of `shape`, and the separators of the groups
+    /// Return the layout regrouped by the dimensions of `shape`, and the separators of the groups
     /// (`tirx.TileLayoutGroup`).
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the iterators cannot be split into groups of the extents of `shape`.
     pub fn group(
         &self,
         shape: impl IntoIterator<Item = impl IntoExpr>,
@@ -260,8 +298,13 @@ impl TileLayout {
         Ok((pair.get(0)?.try_into()?, pair.get(1)?.try_into()?))
     }
 
-    /// The innermost and outermost thread scopes of the thread axes, if the layout has any
+    /// Return the innermost and outermost thread scopes of the thread axes, if the layout has any
     /// (`tirx.TileLayoutGetScope`).
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the thread axes are of different backends, or their scopes do not form
+    /// one chain.
     pub fn get_scope(&self) -> Result<Option<(ThreadScope, ThreadScope)>> {
         let pair: Option<Array<Any>> = tvm_ffi::cached_global_func!("tirx.TileLayoutGetScope")
             .call_tuple((self,))?
@@ -344,32 +387,34 @@ impl Deref for Axis {
 // tvm-ffi-stubgen(end)
 
 impl Axis {
-    /// The axis named `name`, registered on first use (`tirx.AxisGet`).
+    /// Look up the axis named `name`, such as the memory axis `m`, registering it on first use
+    /// (`tirx.AxisGet`).
     pub fn get(name: &str) -> Result<Self> {
         tvm_ffi::cached_global_func!("tirx.AxisGet").call_tuple((String::from(name),))?.try_into()
     }
 
-    /// Whether the axis indexes threads (`tirx.AxisIsThreadAxis`).
+    /// Return whether the axis indexes threads (`tirx.AxisIsThreadAxis`).
     pub fn is_thread(&self) -> Result<bool> {
         tvm_ffi::cached_global_func!("tirx.AxisIsThreadAxis").call_tuple((self,))?.try_into()
     }
 
-    /// Whether the axis indexes memory (`tirx.AxisIsMemoryAxis`).
+    /// Return whether the axis indexes memory (`tirx.AxisIsMemoryAxis`).
     pub fn is_memory(&self) -> Result<bool> {
         tvm_ffi::cached_global_func!("tirx.AxisIsMemoryAxis").call_tuple((self,))?.try_into()
     }
 
-    /// The backend that registered the axis, if any (`tirx.AxisGetBackend`).
+    /// Return the backend that registered the axis, if any (`tirx.AxisGetBackend`).
     pub fn backend(&self) -> Result<Option<String>> {
         tvm_ffi::cached_global_func!("tirx.AxisGetBackend").call_tuple((self,))?.try_into()
     }
 
-    /// The thread scope a thread axis spans, if any (`tirx.AxisGetScope`).
+    /// Return the thread scope a thread axis spans, if any (`tirx.AxisGetScope`).
     pub fn get_scope(&self) -> Result<Option<ThreadScope>> {
         tvm_ffi::cached_global_func!("tirx.AxisGetScope").call_tuple((self,))?.try_into()
     }
 
-    /// The thread scope a thread axis indexes within its scope, if any (`tirx.AxisGetSubscope`).
+    /// Return the thread scope a thread axis indexes within its scope, if any
+    /// (`tirx.AxisGetSubscope`).
     pub fn get_subscope(&self) -> Result<Option<ThreadScope>> {
         tvm_ffi::cached_global_func!("tirx.AxisGetSubscope").call_tuple((self,))?.try_into()
     }
@@ -439,9 +484,14 @@ tvm_ffi::impl_object_upcast!(ComposeLayout => Layout);
 // tvm-ffi-stubgen(end)
 
 impl ComposeLayout {
-    /// `tile_layout` with its memory coordinate swizzled: above the low `per_element` bits, the
-    /// `swizzle_len` bits `atom_len` bits apart are XORed, into the lower group if
+    /// Create `tile_layout` with its memory coordinate swizzled: above the low `per_element` bits,
+    /// the `swizzle_len` bits `atom_len` bits apart are XORed, into the lower group if
     /// `swizzle_inner` (`tirx.ComposeLayout`).
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if `per_element` or `swizzle_len` is negative, `atom_len` is less than
+    /// `swizzle_len`, or `tile_layout` is not well formed.
     pub fn new(
         per_element: i32,
         swizzle_len: i32,

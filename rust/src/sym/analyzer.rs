@@ -18,11 +18,31 @@
  */
 #![allow(dead_code, unused_imports)]
 
-//! The analyzer, its bound and modular results, and the forms of its simplifiers.
+//! The analyzer and its results.
 //!
-//! The objects `python/tvm_tirx/sym/analyzer.py` defines. An [`Analyzer`] keeps the facts the
-//! native analyses share. A [`ConstIntBound`] is an inclusive range `[min_value, max_value]`, and a
-//! [`ModularSet`] is the set `coeff * x + base_` for any integer `x`.
+//! An [`Analyzer`] proves and simplifies expressions under the facts it knows. [`ConstIntBound`]
+//! and [`ModularSet`] are its bound and modular results.
+//!
+//! # Examples
+//!
+//! ```
+//! use tvm_tirx::ir::prim::op::floordiv;
+//! use tvm_tirx::ir::{PrimType, Range, Var, UNKNOWN_LOC};
+//! use tvm_tirx::script::script;
+//! use tvm_tirx::sym::{Analyzer, ConstraintContext, RangeConstraint};
+//!
+//! let x = Var::new("x", PrimType::int(32), UNKNOWN_LOC);
+//! let context = ConstraintContext::new()?;
+//! let domain = Range::from_min_extent(0, 16, UNKNOWN_LOC)?;
+//! context.append(&RangeConstraint::new(x.clone(), domain).into())?;
+//! let analyzer = Analyzer::new();
+//! analyzer.sync_constraint_context(&context)?;
+//!
+//! assert_eq!(script(&analyzer.simplify(floordiv(&x, 16)?, 2)?)?, "0");
+//!
+//! assert_eq!(script(&Analyzer::new().simplify(floordiv(&x, 16)?, 2)?)?, "x // 16");
+//! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
+//! ```
 
 // Python has no class for `CanonicalExpr`, `SumExpr` and `SplitExpr`, the forms of the canonical
 // simplifier, or for the `RewriteSimplifierStats` that `Analyzer.rewrite_simplify_stats()`
@@ -91,7 +111,7 @@ impl Deref for Analyzer {
 // tvm-ffi-stubgen(end)
 
 impl Analyzer {
-    /// A fresh analyzer that knows no facts (`sym.Analyzer`).
+    /// Create an analyzer that knows no facts (`sym.Analyzer`).
     pub fn new() -> Self {
         support::infallible(
             tvm_ffi::cached_global_func!("sym.Analyzer")
@@ -100,65 +120,70 @@ impl Analyzer {
         )
     }
 
-    /// Set whether default-strength queries try Z3 after native analysis fails.
+    /// Set whether default-strength queries try Z3 after native analysis fails
+    /// (`sym.AnalyzerSetZ3DefaultFallback`).
     ///
-    /// Enabled by default and preserved by `deep_clone`. Stronger queries and direct Z3
-    /// APIs are unaffected. This does not clear accepted premises or solver state.
+    /// Enabled by default and preserved by [`deep_clone`](Self::deep_clone). Stronger queries and
+    /// direct Z3 APIs are unaffected. This does not clear accepted premises or solver state.
     pub fn set_z3_default_fallback(&self, enabled: bool) -> Result<()> {
         tvm_ffi::cached_global_func!("sym.AnalyzerSetZ3DefaultFallback")
             .call_tuple((self, enabled))?;
         Ok(())
     }
 
-    /// A copy of the analyzer and the facts it knows (`sym.AnalyzerClone`).
+    /// Return a copy of the analyzer and the facts it knows, which learns facts independently
+    /// (`sym.AnalyzerClone`).
     pub fn deep_clone(&self) -> Result<Self> {
         tvm_ffi::cached_global_func!("sym.AnalyzerClone").call_tuple((self,))?.try_into()
     }
 
-    /// Synchronize with a `sym.ConstraintContext` captured at its current position.
+    /// Synchronize the analyzer's facts with `context` at its current position
+    /// (`sym.AnalyzerSyncConstraintContext`).
     ///
-    /// Switching contexts removes facts that are no longer present. Mutating the context
-    /// after this call takes effect only after another synchronization. Constraint and
-    /// expression nodes are shared and must not be mutated through aliases. Reentrant
-    /// synchronization is rejected; discard the analyzer if premise ingestion fails.
+    /// Later appends to the context take effect only at the next synchronization.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error for a reentrant synchronization, or if `context` defines a variable twice.
     pub fn sync_constraint_context(&self, context: &ConstraintContext) -> Result<()> {
         tvm_ffi::cached_global_func!("sym.AnalyzerSyncConstraintContext")
             .call_packed(&[tvm_ffi::AnyView::from(self), tvm_ffi::AnyView::from(context)])?;
         Ok(())
     }
 
-    /// Snapshot the accepted premises in an independently extensible context.
+    /// Snapshot the accepted premises in an independently extensible context
+    /// (`sym.AnalyzerGetConstraintContext`).
     ///
-    /// Fact and expression nodes remain shared. Appending to this context changes the
-    /// analyzer only after [`Self::sync_constraint_context`] is called again.
+    /// Fact and expression nodes remain shared. Appending to this context changes the analyzer only
+    /// after [`sync_constraint_context`](Self::sync_constraint_context) is called again.
     pub fn get_constraint_context(&self) -> Result<ConstraintContext> {
         tvm_ffi::cached_global_func!("sym.AnalyzerGetConstraintContext")
             .call_tuple((self,))?
             .try_into()
     }
 
-    /// The constant bounds of `expr` (`sym.AnalyzerConstIntBound`).
+    /// Return the constant bounds of `expr` under the known facts (`sym.AnalyzerConstIntBound`).
     pub fn const_int_bound(&self, expr: impl IntoExpr) -> Result<ConstIntBound> {
         tvm_ffi::cached_global_func!("sym.AnalyzerConstIntBound")
             .call_tuple((self, &expr.into_expr()?))?
             .try_into()
     }
 
-    /// Whether `var` has constant bounds recorded (`sym.AnalyzerConstIntBoundIsBound`).
+    /// Return whether `var` has constant bounds recorded (`sym.AnalyzerConstIntBoundIsBound`).
     pub fn const_int_bound_is_bound(&self, var: impl Into<Var>) -> Result<bool> {
         tvm_ffi::cached_global_func!("sym.AnalyzerConstIntBoundIsBound")
             .call_tuple((self, &var.into()))?
             .try_into()
     }
 
-    /// The modular set `coeff * x + base` of `expr` (`sym.AnalyzerModularSet`).
+    /// Return the modular set `coeff * x + base` of `expr` (`sym.AnalyzerModularSet`).
     pub fn modular_set(&self, expr: impl IntoExpr) -> Result<ModularSet> {
         tvm_ffi::cached_global_func!("sym.AnalyzerModularSet")
             .call_tuple((self, &expr.into_expr()?))?
             .try_into()
     }
 
-    /// The integer set `expr` covers, with the variables of `dom_map` over their sets
+    /// Return the integer set `expr` covers, with the variables of `dom_map` over their sets
     /// (`sym.AnalyzerIntSet`).
     pub fn int_set(
         &self,
@@ -192,7 +217,7 @@ impl Analyzer {
             .try_into()
     }
 
-    /// The counters of the rewrite simplifier (`sym.AnalyzerGetRewriteSimplifyStats`).
+    /// Return the counters of the rewrite simplifier (`sym.AnalyzerGetRewriteSimplifyStats`).
     pub fn rewrite_simplify_stats(&self) -> Result<RewriteSimplifierStats> {
         tvm_ffi::cached_global_func!("sym.AnalyzerGetRewriteSimplifyStats")
             .call_tuple((self,))?
@@ -206,7 +231,7 @@ impl Analyzer {
         Ok(())
     }
 
-    /// Cap the rewrites of one rewrite simplification; 0 is no cap
+    /// Cap the rewrites of one rewrite simplification at `maximum`, or 0 for no cap
     /// (`sym.AnalyzerSetMaximumRewriteSteps`).
     pub fn set_maximum_rewrite_steps(&self, maximum: i64) -> Result<()> {
         tvm_ffi::cached_global_func!("sym.AnalyzerSetMaximumRewriteSteps")
@@ -214,21 +239,22 @@ impl Analyzer {
         Ok(())
     }
 
-    /// Whether `expr` is provably true (`sym.AnalyzerCanProve`).
+    /// Return whether `expr` is provably true (`sym.AnalyzerCanProve`).
     pub fn can_prove(&self, expr: impl IntoExpr, strength: ProofStrength) -> Result<bool> {
         tvm_ffi::cached_global_func!("sym.AnalyzerCanProve")
             .call_tuple((self, &expr.into_expr()?, strength as i32))?
             .try_into()
     }
 
-    /// Whether `lhs == rhs` is provably true (`sym.AnalyzerCanProveEqual`).
+    /// Return whether `lhs == rhs` is provably true (`sym.AnalyzerCanProveEqual`).
     pub fn can_prove_equal(&self, lhs: impl IntoExpr, rhs: impl IntoExpr) -> Result<bool> {
         tvm_ffi::cached_global_func!("sym.AnalyzerCanProveEqual")
             .call_tuple((self, &lhs.into_expr()?, &rhs.into_expr()?))?
             .try_into()
     }
 
-    /// The relation of `lhs` to `rhs` the known comparisons imply (`sym.AnalyzerTryCompare`).
+    /// Return the relation of `lhs` to `rhs` that the known comparisons imply
+    /// (`sym.AnalyzerTryCompare`).
     pub fn try_compare(&self, lhs: impl IntoExpr, rhs: impl IntoExpr) -> Result<CompareResult> {
         let result: i64 = tvm_ffi::cached_global_func!("sym.AnalyzerTryCompare")
             .call_tuple((self, &lhs.into_expr()?, &rhs.into_expr()?))?
@@ -236,12 +262,12 @@ impl Analyzer {
         result.try_into()
     }
 
-    /// Whether the analyzer was built with the Z3 prover (`sym.AnalyzerIsZ3Enabled`).
+    /// Return whether TIRx was built with the Z3 prover (`sym.AnalyzerIsZ3Enabled`).
     pub fn is_z3_enabled(&self) -> Result<bool> {
         tvm_ffi::cached_global_func!("sym.AnalyzerIsZ3Enabled").call_tuple((self,))?.try_into()
     }
 
-    /// The facts the Z3 prover knows, and `expr` to prove if given, as an SMT-LIB2 script
+    /// Return the facts the Z3 prover knows, and `expr` to prove if given, as an SMT-LIB2 script
     /// (`sym.AnalyzerGetSMTLIB2`).
     pub fn smtlib2(&self, expr: Option<&Expr>) -> Result<String> {
         tvm_ffi::cached_global_func!("sym.AnalyzerGetSMTLIB2")
@@ -262,13 +288,13 @@ impl Analyzer {
         Ok(())
     }
 
-    /// The statistics of the Z3 prover (`sym.AnalyzerGetZ3Stats`).
+    /// Return the statistics of the Z3 prover (`sym.AnalyzerGetZ3Stats`).
     pub fn z3_stats(&self) -> Result<String> {
         tvm_ffi::cached_global_func!("sym.AnalyzerGetZ3Stats").call_tuple((self,))?.try_into()
     }
 }
 
-/// How hard [`Analyzer::can_prove`] tries: `sym::ProofStrength`.
+/// How hard [`Analyzer::can_prove`] tries, the C++ `sym::ProofStrength`.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 #[repr(i32)]
 pub enum ProofStrength {
@@ -279,7 +305,7 @@ pub enum ProofStrength {
     SymbolicBound = 1,
 }
 
-/// The result of [`Analyzer::try_compare`]: `sym::CompareResult`.
+/// The result of [`Analyzer::try_compare`], the C++ `sym::CompareResult`.
 ///
 /// The relations other than `Inconsistent` and `Unknown` say what is known of `lhs` against `rhs`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -287,11 +313,17 @@ pub enum ProofStrength {
 pub enum CompareResult {
     /// The known facts contradict each other.
     Inconsistent = 0,
+    /// `lhs == rhs`.
     Eq = 1,
+    /// `lhs < rhs`.
     Lt = 2,
+    /// `lhs <= rhs`.
     Le = 3,
+    /// `lhs > rhs`.
     Gt = 4,
+    /// `lhs >= rhs`.
     Ge = 5,
+    /// `lhs != rhs`.
     Ne = 6,
     /// Nothing is known of the relation.
     Unknown = 7,
@@ -317,10 +349,9 @@ impl TryFrom<i64> for CompareResult {
     }
 }
 
-/// The uint-as-index assumption, in effect while it is alive: [`allow_uint_as_index`].
+/// A scope in which unsigned scalars are index types, returned by [`allow_uint_as_index`].
 ///
-/// The assumption is a depth counter of the thread, so a scope stays on the thread that opened
-/// it.
+/// The assumption is a depth counter of the thread, so a scope stays on the thread that opened it.
 ///
 /// ```compile_fail
 /// fn send<T: Send>() {}

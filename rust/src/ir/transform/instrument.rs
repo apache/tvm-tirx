@@ -20,10 +20,34 @@
 
 //! Pass instrumentation.
 //!
-//! Laid out like `python/tvm_tirx/ir/transform/instrument.py`. A [`BasePassInstrument`] is a
-//! [`PassInstrument`] whose hooks are callbacks: the object that `pass_instrument` (in
-//! `ir/transform/core.py`) creates for an instrument written in Python, and that
-//! [`BasePassInstrument::new`] creates from Rust closures.
+//! A [`BasePassInstrument`] is a [`PassInstrument`] whose hooks are callbacks, such as Rust
+//! closures ([`BasePassInstrument::new`]).
+//!
+//! # Examples
+//!
+//! ```
+//! use std::sync::{Arc, Mutex};
+//! use tvm_tirx::ir::transform::{BasePassInstrument, ModulePass, Pass, PassContext, PassInfo};
+//! use tvm_tirx::ir::transform::PassInstrumentHooks;
+//! use tvm_tirx::ir::IRModule;
+//! use tvm_tirx::tvm_ffi::Map;
+//!
+//! let log = Arc::new(Mutex::new(Vec::new()));
+//! let sink = log.clone();
+//! let hooks = PassInstrumentHooks {
+//!     run_before_pass: Some(Box::new(move |_module, info| {
+//!         Ok(sink.lock().unwrap().push(info.name.as_str().to_owned()))
+//!     })),
+//!     ..Default::default()
+//! };
+//! let tracer = BasePassInstrument::new("tracer", hooks);
+//!
+//! let _scope = PassContext::create(2, [""; 0], [""; 0], [tracer], None)?.enter()?;
+//! let noop = Pass::from(ModulePass::new(|module, _ctx| Ok(module), PassInfo::new(0, "noop")));
+//! noop.run(IRModule::from_functions(&Map::new(), None, &Map::new())?)?;
+//! assert_eq!(*log.lock().unwrap(), ["noop"]);
+//! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
+//! ```
 
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
@@ -81,24 +105,28 @@ impl Deref for BasePassInstrumentObj {
 tvm_ffi::impl_object_upcast!(BasePassInstrument => PassInstrument);
 // tvm-ffi-stubgen(end)
 
-/// A hook called when a pass context is entered or exited.
+/// A hook of a [`BasePassInstrument`], called when a pass context is entered or exited.
 ///
-/// The native instrument may call its hooks from any thread, so they are `Send + Sync`.
+/// It may be called from any thread, so it is `Send + Sync`; an error fails the entry or exit.
 pub type PassContextHook = Box<dyn Fn() -> Result<()> + Send + Sync>;
 
-/// A hook called with a module and the pass to run on it; `Send + Sync` like a
-/// [`PassContextHook`].
+/// A hook of a [`BasePassInstrument`], called with a module and the information of the pass to run
+/// on it; `Send + Sync` like a [`PassContextHook`].
+///
+/// An error fails the pass run.
 pub type PassHook<R> = Box<dyn Fn(IRModule, PassInfo) -> Result<R> + Send + Sync>;
 
-/// The hooks of a [`BasePassInstrument`]; a hook left `None` does nothing, and a missing
-/// `should_run` lets every pass run.
+/// The hooks of a [`BasePassInstrument`].
+///
+/// A hook left `None` does nothing, so `..Default::default()` fills in the ones not needed.
 #[derive(Default)]
 pub struct PassInstrumentHooks {
     /// Called when a pass context with the instrument is entered.
     pub enter_pass_ctx: Option<PassContextHook>,
     /// Called when a pass context with the instrument is exited.
     pub exit_pass_ctx: Option<PassContextHook>,
-    /// Whether to run the pass on the module.
+    /// Called before a pass runs on the module, to decide whether to run it; a pass the context
+    /// requires runs without asking.
     pub should_run: Option<PassHook<bool>>,
     /// Called before a pass runs on the module.
     pub run_before_pass: Option<PassHook<()>>,
@@ -107,7 +135,7 @@ pub struct PassInstrumentHooks {
 }
 
 impl BasePassInstrument {
-    /// The instrument `name` that calls `hooks` (`transform.PassInstrument`).
+    /// Create the instrument `name` that calls `hooks` (`transform.PassInstrument`).
     pub fn new(name: &str, hooks: PassInstrumentHooks) -> Self {
         let PassInstrumentHooks {
             enter_pass_ctx,
@@ -136,16 +164,23 @@ impl BasePassInstrument {
     }
 }
 
-/// An instrument that times the passes, for [`render_pass_timing`]: Python's
+/// Create an instrument that times the passes, for [`render_pass_timing`]: Python's
 /// `PassTimingInstrument()` (`transform.instrument.MakePassTimingInstrument`).
+///
 pub fn pass_timing_instrument() -> Result<BasePassInstrument> {
     tvm_ffi::cached_global_func!("transform.instrument.MakePassTimingInstrument")
         .call_tuple(())?
         .try_into()
 }
 
-/// The pass times a [`pass_timing_instrument`] recorded in the current pass context: Python's
-/// `PassTimingInstrument.render()` (`transform.instrument.RenderTimePassProfiles`).
+/// Render the pass times that a [`pass_timing_instrument`] recorded, as Python's
+/// `PassTimingInstrument.render()` does (`transform.instrument.RenderTimePassProfiles`).
+///
+/// The result has a line per pass timed on this thread, and is empty when none was.
+///
+/// # Errors
+///
+/// Returns an `InternalError` if a pass is still running, as when a pass calls it.
 pub fn render_pass_timing() -> Result<String> {
     tvm_ffi::cached_global_func!("transform.instrument.RenderTimePassProfiles")
         .call_tuple(())?

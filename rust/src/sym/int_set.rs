@@ -18,11 +18,28 @@
  */
 #![allow(dead_code, unused_imports)]
 
-//! Sets of integers.
+//! Sets of integers: [`IntSet`] and the interval [`IntervalSet`], with bound deduction and region
+//! bound estimation.
 //!
-//! The objects `python/tvm_tirx/sym/int_set.py` defines. [`IntSet`] is the base, and an
-//! [`IntervalSet`] is the interval between its `min_value` and `max_value`. The functions of
-//! `int_set.py` are here too: region bound estimation, bound deduction and the symbolic infinities.
+//! # Examples
+//!
+//! ```
+//! use tvm_tirx::ir::prim::op::PrimOps;
+//! use tvm_tirx::ir::{PrimType, Var, UNKNOWN_LOC};
+//! use tvm_tirx::script::script;
+//! use tvm_tirx::sym::{self, Analyzer, IntSet, IntervalSet};
+//! use tvm_tirx::tvm_ffi::Map;
+//!
+//! let i = Var::new("i", PrimType::int(32), UNKNOWN_LOC);
+//! let dom_map = Map::from_iter([(i.clone(), IntSet::from(IntervalSet::new(0, 15)))]);
+//! let set = Analyzer::new().int_set(&i * 2 + 1, Some(&dom_map))?;
+//! assert_eq!(script(&set)?, "sym.IntervalSet(min_value=1, max_value=31)");
+//!
+//! let none = Map::<Var, IntSet>::new();
+//! let bound = sym::deduce_bound(&i, (&i * 4 + 3).less(64), &none, &none)?;
+//! assert_eq!(script(&bound)?, "sym.IntervalSet(min_value=neg_inf, max_value=15)");
+//! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
+//! ```
 
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
@@ -75,24 +92,25 @@ impl Deref for IntSet {
 // tvm-ffi-stubgen(end)
 
 impl IntSet {
-    /// Whether the set is empty (`sym.IntSetIsNothing`).
+    /// Return whether the set is empty (`sym.IntSetIsNothing`).
     pub fn is_nothing(&self) -> Result<bool> {
         tvm_ffi::cached_global_func!("sym.IntSetIsNothing").call_tuple((self,))?.try_into()
     }
 
-    /// Whether the set holds every integer (`sym.IntSetIsEverything`).
+    /// Return whether the set holds every integer (`sym.IntSetIsEverything`).
     pub fn is_everything(&self) -> Result<bool> {
         tvm_ffi::cached_global_func!("sym.IntSetIsEverything").call_tuple((self,))?.try_into()
     }
 
-    /// The set of the lanes of the vector `vec` (`sym.IntSetVector`).
+    /// Return the set of the lanes of the vector `vec`, or of its value for a scalar
+    /// (`sym.IntSetVector`).
     pub fn vector(vec: impl IntoExpr) -> Result<Self> {
         tvm_ffi::cached_global_func!("sym.IntSetVector")
             .call_tuple((&vec.into_expr()?,))?
             .try_into()
     }
 
-    /// The set that holds only `point` (`sym.IntSetSinglePoint`).
+    /// Return the set that holds only `point` (`sym.IntSetSinglePoint`).
     pub fn single_point(point: impl IntoExpr) -> Result<Self> {
         tvm_ffi::cached_global_func!("sym.IntSetSinglePoint")
             .call_tuple((&point.into_expr()?,))?
@@ -144,7 +162,8 @@ tvm_ffi::impl_object_upcast!(IntervalSet => IntSet);
 // tvm-ffi-stubgen(end)
 
 impl IntervalSet {
-    /// The interval `[min_value, max_value]` (`sym.IntervalSet`).
+    /// Create the interval `[min_value, max_value]`, whose bounds may be [`neg_inf`] and
+    /// [`pos_inf`] (`sym.IntervalSet`).
     pub fn new(min_value: impl Into<Expr>, max_value: impl Into<Expr>) -> Self {
         support::infallible(
             tvm_ffi::cached_global_func!("sym.IntervalSet")
@@ -154,8 +173,10 @@ impl IntervalSet {
     }
 }
 
-/// The region a set of affine accesses covers at least, given the domains of their variables and
-/// a predicate; `None` when the accesses are not affine (`sym.EstimateRegionLowerBound`).
+/// Return the region a set of affine accesses covers at least, given the domains of their variables
+/// and a predicate, or `None` when the accesses are not affine (`sym.EstimateRegionLowerBound`).
+///
+/// Without an `analyzer`, a fresh one proves.
 pub fn estimate_region_lower_bound(
     region: impl IntoIterator<Item = impl Into<Range>>,
     var_dom: &Map<Var, Range>,
@@ -168,8 +189,8 @@ pub fn estimate_region_lower_bound(
         .try_into()
 }
 
-/// The exact region a set of affine accesses covers, given the domains of their variables and a
-/// predicate; `None` when the accesses are not affine (`sym.EstimateRegionStrictBound`).
+/// Return the exact region a set of affine accesses covers, given the domains of their variables
+/// and a predicate, or `None` when the accesses are not affine (`sym.EstimateRegionStrictBound`).
 pub fn estimate_region_strict_bound(
     region: impl IntoIterator<Item = impl Into<Range>>,
     var_dom: &Map<Var, Range>,
@@ -182,8 +203,8 @@ pub fn estimate_region_strict_bound(
         .try_into()
 }
 
-/// A region that holds what a set of accesses covers, given the domains of their variables and a
-/// predicate (`sym.EstimateRegionUpperBound`).
+/// Return a region that holds what a set of accesses covers, given the domains of their variables
+/// and a predicate, also when the accesses are not affine (`sym.EstimateRegionUpperBound`).
 pub fn estimate_region_upper_bound(
     region: impl IntoIterator<Item = impl Into<Range>>,
     var_dom: &Map<Var, Range>,
@@ -196,25 +217,26 @@ pub fn estimate_region_upper_bound(
         .try_into()
 }
 
-/// The symbolic positive infinity (`sym.PosInf`).
+/// Return the symbolic positive infinity (`sym.PosInf`).
 pub fn pos_inf() -> Result<Expr> {
     tvm_ffi::cached_global_func!("sym.PosInf").call_tuple(())?.try_into()
 }
 
-/// The symbolic negative infinity (`sym.NegInf`).
+/// Return the symbolic negative infinity (`sym.NegInf`).
 pub fn neg_inf() -> Result<Expr> {
     tvm_ffi::cached_global_func!("sym.NegInf").call_tuple(())?.try_into()
 }
 
-/// A subset of the union of `sets`, which may drop some of their segments
+/// Return a subset of the union of `sets`, which may drop some of their segments
 /// (`sym.UnionLowerBound`).
 pub fn union_lower_bound(sets: impl IntoIterator<Item = impl Into<IntSet>>) -> Result<IntSet> {
     let sets = sets.into_iter().map(Into::into).collect::<Array<IntSet>>();
     tvm_ffi::cached_global_func!("sym.UnionLowerBound").call_tuple((&sets,))?.try_into()
 }
 
-/// The values of `var` for which `cond` holds, with the variables of `hint_map` over their sets
-/// and those of `relax_map` relaxed to theirs (`sym.DeduceBound`).
+/// Return the values of `var` for which `cond` holds, with the variables of `hint_map` over their
+/// sets and those of `relax_map` relaxed to theirs, or the empty set when no bound can be deduced
+/// (`sym.DeduceBound`).
 pub fn deduce_bound(
     var: impl IntoExpr,
     cond: impl IntoExpr,

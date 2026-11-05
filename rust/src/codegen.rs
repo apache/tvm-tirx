@@ -20,9 +20,7 @@
 
 //! Code generation: IR modules compiled into runtime modules.
 //!
-//! Laid out like `python/tvm_tirx/codegen/`: the functions of its `__init__.py` are here, and the
-//! queries of the LLVM backend are in [`llvm`]. The code generator of one target kind is
-//! [`crate::target::build`].
+//! The queries of the LLVM backend are in [`llvm`].
 
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
@@ -44,15 +42,48 @@ use tvm_ffi::String;
 
 /// Compile `module` into a runtime module with the code generator of the kind of `target`
 /// (`codegen.Build`).
+///
+/// # Errors
+///
+/// Returns an error if the code generator of the kind is not built in or loaded, or the error it
+/// raises.
+///
+/// # Examples
+///
+/// ```
+/// use tvm_tirx::codegen;
+/// use tvm_tirx::ir::{GlobalVar, IRModule, UNKNOWN_LOC};
+/// use tvm_tirx::target::Target;
+/// use tvm_tirx::tvm_ffi::Map;
+/// # use tvm_tirx::ir::{DictAttrs, Expr, PrimType, Return, SeqStmt, Var};
+/// # use tvm_tirx::tirx::Function;
+/// # use tvm_tirx::tvm_ffi::{Any, String};
+/// # let x = Var::new("x", PrimType::int(32), UNKNOWN_LOC);
+/// # let body = SeqStmt::new([Return::new(Expr::try_from(&x + 1)?, UNKNOWN_LOC)], UNKNOWN_LOC);
+/// # let name = Any::from(String::from("add_one"));
+/// # let attrs = DictAttrs::new(Map::from_iter([(String::from("global_symbol"), name)]));
+/// # let add_one = Function::new([&x], &body, PrimType::int(32), attrs, UNKNOWN_LOC);
+///
+/// let functions = Map::from_iter([(GlobalVar::new("add_one", UNKNOWN_LOC), add_one.into())]);
+/// let module = IRModule::from_functions(&functions, None, &Map::new())?;
+///
+/// let compiled = codegen::build_module(&module, Target::new("c")?)?;
+/// assert!(compiled.implements_function("add_one", true)?);
+/// # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
+/// ```
 pub fn build_module(module: impl Into<IRModule>, target: impl Into<Target>) -> Result<Module> {
     tvm_ffi::cached_global_func!("codegen.Build")
         .call_tuple((&module.into(), &target.into()))?
         .try_into()
 }
 
-/// Whether the LLVM target `target`, or the current target, has the CPU feature `feature`;
-/// `false` for a target of another kind; an error when TIRx is built without LLVM, whose backend
-/// registers it (`codegen.target_has_feature`).
+/// Return whether the LLVM target `target`, or the current target, has the CPU feature `feature`,
+/// or `false` for a target of another kind (`codegen.target_has_feature`).
+///
+/// # Errors
+///
+/// Returns an error if the LLVM backend, which registers the query, is not loaded, or if `target`
+/// is `None` and there is no current target.
 pub fn target_has_feature(feature: &str, target: Option<&Target>) -> Result<bool> {
     tvm_ffi::Function::get_global("codegen.target_has_feature")?
         .call_tuple((String::from(feature), target.cloned()))?

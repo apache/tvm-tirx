@@ -20,9 +20,29 @@
 
 //! Tensor types.
 //!
-//! The objects `python/tvm_tirx/tirx/tensor.py` defines. A [`TensorType`] is the element type,
-//! memory scope, shape, data alignment and optional layout of a tensor, built with
-//! [`TensorType::new`].
+//! A [`TensorType`] is the element type, memory scope, shape, data alignment and optional layout of
+//! a tensor.
+//!
+//! # Examples
+//!
+//! ```
+//! use tvm_tirx::ir::{Expr, PrimType, Subscript, Var, UNKNOWN_LOC};
+//! use tvm_tirx::runtime::MemoryScope;
+//! use tvm_tirx::script::script;
+//! use tvm_tirx::tirx::TensorType;
+//!
+//! let scratch = MemoryScope::register("my_ext.scratch")?;
+//! let ty = TensorType::new([16, 16], PrimType::float(32), &scratch, 0, None, UNKNOWN_LOC)?;
+//! assert_eq!(script(&ty)?, r#"T.Tensor((16, 16), T.float32, scope="my_ext.scratch")"#);
+//!
+//! let a = Expr::from(Var::new("A", &ty, UNKNOWN_LOC));
+//! let i = Expr::from(Var::new("i", PrimType::int(32), UNKNOWN_LOC));
+//! let point = [Subscript::Index(i), Subscript::Index(0.into())];
+//! let element = a.subscript(point, UNKNOWN_LOC)?;
+//! assert_eq!(script(&Expr::try_from(element)?)?, "A[i, 0]");
+//!
+//! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
+//! ```
 
 // `custom-new` reserves `new` for a constructor with the C++ one's semantics (defaults); the
 // generated `from_fields` allocates the fields as given.
@@ -160,9 +180,9 @@ fn alloc_alignment() -> Result<i32> {
 }
 
 impl TensorType {
-    /// The type of a tensor of `shape` and `dtype` in `scope`, aligned to `data_alignment` bytes
-    /// (the runtime's allocation alignment when 0 or less), with `layout` if given
-    /// (C++ `TensorType(shape, dtype, scope, data_alignment, layout, loc)`).
+    /// Create the type of a tensor of `shape` and `dtype` in `scope`, aligned to `data_alignment`
+    /// bytes (the runtime's allocation alignment when 0 or less), with `layout` if given (C++
+    /// `TensorType(shape, dtype, scope, data_alignment, layout, loc)`).
     pub fn new(
         shape: impl IntoIterator<Item = impl IntoExpr>,
         dtype: impl Into<PrimType>,
@@ -189,7 +209,7 @@ impl TensorType {
         ))
     }
 
-    /// Whether the layout is absent or equals the default row-major layout of the shape
+    /// Return whether the layout is absent or equals the default row-major layout of the shape
     /// (`tirx.TensorTypeHasDefaultLayout`).
     pub fn has_default_layout(&self, analyzer: Option<&Analyzer>) -> Result<bool> {
         tvm_ffi::cached_global_func!("tirx.TensorTypeHasDefaultLayout")
@@ -198,17 +218,21 @@ impl TensorType {
     }
 }
 
-/// Whether the tensor variable `tensor` is a scalar: one element, the default alignment and a
-/// trivial layout; `alloc_or_decl` is true for `alloc_scalar`, false for `decl_scalar`
+/// Return whether the tensor variable `tensor` is a scalar: one element, the default alignment and
+/// a trivial layout; `alloc_or_decl` is true for `alloc_scalar`, false for `decl_scalar`
 /// (`tirx.TensorIsScalar`).
+///
+/// # Errors
+///
+/// Returns an error if the type of `tensor` is not a [`TensorType`].
 pub fn tensor_is_scalar(tensor: impl Into<Var>, alloc_or_decl: bool) -> Result<bool> {
     tvm_ffi::cached_global_func!("tirx.TensorIsScalar")
         .call_tuple((&tensor.into(), alloc_or_decl))?
         .try_into()
 }
 
-/// C++ `tirx::TensorVar` as a signature descriptor ([`sig::ArgType`]): a `Var`, not a subclass,
-/// whose type is a [`TensorType`].
+/// A signature descriptor ([`sig::ArgType`]) of a `Var`, not a subclass, whose type is a
+/// [`TensorType`] (C++ `tirx::TensorVar`).
 pub struct TensorVar;
 
 impl sig::ArgType for TensorVar {

@@ -17,20 +17,11 @@
  * under the License.
  */
 
-//! Registering operators from Rust: C++ `OpDef`, with its signature descriptors ([`sig`]) and
-//! attribute keys ([`op_attr`]), whose chains a [`tvm_ffi::static_init_block!`] runs to define
-//! operators, as C++ defines them in a `TVM_FFI_STATIC_INIT_BLOCK`.
+//! Operator registration from Rust: C++ `OpDef`.
 //!
-//! Every hook an operator gets here is native, as the C++ ones are: a Rust function compiled into
-//! the C ABI adapter that C++ `NativeFunctionView` calls through a function pointer, without
-//! packing arguments. A signature generates its validator from its argument types, as C++
-//! `OpDef::signature` does from `sig::arg<T>`; each signature is its own compiled function.
-//!
-//! A [`tvm_ffi::static_init_block!`] is gathered at link time, wherever in the program or library
-//! it is, and runs when it loads, as a C++ static init block does, so that once Python loads a
-//! library built on this crate, by any means, it sees the operators and types the block defines
-//! as it sees those of a C++ library. A block that several libraries of a process have, as each
-//! links its own copy of a crate they share, runs once.
+//! [`OpDef`] registers an operator with its signature ([`sig`]) and attributes ([`op_attr`]) in a
+//! [`tvm_ffi::static_init_block!`], as C++ does in a `TVM_FFI_STATIC_INIT_BLOCK`. Its hooks are
+//! native functions that C++ calls without packing arguments.
 
 use std::any::TypeId;
 use std::ffi::c_void;
@@ -48,21 +39,20 @@ use super::stmt::RegionStmtObj;
 use super::support;
 use sig::{Checks, Specs};
 
-/// C++ `OpDef`: register a new operator from Rust.
+/// A chain of steps that registers a new operator from Rust, C++ `OpDef`.
 ///
-/// Each step updates the registry at once, as in C++. After a failed step the rest are skipped.
-/// The chain completes when it is dropped, at the end of its statement, as a C++ `OpDef` does:
-/// the operator's APIs are requested in registered destinations, and the error of a failed step
-/// panics, which a [`tvm_ffi::static_init_block!`] reports as the error of its block.
-/// [`OpDef::op`] completes it instead, and returns the operator or the error. The registry does
-/// not synchronize registration with readers, so register an operator before building IR with it,
-/// as a [`tvm_ffi::static_init_block!`] does. An operator and its hooks live for the rest of the
-/// process.
+/// Each step updates the registry at once, and a failed step skips the rest. The chain completes
+/// when it is dropped, panicking with the error of a failed step, or by [`OpDef::op`], which
+/// returns it. Register an operator before building IR with it, as a
+/// [`tvm_ffi::static_init_block!`] does.
 ///
-/// ```no_run
+/// # Examples
+///
+/// ```
 /// use tvm_tirx::ir::op_attr::CALL_EFFECT_KIND;
 /// use tvm_tirx::ir::sig::{self, IntExpr};
-/// use tvm_tirx::ir::{CallEffectKind, CallObj, OpDef, Type};
+/// use tvm_tirx::ir::{Call, CallEffectKind, CallObj, Op, OpDef, PrimType, Type, Var, UNKNOWN_LOC};
+/// use tvm_tirx::script::script;
 /// use tvm_tirx::tvm_ffi::{self, Result};
 ///
 /// fn first_arg_type(call: &CallObj) -> Result<Type> {
@@ -75,30 +65,42 @@ use sig::{Checks, Specs};
 ///         .set_infer_type(first_arg_type)
 ///         .set_attr(CALL_EFFECT_KIND, CallEffectKind::Pure);
 /// }
+///
+/// let clamp = Op::get("my_ext.clamp")?;
+/// let i = Var::new("i", PrimType::int(32), UNKNOWN_LOC);
+/// let call = Call::new(None, clamp, [&i, &i], None, Vec::<Type>::new(), UNKNOWN_LOC)?;
+/// assert_eq!(script(&call.ty)?, "T.int32");
+/// call.validate()?;
+/// # Ok::<(), tvm_ffi::Error>(())
 /// ```
 pub struct OpDef(Option<Result<Op>>);
 
 impl OpDef {
-    /// Register a new operator (`ir.RegisterOp`), with `doc` as its documentation, less the
-    /// indentation its lines share and the blank lines around it, so that a string of several
-    /// lines can be indented with the code. A name already registered is an error.
+    /// Register a new operator `name` and start its chain (`ir.RegisterOp`).
+    ///
+    /// The indentation `doc` shares is removed. A name already registered fails the chain with an
+    /// `AttributeError`.
     pub fn new(name: &str, doc: &str) -> Self {
         let registered = tvm_ffi::cached_global_func!("ir.RegisterOp")
             .call_tuple((String::from(name), String::from(doc_text(doc))));
         Self(Some(registered.and_then(|_| Op::get(name))))
     }
 
-    /// Complete the chain now: the operator, or the error of the step that failed, which
-    /// dropping the chain would panic with.
+    /// Complete the chain now, instead of when it is dropped, and return the operator.
+    ///
+    /// # Errors
+    ///
+    /// Returns the error of the step that failed, which dropping the chain would panic with, or of
+    /// the `ir.expose_op` receiver.
     pub fn op(mut self) -> Result<Op> {
         complete(self.take())
     }
 
-    /// C++ `OpDef::signature`: replace the argument descriptions and the attrs type, and the
-    /// validator generated from them, which checks a Call's argument counts, argument types and
-    /// attrs. `specs` is a descriptor of [`sig`], or a tuple of them in order, as C++ takes them.
-    /// A custom validator keeps precedence. Without [`sig::call_attrs`] the operator has no attrs
-    /// type, and `Call.attrs` is unconstrained.
+    /// Set the signature of the operator to `specs`, a descriptor of [`sig`] or a tuple of them in
+    /// order, as C++ `OpDef::signature` does.
+    ///
+    /// The validator generated from it checks a Call's argument counts, argument types and attrs,
+    /// unless a custom validator is set.
     pub fn signature<S: Specs>(self, specs: S) -> Self {
         let mut description = sig::Description::default();
         specs.describe(&mut description);
@@ -117,47 +119,53 @@ impl OpDef {
         }
     }
 
-    /// Append a value argument's description, without changing what the validator checks.
+    /// Append the description of the value argument `name`, without changing what the validator
+    /// checks.
     pub fn add_arg(self, name: &str, doc: &str) -> Self {
         let (name, doc) = (String::from(name), String::from(doc));
         self.invoke("add_arg", &[AnyView::from(&name), AnyView::from(&doc)])
     }
 
-    /// Append a type argument's description, without changing what the validator checks.
+    /// Append the description of the type argument `name`, without changing what the validator
+    /// checks.
     pub fn add_ty_arg(self, name: &str, doc: &str) -> Self {
         let (name, doc) = (String::from(name), String::from(doc));
         self.invoke("add_ty_arg", &[AnyView::from(&name), AnyView::from(&doc)])
     }
 
-    /// The type of `Call.attrs`, by its registered type key.
+    /// Set the type of `Call.attrs` to the type registered as `key`; an unregistered `key` fails
+    /// the chain with an `InternalError`.
     pub fn attrs_type_key(self, key: &str) -> Self {
         let key = String::from(key);
         self.invoke("set_attrs_type_key", &[AnyView::from(&key)])
     }
 
-    /// Register the attribute `key` (C++ `set_attr(key, value)`); a value already registered for
-    /// this operator is an error.
+    /// Register the value of the attribute `key` for the operator, as C++ `set_attr(key, value)`
+    /// does; a value already registered fails the chain with a `ValueError`.
     pub fn set_attr<T: Into<Any>>(self, key: AttrKey<T>, value: impl Into<T>) -> Self {
         let value: T = value.into();
         self.attr(key.name, value.into(), false)
     }
 
-    /// Register the attribute `key`, replacing a value already registered for this operator
-    /// (C++ `set_attr(key, value, true)`).
+    /// Register the value of the attribute `key` for the operator, replacing a value already
+    /// registered, as C++ `set_attr(key, value, true)` does.
     pub fn replace_attr<T: Into<Any>>(self, key: AttrKey<T>, value: impl Into<T>) -> Self {
         let value: T = value.into();
         self.attr(key.name, value.into(), true)
     }
 
-    /// Remove this operator's value of the attribute `key`.
+    /// Remove the operator's value of the attribute `key`; a missing value is ignored, and live
+    /// [`OpAttrMap`](crate::ir::OpAttrMap)s see the removal.
     pub fn reset_attr<T>(self, key: AttrKey<T>) -> Self {
         let key = String::from(key.name);
         self.invoke("reset_attr", &[AnyView::from(&key)])
     }
 
-    /// `FInferType`: the result type of a Call that does not give one, which the `Call`
-    /// constructor and `Call::reinfer_type` ask for; [`op_attr::FIXED_RETURN_TYPE`] takes
-    /// precedence. `infer` is a function or a closure that captures nothing.
+    /// Set the type inference of the operator, its `FInferType`, to `infer`, a function or a
+    /// closure that captures nothing.
+    ///
+    /// It gives the result type of a Call that has none; [`op_attr::FIXED_RETURN_TYPE`] takes
+    /// precedence. A second one fails the chain with a `ValueError`.
     pub fn set_infer_type<F>(self, infer: F) -> Self
     where
         F: Fn(&CallObj) -> Result<Type> + 'static,
@@ -167,9 +175,11 @@ impl OpDef {
         self.attr("FInferType", Any::from(hook as *mut c_void), false)
     }
 
-    /// A custom validator, run by `Call::validate`, which reports an invalid Call as an error. It
-    /// replaces the one a signature generated, and a later signature keeps it; a second custom
-    /// validator is an error. `validate` is a function or a closure that captures nothing.
+    /// Set a custom validator of the operator, `validate`, a function or a closure that captures
+    /// nothing.
+    ///
+    /// [`Call::validate`](crate::ir::Call::validate) runs it instead of the generated one. A second
+    /// one fails the chain with a `ValueError`.
     pub fn set_validator<F>(self, validate: F) -> Self
     where
         F: Fn(&CallObj) -> Result<()> + 'static,
@@ -186,10 +196,12 @@ impl OpDef {
         })
     }
 
-    /// `FRegionGetBodyParams`, which makes the operator a region operation: the variables a
-    /// region binds in its body, from its Call (the operation, operands and attributes), which
-    /// the `RegionStmt` constructor checks the body parameters against. A region that binds none
-    /// returns none. `body_params` is a function or a closure that captures nothing.
+    /// Set the body parameters of the operator's regions, its `FRegionGetBodyParams`, to
+    /// `body_params`, a function or a closure that captures nothing; this makes the operator a
+    /// region operation.
+    ///
+    /// The `RegionStmt` constructor checks a region's body parameters against it. A second hook
+    /// fails the chain with a `ValueError`.
     pub fn set_region_body_params<F>(self, body_params: F) -> Self
     where
         F: Fn(&CallObj) -> Result<Array<Var>> + 'static,
@@ -199,9 +211,11 @@ impl OpDef {
         self.attr("FRegionGetBodyParams", Any::from(hook as *mut c_void), false)
     }
 
-    /// `FRegionValidate`: a check of a complete region statement, run by the `RegionStmt`
-    /// constructor after the body parameters. `validate` is a function or a closure that
-    /// captures nothing.
+    /// Set the check of the operator's regions, its `FRegionValidate`, to `validate`, a function or
+    /// a closure that captures nothing.
+    ///
+    /// The `RegionStmt` constructor runs it on a complete region statement. A second check fails
+    /// the chain with a `ValueError`.
     pub fn set_region_validate<F>(self, validate: F) -> Self
     where
         F: Fn(&RegionStmtObj) -> Result<()> + 'static,
@@ -262,20 +276,23 @@ fn complete(state: Result<Op>) -> Result<Op> {
     Ok(op)
 }
 
-/// C++ `ffi::reflection::AttrKey<T>`: the name of an operator attribute and the type of its
-/// values, which [`OpDef::set_attr`] takes. [`op_attr`] and
-/// [`tirx::op_attr`](crate::tirx::op_attr) have the keys C++ declares, and `AttrKey::new` names
-/// another.
+/// The key of an operator attribute, C++ `ffi::reflection::AttrKey<T>`: its name and the type `T`
+/// of its values.
+///
+/// [`op_attr`] and [`tirx::op_attr`](crate::tirx::op_attr) have the keys C++ declares;
+/// [`AttrKey::new`] names another.
 pub struct AttrKey<T> {
     name: &'static str,
     value: PhantomData<fn() -> T>,
 }
 
 impl<T> AttrKey<T> {
+    /// Create the key of the attribute `name`, whose values are `T`.
     pub const fn new(name: &'static str) -> Self {
         Self { name, value: PhantomData }
     }
 
+    /// Return the name of the attribute, which [`Op::attr_map`] reads the column of.
     pub const fn name(&self) -> &'static str {
         self.name
     }
@@ -289,21 +306,19 @@ impl<T> Clone for AttrKey<T> {
 
 impl<T> Copy for AttrKey<T> {}
 
-/// The operator attributes of the shared IR (C++ `tvm::op_attr`). The hooks, `FInferType` and
-/// the region ones, have setters of their own on [`OpDef`].
+/// The keys of the operator attributes of the shared IR, C++ `tvm::op_attr`.
 pub mod op_attr {
     use super::{AttrKey, CallEffectKind};
     use crate::ir::r#type::Type;
 
     /// The runtime effect of a call (C++ `kCallEffectKind`, `TCallEffectKind`).
     pub const CALL_EFFECT_KIND: AttrKey<CallEffectKind> = AttrKey::new("TCallEffectKind");
-    /// The result type of every call, independent of its operands, attributes and type
-    /// arguments, which takes precedence over `FInferType` (C++ `kFixedReturnType`,
-    /// `TFixedReturnType`).
+    /// The result type of every call, which takes precedence over `FInferType` (C++
+    /// `kFixedReturnType`, `TFixedReturnType`).
     pub const FIXED_RETURN_TYPE: AttrKey<Type> = AttrKey::new("TFixedReturnType");
 }
 
-/// The runtime effect of an operator call (C++ `CallEffectKind`), the value of
+/// The runtime effect of an operator call, C++ `CallEffectKind`: the value of
 /// [`op_attr::CALL_EFFECT_KIND`].
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[repr(i64)]
@@ -416,17 +431,13 @@ fn call_hook<N, R: Into<Any>>(node: *const N, hook: impl Fn(&N) -> Result<R>) ->
     unsafe { Any::into_raw_ffi_any(value) }
 }
 
-/// Signature descriptors, for [`OpDef::signature`] (C++ `sig::arg<T>` and friends): the arguments
-/// an operator takes, with their documentation and the types a generated validator checks.
+/// Signature descriptors for [`OpDef::signature`], C++ `sig::arg<T>` and friends.
 ///
-/// [`arg`](sig::arg) and [`ty_arg`](sig::ty_arg) are the fixed value and type arguments, in
-/// order, [`var_args`](sig::var_args) and [`var_ty_args`](sig::var_ty_args) a variadic tail of
-/// each, and [`call_attrs`](sig::call_attrs) the type of `Call.attrs`. As an argument type, a node
-/// type, such as [`StringImm`](super::StringImm) or [`Var`], accepts an instance of it, as C++
-/// `TypeTraits<T>::CheckAnyStrict` does, and [`Expr`] or [`Type`] accepts any. The typed views
-/// [`PrimExpr`](super::PrimExpr) and [`IntExpr`](super::IntExpr) also check the expression's type;
-/// [`PrimVar`](sig::PrimVar) and [`TensorVar`](crate::tirx::TensorVar) check a variable's type, as
-/// the C++ view types of those names do. Implement [`ArgType`](sig::ArgType) for another check.
+/// [`arg`](sig::arg) and [`ty_arg`](sig::ty_arg) are fixed value and type arguments,
+/// [`var_args`](sig::var_args) and [`var_ty_args`](sig::var_ty_args) variadic tails, and
+/// [`call_attrs`](sig::call_attrs) the type of `Call.attrs`. A node type accepts an instance of it,
+/// and the typed views such as [`PrimExpr`](super::PrimExpr) and [`PrimVar`](sig::PrimVar) also
+/// check its type; implement [`ArgType`](sig::ArgType) for another check.
 pub mod sig {
     use super::*;
     use crate::ir::expr::ExprObj;
@@ -434,13 +445,18 @@ pub mod sig {
     use tvm_ffi::type_traits::AnyCompatible;
     use tvm_ffi::ObjectCore;
 
-    /// What a signature checks an argument against (C++ `TypeTraits<T>`).
+    /// A check of an argument against a type, C++ `TypeTraits<T>`.
+    ///
+    /// Every managed reference that is [`AnyCompatible`] implements it with its strict check;
+    /// implement it for another check, as [`PrimVar`] does.
     pub trait ArgType: 'static {
-        /// Whether `value`, which is not None, is accepted (C++ `CheckAnyStrict`).
+        /// Return whether `value`, which is not None, is accepted, as C++ `CheckAnyStrict` does.
         fn check(value: &TVMFFIAny) -> bool;
-        /// The expected type, for an error (C++ `TypeStr`).
+        /// Return the expected type, for an error, as C++ `TypeStr` does.
         fn type_str() -> std::string::String;
-        /// The rejected value, for an error (C++ `GetMismatchTypeInfo`): its type key.
+        /// Describe a rejected value, for an error, as C++ `GetMismatchTypeInfo` does.
+        ///
+        /// By default, the description is the type key of `value`.
         fn mismatch(value: &TVMFFIAny) -> std::string::String {
             support::type_key(value.type_index)
         }
@@ -464,7 +480,8 @@ pub mod sig {
     /// The typed views, which are argument types as they are.
     pub use crate::ir::expr::{IntExpr, PrimExpr};
 
-    /// C++ `PrimVar`: a `Var`, not a subclass, whose type is a `PrimType`.
+    /// An argument type that accepts a [`Var`], not a subclass, whose type is a `PrimType`, C++
+    /// `PrimVar`.
     pub struct PrimVar;
 
     impl ArgType for PrimVar {
@@ -477,7 +494,8 @@ pub mod sig {
         }
     }
 
-    /// Whether `value` is a `Var`, not a subclass, whose type is an `N`.
+    /// Return whether `value` is a [`Var`], not a subclass, whose type is an `N`, such as
+    /// `PrimTypeObj`: the check of [`PrimVar`] and of other variable argument types.
     pub fn var_of_type<N: ObjectCore>(value: &TVMFFIAny) -> bool {
         value.type_index == crate::ir::expr::VarObj::type_index()
             && expr(value).is_some_and(|var| var.ty.downcast_ref::<N>().is_some())
@@ -493,28 +511,32 @@ pub mod sig {
         }
     }
 
-    /// A required value argument of type `T` (C++ `sig::arg<T>`); [`Expr`] accepts any.
+    /// Describe a required value argument `name` of type `T`, C++ `sig::arg<T>`; [`Expr`] accepts
+    /// any.
     pub fn arg<T: ArgType>(name: &str, doc: &str) -> Arg<T> {
         Arg { name: String::from(name), doc: String::from(doc), ty: PhantomData }
     }
 
-    /// Zero or more further value arguments of type `T` (C++ `sig::var_args<T>`).
+    /// Describe zero or more further value arguments of type `T`, C++ `sig::var_args<T>`; a
+    /// signature has at most one variadic value tail.
     pub fn var_args<T: ArgType>(name: &str, doc: &str) -> VarArgs<T> {
         VarArgs { name: String::from(name), doc: String::from(doc), ty: PhantomData }
     }
 
-    /// A required type argument of type `T` (C++ `sig::ty_arg<T>`); [`Type`] accepts any.
+    /// Describe a required type argument `name` of type `T`, C++ `sig::ty_arg<T>`; [`Type`] accepts
+    /// any.
     pub fn ty_arg<T: ArgType>(name: &str, doc: &str) -> TyArg<T> {
         TyArg { name: String::from(name), doc: String::from(doc), ty: PhantomData }
     }
 
-    /// Zero or more further type arguments of type `T` (C++ `sig::var_ty_args<T>`).
+    /// Describe zero or more further type arguments of type `T`, C++ `sig::var_ty_args<T>`; a
+    /// signature has at most one variadic type-argument tail.
     pub fn var_ty_args<T: ArgType>(name: &str, doc: &str) -> VarTyArgs<T> {
         VarTyArgs { name: String::from(name), doc: String::from(doc), ty: PhantomData }
     }
 
-    /// `Call.attrs` holds a `T`, which is also the operator's attrs type (C++
-    /// `sig::call_attrs<T>`).
+    /// Describe the attributes of a Call: `Call.attrs` holds a `T`, which is also the operator's
+    /// attrs type, C++ `sig::call_attrs<T>`; a signature has at most one.
     pub fn call_attrs<T>() -> CallAttrs<T>
     where
         T: ObjectRefCore + Into<Attrs> + 'static,
@@ -522,35 +544,35 @@ pub mod sig {
         CallAttrs { ty: PhantomData }
     }
 
-    /// A required value argument of type `T`, from [`arg`].
+    /// A descriptor of a required value argument of type `T`, made by [`arg`].
     pub struct Arg<T> {
         name: String,
         doc: String,
         ty: PhantomData<fn() -> T>,
     }
 
-    /// The variadic value tail, of type `T`, from [`var_args`].
+    /// A descriptor of a variadic value tail of type `T`, made by [`var_args`].
     pub struct VarArgs<T> {
         name: String,
         doc: String,
         ty: PhantomData<fn() -> T>,
     }
 
-    /// A required type argument of type `T`, from [`ty_arg`].
+    /// A descriptor of a required type argument of type `T`, made by [`ty_arg`].
     pub struct TyArg<T> {
         name: String,
         doc: String,
         ty: PhantomData<fn() -> T>,
     }
 
-    /// The variadic type-argument tail, of type `T`, from [`var_ty_args`].
+    /// A descriptor of a variadic type-argument tail of type `T`, made by [`var_ty_args`].
     pub struct VarTyArgs<T> {
         name: String,
         doc: String,
         ty: PhantomData<fn() -> T>,
     }
 
-    /// `Call.attrs`, of type `T`, from [`call_attrs`].
+    /// A descriptor of `Call.attrs` of type `T`, made by [`call_attrs`].
     pub struct CallAttrs<T> {
         ty: PhantomData<fn() -> T>,
     }
@@ -740,8 +762,9 @@ pub mod sig {
         }
     }
 
-    /// What [`OpDef::signature`] takes: a descriptor, or a tuple of them in order; `()` declares
-    /// no argument.
+    /// The descriptors that [`OpDef::signature`] takes: a descriptor, or a tuple of them in order.
+    ///
+    /// `()` declares no argument.
     pub trait Specs {
         #[doc(hidden)]
         type Checks: Checks;

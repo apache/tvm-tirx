@@ -22,8 +22,26 @@
 //!
 //! The objects `python/tvm_tirx/ir/prim/vector_expr.py` defines. A [`Ramp`] is `lanes` values
 //! from `base_` by `stride`, a [`Broadcast`] repeats a value over `lanes`, and a [`Shuffle`]
-//! selects lanes from its vectors. Their `new` is written in Rust after the C++ constructor: it
-//! checks the operands and derives the vector type.
+//! selects lanes from its vectors.
+//!
+//! # Examples
+//!
+//! ```
+//! use tvm_tirx::ir::prim::{Broadcast, Ramp, Shuffle};
+//! use tvm_tirx::ir::{PrimExpr, PrimType, Var, UNKNOWN_LOC};
+//! use tvm_tirx::script::script;
+//!
+//! let i = Var::new("i", PrimType::int(32), UNKNOWN_LOC);
+//! let index = Ramp::new(&i * 4, 1, 4, UNKNOWN_LOC)?;
+//! assert_eq!(script(&index)?, "T.Ramp(i * 4, 1, 4)");
+//!
+//! let shifted = PrimExpr::try_from(&index + Broadcast::new(&i, 4, UNKNOWN_LOC)?)?;
+//! assert_eq!(script(&shifted)?, "T.Ramp(i * 4, 1, 4) + T.Broadcast(i, 4)");
+//!
+//! let reversed = Shuffle::new([&index], [3, 2, 1, 0], UNKNOWN_LOC)?;
+//! assert_eq!(reversed.indices.len(), 4);
+//! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
+//! ```
 
 // `custom-new` reserves `new` for a constructor with the C++ one's semantics (operand checks and the
 // derived vector type); the generated `from_fields` allocates the fields as given.
@@ -137,8 +155,14 @@ tvm_ffi::impl_object_upcast!(Ramp => Expr);
 // tvm-ffi-stubgen(end)
 
 impl Ramp {
-    /// The vector of `lanes` values from `base` by `stride`, with `stride` cast to the type of
-    /// `base` (C++ `Ramp(base, stride, lanes, loc)`).
+    /// Create the vector of `lanes` values from `base` by `stride`, with `stride` cast to the type
+    /// of `base` (C++ `Ramp(base, stride, lanes, loc)`).
+    ///
+    /// # Errors
+    ///
+    /// Returns a `TypeError` if `base` or `stride` is not a scalar `int32`, `int64`, `uint32` or
+    /// `uint64`, or an `InternalError` if `lanes` is neither a constant greater than 1 nor
+    /// `vscale() * factor`.
     pub fn new(
         base: impl IntoExpr,
         stride: impl IntoExpr,
@@ -241,7 +265,12 @@ tvm_ffi::impl_object_upcast!(Broadcast => Expr);
 // tvm-ffi-stubgen(end)
 
 impl Broadcast {
-    /// The vector of `lanes` copies of the scalar `value` (C++ `Broadcast(value, lanes, loc)`).
+    /// Create the vector of `lanes` copies of the scalar `value` (C++ `Broadcast`).
+    ///
+    /// # Errors
+    ///
+    /// Returns an `InternalError` if `value` is a vector, or `lanes` is neither a constant greater
+    /// than 1 nor `vscale() * factor`.
     pub fn new(
         value: impl IntoExpr,
         lanes: impl IntoExpr,
@@ -320,8 +349,13 @@ tvm_ffi::impl_object_upcast!(Shuffle => Expr);
 // tvm-ffi-stubgen(end)
 
 impl Shuffle {
-    /// The vector of the lanes at `indices` of the concatenated `vectors`
+    /// Create the vector of the lanes at `indices` of the concatenated `vectors`
     /// (C++ `Shuffle(vectors, indices, loc)`).
+    ///
+    /// # Errors
+    ///
+    /// Returns an `InternalError` if `vectors` or `indices` is empty, the vectors have different
+    /// element types, or there are more indices than lanes.
     pub fn new(
         vectors: impl IntoIterator<Item = impl IntoExpr>,
         indices: impl IntoIterator<Item = impl IntoExpr>,

@@ -18,10 +18,8 @@
  */
 #![allow(dead_code, unused_imports)]
 
-//! Tile instructions: their attributes and the context they are dispatched in.
-//!
-//! Laid out like `python/tvm_tirx/tirx/tile/`: [`instruction`] holds the attributes of tile
-//! instruction calls, and [`dispatch`] the context of their lowering.
+//! Tile instructions: their attributes ([`instruction`]) and the context they are dispatched in
+//! ([`dispatch`]).
 
 pub mod dispatch;
 pub mod instruction;

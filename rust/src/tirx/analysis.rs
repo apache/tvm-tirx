@@ -21,8 +21,6 @@
 
 //! Analyses of tensor-level IR: memory accesses, undefined variables, linear patterns and
 //! well-formedness.
-//!
-//! Laid out like `python/tvm_tirx/tirx/analysis/`: [`mod@analysis`] holds the functions.
 
 #[allow(clippy::module_inception)]
 pub mod analysis;

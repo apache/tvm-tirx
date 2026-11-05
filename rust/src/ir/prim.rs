@@ -20,9 +20,8 @@
 
 //! Primitive expressions: scalar arithmetic, comparisons and vector lanes.
 //!
-//! Laid out like `python/tvm_tirx/ir/prim/`: [`expr`] holds the scalar expressions,
-//! [`vector_expr`] the vector ones and [`op`] the type-promoting operators. This module holds
-//! [`expr_deep_equal`], from `prim/__init__.py`.
+//! [`expr`] holds the scalar expressions, [`vector_expr`] the vector ones and [`op`] the
+//! type-promoting operators.
 
 // An object registered under `prim` that no file has a block for yet is generated here, to be moved
 // to the file of the Python module that defines it.
@@ -48,7 +47,7 @@ use crate::ir::expr::IntoExpr;
 use tvm_ffi::Result;
 // tvm-ffi-stubgen(end)
 
-/// Whether `lhs` and `rhs` are the same expression tree, without remapping variables: use
+/// Return whether `lhs` and `rhs` are the same expression tree, without remapping variables: use
 /// structural equality for that (`prim.expr_deep_equal`).
 pub fn expr_deep_equal(lhs: impl IntoExpr, rhs: impl IntoExpr) -> Result<bool> {
     tvm_ffi::cached_global_func!("prim.expr_deep_equal")
