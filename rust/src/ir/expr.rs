@@ -110,6 +110,7 @@ use crate::ir::support;
 use std::ops::Deref;
 use std::ptr::addr_of_mut;
 use std::borrow::Borrow;
+use tvm_ffi::object::IntoObjectRef;
 use tvm_ffi::Any;
 use tvm_ffi::AnyView;
 use tvm_ffi::Array;
@@ -265,20 +266,21 @@ impl Expr {
 /// assert!(Add::new(&f << 1, 2, UNKNOWN_LOC).is_err());
 /// # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
 /// ```
-pub trait IntoExpr {
-    /// The expression: an owned [`Expr`] for an owned value or a literal, or a borrowed
-    /// `&Expr` for a reference, which converts without a reference-count change.
+pub trait IntoExpr<T = Expr> {
+    /// The expression: an owned `T` for an owned value or a literal, or a borrowed `&T` for a
+    /// reference, which converts without a reference-count change.
     ///
     /// A function that only reads the expression borrows it with `.borrow()`; one that keeps
-    /// it takes ownership with `.into()`, which clones only a borrowed expression.
-    type Output: Borrow<Expr> + Into<Expr>;
+    /// it takes ownership with [`into_owned_expr`](Self::into_owned_expr).
+    type Output: Borrow<T> + Into<T>;
 
-    /// Convert into an expression, or return the first error an [`ExprResult`] raised.
+    /// Convert into an expression, or return the first error an [`ExprResult`] raised, or a
+    /// `TypeError` for an operand that is not a `T`.
     fn into_expr(self) -> Result<Self::Output>;
 
     /// Convert into an owned expression, as [`Cow::into_owned`](std::borrow::Cow::into_owned)
     /// does: an owned value moves, and only a borrowed expression is cloned.
-    fn into_owned_expr(self) -> Result<Expr>
+    fn into_owned_expr(self) -> Result<T>
     where
         Self: Sized,
     {
@@ -286,91 +288,72 @@ pub trait IntoExpr {
     }
 }
 
-// An owned expression, typed view or literal converts into an owned `Expr`.
-impl<T: AnyCompatible + Into<Expr>> IntoExpr for T {
-    type Output = Expr;
+// Every expression type, owned or borrowed, through the `IntoObjectRef<Expr>` its upcast to
+// `Expr` generates; literals join through their own `IntoObjectRef<Expr>` below.
+impl<S: IntoObjectRef<Expr>> IntoExpr for S {
+    type Output = S::Output;
 
-    fn into_expr(self) -> Result<Expr> {
-        Ok(self.into())
+    fn into_expr(self) -> Result<S::Output> {
+        Ok(self.into_object_ref())
     }
 }
 
-// A reference to an expression, a typed view or a node borrows as `&Expr` through the upcast's
-// `AsRef`, without a reference-count change.
-macro_rules! impl_into_expr_ref {
-    ($($t:ty),*) => {$(
-        impl<'a> IntoExpr for &'a $t {
-            type Output = &'a Expr;
+// The same values as a `PrimExpr`, checked in place: an owned expression moves, and a borrowed
+// one borrows as `&PrimExpr`; an expression of another type is a `TypeError`.
+impl<S> IntoExpr<PrimExpr> for S
+where
+    S: IntoObjectRef<Expr>,
+    S::Output: ExprOutput,
+{
+    type Output = <S::Output as ExprOutput>::Prim;
 
-            fn into_expr(self) -> Result<&'a Expr> {
-                Ok(self.as_ref())
+    fn into_expr(self) -> Result<Self::Output> {
+        self.into_object_ref().into_prim()
+    }
+}
+
+/// An owned or borrowed `Expr`, checked as the matching `PrimExpr`.
+#[doc(hidden)]
+pub trait ExprOutput: Borrow<Expr> + Into<Expr> {
+    /// `PrimExpr` for an owned expression, or `&PrimExpr` for a borrowed one.
+    type Prim: Borrow<PrimExpr> + Into<PrimExpr>;
+
+    /// Check the expression as a `PrimExpr`.
+    fn into_prim(self) -> Result<Self::Prim>;
+}
+
+impl ExprOutput for Expr {
+    type Prim = PrimExpr;
+
+    fn into_prim(self) -> Result<PrimExpr> {
+        PrimExpr::try_from(self)
+    }
+}
+
+impl<'a> ExprOutput for &'a Expr {
+    type Prim = &'a PrimExpr;
+
+    fn into_prim(self) -> Result<&'a PrimExpr> {
+        match self.downcast_ref::<PrimExpr>() {
+            Some(prim) => Ok(prim),
+            None => Err(PrimExpr::try_from(self).err().expect("the strict check failed")),
+        }
+    }
+}
+
+// Rust literals are expressions too, owned and built on conversion.
+macro_rules! impl_literal_into_expr {
+    ($($t:ty),*) => {$(
+        impl IntoObjectRef<Expr> for $t {
+            type Output = Expr;
+
+            fn into_object_ref(self) -> Expr {
+                self.into()
             }
         }
     )*};
 }
-// Every expression type with an upcast to `Expr`. A reference borrows as `&Expr`; the owned
-// blanket above cannot also cover references, because two blanket impls over `T` and `&T`
-// overlap for a downstream type. Add a new expression type here.
-impl_into_expr_ref!(
-    Expr,
-    crate::ir::expr::Call,
-    crate::ir::expr::Constant,
-    crate::ir::expr::DataTypeImm,
-    crate::ir::expr::FloatImm,
-    crate::ir::expr::GenericConst,
-    crate::ir::expr::GlobalVar,
-    crate::ir::expr::IntExpr,
-    crate::ir::expr::IntImm,
-    crate::ir::expr::LambdaExpr,
-    crate::ir::expr::OpaqueExpr,
-    crate::ir::expr::PrimExpr,
-    crate::ir::expr::StagingExpr,
-    crate::ir::expr::StringImm,
-    crate::ir::expr::TensorLoad,
-    crate::ir::expr::TensorRegion,
-    crate::ir::expr::Tuple,
-    crate::ir::expr::TupleGetItem,
-    crate::ir::expr::Var,
-    crate::ir::function::BaseFunc,
-    crate::ir::op::Op,
-    crate::ir::prim::expr::Add,
-    crate::ir::prim::expr::And,
-    crate::ir::prim::expr::BitwiseAnd,
-    crate::ir::prim::expr::BitwiseNot,
-    crate::ir::prim::expr::BitwiseOr,
-    crate::ir::prim::expr::BitwiseXor,
-    crate::ir::prim::expr::Cast,
-    crate::ir::prim::expr::Div,
-    crate::ir::prim::expr::EQ,
-    crate::ir::prim::expr::FloorDiv,
-    crate::ir::prim::expr::FloorMod,
-    crate::ir::prim::expr::GE,
-    crate::ir::prim::expr::GT,
-    crate::ir::prim::expr::LE,
-    crate::ir::prim::expr::LShift,
-    crate::ir::prim::expr::LT,
-    crate::ir::prim::expr::Let,
-    crate::ir::prim::expr::Max,
-    crate::ir::prim::expr::Min,
-    crate::ir::prim::expr::Mod,
-    crate::ir::prim::expr::Mul,
-    crate::ir::prim::expr::NE,
-    crate::ir::prim::expr::Not,
-    crate::ir::prim::expr::Or,
-    crate::ir::prim::expr::RShift,
-    crate::ir::prim::expr::Select,
-    crate::ir::prim::expr::Sub,
-    crate::ir::prim::vector_expr::Broadcast,
-    crate::ir::prim::vector_expr::Ramp,
-    crate::ir::prim::vector_expr::Shuffle,
-    crate::sym::analyzer::CanonicalExpr,
-    crate::sym::analyzer::SplitExpr,
-    crate::sym::analyzer::SumExpr,
-    crate::sym::iter_affine_map::IterMapExpr,
-    crate::sym::iter_affine_map::IterSplitExpr,
-    crate::sym::iter_affine_map::IterSumExpr,
-    crate::tirx::function::Function
-);
+impl_literal_into_expr!(i32, i64, bool, f32, f64);
 
 // Rust literals, as C++ converts them into an expression: an `i32` and an `f32` through the
 // constructors `PrimExpr(int32_t)` and `PrimExpr(float)`, the others as constants of their type.
@@ -1112,7 +1095,7 @@ impl TensorLoad {
     /// its type inference raises.
     pub fn new(
         source: impl IntoExpr,
-        indices: impl IntoIterator<Item = impl IntoExpr>,
+        indices: impl IntoIterator<Item = impl IntoExpr<PrimExpr>>,
         loc: impl Into<Location>,
     ) -> Result<Self> {
         static INFER_TYPE: support::TypeAttr =
@@ -1120,7 +1103,7 @@ impl TensorLoad {
         let (source, loc) = (source.into_owned_expr()?, loc.into());
         let indices = indices
             .into_iter()
-            .map(|index| PrimExpr::try_from(index.into_owned_expr()?))
+            .map(IntoExpr::<PrimExpr>::into_owned_expr)
             .collect::<Result<Array<PrimExpr>>>()?;
         let ty_index = AnyView::from(&source.ty).type_index();
         let Some(infer) = INFER_TYPE.get(ty_index) else {
