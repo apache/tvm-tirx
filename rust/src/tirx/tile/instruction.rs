@@ -34,9 +34,9 @@
 // tvm-ffi-stubgen(import-object): crate::ir::op::Op
 // tvm-ffi-stubgen(import-object): tvm_ffi::Result
 // tvm-ffi-stubgen(import-object): crate::ir::expr::IntoExpr
+// tvm-ffi-stubgen(import-object): std::borrow::Borrow
 
 // tvm-ffi-stubgen(begin): import-section
-use std::borrow::Borrow;
 use crate::ir::attrs::Attrs;
 use crate::ir::attrs::AttrsObj;
 use crate::ir::expr::Call;
@@ -45,6 +45,7 @@ use crate::ir::expr::IntoExpr;
 use crate::ir::expr::TensorRegion;
 use crate::ir::op::Op;
 use crate::tirx::thread_scope::ThreadScope;
+use std::borrow::Borrow;
 use std::ops::Deref;
 use tvm_ffi::Array;
 use tvm_ffi::ObjectArc;

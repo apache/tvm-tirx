@@ -89,12 +89,13 @@ fn statements() {
 }
 
 /// A variable of the primitive type `ty`.
-fn prim_var(name: &str, ty: PrimType) -> Var {
-    Var::new(name, ty, UNKNOWN_LOC)
+fn prim_var(name: &str, ty: PrimType) -> PrimVar {
+    PrimVar::new(name, ty, UNKNOWN_LOC)
 }
 
 /// A `For` case: its name, variable, begin, end, step, body and annotations.
-type ForCase<'a> = (&'a str, &'a Var, Expr, Expr, Expr, Stmt, Option<Map<FfiString, Any>>);
+type ForCase<'a> =
+    (&'a str, &'a PrimVar, PrimExpr, PrimExpr, PrimExpr, Stmt, Option<Map<FfiString, Any>>);
 
 /// A `RegionStmt` case: its name, operator, arguments, body parameters, attributes and results.
 type RegionCase<'a> = (&'a str, &'a Op, Vec<Expr>, Vec<Var>, &'a DictAttrs, Vec<Var>);
@@ -116,7 +117,7 @@ fn statements_agree_with_cpp() {
     let kind = StringImm::new("RuntimeError", UNKNOWN_LOC);
     let parts: Array<StringImm> = [StringImm::new("failed", UNKNOWN_LOC)].into_iter().collect();
     for (what, condition) in
-        [("AssertStmt", Expr::from(&p)), ("AssertStmt(condition)", Expr::from(&x))]
+        [("AssertStmt", PrimExpr::from(&p)), ("AssertStmt(condition)", PrimExpr::from(&x))]
     {
         let native_assert = native(
             "ir.AssertStmt",
@@ -169,14 +170,22 @@ fn statements_agree_with_cpp() {
             evaluate.clone(),
             None,
         ),
-        ("For(narrower var)", &i, int32(0), Expr::from(&i64_var), int32(1), evaluate.clone(), None),
+        (
+            "For(narrower var)",
+            &i,
+            int32(0),
+            PrimExpr::from(&i64_var),
+            int32(1),
+            evaluate.clone(),
+            None,
+        ),
         ("For(float var)", &f, int32(0), int32(8), int32(1), evaluate.clone(), None),
-        ("For(float bound)", &i, int32(0), Expr::from(&f), int32(1), evaluate.clone(), None),
+        ("For(float bound)", &i, int32(0), PrimExpr::from(&f), int32(1), evaluate.clone(), None),
         (
             "For(mismatched end)",
             &i64_var,
             IntImm::int64(0).into(),
-            Expr::from(&x),
+            PrimExpr::from(&x),
             IntImm::int64(1).into(),
             evaluate.clone(),
             None,
@@ -212,7 +221,7 @@ fn statements_agree_with_cpp() {
 
     let v4 = prim_var("v", PrimType::int(32).with_lanes(4).unwrap());
     for (what, condition) in
-        [("While", Expr::from(&p)), ("While(vector condition)", Expr::from(&v4))]
+        [("While", PrimExpr::from(&p)), ("While(vector condition)", PrimExpr::from(&v4))]
     {
         let native_while = native(
             "ir.While",
@@ -222,15 +231,15 @@ fn statements_agree_with_cpp() {
     }
 
     let a = tensor_var("A");
-    let one: Expr = FloatImm::float32(1.0).into();
-    let stores: Vec<(&str, Expr, Vec<Expr>, Expr)> = vec![
-        ("TensorStore", Expr::from(&a), vec![Expr::from(&x)], one.clone()),
-        ("TensorStore(rank)", Expr::from(&a), vec![Expr::from(&x), Expr::from(&x)], one.clone()),
-        ("TensorStore(value type)", Expr::from(&a), vec![Expr::from(&x)], Expr::from(&x)),
-        ("TensorStore(no tensor)", Expr::from(&x), vec![Expr::from(&x)], one.clone()),
+    let (one, index): (PrimExpr, PrimExpr) = (FloatImm::float32(1.0).into(), x.clone().into());
+    let stores: Vec<(&str, Expr, Vec<PrimExpr>, PrimExpr)> = vec![
+        ("TensorStore", Expr::from(&a), vec![index.clone()], one.clone()),
+        ("TensorStore(rank)", Expr::from(&a), vec![index.clone(), index.clone()], one.clone()),
+        ("TensorStore(value type)", Expr::from(&a), vec![index.clone()], index.clone()),
+        ("TensorStore(no tensor)", Expr::from(&x), vec![index.clone()], one.clone()),
     ];
     for (what, dest, indices, value) in stores {
-        let array: Array<Expr> = indices.iter().cloned().collect();
+        let array: Array<PrimExpr> = indices.iter().cloned().collect();
         let native_store = native(
             "ir.TensorStore",
             &[(&dest).into(), (&array).into(), (&value).into(), (&Location::unknown()).into()],
@@ -251,10 +260,10 @@ fn statements_agree_with_cpp() {
         agree(what, Ok(SeqStmt::new(stmts, UNKNOWN_LOC)), native_seq);
     }
 
-    let ifs: Vec<(&str, Expr, Stmt, Option<Stmt>)> = vec![
-        ("If", Expr::from(&p), evaluate.clone(), None),
-        ("If(else)", Expr::from(&p), nested.clone(), Some(no_op.clone())),
-        ("If(int condition)", Expr::from(&x), evaluate.clone(), Some(evaluate.clone())),
+    let ifs: Vec<(&str, PrimExpr, Stmt, Option<Stmt>)> = vec![
+        ("If", PrimExpr::from(&p), evaluate.clone(), None),
+        ("If(else)", PrimExpr::from(&p), nested.clone(), Some(no_op.clone())),
+        ("If(int condition)", PrimExpr::from(&x), evaluate.clone(), Some(evaluate.clone())),
     ];
     for (what, condition, then_case, else_case) in ifs {
         let native_if = native(
@@ -284,10 +293,11 @@ fn regions_agree_with_cpp() {
     let compute = Op::get("tirx.compute_scope").unwrap();
     let exp = Op::get("prim.exp").unwrap();
     let tag = |text: &str| -> Expr { StringImm::new(text, UNKNOWN_LOC).into() };
-    let (t, t64, r) = (
-        prim_var("t", PrimType::int(32)),
-        prim_var("t64", PrimType::int(64)),
-        prim_var("r", PrimType::int(32)),
+    let int = |value: i64| -> Expr { int32(value).into() };
+    let (t, t64, r): (Var, Var, Var) = (
+        prim_var("t", PrimType::int(32)).into(),
+        prim_var("t64", PrimType::int(64)).into(),
+        prim_var("r", PrimType::int(32)).into(),
     );
     let body: Stmt = Evaluate::new(&t, UNKNOWN_LOC).into();
     let no_attrs = DictAttrs::new(Map::new());
@@ -298,7 +308,7 @@ fn regions_agree_with_cpp() {
         (
             "RegionStmt",
             &launch,
-            vec![tag("threadIdx.x"), int32(8)],
+            vec![tag("threadIdx.x"), int(8)],
             vec![t.clone()],
             &no_attrs,
             vec![],
@@ -306,7 +316,7 @@ fn regions_agree_with_cpp() {
         (
             "RegionStmt(parameter count)",
             &launch,
-            vec![tag("threadIdx.x"), int32(8)],
+            vec![tag("threadIdx.x"), int(8)],
             vec![],
             &no_attrs,
             vec![],
@@ -314,7 +324,7 @@ fn regions_agree_with_cpp() {
         (
             "RegionStmt(parameter type)",
             &launch,
-            vec![tag("threadIdx.x"), int32(8)],
+            vec![tag("threadIdx.x"), int(8)],
             vec![t64.clone()],
             &no_attrs,
             vec![],
@@ -322,7 +332,7 @@ fn regions_agree_with_cpp() {
         (
             "RegionStmt(results)",
             &launch,
-            vec![tag("threadIdx.x"), int32(8)],
+            vec![tag("threadIdx.x"), int(8)],
             vec![t.clone()],
             &no_attrs,
             vec![r.clone()],
@@ -330,7 +340,7 @@ fn regions_agree_with_cpp() {
         (
             "RegionStmt(repeated definition)",
             &launch,
-            vec![tag("threadIdx.x"), int32(8)],
+            vec![tag("threadIdx.x"), int(8)],
             vec![t.clone()],
             &no_attrs,
             vec![t.clone()],
@@ -338,15 +348,15 @@ fn regions_agree_with_cpp() {
         (
             "RegionStmt(empty tag)",
             &launch,
-            vec![tag(""), int32(8)],
+            vec![tag(""), int(8)],
             vec![t.clone()],
             &no_attrs,
             vec![],
         ),
-        ("RegionStmt(signature)", &launch, vec![int32(8)], vec![t.clone()], &no_attrs, vec![]),
+        ("RegionStmt(signature)", &launch, vec![int(8)], vec![t.clone()], &no_attrs, vec![]),
         ("RegionStmt(no body parameters)", &compute, vec![tag("work")], vec![], &no_attrs, vec![]),
         ("RegionStmt(attrs)", &compute, vec![tag("work")], vec![], &attrs, vec![]),
-        ("RegionStmt(not a region)", &exp, vec![int32(1)], vec![], &no_attrs, vec![]),
+        ("RegionStmt(not a region)", &exp, vec![int(1)], vec![], &no_attrs, vec![]),
     ];
     for (what, op, args, params, attrs, results) in cases {
         let (args_array, params_array, results_array): (Array<Expr>, Array<Var>, Array<Var>) = (

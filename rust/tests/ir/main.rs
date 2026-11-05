@@ -48,15 +48,15 @@ fn parse_dtype(name: &str) -> DLDataType {
     DLDataType::try_from_str(name).unwrap()
 }
 
-fn int32(value: i64) -> Expr {
+fn int32(value: i64) -> PrimExpr {
     IntImm::from_dtype(dtype::int(32), value, UNKNOWN_LOC).unwrap().into()
 }
 
-fn int32_var(name: &str) -> Var {
-    Var::new(name, PrimType::int(32), UNKNOWN_LOC)
+fn int32_var(name: &str) -> PrimVar {
+    PrimVar::new(name, PrimType::int(32), UNKNOWN_LOC)
 }
 
-fn op(name: &str, a: impl Into<Expr>, b: impl Into<Expr>) -> Expr {
+fn op(name: &str, a: impl Into<Expr>, b: impl Into<Expr>) -> PrimExpr {
     global(name).call_tuple((a.into(), b.into(), Location::unknown())).unwrap().try_into().unwrap()
 }
 
@@ -78,7 +78,7 @@ fn scope() -> MemoryScope {
 
 /// A variable of type `float32[16]`.
 fn tensor_var(name: &str) -> Var {
-    let shape: Array<Expr> = [int32(16)].into_iter().collect();
+    let shape: Array<PrimExpr> = [int32(16)].into_iter().collect();
     let f32_ty = PrimType::float(32);
     let (scope, alignment, layout) = (scope(), 0i32, Option::<Expr>::None);
     let ty: Type = global("tirx.TensorType")

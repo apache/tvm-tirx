@@ -25,24 +25,24 @@ mod op;
 mod vector_expr;
 
 use tvm_tirx::ir::prim;
-use tvm_tirx::ir::{UNKNOWN_LOC, Expr, IntImm, PrimType, Var};
+use tvm_tirx::ir::{UNKNOWN_LOC, Expr, IntImm, PrimType, PrimVar};
 use tvm_tirx::tvm_ffi::{DLDataTypeExt, ObjectRefCast};
 
 use crate::common::serial;
 
 /// A variable of the primitive type `ty`.
-fn var(name: &str, ty: PrimType) -> Var {
-    Var::new(name, ty, UNKNOWN_LOC)
+fn var(name: &str, ty: PrimType) -> PrimVar {
+    PrimVar::new(name, ty, UNKNOWN_LOC)
 }
 
 /// The dtype of a primitive expression, by name.
-fn dtype(expr: &Expr) -> String {
-    let ty: PrimType = expr.ty.clone().try_cast().unwrap();
+fn dtype(expr: &impl AsRef<Expr>) -> String {
+    let ty: PrimType = expr.as_ref().ty.clone().try_cast().unwrap();
     ty.dtype.to_string().as_str().to_owned()
 }
 
-fn int_value(expr: Expr) -> i64 {
-    let imm: IntImm = expr.try_cast().unwrap();
+fn int_value(expr: impl Into<Expr>) -> i64 {
+    let imm: IntImm = expr.into().try_cast().unwrap();
     imm.value.to_i64().unwrap()
 }
 

@@ -21,11 +21,11 @@
 //! See docs/advanced/extending_ir_in_rust.rst; the my_ext Python package loads this library.
 
 use tvm_tirx::ir::op_attr::CALL_EFFECT_KIND;
-use tvm_tirx::ir::sig::{self, PrimExpr};
+use tvm_tirx::ir::sig;
 use tvm_tirx::ir::transform::{Pass, PassContext, PassInfo};
 use tvm_tirx::ir::{
-    dtype, register_type, Bind, Call, CallEffectKind, CallObj, Expr, IRModule, Op, OpDef, PrimType,
-    SeqStmt, Type, TypeObj, Var,
+    dtype, register_type, Bind, Call, CallEffectKind, CallObj, Expr, IRModule, Op, OpDef, PrimExpr,
+    PrimType, PrimVar, SeqStmt, Type, TypeObj, Var,
 };
 use tvm_tirx::tirx::transform::FunctionPass;
 use tvm_tirx::tirx::Function;
@@ -131,8 +131,8 @@ fn validate_call(call: &CallObj) -> Result<()> {
 tvm_ffi::static_init_block! {
     OpDef::new("my_ext.complex", "Construct the complex number re + im * i.")
         .signature((
-            sig::arg::<PrimExpr>("re", "The real part."),
-            sig::arg::<PrimExpr>("im", "The imaginary part."),
+            sig::arg::<sig::PrimExpr>("re", "The real part."),
+            sig::arg::<sig::PrimExpr>("im", "The imaginary part."),
         ))
         .set_infer_type(infer_complex)
         .set_validator(validate_call)
@@ -173,14 +173,15 @@ fn is_complex_op(op: &Expr) -> Result<bool> {
 
 struct Lowering {
     // Each complex local variable is replaced by two scalar local variables.
-    bindings: Vec<(Var, Var, Var)>,
+    bindings: Vec<(Var, PrimVar, PrimVar)>,
 }
 
 impl Lowering {
-    fn parts(&self, expr: &Expr) -> Result<(Expr, Expr)> {
+    fn parts(&self, expr: &Expr) -> Result<(PrimExpr, PrimExpr)> {
         if let Some(call) = expr.downcast_ref::<CallObj>() {
             if call.op.same_as(&Op::get("my_ext.complex")?) {
-                return Ok((call.args.get(0)?, call.args.get(1)?));
+                // `my_ext.complex` checked that its parts are scalars.
+                return Ok((call.args.get(0)?.try_into()?, call.args.get(1)?.try_into()?));
             }
         }
         for (var, re, im) in &self.bindings {
@@ -231,8 +232,10 @@ impl Lowering {
         if let Some(ty) = bind.var.ty.downcast_ref::<ComplexTypeObj>() {
             let (re, im) = self.parts(&bind.value)?;
             let name = bind.var.name.as_str();
-            let re_var = Var::new(&format!("{name}_re"), ty.dtype.clone(), bind.var.loc.clone());
-            let im_var = Var::new(&format!("{name}_im"), ty.dtype.clone(), bind.var.loc.clone());
+            let re_var =
+                PrimVar::new(&format!("{name}_re"), ty.dtype.clone(), bind.var.loc.clone());
+            let im_var =
+                PrimVar::new(&format!("{name}_im"), ty.dtype.clone(), bind.var.loc.clone());
             self.bindings.push((bind.var.clone(), re_var.clone(), im_var.clone()));
             let binds = [
                 Bind::new(re_var, re, bind.loc.clone())?,

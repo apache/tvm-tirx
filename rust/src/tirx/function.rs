@@ -25,12 +25,12 @@
 //! # Examples
 //!
 //! ```
-//! use tvm_tirx::ir::{DictAttrs, PrimType, Return, SeqStmt, Var, UNKNOWN_LOC};
+//! use tvm_tirx::ir::{DictAttrs, PrimType, PrimVar, Return, SeqStmt, Var, UNKNOWN_LOC};
 //! use tvm_tirx::script::script;
 //! use tvm_tirx::tirx::{renew_def, Function};
 //! use tvm_tirx::tvm_ffi::{Map, ObjectRefCore};
 //!
-//! let x = Var::new("x", PrimType::int(32), UNKNOWN_LOC);
+//! let x = PrimVar::new("x", PrimType::int(32), UNKNOWN_LOC);
 //! let body = SeqStmt::new([Return::new(&x, UNKNOWN_LOC)], UNKNOWN_LOC);
 //! let attrs = DictAttrs::new(Map::new());
 //! let identity = Function::new([&x], &body, PrimType::int(32), attrs, UNKNOWN_LOC);

@@ -138,7 +138,9 @@ pub type StructuralMutatorWithConstraintContextView<'a, D> =
 /// # Examples
 ///
 /// ```
-/// use tvm_tirx::ir::{Bind, Evaluate, Expr, PrimType, SeqStmt, Stmt, Var, UNKNOWN_LOC};
+/// use tvm_tirx::ir::{
+///     Bind, Evaluate, Expr, PrimExpr, PrimType, PrimVar, SeqStmt, Stmt, Var, UNKNOWN_LOC,
+/// };
 /// use tvm_tirx::script::script;
 /// use tvm_tirx::sym::Analyzer;
 /// use tvm_tirx::tirx::structural_mutate_with_constraint_context::{
@@ -158,11 +160,12 @@ pub type StructuralMutatorWithConstraintContextView<'a, D> =
 ///     ) -> Result<UnchangedOr<Any>> {
 ///         let analyzer = Analyzer::new();
 ///         analyzer.sync_constraint_context(&mutator.base().constraints())?;
-///         Ok(Evaluate::new(analyzer.simplify(&node.value, 2)?, UNKNOWN_LOC).into())
+///         let value = PrimExpr::try_from(&node.value)?;
+///         Ok(Evaluate::new(analyzer.simplify(value, 2)?, UNKNOWN_LOC).into())
 ///     }
 /// }
 ///
-/// let x = Var::new("x", PrimType::int(32), UNKNOWN_LOC);
+/// let x = PrimVar::new("x", PrimType::int(32), UNKNOWN_LOC);
 /// let bind = Stmt::from(Bind::new(&x, 4, UNKNOWN_LOC)?);
 /// let use_x = Evaluate::new(Expr::try_from(&x * 2)?, UNKNOWN_LOC);
 /// let root = SeqStmt::new([bind, use_x.into()], UNKNOWN_LOC);

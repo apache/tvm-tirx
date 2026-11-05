@@ -28,15 +28,15 @@
 //!
 //! ```
 //! use tvm_tirx::ir::prim::{Add, Select, LT};
-//! use tvm_tirx::ir::{PrimType, Var, UNKNOWN_LOC};
+//! use tvm_tirx::ir::{PrimType, PrimVar, Var, UNKNOWN_LOC};
 //! use tvm_tirx::script::script;
 //!
-//! let x = Var::new("x", PrimType::int(32), UNKNOWN_LOC);
+//! let x = PrimVar::new("x", PrimType::int(32), UNKNOWN_LOC);
 //! let next = Add::new(&x, 1, UNKNOWN_LOC)?;
 //! let capped = Select::new(LT::new(&x, 8, UNKNOWN_LOC)?, next, 8, UNKNOWN_LOC)?;
 //! assert_eq!(script(&capped)?, "T.Select(x < 8, x + 1, 8)");
 //!
-//! let f = Var::new("f", PrimType::float(32), UNKNOWN_LOC);
+//! let f = PrimVar::new("f", PrimType::float(32), UNKNOWN_LOC);
 //! assert!(Add::new(&x, &f, UNKNOWN_LOC).is_err());
 //! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
 //! ```
@@ -70,6 +70,115 @@
 // tvm-ffi-stubgen(custom-new): prim.Not
 // tvm-ffi-stubgen(custom-new): prim.Select
 // tvm-ffi-stubgen(custom-new): prim.Let
+// Every node is typed by a `PrimType` and holds `PrimExpr` operands, as C++ `Add` derives from
+// `PrimExpr` and `AddObj` holds `PrimExpr a, b`: its allocator takes a `PrimType`, and it converts
+// into a `PrimExpr` without a check.
+// tvm-ffi-stubgen(field): prim.Cast.ty -> PrimType
+// tvm-ffi-stubgen(field): prim.Cast.value -> PrimExpr
+// tvm-ffi-stubgen(upcast): prim.Cast -> PrimExpr
+// tvm-ffi-stubgen(field): prim.LShift.ty -> PrimType
+// tvm-ffi-stubgen(field): prim.LShift.a -> PrimExpr
+// tvm-ffi-stubgen(field): prim.LShift.b -> PrimExpr
+// tvm-ffi-stubgen(upcast): prim.LShift -> PrimExpr
+// tvm-ffi-stubgen(field): prim.RShift.ty -> PrimType
+// tvm-ffi-stubgen(field): prim.RShift.a -> PrimExpr
+// tvm-ffi-stubgen(field): prim.RShift.b -> PrimExpr
+// tvm-ffi-stubgen(upcast): prim.RShift -> PrimExpr
+// tvm-ffi-stubgen(field): prim.BitwiseAnd.ty -> PrimType
+// tvm-ffi-stubgen(field): prim.BitwiseAnd.a -> PrimExpr
+// tvm-ffi-stubgen(field): prim.BitwiseAnd.b -> PrimExpr
+// tvm-ffi-stubgen(upcast): prim.BitwiseAnd -> PrimExpr
+// tvm-ffi-stubgen(field): prim.BitwiseOr.ty -> PrimType
+// tvm-ffi-stubgen(field): prim.BitwiseOr.a -> PrimExpr
+// tvm-ffi-stubgen(field): prim.BitwiseOr.b -> PrimExpr
+// tvm-ffi-stubgen(upcast): prim.BitwiseOr -> PrimExpr
+// tvm-ffi-stubgen(field): prim.BitwiseXor.ty -> PrimType
+// tvm-ffi-stubgen(field): prim.BitwiseXor.a -> PrimExpr
+// tvm-ffi-stubgen(field): prim.BitwiseXor.b -> PrimExpr
+// tvm-ffi-stubgen(upcast): prim.BitwiseXor -> PrimExpr
+// tvm-ffi-stubgen(field): prim.BitwiseNot.ty -> PrimType
+// tvm-ffi-stubgen(field): prim.BitwiseNot.a -> PrimExpr
+// tvm-ffi-stubgen(upcast): prim.BitwiseNot -> PrimExpr
+// tvm-ffi-stubgen(field): prim.Add.ty -> PrimType
+// tvm-ffi-stubgen(field): prim.Add.a -> PrimExpr
+// tvm-ffi-stubgen(field): prim.Add.b -> PrimExpr
+// tvm-ffi-stubgen(upcast): prim.Add -> PrimExpr
+// tvm-ffi-stubgen(field): prim.Sub.ty -> PrimType
+// tvm-ffi-stubgen(field): prim.Sub.a -> PrimExpr
+// tvm-ffi-stubgen(field): prim.Sub.b -> PrimExpr
+// tvm-ffi-stubgen(upcast): prim.Sub -> PrimExpr
+// tvm-ffi-stubgen(field): prim.Mul.ty -> PrimType
+// tvm-ffi-stubgen(field): prim.Mul.a -> PrimExpr
+// tvm-ffi-stubgen(field): prim.Mul.b -> PrimExpr
+// tvm-ffi-stubgen(upcast): prim.Mul -> PrimExpr
+// tvm-ffi-stubgen(field): prim.Div.ty -> PrimType
+// tvm-ffi-stubgen(field): prim.Div.a -> PrimExpr
+// tvm-ffi-stubgen(field): prim.Div.b -> PrimExpr
+// tvm-ffi-stubgen(upcast): prim.Div -> PrimExpr
+// tvm-ffi-stubgen(field): prim.Mod.ty -> PrimType
+// tvm-ffi-stubgen(field): prim.Mod.a -> PrimExpr
+// tvm-ffi-stubgen(field): prim.Mod.b -> PrimExpr
+// tvm-ffi-stubgen(upcast): prim.Mod -> PrimExpr
+// tvm-ffi-stubgen(field): prim.FloorDiv.ty -> PrimType
+// tvm-ffi-stubgen(field): prim.FloorDiv.a -> PrimExpr
+// tvm-ffi-stubgen(field): prim.FloorDiv.b -> PrimExpr
+// tvm-ffi-stubgen(upcast): prim.FloorDiv -> PrimExpr
+// tvm-ffi-stubgen(field): prim.FloorMod.ty -> PrimType
+// tvm-ffi-stubgen(field): prim.FloorMod.a -> PrimExpr
+// tvm-ffi-stubgen(field): prim.FloorMod.b -> PrimExpr
+// tvm-ffi-stubgen(upcast): prim.FloorMod -> PrimExpr
+// tvm-ffi-stubgen(field): prim.Min.ty -> PrimType
+// tvm-ffi-stubgen(field): prim.Min.a -> PrimExpr
+// tvm-ffi-stubgen(field): prim.Min.b -> PrimExpr
+// tvm-ffi-stubgen(upcast): prim.Min -> PrimExpr
+// tvm-ffi-stubgen(field): prim.Max.ty -> PrimType
+// tvm-ffi-stubgen(field): prim.Max.a -> PrimExpr
+// tvm-ffi-stubgen(field): prim.Max.b -> PrimExpr
+// tvm-ffi-stubgen(upcast): prim.Max -> PrimExpr
+// tvm-ffi-stubgen(field): prim.EQ.ty -> PrimType
+// tvm-ffi-stubgen(field): prim.EQ.a -> PrimExpr
+// tvm-ffi-stubgen(field): prim.EQ.b -> PrimExpr
+// tvm-ffi-stubgen(upcast): prim.EQ -> PrimExpr
+// tvm-ffi-stubgen(field): prim.NE.ty -> PrimType
+// tvm-ffi-stubgen(field): prim.NE.a -> PrimExpr
+// tvm-ffi-stubgen(field): prim.NE.b -> PrimExpr
+// tvm-ffi-stubgen(upcast): prim.NE -> PrimExpr
+// tvm-ffi-stubgen(field): prim.LT.ty -> PrimType
+// tvm-ffi-stubgen(field): prim.LT.a -> PrimExpr
+// tvm-ffi-stubgen(field): prim.LT.b -> PrimExpr
+// tvm-ffi-stubgen(upcast): prim.LT -> PrimExpr
+// tvm-ffi-stubgen(field): prim.LE.ty -> PrimType
+// tvm-ffi-stubgen(field): prim.LE.a -> PrimExpr
+// tvm-ffi-stubgen(field): prim.LE.b -> PrimExpr
+// tvm-ffi-stubgen(upcast): prim.LE -> PrimExpr
+// tvm-ffi-stubgen(field): prim.GT.ty -> PrimType
+// tvm-ffi-stubgen(field): prim.GT.a -> PrimExpr
+// tvm-ffi-stubgen(field): prim.GT.b -> PrimExpr
+// tvm-ffi-stubgen(upcast): prim.GT -> PrimExpr
+// tvm-ffi-stubgen(field): prim.GE.ty -> PrimType
+// tvm-ffi-stubgen(field): prim.GE.a -> PrimExpr
+// tvm-ffi-stubgen(field): prim.GE.b -> PrimExpr
+// tvm-ffi-stubgen(upcast): prim.GE -> PrimExpr
+// tvm-ffi-stubgen(field): prim.And.ty -> PrimType
+// tvm-ffi-stubgen(field): prim.And.a -> PrimExpr
+// tvm-ffi-stubgen(field): prim.And.b -> PrimExpr
+// tvm-ffi-stubgen(upcast): prim.And -> PrimExpr
+// tvm-ffi-stubgen(field): prim.Or.ty -> PrimType
+// tvm-ffi-stubgen(field): prim.Or.a -> PrimExpr
+// tvm-ffi-stubgen(field): prim.Or.b -> PrimExpr
+// tvm-ffi-stubgen(upcast): prim.Or -> PrimExpr
+// tvm-ffi-stubgen(field): prim.Not.ty -> PrimType
+// tvm-ffi-stubgen(field): prim.Not.a -> PrimExpr
+// tvm-ffi-stubgen(upcast): prim.Not -> PrimExpr
+// tvm-ffi-stubgen(field): prim.Select.ty -> PrimType
+// tvm-ffi-stubgen(field): prim.Select.condition -> PrimExpr
+// tvm-ffi-stubgen(field): prim.Select.true_value -> PrimExpr
+// tvm-ffi-stubgen(field): prim.Select.false_value -> PrimExpr
+// tvm-ffi-stubgen(upcast): prim.Select -> PrimExpr
+// tvm-ffi-stubgen(field): prim.Let.ty -> PrimType
+// tvm-ffi-stubgen(field): prim.Let.value -> PrimExpr
+// tvm-ffi-stubgen(field): prim.Let.body -> PrimExpr
+// tvm-ffi-stubgen(upcast): prim.Let -> PrimExpr
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
 // tvm-ffi-stubgen(import-object): tvm_ffi::AnyView
@@ -77,6 +186,7 @@
 // tvm-ffi-stubgen(import-object): tvm_ffi::ObjectRefCore
 // tvm-ffi-stubgen(import-object): tvm_ffi::Result
 // tvm-ffi-stubgen(import-object): crate::ir::r#type::PrimType
+// tvm-ffi-stubgen(import-object): crate::ir::expr::PrimExpr
 // tvm-ffi-stubgen(import-object): crate::ir::r#type::PrimTypeObj
 // tvm-ffi-stubgen(import-object): crate::ir::support
 // tvm-ffi-stubgen(import-object): crate::ir::expr::IntoExpr
@@ -85,6 +195,7 @@
 use crate::ir::expr::Expr;
 use crate::ir::expr::ExprObj;
 use crate::ir::expr::IntoExpr;
+use crate::ir::expr::PrimExpr;
 use crate::ir::expr::Var;
 use crate::ir::location::Location;
 use crate::ir::r#type::PrimType;
@@ -115,8 +226,8 @@ enum Operands {
 }
 
 /// The type of the binary node `node` of `a` and `b`, after the checks of its C++ constructor.
-fn binary_type(node: &str, operands: Operands, a: &Expr, b: &Expr) -> Result<Type> {
-    let (a_dtype, b_dtype) = (support::prim_dtype(a)?, support::prim_dtype(b)?);
+fn binary_type(node: &str, operands: Operands, a: &PrimExpr, b: &PrimExpr) -> Result<PrimType> {
+    let (a_dtype, b_dtype) = (a.dtype(), b.dtype());
     if a_dtype != b_dtype {
         let message = format!(
             "mismatched types. {} vs. {}\n",
@@ -127,12 +238,12 @@ fn binary_type(node: &str, operands: Operands, a: &Expr, b: &Expr) -> Result<Typ
         return Err(support::check_failed(tvm_ffi::TYPE_ERROR, condition, &message));
     }
     match operands {
-        Operands::Arith => Ok(a.ty.clone()),
+        Operands::Arith => Ok(a.ty()),
         Operands::Bitwise { allow_bool } => {
             let code = a_dtype.code;
             if matches!(code, support::INT | support::UINT) || (allow_bool && code == support::BOOL)
             {
-                return Ok(a.ty.clone());
+                return Ok(a.ty());
             }
             let condition = format!(
                 "a.ty().MatchesCode(DLDataTypeCode::kDLInt, DLDataTypeCode::kDLUInt) || \
@@ -142,7 +253,7 @@ fn binary_type(node: &str, operands: Operands, a: &Expr, b: &Expr) -> Result<Typ
             let message = format!("{node} requires {operands} operands");
             Err(support::check_failed(tvm_ffi::TYPE_ERROR, &condition, &message))
         }
-        Operands::Compare => Ok(bool_type(a_dtype)?.into()),
+        Operands::Compare => bool_type(a_dtype),
     }
 }
 
@@ -154,8 +265,8 @@ fn bool_type(operand: DLDataType) -> Result<PrimType> {
 
 /// The type of the logical node of `a` and `b`, after the checks of the C++ `And` and `Or`
 /// constructors: boolean operands of one type.
-fn logical_type(a: &Expr, b: &Expr) -> Result<Type> {
-    let (a_dtype, b_dtype) = (support::prim_dtype(a)?, support::prim_dtype(b)?);
+fn logical_type(a: &PrimExpr, b: &PrimExpr) -> Result<PrimType> {
+    let (a_dtype, b_dtype) = (a.dtype(), b.dtype());
     for (dtype, operand) in [(a_dtype, "a_ty"), (b_dtype, "b_ty")] {
         if dtype.code != support::BOOL {
             let condition = format!("{operand}.MatchesCode(DLDataTypeCode::kDLBool)");
@@ -165,7 +276,7 @@ fn logical_type(a: &Expr, b: &Expr) -> Result<Type> {
     if a_dtype != b_dtype {
         return Err(support::check_failed(tvm_ffi::TYPE_ERROR, "a_ty == b_ty", "mismatched types"));
     }
-    Ok(bool_type(a_dtype)?.into())
+    bool_type(a_dtype)
 }
 
 /// `impl $node { pub fn new(a, b, loc) }` for each binary node, with the checks of its C++
@@ -181,8 +292,8 @@ macro_rules! binary_new {
                 /// Returns a `TypeError` if the operand types differ, or do not suit the node, such
                 /// as a float for a bitwise node.
                 pub fn new(
-                    a: impl IntoExpr,
-                    b: impl IntoExpr,
+                    a: impl IntoExpr<PrimExpr>,
+                    b: impl IntoExpr<PrimExpr>,
                     loc: impl Into<Location>,
                 ) -> Result<Self> {
                     let (a, b) = (a.into_owned_expr()?, b.into_owned_expr()?);
@@ -205,7 +316,7 @@ macro_rules! binary_new {
 #[type_final]
 pub struct CastObj {
     base: ExprObj,
-    pub value: Expr,
+    pub value: PrimExpr,
 }
 
 const _: () = {
@@ -234,8 +345,8 @@ impl Deref for CastObj {
 }
 
 impl CastObj {
-    pub(crate) fn new(loc: Location, ty: Type, value: Expr) -> Self {
-        let base = ExprObj::new(loc, ty);
+    pub(crate) fn new(loc: Location, ty: PrimType, value: PrimExpr) -> Self {
+        let base = ExprObj::new(loc, ty.into());
         Self { base, value }
     }
 }
@@ -244,15 +355,15 @@ impl Cast {
     /// Lossless complete-field allocation.
     pub fn from_fields(
         loc: impl Into<Location>,
-        ty: impl Into<Type>,
-        value: impl Into<Expr>,
+        ty: impl Into<PrimType>,
+        value: impl Into<PrimExpr>,
     ) -> Self {
         let obj = CastObj::new(loc.into(), ty.into(), value.into());
         Self { base: ObjectArc::new(obj) }
     }
 }
 
-tvm_ffi::impl_object_upcast!(Cast => Expr);
+tvm_ffi::impl_object_upcast!(Cast => Expr, Cast => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 impl Cast {
@@ -264,11 +375,11 @@ impl Cast {
     /// Returns an `InternalError` if `ty` and the type of `value` have different numbers of lanes.
     pub fn new(
         ty: impl Into<PrimType>,
-        value: impl IntoExpr,
+        value: impl IntoExpr<PrimExpr>,
         loc: impl Into<Location>,
     ) -> Result<Self> {
         let (ty, value) = (ty.into(), value.into_owned_expr()?);
-        let value_dtype = support::prim_dtype(&value)?;
+        let value_dtype = value.dtype();
         if ty.dtype.lanes != value_dtype.lanes {
             let condition = "ty->dtype.lanes == value_expr_ty->dtype.lanes";
             let (lhs, rhs) = (ty.dtype.lanes, value_dtype.lanes);
@@ -289,8 +400,8 @@ impl Cast {
 #[type_final]
 pub struct LShiftObj {
     base: ExprObj,
-    pub a: Expr,
-    pub b: Expr,
+    pub a: PrimExpr,
+    pub b: PrimExpr,
 }
 
 const _: () = {
@@ -319,8 +430,8 @@ impl Deref for LShiftObj {
 }
 
 impl LShiftObj {
-    pub(crate) fn new(loc: Location, ty: Type, a: Expr, b: Expr) -> Self {
-        let base = ExprObj::new(loc, ty);
+    pub(crate) fn new(loc: Location, ty: PrimType, a: PrimExpr, b: PrimExpr) -> Self {
+        let base = ExprObj::new(loc, ty.into());
         Self { base, a, b }
     }
 }
@@ -329,16 +440,16 @@ impl LShift {
     /// Lossless complete-field allocation.
     pub fn from_fields(
         loc: impl Into<Location>,
-        ty: impl Into<Type>,
-        a: impl Into<Expr>,
-        b: impl Into<Expr>,
+        ty: impl Into<PrimType>,
+        a: impl Into<PrimExpr>,
+        b: impl Into<PrimExpr>,
     ) -> Self {
         let obj = LShiftObj::new(loc.into(), ty.into(), a.into(), b.into());
         Self { base: ObjectArc::new(obj) }
     }
 }
 
-tvm_ffi::impl_object_upcast!(LShift => Expr);
+tvm_ffi::impl_object_upcast!(LShift => Expr, LShift => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 binary_new! {
@@ -355,8 +466,8 @@ binary_new! {
 #[type_final]
 pub struct RShiftObj {
     base: ExprObj,
-    pub a: Expr,
-    pub b: Expr,
+    pub a: PrimExpr,
+    pub b: PrimExpr,
 }
 
 const _: () = {
@@ -385,8 +496,8 @@ impl Deref for RShiftObj {
 }
 
 impl RShiftObj {
-    pub(crate) fn new(loc: Location, ty: Type, a: Expr, b: Expr) -> Self {
-        let base = ExprObj::new(loc, ty);
+    pub(crate) fn new(loc: Location, ty: PrimType, a: PrimExpr, b: PrimExpr) -> Self {
+        let base = ExprObj::new(loc, ty.into());
         Self { base, a, b }
     }
 }
@@ -395,16 +506,16 @@ impl RShift {
     /// Lossless complete-field allocation.
     pub fn from_fields(
         loc: impl Into<Location>,
-        ty: impl Into<Type>,
-        a: impl Into<Expr>,
-        b: impl Into<Expr>,
+        ty: impl Into<PrimType>,
+        a: impl Into<PrimExpr>,
+        b: impl Into<PrimExpr>,
     ) -> Self {
         let obj = RShiftObj::new(loc.into(), ty.into(), a.into(), b.into());
         Self { base: ObjectArc::new(obj) }
     }
 }
 
-tvm_ffi::impl_object_upcast!(RShift => Expr);
+tvm_ffi::impl_object_upcast!(RShift => Expr, RShift => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 binary_new! {
@@ -421,8 +532,8 @@ binary_new! {
 #[type_final]
 pub struct BitwiseAndObj {
     base: ExprObj,
-    pub a: Expr,
-    pub b: Expr,
+    pub a: PrimExpr,
+    pub b: PrimExpr,
 }
 
 const _: () = {
@@ -451,8 +562,8 @@ impl Deref for BitwiseAndObj {
 }
 
 impl BitwiseAndObj {
-    pub(crate) fn new(loc: Location, ty: Type, a: Expr, b: Expr) -> Self {
-        let base = ExprObj::new(loc, ty);
+    pub(crate) fn new(loc: Location, ty: PrimType, a: PrimExpr, b: PrimExpr) -> Self {
+        let base = ExprObj::new(loc, ty.into());
         Self { base, a, b }
     }
 }
@@ -461,16 +572,16 @@ impl BitwiseAnd {
     /// Lossless complete-field allocation.
     pub fn from_fields(
         loc: impl Into<Location>,
-        ty: impl Into<Type>,
-        a: impl Into<Expr>,
-        b: impl Into<Expr>,
+        ty: impl Into<PrimType>,
+        a: impl Into<PrimExpr>,
+        b: impl Into<PrimExpr>,
     ) -> Self {
         let obj = BitwiseAndObj::new(loc.into(), ty.into(), a.into(), b.into());
         Self { base: ObjectArc::new(obj) }
     }
 }
 
-tvm_ffi::impl_object_upcast!(BitwiseAnd => Expr);
+tvm_ffi::impl_object_upcast!(BitwiseAnd => Expr, BitwiseAnd => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 binary_new! {
@@ -487,8 +598,8 @@ binary_new! {
 #[type_final]
 pub struct BitwiseOrObj {
     base: ExprObj,
-    pub a: Expr,
-    pub b: Expr,
+    pub a: PrimExpr,
+    pub b: PrimExpr,
 }
 
 const _: () = {
@@ -517,8 +628,8 @@ impl Deref for BitwiseOrObj {
 }
 
 impl BitwiseOrObj {
-    pub(crate) fn new(loc: Location, ty: Type, a: Expr, b: Expr) -> Self {
-        let base = ExprObj::new(loc, ty);
+    pub(crate) fn new(loc: Location, ty: PrimType, a: PrimExpr, b: PrimExpr) -> Self {
+        let base = ExprObj::new(loc, ty.into());
         Self { base, a, b }
     }
 }
@@ -527,16 +638,16 @@ impl BitwiseOr {
     /// Lossless complete-field allocation.
     pub fn from_fields(
         loc: impl Into<Location>,
-        ty: impl Into<Type>,
-        a: impl Into<Expr>,
-        b: impl Into<Expr>,
+        ty: impl Into<PrimType>,
+        a: impl Into<PrimExpr>,
+        b: impl Into<PrimExpr>,
     ) -> Self {
         let obj = BitwiseOrObj::new(loc.into(), ty.into(), a.into(), b.into());
         Self { base: ObjectArc::new(obj) }
     }
 }
 
-tvm_ffi::impl_object_upcast!(BitwiseOr => Expr);
+tvm_ffi::impl_object_upcast!(BitwiseOr => Expr, BitwiseOr => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 binary_new! {
@@ -553,8 +664,8 @@ binary_new! {
 #[type_final]
 pub struct BitwiseXorObj {
     base: ExprObj,
-    pub a: Expr,
-    pub b: Expr,
+    pub a: PrimExpr,
+    pub b: PrimExpr,
 }
 
 const _: () = {
@@ -583,8 +694,8 @@ impl Deref for BitwiseXorObj {
 }
 
 impl BitwiseXorObj {
-    pub(crate) fn new(loc: Location, ty: Type, a: Expr, b: Expr) -> Self {
-        let base = ExprObj::new(loc, ty);
+    pub(crate) fn new(loc: Location, ty: PrimType, a: PrimExpr, b: PrimExpr) -> Self {
+        let base = ExprObj::new(loc, ty.into());
         Self { base, a, b }
     }
 }
@@ -593,16 +704,16 @@ impl BitwiseXor {
     /// Lossless complete-field allocation.
     pub fn from_fields(
         loc: impl Into<Location>,
-        ty: impl Into<Type>,
-        a: impl Into<Expr>,
-        b: impl Into<Expr>,
+        ty: impl Into<PrimType>,
+        a: impl Into<PrimExpr>,
+        b: impl Into<PrimExpr>,
     ) -> Self {
         let obj = BitwiseXorObj::new(loc.into(), ty.into(), a.into(), b.into());
         Self { base: ObjectArc::new(obj) }
     }
 }
 
-tvm_ffi::impl_object_upcast!(BitwiseXor => Expr);
+tvm_ffi::impl_object_upcast!(BitwiseXor => Expr, BitwiseXor => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 binary_new! {
@@ -619,7 +730,7 @@ binary_new! {
 #[type_final]
 pub struct BitwiseNotObj {
     base: ExprObj,
-    pub a: Expr,
+    pub a: PrimExpr,
 }
 
 const _: () = {
@@ -648,21 +759,25 @@ impl Deref for BitwiseNotObj {
 }
 
 impl BitwiseNotObj {
-    pub(crate) fn new(loc: Location, ty: Type, a: Expr) -> Self {
-        let base = ExprObj::new(loc, ty);
+    pub(crate) fn new(loc: Location, ty: PrimType, a: PrimExpr) -> Self {
+        let base = ExprObj::new(loc, ty.into());
         Self { base, a }
     }
 }
 
 impl BitwiseNot {
     /// Lossless complete-field allocation.
-    pub fn from_fields(loc: impl Into<Location>, ty: impl Into<Type>, a: impl Into<Expr>) -> Self {
+    pub fn from_fields(
+        loc: impl Into<Location>,
+        ty: impl Into<PrimType>,
+        a: impl Into<PrimExpr>,
+    ) -> Self {
         let obj = BitwiseNotObj::new(loc.into(), ty.into(), a.into());
         Self { base: ObjectArc::new(obj) }
     }
 }
 
-tvm_ffi::impl_object_upcast!(BitwiseNot => Expr);
+tvm_ffi::impl_object_upcast!(BitwiseNot => Expr, BitwiseNot => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 impl BitwiseNot {
@@ -671,15 +786,15 @@ impl BitwiseNot {
     /// # Errors
     ///
     /// Returns a `TypeError` if `a` is not of an integer or boolean type.
-    pub fn new(a: impl IntoExpr, loc: impl Into<Location>) -> Result<Self> {
+    pub fn new(a: impl IntoExpr<PrimExpr>, loc: impl Into<Location>) -> Result<Self> {
         let a = a.into_owned_expr()?;
-        if !matches!(support::prim_dtype(&a)?.code, support::INT | support::UINT | support::BOOL) {
+        if !matches!(a.dtype().code, support::INT | support::UINT | support::BOOL) {
             let condition = "a_ty.MatchesCode(DLDataTypeCode::kDLInt, DLDataTypeCode::kDLUInt) || \
                              a_ty.MatchesCode(DLDataTypeCode::kDLBool)";
             let message = "BitwiseNot requires an integer or boolean operand";
             return Err(support::check_failed(tvm_ffi::TYPE_ERROR, condition, message));
         }
-        Ok(Self::from_fields(loc.into(), a.ty.clone(), a))
+        Ok(Self::from_fields(loc.into(), a.ty(), a))
     }
 }
 
@@ -694,8 +809,8 @@ impl BitwiseNot {
 #[type_final]
 pub struct AddObj {
     base: ExprObj,
-    pub a: Expr,
-    pub b: Expr,
+    pub a: PrimExpr,
+    pub b: PrimExpr,
 }
 
 const _: () = {
@@ -724,8 +839,8 @@ impl Deref for AddObj {
 }
 
 impl AddObj {
-    pub(crate) fn new(loc: Location, ty: Type, a: Expr, b: Expr) -> Self {
-        let base = ExprObj::new(loc, ty);
+    pub(crate) fn new(loc: Location, ty: PrimType, a: PrimExpr, b: PrimExpr) -> Self {
+        let base = ExprObj::new(loc, ty.into());
         Self { base, a, b }
     }
 }
@@ -734,16 +849,16 @@ impl Add {
     /// Lossless complete-field allocation.
     pub fn from_fields(
         loc: impl Into<Location>,
-        ty: impl Into<Type>,
-        a: impl Into<Expr>,
-        b: impl Into<Expr>,
+        ty: impl Into<PrimType>,
+        a: impl Into<PrimExpr>,
+        b: impl Into<PrimExpr>,
     ) -> Self {
         let obj = AddObj::new(loc.into(), ty.into(), a.into(), b.into());
         Self { base: ObjectArc::new(obj) }
     }
 }
 
-tvm_ffi::impl_object_upcast!(Add => Expr);
+tvm_ffi::impl_object_upcast!(Add => Expr, Add => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 binary_new! {
@@ -759,8 +874,8 @@ binary_new! {
 #[type_final]
 pub struct SubObj {
     base: ExprObj,
-    pub a: Expr,
-    pub b: Expr,
+    pub a: PrimExpr,
+    pub b: PrimExpr,
 }
 
 const _: () = {
@@ -789,8 +904,8 @@ impl Deref for SubObj {
 }
 
 impl SubObj {
-    pub(crate) fn new(loc: Location, ty: Type, a: Expr, b: Expr) -> Self {
-        let base = ExprObj::new(loc, ty);
+    pub(crate) fn new(loc: Location, ty: PrimType, a: PrimExpr, b: PrimExpr) -> Self {
+        let base = ExprObj::new(loc, ty.into());
         Self { base, a, b }
     }
 }
@@ -799,16 +914,16 @@ impl Sub {
     /// Lossless complete-field allocation.
     pub fn from_fields(
         loc: impl Into<Location>,
-        ty: impl Into<Type>,
-        a: impl Into<Expr>,
-        b: impl Into<Expr>,
+        ty: impl Into<PrimType>,
+        a: impl Into<PrimExpr>,
+        b: impl Into<PrimExpr>,
     ) -> Self {
         let obj = SubObj::new(loc.into(), ty.into(), a.into(), b.into());
         Self { base: ObjectArc::new(obj) }
     }
 }
 
-tvm_ffi::impl_object_upcast!(Sub => Expr);
+tvm_ffi::impl_object_upcast!(Sub => Expr, Sub => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 binary_new! {
@@ -824,8 +939,8 @@ binary_new! {
 #[type_final]
 pub struct MulObj {
     base: ExprObj,
-    pub a: Expr,
-    pub b: Expr,
+    pub a: PrimExpr,
+    pub b: PrimExpr,
 }
 
 const _: () = {
@@ -854,8 +969,8 @@ impl Deref for MulObj {
 }
 
 impl MulObj {
-    pub(crate) fn new(loc: Location, ty: Type, a: Expr, b: Expr) -> Self {
-        let base = ExprObj::new(loc, ty);
+    pub(crate) fn new(loc: Location, ty: PrimType, a: PrimExpr, b: PrimExpr) -> Self {
+        let base = ExprObj::new(loc, ty.into());
         Self { base, a, b }
     }
 }
@@ -864,16 +979,16 @@ impl Mul {
     /// Lossless complete-field allocation.
     pub fn from_fields(
         loc: impl Into<Location>,
-        ty: impl Into<Type>,
-        a: impl Into<Expr>,
-        b: impl Into<Expr>,
+        ty: impl Into<PrimType>,
+        a: impl Into<PrimExpr>,
+        b: impl Into<PrimExpr>,
     ) -> Self {
         let obj = MulObj::new(loc.into(), ty.into(), a.into(), b.into());
         Self { base: ObjectArc::new(obj) }
     }
 }
 
-tvm_ffi::impl_object_upcast!(Mul => Expr);
+tvm_ffi::impl_object_upcast!(Mul => Expr, Mul => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 binary_new! {
@@ -889,8 +1004,8 @@ binary_new! {
 #[type_final]
 pub struct DivObj {
     base: ExprObj,
-    pub a: Expr,
-    pub b: Expr,
+    pub a: PrimExpr,
+    pub b: PrimExpr,
 }
 
 const _: () = {
@@ -919,8 +1034,8 @@ impl Deref for DivObj {
 }
 
 impl DivObj {
-    pub(crate) fn new(loc: Location, ty: Type, a: Expr, b: Expr) -> Self {
-        let base = ExprObj::new(loc, ty);
+    pub(crate) fn new(loc: Location, ty: PrimType, a: PrimExpr, b: PrimExpr) -> Self {
+        let base = ExprObj::new(loc, ty.into());
         Self { base, a, b }
     }
 }
@@ -929,16 +1044,16 @@ impl Div {
     /// Lossless complete-field allocation.
     pub fn from_fields(
         loc: impl Into<Location>,
-        ty: impl Into<Type>,
-        a: impl Into<Expr>,
-        b: impl Into<Expr>,
+        ty: impl Into<PrimType>,
+        a: impl Into<PrimExpr>,
+        b: impl Into<PrimExpr>,
     ) -> Self {
         let obj = DivObj::new(loc.into(), ty.into(), a.into(), b.into());
         Self { base: ObjectArc::new(obj) }
     }
 }
 
-tvm_ffi::impl_object_upcast!(Div => Expr);
+tvm_ffi::impl_object_upcast!(Div => Expr, Div => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 binary_new! {
@@ -954,8 +1069,8 @@ binary_new! {
 #[type_final]
 pub struct ModObj {
     base: ExprObj,
-    pub a: Expr,
-    pub b: Expr,
+    pub a: PrimExpr,
+    pub b: PrimExpr,
 }
 
 const _: () = {
@@ -984,8 +1099,8 @@ impl Deref for ModObj {
 }
 
 impl ModObj {
-    pub(crate) fn new(loc: Location, ty: Type, a: Expr, b: Expr) -> Self {
-        let base = ExprObj::new(loc, ty);
+    pub(crate) fn new(loc: Location, ty: PrimType, a: PrimExpr, b: PrimExpr) -> Self {
+        let base = ExprObj::new(loc, ty.into());
         Self { base, a, b }
     }
 }
@@ -994,16 +1109,16 @@ impl Mod {
     /// Lossless complete-field allocation.
     pub fn from_fields(
         loc: impl Into<Location>,
-        ty: impl Into<Type>,
-        a: impl Into<Expr>,
-        b: impl Into<Expr>,
+        ty: impl Into<PrimType>,
+        a: impl Into<PrimExpr>,
+        b: impl Into<PrimExpr>,
     ) -> Self {
         let obj = ModObj::new(loc.into(), ty.into(), a.into(), b.into());
         Self { base: ObjectArc::new(obj) }
     }
 }
 
-tvm_ffi::impl_object_upcast!(Mod => Expr);
+tvm_ffi::impl_object_upcast!(Mod => Expr, Mod => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 binary_new! {
@@ -1019,8 +1134,8 @@ binary_new! {
 #[type_final]
 pub struct FloorDivObj {
     base: ExprObj,
-    pub a: Expr,
-    pub b: Expr,
+    pub a: PrimExpr,
+    pub b: PrimExpr,
 }
 
 const _: () = {
@@ -1049,8 +1164,8 @@ impl Deref for FloorDivObj {
 }
 
 impl FloorDivObj {
-    pub(crate) fn new(loc: Location, ty: Type, a: Expr, b: Expr) -> Self {
-        let base = ExprObj::new(loc, ty);
+    pub(crate) fn new(loc: Location, ty: PrimType, a: PrimExpr, b: PrimExpr) -> Self {
+        let base = ExprObj::new(loc, ty.into());
         Self { base, a, b }
     }
 }
@@ -1059,16 +1174,16 @@ impl FloorDiv {
     /// Lossless complete-field allocation.
     pub fn from_fields(
         loc: impl Into<Location>,
-        ty: impl Into<Type>,
-        a: impl Into<Expr>,
-        b: impl Into<Expr>,
+        ty: impl Into<PrimType>,
+        a: impl Into<PrimExpr>,
+        b: impl Into<PrimExpr>,
     ) -> Self {
         let obj = FloorDivObj::new(loc.into(), ty.into(), a.into(), b.into());
         Self { base: ObjectArc::new(obj) }
     }
 }
 
-tvm_ffi::impl_object_upcast!(FloorDiv => Expr);
+tvm_ffi::impl_object_upcast!(FloorDiv => Expr, FloorDiv => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 binary_new! {
@@ -1085,8 +1200,8 @@ binary_new! {
 #[type_final]
 pub struct FloorModObj {
     base: ExprObj,
-    pub a: Expr,
-    pub b: Expr,
+    pub a: PrimExpr,
+    pub b: PrimExpr,
 }
 
 const _: () = {
@@ -1115,8 +1230,8 @@ impl Deref for FloorModObj {
 }
 
 impl FloorModObj {
-    pub(crate) fn new(loc: Location, ty: Type, a: Expr, b: Expr) -> Self {
-        let base = ExprObj::new(loc, ty);
+    pub(crate) fn new(loc: Location, ty: PrimType, a: PrimExpr, b: PrimExpr) -> Self {
+        let base = ExprObj::new(loc, ty.into());
         Self { base, a, b }
     }
 }
@@ -1125,16 +1240,16 @@ impl FloorMod {
     /// Lossless complete-field allocation.
     pub fn from_fields(
         loc: impl Into<Location>,
-        ty: impl Into<Type>,
-        a: impl Into<Expr>,
-        b: impl Into<Expr>,
+        ty: impl Into<PrimType>,
+        a: impl Into<PrimExpr>,
+        b: impl Into<PrimExpr>,
     ) -> Self {
         let obj = FloorModObj::new(loc.into(), ty.into(), a.into(), b.into());
         Self { base: ObjectArc::new(obj) }
     }
 }
 
-tvm_ffi::impl_object_upcast!(FloorMod => Expr);
+tvm_ffi::impl_object_upcast!(FloorMod => Expr, FloorMod => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 binary_new! {
@@ -1151,8 +1266,8 @@ binary_new! {
 #[type_final]
 pub struct MinObj {
     base: ExprObj,
-    pub a: Expr,
-    pub b: Expr,
+    pub a: PrimExpr,
+    pub b: PrimExpr,
 }
 
 const _: () = {
@@ -1181,8 +1296,8 @@ impl Deref for MinObj {
 }
 
 impl MinObj {
-    pub(crate) fn new(loc: Location, ty: Type, a: Expr, b: Expr) -> Self {
-        let base = ExprObj::new(loc, ty);
+    pub(crate) fn new(loc: Location, ty: PrimType, a: PrimExpr, b: PrimExpr) -> Self {
+        let base = ExprObj::new(loc, ty.into());
         Self { base, a, b }
     }
 }
@@ -1191,16 +1306,16 @@ impl Min {
     /// Lossless complete-field allocation.
     pub fn from_fields(
         loc: impl Into<Location>,
-        ty: impl Into<Type>,
-        a: impl Into<Expr>,
-        b: impl Into<Expr>,
+        ty: impl Into<PrimType>,
+        a: impl Into<PrimExpr>,
+        b: impl Into<PrimExpr>,
     ) -> Self {
         let obj = MinObj::new(loc.into(), ty.into(), a.into(), b.into());
         Self { base: ObjectArc::new(obj) }
     }
 }
 
-tvm_ffi::impl_object_upcast!(Min => Expr);
+tvm_ffi::impl_object_upcast!(Min => Expr, Min => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 binary_new! {
@@ -1216,8 +1331,8 @@ binary_new! {
 #[type_final]
 pub struct MaxObj {
     base: ExprObj,
-    pub a: Expr,
-    pub b: Expr,
+    pub a: PrimExpr,
+    pub b: PrimExpr,
 }
 
 const _: () = {
@@ -1246,8 +1361,8 @@ impl Deref for MaxObj {
 }
 
 impl MaxObj {
-    pub(crate) fn new(loc: Location, ty: Type, a: Expr, b: Expr) -> Self {
-        let base = ExprObj::new(loc, ty);
+    pub(crate) fn new(loc: Location, ty: PrimType, a: PrimExpr, b: PrimExpr) -> Self {
+        let base = ExprObj::new(loc, ty.into());
         Self { base, a, b }
     }
 }
@@ -1256,16 +1371,16 @@ impl Max {
     /// Lossless complete-field allocation.
     pub fn from_fields(
         loc: impl Into<Location>,
-        ty: impl Into<Type>,
-        a: impl Into<Expr>,
-        b: impl Into<Expr>,
+        ty: impl Into<PrimType>,
+        a: impl Into<PrimExpr>,
+        b: impl Into<PrimExpr>,
     ) -> Self {
         let obj = MaxObj::new(loc.into(), ty.into(), a.into(), b.into());
         Self { base: ObjectArc::new(obj) }
     }
 }
 
-tvm_ffi::impl_object_upcast!(Max => Expr);
+tvm_ffi::impl_object_upcast!(Max => Expr, Max => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 binary_new! {
@@ -1284,8 +1399,8 @@ binary_new! {
 #[type_final]
 pub struct EQObj {
     base: ExprObj,
-    pub a: Expr,
-    pub b: Expr,
+    pub a: PrimExpr,
+    pub b: PrimExpr,
 }
 
 const _: () = {
@@ -1314,8 +1429,8 @@ impl Deref for EQObj {
 }
 
 impl EQObj {
-    pub(crate) fn new(loc: Location, ty: Type, a: Expr, b: Expr) -> Self {
-        let base = ExprObj::new(loc, ty);
+    pub(crate) fn new(loc: Location, ty: PrimType, a: PrimExpr, b: PrimExpr) -> Self {
+        let base = ExprObj::new(loc, ty.into());
         Self { base, a, b }
     }
 }
@@ -1324,16 +1439,16 @@ impl EQ {
     /// Lossless complete-field allocation.
     pub fn from_fields(
         loc: impl Into<Location>,
-        ty: impl Into<Type>,
-        a: impl Into<Expr>,
-        b: impl Into<Expr>,
+        ty: impl Into<PrimType>,
+        a: impl Into<PrimExpr>,
+        b: impl Into<PrimExpr>,
     ) -> Self {
         let obj = EQObj::new(loc.into(), ty.into(), a.into(), b.into());
         Self { base: ObjectArc::new(obj) }
     }
 }
 
-tvm_ffi::impl_object_upcast!(EQ => Expr);
+tvm_ffi::impl_object_upcast!(EQ => Expr, EQ => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 binary_new! {
@@ -1350,8 +1465,8 @@ binary_new! {
 #[type_final]
 pub struct NEObj {
     base: ExprObj,
-    pub a: Expr,
-    pub b: Expr,
+    pub a: PrimExpr,
+    pub b: PrimExpr,
 }
 
 const _: () = {
@@ -1380,8 +1495,8 @@ impl Deref for NEObj {
 }
 
 impl NEObj {
-    pub(crate) fn new(loc: Location, ty: Type, a: Expr, b: Expr) -> Self {
-        let base = ExprObj::new(loc, ty);
+    pub(crate) fn new(loc: Location, ty: PrimType, a: PrimExpr, b: PrimExpr) -> Self {
+        let base = ExprObj::new(loc, ty.into());
         Self { base, a, b }
     }
 }
@@ -1390,16 +1505,16 @@ impl NE {
     /// Lossless complete-field allocation.
     pub fn from_fields(
         loc: impl Into<Location>,
-        ty: impl Into<Type>,
-        a: impl Into<Expr>,
-        b: impl Into<Expr>,
+        ty: impl Into<PrimType>,
+        a: impl Into<PrimExpr>,
+        b: impl Into<PrimExpr>,
     ) -> Self {
         let obj = NEObj::new(loc.into(), ty.into(), a.into(), b.into());
         Self { base: ObjectArc::new(obj) }
     }
 }
 
-tvm_ffi::impl_object_upcast!(NE => Expr);
+tvm_ffi::impl_object_upcast!(NE => Expr, NE => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 binary_new! {
@@ -1416,8 +1531,8 @@ binary_new! {
 #[type_final]
 pub struct LTObj {
     base: ExprObj,
-    pub a: Expr,
-    pub b: Expr,
+    pub a: PrimExpr,
+    pub b: PrimExpr,
 }
 
 const _: () = {
@@ -1446,8 +1561,8 @@ impl Deref for LTObj {
 }
 
 impl LTObj {
-    pub(crate) fn new(loc: Location, ty: Type, a: Expr, b: Expr) -> Self {
-        let base = ExprObj::new(loc, ty);
+    pub(crate) fn new(loc: Location, ty: PrimType, a: PrimExpr, b: PrimExpr) -> Self {
+        let base = ExprObj::new(loc, ty.into());
         Self { base, a, b }
     }
 }
@@ -1456,16 +1571,16 @@ impl LT {
     /// Lossless complete-field allocation.
     pub fn from_fields(
         loc: impl Into<Location>,
-        ty: impl Into<Type>,
-        a: impl Into<Expr>,
-        b: impl Into<Expr>,
+        ty: impl Into<PrimType>,
+        a: impl Into<PrimExpr>,
+        b: impl Into<PrimExpr>,
     ) -> Self {
         let obj = LTObj::new(loc.into(), ty.into(), a.into(), b.into());
         Self { base: ObjectArc::new(obj) }
     }
 }
 
-tvm_ffi::impl_object_upcast!(LT => Expr);
+tvm_ffi::impl_object_upcast!(LT => Expr, LT => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 binary_new! {
@@ -1482,8 +1597,8 @@ binary_new! {
 #[type_final]
 pub struct LEObj {
     base: ExprObj,
-    pub a: Expr,
-    pub b: Expr,
+    pub a: PrimExpr,
+    pub b: PrimExpr,
 }
 
 const _: () = {
@@ -1512,8 +1627,8 @@ impl Deref for LEObj {
 }
 
 impl LEObj {
-    pub(crate) fn new(loc: Location, ty: Type, a: Expr, b: Expr) -> Self {
-        let base = ExprObj::new(loc, ty);
+    pub(crate) fn new(loc: Location, ty: PrimType, a: PrimExpr, b: PrimExpr) -> Self {
+        let base = ExprObj::new(loc, ty.into());
         Self { base, a, b }
     }
 }
@@ -1522,16 +1637,16 @@ impl LE {
     /// Lossless complete-field allocation.
     pub fn from_fields(
         loc: impl Into<Location>,
-        ty: impl Into<Type>,
-        a: impl Into<Expr>,
-        b: impl Into<Expr>,
+        ty: impl Into<PrimType>,
+        a: impl Into<PrimExpr>,
+        b: impl Into<PrimExpr>,
     ) -> Self {
         let obj = LEObj::new(loc.into(), ty.into(), a.into(), b.into());
         Self { base: ObjectArc::new(obj) }
     }
 }
 
-tvm_ffi::impl_object_upcast!(LE => Expr);
+tvm_ffi::impl_object_upcast!(LE => Expr, LE => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 binary_new! {
@@ -1548,8 +1663,8 @@ binary_new! {
 #[type_final]
 pub struct GTObj {
     base: ExprObj,
-    pub a: Expr,
-    pub b: Expr,
+    pub a: PrimExpr,
+    pub b: PrimExpr,
 }
 
 const _: () = {
@@ -1578,8 +1693,8 @@ impl Deref for GTObj {
 }
 
 impl GTObj {
-    pub(crate) fn new(loc: Location, ty: Type, a: Expr, b: Expr) -> Self {
-        let base = ExprObj::new(loc, ty);
+    pub(crate) fn new(loc: Location, ty: PrimType, a: PrimExpr, b: PrimExpr) -> Self {
+        let base = ExprObj::new(loc, ty.into());
         Self { base, a, b }
     }
 }
@@ -1588,16 +1703,16 @@ impl GT {
     /// Lossless complete-field allocation.
     pub fn from_fields(
         loc: impl Into<Location>,
-        ty: impl Into<Type>,
-        a: impl Into<Expr>,
-        b: impl Into<Expr>,
+        ty: impl Into<PrimType>,
+        a: impl Into<PrimExpr>,
+        b: impl Into<PrimExpr>,
     ) -> Self {
         let obj = GTObj::new(loc.into(), ty.into(), a.into(), b.into());
         Self { base: ObjectArc::new(obj) }
     }
 }
 
-tvm_ffi::impl_object_upcast!(GT => Expr);
+tvm_ffi::impl_object_upcast!(GT => Expr, GT => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 binary_new! {
@@ -1614,8 +1729,8 @@ binary_new! {
 #[type_final]
 pub struct GEObj {
     base: ExprObj,
-    pub a: Expr,
-    pub b: Expr,
+    pub a: PrimExpr,
+    pub b: PrimExpr,
 }
 
 const _: () = {
@@ -1644,8 +1759,8 @@ impl Deref for GEObj {
 }
 
 impl GEObj {
-    pub(crate) fn new(loc: Location, ty: Type, a: Expr, b: Expr) -> Self {
-        let base = ExprObj::new(loc, ty);
+    pub(crate) fn new(loc: Location, ty: PrimType, a: PrimExpr, b: PrimExpr) -> Self {
+        let base = ExprObj::new(loc, ty.into());
         Self { base, a, b }
     }
 }
@@ -1654,16 +1769,16 @@ impl GE {
     /// Lossless complete-field allocation.
     pub fn from_fields(
         loc: impl Into<Location>,
-        ty: impl Into<Type>,
-        a: impl Into<Expr>,
-        b: impl Into<Expr>,
+        ty: impl Into<PrimType>,
+        a: impl Into<PrimExpr>,
+        b: impl Into<PrimExpr>,
     ) -> Self {
         let obj = GEObj::new(loc.into(), ty.into(), a.into(), b.into());
         Self { base: ObjectArc::new(obj) }
     }
 }
 
-tvm_ffi::impl_object_upcast!(GE => Expr);
+tvm_ffi::impl_object_upcast!(GE => Expr, GE => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 binary_new! {
@@ -1683,8 +1798,8 @@ binary_new! {
 #[type_final]
 pub struct AndObj {
     base: ExprObj,
-    pub a: Expr,
-    pub b: Expr,
+    pub a: PrimExpr,
+    pub b: PrimExpr,
 }
 
 const _: () = {
@@ -1713,8 +1828,8 @@ impl Deref for AndObj {
 }
 
 impl AndObj {
-    pub(crate) fn new(loc: Location, ty: Type, a: Expr, b: Expr) -> Self {
-        let base = ExprObj::new(loc, ty);
+    pub(crate) fn new(loc: Location, ty: PrimType, a: PrimExpr, b: PrimExpr) -> Self {
+        let base = ExprObj::new(loc, ty.into());
         Self { base, a, b }
     }
 }
@@ -1723,16 +1838,16 @@ impl And {
     /// Lossless complete-field allocation.
     pub fn from_fields(
         loc: impl Into<Location>,
-        ty: impl Into<Type>,
-        a: impl Into<Expr>,
-        b: impl Into<Expr>,
+        ty: impl Into<PrimType>,
+        a: impl Into<PrimExpr>,
+        b: impl Into<PrimExpr>,
     ) -> Self {
         let obj = AndObj::new(loc.into(), ty.into(), a.into(), b.into());
         Self { base: ObjectArc::new(obj) }
     }
 }
 
-tvm_ffi::impl_object_upcast!(And => Expr);
+tvm_ffi::impl_object_upcast!(And => Expr, And => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 impl And {
@@ -1742,7 +1857,11 @@ impl And {
     ///
     /// Returns an `InternalError` if an operand is not boolean, or a `TypeError` if the operand
     /// types differ.
-    pub fn new(a: impl IntoExpr, b: impl IntoExpr, loc: impl Into<Location>) -> Result<Self> {
+    pub fn new(
+        a: impl IntoExpr<PrimExpr>,
+        b: impl IntoExpr<PrimExpr>,
+        loc: impl Into<Location>,
+    ) -> Result<Self> {
         let (a, b) = (a.into_owned_expr()?, b.into_owned_expr()?);
         let ty = logical_type(&a, &b)?;
         Ok(Self::from_fields(loc.into(), ty, a, b))
@@ -1757,8 +1876,8 @@ impl And {
 #[type_final]
 pub struct OrObj {
     base: ExprObj,
-    pub a: Expr,
-    pub b: Expr,
+    pub a: PrimExpr,
+    pub b: PrimExpr,
 }
 
 const _: () = {
@@ -1787,8 +1906,8 @@ impl Deref for OrObj {
 }
 
 impl OrObj {
-    pub(crate) fn new(loc: Location, ty: Type, a: Expr, b: Expr) -> Self {
-        let base = ExprObj::new(loc, ty);
+    pub(crate) fn new(loc: Location, ty: PrimType, a: PrimExpr, b: PrimExpr) -> Self {
+        let base = ExprObj::new(loc, ty.into());
         Self { base, a, b }
     }
 }
@@ -1797,16 +1916,16 @@ impl Or {
     /// Lossless complete-field allocation.
     pub fn from_fields(
         loc: impl Into<Location>,
-        ty: impl Into<Type>,
-        a: impl Into<Expr>,
-        b: impl Into<Expr>,
+        ty: impl Into<PrimType>,
+        a: impl Into<PrimExpr>,
+        b: impl Into<PrimExpr>,
     ) -> Self {
         let obj = OrObj::new(loc.into(), ty.into(), a.into(), b.into());
         Self { base: ObjectArc::new(obj) }
     }
 }
 
-tvm_ffi::impl_object_upcast!(Or => Expr);
+tvm_ffi::impl_object_upcast!(Or => Expr, Or => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 impl Or {
@@ -1816,7 +1935,11 @@ impl Or {
     ///
     /// Returns an `InternalError` if an operand is not boolean, or a `TypeError` if the operand
     /// types differ.
-    pub fn new(a: impl IntoExpr, b: impl IntoExpr, loc: impl Into<Location>) -> Result<Self> {
+    pub fn new(
+        a: impl IntoExpr<PrimExpr>,
+        b: impl IntoExpr<PrimExpr>,
+        loc: impl Into<Location>,
+    ) -> Result<Self> {
         let (a, b) = (a.into_owned_expr()?, b.into_owned_expr()?);
         let ty = logical_type(&a, &b)?;
         Ok(Self::from_fields(loc.into(), ty, a, b))
@@ -1831,7 +1954,7 @@ impl Or {
 #[type_final]
 pub struct NotObj {
     base: ExprObj,
-    pub a: Expr,
+    pub a: PrimExpr,
 }
 
 const _: () = {
@@ -1860,21 +1983,25 @@ impl Deref for NotObj {
 }
 
 impl NotObj {
-    pub(crate) fn new(loc: Location, ty: Type, a: Expr) -> Self {
-        let base = ExprObj::new(loc, ty);
+    pub(crate) fn new(loc: Location, ty: PrimType, a: PrimExpr) -> Self {
+        let base = ExprObj::new(loc, ty.into());
         Self { base, a }
     }
 }
 
 impl Not {
     /// Lossless complete-field allocation.
-    pub fn from_fields(loc: impl Into<Location>, ty: impl Into<Type>, a: impl Into<Expr>) -> Self {
+    pub fn from_fields(
+        loc: impl Into<Location>,
+        ty: impl Into<PrimType>,
+        a: impl Into<PrimExpr>,
+    ) -> Self {
         let obj = NotObj::new(loc.into(), ty.into(), a.into());
         Self { base: ObjectArc::new(obj) }
     }
 }
 
-tvm_ffi::impl_object_upcast!(Not => Expr);
+tvm_ffi::impl_object_upcast!(Not => Expr, Not => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 impl Not {
@@ -1883,9 +2010,9 @@ impl Not {
     /// # Errors
     ///
     /// Returns an `InternalError` if `a` is not boolean.
-    pub fn new(a: impl IntoExpr, loc: impl Into<Location>) -> Result<Self> {
+    pub fn new(a: impl IntoExpr<PrimExpr>, loc: impl Into<Location>) -> Result<Self> {
         let a = a.into_owned_expr()?;
-        let a_dtype = support::prim_dtype(&a)?;
+        let a_dtype = a.dtype();
         if a_dtype.code != support::BOOL {
             let condition = "a_ty.MatchesCode(DLDataTypeCode::kDLBool)";
             return Err(support::check_failed(tvm_ffi::INTERNAL_ERROR, condition, ""));
@@ -1905,9 +2032,9 @@ impl Not {
 #[type_final]
 pub struct SelectObj {
     base: ExprObj,
-    pub condition: Expr,
-    pub true_value: Expr,
-    pub false_value: Expr,
+    pub condition: PrimExpr,
+    pub true_value: PrimExpr,
+    pub false_value: PrimExpr,
 }
 
 const _: () = {
@@ -1938,12 +2065,12 @@ impl Deref for SelectObj {
 impl SelectObj {
     pub(crate) fn new(
         loc: Location,
-        ty: Type,
-        condition: Expr,
-        true_value: Expr,
-        false_value: Expr,
+        ty: PrimType,
+        condition: PrimExpr,
+        true_value: PrimExpr,
+        false_value: PrimExpr,
     ) -> Self {
-        let base = ExprObj::new(loc, ty);
+        let base = ExprObj::new(loc, ty.into());
         Self { base, condition, true_value, false_value }
     }
 }
@@ -1952,10 +2079,10 @@ impl Select {
     /// Lossless complete-field allocation.
     pub fn from_fields(
         loc: impl Into<Location>,
-        ty: impl Into<Type>,
-        condition: impl Into<Expr>,
-        true_value: impl Into<Expr>,
-        false_value: impl Into<Expr>,
+        ty: impl Into<PrimType>,
+        condition: impl Into<PrimExpr>,
+        true_value: impl Into<PrimExpr>,
+        false_value: impl Into<PrimExpr>,
     ) -> Self {
         let obj = SelectObj::new(
             loc.into(),
@@ -1968,7 +2095,7 @@ impl Select {
     }
 }
 
-tvm_ffi::impl_object_upcast!(Select => Expr);
+tvm_ffi::impl_object_upcast!(Select => Expr, Select => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 impl Select {
@@ -1980,9 +2107,9 @@ impl Select {
     /// Returns an `InternalError` if `condition` is not boolean or has other lanes than the values,
     /// or a `TypeError` if the values are of different types.
     pub fn new(
-        condition: impl IntoExpr,
-        true_value: impl IntoExpr,
-        false_value: impl IntoExpr,
+        condition: impl IntoExpr<PrimExpr>,
+        true_value: impl IntoExpr<PrimExpr>,
+        false_value: impl IntoExpr<PrimExpr>,
         loc: impl Into<Location>,
     ) -> Result<Self> {
         let (condition, true_value, false_value) = (
@@ -1990,9 +2117,9 @@ impl Select {
             true_value.into_owned_expr()?,
             false_value.into_owned_expr()?,
         );
-        let condition_dtype = support::prim_dtype(&condition)?;
-        let true_dtype = support::prim_dtype(&true_value)?;
-        let false_dtype = support::prim_dtype(&false_value)?;
+        let condition_dtype = condition.dtype();
+        let true_dtype = true_value.dtype();
+        let false_dtype = false_value.dtype();
         if condition_dtype.code != support::BOOL {
             let condition = "condition_ty.MatchesCode(DLDataTypeCode::kDLBool)";
             return Err(support::check_failed(tvm_ffi::INTERNAL_ERROR, condition, ""));
@@ -2023,7 +2150,7 @@ impl Select {
                 &message,
             ));
         }
-        let ty = true_value.ty.clone();
+        let ty = true_value.ty();
         Ok(Self::from_fields(loc.into(), ty, condition, true_value, false_value))
     }
 }
@@ -2037,8 +2164,8 @@ impl Select {
 pub struct LetObj {
     base: ExprObj,
     pub var: Var,
-    pub value: Expr,
-    pub body: Expr,
+    pub value: PrimExpr,
+    pub body: PrimExpr,
 }
 
 const _: () = {
@@ -2067,8 +2194,14 @@ impl Deref for LetObj {
 }
 
 impl LetObj {
-    pub(crate) fn new(loc: Location, ty: Type, var: Var, value: Expr, body: Expr) -> Self {
-        let base = ExprObj::new(loc, ty);
+    pub(crate) fn new(
+        loc: Location,
+        ty: PrimType,
+        var: Var,
+        value: PrimExpr,
+        body: PrimExpr,
+    ) -> Self {
+        let base = ExprObj::new(loc, ty.into());
         Self { base, var, value, body }
     }
 }
@@ -2077,17 +2210,17 @@ impl Let {
     /// Lossless complete-field allocation.
     pub fn from_fields(
         loc: impl Into<Location>,
-        ty: impl Into<Type>,
+        ty: impl Into<PrimType>,
         var: impl Into<Var>,
-        value: impl Into<Expr>,
-        body: impl Into<Expr>,
+        value: impl Into<PrimExpr>,
+        body: impl Into<PrimExpr>,
     ) -> Self {
         let obj = LetObj::new(loc.into(), ty.into(), var.into(), value.into(), body.into());
         Self { base: ObjectArc::new(obj) }
     }
 }
 
-tvm_ffi::impl_object_upcast!(Let => Expr);
+tvm_ffi::impl_object_upcast!(Let => Expr, Let => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 impl Let {
@@ -2100,13 +2233,12 @@ impl Let {
     /// type of `var` is not a `PrimType`.
     pub fn new(
         var: impl Into<Var>,
-        value: impl IntoExpr,
-        body: impl IntoExpr,
+        value: impl IntoExpr<PrimExpr>,
+        body: impl IntoExpr<PrimExpr>,
         loc: impl Into<Location>,
     ) -> Result<Self> {
         let (var, value, body) = (var.into(), value.into_owned_expr()?, body.into_owned_expr()?);
-        let value_dtype = support::prim_dtype(&value)?;
-        support::prim_dtype(&body)?;
+        let value_dtype = value.dtype();
         let Some(var_ty) = var.ty.downcast_ref::<PrimTypeObj>() else {
             let message = format!(
                 "Cannot treat type `{}` as type `ir.PrimType`",
@@ -2118,7 +2250,7 @@ impl Let {
             let condition = "value.ty() == var->ty.as_or_throw<PrimType>()";
             return Err(support::check_failed(tvm_ffi::INTERNAL_ERROR, condition, ""));
         }
-        let ty = body.ty.clone();
+        let ty = body.ty();
         Ok(Self::from_fields(loc.into(), ty, var, value, body))
     }
 }

@@ -148,7 +148,7 @@ where
 /// # Examples
 ///
 /// ```
-/// use tvm_tirx::ir::{Bind, Evaluate, PrimType, SeqStmt, Stmt, Var, UNKNOWN_LOC};
+/// use tvm_tirx::ir::{Bind, Evaluate, PrimType, PrimVar, SeqStmt, Stmt, Var, UNKNOWN_LOC};
 /// use tvm_tirx::script::script;
 /// use tvm_tirx::sym::{BindingConstraintObj, ConstraintContext};
 /// use tvm_tirx::tirx::structural_map_with_constraint_context as map;
@@ -163,7 +163,7 @@ where
 ///     value
 /// };
 ///
-/// let x = Var::new("x", PrimType::int(32), UNKNOWN_LOC);
+/// let x = PrimVar::new("x", PrimType::int(32), UNKNOWN_LOC);
 /// let bind = Stmt::from(Bind::new(&x, 4, UNKNOWN_LOC)?);
 /// let root = SeqStmt::new([bind, Evaluate::new(&x, UNKNOWN_LOC).into()], UNKNOWN_LOC);
 /// let result =

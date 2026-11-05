@@ -41,7 +41,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 use tvm_tirx::ir::{
     Location, UNKNOWN_LOC, dtype, BaseFunc, DictAttrs, Expr, GlobalInfo, GlobalVar, IRModule,
-    IntImm, Range, SeqStmt, Stmt, Type, Var,
+    IntImm, PrimExpr, PrimType, PrimVar, Range, SeqStmt, Stmt, Type, Var,
 };
 use tvm_tirx::runtime::MemoryScope;
 use tvm_tirx::tirx::{Axis, Function, Iter, TileLayout};
@@ -49,7 +49,7 @@ use tvm_tirx::tvm_ffi::{Array, Map, ObjectRefCast, String as FfiString};
 
 use common::global;
 
-fn int32(value: i64) -> Expr {
+fn int32(value: i64) -> PrimExpr {
     IntImm::from_dtype(dtype::int(32), value, UNKNOWN_LOC).unwrap().into()
 }
 
@@ -61,7 +61,11 @@ fn var(name: &str, ty: impl Into<Type>) -> Var {
         .unwrap()
 }
 
-fn op(name: &str, a: impl Into<Expr>, b: impl Into<Expr>) -> Expr {
+fn prim_var(name: &str, ty: impl Into<PrimType>) -> PrimVar {
+    var(name, ty.into()).try_cast().unwrap()
+}
+
+fn op(name: &str, a: impl Into<Expr>, b: impl Into<Expr>) -> PrimExpr {
     global(name).call_tuple((a.into(), b.into(), Location::unknown())).unwrap().try_into().unwrap()
 }
 
@@ -73,7 +77,7 @@ fn range(extent: i64) -> Range {
         .unwrap()
 }
 
-fn as_i64(expr: &Expr) -> i64 {
+fn as_i64(expr: &(impl ObjectRefCast + Clone)) -> i64 {
     expr.clone().try_cast::<IntImm>().unwrap().value.to_i64().unwrap()
 }
 

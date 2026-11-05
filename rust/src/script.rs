@@ -23,12 +23,14 @@
 //! # Examples
 //!
 //! ```
-//! use tvm_tirx::ir::{DictAttrs, Expr, PrimExpr, PrimType, Return, SeqStmt, Var, UNKNOWN_LOC};
+//! use tvm_tirx::ir::{
+//!     DictAttrs, Expr, PrimExpr, PrimType, PrimVar, Return, SeqStmt, Var, UNKNOWN_LOC,
+//! };
 //! use tvm_tirx::script::script;
 //! use tvm_tirx::tirx::Function;
 //! use tvm_tirx::tvm_ffi::Map;
 //!
-//! let x = Var::new("x", PrimType::int(32), UNKNOWN_LOC);
+//! let x = PrimVar::new("x", PrimType::int(32), UNKNOWN_LOC);
 //! assert_eq!(script(&PrimExpr::try_from(&x * 2 + 1)?)?, "x * 2 + 1");
 //!
 //! let body = SeqStmt::new([Return::new(Expr::try_from(&x + 1)?, UNKNOWN_LOC)], UNKNOWN_LOC);

@@ -29,12 +29,12 @@
 
 use tvm_ffi::{BigInt, DLDataType, ObjectRefCore, Result, INTERNAL_ERROR};
 
-use crate::ir::expr::{Expr, FloatImm, FloatImmObj, IntImm, IntImmObj};
+use crate::ir::expr::{FloatImm, FloatImmObj, IntImm, IntImmObj, PrimExpr};
 use crate::ir::location::UnknownLoc;
 use crate::ir::support;
 
 /// The folded expression, or `None` when there is nothing to fold.
-pub(super) type Folded = Result<Option<Expr>>;
+pub(super) type Folded = Result<Option<PrimExpr>>;
 
 // ---------------------------------------------------------------------------------------------
 // Helpers
@@ -79,12 +79,12 @@ pub(super) fn is_in_float32_range(value: f64) -> bool {
 }
 
 /// The value of an integer constant.
-pub(super) fn int(expr: &Expr) -> Option<&BigInt> {
+pub(super) fn int(expr: &PrimExpr) -> Option<&BigInt> {
     expr.downcast_ref::<IntImmObj>().map(|imm| &imm.value)
 }
 
 /// The value of a float constant.
-fn float(expr: &Expr) -> Option<f64> {
+fn float(expr: &PrimExpr) -> Option<f64> {
     expr.downcast_ref::<FloatImmObj>().map(|imm| imm.value)
 }
 
@@ -162,7 +162,7 @@ fn is_one(value: &BigInt) -> bool {
 }
 
 /// The operand itself.
-fn keep(expr: &Expr) -> Folded {
+fn keep(expr: &PrimExpr) -> Folded {
     Ok(Some(expr.clone()))
 }
 
@@ -170,7 +170,7 @@ fn keep(expr: &Expr) -> Folded {
 // Arithmetic
 
 /// `TryConstFold<Add>`.
-pub(super) fn add(a: &Expr, b: &Expr) -> Folded {
+pub(super) fn add(a: &PrimExpr, b: &PrimExpr) -> Folded {
     let dtype = support::prim_dtype(a)?;
     let (pa, pb, fa, fb) = (int(a), int(b), float(a), float(b));
     if let (Some(x), Some(y)) = (pa, pb) {
@@ -199,7 +199,7 @@ pub(super) fn add(a: &Expr, b: &Expr) -> Folded {
 }
 
 /// `TryConstFold<Sub>`.
-pub(super) fn sub(a: &Expr, b: &Expr) -> Folded {
+pub(super) fn sub(a: &PrimExpr, b: &PrimExpr) -> Folded {
     let dtype = support::prim_dtype(a)?;
     let (pa, pb, fa, fb) = (int(a), int(b), float(a), float(b));
     if let (Some(x), Some(y)) = (pa, pb) {
@@ -222,7 +222,7 @@ pub(super) fn sub(a: &Expr, b: &Expr) -> Folded {
 }
 
 /// `TryConstFold<Mul>`.
-pub(super) fn mul(a: &Expr, b: &Expr) -> Folded {
+pub(super) fn mul(a: &PrimExpr, b: &PrimExpr) -> Folded {
     let dtype = support::prim_dtype(a)?;
     let (pa, pb, fa, fb) = (int(a), int(b), float(a), float(b));
     if let (Some(x), Some(y)) = (pa, pb) {
@@ -271,7 +271,7 @@ pub(super) fn mul(a: &Expr, b: &Expr) -> Folded {
 }
 
 /// `TryConstFold<Div>`: integers divide truncating.
-pub(super) fn div(a: &Expr, b: &Expr) -> Folded {
+pub(super) fn div(a: &PrimExpr, b: &PrimExpr) -> Folded {
     let dtype = support::prim_dtype(a)?;
     let (pa, pb, fa, fb) = (int(a), int(b), float(a), float(b));
     if let (Some(x), Some(y)) = (pa, pb) {
@@ -309,7 +309,7 @@ pub(super) fn div(a: &Expr, b: &Expr) -> Folded {
 
 /// `TryConstFold<Mod>`, the truncating remainder: index types fold with the identities, wider
 /// integers fold only two constants.
-pub(super) fn truncmod(a: &Expr, b: &Expr) -> Folded {
+pub(super) fn truncmod(a: &PrimExpr, b: &PrimExpr) -> Folded {
     let dtype = support::prim_dtype(a)?;
     let (pa, pb) = (int(a), int(b));
     if is_index_type(dtype) && is_index_type(support::prim_dtype(b)?) {
@@ -337,7 +337,7 @@ pub(super) fn truncmod(a: &Expr, b: &Expr) -> Folded {
 }
 
 /// `TryConstFold<FloorDiv>`.
-pub(super) fn floordiv(a: &Expr, b: &Expr) -> Folded {
+pub(super) fn floordiv(a: &PrimExpr, b: &PrimExpr) -> Folded {
     let dtype = support::prim_dtype(a)?;
     let (pa, pb, fa, fb) = (int(a), int(b), float(a), float(b));
     if let (Some(x), Some(y)) = (pa, pb) {
@@ -376,7 +376,7 @@ pub(super) fn floordiv(a: &Expr, b: &Expr) -> Folded {
 
 /// `TryConstFold<FloorMod>`: index types fold with the identities, wider or unsigned integers
 /// fold only two constants.
-pub(super) fn floormod(a: &Expr, b: &Expr) -> Folded {
+pub(super) fn floormod(a: &PrimExpr, b: &PrimExpr) -> Folded {
     let dtype = support::prim_dtype(a)?;
     let (pa, pb) = (int(a), int(b));
     if is_index_type(dtype) && is_index_type(support::prim_dtype(b)?) {
@@ -406,7 +406,7 @@ pub(super) fn floormod(a: &Expr, b: &Expr) -> Folded {
 /// `TryConstFold<Min>`: two constants, or an operand with itself. Of two floats, the first is kept
 /// when it is NaN or less than the second, and the second otherwise: a NaN in either operand is
 /// the result, and of two equal values (`0.0` and `-0.0`) the second is.
-pub(super) fn min(a: &Expr, b: &Expr) -> Folded {
+pub(super) fn min(a: &PrimExpr, b: &PrimExpr) -> Folded {
     let dtype = support::prim_dtype(a)?;
     if let (Some(x), Some(y)) = (int(a), int(b)) {
         return int_imm(dtype, x.min(y).clone());
@@ -421,7 +421,7 @@ pub(super) fn min(a: &Expr, b: &Expr) -> Folded {
 }
 
 /// `TryConstFold<Max>`, as [`min`]: the first float is kept when it is NaN or greater.
-pub(super) fn max(a: &Expr, b: &Expr) -> Folded {
+pub(super) fn max(a: &PrimExpr, b: &PrimExpr) -> Folded {
     let dtype = support::prim_dtype(a)?;
     if let (Some(x), Some(y)) = (int(a), int(b)) {
         return int_imm(dtype, x.max(y).clone());
@@ -440,8 +440,8 @@ pub(super) fn max(a: &Expr, b: &Expr) -> Folded {
 
 /// `TryConstFold` of a comparison: two constants compare to a boolean constant.
 pub(super) fn compare(
-    a: &Expr,
-    b: &Expr,
+    a: &PrimExpr,
+    b: &PrimExpr,
     ints: fn(&BigInt, &BigInt) -> bool,
     floats: fn(f64, f64) -> bool,
 ) -> Folded {
@@ -455,7 +455,7 @@ pub(super) fn compare(
 }
 
 /// `TryConstFold<And>`: a true constant leaves the other side, a false one is the result.
-pub(super) fn and(a: &Expr, b: &Expr) -> Folded {
+pub(super) fn and(a: &PrimExpr, b: &PrimExpr) -> Folded {
     if let Some(x) = int(a) {
         return keep(if x.is_zero() { a } else { b });
     }
@@ -466,7 +466,7 @@ pub(super) fn and(a: &Expr, b: &Expr) -> Folded {
 }
 
 /// `TryConstFold<Or>`: a true constant is the result, a false one leaves the other side.
-pub(super) fn or(a: &Expr, b: &Expr) -> Folded {
+pub(super) fn or(a: &PrimExpr, b: &PrimExpr) -> Folded {
     if let Some(x) = int(a) {
         return keep(if x.is_zero() { b } else { a });
     }
@@ -477,7 +477,7 @@ pub(super) fn or(a: &Expr, b: &Expr) -> Folded {
 }
 
 /// `TryConstFold<Not>`.
-pub(super) fn not(a: &Expr) -> Folded {
+pub(super) fn not(a: &PrimExpr) -> Folded {
     match int(a) {
         Some(x) => boolean(x.is_zero()),
         None => Ok(None),

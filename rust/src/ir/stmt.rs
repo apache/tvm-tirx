@@ -27,12 +27,14 @@
 //!
 //! ```
 //! use tvm_tirx::ir::prim::op::PrimOps;
-//! use tvm_tirx::ir::{AssertStmt, Bind, For, ForKind, PrimType, SeqStmt, Stmt, StringImm, Var};
+//! use tvm_tirx::ir::{
+//!     AssertStmt, Bind, For, ForKind, PrimType, PrimVar, SeqStmt, Stmt, StringImm, Var,
+//! };
 //! use tvm_tirx::ir::UNKNOWN_LOC;
 //! use tvm_tirx::script::script;
 //!
-//! let i = Var::new("i", PrimType::int(32), UNKNOWN_LOC);
-//! let x = Var::new("x", PrimType::int(32), UNKNOWN_LOC);
+//! let i = PrimVar::new("i", PrimType::int(32), UNKNOWN_LOC);
+//! let x = PrimVar::new("x", PrimType::int(32), UNKNOWN_LOC);
 //! let bind = Bind::new(&x, &i + 1, UNKNOWN_LOC)?;
 //! let kind = StringImm::new("ValueError", UNKNOWN_LOC);
 //! let check = AssertStmt::new(x.less(17), kind, [StringImm::new("x", UNKNOWN_LOC)], UNKNOWN_LOC)?;
@@ -76,6 +78,19 @@
 // tvm-ffi-stubgen(import-object): crate::ir::r#type::Type
 // tvm-ffi-stubgen(import-object): crate::ir::support
 // tvm-ffi-stubgen(import-object): crate::ir::expr::IntoExpr
+// tvm-ffi-stubgen(import-object): crate::ir::expr::PrimExpr
+// tvm-ffi-stubgen(import-object): crate::ir::expr::PrimVar
+// Loop bounds, conditions and stored values are primitive, as C++ types them: `ForObj` holds a
+// `PrimVar var` and `PrimExpr begin, end, step`.
+// tvm-ffi-stubgen(field): ir.AssertStmt.condition -> PrimExpr
+// tvm-ffi-stubgen(field): ir.For.var -> PrimVar
+// tvm-ffi-stubgen(field): ir.For.begin -> PrimExpr
+// tvm-ffi-stubgen(field): ir.For.end -> PrimExpr
+// tvm-ffi-stubgen(field): ir.For.step -> PrimExpr
+// tvm-ffi-stubgen(field): ir.While.condition -> PrimExpr
+// tvm-ffi-stubgen(field): ir.TensorStore.indices -> Array<PrimExpr>
+// tvm-ffi-stubgen(field): ir.TensorStore.value -> PrimExpr
+// tvm-ffi-stubgen(field): ir.If.condition -> PrimExpr
 
 // tvm-ffi-stubgen(begin): import-section
 use crate::ir::attrs::DictAttrs;
@@ -84,6 +99,8 @@ use crate::ir::expr::Expr;
 use crate::ir::expr::IntImm;
 use crate::ir::expr::IntImmObj;
 use crate::ir::expr::IntoExpr;
+use crate::ir::expr::PrimExpr;
+use crate::ir::expr::PrimVar;
 use crate::ir::expr::StringImm;
 use crate::ir::expr::Var;
 use crate::ir::location::Location;
@@ -261,7 +278,7 @@ impl Bind {
 #[type_final]
 pub struct AssertStmtObj {
     base: StmtObj,
-    pub condition: Expr,
+    pub condition: PrimExpr,
     pub error_kind: StringImm,
     pub message_parts: Array<StringImm>,
 }
@@ -294,7 +311,7 @@ impl Deref for AssertStmtObj {
 impl AssertStmtObj {
     pub(crate) fn new(
         loc: Location,
-        condition: Expr,
+        condition: PrimExpr,
         error_kind: StringImm,
         message_parts: Array<StringImm>,
     ) -> Self {
@@ -307,7 +324,7 @@ impl AssertStmt {
     /// Lossless complete-field allocation.
     pub fn from_fields(
         loc: impl Into<Location>,
-        condition: impl Into<Expr>,
+        condition: impl Into<PrimExpr>,
         error_kind: impl Into<StringImm>,
         message_parts: impl Into<Array<StringImm>>,
     ) -> Self {
@@ -332,14 +349,14 @@ impl AssertStmt {
     ///
     /// Returns an `InternalError` if `condition` is not boolean.
     pub fn new(
-        condition: impl IntoExpr,
+        condition: impl IntoExpr<PrimExpr>,
         error_kind: impl Into<StringImm>,
         message_parts: impl IntoIterator<Item = impl Into<StringImm>>,
         loc: impl Into<Location>,
     ) -> Result<Self> {
         let (condition, error_kind) = (condition.into_owned_expr()?, error_kind.into());
         let message_parts = message_parts.into_iter().map(Into::into).collect::<Array<StringImm>>();
-        let condition_ty = support::prim_type(&condition)?;
+        let condition_ty = condition.ty();
         if condition_ty.dtype.code != support::BOOL {
             let message = format!(
                 "AssertStmt should have boolean condition, but received {} with dtype {}",
@@ -361,10 +378,10 @@ impl AssertStmt {
 #[type_final]
 pub struct ForObj {
     base: StmtObj,
-    pub var: Var,
-    pub begin: Expr,
-    pub end: Expr,
-    pub step: Expr,
+    pub var: PrimVar,
+    pub begin: PrimExpr,
+    pub end: PrimExpr,
+    pub step: PrimExpr,
     pub kind: i32,
     pub body: SeqStmt,
     pub annotations: Map<String, Any>,
@@ -398,10 +415,10 @@ impl Deref for ForObj {
 impl ForObj {
     pub(crate) fn new(
         loc: Location,
-        var: Var,
-        begin: Expr,
-        end: Expr,
-        step: Expr,
+        var: PrimVar,
+        begin: PrimExpr,
+        end: PrimExpr,
+        step: PrimExpr,
         kind: i32,
         body: SeqStmt,
         annotations: Map<String, Any>,
@@ -415,10 +432,10 @@ impl For {
     /// Lossless complete-field allocation.
     pub fn from_fields(
         loc: impl Into<Location>,
-        var: impl Into<Var>,
-        begin: impl Into<Expr>,
-        end: impl Into<Expr>,
-        step: impl Into<Expr>,
+        var: impl Into<PrimVar>,
+        begin: impl Into<PrimExpr>,
+        end: impl Into<PrimExpr>,
+        step: impl Into<PrimExpr>,
         kind: i32,
         body: impl Into<SeqStmt>,
         annotations: impl Into<Map<String, Any>>,
@@ -467,10 +484,10 @@ impl For {
     /// or the step does not fit or match the type of `var`.
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        var: impl Into<Var>,
-        begin: impl IntoExpr,
-        end: impl IntoExpr,
-        step: impl IntoExpr,
+        var: impl Into<PrimVar>,
+        begin: impl IntoExpr<PrimExpr>,
+        end: impl IntoExpr<PrimExpr>,
+        step: impl IntoExpr<PrimExpr>,
         kind: ForKind,
         body: impl Into<Stmt>,
         annotations: Option<&Map<String, Any>>,
@@ -478,16 +495,13 @@ impl For {
     ) -> Result<Self> {
         let (var, begin, end, step) =
             (var.into(), begin.into_owned_expr()?, end.into_owned_expr()?, step.into_owned_expr()?);
-        let var_expr: Expr = var.clone().into();
-        let var_ty = support::prim_type(&var_expr)?;
-        for expr in [&begin, &end, &step] {
-            support::prim_dtype(expr)?;
-        }
+        let var_expr: PrimExpr = var.clone().into();
+        let var_ty = var.ty();
         let body = into_body(body.into())?;
         let annotations = annotations.cloned().unwrap_or_else(Map::new);
         for (expr, field) in [(&var_expr, "var"), (&begin, "begin"), (&end, "end"), (&step, "step")]
         {
-            let ty = support::prim_type(expr)?;
+            let ty = expr.ty();
             let dtype = ty.dtype;
             if !support::is_scalar(dtype) || !matches!(dtype.code, support::INT | support::UINT) {
                 let message = format!(
@@ -502,8 +516,8 @@ impl For {
             }
         }
         // A constant of another integer type takes the type of `var` if its value fits.
-        let promote = |expr: Expr| -> Result<Expr> {
-            let ty = support::prim_type(&expr)?;
+        let promote = |expr: PrimExpr| -> Result<PrimExpr> {
+            let ty = expr.ty();
             if ty.dtype == var_ty.dtype {
                 return Ok(expr);
             }
@@ -536,8 +550,8 @@ impl For {
             }
             Ok(expr)
         };
-        let same_type = |expr: &Expr, condition: &str| -> Result<()> {
-            let ty = support::prim_type(expr)?;
+        let same_type = |expr: &PrimExpr, condition: &str| -> Result<()> {
+            let ty = expr.ty();
             if ty.dtype == var_ty.dtype {
                 return Ok(());
             }
@@ -572,7 +586,7 @@ fn int_imm_value_fits(value: &BigInt, dtype: DLDataType) -> Result<bool> {
 #[type_final]
 pub struct WhileObj {
     base: StmtObj,
-    pub condition: Expr,
+    pub condition: PrimExpr,
     pub body: SeqStmt,
 }
 
@@ -602,7 +616,7 @@ impl Deref for WhileObj {
 }
 
 impl WhileObj {
-    pub(crate) fn new(loc: Location, condition: Expr, body: SeqStmt) -> Self {
+    pub(crate) fn new(loc: Location, condition: PrimExpr, body: SeqStmt) -> Self {
         let base = StmtObj::new(loc);
         Self { base, condition, body }
     }
@@ -612,7 +626,7 @@ impl While {
     /// Lossless complete-field allocation.
     pub fn new(
         loc: impl Into<Location>,
-        condition: impl Into<Expr>,
+        condition: impl Into<PrimExpr>,
         body: impl Into<SeqStmt>,
     ) -> Self {
         let obj = WhileObj::new(loc.into(), condition.into(), body.into());
@@ -631,12 +645,12 @@ impl While {
     ///
     /// Returns an `InternalError` if `condition` is a vector.
     pub fn checked(
-        condition: impl IntoExpr,
+        condition: impl IntoExpr<PrimExpr>,
         body: impl Into<Stmt>,
         loc: impl Into<Location>,
     ) -> Result<Self> {
         let condition = condition.into_owned_expr()?;
-        let condition_dtype = support::prim_dtype(&condition)?;
+        let condition_dtype = condition.dtype();
         let body = into_body(body.into())?;
         if !support::is_scalar(condition_dtype) {
             let check = "condition.ty().IsScalar()";
@@ -655,8 +669,8 @@ impl While {
 pub struct TensorStoreObj {
     base: StmtObj,
     pub dest: Expr,
-    pub indices: Array<Expr>,
-    pub value: Expr,
+    pub indices: Array<PrimExpr>,
+    pub value: PrimExpr,
 }
 
 const _: () = {
@@ -685,7 +699,12 @@ impl Deref for TensorStoreObj {
 }
 
 impl TensorStoreObj {
-    pub(crate) fn new(loc: Location, dest: Expr, indices: Array<Expr>, value: Expr) -> Self {
+    pub(crate) fn new(
+        loc: Location,
+        dest: Expr,
+        indices: Array<PrimExpr>,
+        value: PrimExpr,
+    ) -> Self {
         let base = StmtObj::new(loc);
         Self { base, dest, indices, value }
     }
@@ -696,8 +715,8 @@ impl TensorStore {
     pub fn from_fields(
         loc: impl Into<Location>,
         dest: impl Into<Expr>,
-        indices: impl Into<Array<Expr>>,
-        value: impl Into<Expr>,
+        indices: impl Into<Array<PrimExpr>>,
+        value: impl Into<PrimExpr>,
     ) -> Self {
         let obj = TensorStoreObj::new(loc.into(), dest.into(), indices.into(), value.into());
         Self { base: ObjectArc::new(obj) }
@@ -717,19 +736,17 @@ impl TensorStore {
     /// validation raises.
     pub fn new(
         dest: impl IntoExpr,
-        indices: impl IntoIterator<Item = impl IntoExpr>,
-        value: impl IntoExpr,
+        indices: impl IntoIterator<Item = impl IntoExpr<PrimExpr>>,
+        value: impl IntoExpr<PrimExpr>,
         loc: impl Into<Location>,
     ) -> Result<Self> {
         static VALIDATE: support::TypeAttr =
             support::TypeAttr::new("__tvm_tensor_store_validate__");
         let (dest, value) = (dest.into_owned_expr()?, value.into_owned_expr()?);
-        let indices =
-            indices.into_iter().map(IntoExpr::into_owned_expr).collect::<Result<Array<Expr>>>()?;
-        for index in indices.iter() {
-            support::prim_dtype(&index)?;
-        }
-        support::prim_dtype(&value)?;
+        let indices = indices
+            .into_iter()
+            .map(IntoExpr::into_owned_expr)
+            .collect::<Result<Array<PrimExpr>>>()?;
         let ty_index = AnyView::from(&dest.ty).type_index();
         let Some(validate) = VALIDATE.get(ty_index) else {
             let message =
@@ -1044,7 +1061,7 @@ fn into_body(stmt: Stmt) -> Result<SeqStmt> {
 #[type_final]
 pub struct IfObj {
     base: StmtObj,
-    pub condition: Expr,
+    pub condition: PrimExpr,
     pub then_case: SeqStmt,
     pub else_case: Option<SeqStmt>,
 }
@@ -1077,7 +1094,7 @@ impl Deref for IfObj {
 impl IfObj {
     pub(crate) fn new(
         loc: Location,
-        condition: Expr,
+        condition: PrimExpr,
         then_case: SeqStmt,
         else_case: Option<SeqStmt>,
     ) -> Self {
@@ -1090,7 +1107,7 @@ impl If {
     /// Lossless complete-field allocation.
     pub fn from_fields(
         loc: impl Into<Location>,
-        condition: impl Into<Expr>,
+        condition: impl Into<PrimExpr>,
         then_case: impl Into<SeqStmt>,
         else_case: impl Into<Option<SeqStmt>>,
     ) -> Self {
@@ -1106,13 +1123,12 @@ impl If {
     /// Create the statement running `then_case` if `condition` holds, else `else_case` if given
     /// (C++ `If(condition, then_case, else_case, loc)`).
     pub fn new(
-        condition: impl IntoExpr,
+        condition: impl IntoExpr<PrimExpr>,
         then_case: impl Into<Stmt>,
         else_case: Option<&Stmt>,
         loc: impl Into<Location>,
     ) -> Result<Self> {
         let condition = condition.into_owned_expr()?;
-        support::prim_dtype(&condition)?;
         let then_case = into_body(then_case.into())?;
         let else_case = else_case.map(|stmt| into_body(stmt.clone())).transpose()?;
         Ok(Self::from_fields(loc.into(), condition, then_case, else_case))

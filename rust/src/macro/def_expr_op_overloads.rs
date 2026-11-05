@@ -20,15 +20,17 @@
 
 /// Add the primitive-expression operators to an existing reference wrapper.
 ///
-/// The type, a module-scope path to a reference wrapper implementing `Clone` and `Into<Expr>`, gets
-/// the operators `+`, `-`, `*`, `&`, `|`, `^`, `<<`, `>>`, unary `-` and `!` and
-/// [`PrimOps`](crate::ir::prim::PrimOps), all returning an
-/// [`ExprResult`](crate::ir::prim::ExprResult).
+/// The type, a module-scope path to a reference wrapper implementing `Clone` and
+/// `Into<PrimExpr>`, gets the operators `+`, `-`, `*`, `&`, `|`, `^`, `<<`, `>>`, unary `-` and `!`
+/// and [`PrimOps`](crate::ir::prim::PrimOps), all returning an
+/// [`ExprResult`](crate::ir::prim::ExprResult). As the C++ operators take a `PrimExpr`, the type
+/// is one: an upcast to [`PrimExpr`](crate::ir::PrimExpr) declares that every value of it is typed
+/// by a `PrimType`.
 ///
 /// # Examples
 ///
 /// ```
-/// use tvm_tirx::ir::{Expr, ExprObj, Location, PrimType};
+/// use tvm_tirx::ir::{Expr, ExprObj, Location, PrimExpr, PrimType};
 /// use tvm_tirx::sym::Analyzer;
 /// use tvm_tirx::tvm_ffi::{self, def_object_ref, rs_object, ObjectRefCore};
 ///
@@ -38,11 +40,21 @@
 ///     pub axis: i64,
 /// }
 /// def_object_ref!(pub ThreadIndex, Expr, ThreadIndexObj);
+///
+/// impl ThreadIndex {
+///     /// The `int32` index of the thread along `axis`.
+///     pub fn new(axis: i64) -> Self {
+///         let base = ExprObj::new(Location::unknown(), PrimType::int(32).into());
+///         Self::from(ThreadIndexObj::new(base, axis))
+///     }
+/// }
+///
+/// // Every thread index is an `int32`, as `new` makes it.
+/// tvm_ffi::impl_object_upcast!(ThreadIndex => PrimExpr);
 /// tvm_tirx::def_expr_op_over_loads!(ThreadIndex);
 ///
 /// # fn main() -> tvm_tirx::tvm_ffi::Result<()> {
-/// let base = ExprObj::new(Location::unknown(), PrimType::int(32).into());
-/// let tx = ThreadIndex::from(ThreadIndexObj::new(base, 0));
+/// let tx = ThreadIndex::new(0);
 /// let analyzer = Analyzer::new();
 /// assert!(analyzer.can_prove_equal(&tx * 4 + &tx, &tx * 5)?);
 /// # Ok(())
@@ -69,9 +81,8 @@ macro_rules! def_expr_op_over_loads {
     (@impl $ty:ty) => {
         impl ::core::convert::From<$ty> for $crate::ir::prim::ExprResult {
             fn from(value: $ty) -> Self {
-                Self::from(::core::result::Result::<$crate::ir::Expr, $crate::tvm_ffi::Error>::Ok(
-                    ::core::convert::Into::<$crate::ir::Expr>::into(value),
-                ))
+                let value = ::core::convert::Into::<$crate::ir::PrimExpr>::into(value);
+                Self::from(::core::result::Result::<_, $crate::tvm_ffi::Error>::Ok(value))
             }
         }
 

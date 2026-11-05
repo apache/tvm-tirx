@@ -52,13 +52,13 @@ use tvm_ffi::String;
 ///
 /// ```
 /// use tvm_tirx::codegen;
-/// use tvm_tirx::ir::{GlobalVar, IRModule, UNKNOWN_LOC};
+/// use tvm_tirx::ir::{GlobalVar, IRModule, PrimVar, UNKNOWN_LOC};
 /// use tvm_tirx::target::Target;
 /// use tvm_tirx::tvm_ffi::Map;
 /// # use tvm_tirx::ir::{DictAttrs, Expr, PrimType, Return, SeqStmt, Var};
 /// # use tvm_tirx::tirx::Function;
 /// # use tvm_tirx::tvm_ffi::{Any, String};
-/// # let x = Var::new("x", PrimType::int(32), UNKNOWN_LOC);
+/// # let x = PrimVar::new("x", PrimType::int(32), UNKNOWN_LOC);
 /// # let body = SeqStmt::new([Return::new(Expr::try_from(&x + 1)?, UNKNOWN_LOC)], UNKNOWN_LOC);
 /// # let name = Any::from(String::from("add_one"));
 /// # let attrs = DictAttrs::new(Map::from_iter([(String::from("global_symbol"), name)]));

@@ -25,7 +25,9 @@
 use std::collections::HashMap;
 
 use tvm_tirx::ir::prim::{make_const, Add, Mul};
-use tvm_tirx::ir::{Expr, For, If, IntImm, PrimType, TensorStore, Var, UNKNOWN_LOC};
+use tvm_tirx::ir::{
+    Expr, For, If, IntImm, PrimExpr, PrimType, PrimVar, TensorStore, Var, UNKNOWN_LOC,
+};
 use tvm_tirx::script::script;
 use tvm_tirx::sym::{Analyzer, ConstraintContext, ProofStrength};
 use tvm_tirx::tirx::structural_map_with_constraint_context::structural_map_with_constraint_context;
@@ -46,8 +48,8 @@ fn lines(items: impl IntoIterator<Item = String>) -> Strings {
 }
 
 // [construct.begin]
-fn x_times_2_plus_1() -> Result<(Var, Expr)> {
-    let x = Var::new("x", PrimType::int(32), UNKNOWN_LOC);
+fn x_times_2_plus_1() -> Result<(PrimVar, PrimExpr)> {
+    let x = PrimVar::new("x", PrimType::int(32), UNKNOWN_LOC);
     let expr = (&x * 2 + 1).try_into()?;
     Ok((x, expr))
 }
@@ -86,7 +88,7 @@ fn casts() -> Result<Strings> {
 // [casts.end]
 
 // [describe.begin]
-fn describe(expr: &Expr) -> Result<String> {
+fn describe(expr: &PrimExpr) -> Result<String> {
     let text = match_any! {
         AnyView::from(expr) {
             Add(ref add) => format!("({} + {})", describe(&add.a)?, describe(&add.b)?),
@@ -130,7 +132,7 @@ impl Printer {
         imm.value.to_string()
     }
 
-    fn show(&self, expr: &Expr, nested: bool) -> String {
+    fn show(&self, expr: &PrimExpr, nested: bool) -> String {
         let text = self.dispatch(AnyView::from(expr), nested);
         text.unwrap_or_else(|| "<other>".to_owned())
     }
@@ -139,7 +141,7 @@ impl Printer {
 
 // [print.begin]
 fn print() -> Result<tvm_ffi::String> {
-    let x = Var::new("x", PrimType::int(32), UNKNOWN_LOC);
+    let x = PrimVar::new("x", PrimType::int(32), UNKNOWN_LOC);
     let expr = (&x + 1 + 2).try_into()?;
     Ok(Printer.show(&expr, false).into())
 }
@@ -174,7 +176,7 @@ fn specialize(func: Function, n: Var, value: i64) -> Result<Function> {
     let specialize_var = |var: Var| -> Result<Expr> {
         if var.same_as(&n) {
             let ty: PrimType = var.ty.clone().try_cast()?;
-            return make_const(ty, value);
+            return Ok(make_const(ty, value)?.into());
         }
         Ok(var.into())
     };

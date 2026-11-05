@@ -26,11 +26,11 @@
 //! # Examples
 //!
 //! ```
-//! use tvm_tirx::ir::{Call, CallEffectKind, Op, PrimType, Type, Var, UNKNOWN_LOC};
+//! use tvm_tirx::ir::{Call, CallEffectKind, Op, PrimType, PrimVar, Type, Var, UNKNOWN_LOC};
 //! use tvm_tirx::script::script;
 //!
 //! let exp = Op::get("prim.exp")?;
-//! let x = Var::new("x", PrimType::float(32), UNKNOWN_LOC);
+//! let x = PrimVar::new("x", PrimType::float(32), UNKNOWN_LOC);
 //! let call = Call::new(None, exp.clone(), [&x], None, Vec::<Type>::new(), UNKNOWN_LOC)?;
 //! assert_eq!(script(&call)?, "T.exp(x)");
 //!

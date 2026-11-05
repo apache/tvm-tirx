@@ -72,8 +72,8 @@ impl Observe {
 fn eval(value: i64) -> Stmt {
     Evaluate::new(int32(value), UNKNOWN_LOC).into()
 }
-fn variable(name: &str) -> Var {
-    Var::new(name, PrimType::int(32), UNKNOWN_LOC)
+fn variable(name: &str) -> PrimVar {
+    PrimVar::new(name, PrimType::int(32), UNKNOWN_LOC)
 }
 fn fact_counts(seen: &Observe) -> Vec<(i64, usize)> {
     seen.facts.iter().map(|(n, facts)| (*n, facts.len())).collect()
@@ -210,7 +210,7 @@ fn lazy_call_arms_gain_predicates_but_eager_select_arms_do_not() {
             Ok(None)
         }
     }
-    let condition = Var::new("lazy_condition", PrimType::bool(), UNKNOWN_LOC);
+    let condition = PrimVar::new("lazy_condition", PrimType::bool(), UNKNOWN_LOC);
     let lazy = prim::op::if_then_else(&condition, int32(21), int32(22)).unwrap();
     let eager = prim::Select::new(&condition, int32(31), int32(32), UNKNOWN_LOC).unwrap();
     let root = Array::from_vec(vec![lazy, eager.into()]);
@@ -229,7 +229,7 @@ fn lazy_call_arms_gain_predicates_but_eager_select_arms_do_not() {
 #[test]
 fn native_assume_and_thread_launch_hooks_preserve_fact_timing() {
     let _serial = serial();
-    let condition = Var::new("assumption", PrimType::bool(), UNKNOWN_LOC);
+    let condition = PrimVar::new("assumption", PrimType::bool(), UNKNOWN_LOC);
     let assume = Call::new(
         None,
         Op::get("tirx.assume_always").unwrap(),
@@ -242,7 +242,7 @@ fn native_assume_and_thread_launch_hooks_preserve_fact_timing() {
     let thread = variable("thread_index");
     let launch = RegionStmt::new(
         Op::get("tirx.launch_thread").unwrap(),
-        [Expr::from(StringImm::new("threadIdx.x", UNKNOWN_LOC)), int32(8)],
+        [Expr::from(StringImm::new("threadIdx.x", UNKNOWN_LOC)), int32(8).into()],
         [&thread],
         DictAttrs::new(Map::new()),
         eval(42),

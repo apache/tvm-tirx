@@ -33,8 +33,8 @@ use crate::common::serial;
 fn eval(value: i64) -> Stmt {
     Evaluate::new(int32(value), UNKNOWN_LOC).into()
 }
-fn variable(name: &str) -> Var {
-    Var::new(name, PrimType::int(32), UNKNOWN_LOC)
+fn variable(name: &str) -> PrimVar {
+    PrimVar::new(name, PrimType::int(32), UNKNOWN_LOC)
 }
 
 #[test]
@@ -42,7 +42,7 @@ fn typed_walk_callbacks_collect_facts_and_restore_analyzer_scopes() {
     let _serial = serial();
     let (x, i) = (variable("typed_x"), variable("typed_i"));
     let bound = int32(4);
-    let condition = Var::new("typed_condition", PrimType::bool(), UNKNOWN_LOC);
+    let condition = PrimVar::new("typed_condition", PrimType::bool(), UNKNOWN_LOC);
     let body =
         For::new(&i, int32(2), int32(8), int32(2), ForKind::Default, eval(11), None, UNKNOWN_LOC)
             .unwrap();
