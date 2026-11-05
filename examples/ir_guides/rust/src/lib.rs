@@ -163,7 +163,7 @@ fn written_tensors(func: Function) -> Result<Strings> {
 
 // [stop.begin]
 fn first_write(func: Function) -> Result<Option<TensorStore>> {
-    let find_write = |store: TensorStore| WalkResult::interrupt_with(store);
+    let find_write = |store: TensorStore| WalkResult::InterruptWith(store.into());
     let found = tvm_ffi::structural_walk(&func, find_write, WalkOrder::PostOrder)?;
     match found {
         Some(interrupt) => Ok(Some(interrupt.value.clone().try_into()?)),
