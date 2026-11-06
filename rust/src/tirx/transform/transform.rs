@@ -38,7 +38,7 @@
 //! # let module = IRModule::from_functions(&functions.into_iter().collect(), None, &Map::new())?;
 //!
 //! let module = transform::remove_no_op()?.run(module)?;
-//! let main: Function = module.lookup_name("main")?.downcast().map_err(Error::downcast_failed::<Function>)?;
+//! let main: Function = module.lookup_name("main")?.try_into()?;
 //! assert!(main.body.seq.is_empty());
 //! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
 //! ```
@@ -106,6 +106,10 @@ impl RemoveNoOpConfig {
         Self { base: ObjectArc::new(obj) }
     }
 }
+
+// SAFETY: `tirx.transform.RemoveNoOpConfig` is not `_type_mutable`: a shared instance is never
+// mutated, as C++ changes it only through copy-on-write.
+unsafe impl tvm_ffi::object::ImmutableObject for RemoveNoOpConfigObj {}
 // tvm-ffi-stubgen(end)
 
 // tvm-ffi-stubgen(begin): object/tirx.transform.UnrollLoopConfig
@@ -180,6 +184,10 @@ impl UnrollLoopConfig {
         Self { base: ObjectArc::new(obj) }
     }
 }
+
+// SAFETY: `tirx.transform.UnrollLoopConfig` is not `_type_mutable`: a shared instance is never
+// mutated, as C++ changes it only through copy-on-write.
+unsafe impl tvm_ffi::object::ImmutableObject for UnrollLoopConfigObj {}
 // tvm-ffi-stubgen(end)
 
 /// Infer and mark an unambiguous TIRx entry function (`tirx.transform.AnnotateEntryFunc`).

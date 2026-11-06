@@ -440,6 +440,10 @@ impl ConstIntBound {
         Self { base: ObjectArc::new(obj) }
     }
 }
+
+// SAFETY: `sym.ConstIntBound` is not `_type_mutable`: a shared instance is never
+// mutated, as C++ changes it only through copy-on-write.
+unsafe impl tvm_ffi::object::ImmutableObject for ConstIntBoundObj {}
 // tvm-ffi-stubgen(end)
 
 // tvm-ffi-stubgen(begin): object/sym.ModularSet
@@ -486,6 +490,10 @@ impl ModularSet {
         Self { base: ObjectArc::new(obj) }
     }
 }
+
+// SAFETY: `sym.ModularSet` is not `_type_mutable`: a shared instance is never
+// mutated, as C++ changes it only through copy-on-write.
+unsafe impl tvm_ffi::object::ImmutableObject for ModularSetObj {}
 // tvm-ffi-stubgen(end)
 
 // tvm-ffi-stubgen(begin): object/sym.RewriteSimplifierStats
@@ -565,6 +573,10 @@ impl RewriteSimplifierStats {
         Self { base: ObjectArc::new(obj) }
     }
 }
+
+// SAFETY: `sym.RewriteSimplifierStats` is not `_type_mutable`: a shared instance is never
+// mutated, as C++ changes it only through copy-on-write.
+unsafe impl tvm_ffi::object::ImmutableObject for RewriteSimplifierStatsObj {}
 // tvm-ffi-stubgen(end)
 
 // ---------------------------------------------------------------------------------------------

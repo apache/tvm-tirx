@@ -22,8 +22,8 @@
 use tvm_tirx::ir::prim::Broadcast;
 use tvm_tirx::ir::*;
 use tvm_tirx::tvm_ffi::{
-    Any, AnyView, Array, BigInt, DLDataType, Error, Function, ObjectRefCore, Result,
-    String as FfiString, TYPE_ERROR,
+    Any, AnyView, Array, BigInt, DLDataType, Function, ObjectRefCore, Result, String as FfiString,
+    TYPE_ERROR,
 };
 
 use super::{int32, int32_var, op, parse_dtype, tensor_var};
@@ -365,15 +365,14 @@ fn calls_agree_with_cpp() {
     let f32_ty: Type = PrimType::float(32).into();
     let one: Expr = FloatImm::float32(1.0).into();
     let i16_ty: Type = PrimType::int(16).into();
-    let returns = |value: Any| {
-        Function::from_packed(move |_args: &[AnyView]| -> Result<Any> { Ok(value.clone()) })
-    };
-    let packed_infer = test_op(
-        "rust_test.packed_infer",
-        &[("FInferType", returns(Any::from(i16_ty.clone())).into())],
-    );
+    // A callback captures thread-safe state: a typed value, converted on each call.
+    fn returns<T: Clone + Into<Any> + Send + Sync + 'static>(value: T) -> Function {
+        Function::from_packed(move |_args: &[AnyView]| -> Result<Any> { Ok(value.clone().into()) })
+    }
+    let packed_infer =
+        test_op("rust_test.packed_infer", &[("FInferType", returns(i16_ty.clone()).into())]);
     let packed_mistyped =
-        test_op("rust_test.packed_mistyped", &[("FInferType", returns(Any::from(5i64)).into())]);
+        test_op("rust_test.packed_mistyped", &[("FInferType", returns(5i64).into())]);
     let fixed =
         test_op("rust_test.fixed_return", &[("TFixedReturnType", Any::from(f32_ty.clone()))]);
     let plain = test_op("rust_test.no_inference", &[]);
@@ -577,7 +576,7 @@ fn prim_vars_are_views() {
     assert_eq!(vector.downcast::<PrimVar>().unwrap().dtype().lanes, 4);
     let untyped = Var::new("u", MissingType::new(), UNKNOWN_LOC);
     assert!(untyped.downcast_ref::<PrimVar>().is_none());
-    let error = Error::downcast_failed::<PrimVar>(untyped.downcast::<PrimVar>().unwrap_err());
+    let error = PrimVar::try_from(&untyped).unwrap_err();
     assert_eq!(error.kind(), TYPE_ERROR);
     // C++ `TypeTraits<PrimVar>` names the variable class on both sides.
     assert_eq!(error.message(), "Cannot convert from type `ir.Var` to `ir.Var`");

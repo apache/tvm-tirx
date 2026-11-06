@@ -175,6 +175,10 @@ impl Ramp {
     }
 }
 
+// SAFETY: `prim.Ramp` is not `_type_mutable`: a shared instance is never
+// mutated, as C++ changes it only through copy-on-write.
+unsafe impl tvm_ffi::object::ImmutableObject for RampObj {}
+
 tvm_ffi::unsafe_impl_object_upcast!(Ramp => Expr, Ramp => PrimExpr);
 // tvm-ffi-stubgen(end)
 
@@ -285,6 +289,10 @@ impl Broadcast {
     }
 }
 
+// SAFETY: `prim.Broadcast` is not `_type_mutable`: a shared instance is never
+// mutated, as C++ changes it only through copy-on-write.
+unsafe impl tvm_ffi::object::ImmutableObject for BroadcastObj {}
+
 tvm_ffi::unsafe_impl_object_upcast!(Broadcast => Expr, Broadcast => PrimExpr);
 // tvm-ffi-stubgen(end)
 
@@ -372,6 +380,10 @@ impl Shuffle {
         Self { base: ObjectArc::new(obj) }
     }
 }
+
+// SAFETY: `prim.Shuffle` is not `_type_mutable`: a shared instance is never
+// mutated, as C++ changes it only through copy-on-write.
+unsafe impl tvm_ffi::object::ImmutableObject for ShuffleObj {}
 
 tvm_ffi::unsafe_impl_object_upcast!(Shuffle => Expr, Shuffle => PrimExpr);
 // tvm-ffi-stubgen(end)

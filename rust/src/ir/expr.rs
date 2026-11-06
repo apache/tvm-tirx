@@ -205,6 +205,10 @@ unsafe impl UnsafeInit for ExprObj {
         }
     }
 }
+
+// SAFETY: `ir.Expr` is not `_type_mutable`: a shared instance is never
+// mutated, as C++ changes it only through copy-on-write.
+unsafe impl tvm_ffi::object::ImmutableObject for ExprObj {}
 // tvm-ffi-stubgen(end)
 
 /// An index of [`Expr::subscript`]: an expression, or a `start:stop:step` slice.
@@ -450,31 +454,12 @@ crate::r#macro::typed_expr_view! {
 
 tvm_ffi::unsafe_impl_object_upcast!(PrimExpr => Expr, IntExpr => Expr, IntExpr => PrimExpr);
 
-impl TryFrom<PrimExpr> for IntExpr {
-    type Error = Error;
-
-    fn try_from(value: PrimExpr) -> Result<Self> {
-        value.downcast().map_err(Error::downcast_failed::<Self>)
-    }
-}
-
-impl TryFrom<&PrimExpr> for IntExpr {
-    type Error = Error;
-
-    fn try_from(value: &PrimExpr) -> Result<Self> {
-        value
-            .downcast_ref::<Self>()
-            .cloned()
-            .ok_or_else(|| Error::downcast_failed::<Self>(value.clone()))
-    }
-}
-
 /// The built expression, checked to be an integer, or the first error raised while building it.
 impl TryFrom<ExprResult> for IntExpr {
     type Error = Error;
 
     fn try_from(value: ExprResult) -> Result<Self> {
-        PrimExpr::try_from(value)?.downcast().map_err(Error::downcast_failed::<Self>)
+        PrimExpr::try_from(value)?.try_into()
     }
 }
 
@@ -729,6 +714,10 @@ unsafe impl UnsafeInit for StagingExprObj {
     }
 }
 
+// SAFETY: `ir.StagingExpr` is not `_type_mutable`: a shared instance is never
+// mutated, as C++ changes it only through copy-on-write.
+unsafe impl tvm_ffi::object::ImmutableObject for StagingExprObj {}
+
 tvm_ffi::unsafe_impl_object_upcast!(StagingExpr => Expr);
 // tvm-ffi-stubgen(end)
 
@@ -795,6 +784,10 @@ unsafe impl UnsafeInit for OpaqueExprObj {
     }
 }
 
+// SAFETY: `ir.OpaqueExpr` is not `_type_mutable`: a shared instance is never
+// mutated, as C++ changes it only through copy-on-write.
+unsafe impl tvm_ffi::object::ImmutableObject for OpaqueExprObj {}
+
 tvm_ffi::unsafe_impl_object_upcast!(OpaqueExpr => Expr);
 // tvm-ffi-stubgen(end)
 
@@ -852,6 +845,10 @@ impl GlobalVar {
         Self { base: ObjectArc::new(obj) }
     }
 }
+
+// SAFETY: `ir.GlobalVar` is not `_type_mutable`: a shared instance is never
+// mutated, as C++ changes it only through copy-on-write.
+unsafe impl tvm_ffi::object::ImmutableObject for GlobalVarObj {}
 
 tvm_ffi::unsafe_impl_object_upcast!(GlobalVar => Expr);
 // tvm-ffi-stubgen(end)
@@ -918,6 +915,10 @@ impl Tuple {
         Self { base: ObjectArc::new(obj) }
     }
 }
+
+// SAFETY: `ir.Tuple` is not `_type_mutable`: a shared instance is never
+// mutated, as C++ changes it only through copy-on-write.
+unsafe impl tvm_ffi::object::ImmutableObject for TupleObj {}
 
 tvm_ffi::unsafe_impl_object_upcast!(Tuple => Expr);
 // tvm-ffi-stubgen(end)
@@ -998,6 +999,10 @@ impl TupleGetItem {
         Self { base: ObjectArc::new(obj) }
     }
 }
+
+// SAFETY: `ir.TupleGetItem` is not `_type_mutable`: a shared instance is never
+// mutated, as C++ changes it only through copy-on-write.
+unsafe impl tvm_ffi::object::ImmutableObject for TupleGetItemObj {}
 
 tvm_ffi::unsafe_impl_object_upcast!(TupleGetItem => Expr);
 // tvm-ffi-stubgen(end)
@@ -1109,6 +1114,10 @@ impl TensorLoad {
     }
 }
 
+// SAFETY: `ir.TensorLoad` is not `_type_mutable`: a shared instance is never
+// mutated, as C++ changes it only through copy-on-write.
+unsafe impl tvm_ffi::object::ImmutableObject for TensorLoadObj {}
+
 tvm_ffi::unsafe_impl_object_upcast!(TensorLoad => Expr, TensorLoad => PrimExpr);
 // tvm-ffi-stubgen(end)
 
@@ -1211,6 +1220,10 @@ unsafe impl UnsafeInit for ConstantObj {
     }
 }
 
+// SAFETY: `ir.Constant` is not `_type_mutable`: a shared instance is never
+// mutated, as C++ changes it only through copy-on-write.
+unsafe impl tvm_ffi::object::ImmutableObject for ConstantObj {}
+
 tvm_ffi::unsafe_impl_object_upcast!(Constant => Expr);
 // tvm-ffi-stubgen(end)
 
@@ -1264,6 +1277,10 @@ impl FloatImm {
         Self { base: ObjectArc::new(obj) }
     }
 }
+
+// SAFETY: `ir.FloatImm` is not `_type_mutable`: a shared instance is never
+// mutated, as C++ changes it only through copy-on-write.
+unsafe impl tvm_ffi::object::ImmutableObject for FloatImmObj {}
 
 tvm_ffi::unsafe_impl_object_upcast!(FloatImm => Expr, FloatImm => Constant, FloatImm => PrimExpr);
 // tvm-ffi-stubgen(end)
@@ -1462,6 +1479,10 @@ impl IntImm {
         Self { base: ObjectArc::new(obj) }
     }
 }
+
+// SAFETY: `ir.IntImm` is not `_type_mutable`: a shared instance is never
+// mutated, as C++ changes it only through copy-on-write.
+unsafe impl tvm_ffi::object::ImmutableObject for IntImmObj {}
 
 tvm_ffi::unsafe_impl_object_upcast!(IntImm => Expr, IntImm => Constant, IntImm => PrimExpr);
 // tvm-ffi-stubgen(end)
@@ -1662,6 +1683,10 @@ impl GenericConst {
     }
 }
 
+// SAFETY: `ir.GenericConst` is not `_type_mutable`: a shared instance is never
+// mutated, as C++ changes it only through copy-on-write.
+unsafe impl tvm_ffi::object::ImmutableObject for GenericConstObj {}
+
 tvm_ffi::unsafe_impl_object_upcast!(GenericConst => Expr, GenericConst => Constant);
 // tvm-ffi-stubgen(end)
 
@@ -1755,6 +1780,10 @@ impl DataTypeImm {
     }
 }
 
+// SAFETY: `ir.DataTypeImm` is not `_type_mutable`: a shared instance is never
+// mutated, as C++ changes it only through copy-on-write.
+unsafe impl tvm_ffi::object::ImmutableObject for DataTypeImmObj {}
+
 tvm_ffi::unsafe_impl_object_upcast!(DataTypeImm => Expr, DataTypeImm => Constant);
 // tvm-ffi-stubgen(end)
 
@@ -1821,6 +1850,10 @@ impl StringImm {
         Self { base: ObjectArc::new(obj) }
     }
 }
+
+// SAFETY: `ir.StringImm` is not `_type_mutable`: a shared instance is never
+// mutated, as C++ changes it only through copy-on-write.
+unsafe impl tvm_ffi::object::ImmutableObject for StringImmObj {}
 
 tvm_ffi::unsafe_impl_object_upcast!(StringImm => Expr, StringImm => Constant);
 // tvm-ffi-stubgen(end)
@@ -1907,6 +1940,10 @@ impl Call {
         Self { base: ObjectArc::new(obj) }
     }
 }
+
+// SAFETY: `ir.Call` is not `_type_mutable`: a shared instance is never
+// mutated, as C++ changes it only through copy-on-write.
+unsafe impl tvm_ffi::object::ImmutableObject for CallObj {}
 
 tvm_ffi::unsafe_impl_object_upcast!(Call => Expr);
 // tvm-ffi-stubgen(end)
@@ -2043,6 +2080,10 @@ impl TensorRegion {
     }
 }
 
+// SAFETY: `ir.TensorRegion` is not `_type_mutable`: a shared instance is never
+// mutated, as C++ changes it only through copy-on-write.
+unsafe impl tvm_ffi::object::ImmutableObject for TensorRegionObj {}
+
 tvm_ffi::unsafe_impl_object_upcast!(TensorRegion => Expr);
 // tvm-ffi-stubgen(end)
 
@@ -2127,6 +2168,10 @@ unsafe impl UnsafeInit for VarObj {
         }
     }
 }
+
+// SAFETY: `ir.Var` is not `_type_mutable`: a shared instance is never
+// mutated, as C++ changes it only through copy-on-write.
+unsafe impl tvm_ffi::object::ImmutableObject for VarObj {}
 
 tvm_ffi::unsafe_impl_object_upcast!(Var => Expr);
 // tvm-ffi-stubgen(end)
@@ -2245,6 +2290,10 @@ impl LambdaExpr {
     }
 }
 
+// SAFETY: `ir.LambdaExpr` is not `_type_mutable`: a shared instance is never
+// mutated, as C++ changes it only through copy-on-write.
+unsafe impl tvm_ffi::object::ImmutableObject for LambdaExprObj {}
+
 tvm_ffi::unsafe_impl_object_upcast!(LambdaExpr => Expr, LambdaExpr => StagingExpr);
 // tvm-ffi-stubgen(end)
 
@@ -2327,6 +2376,10 @@ impl Range {
         Self { base: ObjectArc::new(obj) }
     }
 }
+
+// SAFETY: `ir.Range` is not `_type_mutable`: a shared instance is never
+// mutated, as C++ changes it only through copy-on-write.
+unsafe impl tvm_ffi::object::ImmutableObject for RangeObj {}
 // tvm-ffi-stubgen(end)
 
 impl Range {

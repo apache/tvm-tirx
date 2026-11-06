@@ -216,27 +216,6 @@ macro_rules! typed_expr_view {
                 ty.expect("a view is typed by a `PrimType`").dtype
             }
         }
-
-        /// Convert an expression into the view; a `TypeError` names a type the view does not
-        /// accept.
-        impl TryFrom<Expr> for $name {
-            type Error = Error;
-
-            fn try_from(value: Expr) -> Result<Self> {
-                value.downcast().map_err(Error::downcast_failed::<Self>)
-            }
-        }
-
-        impl TryFrom<&Expr> for $name {
-            type Error = Error;
-
-            fn try_from(value: &Expr) -> Result<Self> {
-                value
-                    .downcast_ref::<Self>()
-                    .cloned()
-                    .ok_or_else(|| Error::downcast_failed::<Self>(value.clone()))
-            }
-        }
     };
 }
 

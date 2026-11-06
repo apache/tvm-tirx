@@ -137,6 +137,10 @@ unsafe impl UnsafeInit for TypeObj {
         }
     }
 }
+
+// SAFETY: `ir.Type` is not `_type_mutable`: a shared instance is never
+// mutated, as C++ changes it only through copy-on-write.
+unsafe impl tvm_ffi::object::ImmutableObject for TypeObj {}
 // tvm-ffi-stubgen(end)
 
 // tvm-ffi-stubgen(begin): object/ir.MissingType
@@ -188,6 +192,10 @@ impl MissingType {
         Self { base: ObjectArc::new(obj) }
     }
 }
+
+// SAFETY: `ir.MissingType` is not `_type_mutable`: a shared instance is never
+// mutated, as C++ changes it only through copy-on-write.
+unsafe impl tvm_ffi::object::ImmutableObject for MissingTypeObj {}
 
 tvm_ffi::unsafe_impl_object_upcast!(MissingType => Type);
 // tvm-ffi-stubgen(end)
@@ -255,6 +263,10 @@ impl NoneType {
     }
 }
 
+// SAFETY: `ir.NoneType` is not `_type_mutable`: a shared instance is never
+// mutated, as C++ changes it only through copy-on-write.
+unsafe impl tvm_ffi::object::ImmutableObject for NoneTypeObj {}
+
 tvm_ffi::unsafe_impl_object_upcast!(NoneType => Type);
 // tvm-ffi-stubgen(end)
 
@@ -320,6 +332,10 @@ impl AnyType {
     }
 }
 
+// SAFETY: `ir.AnyType` is not `_type_mutable`: a shared instance is never
+// mutated, as C++ changes it only through copy-on-write.
+unsafe impl tvm_ffi::object::ImmutableObject for AnyTypeObj {}
+
 tvm_ffi::unsafe_impl_object_upcast!(AnyType => Type);
 // tvm-ffi-stubgen(end)
 
@@ -374,6 +390,10 @@ impl TensorRegionType {
         Self { base: ObjectArc::new(obj) }
     }
 }
+
+// SAFETY: `ir.TensorRegionType` is not `_type_mutable`: a shared instance is never
+// mutated, as C++ changes it only through copy-on-write.
+unsafe impl tvm_ffi::object::ImmutableObject for TensorRegionTypeObj {}
 
 tvm_ffi::unsafe_impl_object_upcast!(TensorRegionType => Type);
 // tvm-ffi-stubgen(end)
@@ -441,6 +461,10 @@ impl OpaqueType {
     }
 }
 
+// SAFETY: `ir.OpaqueType` is not `_type_mutable`: a shared instance is never
+// mutated, as C++ changes it only through copy-on-write.
+unsafe impl tvm_ffi::object::ImmutableObject for OpaqueTypeObj {}
+
 tvm_ffi::unsafe_impl_object_upcast!(OpaqueType => Type);
 // tvm-ffi-stubgen(end)
 
@@ -497,6 +521,10 @@ impl PrimType {
         Self { base: ObjectArc::new(obj) }
     }
 }
+
+// SAFETY: `ir.PrimType` is not `_type_mutable`: a shared instance is never
+// mutated, as C++ changes it only through copy-on-write.
+unsafe impl tvm_ffi::object::ImmutableObject for PrimTypeObj {}
 
 tvm_ffi::unsafe_impl_object_upcast!(PrimType => Type);
 // tvm-ffi-stubgen(end)
@@ -638,6 +666,10 @@ impl StringType {
     }
 }
 
+// SAFETY: `ir.StringType` is not `_type_mutable`: a shared instance is never
+// mutated, as C++ changes it only through copy-on-write.
+unsafe impl tvm_ffi::object::ImmutableObject for StringTypeObj {}
+
 tvm_ffi::unsafe_impl_object_upcast!(StringType => Type);
 // tvm-ffi-stubgen(end)
 
@@ -699,6 +731,10 @@ impl PtrType {
         Self { base: ObjectArc::new(obj) }
     }
 }
+
+// SAFETY: `ir.PtrType` is not `_type_mutable`: a shared instance is never
+// mutated, as C++ changes it only through copy-on-write.
+unsafe impl tvm_ffi::object::ImmutableObject for PtrTypeObj {}
 
 tvm_ffi::unsafe_impl_object_upcast!(PtrType => Type);
 // tvm-ffi-stubgen(end)
@@ -772,6 +808,10 @@ impl TupleType {
     }
 }
 
+// SAFETY: `ir.TupleType` is not `_type_mutable`: a shared instance is never
+// mutated, as C++ changes it only through copy-on-write.
+unsafe impl tvm_ffi::object::ImmutableObject for TupleTypeObj {}
+
 tvm_ffi::unsafe_impl_object_upcast!(TupleType => Type);
 // tvm-ffi-stubgen(end)
 
@@ -842,6 +882,10 @@ impl FuncType {
         Self { base: ObjectArc::new(obj) }
     }
 }
+
+// SAFETY: `ir.FuncType` is not `_type_mutable`: a shared instance is never
+// mutated, as C++ changes it only through copy-on-write.
+unsafe impl tvm_ffi::object::ImmutableObject for FuncTypeObj {}
 
 tvm_ffi::unsafe_impl_object_upcast!(FuncType => Type);
 // tvm-ffi-stubgen(end)

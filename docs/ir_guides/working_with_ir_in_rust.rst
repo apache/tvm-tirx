@@ -162,7 +162,7 @@ Objects and Managed References
 **Every node type comes as a pair: an underlying object and a named
 managed reference.** The top of
 ``x * 2 + 1`` is an addition, so let's convert the expression to ``Add``
-with ``downcast``, which the next subsection explains, and read its two
+with ``try_into``, which the next subsection explains, and read its two
 operands:
 
 .. literalinclude:: ../../examples/ir_guides/rust/src/lib.rs
@@ -229,11 +229,10 @@ Casts
 **Casts move a managed reference up and down the type hierarchy.** A
 function that takes any expression wants an ``Expr``, while reading the
 operands needs an ``Add``. ``.into()`` converts to a parent type through
-``From``/``Into`` and cannot fail. ``.downcast()`` converts to a child
-type: it checks the node's actual type and returns a ``Result`` whose error
-is the reference itself, handed back unchanged so another type can be tried,
-as ``Box<dyn Any>::downcast`` does in the standard library.
-``Error::downcast_failed`` turns it into a ``TypeError`` for ``?``.
+``From``/``Into`` and cannot fail. ``.try_into()``, or ``T::try_from``,
+converts to a child type: it checks the node's actual type and fails with a
+``TypeError`` naming both types, ready for ``?``. ``try_from(&value)``
+borrows and clones only on success.
 
 .. literalinclude:: ../../examples/ir_guides/rust/src/lib.rs
    :language: rust
@@ -250,17 +249,18 @@ The output is:
 ``value`` is an ``Expr`` again, but the node behind it is still an
 addition, so the cast back to ``Add`` succeeds.
 
-What if we guess wrong? The cast to ``Mul`` returns the expression back in
-an ``Err``, and the ``TypeError`` made from it names both type keys: the
-actual type ``prim.Add`` and the requested ``prim.Mul``.
+What if we guess wrong? The cast to ``Mul`` fails with a ``TypeError`` that
+names both type keys: the actual type ``prim.Add`` and the requested
+``prim.Mul``.
 
 .. note::
 
-   ``downcast`` consumes the managed reference it converts, so we clone
-   ``value`` before the first cast; the clone costs one reference-count
-   increment. For read-only inspection, ``value.downcast_ref::<Add>()``
-   returns ``Option<&Add>`` without consuming or cloning the reference.
-   ``Any`` and ``AnyView`` provide the same borrowed downcast.
+   To try several types in turn, ``value.downcast::<Add>()`` takes the
+   reference and hands it back unchanged in ``Err``, as
+   ``Box<dyn Any>::downcast`` does in the standard library. For read-only
+   inspection, ``value.downcast_ref::<Add>()`` returns ``Option<&Add>``
+   without consuming or cloning the reference. ``Any`` and ``AnyView``
+   provide the same borrowed downcast.
 
 Casting to one type at a time gets tedious when a node can be one of
 many; that is what matching is for.

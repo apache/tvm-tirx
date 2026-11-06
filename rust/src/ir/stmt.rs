@@ -188,6 +188,10 @@ unsafe impl UnsafeInit for StmtObj {
         }
     }
 }
+
+// SAFETY: `ir.Stmt` is not `_type_mutable`: a shared instance is never
+// mutated, as C++ changes it only through copy-on-write.
+unsafe impl tvm_ffi::object::ImmutableObject for StmtObj {}
 // tvm-ffi-stubgen(end)
 
 // tvm-ffi-stubgen(begin): object/ir.Bind
@@ -245,6 +249,10 @@ impl Bind {
         Self { base: ObjectArc::new(obj) }
     }
 }
+
+// SAFETY: `ir.Bind` is not `_type_mutable`: a shared instance is never
+// mutated, as C++ changes it only through copy-on-write.
+unsafe impl tvm_ffi::object::ImmutableObject for BindObj {}
 
 tvm_ffi::unsafe_impl_object_upcast!(Bind => Stmt);
 // tvm-ffi-stubgen(end)
@@ -338,6 +346,10 @@ impl AssertStmt {
         Self { base: ObjectArc::new(obj) }
     }
 }
+
+// SAFETY: `ir.AssertStmt` is not `_type_mutable`: a shared instance is never
+// mutated, as C++ changes it only through copy-on-write.
+unsafe impl tvm_ffi::object::ImmutableObject for AssertStmtObj {}
 
 tvm_ffi::unsafe_impl_object_upcast!(AssertStmt => Stmt);
 // tvm-ffi-stubgen(end)
@@ -454,6 +466,10 @@ impl For {
         Self { base: ObjectArc::new(obj) }
     }
 }
+
+// SAFETY: `ir.For` is not `_type_mutable`: a shared instance is never
+// mutated, as C++ changes it only through copy-on-write.
+unsafe impl tvm_ffi::object::ImmutableObject for ForObj {}
 
 tvm_ffi::unsafe_impl_object_upcast!(For => Stmt);
 // tvm-ffi-stubgen(end)
@@ -633,6 +649,10 @@ impl While {
     }
 }
 
+// SAFETY: `ir.While` is not `_type_mutable`: a shared instance is never
+// mutated, as C++ changes it only through copy-on-write.
+unsafe impl tvm_ffi::object::ImmutableObject for WhileObj {}
+
 tvm_ffi::unsafe_impl_object_upcast!(While => Stmt);
 // tvm-ffi-stubgen(end)
 
@@ -721,6 +741,10 @@ impl TensorStore {
         Self { base: ObjectArc::new(obj) }
     }
 }
+
+// SAFETY: `ir.TensorStore` is not `_type_mutable`: a shared instance is never
+// mutated, as C++ changes it only through copy-on-write.
+unsafe impl tvm_ffi::object::ImmutableObject for TensorStoreObj {}
 
 tvm_ffi::unsafe_impl_object_upcast!(TensorStore => Stmt);
 // tvm-ffi-stubgen(end)
@@ -844,6 +868,10 @@ impl RegionStmt {
         Self { base: ObjectArc::new(obj) }
     }
 }
+
+// SAFETY: `ir.RegionStmt` is not `_type_mutable`: a shared instance is never
+// mutated, as C++ changes it only through copy-on-write.
+unsafe impl tvm_ffi::object::ImmutableObject for RegionStmtObj {}
 
 tvm_ffi::unsafe_impl_object_upcast!(RegionStmt => Stmt);
 // tvm-ffi-stubgen(end)
@@ -1004,6 +1032,10 @@ impl SeqStmt {
     }
 }
 
+// SAFETY: `ir.SeqStmt` is not `_type_mutable`: a shared instance is never
+// mutated, as C++ changes it only through copy-on-write.
+unsafe impl tvm_ffi::object::ImmutableObject for SeqStmtObj {}
+
 tvm_ffi::unsafe_impl_object_upcast!(SeqStmt => Stmt);
 // tvm-ffi-stubgen(end)
 
@@ -1115,6 +1147,10 @@ impl If {
     }
 }
 
+// SAFETY: `ir.If` is not `_type_mutable`: a shared instance is never
+// mutated, as C++ changes it only through copy-on-write.
+unsafe impl tvm_ffi::object::ImmutableObject for IfObj {}
+
 tvm_ffi::unsafe_impl_object_upcast!(If => Stmt);
 // tvm-ffi-stubgen(end)
 
@@ -1185,6 +1221,10 @@ impl Evaluate {
     }
 }
 
+// SAFETY: `ir.Evaluate` is not `_type_mutable`: a shared instance is never
+// mutated, as C++ changes it only through copy-on-write.
+unsafe impl tvm_ffi::object::ImmutableObject for EvaluateObj {}
+
 tvm_ffi::unsafe_impl_object_upcast!(Evaluate => Stmt);
 // tvm-ffi-stubgen(end)
 
@@ -1245,6 +1285,10 @@ impl Break {
     }
 }
 
+// SAFETY: `ir.Break` is not `_type_mutable`: a shared instance is never
+// mutated, as C++ changes it only through copy-on-write.
+unsafe impl tvm_ffi::object::ImmutableObject for BreakObj {}
+
 tvm_ffi::unsafe_impl_object_upcast!(Break => Stmt);
 // tvm-ffi-stubgen(end)
 
@@ -1300,6 +1344,10 @@ impl Return {
         Self { base: ObjectArc::new(obj) }
     }
 }
+
+// SAFETY: `ir.Return` is not `_type_mutable`: a shared instance is never
+// mutated, as C++ changes it only through copy-on-write.
+unsafe impl tvm_ffi::object::ImmutableObject for ReturnObj {}
 
 tvm_ffi::unsafe_impl_object_upcast!(Return => Stmt);
 // tvm-ffi-stubgen(end)
@@ -1360,6 +1408,10 @@ impl Continue {
         Self { base: ObjectArc::new(obj) }
     }
 }
+
+// SAFETY: `ir.Continue` is not `_type_mutable`: a shared instance is never
+// mutated, as C++ changes it only through copy-on-write.
+unsafe impl tvm_ffi::object::ImmutableObject for ContinueObj {}
 
 tvm_ffi::unsafe_impl_object_upcast!(Continue => Stmt);
 // tvm-ffi-stubgen(end)

@@ -99,7 +99,7 @@ pub struct OpObj {
     /// The type key of the operator's `Call.attrs`, or empty when it declares none.
     pub attrs_type_key: String,
     attrs_type_index: u32,
-    validator: Any,
+    validator: ValidatorCell,
     validator_is_custom: bool,
 }
 
@@ -118,6 +118,20 @@ const _: () = {
     assert!(::core::mem::offset_of!(OpObj, validator) == 136);
     assert!(::core::mem::offset_of!(OpObj, validator_is_custom) == 152);
 };
+
+// SAFETY: `ir.Op` is not `_type_mutable`: registration finishes initializing an entry, and a
+// shared one is never mutated after.
+unsafe impl tvm_ffi::object::ImmutableObject for OpObj {}
+
+/// The validator slot of an operator: an opaque pointer to a C ABI adapter, written while the
+/// operator is registered and only read after, so it may be shared as the rest of `OpObj` is.
+#[repr(transparent)]
+struct ValidatorCell(Any);
+
+// SAFETY: the cell is written only during registration, which counts as initialization (as for
+// the rest of `OpObj`), and holds a native function pointer that is safe to call from any thread.
+unsafe impl Send for ValidatorCell {}
+unsafe impl Sync for ValidatorCell {}
 
 /// A registered operator, the callee of a [`Call`](crate::ir::Call) to it.
 ///
@@ -153,7 +167,7 @@ impl OpObj {
     /// Return the validator that [`Call::validate`](crate::ir::Call::validate) runs: a native
     /// function pointer, a packed function, or `None`.
     pub fn validator(&self) -> &Any {
-        &self.validator
+        &self.validator.0
     }
 
     /// Return whether the validator was set with
@@ -242,7 +256,10 @@ impl Op {
         // reference into the node is live, and registration is not synchronized with readers.
         unsafe {
             let node = ObjectArc::as_ptr(ObjectRefCore::data(self)) as *mut OpObj;
-            let previous = std::ptr::replace(std::ptr::addr_of_mut!((*node).validator), validator);
+            let previous = std::ptr::replace(
+                std::ptr::addr_of_mut!((*node).validator),
+                ValidatorCell(validator),
+            );
             std::ptr::addr_of_mut!((*node).validator_is_custom).write(custom);
             drop(previous);
         }
@@ -295,6 +312,10 @@ impl ArgumentInfo {
         Self { base: ObjectArc::new(obj) }
     }
 }
+
+// SAFETY: `ir.ArgumentInfo` is not `_type_mutable`: a shared instance is never
+// mutated, as C++ changes it only through copy-on-write.
+unsafe impl tvm_ffi::object::ImmutableObject for ArgumentInfoObj {}
 // tvm-ffi-stubgen(end)
 
 // The crate has no `ffi.List` binding, so the column is read through the `TVMFFISeqCell` that

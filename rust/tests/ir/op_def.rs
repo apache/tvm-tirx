@@ -487,10 +487,8 @@ fn is_block_registered(block: &StaticInitBlock) -> bool {
 }
 
 fn launch_body_params(call: &CallObj) -> Result<Array<Var>> {
-    let tag =
-        call.args.get(0)?.downcast::<StringImm>().map_err(Error::downcast_failed::<StringImm>)?;
-    let extent_ty: PrimType =
-        call.args.get(1)?.ty.clone().downcast().map_err(Error::downcast_failed::<PrimType>)?;
+    let tag = StringImm::try_from(call.args.get(0)?)?;
+    let extent_ty: PrimType = PrimType::try_from(&call.args.get(1)?.ty)?;
     let dtype = extent_ty.dtype;
     if tag.value.as_str().is_empty() {
         let message = "Check failed: (!tag->value.empty()) is false: launch_thread expects a \

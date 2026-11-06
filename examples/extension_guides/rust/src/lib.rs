@@ -30,8 +30,8 @@ use tvm_tirx::ir::{
 use tvm_tirx::tirx::transform::FunctionPass;
 use tvm_tirx::tirx::Function;
 use tvm_tirx::tvm_ffi::{
-    self, def_object_ref, dispatch, rs_object, Any, AnyView, Error, ObjectRefCore,
-    Result, Unchanged, UnchangedOr, WalkOrder,
+    self, def_object_ref, dispatch, rs_object, Any, AnyView, Error, ObjectRefCore, Result,
+    Unchanged, UnchangedOr, WalkOrder,
 };
 
 // begin type
@@ -89,7 +89,7 @@ fn infer_complex(call: &CallObj) -> Result<Type> {
 // end inference
 
 fn complex_arg(call: &CallObj, index: usize) -> Result<ComplexType> {
-    let op: Op = call.op.clone().downcast().map_err(Error::downcast_failed::<Op>)?;
+    let op = Op::try_from(&call.op)?;
     let ty: ComplexType = call
         .args
         .get(index)?
@@ -115,7 +115,7 @@ fn infer_part(call: &CallObj) -> Result<Type> {
 
 // Explicit result types bypass inference, so validation checks the inputs and result again.
 fn validate_call(call: &CallObj) -> Result<()> {
-    let op: Op = call.op.clone().downcast().map_err(Error::downcast_failed::<Op>)?;
+    let op = Op::try_from(&call.op)?;
     let expected = match op.name.as_str() {
         "my_ext.complex" => infer_complex(call)?,
         "my_ext.cmul" => infer_cmul(call)?,

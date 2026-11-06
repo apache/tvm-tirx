@@ -128,6 +128,10 @@ impl IndexMap {
         Self { base: ObjectArc::new(obj) }
     }
 }
+
+// SAFETY: `tirx.IndexMap` is not `_type_mutable`: a shared instance is never
+// mutated, as C++ changes it only through copy-on-write.
+unsafe impl tvm_ffi::object::ImmutableObject for IndexMapObj {}
 // tvm-ffi-stubgen(end)
 
 // The native `tirx.IndexMap` stores its fields as given, as the generated `IndexMap::new` does.
