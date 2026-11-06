@@ -225,8 +225,6 @@ impl IterMark {
     }
 }
 
-// SAFETY: `sym.IterMark` is not `_type_mutable`: a shared instance is never
-// mutated, as C++ changes it only through copy-on-write.
 unsafe impl tvm_ffi::object::ImmutableObject for IterMarkObj {}
 // tvm-ffi-stubgen(end)
 
@@ -278,8 +276,6 @@ impl IterSplitExprObj {
     }
 }
 
-// SAFETY: `sym.IterSplitExpr` is not `_type_mutable`: a shared instance is never
-// mutated, as C++ changes it only through copy-on-write.
 unsafe impl tvm_ffi::object::ImmutableObject for IterSplitExprObj {}
 
 tvm_ffi::unsafe_impl_object_upcast!(IterSplitExpr => Expr, IterSplitExpr => IterMapExpr, IterSplitExpr => PrimExpr);
@@ -325,8 +321,6 @@ impl IterSumExprObj {
     }
 }
 
-// SAFETY: `sym.IterSumExpr` is not `_type_mutable`: a shared instance is never
-// mutated, as C++ changes it only through copy-on-write.
 unsafe impl tvm_ffi::object::ImmutableObject for IterSumExprObj {}
 
 tvm_ffi::unsafe_impl_object_upcast!(IterSumExpr => Expr, IterSumExpr => IterMapExpr, IterSumExpr => PrimExpr);

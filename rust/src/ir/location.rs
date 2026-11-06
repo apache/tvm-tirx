@@ -112,8 +112,6 @@ unsafe impl UnsafeInit for LocationObj {
     }
 }
 
-// SAFETY: `ir.Location` is not `_type_mutable`: a shared instance is never
-// mutated, as C++ changes it only through copy-on-write.
 unsafe impl tvm_ffi::object::ImmutableObject for LocationObj {}
 // tvm-ffi-stubgen(end)
 
@@ -175,8 +173,6 @@ impl UnknownLoc {
     }
 }
 
-// SAFETY: `ir.UnknownLoc` is not `_type_mutable`: a shared instance is never
-// mutated, as C++ changes it only through copy-on-write.
 unsafe impl tvm_ffi::object::ImmutableObject for UnknownLocObj {}
 
 tvm_ffi::unsafe_impl_object_upcast!(UnknownLoc => Location);
@@ -279,8 +275,6 @@ impl SourceLoc {
     }
 }
 
-// SAFETY: `ir.SourceLoc` is not `_type_mutable`: a shared instance is never
-// mutated, as C++ changes it only through copy-on-write.
 unsafe impl tvm_ffi::object::ImmutableObject for SourceLocObj {}
 
 tvm_ffi::unsafe_impl_object_upcast!(SourceLoc => Location);
@@ -340,8 +334,6 @@ impl CallSiteLoc {
     }
 }
 
-// SAFETY: `ir.CallSiteLoc` is not `_type_mutable`: a shared instance is never
-// mutated, as C++ changes it only through copy-on-write.
 unsafe impl tvm_ffi::object::ImmutableObject for CallSiteLocObj {}
 
 tvm_ffi::unsafe_impl_object_upcast!(CallSiteLoc => Location);
@@ -393,8 +385,6 @@ impl SourceName {
     }
 }
 
-// SAFETY: `ir.SourceName` is not `_type_mutable`: a shared instance is never
-// mutated, as C++ changes it only through copy-on-write.
 unsafe impl tvm_ffi::object::ImmutableObject for SourceNameObj {}
 // tvm-ffi-stubgen(end)
 

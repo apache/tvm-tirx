@@ -106,8 +106,6 @@ unsafe impl UnsafeInit for AttrsObj {
     }
 }
 
-// SAFETY: `ir.Attrs` is not `_type_mutable`: a shared instance is never
-// mutated, as C++ changes it only through copy-on-write.
 unsafe impl tvm_ffi::object::ImmutableObject for AttrsObj {}
 // tvm-ffi-stubgen(end)
 
@@ -162,8 +160,6 @@ impl DictAttrs {
     }
 }
 
-// SAFETY: `ir.DictAttrs` is not `_type_mutable`: a shared instance is never
-// mutated, as C++ changes it only through copy-on-write.
 unsafe impl tvm_ffi::object::ImmutableObject for DictAttrsObj {}
 
 tvm_ffi::unsafe_impl_object_upcast!(DictAttrs => Attrs);

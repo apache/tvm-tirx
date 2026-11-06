@@ -94,7 +94,7 @@ ffi::Optional<ffi::VisitInterrupt> ObjectVisitorWithConstraintContext::Visit(ffi
       return (*native_vtable_)(value.cast<const ffi::Object*>(), this);
     return DefaultVisitExpected(value).value();
   } catch (ffi::Error& error) {
-    ffi::detail::UpdateVisitErrorContext(error, value);
+    ffi::detail::UpdateVisitErrorContext(&error, value);
     throw;
   }
 }
@@ -112,7 +112,7 @@ ffi::UnchangedOr<ffi::Any> ObjectMutatorWithConstraintContext::Mutate(ffi::AnyVi
       auto context = ffi::VisitErrorContext::TryGetFromError(error);
       if (!context.has_value() || context.value()->reverse_visit_pattern.empty() ||
           context.value()->reverse_visit_pattern.back().get() != object) {
-        ffi::detail::UpdateVisitErrorContext(error, value);
+        ffi::detail::UpdateVisitErrorContext(&error, value);
       }
       throw;
     }

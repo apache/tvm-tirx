@@ -151,8 +151,6 @@ impl PassInfo {
     }
 }
 
-// SAFETY: `transform.PassInfo` is not `_type_mutable`: a shared instance is never
-// mutated, as C++ changes it only through copy-on-write.
 unsafe impl tvm_ffi::object::ImmutableObject for PassInfoObj {}
 // tvm-ffi-stubgen(end)
 
@@ -195,8 +193,6 @@ impl ModulePassObj {
     }
 }
 
-// SAFETY: `transform.ModulePass` is not `_type_mutable`: a shared instance is never
-// mutated, as C++ changes it only through copy-on-write.
 unsafe impl tvm_ffi::object::ImmutableObject for ModulePassObj {}
 
 tvm_ffi::unsafe_impl_object_upcast!(ModulePass => Pass);
@@ -264,8 +260,6 @@ impl SequentialObj {
     }
 }
 
-// SAFETY: `transform.Sequential` is not `_type_mutable`: a shared instance is never
-// mutated, as C++ changes it only through copy-on-write.
 unsafe impl tvm_ffi::object::ImmutableObject for SequentialObj {}
 
 tvm_ffi::unsafe_impl_object_upcast!(Sequential => Pass);
@@ -495,8 +489,6 @@ impl PassInstrumentObj {
     }
 }
 
-// SAFETY: `transform.PassInstrument` is not `_type_mutable`: a shared instance is never
-// mutated, as C++ changes it only through copy-on-write.
 unsafe impl tvm_ffi::object::ImmutableObject for PassInstrumentObj {}
 // tvm-ffi-stubgen(end)
 

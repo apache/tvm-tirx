@@ -107,8 +107,6 @@ impl RemoveNoOpConfig {
     }
 }
 
-// SAFETY: `tirx.transform.RemoveNoOpConfig` is not `_type_mutable`: a shared instance is never
-// mutated, as C++ changes it only through copy-on-write.
 unsafe impl tvm_ffi::object::ImmutableObject for RemoveNoOpConfigObj {}
 // tvm-ffi-stubgen(end)
 
@@ -185,8 +183,6 @@ impl UnrollLoopConfig {
     }
 }
 
-// SAFETY: `tirx.transform.UnrollLoopConfig` is not `_type_mutable`: a shared instance is never
-// mutated, as C++ changes it only through copy-on-write.
 unsafe impl tvm_ffi::object::ImmutableObject for UnrollLoopConfigObj {}
 // tvm-ffi-stubgen(end)
 

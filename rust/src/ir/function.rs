@@ -134,8 +134,6 @@ unsafe impl UnsafeInit for BaseFuncObj {
     }
 }
 
-// SAFETY: `ir.BaseFunc` is not `_type_mutable`: a shared instance is never
-// mutated, as C++ changes it only through copy-on-write.
 unsafe impl tvm_ffi::object::ImmutableObject for BaseFuncObj {}
 
 tvm_ffi::unsafe_impl_object_upcast!(BaseFunc => Expr);

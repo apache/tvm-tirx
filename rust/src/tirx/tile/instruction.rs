@@ -105,8 +105,6 @@ impl ScopeAttrs {
     }
 }
 
-// SAFETY: `tirx.tensor.ScopeAttrs` is not `_type_mutable`: a shared instance is never
-// mutated, as C++ changes it only through copy-on-write.
 unsafe impl tvm_ffi::object::ImmutableObject for ScopeAttrsObj {}
 
 tvm_ffi::unsafe_impl_object_upcast!(ScopeAttrs => Attrs);
@@ -201,8 +199,6 @@ impl TrnAttrs {
     }
 }
 
-// SAFETY: `tirx.tensor.TrnAttrs` is not `_type_mutable`: a shared instance is never
-// mutated, as C++ changes it only through copy-on-write.
 unsafe impl tvm_ffi::object::ImmutableObject for TrnAttrsObj {}
 
 tvm_ffi::unsafe_impl_object_upcast!(TrnAttrs => Attrs);

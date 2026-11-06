@@ -122,8 +122,6 @@ unsafe impl UnsafeInit for ConstraintObj {
     }
 }
 
-// SAFETY: `sym.Constraint` is not `_type_mutable`: a shared instance is never
-// mutated, as C++ changes it only through copy-on-write.
 unsafe impl tvm_ffi::object::ImmutableObject for ConstraintObj {}
 // tvm-ffi-stubgen(end)
 
@@ -179,8 +177,6 @@ impl BindingConstraint {
     }
 }
 
-// SAFETY: `sym.BindingConstraint` is not `_type_mutable`: a shared instance is never
-// mutated, as C++ changes it only through copy-on-write.
 unsafe impl tvm_ffi::object::ImmutableObject for BindingConstraintObj {}
 
 tvm_ffi::unsafe_impl_object_upcast!(BindingConstraint => Constraint);
@@ -238,8 +234,6 @@ impl PredicateConstraint {
     }
 }
 
-// SAFETY: `sym.PredicateConstraint` is not `_type_mutable`: a shared instance is never
-// mutated, as C++ changes it only through copy-on-write.
 unsafe impl tvm_ffi::object::ImmutableObject for PredicateConstraintObj {}
 
 tvm_ffi::unsafe_impl_object_upcast!(PredicateConstraint => Constraint);
@@ -297,8 +291,6 @@ impl RangeConstraint {
     }
 }
 
-// SAFETY: `sym.RangeConstraint` is not `_type_mutable`: a shared instance is never
-// mutated, as C++ changes it only through copy-on-write.
 unsafe impl tvm_ffi::object::ImmutableObject for RangeConstraintObj {}
 
 tvm_ffi::unsafe_impl_object_upcast!(RangeConstraint => Constraint);

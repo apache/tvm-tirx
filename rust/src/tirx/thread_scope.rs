@@ -84,8 +84,6 @@ impl Deref for ThreadScope {
     }
 }
 
-// SAFETY: `tirx.ThreadScope` is not `_type_mutable`: a shared instance is never
-// mutated, as C++ changes it only through copy-on-write.
 unsafe impl tvm_ffi::object::ImmutableObject for ThreadScopeObj {}
 // tvm-ffi-stubgen(end)
 
