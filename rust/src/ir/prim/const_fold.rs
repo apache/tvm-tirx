@@ -27,7 +27,7 @@
 //! operand also folds the identities (`x + 0`, `x * 1`, ...). Division by a constant zero is an
 //! error, as in C++.
 
-use tvm_ffi::{BigInt, DLDataType, ObjectRefCore, Result, INTERNAL_ERROR};
+use tvm_ffi::{BigInt, DLDataTypeCode, ObjectRefCore, Result, INTERNAL_ERROR};
 
 use crate::ir::expr::{FloatImm, FloatImmObj, IntImm, IntImmObj, PrimExpr};
 use crate::ir::location::UNKNOWN_LOC;
@@ -42,10 +42,10 @@ pub(super) type Folded = Result<Option<PrimExpr>>;
 
 /// `TryConstFold<Add>`.
 pub(super) fn add(a: &PrimExpr, b: &PrimExpr) -> Folded {
-    let dtype = support::prim_dtype(a)?;
+    let ty = a.prim_ty();
     let (pa, pb, fa, fb) = (int(a), int(b), float(a), float(b));
     if let (Some(x), Some(y)) = (pa, pb) {
-        return exact(dtype, x + y);
+        return exact(ty, x + y);
     }
     if pa.is_some_and(BigInt::is_zero) {
         return keep(b);
@@ -54,9 +54,9 @@ pub(super) fn add(a: &PrimExpr, b: &PrimExpr) -> Folded {
         return keep(a);
     }
     if let (Some(x), Some(y)) = (fa, fb) {
-        match dtype.bits {
-            32 => return float_imm_of(dtype, single(x, y, |x, y| x + y)),
-            64 => return float_imm(dtype, x + y),
+        match ty.bits() {
+            32 => return float_imm_of(ty, single(x, y, |x, y| x + y)),
+            64 => return float_imm(ty, x + y),
             _ => {}
         }
     }
@@ -71,18 +71,18 @@ pub(super) fn add(a: &PrimExpr, b: &PrimExpr) -> Folded {
 
 /// `TryConstFold<Sub>`.
 pub(super) fn sub(a: &PrimExpr, b: &PrimExpr) -> Folded {
-    let dtype = support::prim_dtype(a)?;
+    let ty = a.prim_ty();
     let (pa, pb, fa, fb) = (int(a), int(b), float(a), float(b));
     if let (Some(x), Some(y)) = (pa, pb) {
-        return exact(dtype, x - y);
+        return exact(ty, x - y);
     }
     if pb.is_some_and(BigInt::is_zero) {
         return keep(a);
     }
     if let (Some(x), Some(y)) = (fa, fb) {
-        match dtype.bits {
-            32 => return float_imm_of(dtype, single(x, y, |x, y| x - y)),
-            64 => return float_imm(dtype, x - y),
+        match ty.bits() {
+            32 => return float_imm_of(ty, single(x, y, |x, y| x - y)),
+            64 => return float_imm(ty, x - y),
             _ => {}
         }
     }
@@ -94,10 +94,10 @@ pub(super) fn sub(a: &PrimExpr, b: &PrimExpr) -> Folded {
 
 /// `TryConstFold<Mul>`.
 pub(super) fn mul(a: &PrimExpr, b: &PrimExpr) -> Folded {
-    let dtype = support::prim_dtype(a)?;
+    let ty = a.prim_ty();
     let (pa, pb, fa, fb) = (int(a), int(b), float(a), float(b));
     if let (Some(x), Some(y)) = (pa, pb) {
-        return exact(dtype, x * y);
+        return exact(ty, x * y);
     }
     if let Some(x) = pa {
         if is_one(x) {
@@ -116,9 +116,9 @@ pub(super) fn mul(a: &PrimExpr, b: &PrimExpr) -> Folded {
         }
     }
     if let (Some(x), Some(y)) = (fa, fb) {
-        match dtype.bits {
-            32 => return float_imm_of(dtype, single(x, y, |x, y| x * y)),
-            64 => return float_imm(dtype, x * y),
+        match ty.bits() {
+            32 => return float_imm_of(ty, single(x, y, |x, y| x * y)),
+            64 => return float_imm(ty, x * y),
             _ => {}
         }
     }
@@ -143,11 +143,11 @@ pub(super) fn mul(a: &PrimExpr, b: &PrimExpr) -> Folded {
 
 /// `TryConstFold<Div>`: integers divide truncating.
 pub(super) fn div(a: &PrimExpr, b: &PrimExpr) -> Folded {
-    let dtype = support::prim_dtype(a)?;
+    let ty = a.prim_ty();
     let (pa, pb, fa, fb) = (int(a), int(b), float(a), float(b));
     if let (Some(x), Some(y)) = (pa, pb) {
         check_int_divisor(y)?;
-        return exact(dtype, x.try_div(y)?);
+        return exact(ty, x.try_div(y)?);
     }
     if pa.is_some_and(BigInt::is_zero) {
         return keep(a);
@@ -160,9 +160,9 @@ pub(super) fn div(a: &PrimExpr, b: &PrimExpr) -> Folded {
     }
     if let (Some(x), Some(y)) = (fa, fb) {
         check_float_divisor(y)?;
-        match dtype.bits {
-            32 => return float_imm_of(dtype, single(x, y, |x, y| x / y)),
-            64 => return float_imm(dtype, x / y),
+        match ty.bits() {
+            32 => return float_imm_of(ty, single(x, y, |x, y| x / y)),
+            64 => return float_imm(ty, x / y),
             _ => {}
         }
     }
@@ -181,27 +181,27 @@ pub(super) fn div(a: &PrimExpr, b: &PrimExpr) -> Folded {
 /// `TryConstFold<Mod>`, the truncating remainder: index types fold with the identities, wider
 /// integers fold only two constants.
 pub(super) fn truncmod(a: &PrimExpr, b: &PrimExpr) -> Folded {
-    let dtype = support::prim_dtype(a)?;
+    let ty = a.prim_ty();
     let (pa, pb) = (int(a), int(b));
-    if is_index_type(dtype) && is_index_type(support::prim_dtype(b)?) {
+    if is_index_type(ty) && is_index_type(b.prim_ty()) {
         if let (Some(x), Some(y)) = (pa, pb) {
             check_int_divisor(y)?;
-            return exact(dtype, x.try_rem(y)?);
+            return exact(ty, x.try_rem(y)?);
         }
         if pa.is_some_and(BigInt::is_zero) {
             return keep(a);
         }
         if let Some(y) = pb {
             if is_one(y) {
-                return int_imm(dtype, BigInt::from(0i64));
+                return int_imm(ty, BigInt::from(0i64));
             }
             check_int_divisor(y)?;
         }
     }
     if let (Some(x), Some(y)) = (pa, pb) {
-        if dtype.bits >= 64 {
+        if ty.bits() >= 64 {
             check_int_divisor(y)?;
-            return exact(dtype, x.try_rem(y)?);
+            return exact(ty, x.try_rem(y)?);
         }
     }
     Ok(None)
@@ -209,11 +209,11 @@ pub(super) fn truncmod(a: &PrimExpr, b: &PrimExpr) -> Folded {
 
 /// `TryConstFold<FloorDiv>`.
 pub(super) fn floordiv(a: &PrimExpr, b: &PrimExpr) -> Folded {
-    let dtype = support::prim_dtype(a)?;
+    let ty = a.prim_ty();
     let (pa, pb, fa, fb) = (int(a), int(b), float(a), float(b));
     if let (Some(x), Some(y)) = (pa, pb) {
         check_int_divisor(y)?;
-        return exact(dtype, x.floor_div(y)?);
+        return exact(ty, x.floor_div(y)?);
     }
     if pa.is_some_and(BigInt::is_zero) {
         return keep(a);
@@ -226,9 +226,9 @@ pub(super) fn floordiv(a: &PrimExpr, b: &PrimExpr) -> Folded {
     }
     if let (Some(x), Some(y)) = (fa, fb) {
         if y != 0.0 {
-            return match dtype.bits {
-                32 => float_imm_of(dtype, single(x, y, |x, y| x / y).map(f64::floor)),
-                64 => float_imm(dtype, (x / y).floor()),
+            return match ty.bits() {
+                32 => float_imm_of(ty, single(x, y, |x, y| x / y).map(f64::floor)),
+                64 => float_imm(ty, (x / y).floor()),
                 _ => Ok(None),
             };
         }
@@ -248,27 +248,27 @@ pub(super) fn floordiv(a: &PrimExpr, b: &PrimExpr) -> Folded {
 /// `TryConstFold<FloorMod>`: index types fold with the identities, wider or unsigned integers
 /// fold only two constants.
 pub(super) fn floormod(a: &PrimExpr, b: &PrimExpr) -> Folded {
-    let dtype = support::prim_dtype(a)?;
+    let ty = a.prim_ty();
     let (pa, pb) = (int(a), int(b));
-    if is_index_type(dtype) && is_index_type(support::prim_dtype(b)?) {
+    if is_index_type(ty) && is_index_type(b.prim_ty()) {
         if let (Some(x), Some(y)) = (pa, pb) {
             check_int_divisor(y)?;
-            return exact(dtype, x.floor_mod(y)?);
+            return exact(ty, x.floor_mod(y)?);
         }
         if pa.is_some_and(BigInt::is_zero) {
             return keep(a);
         }
         if let Some(y) = pb {
             if is_one(y) {
-                return int_imm(dtype, BigInt::from(0i64));
+                return int_imm(ty, BigInt::from(0i64));
             }
             check_int_divisor(y)?;
         }
     }
     if let (Some(x), Some(y)) = (pa, pb) {
-        if dtype.bits >= 64 || dtype.code == support::UINT {
+        if ty.bits() >= 64 || ty.matches_code(&[DLDataTypeCode::kDLUInt]) {
             check_int_divisor(y)?;
-            return exact(dtype, x.floor_mod(y)?);
+            return exact(ty, x.floor_mod(y)?);
         }
     }
     Ok(None)
@@ -278,9 +278,9 @@ pub(super) fn floormod(a: &PrimExpr, b: &PrimExpr) -> Folded {
 /// when it is NaN or less than the second, and the second otherwise: a NaN in either operand is
 /// the result, and of two equal values (`0.0` and `-0.0`) the second is.
 pub(super) fn min(a: &PrimExpr, b: &PrimExpr) -> Folded {
-    let dtype = support::prim_dtype(a)?;
+    let ty = a.prim_ty();
     if let (Some(x), Some(y)) = (int(a), int(b)) {
-        return int_imm(dtype, x.min(y).clone());
+        return int_imm(ty, x.min(y).clone());
     }
     if let (Some(x), Some(y)) = (float(a), float(b)) {
         return keep(if x.is_nan() || x < y { a } else { b });
@@ -293,9 +293,9 @@ pub(super) fn min(a: &PrimExpr, b: &PrimExpr) -> Folded {
 
 /// `TryConstFold<Max>`, as [`min`]: the first float is kept when it is NaN or greater.
 pub(super) fn max(a: &PrimExpr, b: &PrimExpr) -> Folded {
-    let dtype = support::prim_dtype(a)?;
+    let ty = a.prim_ty();
     if let (Some(x), Some(y)) = (int(a), int(b)) {
-        return int_imm(dtype, x.max(y).clone());
+        return int_imm(ty, x.max(y).clone());
     }
     if let (Some(x), Some(y)) = (float(a), float(b)) {
         return keep(if x.is_nan() || x > y { a } else { b });
@@ -359,19 +359,19 @@ pub(super) fn not(a: &PrimExpr) -> Folded {
 // Helpers
 
 /// C++ `IsIndexType`: a scalar `int32` or `int64`, which index arithmetic folds eagerly.
-pub(super) fn is_index_type(dtype: DLDataType) -> bool {
-    dtype.code == support::INT && (dtype.bits == 32 || dtype.bits == 64) && dtype.lanes == 1
+pub(super) fn is_index_type(ty: &PrimType) -> bool {
+    ty.is_scalar() && ty.matches_code(&[DLDataTypeCode::kDLInt]) && matches!(ty.bits(), 32 | 64)
 }
 
-/// C++ `IsRepresentable(value, dtype)`: whether the exact integer `value` is a literal of the
-/// scalar type `dtype`, an integer in its range or a boolean 0 or 1 (as is an `int1`).
-pub(super) fn is_representable(value: &BigInt, dtype: DLDataType) -> bool {
-    if !support::is_scalar(dtype) || dtype.bits == 0 {
+/// C++ `IsRepresentable(value, ty)`: whether the exact integer `value` is a literal of the
+/// scalar type `ty`, an integer in its range or a boolean 0 or 1 (as is an `int1`).
+pub(super) fn is_representable(value: &BigInt, ty: &PrimType) -> bool {
+    if !ty.is_scalar() || ty.bits() == 0 {
         return false;
     }
-    let bits = u32::from(dtype.bits);
+    let (code, bits) = (ty.dtype.code, u32::from(ty.bits()));
     if let Some(small) = value.to_i64() {
-        return match dtype.code {
+        return match code {
             support::UINT => small >= 0 && (bits >= 63 || (small as u64) < (1u64 << bits)),
             support::BOOL => small == 0 || small == 1,
             support::INT if bits == 1 => small == 0 || small == 1,
@@ -381,7 +381,7 @@ pub(super) fn is_representable(value: &BigInt, dtype: DLDataType) -> bool {
             _ => false,
         };
     }
-    match dtype.code {
+    match code {
         support::UINT => !value.is_negative() && *value < BigInt::from(1i64) << i64::from(bits),
         support::INT if bits > 1 => {
             let limit = BigInt::from(1i64) << i64::from(bits - 1);
@@ -407,23 +407,23 @@ fn float(expr: &PrimExpr) -> Option<f64> {
     expr.downcast_ref::<FloatImmObj>().map(|imm| imm.value)
 }
 
-/// C++ `IntImm(dtype, value)`.
-fn int_imm(dtype: DLDataType, value: BigInt) -> Folded {
-    Ok(Some(IntImm::new(PrimType::from_dtype(dtype)?, value, UNKNOWN_LOC)?.into()))
+/// C++ `IntImm(ty, value)`.
+fn int_imm(ty: &PrimType, value: BigInt) -> Folded {
+    Ok(Some(IntImm::new(ty.clone(), value, UNKNOWN_LOC)?.into()))
 }
 
 /// C++ `IntImm(result_ty, value)` of an exact result, or nothing to fold when it is not a value of
 /// the type.
-fn exact(dtype: DLDataType, value: BigInt) -> Folded {
-    match is_representable(&value, dtype) {
-        true => int_imm(dtype, value),
+fn exact(ty: &PrimType, value: BigInt) -> Folded {
+    match is_representable(&value, ty) {
+        true => int_imm(ty, value),
         false => Ok(None),
     }
 }
 
-/// C++ `FloatImm(dtype, value)`.
-fn float_imm(dtype: DLDataType, value: f64) -> Folded {
-    Ok(Some(FloatImm::new(PrimType::from_dtype(dtype)?, value, UNKNOWN_LOC)?.into()))
+/// C++ `FloatImm(ty, value)`.
+fn float_imm(ty: &PrimType, value: f64) -> Folded {
+    Ok(Some(FloatImm::new(ty.clone(), value, UNKNOWN_LOC)?.into()))
 }
 
 /// C++ `IntImm::Bool(value)`.
@@ -440,10 +440,10 @@ fn single(x: f64, y: f64, op: fn(f64, f64) -> f64) -> Option<f64> {
     is_in_float32_range(result).then(|| f64::from(result as f32))
 }
 
-/// C++ `FloatImm(dtype, value)` of a folded value, or nothing to fold.
-fn float_imm_of(dtype: DLDataType, value: Option<f64>) -> Folded {
+/// C++ `FloatImm(ty, value)` of a folded value, or nothing to fold.
+fn float_imm_of(ty: &PrimType, value: Option<f64>) -> Folded {
     match value {
-        Some(value) => float_imm(dtype, value),
+        Some(value) => float_imm(ty, value),
         None => Ok(None),
     }
 }

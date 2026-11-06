@@ -54,10 +54,8 @@
 // tvm-ffi-stubgen(import-object): crate::ir::prim::op::log
 // tvm-ffi-stubgen(import-object): crate::ir::prim::op::match_types_at
 // tvm-ffi-stubgen(import-object): crate::ir::r#type::PrimType
-// tvm-ffi-stubgen(import-object): crate::ir::r#type::PrimTypeObj
 // tvm-ffi-stubgen(import-object): crate::ir::r#type::PtrTypeObj
 // tvm-ffi-stubgen(import-object): crate::ir::support
-// tvm-ffi-stubgen(import-object): tvm_ffi::DLDataType
 // tvm-ffi-stubgen(import-object): tvm_ffi::DLDataTypeCode
 // tvm-ffi-stubgen(import-object): tvm_ffi::INTERNAL_ERROR
 // tvm-ffi-stubgen(import-object): tvm_ffi::ObjectRefCore
@@ -83,13 +81,11 @@ use crate::ir::prim::op::exp;
 use crate::ir::prim::op::log;
 use crate::ir::prim::op::match_types_at;
 use crate::ir::r#type::PrimType;
-use crate::ir::r#type::PrimTypeObj;
 use crate::ir::r#type::PtrTypeObj;
 use crate::ir::r#type::Type;
 use crate::ir::support;
 use std::ops::Deref;
 use tvm_ffi::Array;
-use tvm_ffi::DLDataType;
 use tvm_ffi::DLDataTypeCode;
 use tvm_ffi::INTERNAL_ERROR;
 use tvm_ffi::Map;
@@ -188,7 +184,7 @@ pub fn logaddexp_at(
 ) -> Result<PrimExpr> {
     let (a, b) = (a.into_owned_expr()?, b.into_owned_expr()?);
     for (operand, side) in [(&a, "a"), (&b, "b")] {
-        if operand.dtype().code != support::FLOAT {
+        if !operand.prim_ty().matches_code(&[DLDataTypeCode::kDLFloat]) {
             let condition = format!("{side}.ty().MatchesCode(DLDataTypeCode::kDLFloat)");
             let message = support::repr(operand);
             return Err(support::check_failed(INTERNAL_ERROR, &condition, &message));
@@ -231,25 +227,18 @@ pub fn reinterpret_at(
             );
             return type_error("target_ty.as<PtrTypeObj>()", message);
         }
-    } else if let Some(target) = ty.downcast_ref::<PrimTypeObj>() {
-        let target_dtype = target.dtype;
-        if let Some(source) = value.ty.downcast_ref::<PrimTypeObj>() {
-            let source_dtype = source.dtype;
-            if source_dtype == target_dtype {
+    } else if let Some(target) = ty.downcast_ref::<PrimType>() {
+        if let Some(source) = value.ty.downcast_ref::<PrimType>() {
+            if source.dtype == target.dtype {
                 return Ok(value);
             }
-            if !support::is_scalable_vector(target_dtype)
-                && !support::is_scalable_vector(source_dtype)
-            {
-                let bits = |dtype: DLDataType| {
-                    Ok::<i64, tvm_ffi::Error>(
-                        i64::from(dtype.bits) * i64::from(support::lanes(dtype)?),
-                    )
-                };
-                let float4 = DLDataTypeCode::kDLFloat4_e2m1fn as u8;
-                let same_size = bits(source_dtype)? == bits(target_dtype)?
-                    || ((source_dtype.code == float4 || target_dtype.code == float4)
-                        && storage_bytes(source_dtype)? == storage_bytes(target_dtype)?);
+            if !target.is_scalable_vector() && !source.is_scalable_vector() {
+                let bits =
+                    |ty: &PrimType| ty.lanes().map(|lanes| u32::from(ty.bits()) * u32::from(lanes));
+                let float4 = [DLDataTypeCode::kDLFloat4_e2m1fn];
+                let same_size = bits(source) == bits(target)
+                    || ((source.matches_code(&float4) || target.matches_code(&float4))
+                        && source.storage_bytes() == target.storage_bytes());
                 if !same_size {
                     let condition = "value_bits == target_bits || \
                                      ((value_dtype.MatchesCode(DLDataTypeCode::kDLFloat4_e2m1fn) || \
@@ -271,7 +260,7 @@ pub fn reinterpret_at(
                 );
                 return type_error("value->ty.as<PtrTypeObj>()", message);
             }
-            if !is_scalar_int64(target_dtype) {
+            if !is_scalar_int64(target) {
                 let condition = "target_dtype.value().IsScalar() && target_dtype.value().bits() == 64 && \
                                  target_dtype.value().MatchesCode(DLDataTypeCode::kDLInt, DLDataTypeCode::kDLUInt)";
                 let message = format!(
@@ -289,8 +278,8 @@ pub fn reinterpret_at(
             );
             return type_error("target_ty.as<PtrTypeObj>()", message);
         }
-        if let Some(source) = value.ty.downcast_ref::<PrimTypeObj>() {
-            if !is_scalar_int64(source.dtype) {
+        if let Some(source) = value.ty.downcast_ref::<PrimType>() {
+            if !is_scalar_int64(source) {
                 let condition = "source_dtype.value().IsScalar() && source_dtype.value().bits() == 64 && \
                                  source_dtype.value().MatchesCode(DLDataTypeCode::kDLInt, DLDataTypeCode::kDLUInt)";
                 let message = format!(
@@ -364,14 +353,9 @@ pub fn gpu_thread_return_at(loc: impl Into<Location>) -> Result<PrimExpr> {
     tvm_ffi::cached_global_func!("tirx.gpu_thread_return").call_tuple((&loc,))?.try_into()
 }
 
-/// Whether `dtype` is a scalar 64-bit integer, which a pointer reinterprets as.
-fn is_scalar_int64(dtype: DLDataType) -> bool {
-    support::is_scalar(dtype)
-        && dtype.bits == 64
-        && matches!(dtype.code, support::INT | support::UINT)
-}
-
-/// C++ `PrimType::StorageBytes()`.
-fn storage_bytes(dtype: DLDataType) -> Result<u64> {
-    Ok((u64::from(dtype.bits) * support::lanes(dtype)? as u64).div_ceil(8))
+/// Whether `ty` is a scalar 64-bit integer, which a pointer reinterprets as.
+fn is_scalar_int64(ty: &PrimType) -> bool {
+    ty.is_scalar()
+        && ty.bits() == 64
+        && ty.matches_code(&[DLDataTypeCode::kDLInt, DLDataTypeCode::kDLUInt])
 }

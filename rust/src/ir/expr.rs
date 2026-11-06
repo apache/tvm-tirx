@@ -388,7 +388,7 @@ impl From<f64> for Expr {
 /// use tvm_tirx::ir::{dtype, Expr, PrimExpr, PrimType, PrimVar, StringImm, Var, UNKNOWN_LOC};
 ///
 /// fn is_scalar(expr: &PrimExpr) -> bool {
-///     expr.dtype().lanes == 1
+///     expr.prim_ty().is_scalar()
 /// }
 ///
 /// let x = PrimVar::new("x", PrimType::int(32), UNKNOWN_LOC);
@@ -448,18 +448,8 @@ crate::def_expr_op_over_loads!(PrimExpr);
 
 impl PrimExpr {
     /// Return the type of this expression, the [`PrimType`] its check guarantees.
-    pub fn ty(&self) -> PrimType {
-        self.data
-            .ty
-            .downcast_ref::<PrimType>()
-            .cloned()
-            .expect("a typed expression has a `PrimType`")
-    }
-
-    /// Return the dtype of this expression's type.
-    pub fn dtype(&self) -> DLDataType {
-        let ty = self.data.ty.downcast_ref::<PrimTypeObj>();
-        ty.expect("a typed expression has a `PrimType`").dtype
+    pub fn prim_ty(&self) -> &PrimType {
+        self.data.ty.downcast_ref::<PrimType>().expect("a typed expression has a `PrimType`")
     }
 }
 
@@ -513,18 +503,8 @@ crate::def_expr_op_over_loads!(IntExpr);
 
 impl IntExpr {
     /// Return the type of this expression, the [`PrimType`] its check guarantees.
-    pub fn ty(&self) -> PrimType {
-        self.data
-            .ty
-            .downcast_ref::<PrimType>()
-            .cloned()
-            .expect("a typed expression has a `PrimType`")
-    }
-
-    /// Return the dtype of this expression's type.
-    pub fn dtype(&self) -> DLDataType {
-        let ty = self.data.ty.downcast_ref::<PrimTypeObj>();
-        ty.expect("a typed expression has a `PrimType`").dtype
+    pub fn prim_ty(&self) -> &PrimType {
+        self.data.ty.downcast_ref::<PrimType>().expect("a typed expression has a `PrimType`")
     }
 }
 
@@ -593,7 +573,7 @@ impl From<i64> for IntExpr {
 
 /// The `IntExpr` of an integer constant, which `int32` and `int64` constants are.
 fn int_constant(constant: IntImm) -> IntExpr {
-    debug_assert!(scalar_int(PrimExpr::from(&constant).dtype()));
+    debug_assert!(scalar_int(PrimExpr::from(&constant).prim_ty()));
     // SAFETY: the constant is typed by a scalar integer type.
     unsafe { IntExpr::from_data(ObjectRefCore::into_data(Expr::from(constant))) }
 }
@@ -601,8 +581,9 @@ fn int_constant(constant: IntImm) -> IntExpr {
 // The checks and conversions of the typed expressions.
 
 /// A scalar signed or unsigned integer type.
-fn scalar_int(dtype: DLDataType) -> bool {
-    dtype.lanes == 1 && matches!(dtype.code, support::INT | support::UINT)
+fn scalar_int(ty: &PrimType) -> bool {
+    use tvm_ffi::DLDataTypeCode::{kDLInt, kDLUInt};
+    ty.is_scalar() && ty.matches_code(&[kDLInt, kDLUInt])
 }
 
 /// The expression `data` holds, if it holds one.
@@ -624,7 +605,7 @@ fn is_prim_expr(expr: &ExprObj) -> bool {
 
 /// Whether `expr` is typed by a scalar integer type.
 fn is_int_expr(expr: &ExprObj) -> bool {
-    expr.ty.downcast_ref::<PrimTypeObj>().is_some_and(|prim| scalar_int(prim.dtype))
+    expr.ty.downcast_ref::<PrimType>().is_some_and(scalar_int)
 }
 
 /// Whether `var` is a `Var`, not a subclass, typed by a `PrimType` (C++
@@ -1289,7 +1270,7 @@ impl FloatImm {
     /// out of its range.
     pub fn new(ty: impl Into<PrimType>, value: f64, loc: impl Into<Location>) -> Result<Self> {
         let ty = ty.into();
-        check_float_imm(ty.dtype, value)?;
+        check_float_imm(&ty, value)?;
         Ok(Self::from_fields(loc, ty, value))
     }
 
@@ -1401,7 +1382,7 @@ impl IntImm {
         loc: impl Into<Location>,
     ) -> Result<Self> {
         let (ty, value) = (ty.into(), value.into());
-        check_int_imm(ty.dtype, &value)?;
+        check_int_imm(&ty, &value)?;
         Ok(Self::from_fields(loc, ty, value))
     }
 
@@ -2016,18 +1997,8 @@ crate::def_expr_op_over_loads!(PrimVar);
 
 impl PrimVar {
     /// Return the type of this expression, the [`PrimType`] its check guarantees.
-    pub fn ty(&self) -> PrimType {
-        self.data
-            .ty
-            .downcast_ref::<PrimType>()
-            .cloned()
-            .expect("a typed expression has a `PrimType`")
-    }
-
-    /// Return the dtype of this expression's type.
-    pub fn dtype(&self) -> DLDataType {
-        let ty = self.data.ty.downcast_ref::<PrimTypeObj>();
-        ty.expect("a typed expression has a `PrimType`").dtype
+    pub fn prim_ty(&self) -> &PrimType {
+        self.data.ty.downcast_ref::<PrimType>().expect("a typed expression has a `PrimType`")
     }
 }
 
@@ -2272,24 +2243,25 @@ crate::def_expr_op_over_loads!(crate::sym::analyzer::SumExpr);
 
 /// The checks of C++ `FloatImm(ty, value)`: a scalar floating-point type whose range holds a
 /// finite `value`.
-fn check_float_imm(dtype: DLDataType, value: f64) -> Result<()> {
+fn check_float_imm(ty: &PrimType, value: f64) -> Result<()> {
     use support::{check_failed, compare_failed, CppDouble};
+    use tvm_ffi::DLDataTypeCode::{kDLBfloat, kDLFloat, kDLFloat4_e2m1fn};
     use tvm_ffi::VALUE_ERROR;
-    const FLOAT4_E2M1FN: u8 = tvm_ffi::DLDataTypeCode::kDLFloat4_e2m1fn as u8;
     /// `ffi::DLExtDataTypeCode::kDLExtCustomBegin`.
     const CUSTOM_BEGIN: u8 = 129;
-    if support::is_scalable_vector(dtype) || support::is_fixed_length_vector(dtype) {
+    let dtype = ty.dtype;
+    if ty.is_scalable_vector() || ty.is_fixed_length_vector() {
         let condition = "!value_ty.IsScalableVector() && !value_ty.IsFixedLengthVector()";
         return Err(check_failed(VALUE_ERROR, condition, "FloatImm can only take scalar."));
     }
-    let (code, bits) = (dtype.code, dtype.bits);
+    let (code, bits) = (dtype.code, ty.bits());
     let float8 = support::float8_bound(code);
     let float6 = support::float6_bound(code);
-    let supported = code == support::FLOAT
+    let supported = ty.matches_code(&[kDLFloat])
         || float8.is_some()
         || float6.is_some()
-        || (code == support::BFLOAT && bits == 16)
-        || (code == FLOAT4_E2M1FN && bits == 4)
+        || (ty.matches_code(&[kDLBfloat]) && bits == 16)
+        || (ty.matches_code(&[kDLFloat4_e2m1fn]) && bits == 4)
         || code >= CUSTOM_BEGIN;
     let name = || support::dtype_name(dtype);
     if !supported {
@@ -2319,12 +2291,12 @@ fn check_float_imm(dtype: DLDataType, value: f64) -> Result<()> {
             ),
             ("value <= std::numeric_limits<float>::max()", f32::MAX as f64),
         )
-    } else if code == support::FLOAT && bits == 16 {
+    } else if ty.matches_code(&[kDLFloat]) && bits == 16 {
         (
             ("value >= -support::kMaxFloat16", -support::MAX_FLOAT16, "exceeds minimum of"),
             ("value <= support::kMaxFloat16", support::MAX_FLOAT16),
         )
-    } else if code == support::BFLOAT && bits == 16 {
+    } else if ty.matches_code(&[kDLBfloat]) && bits == 16 {
         (
             ("value >= -support::kMaxBFloat16", -support::MAX_BFLOAT16, "exceeds minimum of"),
             ("value <= support::kMaxBFloat16", support::MAX_BFLOAT16),
@@ -2337,7 +2309,7 @@ fn check_float_imm(dtype: DLDataType, value: f64) -> Result<()> {
         (low, ("value <= bound", bound))
     } else if let Some(bound) = float6 {
         (("value >= -bound", -bound, "below minimum of"), ("value <= bound", bound))
-    } else if code == FLOAT4_E2M1FN {
+    } else if ty.matches_code(&[kDLFloat4_e2m1fn]) {
         (("value >= -bound", -6.0, "below minimum of"), ("value <= bound", 6.0))
     } else {
         return Ok(());
@@ -2357,29 +2329,31 @@ fn check_float_imm(dtype: DLDataType, value: f64) -> Result<()> {
 
 /// The checks of C++ `IntImm(ty, value)`: a scalar integer or boolean type whose range holds
 /// `value`. The messages are built only when a check fails.
-fn check_int_imm(dtype: DLDataType, value: &BigInt) -> Result<()> {
+fn check_int_imm(ty: &PrimType, value: &BigInt) -> Result<()> {
     use support::{check_failed, compare_failed};
+    use tvm_ffi::DLDataTypeCode::{kDLBool, kDLInt, kDLUInt};
     use tvm_ffi::VALUE_ERROR;
+    let dtype = ty.dtype;
     let name = || support::dtype_name(dtype);
-    if support::is_scalable_vector(dtype) || support::is_fixed_length_vector(dtype) {
+    if ty.is_scalable_vector() || ty.is_fixed_length_vector() {
         let condition = "!value_ty.IsScalableVector() && !value_ty.IsFixedLengthVector()";
         let message = format!("IntImm can only take scalar, but {} was supplied.", name());
         return Err(check_failed(VALUE_ERROR, condition, &message));
     }
-    if !matches!(dtype.code, support::INT | support::UINT | support::BOOL) {
+    if !ty.matches_code(&[kDLInt, kDLUInt, kDLBool]) {
         let condition = "value_ty.MatchesCode(DLDataTypeCode::kDLInt, DLDataTypeCode::kDLUInt, \
                          DLDataTypeCode::kDLBool)";
         let message =
             format!("IntImm supports only int or uint or bool type, but {} was supplied.", name());
         return Err(check_failed(VALUE_ERROR, condition, &message));
     }
-    let bits = dtype.bits as u32;
+    let bits = u32::from(ty.bits());
     if bits == 0 {
         let message = "IntImm requires a positive integer width";
         return Err(compare_failed(VALUE_ERROR, "bits > 0", bits, 0, message));
     }
     let zero = BigInt::from(0i64);
-    if dtype.code == support::UINT {
+    if ty.matches_code(&[kDLUInt]) {
         if *value < zero {
             let message =
                 format!("Literal value {value} is negative for unsigned integer type {}", name());
@@ -2399,7 +2373,7 @@ fn check_int_imm(dtype: DLDataType, value: &BigInt) -> Result<()> {
                 return Err(compare_failed(VALUE_ERROR, condition, value, &limit, &message()));
             }
         }
-    } else if bits == 1 || dtype.code == support::BOOL {
+    } else if bits == 1 || ty.matches_code(&[kDLBool]) {
         if *value != zero && *value != BigInt::from(1i64) {
             let message = format!("{value} exceeds range of {}", name());
             return Err(check_failed(VALUE_ERROR, "value == 0 || value == 1", &message));

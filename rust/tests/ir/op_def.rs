@@ -47,7 +47,7 @@ use super::{int32, parse_dtype, tensor_var};
 use crate::common::{global, serial, structural_equal};
 
 fn var(name: &str, dtype: &str) -> Var {
-    Var::new(name, PrimType::from_dtype(parse_dtype(dtype)).unwrap(), UNKNOWN_LOC)
+    Var::new(name, PrimType::try_from(parse_dtype(dtype)).unwrap(), UNKNOWN_LOC)
 }
 
 /// `Call(op, args)` without a result type, which the constructor infers.

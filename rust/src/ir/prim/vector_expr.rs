@@ -65,7 +65,7 @@
 // tvm-ffi-stubgen(upcast): prim.Shuffle -> PrimExpr
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
-// tvm-ffi-stubgen(import-object): tvm_ffi::DLDataType
+// tvm-ffi-stubgen(import-object): tvm_ffi::DLDataTypeCode
 // tvm-ffi-stubgen(import-object): tvm_ffi::ObjectRefCore
 // tvm-ffi-stubgen(import-object): tvm_ffi::Result
 // tvm-ffi-stubgen(import-object): crate::ir::expr::Call
@@ -104,7 +104,7 @@ use crate::ir::r#type::Type;
 use crate::ir::support;
 use std::ops::Deref;
 use tvm_ffi::Array;
-use tvm_ffi::DLDataType;
+use tvm_ffi::DLDataTypeCode;
 use tvm_ffi::ObjectArc;
 use tvm_ffi::ObjectRefCore;
 use tvm_ffi::Result;
@@ -190,17 +190,15 @@ impl Ramp {
     ) -> Result<Self> {
         let (base, stride, lanes) =
             (base.into_owned_expr()?, stride.into_owned_expr()?, lanes.into_owned_expr()?);
-        let base_ty = base.ty();
-        let stride_ty = stride.ty();
-        let (base_dtype, stride_dtype) = (base_ty.dtype, stride_ty.dtype);
+        let (base_ty, stride_ty) = (base.prim_ty().clone(), stride.prim_ty().clone());
         // Only 32-bit and 64-bit integers step through the lanes of a ramp.
-        let index = |dtype: DLDataType| {
-            support::is_scalar(dtype)
-                && matches!(dtype.code, support::INT | support::UINT)
-                && matches!(dtype.bits, 32 | 64)
+        let index = |ty: &PrimType| {
+            ty.is_scalar()
+                && ty.matches_code(&[DLDataTypeCode::kDLInt, DLDataTypeCode::kDLUInt])
+                && matches!(ty.bits(), 32 | 64)
         };
         for (field, ty) in [("base", &base_ty), ("stride", &stride_ty)] {
-            if !index(ty.dtype) {
+            if !index(ty) {
                 let condition = format!(
                     "{field}_ty.IsScalar() && \
                      {field}_ty.MatchesCode(DLDataTypeCode::kDLInt, DLDataTypeCode::kDLUInt) && \
@@ -213,12 +211,11 @@ impl Ramp {
                 return Err(support::check_failed(tvm_ffi::TYPE_ERROR, &condition, &message));
             }
         }
-        let stride = match stride_dtype == base_dtype {
+        let stride = match stride_ty.dtype == base_ty.dtype {
             true => stride,
-            false => cast(stride, PrimType::from_dtype(base_dtype)?)?,
+            false => cast(stride, base_ty.clone())?,
         };
-        let (dtype, lanes) = vector_lanes(base_dtype, lanes)?;
-        let ty = PrimType::from_dtype(dtype)?;
+        let (ty, lanes) = vector_lanes(&base_ty, lanes)?;
         Ok(Self::from_fields(loc.into(), ty, base, stride, lanes))
     }
 }
@@ -291,12 +288,10 @@ impl Broadcast {
         loc: impl Into<Location>,
     ) -> Result<Self> {
         let (value, lanes) = (value.into_owned_expr()?, lanes.into_owned_expr()?);
-        let value_dtype = value.dtype();
-        if !support::is_scalar(value_dtype) {
+        if !value.prim_ty().is_scalar() {
             return Err(support::check_failed(tvm_ffi::INTERNAL_ERROR, "value_ty.IsScalar()", ""));
         }
-        let (dtype, lanes) = vector_lanes(value_dtype, lanes)?;
-        let ty = PrimType::from_dtype(dtype)?;
+        let (ty, lanes) = vector_lanes(value.prim_ty(), lanes)?;
         Ok(Self::from_fields(loc.into(), ty, value, lanes))
     }
 }
@@ -382,21 +377,21 @@ impl Shuffle {
             .into_iter()
             .map(IntoExpr::into_owned_expr)
             .collect::<Result<Array<PrimExpr>>>()?;
-        let dtypes = vectors.iter().map(|vector| vector.dtype()).collect::<Vec<_>>();
+        let types = vectors.iter().map(|vector| vector.prim_ty().clone()).collect::<Vec<_>>();
         let empty =
             |condition: &str| support::compare_failed(tvm_ffi::INTERNAL_ERROR, condition, 0, 0, "");
-        let Some(first) = dtypes.first() else { return Err(empty("vectors.size() != 0U")) };
+        let Some(first) = types.first() else { return Err(empty("vectors.size() != 0U")) };
         if indices.is_empty() {
             return Err(empty("indices.size() != 0U"));
         }
-        let base_dtype = with_lanes(*first, 1);
+        let base_dtype = with_lanes(first.dtype, 1);
         let mut total_lanes = 0;
-        for dtype in &dtypes {
-            if with_lanes(*dtype, 1) != base_dtype {
+        for ty in &types {
+            if with_lanes(ty.dtype, 1) != base_dtype {
                 let condition = "val_ty.WithLanes(1)->dtype == base_type->dtype";
                 return Err(support::check_failed(tvm_ffi::INTERNAL_ERROR, condition, ""));
             }
-            total_lanes += support::lanes(*dtype)?;
+            total_lanes += support::lanes(ty)?;
         }
         if indices.len() > total_lanes as usize {
             let condition = "indices.size() <= static_cast<size_t>(total_lanes)";
@@ -409,7 +404,7 @@ impl Shuffle {
                 "",
             ));
         }
-        let ty = PrimType::from_dtype(with_lanes(base_dtype, indices.len() as u16))?;
+        let ty = PrimType::try_from(with_lanes(base_dtype, indices.len() as u16))?;
         Ok(Self::from_fields(loc.into(), ty, vectors, indices))
     }
 }
@@ -419,7 +414,7 @@ impl Shuffle {
 
 /// The vector type of `element` elements over `lanes`, and the lanes a `Ramp` or `Broadcast` keeps:
 /// a constant count as an `int32` constant, or a scalable count as `vscale * factor`.
-fn vector_lanes(element: DLDataType, lanes: PrimExpr) -> Result<(DLDataType, PrimExpr)> {
+fn vector_lanes(element: &PrimType, lanes: PrimExpr) -> Result<(PrimType, PrimExpr)> {
     if let Some(imm) = lanes.downcast_ref::<IntImmObj>() {
         let Some(count) = imm.value.to_i64().and_then(|count| i32::try_from(count).ok()) else {
             return Err(tvm_ffi::Error::new(tvm_ffi::INTERNAL_ERROR, "bad optional access", ""));
@@ -433,13 +428,15 @@ fn vector_lanes(element: DLDataType, lanes: PrimExpr) -> Result<(DLDataType, Pri
                 "",
             ));
         }
-        return Ok((with_lanes(element, count as u16), IntImm::int32(count).into()));
+        let ty = PrimType::try_from(with_lanes(element.dtype, count as u16))?;
+        return Ok((ty, IntImm::int32(count).into()));
     }
     let Some(factor) = vscale_factor(&lanes)? else {
         let message = format!("Invalid expression for scalable lanes {}", support::repr(&lanes));
         return Err(support::check_failed(tvm_ffi::INTERNAL_ERROR, "vscale_factor", &message));
     };
-    Ok((support::scalable_vector(element, factor)?, vscale_lanes(factor)?))
+    let ty = PrimType::try_from(support::scalable_vector(element.dtype, factor)?)?;
+    Ok((ty, vscale_lanes(factor)?))
 }
 
 /// The lane count of a scalable vector of `factor` times `vscale` lanes, as C++ spells it:

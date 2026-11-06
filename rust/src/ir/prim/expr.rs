@@ -183,6 +183,7 @@
 // does.
 // tvm-ffi-stubgen(import-object): tvm_ffi::AnyView
 // tvm-ffi-stubgen(import-object): tvm_ffi::DLDataType
+// tvm-ffi-stubgen(import-object): tvm_ffi::DLDataTypeCode
 // tvm-ffi-stubgen(import-object): tvm_ffi::ObjectRefCore
 // tvm-ffi-stubgen(import-object): tvm_ffi::Result
 // tvm-ffi-stubgen(import-object): crate::ir::r#type::PrimType
@@ -205,6 +206,7 @@ use crate::ir::support;
 use std::ops::Deref;
 use tvm_ffi::AnyView;
 use tvm_ffi::DLDataType;
+use tvm_ffi::DLDataTypeCode;
 use tvm_ffi::ObjectArc;
 use tvm_ffi::ObjectRefCore;
 use tvm_ffi::Result;
@@ -305,7 +307,7 @@ impl Cast {
         loc: impl Into<Location>,
     ) -> Result<Self> {
         let (ty, value) = (ty.into(), value.into_owned_expr()?);
-        let value_dtype = value.dtype();
+        let value_dtype = value.prim_ty().dtype;
         if ty.dtype.lanes != value_dtype.lanes {
             let condition = "ty->dtype.lanes == value_expr_ty->dtype.lanes";
             let (lhs, rhs) = (ty.dtype.lanes, value_dtype.lanes);
@@ -684,13 +686,15 @@ impl BitwiseNot {
     /// Returns a `TypeError` if `a` is not of an integer or boolean type.
     pub fn new(a: impl IntoExpr<PrimExpr>, loc: impl Into<Location>) -> Result<Self> {
         let a = a.into_owned_expr()?;
-        if !matches!(a.dtype().code, support::INT | support::UINT | support::BOOL) {
+        let integer_or_bool =
+            [DLDataTypeCode::kDLInt, DLDataTypeCode::kDLUInt, DLDataTypeCode::kDLBool];
+        if !a.prim_ty().matches_code(&integer_or_bool) {
             let condition = "a_ty.MatchesCode(DLDataTypeCode::kDLInt, DLDataTypeCode::kDLUInt) || \
                              a_ty.MatchesCode(DLDataTypeCode::kDLBool)";
             let message = "BitwiseNot requires an integer or boolean operand";
             return Err(support::check_failed(tvm_ffi::TYPE_ERROR, condition, message));
         }
-        Ok(Self::from_fields(loc.into(), a.ty(), a))
+        Ok(Self::from_fields(loc.into(), a.prim_ty().clone(), a))
     }
 }
 
@@ -1818,12 +1822,11 @@ impl Not {
     /// Returns an `InternalError` if `a` is not boolean.
     pub fn new(a: impl IntoExpr<PrimExpr>, loc: impl Into<Location>) -> Result<Self> {
         let a = a.into_owned_expr()?;
-        let a_dtype = a.dtype();
-        if a_dtype.code != support::BOOL {
+        if !a.prim_ty().matches_code(&[DLDataTypeCode::kDLBool]) {
             let condition = "a_ty.MatchesCode(DLDataTypeCode::kDLBool)";
             return Err(support::check_failed(tvm_ffi::INTERNAL_ERROR, condition, ""));
         }
-        Ok(Self::from_fields(loc.into(), bool_type(a_dtype)?, a))
+        Ok(Self::from_fields(loc.into(), bool_type(a.prim_ty())?, a))
     }
 }
 
@@ -1918,22 +1921,19 @@ impl Select {
             true_value.into_owned_expr()?,
             false_value.into_owned_expr()?,
         );
-        let condition_dtype = condition.dtype();
-        let true_dtype = true_value.dtype();
-        let false_dtype = false_value.dtype();
-        if condition_dtype.code != support::BOOL {
+        let (condition_ty, true_ty) = (condition.prim_ty(), true_value.prim_ty());
+        let (true_dtype, false_dtype) = (true_ty.dtype, false_value.prim_ty().dtype);
+        if !condition_ty.matches_code(&[DLDataTypeCode::kDLBool]) {
             let condition = "condition_ty.MatchesCode(DLDataTypeCode::kDLBool)";
             return Err(support::check_failed(tvm_ffi::INTERNAL_ERROR, condition, ""));
         }
         // C++ `GetLanesOrVScaleFactor(ty)`.
-        let lanes_or_vscale_factor = |dtype: DLDataType| -> Result<i32> {
-            match support::is_scalable_vector(dtype) {
-                true => Ok(-(support::encoded_lanes(dtype) as i32)),
-                false => support::lanes(dtype),
-            }
+        let lanes_or_vscale_factor = |ty: &PrimType| match ty.vscale_factor() {
+            Some(factor) => Ok(i32::from(factor)),
+            None => support::lanes(ty),
         };
-        if lanes_or_vscale_factor(condition_dtype)? != lanes_or_vscale_factor(true_dtype)?
-            && !support::is_scalar(condition_dtype)
+        if lanes_or_vscale_factor(condition_ty)? != lanes_or_vscale_factor(true_ty)?
+            && !condition_ty.is_scalar()
         {
             let condition = "GetLanesOrVScaleFactor(condition_ty) == \
                              GetLanesOrVScaleFactor(true_ty) || condition_ty.IsScalar()";
@@ -1951,7 +1951,7 @@ impl Select {
                 &message,
             ));
         }
-        let ty = true_value.ty();
+        let ty = true_ty.clone();
         Ok(Self::from_fields(loc.into(), ty, condition, true_value, false_value))
     }
 }
@@ -2034,7 +2034,7 @@ impl Let {
         loc: impl Into<Location>,
     ) -> Result<Self> {
         let (var, value, body) = (var.into(), value.into_owned_expr()?, body.into_owned_expr()?);
-        let value_dtype = value.dtype();
+        let value_dtype = value.prim_ty().dtype;
         let Some(var_ty) = var.ty.downcast_ref::<PrimTypeObj>() else {
             let message = format!(
                 "Cannot treat type `{}` as type `ir.PrimType`",
@@ -2046,7 +2046,7 @@ impl Let {
             let condition = "value.ty() == var->ty.as_or_throw<PrimType>()";
             return Err(support::check_failed(tvm_ffi::INTERNAL_ERROR, condition, ""));
         }
-        let ty = body.ty();
+        let ty = body.prim_ty().clone();
         Ok(Self::from_fields(loc.into(), ty, var, value, body))
     }
 }
@@ -2068,7 +2068,8 @@ enum Operands {
 
 /// The type of the binary node `node` of `a` and `b`, after the checks of its C++ constructor.
 fn binary_type(node: &str, operands: Operands, a: &PrimExpr, b: &PrimExpr) -> Result<PrimType> {
-    let (a_dtype, b_dtype) = (a.dtype(), b.dtype());
+    let (a_ty, b_dtype) = (a.prim_ty(), b.prim_ty().dtype);
+    let a_dtype = a_ty.dtype;
     if a_dtype != b_dtype {
         let message = format!(
             "mismatched types. {} vs. {}\n",
@@ -2079,12 +2080,12 @@ fn binary_type(node: &str, operands: Operands, a: &PrimExpr, b: &PrimExpr) -> Re
         return Err(support::check_failed(tvm_ffi::TYPE_ERROR, condition, &message));
     }
     match operands {
-        Operands::Arith => Ok(a.ty()),
+        Operands::Arith => Ok(a_ty.clone()),
         Operands::Bitwise { allow_bool } => {
-            let code = a_dtype.code;
-            if matches!(code, support::INT | support::UINT) || (allow_bool && code == support::BOOL)
+            if a_ty.matches_code(&[DLDataTypeCode::kDLInt, DLDataTypeCode::kDLUInt])
+                || (allow_bool && a_ty.matches_code(&[DLDataTypeCode::kDLBool]))
             {
-                return Ok(a.ty());
+                return Ok(a_ty.clone());
             }
             let condition = format!(
                 "a.ty().MatchesCode(DLDataTypeCode::kDLInt, DLDataTypeCode::kDLUInt) || \
@@ -2094,28 +2095,27 @@ fn binary_type(node: &str, operands: Operands, a: &PrimExpr, b: &PrimExpr) -> Re
             let message = format!("{node} requires {operands} operands");
             Err(support::check_failed(tvm_ffi::TYPE_ERROR, &condition, &message))
         }
-        Operands::Compare => bool_type(a_dtype),
+        Operands::Compare => bool_type(a_ty),
     }
 }
 
-/// The boolean type with the lanes of `dtype` (C++ `PrimType(DLDataType{kDLBool, 8, lanes})`).
-fn bool_type(operand: DLDataType) -> Result<PrimType> {
+/// The boolean type with the lanes of `operand` (C++ `PrimType(DLDataType{kDLBool, 8, lanes})`).
+fn bool_type(operand: &PrimType) -> Result<PrimType> {
     use crate::ir::dtype;
-    PrimType::from_dtype(dtype::with_lanes(dtype::bool(), operand.lanes))
+    PrimType::try_from(dtype::with_lanes(dtype::bool(), operand.dtype.lanes))
 }
 
 /// The type of the logical node of `a` and `b`, after the checks of the C++ `And` and `Or`
 /// constructors: boolean operands of one type.
 fn logical_type(a: &PrimExpr, b: &PrimExpr) -> Result<PrimType> {
-    let (a_dtype, b_dtype) = (a.dtype(), b.dtype());
-    for (dtype, operand) in [(a_dtype, "a_ty"), (b_dtype, "b_ty")] {
-        if dtype.code != support::BOOL {
+    for (ty, operand) in [(a.prim_ty(), "a_ty"), (b.prim_ty(), "b_ty")] {
+        if !ty.matches_code(&[DLDataTypeCode::kDLBool]) {
             let condition = format!("{operand}.MatchesCode(DLDataTypeCode::kDLBool)");
             return Err(support::check_failed(tvm_ffi::INTERNAL_ERROR, &condition, ""));
         }
     }
-    if a_dtype != b_dtype {
+    if a.prim_ty().dtype != b.prim_ty().dtype {
         return Err(support::check_failed(tvm_ffi::TYPE_ERROR, "a_ty == b_ty", "mismatched types"));
     }
-    bool_type(a_dtype)
+    bool_type(a.prim_ty())
 }

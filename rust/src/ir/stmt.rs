@@ -70,7 +70,7 @@
 // does.
 // tvm-ffi-stubgen(import-object): tvm_ffi::AnyView
 // tvm-ffi-stubgen(import-object): tvm_ffi::BigInt
-// tvm-ffi-stubgen(import-object): tvm_ffi::DLDataType
+// tvm-ffi-stubgen(import-object): tvm_ffi::DLDataTypeCode
 // tvm-ffi-stubgen(import-object): tvm_ffi::ObjectRefCore
 // tvm-ffi-stubgen(import-object): tvm_ffi::Result
 // tvm-ffi-stubgen(import-object): tvm_ffi::tvm_ffi_sys::TVMFFITypeIndex
@@ -123,7 +123,7 @@ use tvm_ffi::Any;
 use tvm_ffi::AnyView;
 use tvm_ffi::Array;
 use tvm_ffi::BigInt;
-use tvm_ffi::DLDataType;
+use tvm_ffi::DLDataTypeCode;
 use tvm_ffi::Error;
 use tvm_ffi::Map;
 use tvm_ffi::Object;
@@ -349,12 +349,12 @@ impl AssertStmt {
     ) -> Result<Self> {
         let (condition, error_kind) = (condition.into_owned_expr()?, error_kind.into());
         let message_parts = message_parts.into_iter().map(Into::into).collect::<Array<StringImm>>();
-        let condition_ty = condition.ty();
-        if condition_ty.dtype.code != support::BOOL {
+        let condition_ty = condition.prim_ty();
+        if !condition_ty.matches_code(&[DLDataTypeCode::kDLBool]) {
             let message = format!(
                 "AssertStmt should have boolean condition, but received {} with dtype {}",
                 support::repr(&condition),
-                support::repr(&condition_ty)
+                support::repr(condition_ty)
             );
             let check = "condition_ty.MatchesCode(DLDataTypeCode::kDLBool)";
             return Err(support::check_failed(tvm_ffi::INTERNAL_ERROR, check, &message));
@@ -503,19 +503,20 @@ impl For {
         let (var, begin, end, step) =
             (var.into(), begin.into_owned_expr()?, end.into_owned_expr()?, step.into_owned_expr()?);
         let var_expr: PrimExpr = var.clone().into();
-        let var_ty = var.ty();
+        let var_ty = var.prim_ty().clone();
         let body = into_body(body.into())?;
         let annotations = annotations.cloned().unwrap_or_else(Map::new);
         for (expr, field) in [(&var_expr, "var"), (&begin, "begin"), (&end, "end"), (&step, "step")]
         {
-            let ty = expr.ty();
-            let dtype = ty.dtype;
-            if !support::is_scalar(dtype) || !matches!(dtype.code, support::INT | support::UINT) {
+            let ty = expr.prim_ty();
+            if !ty.is_scalar()
+                || !ty.matches_code(&[DLDataTypeCode::kDLUInt, DLDataTypeCode::kDLInt])
+            {
                 let message = format!(
                     "TIR For nodes require a scalar integer as the {field}, but received {} with \
                      dtype {}",
                     support::repr(expr),
-                    support::repr(&ty)
+                    support::repr(ty)
                 );
                 let condition = "dtype.IsScalar() && (dtype.MatchesCode(DLDataTypeCode::kDLUInt, \
                                  DLDataTypeCode::kDLInt))";
@@ -524,12 +525,12 @@ impl For {
         }
         // A constant of another integer type takes the type of `var` if its value fits.
         let promote = |expr: PrimExpr| -> Result<PrimExpr> {
-            let ty = expr.ty();
+            let ty = expr.prim_ty().clone();
             if ty.dtype == var_ty.dtype {
                 return Ok(expr);
             }
             if let Some(imm) = expr.downcast_ref::<IntImmObj>() {
-                if !int_imm_value_fits(&imm.value, var_ty.dtype)? {
+                if !int_imm_value_fits(&imm.value, &var_ty)? {
                     let message = format!(
                         "Literal value {} is not representable in the loop variable's dtype ({})",
                         imm.value,
@@ -544,7 +545,7 @@ impl For {
                 }
                 return Ok(IntImm::new(var_ty.clone(), imm.value.clone(), UNKNOWN_LOC)?.into());
             }
-            if ty.dtype.bits > var_ty.dtype.bits {
+            if ty.bits() > var_ty.bits() {
                 let message = format!(
                     " Loop variable's dtype ({}) is narrower than that of `begin` or `end` ({})",
                     support::repr(&var_ty),
@@ -556,11 +557,11 @@ impl For {
             Ok(expr)
         };
         let same_type = |expr: &PrimExpr, condition: &str| -> Result<()> {
-            let ty = expr.ty();
+            let ty = expr.prim_ty();
             if ty.dtype == var_ty.dtype {
                 return Ok(());
             }
-            let message = format!("{} vs {}", support::repr(&var_ty), support::repr(&ty));
+            let message = format!("{} vs {}", support::repr(&var_ty), support::repr(ty));
             Err(support::check_failed(tvm_ffi::INTERNAL_ERROR, condition, &message))
         };
         let (begin, end) = (promote(begin)?, promote(end)?);
@@ -639,9 +640,8 @@ impl While {
         loc: impl Into<Location>,
     ) -> Result<Self> {
         let condition = condition.into_owned_expr()?;
-        let condition_dtype = condition.dtype();
         let body = into_body(body.into())?;
-        if !support::is_scalar(condition_dtype) {
+        if !condition.prim_ty().is_scalar() {
             let check = "condition.ty().IsScalar()";
             return Err(support::check_failed(tvm_ffi::INTERNAL_ERROR, check, ""));
         }
@@ -1239,10 +1239,10 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(Continue => Stmt);
 // ---------------------------------------------------------------------------------------------
 // Helpers
 
-/// Whether `value` is in the range of the integer type `dtype` (C++ `IntImmValueFits`).
-fn int_imm_value_fits(value: &BigInt, dtype: DLDataType) -> Result<bool> {
-    let bits = dtype.bits as u32;
-    if dtype.code == support::UINT {
+/// Whether `value` is in the range of the integer type `ty` (C++ `IntImmValueFits`).
+fn int_imm_value_fits(value: &BigInt, ty: &PrimType) -> Result<bool> {
+    let bits = u32::from(ty.bits());
+    if ty.matches_code(&[DLDataTypeCode::kDLUInt]) {
         let limit = BigInt::from(1i64).try_shl(bits as i64)?;
         return Ok(!value.is_negative() && *value < limit);
     }

@@ -34,7 +34,7 @@
 //! let tensor = runtime::empty(&[2, 3], dtype::float(32), cpu, None)?;
 //! assert_eq!(tensor.dtype(), dtype::float(32));
 //!
-//! let half4 = PrimType::from_dtype(dtype::with_lanes(dtype::float(16), 4))?;
+//! let half4 = PrimType::try_from(dtype::with_lanes(dtype::float(16), 4))?;
 //! assert_eq!(script(&half4)?, "T.float16x4");
 //! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
 //! ```

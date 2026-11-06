@@ -40,7 +40,7 @@ use crate::parse_dtype;
 
 /// The primitive type `name`.
 fn prim(name: &str) -> PrimType {
-    PrimType::from_dtype(parse_dtype(name)).unwrap()
+    PrimType::try_from(parse_dtype(name)).unwrap()
 }
 
 /// A variable of the primitive type `ty`, named after it.
@@ -49,17 +49,15 @@ fn prim_var(ty: &str) -> PrimExpr {
 }
 
 fn imm(ty: &str, value: i64) -> PrimExpr {
-    IntImm::new(PrimType::from_dtype(parse_dtype(ty)).unwrap(), value, UNKNOWN_LOC).unwrap().into()
+    IntImm::new(PrimType::try_from(parse_dtype(ty)).unwrap(), value, UNKNOWN_LOC).unwrap().into()
 }
 
 fn big_imm(ty: &str, value: BigInt) -> PrimExpr {
-    IntImm::new(PrimType::from_dtype(parse_dtype(ty)).unwrap(), value, UNKNOWN_LOC).unwrap().into()
+    IntImm::new(PrimType::try_from(parse_dtype(ty)).unwrap(), value, UNKNOWN_LOC).unwrap().into()
 }
 
 fn fimm(ty: &str, value: f64) -> PrimExpr {
-    FloatImm::new(PrimType::from_dtype(parse_dtype(ty)).unwrap(), value, UNKNOWN_LOC)
-        .unwrap()
-        .into()
+    FloatImm::new(PrimType::try_from(parse_dtype(ty)).unwrap(), value, UNKNOWN_LOC).unwrap().into()
 }
 
 fn repr<T>(value: &T) -> String
@@ -344,7 +342,7 @@ fn literals_and_compound_expressions_agree_with_cpp() {
     let sub = global("prim._OpSub");
     for value in [imm("int64", i64::MIN), imm("int32", 5), fimm("float32", 2.5), prim_var("int32")]
     {
-        let zero = op::make_const(value.ty(), 0).unwrap();
+        let zero = op::make_const(value.prim_ty().clone(), 0).unwrap();
         let native = sub.call_tuple((zero, value.clone(), UnknownLoc::new()));
         outcome.check(|| format!("-{}", repr(&value)), (-&value).try_into(), native);
     }

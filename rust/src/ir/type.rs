@@ -59,6 +59,7 @@
 // tvm-ffi-stubgen(import-object): crate::ir::support
 // tvm-ffi-stubgen(import-object): crate::ir::dtype
 // tvm-ffi-stubgen(import-object): tvm_ffi::Error
+// tvm-ffi-stubgen(import-object): tvm_ffi::DLDataTypeCode
 // tvm-ffi-stubgen(import-object): tvm_ffi::VALUE_ERROR
 
 // tvm-ffi-stubgen(begin): import-section
@@ -71,6 +72,7 @@ use std::ops::Deref;
 use std::ptr::addr_of_mut;
 use tvm_ffi::Array;
 use tvm_ffi::DLDataType;
+use tvm_ffi::DLDataTypeCode;
 use tvm_ffi::Error;
 use tvm_ffi::Object;
 use tvm_ffi::ObjectArc;
@@ -480,14 +482,16 @@ unsafe impl tvm_ffi::object::ImmutableObject for PrimTypeObj {}
 tvm_ffi::unsafe_impl_object_ref_upcast!(PrimType => Type);
 // tvm-ffi-stubgen(end)
 
-impl PrimType {
-    /// Return the primitive type of `dtype`, checked to be a valid primitive type (`ir.PrimType`).
-    ///
-    /// # Errors
-    ///
-    /// Returns a `TypeError` if `dtype` is an opaque handle other than `void`: a pointer is a
-    /// [`PtrType`].
-    pub fn from_dtype(dtype: DLDataType) -> Result<Self> {
+/// The primitive type of a dtype, checked to be a valid primitive type (`ir.PrimType`).
+///
+/// # Errors
+///
+/// Returns a `TypeError` if the dtype is an opaque handle other than `void`: a pointer is a
+/// [`PtrType`].
+impl TryFrom<DLDataType> for PrimType {
+    type Error = Error;
+
+    fn try_from(dtype: DLDataType) -> Result<Self> {
         thread_local! {
             static PRIM_TYPES: std::cell::RefCell<std::collections::HashMap<(u8, u8, u16), PrimType>> =
                 std::cell::RefCell::new(std::collections::HashMap::new());
@@ -501,11 +505,13 @@ impl PrimType {
         PRIM_TYPES.with(|types| types.borrow_mut().insert(key, ty.clone()));
         Ok(ty)
     }
+}
 
-    /// [`PrimType::from_dtype`] of a dtype C++ always accepts, which fails only when the compiler
-    /// library is not loaded.
+impl PrimType {
+    /// The primitive type of a dtype C++ always accepts, which fails only when the compiler library
+    /// is not loaded.
     fn builtin(dtype: DLDataType) -> Self {
-        support::infallible(Self::from_dtype(dtype))
+        support::infallible(Self::try_from(dtype))
     }
 
     /// Return the signed integer type of `bits` bits (C++ `PrimType::Int(bits)`).
@@ -552,7 +558,7 @@ impl PrimType {
             let message = format!("a fixed-length vector has fewer than 32768 lanes, not {lanes}");
             return Err(Error::new(VALUE_ERROR, &message, ""));
         }
-        Self::from_dtype(dtype::with_lanes(self.dtype, lanes))
+        Self::try_from(dtype::with_lanes(self.dtype, lanes))
     }
 
     /// Return the scalable vector of `factor` times `vscale` elements of this scalar type, with the
@@ -563,7 +569,97 @@ impl PrimType {
     /// Returns an `InternalError` if `factor` is 1 or less, or 32768 or more, or a `TypeError` if
     /// the vector is of an opaque handle.
     pub fn with_scalable_lanes(&self, factor: u16) -> Result<Self> {
-        Self::from_dtype(support::scalable_vector(self.dtype, i32::from(factor))?)
+        Self::try_from(support::scalable_vector(self.dtype, i32::from(factor))?)
+    }
+
+    /// Return this type with the type code `code`, keeping the bits and the lanes.
+    ///
+    /// # Errors
+    ///
+    /// Returns a `TypeError` if the result is an opaque handle other than `void`.
+    pub fn with_code(&self, code: DLDataTypeCode) -> Result<Self> {
+        Self::try_from(DLDataType { code: code as u8, ..self.dtype })
+    }
+
+    /// Return this type with elements of `bits` bits, keeping the type code and the lanes.
+    ///
+    /// # Errors
+    ///
+    /// Returns a `TypeError` if the result is an opaque handle other than `void`.
+    pub fn with_bits(&self, bits: u8) -> Result<Self> {
+        Self::try_from(DLDataType { bits, ..self.dtype })
+    }
+
+    /// Return whether the type code is any of `codes`; the bits and the lanes are ignored.
+    #[inline(always)]
+    pub fn matches_code(&self, codes: &[DLDataTypeCode]) -> bool {
+        codes.iter().any(|&code| self.dtype.code == code as u8)
+    }
+
+    /// The bit width of one element.
+    #[inline(always)]
+    pub fn bits(&self) -> u8 {
+        self.dtype.bits
+    }
+
+    /// Return whether this type is a scalar: neither a fixed-length nor a scalable vector, nor
+    /// `void`.
+    #[inline(always)]
+    pub fn is_scalar(&self) -> bool {
+        self.encoded_lanes() == 1
+    }
+
+    /// Return whether this type is `void`, the opaque handle of no bits and no lanes.
+    #[inline(always)]
+    pub fn is_void(&self) -> bool {
+        self.dtype == dtype::void()
+    }
+
+    /// Return whether this type is a scalable vector, of a multiple of `vscale` lanes.
+    ///
+    /// See also [`with_scalable_lanes`](Self::with_scalable_lanes).
+    #[inline(always)]
+    pub fn is_scalable_vector(&self) -> bool {
+        self.encoded_lanes() < -1
+    }
+
+    /// Return whether this type is a vector of a fixed number of lanes.
+    ///
+    /// See also [`with_lanes`](Self::with_lanes).
+    #[inline(always)]
+    pub fn is_fixed_length_vector(&self) -> bool {
+        self.encoded_lanes() > 1
+    }
+
+    /// Return the number of lanes, 1 for a scalar, or `None` for a scalable vector, whose lanes
+    /// are known only at run time.
+    #[inline(always)]
+    pub fn lanes(&self) -> Option<u16> {
+        u16::try_from(self.encoded_lanes()).ok()
+    }
+
+    /// Return the factor of `vscale` in the lanes of a scalable vector, or `None` for any other
+    /// type.
+    #[inline(always)]
+    pub fn vscale_factor(&self) -> Option<u16> {
+        match self.is_scalable_vector() {
+            true => Some(self.encoded_lanes().unsigned_abs()),
+            false => None,
+        }
+    }
+
+    /// Return the number of bytes that store a value of this type, its sub-byte elements packed,
+    /// or `None` for a scalable vector.
+    #[inline(always)]
+    pub fn storage_bytes(&self) -> Option<usize> {
+        let lanes = usize::from(self.lanes()?);
+        Some((usize::from(self.bits()) * lanes).div_ceil(8))
+    }
+
+    /// The lanes field as C++ reads it: negative for a scalable vector.
+    #[inline(always)]
+    fn encoded_lanes(&self) -> i16 {
+        self.dtype.lanes as i16
     }
 }
 
