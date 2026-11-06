@@ -331,11 +331,10 @@ pub fn reinterpret_at(
 /// Build a rational approximation of `erf(arg)` on `[-4, 4]` in `bits`-bit floats, as the Metal and
 /// WebGPU backends lower `erf` (C++ `tirx::fast_erf_float_expr(arg, bits)`).
 pub fn fast_erf_float_expr(arg: impl IntoExpr<PrimExpr>, bits: u8) -> Result<PrimExpr> {
-    let dtype = PrimType::float(bits).dtype;
+    let ty = PrimType::float(bits);
     // The C++ coefficients are `float` literals.
-    let constant = |value: f32| -> ExprResult {
-        FloatImm::from_dtype(dtype, f64::from(value), UNKNOWN_LOC).into()
-    };
+    let constant =
+        |value: f32| -> ExprResult { FloatImm::new(&ty, f64::from(value), UNKNOWN_LOC).into() };
     // alpha_1, alpha_3, ..., alpha_13: the odd coefficients of the numerator.
     #[allow(clippy::excessive_precision)]
     let alpha: [f32; 7] = [

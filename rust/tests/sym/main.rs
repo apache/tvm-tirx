@@ -27,9 +27,7 @@ mod analyzer;
 mod int_set;
 mod iter_affine_map;
 
-use tvm_tirx::ir::{
-    UNKNOWN_LOC, dtype, Expr, IntImm, Location, PrimExpr, PrimType, PrimVar, Range, Var,
-};
+use tvm_tirx::ir::{UNKNOWN_LOC, Expr, IntImm, Location, PrimExpr, PrimType, PrimVar, Range, Var};
 use tvm_tirx::sym::{Analyzer, ConstraintContext};
 use tvm_tirx::tvm_ffi::String as FfiString;
 use tvm_tirx::tvm_ffi::object::ObjectRef;
@@ -37,7 +35,7 @@ use tvm_tirx::tvm_ffi::object::ObjectRef;
 use common::global;
 
 fn int32(value: i64) -> PrimExpr {
-    IntImm::from_dtype(dtype::int(32), value, UNKNOWN_LOC).unwrap().into()
+    IntImm::new(PrimType::int(32), value, UNKNOWN_LOC).unwrap().into()
 }
 
 fn op(name: &str, a: impl Into<Expr>, b: impl Into<Expr>) -> PrimExpr {

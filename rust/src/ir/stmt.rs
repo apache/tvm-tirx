@@ -60,6 +60,7 @@
 // tvm-ffi-stubgen(custom-new): ir.If
 // tvm-ffi-stubgen(custom-new): ir.Evaluate
 // tvm-ffi-stubgen(custom-new): ir.Return
+// tvm-ffi-stubgen(custom-new): ir.While
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
 // tvm-ffi-stubgen(import-object): tvm_ffi::AnyView
@@ -71,7 +72,7 @@
 // tvm-ffi-stubgen(import-object): crate::ir::expr::Call
 // tvm-ffi-stubgen(import-object): crate::ir::expr::IntImm
 // tvm-ffi-stubgen(import-object): crate::ir::expr::IntImmObj
-// tvm-ffi-stubgen(import-object): crate::ir::location::UnknownLoc
+// tvm-ffi-stubgen(import-object): crate::ir::location::UNKNOWN_LOC
 // tvm-ffi-stubgen(import-object): crate::ir::r#type::MissingType
 // tvm-ffi-stubgen(import-object): crate::ir::r#type::MissingTypeObj
 // tvm-ffi-stubgen(import-object): crate::ir::r#type::PrimType
@@ -104,7 +105,7 @@ use crate::ir::expr::PrimVar;
 use crate::ir::expr::StringImm;
 use crate::ir::expr::Var;
 use crate::ir::location::Location;
-use crate::ir::location::UnknownLoc;
+use crate::ir::location::UNKNOWN_LOC;
 use crate::ir::op::Op;
 use crate::ir::r#type::MissingType;
 use crate::ir::r#type::MissingTypeObj;
@@ -535,9 +536,7 @@ impl For {
                         &message,
                     ));
                 }
-                return Ok(
-                    IntImm::from_dtype(var_ty.dtype, imm.value.clone(), UnknownLoc::new())?.into()
-                );
+                return Ok(IntImm::new(var_ty.clone(), imm.value.clone(), UNKNOWN_LOC)?.into());
             }
             if ty.dtype.bits > var_ty.dtype.bits {
                 let message = format!(
@@ -624,7 +623,7 @@ impl WhileObj {
 
 impl While {
     /// Lossless complete-field allocation.
-    pub fn new(
+    pub fn from_fields(
         loc: impl Into<Location>,
         condition: impl Into<PrimExpr>,
         body: impl Into<SeqStmt>,
@@ -644,7 +643,7 @@ impl While {
     /// # Errors
     ///
     /// Returns an `InternalError` if `condition` is a vector.
-    pub fn checked(
+    pub fn new(
         condition: impl IntoExpr<PrimExpr>,
         body: impl Into<Stmt>,
         loc: impl Into<Location>,
@@ -656,7 +655,7 @@ impl While {
             let check = "condition.ty().IsScalar()";
             return Err(support::check_failed(tvm_ffi::INTERNAL_ERROR, check, ""));
         }
-        Ok(Self::new(loc.into(), condition, body))
+        Ok(Self::from_fields(loc, condition, body))
     }
 }
 
@@ -922,7 +921,7 @@ fn region_body_params(op: &Op, args: &Array<Expr>, attrs: &DictAttrs) -> Result<
         return Err(support::check_failed(tvm_ffi::VALUE_ERROR, "IsRegionOp(op)", &message));
     };
     let signature = Call::from_fields(
-        UnknownLoc::new(),
+        UNKNOWN_LOC,
         MissingType::new(),
         op.clone(),
         args.clone(),

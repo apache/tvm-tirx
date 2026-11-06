@@ -76,7 +76,7 @@ fn logaddexp_agrees_with_cpp() {
         (prim_var("float32x4").into(), prim_var("float32").into()),
         (
             prim_var("float32").into(),
-            FloatImm::from_dtype(prim("float16").dtype, 0.5, UNKNOWN_LOC).unwrap().into(),
+            FloatImm::new(prim("float16"), 0.5, UNKNOWN_LOC).unwrap().into(),
         ),
         (prim_var("int32").into(), PrimVar::new("j", PrimType::int(32), UNKNOWN_LOC).into()),
     ];

@@ -68,6 +68,7 @@
 // tvm-ffi-stubgen(upcast): sym.SplitExpr -> PrimExpr
 // tvm-ffi-stubgen(upcast): sym.SumExpr -> PrimExpr
 // tvm-ffi-stubgen(import-object): std::borrow::Borrow
+// tvm-ffi-stubgen(import-object): tvm_ffi::IntoObjectRef
 
 // tvm-ffi-stubgen(begin): import-section
 use crate::ExitOnDrop;

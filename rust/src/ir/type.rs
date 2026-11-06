@@ -48,11 +48,12 @@
 // tvm-ffi-stubgen(custom-new): ir.PtrType
 // tvm-ffi-stubgen(custom-new): ir.TupleType
 // tvm-ffi-stubgen(custom-new): ir.FuncType
+// tvm-ffi-stubgen(custom-new): ir.PrimType
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
 // tvm-ffi-stubgen(import-object): tvm_ffi::ObjectRefCore
 // tvm-ffi-stubgen(import-object): tvm_ffi::Result
-// tvm-ffi-stubgen(import-object): crate::ir::location::UnknownLoc
+// tvm-ffi-stubgen(import-object): crate::ir::location::UNKNOWN_LOC
 // tvm-ffi-stubgen(import-object): crate::ir::support
 // tvm-ffi-stubgen(import-object): crate::ir::dtype
 // tvm-ffi-stubgen(import-object): tvm_ffi::Error
@@ -61,7 +62,7 @@
 // tvm-ffi-stubgen(begin): import-section
 use crate::ir::dtype;
 use crate::ir::location::Location;
-use crate::ir::location::UnknownLoc;
+use crate::ir::location::UNKNOWN_LOC;
 use crate::ir::support;
 use crate::runtime::MemoryScope;
 use std::ops::Deref;
@@ -491,7 +492,7 @@ impl PrimTypeObj {
 
 impl PrimType {
     /// Lossless complete-field allocation.
-    pub fn new(loc: impl Into<Location>, dtype: impl Into<DLDataType>) -> Self {
+    pub fn from_fields(loc: impl Into<Location>, dtype: impl Into<DLDataType>) -> Self {
         let obj = PrimTypeObj::new(loc.into(), dtype.into());
         Self { base: ObjectArc::new(obj) }
     }
@@ -716,7 +717,7 @@ impl PtrType {
             let message = "PtrType element_type cannot be Type::Missing()";
             return Err(support::check_failed(tvm_ffi::INTERNAL_ERROR, condition, message));
         }
-        Ok(Self::from_fields(UnknownLoc::new(), element_type, scope.clone()))
+        Ok(Self::from_fields(UNKNOWN_LOC, element_type, scope.clone()))
     }
 }
 
@@ -853,6 +854,6 @@ impl FuncType {
         ret_type: impl Into<Type>,
     ) -> Self {
         let arg_types = arg_types.into_iter().map(Into::into).collect::<Array<Type>>();
-        Self::from_fields(UnknownLoc::new(), arg_types, ret_type.into())
+        Self::from_fields(UNKNOWN_LOC, arg_types, ret_type.into())
     }
 }

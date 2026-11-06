@@ -49,7 +49,7 @@ fn parse_dtype(name: &str) -> DLDataType {
 }
 
 fn int32(value: i64) -> PrimExpr {
-    IntImm::from_dtype(dtype::int(32), value, UNKNOWN_LOC).unwrap().into()
+    IntImm::new(PrimType::int(32), value, UNKNOWN_LOC).unwrap().into()
 }
 
 fn int32_var(name: &str) -> PrimVar {

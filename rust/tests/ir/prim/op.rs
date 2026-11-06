@@ -50,15 +50,17 @@ fn prim_var(ty: &str) -> PrimExpr {
 }
 
 fn imm(ty: &str, value: i64) -> PrimExpr {
-    IntImm::from_dtype(parse_dtype(ty), value, UNKNOWN_LOC).unwrap().into()
+    IntImm::new(PrimType::from_dtype(parse_dtype(ty)).unwrap(), value, UNKNOWN_LOC).unwrap().into()
 }
 
 fn big_imm(ty: &str, value: BigInt) -> PrimExpr {
-    IntImm::from_dtype(parse_dtype(ty), value, UNKNOWN_LOC).unwrap().into()
+    IntImm::new(PrimType::from_dtype(parse_dtype(ty)).unwrap(), value, UNKNOWN_LOC).unwrap().into()
 }
 
 fn fimm(ty: &str, value: f64) -> PrimExpr {
-    FloatImm::from_dtype(parse_dtype(ty), value, UNKNOWN_LOC).unwrap().into()
+    FloatImm::new(PrimType::from_dtype(parse_dtype(ty)).unwrap(), value, UNKNOWN_LOC)
+        .unwrap()
+        .into()
 }
 
 fn repr<T>(value: &T) -> String
