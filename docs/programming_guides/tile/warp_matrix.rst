@@ -126,39 +126,24 @@ for the output fragment:
         for r in range(4):
             Out[lane // 4 + 8 * (r // 2), 2 * (lane % 4) + r % 2] = dr[r]
 
-Each thread first copies part of ``A`` and ``B`` into the shared-memory
-buffers ``a`` and ``b``. The CTA barrier ensures those stores are visible
-before ``ldmatrix`` reads them.
+The threads copy ``A`` and ``B`` into shared-memory buffers ``a`` and ``b``,
+then synchronize before ``ldmatrix`` reads them.
 
-The ``uint32`` views reinterpret each pair of float16 elements as one
-32-bit word, preserving their bit patterns. The ``rearrange`` calls express
-the shared-memory views in ``(matrix, row, packed_word)`` coordinates for
-``ldmatrix``. Each ``8 x 8`` float16 submatrix has eight rows of four packed
-words. A contains four such submatrices and B contains two, giving view
-shapes ``(4, 8, 4)`` and ``(2, 8, 4)``.
+The ``uint32`` views reinterpret pairs of float16 values as 32-bit words.
+``rearrange`` expresses the shared-memory views in
+``(matrix, row, packed_word)`` coordinates for ``ldmatrix``.
+All 32 lanes participate in ``ldmatrix.x4`` to load A into ``ar`` and
+``ldmatrix.x2`` to load B into ``br``.
 
-``ldmatrix.x4`` loads A's four submatrices into ``ar``, and ``ldmatrix.x2``
-loads B's two submatrices into ``br``. Both instructions require all 32
-lanes to participate. The ``a_load_layout`` and ``b_load_layout`` layouts
-describe the fixed assignment of words to lanes.
+The load and MMA layouts describe the same register fragments in each
+instruction's coordinates. This lets ``mma.sync`` reuse the loaded values
+without moving them between lanes. The :ref:`warp MMA reference
+<cuda-tile-contract-mma-sync>` gives the fixed lane mappings.
 
-For ``mma.sync``, ``a_mma_layout`` and ``b_mma_layout`` describe the same
-input registers in MMA operand coordinates. For example, A's
-``(1, 1, 16, 8)`` view has one M repeat, one K repeat, 16 rows, and eight
-packed words per row. These views let both instructions use the same
-input fragments without moving values between lanes. The
-:ref:`warp MMA reference <cuda-tile-contract-mma-sync>` gives the fixed
-lane mappings represented by these layouts.
-
-The MMA call takes ``D, A, B, C`` in that order. The selected ``m16n8k16``
-instruction computes the whole product in one issue, with ``T.float32(0)``
-as the initial C value.
-
-Each lane receives four output elements in ``dr``; the final loop writes
-them to their matrix positions.
-For lane 0, ``dr[0]`` through ``dr[3]`` belong to ``Out[0, 0]``,
-``Out[0, 1]``, ``Out[8, 0]``, and ``Out[8, 1]``. The other lanes use the
-same coordinate formula to cover the remaining output elements.
+The MMA call takes ``D, A, B, C``, with ``T.float32(0)`` as the initial C
+value. The ``m16n8k16`` instruction computes the product in one issue,
+leaving four float32 results per lane in ``dr``. The final loop stores
+them at their corresponding positions in ``Out``.
 
 We can compile the kernel and compare its result with a float32 matrix
 product:
