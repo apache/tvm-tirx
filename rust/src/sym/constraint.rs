@@ -17,6 +17,8 @@
  * under the License.
  */
 #![allow(dead_code, unused_imports)]
+// The generated `new` of a field-less base needs no `Default`.
+#![allow(clippy::new_without_default)]
 
 //! Constraints: the facts in scope at a point of a traversal.
 //!
@@ -412,7 +414,7 @@ impl ConstraintContextObj {
             parent.for_each_prefix(self.parent_prefix_size, callback);
         }
         for constraint in local.iter().take(prefix as usize) {
-            callback(&constraint);
+            callback(constraint);
         }
     }
 

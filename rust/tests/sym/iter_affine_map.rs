@@ -73,7 +73,7 @@ fn iter_maps_decompose_into_marks_and_splits() {
     let mut lower_factors = Vec::new();
     for sum in result.indices.iter() {
         assert_eq!(as_int(sum.base_().unwrap()), 0);
-        let outer = only_split(&sum);
+        let outer = only_split(sum);
         let mark: IterMark = outer.source().unwrap();
         assert_eq!(as_int(mark.extent.clone()), 4);
         let inner_sum: IterSumExpr = mark.source.clone().downcast().unwrap();

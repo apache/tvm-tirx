@@ -17,6 +17,8 @@
  * under the License.
  */
 #![allow(dead_code, unused_imports)]
+// The generated constructors take one argument per reflected field.
+#![allow(clippy::too_many_arguments)]
 
 //! Statements: bindings, assertions, loops, conditionals, tensor stores and sequences.
 //!
@@ -1036,7 +1038,7 @@ impl SeqStmt {
 fn flatten(seq: Array<Stmt>) -> Array<Stmt> {
     let nested_or_no_op =
         |stmt: &Stmt| stmt.downcast_ref::<SeqStmtObj>().is_some() || is_no_op(stmt);
-    if !seq.iter().any(|stmt| nested_or_no_op(&stmt)) {
+    if !seq.iter().any(nested_or_no_op) {
         return seq;
     }
     fn append(stmt: Stmt, flattened: &mut Vec<Stmt>) {

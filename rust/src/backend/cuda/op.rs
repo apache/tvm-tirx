@@ -18,6 +18,8 @@
  */
 // The reflected field names `M`, `N`, and `K` are kept as they are.
 #![allow(dead_code, unused_imports, non_snake_case)]
+// The generated constructors take one argument per reflected field.
+#![allow(clippy::too_many_arguments)]
 
 //! The attributes of CUDA instructions.
 //!

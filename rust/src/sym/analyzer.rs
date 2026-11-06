@@ -122,6 +122,8 @@ impl Deref for Analyzer {
 
 impl Analyzer {
     /// Create an analyzer that knows no facts (`sym.Analyzer`).
+    // Not `Default`: creating an analyzer allocates a stateful FFI object.
+    #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         support::infallible(
             tvm_ffi::cached_global_func!("sym.Analyzer")

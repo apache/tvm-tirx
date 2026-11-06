@@ -17,6 +17,8 @@
  * under the License.
  */
 #![allow(dead_code, unused_imports)]
+// The generated `new` of a field-less base needs no `Default`.
+#![allow(clippy::new_without_default)]
 
 //! Attributes attached to calls, functions and modules.
 //!

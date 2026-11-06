@@ -107,15 +107,9 @@ ffi::UnchangedOr<ffi::Any> ObjectMutatorWithConstraintContext::Mutate(ffi::AnyVi
     try {
       return (*native_vtable_)(object, this, mode);
     } catch (ffi::Error& error) {
-      // Default mutation already names the current node. A user override may throw
-      // before delegating; attach its frame without duplicating default descent's frame.
-      // Release the context handle before the update so a unique context is appended in place.
-      bool named = [&] {
-        auto context = ffi::VisitErrorContext::TryGetFromError(error);
-        return context.has_value() && !context.value()->reverse_visit_pattern.empty() &&
-               context.value()->reverse_visit_pattern.back().get() == object;
-      }();
-      if (!named) ffi::detail::UpdateVisitErrorContext(&error, value);
+      // A user override may throw before delegating; the update skips a frame that
+      // default descent already reported.
+      ffi::detail::UpdateVisitErrorContext(&error, value);
       throw;
     }
   }
