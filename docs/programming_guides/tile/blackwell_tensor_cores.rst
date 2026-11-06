@@ -27,38 +27,49 @@ shared memory.
 The Accumulator's Lifetime
 --------------------------
 
-The example computes ``Out = A @ B.T`` with A of shape ``(128, 64)`` and
-B of shape ``(64, 64)``. One CTA of 128 threads performs these stages:
+The example computes ``Out = A @ B.T`` with A of shape ``(128, 64)``,
+B of shape ``(64, 64)``, and Out of shape ``(128, 64)``. One CTA of 128
+threads performs these stages:
 
-.. code-block:: text
+.. raw:: html
 
-    allocate TMEM -> stage A/B in shared memory -> issue MMA
-                                                    |
-                                    commit + wait for completion
-                                                    |
-    release TMEM <- write Out <- load TMEM into registers + wait
+   <iframe data-tirx-matrix-dataflow
+           src="https://tvm.apache.org/images/docs/tirx/blackwell_tensor_cores.html"
+           title="Blackwell matrix multiplication: TMEM allocation, MMA completion, and output"
+           style="display: block; width: 100%; height: 740px; border: 0;"
+           loading="lazy"></iframe>
+   <script>
+     // Keep both matrix diagrams sized and themed with their documentation pages.
+     (() => {
+       const dark = matchMedia('(prefers-color-scheme: dark)');
+       document.querySelectorAll('iframe[data-tirx-matrix-dataflow]').forEach((frame) => {
+         if (frame.dataset.ready) return;
+         frame.dataset.ready = 'true';
+         const origin = new URL(frame.src, document.baseURI).origin;
+         const syncTheme = () => {
+           const selected = document.documentElement.dataset.theme;
+           const theme = ['light', 'dark'].includes(selected) ? selected : (dark.matches ? 'dark' : 'light');
+           frame.contentWindow.postMessage({ type: 'tirx-matrix-dataflow:theme', theme }, origin);
+         };
+         addEventListener('message', (event) => {
+           if (event.source !== frame.contentWindow || event.origin !== origin) return;
+           const data = event.data;
+           if (data?.type !== 'tirx-matrix-dataflow:height') return;
+           if (!Number.isFinite(data.height) || data.height < 100 || data.height > 3000) return;
+           frame.style.height = Math.ceil(data.height) + 'px';
+         });
+         new MutationObserver(syncTheme).observe(document.documentElement, {
+           attributes: true, attributeFilter: ['data-theme']
+         });
+         dark.addEventListener('change', syncTheme);
+         frame.addEventListener('load', syncTheme);
+         syncTheme();
+       });
+     })();
+   </script>
 
-Different stages require different participants. The conditions in the
-kernel select them explicitly:
-
-.. list-table::
-   :header-rows: 1
-
-   * - Participants
-     - Operations
-   * - ``warp == 0``: all 32 threads of warp 0
-     - Allocate TMEM, relinquish the allocation permit, and deallocate TMEM.
-   * - ``tid == 0``: thread 0
-     - Initialize the barrier, issue the MMA instructions, and commit them.
-   * - All four warps
-     - Stage inputs, synchronize, load the completed result from TMEM, and write Out.
-
-``mma_shared_layout`` constructs the swizzled shared layouts for A and B.
-Mode 3 selects a 128-byte swizzle; its 1024-byte period determines the
-shared allocation alignment used below.
-``tmem_mma_operand_layout`` maps the float32 accumulator to TMEM lanes
-and columns for the chosen instruction. The ``128 x 64`` accumulator
-uses 64 columns, so the allocation and deallocation both specify 64.
+The kernel uses ``d`` for the TMEM accumulator and ``frag`` for the output
+values held in each thread's registers:
 
 .. code-block:: python
 
@@ -133,35 +144,63 @@ uses 64 columns, so the allocation and deallocation both specify 64.
             T.ptx.tcgen05.relinquish_alloc_permit.cta_group__1.sync.aligned()
             T.ptx.tcgen05.dealloc.cta_group__1.sync.aligned.b32(address[0], T.uint32(64))
 
-The allocation writes a TMEM base address to the shared ``address`` slot.
-After the CTA barrier publishes the address, ``decl_tmem`` gives the allocated
-storage a tensor shape and layout. It does not perform another allocation.
+All 32 threads of warp 0 execute ``tcgen05.alloc`` to allocate TMEM and
+write its base address to ``address[0]``. The ``tmem_mma_operand_layout``
+helper defines ``d_layout``, which maps the ``128 x 64`` float32 accumulator
+to 128 TMEM rows, called lanes, and 64 columns. The allocation and
+deallocation therefore both specify 64 columns.
 
-Each thread stages input values in shared memory and executes a proxy
-fence. The following CTA barrier lets the issuing thread proceed only
-after all writers have finished this handoff to the asynchronous reader.
-The A/B views split K=64 into four K=16 slices. For example,
-``av`` has shape ``(1, 4, 128, 16)``: one M tile, four K repeats, and a
-``128 x 16`` A slice per issue. B likewise has one N tile and four K
-repeats. Consequently, the tile call issues four MMA instructions.
-``accum=False`` starts a fresh result on the first slice; subsequent
-slices accumulate into D.
+The shared-memory tensors ``a`` and ``b`` use layouts constructed by
+``mma_shared_layout``. Its second argument, ``3``, selects a 128-byte
+swizzle. The full address pattern repeats every 1024 bytes, so both shared
+allocations use ``align=1024`` to align their base addresses to this period.
 
-The elected thread commits these operations to ``mbar``, initialized with
-one expected arrival. All threads wait for phase 0 and execute
-``tcgen05.fence::after_thread_sync`` before reading TMEM. This completion
-protocol uses a barrier arrival, rather than the expected-byte count
-used by :doc:`TMA copies <tma>`.
+Each of the 128 threads copies one row of ``A`` into ``a``. Threads 0
+through 63 also copy one row of ``B`` into ``b``. Every thread then executes
+``fence.proxy.async`` to make its shared-memory writes visible to the
+Tensor Core. The CTA barrier ensures that all threads have completed
+their copies and proxy fences before thread 0 issues MMA instructions.
 
-The register fragment assigns one output row to each thread. Its
-``(4, 32, 64)`` view lets each of the four warps load its 32 TMEM lanes.
-``tcgen05.wait::ld`` then makes the loaded registers ready for the output
-stores. It waits for these loads; the preceding barrier and fence are
-what establish that MMA has finished. The final CTA barrier keeps TMEM
-alive until every warp has finished using it, after which warp 0 gives
-up further allocations and releases the columns.
+After this barrier, all threads can read the TMEM base address from
+``address[0]``. ``T.cuda.decl_tmem`` binds this existing allocation to
+tensor ``d``, giving it the specified shape and layout.
 
-On a supported GPU, we can check the product as follows:
+With ``instruction_shape=(128, 64, 16)``, each MMA instruction processes
+16 elements along K. The views ``av`` and ``bv`` split K=64 into four
+K=16 slices. The ``av`` shape ``(1, 4, 128, 16)`` represents one M tile,
+four K repeats, and a ``128 x 16`` A slice per instruction. The ``bv`` shape
+``(1, 4, 64, 16)`` similarly represents one N tile, four K repeats, and a
+``64 x 16`` B slice. Thread 0's single ``T.cuda.tile.apply`` call therefore
+expands into four MMA instructions. With ``accum=False``, the first
+instruction writes its product into ``d``; the next three add their
+products to ``d``.
+
+Thread 0 then calls ``tcgen05.commit`` to make ``mbar`` track completion
+of all four MMA instructions. This commit produces one barrier arrival
+after all four instructions complete, which is why ``mbar`` is initialized
+with an arrival count of 1. All 128 threads call ``T.cuda.mbarrier_wait``
+to wait for the initial barrier phase to complete. The ``0`` argument is
+the parity of that initial phase.
+
+Once the barrier wait returns, each thread executes
+``tcgen05.fence::after_thread_sync`` to order its subsequent TMEM loads
+after the completed MMA operations.
+
+``register_layout`` assigns one output row of 64 float32 values to each
+thread. The ``(4, 32, 64)`` views of ``d`` and ``frag`` group the rows into
+four warps, 32 rows per warp, and 64 values per row. Each warp uses
+``tcgen05.ld`` to load its 32 TMEM rows into registers, with one row per
+thread. ``tcgen05.wait::ld`` waits for these loads to complete before each
+thread writes its 64 values to row ``tid`` of ``Out``.
+
+The final CTA barrier ensures every warp has finished using TMEM before
+it is deallocated. All 32 threads of warp 0 then execute
+``tcgen05.relinquish_alloc_permit`` to give up the CTA's right to make
+further TMEM allocations, followed by ``tcgen05.dealloc`` to free the
+64 allocated columns.
+
+On a supported GPU, we can compare the result with a PyTorch float32
+matrix product:
 
 .. code-block:: python
 
@@ -201,6 +240,11 @@ have different participants and completion rules:
      - Shared memory to TMEM
      - One elected thread issues the copy and commits it to an
        ``mbarrier``; consumers wait and use the thread-sync fence.
+
+For ``tcgen05.mma`` and ``tcgen05.cp``, a commit signals completion through
+a barrier arrival. :doc:`TMA loads <tma>` instead track completion using
+an expected-byte count. The barrier setup must match the operation being
+tracked.
 
 ``tcgen05.cp`` is useful for operands that must reside in TMEM, such as
 the scale factors of a block-scaled MMA. Its shared source must be ready
