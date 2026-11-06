@@ -350,7 +350,7 @@ impl From<CallEffectKind> for Any {
 /// [`arg`](sig::arg) and [`ty_arg`](sig::ty_arg) are fixed value and type arguments,
 /// [`var_args`](sig::var_args) and [`var_ty_args`](sig::var_ty_args) variadic tails, and
 /// [`call_attrs`](sig::call_attrs) the type of `Call.attrs`. A node type accepts an instance of it,
-/// and the typed views such as [`PrimExpr`](super::PrimExpr) and [`PrimVar`](super::PrimVar)
+/// and the typed expressions such as [`PrimExpr`](super::PrimExpr) and [`PrimVar`](super::PrimVar)
 /// also check its type; implement [`ArgType`](sig::ArgType) for another check.
 pub mod sig {
     use super::*;
@@ -391,7 +391,7 @@ pub mod sig {
         }
     }
 
-    /// The typed views, which are argument types as they are: [`PrimVar`] checks as C++
+    /// The typed expressions, which are argument types as they are: [`PrimVar`] checks as C++
     /// `PrimVar` does.
     pub use crate::ir::expr::{IntExpr, PrimExpr, PrimVar};
 

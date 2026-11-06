@@ -21,7 +21,7 @@
 //! Expressions: variables, constants, calls, tuples and tensor accesses.
 //!
 //! The objects `python/tvm_tirx/ir/expr.py` defines. [`Expr`] is the base of every expression;
-//! [`PrimExpr`] and [`IntExpr`] are views of one checked to have a primitive or integer type. The
+//! [`PrimExpr`] and [`IntExpr`] are expressions checked to have a primitive or integer type. The
 //! primitive arithmetic and vector expressions are in [`prim`](super::prim).
 //!
 //! # Examples
@@ -77,7 +77,6 @@
 // tvm-ffi-stubgen(import-object): tvm_ffi::ObjectRefCore
 // tvm-ffi-stubgen(import-object): tvm_ffi::object::is_instance_of
 // tvm-ffi-stubgen(import-object): tvm_ffi::tvm_ffi_sys::TVMFFIAny
-// tvm-ffi-stubgen(import-object): tvm_ffi::type_traits::AnyCompatible
 // tvm-ffi-stubgen(import-object): tvm_ffi::AnyView
 // tvm-ffi-stubgen(import-object): tvm_ffi::Result
 // tvm-ffi-stubgen(import-object): tvm_ffi::tvm_ffi_sys::TVMFFITypeIndex
@@ -139,7 +138,6 @@ use tvm_ffi::object::is_instance_of;
 use tvm_ffi::reflection::drop_if_defined;
 use tvm_ffi::tvm_ffi_sys::TVMFFIAny;
 use tvm_ffi::tvm_ffi_sys::TVMFFITypeIndex;
-use tvm_ffi::type_traits::AnyCompatible;
 // tvm-ffi-stubgen(end)
 
 // tvm-ffi-stubgen(begin): object/ir.Expr
@@ -374,77 +372,163 @@ impl From<f64> for Expr {
 }
 
 // ---------------------------------------------------------------------------------------------
-// Typed views: `PrimExpr` and `IntExpr` (C++ `TypedExpr`)
+// Typed expressions: `PrimExpr` and `IntExpr`
 
-crate::r#macro::typed_expr_view! {
-    /// An expression typed by a `PrimType` (C++ `PrimExpr`): a constant, a variable, an operator
-    /// on scalars or vectors, or a call that returns one.
-    ///
-    /// `PrimExpr` and [`IntExpr`] are typed views (C++ `TypedExpr`): an [`Expr`] checked when the
-    /// view is made, so a function that takes one needs no check of its own. A view converts into
-    /// an `Expr` for free; an `Expr` converts into a view only through `TryFrom`, whose error names
-    /// the expression and its type.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use tvm_tirx::ir::{dtype, Expr, PrimExpr, PrimType, PrimVar, StringImm, Var, UNKNOWN_LOC};
-    ///
-    /// fn is_scalar(expr: &PrimExpr) -> bool {
-    ///     expr.dtype().lanes == 1
-    /// }
-    ///
-    /// let x = PrimVar::new("x", PrimType::int(32), UNKNOWN_LOC);
-    /// assert!(is_scalar(&PrimExpr::try_from(&x + 1)?));
-    ///
-    /// let text = Expr::from(StringImm::new("hi", UNKNOWN_LOC));
-    /// let error = PrimExpr::try_from(text).err().unwrap();
-    /// assert!(error.message().contains("ir.StringImm[ty=ir.StringType]"));
-    /// # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
-    /// ```
-    ///
-    /// An `Expr` is not a `PrimExpr` until it is checked, nor a `PrimExpr` an `IntExpr`:
-    ///
-    /// ```compile_fail
-    /// # use tvm_tirx::ir::{Expr, PrimExpr};
-    /// fn widen(expr: Expr) -> PrimExpr {
-    ///     expr
-    /// }
-    /// ```
-    ///
-    /// ```compile_fail
-    /// # use tvm_tirx::ir::{IntExpr, PrimExpr};
-    /// fn narrow(expr: PrimExpr) -> IntExpr {
-    ///     expr.into()
-    /// }
-    /// ```
-    PrimExpr, "ir.PrimExpr", base = Expr(ExprObj), check = is_prim_expr,
-    mismatch = typed_expr_mismatch, fallback = prim_literal
+/// An expression typed by a `PrimType` (C++ `PrimExpr`): a constant, a variable, an operator
+/// on scalars or vectors, or a call that returns one.
+///
+/// `PrimExpr` and [`IntExpr`] are typed expressions: an [`Expr`] checked when the reference
+/// is made, so a function that takes one needs no check of its own. A typed expression
+/// converts into an `Expr` for free; an `Expr` converts into one only through `TryFrom`, whose
+/// error names the expression and its type.
+///
+/// # Examples
+///
+/// ```
+/// use tvm_tirx::ir::{dtype, Expr, PrimExpr, PrimType, PrimVar, StringImm, Var, UNKNOWN_LOC};
+///
+/// fn is_scalar(expr: &PrimExpr) -> bool {
+///     expr.dtype().lanes == 1
+/// }
+///
+/// let x = PrimVar::new("x", PrimType::int(32), UNKNOWN_LOC);
+/// assert!(is_scalar(&PrimExpr::try_from(&x + 1)?));
+///
+/// let text = Expr::from(StringImm::new("hi", UNKNOWN_LOC));
+/// let error = PrimExpr::try_from(text).err().unwrap();
+/// assert!(error.message().contains("ir.StringImm[ty=ir.StringType]"));
+/// # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
+/// ```
+///
+/// An `Expr` is not a `PrimExpr` until it is checked, nor a `PrimExpr` an `IntExpr`:
+///
+/// ```compile_fail
+/// # use tvm_tirx::ir::{Expr, PrimExpr};
+/// fn widen(expr: Expr) -> PrimExpr {
+///     expr
+/// }
+/// ```
+///
+/// ```compile_fail
+/// # use tvm_tirx::ir::{IntExpr, PrimExpr};
+/// fn narrow(expr: PrimExpr) -> IntExpr {
+///     expr.into()
+/// }
+/// ```
+#[repr(transparent)]
+#[derive(Clone, tvm_ffi::derive::ObjectRef)]
+#[object_ref(parent = Expr, skip_any_compatible)]
+pub struct PrimExpr {
+    data: ObjectArc<ExprObj>,
 }
 
-crate::r#macro::typed_expr_view! {
-    /// A [`PrimExpr`] of a scalar signed or unsigned integer type of any width (C++ `IntExpr`),
-    /// such as an index or an extent.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use tvm_tirx::ir::{IntExpr, PrimType, PrimVar, Var, UNKNOWN_LOC};
-    /// use tvm_tirx::script::script;
-    ///
-    /// let i = PrimVar::new("i", PrimType::int(64), UNKNOWN_LOC);
-    /// let offset = IntExpr::try_from(&i * 4)?;
-    /// assert_eq!(script(&offset)?, "i * T.int64(4)");
-    ///
-    /// let f = PrimVar::new("f", PrimType::float(32), UNKNOWN_LOC);
-    /// assert!(IntExpr::try_from(&f * 4).is_err());
-    /// # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
-    /// ```
-    IntExpr, "ir.IntExpr", base = Expr(ExprObj), check = is_int_expr,
-    mismatch = typed_expr_mismatch, fallback = int_literal
+// SAFETY: a `PrimExpr` is a `Expr` that `is_prim_expr` accepts, and `prim_literal` makes only
+// such values.
+unsafe impl tvm_ffi::object::ObjectRefAnyCompatible for PrimExpr {
+    #[inline]
+    fn extra_check(obj: &ExprObj) -> bool {
+        is_prim_expr(obj)
+    }
+
+    fn convert_fallback(value: tvm_ffi::AnyView<'_>) -> Option<Self> {
+        // SAFETY: `value` is a live FFI value.
+        unsafe { prim_literal(value.as_raw_ffi_any()) }
+    }
+
+    fn custom_type_str() -> std::string::String {
+        "ir.PrimExpr".into()
+    }
+
+    fn custom_mismatch_type_info(value: tvm_ffi::AnyView<'_>) -> std::string::String {
+        typed_expr_mismatch(value.as_raw_ffi_any())
+    }
 }
 
-tvm_ffi::unsafe_impl_object_ref_upcast!(PrimExpr => Expr, IntExpr => Expr, IntExpr => PrimExpr);
+crate::def_expr_op_over_loads!(PrimExpr);
+
+impl PrimExpr {
+    /// Return the type of this expression, the [`PrimType`] its check guarantees.
+    pub fn ty(&self) -> PrimType {
+        self.data
+            .ty
+            .downcast_ref::<PrimType>()
+            .cloned()
+            .expect("a typed expression has a `PrimType`")
+    }
+
+    /// Return the dtype of this expression's type.
+    pub fn dtype(&self) -> DLDataType {
+        let ty = self.data.ty.downcast_ref::<PrimTypeObj>();
+        ty.expect("a typed expression has a `PrimType`").dtype
+    }
+}
+
+/// A [`PrimExpr`] of a scalar signed or unsigned integer type of any width (C++ `IntExpr`),
+/// such as an index or an extent.
+///
+/// # Examples
+///
+/// ```
+/// use tvm_tirx::ir::{IntExpr, PrimType, PrimVar, Var, UNKNOWN_LOC};
+/// use tvm_tirx::script::script;
+///
+/// let i = PrimVar::new("i", PrimType::int(64), UNKNOWN_LOC);
+/// let offset = IntExpr::try_from(&i * 4)?;
+/// assert_eq!(script(&offset)?, "i * T.int64(4)");
+///
+/// let f = PrimVar::new("f", PrimType::float(32), UNKNOWN_LOC);
+/// assert!(IntExpr::try_from(&f * 4).is_err());
+/// # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
+/// ```
+#[repr(transparent)]
+#[derive(Clone, tvm_ffi::derive::ObjectRef)]
+#[object_ref(parent = PrimExpr, skip_any_compatible)]
+pub struct IntExpr {
+    data: ObjectArc<ExprObj>,
+}
+
+// SAFETY: a `IntExpr` is a `PrimExpr` that `is_int_expr` accepts, and `int_literal` makes only
+// such values.
+unsafe impl tvm_ffi::object::ObjectRefAnyCompatible for IntExpr {
+    #[inline]
+    fn extra_check(obj: &ExprObj) -> bool {
+        is_int_expr(obj)
+    }
+
+    fn convert_fallback(value: tvm_ffi::AnyView<'_>) -> Option<Self> {
+        // SAFETY: `value` is a live FFI value.
+        unsafe { int_literal(value.as_raw_ffi_any()) }
+    }
+
+    fn custom_type_str() -> std::string::String {
+        "ir.IntExpr".into()
+    }
+
+    fn custom_mismatch_type_info(value: tvm_ffi::AnyView<'_>) -> std::string::String {
+        typed_expr_mismatch(value.as_raw_ffi_any())
+    }
+}
+
+crate::def_expr_op_over_loads!(IntExpr);
+
+impl IntExpr {
+    /// Return the type of this expression, the [`PrimType`] its check guarantees.
+    pub fn ty(&self) -> PrimType {
+        self.data
+            .ty
+            .downcast_ref::<PrimType>()
+            .cloned()
+            .expect("a typed expression has a `PrimType`")
+    }
+
+    /// Return the dtype of this expression's type.
+    pub fn dtype(&self) -> DLDataType {
+        let ty = self.data.ty.downcast_ref::<PrimTypeObj>();
+        ty.expect("a typed expression has a `PrimType`").dtype
+    }
+}
+
+tvm_ffi::unsafe_impl_object_ref_upcast!(IntExpr => Expr);
 
 /// The built expression, checked to be an integer, or the first error raised while building it.
 impl TryFrom<ExprResult> for IntExpr {
@@ -514,7 +598,7 @@ fn int_constant(constant: IntImm) -> IntExpr {
     unsafe { IntExpr::from_data(ObjectRefCore::into_data(Expr::from(constant))) }
 }
 
-// The checks and conversions of the views.
+// The checks and conversions of the typed expressions.
 
 /// A scalar signed or unsigned integer type.
 fn scalar_int(dtype: DLDataType) -> bool {
@@ -533,41 +617,23 @@ unsafe fn expr_of(data: &TVMFFIAny) -> Option<&ExprObj> {
         .then(|| unsafe { &*(data.data_union.v_obj as *const ExprObj) })
 }
 
-/// The dtype of the expression `data` holds, if it holds one typed by a `PrimType`.
-///
-/// # Safety
-///
-/// `data` is a live FFI value.
-unsafe fn prim_dtype(data: &TVMFFIAny) -> Option<DLDataType> {
-    Some(unsafe { expr_of(data) }?.ty.downcast_ref::<PrimTypeObj>()?.dtype)
+/// Whether `expr` is typed by a `PrimType`.
+fn is_prim_expr(expr: &ExprObj) -> bool {
+    expr.ty.downcast_ref::<PrimTypeObj>().is_some()
 }
 
-/// Whether `data` holds an expression typed by a `PrimType`.
-///
-/// # Safety
-///
-/// `data` is a live FFI value.
-unsafe fn is_prim_expr(data: &TVMFFIAny) -> bool {
-    unsafe { prim_dtype(data) }.is_some()
+/// Whether `expr` is typed by a scalar integer type.
+fn is_int_expr(expr: &ExprObj) -> bool {
+    expr.ty.downcast_ref::<PrimTypeObj>().is_some_and(|prim| scalar_int(prim.dtype))
 }
 
-/// Whether `data` holds an expression typed by a scalar integer type.
-///
-/// # Safety
-///
-/// `data` is a live FFI value.
-unsafe fn is_int_expr(data: &TVMFFIAny) -> bool {
-    unsafe { prim_dtype(data) }.is_some_and(scalar_int)
-}
-
-/// Whether `data` holds a `Var`, not a subclass, typed by a `PrimType` (C++
+/// Whether `var` is a `Var`, not a subclass, typed by a `PrimType` (C++
 /// `TypeTraits<PrimVar>::CheckAnyStrict`).
-///
-/// # Safety
-///
-/// `data` is a live FFI value.
-unsafe fn is_prim_var(data: &TVMFFIAny) -> bool {
-    crate::ir::op_def::sig::var_of_type::<PrimTypeObj>(data)
+fn is_prim_var(var: &VarObj) -> bool {
+    // SAFETY: an object starts with its header, which holds its runtime type index.
+    let header = unsafe { &*(var as *const VarObj).cast::<tvm_ffi::tvm_ffi_sys::TVMFFIObject>() };
+    header.type_index == <VarObj as tvm_ffi::ObjectCore>::type_index()
+        && var.ty.downcast_ref::<PrimTypeObj>().is_some()
 }
 
 /// The type key of a value a [`PrimVar`] rejects (C++ `TypeTraits<PrimVar>::GetMismatchTypeInfo`).
@@ -584,7 +650,7 @@ unsafe fn no_literal<T>(_: &TVMFFIAny) -> Option<T> {
     None
 }
 
-/// What a view names a value it rejects (C++ `TypeTraits<TypedExpr<T>>::GetMismatchTypeInfo`):
+/// What a typed expression names a value it rejects (C++ `TypeTraits<TypedExpr<T>>::GetMismatchTypeInfo`):
 /// an expression with its type, `ir.StringImm[ty=ir.StringType]`, or the type key of another value.
 fn typed_expr_mismatch(data: &TVMFFIAny) -> std::string::String {
     // SAFETY: a mismatch is reported for a live value.
@@ -1884,45 +1950,88 @@ impl Var {
     }
 }
 
-crate::r#macro::typed_expr_view! {
-    /// A [`Var`] typed by a `PrimType` (C++ `PrimVar`): a scalar or vector variable, which takes
-    /// part in arithmetic as a [`PrimExpr`].
-    ///
-    /// A `PrimVar` is a view of a `Var`, as [`PrimExpr`] is of an `Expr`: [`PrimVar::new`] types it
-    /// by a `PrimType`, and a `Var` becomes one only through the check of C++ `PrimVar`, by
-    /// `downcast_ref`, which borrows it in place, or `downcast`, which takes it. It converts into a
-    /// `Var`, a `PrimExpr` and an `Expr` for free, and reads the variable through `Deref`.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use tvm_tirx::ir::{MissingType, PrimExpr, PrimType, PrimVar, Var, UNKNOWN_LOC};
-    /// use tvm_tirx::script::script;
-    /// use tvm_tirx::tvm_ffi::{ObjectRefCore};
-    ///
-    /// let i = PrimVar::new("i", PrimType::int(32), UNKNOWN_LOC);
-    /// assert_eq!(i.name.as_str(), "i");
-    /// assert_eq!(script(&PrimExpr::try_from(&i * 4 + 1)?)?, "i * 4 + 1");
-    ///
-    /// let var: Var = i.into();
-    /// assert!(var.downcast_ref::<PrimVar>().is_some());
-    /// let untyped = Var::new("u", MissingType::new(), UNKNOWN_LOC);
-    /// assert!(untyped.downcast::<PrimVar>().is_err());
-    /// # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
-    /// ```
-    ///
-    /// A `Var` takes no part in arithmetic until it is checked, as in C++:
-    ///
-    /// ```compile_fail
-    /// # use tvm_tirx::ir::{PrimType, Var, UNKNOWN_LOC};
-    /// let x = Var::new("x", PrimType::int(32), UNKNOWN_LOC);
-    /// let _ = &x + 1;
-    /// ```
-    PrimVar, "ir.Var", base = Var(VarObj), check = is_prim_var, mismatch = type_key_mismatch,
-    fallback = no_literal
+/// A [`Var`] typed by a `PrimType` (C++ `PrimVar`): a scalar or vector variable, which takes
+/// part in arithmetic as a [`PrimExpr`].
+///
+/// A `PrimVar` is a typed `Var`, as [`PrimExpr`] is a typed `Expr`: [`PrimVar::new`] types it
+/// by a `PrimType`, and a `Var` becomes one only through the check of C++ `PrimVar`, by
+/// `downcast_ref`, which borrows it in place, or `downcast`, which takes it. It converts into a
+/// `Var`, a `PrimExpr` and an `Expr` for free, and reads the variable through `Deref`.
+///
+/// # Examples
+///
+/// ```
+/// use tvm_tirx::ir::{MissingType, PrimExpr, PrimType, PrimVar, Var, UNKNOWN_LOC};
+/// use tvm_tirx::script::script;
+/// use tvm_tirx::tvm_ffi::{ObjectRefCore};
+///
+/// let i = PrimVar::new("i", PrimType::int(32), UNKNOWN_LOC);
+/// assert_eq!(i.name.as_str(), "i");
+/// assert_eq!(script(&PrimExpr::try_from(&i * 4 + 1)?)?, "i * 4 + 1");
+///
+/// let var: Var = i.into();
+/// assert!(var.downcast_ref::<PrimVar>().is_some());
+/// let untyped = Var::new("u", MissingType::new(), UNKNOWN_LOC);
+/// assert!(untyped.downcast::<PrimVar>().is_err());
+/// # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
+/// ```
+///
+/// A `Var` takes no part in arithmetic until it is checked, as in C++:
+///
+/// ```compile_fail
+/// # use tvm_tirx::ir::{PrimType, Var, UNKNOWN_LOC};
+/// let x = Var::new("x", PrimType::int(32), UNKNOWN_LOC);
+/// let _ = &x + 1;
+/// ```
+#[repr(transparent)]
+#[derive(Clone, tvm_ffi::derive::ObjectRef)]
+#[object_ref(parent = Var, skip_any_compatible)]
+pub struct PrimVar {
+    data: ObjectArc<VarObj>,
 }
 
-tvm_ffi::unsafe_impl_object_ref_upcast!(PrimVar => Expr, PrimVar => Var, PrimVar => PrimExpr);
+// SAFETY: a `PrimVar` is a `Var` that `is_prim_var` accepts, and `no_literal` makes only
+// such values.
+unsafe impl tvm_ffi::object::ObjectRefAnyCompatible for PrimVar {
+    #[inline]
+    fn extra_check(obj: &VarObj) -> bool {
+        is_prim_var(obj)
+    }
+
+    fn convert_fallback(value: tvm_ffi::AnyView<'_>) -> Option<Self> {
+        // SAFETY: `value` is a live FFI value.
+        unsafe { no_literal(value.as_raw_ffi_any()) }
+    }
+
+    fn custom_type_str() -> std::string::String {
+        "ir.Var".into()
+    }
+
+    fn custom_mismatch_type_info(value: tvm_ffi::AnyView<'_>) -> std::string::String {
+        type_key_mismatch(value.as_raw_ffi_any())
+    }
+}
+
+crate::def_expr_op_over_loads!(PrimVar);
+
+impl PrimVar {
+    /// Return the type of this expression, the [`PrimType`] its check guarantees.
+    pub fn ty(&self) -> PrimType {
+        self.data
+            .ty
+            .downcast_ref::<PrimType>()
+            .cloned()
+            .expect("a typed expression has a `PrimType`")
+    }
+
+    /// Return the dtype of this expression's type.
+    pub fn dtype(&self) -> DLDataType {
+        let ty = self.data.ty.downcast_ref::<PrimTypeObj>();
+        ty.expect("a typed expression has a `PrimType`").dtype
+    }
+}
+
+tvm_ffi::unsafe_impl_object_ref_upcast!(PrimVar => Expr, PrimVar => PrimExpr);
 
 impl PrimVar {
     /// Create the variable `name` of the primitive type `ty` (C++ `PrimVar(name, ty, loc)`).
@@ -2112,7 +2221,7 @@ impl Range {
 }
 
 // The operators apply to the expressions typed by a `PrimType`, the subtypes of `PrimExpr`, as the
-// C++ operators take `PrimExpr`; the typed views get theirs from `typed_expr_view!`. An `Expr`, a
+// C++ operators take `PrimExpr`; the typed expressions get theirs where they are defined. An `Expr`, a
 // `Var` or a `Call` is checked first, with `downcast_ref` or `downcast`.
 crate::def_expr_op_over_loads!(IntImm);
 crate::def_expr_op_over_loads!(FloatImm);

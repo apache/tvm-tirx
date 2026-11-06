@@ -470,7 +470,7 @@ fn views_check_the_type() {
     let expr: Expr = index.clone().into();
     assert!(widened.same_as(&expr));
     assert_eq!(index.dtype(), dtype::int(32));
-    assert!(index.as_expr().same_as(&i));
+    assert!(index.same_as(&i));
     let borrowed: &PrimExpr = index.as_ref();
     assert!(borrowed.same_as(&i));
     // A view reads the fields of its object.
@@ -564,7 +564,7 @@ fn prim_vars_are_views() {
     assert!(var.same_as(&i) && prim.same_as(&i) && expr.same_as(&i));
     let borrowed: &Var = i.as_ref();
     assert!(borrowed.same_as(&i));
-    assert!(i.as_expr().same_as(&i));
+    assert!(i.same_as(&i));
 
     // A `Var` narrows only through the check of C++ `PrimVar`: `downcast_ref` borrows it in place
     // and `downcast` takes it.
