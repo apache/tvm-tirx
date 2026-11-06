@@ -411,7 +411,6 @@ class IntervalSetEvaluator : public tvm::ExprFunctor<IntervalSet(const Expr&)> {
         eval_vec_(eval_vec) {}
 
   IntervalSet Eval(const PrimExpr& val) { return this->Dispatch(val); }
-
   // evaluate and relax the set
   IntervalSet Eval(IntervalSet val) {
     // avoid recursive indefinite recursive expansion.
