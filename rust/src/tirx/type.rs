@@ -64,13 +64,6 @@ pub struct TensorMapType {
     base: ObjectArc<TensorMapTypeObj>,
 }
 
-impl Deref for TensorMapType {
-    type Target = TensorMapTypeObj;
-    fn deref(&self) -> &TensorMapTypeObj {
-        &self.base
-    }
-}
-
 impl Deref for TensorMapTypeObj {
     type Target = TypeObj;
     fn deref(&self) -> &TypeObj {
@@ -95,7 +88,7 @@ impl TensorMapType {
 
 unsafe impl tvm_ffi::object::ImmutableObject for TensorMapTypeObj {}
 
-tvm_ffi::unsafe_impl_object_upcast!(TensorMapType => Type);
+tvm_ffi::unsafe_impl_object_ref_upcast!(TensorMapType => Type);
 // tvm-ffi-stubgen(end)
 
 // The native `tirx.TensorMapType` stores the location as given, as the generated

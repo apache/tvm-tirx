@@ -44,7 +44,6 @@
 
 // tvm-ffi-stubgen(begin): import-section
 use std::borrow::Borrow;
-use std::ops::Deref;
 use tvm_ffi::IntoObjectRef;
 use tvm_ffi::Object;
 use tvm_ffi::ObjectArc;
@@ -75,13 +74,6 @@ pub struct ThreadScopeObj {
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct ThreadScope {
     base: ObjectArc<ThreadScopeObj>,
-}
-
-impl Deref for ThreadScope {
-    type Target = ThreadScopeObj;
-    fn deref(&self) -> &ThreadScopeObj {
-        &self.base
-    }
 }
 
 unsafe impl tvm_ffi::object::ImmutableObject for ThreadScopeObj {}

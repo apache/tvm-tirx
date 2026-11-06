@@ -42,7 +42,6 @@
 // tvm-ffi-stubgen(import-object): tvm_ffi::Result
 
 // tvm-ffi-stubgen(begin): import-section
-use std::ops::Deref;
 use tvm_ffi::Function;
 use tvm_ffi::Object;
 use tvm_ffi::ObjectArc;
@@ -71,13 +70,6 @@ const _: () = {
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct EnvFunc {
     base: ObjectArc<EnvFuncObj>,
-}
-
-impl Deref for EnvFunc {
-    type Target = EnvFuncObj;
-    fn deref(&self) -> &EnvFuncObj {
-        &self.base
-    }
 }
 
 impl EnvFuncObj {

@@ -38,9 +38,9 @@ use tvm_tirx::tirx::{CallFFIKernelAttr, TensorVar};
 use tvm_tirx::tvm_ffi::static_init::{StaticInitBlock, STATIC_INIT_BLOCKS};
 use tvm_tirx::tvm_ffi::tvm_ffi_sys::TVMFFITypeIndex;
 use tvm_tirx::tvm_ffi::{
-    self, def_object_ref, rs_object, run_static_init_blocks, Any, AnyView, Array, Error, ErrorKind,
-    Function, Map, ObjectCore, ObjectRefCore, Result, String as FfiString, ATTRIBUTE_ERROR,
-    INTERNAL_ERROR, TYPE_ERROR, VALUE_ERROR,
+    self, rs_object, run_static_init_blocks, Any, AnyView, Array, Error, ErrorKind, Function, Map,
+    ObjectCore, ObjectRefCore, Result, String as FfiString, ATTRIBUTE_ERROR, INTERNAL_ERROR,
+    TYPE_ERROR, VALUE_ERROR,
 };
 
 use super::{int32, parse_dtype, tensor_var};
@@ -421,7 +421,11 @@ pub struct BlockTypeObj {
     #[reflect(kw_only)]
     pub count: i64,
 }
-def_object_ref!(pub BlockType, Type, BlockTypeObj);
+#[derive(Clone, tvm_ffi::derive::ObjectRef)]
+#[object_ref(parent = Type)]
+pub struct BlockType {
+    data: tvm_ffi::ObjectArc<BlockTypeObj>,
+}
 
 tvm_ffi::static_init_block! {
     OpDef::new("rust_test.defined_identity", "

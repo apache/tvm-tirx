@@ -71,10 +71,14 @@
 //! use tvm_tirx::ir::{register_type, CallEffectKind, CallObj, Op, OpDef, Type};
 //! use tvm_tirx::tvm_ffi::{self, Result};
 //! # use tvm_tirx::ir::TypeObj;
-//! # use tvm_tirx::tvm_ffi::{def_object_ref, rs_object, ObjectRefCore};
+//! # use tvm_tirx::tvm_ffi::{rs_object, ObjectRefCore};
 //! # #[rs_object("my_ext.PairType", final)]
 //! # pub struct PairTypeObj { base: TypeObj, pub first: Type, pub second: Type }
-//! # def_object_ref!(pub PairType, Type, PairTypeObj);
+//! # #[derive(Clone, tvm_ffi::derive::ObjectRef)]
+//! # #[object_ref(parent = Type)]
+//! # pub struct PairType {
+//! #     data: tvm_ffi::ObjectArc<PairTypeObj>,
+//! # }
 //!
 //! fn index_type(call: &CallObj) -> Result<Type> {
 //!     Ok(call.args.get(0)?.ty.clone())
@@ -101,7 +105,7 @@
 //!
 //! ```
 //! use tvm_tirx::ir::{PrimType, Type, TypeObj, UNKNOWN_LOC};
-//! use tvm_tirx::tvm_ffi::{self, def_object_ref, rs_object, ObjectRefCore};
+//! use tvm_tirx::tvm_ffi::{self, rs_object, ObjectRefCore};
 //!
 //! #[rs_object("my_ext.PairType", final)]
 //! pub struct PairTypeObj {
@@ -112,11 +116,15 @@
 //!     pub note: tvm_ffi::String,
 //! }
 //!
-//! def_object_ref!(pub PairType, Type, PairTypeObj);
+//! #[derive(Clone, tvm_ffi::derive::ObjectRef)]
+//! #[object_ref(parent = Type)]
+//! pub struct PairType {
+//!     data: tvm_ffi::ObjectArc<PairTypeObj>,
+//! }
 //!
 //! impl PairType {
 //!     pub fn new(first: impl Into<Type>, second: impl Into<Type>) -> Self {
-//!         PairTypeObj::new(TypeObj::new(UNKNOWN_LOC.into()), first, second, "").into()
+//!         Self::from_object(PairTypeObj::new(TypeObj::new(UNKNOWN_LOC.into()), first, second, ""))
 //!     }
 //! }
 //!

@@ -28,7 +28,7 @@ use tvm_tirx::ir::{
     OpaqueType, PrimType, PtrType, StringType, TensorRegionType, TupleType, Type, TypeObj, Var,
     VarObj,
 };
-use tvm_tirx::tvm_ffi::{def_object_ref, rs_object, structural_map};
+use tvm_tirx::tvm_ffi::{rs_object, structural_map};
 use tvm_tirx::tvm_ffi::{
     Any, AnyView, Array, DLDataType, DLDataTypeExt, FieldGetter, ObjectCore, ObjectRefCore, Result,
     ShallowCopy, String as FfiString, WalkOrder,
@@ -131,19 +131,23 @@ pub struct PairTypeObj {
     pub note: FfiString,
 }
 
-def_object_ref!(pub PairType, Type, PairTypeObj);
+#[derive(Clone, tvm_ffi::derive::ObjectRef)]
+#[object_ref(parent = Type)]
+pub struct PairType {
+    data: tvm_ffi::ObjectArc<PairTypeObj>,
+}
 
 impl PairType {
     /// A copy with the fields `edit` assigns replaced (C++ `CopyOnWrite()`).
     fn with(&self, edit: impl FnOnce(&mut PairTypeObj)) -> Self {
         let mut node = self.shallow_copy();
         edit(&mut node);
-        node.into()
+        Self::from_object(node)
     }
 }
 
 fn pair(lhs: Type, rhs: Type, tag: i64, note: &str) -> PairType {
-    PairTypeObj::new(TypeObj::new(UNKNOWN_LOC.into()), lhs, rhs, tag, note).into()
+    PairType::from_object(PairTypeObj::new(TypeObj::new(UNKNOWN_LOC.into()), lhs, rhs, tag, note))
 }
 
 fn int_float_pair(tag: i64, note: &str) -> PairType {

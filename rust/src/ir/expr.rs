@@ -164,13 +164,6 @@ pub struct Expr {
     base: ObjectArc<ExprObj>,
 }
 
-impl Deref for Expr {
-    type Target = ExprObj;
-    fn deref(&self) -> &ExprObj {
-        &self.base
-    }
-}
-
 impl ExprObj {
     pub fn new(loc: Location, ty: Type) -> Self {
         let base = Object::new();
@@ -451,7 +444,7 @@ crate::r#macro::typed_expr_view! {
     mismatch = typed_expr_mismatch, fallback = int_literal
 }
 
-tvm_ffi::unsafe_impl_object_upcast!(PrimExpr => Expr, IntExpr => Expr, IntExpr => PrimExpr);
+tvm_ffi::unsafe_impl_object_ref_upcast!(PrimExpr => Expr, IntExpr => Expr, IntExpr => PrimExpr);
 
 /// The built expression, checked to be an integer, or the first error raised while building it.
 impl TryFrom<ExprResult> for IntExpr {
@@ -670,13 +663,6 @@ pub struct StagingExpr {
     base: ObjectArc<StagingExprObj>,
 }
 
-impl Deref for StagingExpr {
-    type Target = StagingExprObj;
-    fn deref(&self) -> &StagingExprObj {
-        &self.base
-    }
-}
-
 impl Deref for StagingExprObj {
     type Target = ExprObj;
     fn deref(&self) -> &ExprObj {
@@ -715,7 +701,7 @@ unsafe impl UnsafeInit for StagingExprObj {
 
 unsafe impl tvm_ffi::object::ImmutableObject for StagingExprObj {}
 
-tvm_ffi::unsafe_impl_object_upcast!(StagingExpr => Expr);
+tvm_ffi::unsafe_impl_object_ref_upcast!(StagingExpr => Expr);
 // tvm-ffi-stubgen(end)
 
 // tvm-ffi-stubgen(begin): object/ir.OpaqueExpr
@@ -736,13 +722,6 @@ const _: () = {
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct OpaqueExpr {
     base: ObjectArc<OpaqueExprObj>,
-}
-
-impl Deref for OpaqueExpr {
-    type Target = OpaqueExprObj;
-    fn deref(&self) -> &OpaqueExprObj {
-        &self.base
-    }
 }
 
 impl Deref for OpaqueExprObj {
@@ -783,7 +762,7 @@ unsafe impl UnsafeInit for OpaqueExprObj {
 
 unsafe impl tvm_ffi::object::ImmutableObject for OpaqueExprObj {}
 
-tvm_ffi::unsafe_impl_object_upcast!(OpaqueExpr => Expr);
+tvm_ffi::unsafe_impl_object_ref_upcast!(OpaqueExpr => Expr);
 // tvm-ffi-stubgen(end)
 
 // tvm-ffi-stubgen(begin): object/ir.GlobalVar
@@ -806,13 +785,6 @@ const _: () = {
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct GlobalVar {
     base: ObjectArc<GlobalVarObj>,
-}
-
-impl Deref for GlobalVar {
-    type Target = GlobalVarObj;
-    fn deref(&self) -> &GlobalVarObj {
-        &self.base
-    }
 }
 
 impl Deref for GlobalVarObj {
@@ -843,7 +815,7 @@ impl GlobalVar {
 
 unsafe impl tvm_ffi::object::ImmutableObject for GlobalVarObj {}
 
-tvm_ffi::unsafe_impl_object_upcast!(GlobalVar => Expr);
+tvm_ffi::unsafe_impl_object_ref_upcast!(GlobalVar => Expr);
 // tvm-ffi-stubgen(end)
 
 impl GlobalVar {
@@ -876,13 +848,6 @@ pub struct Tuple {
     base: ObjectArc<TupleObj>,
 }
 
-impl Deref for Tuple {
-    type Target = TupleObj;
-    fn deref(&self) -> &TupleObj {
-        &self.base
-    }
-}
-
 impl Deref for TupleObj {
     type Target = ExprObj;
     fn deref(&self) -> &ExprObj {
@@ -911,7 +876,7 @@ impl Tuple {
 
 unsafe impl tvm_ffi::object::ImmutableObject for TupleObj {}
 
-tvm_ffi::unsafe_impl_object_upcast!(Tuple => Expr);
+tvm_ffi::unsafe_impl_object_ref_upcast!(Tuple => Expr);
 // tvm-ffi-stubgen(end)
 
 impl Tuple {
@@ -957,13 +922,6 @@ pub struct TupleGetItem {
     base: ObjectArc<TupleGetItemObj>,
 }
 
-impl Deref for TupleGetItem {
-    type Target = TupleGetItemObj;
-    fn deref(&self) -> &TupleGetItemObj {
-        &self.base
-    }
-}
-
 impl Deref for TupleGetItemObj {
     type Target = ExprObj;
     fn deref(&self) -> &ExprObj {
@@ -993,7 +951,7 @@ impl TupleGetItem {
 
 unsafe impl tvm_ffi::object::ImmutableObject for TupleGetItemObj {}
 
-tvm_ffi::unsafe_impl_object_upcast!(TupleGetItem => Expr);
+tvm_ffi::unsafe_impl_object_ref_upcast!(TupleGetItem => Expr);
 // tvm-ffi-stubgen(end)
 
 impl TupleGetItem {
@@ -1069,13 +1027,6 @@ pub struct TensorLoad {
     base: ObjectArc<TensorLoadObj>,
 }
 
-impl Deref for TensorLoad {
-    type Target = TensorLoadObj;
-    fn deref(&self) -> &TensorLoadObj {
-        &self.base
-    }
-}
-
 impl Deref for TensorLoadObj {
     type Target = ExprObj;
     fn deref(&self) -> &ExprObj {
@@ -1105,7 +1056,7 @@ impl TensorLoad {
 
 unsafe impl tvm_ffi::object::ImmutableObject for TensorLoadObj {}
 
-tvm_ffi::unsafe_impl_object_upcast!(TensorLoad => Expr, TensorLoad => PrimExpr);
+tvm_ffi::unsafe_impl_object_ref_upcast!(TensorLoad => Expr, TensorLoad => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 impl TensorLoad {
@@ -1164,13 +1115,6 @@ pub struct Constant {
     base: ObjectArc<ConstantObj>,
 }
 
-impl Deref for Constant {
-    type Target = ConstantObj;
-    fn deref(&self) -> &ConstantObj {
-        &self.base
-    }
-}
-
 impl Deref for ConstantObj {
     type Target = ExprObj;
     fn deref(&self) -> &ExprObj {
@@ -1209,7 +1153,7 @@ unsafe impl UnsafeInit for ConstantObj {
 
 unsafe impl tvm_ffi::object::ImmutableObject for ConstantObj {}
 
-tvm_ffi::unsafe_impl_object_upcast!(Constant => Expr);
+tvm_ffi::unsafe_impl_object_ref_upcast!(Constant => Expr);
 // tvm-ffi-stubgen(end)
 
 // tvm-ffi-stubgen(begin): object/ir.FloatImm
@@ -1232,13 +1176,6 @@ const _: () = {
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct FloatImm {
     base: ObjectArc<FloatImmObj>,
-}
-
-impl Deref for FloatImm {
-    type Target = FloatImmObj;
-    fn deref(&self) -> &FloatImmObj {
-        &self.base
-    }
 }
 
 impl Deref for FloatImmObj {
@@ -1265,7 +1202,7 @@ impl FloatImm {
 
 unsafe impl tvm_ffi::object::ImmutableObject for FloatImmObj {}
 
-tvm_ffi::unsafe_impl_object_upcast!(FloatImm => Expr, FloatImm => Constant, FloatImm => PrimExpr);
+tvm_ffi::unsafe_impl_object_ref_upcast!(FloatImm => Expr, FloatImm => Constant, FloatImm => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 impl FloatImm {
@@ -1430,13 +1367,6 @@ pub struct IntImm {
     base: ObjectArc<IntImmObj>,
 }
 
-impl Deref for IntImm {
-    type Target = IntImmObj;
-    fn deref(&self) -> &IntImmObj {
-        &self.base
-    }
-}
-
 impl Deref for IntImmObj {
     type Target = ConstantObj;
     fn deref(&self) -> &ConstantObj {
@@ -1465,7 +1395,7 @@ impl IntImm {
 
 unsafe impl tvm_ffi::object::ImmutableObject for IntImmObj {}
 
-tvm_ffi::unsafe_impl_object_upcast!(IntImm => Expr, IntImm => Constant, IntImm => PrimExpr);
+tvm_ffi::unsafe_impl_object_ref_upcast!(IntImm => Expr, IntImm => Constant, IntImm => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 impl IntImm {
@@ -1631,13 +1561,6 @@ pub struct GenericConst {
     base: ObjectArc<GenericConstObj>,
 }
 
-impl Deref for GenericConst {
-    type Target = GenericConstObj;
-    fn deref(&self) -> &GenericConstObj {
-        &self.base
-    }
-}
-
 impl Deref for GenericConstObj {
     type Target = ConstantObj;
     fn deref(&self) -> &ConstantObj {
@@ -1666,7 +1589,7 @@ impl GenericConst {
 
 unsafe impl tvm_ffi::object::ImmutableObject for GenericConstObj {}
 
-tvm_ffi::unsafe_impl_object_upcast!(GenericConst => Expr, GenericConst => Constant);
+tvm_ffi::unsafe_impl_object_ref_upcast!(GenericConst => Expr, GenericConst => Constant);
 // tvm-ffi-stubgen(end)
 
 impl GenericConst {
@@ -1726,13 +1649,6 @@ pub struct DataTypeImm {
     base: ObjectArc<DataTypeImmObj>,
 }
 
-impl Deref for DataTypeImm {
-    type Target = DataTypeImmObj;
-    fn deref(&self) -> &DataTypeImmObj {
-        &self.base
-    }
-}
-
 impl Deref for DataTypeImmObj {
     type Target = ConstantObj;
     fn deref(&self) -> &ConstantObj {
@@ -1761,7 +1677,7 @@ impl DataTypeImm {
 
 unsafe impl tvm_ffi::object::ImmutableObject for DataTypeImmObj {}
 
-tvm_ffi::unsafe_impl_object_upcast!(DataTypeImm => Expr, DataTypeImm => Constant);
+tvm_ffi::unsafe_impl_object_ref_upcast!(DataTypeImm => Expr, DataTypeImm => Constant);
 // tvm-ffi-stubgen(end)
 
 impl DataTypeImm {
@@ -1795,13 +1711,6 @@ pub struct StringImm {
     base: ObjectArc<StringImmObj>,
 }
 
-impl Deref for StringImm {
-    type Target = StringImmObj;
-    fn deref(&self) -> &StringImmObj {
-        &self.base
-    }
-}
-
 impl Deref for StringImmObj {
     type Target = ConstantObj;
     fn deref(&self) -> &ConstantObj {
@@ -1830,7 +1739,7 @@ impl StringImm {
 
 unsafe impl tvm_ffi::object::ImmutableObject for StringImmObj {}
 
-tvm_ffi::unsafe_impl_object_upcast!(StringImm => Expr, StringImm => Constant);
+tvm_ffi::unsafe_impl_object_ref_upcast!(StringImm => Expr, StringImm => Constant);
 // tvm-ffi-stubgen(end)
 
 impl StringImm {
@@ -1864,13 +1773,6 @@ const _: () = {
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct Call {
     base: ObjectArc<CallObj>,
-}
-
-impl Deref for Call {
-    type Target = CallObj;
-    fn deref(&self) -> &CallObj {
-        &self.base
-    }
 }
 
 impl Deref for CallObj {
@@ -1918,7 +1820,7 @@ impl Call {
 
 unsafe impl tvm_ffi::object::ImmutableObject for CallObj {}
 
-tvm_ffi::unsafe_impl_object_upcast!(Call => Expr);
+tvm_ffi::unsafe_impl_object_ref_upcast!(Call => Expr);
 // tvm-ffi-stubgen(end)
 
 impl Call {
@@ -2019,13 +1921,6 @@ pub struct TensorRegion {
     base: ObjectArc<TensorRegionObj>,
 }
 
-impl Deref for TensorRegion {
-    type Target = TensorRegionObj;
-    fn deref(&self) -> &TensorRegionObj {
-        &self.base
-    }
-}
-
 impl Deref for TensorRegionObj {
     type Target = ExprObj;
     fn deref(&self) -> &ExprObj {
@@ -2055,7 +1950,7 @@ impl TensorRegion {
 
 unsafe impl tvm_ffi::object::ImmutableObject for TensorRegionObj {}
 
-tvm_ffi::unsafe_impl_object_upcast!(TensorRegion => Expr);
+tvm_ffi::unsafe_impl_object_ref_upcast!(TensorRegion => Expr);
 // tvm-ffi-stubgen(end)
 
 impl TensorRegion {
@@ -2090,13 +1985,6 @@ const _: () = {
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct Var {
     base: ObjectArc<VarObj>,
-}
-
-impl Deref for Var {
-    type Target = VarObj;
-    fn deref(&self) -> &VarObj {
-        &self.base
-    }
 }
 
 impl Deref for VarObj {
@@ -2142,7 +2030,7 @@ unsafe impl UnsafeInit for VarObj {
 
 unsafe impl tvm_ffi::object::ImmutableObject for VarObj {}
 
-tvm_ffi::unsafe_impl_object_upcast!(Var => Expr);
+tvm_ffi::unsafe_impl_object_ref_upcast!(Var => Expr);
 // tvm-ffi-stubgen(end)
 
 impl Var {
@@ -2191,7 +2079,7 @@ crate::r#macro::typed_expr_view! {
     fallback = no_literal
 }
 
-tvm_ffi::unsafe_impl_object_upcast!(PrimVar => Expr, PrimVar => Var, PrimVar => PrimExpr);
+tvm_ffi::unsafe_impl_object_ref_upcast!(PrimVar => Expr, PrimVar => Var, PrimVar => PrimExpr);
 
 impl PrimVar {
     /// Create the variable `name` of the primitive type `ty` (C++ `PrimVar(name, ty, loc)`).
@@ -2225,13 +2113,6 @@ pub struct LambdaExpr {
     base: ObjectArc<LambdaExprObj>,
 }
 
-impl Deref for LambdaExpr {
-    type Target = LambdaExprObj;
-    fn deref(&self) -> &LambdaExprObj {
-        &self.base
-    }
-}
-
 impl Deref for LambdaExprObj {
     type Target = StagingExprObj;
     fn deref(&self) -> &StagingExprObj {
@@ -2261,7 +2142,7 @@ impl LambdaExpr {
 
 unsafe impl tvm_ffi::object::ImmutableObject for LambdaExprObj {}
 
-tvm_ffi::unsafe_impl_object_upcast!(LambdaExpr => Expr, LambdaExpr => StagingExpr);
+tvm_ffi::unsafe_impl_object_ref_upcast!(LambdaExpr => Expr, LambdaExpr => StagingExpr);
 // tvm-ffi-stubgen(end)
 
 impl LambdaExpr {
@@ -2316,13 +2197,6 @@ const _: () = {
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct Range {
     base: ObjectArc<RangeObj>,
-}
-
-impl Deref for Range {
-    type Target = RangeObj;
-    fn deref(&self) -> &RangeObj {
-        &self.base
-    }
 }
 
 impl RangeObj {

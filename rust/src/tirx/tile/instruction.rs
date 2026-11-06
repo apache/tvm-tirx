@@ -78,13 +78,6 @@ pub struct ScopeAttrs {
     base: ObjectArc<ScopeAttrsObj>,
 }
 
-impl Deref for ScopeAttrs {
-    type Target = ScopeAttrsObj;
-    fn deref(&self) -> &ScopeAttrsObj {
-        &self.base
-    }
-}
-
 impl Deref for ScopeAttrsObj {
     type Target = AttrsObj;
     fn deref(&self) -> &AttrsObj {
@@ -109,7 +102,7 @@ impl ScopeAttrs {
 
 unsafe impl tvm_ffi::object::ImmutableObject for ScopeAttrsObj {}
 
-tvm_ffi::unsafe_impl_object_upcast!(ScopeAttrs => Attrs);
+tvm_ffi::unsafe_impl_object_ref_upcast!(ScopeAttrs => Attrs);
 // tvm-ffi-stubgen(end)
 
 // tvm-ffi-stubgen(begin): object/tirx.tensor.TrnAttrs
@@ -140,13 +133,6 @@ const _: () = {
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct TrnAttrs {
     base: ObjectArc<TrnAttrsObj>,
-}
-
-impl Deref for TrnAttrs {
-    type Target = TrnAttrsObj;
-    fn deref(&self) -> &TrnAttrsObj {
-        &self.base
-    }
 }
 
 impl Deref for TrnAttrsObj {
@@ -203,7 +189,7 @@ impl TrnAttrs {
 
 unsafe impl tvm_ffi::object::ImmutableObject for TrnAttrsObj {}
 
-tvm_ffi::unsafe_impl_object_upcast!(TrnAttrs => Attrs);
+tvm_ffi::unsafe_impl_object_ref_upcast!(TrnAttrs => Attrs);
 // tvm-ffi-stubgen(end)
 
 /// Return the tensor region `value` covers: a `TensorLoad` converted, a [`TensorRegion`] as is

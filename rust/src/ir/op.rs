@@ -143,13 +143,6 @@ pub struct Op {
     base: ObjectArc<OpObj>,
 }
 
-impl Deref for Op {
-    type Target = OpObj;
-    fn deref(&self) -> &OpObj {
-        &self.base
-    }
-}
-
 impl Deref for OpObj {
     type Target = ExprObj;
     fn deref(&self) -> &ExprObj {
@@ -266,7 +259,7 @@ impl Op {
     }
 }
 
-tvm_ffi::unsafe_impl_object_upcast!(Op => Expr);
+tvm_ffi::unsafe_impl_object_ref_upcast!(Op => Expr);
 
 // tvm-ffi-stubgen(begin): object/ir.ArgumentInfo
 /// Complete: reflected fields fill [24, 56) exactly.
@@ -289,13 +282,6 @@ const _: () = {
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct ArgumentInfo {
     base: ObjectArc<ArgumentInfoObj>,
-}
-
-impl Deref for ArgumentInfo {
-    type Target = ArgumentInfoObj;
-    fn deref(&self) -> &ArgumentInfoObj {
-        &self.base
-    }
 }
 
 impl ArgumentInfoObj {

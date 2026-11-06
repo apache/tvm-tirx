@@ -32,25 +32,29 @@
 /// ```
 /// use tvm_tirx::ir::{Expr, ExprObj, PrimExpr, PrimType, UNKNOWN_LOC};
 /// use tvm_tirx::sym::Analyzer;
-/// use tvm_tirx::tvm_ffi::{self, def_object_ref, rs_object, ObjectRefCore};
+/// use tvm_tirx::tvm_ffi::{self, rs_object, ObjectRefCore};
 ///
 /// #[rs_object("my_ext.ThreadIndex", final)]
 /// pub struct ThreadIndexObj {
 ///     base: ExprObj,
 ///     pub axis: i64,
 /// }
-/// def_object_ref!(pub ThreadIndex, Expr, ThreadIndexObj);
+/// #[derive(Clone, tvm_ffi::derive::ObjectRef)]
+/// #[object_ref(parent = Expr)]
+/// pub struct ThreadIndex {
+///     data: tvm_ffi::ObjectArc<ThreadIndexObj>,
+/// }
 ///
 /// impl ThreadIndex {
 ///     /// The `int32` index of the thread along `axis`.
 ///     pub fn new(axis: i64) -> Self {
 ///         let base = ExprObj::new(UNKNOWN_LOC.into(), PrimType::int(32).into());
-///         Self::from(ThreadIndexObj::new(base, axis))
+///         Self::from_object(ThreadIndexObj::new(base, axis))
 ///     }
 /// }
 ///
 /// // Every thread index is an `int32`, as `new` makes it.
-/// tvm_ffi::unsafe_impl_object_upcast!(ThreadIndex => PrimExpr);
+/// tvm_ffi::unsafe_impl_object_ref_upcast!(ThreadIndex => PrimExpr);
 /// tvm_tirx::def_expr_op_over_loads!(ThreadIndex);
 ///
 /// # fn main() -> tvm_tirx::tvm_ffi::Result<()> {

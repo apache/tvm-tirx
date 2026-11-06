@@ -103,13 +103,6 @@ pub struct LayoutObj {
 pub struct Layout {
     base: ObjectArc<LayoutObj>,
 }
-
-impl Deref for Layout {
-    type Target = LayoutObj;
-    fn deref(&self) -> &LayoutObj {
-        &self.base
-    }
-}
 // tvm-ffi-stubgen(end)
 
 impl Layout {
@@ -241,13 +234,6 @@ pub struct TileLayout {
     base: ObjectArc<TileLayoutObj>,
 }
 
-impl Deref for TileLayout {
-    type Target = TileLayoutObj;
-    fn deref(&self) -> &TileLayoutObj {
-        &self.base
-    }
-}
-
 impl Deref for TileLayoutObj {
     type Target = LayoutObj;
     fn deref(&self) -> &LayoutObj {
@@ -271,7 +257,7 @@ impl TileLayoutObj {
 
 unsafe impl tvm_ffi::object::ImmutableObject for TileLayoutObj {}
 
-tvm_ffi::unsafe_impl_object_upcast!(TileLayout => Layout);
+tvm_ffi::unsafe_impl_object_ref_upcast!(TileLayout => Layout);
 // tvm-ffi-stubgen(end)
 
 impl TileLayout {
@@ -363,13 +349,6 @@ pub struct Iter {
     base: ObjectArc<IterObj>,
 }
 
-impl Deref for Iter {
-    type Target = IterObj;
-    fn deref(&self) -> &IterObj {
-        &self.base
-    }
-}
-
 impl IterObj {
     pub(crate) fn new(extent: PrimExpr, stride: PrimExpr, axis: Axis) -> Self {
         let base = Object::new();
@@ -408,13 +387,6 @@ pub struct AxisObj {
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct Axis {
     base: ObjectArc<AxisObj>,
-}
-
-impl Deref for Axis {
-    type Target = AxisObj;
-    fn deref(&self) -> &AxisObj {
-        &self.base
-    }
 }
 
 unsafe impl tvm_ffi::object::ImmutableObject for AxisObj {}
@@ -474,13 +446,6 @@ pub struct ComposeLayout {
     base: ObjectArc<ComposeLayoutObj>,
 }
 
-impl Deref for ComposeLayout {
-    type Target = ComposeLayoutObj;
-    fn deref(&self) -> &ComposeLayoutObj {
-        &self.base
-    }
-}
-
 impl Deref for ComposeLayoutObj {
     type Target = LayoutObj;
     fn deref(&self) -> &LayoutObj {
@@ -520,7 +485,7 @@ impl ComposeLayoutObj {
 
 unsafe impl tvm_ffi::object::ImmutableObject for ComposeLayoutObj {}
 
-tvm_ffi::unsafe_impl_object_upcast!(ComposeLayout => Layout);
+tvm_ffi::unsafe_impl_object_ref_upcast!(ComposeLayout => Layout);
 // tvm-ffi-stubgen(end)
 
 impl ComposeLayout {

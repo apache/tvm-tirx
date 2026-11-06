@@ -34,7 +34,7 @@ use tvm_tirx::ir::{
     register_type, CallEffectKind, CallObj, DictAttrs, Expr, OpDef, PrimType, Type, TypeObj, Var,
     UNKNOWN_LOC,
 };
-use tvm_tirx::tvm_ffi::{self, def_object_ref, rs_object, Array, Result};
+use tvm_tirx::tvm_ffi::{self, rs_object, Array, Result};
 
 fn first_arg_type(call: &CallObj) -> Result<Type> {
     Ok(call.args.get(0)?.ty.clone())
@@ -55,7 +55,11 @@ pub struct ExamplePairTypeObj {
     pub first: Type,
     pub second: Type,
 }
-def_object_ref!(pub ExamplePairType, Type, ExamplePairTypeObj);
+#[derive(Clone, tvm_ffi::derive::ObjectRef)]
+#[object_ref(parent = Type)]
+pub struct ExamplePairType {
+    data: tvm_ffi::ObjectArc<ExamplePairTypeObj>,
+}
 
 tvm_ffi::static_init_block! {
     OpDef::new("tirx.example_clamp", "Clamp an index to the range `[0, bound)`.")

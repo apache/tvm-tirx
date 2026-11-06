@@ -111,13 +111,6 @@ pub struct AnalyzerObj {
 pub struct Analyzer {
     base: ObjectArc<AnalyzerObj>,
 }
-
-impl Deref for Analyzer {
-    type Target = AnalyzerObj;
-    fn deref(&self) -> &AnalyzerObj {
-        &self.base
-    }
-}
 // tvm-ffi-stubgen(end)
 
 impl Analyzer {
@@ -421,13 +414,6 @@ pub struct ConstIntBound {
     base: ObjectArc<ConstIntBoundObj>,
 }
 
-impl Deref for ConstIntBound {
-    type Target = ConstIntBoundObj;
-    fn deref(&self) -> &ConstIntBoundObj {
-        &self.base
-    }
-}
-
 impl ConstIntBoundObj {
     pub(crate) fn new(min_value: i64, max_value: i64) -> Self {
         let base = Object::new();
@@ -467,13 +453,6 @@ const _: () = {
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct ModularSet {
     base: ObjectArc<ModularSetObj>,
-}
-
-impl Deref for ModularSet {
-    type Target = ModularSetObj;
-    fn deref(&self) -> &ModularSetObj {
-        &self.base
-    }
 }
 
 impl ModularSetObj {
@@ -519,13 +498,6 @@ const _: () = {
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct RewriteSimplifierStats {
     base: ObjectArc<RewriteSimplifierStatsObj>,
-}
-
-impl Deref for RewriteSimplifierStats {
-    type Target = RewriteSimplifierStatsObj;
-    fn deref(&self) -> &RewriteSimplifierStatsObj {
-        &self.base
-    }
 }
 
 impl RewriteSimplifierStatsObj {
@@ -593,13 +565,6 @@ pub struct CanonicalExpr {
     base: ObjectArc<CanonicalExprObj>,
 }
 
-impl Deref for CanonicalExpr {
-    type Target = CanonicalExprObj;
-    fn deref(&self) -> &CanonicalExprObj {
-        &self.base
-    }
-}
-
 impl Deref for CanonicalExprObj {
     type Target = ExprObj;
     fn deref(&self) -> &ExprObj {
@@ -607,7 +572,7 @@ impl Deref for CanonicalExprObj {
     }
 }
 
-tvm_ffi::unsafe_impl_object_upcast!(CanonicalExpr => Expr);
+tvm_ffi::unsafe_impl_object_ref_upcast!(CanonicalExpr => Expr);
 // tvm-ffi-stubgen(end)
 
 // tvm-ffi-stubgen(begin): object/sym.SplitExpr
@@ -625,13 +590,6 @@ pub struct SplitExpr {
     base: ObjectArc<SplitExprObj>,
 }
 
-impl Deref for SplitExpr {
-    type Target = SplitExprObj;
-    fn deref(&self) -> &SplitExprObj {
-        &self.base
-    }
-}
-
 impl Deref for SplitExprObj {
     type Target = CanonicalExprObj;
     fn deref(&self) -> &CanonicalExprObj {
@@ -639,7 +597,7 @@ impl Deref for SplitExprObj {
     }
 }
 
-tvm_ffi::unsafe_impl_object_upcast!(SplitExpr => Expr, SplitExpr => CanonicalExpr, SplitExpr => PrimExpr);
+tvm_ffi::unsafe_impl_object_ref_upcast!(SplitExpr => Expr, SplitExpr => CanonicalExpr, SplitExpr => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 // tvm-ffi-stubgen(begin): object/sym.SumExpr
@@ -657,13 +615,6 @@ pub struct SumExpr {
     base: ObjectArc<SumExprObj>,
 }
 
-impl Deref for SumExpr {
-    type Target = SumExprObj;
-    fn deref(&self) -> &SumExprObj {
-        &self.base
-    }
-}
-
 impl Deref for SumExprObj {
     type Target = CanonicalExprObj;
     fn deref(&self) -> &CanonicalExprObj {
@@ -671,5 +622,5 @@ impl Deref for SumExprObj {
     }
 }
 
-tvm_ffi::unsafe_impl_object_upcast!(SumExpr => Expr, SumExpr => CanonicalExpr, SumExpr => PrimExpr);
+tvm_ffi::unsafe_impl_object_ref_upcast!(SumExpr => Expr, SumExpr => CanonicalExpr, SumExpr => PrimExpr);
 // tvm-ffi-stubgen(end)

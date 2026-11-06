@@ -50,7 +50,6 @@
 // tvm-ffi-stubgen(import-object): tvm_ffi::Tensor
 
 // tvm-ffi-stubgen(begin): import-section
-use std::ops::Deref;
 use tvm_ffi::Any;
 use tvm_ffi::DLDataType;
 use tvm_ffi::DLDevice;
@@ -86,13 +85,6 @@ pub struct MemoryScopeObj {
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct MemoryScope {
     base: ObjectArc<MemoryScopeObj>,
-}
-
-impl Deref for MemoryScope {
-    type Target = MemoryScopeObj;
-    fn deref(&self) -> &MemoryScopeObj {
-        &self.base
-    }
 }
 
 unsafe impl tvm_ffi::object::ImmutableObject for MemoryScopeObj {}

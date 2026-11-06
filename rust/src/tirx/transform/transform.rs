@@ -56,7 +56,6 @@
 use crate::ir::transform::core::Pass;
 use crate::target::Target;
 use crate::tirx::function::Function;
-use std::ops::Deref;
 use tvm_ffi::Object;
 use tvm_ffi::ObjectArc;
 use tvm_ffi::Result;
@@ -84,13 +83,6 @@ const _: () = {
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct RemoveNoOpConfig {
     base: ObjectArc<RemoveNoOpConfigObj>,
-}
-
-impl Deref for RemoveNoOpConfig {
-    type Target = RemoveNoOpConfigObj;
-    fn deref(&self) -> &RemoveNoOpConfigObj {
-        &self.base
-    }
 }
 
 impl RemoveNoOpConfigObj {
@@ -135,13 +127,6 @@ const _: () = {
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct UnrollLoopConfig {
     base: ObjectArc<UnrollLoopConfigObj>,
-}
-
-impl Deref for UnrollLoopConfig {
-    type Target = UnrollLoopConfigObj;
-    fn deref(&self) -> &UnrollLoopConfigObj {
-        &self.base
-    }
 }
 
 impl UnrollLoopConfigObj {

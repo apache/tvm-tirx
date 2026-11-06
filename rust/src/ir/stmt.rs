@@ -159,13 +159,6 @@ pub struct Stmt {
     base: ObjectArc<StmtObj>,
 }
 
-impl Deref for Stmt {
-    type Target = StmtObj;
-    fn deref(&self) -> &StmtObj {
-        &self.base
-    }
-}
-
 impl StmtObj {
     pub fn new(loc: Location) -> Self {
         let base = Object::new();
@@ -222,13 +215,6 @@ pub struct Bind {
     base: ObjectArc<BindObj>,
 }
 
-impl Deref for Bind {
-    type Target = BindObj;
-    fn deref(&self) -> &BindObj {
-        &self.base
-    }
-}
-
 impl Deref for BindObj {
     type Target = StmtObj;
     fn deref(&self) -> &StmtObj {
@@ -257,7 +243,7 @@ impl Bind {
 
 unsafe impl tvm_ffi::object::ImmutableObject for BindObj {}
 
-tvm_ffi::unsafe_impl_object_upcast!(Bind => Stmt);
+tvm_ffi::unsafe_impl_object_ref_upcast!(Bind => Stmt);
 // tvm-ffi-stubgen(end)
 
 impl Bind {
@@ -306,13 +292,6 @@ pub struct AssertStmt {
     base: ObjectArc<AssertStmtObj>,
 }
 
-impl Deref for AssertStmt {
-    type Target = AssertStmtObj;
-    fn deref(&self) -> &AssertStmtObj {
-        &self.base
-    }
-}
-
 impl Deref for AssertStmtObj {
     type Target = StmtObj;
     fn deref(&self) -> &StmtObj {
@@ -352,7 +331,7 @@ impl AssertStmt {
 
 unsafe impl tvm_ffi::object::ImmutableObject for AssertStmtObj {}
 
-tvm_ffi::unsafe_impl_object_upcast!(AssertStmt => Stmt);
+tvm_ffi::unsafe_impl_object_ref_upcast!(AssertStmt => Stmt);
 // tvm-ffi-stubgen(end)
 
 impl AssertStmt {
@@ -439,13 +418,6 @@ pub struct For {
     base: ObjectArc<ForObj>,
 }
 
-impl Deref for For {
-    type Target = ForObj;
-    fn deref(&self) -> &ForObj {
-        &self.base
-    }
-}
-
 impl Deref for ForObj {
     type Target = StmtObj;
     fn deref(&self) -> &StmtObj {
@@ -497,7 +469,7 @@ impl For {
 
 unsafe impl tvm_ffi::object::ImmutableObject for ForObj {}
 
-tvm_ffi::unsafe_impl_object_upcast!(For => Stmt);
+tvm_ffi::unsafe_impl_object_ref_upcast!(For => Stmt);
 // tvm-ffi-stubgen(end)
 
 impl Default for ForKind {
@@ -634,13 +606,6 @@ pub struct While {
     base: ObjectArc<WhileObj>,
 }
 
-impl Deref for While {
-    type Target = WhileObj;
-    fn deref(&self) -> &WhileObj {
-        &self.base
-    }
-}
-
 impl Deref for WhileObj {
     type Target = StmtObj;
     fn deref(&self) -> &StmtObj {
@@ -669,7 +634,7 @@ impl While {
 
 unsafe impl tvm_ffi::object::ImmutableObject for WhileObj {}
 
-tvm_ffi::unsafe_impl_object_upcast!(While => Stmt);
+tvm_ffi::unsafe_impl_object_ref_upcast!(While => Stmt);
 // tvm-ffi-stubgen(end)
 
 impl While {
@@ -719,13 +684,6 @@ pub struct TensorStore {
     base: ObjectArc<TensorStoreObj>,
 }
 
-impl Deref for TensorStore {
-    type Target = TensorStoreObj;
-    fn deref(&self) -> &TensorStoreObj {
-        &self.base
-    }
-}
-
 impl Deref for TensorStoreObj {
     type Target = StmtObj;
     fn deref(&self) -> &StmtObj {
@@ -760,7 +718,7 @@ impl TensorStore {
 
 unsafe impl tvm_ffi::object::ImmutableObject for TensorStoreObj {}
 
-tvm_ffi::unsafe_impl_object_upcast!(TensorStore => Stmt);
+tvm_ffi::unsafe_impl_object_ref_upcast!(TensorStore => Stmt);
 // tvm-ffi-stubgen(end)
 
 impl TensorStore {
@@ -830,13 +788,6 @@ pub struct RegionStmt {
     base: ObjectArc<RegionStmtObj>,
 }
 
-impl Deref for RegionStmt {
-    type Target = RegionStmtObj;
-    fn deref(&self) -> &RegionStmtObj {
-        &self.base
-    }
-}
-
 impl Deref for RegionStmtObj {
     type Target = StmtObj;
     fn deref(&self) -> &StmtObj {
@@ -885,7 +836,7 @@ impl RegionStmt {
 
 unsafe impl tvm_ffi::object::ImmutableObject for RegionStmtObj {}
 
-tvm_ffi::unsafe_impl_object_upcast!(RegionStmt => Stmt);
+tvm_ffi::unsafe_impl_object_ref_upcast!(RegionStmt => Stmt);
 // tvm-ffi-stubgen(end)
 
 impl RegionStmt {
@@ -1015,13 +966,6 @@ pub struct SeqStmt {
     base: ObjectArc<SeqStmtObj>,
 }
 
-impl Deref for SeqStmt {
-    type Target = SeqStmtObj;
-    fn deref(&self) -> &SeqStmtObj {
-        &self.base
-    }
-}
-
 impl Deref for SeqStmtObj {
     type Target = StmtObj;
     fn deref(&self) -> &StmtObj {
@@ -1046,7 +990,7 @@ impl SeqStmt {
 
 unsafe impl tvm_ffi::object::ImmutableObject for SeqStmtObj {}
 
-tvm_ffi::unsafe_impl_object_upcast!(SeqStmt => Stmt);
+tvm_ffi::unsafe_impl_object_ref_upcast!(SeqStmt => Stmt);
 // tvm-ffi-stubgen(end)
 
 impl SeqStmt {
@@ -1118,13 +1062,6 @@ pub struct If {
     base: ObjectArc<IfObj>,
 }
 
-impl Deref for If {
-    type Target = IfObj;
-    fn deref(&self) -> &IfObj {
-        &self.base
-    }
-}
-
 impl Deref for IfObj {
     type Target = StmtObj;
     fn deref(&self) -> &StmtObj {
@@ -1159,7 +1096,7 @@ impl If {
 
 unsafe impl tvm_ffi::object::ImmutableObject for IfObj {}
 
-tvm_ffi::unsafe_impl_object_upcast!(If => Stmt);
+tvm_ffi::unsafe_impl_object_ref_upcast!(If => Stmt);
 // tvm-ffi-stubgen(end)
 
 impl If {
@@ -1200,13 +1137,6 @@ pub struct Evaluate {
     base: ObjectArc<EvaluateObj>,
 }
 
-impl Deref for Evaluate {
-    type Target = EvaluateObj;
-    fn deref(&self) -> &EvaluateObj {
-        &self.base
-    }
-}
-
 impl Deref for EvaluateObj {
     type Target = StmtObj;
     fn deref(&self) -> &StmtObj {
@@ -1231,7 +1161,7 @@ impl Evaluate {
 
 unsafe impl tvm_ffi::object::ImmutableObject for EvaluateObj {}
 
-tvm_ffi::unsafe_impl_object_upcast!(Evaluate => Stmt);
+tvm_ffi::unsafe_impl_object_ref_upcast!(Evaluate => Stmt);
 // tvm-ffi-stubgen(end)
 
 impl Evaluate {
@@ -1262,13 +1192,6 @@ pub struct Break {
     base: ObjectArc<BreakObj>,
 }
 
-impl Deref for Break {
-    type Target = BreakObj;
-    fn deref(&self) -> &BreakObj {
-        &self.base
-    }
-}
-
 impl Deref for BreakObj {
     type Target = StmtObj;
     fn deref(&self) -> &StmtObj {
@@ -1293,7 +1216,7 @@ impl Break {
 
 unsafe impl tvm_ffi::object::ImmutableObject for BreakObj {}
 
-tvm_ffi::unsafe_impl_object_upcast!(Break => Stmt);
+tvm_ffi::unsafe_impl_object_ref_upcast!(Break => Stmt);
 // tvm-ffi-stubgen(end)
 
 // `ir.Break` stores its location as given: the generated `Break::new` is the same.
@@ -1320,13 +1243,6 @@ pub struct Return {
     base: ObjectArc<ReturnObj>,
 }
 
-impl Deref for Return {
-    type Target = ReturnObj;
-    fn deref(&self) -> &ReturnObj {
-        &self.base
-    }
-}
-
 impl Deref for ReturnObj {
     type Target = StmtObj;
     fn deref(&self) -> &StmtObj {
@@ -1351,7 +1267,7 @@ impl Return {
 
 unsafe impl tvm_ffi::object::ImmutableObject for ReturnObj {}
 
-tvm_ffi::unsafe_impl_object_upcast!(Return => Stmt);
+tvm_ffi::unsafe_impl_object_ref_upcast!(Return => Stmt);
 // tvm-ffi-stubgen(end)
 
 impl Return {
@@ -1382,13 +1298,6 @@ pub struct Continue {
     base: ObjectArc<ContinueObj>,
 }
 
-impl Deref for Continue {
-    type Target = ContinueObj;
-    fn deref(&self) -> &ContinueObj {
-        &self.base
-    }
-}
-
 impl Deref for ContinueObj {
     type Target = StmtObj;
     fn deref(&self) -> &StmtObj {
@@ -1413,7 +1322,7 @@ impl Continue {
 
 unsafe impl tvm_ffi::object::ImmutableObject for ContinueObj {}
 
-tvm_ffi::unsafe_impl_object_upcast!(Continue => Stmt);
+tvm_ffi::unsafe_impl_object_ref_upcast!(Continue => Stmt);
 // tvm-ffi-stubgen(end)
 
 // `ir.Continue` stores its location as given: the generated `Continue::new` is the same.

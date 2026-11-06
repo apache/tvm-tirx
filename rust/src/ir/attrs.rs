@@ -72,13 +72,6 @@ pub struct Attrs {
     base: ObjectArc<AttrsObj>,
 }
 
-impl Deref for Attrs {
-    type Target = AttrsObj;
-    fn deref(&self) -> &AttrsObj {
-        &self.base
-    }
-}
-
 impl AttrsObj {
     pub fn new() -> Self {
         let base = Object::new();
@@ -133,13 +126,6 @@ pub struct DictAttrs {
     base: ObjectArc<DictAttrsObj>,
 }
 
-impl Deref for DictAttrs {
-    type Target = DictAttrsObj;
-    fn deref(&self) -> &DictAttrsObj {
-        &self.base
-    }
-}
-
 impl Deref for DictAttrsObj {
     type Target = AttrsObj;
     fn deref(&self) -> &AttrsObj {
@@ -164,5 +150,5 @@ impl DictAttrs {
 
 unsafe impl tvm_ffi::object::ImmutableObject for DictAttrsObj {}
 
-tvm_ffi::unsafe_impl_object_upcast!(DictAttrs => Attrs);
+tvm_ffi::unsafe_impl_object_ref_upcast!(DictAttrs => Attrs);
 // tvm-ffi-stubgen(end)

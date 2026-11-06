@@ -87,13 +87,6 @@ pub struct FunctionPass {
     base: ObjectArc<FunctionPassObj>,
 }
 
-impl Deref for FunctionPass {
-    type Target = FunctionPassObj;
-    fn deref(&self) -> &FunctionPassObj {
-        &self.base
-    }
-}
-
 impl Deref for FunctionPassObj {
     type Target = PassObj;
     fn deref(&self) -> &PassObj {
@@ -109,7 +102,7 @@ impl FunctionPassObj {
 
 unsafe impl tvm_ffi::object::ImmutableObject for FunctionPassObj {}
 
-tvm_ffi::unsafe_impl_object_upcast!(FunctionPass => Pass);
+tvm_ffi::unsafe_impl_object_ref_upcast!(FunctionPass => Pass);
 // tvm-ffi-stubgen(end)
 
 impl FunctionPass {

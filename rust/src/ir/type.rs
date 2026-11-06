@@ -103,13 +103,6 @@ pub struct Type {
     base: ObjectArc<TypeObj>,
 }
 
-impl Deref for Type {
-    type Target = TypeObj;
-    fn deref(&self) -> &TypeObj {
-        &self.base
-    }
-}
-
 impl TypeObj {
     pub fn new(loc: Location) -> Self {
         let base = Object::new();
@@ -164,13 +157,6 @@ pub struct MissingType {
     base: ObjectArc<MissingTypeObj>,
 }
 
-impl Deref for MissingType {
-    type Target = MissingTypeObj;
-    fn deref(&self) -> &MissingTypeObj {
-        &self.base
-    }
-}
-
 impl Deref for MissingTypeObj {
     type Target = TypeObj;
     fn deref(&self) -> &TypeObj {
@@ -195,7 +181,7 @@ impl MissingType {
 
 unsafe impl tvm_ffi::object::ImmutableObject for MissingTypeObj {}
 
-tvm_ffi::unsafe_impl_object_upcast!(MissingType => Type);
+tvm_ffi::unsafe_impl_object_ref_upcast!(MissingType => Type);
 // tvm-ffi-stubgen(end)
 
 impl MissingType {
@@ -234,13 +220,6 @@ pub struct NoneType {
     base: ObjectArc<NoneTypeObj>,
 }
 
-impl Deref for NoneType {
-    type Target = NoneTypeObj;
-    fn deref(&self) -> &NoneTypeObj {
-        &self.base
-    }
-}
-
 impl Deref for NoneTypeObj {
     type Target = TypeObj;
     fn deref(&self) -> &TypeObj {
@@ -265,7 +244,7 @@ impl NoneType {
 
 unsafe impl tvm_ffi::object::ImmutableObject for NoneTypeObj {}
 
-tvm_ffi::unsafe_impl_object_upcast!(NoneType => Type);
+tvm_ffi::unsafe_impl_object_ref_upcast!(NoneType => Type);
 // tvm-ffi-stubgen(end)
 
 impl NoneType {
@@ -303,13 +282,6 @@ pub struct AnyType {
     base: ObjectArc<AnyTypeObj>,
 }
 
-impl Deref for AnyType {
-    type Target = AnyTypeObj;
-    fn deref(&self) -> &AnyTypeObj {
-        &self.base
-    }
-}
-
 impl Deref for AnyTypeObj {
     type Target = TypeObj;
     fn deref(&self) -> &TypeObj {
@@ -334,7 +306,7 @@ impl AnyType {
 
 unsafe impl tvm_ffi::object::ImmutableObject for AnyTypeObj {}
 
-tvm_ffi::unsafe_impl_object_upcast!(AnyType => Type);
+tvm_ffi::unsafe_impl_object_ref_upcast!(AnyType => Type);
 // tvm-ffi-stubgen(end)
 
 // `ir.AnyType` stores its location as given: the generated `AnyType::new` is the same.
@@ -358,13 +330,6 @@ const _: () = {
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct TensorRegionType {
     base: ObjectArc<TensorRegionTypeObj>,
-}
-
-impl Deref for TensorRegionType {
-    type Target = TensorRegionTypeObj;
-    fn deref(&self) -> &TensorRegionTypeObj {
-        &self.base
-    }
 }
 
 impl Deref for TensorRegionTypeObj {
@@ -391,7 +356,7 @@ impl TensorRegionType {
 
 unsafe impl tvm_ffi::object::ImmutableObject for TensorRegionTypeObj {}
 
-tvm_ffi::unsafe_impl_object_upcast!(TensorRegionType => Type);
+tvm_ffi::unsafe_impl_object_ref_upcast!(TensorRegionType => Type);
 // tvm-ffi-stubgen(end)
 
 impl TensorRegionType {
@@ -430,13 +395,6 @@ pub struct OpaqueType {
     base: ObjectArc<OpaqueTypeObj>,
 }
 
-impl Deref for OpaqueType {
-    type Target = OpaqueTypeObj;
-    fn deref(&self) -> &OpaqueTypeObj {
-        &self.base
-    }
-}
-
 impl Deref for OpaqueTypeObj {
     type Target = TypeObj;
     fn deref(&self) -> &TypeObj {
@@ -461,11 +419,13 @@ impl OpaqueType {
 
 unsafe impl tvm_ffi::object::ImmutableObject for OpaqueTypeObj {}
 
-tvm_ffi::unsafe_impl_object_upcast!(OpaqueType => Type);
+tvm_ffi::unsafe_impl_object_ref_upcast!(OpaqueType => Type);
 // tvm-ffi-stubgen(end)
 
 impl OpaqueType {
     /// Create an opaque type at the unknown location (C++ `OpaqueType()`).
+    // Not `Default`, as no IR node is: the C++ constructor builds it.
+    #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         Self::from_fields(UNKNOWN_LOC)
     }
@@ -493,13 +453,6 @@ pub struct PrimType {
     base: ObjectArc<PrimTypeObj>,
 }
 
-impl Deref for PrimType {
-    type Target = PrimTypeObj;
-    fn deref(&self) -> &PrimTypeObj {
-        &self.base
-    }
-}
-
 impl Deref for PrimTypeObj {
     type Target = TypeObj;
     fn deref(&self) -> &TypeObj {
@@ -524,7 +477,7 @@ impl PrimType {
 
 unsafe impl tvm_ffi::object::ImmutableObject for PrimTypeObj {}
 
-tvm_ffi::unsafe_impl_object_upcast!(PrimType => Type);
+tvm_ffi::unsafe_impl_object_ref_upcast!(PrimType => Type);
 // tvm-ffi-stubgen(end)
 
 impl PrimType {
@@ -635,13 +588,6 @@ pub struct StringType {
     base: ObjectArc<StringTypeObj>,
 }
 
-impl Deref for StringType {
-    type Target = StringTypeObj;
-    fn deref(&self) -> &StringTypeObj {
-        &self.base
-    }
-}
-
 impl Deref for StringTypeObj {
     type Target = TypeObj;
     fn deref(&self) -> &TypeObj {
@@ -666,11 +612,13 @@ impl StringType {
 
 unsafe impl tvm_ffi::object::ImmutableObject for StringTypeObj {}
 
-tvm_ffi::unsafe_impl_object_upcast!(StringType => Type);
+tvm_ffi::unsafe_impl_object_ref_upcast!(StringType => Type);
 // tvm-ffi-stubgen(end)
 
 impl StringType {
     /// Create the string type at the unknown location (C++ `StringType()`).
+    // Not `Default`, as no IR node is: the C++ constructor builds it.
+    #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         Self::from_fields(UNKNOWN_LOC)
     }
@@ -697,13 +645,6 @@ const _: () = {
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct PtrType {
     base: ObjectArc<PtrTypeObj>,
-}
-
-impl Deref for PtrType {
-    type Target = PtrTypeObj;
-    fn deref(&self) -> &PtrTypeObj {
-        &self.base
-    }
 }
 
 impl Deref for PtrTypeObj {
@@ -734,7 +675,7 @@ impl PtrType {
 
 unsafe impl tvm_ffi::object::ImmutableObject for PtrTypeObj {}
 
-tvm_ffi::unsafe_impl_object_upcast!(PtrType => Type);
+tvm_ffi::unsafe_impl_object_ref_upcast!(PtrType => Type);
 // tvm-ffi-stubgen(end)
 
 impl PtrType {
@@ -777,13 +718,6 @@ pub struct TupleType {
     base: ObjectArc<TupleTypeObj>,
 }
 
-impl Deref for TupleType {
-    type Target = TupleTypeObj;
-    fn deref(&self) -> &TupleTypeObj {
-        &self.base
-    }
-}
-
 impl Deref for TupleTypeObj {
     type Target = TypeObj;
     fn deref(&self) -> &TypeObj {
@@ -808,7 +742,7 @@ impl TupleType {
 
 unsafe impl tvm_ffi::object::ImmutableObject for TupleTypeObj {}
 
-tvm_ffi::unsafe_impl_object_upcast!(TupleType => Type);
+tvm_ffi::unsafe_impl_object_ref_upcast!(TupleType => Type);
 // tvm-ffi-stubgen(end)
 
 impl TupleType {
@@ -846,13 +780,6 @@ pub struct FuncType {
     base: ObjectArc<FuncTypeObj>,
 }
 
-impl Deref for FuncType {
-    type Target = FuncTypeObj;
-    fn deref(&self) -> &FuncTypeObj {
-        &self.base
-    }
-}
-
 impl Deref for FuncTypeObj {
     type Target = TypeObj;
     fn deref(&self) -> &TypeObj {
@@ -881,7 +808,7 @@ impl FuncType {
 
 unsafe impl tvm_ffi::object::ImmutableObject for FuncTypeObj {}
 
-tvm_ffi::unsafe_impl_object_upcast!(FuncType => Type);
+tvm_ffi::unsafe_impl_object_ref_upcast!(FuncType => Type);
 // tvm-ffi-stubgen(end)
 
 impl FuncType {

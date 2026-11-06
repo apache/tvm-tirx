@@ -42,7 +42,6 @@
 
 // tvm-ffi-stubgen(begin): import-section
 use crate::ir::support;
-use std::ops::Deref;
 use tvm_ffi::Object;
 use tvm_ffi::ObjectArc;
 use tvm_ffi::Result;
@@ -63,13 +62,6 @@ pub struct UniqueNameSupplyObj {
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct UniqueNameSupply {
     base: ObjectArc<UniqueNameSupplyObj>,
-}
-
-impl Deref for UniqueNameSupply {
-    type Target = UniqueNameSupplyObj;
-    fn deref(&self) -> &UniqueNameSupplyObj {
-        &self.base
-    }
 }
 // tvm-ffi-stubgen(end)
 

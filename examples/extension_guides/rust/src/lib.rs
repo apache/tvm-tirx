@@ -30,8 +30,8 @@ use tvm_tirx::ir::{
 use tvm_tirx::tirx::transform::FunctionPass;
 use tvm_tirx::tirx::Function;
 use tvm_tirx::tvm_ffi::{
-    self, def_object_ref, dispatch, rs_object, Any, AnyView, Error, ObjectRefCore, Result,
-    Unchanged, UnchangedOr, WalkOrder,
+    self, dispatch, rs_object, Any, AnyView, Error, ObjectRefCore, Result, Unchanged, UnchangedOr,
+    WalkOrder,
 };
 
 // begin type
@@ -41,7 +41,11 @@ pub struct ComplexTypeObj {
     base: TypeObj,
     pub dtype: PrimType,
 }
-def_object_ref!(pub ComplexType, Type, ComplexTypeObj);
+#[derive(Clone, tvm_ffi::derive::ObjectRef)]
+#[object_ref(parent = Type)]
+pub struct ComplexType {
+    data: tvm_ffi::ObjectArc<ComplexTypeObj>,
+}
 
 tvm_ffi::static_init_block! {
     register_type::<ComplexType>()?;
@@ -83,7 +87,7 @@ fn infer_complex(call: &CallObj) -> Result<Type> {
     let elem = float_part(&call.args.get(0)?.ty)?;
     let im = float_part(&call.args.get(1)?.ty)?;
     require(elem.dtype == im.dtype, "my_ext.complex expects parts of the same type")?;
-    let ty: ComplexType = ComplexTypeObj::new(TypeObj::new(call.loc.clone()), elem).into();
+    let ty = ComplexType::from_object(ComplexTypeObj::new(TypeObj::new(call.loc.clone()), elem));
     Ok(ty.into())
 }
 // end inference

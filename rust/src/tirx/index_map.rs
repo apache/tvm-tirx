@@ -66,7 +66,6 @@ use crate::ir::expr::PrimExpr;
 use crate::ir::expr::PrimVar;
 use crate::ir::expr::Range;
 use crate::sym::analyzer::Analyzer;
-use std::ops::Deref;
 use tvm_ffi::Any;
 use tvm_ffi::Array;
 use tvm_ffi::Object;
@@ -98,13 +97,6 @@ const _: () = {
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct IndexMap {
     base: ObjectArc<IndexMapObj>,
-}
-
-impl Deref for IndexMap {
-    type Target = IndexMapObj;
-    fn deref(&self) -> &IndexMapObj {
-        &self.base
-    }
 }
 
 impl IndexMapObj {
