@@ -57,7 +57,7 @@ fn int32_var(name: &str) -> PrimVar {
 }
 
 fn op(name: &str, a: impl Into<Expr>, b: impl Into<Expr>) -> PrimExpr {
-    global(name).call_tuple((a.into(), b.into(), Location::unknown())).unwrap().try_into().unwrap()
+    global(name).call_tuple((a.into(), b.into(), UnknownLoc::new())).unwrap().try_into().unwrap()
 }
 
 /// A memory scope registered once for all the tests: Rust has no lookup of the builtin ones.
@@ -88,7 +88,7 @@ fn tensor_var(name: &str) -> Var {
             AnyView::from(&scope),
             AnyView::from(&alignment),
             AnyView::from(&layout),
-            AnyView::from(&Location::unknown()),
+            AnyView::from(&UnknownLoc::new()),
         ])
         .unwrap()
         .try_into()
@@ -107,7 +107,7 @@ fn function(value: i64) -> BaseFunc {
     let ret_type: Type = PrimType::int(32).into();
     let attrs = DictAttrs::new(Map::new());
     global("tirx.Function")
-        .call_tuple((params, body, ret_type, attrs, Location::unknown()))
+        .call_tuple((params, body, ret_type, attrs, UnknownLoc::new()))
         .unwrap()
         .try_into()
         .unwrap()

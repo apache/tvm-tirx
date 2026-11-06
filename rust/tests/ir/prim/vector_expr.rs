@@ -20,7 +20,7 @@
 //! Tests of `ir::prim::vector_expr`.
 
 use tvm_tirx::ir::prim;
-use tvm_tirx::ir::{UNKNOWN_LOC, Location, Call, Expr, IntImm, Op, PrimExpr, PrimType, Type};
+use tvm_tirx::ir::{UNKNOWN_LOC, UnknownLoc, Call, Expr, IntImm, Op, PrimExpr, PrimType, Type};
 use tvm_tirx::tvm_ffi::Array;
 
 use super::{dtype, var};
@@ -96,7 +96,7 @@ fn vector_nodes_agree_with_cpp() {
     for (what, base, stride, lanes) in cases {
         let native_ramp = native(
             "prim.Ramp",
-            &[(&base).into(), (&stride).into(), (&lanes).into(), (&Location::unknown()).into()],
+            &[(&base).into(), (&stride).into(), (&lanes).into(), (&UnknownLoc::new()).into()],
         );
         agree(what, prim::Ramp::new(&base, &stride, &lanes, UNKNOWN_LOC), native_ramp);
     }
@@ -109,7 +109,7 @@ fn vector_nodes_agree_with_cpp() {
     ] {
         let native_broadcast = native(
             "prim.Broadcast",
-            &[(&value).into(), (&lanes).into(), (&Location::unknown()).into()],
+            &[(&value).into(), (&lanes).into(), (&UnknownLoc::new()).into()],
         );
         agree(what, prim::Broadcast::new(&value, &lanes, UNKNOWN_LOC), native_broadcast);
     }
@@ -134,7 +134,7 @@ fn vector_nodes_agree_with_cpp() {
             (vectors.iter().cloned().collect(), indices.iter().cloned().collect());
         let native_shuffle = native(
             "prim.Shuffle",
-            &[(&vector_array).into(), (&index_array).into(), (&Location::unknown()).into()],
+            &[(&vector_array).into(), (&index_array).into(), (&UnknownLoc::new()).into()],
         );
         agree(what, prim::Shuffle::new(vectors, indices, UNKNOWN_LOC), native_shuffle);
     }

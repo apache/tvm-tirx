@@ -20,7 +20,7 @@
 //! Tests of `tirx::function`.
 
 use tvm_tirx::ir::{
-    UNKNOWN_LOC, Location, DictAttrs, MissingType, PrimType, Return, SeqStmt, Type, Var,
+    UNKNOWN_LOC, UnknownLoc, DictAttrs, MissingType, PrimType, Return, SeqStmt, Type, Var,
 };
 use tvm_tirx::tirx::{renew_def, Function};
 use tvm_tirx::tvm_ffi::{Any, Array, Map, String as FfiString};
@@ -67,7 +67,7 @@ fn functions_agree_with_cpp() {
                 (&body).into(),
                 ret_type.into(),
                 (&attrs).into(),
-                (&Location::unknown()).into(),
+                (&UnknownLoc::new()).into(),
             ],
         );
         agree(

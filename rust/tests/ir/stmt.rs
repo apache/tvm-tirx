@@ -110,7 +110,7 @@ fn statements_agree_with_cpp() {
 
     for (what, var, value) in [("Bind", &y, Expr::from(&x)), ("Bind(type)", &y, Expr::from(&f))] {
         let native_bind =
-            native("ir.Bind", &[var.into(), (&value).into(), (&Location::unknown()).into()]);
+            native("ir.Bind", &[var.into(), (&value).into(), (&UnknownLoc::new()).into()]);
         agree(what, Bind::new(var, &value, UNKNOWN_LOC), native_bind);
     }
 
@@ -121,7 +121,7 @@ fn statements_agree_with_cpp() {
     {
         let native_assert = native(
             "ir.AssertStmt",
-            &[(&condition).into(), (&kind).into(), (&parts).into(), (&Location::unknown()).into()],
+            &[(&condition).into(), (&kind).into(), (&parts).into(), (&UnknownLoc::new()).into()],
         );
         agree(what, AssertStmt::new(&condition, &kind, parts.iter(), UNKNOWN_LOC), native_assert);
     }
@@ -203,7 +203,7 @@ fn statements_agree_with_cpp() {
                 (&kind).into(),
                 (&body).into(),
                 (&annotations).into(),
-                (&Location::unknown()).into(),
+                (&UnknownLoc::new()).into(),
             ],
         );
         let rust = For::new(
@@ -225,7 +225,7 @@ fn statements_agree_with_cpp() {
     {
         let native_while = native(
             "ir.While",
-            &[(&condition).into(), (&evaluate).into(), (&Location::unknown()).into()],
+            &[(&condition).into(), (&evaluate).into(), (&UnknownLoc::new()).into()],
         );
         agree(what, While::new(&condition, &evaluate, UNKNOWN_LOC), native_while);
     }
@@ -242,7 +242,7 @@ fn statements_agree_with_cpp() {
         let array: Array<PrimExpr> = indices.iter().cloned().collect();
         let native_store = native(
             "ir.TensorStore",
-            &[(&dest).into(), (&array).into(), (&value).into(), (&Location::unknown()).into()],
+            &[(&dest).into(), (&array).into(), (&value).into(), (&UnknownLoc::new()).into()],
         );
         agree(what, TensorStore::new(&dest, indices, &value, UNKNOWN_LOC), native_store);
     }
@@ -256,7 +256,7 @@ fn statements_agree_with_cpp() {
     ];
     for (what, stmts) in sequences {
         let array: Array<Stmt> = stmts.iter().cloned().collect();
-        let native_seq = native("ir.SeqStmt", &[(&array).into(), (&Location::unknown()).into()]);
+        let native_seq = native("ir.SeqStmt", &[(&array).into(), (&UnknownLoc::new()).into()]);
         agree(what, Ok(SeqStmt::new(stmts, UNKNOWN_LOC)), native_seq);
     }
 
@@ -272,17 +272,17 @@ fn statements_agree_with_cpp() {
                 (&condition).into(),
                 (&then_case).into(),
                 (&else_case).into(),
-                (&Location::unknown()).into(),
+                (&UnknownLoc::new()).into(),
             ],
         );
         agree(what, If::new(&condition, &then_case, else_case.as_ref(), UNKNOWN_LOC), native_if);
     }
 
     let native_evaluate =
-        native("ir.Evaluate", &[(&Expr::from(&x)).into(), (&Location::unknown()).into()]);
+        native("ir.Evaluate", &[(&Expr::from(&x)).into(), (&UnknownLoc::new()).into()]);
     agree("Evaluate", Ok(Evaluate::new(&x, UNKNOWN_LOC)), native_evaluate);
     let native_return =
-        native("ir.Return", &[(&Expr::from(&x)).into(), (&Location::unknown()).into()]);
+        native("ir.Return", &[(&Expr::from(&x)).into(), (&UnknownLoc::new()).into()]);
     agree("Return", Ok(Return::new(&x, UNKNOWN_LOC)), native_return);
 }
 
@@ -373,7 +373,7 @@ fn regions_agree_with_cpp() {
                 attrs.into(),
                 (&body).into(),
                 (&results_array).into(),
-                (&Location::unknown()).into(),
+                (&UnknownLoc::new()).into(),
             ],
         );
         let rust = RegionStmt::new(op, args, params, attrs, &body, results, UNKNOWN_LOC);

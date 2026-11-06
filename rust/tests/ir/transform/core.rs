@@ -78,8 +78,7 @@ fn module_and_sequential_passes() {
             print_ir("between").unwrap(),
             logging_pass("b", &log).into(),
         ],
-        0,
-        "seq",
+        PassInfo::new(0, "seq"),
     );
     assert_eq!(seq.passes().unwrap().len(), 3);
     assert_eq!(Pass::from(&seq).info().unwrap().name.as_str(), "seq");

@@ -24,8 +24,9 @@
 use std::mem::offset_of;
 
 use tvm_tirx::ir::{
-    UNKNOWN_LOC, Location, dtype, Evaluate, FuncType, MissingType, NoneType, OpaqueType, PrimType,
-    PtrType, StringType, TensorRegionType, TupleType, Type, TypeObj, Var, VarObj,
+    UNKNOWN_LOC, Location, UnknownLoc, dtype, Evaluate, FuncType, MissingType, NoneType,
+    OpaqueType, PrimType, PtrType, StringType, TensorRegionType, TupleType, Type, TypeObj, Var,
+    VarObj,
 };
 use tvm_tirx::tvm_ffi::{def_object_ref, rs_object, structural_map};
 use tvm_tirx::tvm_ffi::{
@@ -101,8 +102,7 @@ fn types_agree_with_cpp() {
         [("TupleType", vec![int32.clone(), float32.clone()]), ("TupleType(empty)", vec![])]
     {
         let array: Array<Type> = fields.iter().cloned().collect();
-        let native_tuple =
-            native("ir.TupleType", &[(&array).into(), (&Location::unknown()).into()]);
+        let native_tuple = native("ir.TupleType", &[(&array).into(), (&UnknownLoc::new()).into()]);
         agree(what, Ok(TupleType::new(fields, UNKNOWN_LOC)), native_tuple);
     }
     let args: Array<Type> = [int32.clone()].into_iter().collect();
@@ -143,7 +143,7 @@ impl PairType {
 }
 
 fn pair(lhs: Type, rhs: Type, tag: i64, note: &str) -> PairType {
-    PairTypeObj::new(TypeObj::new(Location::unknown()), lhs, rhs, tag, note).into()
+    PairTypeObj::new(TypeObj::new(UNKNOWN_LOC.into()), lhs, rhs, tag, note).into()
 }
 
 fn int_float_pair(tag: i64, note: &str) -> PairType {

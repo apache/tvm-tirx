@@ -37,7 +37,8 @@
 //!     ModulePass::new(pass, PassInfo::new(0, name))
 //! };
 //!
-//! let pipeline = Pass::from(Sequential::new([mark("a"), mark("b")], 0, "pipeline"));
+//! let info = PassInfo::new(0, "pipeline");
+//! let pipeline = Pass::from(Sequential::new([mark("a"), mark("b")], info));
 //! let ctx = PassContext::new(2, [""; 0], ["b"], Vec::<PassInstrument>::new(), None)?;
 //! let _scope = ctx.enter()?;
 //! let empty = IRModule::new(&Map::new(), DictAttrs::new(Map::new()), &Map::new())?;
@@ -270,20 +271,21 @@ tvm_ffi::unsafe_impl_object_upcast!(Sequential => Pass);
 // tvm-ffi-stubgen(end)
 
 impl Sequential {
-    /// Create a pass named `name`, of level `opt_level`, that runs `passes` in order
-    /// (`transform.Sequential`).
+    /// Create a pass with the information `pass_info` that runs `passes` in order
+    /// (C++ `Sequential(passes, pass_info)`).
     ///
     /// It skips the passes the current pass context disables, and those whose level exceeds the
-    /// context's `opt_level` unless the context requires them.
+    /// context's `opt_level` unless the context requires them. C++ `Sequential(passes, name)` is
+    /// `Sequential::new(passes, PassInfo::new(0, name))`.
     pub fn new(
         passes: impl IntoIterator<Item = impl Into<Pass>>,
-        opt_level: i32,
-        name: &str,
+        pass_info: impl Into<PassInfo>,
     ) -> Self {
         let passes = passes.into_iter().map(Into::into).collect::<Array<Pass>>();
+        let pass_info = pass_info.into();
         support::infallible(
             tvm_ffi::cached_global_func!("transform.Sequential")
-                .call_tuple((&passes, opt_level, String::from(name)))
+                .call_tuple((&passes, pass_info.opt_level, &pass_info.name))
                 .and_then(|any| any.try_into()),
         )
     }

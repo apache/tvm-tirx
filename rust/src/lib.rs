@@ -100,7 +100,7 @@
 //! scope.
 //!
 //! ```
-//! use tvm_tirx::ir::{Location, PrimType, Type, TypeObj};
+//! use tvm_tirx::ir::{PrimType, Type, TypeObj, UNKNOWN_LOC};
 //! use tvm_tirx::tvm_ffi::{self, def_object_ref, rs_object, ObjectRefCore};
 //!
 //! #[rs_object("my_ext.PairType", final)]
@@ -116,7 +116,7 @@
 //!
 //! impl PairType {
 //!     pub fn new(first: impl Into<Type>, second: impl Into<Type>) -> Self {
-//!         PairTypeObj::new(TypeObj::new(Location::unknown()), first, second, "").into()
+//!         PairTypeObj::new(TypeObj::new(UNKNOWN_LOC.into()), first, second, "").into()
 //!     }
 //! }
 //!

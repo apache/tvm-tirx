@@ -21,7 +21,7 @@
 
 use tvm_tirx::ir::prim;
 use tvm_tirx::ir::{
-    UNKNOWN_LOC, Location, MissingType, Expr, PrimExpr, PrimType, PrimVar, StringImm, Type, Var,
+    UNKNOWN_LOC, UnknownLoc, MissingType, Expr, PrimExpr, PrimType, PrimVar, StringImm, Type, Var,
 };
 use tvm_tirx::tvm_ffi::{Any, AnyCompatible, AnyView, Result};
 
@@ -84,7 +84,7 @@ fn node_constructors() {
 
 /// The native constructor `name` on `args` and the location.
 fn native_with_loc<T: AnyCompatible>(name: &str, args: &[&T]) -> Result<Any> {
-    let loc = Location::unknown();
+    let loc = UnknownLoc::new();
     let mut views: Vec<AnyView> = args.iter().map(|arg| AnyView::from(*arg)).collect();
     views.push(AnyView::from(&loc));
     native(name, &views)
@@ -174,10 +174,8 @@ fn other_nodes_agree_with_cpp() {
         ("Cast(int32 to float32x4)", PrimType::float(32).with_lanes(4).unwrap(), &x),
     ] {
         let target_ty: Type = target.clone().into();
-        let native_cast = native(
-            "prim.Cast",
-            &[(&target_ty).into(), value.into(), (&Location::unknown()).into()],
-        );
+        let native_cast =
+            native("prim.Cast", &[(&target_ty).into(), value.into(), (&UnknownLoc::new()).into()]);
         agree(what, prim::Cast::new(target, value, UNKNOWN_LOC), native_cast);
     }
 
@@ -207,7 +205,7 @@ fn other_nodes_agree_with_cpp() {
         let body = PrimExpr::from(if what == "Let" { &z } else { &x });
         let native_let = native(
             "prim.Let",
-            &[var.into(), value.into(), (&body).into(), (&Location::unknown()).into()],
+            &[var.into(), value.into(), (&body).into(), (&UnknownLoc::new()).into()],
         );
         agree(what, prim::Let::new(var, value, &body, UNKNOWN_LOC), native_let);
     }

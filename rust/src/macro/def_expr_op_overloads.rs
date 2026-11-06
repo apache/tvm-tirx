@@ -30,7 +30,7 @@
 /// # Examples
 ///
 /// ```
-/// use tvm_tirx::ir::{Expr, ExprObj, Location, PrimExpr, PrimType};
+/// use tvm_tirx::ir::{Expr, ExprObj, PrimExpr, PrimType, UNKNOWN_LOC};
 /// use tvm_tirx::sym::Analyzer;
 /// use tvm_tirx::tvm_ffi::{self, def_object_ref, rs_object, ObjectRefCore};
 ///
@@ -44,7 +44,7 @@
 /// impl ThreadIndex {
 ///     /// The `int32` index of the thread along `axis`.
 ///     pub fn new(axis: i64) -> Self {
-///         let base = ExprObj::new(Location::unknown(), PrimType::int(32).into());
+///         let base = ExprObj::new(UNKNOWN_LOC.into(), PrimType::int(32).into());
 ///         Self::from(ThreadIndexObj::new(base, axis))
 ///     }
 /// }

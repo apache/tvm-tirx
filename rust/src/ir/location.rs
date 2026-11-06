@@ -36,9 +36,9 @@
 //! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
 //! ```
 
-// `custom-new` reserves `new` for a constructor with the native one's semantics (the shared
-// `UnknownLoc` instance); the generated `from_fields` allocates the fields as given.
-// tvm-ffi-stubgen(custom-new): ir.UnknownLoc
+// C++ has one `UnknownLoc`, which `UnknownLoc::new` returns: `opaque` generates no allocator for
+// another one. It has no fields, so it loses no field access.
+// tvm-ffi-stubgen(opaque): ir.UnknownLoc
 // A `SourceName` is interned: C++ makes one only through `SourceName::Get`, so it has no `new`.
 // tvm-ffi-stubgen(custom-new): ir.SourceName
 // The base `Location` has no C++ constructor, so no `new`: `custom-new` leaves only the generated
@@ -120,16 +120,8 @@ unsafe impl UnsafeInit for LocationObj {
 unsafe impl tvm_ffi::object::ImmutableObject for LocationObj {}
 // tvm-ffi-stubgen(end)
 
-impl Location {
-    /// Return the shared [`UnknownLoc`] as a [`Location`] value; [`UNKNOWN_LOC`] is the same
-    /// location as a constructor argument.
-    pub fn unknown() -> Self {
-        UnknownLoc::new().into()
-    }
-}
-
 // tvm-ffi-stubgen(begin): object/ir.UnknownLoc
-/// Complete: reflected fields fill [24, 24) exactly.
+/// Opaque: vetoed by directive although the layout is reproducible. Fields are read through the C ABI getters.
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.UnknownLoc"]
@@ -137,11 +129,6 @@ impl Location {
 pub struct UnknownLocObj {
     base: LocationObj,
 }
-
-const _: () = {
-    assert!(::core::mem::size_of::<UnknownLocObj>() == 24);
-    assert!(::core::mem::align_of::<UnknownLocObj>() == 8);
-};
 
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
@@ -160,21 +147,6 @@ impl Deref for UnknownLocObj {
     type Target = LocationObj;
     fn deref(&self) -> &LocationObj {
         &self.base
-    }
-}
-
-impl UnknownLocObj {
-    pub(crate) fn new() -> Self {
-        let base = LocationObj::new();
-        Self { base }
-    }
-}
-
-impl UnknownLoc {
-    /// Lossless complete-field allocation.
-    pub fn from_fields() -> Self {
-        let obj = UnknownLocObj::new();
-        Self { base: ObjectArc::new(obj) }
     }
 }
 
@@ -199,7 +171,7 @@ impl UnknownLoc {
 /// A marker for the unknown location as the `loc` argument of a constructor, which takes any
 /// `impl Into<Location>`: `Var::new("x", ty, UNKNOWN_LOC)`.
 ///
-/// [`Location::unknown`] is the same location as a value.
+/// [`UnknownLoc::new`] is the same location as a value.
 #[derive(Clone, Copy, Debug)]
 pub struct Unknown;
 
@@ -208,7 +180,7 @@ pub const UNKNOWN_LOC: Unknown = Unknown;
 
 impl From<Unknown> for Location {
     fn from(_: Unknown) -> Self {
-        Location::unknown()
+        UnknownLoc::new().into()
     }
 }
 

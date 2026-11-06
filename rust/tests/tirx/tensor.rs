@@ -19,7 +19,7 @@
 
 //! Tests of `tirx::tensor`: tensor types.
 
-use tvm_tirx::ir::{UNKNOWN_LOC, Location, Expr, PrimExpr, PrimType, StringImm};
+use tvm_tirx::ir::{UNKNOWN_LOC, UnknownLoc, Expr, PrimExpr, PrimType, StringImm};
 use tvm_tirx::tirx::{tensor_is_scalar, Layout, TensorType};
 use tvm_tirx::tvm_ffi::Array;
 
@@ -71,7 +71,7 @@ fn tensor_types_agree_with_cpp() {
                 (&scope).into(),
                 (&alignment).into(),
                 (&layout).into(),
-                (&Location::unknown()).into(),
+                (&UnknownLoc::new()).into(),
             ],
         );
         let rust =
@@ -88,7 +88,7 @@ fn tensor_types_agree_with_cpp() {
             (&scope).into(),
             (&alignment).into(),
             (&layout).into(),
-            (&Location::unknown()).into(),
+            (&UnknownLoc::new()).into(),
         ],
     );
     // A non-primitive extent is not a `PrimExpr`: the check comes before `TensorType::new`.
