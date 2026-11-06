@@ -154,6 +154,30 @@ def test_select():
     )
 
 
+def test_float_subexpressions():
+    analyzer = Analyzer()
+    i = tirx.Var("i", "int32")
+    scale = tirx.Var("scale", "float32")
+    coordinate = tirx.Cast("float32", i) * scale
+    domain = {i: tvm_tirx.sym.IntervalSet(0, 4)}
+    for expr in [
+        tvm_tirx.ir.FloatImm("float32", 3.5),
+        scale,
+        tirx.Cast("float32", i),
+        coordinate,
+        tirx.call_pure_extern("returns_float", ty="float32"),
+    ]:
+        assert analyzer.int_set(expr, domain).is_everything()
+        assert analyzer.int_set(tirx.Cast("int64", expr), domain).is_everything()
+
+    context = tvm_tirx.sym.ConstraintContext()
+    context.append(tvm_tirx.sym.RangeConstraint(i, tvm_tirx.ir.Range(0, 5)))
+    value = tirx.Var("coordinate", "float32")
+    context.append(tvm_tirx.sym.BindingConstraint(value, coordinate))
+    analyzer.sync_constraint_context(context)
+    assert analyzer.int_set(value).is_everything()
+
+
 def check_region_bound(expect_region, var_dom, mode, predicate=None):
     """Helper to check region bound estimation.
 
