@@ -38,7 +38,7 @@
 //! assert_eq!(script(&transpose)?, "T.index_map(lambda i, j: (j, i))");
 //!
 //! let text =
-//!     |exprs: Array<PrimExpr>| exprs.iter().map(|e| script(&e)).collect::<Result<Vec<_>>>();
+//!     |exprs: Array<PrimExpr>| exprs.iter().map(script).collect::<Result<Vec<_>>>();
 //! assert_eq!(text(transpose.map_indices([1, 2], None)?)?, ["2", "1"]);
 //!
 //! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())

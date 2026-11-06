@@ -171,7 +171,7 @@ impl UnknownLoc {
     }
 }
 
-tvm_ffi::impl_object_upcast!(UnknownLoc => Location);
+tvm_ffi::unsafe_impl_object_upcast!(UnknownLoc => Location);
 // tvm-ffi-stubgen(end)
 
 impl UnknownLoc {
@@ -271,7 +271,7 @@ impl SourceLoc {
     }
 }
 
-tvm_ffi::impl_object_upcast!(SourceLoc => Location);
+tvm_ffi::unsafe_impl_object_upcast!(SourceLoc => Location);
 // tvm-ffi-stubgen(end)
 
 // `ir.SourceLoc` stores its arguments as given: the generated `SourceLoc::new` is the same.
@@ -328,7 +328,7 @@ impl CallSiteLoc {
     }
 }
 
-tvm_ffi::impl_object_upcast!(CallSiteLoc => Location);
+tvm_ffi::unsafe_impl_object_upcast!(CallSiteLoc => Location);
 // tvm-ffi-stubgen(end)
 
 // `ir.CallSiteLoc` stores its arguments as given: the generated `CallSiteLoc::new` is the same.

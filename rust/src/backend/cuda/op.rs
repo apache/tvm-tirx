@@ -156,7 +156,7 @@ impl TCGen05InstrDescriptorAttrs {
     }
 }
 
-tvm_ffi::impl_object_upcast!(TCGen05InstrDescriptorAttrs => Attrs);
+tvm_ffi::unsafe_impl_object_upcast!(TCGen05InstrDescriptorAttrs => Attrs);
 // tvm-ffi-stubgen(end)
 
 // tvm-ffi-stubgen(begin): object/tirx.cuda.TCGen05InstrDescriptorBlockScaledAttrs
@@ -287,7 +287,7 @@ impl TCGen05InstrDescriptorBlockScaledAttrs {
     }
 }
 
-tvm_ffi::impl_object_upcast!(TCGen05InstrDescriptorBlockScaledAttrs => Attrs);
+tvm_ffi::unsafe_impl_object_upcast!(TCGen05InstrDescriptorBlockScaledAttrs => Attrs);
 // tvm-ffi-stubgen(end)
 
 // tvm-ffi-stubgen(begin): object/tirx.cuda.TensorMapEncodeTiledAttr
@@ -380,5 +380,5 @@ impl TensorMapEncodeTiledAttr {
     }
 }
 
-tvm_ffi::impl_object_upcast!(TensorMapEncodeTiledAttr => Attrs);
+tvm_ffi::unsafe_impl_object_upcast!(TensorMapEncodeTiledAttr => Attrs);
 // tvm-ffi-stubgen(end)

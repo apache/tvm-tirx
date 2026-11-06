@@ -170,6 +170,14 @@ macro_rules! typed_expr_view {
         tvm_ffi::impl_try_from_any!($name);
         tvm_ffi::impl_arg_into_ref!($name);
         tvm_ffi::impl_into_arg_holder_default!($name);
+
+        // The type key and address, as `#[derive(ObjectRef)]` prints a reference, so a
+        // `downcast` result can be unwrapped.
+        impl ::core::fmt::Debug for $name {
+            fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+                tvm_ffi::object::fmt_object_ref(self, f)
+            }
+        }
         crate::def_expr_op_over_loads!($name);
 
         impl From<&$name> for $name {
@@ -199,7 +207,7 @@ macro_rules! typed_expr_view {
             /// Return the type of this expression, the [`PrimType`] the view guarantees (C++
             /// `PrimExpr::ty()`).
             pub fn ty(&self) -> PrimType {
-                self.base.ty.clone().try_cast().expect("a view is typed by a `PrimType`")
+                self.base.ty.downcast_ref::<PrimType>().cloned().expect("a view is typed by a `PrimType`")
             }
 
             /// Return the dtype of this expression's type.
@@ -215,7 +223,7 @@ macro_rules! typed_expr_view {
             type Error = Error;
 
             fn try_from(value: Expr) -> Result<Self> {
-                value.try_cast()
+                value.downcast().map_err(Error::downcast_failed::<Self>)
             }
         }
 
@@ -223,7 +231,10 @@ macro_rules! typed_expr_view {
             type Error = Error;
 
             fn try_from(value: &Expr) -> Result<Self> {
-                value.clone().try_cast()
+                value
+                    .downcast_ref::<Self>()
+                    .cloned()
+                    .ok_or_else(|| Error::downcast_failed::<Self>(value.clone()))
             }
         }
     };

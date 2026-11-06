@@ -246,7 +246,7 @@ impl Bind {
     }
 }
 
-tvm_ffi::impl_object_upcast!(Bind => Stmt);
+tvm_ffi::unsafe_impl_object_upcast!(Bind => Stmt);
 // tvm-ffi-stubgen(end)
 
 impl Bind {
@@ -339,7 +339,7 @@ impl AssertStmt {
     }
 }
 
-tvm_ffi::impl_object_upcast!(AssertStmt => Stmt);
+tvm_ffi::unsafe_impl_object_upcast!(AssertStmt => Stmt);
 // tvm-ffi-stubgen(end)
 
 impl AssertStmt {
@@ -455,7 +455,7 @@ impl For {
     }
 }
 
-tvm_ffi::impl_object_upcast!(For => Stmt);
+tvm_ffi::unsafe_impl_object_upcast!(For => Stmt);
 // tvm-ffi-stubgen(end)
 
 /// How a [`For`] loop runs its iterations, as C++ `ir::ForKind`.
@@ -633,7 +633,7 @@ impl While {
     }
 }
 
-tvm_ffi::impl_object_upcast!(While => Stmt);
+tvm_ffi::unsafe_impl_object_upcast!(While => Stmt);
 // tvm-ffi-stubgen(end)
 
 impl While {
@@ -722,7 +722,7 @@ impl TensorStore {
     }
 }
 
-tvm_ffi::impl_object_upcast!(TensorStore => Stmt);
+tvm_ffi::unsafe_impl_object_upcast!(TensorStore => Stmt);
 // tvm-ffi-stubgen(end)
 
 impl TensorStore {
@@ -845,7 +845,7 @@ impl RegionStmt {
     }
 }
 
-tvm_ffi::impl_object_upcast!(RegionStmt => Stmt);
+tvm_ffi::unsafe_impl_object_upcast!(RegionStmt => Stmt);
 // tvm-ffi-stubgen(end)
 
 impl RegionStmt {
@@ -895,7 +895,7 @@ impl RegionStmt {
         }
         let mut definitions = std::collections::HashSet::new();
         for var in body_params.iter().chain(result_vars.iter()) {
-            if !definitions.insert(object_address(&var)) {
+            if !definitions.insert(object_address(var)) {
                 let condition = "definitions.insert(var.get()).second";
                 let message = "RegionStmt parameters and results must be distinct definitions";
                 return Err(support::check_failed(tvm_ffi::VALUE_ERROR, condition, message));
@@ -937,7 +937,7 @@ fn region_body_params(op: &Op, args: &Array<Expr>, attrs: &DictAttrs) -> Result<
             let message = format!("FRegionGetBodyParams for {name} must return typed variables");
             return Err(support::check_failed(tvm_ffi::VALUE_ERROR, condition, &message));
         }
-        if !definitions.insert(object_address(&param)) {
+        if !definitions.insert(object_address(param)) {
             let condition = "definitions.insert(param.get()).second";
             let message =
                 format!("FRegionGetBodyParams for {name} must return distinct definitions");
@@ -949,8 +949,8 @@ fn region_body_params(op: &Op, args: &Array<Expr>, attrs: &DictAttrs) -> Result<
 
 /// The address of the object `value` refers to, which identifies a definition.
 fn object_address<T: ObjectRefCore>(value: &T) -> usize {
-    // SAFETY: the pointer is only compared, never dereferenced.
-    unsafe { ObjectArc::as_raw(ObjectRefCore::data(value)) as usize }
+    // The pointer is only compared, never dereferenced.
+    ObjectArc::as_ptr(ObjectRefCore::data(value)) as usize
 }
 
 // tvm-ffi-stubgen(begin): object/ir.SeqStmt
@@ -1004,7 +1004,7 @@ impl SeqStmt {
     }
 }
 
-tvm_ffi::impl_object_upcast!(SeqStmt => Stmt);
+tvm_ffi::unsafe_impl_object_upcast!(SeqStmt => Stmt);
 // tvm-ffi-stubgen(end)
 
 impl SeqStmt {
@@ -1025,13 +1025,13 @@ fn flatten(seq: Array<Stmt>) -> Array<Stmt> {
     }
     fn append(stmt: Stmt, flattened: &mut Vec<Stmt>) {
         match stmt.downcast_ref::<SeqStmtObj>() {
-            Some(nested) => nested.seq.iter().for_each(|child| append(child, flattened)),
+            Some(nested) => nested.seq.iter().for_each(|child| append(child.clone(), flattened)),
             None if is_no_op(&stmt) => {}
             None => flattened.push(stmt),
         }
     }
     let mut flattened = Vec::new();
-    seq.iter().for_each(|stmt| append(stmt, &mut flattened));
+    seq.iter().for_each(|stmt| append(stmt.clone(), &mut flattened));
     Array::from_vec(flattened)
 }
 
@@ -1046,7 +1046,7 @@ fn is_no_op(stmt: &Stmt) -> bool {
 /// statement as the sequence of it at its location (C++ `SeqStmt(stmt)`).
 fn into_body(stmt: Stmt) -> Result<SeqStmt> {
     if stmt.downcast_ref::<SeqStmtObj>().is_some() {
-        return Ok(tvm_ffi::ObjectRefCast::try_cast(stmt).expect("a SeqStmt"));
+        return Ok(stmt.downcast().expect("a SeqStmt"));
     }
     let loc = stmt.loc.clone();
     Ok(SeqStmt::from_fields(loc, flatten(Array::from_vec(vec![stmt]))))
@@ -1115,7 +1115,7 @@ impl If {
     }
 }
 
-tvm_ffi::impl_object_upcast!(If => Stmt);
+tvm_ffi::unsafe_impl_object_upcast!(If => Stmt);
 // tvm-ffi-stubgen(end)
 
 impl If {
@@ -1185,7 +1185,7 @@ impl Evaluate {
     }
 }
 
-tvm_ffi::impl_object_upcast!(Evaluate => Stmt);
+tvm_ffi::unsafe_impl_object_upcast!(Evaluate => Stmt);
 // tvm-ffi-stubgen(end)
 
 impl Evaluate {
@@ -1245,7 +1245,7 @@ impl Break {
     }
 }
 
-tvm_ffi::impl_object_upcast!(Break => Stmt);
+tvm_ffi::unsafe_impl_object_upcast!(Break => Stmt);
 // tvm-ffi-stubgen(end)
 
 // `ir.Break` stores its location as given: the generated `Break::new` is the same.
@@ -1301,7 +1301,7 @@ impl Return {
     }
 }
 
-tvm_ffi::impl_object_upcast!(Return => Stmt);
+tvm_ffi::unsafe_impl_object_upcast!(Return => Stmt);
 // tvm-ffi-stubgen(end)
 
 impl Return {
@@ -1361,7 +1361,7 @@ impl Continue {
     }
 }
 
-tvm_ffi::impl_object_upcast!(Continue => Stmt);
+tvm_ffi::unsafe_impl_object_upcast!(Continue => Stmt);
 // tvm-ffi-stubgen(end)
 
 // `ir.Continue` stores its location as given: the generated `Continue::new` is the same.

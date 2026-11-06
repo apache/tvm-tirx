@@ -55,7 +55,10 @@ impl Observe {
                 self.array = Some(context.to_array());
                 self.live = Some(context.clone());
             }
-            self.facts.push((value.value.to_i64().unwrap(), context.to_array().iter().collect()));
+            self.facts.push((
+                value.value.to_i64().unwrap(),
+                context.to_array().iter().cloned().collect(),
+            ));
         }
         visitor.default_visit(self, node)
     }
@@ -172,7 +175,7 @@ fn interrupts_restore_native_scope_and_errors_terminate() {
             if self.fail {
                 Err(Error::new(RUNTIME_ERROR, "constraint stop", ""))
             } else {
-                Ok(Some(VisitInterrupt::with(17_i64)))
+                Ok(Some(VisitInterrupt::new(17_i64)))
             }
         }
     }
@@ -205,7 +208,10 @@ fn lazy_call_arms_gain_predicates_but_eager_select_arms_do_not() {
         ) -> Result<Option<VisitInterrupt>> {
             let value = node.value.to_i64().unwrap();
             if [21, 22, 31, 32].contains(&value) {
-                self.0.push((value, visitor.base().constraints().to_array().iter().collect()));
+                self.0.push((
+                    value,
+                    visitor.base().constraints().to_array().iter().cloned().collect(),
+                ));
             }
             Ok(None)
         }

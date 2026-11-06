@@ -134,7 +134,7 @@ unsafe impl UnsafeInit for BaseFuncObj {
     }
 }
 
-tvm_ffi::impl_object_upcast!(BaseFunc => Expr);
+tvm_ffi::unsafe_impl_object_upcast!(BaseFunc => Expr);
 // tvm-ffi-stubgen(end)
 
 impl BaseFunc {

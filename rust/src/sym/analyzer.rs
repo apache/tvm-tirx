@@ -599,7 +599,7 @@ impl Deref for CanonicalExprObj {
     }
 }
 
-tvm_ffi::impl_object_upcast!(CanonicalExpr => Expr);
+tvm_ffi::unsafe_impl_object_upcast!(CanonicalExpr => Expr);
 // tvm-ffi-stubgen(end)
 
 // tvm-ffi-stubgen(begin): object/sym.SplitExpr
@@ -631,7 +631,7 @@ impl Deref for SplitExprObj {
     }
 }
 
-tvm_ffi::impl_object_upcast!(SplitExpr => Expr, SplitExpr => CanonicalExpr, SplitExpr => PrimExpr);
+tvm_ffi::unsafe_impl_object_upcast!(SplitExpr => Expr, SplitExpr => CanonicalExpr, SplitExpr => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 // tvm-ffi-stubgen(begin): object/sym.SumExpr
@@ -663,5 +663,5 @@ impl Deref for SumExprObj {
     }
 }
 
-tvm_ffi::impl_object_upcast!(SumExpr => Expr, SumExpr => CanonicalExpr, SumExpr => PrimExpr);
+tvm_ffi::unsafe_impl_object_upcast!(SumExpr => Expr, SumExpr => CanonicalExpr, SumExpr => PrimExpr);
 // tvm-ffi-stubgen(end)

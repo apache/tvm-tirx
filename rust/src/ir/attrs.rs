@@ -34,7 +34,7 @@
 //! let module = IRModule::from_functions(&Map::new(), Some(&DictAttrs::new(dict)), &Map::new())?;
 //!
 //! let prefix = module.attrs.dict.get(&"system_lib_prefix".into())?.unwrap();
-//! assert_eq!(prefix.try_as::<String>().unwrap(), "my_lib_");
+//! assert_eq!(String::try_from(prefix)?, "my_lib_");
 //! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
 //! ```
 
@@ -158,5 +158,5 @@ impl DictAttrs {
     }
 }
 
-tvm_ffi::impl_object_upcast!(DictAttrs => Attrs);
+tvm_ffi::unsafe_impl_object_upcast!(DictAttrs => Attrs);
 // tvm-ffi-stubgen(end)

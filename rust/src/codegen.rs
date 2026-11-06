@@ -68,7 +68,7 @@ use tvm_ffi::String;
 /// let module = IRModule::from_functions(&functions, None, &Map::new())?;
 ///
 /// let compiled = codegen::build_module(&module, Target::new("c")?)?;
-/// assert!(compiled.implements_function("add_one", true)?);
+/// assert!(compiled.implements_function_with_imports("add_one")?);
 /// # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
 /// ```
 pub fn build_module(module: impl Into<IRModule>, target: impl Into<Target>) -> Result<Module> {

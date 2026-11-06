@@ -191,7 +191,7 @@ impl ModulePassObj {
     }
 }
 
-tvm_ffi::impl_object_upcast!(ModulePass => Pass);
+tvm_ffi::unsafe_impl_object_upcast!(ModulePass => Pass);
 // tvm-ffi-stubgen(end)
 
 impl ModulePass {
@@ -256,7 +256,7 @@ impl SequentialObj {
     }
 }
 
-tvm_ffi::impl_object_upcast!(Sequential => Pass);
+tvm_ffi::unsafe_impl_object_upcast!(Sequential => Pass);
 // tvm-ffi-stubgen(end)
 
 impl Sequential {

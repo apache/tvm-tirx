@@ -241,7 +241,7 @@ impl Op {
         // SAFETY: C++ `OpDef` writes these members of the registry's node in place too. No
         // reference into the node is live, and registration is not synchronized with readers.
         unsafe {
-            let node = ObjectArc::as_raw(ObjectRefCore::data(self)) as *mut OpObj;
+            let node = ObjectArc::as_ptr(ObjectRefCore::data(self)) as *mut OpObj;
             let previous = std::ptr::replace(std::ptr::addr_of_mut!((*node).validator), validator);
             std::ptr::addr_of_mut!((*node).validator_is_custom).write(custom);
             drop(previous);
@@ -249,7 +249,7 @@ impl Op {
     }
 }
 
-tvm_ffi::impl_object_upcast!(Op => Expr);
+tvm_ffi::unsafe_impl_object_upcast!(Op => Expr);
 
 // tvm-ffi-stubgen(begin): object/ir.ArgumentInfo
 /// Complete: reflected fields fill [24, 56) exactly.
@@ -317,7 +317,7 @@ impl<T> OpAttrMap<T> {
         // The cell is read on every lookup because growth may move the element buffer.
         let cell = unsafe {
             let data = tvm_ffi::object::ObjectRefCore::data(&self.column);
-            &*(ObjectArc::as_raw(data) as *const support::SeqCell)
+            &*(ObjectArc::as_ptr(data) as *const support::SeqCell)
         };
         let index = op.index as usize;
         if index >= cell.size as usize {

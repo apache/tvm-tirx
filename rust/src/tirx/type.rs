@@ -93,7 +93,7 @@ impl TensorMapType {
     }
 }
 
-tvm_ffi::impl_object_upcast!(TensorMapType => Type);
+tvm_ffi::unsafe_impl_object_upcast!(TensorMapType => Type);
 // tvm-ffi-stubgen(end)
 
 // The native `tirx.TensorMapType` stores the location as given, as the generated

@@ -165,7 +165,7 @@ impl TensorType {
     }
 }
 
-tvm_ffi::impl_object_upcast!(TensorType => Type);
+tvm_ffi::unsafe_impl_object_upcast!(TensorType => Type);
 // tvm-ffi-stubgen(end)
 
 /// The runtime's allocation alignment (C++ `runtime::kAllocAlignment`, which a build may set),

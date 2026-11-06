@@ -189,7 +189,7 @@ impl MissingType {
     }
 }
 
-tvm_ffi::impl_object_upcast!(MissingType => Type);
+tvm_ffi::unsafe_impl_object_upcast!(MissingType => Type);
 // tvm-ffi-stubgen(end)
 
 impl MissingType {
@@ -255,7 +255,7 @@ impl NoneType {
     }
 }
 
-tvm_ffi::impl_object_upcast!(NoneType => Type);
+tvm_ffi::unsafe_impl_object_upcast!(NoneType => Type);
 // tvm-ffi-stubgen(end)
 
 impl NoneType {
@@ -320,7 +320,7 @@ impl AnyType {
     }
 }
 
-tvm_ffi::impl_object_upcast!(AnyType => Type);
+tvm_ffi::unsafe_impl_object_upcast!(AnyType => Type);
 // tvm-ffi-stubgen(end)
 
 // `ir.AnyType` stores its location as given: the generated `AnyType::new` is the same.
@@ -375,7 +375,7 @@ impl TensorRegionType {
     }
 }
 
-tvm_ffi::impl_object_upcast!(TensorRegionType => Type);
+tvm_ffi::unsafe_impl_object_upcast!(TensorRegionType => Type);
 // tvm-ffi-stubgen(end)
 
 impl TensorRegionType {
@@ -441,7 +441,7 @@ impl OpaqueType {
     }
 }
 
-tvm_ffi::impl_object_upcast!(OpaqueType => Type);
+tvm_ffi::unsafe_impl_object_upcast!(OpaqueType => Type);
 // tvm-ffi-stubgen(end)
 
 // `ir.OpaqueType` allocates a fresh type at the unknown location: the generated
@@ -498,7 +498,7 @@ impl PrimType {
     }
 }
 
-tvm_ffi::impl_object_upcast!(PrimType => Type);
+tvm_ffi::unsafe_impl_object_upcast!(PrimType => Type);
 // tvm-ffi-stubgen(end)
 
 impl PrimType {
@@ -638,7 +638,7 @@ impl StringType {
     }
 }
 
-tvm_ffi::impl_object_upcast!(StringType => Type);
+tvm_ffi::unsafe_impl_object_upcast!(StringType => Type);
 // tvm-ffi-stubgen(end)
 
 // `ir.StringType` allocates a fresh type at the unknown location: the generated
@@ -700,7 +700,7 @@ impl PtrType {
     }
 }
 
-tvm_ffi::impl_object_upcast!(PtrType => Type);
+tvm_ffi::unsafe_impl_object_upcast!(PtrType => Type);
 // tvm-ffi-stubgen(end)
 
 impl PtrType {
@@ -772,7 +772,7 @@ impl TupleType {
     }
 }
 
-tvm_ffi::impl_object_upcast!(TupleType => Type);
+tvm_ffi::unsafe_impl_object_upcast!(TupleType => Type);
 // tvm-ffi-stubgen(end)
 
 impl TupleType {
@@ -843,7 +843,7 @@ impl FuncType {
     }
 }
 
-tvm_ffi::impl_object_upcast!(FuncType => Type);
+tvm_ffi::unsafe_impl_object_upcast!(FuncType => Type);
 // tvm-ffi-stubgen(end)
 
 impl FuncType {

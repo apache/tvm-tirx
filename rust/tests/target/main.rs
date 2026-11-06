@@ -24,7 +24,7 @@
 mod common;
 
 use tvm_tirx::target::{self, Target, TargetKind, TargetKindObj, TargetObj};
-use tvm_tirx::tvm_ffi::{Any, Map, Object, ObjectRefCast, String as FfiString, TypeIndex};
+use tvm_tirx::tvm_ffi::{Any, Map, Object, ObjectRefCore, String as FfiString, TypeIndex};
 
 use common::{assert_type_contracts, empty_module, global, load_llvm_backend};
 
@@ -70,9 +70,9 @@ fn native_targets_are_read_through_accessors() {
         .unwrap()
         .try_into()
         .unwrap();
-    let host: Target = with_host.host().unwrap().unwrap().try_cast().unwrap();
+    let host: Target = with_host.host().unwrap().unwrap().downcast().unwrap();
     assert_eq!(host.kind().unwrap().name().unwrap().as_str(), "llvm");
-    assert!(with_host.host().unwrap().unwrap().try_cast::<TargetKind>().is_err());
+    assert!(with_host.host().unwrap().unwrap().downcast::<TargetKind>().is_err());
 }
 
 #[test]

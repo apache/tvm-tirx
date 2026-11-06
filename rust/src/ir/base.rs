@@ -33,7 +33,7 @@
 //! # Function::register_global("my_ext.double", double)?;
 //! let double = EnvFunc::new("my_ext.double", Function::get_global("my_ext.double")?);
 //!
-//! assert_eq!(double.func.call_tuple((21_i64,))?.try_as::<i64>(), Some(42));
+//! assert_eq!(i64::try_from(double.func.call_tuple((21_i64,))?)?, 42);
 //! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
 //! ```
 

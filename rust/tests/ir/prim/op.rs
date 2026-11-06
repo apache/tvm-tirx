@@ -31,8 +31,7 @@ use tvm_tirx::ir::{
 };
 use tvm_tirx::sym;
 use tvm_tirx::tvm_ffi::{
-    Any, AnyCompatible, AnyView, BigInt, ObjectRefCast, ObjectRefCore, Result, String as FfiString,
-    TYPE_ERROR,
+    Any, AnyCompatible, AnyView, BigInt, ObjectRefCore, Result, String as FfiString, TYPE_ERROR,
 };
 
 use super::{dtype, int_value, var};
@@ -431,20 +430,20 @@ fn located_variants() {
     let _serial = serial();
     let x = var("x", PrimType::int(32));
     let here: Location = SourceLoc::new(SourceName::get("ops.rs").unwrap(), 1, 2, 3, 4).into();
-    let located: prim::FloorDiv = op::floordiv_at(&x, 4, here.clone()).unwrap().try_cast().unwrap();
+    let located: prim::FloorDiv = op::floordiv_at(&x, 4, here.clone()).unwrap().downcast().unwrap();
     assert!(located.loc.same_as(&here));
-    let unlocated: prim::FloorDiv = op::floordiv(&x, 4).unwrap().try_cast().unwrap();
+    let unlocated: prim::FloorDiv = op::floordiv(&x, 4).unwrap().downcast().unwrap();
     assert!(unlocated.loc.downcast_ref::<UnknownLocObj>().is_some());
     // A folded constant is at the unknown location, as C++ `TryConstFold` builds it.
-    let folded: IntImm = op::add_at(1, 2, here.clone()).unwrap().try_cast().unwrap();
+    let folded: IntImm = op::add_at(1, 2, here.clone()).unwrap().downcast().unwrap();
     assert!(folded.loc.downcast_ref::<UnknownLocObj>().is_some());
-    let cast: Cast = op::cast_at(&x, PrimType::int(64), here.clone()).unwrap().try_cast().unwrap();
+    let cast: Cast = op::cast_at(&x, PrimType::int(64), here.clone()).unwrap().downcast().unwrap();
     assert!(cast.loc.same_as(&here));
     let call: Call =
-        op::exp_at(var("f", PrimType::float(32)), here.clone()).unwrap().try_cast().unwrap();
+        op::exp_at(var("f", PrimType::float(32)), here.clone()).unwrap().downcast().unwrap();
     assert!(call.loc.same_as(&here));
     let limit: IntImm =
-        op::max_value_at(PrimType::int(8), here.clone()).unwrap().try_cast().unwrap();
+        op::max_value_at(PrimType::int(8), here.clone()).unwrap().downcast().unwrap();
     assert!(limit.loc.same_as(&here));
 }
 
@@ -859,11 +858,11 @@ fn arithmetic_operators() {
     assert_eq!(folded!(op::shift_left, 1, 3), 8);
     assert_eq!(folded!(op::shift_right, 8, 3), 1);
     let not = op::bitwise_not(0).unwrap();
-    assert!(not.try_cast::<prim::BitwiseNot>().is_ok(), "the node, not folded");
+    assert!(not.downcast::<prim::BitwiseNot>().is_ok(), "the node, not folded");
 
     // On a variable they build the nodes.
     let floordiv = op::floordiv(&x, 2).unwrap();
-    assert!(floordiv.try_cast::<prim::FloorDiv>().is_ok());
+    assert!(floordiv.downcast::<prim::FloorDiv>().is_ok());
     assert_eq!(dtype(&op::pow(2.0f32, 3.0f32).unwrap()), "float32");
 }
 
@@ -875,11 +874,11 @@ fn comparison_and_logic_operators() {
     for cmp in [op::eq, op::ne, op::lt, op::le, op::gt, op::ge] {
         assert_eq!(dtype(&cmp(PrimExpr::from(&x), one.clone()).unwrap()), "bool");
     }
-    assert!(op::lt(&x, &one).unwrap().try_cast::<prim::LT>().is_ok());
+    assert!(op::lt(&x, &one).unwrap().downcast::<prim::LT>().is_ok());
 
     let conds = [op::lt(&x, &one).unwrap(), op::gt(&x, -5).unwrap()];
-    assert!(op::all(conds.clone()).unwrap().try_cast::<prim::And>().is_ok());
-    assert!(op::any(conds.clone()).unwrap().try_cast::<prim::Or>().is_ok());
+    assert!(op::all(conds.clone()).unwrap().downcast::<prim::And>().is_ok());
+    assert!(op::any(conds.clone()).unwrap().downcast::<prim::Or>().is_ok());
     assert!(structural_equal(&op::all([&conds[0]]).unwrap(), &conds[0]));
     assert!(op::any(Vec::<PrimExpr>::new()).is_err());
     assert!(structural_equal(
@@ -916,7 +915,7 @@ fn math_operators() {
     assert_eq!(int_value(op::abs(-3).unwrap()), 3);
     assert_eq!(int_value(op::max_value(PrimType::int(8)).unwrap()), 127);
     assert_eq!(int_value(op::min_value(PrimType::int(8)).unwrap()), -128);
-    let inf: FloatImm = op::infinity(PrimType::float(32)).unwrap().try_cast().unwrap();
+    let inf: FloatImm = op::infinity(PrimType::float(32)).unwrap().downcast().unwrap();
     assert!(inf.value.is_infinite());
 }
 
@@ -932,26 +931,26 @@ fn make_const() {
     assert!(op::make_const(PrimType::uint(8), -1).is_err());
     assert!(op::make_const(PrimType::int(8), 128).is_err());
     for ty in [PrimType::float(16), PrimType::bfloat(16), PrimType::float(64)] {
-        let two: FloatImm = op::make_const(ty.clone(), 2).unwrap().try_cast().unwrap();
+        let two: FloatImm = op::make_const(ty.clone(), 2).unwrap().downcast().unwrap();
         assert_eq!(two.value, 2.0);
         assert!(structural_equal(&two.ty, &ty));
     }
     // A float value too, as C++ `MakeConst(ty, double)`.
-    let half: FloatImm = op::make_const(PrimType::float(32), 0.5).unwrap().try_cast().unwrap();
+    let half: FloatImm = op::make_const(PrimType::float(32), 0.5).unwrap().downcast().unwrap();
     assert_eq!(half.value, 0.5);
     assert_eq!(int_value(op::make_const(PrimType::int(32), 2.0).unwrap()), 2);
     assert!(op::make_const(PrimType::void(), 0).is_err());
 
     let vector = op::make_const(PrimType::int(32).with_lanes(4).unwrap(), 1).unwrap();
     assert_eq!(dtype(&vector), "int32x4");
-    let broadcast: prim::Broadcast = vector.try_cast().unwrap();
+    let broadcast: prim::Broadcast = vector.downcast().unwrap();
     assert_eq!(int_value(broadcast.value.clone()), 1);
     assert_eq!(int_value(broadcast.lanes.clone()), 4);
 
     let scalable = PrimType::int(32).with_scalable_lanes(4).unwrap();
     let vector = op::make_const(scalable.clone(), 1).unwrap();
     assert!(structural_equal(&vector.ty, &scalable));
-    let broadcast: prim::Broadcast = vector.try_cast().unwrap();
+    let broadcast: prim::Broadcast = vector.downcast().unwrap();
     let lanes = broadcast.lanes.downcast_ref::<prim::MulObj>().expect("vscale * 4");
     assert_eq!(int_value(lanes.b.clone()), 4);
 }

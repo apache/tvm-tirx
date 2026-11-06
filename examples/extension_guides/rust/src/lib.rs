@@ -30,7 +30,7 @@ use tvm_tirx::ir::{
 use tvm_tirx::tirx::transform::FunctionPass;
 use tvm_tirx::tirx::Function;
 use tvm_tirx::tvm_ffi::{
-    self, def_object_ref, dispatch, rs_object, Any, AnyView, Error, ObjectRefCast, ObjectRefCore,
+    self, def_object_ref, dispatch, rs_object, Any, AnyView, Error, ObjectRefCore,
     Result, Unchanged, UnchangedOr, WalkOrder,
 };
 
@@ -70,7 +70,7 @@ fn check_call(call: &CallObj, count: usize) -> Result<()> {
 /// `bfloat16`.
 fn float_part(ty: &Type) -> Result<PrimType> {
     let elem: PrimType =
-        ty.clone().try_cast().map_err(|_| type_error("expected a scalar float"))?;
+        ty.clone().downcast().map_err(|_| type_error("expected a scalar float"))?;
     let bits = elem.dtype.bits;
     let float = elem.dtype == dtype::float(bits) || elem.dtype == dtype::bfloat(bits);
     require(float, "expected a scalar float")?;
@@ -89,13 +89,13 @@ fn infer_complex(call: &CallObj) -> Result<Type> {
 // end inference
 
 fn complex_arg(call: &CallObj, index: usize) -> Result<ComplexType> {
-    let op: Op = call.op.clone().try_cast()?;
+    let op: Op = call.op.clone().downcast().map_err(Error::downcast_failed::<Op>)?;
     let ty: ComplexType = call
         .args
         .get(index)?
         .ty
         .clone()
-        .try_cast()
+        .downcast()
         .map_err(|_| type_error(&format!("{} expects a complex value", op.name.as_str())))?;
     float_part(&ty.dtype.clone().into())?;
     Ok(ty)
@@ -115,7 +115,7 @@ fn infer_part(call: &CallObj) -> Result<Type> {
 
 // Explicit result types bypass inference, so validation checks the inputs and result again.
 fn validate_call(call: &CallObj) -> Result<()> {
-    let op: Op = call.op.clone().try_cast()?;
+    let op: Op = call.op.clone().downcast().map_err(Error::downcast_failed::<Op>)?;
     let expected = match op.name.as_str() {
         "my_ext.complex" => infer_complex(call)?,
         "my_ext.cmul" => infer_cmul(call)?,

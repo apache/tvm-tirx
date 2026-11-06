@@ -27,7 +27,7 @@
 //!
 //! ```
 //! use tvm_tirx::tirx::{transform, Function};
-//! use tvm_tirx::tvm_ffi::ObjectRefCast;
+//! use tvm_tirx::tvm_ffi::{Error, ObjectRefCore};
 //! # use tvm_tirx::ir::{BaseFunc, DictAttrs, Evaluate, GlobalVar, IRModule, MissingType, SeqStmt};
 //! # use tvm_tirx::ir::{Var, UNKNOWN_LOC};
 //! # use tvm_tirx::tvm_ffi::Map;
@@ -38,7 +38,7 @@
 //! # let module = IRModule::from_functions(&functions.into_iter().collect(), None, &Map::new())?;
 //!
 //! let module = transform::remove_no_op()?.run(module)?;
-//! let main: Function = module.lookup_name("main")?.try_cast()?;
+//! let main: Function = module.lookup_name("main")?.downcast().map_err(Error::downcast_failed::<Function>)?;
 //! assert!(main.body.seq.is_empty());
 //! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
 //! ```

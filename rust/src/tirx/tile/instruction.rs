@@ -105,7 +105,7 @@ impl ScopeAttrs {
     }
 }
 
-tvm_ffi::impl_object_upcast!(ScopeAttrs => Attrs);
+tvm_ffi::unsafe_impl_object_upcast!(ScopeAttrs => Attrs);
 // tvm-ffi-stubgen(end)
 
 // tvm-ffi-stubgen(begin): object/tirx.tensor.TrnAttrs
@@ -197,7 +197,7 @@ impl TrnAttrs {
     }
 }
 
-tvm_ffi::impl_object_upcast!(TrnAttrs => Attrs);
+tvm_ffi::unsafe_impl_object_upcast!(TrnAttrs => Attrs);
 // tvm-ffi-stubgen(end)
 
 /// Return the tensor region `value` covers: a `TensorLoad` converted, a [`TensorRegion`] as is

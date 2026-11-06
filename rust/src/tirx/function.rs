@@ -148,7 +148,7 @@ impl Function {
     }
 }
 
-tvm_ffi::impl_object_upcast!(Function => Expr, Function => BaseFunc);
+tvm_ffi::unsafe_impl_object_upcast!(Function => Expr, Function => BaseFunc);
 // tvm-ffi-stubgen(end)
 
 impl Function {

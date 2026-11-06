@@ -70,7 +70,7 @@ impl Rewrite {
         view: &mut View<'_, Self>,
     ) -> Result<UnchangedOr<Any>> {
         let marker = node.value.downcast_ref::<IntImmObj>().unwrap().value.to_i64().unwrap();
-        self.facts.push((marker, view.base().constraints().to_array().iter().collect()));
+        self.facts.push((marker, view.base().constraints().to_array().iter().cloned().collect()));
         view.default_mutate(self, node)
     }
     fn mutate_for(

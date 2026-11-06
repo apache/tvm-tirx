@@ -363,7 +363,7 @@ impl Cast {
     }
 }
 
-tvm_ffi::impl_object_upcast!(Cast => Expr, Cast => PrimExpr);
+tvm_ffi::unsafe_impl_object_upcast!(Cast => Expr, Cast => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 impl Cast {
@@ -449,7 +449,7 @@ impl LShift {
     }
 }
 
-tvm_ffi::impl_object_upcast!(LShift => Expr, LShift => PrimExpr);
+tvm_ffi::unsafe_impl_object_upcast!(LShift => Expr, LShift => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 binary_new! {
@@ -515,7 +515,7 @@ impl RShift {
     }
 }
 
-tvm_ffi::impl_object_upcast!(RShift => Expr, RShift => PrimExpr);
+tvm_ffi::unsafe_impl_object_upcast!(RShift => Expr, RShift => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 binary_new! {
@@ -581,7 +581,7 @@ impl BitwiseAnd {
     }
 }
 
-tvm_ffi::impl_object_upcast!(BitwiseAnd => Expr, BitwiseAnd => PrimExpr);
+tvm_ffi::unsafe_impl_object_upcast!(BitwiseAnd => Expr, BitwiseAnd => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 binary_new! {
@@ -647,7 +647,7 @@ impl BitwiseOr {
     }
 }
 
-tvm_ffi::impl_object_upcast!(BitwiseOr => Expr, BitwiseOr => PrimExpr);
+tvm_ffi::unsafe_impl_object_upcast!(BitwiseOr => Expr, BitwiseOr => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 binary_new! {
@@ -713,7 +713,7 @@ impl BitwiseXor {
     }
 }
 
-tvm_ffi::impl_object_upcast!(BitwiseXor => Expr, BitwiseXor => PrimExpr);
+tvm_ffi::unsafe_impl_object_upcast!(BitwiseXor => Expr, BitwiseXor => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 binary_new! {
@@ -777,7 +777,7 @@ impl BitwiseNot {
     }
 }
 
-tvm_ffi::impl_object_upcast!(BitwiseNot => Expr, BitwiseNot => PrimExpr);
+tvm_ffi::unsafe_impl_object_upcast!(BitwiseNot => Expr, BitwiseNot => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 impl BitwiseNot {
@@ -858,7 +858,7 @@ impl Add {
     }
 }
 
-tvm_ffi::impl_object_upcast!(Add => Expr, Add => PrimExpr);
+tvm_ffi::unsafe_impl_object_upcast!(Add => Expr, Add => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 binary_new! {
@@ -923,7 +923,7 @@ impl Sub {
     }
 }
 
-tvm_ffi::impl_object_upcast!(Sub => Expr, Sub => PrimExpr);
+tvm_ffi::unsafe_impl_object_upcast!(Sub => Expr, Sub => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 binary_new! {
@@ -988,7 +988,7 @@ impl Mul {
     }
 }
 
-tvm_ffi::impl_object_upcast!(Mul => Expr, Mul => PrimExpr);
+tvm_ffi::unsafe_impl_object_upcast!(Mul => Expr, Mul => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 binary_new! {
@@ -1053,7 +1053,7 @@ impl Div {
     }
 }
 
-tvm_ffi::impl_object_upcast!(Div => Expr, Div => PrimExpr);
+tvm_ffi::unsafe_impl_object_upcast!(Div => Expr, Div => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 binary_new! {
@@ -1118,7 +1118,7 @@ impl Mod {
     }
 }
 
-tvm_ffi::impl_object_upcast!(Mod => Expr, Mod => PrimExpr);
+tvm_ffi::unsafe_impl_object_upcast!(Mod => Expr, Mod => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 binary_new! {
@@ -1183,7 +1183,7 @@ impl FloorDiv {
     }
 }
 
-tvm_ffi::impl_object_upcast!(FloorDiv => Expr, FloorDiv => PrimExpr);
+tvm_ffi::unsafe_impl_object_upcast!(FloorDiv => Expr, FloorDiv => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 binary_new! {
@@ -1249,7 +1249,7 @@ impl FloorMod {
     }
 }
 
-tvm_ffi::impl_object_upcast!(FloorMod => Expr, FloorMod => PrimExpr);
+tvm_ffi::unsafe_impl_object_upcast!(FloorMod => Expr, FloorMod => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 binary_new! {
@@ -1315,7 +1315,7 @@ impl Min {
     }
 }
 
-tvm_ffi::impl_object_upcast!(Min => Expr, Min => PrimExpr);
+tvm_ffi::unsafe_impl_object_upcast!(Min => Expr, Min => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 binary_new! {
@@ -1380,7 +1380,7 @@ impl Max {
     }
 }
 
-tvm_ffi::impl_object_upcast!(Max => Expr, Max => PrimExpr);
+tvm_ffi::unsafe_impl_object_upcast!(Max => Expr, Max => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 binary_new! {
@@ -1448,7 +1448,7 @@ impl EQ {
     }
 }
 
-tvm_ffi::impl_object_upcast!(EQ => Expr, EQ => PrimExpr);
+tvm_ffi::unsafe_impl_object_upcast!(EQ => Expr, EQ => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 binary_new! {
@@ -1514,7 +1514,7 @@ impl NE {
     }
 }
 
-tvm_ffi::impl_object_upcast!(NE => Expr, NE => PrimExpr);
+tvm_ffi::unsafe_impl_object_upcast!(NE => Expr, NE => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 binary_new! {
@@ -1580,7 +1580,7 @@ impl LT {
     }
 }
 
-tvm_ffi::impl_object_upcast!(LT => Expr, LT => PrimExpr);
+tvm_ffi::unsafe_impl_object_upcast!(LT => Expr, LT => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 binary_new! {
@@ -1646,7 +1646,7 @@ impl LE {
     }
 }
 
-tvm_ffi::impl_object_upcast!(LE => Expr, LE => PrimExpr);
+tvm_ffi::unsafe_impl_object_upcast!(LE => Expr, LE => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 binary_new! {
@@ -1712,7 +1712,7 @@ impl GT {
     }
 }
 
-tvm_ffi::impl_object_upcast!(GT => Expr, GT => PrimExpr);
+tvm_ffi::unsafe_impl_object_upcast!(GT => Expr, GT => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 binary_new! {
@@ -1778,7 +1778,7 @@ impl GE {
     }
 }
 
-tvm_ffi::impl_object_upcast!(GE => Expr, GE => PrimExpr);
+tvm_ffi::unsafe_impl_object_upcast!(GE => Expr, GE => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 binary_new! {
@@ -1847,7 +1847,7 @@ impl And {
     }
 }
 
-tvm_ffi::impl_object_upcast!(And => Expr, And => PrimExpr);
+tvm_ffi::unsafe_impl_object_upcast!(And => Expr, And => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 impl And {
@@ -1925,7 +1925,7 @@ impl Or {
     }
 }
 
-tvm_ffi::impl_object_upcast!(Or => Expr, Or => PrimExpr);
+tvm_ffi::unsafe_impl_object_upcast!(Or => Expr, Or => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 impl Or {
@@ -2001,7 +2001,7 @@ impl Not {
     }
 }
 
-tvm_ffi::impl_object_upcast!(Not => Expr, Not => PrimExpr);
+tvm_ffi::unsafe_impl_object_upcast!(Not => Expr, Not => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 impl Not {
@@ -2095,7 +2095,7 @@ impl Select {
     }
 }
 
-tvm_ffi::impl_object_upcast!(Select => Expr, Select => PrimExpr);
+tvm_ffi::unsafe_impl_object_upcast!(Select => Expr, Select => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 impl Select {
@@ -2220,7 +2220,7 @@ impl Let {
     }
 }
 
-tvm_ffi::impl_object_upcast!(Let => Expr, Let => PrimExpr);
+tvm_ffi::unsafe_impl_object_upcast!(Let => Expr, Let => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 impl Let {

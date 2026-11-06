@@ -106,7 +106,7 @@ impl FunctionPassObj {
     }
 }
 
-tvm_ffi::impl_object_upcast!(FunctionPass => Pass);
+tvm_ffi::unsafe_impl_object_upcast!(FunctionPass => Pass);
 // tvm-ffi-stubgen(end)
 
 impl FunctionPass {

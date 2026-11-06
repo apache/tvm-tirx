@@ -86,7 +86,7 @@ fn typed_walk_callbacks_collect_facts_and_restore_analyzer_scopes() {
                         let marker = &node.value.downcast_ref::<IntImmObj>().unwrap().value;
                         facts.push((
                             marker.to_i64().unwrap(),
-                            context.to_array().iter().collect::<Vec<_>>(),
+                            context.to_array().iter().cloned().collect::<Vec<_>>(),
                         ));
                         analyzer.sync_constraint_context(context)?;
                         loop_bounds.push(if analyzer.const_int_bound_is_bound(&i)? {

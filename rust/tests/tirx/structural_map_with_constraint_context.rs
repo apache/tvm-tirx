@@ -92,7 +92,7 @@ fn ordered_mapping_collects_result_facts_and_restores_scopes() {
                                     .value
                                     .to_i64()
                                     .unwrap(),
-                                context.to_array().iter().collect::<Vec<_>>(),
+                                context.to_array().iter().cloned().collect::<Vec<_>>(),
                             ));
                             Unchanged
                         },

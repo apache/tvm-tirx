@@ -163,7 +163,7 @@ impl IntervalSetObj {
     }
 }
 
-tvm_ffi::impl_object_upcast!(IntervalSet => IntSet);
+tvm_ffi::unsafe_impl_object_upcast!(IntervalSet => IntSet);
 // tvm-ffi-stubgen(end)
 
 impl IntervalSet {

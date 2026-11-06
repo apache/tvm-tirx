@@ -34,8 +34,8 @@ use tvm_tirx::tirx::structural_map_with_constraint_context::structural_map_with_
 use tvm_tirx::tirx::structural_walk_with_constraint_context::structural_walk_with_constraint_context;
 use tvm_tirx::tirx::Function;
 use tvm_tirx::tvm_ffi::{
-    self, dispatch, match_any, Any, AnyView, Array, DefRegionKind, MutationView, ObjectIdentity,
-    ObjectRefCast, ObjectRefCore, Result, StructuralMutatorView, StructuralVisitorView, Unchanged,
+    self, dispatch, match_any, Any, AnyView, Array, DefRegionKind, Error, MutationView, ObjectIdentity,
+    ObjectRefCore, Result, StructuralMutatorView, StructuralVisitorView, Unchanged,
     UnchangedOr, VisitInterrupt, WalkOrder, WalkResult,
 };
 
@@ -63,7 +63,7 @@ fn construct() -> Result<tvm_ffi::String> {
 // [objects.begin]
 fn objects() -> Result<Strings> {
     let (_, expr) = x_times_2_plus_1()?;
-    let add: Add = expr.try_cast()?;
+    let add: Add = expr.downcast().map_err(Error::downcast_failed::<Add>)?;
     let alias = add.clone();
     Ok(lines([
         format!("a = {}", script(&add.a)?.as_str()),
@@ -76,11 +76,13 @@ fn objects() -> Result<Strings> {
 // [casts.begin]
 fn casts() -> Result<Strings> {
     let (_, expr) = x_times_2_plus_1()?;
-    let add: Add = expr.try_cast()?;
+    let add: Add = expr.downcast().map_err(Error::downcast_failed::<Add>)?;
     let value: Expr = add.into();
-    let again: Add = value.clone().try_cast()?;
+    let again: Add = value.clone().downcast().map_err(Error::downcast_failed::<Add>)?;
     let mut out = vec![format!("back to Add: {}", script(&again)?.as_str())];
-    if let Err(err) = value.try_cast::<Mul>() {
+    // A failed downcast hands the reference back, so another type can be tried.
+    if let Err(value) = value.downcast::<Mul>() {
+        let err = Error::downcast_failed::<Mul>(value);
         out.push(format!("as Mul: {}", err.message()));
     }
     Ok(lines(out))
@@ -151,7 +153,7 @@ fn print() -> Result<tvm_ffi::String> {
 fn written_tensors(func: Function) -> Result<Strings> {
     let mut writes = Vec::new();
     let on_store = |store: TensorStore| -> Result<WalkResult> {
-        let dest: Var = store.dest.clone().try_cast()?;
+        let dest: Var = store.dest.clone().downcast().map_err(Error::downcast_failed::<Var>)?;
         writes.push(dest.name.clone());
         Ok(WalkResult::Advance)
     };
@@ -175,7 +177,7 @@ fn first_write(func: Function) -> Result<Option<TensorStore>> {
 fn specialize(func: Function, n: Var, value: i64) -> Result<Function> {
     let specialize_var = |var: Var| -> Result<Expr> {
         if var.same_as(&n) {
-            let ty: PrimType = var.ty.clone().try_cast()?;
+            let ty: PrimType = var.ty.clone().downcast().map_err(Error::downcast_failed::<PrimType>)?;
             return Ok(make_const(ty, value)?.into());
         }
         Ok(var.into())

@@ -34,7 +34,7 @@ use tvm_tirx::ir::{
     register_type, CallEffectKind, CallObj, DictAttrs, Expr, OpDef, PrimType, Type, TypeObj, Var,
     UNKNOWN_LOC,
 };
-use tvm_tirx::tvm_ffi::{self, def_object_ref, rs_object, Array, ObjectRefCast, Result};
+use tvm_tirx::tvm_ffi::{self, def_object_ref, rs_object, Array, Error, ObjectRefCore, Result};
 
 fn first_arg_type(call: &CallObj) -> Result<Type> {
     Ok(call.args.get(0)?.ty.clone())
@@ -42,7 +42,8 @@ fn first_arg_type(call: &CallObj) -> Result<Type> {
 
 /// The variable a loop binds in its body: an index of the extent's type.
 fn loop_index(call: &CallObj) -> Result<Array<Var>> {
-    let ty: PrimType = call.args.get(0)?.ty.clone().try_cast()?;
+    let ty: PrimType =
+        call.args.get(0)?.ty.clone().downcast().map_err(Error::downcast_failed::<PrimType>)?;
     Ok(Array::from_vec(vec![Var::new("i", ty, UNKNOWN_LOC)]))
 }
 

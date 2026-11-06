@@ -122,7 +122,7 @@ impl Deref for IterMapExprObj {
     }
 }
 
-tvm_ffi::impl_object_upcast!(IterMapExpr => Expr, IterMapExpr => PrimExpr);
+tvm_ffi::unsafe_impl_object_upcast!(IterMapExpr => Expr, IterMapExpr => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 // tvm-ffi-stubgen(begin): object/sym.IterMapResult
@@ -274,7 +274,7 @@ impl IterSplitExprObj {
     }
 }
 
-tvm_ffi::impl_object_upcast!(IterSplitExpr => Expr, IterSplitExpr => IterMapExpr, IterSplitExpr => PrimExpr);
+tvm_ffi::unsafe_impl_object_upcast!(IterSplitExpr => Expr, IterSplitExpr => IterMapExpr, IterSplitExpr => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 // tvm-ffi-stubgen(begin): object/sym.IterSumExpr
@@ -317,7 +317,7 @@ impl IterSumExprObj {
     }
 }
 
-tvm_ffi::impl_object_upcast!(IterSumExpr => Expr, IterSumExpr => IterMapExpr, IterSumExpr => PrimExpr);
+tvm_ffi::unsafe_impl_object_upcast!(IterSumExpr => Expr, IterSumExpr => IterMapExpr, IterSumExpr => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 // `IterMark::new` is generated: the native `sym.IterMark` constructor stores the fields as given.

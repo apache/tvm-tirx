@@ -23,7 +23,7 @@ use tvm_tirx::ir::{Location, UNKNOWN_LOC, PrimExpr, PrimType, Stmt, Var};
 use tvm_tirx::target::Target;
 use tvm_tirx::tirx::tile::DispatchContext;
 use tvm_tirx::tirx::{TensorType, ThreadScope};
-use tvm_tirx::tvm_ffi::{Any, Map, ObjectRefCast, String as FfiString};
+use tvm_tirx::tvm_ffi::{Any, Map, ObjectRefCore, String as FfiString};
 
 use crate::common::{global, serial, structural_equal};
 use crate::{int32, memory_scope, prim_var, var};
@@ -53,7 +53,7 @@ fn dispatch_contexts() {
     assert!(ctx.cache_get("key").unwrap().is_none());
     ctx.cache_set("key", &tx_var).unwrap();
     let cached = ctx.cache_get("key").unwrap().unwrap();
-    assert!(structural_equal(&cached.try_cast::<Var>().unwrap(), &tx_var));
+    assert!(structural_equal(&cached.downcast::<Var>().unwrap(), &tx_var));
 
     let stmt: Stmt = global("ir.Evaluate")
         .call_tuple((int32(0), Location::unknown()))

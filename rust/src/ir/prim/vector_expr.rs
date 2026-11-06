@@ -175,7 +175,7 @@ impl Ramp {
     }
 }
 
-tvm_ffi::impl_object_upcast!(Ramp => Expr, Ramp => PrimExpr);
+tvm_ffi::unsafe_impl_object_upcast!(Ramp => Expr, Ramp => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 impl Ramp {
@@ -285,7 +285,7 @@ impl Broadcast {
     }
 }
 
-tvm_ffi::impl_object_upcast!(Broadcast => Expr, Broadcast => PrimExpr);
+tvm_ffi::unsafe_impl_object_upcast!(Broadcast => Expr, Broadcast => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 impl Broadcast {
@@ -373,7 +373,7 @@ impl Shuffle {
     }
 }
 
-tvm_ffi::impl_object_upcast!(Shuffle => Expr, Shuffle => PrimExpr);
+tvm_ffi::unsafe_impl_object_upcast!(Shuffle => Expr, Shuffle => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 impl Shuffle {

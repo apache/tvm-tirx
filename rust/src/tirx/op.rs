@@ -169,7 +169,7 @@ impl CallFFIKernelAttr {
     }
 }
 
-tvm_ffi::impl_object_upcast!(CallFFIKernelAttr => Attrs);
+tvm_ffi::unsafe_impl_object_upcast!(CallFFIKernelAttr => Attrs);
 // tvm-ffi-stubgen(end)
 
 // The native `tirx.CallFFIKernelAttr` stores its fields as given, as the generated

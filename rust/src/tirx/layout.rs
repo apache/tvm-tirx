@@ -261,7 +261,7 @@ impl TileLayoutObj {
     }
 }
 
-tvm_ffi::impl_object_upcast!(TileLayout => Layout);
+tvm_ffi::unsafe_impl_object_upcast!(TileLayout => Layout);
 // tvm-ffi-stubgen(end)
 
 impl TileLayout {
@@ -498,7 +498,7 @@ impl ComposeLayoutObj {
     }
 }
 
-tvm_ffi::impl_object_upcast!(ComposeLayout => Layout);
+tvm_ffi::unsafe_impl_object_upcast!(ComposeLayout => Layout);
 // tvm-ffi-stubgen(end)
 
 impl ComposeLayout {
