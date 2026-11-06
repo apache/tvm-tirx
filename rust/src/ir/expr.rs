@@ -40,8 +40,9 @@
 //! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
 //! ```
 
-// `custom-new` reserves `new` for a constructor with the C++ one's semantics (defaults, implicit
-// conversions, a derived type); the generated `from_fields` allocates the fields as given.
+// `custom-new` reserves `new` for a constructor with the C++ one's arguments and semantics
+// (argument order, checks, defaults, implicit conversions, a derived type); the generated
+// `from_fields` allocates the fields as given, inherited fields first.
 // tvm-ffi-stubgen(custom-new): ir.GlobalVar
 // tvm-ffi-stubgen(custom-new): ir.Tuple
 // tvm-ffi-stubgen(custom-new): ir.TensorLoad
@@ -50,6 +51,12 @@
 // tvm-ffi-stubgen(custom-new): ir.Var
 // tvm-ffi-stubgen(custom-new): ir.LambdaExpr
 // tvm-ffi-stubgen(custom-new): ir.Range
+// tvm-ffi-stubgen(custom-new): ir.TupleGetItem
+// tvm-ffi-stubgen(custom-new): ir.FloatImm
+// tvm-ffi-stubgen(custom-new): ir.IntImm
+// tvm-ffi-stubgen(custom-new): ir.GenericConst
+// tvm-ffi-stubgen(custom-new): ir.DataTypeImm
+// tvm-ffi-stubgen(custom-new): ir.TensorRegion
 // Constants and loads are typed by a `PrimType`: their allocators take one, and they convert into
 // a `PrimExpr` without a check.
 // tvm-ffi-stubgen(field): ir.IntImm.ty -> PrimType
@@ -980,7 +987,7 @@ impl TupleGetItemObj {
 
 impl TupleGetItem {
     /// Lossless complete-field allocation.
-    pub fn new(
+    pub fn from_fields(
         loc: impl Into<Location>,
         ty: impl Into<Type>,
         tuple_value: impl Into<Expr>,
@@ -1002,11 +1009,7 @@ impl TupleGetItem {
     ///
     /// Returns an `IndexError` if `index` is negative, or not less than the number of fields of a
     /// tuple of known type.
-    pub fn from_tuple(
-        tuple_value: impl IntoExpr,
-        index: i32,
-        loc: impl Into<Location>,
-    ) -> Result<Self> {
+    pub fn new(tuple_value: impl IntoExpr, index: i32, loc: impl Into<Location>) -> Result<Self> {
         let tuple_value = tuple_value.into_owned_expr()?;
         if index < 0 {
             let message = format!(
@@ -1044,7 +1047,7 @@ impl TupleGetItem {
             }
             None => MissingType::new().into(),
         };
-        Ok(Self::new(loc.into(), ty, tuple_value, index))
+        Ok(Self::from_fields(loc, ty, tuple_value, index))
     }
 }
 
@@ -1255,7 +1258,7 @@ impl FloatImmObj {
 
 impl FloatImm {
     /// Lossless complete-field allocation.
-    pub fn new(loc: impl Into<Location>, ty: impl Into<PrimType>, value: f64) -> Self {
+    pub fn from_fields(loc: impl Into<Location>, ty: impl Into<PrimType>, value: f64) -> Self {
         let obj = FloatImmObj::new(loc.into(), ty.into(), value);
         Self { base: ObjectArc::new(obj) }
     }
@@ -1265,17 +1268,36 @@ tvm_ffi::impl_object_upcast!(FloatImm => Expr, FloatImm => Constant, FloatImm =>
 // tvm-ffi-stubgen(end)
 
 impl FloatImm {
-    /// Create the floating-point constant `value` of type `dtype`, checked to fit it
-    /// (C++ `FloatImm(PrimType(dtype), value, loc)`).
+    /// Create the floating-point constant `value` of type `ty`, checked to fit it
+    /// (C++ `FloatImm(ty, value, loc)`).
+    ///
+    /// ```
+    /// use tvm_tirx::ir::expr::FloatImm;
+    /// use tvm_tirx::ir::location::UnknownLoc;
+    /// use tvm_tirx::ir::r#type::PrimType;
+    /// let half = FloatImm::new(PrimType::float(16), 0.5, UnknownLoc::new())?;
+    /// assert_eq!(half.value, 0.5);
+    /// assert!(FloatImm::new(PrimType::int(32), 0.5, UnknownLoc::new()).is_err());
+    /// # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
+    /// ```
     ///
     /// # Errors
     ///
-    /// Returns a `ValueError` if `dtype` is not a scalar floating-point type, or a finite `value`
-    /// is out of its range.
-    pub fn from_dtype(dtype: DLDataType, value: f64, loc: impl Into<Location>) -> Result<Self> {
-        let ty = PrimType::from_dtype(dtype)?;
-        check_float_imm(dtype, value)?;
-        Ok(Self::new(loc.into(), ty, value))
+    /// Returns a `ValueError` if `ty` is not a scalar floating-point type, or a finite `value` is
+    /// out of its range.
+    pub fn new(ty: impl Into<PrimType>, value: f64, loc: impl Into<Location>) -> Result<Self> {
+        let ty = ty.into();
+        check_float_imm(ty.dtype, value)?;
+        Ok(Self::from_fields(loc, ty, value))
+    }
+
+    /// [`FloatImm::new`] of the primitive type of `dtype`.
+    pub(crate) fn from_dtype(
+        dtype: DLDataType,
+        value: f64,
+        loc: impl Into<Location>,
+    ) -> Result<Self> {
+        Self::new(PrimType::from_dtype(dtype)?, value, loc)
     }
 
     /// Create the `float32` constant `value` at the unknown location
@@ -1290,7 +1312,7 @@ impl FloatImm {
         Self::builtin(dtype::float(64), value)
     }
 
-    /// [`FloatImm::from_dtype`] of a value its type holds, which fails only when the compiler
+    /// [`FloatImm::new`] of a value its type holds, which fails only when the compiler
     /// library is not loaded.
     fn builtin(dtype: DLDataType, value: f64) -> Self {
         support::infallible(Self::from_dtype(dtype, value, UnknownLoc::new()))
@@ -1441,7 +1463,7 @@ impl IntImmObj {
 
 impl IntImm {
     /// Lossless complete-field allocation.
-    pub fn new(
+    pub fn from_fields(
         loc: impl Into<Location>,
         ty: impl Into<PrimType>,
         value: impl Into<BigInt>,
@@ -1455,21 +1477,40 @@ tvm_ffi::impl_object_upcast!(IntImm => Expr, IntImm => Constant, IntImm => PrimE
 // tvm-ffi-stubgen(end)
 
 impl IntImm {
-    /// Create the integer constant `value` of the scalar integer or boolean type `dtype`, checked
-    /// to fit it (C++ `IntImm(PrimType(dtype), value, loc)`).
+    /// Create the integer constant `value` of the scalar integer or boolean type `ty`, checked to
+    /// fit it (C++ `IntImm(ty, value, loc)`).
+    ///
+    /// ```
+    /// use tvm_tirx::ir::expr::IntImm;
+    /// use tvm_tirx::ir::location::UnknownLoc;
+    /// use tvm_tirx::ir::r#type::PrimType;
+    /// let byte = IntImm::new(PrimType::uint(8), 255, UnknownLoc::new())?;
+    /// assert_eq!(byte.value.to_string(), "255");
+    /// assert!(IntImm::new(PrimType::uint(8), 256, UnknownLoc::new()).is_err());
+    /// # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
+    /// ```
     ///
     /// # Errors
     ///
-    /// Returns a `ValueError` if `dtype` is not a scalar integer or boolean type, or `value` is out
-    /// of its range.
-    pub fn from_dtype(
+    /// Returns a `ValueError` if `ty` is not a scalar integer or boolean type, or `value` is out of
+    /// its range.
+    pub fn new(
+        ty: impl Into<PrimType>,
+        value: impl Into<BigInt>,
+        loc: impl Into<Location>,
+    ) -> Result<Self> {
+        let (ty, value) = (ty.into(), value.into());
+        check_int_imm(ty.dtype, &value)?;
+        Ok(Self::from_fields(loc, ty, value))
+    }
+
+    /// [`IntImm::new`] of the primitive type of `dtype`.
+    pub(crate) fn from_dtype(
         dtype: DLDataType,
         value: impl Into<BigInt>,
         loc: impl Into<Location>,
     ) -> Result<Self> {
-        let (value, ty) = (value.into(), PrimType::from_dtype(dtype)?);
-        check_int_imm(dtype, &value)?;
-        Ok(Self::new(loc.into(), ty, value))
+        Self::new(PrimType::from_dtype(dtype)?, value, loc)
     }
 
     /// Create the `int32` constant `value` at the unknown location (C++ `IntImm::Int32(value)`).
@@ -1487,7 +1528,7 @@ impl IntImm {
         Self::builtin(dtype::bool(), value)
     }
 
-    /// [`IntImm::from_dtype`] of a value its type holds, which fails only when the compiler
+    /// [`IntImm::new`] of a value its type holds, which fails only when the compiler
     /// library is not loaded.
     fn builtin(dtype: DLDataType, value: impl Into<BigInt>) -> Self {
         support::infallible(Self::from_dtype(dtype, value, UnknownLoc::new()))
@@ -1632,7 +1673,11 @@ impl GenericConstObj {
 
 impl GenericConst {
     /// Lossless complete-field allocation.
-    pub fn new(loc: impl Into<Location>, ty: impl Into<Type>, value: impl Into<Any>) -> Self {
+    pub fn from_fields(
+        loc: impl Into<Location>,
+        ty: impl Into<Type>,
+        value: impl Into<Any>,
+    ) -> Self {
         let obj = GenericConstObj::new(loc.into(), ty.into(), value.into());
         Self { base: ObjectArc::new(obj) }
     }
@@ -1649,7 +1694,7 @@ impl GenericConst {
     ///
     /// Returns a `TypeError` if `ty` is a [`MissingType`], or `value` is an integer, a boolean, a
     /// float or a string.
-    pub fn checked(
+    pub fn new(
         ty: impl Into<Type>,
         value: impl Into<Any>,
         loc: impl Into<Location>,
@@ -1672,7 +1717,7 @@ impl GenericConst {
             let message = "Primitive literals use IntImm, FloatImm, or StringImm";
             return Err(support::check_failed(tvm_ffi::TYPE_ERROR, condition, message));
         }
-        Ok(Self::new(loc.into(), ty, value))
+        Ok(Self::from_fields(loc, ty, value))
     }
 }
 
@@ -1721,7 +1766,7 @@ impl DataTypeImmObj {
 
 impl DataTypeImm {
     /// Lossless complete-field allocation.
-    pub fn new(
+    pub fn from_fields(
         loc: impl Into<Location>,
         ty: impl Into<Type>,
         value: impl Into<DLDataType>,
@@ -1737,9 +1782,9 @@ tvm_ffi::impl_object_upcast!(DataTypeImm => Expr, DataTypeImm => Constant);
 impl DataTypeImm {
     /// Create the data type `value` as a constant of type [`AnyType`] (C++ `DataTypeImm(value,
     /// loc)`).
-    pub fn from_dtype(value: DLDataType, loc: impl Into<Location>) -> Self {
+    pub fn new(value: DLDataType, loc: impl Into<Location>) -> Self {
         let ty = AnyType::new(UnknownLoc::new());
-        Self::new(loc.into(), ty, value)
+        Self::from_fields(loc, ty, value)
     }
 }
 
@@ -2008,7 +2053,7 @@ impl TensorRegionObj {
 
 impl TensorRegion {
     /// Lossless complete-field allocation.
-    pub fn new(
+    pub fn from_fields(
         loc: impl Into<Location>,
         ty: impl Into<Type>,
         source: impl Into<Expr>,
@@ -2022,7 +2067,18 @@ impl TensorRegion {
 tvm_ffi::impl_object_upcast!(TensorRegion => Expr);
 // tvm-ffi-stubgen(end)
 
-// `ir.TensorRegion` stores its arguments as given: the generated `TensorRegion::new` is the same.
+impl TensorRegion {
+    /// Create the region `region` of `source`, of type `ty` (C++ `TensorRegion(source, region, ty,
+    /// loc)`).
+    pub fn new(
+        source: impl Into<Expr>,
+        region: impl Into<Array<Range>>,
+        ty: impl Into<Type>,
+        loc: impl Into<Location>,
+    ) -> Self {
+        Self::from_fields(loc, ty, source, region)
+    }
+}
 
 // tvm-ffi-stubgen(begin): object/ir.Var
 /// Complete: reflected fields fill [40, 56) exactly.

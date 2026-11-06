@@ -48,6 +48,7 @@
 // tvm-ffi-stubgen(custom-new): ir.PtrType
 // tvm-ffi-stubgen(custom-new): ir.TupleType
 // tvm-ffi-stubgen(custom-new): ir.FuncType
+// tvm-ffi-stubgen(custom-new): ir.PrimType
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
 // tvm-ffi-stubgen(import-object): tvm_ffi::ObjectRefCore
@@ -491,7 +492,7 @@ impl PrimTypeObj {
 
 impl PrimType {
     /// Lossless complete-field allocation.
-    pub fn new(loc: impl Into<Location>, dtype: impl Into<DLDataType>) -> Self {
+    pub fn from_fields(loc: impl Into<Location>, dtype: impl Into<DLDataType>) -> Self {
         let obj = PrimTypeObj::new(loc.into(), dtype.into());
         Self { base: ObjectArc::new(obj) }
     }

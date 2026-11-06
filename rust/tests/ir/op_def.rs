@@ -672,7 +672,7 @@ fn static_init_blocks_define_operators_and_types() {
     // The `RegionStmt` constructor checks a region of the Rust operator as it checks one of
     // `tirx.launch_thread`: the same outcome, and the same error but for the operator's name.
     let extent: Expr = int32(8).into();
-    let wide: Expr = IntImm::from_dtype(parse_dtype("int64"), 8, UNKNOWN_LOC).unwrap().into();
+    let wide: Expr = IntImm::new(PrimType::int(64), 8, UNKNOWN_LOC).unwrap().into();
     let flag: Expr = IntImm::bool(true).into();
     let i = var("i", "int32");
     let cases = vec![

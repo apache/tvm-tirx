@@ -40,8 +40,8 @@ mod transform;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use tvm_tirx::ir::{
-    Location, UNKNOWN_LOC, dtype, BaseFunc, DictAttrs, Expr, GlobalInfo, GlobalVar, IRModule,
-    IntImm, PrimExpr, PrimType, PrimVar, Range, SeqStmt, Stmt, Type, Var,
+    Location, UNKNOWN_LOC, BaseFunc, DictAttrs, Expr, GlobalInfo, GlobalVar, IRModule, IntImm,
+    PrimExpr, PrimType, PrimVar, Range, SeqStmt, Stmt, Type, Var,
 };
 use tvm_tirx::runtime::MemoryScope;
 use tvm_tirx::tirx::{Axis, Function, Iter, TileLayout};
@@ -50,7 +50,7 @@ use tvm_tirx::tvm_ffi::{Array, Map, ObjectRefCast, String as FfiString};
 use common::global;
 
 fn int32(value: i64) -> PrimExpr {
-    IntImm::from_dtype(dtype::int(32), value, UNKNOWN_LOC).unwrap().into()
+    IntImm::new(PrimType::int(32), value, UNKNOWN_LOC).unwrap().into()
 }
 
 fn var(name: &str, ty: impl Into<Type>) -> Var {

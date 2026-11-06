@@ -60,6 +60,7 @@
 // tvm-ffi-stubgen(custom-new): ir.If
 // tvm-ffi-stubgen(custom-new): ir.Evaluate
 // tvm-ffi-stubgen(custom-new): ir.Return
+// tvm-ffi-stubgen(custom-new): ir.While
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
 // tvm-ffi-stubgen(import-object): tvm_ffi::AnyView
@@ -624,7 +625,7 @@ impl WhileObj {
 
 impl While {
     /// Lossless complete-field allocation.
-    pub fn new(
+    pub fn from_fields(
         loc: impl Into<Location>,
         condition: impl Into<PrimExpr>,
         body: impl Into<SeqStmt>,
@@ -644,7 +645,7 @@ impl While {
     /// # Errors
     ///
     /// Returns an `InternalError` if `condition` is a vector.
-    pub fn checked(
+    pub fn new(
         condition: impl IntoExpr<PrimExpr>,
         body: impl Into<Stmt>,
         loc: impl Into<Location>,
@@ -656,7 +657,7 @@ impl While {
             let check = "condition.ty().IsScalar()";
             return Err(support::check_failed(tvm_ffi::INTERNAL_ERROR, check, ""));
         }
-        Ok(Self::new(loc.into(), condition, body))
+        Ok(Self::from_fields(loc, condition, body))
     }
 }
 

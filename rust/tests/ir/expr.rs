@@ -37,17 +37,17 @@ fn expressions() {
     assert_eq!(GlobalVar::new("main", UNKNOWN_LOC).name_hint.as_str(), "main");
     assert_eq!(StringImm::new("hi", UNKNOWN_LOC).value.as_str(), "hi");
     assert_eq!(FloatImm::float32(1.5).value, 1.5);
-    assert!(IntImm::from_dtype(dtype::uint(8), 256, UNKNOWN_LOC).is_err());
-    assert_eq!(DataTypeImm::from_dtype(dtype::int(8), UNKNOWN_LOC).value, dtype::int(8));
+    assert!(IntImm::new(PrimType::uint(8), 256, UNKNOWN_LOC).is_err());
+    assert_eq!(DataTypeImm::new(dtype::int(8), UNKNOWN_LOC).value, dtype::int(8));
     let i32_ty = PrimType::int(32);
-    let constant = GenericConst::checked(&i32_ty, Any::from(i32_ty.clone()), UNKNOWN_LOC).unwrap();
-    assert!(GenericConst::checked(&i32_ty, Any::from(1i64), UNKNOWN_LOC).is_err());
+    let constant = GenericConst::new(&i32_ty, Any::from(i32_ty.clone()), UNKNOWN_LOC).unwrap();
+    assert!(GenericConst::new(&i32_ty, Any::from(1i64), UNKNOWN_LOC).is_err());
     assert!(structural_equal(&constant.ty, &i32_ty));
 
     let tuple = Tuple::new([PrimExpr::from(&x), int32(1)], UNKNOWN_LOC);
-    let item = TupleGetItem::from_tuple(&tuple, 1, UNKNOWN_LOC).unwrap();
+    let item = TupleGetItem::new(&tuple, 1, UNKNOWN_LOC).unwrap();
     assert!(structural_equal(&item.ty, &i32_ty));
-    assert!(TupleGetItem::from_tuple(&tuple, 2, UNKNOWN_LOC).is_err());
+    assert!(TupleGetItem::new(&tuple, 2, UNKNOWN_LOC).is_err());
     let subscripted =
         Expr::from(&tuple).subscript([Subscript::Index(int32(0).into())], UNKNOWN_LOC).unwrap();
     assert!(Expr::try_from(subscripted).is_ok());
@@ -98,7 +98,12 @@ fn constants_agree_with_cpp() {
             &[(&parse_dtype(name)).into(), (&value).into(), (&Location::unknown()).into()],
         );
         let what = format!("FloatImm({name}, {value})");
-        agree(&what, FloatImm::from_dtype(parse_dtype(name), value, UNKNOWN_LOC), native);
+        agree(
+            &what,
+            PrimType::from_dtype(parse_dtype(name))
+                .and_then(|ty| FloatImm::new(ty, value, UNKNOWN_LOC)),
+            native,
+        );
     };
     for (name, value) in [
         ("float32", 1.5),
@@ -128,7 +133,12 @@ fn constants_agree_with_cpp() {
             &[(&parse_dtype(name)).into(), (&value).into(), (&Location::unknown()).into()],
         );
         let what = format!("IntImm({name}, {value})");
-        agree(&what, IntImm::from_dtype(parse_dtype(name), value.clone(), UNKNOWN_LOC), native);
+        agree(
+            &what,
+            PrimType::from_dtype(parse_dtype(name))
+                .and_then(|ty| IntImm::new(ty, value.clone(), UNKNOWN_LOC)),
+            native,
+        );
     };
     let big = |text: &str| -> BigInt { text.parse().unwrap() };
     for (name, value) in [
@@ -156,7 +166,7 @@ fn constants_agree_with_cpp() {
     let generic = |what: &str, ty: &Type, value: Any| {
         let native =
             native("ir.GenericConst", &[ty.into(), (&value).into(), (&Location::unknown()).into()]);
-        agree(what, GenericConst::checked(ty, value.clone(), UNKNOWN_LOC), native);
+        agree(what, GenericConst::new(ty, value.clone(), UNKNOWN_LOC), native);
     };
     let i32_ty_as_type: Type = i32_ty.clone().into();
     generic("GenericConst(object)", &i32_ty_as_type, Any::from(i32_ty.clone()));
@@ -168,7 +178,7 @@ fn constants_agree_with_cpp() {
 
     let int8 = dtype::int(8);
     let native_dtype = native("ir.DataTypeImm", &[(&int8).into(), (&Location::unknown()).into()]);
-    agree("DataTypeImm", Ok(DataTypeImm::from_dtype(int8, UNKNOWN_LOC)), native_dtype);
+    agree("DataTypeImm", Ok(DataTypeImm::new(int8, UNKNOWN_LOC)), native_dtype);
     let text = FfiString::from("hi");
     let native_string = native("ir.StringImm", &[(&text).into(), (&Location::unknown()).into()]);
     agree("StringImm", Ok(StringImm::new("hi", UNKNOWN_LOC)), native_string);
@@ -265,7 +275,7 @@ fn expressions_agree_with_cpp() {
             "ir.TupleGetItem",
             &[(&value).into(), (&index).into(), (&Location::unknown()).into()],
         );
-        agree(what, TupleGetItem::from_tuple(&value, index, UNKNOWN_LOC), native_item);
+        agree(what, TupleGetItem::new(&value, index, UNKNOWN_LOC), native_item);
     }
 
     let a = tensor_var("A");

@@ -58,7 +58,7 @@ fn statements() {
     assert_eq!(for_.kind, kind as i32);
     assert_eq!(for_.body.seq.len(), 1);
     let less = op("prim._OpLT", &x, int32(4));
-    let while_ = While::checked(&less, &body, UNKNOWN_LOC).unwrap();
+    let while_ = While::new(&less, &body, UNKNOWN_LOC).unwrap();
     assert_eq!(while_.body.seq.len(), 2);
     let if_ = If::new(&less, &evaluate, Some(&Stmt::from(&ret)), UNKNOWN_LOC).unwrap();
     assert!(if_.else_case.is_some());
@@ -164,7 +164,7 @@ fn statements_agree_with_cpp() {
         (
             "For(uint8 literal)",
             &i,
-            IntImm::from_dtype(dtype::uint(8), 3, UNKNOWN_LOC).unwrap().into(),
+            IntImm::new(PrimType::uint(8), 3, UNKNOWN_LOC).unwrap().into(),
             int32(8),
             int32(1),
             evaluate.clone(),
@@ -227,7 +227,7 @@ fn statements_agree_with_cpp() {
             "ir.While",
             &[(&condition).into(), (&evaluate).into(), (&Location::unknown()).into()],
         );
-        agree(what, While::checked(&condition, &evaluate, UNKNOWN_LOC), native_while);
+        agree(what, While::new(&condition, &evaluate, UNKNOWN_LOC), native_while);
     }
 
     let a = tensor_var("A");
