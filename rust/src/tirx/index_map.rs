@@ -25,16 +25,14 @@
 //! # Examples
 //!
 //! ```
-//! use tvm_tirx::ir::{PrimExpr, PrimType, PrimVar, Var, UNKNOWN_LOC};
+//! use tvm_tirx::ir::{PrimExpr, PrimType, PrimVar, UNKNOWN_LOC};
 //! use tvm_tirx::script::script;
 //! use tvm_tirx::tirx::IndexMap;
 //! use tvm_tirx::tvm_ffi::{Array, Result};
 //!
 //! let i = PrimVar::new("i", PrimType::int(32), UNKNOWN_LOC);
 //! let j = PrimVar::new("j", PrimType::int(32), UNKNOWN_LOC);
-//! let final_indices = Array::from_vec(vec![PrimExpr::from(&j), PrimExpr::from(&i)]);
-//! let initial_indices = Array::from_vec(vec![Var::from(i), Var::from(j)]);
-//! let transpose = IndexMap::new(initial_indices, final_indices, None);
+//! let transpose = IndexMap::new([&i, &j], [&j, &i], None)?;
 //! assert_eq!(script(&transpose)?, "T.index_map(lambda i, j: (j, i))");
 //!
 //! let text =
@@ -53,13 +51,20 @@
 // tvm-ffi-stubgen(import-object): tvm_ffi::Tensor
 // tvm-ffi-stubgen(import-object): crate::ir::expr::IntoExpr
 // tvm-ffi-stubgen(import-object): crate::ir::expr::PrimExpr
+// `custom-new` reserves `new` for the C++ constructor, which takes the inverse as an `IndexMap`; the
+// generated `from_fields` stores it as the `ObjectRef` the field holds.
+// tvm-ffi-stubgen(custom-new): tirx.IndexMap
 // The indices a map computes are `PrimExpr`s, as C++ `IndexMapObj` holds them.
 // tvm-ffi-stubgen(field): tirx.IndexMap.final_indices -> Array<PrimExpr>
+// Its indices are `PrimVar`s, as C++ `IndexMapObj` holds them.
+// tvm-ffi-stubgen(import-object): crate::ir::expr::PrimVar
+// tvm-ffi-stubgen(import-object): tvm_ffi::Array
+// tvm-ffi-stubgen(field): tirx.IndexMap.initial_indices -> Array<PrimVar>
 // tvm-ffi-stubgen(begin): import-section
 use crate::ir::expr::IntoExpr;
 use crate::ir::expr::PrimExpr;
+use crate::ir::expr::PrimVar;
 use crate::ir::expr::Range;
-use crate::ir::expr::Var;
 use crate::sym::analyzer::Analyzer;
 use std::ops::Deref;
 use tvm_ffi::Any;
@@ -79,7 +84,7 @@ use tvm_ffi::object::ObjectRef;
 #[type_final]
 pub struct IndexMapObj {
     base: Object,
-    pub initial_indices: Array<Var>,
+    pub initial_indices: Array<PrimVar>,
     pub final_indices: Array<PrimExpr>,
     pub inverse_index_map: Option<ObjectRef>,
 }
@@ -104,7 +109,7 @@ impl Deref for IndexMap {
 
 impl IndexMapObj {
     pub(crate) fn new(
-        initial_indices: Array<Var>,
+        initial_indices: Array<PrimVar>,
         final_indices: Array<PrimExpr>,
         inverse_index_map: Option<ObjectRef>,
     ) -> Self {
@@ -115,8 +120,8 @@ impl IndexMapObj {
 
 impl IndexMap {
     /// Lossless complete-field allocation.
-    pub fn new(
-        initial_indices: impl Into<Array<Var>>,
+    pub fn from_fields(
+        initial_indices: impl Into<Array<PrimVar>>,
         final_indices: impl Into<Array<PrimExpr>>,
         inverse_index_map: impl Into<Option<ObjectRef>>,
     ) -> Self {
@@ -132,9 +137,25 @@ impl IndexMap {
 unsafe impl tvm_ffi::object::ImmutableObject for IndexMapObj {}
 // tvm-ffi-stubgen(end)
 
-// The native `tirx.IndexMap` stores its fields as given, as the generated `IndexMap::new` does.
-
 impl IndexMap {
+    /// Create the map from `initial_indices` to `final_indices`, with the inverse
+    /// `inverse_index_map` if it is known (C++ `IndexMap(initial_indices, final_indices,
+    /// inverse_index_map)`).
+    pub fn new(
+        initial_indices: impl IntoIterator<Item = impl Into<PrimVar>>,
+        final_indices: impl IntoIterator<Item = impl IntoExpr<PrimExpr>>,
+        inverse_index_map: Option<&IndexMap>,
+    ) -> Result<Self> {
+        let initial_indices =
+            initial_indices.into_iter().map(Into::into).collect::<Array<PrimVar>>();
+        let final_indices = final_indices
+            .into_iter()
+            .map(IntoExpr::into_owned_expr)
+            .collect::<Result<Array<PrimExpr>>>()?;
+        let inverse_index_map = inverse_index_map.map(|map| ObjectRef::from(map.clone()));
+        Ok(Self::from_fields(initial_indices, final_indices, inverse_index_map))
+    }
+
     /// Return the final indices that `indices` map to (`tirx.IndexMapMapIndices`).
     ///
     /// # Errors

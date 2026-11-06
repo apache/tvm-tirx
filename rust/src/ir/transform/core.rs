@@ -29,7 +29,7 @@
 //! ```
 //! use tvm_tirx::ir::transform::{ModulePass, Pass, PassContext, PassInfo, PassInstrument};
 //! use tvm_tirx::ir::transform::Sequential;
-//! use tvm_tirx::ir::{IRModule, IntImm};
+//! use tvm_tirx::ir::{DictAttrs, IRModule, IntImm};
 //! use tvm_tirx::tvm_ffi::Map;
 //!
 //! let mark = |name: &'static str| {
@@ -37,14 +37,19 @@
 //!     ModulePass::new(pass, PassInfo::new(0, name))
 //! };
 //!
-//! let pipeline = Pass::from(Sequential::new([mark("a"), mark("b")], 0, "pipeline"));
-//! let ctx = PassContext::create(2, [""; 0], ["b"], Vec::<PassInstrument>::new(), None)?;
+//! let info = PassInfo::new(0, "pipeline");
+//! let pipeline = Pass::from(Sequential::new([mark("a"), mark("b")], info));
+//! let ctx = PassContext::new(2, [""; 0], ["b"], Vec::<PassInstrument>::new(), None)?;
 //! let _scope = ctx.enter()?;
-//! let module = pipeline.run(IRModule::from_functions(&Map::new(), None, &Map::new())?)?;
+//! let empty = IRModule::new(&Map::new(), DictAttrs::new(Map::new()), &Map::new())?;
+//! let module = pipeline.run(empty)?;
 //! assert!(module.get_attr("a")?.is_some() && module.get_attr("b")?.is_none());
 //! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
 //! ```
 
+// `custom-new` reserves `new` for the checked `transform.PassContext`; the generated `from_fields`
+// allocates the fields as given.
+// tvm-ffi-stubgen(custom-new): transform.PassContext
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
 // tvm-ffi-stubgen(import-object): crate::ir::module::IRModule
@@ -266,20 +271,21 @@ tvm_ffi::unsafe_impl_object_upcast!(Sequential => Pass);
 // tvm-ffi-stubgen(end)
 
 impl Sequential {
-    /// Create a pass named `name`, of level `opt_level`, that runs `passes` in order
-    /// (`transform.Sequential`).
+    /// Create a pass with the information `pass_info` that runs `passes` in order
+    /// (C++ `Sequential(passes, pass_info)`).
     ///
     /// It skips the passes the current pass context disables, and those whose level exceeds the
-    /// context's `opt_level` unless the context requires them.
+    /// context's `opt_level` unless the context requires them. C++ `Sequential(passes, name)` is
+    /// `Sequential::new(passes, PassInfo::new(0, name))`.
     pub fn new(
         passes: impl IntoIterator<Item = impl Into<Pass>>,
-        opt_level: i32,
-        name: &str,
+        pass_info: impl Into<PassInfo>,
     ) -> Self {
         let passes = passes.into_iter().map(Into::into).collect::<Array<Pass>>();
+        let pass_info = pass_info.into();
         support::infallible(
             tvm_ffi::cached_global_func!("transform.Sequential")
-                .call_tuple((&passes, opt_level, String::from(name)))
+                .call_tuple((&passes, pass_info.opt_level, &pass_info.name))
                 .and_then(|any| any.try_into()),
         )
     }
@@ -333,7 +339,7 @@ impl PassContextObj {
 
 impl PassContext {
     /// Lossless complete-field allocation.
-    pub fn new(
+    pub fn from_fields(
         opt_level: i32,
         required_pass: impl Into<Array<String>>,
         disabled_pass: impl Into<Array<String>>,
@@ -362,7 +368,7 @@ impl PassContext {
     ///
     /// Returns an `AttributeError` if `config` has an option that is not registered or a `None`
     /// value, or the error of converting a value to its option type.
-    pub fn create(
+    pub fn new(
         opt_level: i32,
         required_pass: impl IntoIterator<Item = impl AsRef<str>>,
         disabled_pass: impl IntoIterator<Item = impl AsRef<str>>,
@@ -433,8 +439,8 @@ impl PassContext {
 /// ```
 /// use tvm_tirx::ir::transform::{PassContext, PassInstrument};
 ///
-/// let outer = PassContext::create(3, [""; 0], [""; 0], Vec::<PassInstrument>::new(), None)?;
-/// let inner = PassContext::create(1, [""; 0], [""; 0], Vec::<PassInstrument>::new(), None)?;
+/// let outer = PassContext::new(3, [""; 0], [""; 0], Vec::<PassInstrument>::new(), None)?;
+/// let inner = PassContext::new(1, [""; 0], [""; 0], Vec::<PassInstrument>::new(), None)?;
 /// let outer_scope = outer.enter()?;
 /// let inner_scope = inner.enter()?;
 /// assert_eq!(PassContext::current()?.opt_level, 1);

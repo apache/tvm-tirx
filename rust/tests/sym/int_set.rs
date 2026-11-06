@@ -19,7 +19,7 @@
 
 //! Tests of `sym::int_set`: integer sets and region bounds.
 
-use tvm_tirx::ir::{IntImm, Location, PrimExpr, Range, Var};
+use tvm_tirx::ir::{IntImm, UnknownLoc, PrimExpr, Range, Var};
 use tvm_tirx::sym::*;
 use tvm_tirx::tvm_ffi::{Map, Object, ObjectRefCore};
 
@@ -93,7 +93,7 @@ fn int_sets() {
 fn region_bounds() {
     let x = var("x");
     let var_dom = Map::from_iter([(Var::from(&x), range(0, 16))]);
-    let region = [Range::from_fields(x.clone(), int32(1), Location::unknown())];
+    let region = [Range::from_fields(x.clone(), int32(1), UnknownLoc::new())];
     let predicate = PrimExpr::from(true);
 
     let lower = estimate_region_lower_bound(region.clone(), &var_dom, &predicate, None).unwrap();

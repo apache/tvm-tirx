@@ -26,8 +26,8 @@
 use tvm_tirx::ir::prim::op::{self, ExprResult, PrimOps};
 use tvm_tirx::ir::prim::{self, Add, Broadcast, BroadcastObj, Cast, CastObj, Not, Ramp, RampObj, Sub};
 use tvm_tirx::ir::{
-    Call, Expr, FloatImm, IntImm, Location, Op, PrimExpr, PrimType, Range, SourceLoc, SourceName,
-    StringImm, Type, UnknownLocObj, UNKNOWN_LOC,
+    Call, Expr, FloatImm, IntImm, Location, UnknownLoc, Op, PrimExpr, PrimType, Range, SourceLoc,
+    SourceName, StringImm, Type, UnknownLocObj, UNKNOWN_LOC,
 };
 use tvm_tirx::sym;
 use tvm_tirx::tvm_ffi::{
@@ -73,12 +73,12 @@ where
 
 /// The native operator `name` applied to two expressions.
 fn native2(name: &str, a: impl Into<Expr>, b: impl Into<Expr>) -> Expr {
-    global(name).call_tuple((a.into(), b.into(), Location::unknown())).unwrap().try_into().unwrap()
+    global(name).call_tuple((a.into(), b.into(), UnknownLoc::new())).unwrap().try_into().unwrap()
 }
 
 /// The native unary function `name`.
 fn native1(name: &str, x: impl Into<Expr>) -> Result<Any> {
-    global(name).call_tuple((x.into(), Location::unknown()))
+    global(name).call_tuple((x.into(), UnknownLoc::new()))
 }
 
 fn same(built: ExprResult, expected: &impl AnyCompatible) -> bool {
@@ -262,7 +262,7 @@ fn binary_operators_agree_with_cpp() {
         let mut outcome = Outcome::default();
         for a in &operands {
             for b in &operands {
-                let native = native_op.call_tuple((a.clone(), b.clone(), Location::unknown()));
+                let native = native_op.call_tuple((a.clone(), b.clone(), UnknownLoc::new()));
                 let what = || format!("{name}({}, {})", repr(a), repr(b));
                 outcome.check(what, operator(a, b).try_into(), native);
             }
@@ -284,7 +284,7 @@ fn unary_and_ternary_operators_agree_with_cpp() {
     // own check rejects the same operands with another message.
     let bitwise_not = global("prim.BitwiseNot");
     for a in &operands {
-        let native = bitwise_not.call_tuple((a.clone(), Location::unknown()));
+        let native = bitwise_not.call_tuple((a.clone(), UnknownLoc::new()));
         match a.bitwise_not().try_into() {
             Ok(rust) => outcome.check(|| format!("~{}", repr(a)), Ok(rust), native),
             Err(_) => assert!(native.is_err(), "~{}: only Rust rejects it", repr(a)),
@@ -307,7 +307,7 @@ fn unary_and_ternary_operators_agree_with_cpp() {
         for t in &values {
             for f in &values {
                 let native =
-                    if_then_else.call_tuple((c.clone(), t.clone(), f.clone(), Location::unknown()));
+                    if_then_else.call_tuple((c.clone(), t.clone(), f.clone(), UnknownLoc::new()));
                 let what = || format!("if_then_else({}, {}, {})", repr(c), repr(t), repr(f));
                 outcome.check(what, c.if_then_else(t, f).try_into(), native);
             }
@@ -326,26 +326,26 @@ fn literals_and_compound_expressions_agree_with_cpp() {
     outcome.check(
         || "x + 3".into(),
         (&x + 3).try_into(),
-        add.call_tuple((x.clone(), imm("int64", 3), Location::unknown())),
+        add.call_tuple((x.clone(), imm("int64", 3), UnknownLoc::new())),
     );
     outcome.check(
         || "3 + x".into(),
         (3i32 + &x).try_into(),
-        add.call_tuple((imm("int64", 3), x.clone(), Location::unknown())),
+        add.call_tuple((imm("int64", 3), x.clone(), UnknownLoc::new())),
     );
     let floordiv = global("prim._OpFloorDiv");
     let rust = ((&x + 0) * 1).floordiv(1);
     outcome.check(
         || "((x + 0) * 1) // 1".into(),
         rust.try_into(),
-        floordiv.call_tuple((x.clone(), imm("int64", 1), Location::unknown())),
+        floordiv.call_tuple((x.clone(), imm("int64", 1), UnknownLoc::new())),
     );
     // Unary minus folds a constant whose negation fits its type and is `0 - x` otherwise.
     let sub = global("prim._OpSub");
     for value in [imm("int64", i64::MIN), imm("int32", 5), fimm("float32", 2.5), prim_var("int32")]
     {
         let zero = op::make_const(value.ty(), 0).unwrap();
-        let native = sub.call_tuple((zero, value.clone(), Location::unknown()));
+        let native = sub.call_tuple((zero, value.clone(), UnknownLoc::new()));
         outcome.check(|| format!("-{}", repr(&value)), (-&value).try_into(), native);
     }
     outcome.assert_agrees("literals");
@@ -429,7 +429,7 @@ fn expression_results_pass_into_functions_and_constructors() {
 fn located_variants() {
     let _serial = serial();
     let x = var("x", PrimType::int(32));
-    let here: Location = SourceLoc::new(SourceName::get("ops.rs").unwrap(), 1, 2, 3, 4).into();
+    let here: Location = SourceLoc::new(SourceName::get("ops.rs"), 1, 2, 3, 4).into();
     let located: prim::FloorDiv = op::floordiv_at(&x, 4, here.clone()).unwrap().downcast().unwrap();
     assert!(located.loc.same_as(&here));
     let unlocated: prim::FloorDiv = op::floordiv(&x, 4).unwrap().downcast().unwrap();
@@ -474,7 +474,7 @@ fn select_folding_and_the_first_error() {
     let cond = native2("prim._OpGE", &r, imm("int32", 0));
     let minus = native2("prim._OpSub", &r, imm("int32", 1));
     let expected: Expr = global("prim.Select")
-        .call_tuple((cond, Expr::from(&r), minus, Location::unknown()))
+        .call_tuple((cond, Expr::from(&r), minus, UnknownLoc::new()))
         .unwrap()
         .try_into()
         .unwrap();
@@ -489,11 +489,8 @@ fn select_folding_and_the_first_error() {
     let Err(error) = PrimExpr::try_from((f.truncdiv(&x) + 1).less(&x)) else {
         panic!("expected an error")
     };
-    let direct = global("prim._OpTruncDiv").call_tuple((
-        Expr::from(&f),
-        Expr::from(&x),
-        Location::unknown(),
-    ));
+    let direct =
+        global("prim._OpTruncDiv").call_tuple((Expr::from(&f), Expr::from(&x), UnknownLoc::new()));
     let direct = direct.err().expect("the native operation raises");
     assert_eq!(error.kind(), direct.kind());
     assert_eq!(error.message(), direct.message());
@@ -592,8 +589,7 @@ fn limits_agree_with_cpp() {
     ];
     for name in types {
         let ty = prim(name);
-        let native =
-            |function: &str| global(function).call_tuple((ty.clone(), Location::unknown()));
+        let native = |function: &str| global(function).call_tuple((ty.clone(), UnknownLoc::new()));
         agree(&format!("infinity({name})"), op::infinity(&ty), native("prim.infinity"));
         agree(&format!("max_value({name})"), op::max_value(&ty), native("prim.max_value"));
         agree(&format!("min_value({name})"), op::min_value(&ty), native("prim.min_value"));
@@ -627,7 +623,7 @@ fn cast_agrees_with_cpp() {
         for name in targets {
             let ty = prim(name);
             let native =
-                global("prim._cast").call_tuple((x.clone(), ty.clone(), Location::unknown()));
+                global("prim._cast").call_tuple((x.clone(), ty.clone(), UnknownLoc::new()));
             agree(&format!("cast({}, {name})", repr(x)), PrimExpr::try_from(x.cast(ty)), native);
         }
     }
@@ -664,12 +660,12 @@ fn type_matching_agrees_with_the_native_operators() {
         let (x, y) = (var("x", prim(a)), var("y", prim(b)));
         // The raw `Add` of the matched sides is what C++ `x + y` builds when nothing folds.
         let native =
-            global("prim._OpAdd").call_tuple((Expr::from(&x), Expr::from(&y), Location::unknown()));
+            global("prim._OpAdd").call_tuple((Expr::from(&x), Expr::from(&y), UnknownLoc::new()));
         agree(&format!("{a} + {b}"), raw_add(x.into(), y.into()), native);
     }
     // A constant side is cast by folding.
     let (x, three) = (prim_var("float32"), imm("int32", 3));
-    let native = global("prim._OpAdd").call_tuple((x.clone(), three.clone(), Location::unknown()));
+    let native = global("prim._OpAdd").call_tuple((x.clone(), three.clone(), UnknownLoc::new()));
     agree("float32 + 3", raw_add(x, three), native);
 }
 
@@ -685,7 +681,7 @@ fn pow_and_fmod_agree_with_cpp() {
         (prim_var("int32"), var("j", PrimType::int(32)).into()),
     ];
     for (x, y) in &pairs {
-        let native = global("prim._OpPow").call_tuple((x.clone(), y.clone(), Location::unknown()));
+        let native = global("prim._OpPow").call_tuple((x.clone(), y.clone(), UnknownLoc::new()));
         agree(&format!("pow({}, {})", repr(x), repr(y)), PrimExpr::try_from(x.pow(y)), native);
     }
     // `fmod` has no global: the sides are matched and the call is typed as them.
@@ -754,7 +750,7 @@ fn intrinsics_are_typed_calls() {
 /// C++ `cast(value, t)` through its global.
 fn native_cast(value: impl Into<Expr>, name: &str) -> Expr {
     global("prim._cast")
-        .call_tuple((value.into(), prim(name), Location::unknown()))
+        .call_tuple((value.into(), prim(name), UnknownLoc::new()))
         .unwrap()
         .try_into()
         .unwrap()

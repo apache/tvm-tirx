@@ -27,9 +27,9 @@
 //! # Examples
 //!
 //! ```
-//! use tvm_tirx::ir::{BaseFunc, GlobalVar, IRModule, UNKNOWN_LOC};
+//! use tvm_tirx::ir::{BaseFunc, DictAttrs, GlobalVar, IRModule, UNKNOWN_LOC};
 //! use tvm_tirx::tvm_ffi::{Map, ObjectRefCore};
-//! # use tvm_tirx::ir::{DictAttrs, PrimType, Return, SeqStmt, Var};
+//! # use tvm_tirx::ir::{PrimType, Return, SeqStmt, Var};
 //! # use tvm_tirx::tirx::Function;
 //! # let body = SeqStmt::new([Return::new(0, UNKNOWN_LOC)], UNKNOWN_LOC);
 //! # let attrs = DictAttrs::new(Map::new());
@@ -37,12 +37,15 @@
 //!
 //! let main = GlobalVar::new("main", UNKNOWN_LOC);
 //! let functions = Map::from_iter([(main.clone(), BaseFunc::from(func))]);
-//! let module = IRModule::from_functions(&functions, None, &Map::new())?;
+//! let module = IRModule::new(&functions, DictAttrs::new(Map::new()), &Map::new())?;
 //!
 //! assert!(module.lookup(&main)?.same_as(&module.lookup_name("main")?));
 //! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
 //! ```
 
+// `custom-new` reserves `new` for the C++ constructor, which derives the global variable map; the
+// generated `from_fields` allocates the fields as given.
+// tvm-ffi-stubgen(custom-new): ir.IRModule
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
 // tvm-ffi-stubgen(import-object): tvm_ffi::Any
@@ -121,7 +124,7 @@ impl IRModuleObj {
 
 impl IRModule {
     /// Lossless complete-field allocation.
-    pub fn new(
+    pub fn from_fields(
         functions: impl Into<Map<GlobalVar, BaseFunc>>,
         attrs: impl Into<DictAttrs>,
         global_infos: impl Into<Map<String, Array<GlobalInfo>>>,
@@ -139,21 +142,17 @@ impl IRModule {
 // tvm-ffi-stubgen(end)
 
 impl IRModule {
-    /// Create the module of `functions`, with the attributes `attrs` (empty if `None`) and the
-    /// module-level information `global_infos` (C++ `IRModule(functions, attrs, global_infos)`).
+    /// Create the module of `functions`, with the attributes `attrs` and the module-level
+    /// information `global_infos` (C++ `IRModule(functions, attrs, global_infos)`).
     ///
     /// # Errors
     ///
     /// Returns an `InternalError` if two global variables of `functions` have the same name.
-    pub fn from_functions(
+    pub fn new(
         functions: &Map<GlobalVar, BaseFunc>,
-        attrs: Option<&DictAttrs>,
+        attrs: impl Into<DictAttrs>,
         global_infos: &Map<String, Array<GlobalInfo>>,
     ) -> Result<Self> {
-        let attrs = match attrs {
-            Some(attrs) => attrs.clone(),
-            None => DictAttrs::new(Map::new()),
-        };
         let mut names = std::collections::HashSet::new();
         let mut global_var_map = Vec::with_capacity(functions.len());
         for (var, _) in functions.iter() {
@@ -166,7 +165,7 @@ impl IRModule {
             global_var_map.push((name, var));
         }
         let global_var_map = global_var_map.into_iter().collect::<Map<String, GlobalVar>>();
-        Ok(Self::new(functions.clone(), attrs, global_infos.clone(), global_var_map))
+        Ok(Self::from_fields(functions.clone(), attrs, global_infos.clone(), global_var_map))
     }
 
     /// Create the module of `functions` and `expr`, a function bound to its `global_symbol`, or to

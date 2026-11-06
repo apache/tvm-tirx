@@ -29,12 +29,12 @@ use crate::common::{empty_module, serial};
 fn pass_context_scope() {
     let _serial = serial();
     let default_level = PassContext::current().unwrap().opt_level;
-    let ctx = PassContext::create(3, ["a"], ["b"], no_instruments(), None).unwrap();
+    let ctx = PassContext::new(3, ["a"], ["b"], no_instruments(), None).unwrap();
     assert_eq!(ctx.required_pass.len(), 1);
     {
         let _outer = ctx.enter().unwrap();
         assert_eq!(PassContext::current().unwrap().opt_level, 3);
-        let inner = PassContext::create(1, [""; 0], [""; 0], no_instruments(), None).unwrap();
+        let inner = PassContext::new(1, [""; 0], [""; 0], no_instruments(), None).unwrap();
         {
             let _inner = inner.enter().unwrap();
             assert_eq!(PassContext::current().unwrap().opt_level, 1);
@@ -47,7 +47,7 @@ fn pass_context_scope() {
     assert!(!configs.is_empty());
     let unknown: Map<FfiString, Any> =
         [(FfiString::from("no.such.option"), Any::from(1i64))].into_iter().collect();
-    assert!(PassContext::create(2, [""; 0], [""; 0], no_instruments(), Some(&unknown)).is_err());
+    assert!(PassContext::new(2, [""; 0], [""; 0], no_instruments(), Some(&unknown)).is_err());
 }
 
 #[test]
@@ -78,12 +78,11 @@ fn module_and_sequential_passes() {
             print_ir("between").unwrap(),
             logging_pass("b", &log).into(),
         ],
-        0,
-        "seq",
+        PassInfo::new(0, "seq"),
     );
     assert_eq!(seq.passes().unwrap().len(), 3);
     assert_eq!(Pass::from(&seq).info().unwrap().name.as_str(), "seq");
-    let ctx = PassContext::create(2, [""; 0], ["b"], no_instruments(), None).unwrap();
+    let ctx = PassContext::new(2, [""; 0], ["b"], no_instruments(), None).unwrap();
     {
         let _scope = ctx.enter().unwrap();
         Pass::from(&seq).run(empty_module()).unwrap();

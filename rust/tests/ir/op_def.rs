@@ -147,7 +147,7 @@ fn ops_registered_from_rust_are_used_natively() {
             Array::<Expr>::from_vec(vec![x.clone().into()]),
             Option::<Attrs>::None,
             Array::<Type>::from_vec(vec![]),
-            tvm_tirx::ir::Location::unknown(),
+            tvm_tirx::ir::UnknownLoc::new(),
         ))
         .unwrap()
         .try_into()

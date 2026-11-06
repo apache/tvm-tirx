@@ -34,7 +34,7 @@
 //! let x = PrimVar::new("x", PrimType::int(32), UNKNOWN_LOC);
 //! let y = PrimVar::new("y", PrimType::int(32), UNKNOWN_LOC);
 //! let four = Range::from_min_extent(0, 4, UNKNOWN_LOC)?;
-//! let iters = Map::from_iter([(Var::from(&x), four.clone()), (Var::from(&y), four)]);
+//! let iters = Map::from_iter([(x.clone(), four.clone()), (y.clone(), four)]);
 //!
 //! let bijective = IterMapLevel::Bijective;
 //! let map = sym::detect_iter_map([&x * 4 + &y], &iters, true, bijective, None, true)?;
@@ -57,6 +57,7 @@
 // tvm-ffi-stubgen(import-object): crate::ir::support
 // tvm-ffi-stubgen(import-object): crate::ir::expr::IntoExpr
 // tvm-ffi-stubgen(import-object): crate::ir::expr::PrimExpr
+// tvm-ffi-stubgen(import-object): crate::ir::expr::PrimVar
 // The iterator forms are primitive expressions, as C++ `IterMapExpr` derives from `PrimExpr`, and
 // their marks and padding predicate are `PrimExpr`s.
 // tvm-ffi-stubgen(upcast): sym.IterMapExpr -> PrimExpr
@@ -76,6 +77,7 @@ use crate::ir::expr::Expr;
 use crate::ir::expr::ExprObj;
 use crate::ir::expr::IntoExpr;
 use crate::ir::expr::PrimExpr;
+use crate::ir::expr::PrimVar;
 use crate::ir::expr::Range;
 use crate::ir::expr::Var;
 use crate::ir::support;
@@ -381,7 +383,7 @@ pub enum IterMapLevel {
 /// When they are not, the `indices` of the result are empty and its `errors` say why.
 pub fn detect_iter_map(
     indices: impl IntoIterator<Item = impl IntoExpr<PrimExpr>>,
-    input_iters: &Map<Var, Range>,
+    input_iters: &Map<PrimVar, Range>,
     predicate: impl IntoExpr<PrimExpr>,
     check_level: IterMapLevel,
     analyzer: Option<&Analyzer>,
@@ -406,7 +408,7 @@ pub fn detect_iter_map(
 /// its `base` (`sym.NormalizeToIterSum`).
 pub fn normalize_to_iter_sum(
     index: impl IntoExpr<PrimExpr>,
-    input_iters: &Map<Var, Range>,
+    input_iters: &Map<PrimVar, Range>,
     analyzer: Option<&Analyzer>,
 ) -> Result<IterSumExpr> {
     tvm_ffi::cached_global_func!("sym.NormalizeToIterSum")
@@ -418,7 +420,7 @@ pub fn normalize_to_iter_sum(
 /// iterator maps (`sym.IterMapSimplify`).
 pub fn iter_map_simplify(
     indices: impl IntoIterator<Item = impl IntoExpr<PrimExpr>>,
-    input_iters: &Map<Var, Range>,
+    input_iters: &Map<PrimVar, Range>,
     predicate: impl IntoExpr<PrimExpr>,
     check_level: IterMapLevel,
     analyzer: Option<&Analyzer>,
@@ -453,8 +455,8 @@ pub fn normalize_iter_map_to_expr(expr: impl IntoExpr<PrimExpr>) -> Result<PrimE
 /// the outer and inner predicates, or empty when the bindings cannot be divided.
 pub fn subspace_divide(
     bindings: impl IntoIterator<Item = impl IntoExpr<PrimExpr>>,
-    input_iters: &Map<Var, Range>,
-    sub_iters: impl IntoIterator<Item = impl Into<Var>>,
+    input_iters: &Map<PrimVar, Range>,
+    sub_iters: impl IntoIterator<Item = impl Into<PrimVar>>,
     predicate: impl IntoExpr<PrimExpr>,
     check_level: IterMapLevel,
     analyzer: Option<&Analyzer>,
@@ -462,7 +464,7 @@ pub fn subspace_divide(
 ) -> Result<Array<Array<IterMark>>> {
     let bindings =
         bindings.into_iter().map(IntoExpr::into_owned_expr).collect::<Result<Array<PrimExpr>>>()?;
-    let sub_iters = sub_iters.into_iter().map(Into::into).collect::<Array<Var>>();
+    let sub_iters = sub_iters.into_iter().map(Into::into).collect::<Array<PrimVar>>();
     let (predicate, analyzer) = (predicate.into_owned_expr()?, analyzer.cloned());
     tvm_ffi::cached_global_func!("sym.SubspaceDivide")
         .call_packed(&[

@@ -42,7 +42,7 @@
 //! let func = Function::new([x], &body, PrimType::int(32), attrs, UNKNOWN_LOC);
 //!
 //! let functions = Map::from_iter([(GlobalVar::new("main", UNKNOWN_LOC), BaseFunc::from(func))]);
-//! let module = IRModule::from_functions(&functions, None, &Map::new())?;
+//! let module = IRModule::new(&functions, DictAttrs::new(Map::new()), &Map::new())?;
 //! assert!(script(&module)?.contains("def main(x: T.int32) -> T.int32:"));
 //! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
 //! ```

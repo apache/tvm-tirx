@@ -40,7 +40,7 @@ mod transform;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use tvm_tirx::ir::{
-    Location, UNKNOWN_LOC, BaseFunc, DictAttrs, Expr, GlobalInfo, GlobalVar, IRModule, IntImm,
+    UnknownLoc, UNKNOWN_LOC, BaseFunc, DictAttrs, Expr, GlobalInfo, GlobalVar, IRModule, IntImm,
     PrimExpr, PrimType, PrimVar, Range, SeqStmt, Stmt, Type, Var,
 };
 use tvm_tirx::runtime::MemoryScope;
@@ -55,7 +55,7 @@ fn int32(value: i64) -> PrimExpr {
 
 fn var(name: &str, ty: impl Into<Type>) -> Var {
     global("ir.Var")
-        .call_tuple((FfiString::from(name), Some(ty.into()), Location::unknown()))
+        .call_tuple((FfiString::from(name), Some(ty.into()), UnknownLoc::new()))
         .unwrap()
         .try_into()
         .unwrap()
@@ -66,12 +66,12 @@ fn prim_var(name: &str, ty: impl Into<PrimType>) -> PrimVar {
 }
 
 fn op(name: &str, a: impl Into<Expr>, b: impl Into<Expr>) -> PrimExpr {
-    global(name).call_tuple((a.into(), b.into(), Location::unknown())).unwrap().try_into().unwrap()
+    global(name).call_tuple((a.into(), b.into(), UnknownLoc::new())).unwrap().try_into().unwrap()
 }
 
 fn range(extent: i64) -> Range {
     global("ir.Range")
-        .call_tuple((int32(0), Some(int32(extent)), Location::unknown()))
+        .call_tuple((int32(0), Some(int32(extent)), UnknownLoc::new()))
         .unwrap()
         .try_into()
         .unwrap()
@@ -90,7 +90,7 @@ fn memory_scope() -> MemoryScope {
 
 /// The row-major layout of an 8 x 8 tile.
 fn tile_8x8() -> TileLayout {
-    let m = Axis::get("m").unwrap();
+    let m = Axis::get("m");
     TileLayout::new(
         [Iter::new(int32(8), int32(8), m.clone()), Iter::new(int32(8), int32(1), m)],
         Vec::<Iter>::new(),
@@ -99,11 +99,11 @@ fn tile_8x8() -> TileLayout {
 }
 
 fn void_function(params: Vec<Var>) -> Function {
-    let zero = global("ir.Evaluate").call_tuple((int32(0), Location::unknown())).unwrap();
+    let zero = global("ir.Evaluate").call_tuple((int32(0), UnknownLoc::new())).unwrap();
     let body: SeqStmt = global("ir.SeqStmt")
         .call_tuple((
             Array::<Stmt>::from_vec(vec![zero.try_into().unwrap()]),
-            Some(Location::unknown()),
+            Some(UnknownLoc::new()),
         ))
         .unwrap()
         .try_into()
@@ -114,10 +114,15 @@ fn void_function(params: Vec<Var>) -> Function {
 
 fn module_of(name: &str, func: &Function) -> IRModule {
     let gv: GlobalVar = global("ir.GlobalVar")
-        .call_tuple((FfiString::from(name), Location::unknown()))
+        .call_tuple((FfiString::from(name), UnknownLoc::new()))
         .unwrap()
         .try_into()
         .unwrap();
     let functions: Map<GlobalVar, BaseFunc> = [(gv, BaseFunc::from(func))].into_iter().collect();
-    IRModule::from_functions(&functions, None, &Map::<FfiString, Array<GlobalInfo>>::new()).unwrap()
+    IRModule::new(
+        &functions,
+        DictAttrs::new(Map::new()),
+        &Map::<FfiString, Array<GlobalInfo>>::new(),
+    )
+    .unwrap()
 }

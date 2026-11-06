@@ -19,7 +19,7 @@
 
 //! Tests of `tirx::layout`: layout axes, tile layouts and swizzled layouts.
 
-use tvm_tirx::ir::Expr;
+use tvm_tirx::ir::PrimExpr;
 use tvm_tirx::sym::Analyzer;
 use tvm_tirx::tirx::{Axis, ComposeLayout, Iter, Layout, TileLayout};
 use tvm_tirx::tvm_ffi::{Map, String as FfiString};
@@ -30,7 +30,7 @@ use crate::common::{global, serial};
 #[test]
 fn memory_axes() {
     let _serial = serial();
-    let m = Axis::get("m").unwrap();
+    let m = Axis::get("m");
     assert!(m.is_memory().unwrap() && !m.is_thread().unwrap());
     assert!(m.backend().unwrap().is_none());
     assert!(m.get_scope().unwrap().is_none());
@@ -46,7 +46,7 @@ fn layouts() {
     assert_eq!(as_i64(&layout.size(None).unwrap()), 64);
     assert_eq!(as_i64(&layout.span(Some("m")).unwrap()), 64);
     let key = FfiString::from("m");
-    let at = |coord: Map<FfiString, Expr>| as_i64(&coord.get(&key).unwrap().unwrap());
+    let at = |coord: Map<FfiString, PrimExpr>| as_i64(&coord.get(&key).unwrap().unwrap());
     assert_eq!(at(layout.apply([int32(1), int32(2)], &analyzer).unwrap()), 10);
     assert_eq!(at(layout.apply_linear(int32(10), &analyzer).unwrap()), 10);
     assert_eq!(at(layout.apply_with_shape([int32(10)], [int32(64)], &analyzer).unwrap()), 10);
@@ -73,7 +73,7 @@ fn layouts() {
 fn thread_layout_scope() {
     let _serial = serial();
     global("tirx.cuda.RegisterLayoutAxes").call_tuple(()).unwrap();
-    let laneid = Axis::get("laneid").unwrap();
+    let laneid = Axis::get("laneid");
     let lanes =
         TileLayout::new([Iter::new(int32(32), int32(1), laneid)], Vec::<Iter>::new(), &Map::new());
     let (inner, outer) = lanes.get_scope().unwrap().unwrap();

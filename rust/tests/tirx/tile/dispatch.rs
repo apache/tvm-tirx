@@ -19,7 +19,7 @@
 
 //! Tests of `tirx::tile::dispatch`: the context tile instructions are dispatched in.
 
-use tvm_tirx::ir::{Location, UNKNOWN_LOC, PrimExpr, PrimType, Stmt, Var};
+use tvm_tirx::ir::{UnknownLoc, UNKNOWN_LOC, PrimExpr, PrimType, Stmt, Var};
 use tvm_tirx::target::Target;
 use tvm_tirx::tirx::tile::DispatchContext;
 use tvm_tirx::tirx::{TensorType, ThreadScope};
@@ -56,7 +56,7 @@ fn dispatch_contexts() {
     assert!(structural_equal(&cached.downcast::<Var>().unwrap(), &tx_var));
 
     let stmt: Stmt = global("ir.Evaluate")
-        .call_tuple((int32(0), Location::unknown()))
+        .call_tuple((int32(0), UnknownLoc::new()))
         .unwrap()
         .try_into()
         .unwrap();

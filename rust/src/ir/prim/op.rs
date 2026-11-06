@@ -884,9 +884,13 @@ pub fn make_const_at(
     Ok(Broadcast::new(scalar, lanes, loc)?.into())
 }
 
-/// Convert `value` into an expression: a Rust `bool`, integer or float becomes a constant of the
-/// default type, and an expression is returned as is (`prim.convert`).
-pub fn convert(value: impl Into<Any>) -> Result<Expr> {
+/// Convert `value` into a primitive expression: a Rust `bool`, integer or float becomes a constant
+/// of the default type, and a primitive expression is returned as is (`prim.convert`).
+///
+/// # Errors
+///
+/// Returns a `TypeError` if `value` is not a primitive expression or a literal.
+pub fn convert(value: impl Into<Any>) -> Result<PrimExpr> {
     tvm_ffi::cached_global_func!("prim.convert").call_tuple((value.into(),))?.try_into()
 }
 

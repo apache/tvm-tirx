@@ -63,6 +63,9 @@
 // tvm-ffi-stubgen(custom-new): ir.Evaluate
 // tvm-ffi-stubgen(custom-new): ir.Return
 // tvm-ffi-stubgen(custom-new): ir.While
+// A loop's kind is C++ `ForKind`. The `enum` directive declares it as an open newtype of the
+// native `int` field, so a value Rust does not name reads back intact.
+// tvm-ffi-stubgen(enum): ir.For.kind -> ForKind(i32) { Default=0, Parallel=1, Vectorized=2, Unrolled=3 }
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
 // tvm-ffi-stubgen(import-object): tvm_ffi::AnyView
@@ -121,6 +124,7 @@ use tvm_ffi::AnyView;
 use tvm_ffi::Array;
 use tvm_ffi::BigInt;
 use tvm_ffi::DLDataType;
+use tvm_ffi::Error;
 use tvm_ffi::Map;
 use tvm_ffi::Object;
 use tvm_ffi::ObjectArc;
@@ -129,6 +133,7 @@ use tvm_ffi::Result;
 use tvm_ffi::ShallowCopy;
 use tvm_ffi::String;
 use tvm_ffi::UnsafeInit;
+use tvm_ffi::VALUE_ERROR;
 use tvm_ffi::reflection::drop_if_defined;
 use tvm_ffi::tvm_ffi_sys::TVMFFITypeIndex;
 // tvm-ffi-stubgen(end)
@@ -380,6 +385,33 @@ impl AssertStmt {
 }
 
 // tvm-ffi-stubgen(begin): object/ir.For
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[repr(transparent)]
+pub struct ForKind(i32);
+
+#[allow(non_upper_case_globals)]
+impl ForKind {
+    pub const Default: Self = Self(0);
+    pub const Parallel: Self = Self(1);
+    pub const Vectorized: Self = Self(2);
+    pub const Unrolled: Self = Self(3);
+    pub const fn from_raw(value: i32) -> Self {
+        Self(value)
+    }
+    pub const fn as_raw(self) -> i32 {
+        self.0
+    }
+}
+
+impl TryFrom<i64> for ForKind {
+    type Error = Error;
+    fn try_from(value: i64) -> Result<Self> {
+        i32::try_from(value).map(Self).map_err(|_| {
+            Error::new(VALUE_ERROR, &format!("ForKind value {value} does not fit i32"), "")
+        })
+    }
+}
+
 /// Complete: reflected fields fill [32, 88) exactly (alignment padding [68, 72)).
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -391,7 +423,7 @@ pub struct ForObj {
     pub begin: PrimExpr,
     pub end: PrimExpr,
     pub step: PrimExpr,
-    pub kind: i32,
+    pub kind: ForKind,
     pub body: SeqStmt,
     pub annotations: Map<String, Any>,
 }
@@ -428,7 +460,7 @@ impl ForObj {
         begin: PrimExpr,
         end: PrimExpr,
         step: PrimExpr,
-        kind: i32,
+        kind: ForKind,
         body: SeqStmt,
         annotations: Map<String, Any>,
     ) -> Self {
@@ -445,7 +477,7 @@ impl For {
         begin: impl Into<PrimExpr>,
         end: impl Into<PrimExpr>,
         step: impl Into<PrimExpr>,
-        kind: i32,
+        kind: impl Into<ForKind>,
         body: impl Into<SeqStmt>,
         annotations: impl Into<Map<String, Any>>,
     ) -> Self {
@@ -455,7 +487,7 @@ impl For {
             begin.into(),
             end.into(),
             step.into(),
-            kind,
+            kind.into(),
             body.into(),
             annotations.into(),
         );
@@ -468,19 +500,11 @@ unsafe impl tvm_ffi::object::ImmutableObject for ForObj {}
 tvm_ffi::unsafe_impl_object_upcast!(For => Stmt);
 // tvm-ffi-stubgen(end)
 
-/// How a [`For`] loop runs its iterations, as C++ `ir::ForKind`.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
-#[repr(i32)]
-pub enum ForKind {
-    /// Sequential iterations.
-    #[default]
-    Default = 0,
-    /// Iterations may run in parallel.
-    Parallel = 1,
-    /// The body is vectorized.
-    Vectorized = 2,
-    /// The loop is unrolled.
-    Unrolled = 3,
+impl Default for ForKind {
+    /// The ordinary loop, of sequential iterations (C++ `ForKind::kDefault`).
+    fn default() -> Self {
+        Self::Default
+    }
 }
 
 impl For {
@@ -572,7 +596,7 @@ impl For {
         same_type(&end, "var.ty() == end.ty()")?;
         let step = promote(step)?;
         same_type(&step, "var.ty() == step.ty()")?;
-        Ok(Self::from_fields(loc.into(), var, begin, end, step, kind as i32, body, annotations))
+        Ok(Self::from_fields(loc.into(), var, begin, end, step, kind, body, annotations))
     }
 }
 

@@ -21,7 +21,7 @@
 //! against the native functions they follow.
 
 use tvm_tirx::ir::{
-    Call, Expr, FloatImm, FuncType, IntImm, Location, Op, PrimExpr, PrimType, PrimVar, PtrType,
+    Call, Expr, FloatImm, FuncType, IntImm, UnknownLoc, Op, PrimExpr, PrimType, PrimVar, PtrType,
     StringImm, Type, UNKNOWN_LOC,
 };
 use tvm_tirx::tirx::{fast_erf_float_expr, gpu_thread_return, logaddexp, reinterpret};
@@ -80,7 +80,7 @@ fn logaddexp_agrees_with_cpp() {
     ];
     for (x, y) in &pairs {
         let native =
-            global("tirx._OpLogAddExp").call_tuple((x.clone(), y.clone(), Location::unknown()));
+            global("tirx._OpLogAddExp").call_tuple((x.clone(), y.clone(), UnknownLoc::new()));
         let what = format!("logaddexp({}, {})", repr(x), repr(y));
         agree(&what, logaddexp(x, y), native);
     }
@@ -108,7 +108,7 @@ fn reinterpret_agrees_with_cpp() {
     ];
     for (ty, x) in cases {
         let native =
-            global("tirx.reinterpret").call_tuple((ty.clone(), x.clone(), Location::unknown()));
+            global("tirx.reinterpret").call_tuple((ty.clone(), x.clone(), UnknownLoc::new()));
         let what = format!("reinterpret({}, {})", repr(&ty), repr(&x));
         agree(&what, reinterpret(ty, x), native);
     }

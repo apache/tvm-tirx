@@ -209,13 +209,14 @@ unsafe impl UnsafeInit for ExprObj {
 unsafe impl tvm_ffi::object::ImmutableObject for ExprObj {}
 // tvm-ffi-stubgen(end)
 
-/// An index of [`Expr::subscript`]: an expression, or a `start:stop:step` slice.
+/// An index of [`Expr::subscript`]: a primitive expression, or a `start:stop:step` slice (C++
+/// `SubscriptSlice`).
 #[derive(Clone)]
 pub enum Subscript {
-    /// The point index of an expression.
-    Index(Expr),
+    /// The point index `index`.
+    Index(PrimExpr),
     /// The slice `start:stop:step`, whose missing bounds are `None`.
-    Slice(Option<Expr>, Option<Expr>, Option<Expr>),
+    Slice(Option<PrimExpr>, Option<PrimExpr>, Option<PrimExpr>),
 }
 
 impl From<&Subscript> for Any {
@@ -1835,7 +1836,7 @@ tvm_ffi::unsafe_impl_object_upcast!(StringImm => Expr, StringImm => Constant);
 impl StringImm {
     /// Create the string constant `value`, of type [`StringType`] (C++ `StringImm(value, loc)`).
     pub fn new(value: &str, loc: impl Into<Location>) -> Self {
-        let ty = StringType::new(UNKNOWN_LOC);
+        let ty = StringType::new();
         Self::from_fields(loc.into(), ty, String::from(value))
     }
 }

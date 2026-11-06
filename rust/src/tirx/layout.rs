@@ -33,7 +33,7 @@
 //! use tvm_tirx::tirx::{Axis, Iter, Layout, TileLayout};
 //! use tvm_tirx::tvm_ffi::Map;
 //!
-//! let m = Axis::get("m")?;
+//! let m = Axis::get("m");
 //! let shard = [Iter::new(8, 8, m.clone()), Iter::new(8, 1, m)];
 //! let layout = Layout::from(&TileLayout::new(shard, Vec::<Iter>::new(), &Map::new()));
 //! assert_eq!(script(&layout.size(None)?)?, "64");
@@ -58,8 +58,10 @@
 // An iterator's extent and stride are `PrimExpr`s, as C++ `IterObj` holds them.
 // tvm-ffi-stubgen(field): tirx.Iter.extent -> PrimExpr
 // tvm-ffi-stubgen(field): tirx.Iter.stride -> PrimExpr
+// A tile layout's offsets are `PrimExpr`s, as C++ `TileLayoutObj` holds them.
+// tvm-ffi-stubgen(field): tirx.TileLayout.offset -> Map<Axis, PrimExpr>
+// tvm-ffi-stubgen(import-object): tvm_ffi::Map
 // tvm-ffi-stubgen(begin): import-section
-use crate::ir::expr::Expr;
 use crate::ir::expr::IntoExpr;
 use crate::ir::expr::PrimExpr;
 use crate::ir::support;
@@ -124,7 +126,7 @@ impl Layout {
 
     /// Return the number of elements the layout maps, along `axis_name` if given
     /// (`tirx.LayoutGetSize`).
-    pub fn size(&self, axis_name: Option<&str>) -> Result<Expr> {
+    pub fn size(&self, axis_name: Option<&str>) -> Result<PrimExpr> {
         tvm_ffi::cached_global_func!("tirx.LayoutGetSize")
             .call_tuple((self, axis_name.map(String::from)))?
             .try_into()
@@ -132,7 +134,7 @@ impl Layout {
 
     /// Return the extent of the coordinates the layout reaches, along `axis_name` if given
     /// (`tirx.LayoutGetSpan`).
-    pub fn span(&self, axis_name: Option<&str>) -> Result<Expr> {
+    pub fn span(&self, axis_name: Option<&str>) -> Result<PrimExpr> {
         tvm_ffi::cached_global_func!("tirx.LayoutGetSpan")
             .call_tuple((self, axis_name.map(String::from)))?
             .try_into()
@@ -145,11 +147,13 @@ impl Layout {
     /// Returns an error if `coord` does not have one index for each iterator of the shard.
     pub fn apply(
         &self,
-        coord: impl IntoIterator<Item = impl IntoExpr>,
+        coord: impl IntoIterator<Item = impl IntoExpr<PrimExpr>>,
         analyzer: &Analyzer,
-    ) -> Result<Map<String, Expr>> {
-        let coord =
-            coord.into_iter().map(IntoExpr::into_owned_expr).collect::<Result<Array<Expr>>>()?;
+    ) -> Result<Map<String, PrimExpr>> {
+        let coord = coord
+            .into_iter()
+            .map(IntoExpr::into_owned_expr)
+            .collect::<Result<Array<PrimExpr>>>()?;
         tvm_ffi::cached_global_func!("tirx.LayoutApply")
             .call_tuple((self, &coord, analyzer))?
             .try_into()
@@ -159,9 +163,9 @@ impl Layout {
     /// (`tirx.LayoutApplyLinear`).
     pub fn apply_linear(
         &self,
-        coord: impl IntoExpr,
+        coord: impl IntoExpr<PrimExpr>,
         analyzer: &Analyzer,
-    ) -> Result<Map<String, Expr>> {
+    ) -> Result<Map<String, PrimExpr>> {
         tvm_ffi::cached_global_func!("tirx.LayoutApplyLinear")
             .call_tuple((self, coord.into_expr()?.borrow(), analyzer))?
             .try_into()
@@ -171,14 +175,18 @@ impl Layout {
     /// (`tirx.LayoutApplyWithShape`).
     pub fn apply_with_shape(
         &self,
-        coord: impl IntoIterator<Item = impl IntoExpr>,
-        shape: impl IntoIterator<Item = impl IntoExpr>,
+        coord: impl IntoIterator<Item = impl IntoExpr<PrimExpr>>,
+        shape: impl IntoIterator<Item = impl IntoExpr<PrimExpr>>,
         analyzer: &Analyzer,
-    ) -> Result<Map<String, Expr>> {
-        let coord =
-            coord.into_iter().map(IntoExpr::into_owned_expr).collect::<Result<Array<Expr>>>()?;
-        let shape =
-            shape.into_iter().map(IntoExpr::into_owned_expr).collect::<Result<Array<Expr>>>()?;
+    ) -> Result<Map<String, PrimExpr>> {
+        let coord = coord
+            .into_iter()
+            .map(IntoExpr::into_owned_expr)
+            .collect::<Result<Array<PrimExpr>>>()?;
+        let shape = shape
+            .into_iter()
+            .map(IntoExpr::into_owned_expr)
+            .collect::<Result<Array<PrimExpr>>>()?;
         tvm_ffi::cached_global_func!("tirx.LayoutApplyWithShape")
             .call_tuple((self, &coord, &shape, analyzer))?
             .try_into()
@@ -199,18 +207,18 @@ impl Layout {
     pub fn tile(
         &self,
         outer: impl Into<TileLayout>,
-        outer_shape: impl IntoIterator<Item = impl IntoExpr>,
-        inner_shape: impl IntoIterator<Item = impl IntoExpr>,
+        outer_shape: impl IntoIterator<Item = impl IntoExpr<PrimExpr>>,
+        inner_shape: impl IntoIterator<Item = impl IntoExpr<PrimExpr>>,
     ) -> Result<Layout> {
         let outer = outer.into();
         let outer_shape = outer_shape
             .into_iter()
             .map(IntoExpr::into_owned_expr)
-            .collect::<Result<Array<Expr>>>()?;
+            .collect::<Result<Array<PrimExpr>>>()?;
         let inner_shape = inner_shape
             .into_iter()
             .map(IntoExpr::into_owned_expr)
-            .collect::<Result<Array<Expr>>>()?;
+            .collect::<Result<Array<PrimExpr>>>()?;
         tvm_ffi::cached_global_func!("tirx.LayoutTile")
             .call_tuple((self, &outer, &outer_shape, &inner_shape))?
             .try_into()
@@ -256,7 +264,7 @@ impl TileLayoutObj {
         FieldGetter::new(Self::type_index(), "replica")?.get(self)
     }
 
-    pub fn offset(&self) -> Result<Map<Axis, Expr>> {
+    pub fn offset(&self) -> Result<Map<Axis, PrimExpr>> {
         FieldGetter::new(Self::type_index(), "offset")?.get(self)
     }
 }
@@ -272,7 +280,7 @@ impl TileLayout {
     pub fn new(
         shard: impl IntoIterator<Item = impl Into<Iter>>,
         replica: impl IntoIterator<Item = impl Into<Iter>>,
-        offset: &Map<Axis, Expr>,
+        offset: &Map<Axis, PrimExpr>,
     ) -> Self {
         let shard = shard.into_iter().map(Into::into).collect::<Array<Iter>>();
         let replica = replica.into_iter().map(Into::into).collect::<Array<Iter>>();
@@ -304,10 +312,12 @@ impl TileLayout {
     /// Returns an error if the iterators cannot be split into groups of the extents of `shape`.
     pub fn group(
         &self,
-        shape: impl IntoIterator<Item = impl IntoExpr>,
+        shape: impl IntoIterator<Item = impl IntoExpr<PrimExpr>>,
     ) -> Result<(TileLayout, Array<i64>)> {
-        let shape =
-            shape.into_iter().map(IntoExpr::into_owned_expr).collect::<Result<Array<Expr>>>()?;
+        let shape = shape
+            .into_iter()
+            .map(IntoExpr::into_owned_expr)
+            .collect::<Result<Array<PrimExpr>>>()?;
         let pair: Array<Any> = tvm_ffi::cached_global_func!("tirx.TileLayoutGroup")
             .call_tuple((self, &shape))?
             .try_into()?;
@@ -413,8 +423,12 @@ unsafe impl tvm_ffi::object::ImmutableObject for AxisObj {}
 impl Axis {
     /// Look up the axis named `name`, such as the memory axis `m`, registering it on first use
     /// (`tirx.AxisGet`).
-    pub fn get(name: &str) -> Result<Self> {
-        tvm_ffi::cached_global_func!("tirx.AxisGet").call_tuple((String::from(name),))?.try_into()
+    pub fn get(name: &str) -> Self {
+        support::infallible(
+            tvm_ffi::cached_global_func!("tirx.AxisGet")
+                .call_tuple((String::from(name),))
+                .and_then(|any| any.try_into()),
+        )
     }
 
     /// Return whether the axis indexes threads (`tirx.AxisIsThreadAxis`).

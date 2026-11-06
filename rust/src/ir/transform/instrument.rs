@@ -29,7 +29,7 @@
 //! use std::sync::{Arc, Mutex};
 //! use tvm_tirx::ir::transform::{BasePassInstrument, ModulePass, Pass, PassContext, PassInfo};
 //! use tvm_tirx::ir::transform::PassInstrumentHooks;
-//! use tvm_tirx::ir::IRModule;
+//! use tvm_tirx::ir::{DictAttrs, IRModule};
 //! use tvm_tirx::tvm_ffi::Map;
 //!
 //! let log = Arc::new(Mutex::new(Vec::new()));
@@ -42,9 +42,9 @@
 //! };
 //! let tracer = BasePassInstrument::new("tracer", hooks);
 //!
-//! let _scope = PassContext::create(2, [""; 0], [""; 0], [tracer], None)?.enter()?;
+//! let _scope = PassContext::new(2, [""; 0], [""; 0], [tracer], None)?.enter()?;
 //! let noop = Pass::from(ModulePass::new(|module, _ctx| Ok(module), PassInfo::new(0, "noop")));
-//! noop.run(IRModule::from_functions(&Map::new(), None, &Map::new())?)?;
+//! noop.run(IRModule::new(&Map::new(), DictAttrs::new(Map::new()), &Map::new())?)?;
 //! assert_eq!(*log.lock().unwrap(), ["noop"]);
 //! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
 //! ```

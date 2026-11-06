@@ -31,7 +31,7 @@ fn modules() {
     let func = function(0);
     let main = GlobalVar::new("main", UNKNOWN_LOC);
     let functions: Map<GlobalVar, BaseFunc> = [(main.clone(), func.clone())].into_iter().collect();
-    let module = IRModule::from_functions(&functions, None, &Map::new()).unwrap();
+    let module = IRModule::new(&functions, DictAttrs::new(Map::new()), &Map::new()).unwrap();
     assert!(module.contains("main").unwrap());
     assert!(module.contains_global_var(&main).unwrap());
     assert!(module.has_global_var("main").unwrap());
@@ -53,7 +53,8 @@ fn modules() {
     let extra_var = GlobalVar::new("extra", UNKNOWN_LOC);
     let extra_functions: Map<GlobalVar, BaseFunc> =
         [(extra_var.clone(), function(4))].into_iter().collect();
-    module.update(&IRModule::from_functions(&extra_functions, None, &Map::new()).unwrap()).unwrap();
+    let extra = IRModule::new(&extra_functions, DictAttrs::new(Map::new()), &Map::new()).unwrap();
+    module.update(&extra).unwrap();
     assert!(module.contains("extra").unwrap());
     module.update_global_info("info", Vec::<GlobalInfo>::new()).unwrap();
     assert!(module.global_infos.get(&FfiString::from("info")).is_ok());
@@ -101,7 +102,8 @@ fn modules_agree_with_cpp() {
         let attrs_arg = attrs.cloned();
         let native_module =
             native("ir.IRModule", &[(&functions).into(), (&attrs_arg).into(), (&infos).into()]);
-        let rust = IRModule::from_functions(&functions, attrs, &infos);
+        let attrs = attrs.cloned().unwrap_or_else(|| DictAttrs::new(Map::new()));
+        let rust = IRModule::new(&functions, attrs, &infos);
         if let (Ok(rust), Ok(native_module)) = (&rust, &native_module) {
             let native_module: IRModule = native_module.clone().try_into().unwrap();
             assert!(

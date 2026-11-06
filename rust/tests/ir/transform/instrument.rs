@@ -58,7 +58,7 @@ fn instruments() {
     assert_eq!(probe.name().unwrap().as_str(), "probe");
     let silent = BasePassInstrument::new("silent", PassInstrumentHooks::default());
 
-    let ctx = PassContext::create(2, [""; 0], [""; 0], [&probe], None).unwrap();
+    let ctx = PassContext::new(2, [""; 0], [""; 0], [&probe], None).unwrap();
     {
         let _scope = ctx.enter().unwrap();
         Pass::from(logging_pass("kept", &log)).run(empty_module()).unwrap();
@@ -77,7 +77,7 @@ fn pass_timing() {
     let _serial = serial();
     let log = Log::default();
     let timing = pass_timing_instrument().unwrap();
-    let ctx = PassContext::create(2, [""; 0], [""; 0], [timing], None).unwrap();
+    let ctx = PassContext::new(2, [""; 0], [""; 0], [timing], None).unwrap();
     let _scope = ctx.enter().unwrap();
     Pass::from(logging_pass("timed", &log)).run(empty_module()).unwrap();
     let profile = render_pass_timing().unwrap();

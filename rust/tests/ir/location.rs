@@ -26,7 +26,7 @@ use crate::common::{serial, structural_equal};
 #[test]
 fn source_names() {
     let _serial = serial();
-    let name = SourceName::get("main.py").unwrap();
+    let name = SourceName::get("main.py");
     assert_eq!(name.name.as_str(), "main.py");
-    assert!(structural_equal(&name, &SourceName::get("main.py").unwrap()));
+    assert!(structural_equal(&name, &SourceName::get("main.py")));
 }

@@ -32,7 +32,7 @@
 //! use tvm_tirx::sym::{Analyzer, ConstraintContext, RangeConstraint};
 //!
 //! let x = PrimVar::new("x", PrimType::int(32), UNKNOWN_LOC);
-//! let context = ConstraintContext::new()?;
+//! let context = ConstraintContext::new();
 //! let domain = Range::from_min_extent(0, 16, UNKNOWN_LOC)?;
 //! context.append(&RangeConstraint::new(x.clone(), domain).into())?;
 //! let analyzer = Analyzer::new();

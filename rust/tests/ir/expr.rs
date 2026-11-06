@@ -95,7 +95,7 @@ fn constants_agree_with_cpp() {
     let float_imm = |name: &str, value: f64| {
         let native = native(
             "ir.FloatImm",
-            &[(&parse_dtype(name)).into(), (&value).into(), (&Location::unknown()).into()],
+            &[(&parse_dtype(name)).into(), (&value).into(), (&UnknownLoc::new()).into()],
         );
         let what = format!("FloatImm({name}, {value})");
         agree(
@@ -130,7 +130,7 @@ fn constants_agree_with_cpp() {
     let int_imm = |name: &str, value: BigInt| {
         let native = native(
             "ir.IntImm",
-            &[(&parse_dtype(name)).into(), (&value).into(), (&Location::unknown()).into()],
+            &[(&parse_dtype(name)).into(), (&value).into(), (&UnknownLoc::new()).into()],
         );
         let what = format!("IntImm({name}, {value})");
         agree(
@@ -165,7 +165,7 @@ fn constants_agree_with_cpp() {
     let missing: Type = MissingType::new().into();
     let generic = |what: &str, ty: &Type, value: Any| {
         let native =
-            native("ir.GenericConst", &[ty.into(), (&value).into(), (&Location::unknown()).into()]);
+            native("ir.GenericConst", &[ty.into(), (&value).into(), (&UnknownLoc::new()).into()]);
         agree(what, GenericConst::new(ty, value.clone(), UNKNOWN_LOC), native);
     };
     let i32_ty_as_type: Type = i32_ty.clone().into();
@@ -177,10 +177,10 @@ fn constants_agree_with_cpp() {
     generic("GenericConst(missing type)", &missing, Any::from(i32_ty.clone()));
 
     let int8 = dtype::int(8);
-    let native_dtype = native("ir.DataTypeImm", &[(&int8).into(), (&Location::unknown()).into()]);
+    let native_dtype = native("ir.DataTypeImm", &[(&int8).into(), (&UnknownLoc::new()).into()]);
     agree("DataTypeImm", Ok(DataTypeImm::new(int8, UNKNOWN_LOC)), native_dtype);
     let text = FfiString::from("hi");
-    let native_string = native("ir.StringImm", &[(&text).into(), (&Location::unknown()).into()]);
+    let native_string = native("ir.StringImm", &[(&text).into(), (&UnknownLoc::new()).into()]);
     agree("StringImm", Ok(StringImm::new("hi", UNKNOWN_LOC)), native_string);
 }
 
@@ -192,11 +192,11 @@ fn builtin_constants() {
     let int = |dtype: DLDataType, value: i64| {
         native(
             "ir.IntImm",
-            &[(&dtype).into(), (&BigInt::from(value)).into(), (&Location::unknown()).into()],
+            &[(&dtype).into(), (&BigInt::from(value)).into(), (&UnknownLoc::new()).into()],
         )
     };
     let float = |dtype: DLDataType, value: f64| {
-        native("ir.FloatImm", &[(&dtype).into(), (&value).into(), (&Location::unknown()).into()])
+        native("ir.FloatImm", &[(&dtype).into(), (&value).into(), (&UnknownLoc::new()).into()])
     };
     agree("IntImm::int32", Ok(IntImm::int32(7)), int(dtype::int(32), 7));
     agree("IntImm::int32(min)", Ok(IntImm::int32(i32::MIN)), int(dtype::int(32), i32::MIN as i64));
@@ -240,17 +240,17 @@ fn expressions_agree_with_cpp() {
     let i32_ty: Type = PrimType::int(32).into();
 
     let name = FfiString::from("main");
-    let native_global = native("ir.GlobalVar", &[(&name).into(), (&Location::unknown()).into()]);
+    let native_global = native("ir.GlobalVar", &[(&name).into(), (&UnknownLoc::new()).into()]);
     agree_fresh("GlobalVar", Ok(GlobalVar::new("main", UNKNOWN_LOC)), native_global);
     let native_var = native(
         "ir.Var",
-        &[(&FfiString::from("x")).into(), (&i32_ty).into(), (&Location::unknown()).into()],
+        &[(&FfiString::from("x")).into(), (&i32_ty).into(), (&UnknownLoc::new()).into()],
     );
     agree_fresh("Var", Ok(Var::new("x", i32_ty, UNKNOWN_LOC)), native_var);
     let missing: Type = MissingType::new().into();
     let native_untyped = native(
         "ir.Var",
-        &[(&FfiString::from("u")).into(), (&missing).into(), (&Location::unknown()).into()],
+        &[(&FfiString::from("u")).into(), (&missing).into(), (&UnknownLoc::new()).into()],
     );
     agree_fresh("Var(untyped)", Ok(Var::new("u", MissingType::new(), UNKNOWN_LOC)), native_untyped);
 
@@ -260,7 +260,7 @@ fn expressions_agree_with_cpp() {
         ("Tuple(empty)", vec![]),
     ] {
         let array: Array<Expr> = fields.iter().cloned().collect();
-        let native_tuple = native("ir.Tuple", &[(&array).into(), (&Location::unknown()).into()]);
+        let native_tuple = native("ir.Tuple", &[(&array).into(), (&UnknownLoc::new()).into()]);
         agree(what, Ok(Tuple::new(fields, UNKNOWN_LOC)), native_tuple);
     }
 
@@ -273,7 +273,7 @@ fn expressions_agree_with_cpp() {
     ] {
         let native_item = native(
             "ir.TupleGetItem",
-            &[(&value).into(), (&index).into(), (&Location::unknown()).into()],
+            &[(&value).into(), (&index).into(), (&UnknownLoc::new()).into()],
         );
         agree(what, TupleGetItem::new(&value, index, UNKNOWN_LOC), native_item);
     }
@@ -283,7 +283,7 @@ fn expressions_agree_with_cpp() {
         let array: Array<PrimExpr> = indices.iter().cloned().collect();
         let native_load = native(
             "ir.TensorLoad",
-            &[(&source).into(), (&array).into(), (&Location::unknown()).into()],
+            &[(&source).into(), (&array).into(), (&UnknownLoc::new()).into()],
         );
         agree(what, TensorLoad::new(&source, indices, UNKNOWN_LOC), native_load);
     };
@@ -294,7 +294,7 @@ fn expressions_agree_with_cpp() {
     let array: Array<Expr> = [text.clone()].into_iter().collect();
     let native_load = native(
         "ir.TensorLoad",
-        &[(&Expr::from(&a)).into(), (&array).into(), (&Location::unknown()).into()],
+        &[(&Expr::from(&a)).into(), (&array).into(), (&UnknownLoc::new()).into()],
     );
     // The type system rejects a string index; its check fails as the native conversion does.
     let rust_load =
@@ -304,7 +304,7 @@ fn expressions_agree_with_cpp() {
     let vars: Array<Var> = [Var::from(&x)].into_iter().collect();
     let body = op("prim._OpAdd", &x, int32(1));
     let native_lambda =
-        native("ir.LambdaExpr", &[(&vars).into(), (&body).into(), (&Location::unknown()).into()]);
+        native("ir.LambdaExpr", &[(&vars).into(), (&body).into(), (&UnknownLoc::new()).into()]);
     agree("LambdaExpr", Ok(LambdaExpr::new([&x], &body, UNKNOWN_LOC)), native_lambda);
 
     let x_plus_4 = op("prim._OpAdd", &x, int32(4));
@@ -316,16 +316,16 @@ fn expressions_agree_with_cpp() {
         ("Range(x, n)", PrimExpr::from(&x), PrimExpr::from(&n)),
     ] {
         let native_range =
-            native("ir.Range", &[(&begin).into(), (&end).into(), (&Location::unknown()).into()]);
+            native("ir.Range", &[(&begin).into(), (&end).into(), (&UnknownLoc::new()).into()]);
         agree(what, Range::new(&begin, &end, UNKNOWN_LOC), native_range);
     }
     // The native constructor spells `[0, n)` as `Range(n)`; Rust gives the begin.
     let native_range =
-        native("ir.Range", &[(&n).into(), (&None::<Expr>).into(), (&Location::unknown()).into()]);
+        native("ir.Range", &[(&n).into(), (&None::<Expr>).into(), (&UnknownLoc::new()).into()]);
     agree("Range(n)", Range::new(int32(0), &n, UNKNOWN_LOC), native_range);
     let native_min_extent = native(
         "ir.RangeFromMinExtent",
-        &[(&Expr::from(&x)).into(), (&int32(4)).into(), (&Location::unknown()).into()],
+        &[(&Expr::from(&x)).into(), (&int32(4)).into(), (&UnknownLoc::new()).into()],
     );
     agree(
         "Range::from_min_extent",
@@ -405,7 +405,7 @@ fn calls_agree_with_cpp() {
                 (&array).into(),
                 (&attrs).into(),
                 (&ty_args).into(),
-                (&Location::unknown()).into(),
+                (&UnknownLoc::new()).into(),
             ],
         );
         let rust = Call::new(ty.as_ref(), &op, args, None, Vec::<Type>::new(), UNKNOWN_LOC);

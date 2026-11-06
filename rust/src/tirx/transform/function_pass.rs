@@ -34,8 +34,9 @@
 //! # let body = SeqStmt::new([Evaluate::new(1, UNKNOWN_LOC)], UNKNOWN_LOC);
 //! # let attrs = DictAttrs::new(Map::new());
 //! # let main = Function::new(Vec::<Var>::new(), &body, MissingType::new(), attrs, UNKNOWN_LOC);
-//! # let functions = [(GlobalVar::new("main", UNKNOWN_LOC), BaseFunc::from(&main))];
-//! # let module = IRModule::from_functions(&functions.into_iter().collect(), None, &Map::new())?;
+//! # let main_var = GlobalVar::new("main", UNKNOWN_LOC);
+//! # let functions = Map::from_iter([(main_var, BaseFunc::from(&main))]);
+//! # let module = IRModule::new(&functions, DictAttrs::new(Map::new()), &Map::new())?;
 //!
 //! let pass = FunctionPass::new(
 //!     |func, _module, _ctx| Ok((!func.params.is_empty()).then_some(func)),

@@ -49,6 +49,8 @@
 // tvm-ffi-stubgen(custom-new): ir.TupleType
 // tvm-ffi-stubgen(custom-new): ir.FuncType
 // tvm-ffi-stubgen(custom-new): ir.PrimType
+// tvm-ffi-stubgen(custom-new): ir.OpaqueType
+// tvm-ffi-stubgen(custom-new): ir.StringType
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
 // tvm-ffi-stubgen(import-object): tvm_ffi::ObjectRefCore
@@ -451,7 +453,7 @@ impl OpaqueTypeObj {
 
 impl OpaqueType {
     /// Lossless complete-field allocation.
-    pub fn new(loc: impl Into<Location>) -> Self {
+    pub fn from_fields(loc: impl Into<Location>) -> Self {
         let obj = OpaqueTypeObj::new(loc.into());
         Self { base: ObjectArc::new(obj) }
     }
@@ -462,8 +464,12 @@ unsafe impl tvm_ffi::object::ImmutableObject for OpaqueTypeObj {}
 tvm_ffi::unsafe_impl_object_upcast!(OpaqueType => Type);
 // tvm-ffi-stubgen(end)
 
-// `ir.OpaqueType` allocates a fresh type at the unknown location: the generated
-// `OpaqueType::new(Location::unknown())` is the same.
+impl OpaqueType {
+    /// Create an opaque type at the unknown location (C++ `OpaqueType()`).
+    pub fn new() -> Self {
+        Self::from_fields(UNKNOWN_LOC)
+    }
+}
 
 // tvm-ffi-stubgen(begin): object/ir.PrimType
 /// Complete: reflected fields fill [32, 40) exactly (alignment padding [36, 40)).
@@ -652,7 +658,7 @@ impl StringTypeObj {
 
 impl StringType {
     /// Lossless complete-field allocation.
-    pub fn new(loc: impl Into<Location>) -> Self {
+    pub fn from_fields(loc: impl Into<Location>) -> Self {
         let obj = StringTypeObj::new(loc.into());
         Self { base: ObjectArc::new(obj) }
     }
@@ -663,8 +669,12 @@ unsafe impl tvm_ffi::object::ImmutableObject for StringTypeObj {}
 tvm_ffi::unsafe_impl_object_upcast!(StringType => Type);
 // tvm-ffi-stubgen(end)
 
-// `ir.StringType` allocates a fresh type at the unknown location: the generated
-// `StringType::new(Location::unknown())` is the same.
+impl StringType {
+    /// Create the string type at the unknown location (C++ `StringType()`).
+    pub fn new() -> Self {
+        Self::from_fields(UNKNOWN_LOC)
+    }
+}
 
 // tvm-ffi-stubgen(begin): object/ir.PtrType
 /// Complete: reflected fields fill [32, 48) exactly.

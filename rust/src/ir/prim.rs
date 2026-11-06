@@ -29,7 +29,7 @@
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
 // tvm-ffi-stubgen(import-object): tvm_ffi::Result
-// tvm-ffi-stubgen(import-object): crate::ir::expr::Expr
+// tvm-ffi-stubgen(import-object): crate::ir::expr::PrimExpr
 // tvm-ffi-stubgen(import-object): crate::ir::expr::IntoExpr
 
 mod const_fold;
@@ -44,15 +44,15 @@ pub use vector_expr::*;
 // tvm-ffi-stubgen(import-object): std::borrow::Borrow
 
 // tvm-ffi-stubgen(begin): import-section
-use crate::ir::expr::Expr;
 use crate::ir::expr::IntoExpr;
+use crate::ir::expr::PrimExpr;
 use std::borrow::Borrow;
 use tvm_ffi::Result;
 // tvm-ffi-stubgen(end)
 
 /// Return whether `lhs` and `rhs` are the same expression tree, without remapping variables: use
 /// structural equality for that (`prim.expr_deep_equal`).
-pub fn expr_deep_equal(lhs: impl IntoExpr, rhs: impl IntoExpr) -> Result<bool> {
+pub fn expr_deep_equal(lhs: impl IntoExpr<PrimExpr>, rhs: impl IntoExpr<PrimExpr>) -> Result<bool> {
     tvm_ffi::cached_global_func!("prim.expr_deep_equal")
         .call_tuple((lhs.into_expr()?.borrow(), rhs.into_expr()?.borrow()))?
         .try_into()

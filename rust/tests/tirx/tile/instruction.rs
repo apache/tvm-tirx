@@ -19,7 +19,7 @@
 
 //! Tests of `tirx::tile::instruction`: the tensor regions and validators of tile instructions.
 
-use tvm_tirx::ir::{Location, UNKNOWN_LOC, Expr, Op, PrimType};
+use tvm_tirx::ir::{UnknownLoc, UNKNOWN_LOC, Expr, Op, PrimType};
 use tvm_tirx::tirx::tile::{as_tensor_region, configure_tensor_instruction};
 use tvm_tirx::tirx::TensorType;
 use tvm_tirx::tvm_ffi::Array;
@@ -35,7 +35,7 @@ fn tensor_regions() {
         TensorType::new([int32(4)], PrimType::float(32), &scope, 0, None, UNKNOWN_LOC).unwrap();
     let tensor = var("T", &ty);
     let load: Expr = global("ir.TensorLoad")
-        .call_tuple((Expr::from(&tensor), Array::from_vec(vec![int32(1)]), Location::unknown()))
+        .call_tuple((Expr::from(&tensor), Array::from_vec(vec![int32(1)]), UnknownLoc::new()))
         .unwrap()
         .try_into()
         .unwrap();

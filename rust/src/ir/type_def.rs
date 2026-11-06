@@ -38,7 +38,7 @@ use super::support;
 /// # Examples
 ///
 /// ```
-/// use tvm_tirx::ir::{register_type, Location, PrimType, Type, TypeObj, Var, UNKNOWN_LOC};
+/// use tvm_tirx::ir::{register_type, PrimType, Type, TypeObj, Var, UNKNOWN_LOC};
 /// use tvm_tirx::script::script;
 /// use tvm_tirx::tvm_ffi::{self, def_object_ref, rs_object};
 ///
@@ -53,7 +53,7 @@ use super::support;
 ///
 /// impl PairType {
 ///     pub fn new(first: impl Into<Type>, second: impl Into<Type>) -> Self {
-///         PairTypeObj::new(TypeObj::new(Location::unknown()), first, second).into()
+///         PairTypeObj::new(TypeObj::new(UNKNOWN_LOC.into()), first, second).into()
 ///     }
 /// }
 ///

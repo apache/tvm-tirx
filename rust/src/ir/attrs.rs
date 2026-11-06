@@ -33,7 +33,7 @@
 //!
 //! let dict: Map<String, Any> =
 //!     [("system_lib_prefix".into(), Any::from(String::from("my_lib_")))].into_iter().collect();
-//! let module = IRModule::from_functions(&Map::new(), Some(&DictAttrs::new(dict)), &Map::new())?;
+//! let module = IRModule::new(&Map::new(), DictAttrs::new(dict), &Map::new())?;
 //!
 //! let prefix = module.attrs.dict.get(&"system_lib_prefix".into())?.unwrap();
 //! assert_eq!(String::try_from(prefix)?, "my_lib_");
