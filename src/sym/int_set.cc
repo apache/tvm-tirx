@@ -412,17 +412,6 @@ class IntervalSetEvaluator : public tvm::ExprFunctor<IntervalSet(const Expr&)> {
 
   IntervalSet Eval(const PrimExpr& val) { return this->Dispatch(val); }
 
-  IntervalSet Dispatch(const Expr& expr) override {
-    // Integer expressions can contain floating-point subexpressions, e.g. a cast
-    // or comparison. Stop at unsupported types before applying integer rules.
-    PrimExpr value = expr.as_or_throw<PrimExpr>();
-    if (!value.ty().MatchesCode(DLDataTypeCode::kDLInt, DLDataTypeCode::kDLUInt,
-                                DLDataTypeCode::kDLBool)) {
-      return IntervalSet::Everything();
-    }
-    return ExprFunctor::Dispatch(expr);
-  }
-
   // evaluate and relax the set
   IntervalSet Eval(IntervalSet val) {
     // avoid recursive indefinite recursive expansion.
@@ -440,6 +429,7 @@ class IntervalSetEvaluator : public tvm::ExprFunctor<IntervalSet(const Expr&)> {
   }
 
   IntervalSet Dispatch_(const VarObj* op) final {
+    if (!HasIntegerType(op)) return IntervalSet::Everything();
     Var var = ffi::GetRef<Var>(op);
 
     auto it = dom_map_.find(var);
@@ -569,17 +559,20 @@ class IntervalSetEvaluator : public tvm::ExprFunctor<IntervalSet(const Expr&)> {
   }
 
   IntervalSet Dispatch_(const prim::BroadcastObj* op) final {
+    if (!HasIntegerType(op)) return IntervalSet::Everything();
     TVM_FFI_ICHECK(eval_vec_);
     return Dispatch(op->value);
   }
 
   IntervalSet Dispatch_(const prim::SelectObj* op) final {
+    if (!HasIntegerType(op)) return IntervalSet::Everything();
     IntervalSet true_set = this->Eval(op->true_value);
     IntervalSet false_set = this->Eval(op->false_value);
     return Union(analyzer_, false_set, true_set);
   }
 
   IntervalSet Dispatch_(const prim::CastObj* op) final {
+    if (!HasIntegerType(op)) return IntervalSet::Everything();
     IntervalSet value_set = this->Eval(op->value);
     // short cut for the int set.
     if (value_set->min_value.same_as(value_set->max_value)) {
@@ -626,6 +619,15 @@ class IntervalSetEvaluator : public tvm::ExprFunctor<IntervalSet(const Expr&)> {
   }
 
  private:
+  // Integer expressions can contain floating-point subexpressions. Only apply
+  // integer interval rules to nodes with an integer or boolean result type.
+  static bool HasIntegerType(const ExprObj* op) {
+    const auto* ty = op->ty.as<PrimTypeObj>();
+    return ty != nullptr &&
+           (ty->dtype.code == DLDataTypeCode::kDLInt || ty->dtype.code == DLDataTypeCode::kDLUInt ||
+            ty->dtype.code == DLDataTypeCode::kDLBool);
+  }
+
   // whether set is exactly single point that equals value.
   bool MatchPoint(const IntervalSet& set, const PrimExpr& value) const {
     return set->min_value.same_as(value) && set->max_value.same_as(value);
@@ -634,6 +636,7 @@ class IntervalSetEvaluator : public tvm::ExprFunctor<IntervalSet(const Expr&)> {
   template <typename TOp, typename T>
   inline IntervalSet VisitBinaryExpr_(const T* op) {
     static_assert(std::is_same<typename TOp::ContainerType, T>::value, "constraint");
+    if (!HasIntegerType(op)) return IntervalSet::Everything();
     IntervalSet a = this->Eval(op->a);
     IntervalSet b = this->Eval(op->b);
     if (MatchPoint(a, op->a) && MatchPoint(b, op->b)) {

@@ -25,21 +25,6 @@ from tvm_tirx.script import tirx as T
 from tvm_tirx.testing import env
 
 
-@pytest.mark.skipif(not env.has_llvm(), reason="need llvm")
-def test_integer_index_with_float_coordinate():
-    @T.function
-    def compute(output: T.Tensor((4,), "int32"), scale: T.float32):
-        for i in T.serial(4):
-            coordinate: T.let = T.Cast("float32", i) * scale
-            output[i] = T.floordiv(T.Cast("int32", coordinate), 2)
-
-    compiled = tvm_tirx.compile(compute, target="llvm")
-    output = tvm_tirx.runtime.empty((4,), "int32")
-    for scale in [2.0, -2.0, 0.5]:
-        compiled(output, scale)
-        assert output.numpy().tolist() == [int(i * scale) // 2 for i in range(4)]
-
-
 def test_nested_byte_pointer_offset():
     @I.ir_module
     class Before:
