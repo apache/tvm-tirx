@@ -25,9 +25,7 @@ use tvm_tirx::ir::{
     StringImm, Type, UNKNOWN_LOC,
 };
 use tvm_tirx::tirx::{fast_erf_float_expr, gpu_thread_return, logaddexp, reinterpret};
-use tvm_tirx::tvm_ffi::{
-    AnyView, DLDataTypeExt, Function, ObjectRefCast, ObjectRefCore, String as FfiString,
-};
+use tvm_tirx::tvm_ffi::{AnyView, DLDataTypeExt, Function, ObjectRefCore, String as FfiString};
 
 use super::{memory_scope, var};
 use crate::common::{agree, global, serial, structural_equal};
@@ -154,5 +152,5 @@ fn fast_erf_follows_the_native_lowering() {
     // The operator chain checks its operands as C++ does: an integer argument is matched to the
     // float constants; a non-primitive one now fails the `PrimVar` check before the call.
     assert!(fast_erf_float_expr(prim_var("int32"), 32).is_ok());
-    assert!(var("s", ptr("int8")).try_cast::<PrimVar>().is_err());
+    assert!(var("s", ptr("int8")).downcast::<PrimVar>().is_err());
 }

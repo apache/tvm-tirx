@@ -240,7 +240,7 @@ impl OpDef {
         self.then(|op| {
             let packed: Vec<AnyView> =
                 std::iter::once(AnyView::from(op)).chain(args.iter().copied()).collect();
-            tvm_ffi::Function::from_type_key_method("ir.Op", method)?.call_packed(&packed)?;
+            tvm_ffi::reflection::get_method("ir.Op", method)?.call_packed(&packed)?;
             Ok(())
         })
     }
@@ -427,10 +427,10 @@ fn call_hook<N, R: Into<Any>>(node: *const N, hook: impl Fn(&N) -> Result<R>) ->
     let value = match result {
         Ok(Ok(value)) => value,
         Ok(Err(error)) => Any::from(error),
-        Err(payload) => Any::from(tvm_ffi::function_internal::panic_to_error(payload)),
+        Err(payload) => Any::from(tvm_ffi::Error::from_panic(payload)),
     };
-    // SAFETY: the C++ caller takes ownership of the value.
-    unsafe { Any::into_raw_ffi_any(value) }
+    // The C++ caller takes ownership of the value.
+    Any::into_raw_ffi_any(value)
 }
 
 /// Signature descriptors for [`OpDef::signature`], C++ `sig::arg<T>` and friends.

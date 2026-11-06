@@ -38,7 +38,7 @@
 //! assert_eq!(script(&transpose)?, "T.index_map(lambda i, j: (j, i))");
 //!
 //! let text =
-//!     |exprs: Array<PrimExpr>| exprs.iter().map(|e| script(&e)).collect::<Result<Vec<_>>>();
+//!     |exprs: Array<PrimExpr>| exprs.iter().map(script).collect::<Result<Vec<_>>>();
 //! assert_eq!(text(transpose.map_indices([1, 2], None)?)?, ["2", "1"]);
 //!
 //! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
@@ -128,6 +128,10 @@ impl IndexMap {
         Self { base: ObjectArc::new(obj) }
     }
 }
+
+// SAFETY: `tirx.IndexMap` is not `_type_mutable`: a shared instance is never
+// mutated, as C++ changes it only through copy-on-write.
+unsafe impl tvm_ffi::object::ImmutableObject for IndexMapObj {}
 // tvm-ffi-stubgen(end)
 
 // The native `tirx.IndexMap` stores its fields as given, as the generated `IndexMap::new` does.

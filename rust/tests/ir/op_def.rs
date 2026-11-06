@@ -39,8 +39,8 @@ use tvm_tirx::tvm_ffi::static_init::{StaticInitBlock, STATIC_INIT_BLOCKS};
 use tvm_tirx::tvm_ffi::tvm_ffi_sys::TVMFFITypeIndex;
 use tvm_tirx::tvm_ffi::{
     self, def_object_ref, rs_object, run_static_init_blocks, Any, AnyView, Array, Error, ErrorKind,
-    Function, Map, ObjectCore, ObjectRefCast, ObjectRefCore, Result, String as FfiString,
-    ATTRIBUTE_ERROR, INTERNAL_ERROR, TYPE_ERROR, VALUE_ERROR,
+    Function, Map, ObjectCore, ObjectRefCore, Result, String as FfiString, ATTRIBUTE_ERROR,
+    INTERNAL_ERROR, TYPE_ERROR, VALUE_ERROR,
 };
 
 use super::{int32, parse_dtype, tensor_var};
@@ -487,8 +487,8 @@ fn is_block_registered(block: &StaticInitBlock) -> bool {
 }
 
 fn launch_body_params(call: &CallObj) -> Result<Array<Var>> {
-    let tag = call.args.get(0)?.try_cast::<StringImm>()?;
-    let extent_ty: PrimType = call.args.get(1)?.ty.clone().try_cast()?;
+    let tag = StringImm::try_from(call.args.get(0)?)?;
+    let extent_ty: PrimType = PrimType::try_from(&call.args.get(1)?.ty)?;
     let dtype = extent_ty.dtype;
     if tag.value.as_str().is_empty() {
         let message = "Check failed: (!tag->value.empty()) is false: launch_thread expects a \
@@ -616,7 +616,11 @@ fn static_init_blocks_define_operators_and_types() {
 
     // The type `register_type` registers with them: tvm-ffi constructs it from its fields,
     // positionally or by keyword, and reads it back from a JSON graph.
-    let init = Function::from_type_attr(BlockTypeObj::type_index(), "__ffi_init__").unwrap();
+    let init: Function = tvm_ffi::reflection::TypeAttrColumn::new("__ffi_init__")
+        .and_then(|column| column.get(BlockTypeObj::type_index()))
+        .unwrap()
+        .try_into()
+        .unwrap();
     let kwargs = global("ffi.GetKwargsObject").call_tuple(()).unwrap();
     let (elem, count, four) = (Type::from(PrimType::int(32)), FfiString::from("count"), 4i64);
     let built = init

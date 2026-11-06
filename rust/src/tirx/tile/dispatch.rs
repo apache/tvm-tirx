@@ -51,7 +51,7 @@
 // does.
 // tvm-ffi-stubgen(import-object): crate::ir::stmt::Stmt
 // tvm-ffi-stubgen(import-object): tvm_ffi::AnyView
-// tvm-ffi-stubgen(import-object): tvm_ffi::ObjectRefCast
+// tvm-ffi-stubgen(import-object): tvm_ffi::ObjectRefCore
 // tvm-ffi-stubgen(import-object): crate::ir::expr::IntoExpr
 // tvm-ffi-stubgen(import-object): crate::ir::expr::PrimExpr
 // tvm-ffi-stubgen(import-object): crate::ir::expr::PrimVar
@@ -78,7 +78,7 @@ use tvm_ffi::Map;
 use tvm_ffi::Object;
 use tvm_ffi::ObjectArc;
 use tvm_ffi::ObjectCore;
-use tvm_ffi::ObjectRefCast;
+use tvm_ffi::ObjectRefCore;
 use tvm_ffi::Result;
 use tvm_ffi::String;
 use tvm_ffi::object::ObjectRef;
@@ -148,6 +148,10 @@ impl DispatchContextObj {
         FieldGetter::new(Self::type_index(), "scope_kind")?.get(self)
     }
 }
+
+// SAFETY: `tirx.DispatchContext` is not `_type_mutable`: a shared instance is never
+// mutated, as C++ changes it only through copy-on-write.
+unsafe impl tvm_ffi::object::ImmutableObject for DispatchContextObj {}
 // tvm-ffi-stubgen(end)
 
 impl DispatchContext {
@@ -255,7 +259,11 @@ impl DispatchContext {
     }
 
     /// Cache `value` under `key` across dispatches (`tirx.DispatchContextSharedStateSet`).
-    pub fn cache_set(&self, key: &str, value: &impl ObjectRefCast) -> Result<()> {
+    pub fn cache_set(
+        &self,
+        key: &str,
+        value: &(impl ObjectRefCore + tvm_ffi::type_traits::AnyCompatible),
+    ) -> Result<()> {
         let key = String::from(key);
         tvm_ffi::cached_global_func!("tirx.DispatchContextSharedStateSet").call_packed(&[
             AnyView::from(self),

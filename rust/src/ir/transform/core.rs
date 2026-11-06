@@ -150,6 +150,10 @@ impl PassInfo {
         Self { base: ObjectArc::new(obj) }
     }
 }
+
+// SAFETY: `transform.PassInfo` is not `_type_mutable`: a shared instance is never
+// mutated, as C++ changes it only through copy-on-write.
+unsafe impl tvm_ffi::object::ImmutableObject for PassInfoObj {}
 // tvm-ffi-stubgen(end)
 
 // `PassInfo::new` above has the semantics of the native `transform.PassInfo`, which only stores
@@ -191,7 +195,11 @@ impl ModulePassObj {
     }
 }
 
-tvm_ffi::impl_object_upcast!(ModulePass => Pass);
+// SAFETY: `transform.ModulePass` is not `_type_mutable`: a shared instance is never
+// mutated, as C++ changes it only through copy-on-write.
+unsafe impl tvm_ffi::object::ImmutableObject for ModulePassObj {}
+
+tvm_ffi::unsafe_impl_object_upcast!(ModulePass => Pass);
 // tvm-ffi-stubgen(end)
 
 impl ModulePass {
@@ -256,7 +264,11 @@ impl SequentialObj {
     }
 }
 
-tvm_ffi::impl_object_upcast!(Sequential => Pass);
+// SAFETY: `transform.Sequential` is not `_type_mutable`: a shared instance is never
+// mutated, as C++ changes it only through copy-on-write.
+unsafe impl tvm_ffi::object::ImmutableObject for SequentialObj {}
+
+tvm_ffi::unsafe_impl_object_upcast!(Sequential => Pass);
 // tvm-ffi-stubgen(end)
 
 impl Sequential {
@@ -482,6 +494,10 @@ impl PassInstrumentObj {
         FieldGetter::new(Self::type_index(), "name")?.get(self)
     }
 }
+
+// SAFETY: `transform.PassInstrument` is not `_type_mutable`: a shared instance is never
+// mutated, as C++ changes it only through copy-on-write.
+unsafe impl tvm_ffi::object::ImmutableObject for PassInstrumentObj {}
 // tvm-ffi-stubgen(end)
 
 /// Create a pass that logs `header` and the module, which it returns unchanged

@@ -121,7 +121,7 @@ where
 
 /// A dtype as C++ prints it, such as `int32`.
 pub(crate) fn dtype_name(dtype: DLDataType) -> std::string::String {
-    DLDataTypeExt::to_string(&dtype).as_str().to_string()
+    dtype.to_string()
 }
 
 /// The registered key of a type index (C++ `TypeIndexToTypeKey`).
@@ -216,7 +216,7 @@ pub(crate) fn shared<T: Clone + 'static>(
 pub(crate) fn prim_type(expr: &(impl AsRef<Expr> + ?Sized)) -> Result<PrimType> {
     let expr = expr.as_ref();
     match expr.ty.downcast_ref::<PrimTypeObj>() {
-        Some(_) => Ok(tvm_ffi::ObjectRefCast::try_cast(expr.ty.clone()).expect("a PrimType")),
+        Some(_) => Ok(expr.ty.downcast_ref::<PrimType>().cloned().expect("a PrimType")),
         None => Err(not_a_prim_expr(expr)),
     }
 }
@@ -302,7 +302,7 @@ pub(crate) fn array_cells<T: tvm_ffi::type_traits::ContainerElement + Clone>(
     // SAFETY: an `ffi.Array` is the object header followed by `TVMFFISeqCell`, and `array` keeps
     // its `size` elements alive.
     unsafe {
-        let cell = &*(ObjectArc::as_raw(ObjectRefCore::data(array)) as *const SeqCell);
+        let cell = &*(ObjectArc::as_ptr(ObjectRefCore::data(array)) as *const SeqCell);
         if cell.size == 0 {
             return &[];
         }
@@ -348,7 +348,7 @@ impl NativeHook {
             // SAFETY: `node` keeps the object alive for the call, and the adapter returns an
             // owned value.
             Self::Adapter(adapter) => unsafe {
-                let node = ObjectArc::as_raw(ObjectRefCore::data(node)) as *const c_void;
+                let node = ObjectArc::as_ptr(ObjectRefCore::data(node)) as *const c_void;
                 Any::from_raw_ffi_any(adapter(node))
             },
             Self::Packed(function) => function.call_packed(&[AnyView::from(node)])?,
@@ -402,8 +402,8 @@ where
         *const *const TVMFFIObject,
     ) -> TVMFFIAny;
     fn object<T: ObjectRefCore>(value: &T) -> *const TVMFFIObject {
-        // SAFETY: the pointer is only read while `value` keeps the object alive.
-        unsafe { ObjectArc::as_raw(ObjectRefCore::data(value)) as *const TVMFFIObject }
+        // The pointer is only read while `value` keeps the object alive.
+        ObjectArc::as_ptr(ObjectRefCore::data(value)) as *const TVMFFIObject
     }
     let address: *mut c_void = hook.try_into()?;
     let (a, b, c) = (object(a), object(b), object(c));

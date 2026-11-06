@@ -300,6 +300,8 @@ class IterMapResultObj : public ffi::Object {
         .def_ro("padding_predicate", &IterMapResultObj::padding_predicate);
   }
   TVM_FFI_DECLARE_OBJECT_INFO_FINAL("sym.IterMapResult", IterMapResultObj, ffi::Object);
+  // Shared instances are mutated in place, so the class is mutable.
+  static constexpr bool _type_mutable = true;
 };
 
 /*!

@@ -165,7 +165,11 @@ impl TensorType {
     }
 }
 
-tvm_ffi::impl_object_upcast!(TensorType => Type);
+// SAFETY: `tirx.TensorType` is not `_type_mutable`: a shared instance is never
+// mutated, as C++ changes it only through copy-on-write.
+unsafe impl tvm_ffi::object::ImmutableObject for TensorTypeObj {}
+
+tvm_ffi::unsafe_impl_object_upcast!(TensorType => Type);
 // tvm-ffi-stubgen(end)
 
 /// The runtime's allocation alignment (C++ `runtime::kAllocAlignment`, which a build may set),

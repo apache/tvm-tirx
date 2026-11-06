@@ -35,8 +35,8 @@ use tvm_tirx::tirx::structural_walk_with_constraint_context::structural_walk_wit
 use tvm_tirx::tirx::Function;
 use tvm_tirx::tvm_ffi::{
     self, dispatch, match_any, Any, AnyView, Array, DefRegionKind, MutationView, ObjectIdentity,
-    ObjectRefCast, ObjectRefCore, Result, StructuralMutatorView, StructuralVisitorView, Unchanged,
-    UnchangedOr, VisitInterrupt, WalkOrder, WalkResult,
+    ObjectRefCore, Result, StructuralMutatorView, StructuralVisitorView, Unchanged, UnchangedOr,
+    VisitInterrupt, WalkOrder, WalkResult,
 };
 
 /// A Python list of strings.
@@ -63,7 +63,7 @@ fn construct() -> Result<tvm_ffi::String> {
 // [objects.begin]
 fn objects() -> Result<Strings> {
     let (_, expr) = x_times_2_plus_1()?;
-    let add: Add = expr.try_cast()?;
+    let add: Add = expr.try_into()?;
     let alias = add.clone();
     Ok(lines([
         format!("a = {}", script(&add.a)?.as_str()),
@@ -76,11 +76,12 @@ fn objects() -> Result<Strings> {
 // [casts.begin]
 fn casts() -> Result<Strings> {
     let (_, expr) = x_times_2_plus_1()?;
-    let add: Add = expr.try_cast()?;
+    let add: Add = expr.try_into()?;
     let value: Expr = add.into();
-    let again: Add = value.clone().try_cast()?;
+    let again = Add::try_from(&value)?;
     let mut out = vec![format!("back to Add: {}", script(&again)?.as_str())];
-    if let Err(err) = value.try_cast::<Mul>() {
+    // A wrong guess is a `TypeError` naming both types.
+    if let Err(err) = Mul::try_from(&value) {
         out.push(format!("as Mul: {}", err.message()));
     }
     Ok(lines(out))
@@ -151,7 +152,7 @@ fn print() -> Result<tvm_ffi::String> {
 fn written_tensors(func: Function) -> Result<Strings> {
     let mut writes = Vec::new();
     let on_store = |store: TensorStore| -> Result<WalkResult> {
-        let dest: Var = store.dest.clone().try_cast()?;
+        let dest = Var::try_from(&store.dest)?;
         writes.push(dest.name.clone());
         Ok(WalkResult::Advance)
     };
@@ -175,7 +176,7 @@ fn first_write(func: Function) -> Result<Option<TensorStore>> {
 fn specialize(func: Function, n: Var, value: i64) -> Result<Function> {
     let specialize_var = |var: Var| -> Result<Expr> {
         if var.same_as(&n) {
-            let ty: PrimType = var.ty.clone().try_cast()?;
+            let ty = PrimType::try_from(&var.ty)?;
             return Ok(make_const(ty, value)?.into());
         }
         Ok(var.into())

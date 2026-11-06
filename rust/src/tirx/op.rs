@@ -169,7 +169,11 @@ impl CallFFIKernelAttr {
     }
 }
 
-tvm_ffi::impl_object_upcast!(CallFFIKernelAttr => Attrs);
+// SAFETY: `tirx.CallFFIKernelAttr` is not `_type_mutable`: a shared instance is never
+// mutated, as C++ changes it only through copy-on-write.
+unsafe impl tvm_ffi::object::ImmutableObject for CallFFIKernelAttrObj {}
+
+tvm_ffi::unsafe_impl_object_upcast!(CallFFIKernelAttr => Attrs);
 // tvm-ffi-stubgen(end)
 
 // The native `tirx.CallFFIKernelAttr` stores its fields as given, as the generated

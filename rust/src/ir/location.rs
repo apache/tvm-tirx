@@ -111,6 +111,10 @@ unsafe impl UnsafeInit for LocationObj {
         }
     }
 }
+
+// SAFETY: `ir.Location` is not `_type_mutable`: a shared instance is never
+// mutated, as C++ changes it only through copy-on-write.
+unsafe impl tvm_ffi::object::ImmutableObject for LocationObj {}
 // tvm-ffi-stubgen(end)
 
 impl Location {
@@ -171,7 +175,11 @@ impl UnknownLoc {
     }
 }
 
-tvm_ffi::impl_object_upcast!(UnknownLoc => Location);
+// SAFETY: `ir.UnknownLoc` is not `_type_mutable`: a shared instance is never
+// mutated, as C++ changes it only through copy-on-write.
+unsafe impl tvm_ffi::object::ImmutableObject for UnknownLocObj {}
+
+tvm_ffi::unsafe_impl_object_upcast!(UnknownLoc => Location);
 // tvm-ffi-stubgen(end)
 
 impl UnknownLoc {
@@ -271,7 +279,11 @@ impl SourceLoc {
     }
 }
 
-tvm_ffi::impl_object_upcast!(SourceLoc => Location);
+// SAFETY: `ir.SourceLoc` is not `_type_mutable`: a shared instance is never
+// mutated, as C++ changes it only through copy-on-write.
+unsafe impl tvm_ffi::object::ImmutableObject for SourceLocObj {}
+
+tvm_ffi::unsafe_impl_object_upcast!(SourceLoc => Location);
 // tvm-ffi-stubgen(end)
 
 // `ir.SourceLoc` stores its arguments as given: the generated `SourceLoc::new` is the same.
@@ -328,7 +340,11 @@ impl CallSiteLoc {
     }
 }
 
-tvm_ffi::impl_object_upcast!(CallSiteLoc => Location);
+// SAFETY: `ir.CallSiteLoc` is not `_type_mutable`: a shared instance is never
+// mutated, as C++ changes it only through copy-on-write.
+unsafe impl tvm_ffi::object::ImmutableObject for CallSiteLocObj {}
+
+tvm_ffi::unsafe_impl_object_upcast!(CallSiteLoc => Location);
 // tvm-ffi-stubgen(end)
 
 // `ir.CallSiteLoc` stores its arguments as given: the generated `CallSiteLoc::new` is the same.
@@ -376,6 +392,10 @@ impl SourceName {
         Self { base: ObjectArc::new(obj) }
     }
 }
+
+// SAFETY: `ir.SourceName` is not `_type_mutable`: a shared instance is never
+// mutated, as C++ changes it only through copy-on-write.
+unsafe impl tvm_ffi::object::ImmutableObject for SourceNameObj {}
 // tvm-ffi-stubgen(end)
 
 impl SourceName {

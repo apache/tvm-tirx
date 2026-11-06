@@ -34,7 +34,7 @@
 //! let module = IRModule::from_functions(&Map::new(), Some(&DictAttrs::new(dict)), &Map::new())?;
 //!
 //! let prefix = module.attrs.dict.get(&"system_lib_prefix".into())?.unwrap();
-//! assert_eq!(prefix.try_as::<String>().unwrap(), "my_lib_");
+//! assert_eq!(String::try_from(prefix)?, "my_lib_");
 //! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
 //! ```
 
@@ -105,6 +105,10 @@ unsafe impl UnsafeInit for AttrsObj {
         }
     }
 }
+
+// SAFETY: `ir.Attrs` is not `_type_mutable`: a shared instance is never
+// mutated, as C++ changes it only through copy-on-write.
+unsafe impl tvm_ffi::object::ImmutableObject for AttrsObj {}
 // tvm-ffi-stubgen(end)
 
 // tvm-ffi-stubgen(begin): object/ir.DictAttrs
@@ -158,5 +162,9 @@ impl DictAttrs {
     }
 }
 
-tvm_ffi::impl_object_upcast!(DictAttrs => Attrs);
+// SAFETY: `ir.DictAttrs` is not `_type_mutable`: a shared instance is never
+// mutated, as C++ changes it only through copy-on-write.
+unsafe impl tvm_ffi::object::ImmutableObject for DictAttrsObj {}
+
+tvm_ffi::unsafe_impl_object_upcast!(DictAttrs => Attrs);
 // tvm-ffi-stubgen(end)

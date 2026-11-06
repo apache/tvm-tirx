@@ -45,7 +45,7 @@ use tvm_tirx::ir::{
 };
 use tvm_tirx::runtime::MemoryScope;
 use tvm_tirx::tirx::{Axis, Function, Iter, TileLayout};
-use tvm_tirx::tvm_ffi::{Array, Map, ObjectRefCast, String as FfiString};
+use tvm_tirx::tvm_ffi::{Array, Map, ObjectRefCore, String as FfiString};
 
 use common::global;
 
@@ -62,7 +62,7 @@ fn var(name: &str, ty: impl Into<Type>) -> Var {
 }
 
 fn prim_var(name: &str, ty: impl Into<PrimType>) -> PrimVar {
-    var(name, ty.into()).try_cast().unwrap()
+    var(name, ty.into()).downcast().unwrap()
 }
 
 fn op(name: &str, a: impl Into<Expr>, b: impl Into<Expr>) -> PrimExpr {
@@ -77,8 +77,8 @@ fn range(extent: i64) -> Range {
         .unwrap()
 }
 
-fn as_i64(expr: &(impl ObjectRefCast + Clone)) -> i64 {
-    expr.clone().try_cast::<IntImm>().unwrap().value.to_i64().unwrap()
+fn as_i64(expr: &impl ObjectRefCore) -> i64 {
+    expr.downcast_ref::<IntImm>().unwrap().value.to_i64().unwrap()
 }
 
 /// A new scope of the test's own, since the builtin ones cannot be registered again.

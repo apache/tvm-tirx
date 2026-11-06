@@ -93,7 +93,11 @@ impl TensorMapType {
     }
 }
 
-tvm_ffi::impl_object_upcast!(TensorMapType => Type);
+// SAFETY: `tirx.TensorMapType` is not `_type_mutable`: a shared instance is never
+// mutated, as C++ changes it only through copy-on-write.
+unsafe impl tvm_ffi::object::ImmutableObject for TensorMapTypeObj {}
+
+tvm_ffi::unsafe_impl_object_upcast!(TensorMapType => Type);
 // tvm-ffi-stubgen(end)
 
 // The native `tirx.TensorMapType` stores the location as given, as the generated

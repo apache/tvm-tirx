@@ -21,7 +21,7 @@
 
 use tvm_tirx::ir::{IntImm, Location, PrimExpr, Range, Var};
 use tvm_tirx::sym::*;
-use tvm_tirx::tvm_ffi::{Map, Object, ObjectRefCast};
+use tvm_tirx::tvm_ffi::{Map, Object, ObjectRefCore};
 
 use super::{fixture, int32, op, range, var, Fixture};
 use crate::common::{assert_type_contracts, global};
@@ -47,8 +47,8 @@ fn interval_sets_are_read_through_accessors() {
         .unwrap()
         .try_into()
         .unwrap();
-    let interval: IntervalSet = set.try_cast().unwrap();
-    let as_int = |expr: PrimExpr| expr.try_cast::<IntImm>().unwrap().value.to_i64().unwrap();
+    let interval: IntervalSet = set.downcast().unwrap();
+    let as_int = |expr: PrimExpr| expr.downcast::<IntImm>().unwrap().value.to_i64().unwrap();
     assert_eq!(as_int(interval.min_value().unwrap()), 2);
     assert_eq!(as_int(interval.max_value().unwrap()), 20);
 }

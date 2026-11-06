@@ -440,6 +440,10 @@ impl ConstIntBound {
         Self { base: ObjectArc::new(obj) }
     }
 }
+
+// SAFETY: `sym.ConstIntBound` is not `_type_mutable`: a shared instance is never
+// mutated, as C++ changes it only through copy-on-write.
+unsafe impl tvm_ffi::object::ImmutableObject for ConstIntBoundObj {}
 // tvm-ffi-stubgen(end)
 
 // tvm-ffi-stubgen(begin): object/sym.ModularSet
@@ -486,6 +490,10 @@ impl ModularSet {
         Self { base: ObjectArc::new(obj) }
     }
 }
+
+// SAFETY: `sym.ModularSet` is not `_type_mutable`: a shared instance is never
+// mutated, as C++ changes it only through copy-on-write.
+unsafe impl tvm_ffi::object::ImmutableObject for ModularSetObj {}
 // tvm-ffi-stubgen(end)
 
 // tvm-ffi-stubgen(begin): object/sym.RewriteSimplifierStats
@@ -565,6 +573,10 @@ impl RewriteSimplifierStats {
         Self { base: ObjectArc::new(obj) }
     }
 }
+
+// SAFETY: `sym.RewriteSimplifierStats` is not `_type_mutable`: a shared instance is never
+// mutated, as C++ changes it only through copy-on-write.
+unsafe impl tvm_ffi::object::ImmutableObject for RewriteSimplifierStatsObj {}
 // tvm-ffi-stubgen(end)
 
 // ---------------------------------------------------------------------------------------------
@@ -599,7 +611,7 @@ impl Deref for CanonicalExprObj {
     }
 }
 
-tvm_ffi::impl_object_upcast!(CanonicalExpr => Expr);
+tvm_ffi::unsafe_impl_object_upcast!(CanonicalExpr => Expr);
 // tvm-ffi-stubgen(end)
 
 // tvm-ffi-stubgen(begin): object/sym.SplitExpr
@@ -631,7 +643,7 @@ impl Deref for SplitExprObj {
     }
 }
 
-tvm_ffi::impl_object_upcast!(SplitExpr => Expr, SplitExpr => CanonicalExpr, SplitExpr => PrimExpr);
+tvm_ffi::unsafe_impl_object_upcast!(SplitExpr => Expr, SplitExpr => CanonicalExpr, SplitExpr => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 // tvm-ffi-stubgen(begin): object/sym.SumExpr
@@ -663,5 +675,5 @@ impl Deref for SumExprObj {
     }
 }
 
-tvm_ffi::impl_object_upcast!(SumExpr => Expr, SumExpr => CanonicalExpr, SumExpr => PrimExpr);
+tvm_ffi::unsafe_impl_object_upcast!(SumExpr => Expr, SumExpr => CanonicalExpr, SumExpr => PrimExpr);
 // tvm-ffi-stubgen(end)

@@ -22,8 +22,8 @@
 use tvm_tirx::ir::prim::Broadcast;
 use tvm_tirx::ir::*;
 use tvm_tirx::tvm_ffi::{
-    Any, AnyView, Array, BigInt, DLDataType, Function, ObjectRefCast, ObjectRefCore, Result,
-    String as FfiString, TYPE_ERROR,
+    Any, AnyView, Array, BigInt, DLDataType, Function, ObjectRefCore, Result, String as FfiString,
+    TYPE_ERROR,
 };
 
 use super::{int32, int32_var, op, parse_dtype, tensor_var};
@@ -215,7 +215,7 @@ fn builtin_constants() {
     agree("Expr::from(bool)", Ok(Expr::from(false)), int(dtype::bool(), 0));
     agree("Expr::from(f32)", Ok(Expr::from(0.5f32)), float(dtype::float(32), 0.5));
     agree("Expr::from(f64)", Ok(Expr::from(0.5f64)), float(dtype::float(64), 0.5));
-    let folded: IntImm = op("prim._OpAdd", 1i32, 2i32).try_cast().unwrap();
+    let folded: IntImm = op("prim._OpAdd", 1i32, 2i32).downcast().unwrap();
     assert_eq!(folded.value, BigInt::from(3));
 }
 
@@ -348,7 +348,7 @@ fn test_op(name: &str, attrs: &[(&str, Any)]) -> Op {
     }
     Op::register(name, "").unwrap();
     let op = Op::get(name).unwrap();
-    let set_attr = Function::from_type_key_method("ir.Op", "_set_attr").unwrap();
+    let set_attr = tvm_ffi::reflection::get_method("ir.Op", "_set_attr").unwrap();
     for (key, value) in attrs {
         let key = FfiString::from(*key);
         set_attr
@@ -365,15 +365,14 @@ fn calls_agree_with_cpp() {
     let f32_ty: Type = PrimType::float(32).into();
     let one: Expr = FloatImm::float32(1.0).into();
     let i16_ty: Type = PrimType::int(16).into();
-    let returns = |value: Any| {
-        Function::from_packed(move |_args: &[AnyView]| -> Result<Any> { Ok(value.clone()) })
-    };
-    let packed_infer = test_op(
-        "rust_test.packed_infer",
-        &[("FInferType", returns(Any::from(i16_ty.clone())).into())],
-    );
+    // A callback captures thread-safe state: a typed value, converted on each call.
+    fn returns<T: Clone + Into<Any> + Send + Sync + 'static>(value: T) -> Function {
+        Function::from_packed(move |_args: &[AnyView]| -> Result<Any> { Ok(value.clone().into()) })
+    }
+    let packed_infer =
+        test_op("rust_test.packed_infer", &[("FInferType", returns(i16_ty.clone()).into())]);
     let packed_mistyped =
-        test_op("rust_test.packed_mistyped", &[("FInferType", returns(Any::from(5i64)).into())]);
+        test_op("rust_test.packed_mistyped", &[("FInferType", returns(5i64).into())]);
     let fixed =
         test_op("rust_test.fixed_return", &[("TFixedReturnType", Any::from(f32_ty.clone()))]);
     let plain = test_op("rust_test.no_inference", &[]);
@@ -547,8 +546,8 @@ fn operators_take_views() {
     let error = PrimExpr::try_from(Expr::from(tensor_var("A"))).err().unwrap();
     assert_eq!(error.kind(), TYPE_ERROR);
     assert!(error.message().contains("ir.Var[ty=tirx.TensorType]"), "{error}");
-    // `ObjectRefCast` downcasts between views as it does between node types.
-    let back: IntExpr = sum.try_cast().unwrap();
+    // `ObjectRefCore` downcasts between views as it does between node types.
+    let back: IntExpr = sum.downcast().unwrap();
     assert_eq!(back.dtype(), dtype::int(32));
 }
 
@@ -571,17 +570,17 @@ fn prim_vars_are_views() {
     assert!(i.as_expr().same_as(&i));
 
     // A `Var` narrows only through the check of C++ `PrimVar`: `downcast_ref` borrows it in place
-    // and `try_cast` takes it.
+    // and `downcast` takes it.
     assert!(var.downcast_ref::<PrimVar>().unwrap().same_as(&i));
     let vector = Var::new("v", PrimType::float(32).with_lanes(4).unwrap(), UNKNOWN_LOC);
-    assert_eq!(vector.try_cast::<PrimVar>().unwrap().dtype().lanes, 4);
+    assert_eq!(vector.downcast::<PrimVar>().unwrap().dtype().lanes, 4);
     let untyped = Var::new("u", MissingType::new(), UNKNOWN_LOC);
     assert!(untyped.downcast_ref::<PrimVar>().is_none());
-    let error = untyped.try_cast::<PrimVar>().err().unwrap();
+    let error = PrimVar::try_from(&untyped).unwrap_err();
     assert_eq!(error.kind(), TYPE_ERROR);
     // C++ `TypeTraits<PrimVar>` names the variable class on both sides.
     assert_eq!(error.message(), "Cannot convert from type `ir.Var` to `ir.Var`");
-    assert!(tensor_var("A").try_cast::<PrimVar>().is_err());
+    assert!(tensor_var("A").downcast::<PrimVar>().is_err());
 
     // It takes part in arithmetic as a `PrimExpr`.
     let sum = PrimExpr::try_from(&i * 4 + 1).unwrap();

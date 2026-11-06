@@ -121,6 +121,10 @@ unsafe impl UnsafeInit for ConstraintObj {
         }
     }
 }
+
+// SAFETY: `sym.Constraint` is not `_type_mutable`: a shared instance is never
+// mutated, as C++ changes it only through copy-on-write.
+unsafe impl tvm_ffi::object::ImmutableObject for ConstraintObj {}
 // tvm-ffi-stubgen(end)
 
 // tvm-ffi-stubgen(begin): object/sym.BindingConstraint
@@ -175,7 +179,11 @@ impl BindingConstraint {
     }
 }
 
-tvm_ffi::impl_object_upcast!(BindingConstraint => Constraint);
+// SAFETY: `sym.BindingConstraint` is not `_type_mutable`: a shared instance is never
+// mutated, as C++ changes it only through copy-on-write.
+unsafe impl tvm_ffi::object::ImmutableObject for BindingConstraintObj {}
+
+tvm_ffi::unsafe_impl_object_upcast!(BindingConstraint => Constraint);
 // tvm-ffi-stubgen(end)
 
 // tvm-ffi-stubgen(begin): object/sym.PredicateConstraint
@@ -230,7 +238,11 @@ impl PredicateConstraint {
     }
 }
 
-tvm_ffi::impl_object_upcast!(PredicateConstraint => Constraint);
+// SAFETY: `sym.PredicateConstraint` is not `_type_mutable`: a shared instance is never
+// mutated, as C++ changes it only through copy-on-write.
+unsafe impl tvm_ffi::object::ImmutableObject for PredicateConstraintObj {}
+
+tvm_ffi::unsafe_impl_object_upcast!(PredicateConstraint => Constraint);
 // tvm-ffi-stubgen(end)
 
 // tvm-ffi-stubgen(begin): object/sym.RangeConstraint
@@ -285,7 +297,11 @@ impl RangeConstraint {
     }
 }
 
-tvm_ffi::impl_object_upcast!(RangeConstraint => Constraint);
+// SAFETY: `sym.RangeConstraint` is not `_type_mutable`: a shared instance is never
+// mutated, as C++ changes it only through copy-on-write.
+unsafe impl tvm_ffi::object::ImmutableObject for RangeConstraintObj {}
+
+tvm_ffi::unsafe_impl_object_upcast!(RangeConstraint => Constraint);
 // tvm-ffi-stubgen(end)
 
 /// The object of a [`ConstraintContext`], with the layout of the native one and a stable identity.
@@ -378,8 +394,7 @@ impl ConstraintContextObj {
 
     /// Capture the visible prefix in an independently extensible child.
     pub fn snapshot(&self) -> Result<ConstraintContext> {
-        let parent = AnyView::from(self)
-            .try_as::<ConstraintContext>()
+        let parent = ConstraintContext::try_from(AnyView::from(self))
             .expect("context has its registered native type");
         ConstraintContext::with_parent_prefix_size(parent, self.local_size())
     }
@@ -394,8 +409,7 @@ impl ConstraintContextObj {
     /// The callback may append without entering this iteration; each borrowed constraint is valid
     /// only during its callback.
     pub fn for_each(&self, mut callback: impl FnMut(&Constraint)) {
-        let retained = AnyView::from(self)
-            .try_as::<ConstraintContext>()
+        let retained = ConstraintContext::try_from(AnyView::from(self))
             .expect("context has its registered native type");
         retained.for_each_prefix(retained.local_size(), &mut callback);
     }

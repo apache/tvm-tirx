@@ -261,7 +261,11 @@ impl TileLayoutObj {
     }
 }
 
-tvm_ffi::impl_object_upcast!(TileLayout => Layout);
+// SAFETY: `tirx.TileLayout` is not `_type_mutable`: a shared instance is never
+// mutated, as C++ changes it only through copy-on-write.
+unsafe impl tvm_ffi::object::ImmutableObject for TileLayoutObj {}
+
+tvm_ffi::unsafe_impl_object_upcast!(TileLayout => Layout);
 // tvm-ffi-stubgen(end)
 
 impl TileLayout {
@@ -376,6 +380,10 @@ impl Iter {
         Self { base: ObjectArc::new(obj) }
     }
 }
+
+// SAFETY: `tirx.Iter` is not `_type_mutable`: a shared instance is never
+// mutated, as C++ changes it only through copy-on-write.
+unsafe impl tvm_ffi::object::ImmutableObject for IterObj {}
 // tvm-ffi-stubgen(end)
 
 // The native `tirx.Iter` stores its fields as given, as the generated `Iter::new` does.
@@ -402,6 +410,10 @@ impl Deref for Axis {
         &self.base
     }
 }
+
+// SAFETY: `tirx.Axis` is not `_type_mutable`: a shared instance is never
+// mutated, as C++ changes it only through copy-on-write.
+unsafe impl tvm_ffi::object::ImmutableObject for AxisObj {}
 // tvm-ffi-stubgen(end)
 
 impl Axis {
@@ -498,7 +510,11 @@ impl ComposeLayoutObj {
     }
 }
 
-tvm_ffi::impl_object_upcast!(ComposeLayout => Layout);
+// SAFETY: `tirx.ComposeLayout` is not `_type_mutable`: a shared instance is never
+// mutated, as C++ changes it only through copy-on-write.
+unsafe impl tvm_ffi::object::ImmutableObject for ComposeLayoutObj {}
+
+tvm_ffi::unsafe_impl_object_upcast!(ComposeLayout => Layout);
 // tvm-ffi-stubgen(end)
 
 impl ComposeLayout {

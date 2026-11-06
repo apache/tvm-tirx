@@ -145,6 +145,8 @@ class TargetObj : public ffi::Object {
 
   static constexpr TVMFFISEqHashKind _type_s_eq_hash_kind = kTVMFFISEqHashKindTreeNode;
   TVM_FFI_DECLARE_OBJECT_INFO_FINAL("target.Target", TargetObj, ffi::Object);
+  // Shared instances are mutated in place, so the class is mutable.
+  static constexpr bool _type_mutable = true;
 
  private:
   /*! \brief Internal string repr. */

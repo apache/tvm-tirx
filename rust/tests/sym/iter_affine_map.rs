@@ -21,7 +21,7 @@
 
 use tvm_tirx::ir::{ExprObj, IntImm, PrimExpr, PrimVar, Range, Var};
 use tvm_tirx::sym::*;
-use tvm_tirx::tvm_ffi::{Array, Map, Object, ObjectIdentity, ObjectRefCast};
+use tvm_tirx::tvm_ffi::{Array, Map, Object, ObjectIdentity, ObjectRefCore};
 
 use super::{fixture, int32, op, range, var, Fixture};
 use crate::common::{assert_type_contracts, global};
@@ -37,8 +37,8 @@ fn generated_types_match_the_registry() {
 }
 
 fn mark_is(mark: &IterMark, var: &PrimVar, extent: i64) -> bool {
-    let source: PrimVar = mark.source.clone().try_cast().unwrap();
-    let extent_imm: IntImm = mark.extent.clone().try_cast().unwrap();
+    let source: PrimVar = mark.source.clone().downcast().unwrap();
+    let extent_imm: IntImm = mark.extent.clone().downcast().unwrap();
     ObjectIdentity::of(&source) == ObjectIdentity::of(var)
         && extent_imm.value.to_i64() == Some(extent)
 }
@@ -62,7 +62,7 @@ fn iter_maps_decompose_into_marks_and_splits() {
         result.errors.iter().map(|e| e.to_string()).collect::<Vec<_>>()
     );
     assert_eq!(result.indices.len(), 2);
-    let as_int = |expr: PrimExpr| expr.try_cast::<IntImm>().unwrap().value.to_i64().unwrap();
+    let as_int = |expr: PrimExpr| expr.downcast::<IntImm>().unwrap().value.to_i64().unwrap();
     // Each index is one split of a mark of extent 4, whose source is itself a sum over the
     // mark of x on [0, 16): x // 4 takes lower factor 4 of it, x % 4 lower factor 1.
     let only_split = |sum: &IterSumExpr| -> IterSplitExpr {
@@ -76,7 +76,7 @@ fn iter_maps_decompose_into_marks_and_splits() {
         let outer = only_split(&sum);
         let mark: IterMark = outer.source().unwrap();
         assert_eq!(as_int(mark.extent.clone()), 4);
-        let inner_sum: IterSumExpr = mark.source.clone().try_cast().unwrap();
+        let inner_sum: IterSumExpr = mark.source.clone().downcast().unwrap();
         let inner = only_split(&inner_sum);
         let x_mark: IterMark = inner.source().unwrap();
         assert!(mark_is(&x_mark, &x, 16));
