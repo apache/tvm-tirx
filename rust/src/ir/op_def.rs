@@ -532,7 +532,7 @@ pub mod sig {
         }
 
         fn check(call: &CallObj, op: &OpObj, _: (usize, usize), at: (usize, usize)) -> Result<()> {
-            check_value::<T, Expr>(op, false, support::array_cells(&call.args), at.0)
+            check_value::<T, Expr>(op, false, || AnyView::from(&call.args[at.0]), at.0)
         }
     }
 
@@ -549,8 +549,9 @@ pub mod sig {
             fixed: (usize, usize),
             _: (usize, usize),
         ) -> Result<()> {
-            let values = support::array_cells(&call.args);
-            (fixed.0..values.len()).try_for_each(|i| check_value::<T, Expr>(op, false, values, i))
+            (fixed.0..call.args.len()).try_for_each(|i| {
+                check_value::<T, Expr>(op, false, || AnyView::from(&call.args[i]), i)
+            })
         }
     }
 
@@ -563,7 +564,7 @@ pub mod sig {
         }
 
         fn check(call: &CallObj, op: &OpObj, _: (usize, usize), at: (usize, usize)) -> Result<()> {
-            check_value::<T, Type>(op, true, support::array_cells(&call.ty_args), at.1)
+            check_value::<T, Type>(op, true, || AnyView::from(&call.ty_args[at.1]), at.1)
         }
     }
 
@@ -580,8 +581,9 @@ pub mod sig {
             fixed: (usize, usize),
             _: (usize, usize),
         ) -> Result<()> {
-            let values = support::array_cells(&call.ty_args);
-            (fixed.1..values.len()).try_for_each(|i| check_value::<T, Type>(op, true, values, i))
+            (fixed.1..call.ty_args.len()).try_for_each(|i| {
+                check_value::<T, Type>(op, true, || AnyView::from(&call.ty_args[i]), i)
+            })
         }
     }
 
@@ -751,16 +753,18 @@ pub mod sig {
 
     /// Check argument `index` against `T`. `Base` is the category's base type, which C++ does
     /// not check.
-    fn check_value<T: ArgType, Base: 'static>(
+    fn check_value<'a, T: ArgType, Base: 'static>(
         op: &OpObj,
         type_arg: bool,
-        values: &[TVMFFIAny],
+        value: impl FnOnce() -> AnyView<'a>,
         index: usize,
     ) -> Result<()> {
         if TypeId::of::<T>() == TypeId::of::<Base>() {
             return Ok(());
         }
-        let value = &values[index];
+        // Borrowed in place: indexing an `Array` bumps no reference count.
+        let view = value();
+        let value = view.as_raw_ffi_any();
         if value.type_index != TVMFFITypeIndex::kTVMFFINone as i32 && T::check(value) {
             return Ok(());
         }

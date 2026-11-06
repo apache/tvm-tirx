@@ -302,45 +302,28 @@ impl ArgumentInfo {
 unsafe impl tvm_ffi::object::ImmutableObject for ArgumentInfoObj {}
 // tvm-ffi-stubgen(end)
 
-// The crate has no `ffi.List` binding, so the column is read through the `TVMFFISeqCell` that
-// `ffi.List` shares with `ffi.Array` (`c_api.h`).
 /// A live attribute column of the operator registry, C++ `OpAttrMap<T>`, returned by
 /// [`Op::attr_map`].
 ///
 /// It holds the registry's own column, so values registered later stay visible and the map can be
 /// cached. A lookup reads the entry without an FFI call.
 pub struct OpAttrMap<T> {
-    column: tvm_ffi::object::ObjectRef,
+    column: tvm_ffi::List<Any>,
     name: String,
     _value: std::marker::PhantomData<T>,
 }
 
 impl<T> OpAttrMap<T> {
     /// The entry of `op` in the column, unless it has none.
-    fn entry(&self, op: &OpObj) -> Option<&tvm_ffi::tvm_ffi_sys::TVMFFIAny> {
-        // SAFETY: `column` is an `ffi.List` (checked by `Op::attr_map`) that `self` keeps alive.
-        // The cell is read on every lookup because growth may move the element buffer.
-        let cell = unsafe {
-            let data = tvm_ffi::object::ObjectRefCore::data(&self.column);
-            &*(ObjectArc::as_ptr(data) as *const support::SeqCell)
-        };
-        let index = op.index as usize;
-        if index >= cell.size as usize {
-            return None;
-        }
-        // SAFETY: `index` is within the `size` initialized entries.
-        let entry = unsafe { &*cell.data.add(index) };
-        (entry.type_index != tvm_ffi::tvm_ffi_sys::TVMFFITypeIndex::kTVMFFINone as i32)
-            .then_some(entry)
+    fn entry(&self, op: &OpObj) -> Option<Any> {
+        let value = self.column.get(op.index as usize).ok()?;
+        (value.type_index() != tvm_ffi::tvm_ffi_sys::TVMFFITypeIndex::kTVMFFINone as i32)
+            .then_some(value)
     }
 
     /// The value `op` registers in this column, of whatever type, or `None`.
     pub(crate) fn get_any(&self, op: &OpObj) -> Option<Any> {
-        self.entry(op).map(|entry| {
-            // SAFETY: the borrowed entry is copied, never released.
-            let entry = std::mem::ManuallyDrop::new(unsafe { Any::from_raw_ffi_any(*entry) });
-            (*entry).clone()
-        })
+        self.entry(op)
     }
 }
 
@@ -353,19 +336,29 @@ impl<T: tvm_ffi::type_traits::AnyCompatible> OpAttrMap<T> {
     /// Returns a `TypeError` if the value is not a `T`.
     pub fn get(&self, op: &OpObj) -> Result<Option<T>> {
         let Some(entry) = self.entry(op) else { return Ok(None) };
-        // SAFETY: `entry` is a live element of the column.
-        match unsafe { T::try_cast_from_any_view(entry) } {
-            Ok(value) => Ok(Some(value)),
-            Err(()) => Err(tvm_ffi::Error::new(
-                tvm_ffi::TYPE_ERROR,
-                &format!(
-                    "Op attribute {} of {} has unexpected type {}",
-                    self.name.as_str(),
-                    op.name.as_str(),
-                    T::get_mismatch_type_info(entry)
-                ),
-                "",
-            )),
+        let mut raw = Any::into_raw_ffi_any(entry);
+        // SAFETY: `raw` owns the entry's reference, which is either moved into the `T` or
+        // released below.
+        unsafe {
+            if T::check_any_strict(&raw) {
+                return Ok(Some(T::move_from_any_after_check(&mut raw)));
+            }
+            let cast = T::try_cast_from_any_view(&raw);
+            let mismatch = cast.is_err().then(|| T::get_mismatch_type_info(&raw));
+            drop(Any::from_raw_ffi_any(raw));
+            match (cast, mismatch) {
+                (Ok(value), _) => Ok(Some(value)),
+                (Err(()), mismatch) => Err(tvm_ffi::Error::new(
+                    tvm_ffi::TYPE_ERROR,
+                    &format!(
+                        "Op attribute {} of {} has unexpected type {}",
+                        self.name.as_str(),
+                        op.name.as_str(),
+                        mismatch.unwrap_or_default()
+                    ),
+                    "",
+                )),
+            }
         }
     }
 }

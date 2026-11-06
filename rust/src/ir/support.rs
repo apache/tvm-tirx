@@ -235,35 +235,6 @@ pub(crate) fn scalable_vector(dtype: DLDataType, factor: i32) -> Result<DLDataTy
 }
 
 // ---------------------------------------------------------------------------------------------
-// Sequences
-
-/// The object header followed by `TVMFFISeqCell`, the layout `ffi.List` and `ffi.Array` share
-/// (`c_api.h`).
-#[repr(C)]
-pub(crate) struct SeqCell {
-    pub(crate) object: tvm_ffi::Object,
-    pub(crate) data: *const TVMFFIAny,
-    pub(crate) size: i64,
-    pub(crate) capacity: i64,
-    pub(crate) data_deleter: Option<unsafe extern "C" fn(*mut c_void)>,
-}
-
-/// The elements of an `ffi.Array`, read in place.
-pub(crate) fn array_cells<T: tvm_ffi::type_traits::ContainerElement + Clone>(
-    array: &Array<T>,
-) -> &[TVMFFIAny] {
-    // SAFETY: an `ffi.Array` is the object header followed by `TVMFFISeqCell`, and `array` keeps
-    // its `size` elements alive.
-    unsafe {
-        let cell = &*(ObjectArc::as_ptr(ObjectRefCore::data(array)) as *const SeqCell);
-        if cell.size == 0 {
-            return &[];
-        }
-        std::slice::from_raw_parts(cell.data, cell.size as usize)
-    }
-}
-
-// ---------------------------------------------------------------------------------------------
 // Registry hooks
 
 /// A C++ `NativeFunctionView<R(const Node*)>` hook that a registry holds: the C ABI adapter its
