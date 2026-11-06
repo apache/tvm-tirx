@@ -113,32 +113,9 @@ macro_rules! typed_expr_view {
             }
         }
 
-        // As `#[derive(ObjectRef)]` generates: the view is exactly one object pointer, so a
-        // cell or an object pointer that holds a `$name` borrows as `&$name` in place.
-        // SAFETY: the view is `repr(transparent)` over its `ObjectArc`, and the checked
-        // forms run `check_any_strict` first.
-        unsafe impl tvm_ffi::type_traits::RefFromAnyUnchecked for $name {
-            #[inline(always)]
-            unsafe fn ref_from_any_unchecked(cell: &TVMFFIAny) -> &Self {
-                unsafe { &*(::core::ptr::addr_of!(cell.data_union) as *const Self) }
-            }
-        }
-
-        unsafe impl tvm_ffi::type_traits::DowncastRefFromAny for $name {
-            #[inline(always)]
-            unsafe fn downcast_ref_from_any(cell: &TVMFFIAny) -> Option<&Self> {
-                unsafe { tvm_ffi::type_traits::downcast_ref_from_any_in_place::<Self>(cell) }
-            }
-        }
-
-        unsafe impl tvm_ffi::type_traits::DowncastRefFromObject for $name {
-            #[inline(always)]
-            unsafe fn downcast_ref_from_object(
-                place: &*mut tvm_ffi::tvm_ffi_sys::TVMFFIObject,
-            ) -> Option<&Self> {
-                unsafe { tvm_ffi::type_traits::downcast_ref_from_object_in_place::<Self>(place) }
-            }
-        }
+        // SAFETY: the view is `repr(transparent)` over one object pointer, and
+        // `check_any_strict` is its type check.
+        tvm_ffi::unsafe_impl_ref_downcast!($name);
 
         impl AsRef<$name> for $name {
             #[inline(always)]
