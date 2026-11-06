@@ -635,7 +635,7 @@ unsafe fn prim_literal(data: &TVMFFIAny) -> Option<PrimExpr> {
             Some(int_imm(data.data_union.v_int64).into())
         } else if index == TVMFFITypeIndex::kTVMFFIFloat as i32 {
             let value = data.data_union.v_float64;
-            FloatImm::from_dtype(dtype::float(32), value, UNKNOWN_LOC).ok().map(Into::into)
+            FloatImm::new(PrimType::float(32), value, UNKNOWN_LOC).ok().map(Into::into)
         } else {
             None
         }
@@ -1289,31 +1289,22 @@ impl FloatImm {
         Ok(Self::from_fields(loc, ty, value))
     }
 
-    /// [`FloatImm::new`] of the primitive type of `dtype`.
-    pub(crate) fn from_dtype(
-        dtype: DLDataType,
-        value: f64,
-        loc: impl Into<Location>,
-    ) -> Result<Self> {
-        Self::new(PrimType::from_dtype(dtype)?, value, loc)
-    }
-
     /// Create the `float32` constant `value` at the unknown location
     /// (C++ `FloatImm(PrimType::Float(32), value)`).
     pub fn float32(value: f32) -> Self {
-        Self::builtin(dtype::float(32), value as f64)
+        Self::builtin(PrimType::float(32), value as f64)
     }
 
     /// Create the `float64` constant `value` at the unknown location
     /// (C++ `FloatImm(PrimType::Float(64), value)`).
     pub fn float64(value: f64) -> Self {
-        Self::builtin(dtype::float(64), value)
+        Self::builtin(PrimType::float(64), value)
     }
 
     /// [`FloatImm::new`] of a value its type holds, which fails only when the compiler
     /// library is not loaded.
-    fn builtin(dtype: DLDataType, value: f64) -> Self {
-        support::infallible(Self::from_dtype(dtype, value, UNKNOWN_LOC))
+    fn builtin(ty: PrimType, value: f64) -> Self {
+        support::infallible(Self::new(ty, value, UNKNOWN_LOC))
     }
 }
 
@@ -1500,34 +1491,25 @@ impl IntImm {
         Ok(Self::from_fields(loc, ty, value))
     }
 
-    /// [`IntImm::new`] of the primitive type of `dtype`.
-    pub(crate) fn from_dtype(
-        dtype: DLDataType,
-        value: impl Into<BigInt>,
-        loc: impl Into<Location>,
-    ) -> Result<Self> {
-        Self::new(PrimType::from_dtype(dtype)?, value, loc)
-    }
-
     /// Create the `int32` constant `value` at the unknown location (C++ `IntImm::Int32(value)`).
     pub fn int32(value: i32) -> Self {
-        Self::builtin(dtype::int(32), value)
+        Self::builtin(PrimType::int(32), value)
     }
 
     /// Create the `int64` constant `value` at the unknown location (C++ `IntImm::Int64(value)`).
     pub fn int64(value: i64) -> Self {
-        Self::builtin(dtype::int(64), value)
+        Self::builtin(PrimType::int(64), value)
     }
 
     /// Create the boolean constant `value` at the unknown location (C++ `IntImm::Bool(value)`).
     pub fn bool(value: bool) -> Self {
-        Self::builtin(dtype::bool(), value)
+        Self::builtin(PrimType::bool(), value)
     }
 
     /// [`IntImm::new`] of a value its type holds, which fails only when the compiler
     /// library is not loaded.
-    fn builtin(dtype: DLDataType, value: impl Into<BigInt>) -> Self {
-        support::infallible(Self::from_dtype(dtype, value, UNKNOWN_LOC))
+    fn builtin(ty: PrimType, value: impl Into<BigInt>) -> Self {
+        support::infallible(Self::new(ty, value, UNKNOWN_LOC))
     }
 }
 

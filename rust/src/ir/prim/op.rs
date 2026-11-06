@@ -836,7 +836,7 @@ pub(crate) fn make_const_scalar(
             let message = format!("cannot make uint from negative value {value}");
             return Err(support::check_failed(INTERNAL_ERROR, "value >= 0", &message));
         }
-        return Ok(IntImm::from_dtype(dtype, value, loc.clone())?.into());
+        return Ok(IntImm::new(PrimType::from_dtype(dtype)?, value, loc.clone())?.into());
     }
     if code == support::FLOAT
         || is_float8(code)
@@ -848,7 +848,7 @@ pub(crate) fn make_const_scalar(
             ConstValue::Int(value) => value.to_f64()?,
             ConstValue::Float(value) => value,
         };
-        return Ok(FloatImm::from_dtype(dtype, value, loc.clone())?.into());
+        return Ok(FloatImm::new(PrimType::from_dtype(dtype)?, value, loc.clone())?.into());
     }
     let ty = PrimType::from_dtype(dtype)?;
     let message = format!("cannot make const for type {}", support::repr(&ty));
@@ -931,10 +931,10 @@ fn fold_cast(value: &PrimExpr, to: DLDataType) -> Result<Option<PrimExpr>> {
         _ => None,
     };
     let int = |value: BigInt, loc: &Location| -> Result<Option<PrimExpr>> {
-        Ok(Some(IntImm::from_dtype(to, value, loc.clone())?.into()))
+        Ok(Some(IntImm::new(PrimType::from_dtype(to)?, value, loc.clone())?.into()))
     };
     let float = |value: f64, loc: &Location| -> Result<Option<PrimExpr>> {
-        Ok(Some(FloatImm::from_dtype(to, value, loc.clone())?.into()))
+        Ok(Some(FloatImm::new(PrimType::from_dtype(to)?, value, loc.clone())?.into()))
     };
     if let Some(imm) = value.downcast_ref::<IntImmObj>() {
         if integer {
@@ -1345,11 +1345,11 @@ pub fn neg_at(a: impl IntoExpr<PrimExpr>, loc: impl Into<Location>) -> Result<Pr
     if let Some(imm) = a.downcast_ref::<IntImmObj>() {
         let value = -imm.value.clone();
         if const_fold::is_representable(&value, dtype) {
-            return Ok(IntImm::from_dtype(dtype, value, loc)?.into());
+            return Ok(IntImm::new(PrimType::from_dtype(dtype)?, value, loc)?.into());
         }
     }
     if let Some(imm) = a.downcast_ref::<FloatImmObj>() {
-        return Ok(FloatImm::from_dtype(dtype, -imm.value, loc)?.into());
+        return Ok(FloatImm::new(PrimType::from_dtype(dtype)?, -imm.value, loc)?.into());
     }
     sub(make_const_at(PrimType::from_dtype(dtype)?, 0, loc)?, a)
 }
@@ -1636,7 +1636,7 @@ fn fold_shift(
     }
     if let (Some(x), Some(y)) = (pa, pb) {
         if let Some(value) = shift(x, y)? {
-            return Ok(Some(IntImm::from_dtype(dtype, value, loc.clone())?.into()));
+            return Ok(Some(IntImm::new(PrimType::from_dtype(dtype)?, value, loc.clone())?.into()));
         }
     }
     if pb.is_some_and(BigInt::is_zero) {
@@ -1729,7 +1729,7 @@ macro_rules! bitwise {
                 if let (true, Some(x), Some(y)) =
                     (index, const_fold::int(&a), const_fold::int(&b))
                 {
-                    return Ok(IntImm::from_dtype(dtype, x $op y, loc)?.into());
+                    return Ok(IntImm::new(PrimType::from_dtype(dtype)?, x $op y, loc)?.into());
                 }
                 Ok($node::new(a, b, loc)?.into())
             }
@@ -1788,7 +1788,9 @@ fn rounding(
         return Ok(x);
     }
     if let Some(imm) = x.downcast_ref::<FloatImmObj>() {
-        return Ok(FloatImm::from_dtype(dtype, fold(imm.value), imm.loc.clone())?.into());
+        return Ok(
+            FloatImm::new(PrimType::from_dtype(dtype)?, fold(imm.value), imm.loc.clone())?.into()
+        );
     }
     let ty = x.ty.clone();
     call(Some(&ty), op, vec![x], loc)
@@ -1864,7 +1866,10 @@ fn absolute(x: PrimExpr, loc: Location) -> Result<PrimExpr> {
     match dtype.code {
         support::INT => integer_abs(x, loc),
         support::FLOAT | support::BFLOAT => match x.downcast_ref::<FloatImmObj>() {
-            Some(imm) => Ok(FloatImm::from_dtype(dtype, imm.value.abs(), imm.loc.clone())?.into()),
+            Some(imm) => {
+                Ok(FloatImm::new(PrimType::from_dtype(dtype)?, imm.value.abs(), imm.loc.clone())?
+                    .into())
+            }
             None => {
                 let ty = x.ty.clone();
                 call(Some(&ty), "prim.fabs", vec![x], loc)
@@ -1891,7 +1896,7 @@ fn integer_abs(x: PrimExpr, loc: Location) -> Result<PrimExpr> {
             false => imm.value.clone(),
         };
         if const_fold::is_representable(&value, dtype) {
-            return Ok(IntImm::from_dtype(dtype, value, imm.loc.clone())?.into());
+            return Ok(IntImm::new(PrimType::from_dtype(dtype)?, value, imm.loc.clone())?.into());
         }
     }
     let zero = make_const(PrimType::from_dtype(dtype)?, 0)?;
@@ -1975,8 +1980,10 @@ pub fn max_value_at(ty: impl Into<PrimType>, loc: impl Into<Location>) -> Result
     let dtype = ty.dtype;
     check_scalar(dtype)?;
     let (code, bits) = (dtype.code, dtype.bits);
-    let int = |value: BigInt| Ok(IntImm::from_dtype(dtype, value, loc.clone())?.into());
-    let float = |value: f64| Ok(FloatImm::from_dtype(dtype, value, loc.clone())?.into());
+    let int =
+        |value: BigInt| Ok(IntImm::new(PrimType::from_dtype(dtype)?, value, loc.clone())?.into());
+    let float =
+        |value: f64| Ok(FloatImm::new(PrimType::from_dtype(dtype)?, value, loc.clone())?.into());
     match code {
         support::INT if bits == 64 => int(BigInt::from(i64::MAX)),
         support::INT if bits < 64 => int(BigInt::from((1i64 << (bits - 1)) - 1)),
@@ -2003,8 +2010,10 @@ pub fn min_value_at(ty: impl Into<PrimType>, loc: impl Into<Location>) -> Result
     let dtype = ty.dtype;
     check_scalar(dtype)?;
     let (code, bits) = (dtype.code, dtype.bits);
-    let int = |value: BigInt| Ok(IntImm::from_dtype(dtype, value, loc.clone())?.into());
-    let float = |value: f64| Ok(FloatImm::from_dtype(dtype, value, loc.clone())?.into());
+    let int =
+        |value: BigInt| Ok(IntImm::new(PrimType::from_dtype(dtype)?, value, loc.clone())?.into());
+    let float =
+        |value: f64| Ok(FloatImm::new(PrimType::from_dtype(dtype)?, value, loc.clone())?.into());
     match code {
         support::INT if bits == 64 => int(BigInt::from(i64::MIN)),
         support::INT if bits < 64 => int(BigInt::from(-(1i64 << (bits - 1)))),
@@ -2031,9 +2040,11 @@ pub fn infinity_at(ty: impl Into<PrimType>, loc: impl Into<Location>) -> Result<
     let dtype = ty.dtype;
     check_scalar(dtype)?;
     match (dtype.code, dtype.bits) {
-        (support::FLOAT, 64) => Ok(FloatImm::from_dtype(dtype, f64::INFINITY, loc)?.into()),
+        (support::FLOAT, 64) => {
+            Ok(FloatImm::new(PrimType::from_dtype(dtype)?, f64::INFINITY, loc)?.into())
+        }
         (support::FLOAT, 32 | 16) => {
-            Ok(FloatImm::from_dtype(dtype, f64::from(f32::INFINITY), loc)?.into())
+            Ok(FloatImm::new(PrimType::from_dtype(dtype)?, f64::from(f32::INFINITY), loc)?.into())
         }
         _ => {
             let message = format!("Cannot decide infinity for type {}", support::repr(&ty));

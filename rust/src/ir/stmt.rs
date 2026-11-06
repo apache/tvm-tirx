@@ -536,7 +536,7 @@ impl For {
                         &message,
                     ));
                 }
-                return Ok(IntImm::from_dtype(var_ty.dtype, imm.value.clone(), UNKNOWN_LOC)?.into());
+                return Ok(IntImm::new(var_ty.clone(), imm.value.clone(), UNKNOWN_LOC)?.into());
             }
             if ty.dtype.bits > var_ty.dtype.bits {
                 let message = format!(
