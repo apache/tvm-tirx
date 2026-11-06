@@ -41,9 +41,6 @@
 // tvm-ffi-stubgen(opaque): ir.UnknownLoc
 // A `SourceName` is interned: C++ makes one only through `SourceName::Get`, so it has no `new`.
 // tvm-ffi-stubgen(custom-new): ir.SourceName
-// The base `Location` has no C++ constructor, so no `new`: `custom-new` leaves only the generated
-// `from_fields`.
-// tvm-ffi-stubgen(custom-new): ir.Location
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
 // tvm-ffi-stubgen(import-object): tvm_ffi::Result
@@ -97,7 +94,7 @@ impl LocationObj {
 
 impl Location {
     /// Lossless complete-field allocation.
-    pub fn from_fields() -> Self {
+    pub fn new() -> Self {
         let obj = LocationObj::new();
         Self { base: ObjectArc::new(obj) }
     }

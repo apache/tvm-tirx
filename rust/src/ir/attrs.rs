@@ -38,10 +38,6 @@
 //! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
 //! ```
 
-// The base `Attrs` has no C++ constructor, so no `new`: `custom-new` leaves only the generated
-// `from_fields`.
-// tvm-ffi-stubgen(custom-new): ir.Attrs
-
 // tvm-ffi-stubgen(begin): import-section
 use std::ops::Deref;
 use std::ptr::addr_of_mut;
@@ -90,7 +86,7 @@ impl AttrsObj {
 
 impl Attrs {
     /// Lossless complete-field allocation.
-    pub fn from_fields() -> Self {
+    pub fn new() -> Self {
         let obj = AttrsObj::new();
         Self { base: ObjectArc::new(obj) }
     }
