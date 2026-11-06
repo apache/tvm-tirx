@@ -39,3 +39,29 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
       - uses: pre-commit/action@2c7b3805fd2a0fd8c1884dcaebf91fc102a13ecd  # v3.0.1
+
+  rust-clippy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6.0.2
+        with:
+          fetch-depth: 0
+      - name: Detect Rust changes
+        id: rust_changes
+        run: |
+          # The crate builds against the submodule by path, so a bump counts.
+          if [ "${{ github.event_name }}" != "pull_request" ] ||
+             ! git diff --quiet "${{ github.event.pull_request.base.sha }}" HEAD -- \
+               rust/ 3rdparty/tvm-ffi .github/workflows/lint.yml; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+      # Clippy only type-checks, so DOCS_RS skips the tvm-ffi-config lookup and
+      # no build is needed. Pin it so new lints arrive with a toolchain bump.
+      - name: Rust clippy
+        if: steps.rust_changes.outputs.changed == 'true'
+        env:
+          DOCS_RS: "1"
+        run: |
+          git submodule update --init 3rdparty/tvm-ffi
+          rustup toolchain install 1.99.1 --profile minimal --component clippy
+          cargo +1.99.1 clippy --manifest-path rust/Cargo.toml --all-targets -- -D warnings

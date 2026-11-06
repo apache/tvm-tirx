@@ -296,7 +296,7 @@ fn binary(
 ) -> ExprResult {
     let rhs = typed_after(rhs.classify(), &lhs);
     match (lhs.0, rhs.0) {
-        (Ok(a), Ok(b)) => ExprResult(op(a.into(), b.into())),
+        (Ok(a), Ok(b)) => ExprResult(op(a, b)),
         (Err(error), _) | (_, Err(error)) => ExprResult(Err(error)),
     }
 }

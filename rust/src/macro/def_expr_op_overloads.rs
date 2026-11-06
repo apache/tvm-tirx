@@ -60,6 +60,8 @@
 /// # Ok(())
 /// # }
 /// ```
+// `crate::` matches the caller's path and re-emits it, so it names the caller's crate.
+#[allow(clippy::crate_in_macro_def)]
 #[macro_export]
 macro_rules! def_expr_op_over_loads {
     (crate::$($ty:ident)::+ $(,)?) => {

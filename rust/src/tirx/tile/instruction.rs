@@ -17,6 +17,8 @@
  * under the License.
  */
 #![allow(dead_code, unused_imports)]
+// The generated constructors take one argument per reflected field.
+#![allow(clippy::too_many_arguments)]
 
 //! The attributes of tile instruction calls.
 //!

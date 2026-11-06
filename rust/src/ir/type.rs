@@ -199,6 +199,8 @@ tvm_ffi::unsafe_impl_object_upcast!(MissingType => Type);
 impl MissingType {
     /// Return the shared type of a node whose type is not known yet, fetched once per thread
     /// (`ir.MissingType`).
+    // Not `Default`: `new` fetches a shared FFI singleton rather than building a value.
+    #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         thread_local! {
             static MISSING_TYPE: std::cell::OnceCell<MissingType> = const { std::cell::OnceCell::new() };
@@ -266,6 +268,8 @@ tvm_ffi::unsafe_impl_object_upcast!(NoneType => Type);
 
 impl NoneType {
     /// Return the shared type of the `None` value, fetched once per thread (`ir.NoneType`).
+    // Not `Default`: `new` fetches a shared FFI singleton rather than building a value.
+    #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         thread_local! {
             static NONE_TYPE: std::cell::OnceCell<NoneType> = const { std::cell::OnceCell::new() };
@@ -390,6 +394,8 @@ tvm_ffi::unsafe_impl_object_upcast!(TensorRegionType => Type);
 
 impl TensorRegionType {
     /// Return the shared type of a tensor region, fetched once per thread (`ir.TensorRegionType`).
+    // Not `Default`: `new` fetches a shared FFI singleton rather than building a value.
+    #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         thread_local! {
             static TENSOR_REGION_TYPE: std::cell::OnceCell<TensorRegionType> =

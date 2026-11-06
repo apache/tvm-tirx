@@ -257,11 +257,7 @@ impl DispatchContext {
     }
 
     /// Cache `value` under `key` across dispatches (`tirx.DispatchContextSharedStateSet`).
-    pub fn cache_set(
-        &self,
-        key: &str,
-        value: &(impl ObjectRefCore + tvm_ffi::type_traits::AnyCompatible),
-    ) -> Result<()> {
+    pub fn cache_set(&self, key: &str, value: &impl ObjectRefCore) -> Result<()> {
         let key = String::from(key);
         tvm_ffi::cached_global_func!("tirx.DispatchContextSharedStateSet").call_packed(&[
             AnyView::from(self),
