@@ -51,7 +51,7 @@ fn types() {
     assert!(structural_equal(&ptr.element_type, &i32_ty));
     let tuple = TupleType::new([&i32_ty, &i32_ty], UNKNOWN_LOC);
     assert_eq!(tuple.fields.len(), 2);
-    let func = FuncType::new([&i32_ty], &i32_ty, UNKNOWN_LOC);
+    let func = FuncType::new([&i32_ty], &i32_ty);
     assert_eq!(func.arg_types.len(), 1);
 }
 
@@ -107,7 +107,7 @@ fn types_agree_with_cpp() {
     }
     let args: Array<Type> = [int32.clone()].into_iter().collect();
     let native_func = native("ir.FuncType", &[(&args).into(), (&float32).into()]);
-    agree("FuncType", Ok(FuncType::new([&int32], &float32, UNKNOWN_LOC)), native_func);
+    agree("FuncType", Ok(FuncType::new([&int32], &float32)), native_func);
     agree("OpaqueType", Ok(OpaqueType::new()), native("ir.OpaqueType", &[]));
     agree("StringType", Ok(StringType::new()), native("ir.StringType", &[]));
 

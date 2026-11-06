@@ -2274,7 +2274,7 @@ impl LambdaExpr {
     ) -> Self {
         let (vars, body) = (vars.into_iter().map(Into::into).collect::<Array<Var>>(), body.into());
         let arg_types = vars.iter().map(|var| var.ty.clone()).collect::<Vec<Type>>();
-        let ty = FuncType::new(arg_types, body.ty.clone(), UNKNOWN_LOC);
+        let ty = FuncType::new(arg_types, body.ty.clone());
         Self::from_fields(loc.into(), ty, vars, body)
     }
 

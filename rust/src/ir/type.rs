@@ -34,7 +34,7 @@
 //! assert_eq!(script(&PrimType::float(16).with_lanes(4)?)?, "T.float16x4");
 //!
 //! let pair = TupleType::new([&int32, &int32], UNKNOWN_LOC);
-//! let func = FuncType::new([&int32], &pair, UNKNOWN_LOC);
+//! let func = FuncType::new([&int32], &pair);
 //! assert_eq!(script(&func)?, "T.Func([T.int32], T.Tuple(T.int32, T.int32))");
 //! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
 //! ```
@@ -879,14 +879,13 @@ tvm_ffi::unsafe_impl_object_upcast!(FuncType => Type);
 // tvm-ffi-stubgen(end)
 
 impl FuncType {
-    /// Create the type of a function from `arg_types` to `ret_type`
-    /// (C++ `FuncType(arg_types, ret_type, loc)`).
+    /// Create the type of a function from `arg_types` to `ret_type`, at the unknown location
+    /// (C++ `FuncType(arg_types, ret_type)`).
     pub fn new(
         arg_types: impl IntoIterator<Item = impl Into<Type>>,
         ret_type: impl Into<Type>,
-        loc: impl Into<Location>,
     ) -> Self {
         let arg_types = arg_types.into_iter().map(Into::into).collect::<Array<Type>>();
-        Self::from_fields(loc, arg_types, ret_type.into())
+        Self::from_fields(UNKNOWN_LOC, arg_types, ret_type.into())
     }
 }

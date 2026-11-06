@@ -170,7 +170,7 @@ impl Function {
             None => ret_type,
         };
         let param_types = params.iter().map(|param| param.ty.clone()).collect::<Vec<Type>>();
-        let ty = FuncType::new(param_types, ret_type.clone(), UNKNOWN_LOC);
+        let ty = FuncType::new(param_types, ret_type.clone());
         Self::from_fields(loc.into(), ty, attrs.into(), params, ret_type, body.clone())
     }
 }
