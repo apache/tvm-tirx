@@ -72,7 +72,7 @@ unsafe impl StructuralVisitorBase for StructuralVisitorWithConstraintContextBase
     fn new() -> Result<Self> {
         Ok(Self {
             base: StructuralVisitorObj::default(),
-            constraints: UnsafeCell::new(ConstraintContext::new()?),
+            constraints: UnsafeCell::new(ConstraintContext::new()),
             needs_child_context: UnsafeCell::new(false),
         })
     }

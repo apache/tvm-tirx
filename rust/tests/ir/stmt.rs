@@ -55,7 +55,7 @@ fn statements() {
         UNKNOWN_LOC,
     )
     .unwrap();
-    assert_eq!(for_.kind, kind as i32);
+    assert_eq!(for_.kind, kind);
     assert_eq!(for_.body.seq.len(), 1);
     let less = op("prim._OpLT", &x, int32(4));
     let while_ = While::new(&less, &body, UNKNOWN_LOC).unwrap();
@@ -192,7 +192,7 @@ fn statements_agree_with_cpp() {
         ),
     ];
     for (what, var, begin, end, step, body, annotations) in cases {
-        let kind = ForKind::Parallel as i32;
+        let kind = ForKind::Parallel.as_raw();
         let native_for = native(
             "ir.For",
             &[

@@ -29,7 +29,7 @@
 //! use tvm_tirx::ir::{PrimType, PrimVar, SourceLoc, SourceName, Var};
 //! use tvm_tirx::tvm_ffi::ObjectRefCore;
 //!
-//! let span = SourceLoc::new(SourceName::get("kernel.py")?, 3, 1, 3, 10);
+//! let span = SourceLoc::new(SourceName::get("kernel.py"), 3, 1, 3, 10);
 //!
 //! let x = PrimVar::new("x", PrimType::int(32), &span);
 //! assert!(x.loc.same_as(&span));
@@ -368,7 +368,11 @@ unsafe impl tvm_ffi::object::ImmutableObject for SourceNameObj {}
 impl SourceName {
     /// Return the source name `name`, interned so that equal names share one object
     /// (`ir.SourceName`).
-    pub fn get(name: &str) -> Result<Self> {
-        tvm_ffi::cached_global_func!("ir.SourceName").call_tuple((String::from(name),))?.try_into()
+    pub fn get(name: &str) -> Self {
+        support::infallible(
+            tvm_ffi::cached_global_func!("ir.SourceName")
+                .call_tuple((String::from(name),))
+                .and_then(|any| any.try_into()),
+        )
     }
 }

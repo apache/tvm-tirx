@@ -36,8 +36,8 @@
 //! assert_eq!(script(&ty)?, r#"T.Tensor((16, 16), T.float32, scope="my_ext.scratch")"#);
 //!
 //! let a = Expr::from(Var::new("A", &ty, UNKNOWN_LOC));
-//! let i = Expr::from(PrimVar::new("i", PrimType::int(32), UNKNOWN_LOC));
-//! let point = [Subscript::Index(i), Subscript::Index(0.into())];
+//! let i = PrimVar::new("i", PrimType::int(32), UNKNOWN_LOC);
+//! let point = [Subscript::Index(i.into()), Subscript::Index(0.into())];
 //! let element = a.subscript(point, UNKNOWN_LOC)?;
 //! assert_eq!(script(&Expr::try_from(element)?)?, "A[i, 0]");
 //!

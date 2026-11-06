@@ -32,7 +32,7 @@
 //! use tvm_tirx::sym::{Analyzer, ConstraintContext, PredicateConstraint, ProofStrength};
 //!
 //! let x = PrimVar::new("x", PrimType::int(32), UNKNOWN_LOC);
-//! let outer = ConstraintContext::new()?;
+//! let outer = ConstraintContext::new();
 //! outer.append(&PredicateConstraint::new(ge(&x, 0)?, false).into())?;
 //! let inner = outer.snapshot()?;
 //! inner.append(&PredicateConstraint::new(lt(&x, 16)?, false).into())?;
@@ -333,8 +333,9 @@ impl Deref for ConstraintContext {
 }
 
 impl ConstraintContext {
-    /// Create an empty root context, with the complete native-compatible layout.
-    pub fn new() -> Result<Self> {
+    /// Create an empty root context, with the complete native-compatible layout (C++
+    /// `ConstraintContext()`).
+    pub fn new() -> Self {
         Self::allocate(None, 0)
     }
 
@@ -354,11 +355,11 @@ impl ConstraintContext {
                 "",
             ));
         }
-        Self::allocate(Some(parent.base), parent_prefix_size)
+        Ok(Self::allocate(Some(parent.base), parent_prefix_size))
     }
 
-    fn allocate(parent: Option<ObjectArc<ConstraintContextObj>>, prefix: i64) -> Result<Self> {
-        Ok(Self {
+    fn allocate(parent: Option<ObjectArc<ConstraintContextObj>>, prefix: i64) -> Self {
+        Self {
             base: ObjectArc::new(ConstraintContextObj {
                 base: Object::new(),
                 parent,
@@ -367,7 +368,7 @@ impl ConstraintContext {
                 // never install a nonempty Rust allocation in this mutable field.
                 constraints: UnsafeCell::new(Array::default()),
             }),
-        })
+        }
     }
 }
 

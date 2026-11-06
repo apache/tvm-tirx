@@ -70,7 +70,7 @@ unsafe impl StructuralMutatorBase for StructuralMutatorWithConstraintContextBase
     fn new() -> Result<Self> {
         Ok(Self {
             base: StructuralMutatorObj::default(),
-            constraints: UnsafeCell::new(ConstraintContext::new()?),
+            constraints: UnsafeCell::new(ConstraintContext::new()),
             needs_child_context: UnsafeCell::new(false),
         })
     }

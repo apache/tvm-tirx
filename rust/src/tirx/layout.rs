@@ -33,7 +33,7 @@
 //! use tvm_tirx::tirx::{Axis, Iter, Layout, TileLayout};
 //! use tvm_tirx::tvm_ffi::Map;
 //!
-//! let m = Axis::get("m")?;
+//! let m = Axis::get("m");
 //! let shard = [Iter::new(8, 8, m.clone()), Iter::new(8, 1, m)];
 //! let layout = Layout::from(&TileLayout::new(shard, Vec::<Iter>::new(), &Map::new()));
 //! assert_eq!(script(&layout.size(None)?)?, "64");
@@ -423,8 +423,12 @@ unsafe impl tvm_ffi::object::ImmutableObject for AxisObj {}
 impl Axis {
     /// Look up the axis named `name`, such as the memory axis `m`, registering it on first use
     /// (`tirx.AxisGet`).
-    pub fn get(name: &str) -> Result<Self> {
-        tvm_ffi::cached_global_func!("tirx.AxisGet").call_tuple((String::from(name),))?.try_into()
+    pub fn get(name: &str) -> Self {
+        support::infallible(
+            tvm_ffi::cached_global_func!("tirx.AxisGet")
+                .call_tuple((String::from(name),))
+                .and_then(|any| any.try_into()),
+        )
     }
 
     /// Return whether the axis indexes threads (`tirx.AxisIsThreadAxis`).

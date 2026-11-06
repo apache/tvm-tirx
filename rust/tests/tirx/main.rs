@@ -90,7 +90,7 @@ fn memory_scope() -> MemoryScope {
 
 /// The row-major layout of an 8 x 8 tile.
 fn tile_8x8() -> TileLayout {
-    let m = Axis::get("m").unwrap();
+    let m = Axis::get("m");
     TileLayout::new(
         [Iter::new(int32(8), int32(8), m.clone()), Iter::new(int32(8), int32(1), m)],
         Vec::<Iter>::new(),

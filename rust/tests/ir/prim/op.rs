@@ -429,7 +429,7 @@ fn expression_results_pass_into_functions_and_constructors() {
 fn located_variants() {
     let _serial = serial();
     let x = var("x", PrimType::int(32));
-    let here: Location = SourceLoc::new(SourceName::get("ops.rs").unwrap(), 1, 2, 3, 4).into();
+    let here: Location = SourceLoc::new(SourceName::get("ops.rs"), 1, 2, 3, 4).into();
     let located: prim::FloorDiv = op::floordiv_at(&x, 4, here.clone()).unwrap().downcast().unwrap();
     assert!(located.loc.same_as(&here));
     let unlocated: prim::FloorDiv = op::floordiv(&x, 4).unwrap().downcast().unwrap();
