@@ -84,13 +84,6 @@ pub struct PassObj {
 pub struct Pass {
     base: ObjectArc<PassObj>,
 }
-
-impl Deref for Pass {
-    type Target = PassObj;
-    fn deref(&self) -> &PassObj {
-        &self.base
-    }
-}
 // tvm-ffi-stubgen(end)
 
 impl Pass {
@@ -134,13 +127,6 @@ pub struct PassInfo {
     base: ObjectArc<PassInfoObj>,
 }
 
-impl Deref for PassInfo {
-    type Target = PassInfoObj;
-    fn deref(&self) -> &PassInfoObj {
-        &self.base
-    }
-}
-
 impl PassInfoObj {
     pub(crate) fn new(opt_level: i32, name: String) -> Self {
         let base = Object::new();
@@ -178,13 +164,6 @@ pub struct ModulePass {
     base: ObjectArc<ModulePassObj>,
 }
 
-impl Deref for ModulePass {
-    type Target = ModulePassObj;
-    fn deref(&self) -> &ModulePassObj {
-        &self.base
-    }
-}
-
 impl Deref for ModulePassObj {
     type Target = PassObj;
     fn deref(&self) -> &PassObj {
@@ -200,7 +179,7 @@ impl ModulePassObj {
 
 unsafe impl tvm_ffi::object::ImmutableObject for ModulePassObj {}
 
-tvm_ffi::unsafe_impl_object_upcast!(ModulePass => Pass);
+tvm_ffi::unsafe_impl_object_ref_upcast!(ModulePass => Pass);
 // tvm-ffi-stubgen(end)
 
 impl ModulePass {
@@ -241,13 +220,6 @@ pub struct Sequential {
     base: ObjectArc<SequentialObj>,
 }
 
-impl Deref for Sequential {
-    type Target = SequentialObj;
-    fn deref(&self) -> &SequentialObj {
-        &self.base
-    }
-}
-
 impl Deref for SequentialObj {
     type Target = PassObj;
     fn deref(&self) -> &PassObj {
@@ -267,7 +239,7 @@ impl SequentialObj {
 
 unsafe impl tvm_ffi::object::ImmutableObject for SequentialObj {}
 
-tvm_ffi::unsafe_impl_object_upcast!(Sequential => Pass);
+tvm_ffi::unsafe_impl_object_ref_upcast!(Sequential => Pass);
 // tvm-ffi-stubgen(end)
 
 impl Sequential {
@@ -315,13 +287,6 @@ const _: () = {
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct PassContext {
     base: ObjectArc<PassContextObj>,
-}
-
-impl Deref for PassContext {
-    type Target = PassContextObj;
-    fn deref(&self) -> &PassContextObj {
-        &self.base
-    }
 }
 
 impl PassContextObj {
@@ -480,13 +445,6 @@ pub struct PassInstrumentObj {
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct PassInstrument {
     base: ObjectArc<PassInstrumentObj>,
-}
-
-impl Deref for PassInstrument {
-    type Target = PassInstrumentObj;
-    fn deref(&self) -> &PassInstrumentObj {
-        &self.base
-    }
 }
 
 impl PassInstrumentObj {

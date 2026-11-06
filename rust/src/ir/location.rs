@@ -79,13 +79,6 @@ pub struct Location {
     base: ObjectArc<LocationObj>,
 }
 
-impl Deref for Location {
-    type Target = LocationObj;
-    fn deref(&self) -> &LocationObj {
-        &self.base
-    }
-}
-
 impl LocationObj {
     pub fn new() -> Self {
         let base = Object::new();
@@ -134,13 +127,6 @@ pub struct UnknownLoc {
     base: ObjectArc<UnknownLocObj>,
 }
 
-impl Deref for UnknownLoc {
-    type Target = UnknownLocObj;
-    fn deref(&self) -> &UnknownLocObj {
-        &self.base
-    }
-}
-
 impl Deref for UnknownLocObj {
     type Target = LocationObj;
     fn deref(&self) -> &LocationObj {
@@ -150,7 +136,7 @@ impl Deref for UnknownLocObj {
 
 unsafe impl tvm_ffi::object::ImmutableObject for UnknownLocObj {}
 
-tvm_ffi::unsafe_impl_object_upcast!(UnknownLoc => Location);
+tvm_ffi::unsafe_impl_object_ref_upcast!(UnknownLoc => Location);
 // tvm-ffi-stubgen(end)
 
 impl UnknownLoc {
@@ -208,13 +194,6 @@ pub struct SourceLoc {
     base: ObjectArc<SourceLocObj>,
 }
 
-impl Deref for SourceLoc {
-    type Target = SourceLocObj;
-    fn deref(&self) -> &SourceLocObj {
-        &self.base
-    }
-}
-
 impl Deref for SourceLocObj {
     type Target = LocationObj;
     fn deref(&self) -> &LocationObj {
@@ -252,7 +231,7 @@ impl SourceLoc {
 
 unsafe impl tvm_ffi::object::ImmutableObject for SourceLocObj {}
 
-tvm_ffi::unsafe_impl_object_upcast!(SourceLoc => Location);
+tvm_ffi::unsafe_impl_object_ref_upcast!(SourceLoc => Location);
 // tvm-ffi-stubgen(end)
 
 // `ir.SourceLoc` stores its arguments as given: the generated `SourceLoc::new` is the same.
@@ -280,13 +259,6 @@ pub struct CallSiteLoc {
     base: ObjectArc<CallSiteLocObj>,
 }
 
-impl Deref for CallSiteLoc {
-    type Target = CallSiteLocObj;
-    fn deref(&self) -> &CallSiteLocObj {
-        &self.base
-    }
-}
-
 impl Deref for CallSiteLocObj {
     type Target = LocationObj;
     fn deref(&self) -> &LocationObj {
@@ -311,7 +283,7 @@ impl CallSiteLoc {
 
 unsafe impl tvm_ffi::object::ImmutableObject for CallSiteLocObj {}
 
-tvm_ffi::unsafe_impl_object_upcast!(CallSiteLoc => Location);
+tvm_ffi::unsafe_impl_object_ref_upcast!(CallSiteLoc => Location);
 // tvm-ffi-stubgen(end)
 
 // `ir.CallSiteLoc` stores its arguments as given: the generated `CallSiteLoc::new` is the same.
@@ -336,13 +308,6 @@ const _: () = {
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct SourceName {
     base: ObjectArc<SourceNameObj>,
-}
-
-impl Deref for SourceName {
-    type Target = SourceNameObj;
-    fn deref(&self) -> &SourceNameObj {
-        &self.base
-    }
 }
 
 impl SourceNameObj {

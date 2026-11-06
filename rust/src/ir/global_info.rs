@@ -26,7 +26,6 @@
 //! entries an [`IRModule`](super::IRModule) keeps by name in `global_infos`.
 
 // tvm-ffi-stubgen(begin): import-section
-use std::ops::Deref;
 use std::ptr::addr_of_mut;
 use tvm_ffi::Object;
 use tvm_ffi::ObjectArc;
@@ -52,13 +51,6 @@ const _: () = {
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct GlobalInfo {
     base: ObjectArc<GlobalInfoObj>,
-}
-
-impl Deref for GlobalInfo {
-    type Target = GlobalInfoObj;
-    fn deref(&self) -> &GlobalInfoObj {
-        &self.base
-    }
 }
 
 impl GlobalInfoObj {

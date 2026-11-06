@@ -88,13 +88,6 @@ pub struct BasePassInstrument {
     base: ObjectArc<BasePassInstrumentObj>,
 }
 
-impl Deref for BasePassInstrument {
-    type Target = BasePassInstrumentObj;
-    fn deref(&self) -> &BasePassInstrumentObj {
-        &self.base
-    }
-}
-
 impl Deref for BasePassInstrumentObj {
     type Target = PassInstrumentObj;
     fn deref(&self) -> &PassInstrumentObj {
@@ -102,7 +95,7 @@ impl Deref for BasePassInstrumentObj {
     }
 }
 
-tvm_ffi::unsafe_impl_object_upcast!(BasePassInstrument => PassInstrument);
+tvm_ffi::unsafe_impl_object_ref_upcast!(BasePassInstrument => PassInstrument);
 // tvm-ffi-stubgen(end)
 
 /// A hook of a [`BasePassInstrument`], called when a pass context is entered or exited.

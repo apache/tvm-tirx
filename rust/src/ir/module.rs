@@ -66,7 +66,6 @@ use crate::ir::function::BaseFunc;
 use crate::ir::global_info::GlobalInfo;
 use crate::ir::support;
 use std::borrow::Borrow;
-use std::ops::Deref;
 use tvm_ffi::Any;
 use tvm_ffi::Array;
 use tvm_ffi::IntoObjectRef;
@@ -101,13 +100,6 @@ const _: () = {
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct IRModule {
     base: ObjectArc<IRModuleObj>,
-}
-
-impl Deref for IRModule {
-    type Target = IRModuleObj;
-    fn deref(&self) -> &IRModuleObj {
-        &self.base
-    }
 }
 
 impl IRModuleObj {

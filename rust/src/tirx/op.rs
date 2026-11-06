@@ -125,13 +125,6 @@ pub struct CallFFIKernelAttr {
     base: ObjectArc<CallFFIKernelAttrObj>,
 }
 
-impl Deref for CallFFIKernelAttr {
-    type Target = CallFFIKernelAttrObj;
-    fn deref(&self) -> &CallFFIKernelAttrObj {
-        &self.base
-    }
-}
-
 impl Deref for CallFFIKernelAttrObj {
     type Target = AttrsObj;
     fn deref(&self) -> &AttrsObj {
@@ -171,7 +164,7 @@ impl CallFFIKernelAttr {
 
 unsafe impl tvm_ffi::object::ImmutableObject for CallFFIKernelAttrObj {}
 
-tvm_ffi::unsafe_impl_object_upcast!(CallFFIKernelAttr => Attrs);
+tvm_ffi::unsafe_impl_object_ref_upcast!(CallFFIKernelAttr => Attrs);
 // tvm-ffi-stubgen(end)
 
 // The native `tirx.CallFFIKernelAttr` stores its fields as given, as the generated

@@ -134,13 +134,6 @@ pub struct Ramp {
     base: ObjectArc<RampObj>,
 }
 
-impl Deref for Ramp {
-    type Target = RampObj;
-    fn deref(&self) -> &RampObj {
-        &self.base
-    }
-}
-
 impl Deref for RampObj {
     type Target = ExprObj;
     fn deref(&self) -> &ExprObj {
@@ -177,7 +170,7 @@ impl Ramp {
 
 unsafe impl tvm_ffi::object::ImmutableObject for RampObj {}
 
-tvm_ffi::unsafe_impl_object_upcast!(Ramp => Expr, Ramp => PrimExpr);
+tvm_ffi::unsafe_impl_object_ref_upcast!(Ramp => Expr, Ramp => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 impl Ramp {
@@ -253,13 +246,6 @@ pub struct Broadcast {
     base: ObjectArc<BroadcastObj>,
 }
 
-impl Deref for Broadcast {
-    type Target = BroadcastObj;
-    fn deref(&self) -> &BroadcastObj {
-        &self.base
-    }
-}
-
 impl Deref for BroadcastObj {
     type Target = ExprObj;
     fn deref(&self) -> &ExprObj {
@@ -289,7 +275,7 @@ impl Broadcast {
 
 unsafe impl tvm_ffi::object::ImmutableObject for BroadcastObj {}
 
-tvm_ffi::unsafe_impl_object_upcast!(Broadcast => Expr, Broadcast => PrimExpr);
+tvm_ffi::unsafe_impl_object_ref_upcast!(Broadcast => Expr, Broadcast => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 impl Broadcast {
@@ -338,13 +324,6 @@ pub struct Shuffle {
     base: ObjectArc<ShuffleObj>,
 }
 
-impl Deref for Shuffle {
-    type Target = ShuffleObj;
-    fn deref(&self) -> &ShuffleObj {
-        &self.base
-    }
-}
-
 impl Deref for ShuffleObj {
     type Target = ExprObj;
     fn deref(&self) -> &ExprObj {
@@ -379,7 +358,7 @@ impl Shuffle {
 
 unsafe impl tvm_ffi::object::ImmutableObject for ShuffleObj {}
 
-tvm_ffi::unsafe_impl_object_upcast!(Shuffle => Expr, Shuffle => PrimExpr);
+tvm_ffi::unsafe_impl_object_ref_upcast!(Shuffle => Expr, Shuffle => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 impl Shuffle {

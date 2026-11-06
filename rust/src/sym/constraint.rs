@@ -88,13 +88,6 @@ pub struct Constraint {
     base: ObjectArc<ConstraintObj>,
 }
 
-impl Deref for Constraint {
-    type Target = ConstraintObj;
-    fn deref(&self) -> &ConstraintObj {
-        &self.base
-    }
-}
-
 impl ConstraintObj {
     pub fn new() -> Self {
         let base = Object::new();
@@ -150,13 +143,6 @@ pub struct BindingConstraint {
     base: ObjectArc<BindingConstraintObj>,
 }
 
-impl Deref for BindingConstraint {
-    type Target = BindingConstraintObj;
-    fn deref(&self) -> &BindingConstraintObj {
-        &self.base
-    }
-}
-
 impl Deref for BindingConstraintObj {
     type Target = ConstraintObj;
     fn deref(&self) -> &ConstraintObj {
@@ -181,7 +167,7 @@ impl BindingConstraint {
 
 unsafe impl tvm_ffi::object::ImmutableObject for BindingConstraintObj {}
 
-tvm_ffi::unsafe_impl_object_upcast!(BindingConstraint => Constraint);
+tvm_ffi::unsafe_impl_object_ref_upcast!(BindingConstraint => Constraint);
 // tvm-ffi-stubgen(end)
 
 // tvm-ffi-stubgen(begin): object/sym.PredicateConstraint
@@ -205,13 +191,6 @@ const _: () = {
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct PredicateConstraint {
     base: ObjectArc<PredicateConstraintObj>,
-}
-
-impl Deref for PredicateConstraint {
-    type Target = PredicateConstraintObj;
-    fn deref(&self) -> &PredicateConstraintObj {
-        &self.base
-    }
 }
 
 impl Deref for PredicateConstraintObj {
@@ -238,7 +217,7 @@ impl PredicateConstraint {
 
 unsafe impl tvm_ffi::object::ImmutableObject for PredicateConstraintObj {}
 
-tvm_ffi::unsafe_impl_object_upcast!(PredicateConstraint => Constraint);
+tvm_ffi::unsafe_impl_object_ref_upcast!(PredicateConstraint => Constraint);
 // tvm-ffi-stubgen(end)
 
 // tvm-ffi-stubgen(begin): object/sym.RangeConstraint
@@ -262,13 +241,6 @@ const _: () = {
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct RangeConstraint {
     base: ObjectArc<RangeConstraintObj>,
-}
-
-impl Deref for RangeConstraint {
-    type Target = RangeConstraintObj;
-    fn deref(&self) -> &RangeConstraintObj {
-        &self.base
-    }
 }
 
 impl Deref for RangeConstraintObj {
@@ -295,7 +267,7 @@ impl RangeConstraint {
 
 unsafe impl tvm_ffi::object::ImmutableObject for RangeConstraintObj {}
 
-tvm_ffi::unsafe_impl_object_upcast!(RangeConstraint => Constraint);
+tvm_ffi::unsafe_impl_object_ref_upcast!(RangeConstraint => Constraint);
 // tvm-ffi-stubgen(end)
 
 /// The object of a [`ConstraintContext`], with the layout of the native one and a stable identity.
@@ -322,13 +294,6 @@ pub struct ConstraintContextObj {
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct ConstraintContext {
     base: ObjectArc<ConstraintContextObj>,
-}
-
-impl Deref for ConstraintContext {
-    type Target = ConstraintContextObj;
-    fn deref(&self) -> &Self::Target {
-        &self.base
-    }
 }
 
 impl ConstraintContext {

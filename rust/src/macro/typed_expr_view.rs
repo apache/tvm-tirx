@@ -115,7 +115,7 @@ macro_rules! typed_expr_view {
 
         // SAFETY: the view is `repr(transparent)` over one object pointer, and
         // `check_any_strict` is its type check.
-        tvm_ffi::unsafe_impl_ref_downcast!($name);
+        tvm_ffi::unsafe_impl_object_ref_downcast_ref!($name);
 
         impl AsRef<$name> for $name {
             #[inline(always)]
@@ -144,9 +144,7 @@ macro_rules! typed_expr_view {
             }
         }
 
-        tvm_ffi::impl_try_from_any!($name);
-        tvm_ffi::impl_arg_into_ref!($name);
-        tvm_ffi::impl_into_arg_holder_default!($name);
+        tvm_ffi::impl_any_compatible_conversions!($name);
 
         // The type key and address, as `#[derive(ObjectRef)]` prints a reference, so a
         // `downcast` result can be unwrapped.

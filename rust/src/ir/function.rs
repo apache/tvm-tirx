@@ -90,13 +90,6 @@ pub struct BaseFunc {
     base: ObjectArc<BaseFuncObj>,
 }
 
-impl Deref for BaseFunc {
-    type Target = BaseFuncObj;
-    fn deref(&self) -> &BaseFuncObj {
-        &self.base
-    }
-}
-
 impl Deref for BaseFuncObj {
     type Target = ExprObj;
     fn deref(&self) -> &ExprObj {
@@ -136,7 +129,7 @@ unsafe impl UnsafeInit for BaseFuncObj {
 
 unsafe impl tvm_ffi::object::ImmutableObject for BaseFuncObj {}
 
-tvm_ffi::unsafe_impl_object_upcast!(BaseFunc => Expr);
+tvm_ffi::unsafe_impl_object_ref_upcast!(BaseFunc => Expr);
 // tvm-ffi-stubgen(end)
 
 impl BaseFunc {

@@ -87,13 +87,6 @@ pub struct IntSetObj {
 pub struct IntSet {
     base: ObjectArc<IntSetObj>,
 }
-
-impl Deref for IntSet {
-    type Target = IntSetObj;
-    fn deref(&self) -> &IntSetObj {
-        &self.base
-    }
-}
 // tvm-ffi-stubgen(end)
 
 impl IntSet {
@@ -139,13 +132,6 @@ pub struct IntervalSet {
     base: ObjectArc<IntervalSetObj>,
 }
 
-impl Deref for IntervalSet {
-    type Target = IntervalSetObj;
-    fn deref(&self) -> &IntervalSetObj {
-        &self.base
-    }
-}
-
 impl Deref for IntervalSetObj {
     type Target = IntSetObj;
     fn deref(&self) -> &IntSetObj {
@@ -165,7 +151,7 @@ impl IntervalSetObj {
 
 unsafe impl tvm_ffi::object::ImmutableObject for IntervalSetObj {}
 
-tvm_ffi::unsafe_impl_object_upcast!(IntervalSet => IntSet);
+tvm_ffi::unsafe_impl_object_ref_upcast!(IntervalSet => IntSet);
 // tvm-ffi-stubgen(end)
 
 impl IntervalSet {

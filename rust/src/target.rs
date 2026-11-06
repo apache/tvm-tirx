@@ -48,7 +48,6 @@
 
 // tvm-ffi-stubgen(begin): import-section
 use crate::ir::module::IRModule;
-use std::ops::Deref;
 use tvm_ffi::Any;
 use tvm_ffi::Array;
 use tvm_ffi::FieldGetter;
@@ -76,13 +75,6 @@ pub struct TargetObj {
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct Target {
     base: ObjectArc<TargetObj>,
-}
-
-impl Deref for Target {
-    type Target = TargetObj;
-    fn deref(&self) -> &TargetObj {
-        &self.base
-    }
 }
 
 impl TargetObj {
@@ -218,13 +210,6 @@ pub struct TargetKindObj {
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct TargetKind {
     base: ObjectArc<TargetKindObj>,
-}
-
-impl Deref for TargetKind {
-    type Target = TargetKindObj;
-    fn deref(&self) -> &TargetKindObj {
-        &self.base
-    }
 }
 
 impl TargetKindObj {

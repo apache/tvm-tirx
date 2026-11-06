@@ -49,17 +49,14 @@ fn expressions() {
     assert!(structural_equal(&item.ty, &i32_ty));
     assert!(TupleGetItem::new(&tuple, 2, UNKNOWN_LOC).is_err());
     let subscripted =
-        Expr::from(&tuple).subscript([Subscript::Index(int32(0).into())], UNKNOWN_LOC).unwrap();
+        Expr::from(&tuple).subscript([Subscript::Index(int32(0))], UNKNOWN_LOC).unwrap();
     assert!(Expr::try_from(subscripted).is_ok());
 
     let a = tensor_var("A");
     let load = TensorLoad::new(&a, [&x], UNKNOWN_LOC).unwrap();
     assert_eq!(load.indices.len(), 1);
     let slice = Expr::from(&a)
-        .subscript(
-            [Subscript::Slice(Some(int32(0).into()), Some(int32(4).into()), None)],
-            UNKNOWN_LOC,
-        )
+        .subscript([Subscript::Slice(Some(int32(0)), Some(int32(4)), None)], UNKNOWN_LOC)
         .unwrap();
     assert!(Expr::try_from(slice).is_ok());
 

@@ -110,13 +110,6 @@ pub struct IterMapExpr {
     base: ObjectArc<IterMapExprObj>,
 }
 
-impl Deref for IterMapExpr {
-    type Target = IterMapExprObj;
-    fn deref(&self) -> &IterMapExprObj {
-        &self.base
-    }
-}
-
 impl Deref for IterMapExprObj {
     type Target = ExprObj;
     fn deref(&self) -> &ExprObj {
@@ -124,7 +117,7 @@ impl Deref for IterMapExprObj {
     }
 }
 
-tvm_ffi::unsafe_impl_object_upcast!(IterMapExpr => Expr, IterMapExpr => PrimExpr);
+tvm_ffi::unsafe_impl_object_ref_upcast!(IterMapExpr => Expr, IterMapExpr => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 // tvm-ffi-stubgen(begin): object/sym.IterMapResult
@@ -149,13 +142,6 @@ const _: () = {
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct IterMapResult {
     base: ObjectArc<IterMapResultObj>,
-}
-
-impl Deref for IterMapResult {
-    type Target = IterMapResultObj;
-    fn deref(&self) -> &IterMapResultObj {
-        &self.base
-    }
 }
 
 impl IterMapResultObj {
@@ -205,13 +191,6 @@ pub struct IterMark {
     base: ObjectArc<IterMarkObj>,
 }
 
-impl Deref for IterMark {
-    type Target = IterMarkObj;
-    fn deref(&self) -> &IterMarkObj {
-        &self.base
-    }
-}
-
 impl IterMarkObj {
     pub(crate) fn new(source: PrimExpr, extent: PrimExpr) -> Self {
         let base = Object::new();
@@ -246,13 +225,6 @@ pub struct IterSplitExpr {
     base: ObjectArc<IterSplitExprObj>,
 }
 
-impl Deref for IterSplitExpr {
-    type Target = IterSplitExprObj;
-    fn deref(&self) -> &IterSplitExprObj {
-        &self.base
-    }
-}
-
 impl Deref for IterSplitExprObj {
     type Target = IterMapExprObj;
     fn deref(&self) -> &IterMapExprObj {
@@ -280,7 +252,7 @@ impl IterSplitExprObj {
 
 unsafe impl tvm_ffi::object::ImmutableObject for IterSplitExprObj {}
 
-tvm_ffi::unsafe_impl_object_upcast!(IterSplitExpr => Expr, IterSplitExpr => IterMapExpr, IterSplitExpr => PrimExpr);
+tvm_ffi::unsafe_impl_object_ref_upcast!(IterSplitExpr => Expr, IterSplitExpr => IterMapExpr, IterSplitExpr => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 // tvm-ffi-stubgen(begin): object/sym.IterSumExpr
@@ -297,13 +269,6 @@ pub struct IterSumExprObj {
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct IterSumExpr {
     base: ObjectArc<IterSumExprObj>,
-}
-
-impl Deref for IterSumExpr {
-    type Target = IterSumExprObj;
-    fn deref(&self) -> &IterSumExprObj {
-        &self.base
-    }
 }
 
 impl Deref for IterSumExprObj {
@@ -325,7 +290,7 @@ impl IterSumExprObj {
 
 unsafe impl tvm_ffi::object::ImmutableObject for IterSumExprObj {}
 
-tvm_ffi::unsafe_impl_object_upcast!(IterSumExpr => Expr, IterSumExpr => IterMapExpr, IterSumExpr => PrimExpr);
+tvm_ffi::unsafe_impl_object_ref_upcast!(IterSumExpr => Expr, IterSumExpr => IterMapExpr, IterSumExpr => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 // `IterMark::new` is generated: the native `sym.IterMark` constructor stores the fields as given.

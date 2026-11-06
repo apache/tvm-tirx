@@ -69,7 +69,6 @@ use crate::ir::expr::Var;
 use crate::ir::stmt::Stmt;
 use crate::target::Target;
 use crate::tirx::thread_scope::ThreadScope;
-use std::ops::Deref;
 use tvm_ffi::Any;
 use tvm_ffi::AnyView;
 use tvm_ffi::Array;
@@ -98,13 +97,6 @@ pub struct DispatchContextObj {
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct DispatchContext {
     base: ObjectArc<DispatchContextObj>,
-}
-
-impl Deref for DispatchContext {
-    type Target = DispatchContextObj;
-    fn deref(&self) -> &DispatchContextObj {
-        &self.base
-    }
 }
 
 impl DispatchContextObj {

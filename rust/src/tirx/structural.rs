@@ -27,7 +27,6 @@
 
 // tvm-ffi-stubgen(begin): import-section
 use crate::sym::constraint::ConstraintContext;
-use std::ops::Deref;
 use tvm_ffi::FieldGetter;
 use tvm_ffi::Object;
 use tvm_ffi::ObjectArc;
@@ -68,13 +67,6 @@ pub struct StructuralMutatorWithConstraintContext {
     base: ObjectArc<StructuralMutatorWithConstraintContextObj>,
 }
 
-impl Deref for StructuralMutatorWithConstraintContext {
-    type Target = StructuralMutatorWithConstraintContextObj;
-    fn deref(&self) -> &StructuralMutatorWithConstraintContextObj {
-        &self.base
-    }
-}
-
 impl StructuralMutatorWithConstraintContextObj {
     pub fn constraints(&self) -> Result<ConstraintContext> {
         FieldGetter::new(Self::type_index(), "constraints")?.get(self)
@@ -95,13 +87,6 @@ pub struct StructuralVisitorWithConstraintContextObj {
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct StructuralVisitorWithConstraintContext {
     base: ObjectArc<StructuralVisitorWithConstraintContextObj>,
-}
-
-impl Deref for StructuralVisitorWithConstraintContext {
-    type Target = StructuralVisitorWithConstraintContextObj;
-    fn deref(&self) -> &StructuralVisitorWithConstraintContextObj {
-        &self.base
-    }
 }
 
 impl StructuralVisitorWithConstraintContextObj {

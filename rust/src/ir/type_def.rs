@@ -40,7 +40,7 @@ use super::support;
 /// ```
 /// use tvm_tirx::ir::{register_type, PrimType, Type, TypeObj, Var, UNKNOWN_LOC};
 /// use tvm_tirx::script::script;
-/// use tvm_tirx::tvm_ffi::{self, def_object_ref, rs_object};
+/// use tvm_tirx::tvm_ffi::{self, rs_object};
 ///
 /// #[rs_object("my_ext.PairType", final)]
 /// pub struct PairTypeObj {
@@ -49,11 +49,15 @@ use super::support;
 ///     #[reflect(kw_only)]
 ///     pub second: Type,
 /// }
-/// def_object_ref!(pub PairType, Type, PairTypeObj);
+/// #[derive(Clone, tvm_ffi::derive::ObjectRef)]
+/// #[object_ref(parent = Type)]
+/// pub struct PairType {
+///     data: tvm_ffi::ObjectArc<PairTypeObj>,
+/// }
 ///
 /// impl PairType {
 ///     pub fn new(first: impl Into<Type>, second: impl Into<Type>) -> Self {
-///         PairTypeObj::new(TypeObj::new(UNKNOWN_LOC.into()), first, second).into()
+///         Self::from_object(PairTypeObj::new(TypeObj::new(UNKNOWN_LOC.into()), first, second))
 ///     }
 /// }
 ///

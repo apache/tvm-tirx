@@ -70,13 +70,6 @@ pub struct TCGen05InstrDescriptorAttrs {
     base: ObjectArc<TCGen05InstrDescriptorAttrsObj>,
 }
 
-impl Deref for TCGen05InstrDescriptorAttrs {
-    type Target = TCGen05InstrDescriptorAttrsObj;
-    fn deref(&self) -> &TCGen05InstrDescriptorAttrsObj {
-        &self.base
-    }
-}
-
 impl Deref for TCGen05InstrDescriptorAttrsObj {
     type Target = AttrsObj;
     fn deref(&self) -> &AttrsObj {
@@ -160,7 +153,7 @@ impl TCGen05InstrDescriptorAttrs {
 
 unsafe impl tvm_ffi::object::ImmutableObject for TCGen05InstrDescriptorAttrsObj {}
 
-tvm_ffi::unsafe_impl_object_upcast!(TCGen05InstrDescriptorAttrs => Attrs);
+tvm_ffi::unsafe_impl_object_ref_upcast!(TCGen05InstrDescriptorAttrs => Attrs);
 // tvm-ffi-stubgen(end)
 
 // tvm-ffi-stubgen(begin): object/tirx.cuda.TCGen05InstrDescriptorBlockScaledAttrs
@@ -197,13 +190,6 @@ const _: () = {
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct TCGen05InstrDescriptorBlockScaledAttrs {
     base: ObjectArc<TCGen05InstrDescriptorBlockScaledAttrsObj>,
-}
-
-impl Deref for TCGen05InstrDescriptorBlockScaledAttrs {
-    type Target = TCGen05InstrDescriptorBlockScaledAttrsObj;
-    fn deref(&self) -> &TCGen05InstrDescriptorBlockScaledAttrsObj {
-        &self.base
-    }
 }
 
 impl Deref for TCGen05InstrDescriptorBlockScaledAttrsObj {
@@ -293,7 +279,7 @@ impl TCGen05InstrDescriptorBlockScaledAttrs {
 
 unsafe impl tvm_ffi::object::ImmutableObject for TCGen05InstrDescriptorBlockScaledAttrsObj {}
 
-tvm_ffi::unsafe_impl_object_upcast!(TCGen05InstrDescriptorBlockScaledAttrs => Attrs);
+tvm_ffi::unsafe_impl_object_ref_upcast!(TCGen05InstrDescriptorBlockScaledAttrs => Attrs);
 // tvm-ffi-stubgen(end)
 
 // tvm-ffi-stubgen(begin): object/tirx.cuda.TensorMapEncodeTiledAttr
@@ -322,13 +308,6 @@ const _: () = {
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct TensorMapEncodeTiledAttr {
     base: ObjectArc<TensorMapEncodeTiledAttrObj>,
-}
-
-impl Deref for TensorMapEncodeTiledAttr {
-    type Target = TensorMapEncodeTiledAttrObj;
-    fn deref(&self) -> &TensorMapEncodeTiledAttrObj {
-        &self.base
-    }
 }
 
 impl Deref for TensorMapEncodeTiledAttrObj {
@@ -388,5 +367,5 @@ impl TensorMapEncodeTiledAttr {
 
 unsafe impl tvm_ffi::object::ImmutableObject for TensorMapEncodeTiledAttrObj {}
 
-tvm_ffi::unsafe_impl_object_upcast!(TensorMapEncodeTiledAttr => Attrs);
+tvm_ffi::unsafe_impl_object_ref_upcast!(TensorMapEncodeTiledAttr => Attrs);
 // tvm-ffi-stubgen(end)
