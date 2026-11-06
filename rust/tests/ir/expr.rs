@@ -377,7 +377,7 @@ fn calls_agree_with_cpp() {
         test_op("rust_test.fixed_return", &[("TFixedReturnType", Any::from(f32_ty.clone()))]);
     let plain = test_op("rust_test.no_inference", &[]);
 
-    let callee_ty: Type = FuncType::new([f32_ty.clone()], i16_ty.clone()).into();
+    let callee_ty: Type = FuncType::new([f32_ty.clone()], i16_ty.clone(), UNKNOWN_LOC).into();
     let callee = Var::new("f", callee_ty, UNKNOWN_LOC);
     let cases: Vec<(&str, Option<Type>, Expr, Vec<Expr>)> = vec![
         (

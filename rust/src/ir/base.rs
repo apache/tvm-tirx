@@ -31,17 +31,25 @@
 //!
 //! # let double = Function::from_typed(|x: i64| -> Result<i64> { Ok(x * 2) });
 //! # Function::register_global("my_ext.double", double)?;
-//! let double = EnvFunc::new("my_ext.double", Function::get_global("my_ext.double")?);
+//! let double = EnvFunc::get("my_ext.double")?;
 //!
 //! assert_eq!(i64::try_from(double.func.call_tuple((21_i64,))?)?, 42);
 //! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
 //! ```
+
+// C++ makes an `EnvFunc` only through `EnvFunc::Get`, which looks the function up by name, so it
+// has no `new`; the generated `from_fields` pairs a name with any function.
+// tvm-ffi-stubgen(custom-new): ir.EnvFunc
+// Names the hand-written wrappers use: the import section keeps them even when no generated block
+// does.
+// tvm-ffi-stubgen(import-object): tvm_ffi::Result
 
 // tvm-ffi-stubgen(begin): import-section
 use std::ops::Deref;
 use tvm_ffi::Function;
 use tvm_ffi::Object;
 use tvm_ffi::ObjectArc;
+use tvm_ffi::Result;
 use tvm_ffi::String;
 // tvm-ffi-stubgen(end)
 
@@ -84,7 +92,7 @@ impl EnvFuncObj {
 
 impl EnvFunc {
     /// Lossless complete-field allocation.
-    pub fn new(name: impl Into<String>, func: impl Into<Function>) -> Self {
+    pub fn from_fields(name: impl Into<String>, func: impl Into<Function>) -> Self {
         let obj = EnvFuncObj::new(name.into(), func.into());
         Self { base: ObjectArc::new(obj) }
     }
@@ -92,3 +100,14 @@ impl EnvFunc {
 
 unsafe impl tvm_ffi::object::ImmutableObject for EnvFuncObj {}
 // tvm-ffi-stubgen(end)
+
+impl EnvFunc {
+    /// Return the global function `name` kept with its name (`ir.EnvFuncGet`).
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if no global function is registered as `name`.
+    pub fn get(name: &str) -> Result<Self> {
+        tvm_ffi::cached_global_func!("ir.EnvFuncGet").call_tuple((String::from(name),))?.try_into()
+    }
+}

@@ -42,6 +42,9 @@
 //! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
 //! ```
 
+// The base `BaseFunc` has no C++ constructor, so no `new`: `custom-new` leaves only the generated
+// `from_fields`.
+// tvm-ffi-stubgen(custom-new): ir.BaseFunc
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
 // tvm-ffi-stubgen(import-object): tvm_ffi::Any
@@ -113,7 +116,11 @@ impl BaseFuncObj {
 
 impl BaseFunc {
     /// Lossless complete-field allocation.
-    pub fn new(loc: impl Into<Location>, ty: impl Into<Type>, attrs: impl Into<DictAttrs>) -> Self {
+    pub fn from_fields(
+        loc: impl Into<Location>,
+        ty: impl Into<Type>,
+        attrs: impl Into<DictAttrs>,
+    ) -> Self {
         let obj = BaseFuncObj::new(loc.into(), ty.into(), attrs.into());
         Self { base: ObjectArc::new(obj) }
     }

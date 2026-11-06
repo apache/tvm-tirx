@@ -34,7 +34,7 @@
 //! assert_eq!(script(&PrimType::float(16).with_lanes(4)?)?, "T.float16x4");
 //!
 //! let pair = TupleType::new([&int32, &int32], UNKNOWN_LOC);
-//! let func = FuncType::new([&int32], &pair);
+//! let func = FuncType::new([&int32], &pair, UNKNOWN_LOC);
 //! assert_eq!(script(&func)?, "T.Func([T.int32], T.Tuple(T.int32, T.int32))");
 //! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
 //! ```
@@ -49,6 +49,11 @@
 // tvm-ffi-stubgen(custom-new): ir.TupleType
 // tvm-ffi-stubgen(custom-new): ir.FuncType
 // tvm-ffi-stubgen(custom-new): ir.PrimType
+// tvm-ffi-stubgen(custom-new): ir.OpaqueType
+// tvm-ffi-stubgen(custom-new): ir.StringType
+// The base `Type` has no C++ constructor, so no `new`: `custom-new` leaves only the generated
+// `from_fields`.
+// tvm-ffi-stubgen(custom-new): ir.Type
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
 // tvm-ffi-stubgen(import-object): tvm_ffi::ObjectRefCore
@@ -117,7 +122,7 @@ impl TypeObj {
 
 impl Type {
     /// Lossless complete-field allocation.
-    pub fn new(loc: impl Into<Location>) -> Self {
+    pub fn from_fields(loc: impl Into<Location>) -> Self {
         let obj = TypeObj::new(loc.into());
         Self { base: ObjectArc::new(obj) }
     }
@@ -445,7 +450,7 @@ impl OpaqueTypeObj {
 
 impl OpaqueType {
     /// Lossless complete-field allocation.
-    pub fn new(loc: impl Into<Location>) -> Self {
+    pub fn from_fields(loc: impl Into<Location>) -> Self {
         let obj = OpaqueTypeObj::new(loc.into());
         Self { base: ObjectArc::new(obj) }
     }
@@ -456,8 +461,12 @@ unsafe impl tvm_ffi::object::ImmutableObject for OpaqueTypeObj {}
 tvm_ffi::unsafe_impl_object_upcast!(OpaqueType => Type);
 // tvm-ffi-stubgen(end)
 
-// `ir.OpaqueType` allocates a fresh type at the unknown location: the generated
-// `OpaqueType::new(Location::unknown())` is the same.
+impl OpaqueType {
+    /// Create an opaque type at the unknown location (C++ `OpaqueType()`).
+    pub fn new() -> Self {
+        Self::from_fields(UNKNOWN_LOC)
+    }
+}
 
 // tvm-ffi-stubgen(begin): object/ir.PrimType
 /// Complete: reflected fields fill [32, 40) exactly (alignment padding [36, 40)).
@@ -646,7 +655,7 @@ impl StringTypeObj {
 
 impl StringType {
     /// Lossless complete-field allocation.
-    pub fn new(loc: impl Into<Location>) -> Self {
+    pub fn from_fields(loc: impl Into<Location>) -> Self {
         let obj = StringTypeObj::new(loc.into());
         Self { base: ObjectArc::new(obj) }
     }
@@ -657,8 +666,12 @@ unsafe impl tvm_ffi::object::ImmutableObject for StringTypeObj {}
 tvm_ffi::unsafe_impl_object_upcast!(StringType => Type);
 // tvm-ffi-stubgen(end)
 
-// `ir.StringType` allocates a fresh type at the unknown location: the generated
-// `StringType::new(Location::unknown())` is the same.
+impl StringType {
+    /// Create the string type at the unknown location (C++ `StringType()`).
+    pub fn new() -> Self {
+        Self::from_fields(UNKNOWN_LOC)
+    }
+}
 
 // tvm-ffi-stubgen(begin): object/ir.PtrType
 /// Complete: reflected fields fill [32, 48) exactly.
@@ -869,13 +882,14 @@ tvm_ffi::unsafe_impl_object_upcast!(FuncType => Type);
 // tvm-ffi-stubgen(end)
 
 impl FuncType {
-    /// Create the type of a function from `arg_types` to `ret_type`, at the unknown location
-    /// (C++ `FuncType(arg_types, ret_type)`).
+    /// Create the type of a function from `arg_types` to `ret_type`
+    /// (C++ `FuncType(arg_types, ret_type, loc)`).
     pub fn new(
         arg_types: impl IntoIterator<Item = impl Into<Type>>,
         ret_type: impl Into<Type>,
+        loc: impl Into<Location>,
     ) -> Self {
         let arg_types = arg_types.into_iter().map(Into::into).collect::<Array<Type>>();
-        Self::from_fields(UNKNOWN_LOC, arg_types, ret_type.into())
+        Self::from_fields(loc, arg_types, ret_type.into())
     }
 }

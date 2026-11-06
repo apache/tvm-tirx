@@ -119,5 +119,10 @@ fn module_of(name: &str, func: &Function) -> IRModule {
         .try_into()
         .unwrap();
     let functions: Map<GlobalVar, BaseFunc> = [(gv, BaseFunc::from(func))].into_iter().collect();
-    IRModule::from_functions(&functions, None, &Map::<FfiString, Array<GlobalInfo>>::new()).unwrap()
+    IRModule::new(
+        &functions,
+        DictAttrs::new(Map::new()),
+        &Map::<FfiString, Array<GlobalInfo>>::new(),
+    )
+    .unwrap()
 }

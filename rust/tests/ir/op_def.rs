@@ -246,7 +246,7 @@ fn ops_registered_from_rust_are_used_natively() {
         ))
         .op()
         .unwrap();
-    let func_ty: Type = FuncType::new(Vec::<Type>::new(), PrimType::int(32)).into();
+    let func_ty: Type = FuncType::new(Vec::<Type>::new(), PrimType::int(32), UNKNOWN_LOC).into();
     validate(&call_with(
         &tails,
         vec![i.clone().into(), one.clone()],

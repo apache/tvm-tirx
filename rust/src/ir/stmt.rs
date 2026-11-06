@@ -61,6 +61,9 @@
 // tvm-ffi-stubgen(custom-new): ir.Evaluate
 // tvm-ffi-stubgen(custom-new): ir.Return
 // tvm-ffi-stubgen(custom-new): ir.While
+// The base `Stmt` has no C++ constructor, so no `new`: `custom-new` leaves only the generated
+// `from_fields`.
+// tvm-ffi-stubgen(custom-new): ir.Stmt
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
 // tvm-ffi-stubgen(import-object): tvm_ffi::AnyView
@@ -168,7 +171,7 @@ impl StmtObj {
 
 impl Stmt {
     /// Lossless complete-field allocation.
-    pub fn new(loc: impl Into<Location>) -> Self {
+    pub fn from_fields(loc: impl Into<Location>) -> Self {
         let obj = StmtObj::new(loc.into());
         Self { base: ObjectArc::new(obj) }
     }

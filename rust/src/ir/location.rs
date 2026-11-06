@@ -39,6 +39,11 @@
 // `custom-new` reserves `new` for a constructor with the native one's semantics (the shared
 // `UnknownLoc` instance); the generated `from_fields` allocates the fields as given.
 // tvm-ffi-stubgen(custom-new): ir.UnknownLoc
+// A `SourceName` is interned: C++ makes one only through `SourceName::Get`, so it has no `new`.
+// tvm-ffi-stubgen(custom-new): ir.SourceName
+// The base `Location` has no C++ constructor, so no `new`: `custom-new` leaves only the generated
+// `from_fields`.
+// tvm-ffi-stubgen(custom-new): ir.Location
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
 // tvm-ffi-stubgen(import-object): tvm_ffi::Result
@@ -92,7 +97,7 @@ impl LocationObj {
 
 impl Location {
     /// Lossless complete-field allocation.
-    pub fn new() -> Self {
+    pub fn from_fields() -> Self {
         let obj = LocationObj::new();
         Self { base: ObjectArc::new(obj) }
     }
@@ -379,7 +384,7 @@ impl SourceNameObj {
 
 impl SourceName {
     /// Lossless complete-field allocation.
-    pub fn new(name: impl Into<String>) -> Self {
+    pub fn from_fields(name: impl Into<String>) -> Self {
         let obj = SourceNameObj::new(name.into());
         Self { base: ObjectArc::new(obj) }
     }

@@ -50,6 +50,9 @@
 use std::cell::UnsafeCell;
 use std::mem::{align_of, offset_of, size_of};
 use tvm_ffi::{AnyView, Array, Error, ObjectCore, Result, VALUE_ERROR};
+// The base `Constraint` has no C++ constructor, so no `new`: `custom-new` leaves only the generated
+// `from_fields`.
+// tvm-ffi-stubgen(custom-new): sym.Constraint
 // tvm-ffi-stubgen(import-object): crate::ir::expr::PrimExpr
 // A binding's value and a predicate are `PrimExpr`s, as in C++.
 // tvm-ffi-stubgen(field): sym.BindingConstraint.value -> PrimExpr
@@ -102,7 +105,7 @@ impl ConstraintObj {
 
 impl Constraint {
     /// Lossless complete-field allocation.
-    pub fn new() -> Self {
+    pub fn from_fields() -> Self {
         let obj = ConstraintObj::new();
         Self { base: ObjectArc::new(obj) }
     }

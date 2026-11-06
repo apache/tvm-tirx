@@ -23,6 +23,10 @@
 //! The objects `python/tvm_tirx/ir/global_info.py` defines. [`GlobalInfo`] is the base of the
 //! entries an [`IRModule`](super::IRModule) keeps by name in `global_infos`.
 
+// The base `GlobalInfo` has no C++ constructor, so no `new`: `custom-new` leaves only the generated
+// `from_fields`.
+// tvm-ffi-stubgen(custom-new): ir.GlobalInfo
+
 // tvm-ffi-stubgen(begin): import-section
 use std::ops::Deref;
 use std::ptr::addr_of_mut;
@@ -68,7 +72,7 @@ impl GlobalInfoObj {
 
 impl GlobalInfo {
     /// Lossless complete-field allocation.
-    pub fn new() -> Self {
+    pub fn from_fields() -> Self {
         let obj = GlobalInfoObj::new();
         Self { base: ObjectArc::new(obj) }
     }

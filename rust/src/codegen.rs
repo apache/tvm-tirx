@@ -52,10 +52,10 @@ use tvm_ffi::String;
 ///
 /// ```
 /// use tvm_tirx::codegen;
-/// use tvm_tirx::ir::{GlobalVar, IRModule, PrimVar, UNKNOWN_LOC};
+/// use tvm_tirx::ir::{DictAttrs, GlobalVar, IRModule, PrimVar, UNKNOWN_LOC};
 /// use tvm_tirx::target::Target;
 /// use tvm_tirx::tvm_ffi::Map;
-/// # use tvm_tirx::ir::{DictAttrs, Expr, PrimType, Return, SeqStmt, Var};
+/// # use tvm_tirx::ir::{Expr, PrimType, Return, SeqStmt, Var};
 /// # use tvm_tirx::tirx::Function;
 /// # use tvm_tirx::tvm_ffi::{Any, String};
 /// # let x = PrimVar::new("x", PrimType::int(32), UNKNOWN_LOC);
@@ -65,7 +65,7 @@ use tvm_ffi::String;
 /// # let add_one = Function::new([&x], &body, PrimType::int(32), attrs, UNKNOWN_LOC);
 ///
 /// let functions = Map::from_iter([(GlobalVar::new("add_one", UNKNOWN_LOC), add_one.into())]);
-/// let module = IRModule::from_functions(&functions, None, &Map::new())?;
+/// let module = IRModule::new(&functions, DictAttrs::new(Map::new()), &Map::new())?;
 ///
 /// let compiled = codegen::build_module(&module, Target::new("c")?)?;
 /// assert!(compiled.implements_function_with_imports("add_one")?);

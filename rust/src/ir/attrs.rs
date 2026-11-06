@@ -31,12 +31,16 @@
 //!
 //! let dict: Map<String, Any> =
 //!     [("system_lib_prefix".into(), Any::from(String::from("my_lib_")))].into_iter().collect();
-//! let module = IRModule::from_functions(&Map::new(), Some(&DictAttrs::new(dict)), &Map::new())?;
+//! let module = IRModule::new(&Map::new(), DictAttrs::new(dict), &Map::new())?;
 //!
 //! let prefix = module.attrs.dict.get(&"system_lib_prefix".into())?.unwrap();
 //! assert_eq!(String::try_from(prefix)?, "my_lib_");
 //! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
 //! ```
+
+// The base `Attrs` has no C++ constructor, so no `new`: `custom-new` leaves only the generated
+// `from_fields`.
+// tvm-ffi-stubgen(custom-new): ir.Attrs
 
 // tvm-ffi-stubgen(begin): import-section
 use std::ops::Deref;
@@ -86,7 +90,7 @@ impl AttrsObj {
 
 impl Attrs {
     /// Lossless complete-field allocation.
-    pub fn new() -> Self {
+    pub fn from_fields() -> Self {
         let obj = AttrsObj::new();
         Self { base: ObjectArc::new(obj) }
     }

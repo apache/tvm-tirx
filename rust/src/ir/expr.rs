@@ -57,6 +57,12 @@
 // tvm-ffi-stubgen(custom-new): ir.GenericConst
 // tvm-ffi-stubgen(custom-new): ir.DataTypeImm
 // tvm-ffi-stubgen(custom-new): ir.TensorRegion
+// The bases `Expr`, `StagingExpr`, `OpaqueExpr` and `Constant` have no C++ constructor, so no
+// `new`: `custom-new` leaves only the generated `from_fields`.
+// tvm-ffi-stubgen(custom-new): ir.Expr
+// tvm-ffi-stubgen(custom-new): ir.StagingExpr
+// tvm-ffi-stubgen(custom-new): ir.OpaqueExpr
+// tvm-ffi-stubgen(custom-new): ir.Constant
 // Constants and loads are typed by a `PrimType`: their allocators take one, and they convert into
 // a `PrimExpr` without a check.
 // tvm-ffi-stubgen(field): ir.IntImm.ty -> PrimType
@@ -180,7 +186,7 @@ impl ExprObj {
 
 impl Expr {
     /// Lossless complete-field allocation.
-    pub fn new(loc: impl Into<Location>, ty: impl Into<Type>) -> Self {
+    pub fn from_fields(loc: impl Into<Location>, ty: impl Into<Type>) -> Self {
         let obj = ExprObj::new(loc.into(), ty.into());
         Self { base: ObjectArc::new(obj) }
     }
@@ -692,7 +698,7 @@ impl StagingExprObj {
 
 impl StagingExpr {
     /// Lossless complete-field allocation.
-    pub fn new(loc: impl Into<Location>, ty: impl Into<Type>) -> Self {
+    pub fn from_fields(loc: impl Into<Location>, ty: impl Into<Type>) -> Self {
         let obj = StagingExprObj::new(loc.into(), ty.into());
         Self { base: ObjectArc::new(obj) }
     }
@@ -760,7 +766,7 @@ impl OpaqueExprObj {
 
 impl OpaqueExpr {
     /// Lossless complete-field allocation.
-    pub fn new(loc: impl Into<Location>, ty: impl Into<Type>) -> Self {
+    pub fn from_fields(loc: impl Into<Location>, ty: impl Into<Type>) -> Self {
         let obj = OpaqueExprObj::new(loc.into(), ty.into());
         Self { base: ObjectArc::new(obj) }
     }
@@ -1186,7 +1192,7 @@ impl ConstantObj {
 
 impl Constant {
     /// Lossless complete-field allocation.
-    pub fn new(loc: impl Into<Location>, ty: impl Into<Type>) -> Self {
+    pub fn from_fields(loc: impl Into<Location>, ty: impl Into<Type>) -> Self {
         let obj = ConstantObj::new(loc.into(), ty.into());
         Self { base: ObjectArc::new(obj) }
     }
@@ -1835,7 +1841,7 @@ tvm_ffi::unsafe_impl_object_upcast!(StringImm => Expr, StringImm => Constant);
 impl StringImm {
     /// Create the string constant `value`, of type [`StringType`] (C++ `StringImm(value, loc)`).
     pub fn new(value: &str, loc: impl Into<Location>) -> Self {
-        let ty = StringType::new(UNKNOWN_LOC);
+        let ty = StringType::new();
         Self::from_fields(loc.into(), ty, String::from(value))
     }
 }
@@ -2273,7 +2279,7 @@ impl LambdaExpr {
     ) -> Self {
         let (vars, body) = (vars.into_iter().map(Into::into).collect::<Array<Var>>(), body.into());
         let arg_types = vars.iter().map(|var| var.ty.clone()).collect::<Vec<Type>>();
-        let ty = FuncType::new(arg_types, body.ty.clone());
+        let ty = FuncType::new(arg_types, body.ty.clone(), UNKNOWN_LOC);
         Self::from_fields(loc.into(), ty, vars, body)
     }
 

@@ -24,8 +24,8 @@
 use std::mem::offset_of;
 
 use tvm_tirx::ir::{
-    UNKNOWN_LOC, Location, dtype, Evaluate, FuncType, MissingType, NoneType, PrimType, PtrType,
-    TensorRegionType, TupleType, Type, TypeObj, Var, VarObj,
+    UNKNOWN_LOC, Location, dtype, Evaluate, FuncType, MissingType, NoneType, OpaqueType, PrimType,
+    PtrType, StringType, TensorRegionType, TupleType, Type, TypeObj, Var, VarObj,
 };
 use tvm_tirx::tvm_ffi::{def_object_ref, rs_object, structural_map};
 use tvm_tirx::tvm_ffi::{
@@ -50,7 +50,7 @@ fn types() {
     assert!(structural_equal(&ptr.element_type, &i32_ty));
     let tuple = TupleType::new([&i32_ty, &i32_ty], UNKNOWN_LOC);
     assert_eq!(tuple.fields.len(), 2);
-    let func = FuncType::new([&i32_ty], &i32_ty);
+    let func = FuncType::new([&i32_ty], &i32_ty, UNKNOWN_LOC);
     assert_eq!(func.arg_types.len(), 1);
 }
 
@@ -107,7 +107,9 @@ fn types_agree_with_cpp() {
     }
     let args: Array<Type> = [int32.clone()].into_iter().collect();
     let native_func = native("ir.FuncType", &[(&args).into(), (&float32).into()]);
-    agree("FuncType", Ok(FuncType::new([&int32], &float32)), native_func);
+    agree("FuncType", Ok(FuncType::new([&int32], &float32, UNKNOWN_LOC)), native_func);
+    agree("OpaqueType", Ok(OpaqueType::new()), native("ir.OpaqueType", &[]));
+    agree("StringType", Ok(StringType::new()), native("ir.StringType", &[]));
 
     let none: Type = native("ir.NoneType", &[]).unwrap().try_into().unwrap();
     assert!(NoneType::new().same_as(&none));

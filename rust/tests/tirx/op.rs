@@ -91,7 +91,7 @@ fn reinterpret_agrees_with_cpp() {
     let _serial = serial();
     let text: Expr = StringImm::new("data", UNKNOWN_LOC).into();
     let pointer = var("p", ptr("float32"));
-    let function: Type = FuncType::new(Vec::<Type>::new(), PrimType::int(32)).into();
+    let function: Type = FuncType::new(Vec::<Type>::new(), PrimType::int(32), UNKNOWN_LOC).into();
     let cases: Vec<(Type, Expr)> = vec![
         (PrimType::int(32).into(), prim_var("float32").into()),
         (PrimType::float(32).into(), prim_var("float32").into()),
