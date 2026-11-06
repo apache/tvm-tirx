@@ -72,7 +72,7 @@ class StmtFunctor<R(const Stmt&, Args...)> {
     try {
       return (*vtable_)(node, this, std::forward<Args>(args)...);
     } catch (ffi::Error& error) {
-      ffi::detail::UpdateVisitErrorContext(error, node);
+      ffi::detail::UpdateVisitErrorContext(&error, node);
       throw;
     }
   }

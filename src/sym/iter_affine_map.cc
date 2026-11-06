@@ -333,7 +333,7 @@ class IterMapRewriter : public tvm::ExprMutator {
       }
       return value;
     } catch (ffi::Error& error) {
-      ffi::detail::UpdateVisitErrorContext(error, input);
+      ffi::detail::UpdateVisitErrorContext(&error, input);
       throw;
     }
   }

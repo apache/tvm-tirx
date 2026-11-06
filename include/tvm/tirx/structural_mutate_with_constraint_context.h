@@ -227,8 +227,7 @@ StructuralMutatorWithConstraintContextObj::DefaultMutateExpected(ffi::AnyView va
   }
   auto result = ffi::details::ExpectedUnsafe::MoveFromTVMFFIAny<ffi::UnchangedOr<ffi::Any>>(raw);
   if (result.is_err()) {
-    auto error = result.error();
-    ffi::details::UpdateVisitErrorContext(error, value);
+    ffi::detail::UpdateVisitErrorContext(&result, value);
   }
   return result;
 }

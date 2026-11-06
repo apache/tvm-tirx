@@ -95,8 +95,6 @@ impl Deref for MemoryScope {
     }
 }
 
-// SAFETY: `runtime.MemoryScope` is not `_type_mutable`: a shared instance is never
-// mutated, as C++ changes it only through copy-on-write.
 unsafe impl tvm_ffi::object::ImmutableObject for MemoryScopeObj {}
 // tvm-ffi-stubgen(end)
 

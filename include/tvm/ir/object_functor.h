@@ -246,7 +246,7 @@ class TVM_TIRX_DLL ObjectVisitor : public ffi::StructuralVisitorObj {
       try {
         return (*native_vtable_)(object, this);
       } catch (ffi::Error& error) {
-        ffi::detail::UpdateVisitErrorContext(error, ffi::GetRef<ffi::ObjectRef>(object));
+        ffi::detail::UpdateVisitErrorContext(&error, ffi::GetRef<ffi::ObjectRef>(object));
         throw;
       }
     }
@@ -310,7 +310,7 @@ class TVM_TIRX_DLL ObjectVisitor : public ffi::StructuralVisitorObj {
       // DefaultVisitExpected does not name the current node; DefaultMutateExpected does.
       return ffi::StructuralVisitorObj::DefaultVisitExpected(value).value();
     } catch (ffi::Error& error) {
-      ffi::detail::UpdateVisitErrorContext(error, value);
+      ffi::detail::UpdateVisitErrorContext(&error, value);
       throw;
     }
   }
@@ -386,7 +386,7 @@ class TVM_TIRX_DLL ObjectMutator : public ffi::StructuralMapEngineBase {
       try {
         return (*native_vtable_)(object, this, inplace_mode);
       } catch (ffi::Error& error) {
-        ffi::detail::UpdateVisitErrorContext(error, ffi::GetRef<ffi::ObjectRef>(object));
+        ffi::detail::UpdateVisitErrorContext(&error, ffi::GetRef<ffi::ObjectRef>(object));
         throw;
       }
     }

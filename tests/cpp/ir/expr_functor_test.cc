@@ -104,7 +104,9 @@ TEST(ExprMutator, NativeErrorContextThroughStructuralFallback) {
   PairExpr pair(sum, IntImm::Int32(3));
   auto result = mutator->MutateExpected(pair);
   ASSERT_TRUE(result.is_err());
-  EXPECT_TRUE(result.error().same_as(mutator->error));
+  // The mutator still holds the thrown Error, so the context lands on a copy.
+  EXPECT_FALSE(ffi::VisitErrorContext::TryGetFromError(mutator->error).has_value());
+  EXPECT_EQ(result.error().message(), "native mutation error");
   auto context = ffi::VisitErrorContext::TryGetFromError(result.error());
   ASSERT_TRUE(context.has_value());
   const auto& pattern = context.value()->reverse_visit_pattern;
@@ -128,7 +130,8 @@ TEST(ExprFunctor, AttachesContextAndPreservesError) {
     functor(node);
     FAIL() << "Expected a dispatch failure";
   } catch (const ffi::Error& error) {
-    EXPECT_TRUE(error.same_as(functor.error));
+    // The functor still holds the thrown Error, so the context lands on a copy.
+    EXPECT_FALSE(ffi::VisitErrorContext::TryGetFromError(functor.error).has_value());
     EXPECT_EQ(error.kind(), "ValueError");
     EXPECT_EQ(error.message(), "dispatch failure");
     EXPECT_EQ(error.backtrace(), "original backtrace");

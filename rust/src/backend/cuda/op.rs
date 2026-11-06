@@ -156,8 +156,6 @@ impl TCGen05InstrDescriptorAttrs {
     }
 }
 
-// SAFETY: `tirx.cuda.TCGen05InstrDescriptorAttrs` is not `_type_mutable`: a shared instance is never
-// mutated, as C++ changes it only through copy-on-write.
 unsafe impl tvm_ffi::object::ImmutableObject for TCGen05InstrDescriptorAttrsObj {}
 
 tvm_ffi::unsafe_impl_object_upcast!(TCGen05InstrDescriptorAttrs => Attrs);
@@ -291,8 +289,6 @@ impl TCGen05InstrDescriptorBlockScaledAttrs {
     }
 }
 
-// SAFETY: `tirx.cuda.TCGen05InstrDescriptorBlockScaledAttrs` is not `_type_mutable`: a shared instance is never
-// mutated, as C++ changes it only through copy-on-write.
 unsafe impl tvm_ffi::object::ImmutableObject for TCGen05InstrDescriptorBlockScaledAttrsObj {}
 
 tvm_ffi::unsafe_impl_object_upcast!(TCGen05InstrDescriptorBlockScaledAttrs => Attrs);
@@ -388,8 +384,6 @@ impl TensorMapEncodeTiledAttr {
     }
 }
 
-// SAFETY: `tirx.cuda.TensorMapEncodeTiledAttr` is not `_type_mutable`: a shared instance is never
-// mutated, as C++ changes it only through copy-on-write.
 unsafe impl tvm_ffi::object::ImmutableObject for TensorMapEncodeTiledAttrObj {}
 
 tvm_ffi::unsafe_impl_object_upcast!(TensorMapEncodeTiledAttr => Attrs);

@@ -163,8 +163,6 @@ impl IntervalSetObj {
     }
 }
 
-// SAFETY: `sym.IntervalSet` is not `_type_mutable`: a shared instance is never
-// mutated, as C++ changes it only through copy-on-write.
 unsafe impl tvm_ffi::object::ImmutableObject for IntervalSetObj {}
 
 tvm_ffi::unsafe_impl_object_upcast!(IntervalSet => IntSet);

@@ -363,8 +363,6 @@ impl Cast {
     }
 }
 
-// SAFETY: `prim.Cast` is not `_type_mutable`: a shared instance is never
-// mutated, as C++ changes it only through copy-on-write.
 unsafe impl tvm_ffi::object::ImmutableObject for CastObj {}
 
 tvm_ffi::unsafe_impl_object_upcast!(Cast => Expr, Cast => PrimExpr);
@@ -453,8 +451,6 @@ impl LShift {
     }
 }
 
-// SAFETY: `prim.LShift` is not `_type_mutable`: a shared instance is never
-// mutated, as C++ changes it only through copy-on-write.
 unsafe impl tvm_ffi::object::ImmutableObject for LShiftObj {}
 
 tvm_ffi::unsafe_impl_object_upcast!(LShift => Expr, LShift => PrimExpr);
@@ -523,8 +519,6 @@ impl RShift {
     }
 }
 
-// SAFETY: `prim.RShift` is not `_type_mutable`: a shared instance is never
-// mutated, as C++ changes it only through copy-on-write.
 unsafe impl tvm_ffi::object::ImmutableObject for RShiftObj {}
 
 tvm_ffi::unsafe_impl_object_upcast!(RShift => Expr, RShift => PrimExpr);
@@ -593,8 +587,6 @@ impl BitwiseAnd {
     }
 }
 
-// SAFETY: `prim.BitwiseAnd` is not `_type_mutable`: a shared instance is never
-// mutated, as C++ changes it only through copy-on-write.
 unsafe impl tvm_ffi::object::ImmutableObject for BitwiseAndObj {}
 
 tvm_ffi::unsafe_impl_object_upcast!(BitwiseAnd => Expr, BitwiseAnd => PrimExpr);
@@ -663,8 +655,6 @@ impl BitwiseOr {
     }
 }
 
-// SAFETY: `prim.BitwiseOr` is not `_type_mutable`: a shared instance is never
-// mutated, as C++ changes it only through copy-on-write.
 unsafe impl tvm_ffi::object::ImmutableObject for BitwiseOrObj {}
 
 tvm_ffi::unsafe_impl_object_upcast!(BitwiseOr => Expr, BitwiseOr => PrimExpr);
@@ -733,8 +723,6 @@ impl BitwiseXor {
     }
 }
 
-// SAFETY: `prim.BitwiseXor` is not `_type_mutable`: a shared instance is never
-// mutated, as C++ changes it only through copy-on-write.
 unsafe impl tvm_ffi::object::ImmutableObject for BitwiseXorObj {}
 
 tvm_ffi::unsafe_impl_object_upcast!(BitwiseXor => Expr, BitwiseXor => PrimExpr);
@@ -801,8 +789,6 @@ impl BitwiseNot {
     }
 }
 
-// SAFETY: `prim.BitwiseNot` is not `_type_mutable`: a shared instance is never
-// mutated, as C++ changes it only through copy-on-write.
 unsafe impl tvm_ffi::object::ImmutableObject for BitwiseNotObj {}
 
 tvm_ffi::unsafe_impl_object_upcast!(BitwiseNot => Expr, BitwiseNot => PrimExpr);
@@ -886,8 +872,6 @@ impl Add {
     }
 }
 
-// SAFETY: `prim.Add` is not `_type_mutable`: a shared instance is never
-// mutated, as C++ changes it only through copy-on-write.
 unsafe impl tvm_ffi::object::ImmutableObject for AddObj {}
 
 tvm_ffi::unsafe_impl_object_upcast!(Add => Expr, Add => PrimExpr);
@@ -955,8 +939,6 @@ impl Sub {
     }
 }
 
-// SAFETY: `prim.Sub` is not `_type_mutable`: a shared instance is never
-// mutated, as C++ changes it only through copy-on-write.
 unsafe impl tvm_ffi::object::ImmutableObject for SubObj {}
 
 tvm_ffi::unsafe_impl_object_upcast!(Sub => Expr, Sub => PrimExpr);
@@ -1024,8 +1006,6 @@ impl Mul {
     }
 }
 
-// SAFETY: `prim.Mul` is not `_type_mutable`: a shared instance is never
-// mutated, as C++ changes it only through copy-on-write.
 unsafe impl tvm_ffi::object::ImmutableObject for MulObj {}
 
 tvm_ffi::unsafe_impl_object_upcast!(Mul => Expr, Mul => PrimExpr);
@@ -1093,8 +1073,6 @@ impl Div {
     }
 }
 
-// SAFETY: `prim.Div` is not `_type_mutable`: a shared instance is never
-// mutated, as C++ changes it only through copy-on-write.
 unsafe impl tvm_ffi::object::ImmutableObject for DivObj {}
 
 tvm_ffi::unsafe_impl_object_upcast!(Div => Expr, Div => PrimExpr);
@@ -1162,8 +1140,6 @@ impl Mod {
     }
 }
 
-// SAFETY: `prim.Mod` is not `_type_mutable`: a shared instance is never
-// mutated, as C++ changes it only through copy-on-write.
 unsafe impl tvm_ffi::object::ImmutableObject for ModObj {}
 
 tvm_ffi::unsafe_impl_object_upcast!(Mod => Expr, Mod => PrimExpr);
@@ -1231,8 +1207,6 @@ impl FloorDiv {
     }
 }
 
-// SAFETY: `prim.FloorDiv` is not `_type_mutable`: a shared instance is never
-// mutated, as C++ changes it only through copy-on-write.
 unsafe impl tvm_ffi::object::ImmutableObject for FloorDivObj {}
 
 tvm_ffi::unsafe_impl_object_upcast!(FloorDiv => Expr, FloorDiv => PrimExpr);
@@ -1301,8 +1275,6 @@ impl FloorMod {
     }
 }
 
-// SAFETY: `prim.FloorMod` is not `_type_mutable`: a shared instance is never
-// mutated, as C++ changes it only through copy-on-write.
 unsafe impl tvm_ffi::object::ImmutableObject for FloorModObj {}
 
 tvm_ffi::unsafe_impl_object_upcast!(FloorMod => Expr, FloorMod => PrimExpr);
@@ -1371,8 +1343,6 @@ impl Min {
     }
 }
 
-// SAFETY: `prim.Min` is not `_type_mutable`: a shared instance is never
-// mutated, as C++ changes it only through copy-on-write.
 unsafe impl tvm_ffi::object::ImmutableObject for MinObj {}
 
 tvm_ffi::unsafe_impl_object_upcast!(Min => Expr, Min => PrimExpr);
@@ -1440,8 +1410,6 @@ impl Max {
     }
 }
 
-// SAFETY: `prim.Max` is not `_type_mutable`: a shared instance is never
-// mutated, as C++ changes it only through copy-on-write.
 unsafe impl tvm_ffi::object::ImmutableObject for MaxObj {}
 
 tvm_ffi::unsafe_impl_object_upcast!(Max => Expr, Max => PrimExpr);
@@ -1512,8 +1480,6 @@ impl EQ {
     }
 }
 
-// SAFETY: `prim.EQ` is not `_type_mutable`: a shared instance is never
-// mutated, as C++ changes it only through copy-on-write.
 unsafe impl tvm_ffi::object::ImmutableObject for EQObj {}
 
 tvm_ffi::unsafe_impl_object_upcast!(EQ => Expr, EQ => PrimExpr);
@@ -1582,8 +1548,6 @@ impl NE {
     }
 }
 
-// SAFETY: `prim.NE` is not `_type_mutable`: a shared instance is never
-// mutated, as C++ changes it only through copy-on-write.
 unsafe impl tvm_ffi::object::ImmutableObject for NEObj {}
 
 tvm_ffi::unsafe_impl_object_upcast!(NE => Expr, NE => PrimExpr);
@@ -1652,8 +1616,6 @@ impl LT {
     }
 }
 
-// SAFETY: `prim.LT` is not `_type_mutable`: a shared instance is never
-// mutated, as C++ changes it only through copy-on-write.
 unsafe impl tvm_ffi::object::ImmutableObject for LTObj {}
 
 tvm_ffi::unsafe_impl_object_upcast!(LT => Expr, LT => PrimExpr);
@@ -1722,8 +1684,6 @@ impl LE {
     }
 }
 
-// SAFETY: `prim.LE` is not `_type_mutable`: a shared instance is never
-// mutated, as C++ changes it only through copy-on-write.
 unsafe impl tvm_ffi::object::ImmutableObject for LEObj {}
 
 tvm_ffi::unsafe_impl_object_upcast!(LE => Expr, LE => PrimExpr);
@@ -1792,8 +1752,6 @@ impl GT {
     }
 }
 
-// SAFETY: `prim.GT` is not `_type_mutable`: a shared instance is never
-// mutated, as C++ changes it only through copy-on-write.
 unsafe impl tvm_ffi::object::ImmutableObject for GTObj {}
 
 tvm_ffi::unsafe_impl_object_upcast!(GT => Expr, GT => PrimExpr);
@@ -1862,8 +1820,6 @@ impl GE {
     }
 }
 
-// SAFETY: `prim.GE` is not `_type_mutable`: a shared instance is never
-// mutated, as C++ changes it only through copy-on-write.
 unsafe impl tvm_ffi::object::ImmutableObject for GEObj {}
 
 tvm_ffi::unsafe_impl_object_upcast!(GE => Expr, GE => PrimExpr);
@@ -1935,8 +1891,6 @@ impl And {
     }
 }
 
-// SAFETY: `prim.And` is not `_type_mutable`: a shared instance is never
-// mutated, as C++ changes it only through copy-on-write.
 unsafe impl tvm_ffi::object::ImmutableObject for AndObj {}
 
 tvm_ffi::unsafe_impl_object_upcast!(And => Expr, And => PrimExpr);
@@ -2017,8 +1971,6 @@ impl Or {
     }
 }
 
-// SAFETY: `prim.Or` is not `_type_mutable`: a shared instance is never
-// mutated, as C++ changes it only through copy-on-write.
 unsafe impl tvm_ffi::object::ImmutableObject for OrObj {}
 
 tvm_ffi::unsafe_impl_object_upcast!(Or => Expr, Or => PrimExpr);
@@ -2097,8 +2049,6 @@ impl Not {
     }
 }
 
-// SAFETY: `prim.Not` is not `_type_mutable`: a shared instance is never
-// mutated, as C++ changes it only through copy-on-write.
 unsafe impl tvm_ffi::object::ImmutableObject for NotObj {}
 
 tvm_ffi::unsafe_impl_object_upcast!(Not => Expr, Not => PrimExpr);
@@ -2195,8 +2145,6 @@ impl Select {
     }
 }
 
-// SAFETY: `prim.Select` is not `_type_mutable`: a shared instance is never
-// mutated, as C++ changes it only through copy-on-write.
 unsafe impl tvm_ffi::object::ImmutableObject for SelectObj {}
 
 tvm_ffi::unsafe_impl_object_upcast!(Select => Expr, Select => PrimExpr);
@@ -2324,8 +2272,6 @@ impl Let {
     }
 }
 
-// SAFETY: `prim.Let` is not `_type_mutable`: a shared instance is never
-// mutated, as C++ changes it only through copy-on-write.
 unsafe impl tvm_ffi::object::ImmutableObject for LetObj {}
 
 tvm_ffi::unsafe_impl_object_upcast!(Let => Expr, Let => PrimExpr);

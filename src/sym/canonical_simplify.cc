@@ -617,7 +617,7 @@ class CanonicalSimplifier::Impl : public RewriteSimplifier::Impl {
       }
       return expr;
     } catch (ffi::Error& error) {
-      ffi::detail::UpdateVisitErrorContext(error, value);
+      ffi::detail::UpdateVisitErrorContext(&error, value);
       throw;
     }
   }
