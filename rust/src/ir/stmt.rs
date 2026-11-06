@@ -61,9 +61,6 @@
 // tvm-ffi-stubgen(custom-new): ir.Evaluate
 // tvm-ffi-stubgen(custom-new): ir.Return
 // tvm-ffi-stubgen(custom-new): ir.While
-// The base `Stmt` has no C++ constructor, so no `new`: `custom-new` leaves only the generated
-// `from_fields`.
-// tvm-ffi-stubgen(custom-new): ir.Stmt
 // A loop's kind is C++ `ForKind`. The `enum` directive declares it as an open newtype of the
 // native `int` field, so a value Rust does not name reads back intact.
 // tvm-ffi-stubgen(enum): ir.For.kind -> ForKind(i32) { Default=0, Parallel=1, Vectorized=2, Unrolled=3 }
@@ -176,7 +173,7 @@ impl StmtObj {
 
 impl Stmt {
     /// Lossless complete-field allocation.
-    pub fn from_fields(loc: impl Into<Location>) -> Self {
+    pub fn new(loc: impl Into<Location>) -> Self {
         let obj = StmtObj::new(loc.into());
         Self { base: ObjectArc::new(obj) }
     }

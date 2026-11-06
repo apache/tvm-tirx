@@ -51,9 +51,6 @@
 // tvm-ffi-stubgen(custom-new): ir.PrimType
 // tvm-ffi-stubgen(custom-new): ir.OpaqueType
 // tvm-ffi-stubgen(custom-new): ir.StringType
-// The base `Type` has no C++ constructor, so no `new`: `custom-new` leaves only the generated
-// `from_fields`.
-// tvm-ffi-stubgen(custom-new): ir.Type
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
 // tvm-ffi-stubgen(import-object): tvm_ffi::ObjectRefCore
@@ -122,7 +119,7 @@ impl TypeObj {
 
 impl Type {
     /// Lossless complete-field allocation.
-    pub fn from_fields(loc: impl Into<Location>) -> Self {
+    pub fn new(loc: impl Into<Location>) -> Self {
         let obj = TypeObj::new(loc.into());
         Self { base: ObjectArc::new(obj) }
     }

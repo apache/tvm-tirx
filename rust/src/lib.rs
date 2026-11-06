@@ -57,8 +57,7 @@
 //! A handle such as [`ir::Expr`] is a reference-counted pointer to its object, [`ir::ExprObj`], so
 //! cloning it does not copy the IR. The constructors (`new`) follow the C++ ones, with their checks
 //! and defaults, and return a `Result` when the C++ one can throw; `from_fields` stores the fields
-//! as given. A base that C++ does not construct and that has fields, such as [`ir::Expr`], has no
-//! `new`.
+//! as given.
 //!
 //! # Defining operators and types
 //!
