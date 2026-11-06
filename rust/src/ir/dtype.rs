@@ -42,11 +42,6 @@
 use tvm_ffi::DLDataType;
 use tvm_ffi::DLDataTypeCode;
 
-/// The scalar type of `code` and `bits`.
-const fn scalar(code: DLDataTypeCode, bits: u8) -> DLDataType {
-    DLDataType { code: code as u8, bits, lanes: 1 }
-}
-
 /// Return the signed integer type of `bits` bits, such as `int32` for 32 (C++
 /// `DataType::Int(bits)`).
 pub const fn int(bits: u8) -> DLDataType {
@@ -84,4 +79,9 @@ pub const fn void() -> DLDataType {
 /// `lanes` is the raw DLPack lane field: values from 32768 up encode scalable vectors.
 pub const fn with_lanes(dtype: DLDataType, lanes: u16) -> DLDataType {
     DLDataType { code: dtype.code, bits: dtype.bits, lanes }
+}
+
+/// The scalar type of `code` and `bits`.
+const fn scalar(code: DLDataTypeCode, bits: u8) -> DLDataType {
+    DLDataType { code: code as u8, bits, lanes: 1 }
 }

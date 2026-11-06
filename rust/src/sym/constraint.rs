@@ -286,6 +286,16 @@ pub struct ConstraintContextObj {
     constraints: UnsafeCell<Array<Constraint>>,
 }
 
+// These verify the Rust mirror against the matching x86_64 header layout, not
+// an arbitrary loaded binary's hidden fields. Stub generation cannot certify them.
+const _: () = {
+    assert!(size_of::<ConstraintContextObj>() == 48);
+    assert!(align_of::<ConstraintContextObj>() == 8);
+    assert!(offset_of!(ConstraintContextObj, parent) == 24);
+    assert!(offset_of!(ConstraintContextObj, parent_prefix_size) == 32);
+    assert!(offset_of!(ConstraintContextObj, constraints) == 40);
+};
+
 /// A context of constraints: the premises in effect at a point of a traversal, ancestors' first.
 ///
 /// Clones share the context's identity and later appends; use
@@ -294,46 +304,6 @@ pub struct ConstraintContextObj {
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct ConstraintContext {
     base: ObjectArc<ConstraintContextObj>,
-}
-
-impl ConstraintContext {
-    /// Create an empty root context, with the complete native-compatible layout (C++
-    /// `ConstraintContext()`).
-    pub fn new() -> Self {
-        Self::allocate(None, 0)
-    }
-
-    /// Create an empty child that captures the first `parent_prefix_size` local entries of
-    /// `parent`.
-    ///
-    /// Earlier ancestor prefixes are inherited unchanged; later appends to the parent are excluded.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if `parent_prefix_size` is negative or larger than the parent's local size.
-    pub fn with_parent_prefix_size(parent: Self, parent_prefix_size: i64) -> Result<Self> {
-        if parent_prefix_size < 0 || parent_prefix_size > parent.local_size() {
-            return Err(Error::new(
-                VALUE_ERROR,
-                "Constraint context parent local prefix is out of bounds",
-                "",
-            ));
-        }
-        Ok(Self::allocate(Some(parent.base), parent_prefix_size))
-    }
-
-    fn allocate(parent: Option<ObjectArc<ConstraintContextObj>>, prefix: i64) -> Self {
-        Self {
-            base: ObjectArc::new(ConstraintContextObj {
-                base: Object::new(),
-                parent,
-                parent_prefix_size: prefix,
-                // Start with an empty Rust array. Native Append owns all growth;
-                // never install a nonempty Rust allocation in this mutable field.
-                constraints: UnsafeCell::new(Array::default()),
-            }),
-        }
-    }
 }
 
 impl ConstraintContextObj {
@@ -397,12 +367,42 @@ impl ConstraintContextObj {
     }
 }
 
-// These verify the Rust mirror against the matching x86_64 header layout, not
-// an arbitrary loaded binary's hidden fields. Stub generation cannot certify them.
-const _: () = {
-    assert!(size_of::<ConstraintContextObj>() == 48);
-    assert!(align_of::<ConstraintContextObj>() == 8);
-    assert!(offset_of!(ConstraintContextObj, parent) == 24);
-    assert!(offset_of!(ConstraintContextObj, parent_prefix_size) == 32);
-    assert!(offset_of!(ConstraintContextObj, constraints) == 40);
-};
+impl ConstraintContext {
+    /// Create an empty root context, with the complete native-compatible layout (C++
+    /// `ConstraintContext()`).
+    pub fn new() -> Self {
+        Self::allocate(None, 0)
+    }
+
+    /// Create an empty child that captures the first `parent_prefix_size` local entries of
+    /// `parent`.
+    ///
+    /// Earlier ancestor prefixes are inherited unchanged; later appends to the parent are excluded.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if `parent_prefix_size` is negative or larger than the parent's local size.
+    pub fn with_parent_prefix_size(parent: Self, parent_prefix_size: i64) -> Result<Self> {
+        if parent_prefix_size < 0 || parent_prefix_size > parent.local_size() {
+            return Err(Error::new(
+                VALUE_ERROR,
+                "Constraint context parent local prefix is out of bounds",
+                "",
+            ));
+        }
+        Ok(Self::allocate(Some(parent.base), parent_prefix_size))
+    }
+
+    fn allocate(parent: Option<ObjectArc<ConstraintContextObj>>, prefix: i64) -> Self {
+        Self {
+            base: ObjectArc::new(ConstraintContextObj {
+                base: Object::new(),
+                parent,
+                parent_prefix_size: prefix,
+                // Start with an empty Rust array. Native Append owns all growth;
+                // never install a nonempty Rust allocation in this mutable field.
+                constraints: UnsafeCell::new(Array::default()),
+            }),
+        }
+    }
+}

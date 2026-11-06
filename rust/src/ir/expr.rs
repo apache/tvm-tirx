@@ -202,6 +202,28 @@ unsafe impl UnsafeInit for ExprObj {
 unsafe impl tvm_ffi::object::ImmutableObject for ExprObj {}
 // tvm-ffi-stubgen(end)
 
+impl Expr {
+    /// Return `self[indices]`, as the subscript rule of its type realizes it: a [`TupleGetItem`] of
+    /// a tuple, a [`TensorLoad`] or [`TensorRegion`] of a tensor (`ir.SubscriptExprRealize`).
+    ///
+    /// # Errors
+    ///
+    /// Returns a `TypeError` if the type of the expression has no subscript rule, or the error the
+    /// rule raises.
+    pub fn subscript(
+        &self,
+        indices: impl IntoIterator<Item = Subscript>,
+        loc: impl Into<Location>,
+    ) -> Result<Any> {
+        let indices = indices.into_iter().map(|index| Any::from(&index)).collect::<Array<Any>>();
+        tvm_ffi::cached_global_func!("ir.SubscriptExprRealize").call_tuple((
+            self,
+            &indices,
+            &loc.into(),
+        ))
+    }
+}
+
 /// An index of [`Expr::subscript`]: a primitive expression, or a `start:stop:step` slice (C++
 /// `SubscriptSlice`).
 #[derive(Clone)]
@@ -223,28 +245,6 @@ impl From<&Subscript> for Any {
                     .collect::<Array<Any>>(),
             ),
         }
-    }
-}
-
-impl Expr {
-    /// Return `self[indices]`, as the subscript rule of its type realizes it: a [`TupleGetItem`] of
-    /// a tuple, a [`TensorLoad`] or [`TensorRegion`] of a tensor (`ir.SubscriptExprRealize`).
-    ///
-    /// # Errors
-    ///
-    /// Returns a `TypeError` if the type of the expression has no subscript rule, or the error the
-    /// rule raises.
-    pub fn subscript(
-        &self,
-        indices: impl IntoIterator<Item = Subscript>,
-        loc: impl Into<Location>,
-    ) -> Result<Any> {
-        let indices = indices.into_iter().map(|index| Any::from(&index)).collect::<Array<Any>>();
-        tvm_ffi::cached_global_func!("ir.SubscriptExprRealize").call_tuple((
-            self,
-            &indices,
-            &loc.into(),
-        ))
     }
 }
 
@@ -1260,91 +1260,6 @@ impl From<f64> for FloatImm {
     }
 }
 
-/// The checks of C++ `FloatImm(ty, value)`: a scalar floating-point type whose range holds a
-/// finite `value`.
-fn check_float_imm(dtype: DLDataType, value: f64) -> Result<()> {
-    use support::{check_failed, compare_failed, CppDouble};
-    use tvm_ffi::VALUE_ERROR;
-    const FLOAT4_E2M1FN: u8 = tvm_ffi::DLDataTypeCode::kDLFloat4_e2m1fn as u8;
-    /// `ffi::DLExtDataTypeCode::kDLExtCustomBegin`.
-    const CUSTOM_BEGIN: u8 = 129;
-    if support::is_scalable_vector(dtype) || support::is_fixed_length_vector(dtype) {
-        let condition = "!value_ty.IsScalableVector() && !value_ty.IsFixedLengthVector()";
-        return Err(check_failed(VALUE_ERROR, condition, "FloatImm can only take scalar."));
-    }
-    let (code, bits) = (dtype.code, dtype.bits);
-    let float8 = support::float8_bound(code);
-    let float6 = support::float6_bound(code);
-    let supported = code == support::FLOAT
-        || float8.is_some()
-        || float6.is_some()
-        || (code == support::BFLOAT && bits == 16)
-        || (code == FLOAT4_E2M1FN && bits == 4)
-        || code >= CUSTOM_BEGIN;
-    let name = || support::dtype_name(dtype);
-    if !supported {
-        let condition = "value_ty.MatchesCode(DLDataTypeCode::kDLFloat, \
-                         DLDataTypeCode::kDLFloat8_e3m4, DLDataTypeCode::kDLFloat8_e4m3, \
-                         DLDataTypeCode::kDLFloat8_e4m3b11fnuz, DLDataTypeCode::kDLFloat8_e4m3fn, \
-                         DLDataTypeCode::kDLFloat8_e4m3fnuz, DLDataTypeCode::kDLFloat8_e5m2, \
-                         DLDataTypeCode::kDLFloat8_e5m2fnuz, DLDataTypeCode::kDLFloat8_e8m0fnu, \
-                         DLDataTypeCode::kDLFloat6_e2m3fn, DLDataTypeCode::kDLFloat6_e3m2fn) || \
-                         value_ty.MatchesElementType(DLDataTypeCode::kDLBfloat, 16) || \
-                         value_ty.MatchesElementType(DLDataTypeCode::kDLFloat4_e2m1fn, 4) || \
-                         static_cast<int>(code) >= \
-                         static_cast<int>(ffi::DLExtDataTypeCode::kDLExtCustomBegin)";
-        let message = format!("FloatImm supports only float, but {} was supplied.", name());
-        return Err(check_failed(VALUE_ERROR, condition, &message));
-    }
-    if value.is_infinite() || value.is_nan() {
-        return Ok(());
-    }
-    // The bound checked from below and how its message says so, and the bound from above.
-    let (low, high): ((&str, f64, &str), (&str, f64)) = if bits == 32 {
-        (
-            (
-                "value >= std::numeric_limits<float>::lowest()",
-                f32::MIN as f64,
-                "exceeds minimum of",
-            ),
-            ("value <= std::numeric_limits<float>::max()", f32::MAX as f64),
-        )
-    } else if code == support::FLOAT && bits == 16 {
-        (
-            ("value >= -support::kMaxFloat16", -support::MAX_FLOAT16, "exceeds minimum of"),
-            ("value <= support::kMaxFloat16", support::MAX_FLOAT16),
-        )
-    } else if code == support::BFLOAT && bits == 16 {
-        (
-            ("value >= -support::kMaxBFloat16", -support::MAX_BFLOAT16, "exceeds minimum of"),
-            ("value <= support::kMaxBFloat16", support::MAX_BFLOAT16),
-        )
-    } else if let Some((bound, nonneg)) = float8 {
-        let low = match nonneg {
-            true => ("value >= 0", 0.0, "below zero for unsigned"),
-            false => ("value >= -bound", -bound, "below minimum of"),
-        };
-        (low, ("value <= bound", bound))
-    } else if let Some(bound) = float6 {
-        (("value >= -bound", -bound, "below minimum of"), ("value <= bound", bound))
-    } else if code == FLOAT4_E2M1FN {
-        (("value >= -bound", -6.0, "below minimum of"), ("value <= bound", 6.0))
-    } else {
-        return Ok(());
-    };
-    let failed = |condition: &str, bound: f64, what: &str| {
-        let message = format!("Literal value {} {what} {}", CppDouble(value), name());
-        compare_failed(VALUE_ERROR, condition, CppDouble(value), CppDouble(bound), &message)
-    };
-    if value < low.1 {
-        return Err(failed(low.0, low.1, low.2));
-    }
-    if value > high.1 {
-        return Err(failed(high.0, high.1, "exceeds maximum of"));
-    }
-    Ok(())
-}
-
 // tvm-ffi-stubgen(begin): object/ir.IntImm
 /// Complete: reflected fields fill [40, 56) exactly.
 #[repr(C)]
@@ -1465,78 +1380,6 @@ impl From<bool> for IntImm {
     fn from(value: bool) -> Self {
         Self::bool(value)
     }
-}
-
-/// The checks of C++ `IntImm(ty, value)`: a scalar integer or boolean type whose range holds
-/// `value`. The messages are built only when a check fails.
-fn check_int_imm(dtype: DLDataType, value: &BigInt) -> Result<()> {
-    use support::{check_failed, compare_failed};
-    use tvm_ffi::VALUE_ERROR;
-    let name = || support::dtype_name(dtype);
-    if support::is_scalable_vector(dtype) || support::is_fixed_length_vector(dtype) {
-        let condition = "!value_ty.IsScalableVector() && !value_ty.IsFixedLengthVector()";
-        let message = format!("IntImm can only take scalar, but {} was supplied.", name());
-        return Err(check_failed(VALUE_ERROR, condition, &message));
-    }
-    if !matches!(dtype.code, support::INT | support::UINT | support::BOOL) {
-        let condition = "value_ty.MatchesCode(DLDataTypeCode::kDLInt, DLDataTypeCode::kDLUInt, \
-                         DLDataTypeCode::kDLBool)";
-        let message =
-            format!("IntImm supports only int or uint or bool type, but {} was supplied.", name());
-        return Err(check_failed(VALUE_ERROR, condition, &message));
-    }
-    let bits = dtype.bits as u32;
-    if bits == 0 {
-        let message = "IntImm requires a positive integer width";
-        return Err(compare_failed(VALUE_ERROR, "bits > 0", bits, 0, message));
-    }
-    let zero = BigInt::from(0i64);
-    if dtype.code == support::UINT {
-        if *value < zero {
-            let message =
-                format!("Literal value {value} is negative for unsigned integer type {}", name());
-            return Err(compare_failed(VALUE_ERROR, "value >= 0", value, 0, &message));
-        }
-        let message = || format!("Literal value {value} exceeds maximum of {}", name());
-        if bits <= 64 {
-            if !value.to_u64().is_some_and(|small| bits == 64 || small < 1u64 << bits) {
-                let condition =
-                    "small.has_value() && (bits == 64 || *small < (uint64_t{1} << bits))";
-                return Err(check_failed(VALUE_ERROR, condition, &message()));
-            }
-        } else {
-            let limit = BigInt::from(1i64).try_shl(bits as i64)?;
-            if *value >= limit {
-                let condition = "value < ffi::BigInt(1) << bits";
-                return Err(compare_failed(VALUE_ERROR, condition, value, &limit, &message()));
-            }
-        }
-    } else if bits == 1 || dtype.code == support::BOOL {
-        if *value != zero && *value != BigInt::from(1i64) {
-            let message = format!("{value} exceeds range of {}", name());
-            return Err(check_failed(VALUE_ERROR, "value == 0 || value == 1", &message));
-        }
-    } else {
-        let message = || format!("Literal value {value} exceeds range of {}", name());
-        if bits <= 64 {
-            let half = 1i128 << (bits - 1);
-            let fits = value.to_i64().is_some_and(|small| {
-                bits == 64 || ((small as i128) >= -half && (small as i128) < half)
-            });
-            if !fits {
-                let condition = "small.has_value() && (bits == 64 || (*small >= -(int64_t{1} << \
-                                 (bits - 1)) && *small < (int64_t{1} << (bits - 1))))";
-                return Err(check_failed(VALUE_ERROR, condition, &message()));
-            }
-        } else {
-            let limit = BigInt::from(1i64).try_shl(bits as i64 - 1)?;
-            if *value < -limit.clone() || *value >= limit {
-                let condition = "value >= -limit && value < limit";
-                return Err(check_failed(VALUE_ERROR, condition, &message()));
-            }
-        }
-    }
-    Ok(())
 }
 
 // tvm-ffi-stubgen(begin): object/ir.GenericConst
@@ -2314,3 +2157,163 @@ crate::def_expr_op_over_loads!(crate::sym::iter_affine_map::IterSplitExpr);
 crate::def_expr_op_over_loads!(crate::sym::iter_affine_map::IterSumExpr);
 crate::def_expr_op_over_loads!(crate::sym::analyzer::SplitExpr);
 crate::def_expr_op_over_loads!(crate::sym::analyzer::SumExpr);
+
+// ---------------------------------------------------------------------------------------------
+// What the constant constructors check
+
+/// The checks of C++ `FloatImm(ty, value)`: a scalar floating-point type whose range holds a
+/// finite `value`.
+fn check_float_imm(dtype: DLDataType, value: f64) -> Result<()> {
+    use support::{check_failed, compare_failed, CppDouble};
+    use tvm_ffi::VALUE_ERROR;
+    const FLOAT4_E2M1FN: u8 = tvm_ffi::DLDataTypeCode::kDLFloat4_e2m1fn as u8;
+    /// `ffi::DLExtDataTypeCode::kDLExtCustomBegin`.
+    const CUSTOM_BEGIN: u8 = 129;
+    if support::is_scalable_vector(dtype) || support::is_fixed_length_vector(dtype) {
+        let condition = "!value_ty.IsScalableVector() && !value_ty.IsFixedLengthVector()";
+        return Err(check_failed(VALUE_ERROR, condition, "FloatImm can only take scalar."));
+    }
+    let (code, bits) = (dtype.code, dtype.bits);
+    let float8 = support::float8_bound(code);
+    let float6 = support::float6_bound(code);
+    let supported = code == support::FLOAT
+        || float8.is_some()
+        || float6.is_some()
+        || (code == support::BFLOAT && bits == 16)
+        || (code == FLOAT4_E2M1FN && bits == 4)
+        || code >= CUSTOM_BEGIN;
+    let name = || support::dtype_name(dtype);
+    if !supported {
+        let condition = "value_ty.MatchesCode(DLDataTypeCode::kDLFloat, \
+                         DLDataTypeCode::kDLFloat8_e3m4, DLDataTypeCode::kDLFloat8_e4m3, \
+                         DLDataTypeCode::kDLFloat8_e4m3b11fnuz, DLDataTypeCode::kDLFloat8_e4m3fn, \
+                         DLDataTypeCode::kDLFloat8_e4m3fnuz, DLDataTypeCode::kDLFloat8_e5m2, \
+                         DLDataTypeCode::kDLFloat8_e5m2fnuz, DLDataTypeCode::kDLFloat8_e8m0fnu, \
+                         DLDataTypeCode::kDLFloat6_e2m3fn, DLDataTypeCode::kDLFloat6_e3m2fn) || \
+                         value_ty.MatchesElementType(DLDataTypeCode::kDLBfloat, 16) || \
+                         value_ty.MatchesElementType(DLDataTypeCode::kDLFloat4_e2m1fn, 4) || \
+                         static_cast<int>(code) >= \
+                         static_cast<int>(ffi::DLExtDataTypeCode::kDLExtCustomBegin)";
+        let message = format!("FloatImm supports only float, but {} was supplied.", name());
+        return Err(check_failed(VALUE_ERROR, condition, &message));
+    }
+    if value.is_infinite() || value.is_nan() {
+        return Ok(());
+    }
+    // The bound checked from below and how its message says so, and the bound from above.
+    let (low, high): ((&str, f64, &str), (&str, f64)) = if bits == 32 {
+        (
+            (
+                "value >= std::numeric_limits<float>::lowest()",
+                f32::MIN as f64,
+                "exceeds minimum of",
+            ),
+            ("value <= std::numeric_limits<float>::max()", f32::MAX as f64),
+        )
+    } else if code == support::FLOAT && bits == 16 {
+        (
+            ("value >= -support::kMaxFloat16", -support::MAX_FLOAT16, "exceeds minimum of"),
+            ("value <= support::kMaxFloat16", support::MAX_FLOAT16),
+        )
+    } else if code == support::BFLOAT && bits == 16 {
+        (
+            ("value >= -support::kMaxBFloat16", -support::MAX_BFLOAT16, "exceeds minimum of"),
+            ("value <= support::kMaxBFloat16", support::MAX_BFLOAT16),
+        )
+    } else if let Some((bound, nonneg)) = float8 {
+        let low = match nonneg {
+            true => ("value >= 0", 0.0, "below zero for unsigned"),
+            false => ("value >= -bound", -bound, "below minimum of"),
+        };
+        (low, ("value <= bound", bound))
+    } else if let Some(bound) = float6 {
+        (("value >= -bound", -bound, "below minimum of"), ("value <= bound", bound))
+    } else if code == FLOAT4_E2M1FN {
+        (("value >= -bound", -6.0, "below minimum of"), ("value <= bound", 6.0))
+    } else {
+        return Ok(());
+    };
+    let failed = |condition: &str, bound: f64, what: &str| {
+        let message = format!("Literal value {} {what} {}", CppDouble(value), name());
+        compare_failed(VALUE_ERROR, condition, CppDouble(value), CppDouble(bound), &message)
+    };
+    if value < low.1 {
+        return Err(failed(low.0, low.1, low.2));
+    }
+    if value > high.1 {
+        return Err(failed(high.0, high.1, "exceeds maximum of"));
+    }
+    Ok(())
+}
+
+/// The checks of C++ `IntImm(ty, value)`: a scalar integer or boolean type whose range holds
+/// `value`. The messages are built only when a check fails.
+fn check_int_imm(dtype: DLDataType, value: &BigInt) -> Result<()> {
+    use support::{check_failed, compare_failed};
+    use tvm_ffi::VALUE_ERROR;
+    let name = || support::dtype_name(dtype);
+    if support::is_scalable_vector(dtype) || support::is_fixed_length_vector(dtype) {
+        let condition = "!value_ty.IsScalableVector() && !value_ty.IsFixedLengthVector()";
+        let message = format!("IntImm can only take scalar, but {} was supplied.", name());
+        return Err(check_failed(VALUE_ERROR, condition, &message));
+    }
+    if !matches!(dtype.code, support::INT | support::UINT | support::BOOL) {
+        let condition = "value_ty.MatchesCode(DLDataTypeCode::kDLInt, DLDataTypeCode::kDLUInt, \
+                         DLDataTypeCode::kDLBool)";
+        let message =
+            format!("IntImm supports only int or uint or bool type, but {} was supplied.", name());
+        return Err(check_failed(VALUE_ERROR, condition, &message));
+    }
+    let bits = dtype.bits as u32;
+    if bits == 0 {
+        let message = "IntImm requires a positive integer width";
+        return Err(compare_failed(VALUE_ERROR, "bits > 0", bits, 0, message));
+    }
+    let zero = BigInt::from(0i64);
+    if dtype.code == support::UINT {
+        if *value < zero {
+            let message =
+                format!("Literal value {value} is negative for unsigned integer type {}", name());
+            return Err(compare_failed(VALUE_ERROR, "value >= 0", value, 0, &message));
+        }
+        let message = || format!("Literal value {value} exceeds maximum of {}", name());
+        if bits <= 64 {
+            if !value.to_u64().is_some_and(|small| bits == 64 || small < 1u64 << bits) {
+                let condition =
+                    "small.has_value() && (bits == 64 || *small < (uint64_t{1} << bits))";
+                return Err(check_failed(VALUE_ERROR, condition, &message()));
+            }
+        } else {
+            let limit = BigInt::from(1i64).try_shl(bits as i64)?;
+            if *value >= limit {
+                let condition = "value < ffi::BigInt(1) << bits";
+                return Err(compare_failed(VALUE_ERROR, condition, value, &limit, &message()));
+            }
+        }
+    } else if bits == 1 || dtype.code == support::BOOL {
+        if *value != zero && *value != BigInt::from(1i64) {
+            let message = format!("{value} exceeds range of {}", name());
+            return Err(check_failed(VALUE_ERROR, "value == 0 || value == 1", &message));
+        }
+    } else {
+        let message = || format!("Literal value {value} exceeds range of {}", name());
+        if bits <= 64 {
+            let half = 1i128 << (bits - 1);
+            let fits = value.to_i64().is_some_and(|small| {
+                bits == 64 || ((small as i128) >= -half && (small as i128) < half)
+            });
+            if !fits {
+                let condition = "small.has_value() && (bits == 64 || (*small >= -(int64_t{1} << \
+                                 (bits - 1)) && *small < (int64_t{1} << (bits - 1))))";
+                return Err(check_failed(VALUE_ERROR, condition, &message()));
+            }
+        } else {
+            let limit = BigInt::from(1i64).try_shl(bits as i64 - 1)?;
+            if *value < -limit.clone() || *value >= limit {
+                let condition = "value >= -limit && value < limit";
+                return Err(check_failed(VALUE_ERROR, condition, &message()));
+            }
+        }
+    }
+    Ok(())
+}

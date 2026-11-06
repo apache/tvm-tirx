@@ -230,15 +230,6 @@ pub(crate) fn prim_dtype(expr: &(impl AsRef<Expr> + ?Sized)) -> Result<DLDataTyp
     }
 }
 
-fn not_a_prim_expr(expr: &Expr) -> Error {
-    let message = format!(
-        "Expected `ir.PrimExpr` but got `{}[ty={}]`",
-        type_key(AnyView::from(expr).type_index()),
-        type_key(AnyView::from(&expr.ty).type_index()),
-    );
-    Error::new(TYPE_ERROR, &message, "")
-}
-
 /// The lanes of a dtype as C++ decodes them: negative for a scalable vector.
 pub(crate) fn encoded_lanes(dtype: DLDataType) -> i16 {
     dtype.lanes as i16
@@ -279,6 +270,15 @@ pub(crate) fn scalable_vector(dtype: DLDataType, factor: i32) -> Result<DLDataTy
         return Err(compare_failed(INTERNAL_ERROR, "lanes < 32768", factor, 32768, ""));
     }
     Ok(DLDataType { code: dtype.code, bits: dtype.bits, lanes: (-factor) as u16 })
+}
+
+fn not_a_prim_expr(expr: &Expr) -> Error {
+    let message = format!(
+        "Expected `ir.PrimExpr` but got `{}[ty={}]`",
+        type_key(AnyView::from(expr).type_index()),
+        type_key(AnyView::from(&expr.ty).type_index()),
+    );
+    Error::new(TYPE_ERROR, &message, "")
 }
 
 // ---------------------------------------------------------------------------------------------

@@ -198,18 +198,6 @@ pub fn logaddexp_at(
     log(add(exp(a)?, exp(b)?)?)
 }
 
-/// Whether `dtype` is a scalar 64-bit integer, which a pointer reinterprets as.
-fn is_scalar_int64(dtype: DLDataType) -> bool {
-    support::is_scalar(dtype)
-        && dtype.bits == 64
-        && matches!(dtype.code, support::INT | support::UINT)
-}
-
-/// C++ `PrimType::StorageBytes()`.
-fn storage_bytes(dtype: DLDataType) -> Result<u64> {
-    Ok((u64::from(dtype.bits) * support::lanes(dtype)? as u64).div_ceil(8))
-}
-
 /// Reinterpret `value` bit for bit as the primitive or pointer type `ty`
 /// (C++ `tirx::reinterpret(target_ty, value, loc)`, `tirx.reinterpret`).
 ///
@@ -374,4 +362,16 @@ pub fn gpu_thread_return() -> Result<PrimExpr> {
 pub fn gpu_thread_return_at(loc: impl Into<Location>) -> Result<PrimExpr> {
     let loc: Location = loc.into();
     tvm_ffi::cached_global_func!("tirx.gpu_thread_return").call_tuple((&loc,))?.try_into()
+}
+
+/// Whether `dtype` is a scalar 64-bit integer, which a pointer reinterprets as.
+fn is_scalar_int64(dtype: DLDataType) -> bool {
+    support::is_scalar(dtype)
+        && dtype.bits == 64
+        && matches!(dtype.code, support::INT | support::UINT)
+}
+
+/// C++ `PrimType::StorageBytes()`.
+fn storage_bytes(dtype: DLDataType) -> Result<u64> {
+    Ok((u64::from(dtype.bits) * support::lanes(dtype)? as u64).div_ceil(8))
 }
