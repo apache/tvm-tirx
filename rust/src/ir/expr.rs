@@ -1272,12 +1272,10 @@ impl FloatImm {
     /// (C++ `FloatImm(ty, value, loc)`).
     ///
     /// ```
-    /// use tvm_tirx::ir::expr::FloatImm;
-    /// use tvm_tirx::ir::location::UnknownLoc;
-    /// use tvm_tirx::ir::r#type::PrimType;
-    /// let half = FloatImm::new(PrimType::float(16), 0.5, UnknownLoc::new())?;
+    /// use tvm_tirx::ir::{FloatImm, PrimType, UNKNOWN_LOC};
+    /// let half = FloatImm::new(PrimType::float(16), 0.5, UNKNOWN_LOC)?;
     /// assert_eq!(half.value, 0.5);
-    /// assert!(FloatImm::new(PrimType::int(32), 0.5, UnknownLoc::new()).is_err());
+    /// assert!(FloatImm::new(PrimType::int(32), 0.5, UNKNOWN_LOC).is_err());
     /// # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
     /// ```
     ///
@@ -1481,12 +1479,10 @@ impl IntImm {
     /// fit it (C++ `IntImm(ty, value, loc)`).
     ///
     /// ```
-    /// use tvm_tirx::ir::expr::IntImm;
-    /// use tvm_tirx::ir::location::UnknownLoc;
-    /// use tvm_tirx::ir::r#type::PrimType;
-    /// let byte = IntImm::new(PrimType::uint(8), 255, UnknownLoc::new())?;
+    /// use tvm_tirx::ir::{IntImm, PrimType, UNKNOWN_LOC};
+    /// let byte = IntImm::new(PrimType::uint(8), 255, UNKNOWN_LOC)?;
     /// assert_eq!(byte.value.to_string(), "255");
-    /// assert!(IntImm::new(PrimType::uint(8), 256, UnknownLoc::new()).is_err());
+    /// assert!(IntImm::new(PrimType::uint(8), 256, UNKNOWN_LOC).is_err());
     /// # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
     /// ```
     ///
