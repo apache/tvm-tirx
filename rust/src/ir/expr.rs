@@ -422,17 +422,28 @@ pub struct PrimExpr {
     data: ObjectArc<ExprObj>,
 }
 
-// SAFETY: a `PrimExpr` is a `Expr` that `is_prim_expr` accepts, and `prim_literal` makes only
-// such values.
+// SAFETY: a `PrimExpr` is an `Expr` typed by a `PrimType`, and the literals it converts are
+// constants, which are.
 unsafe impl tvm_ffi::object::ObjectRefAnyCompatible for PrimExpr {
     #[inline]
     fn extra_check(obj: &ExprObj) -> bool {
-        is_prim_expr(obj)
+        obj.ty.downcast_ref::<PrimTypeObj>().is_some()
     }
 
-    fn convert_fallback(value: tvm_ffi::AnyView<'_>) -> Option<Self> {
-        // SAFETY: `value` is a live FFI value.
-        unsafe { prim_literal(value.as_raw_ffi_any()) }
+    // As C++ converts an `Any` into a `PrimExpr`: a bool is a boolean constant, an int an `int32`
+    // constant when it fits and an `int64` one otherwise, and a float a `float32` constant.
+    fn convert_fallback(value: AnyView<'_>) -> Option<Self> {
+        let index = value.type_index();
+        if index == TVMFFITypeIndex::kTVMFFIBool as i32 {
+            Some(IntImm::bool(bool::try_from(value).ok()?).into())
+        } else if index == TVMFFITypeIndex::kTVMFFIInt as i32 {
+            Some(int_imm(i64::try_from(value).ok()?).into())
+        } else if index == TVMFFITypeIndex::kTVMFFIFloat as i32 {
+            let value = f64::try_from(value).ok()?;
+            FloatImm::new(PrimType::float(32), value, UNKNOWN_LOC).ok().map(Into::into)
+        } else {
+            None
+        }
     }
 
     fn custom_type_str() -> std::string::String {
@@ -477,17 +488,20 @@ pub struct IntExpr {
     data: ObjectArc<ExprObj>,
 }
 
-// SAFETY: a `IntExpr` is a `PrimExpr` that `is_int_expr` accepts, and `int_literal` makes only
-// such values.
+// SAFETY: an `IntExpr` is a `PrimExpr` typed by a scalar integer type, and the int literal it
+// converts is an integer constant.
 unsafe impl tvm_ffi::object::ObjectRefAnyCompatible for IntExpr {
     #[inline]
     fn extra_check(obj: &ExprObj) -> bool {
-        is_int_expr(obj)
+        obj.ty.downcast_ref::<PrimType>().is_some_and(scalar_int)
     }
 
-    fn convert_fallback(value: tvm_ffi::AnyView<'_>) -> Option<Self> {
-        // SAFETY: `value` is a live FFI value.
-        unsafe { int_literal(value.as_raw_ffi_any()) }
+    // An int converts as it does into a `PrimExpr`; no other literal does.
+    fn convert_fallback(value: AnyView<'_>) -> Option<Self> {
+        if value.type_index() != TVMFFITypeIndex::kTVMFFIInt as i32 {
+            return None;
+        }
+        Some(int_constant(int_imm(i64::try_from(value).ok()?)))
     }
 
     fn custom_type_str() -> std::string::String {
@@ -598,39 +612,6 @@ unsafe fn expr_of(data: &TVMFFIAny) -> Option<&ExprObj> {
         .then(|| unsafe { &*(data.data_union.v_obj as *const ExprObj) })
 }
 
-/// Whether `expr` is typed by a `PrimType`.
-fn is_prim_expr(expr: &ExprObj) -> bool {
-    expr.ty.downcast_ref::<PrimTypeObj>().is_some()
-}
-
-/// Whether `expr` is typed by a scalar integer type.
-fn is_int_expr(expr: &ExprObj) -> bool {
-    expr.ty.downcast_ref::<PrimType>().is_some_and(scalar_int)
-}
-
-/// Whether `var` is a `Var`, not a subclass, typed by a `PrimType` (C++
-/// `TypeTraits<PrimVar>::CheckAnyStrict`).
-fn is_prim_var(var: &VarObj) -> bool {
-    // SAFETY: an object starts with its header, which holds its runtime type index.
-    let header = unsafe { &*(var as *const VarObj).cast::<tvm_ffi::tvm_ffi_sys::TVMFFIObject>() };
-    header.type_index == <VarObj as tvm_ffi::ObjectCore>::type_index()
-        && var.ty.downcast_ref::<PrimTypeObj>().is_some()
-}
-
-/// The type key of a value a [`PrimVar`] rejects (C++ `TypeTraits<PrimVar>::GetMismatchTypeInfo`).
-fn type_key_mismatch(data: &TVMFFIAny) -> std::string::String {
-    support::type_key(data.type_index)
-}
-
-/// No value that is not a variable converts into a [`PrimVar`].
-///
-/// # Safety
-///
-/// `data` is a live FFI value.
-unsafe fn no_literal<T>(_: &TVMFFIAny) -> Option<T> {
-    None
-}
-
 /// What a typed expression names a value it rejects (C++ `TypeTraits<TypedExpr<T>>::GetMismatchTypeInfo`):
 /// an expression with its type, `ir.StringImm[ty=ir.StringType]`, or the type key of another value.
 fn typed_expr_mismatch(data: &TVMFFIAny) -> std::string::String {
@@ -641,41 +622,6 @@ fn typed_expr_mismatch(data: &TVMFFIAny) -> std::string::String {
         None => support::type_key(AnyView::from(&expr.ty).type_index()),
     };
     format!("{}[ty={ty}]", support::type_key(data.type_index))
-}
-
-/// The constant of the int, bool or float `data` holds, as C++ converts an `Any` into a
-/// `PrimExpr`: a bool is a boolean constant, an int an `int32` constant when it fits and an
-/// `int64` one otherwise, and a float a `float32` constant.
-///
-/// # Safety
-///
-/// `data` is a live FFI value.
-unsafe fn prim_literal(data: &TVMFFIAny) -> Option<PrimExpr> {
-    let index = data.type_index;
-    // SAFETY: the type index says which member of the union holds the value.
-    unsafe {
-        if index == TVMFFITypeIndex::kTVMFFIBool as i32 {
-            Some(IntImm::bool(data.data_union.v_int64 != 0).into())
-        } else if index == TVMFFITypeIndex::kTVMFFIInt as i32 {
-            Some(int_imm(data.data_union.v_int64).into())
-        } else if index == TVMFFITypeIndex::kTVMFFIFloat as i32 {
-            let value = data.data_union.v_float64;
-            FloatImm::new(PrimType::float(32), value, UNKNOWN_LOC).ok().map(Into::into)
-        } else {
-            None
-        }
-    }
-}
-
-/// The constant of the int `data` holds, as [`prim_literal`] makes it.
-///
-/// # Safety
-///
-/// `data` is a live FFI value.
-unsafe fn int_literal(data: &TVMFFIAny) -> Option<IntExpr> {
-    // SAFETY: an int is held in `v_int64`.
-    (data.type_index == TVMFFITypeIndex::kTVMFFIInt as i32)
-        .then(|| int_constant(int_imm(unsafe { data.data_union.v_int64 })))
 }
 
 /// An `int32` constant when `value` fits, and an `int64` one otherwise (C++
@@ -1971,25 +1917,21 @@ pub struct PrimVar {
     data: ObjectArc<VarObj>,
 }
 
-// SAFETY: a `PrimVar` is a `Var` that `is_prim_var` accepts, and `no_literal` makes only
-// such values.
+// SAFETY: a `PrimVar` is a `Var`, not a subclass, typed by a `PrimType`; nothing else converts
+// into one.
 unsafe impl tvm_ffi::object::ObjectRefAnyCompatible for PrimVar {
+    // C++ `TypeTraits<PrimVar>::CheckAnyStrict`: exactly `ir.Var`, typed by a `PrimType`.
     #[inline]
     fn extra_check(obj: &VarObj) -> bool {
-        is_prim_var(obj)
-    }
-
-    fn convert_fallback(value: tvm_ffi::AnyView<'_>) -> Option<Self> {
-        // SAFETY: `value` is a live FFI value.
-        unsafe { no_literal(value.as_raw_ffi_any()) }
+        // SAFETY: an object starts with its header, which holds its runtime type index.
+        let header =
+            unsafe { &*(obj as *const VarObj).cast::<tvm_ffi::tvm_ffi_sys::TVMFFIObject>() };
+        header.type_index == <VarObj as tvm_ffi::ObjectCore>::type_index()
+            && obj.ty.downcast_ref::<PrimTypeObj>().is_some()
     }
 
     fn custom_type_str() -> std::string::String {
         "ir.Var".into()
-    }
-
-    fn custom_mismatch_type_info(value: tvm_ffi::AnyView<'_>) -> std::string::String {
-        type_key_mismatch(value.as_raw_ffi_any())
     }
 }
 
