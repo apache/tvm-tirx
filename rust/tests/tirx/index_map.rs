@@ -19,9 +19,9 @@
 
 //! Tests of `tirx::index_map`.
 
-use tvm_tirx::ir::{dtype, PrimExpr, PrimType, Var};
+use tvm_tirx::ir::{dtype, PrimType};
 use tvm_tirx::tirx::IndexMap;
-use tvm_tirx::tvm_ffi::{Array, DLDevice, DLDeviceType};
+use tvm_tirx::tvm_ffi::{DLDevice, DLDeviceType, ObjectRefCore};
 
 use super::{as_i64, int32, op, prim_var, range};
 use crate::common::{serial, structural_equal};
@@ -30,11 +30,10 @@ use crate::common::{serial, structural_equal};
 fn index_maps() {
     let _serial = serial();
     let (i, j) = (prim_var("i", PrimType::int(32)), prim_var("j", PrimType::int(32)));
-    let transpose = IndexMap::new(
-        Array::from_vec(vec![Var::from(&i), Var::from(&j)]),
-        Array::from_vec(vec![PrimExpr::from(&j), PrimExpr::from(&i)]),
-        None,
-    );
+    let transpose = IndexMap::new([&i, &j], [&j, &i], None).unwrap();
+    assert!(transpose.inverse_index_map.is_none());
+    let involution = IndexMap::new([&i, &j], [&j, &i], Some(&transpose)).unwrap();
+    assert!(involution.inverse_index_map.as_ref().unwrap().same_as(&transpose));
     let mapped = transpose.map_indices([int32(1), int32(2)], None).unwrap();
     assert_eq!((as_i64(&mapped.get(0).unwrap()), as_i64(&mapped.get(1).unwrap())), (2, 1));
     let shape = transpose.map_shape([int32(4), int32(8)], None).unwrap();
@@ -44,13 +43,11 @@ fn index_maps() {
 
     let k = prim_var("k", PrimType::int(32));
     let split = IndexMap::new(
-        Array::from_vec(vec![Var::from(&k)]),
-        Array::from_vec(vec![
-            op("prim._OpFloorDiv", &k, int32(4)),
-            op("prim._OpFloorMod", &k, int32(4)),
-        ]),
+        [&k],
+        [op("prim._OpFloorDiv", &k, int32(4)), op("prim._OpFloorMod", &k, int32(4))],
         None,
-    );
+    )
+    .unwrap();
     let (unsplit, predicate) = split.non_surjective_inverse([range(14)], None).unwrap();
     assert_eq!(unsplit.final_indices.len(), 1);
     assert!(!structural_equal(&predicate, &int32(0)));

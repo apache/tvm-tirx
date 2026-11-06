@@ -24,7 +24,7 @@ use tvm_tirx::ir::PrimType;
 use tvm_tirx::tirx::analysis;
 
 use crate::common::{serial, structural_equal};
-use crate::{as_i64, int32, module_of, op, var, void_function};
+use crate::{as_i64, int32, module_of, op, prim_var, var, void_function};
 
 #[test]
 fn well_formedness() {
@@ -38,7 +38,7 @@ fn well_formedness() {
 #[test]
 fn expression_analyses() {
     let _serial = serial();
-    let (x, y) = (var("x", PrimType::int(32)), var("y", PrimType::int(32)));
+    let (x, y) = (prim_var("x", PrimType::int(32)), prim_var("y", PrimType::int(32)));
     let undefined = analysis::undefined_vars(op("prim._OpAdd", &x, &y), [x.clone()]).unwrap();
     assert_eq!(undefined.len(), 1);
     assert!(structural_equal(&undefined.get(0).unwrap(), &y));

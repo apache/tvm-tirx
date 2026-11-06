@@ -90,7 +90,7 @@ fn iter_maps_decompose_into_marks_and_splits() {
 fn iter_maps() {
     let analyzer = Analyzer::new();
     let (x, y) = (var("x"), var("y"));
-    let dom = Map::from_iter([(Var::from(&x), range(0, 4)), (Var::from(&y), range(0, 4))]);
+    let dom = Map::from_iter([(x.clone(), range(0, 4)), (y.clone(), range(0, 4))]);
     let index = op("prim._OpAdd", op("prim._OpMul", &x, int32(4)), &y);
     let predicate = PrimExpr::from(true);
 
