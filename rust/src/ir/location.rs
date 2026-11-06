@@ -39,8 +39,6 @@
 // C++ has one `UnknownLoc`, which `UnknownLoc::new` returns: `opaque` generates no allocator for
 // another one. It has no fields, so it loses no field access.
 // tvm-ffi-stubgen(opaque): ir.UnknownLoc
-// A `SourceName` is interned: C++ makes one only through `SourceName::Get`, so it has no `new`.
-// tvm-ffi-stubgen(custom-new): ir.SourceName
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
 // tvm-ffi-stubgen(import-object): tvm_ffi::Result
@@ -353,7 +351,7 @@ impl SourceNameObj {
 
 impl SourceName {
     /// Lossless complete-field allocation.
-    pub fn from_fields(name: impl Into<String>) -> Self {
+    pub fn new(name: impl Into<String>) -> Self {
         let obj = SourceNameObj::new(name.into());
         Self { base: ObjectArc::new(obj) }
     }

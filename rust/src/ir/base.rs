@@ -37,9 +37,6 @@
 //! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
 //! ```
 
-// C++ makes an `EnvFunc` only through `EnvFunc::Get`, which looks the function up by name, so it
-// has no `new`; the generated `from_fields` pairs a name with any function.
-// tvm-ffi-stubgen(custom-new): ir.EnvFunc
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
 // tvm-ffi-stubgen(import-object): tvm_ffi::Result
@@ -92,7 +89,7 @@ impl EnvFuncObj {
 
 impl EnvFunc {
     /// Lossless complete-field allocation.
-    pub fn from_fields(name: impl Into<String>, func: impl Into<Function>) -> Self {
+    pub fn new(name: impl Into<String>, func: impl Into<Function>) -> Self {
         let obj = EnvFuncObj::new(name.into(), func.into());
         Self { base: ObjectArc::new(obj) }
     }
