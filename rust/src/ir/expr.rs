@@ -82,7 +82,7 @@
 // tvm-ffi-stubgen(import-object): tvm_ffi::ObjectRefCore
 // tvm-ffi-stubgen(import-object): tvm_ffi::Result
 // tvm-ffi-stubgen(import-object): tvm_ffi::tvm_ffi_sys::TVMFFITypeIndex
-// tvm-ffi-stubgen(import-object): crate::ir::location::UnknownLoc
+// tvm-ffi-stubgen(import-object): crate::ir::location::UNKNOWN_LOC
 // tvm-ffi-stubgen(import-object): crate::ir::op::OpObj
 // tvm-ffi-stubgen(import-object): crate::ir::prim::AddObj
 // tvm-ffi-stubgen(import-object): crate::ir::r#type::AnyType
@@ -103,7 +103,7 @@
 use crate::ir::attrs::Attrs;
 use crate::ir::dtype;
 use crate::ir::location::Location;
-use crate::ir::location::UnknownLoc;
+use crate::ir::location::UNKNOWN_LOC;
 use crate::ir::op::OpObj;
 use crate::ir::prim::AddObj;
 use crate::ir::prim::op::ExprResult;
@@ -635,7 +635,7 @@ unsafe fn prim_literal(data: &TVMFFIAny) -> Option<PrimExpr> {
             Some(int_imm(data.data_union.v_int64).into())
         } else if index == TVMFFITypeIndex::kTVMFFIFloat as i32 {
             let value = data.data_union.v_float64;
-            FloatImm::from_dtype(dtype::float(32), value, UnknownLoc::new()).ok().map(Into::into)
+            FloatImm::from_dtype(dtype::float(32), value, UNKNOWN_LOC).ok().map(Into::into)
         } else {
             None
         }
@@ -934,7 +934,7 @@ impl Tuple {
                 true => MissingType::new().into(),
                 false => {
                     let field_types = fields.iter().map(|field| field.ty.clone());
-                    TupleType::new(field_types, UnknownLoc::new()).into()
+                    TupleType::new(field_types, UNKNOWN_LOC).into()
                 }
             };
         Self::from_fields(loc.into(), ty, fields)
@@ -1313,7 +1313,7 @@ impl FloatImm {
     /// [`FloatImm::new`] of a value its type holds, which fails only when the compiler
     /// library is not loaded.
     fn builtin(dtype: DLDataType, value: f64) -> Self {
-        support::infallible(Self::from_dtype(dtype, value, UnknownLoc::new()))
+        support::infallible(Self::from_dtype(dtype, value, UNKNOWN_LOC))
     }
 }
 
@@ -1527,7 +1527,7 @@ impl IntImm {
     /// [`IntImm::new`] of a value its type holds, which fails only when the compiler
     /// library is not loaded.
     fn builtin(dtype: DLDataType, value: impl Into<BigInt>) -> Self {
-        support::infallible(Self::from_dtype(dtype, value, UnknownLoc::new()))
+        support::infallible(Self::from_dtype(dtype, value, UNKNOWN_LOC))
     }
 }
 
@@ -1779,7 +1779,7 @@ impl DataTypeImm {
     /// Create the data type `value` as a constant of type [`AnyType`] (C++ `DataTypeImm(value,
     /// loc)`).
     pub fn new(value: DLDataType, loc: impl Into<Location>) -> Self {
-        let ty = AnyType::new(UnknownLoc::new());
+        let ty = AnyType::new(UNKNOWN_LOC);
         Self::from_fields(loc, ty, value)
     }
 }
@@ -1845,7 +1845,7 @@ tvm_ffi::impl_object_upcast!(StringImm => Expr, StringImm => Constant);
 impl StringImm {
     /// Create the string constant `value`, of type [`StringType`] (C++ `StringImm(value, loc)`).
     pub fn new(value: &str, loc: impl Into<Location>) -> Self {
-        let ty = StringType::new(UnknownLoc::new());
+        let ty = StringType::new(UNKNOWN_LOC);
         Self::from_fields(loc.into(), ty, String::from(value))
     }
 }

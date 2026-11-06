@@ -72,7 +72,7 @@
 // tvm-ffi-stubgen(import-object): crate::ir::expr::CallObj
 // tvm-ffi-stubgen(import-object): crate::ir::expr::IntImm
 // tvm-ffi-stubgen(import-object): crate::ir::expr::IntImmObj
-// tvm-ffi-stubgen(import-object): crate::ir::location::UnknownLoc
+// tvm-ffi-stubgen(import-object): crate::ir::location::UNKNOWN_LOC
 // tvm-ffi-stubgen(import-object): crate::ir::prim::expr::Mul
 // tvm-ffi-stubgen(import-object): crate::ir::prim::expr::MulObj
 // tvm-ffi-stubgen(import-object): crate::ir::r#type::PrimType
@@ -95,7 +95,7 @@ use crate::ir::expr::IntImmObj;
 use crate::ir::expr::IntoExpr;
 use crate::ir::expr::PrimExpr;
 use crate::ir::location::Location;
-use crate::ir::location::UnknownLoc;
+use crate::ir::location::UNKNOWN_LOC;
 use crate::ir::prim::expr::Mul;
 use crate::ir::prim::expr::MulObj;
 use crate::ir::prim::op::cast;
@@ -467,10 +467,10 @@ pub(crate) fn vscale_lanes(factor: i32) -> Result<PrimExpr> {
         Vec::<Expr>::new(),
         None,
         Vec::<Type>::new(),
-        UnknownLoc::new(),
+        UNKNOWN_LOC,
     )?
     .into();
-    Ok(Mul::new(PrimExpr::try_from(vscale)?, IntImm::int32(factor), UnknownLoc::new())?.into())
+    Ok(Mul::new(PrimExpr::try_from(vscale)?, IntImm::int32(factor), UNKNOWN_LOC)?.into())
 }
 
 /// `factor` when `lanes` is `factor * vscale` or `vscale * factor` (C++ `ExtractVscaleFactor`).

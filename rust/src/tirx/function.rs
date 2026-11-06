@@ -52,7 +52,7 @@
 // tvm-ffi-stubgen(import-object): crate::ir::r#type::FuncType
 // tvm-ffi-stubgen(import-object): crate::ir::r#type::MissingTypeObj
 // tvm-ffi-stubgen(import-object): crate::ir::r#type::TupleType
-// tvm-ffi-stubgen(import-object): crate::ir::location::UnknownLoc
+// tvm-ffi-stubgen(import-object): crate::ir::location::UNKNOWN_LOC
 
 // tvm-ffi-stubgen(begin): import-section
 use crate::ir::attrs::DictAttrs;
@@ -61,7 +61,7 @@ use crate::ir::expr::Var;
 use crate::ir::function::BaseFunc;
 use crate::ir::function::BaseFuncObj;
 use crate::ir::location::Location;
-use crate::ir::location::UnknownLoc;
+use crate::ir::location::UNKNOWN_LOC;
 use crate::ir::r#type::FuncType;
 use crate::ir::r#type::MissingTypeObj;
 use crate::ir::r#type::TupleType;
@@ -164,7 +164,7 @@ impl Function {
         let params = params.into_iter().map(Into::into).collect::<Array<Var>>();
         let ret_type: Type = ret_type.into();
         let ret_type = match ret_type.downcast_ref::<MissingTypeObj>() {
-            Some(_) => TupleType::new(Vec::<Type>::new(), UnknownLoc::new()).into(),
+            Some(_) => TupleType::new(Vec::<Type>::new(), UNKNOWN_LOC).into(),
             None => ret_type,
         };
         let param_types = params.iter().map(|param| param.ty.clone()).collect::<Vec<Type>>();

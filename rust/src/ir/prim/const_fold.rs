@@ -30,7 +30,7 @@
 use tvm_ffi::{BigInt, DLDataType, ObjectRefCore, Result, INTERNAL_ERROR};
 
 use crate::ir::expr::{FloatImm, FloatImmObj, IntImm, IntImmObj, PrimExpr};
-use crate::ir::location::UnknownLoc;
+use crate::ir::location::UNKNOWN_LOC;
 use crate::ir::support;
 
 /// The folded expression, or `None` when there is nothing to fold.
@@ -90,7 +90,7 @@ fn float(expr: &PrimExpr) -> Option<f64> {
 
 /// C++ `IntImm(dtype, value)`.
 fn int_imm(dtype: DLDataType, value: BigInt) -> Folded {
-    Ok(Some(IntImm::from_dtype(dtype, value, UnknownLoc::new())?.into()))
+    Ok(Some(IntImm::from_dtype(dtype, value, UNKNOWN_LOC)?.into()))
 }
 
 /// C++ `IntImm(result_ty, value)` of an exact result, or nothing to fold when it is not a value of
@@ -104,7 +104,7 @@ fn exact(dtype: DLDataType, value: BigInt) -> Folded {
 
 /// C++ `FloatImm(dtype, value)`.
 fn float_imm(dtype: DLDataType, value: f64) -> Folded {
-    Ok(Some(FloatImm::from_dtype(dtype, value, UnknownLoc::new())?.into()))
+    Ok(Some(FloatImm::from_dtype(dtype, value, UNKNOWN_LOC)?.into()))
 }
 
 /// C++ `IntImm::Bool(value)`.

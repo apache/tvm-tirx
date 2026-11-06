@@ -39,6 +39,8 @@
 // does.
 // tvm-ffi-stubgen(import-object): tvm_ffi::Result
 // tvm-ffi-stubgen(import-object): tvm_ffi::String
+// tvm-ffi-stubgen(import-object): std::borrow::Borrow
+// tvm-ffi-stubgen(import-object): tvm_ffi::IntoObjectRef
 
 // tvm-ffi-stubgen(begin): import-section
 use std::borrow::Borrow;

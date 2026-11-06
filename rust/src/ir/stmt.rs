@@ -72,7 +72,7 @@
 // tvm-ffi-stubgen(import-object): crate::ir::expr::Call
 // tvm-ffi-stubgen(import-object): crate::ir::expr::IntImm
 // tvm-ffi-stubgen(import-object): crate::ir::expr::IntImmObj
-// tvm-ffi-stubgen(import-object): crate::ir::location::UnknownLoc
+// tvm-ffi-stubgen(import-object): crate::ir::location::UNKNOWN_LOC
 // tvm-ffi-stubgen(import-object): crate::ir::r#type::MissingType
 // tvm-ffi-stubgen(import-object): crate::ir::r#type::MissingTypeObj
 // tvm-ffi-stubgen(import-object): crate::ir::r#type::PrimType
@@ -105,7 +105,7 @@ use crate::ir::expr::PrimVar;
 use crate::ir::expr::StringImm;
 use crate::ir::expr::Var;
 use crate::ir::location::Location;
-use crate::ir::location::UnknownLoc;
+use crate::ir::location::UNKNOWN_LOC;
 use crate::ir::op::Op;
 use crate::ir::r#type::MissingType;
 use crate::ir::r#type::MissingTypeObj;
@@ -536,9 +536,7 @@ impl For {
                         &message,
                     ));
                 }
-                return Ok(
-                    IntImm::from_dtype(var_ty.dtype, imm.value.clone(), UnknownLoc::new())?.into()
-                );
+                return Ok(IntImm::from_dtype(var_ty.dtype, imm.value.clone(), UNKNOWN_LOC)?.into());
             }
             if ty.dtype.bits > var_ty.dtype.bits {
                 let message = format!(
@@ -923,7 +921,7 @@ fn region_body_params(op: &Op, args: &Array<Expr>, attrs: &DictAttrs) -> Result<
         return Err(support::check_failed(tvm_ffi::VALUE_ERROR, "IsRegionOp(op)", &message));
     };
     let signature = Call::from_fields(
-        UnknownLoc::new(),
+        UNKNOWN_LOC,
         MissingType::new(),
         op.clone(),
         args.clone(),

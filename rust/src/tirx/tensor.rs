@@ -63,6 +63,8 @@
 // A tensor's shape is a list of `PrimExpr`s, as C++ `TensorTypeObj` holds it.
 // tvm-ffi-stubgen(field): tirx.TensorType.shape -> Array<PrimExpr>
 // tvm-ffi-stubgen(import-object): tvm_ffi::Array
+// tvm-ffi-stubgen(import-object): std::borrow::Borrow
+// tvm-ffi-stubgen(import-object): tvm_ffi::IntoObjectRef
 // tvm-ffi-stubgen(begin): import-section
 use crate::ir::expr::IntoExpr;
 use crate::ir::expr::PrimExpr;
