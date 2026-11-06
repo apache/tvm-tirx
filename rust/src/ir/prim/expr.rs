@@ -210,75 +210,6 @@ use tvm_ffi::ObjectRefCore;
 use tvm_ffi::Result;
 // tvm-ffi-stubgen(end)
 
-// ---------------------------------------------------------------------------------------------
-// What the node constructors check
-
-/// What the constructor of a binary node checks of its operands, and the type it gives the node
-/// (`TVM_DEFINE_BINOP_CONSTRUCTOR` and its siblings in `src/ir/prim/expr.cc`).
-#[derive(Clone, Copy)]
-enum Operands {
-    /// `Add`, `Min`, ...: operands of one type, which is the node's.
-    Arith,
-    /// `LShift`, `BitwiseAnd`, ...: as `Arith`, of an integer type, or boolean if allowed.
-    Bitwise { allow_bool: bool },
-    /// `EQ`, `LT`, ...: operands of one type; the node is boolean.
-    Compare,
-}
-
-/// The type of the binary node `node` of `a` and `b`, after the checks of its C++ constructor.
-fn binary_type(node: &str, operands: Operands, a: &PrimExpr, b: &PrimExpr) -> Result<PrimType> {
-    let (a_dtype, b_dtype) = (a.dtype(), b.dtype());
-    if a_dtype != b_dtype {
-        let message = format!(
-            "mismatched types. {} vs. {}\n",
-            support::dtype_name(a_dtype),
-            support::dtype_name(b_dtype)
-        );
-        let condition = "a_ty->dtype == b_ty->dtype";
-        return Err(support::check_failed(tvm_ffi::TYPE_ERROR, condition, &message));
-    }
-    match operands {
-        Operands::Arith => Ok(a.ty()),
-        Operands::Bitwise { allow_bool } => {
-            let code = a_dtype.code;
-            if matches!(code, support::INT | support::UINT) || (allow_bool && code == support::BOOL)
-            {
-                return Ok(a.ty());
-            }
-            let condition = format!(
-                "a.ty().MatchesCode(DLDataTypeCode::kDLInt, DLDataTypeCode::kDLUInt) || \
-                 ({allow_bool} && a.ty().MatchesCode(DLDataTypeCode::kDLBool))"
-            );
-            let operands = if allow_bool { "integer or boolean" } else { "integer" };
-            let message = format!("{node} requires {operands} operands");
-            Err(support::check_failed(tvm_ffi::TYPE_ERROR, &condition, &message))
-        }
-        Operands::Compare => bool_type(a_dtype),
-    }
-}
-
-/// The boolean type with the lanes of `dtype` (C++ `PrimType(DLDataType{kDLBool, 8, lanes})`).
-fn bool_type(operand: DLDataType) -> Result<PrimType> {
-    use crate::ir::dtype;
-    PrimType::from_dtype(dtype::with_lanes(dtype::bool(), operand.lanes))
-}
-
-/// The type of the logical node of `a` and `b`, after the checks of the C++ `And` and `Or`
-/// constructors: boolean operands of one type.
-fn logical_type(a: &PrimExpr, b: &PrimExpr) -> Result<PrimType> {
-    let (a_dtype, b_dtype) = (a.dtype(), b.dtype());
-    for (dtype, operand) in [(a_dtype, "a_ty"), (b_dtype, "b_ty")] {
-        if dtype.code != support::BOOL {
-            let condition = format!("{operand}.MatchesCode(DLDataTypeCode::kDLBool)");
-            return Err(support::check_failed(tvm_ffi::INTERNAL_ERROR, &condition, ""));
-        }
-    }
-    if a_dtype != b_dtype {
-        return Err(support::check_failed(tvm_ffi::TYPE_ERROR, "a_ty == b_ty", "mismatched types"));
-    }
-    bool_type(a_dtype)
-}
-
 /// `impl $node { pub fn new(a, b, loc) }` for each binary node, with the checks of its C++
 /// constructor.
 macro_rules! binary_new {
@@ -2118,4 +2049,73 @@ impl Let {
         let ty = body.ty();
         Ok(Self::from_fields(loc.into(), ty, var, value, body))
     }
+}
+
+// ---------------------------------------------------------------------------------------------
+// What the node constructors check
+
+/// What the constructor of a binary node checks of its operands, and the type it gives the node
+/// (`TVM_DEFINE_BINOP_CONSTRUCTOR` and its siblings in `src/ir/prim/expr.cc`).
+#[derive(Clone, Copy)]
+enum Operands {
+    /// `Add`, `Min`, ...: operands of one type, which is the node's.
+    Arith,
+    /// `LShift`, `BitwiseAnd`, ...: as `Arith`, of an integer type, or boolean if allowed.
+    Bitwise { allow_bool: bool },
+    /// `EQ`, `LT`, ...: operands of one type; the node is boolean.
+    Compare,
+}
+
+/// The type of the binary node `node` of `a` and `b`, after the checks of its C++ constructor.
+fn binary_type(node: &str, operands: Operands, a: &PrimExpr, b: &PrimExpr) -> Result<PrimType> {
+    let (a_dtype, b_dtype) = (a.dtype(), b.dtype());
+    if a_dtype != b_dtype {
+        let message = format!(
+            "mismatched types. {} vs. {}\n",
+            support::dtype_name(a_dtype),
+            support::dtype_name(b_dtype)
+        );
+        let condition = "a_ty->dtype == b_ty->dtype";
+        return Err(support::check_failed(tvm_ffi::TYPE_ERROR, condition, &message));
+    }
+    match operands {
+        Operands::Arith => Ok(a.ty()),
+        Operands::Bitwise { allow_bool } => {
+            let code = a_dtype.code;
+            if matches!(code, support::INT | support::UINT) || (allow_bool && code == support::BOOL)
+            {
+                return Ok(a.ty());
+            }
+            let condition = format!(
+                "a.ty().MatchesCode(DLDataTypeCode::kDLInt, DLDataTypeCode::kDLUInt) || \
+                 ({allow_bool} && a.ty().MatchesCode(DLDataTypeCode::kDLBool))"
+            );
+            let operands = if allow_bool { "integer or boolean" } else { "integer" };
+            let message = format!("{node} requires {operands} operands");
+            Err(support::check_failed(tvm_ffi::TYPE_ERROR, &condition, &message))
+        }
+        Operands::Compare => bool_type(a_dtype),
+    }
+}
+
+/// The boolean type with the lanes of `dtype` (C++ `PrimType(DLDataType{kDLBool, 8, lanes})`).
+fn bool_type(operand: DLDataType) -> Result<PrimType> {
+    use crate::ir::dtype;
+    PrimType::from_dtype(dtype::with_lanes(dtype::bool(), operand.lanes))
+}
+
+/// The type of the logical node of `a` and `b`, after the checks of the C++ `And` and `Or`
+/// constructors: boolean operands of one type.
+fn logical_type(a: &PrimExpr, b: &PrimExpr) -> Result<PrimType> {
+    let (a_dtype, b_dtype) = (a.dtype(), b.dtype());
+    for (dtype, operand) in [(a_dtype, "a_ty"), (b_dtype, "b_ty")] {
+        if dtype.code != support::BOOL {
+            let condition = format!("{operand}.MatchesCode(DLDataTypeCode::kDLBool)");
+            return Err(support::check_failed(tvm_ffi::INTERNAL_ERROR, &condition, ""));
+        }
+    }
+    if a_dtype != b_dtype {
+        return Err(support::check_failed(tvm_ffi::TYPE_ERROR, "a_ty == b_ty", "mismatched types"));
+    }
+    bool_type(a_dtype)
 }

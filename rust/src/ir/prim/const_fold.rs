@@ -38,136 +38,6 @@ use crate::ir::support;
 pub(super) type Folded = Result<Option<PrimExpr>>;
 
 // ---------------------------------------------------------------------------------------------
-// Helpers
-
-/// C++ `IsIndexType`: a scalar `int32` or `int64`, which index arithmetic folds eagerly.
-pub(super) fn is_index_type(dtype: DLDataType) -> bool {
-    dtype.code == support::INT && (dtype.bits == 32 || dtype.bits == 64) && dtype.lanes == 1
-}
-
-/// C++ `IsRepresentable(value, dtype)`: whether the exact integer `value` is a literal of the
-/// scalar type `dtype`, an integer in its range or a boolean 0 or 1 (as is an `int1`).
-pub(super) fn is_representable(value: &BigInt, dtype: DLDataType) -> bool {
-    if !support::is_scalar(dtype) || dtype.bits == 0 {
-        return false;
-    }
-    let bits = u32::from(dtype.bits);
-    if let Some(small) = value.to_i64() {
-        return match dtype.code {
-            support::UINT => small >= 0 && (bits >= 63 || (small as u64) < (1u64 << bits)),
-            support::BOOL => small == 0 || small == 1,
-            support::INT if bits == 1 => small == 0 || small == 1,
-            support::INT => {
-                bits >= 64 || (-(1i64 << (bits - 1))..1i64 << (bits - 1)).contains(&small)
-            }
-            _ => false,
-        };
-    }
-    match dtype.code {
-        support::UINT => !value.is_negative() && *value < BigInt::from(1i64) << i64::from(bits),
-        support::INT if bits > 1 => {
-            let limit = BigInt::from(1i64) << i64::from(bits - 1);
-            *value >= -limit.clone() && *value < limit
-        }
-        _ => false,
-    }
-}
-
-/// C++ `IsInFloat32Range(value)`: a value that rounds to a finite float32, or one that is not
-/// finite.
-pub(super) fn is_in_float32_range(value: f64) -> bool {
-    !value.is_finite() || (f64::from(f32::MIN)..=f64::from(f32::MAX)).contains(&value)
-}
-
-/// The value of an integer constant.
-pub(super) fn int(expr: &PrimExpr) -> Option<&BigInt> {
-    expr.downcast_ref::<IntImmObj>().map(|imm| &imm.value)
-}
-
-/// The value of a float constant.
-fn float(expr: &PrimExpr) -> Option<f64> {
-    expr.downcast_ref::<FloatImmObj>().map(|imm| imm.value)
-}
-
-/// C++ `IntImm(dtype, value)`.
-fn int_imm(dtype: DLDataType, value: BigInt) -> Folded {
-    Ok(Some(IntImm::new(PrimType::from_dtype(dtype)?, value, UNKNOWN_LOC)?.into()))
-}
-
-/// C++ `IntImm(result_ty, value)` of an exact result, or nothing to fold when it is not a value of
-/// the type.
-fn exact(dtype: DLDataType, value: BigInt) -> Folded {
-    match is_representable(&value, dtype) {
-        true => int_imm(dtype, value),
-        false => Ok(None),
-    }
-}
-
-/// C++ `FloatImm(dtype, value)`.
-fn float_imm(dtype: DLDataType, value: f64) -> Folded {
-    Ok(Some(FloatImm::new(PrimType::from_dtype(dtype)?, value, UNKNOWN_LOC)?.into()))
-}
-
-/// C++ `IntImm::Bool(value)`.
-fn boolean(value: bool) -> Folded {
-    Ok(Some(IntImm::bool(value).into()))
-}
-
-/// A float32 operation on the operands rounded to float32, as C++ computes `float` arithmetic, or
-/// `None` when the result is beyond the float32 range: C++ checks the result in double precision
-/// before rounding can turn a finite overflow into infinity, and rounding that result to float32
-/// gives the single-precision one (a double holds more than twice the digits of a float).
-fn single(x: f64, y: f64, op: fn(f64, f64) -> f64) -> Option<f64> {
-    let result = op(f64::from(x as f32), f64::from(y as f32));
-    is_in_float32_range(result).then(|| f64::from(result as f32))
-}
-
-/// C++ `FloatImm(dtype, value)` of a folded value, or nothing to fold.
-fn float_imm_of(dtype: DLDataType, value: Option<f64>) -> Folded {
-    match value {
-        Some(value) => float_imm(dtype, value),
-        None => Ok(None),
-    }
-}
-
-/// The error of `TVM_FFI_ICHECK_NE(pb->value, 0) << "Divide by zero"`.
-fn check_int_divisor(divisor: &BigInt) -> Result<()> {
-    match divisor.is_zero() {
-        true => Err(support::compare_failed(
-            INTERNAL_ERROR,
-            "pb->value != 0",
-            divisor,
-            0,
-            "Divide by zero",
-        )),
-        false => Ok(()),
-    }
-}
-
-/// The error of `TVM_FFI_ICHECK_NE(fb->value, 0) << "Divide by zero"`.
-fn check_float_divisor(divisor: f64) -> Result<()> {
-    match divisor == 0.0 {
-        true => Err(support::compare_failed(
-            INTERNAL_ERROR,
-            "fb->value != 0",
-            support::CppDouble(divisor),
-            0,
-            "Divide by zero",
-        )),
-        false => Ok(()),
-    }
-}
-
-fn is_one(value: &BigInt) -> bool {
-    value.to_i64() == Some(1)
-}
-
-/// The operand itself.
-fn keep(expr: &PrimExpr) -> Folded {
-    Ok(Some(expr.clone()))
-}
-
-// ---------------------------------------------------------------------------------------------
 // Arithmetic
 
 /// `TryConstFold<Add>`.
@@ -483,4 +353,134 @@ pub(super) fn not(a: &PrimExpr) -> Folded {
         Some(x) => boolean(x.is_zero()),
         None => Ok(None),
     }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Helpers
+
+/// C++ `IsIndexType`: a scalar `int32` or `int64`, which index arithmetic folds eagerly.
+pub(super) fn is_index_type(dtype: DLDataType) -> bool {
+    dtype.code == support::INT && (dtype.bits == 32 || dtype.bits == 64) && dtype.lanes == 1
+}
+
+/// C++ `IsRepresentable(value, dtype)`: whether the exact integer `value` is a literal of the
+/// scalar type `dtype`, an integer in its range or a boolean 0 or 1 (as is an `int1`).
+pub(super) fn is_representable(value: &BigInt, dtype: DLDataType) -> bool {
+    if !support::is_scalar(dtype) || dtype.bits == 0 {
+        return false;
+    }
+    let bits = u32::from(dtype.bits);
+    if let Some(small) = value.to_i64() {
+        return match dtype.code {
+            support::UINT => small >= 0 && (bits >= 63 || (small as u64) < (1u64 << bits)),
+            support::BOOL => small == 0 || small == 1,
+            support::INT if bits == 1 => small == 0 || small == 1,
+            support::INT => {
+                bits >= 64 || (-(1i64 << (bits - 1))..1i64 << (bits - 1)).contains(&small)
+            }
+            _ => false,
+        };
+    }
+    match dtype.code {
+        support::UINT => !value.is_negative() && *value < BigInt::from(1i64) << i64::from(bits),
+        support::INT if bits > 1 => {
+            let limit = BigInt::from(1i64) << i64::from(bits - 1);
+            *value >= -limit.clone() && *value < limit
+        }
+        _ => false,
+    }
+}
+
+/// C++ `IsInFloat32Range(value)`: a value that rounds to a finite float32, or one that is not
+/// finite.
+pub(super) fn is_in_float32_range(value: f64) -> bool {
+    !value.is_finite() || (f64::from(f32::MIN)..=f64::from(f32::MAX)).contains(&value)
+}
+
+/// The value of an integer constant.
+pub(super) fn int(expr: &PrimExpr) -> Option<&BigInt> {
+    expr.downcast_ref::<IntImmObj>().map(|imm| &imm.value)
+}
+
+/// The value of a float constant.
+fn float(expr: &PrimExpr) -> Option<f64> {
+    expr.downcast_ref::<FloatImmObj>().map(|imm| imm.value)
+}
+
+/// C++ `IntImm(dtype, value)`.
+fn int_imm(dtype: DLDataType, value: BigInt) -> Folded {
+    Ok(Some(IntImm::new(PrimType::from_dtype(dtype)?, value, UNKNOWN_LOC)?.into()))
+}
+
+/// C++ `IntImm(result_ty, value)` of an exact result, or nothing to fold when it is not a value of
+/// the type.
+fn exact(dtype: DLDataType, value: BigInt) -> Folded {
+    match is_representable(&value, dtype) {
+        true => int_imm(dtype, value),
+        false => Ok(None),
+    }
+}
+
+/// C++ `FloatImm(dtype, value)`.
+fn float_imm(dtype: DLDataType, value: f64) -> Folded {
+    Ok(Some(FloatImm::new(PrimType::from_dtype(dtype)?, value, UNKNOWN_LOC)?.into()))
+}
+
+/// C++ `IntImm::Bool(value)`.
+fn boolean(value: bool) -> Folded {
+    Ok(Some(IntImm::bool(value).into()))
+}
+
+/// A float32 operation on the operands rounded to float32, as C++ computes `float` arithmetic, or
+/// `None` when the result is beyond the float32 range: C++ checks the result in double precision
+/// before rounding can turn a finite overflow into infinity, and rounding that result to float32
+/// gives the single-precision one (a double holds more than twice the digits of a float).
+fn single(x: f64, y: f64, op: fn(f64, f64) -> f64) -> Option<f64> {
+    let result = op(f64::from(x as f32), f64::from(y as f32));
+    is_in_float32_range(result).then(|| f64::from(result as f32))
+}
+
+/// C++ `FloatImm(dtype, value)` of a folded value, or nothing to fold.
+fn float_imm_of(dtype: DLDataType, value: Option<f64>) -> Folded {
+    match value {
+        Some(value) => float_imm(dtype, value),
+        None => Ok(None),
+    }
+}
+
+/// The error of `TVM_FFI_ICHECK_NE(pb->value, 0) << "Divide by zero"`.
+fn check_int_divisor(divisor: &BigInt) -> Result<()> {
+    match divisor.is_zero() {
+        true => Err(support::compare_failed(
+            INTERNAL_ERROR,
+            "pb->value != 0",
+            divisor,
+            0,
+            "Divide by zero",
+        )),
+        false => Ok(()),
+    }
+}
+
+/// The error of `TVM_FFI_ICHECK_NE(fb->value, 0) << "Divide by zero"`.
+fn check_float_divisor(divisor: f64) -> Result<()> {
+    match divisor == 0.0 {
+        true => Err(support::compare_failed(
+            INTERNAL_ERROR,
+            "fb->value != 0",
+            support::CppDouble(divisor),
+            0,
+            "Divide by zero",
+        )),
+        false => Ok(()),
+    }
+}
+
+fn is_one(value: &BigInt) -> bool {
+    value.to_i64() == Some(1)
+}
+
+/// The operand itself.
+fn keep(expr: &PrimExpr) -> Folded {
+    Ok(Some(expr.clone()))
 }

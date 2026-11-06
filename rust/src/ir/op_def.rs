@@ -267,17 +267,6 @@ impl Drop for OpDef {
     }
 }
 
-/// Request the APIs of a defined operator in registered destinations through `ir.expose_op`,
-/// after its signature and attributes are ready. An absent receiver is a no-op; an installed
-/// receiver's error is returned.
-fn complete(state: Result<Op>) -> Result<Op> {
-    let op = state?;
-    if let Ok(expose) = tvm_ffi::Function::get_global("ir.expose_op") {
-        expose.call_tuple((op.name.clone(),))?;
-    }
-    Ok(op)
-}
-
 /// The key of an operator attribute, C++ `ffi::reflection::AttrKey<T>`: its name and the type `T`
 /// of its values.
 ///
@@ -354,83 +343,6 @@ impl From<CallEffectKind> for Any {
     fn from(kind: CallEffectKind) -> Self {
         Any::from(kind as i64)
     }
-}
-
-/// The text of `doc` without the indentation its lines share and without the blank lines around
-/// it. Text that is not indented is unchanged.
-fn doc_text(doc: &str) -> std::string::String {
-    let indent = doc
-        .lines()
-        .filter(|line| !line.trim().is_empty())
-        .map(|line| line.len() - line.trim_start().len())
-        .min()
-        .unwrap_or(0);
-    let lines: Vec<&str> =
-        doc.lines().map(|line| line.get(indent..).unwrap_or("").trim_end()).collect();
-    lines.join("\n").trim().to_string()
-}
-
-/// The C ABI of a native operator hook, `NativeFunctionView<R(const CallNode*)>`: it returns
-/// the result, or the error, in an owned `TVMFFIAny`.
-type Hook = extern "C" fn(*const CallObj) -> TVMFFIAny;
-
-/// The C ABI of a native hook on a region statement, `NativeFunctionView<R(const
-/// RegionStmtNode*)>`.
-type RegionHook = extern "C" fn(*const RegionStmtObj) -> TVMFFIAny;
-
-extern "C" fn validate_abi<F: Fn(&CallObj) -> Result<()>>(call: *const CallObj) -> TVMFFIAny {
-    call_hook(call, zero_sized::<F>())
-}
-
-extern "C" fn infer_type_abi<F: Fn(&CallObj) -> Result<Type>>(call: *const CallObj) -> TVMFFIAny {
-    call_hook(call, zero_sized::<F>())
-}
-
-extern "C" fn validate_signature<L: Checks>(call: *const CallObj) -> TVMFFIAny {
-    call_hook(call, sig::validate::<L>)
-}
-
-extern "C" fn region_body_params_abi<F: Fn(&CallObj) -> Result<Array<Var>>>(
-    call: *const CallObj,
-) -> TVMFFIAny {
-    call_hook(call, zero_sized::<F>())
-}
-
-extern "C" fn region_validate_abi<F: Fn(&RegionStmtObj) -> Result<()>>(
-    region: *const RegionStmtObj,
-) -> TVMFFIAny {
-    call_hook(region, zero_sized::<F>())
-}
-
-/// The only value of `F`, a function or a closure that captures nothing.
-fn zero_sized<F>() -> F {
-    const {
-        assert!(
-            std::mem::size_of::<F>() == 0,
-            "a native operator hook is a function or a closure that captures nothing"
-        )
-    };
-    // SAFETY: a zero-sized type has no bytes to initialize.
-    unsafe { std::mem::zeroed() }
-}
-
-/// Run `hook` on the node C++ passes (the Call or region being typed or checked) and return its
-/// result as the hook ABI does. A panic, which must not unwind into C++, becomes an error.
-fn call_hook<N, R: Into<Any>>(node: *const N, hook: impl Fn(&N) -> Result<R>) -> TVMFFIAny {
-    let result = catch_unwind(AssertUnwindSafe(|| {
-        // SAFETY: C++ passes the node being typed or checked, alive for the call.
-        match unsafe { node.as_ref() } {
-            Some(node) => hook(node).map(Into::into),
-            None => Err(Error::new(TYPE_ERROR, "Invalid Op Call", "")),
-        }
-    }));
-    let value = match result {
-        Ok(Ok(value)) => value,
-        Ok(Err(error)) => Any::from(error),
-        Err(payload) => Any::from(tvm_ffi::Error::from_panic(payload)),
-    };
-    // The C++ caller takes ownership of the value.
-    Any::into_raw_ffi_any(value)
 }
 
 /// Signature descriptors for [`OpDef::signature`], C++ `sig::arg<T>` and friends.
@@ -873,4 +785,95 @@ pub mod sig {
         );
         Err(Error::new(TYPE_ERROR, &message, ""))
     }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Helpers
+
+/// Request the APIs of a defined operator in registered destinations through `ir.expose_op`,
+/// after its signature and attributes are ready. An absent receiver is a no-op; an installed
+/// receiver's error is returned.
+fn complete(state: Result<Op>) -> Result<Op> {
+    let op = state?;
+    if let Ok(expose) = tvm_ffi::Function::get_global("ir.expose_op") {
+        expose.call_tuple((op.name.clone(),))?;
+    }
+    Ok(op)
+}
+
+/// The text of `doc` without the indentation its lines share and without the blank lines around
+/// it. Text that is not indented is unchanged.
+fn doc_text(doc: &str) -> std::string::String {
+    let indent = doc
+        .lines()
+        .filter(|line| !line.trim().is_empty())
+        .map(|line| line.len() - line.trim_start().len())
+        .min()
+        .unwrap_or(0);
+    let lines: Vec<&str> =
+        doc.lines().map(|line| line.get(indent..).unwrap_or("").trim_end()).collect();
+    lines.join("\n").trim().to_string()
+}
+
+/// The C ABI of a native operator hook, `NativeFunctionView<R(const CallNode*)>`: it returns
+/// the result, or the error, in an owned `TVMFFIAny`.
+type Hook = extern "C" fn(*const CallObj) -> TVMFFIAny;
+
+/// The C ABI of a native hook on a region statement, `NativeFunctionView<R(const
+/// RegionStmtNode*)>`.
+type RegionHook = extern "C" fn(*const RegionStmtObj) -> TVMFFIAny;
+
+extern "C" fn validate_abi<F: Fn(&CallObj) -> Result<()>>(call: *const CallObj) -> TVMFFIAny {
+    call_hook(call, zero_sized::<F>())
+}
+
+extern "C" fn infer_type_abi<F: Fn(&CallObj) -> Result<Type>>(call: *const CallObj) -> TVMFFIAny {
+    call_hook(call, zero_sized::<F>())
+}
+
+extern "C" fn validate_signature<L: Checks>(call: *const CallObj) -> TVMFFIAny {
+    call_hook(call, sig::validate::<L>)
+}
+
+extern "C" fn region_body_params_abi<F: Fn(&CallObj) -> Result<Array<Var>>>(
+    call: *const CallObj,
+) -> TVMFFIAny {
+    call_hook(call, zero_sized::<F>())
+}
+
+extern "C" fn region_validate_abi<F: Fn(&RegionStmtObj) -> Result<()>>(
+    region: *const RegionStmtObj,
+) -> TVMFFIAny {
+    call_hook(region, zero_sized::<F>())
+}
+
+/// The only value of `F`, a function or a closure that captures nothing.
+fn zero_sized<F>() -> F {
+    const {
+        assert!(
+            std::mem::size_of::<F>() == 0,
+            "a native operator hook is a function or a closure that captures nothing"
+        )
+    };
+    // SAFETY: a zero-sized type has no bytes to initialize.
+    unsafe { std::mem::zeroed() }
+}
+
+/// Run `hook` on the node C++ passes (the Call or region being typed or checked) and return its
+/// result as the hook ABI does. A panic, which must not unwind into C++, becomes an error.
+fn call_hook<N, R: Into<Any>>(node: *const N, hook: impl Fn(&N) -> Result<R>) -> TVMFFIAny {
+    let result = catch_unwind(AssertUnwindSafe(|| {
+        // SAFETY: C++ passes the node being typed or checked, alive for the call.
+        match unsafe { node.as_ref() } {
+            Some(node) => hook(node).map(Into::into),
+            None => Err(Error::new(TYPE_ERROR, "Invalid Op Call", "")),
+        }
+    }));
+    let value = match result {
+        Ok(Ok(value)) => value,
+        Ok(Err(error)) => Any::from(error),
+        Err(payload) => Any::from(tvm_ffi::Error::from_panic(payload)),
+    };
+    // The C++ caller takes ownership of the value.
+    Any::into_raw_ffi_any(value)
 }

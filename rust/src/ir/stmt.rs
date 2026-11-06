@@ -572,17 +572,6 @@ impl For {
     }
 }
 
-/// Whether `value` is in the range of the integer type `dtype` (C++ `IntImmValueFits`).
-fn int_imm_value_fits(value: &BigInt, dtype: DLDataType) -> Result<bool> {
-    let bits = dtype.bits as u32;
-    if dtype.code == support::UINT {
-        let limit = BigInt::from(1i64).try_shl(bits as i64)?;
-        return Ok(!value.is_negative() && *value < limit);
-    }
-    let limit = BigInt::from(1i64).try_shl(bits as i64 - 1)?;
-    Ok(*value >= -limit.clone() && *value < limit)
-}
-
 // tvm-ffi-stubgen(begin): object/ir.While
 /// Complete: reflected fields fill [32, 48) exactly.
 #[repr(C)]
@@ -900,50 +889,6 @@ impl RegionStmt {
     }
 }
 
-/// The parameters the body of a region of `op` on `args` binds, which the operator's
-/// `FRegionGetBodyParams` gives once its validator accepts the arguments
-/// (C++ `GetRegionBodyParams`).
-fn region_body_params(op: &Op, args: &Array<Expr>, attrs: &DictAttrs) -> Result<Array<Var>> {
-    let name = op.name.as_str();
-    let Some(get_body_params) = support::NativeHook::of_op(op, "FRegionGetBodyParams")? else {
-        let message = format!(
-            "{name} does not support region construction: FRegionGetBodyParams is required"
-        );
-        return Err(support::check_failed(tvm_ffi::VALUE_ERROR, "IsRegionOp(op)", &message));
-    };
-    let signature = Call::from_fields(
-        UNKNOWN_LOC,
-        MissingType::new(),
-        op.clone(),
-        args.clone(),
-        Some(attrs.clone().into()),
-        Array::from_vec(vec![]),
-    );
-    signature.validate()?;
-    let params: Array<Var> = get_body_params.call_as(&signature)?;
-    let mut definitions = std::collections::HashSet::new();
-    for param in params.iter() {
-        if param.ty.downcast_ref::<MissingTypeObj>().is_some() {
-            let condition = "!param->ty.as<MissingType>().has_value()";
-            let message = format!("FRegionGetBodyParams for {name} must return typed variables");
-            return Err(support::check_failed(tvm_ffi::VALUE_ERROR, condition, &message));
-        }
-        if !definitions.insert(object_address(param)) {
-            let condition = "definitions.insert(param.get()).second";
-            let message =
-                format!("FRegionGetBodyParams for {name} must return distinct definitions");
-            return Err(support::check_failed(tvm_ffi::VALUE_ERROR, condition, &message));
-        }
-    }
-    Ok(params)
-}
-
-/// The address of the object `value` refers to, which identifies a definition.
-fn object_address<T: ObjectRefCore>(value: &T) -> usize {
-    // The pointer is only compared, never dereferenced.
-    ObjectArc::as_ptr(ObjectRefCore::data(value)) as usize
-}
-
 // tvm-ffi-stubgen(begin): object/ir.SeqStmt
 /// Complete: reflected fields fill [32, 40) exactly.
 #[repr(C)]
@@ -1000,42 +945,6 @@ impl SeqStmt {
         let seq = seq.into_iter().map(Into::into).collect::<Array<Stmt>>();
         Self::from_fields(loc.into(), flatten(seq))
     }
-}
-
-/// `seq` with each nested sequence replaced by its statements and the no-ops removed.
-fn flatten(seq: Array<Stmt>) -> Array<Stmt> {
-    let nested_or_no_op =
-        |stmt: &Stmt| stmt.downcast_ref::<SeqStmtObj>().is_some() || is_no_op(stmt);
-    if !seq.iter().any(nested_or_no_op) {
-        return seq;
-    }
-    fn append(stmt: Stmt, flattened: &mut Vec<Stmt>) {
-        match stmt.downcast_ref::<SeqStmtObj>() {
-            Some(nested) => nested.seq.iter().for_each(|child| append(child.clone(), flattened)),
-            None if is_no_op(&stmt) => {}
-            None => flattened.push(stmt),
-        }
-    }
-    let mut flattened = Vec::new();
-    seq.iter().for_each(|stmt| append(stmt.clone(), &mut flattened));
-    Array::from_vec(flattened)
-}
-
-/// Whether `stmt` is `Evaluate(0)`, the no-op a sequence drops (C++ `IsSeqStmtNoOp`).
-fn is_no_op(stmt: &Stmt) -> bool {
-    stmt.downcast_ref::<EvaluateObj>()
-        .and_then(|evaluate| evaluate.value.downcast_ref::<IntImmObj>())
-        .is_some_and(|imm| imm.value == BigInt::from(0i64))
-}
-
-/// A statement as a body, as C++ converts a `Stmt` to a `SeqStmt`: a sequence as it is, any other
-/// statement as the sequence of it at its location (C++ `SeqStmt(stmt)`).
-fn into_body(stmt: Stmt) -> Result<SeqStmt> {
-    if stmt.downcast_ref::<SeqStmtObj>().is_some() {
-        return Ok(stmt.downcast().expect("a SeqStmt"));
-    }
-    let loc = stmt.loc.clone();
-    Ok(SeqStmt::from_fields(loc, flatten(Array::from_vec(vec![stmt]))))
 }
 
 // tvm-ffi-stubgen(begin): object/ir.If
@@ -1326,3 +1235,97 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(Continue => Stmt);
 // tvm-ffi-stubgen(end)
 
 // `ir.Continue` stores its location as given: the generated `Continue::new` is the same.
+
+// ---------------------------------------------------------------------------------------------
+// Helpers
+
+/// Whether `value` is in the range of the integer type `dtype` (C++ `IntImmValueFits`).
+fn int_imm_value_fits(value: &BigInt, dtype: DLDataType) -> Result<bool> {
+    let bits = dtype.bits as u32;
+    if dtype.code == support::UINT {
+        let limit = BigInt::from(1i64).try_shl(bits as i64)?;
+        return Ok(!value.is_negative() && *value < limit);
+    }
+    let limit = BigInt::from(1i64).try_shl(bits as i64 - 1)?;
+    Ok(*value >= -limit.clone() && *value < limit)
+}
+
+/// The parameters the body of a region of `op` on `args` binds, which the operator's
+/// `FRegionGetBodyParams` gives once its validator accepts the arguments
+/// (C++ `GetRegionBodyParams`).
+fn region_body_params(op: &Op, args: &Array<Expr>, attrs: &DictAttrs) -> Result<Array<Var>> {
+    let name = op.name.as_str();
+    let Some(get_body_params) = support::NativeHook::of_op(op, "FRegionGetBodyParams")? else {
+        let message = format!(
+            "{name} does not support region construction: FRegionGetBodyParams is required"
+        );
+        return Err(support::check_failed(tvm_ffi::VALUE_ERROR, "IsRegionOp(op)", &message));
+    };
+    let signature = Call::from_fields(
+        UNKNOWN_LOC,
+        MissingType::new(),
+        op.clone(),
+        args.clone(),
+        Some(attrs.clone().into()),
+        Array::from_vec(vec![]),
+    );
+    signature.validate()?;
+    let params: Array<Var> = get_body_params.call_as(&signature)?;
+    let mut definitions = std::collections::HashSet::new();
+    for param in params.iter() {
+        if param.ty.downcast_ref::<MissingTypeObj>().is_some() {
+            let condition = "!param->ty.as<MissingType>().has_value()";
+            let message = format!("FRegionGetBodyParams for {name} must return typed variables");
+            return Err(support::check_failed(tvm_ffi::VALUE_ERROR, condition, &message));
+        }
+        if !definitions.insert(object_address(param)) {
+            let condition = "definitions.insert(param.get()).second";
+            let message =
+                format!("FRegionGetBodyParams for {name} must return distinct definitions");
+            return Err(support::check_failed(tvm_ffi::VALUE_ERROR, condition, &message));
+        }
+    }
+    Ok(params)
+}
+
+/// The address of the object `value` refers to, which identifies a definition.
+fn object_address<T: ObjectRefCore>(value: &T) -> usize {
+    // The pointer is only compared, never dereferenced.
+    ObjectArc::as_ptr(ObjectRefCore::data(value)) as usize
+}
+
+/// `seq` with each nested sequence replaced by its statements and the no-ops removed.
+fn flatten(seq: Array<Stmt>) -> Array<Stmt> {
+    let nested_or_no_op =
+        |stmt: &Stmt| stmt.downcast_ref::<SeqStmtObj>().is_some() || is_no_op(stmt);
+    if !seq.iter().any(nested_or_no_op) {
+        return seq;
+    }
+    fn append(stmt: Stmt, flattened: &mut Vec<Stmt>) {
+        match stmt.downcast_ref::<SeqStmtObj>() {
+            Some(nested) => nested.seq.iter().for_each(|child| append(child.clone(), flattened)),
+            None if is_no_op(&stmt) => {}
+            None => flattened.push(stmt),
+        }
+    }
+    let mut flattened = Vec::new();
+    seq.iter().for_each(|stmt| append(stmt.clone(), &mut flattened));
+    Array::from_vec(flattened)
+}
+
+/// Whether `stmt` is `Evaluate(0)`, the no-op a sequence drops (C++ `IsSeqStmtNoOp`).
+fn is_no_op(stmt: &Stmt) -> bool {
+    stmt.downcast_ref::<EvaluateObj>()
+        .and_then(|evaluate| evaluate.value.downcast_ref::<IntImmObj>())
+        .is_some_and(|imm| imm.value == BigInt::from(0i64))
+}
+
+/// A statement as a body, as C++ converts a `Stmt` to a `SeqStmt`: a sequence as it is, any other
+/// statement as the sequence of it at its location (C++ `SeqStmt(stmt)`).
+fn into_body(stmt: Stmt) -> Result<SeqStmt> {
+    if stmt.downcast_ref::<SeqStmtObj>().is_some() {
+        return Ok(stmt.downcast().expect("a SeqStmt"));
+    }
+    let loc = stmt.loc.clone();
+    Ok(SeqStmt::from_fields(loc, flatten(Array::from_vec(vec![stmt]))))
+}

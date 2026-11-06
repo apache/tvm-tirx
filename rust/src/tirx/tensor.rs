@@ -163,24 +163,6 @@ unsafe impl tvm_ffi::object::ImmutableObject for TensorTypeObj {}
 tvm_ffi::unsafe_impl_object_ref_upcast!(TensorType => Type);
 // tvm-ffi-stubgen(end)
 
-/// The runtime's allocation alignment (C++ `runtime::kAllocAlignment`, which a build may set),
-/// read from the default the reflection registers for `TensorType::data_alignment`.
-fn alloc_alignment() -> Result<i32> {
-    static ALLOC_ALIGNMENT: std::sync::OnceLock<i32> = std::sync::OnceLock::new();
-    if let Some(alignment) = ALLOC_ALIGNMENT.get() {
-        return Ok(*alignment);
-    }
-    let Some(default) = support::field_default(TensorTypeObj::type_index(), "data_alignment")
-    else {
-        let message = "tirx.TensorType registers no default data_alignment";
-        return Err(tvm_ffi::Error::new(tvm_ffi::INTERNAL_ERROR, message, ""));
-    };
-    let alignment = i32::try_from(i64::try_from(default)?).map_err(|_| {
-        tvm_ffi::Error::new(tvm_ffi::INTERNAL_ERROR, "the default data_alignment exceeds i32", "")
-    })?;
-    Ok(*ALLOC_ALIGNMENT.get_or_init(|| alignment))
-}
-
 impl TensorType {
     /// Create the type of a tensor of `shape` and `dtype` in `scope`, aligned to `data_alignment`
     /// bytes (the runtime's allocation alignment when 0 or less), with `layout` if given (C++
@@ -220,6 +202,20 @@ impl TensorType {
     }
 }
 
+/// A signature descriptor ([`sig::ArgType`]) of a `Var`, not a subclass, whose type is a
+/// [`TensorType`] (C++ `tirx::TensorVar`).
+pub struct TensorVar;
+
+impl sig::ArgType for TensorVar {
+    fn check(value: &TVMFFIAny) -> bool {
+        sig::var_of_type::<TensorTypeObj>(value)
+    }
+
+    fn type_str() -> std::string::String {
+        crate::ir::expr::VarObj::TYPE_KEY.into()
+    }
+}
+
 /// Return whether the tensor variable `tensor` is a scalar: one element, the default alignment and
 /// a trivial layout; `alloc_or_decl` is true for `alloc_scalar`, false for `decl_scalar`
 /// (`tirx.TensorIsScalar`).
@@ -233,16 +229,20 @@ pub fn tensor_is_scalar(tensor: impl IntoObjectRef<Var>, alloc_or_decl: bool) ->
         .try_into()
 }
 
-/// A signature descriptor ([`sig::ArgType`]) of a `Var`, not a subclass, whose type is a
-/// [`TensorType`] (C++ `tirx::TensorVar`).
-pub struct TensorVar;
-
-impl sig::ArgType for TensorVar {
-    fn check(value: &TVMFFIAny) -> bool {
-        sig::var_of_type::<TensorTypeObj>(value)
+/// The runtime's allocation alignment (C++ `runtime::kAllocAlignment`, which a build may set),
+/// read from the default the reflection registers for `TensorType::data_alignment`.
+fn alloc_alignment() -> Result<i32> {
+    static ALLOC_ALIGNMENT: std::sync::OnceLock<i32> = std::sync::OnceLock::new();
+    if let Some(alignment) = ALLOC_ALIGNMENT.get() {
+        return Ok(*alignment);
     }
-
-    fn type_str() -> std::string::String {
-        crate::ir::expr::VarObj::TYPE_KEY.into()
-    }
+    let Some(default) = support::field_default(TensorTypeObj::type_index(), "data_alignment")
+    else {
+        let message = "tirx.TensorType registers no default data_alignment";
+        return Err(tvm_ffi::Error::new(tvm_ffi::INTERNAL_ERROR, message, ""));
+    };
+    let alignment = i32::try_from(i64::try_from(default)?).map_err(|_| {
+        tvm_ffi::Error::new(tvm_ffi::INTERNAL_ERROR, "the default data_alignment exceeds i32", "")
+    })?;
+    Ok(*ALLOC_ALIGNMENT.get_or_init(|| alignment))
 }
