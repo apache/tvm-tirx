@@ -309,7 +309,9 @@ TEST(ConstraintFunctor, NativeVisitorErrorPropagation) {
   PrimExpr root = prim::Add(IntImm::Int32(1), IntImm::Int32(2));
   auto result = visitor->VisitExpected(root);
   ASSERT_TRUE(result.is_err());
-  EXPECT_TRUE(result.error().same_as(visitor->error));
+  // The visitor still holds the thrown Error, so the context lands on a copy.
+  EXPECT_FALSE(ffi::VisitErrorContext::TryGetFromError(visitor->error).has_value());
+  EXPECT_EQ(result.error().message(), "native visit failure");
   auto context = ffi::VisitErrorContext::TryGetFromError(result.error());
   ASSERT_TRUE(context.has_value());
   ASSERT_EQ(context.value()->reverse_visit_pattern.size(), 2);
