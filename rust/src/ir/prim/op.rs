@@ -849,7 +849,7 @@ pub(crate) fn make_const_scalar(
         };
         return Ok(FloatImm::new(ty, value, loc.clone())?.into());
     }
-    let message = format!("cannot make const for type {}", support::repr(&ty));
+    let message = format!("cannot make const for type {ty}");
     Err(Error::new(INTERNAL_ERROR, &message, ""))
 }
 
@@ -1529,8 +1529,7 @@ pub fn logical_not_at(a: impl IntoExpr<PrimExpr>, loc: impl Into<Location>) -> R
     check_code(&a, "a", &BOOLEAN, BOOL_CODES, || {
         format!(
             "Expected boolean argument for ! operator (logical NOT), but received {} of type {}",
-            support::repr(&a),
-            support::repr(&a.ty)
+            a, a.ty
         )
     })?;
     match const_fold::not(&a)? {
@@ -1711,8 +1710,7 @@ pub fn bitwise_not_at(a: impl IntoExpr<PrimExpr>, loc: impl Into<Location>) -> R
         format!(
             "Expected integer or boolean argument for ~ operator (bitwise NOT), but received {} \
              of type {}",
-            support::repr(&a),
-            support::repr(&a.ty)
+            a, a.ty
         )
     })?;
     Ok(BitwiseNot::new(a, loc)?.into())
@@ -1738,7 +1736,7 @@ fn fold_shift(
             let message = format!(
                 "Shift amount must be non-negative and less than {} for type {}",
                 ty.bits(),
-                support::repr(ty)
+                ty
             );
             return Err(support::check_failed(INTERNAL_ERROR, condition, &message));
         }
@@ -1864,7 +1862,7 @@ pub fn max_value_at(ty: impl Into<PrimType>, loc: impl Into<Location>) -> Result
         _ => match small_float_bound(code) {
             Some((max, _)) => float(max),
             None => {
-                let message = format!("Cannot decide max_value for type{}", support::repr(&ty));
+                let message = format!("Cannot decide max_value for type{ty}");
                 Err(Error::new(INTERNAL_ERROR, &message, ""))
             }
         },
@@ -1891,7 +1889,7 @@ pub fn min_value_at(ty: impl Into<PrimType>, loc: impl Into<Location>) -> Result
             Some((_, true)) => float(0.0),
             Some((max, false)) => float(-max),
             None => {
-                let message = format!("Cannot decide min_value for type{}", support::repr(&ty));
+                let message = format!("Cannot decide min_value for type{ty}");
                 Err(Error::new(INTERNAL_ERROR, &message, ""))
             }
         },
@@ -1906,7 +1904,7 @@ pub fn infinity_at(ty: impl Into<PrimType>, loc: impl Into<Location>) -> Result<
         (support::FLOAT, 64) => Ok(FloatImm::new(ty, f64::INFINITY, loc)?.into()),
         (support::FLOAT, 32 | 16) => Ok(FloatImm::new(ty, f64::from(f32::INFINITY), loc)?.into()),
         _ => {
-            let message = format!("Cannot decide infinity for type {}", support::repr(&ty));
+            let message = format!("Cannot decide infinity for type {ty}");
             Err(Error::new(INTERNAL_ERROR, &message, ""))
         }
     }
@@ -2004,7 +2002,7 @@ fn absolute(x: PrimExpr, loc: Location) -> Result<PrimExpr> {
         _ => {
             let message = format!(
                 "Data type {} not supported for absolute op. Skipping absolute op...",
-                support::repr(&x.ty)
+                x.ty
             );
             Err(Error::new(INTERNAL_ERROR, &message, ""))
         }
@@ -2042,10 +2040,8 @@ fn infinite(x: PrimExpr, loc: Location) -> Result<PrimExpr> {
             logical_and(at_infinity, not_nan)
         }
         _ => {
-            let message = format!(
-                "Data type {} not supported for finiteness ops. Skipping it...",
-                support::repr(&x.ty)
-            );
+            let message =
+                format!("Data type {} not supported for finiteness ops. Skipping it...", x.ty);
             Err(Error::new(INTERNAL_ERROR, &message, ""))
         }
     }
@@ -2211,8 +2207,7 @@ fn unary_intrinsic(
     if float_only && !ty.matches_code(&[DLDataTypeCode::kDLFloat]) && !is_bfloat16(&ty) {
         let condition = "dtype.code() == DLDataTypeCode::kDLFloat || \
                          dtype.MatchesElementType(DLDataTypeCode::kDLBfloat, 16)";
-        let message =
-            format!("{op} only supports floating-point inputs, but got {}", support::repr(&x.ty));
+        let message = format!("{op} only supports floating-point inputs, but got {}", x.ty);
         return Err(support::check_failed(TYPE_ERROR, condition, &message));
     }
     if !is_bfloat16(&ty) {
@@ -2313,8 +2308,8 @@ const BOOL_CODES: &str = "DLDataTypeCode::kDLBool";
 /// `TVM_FFI_ICHECK(x.ty().MatchesCode(kDLInt, kDLUInt)) << x` of the integer divisions, on both
 /// operands.
 fn check_integers(a: &PrimExpr, b: &PrimExpr) -> Result<()> {
-    check_code(a, "a", &INTEGER, INTEGER_CODES, || support::repr(a))?;
-    check_code(b, "b", &INTEGER, INTEGER_CODES, || support::repr(b))
+    check_code(a, "a", &INTEGER, INTEGER_CODES, || a.to_string())?;
+    check_code(b, "b", &INTEGER, INTEGER_CODES, || b.to_string())
 }
 
 /// The operand checks of an operator `symbol` (`what` names it) that takes `kind` arguments:
@@ -2332,8 +2327,7 @@ fn check_operands(
             format!(
                 "Expected {kind} argument as {which} of {symbol} operator ({what}), but received \
                  {} of type {}",
-                support::repr(operand),
-                support::repr(&operand.ty)
+                operand, operand.ty
             )
         })?;
     }

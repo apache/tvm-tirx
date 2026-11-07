@@ -31,9 +31,9 @@ use tvm_ffi::Any;
 use tvm_ffi::Map;
 use tvm_ffi::Object;
 use tvm_ffi::ObjectArc;
-use tvm_ffi::ShallowCopy;
 use tvm_ffi::String;
-use tvm_ffi::UnsafeInit;
+use tvm_ffi::reflection::ShallowCopy;
+use tvm_ffi::reflection::UnsafeInit;
 // tvm-ffi-stubgen(end)
 
 /// The base of every attribute object, the metadata attached to a call, a function or a module.

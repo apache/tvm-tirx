@@ -22,11 +22,10 @@
 //! [`AttrKey`], such as the shared ones in [`op_attr`].
 
 use std::any::TypeId;
-use std::ffi::c_void;
 use std::marker::PhantomData;
-use std::panic::{catch_unwind, AssertUnwindSafe};
 
-use tvm_ffi::tvm_ffi_sys::{TVMFFIAny, TVMFFITypeIndex};
+use tvm_ffi::reflection::NativeFunction;
+use tvm_ffi::tvm_ffi_sys::TVMFFITypeIndex;
 use tvm_ffi::{Any, AnyView, Array, Error, ObjectRefCore, Result, String, TYPE_ERROR, VALUE_ERROR};
 
 use super::attrs::Attrs;
@@ -34,7 +33,6 @@ use super::expr::{CallObj, Expr, Var};
 use super::op::{Op, OpObj};
 use super::r#type::Type;
 use super::stmt::RegionStmtObj;
-use super::support;
 use sig::{Checks, Specs};
 
 /// A chain of steps that registers a new operator.
@@ -43,6 +41,9 @@ use sig::{Checks, Specs};
 /// when it is dropped, panicking with the error of a failed step, or by [`OpDef::op`], which
 /// returns it. Register an operator before building IR with it, as a
 /// [`tvm_ffi::static_init_block!`] does.
+///
+/// A hook, such as the one [`OpDef::set_infer_type`] sets, reports failure through its `Result`; a
+/// panic in it aborts the process, since it would unwind into native code.
 ///
 /// # Examples
 ///
@@ -108,8 +109,8 @@ impl OpDef {
         let args: Vec<AnyView> = lists.iter().map(AnyView::from).collect();
         let def = self.invoke("_set_signature", &args).then(|op| {
             if !op.validator_is_custom() {
-                let hook: Hook = validate_signature::<S::Checks>;
-                op.write_validator(Any::from(hook as *mut c_void), false);
+                let hook: NativeFunction<(&CallObj,)> = sig::validate::<S::Checks>.into();
+                op.write_validator(hook.into(), false);
             }
             Ok(())
         });
@@ -168,11 +169,10 @@ impl OpDef {
     /// precedence. A second one fails the chain with a `ValueError`.
     pub fn set_infer_type<F>(self, infer: F) -> Self
     where
-        F: Fn(&CallObj) -> Result<Type> + 'static,
+        F: Fn(&CallObj) -> Result<Type> + Copy + 'static,
     {
-        let _ = infer;
-        let hook: Hook = infer_type_abi::<F>;
-        self.attr("FInferType", Any::from(hook as *mut c_void), false)
+        let hook: NativeFunction<(&CallObj,), Type> = infer.into();
+        self.attr("FInferType", hook.into(), false)
     }
 
     /// Set a custom validator of the operator, `validate`, a function or a closure that captures
@@ -182,16 +182,15 @@ impl OpDef {
     /// one fails the chain with a `ValueError`.
     pub fn set_validator<F>(self, validate: F) -> Self
     where
-        F: Fn(&CallObj) -> Result<()> + 'static,
+        F: Fn(&CallObj) -> Result<()> + Copy + 'static,
     {
-        let _ = validate;
+        let hook: NativeFunction<(&CallObj,)> = validate.into();
         self.then(|op| {
             if op.validator_is_custom() {
                 let message = format!("Validator of {} is already registered", op.name.as_str());
                 return Err(Error::new(VALUE_ERROR, &message, ""));
             }
-            let hook: Hook = validate_abi::<F>;
-            op.write_validator(Any::from(hook as *mut c_void), true);
+            op.write_validator(hook.into(), true);
             Ok(())
         })
     }
@@ -204,11 +203,10 @@ impl OpDef {
     /// fails the chain with a `ValueError`.
     pub fn set_region_body_params<F>(self, body_params: F) -> Self
     where
-        F: Fn(&CallObj) -> Result<Array<Var>> + 'static,
+        F: Fn(&CallObj) -> Result<Array<Var>> + Copy + 'static,
     {
-        let _ = body_params;
-        let hook: Hook = region_body_params_abi::<F>;
-        self.attr("FRegionGetBodyParams", Any::from(hook as *mut c_void), false)
+        let hook: NativeFunction<(&CallObj,), Array<Var>> = body_params.into();
+        self.attr("FRegionGetBodyParams", hook.into(), false)
     }
 
     /// Set the check of the operator's regions, its `FRegionValidate`, to `validate`, a function or
@@ -218,11 +216,10 @@ impl OpDef {
     /// the chain with a `ValueError`.
     pub fn set_region_validate<F>(self, validate: F) -> Self
     where
-        F: Fn(&RegionStmtObj) -> Result<()> + 'static,
+        F: Fn(&RegionStmtObj) -> Result<()> + Copy + 'static,
     {
-        let _ = validate;
-        let hook: RegionHook = region_validate_abi::<F>;
-        self.attr("FRegionValidate", Any::from(hook as *mut c_void), false)
+        let hook: NativeFunction<(&RegionStmtObj,)> = validate.into();
+        self.attr("FRegionValidate", hook.into(), false)
     }
 
     fn attr(self, key: &str, value: Any, replace: bool) -> Self {
@@ -367,7 +364,7 @@ pub mod sig {
         ///
         /// By default, the description is the type key of `value`.
         fn mismatch(value: AnyView<'_>) -> std::string::String {
-            support::type_key(value.type_index())
+            tvm_ffi::reflection::type_key(value.type_index()).unwrap_or_default().to_string()
         }
     }
 
@@ -584,7 +581,11 @@ pub mod sig {
             let actual = match &call.attrs {
                 Some(attrs) if attrs.downcast_ref::<T::ContainerType>().is_some() => return Ok(()),
                 Some(attrs) => {
-                    format!("`{}`", support::type_key(AnyView::from(attrs).type_index()))
+                    format!(
+                        "`{}`",
+                        tvm_ffi::reflection::type_key(AnyView::from(attrs).type_index())
+                            .unwrap_or_default()
+                    )
                 }
                 None => "None".into(),
             };
@@ -803,67 +804,4 @@ fn doc_text(doc: &str) -> std::string::String {
     let lines: Vec<&str> =
         doc.lines().map(|line| line.get(indent..).unwrap_or("").trim_end()).collect();
     lines.join("\n").trim().to_string()
-}
-
-/// The C ABI of a native operator hook, `NativeFunctionView<R(const CallNode*)>`: it returns
-/// the result, or the error, in an owned `TVMFFIAny`.
-type Hook = extern "C" fn(*const CallObj) -> TVMFFIAny;
-
-/// The C ABI of a native hook on a region statement, `NativeFunctionView<R(const
-/// RegionStmtNode*)>`.
-type RegionHook = extern "C" fn(*const RegionStmtObj) -> TVMFFIAny;
-
-extern "C" fn validate_abi<F: Fn(&CallObj) -> Result<()>>(call: *const CallObj) -> TVMFFIAny {
-    call_hook(call, zero_sized::<F>())
-}
-
-extern "C" fn infer_type_abi<F: Fn(&CallObj) -> Result<Type>>(call: *const CallObj) -> TVMFFIAny {
-    call_hook(call, zero_sized::<F>())
-}
-
-extern "C" fn validate_signature<L: Checks>(call: *const CallObj) -> TVMFFIAny {
-    call_hook(call, sig::validate::<L>)
-}
-
-extern "C" fn region_body_params_abi<F: Fn(&CallObj) -> Result<Array<Var>>>(
-    call: *const CallObj,
-) -> TVMFFIAny {
-    call_hook(call, zero_sized::<F>())
-}
-
-extern "C" fn region_validate_abi<F: Fn(&RegionStmtObj) -> Result<()>>(
-    region: *const RegionStmtObj,
-) -> TVMFFIAny {
-    call_hook(region, zero_sized::<F>())
-}
-
-/// The only value of `F`, a function or a closure that captures nothing.
-fn zero_sized<F>() -> F {
-    const {
-        assert!(
-            std::mem::size_of::<F>() == 0,
-            "a native operator hook is a function or a closure that captures nothing"
-        )
-    };
-    // SAFETY: a zero-sized type has no bytes to initialize.
-    unsafe { std::mem::zeroed() }
-}
-
-/// Run `hook` on the node C++ passes (the Call or region being typed or checked) and return its
-/// result as the hook ABI does. A panic, which must not unwind into C++, becomes an error.
-fn call_hook<N, R: Into<Any>>(node: *const N, hook: impl Fn(&N) -> Result<R>) -> TVMFFIAny {
-    let result = catch_unwind(AssertUnwindSafe(|| {
-        // SAFETY: C++ passes the node being typed or checked, alive for the call.
-        match unsafe { node.as_ref() } {
-            Some(node) => hook(node).map(Into::into),
-            None => Err(Error::new(TYPE_ERROR, "Invalid Op Call", "")),
-        }
-    }));
-    let value = match result {
-        Ok(Ok(value)) => value,
-        Ok(Err(error)) => Any::from(error),
-        Err(payload) => Any::from(tvm_ffi::Error::from_panic(payload)),
-    };
-    // The C++ caller takes ownership of the value.
-    Any::into_raw_ffi_any(value)
 }

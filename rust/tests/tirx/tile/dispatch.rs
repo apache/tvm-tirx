@@ -23,7 +23,7 @@ use tvm_tirx::ir::{UnknownLoc, UNKNOWN_LOC, PrimExpr, PrimType, Stmt, Var};
 use tvm_tirx::target::Target;
 use tvm_tirx::tirx::tile::DispatchContext;
 use tvm_tirx::tirx::{TensorType, ThreadScope};
-use tvm_tirx::tvm_ffi::{Any, Map, ObjectRefCore, String as FfiString};
+use tvm_tirx::tvm_ffi::{Any, EnumRef, Map, ObjectRefCore, String as FfiString};
 
 use crate::common::{global, serial, structural_equal};
 use crate::{int32, memory_scope, prim_var, var};

@@ -59,6 +59,9 @@
 // tvm-ffi-stubgen(import-object): tvm_ffi::ObjectRefCore
 // tvm-ffi-stubgen(import-object): tvm_ffi::AnyView
 // tvm-ffi-stubgen(import-object): tvm_ffi::Result
+// tvm-ffi-stubgen(import-object): tvm_ffi::reflection::NativeFunction
+// tvm-ffi-stubgen(import-object): tvm_ffi::reflection::TypeAttrColumn
+// tvm-ffi-stubgen(import-object): std::sync::LazyLock
 // tvm-ffi-stubgen(import-object): tvm_ffi::tvm_ffi_sys::TVMFFITypeIndex
 // tvm-ffi-stubgen(import-object): crate::ir::location::UNKNOWN_LOC
 // tvm-ffi-stubgen(import-object): crate::ir::op::OpObj
@@ -98,6 +101,7 @@ use crate::ir::support;
 use std::borrow::Borrow;
 use std::ops::Deref;
 use std::ptr::addr_of_mut;
+use std::sync::LazyLock;
 use tvm_ffi::Any;
 use tvm_ffi::AnyView;
 use tvm_ffi::Array;
@@ -108,10 +112,12 @@ use tvm_ffi::Object;
 use tvm_ffi::ObjectArc;
 use tvm_ffi::ObjectRefCore;
 use tvm_ffi::Result;
-use tvm_ffi::ShallowCopy;
 use tvm_ffi::String;
-use tvm_ffi::UnsafeInit;
 use tvm_ffi::object::IntoObjectRef;
+use tvm_ffi::reflection::NativeFunction;
+use tvm_ffi::reflection::ShallowCopy;
+use tvm_ffi::reflection::TypeAttrColumn;
+use tvm_ffi::reflection::UnsafeInit;
 use tvm_ffi::reflection::drop_if_defined;
 use tvm_ffi::tvm_ffi_sys::TVMFFITypeIndex;
 // tvm-ffi-stubgen(end)
@@ -595,14 +601,15 @@ fn scalar_int(ty: &PrimType) -> bool {
 /// What a typed expression's conversion error names a value it rejects: an expression with its
 /// type, `ir.StringImm[ty=ir.StringType]`, or the type key of another value.
 fn typed_expr_mismatch(value: AnyView<'_>) -> std::string::String {
+    let key = |index: i32| tvm_ffi::reflection::type_key(index).unwrap_or_default();
     let Some(expr) = value.downcast_ref::<ExprObj>() else {
-        return support::type_key(value.type_index());
+        return key(value.type_index()).to_string();
     };
     let ty = match expr.ty.downcast_ref::<PrimTypeObj>() {
         Some(prim) => support::dtype_name(prim.dtype),
-        None => support::type_key(AnyView::from(&expr.ty).type_index()),
+        None => key(AnyView::from(&expr.ty).type_index()).to_string(),
     };
-    format!("{}[ty={ty}]", support::type_key(value.type_index()))
+    format!("{}[ty={ty}]", key(value.type_index()))
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -982,7 +989,7 @@ impl TupleGetItem {
         if index < 0 {
             let message = format!(
                 "Index out of bounds: Tuple {} cannot be accessed with negative index {index}",
-                support::repr(&tuple_value)
+                tuple_value
             );
             return Err(support::compare_failed(
                 tvm_ffi::INDEX_ERROR,
@@ -999,7 +1006,7 @@ impl TupleGetItem {
                     let message = format!(
                         "Index out of bounds: Tuple {} is of size {size}, and cannot be accessed \
                          with index {index}",
-                        support::repr(&tuple_value)
+                        tuple_value
                     );
                     let condition = "index < tuple_type->fields.size()";
                     let error = support::compare_failed(
@@ -1099,25 +1106,30 @@ impl TensorLoad {
         indices: impl IntoIterator<Item = impl IntoExpr<PrimExpr>>,
         loc: impl Into<Location>,
     ) -> Result<Self> {
-        static INFER_TYPE: support::TypeAttr =
-            support::TypeAttr::new("__tvm_tensor_load_infer_type__");
+        // The native library registers the column when it loads, so one lookup suffices.
+        static INFER_TYPE: LazyLock<Option<TypeAttrColumn>> =
+            LazyLock::new(|| TypeAttrColumn::new("__tvm_tensor_load_infer_type__"));
         let (source, loc) = (source.into_owned_expr()?, loc.into());
         let indices = indices
             .into_iter()
             .map(IntoExpr::<PrimExpr>::into_owned_expr)
             .collect::<Result<Array<PrimExpr>>>()?;
         let ty_index = AnyView::from(&source.ty).type_index();
-        let Some(infer) = INFER_TYPE.get(ty_index) else {
-            let message =
-                format!("Type {} does not support TensorLoad", support::type_key(ty_index));
+        let Some(infer) = INFER_TYPE.and_then(|column| column.get(ty_index)) else {
+            let message = format!(
+                "Type {} does not support TensorLoad",
+                tvm_ffi::reflection::type_key(ty_index).unwrap_or_default()
+            );
             return Err(support::check_failed(tvm_ffi::TYPE_ERROR, "infer.has_value()", &message));
         };
         // The hook types a load that has no type yet. Such a load is no `TensorLoad`, which is
-        // typed by a `PrimType`, so it is made as an `Expr`.
+        // typed by a `PrimType`, so only its object is made.
         let base_ = ExprObj::new(loc.clone(), MissingType::new().into());
         let untyped = TensorLoadObj { base_, source: source.clone(), indices: indices.clone() };
-        let untyped = Expr::from(Self { data_: ObjectArc::new(untyped) });
-        let ty: PrimType = support::NativeHook::from_any(infer)?.call_as(&untyped)?;
+        // SAFETY: the column holds `PrimType(const TensorLoadObj*)` hooks.
+        let infer: NativeFunction<(&TensorLoadObj,), PrimType> =
+            unsafe { NativeFunction::from_any(infer)? };
+        let ty = infer.call((&*ObjectArc::new(untyped),))?;
         Ok(Self::from_fields(loc, ty, source, indices))
     }
 }
@@ -1801,7 +1813,10 @@ impl Call {
         if op.validator().type_index() == TVMFFITypeIndex::kTVMFFINone as i32 {
             return Ok(());
         }
-        support::NativeHook::from_any(op.validator().clone())?.call_void(self)
+        // SAFETY: an operator validator is a `void(const CallObj*)` hook.
+        let validate: NativeFunction<(&CallObj,)> =
+            unsafe { NativeFunction::from_any(op.validator().clone())? };
+        validate.call((&**self,))
     }
 
     /// Return the result type the operator infers from the current inputs, without changing the
@@ -1821,8 +1836,9 @@ impl Call {
         if let Some(fixed) = support::op_attr(op, "TFixedReturnType")? {
             return fixed.try_into();
         }
-        match support::NativeHook::of_op(op, "FInferType")? {
-            Some(infer) => infer.call_as(self),
+        // SAFETY: `FInferType` holds `Type(const CallObj*)` hooks.
+        match unsafe { support::op_hook::<(&CallObj,), Type>(op, "FInferType")? } {
+            Some(infer) => infer.call((&**self,)),
             None => Ok(MissingType::new().into()),
         }
     }

@@ -22,8 +22,6 @@
 
 use tvm_ffi::{Function, ObjectCore, ObjectRefCore, Result, String};
 
-use super::support;
-
 /// Expose the IR type of the reference `R`, an `rs_object` type, to Python.
 ///
 /// Call it in a [`tvm_ffi::static_init_block!`], so that the type is registered when its program or
@@ -71,9 +69,10 @@ use super::support;
 /// }
 /// ```
 pub fn register_type<R: ObjectRefCore>() -> Result<()> {
-    let type_index = R::ContainerType::type_index();
+    // The key of the registered type, which `type_index` registers first.
+    let key = tvm_ffi::reflection::type_key(R::ContainerType::type_index()).unwrap_or_default();
     if let Ok(expose) = Function::get_global("ir.expose_type") {
-        expose.call_tuple((String::from(support::type_key(type_index).as_str()),))?;
+        expose.call_tuple((String::from(key),))?;
     }
     Ok(())
 }

@@ -25,6 +25,7 @@ mod common;
 
 use tvm_tirx::runtime::{self, MemoryScope};
 use tvm_tirx::ir::dtype;
+use tvm_tirx::tvm_ffi::reflection::EnumDef;
 use tvm_tirx::tvm_ffi::{DLDevice, DLDeviceType, TypeIndex};
 
 #[test]
@@ -42,8 +43,8 @@ fn tensors() {
 
 #[test]
 fn memory_scopes() {
-    let scope = MemoryScope::register("rust_test.scratch").unwrap();
-    let again = MemoryScope::register("rust_test.scratch");
+    let scope = EnumDef::<MemoryScope>::new("rust_test.scratch").unwrap().value();
+    let again = EnumDef::<MemoryScope>::new("rust_test.scratch");
     assert!(again.is_err());
     // The CPU allocator supports the global scope only.
     let cpu = DLDevice::new(DLDeviceType::kDLCPU, 0);

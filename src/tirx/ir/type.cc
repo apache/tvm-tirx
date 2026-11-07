@@ -60,14 +60,6 @@ bool TensorTypeObj::HasDefaultLayout(ffi::Optional<sym::Analyzer> analyzer) cons
   return ffi::GetRef<TileLayout>(tile).IsContiguous(std::move(analyzer));
 }
 
-bool TensorTypeObj::IsScalar(bool alloc_or_decl) const {
-  // TODO(@bohan): logical scope is not considered
-  return shape.size() == 1 && tvm::prim::IsOne(shape[0]) && data_alignment == 64 &&
-         (!layout.has_value() ||
-          (layout.as<TileLayoutObj>() &&
-           layout.value().Canonicalize().as_or_throw<TileLayout>().IsTrivial()));
-}
-
 ffi::Optional<int64_t> TensorTypeObj::ConstantAllocationSize() const {
   int64_t result = 1;
   for (const PrimExpr& extent : shape) {

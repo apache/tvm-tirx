@@ -30,31 +30,23 @@
 
 // tvm-ffi-stubgen(begin): import-section
 use std::borrow::Borrow;
+use tvm_ffi::EnumObj;
 use tvm_ffi::IntoObjectRef;
-use tvm_ffi::Object;
 use tvm_ffi::ObjectArc;
 use tvm_ffi::Result;
 use tvm_ffi::String;
-
-/// Header-only stand-in for the builtin `ffi.Enum`; it only carries the ancestor depth.
-#[allow(dead_code)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::Object)]
-#[type_key = "ffi.Enum"]
-struct FfiEnumObj {
-    base_: Object,
-}
 // tvm-ffi-stubgen(end)
 
 /// A level of a backend's thread hierarchy, named `backend.level`, such as `cuda.warp`.
 ///
-/// Backends register their scopes; [`ThreadScope::get`] only looks one up. Within a backend,
+/// Backends register their scopes; [`EnumRef::get`] only looks one up. Within a backend,
 /// [`rank`](ThreadScope::rank) orders the levels, a wider scope ranking lower.
 ///
 /// # Examples
 ///
 /// ```
 /// use tvm_tirx::tirx::ThreadScope;
+/// use tvm_tirx::tvm_ffi::EnumRef;
 ///
 /// let warp = ThreadScope::get("cuda.warp")?;
 /// assert_eq!((warp.backend()?, warp.local_name()?), ("cuda".into(), "warp".into()));
@@ -63,6 +55,8 @@ struct FfiEnumObj {
 /// assert!(cta.is_higher_than(&warp)?);
 /// # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
 /// ```
+///
+/// [`EnumRef::get`]: tvm_ffi::EnumRef::get
 // tvm-ffi-stubgen(begin): object/tirx.ThreadScope
 #[allow(missing_docs)]
 #[repr(C)]
@@ -73,31 +67,27 @@ pub struct ThreadScope {
 
 /// The object behind [`ThreadScope`].
 ///
-/// Opaque: parent 'ffi.Enum' is opaque (no-mirror). Fields are read through the C ABI getters.
+/// Complete: reflected fields fill [48, 48) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "tirx.ThreadScope"]
 #[type_final]
 pub struct ThreadScopeObj {
-    base_: FfiEnumObj,
+    base_: EnumObj,
 }
 
+const _: () = {
+    assert!(::core::mem::size_of::<ThreadScopeObj>() == 48);
+    assert!(::core::mem::align_of::<ThreadScopeObj>() == 8);
+};
+
 unsafe impl tvm_ffi::object::ImmutableObject for ThreadScopeObj {}
+
+impl tvm_ffi::EnumRef for ThreadScope {}
 // tvm-ffi-stubgen(end)
 
 impl ThreadScope {
-    /// Look up the thread scope named `name`, such as `cuda.warp` (`tirx.ThreadScopeGet`).
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if no thread scope is registered as `name`.
-    pub fn get(name: &str) -> Result<Self> {
-        tvm_ffi::cached_global_func!("tirx.ThreadScopeGet")
-            .call_tuple((String::from(name),))?
-            .try_into()
-    }
-
     /// Return the backend that registered the scope, such as `cuda` (`tirx.ThreadScopeGetBackend`).
     pub fn backend(&self) -> Result<String> {
         tvm_ffi::cached_global_func!("tirx.ThreadScopeGetBackend").call_tuple((self,))?.try_into()

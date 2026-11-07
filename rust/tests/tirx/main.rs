@@ -45,6 +45,7 @@ use tvm_tirx::ir::{
 };
 use tvm_tirx::runtime::MemoryScope;
 use tvm_tirx::tirx::{Axis, Function, Iter, TileLayout};
+use tvm_tirx::tvm_ffi::reflection::EnumDef;
 use tvm_tirx::tvm_ffi::{Array, Map, ObjectRefCore, String as FfiString};
 
 use common::global;
@@ -85,12 +86,12 @@ fn as_i64(expr: &impl ObjectRefCore) -> i64 {
 fn memory_scope() -> MemoryScope {
     static COUNT: AtomicUsize = AtomicUsize::new(0);
     let index = COUNT.fetch_add(1, Ordering::Relaxed);
-    MemoryScope::register(&format!("rust.tests.tirx.{index}")).unwrap()
+    EnumDef::<MemoryScope>::new(&format!("rust.tests.tirx.{index}")).unwrap().value()
 }
 
 /// The row-major layout of an 8 x 8 tile.
 fn tile_8x8() -> TileLayout {
-    let m = Axis::get("m");
+    let m = Axis::get_or_register("m");
     TileLayout::new(
         [Iter::new(int32(8), int32(8), m.clone()), Iter::new(int32(8), int32(1), m)],
         Vec::<Iter>::new(),

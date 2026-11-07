@@ -23,19 +23,14 @@
 
 use std::cell::{OnceCell, RefCell};
 use std::collections::HashMap;
-use std::ffi::c_void;
 use std::fmt::Display;
 use std::rc::Rc;
-use std::sync::OnceLock;
 use std::thread::LocalKey;
 
-use tvm_ffi::tvm_ffi_sys::{
-    TVMFFIAny, TVMFFIFieldFlagBitMask, TVMFFIGetTypeInfo, TVMFFIObject, TVMFFITypeIndex,
-};
 use tvm_ffi::{
-    Any, AnyView, DLDataType, DLDataTypeCode, DLDataTypeExt, Error, ErrorKind, Function, ObjectArc,
-    ObjectRefCore, Result, TypeAttrColumn, INTERNAL_ERROR, TYPE_ERROR,
+    Any, DLDataType, DLDataTypeCode, DLDataTypeExt, Error, ErrorKind, Result, INTERNAL_ERROR,
 };
+use tvm_ffi::reflection::NativeFunction;
 
 use super::{Op, OpAttrMap, OpObj, PrimType};
 
@@ -108,53 +103,9 @@ pub(crate) fn compare_failed(
     Error::new(kind, &format!("Check failed: {condition} ({lhs} vs. {rhs}) : {message}"), "")
 }
 
-/// A value as error messages print it (`ffi.ReprPrint`).
-pub(crate) fn repr<T>(value: &T) -> std::string::String
-where
-    for<'a> AnyView<'a>: From<&'a T>,
-{
-    tvm_ffi::cached_global_func!("ffi.ReprPrint")
-        .call_packed(&[AnyView::from(value)])
-        .and_then(tvm_ffi::String::try_from)
-        .map(|text| text.as_str().to_string())
-        .unwrap_or_default()
-}
-
 /// A dtype as error messages print it, such as `int32`.
 pub(crate) fn dtype_name(dtype: DLDataType) -> std::string::String {
     dtype.to_string()
-}
-
-/// The registered key of a type index.
-pub(crate) fn type_key(type_index: i32) -> std::string::String {
-    // SAFETY: the type index of a live value is registered, and its information is static.
-    unsafe {
-        let info = TVMFFIGetTypeInfo(type_index);
-        (*info).type_key.as_str().to_string()
-    }
-}
-
-/// The default value the reflection of the type of `type_index` registers for its own field
-/// `name`, or `None` when it registers none or a factory.
-pub(crate) fn field_default(type_index: i32, name: &str) -> Option<Any> {
-    use TVMFFIFieldFlagBitMask::*;
-    // SAFETY: the type information of a registered type is static, and its `num_fields` fields
-    // are initialized.
-    let field = unsafe {
-        let info = &*TVMFFIGetTypeInfo(type_index);
-        let fields = std::slice::from_raw_parts(info.fields, info.num_fields as usize);
-        fields.iter().find(|field| field.name.as_str() == name)?
-    };
-    let has_default = field.flags & kTVMFFIFieldFlagBitMaskHasDefault as i64 != 0;
-    let from_factory = field.flags & kTVMFFIFieldFlagBitMaskDefaultFromFactory as i64 != 0;
-    if !has_default || from_factory {
-        return None;
-    }
-    // SAFETY: the registry owns the default value; it is copied, never released.
-    let value = std::mem::ManuallyDrop::new(unsafe {
-        Any::from_raw_ffi_any(field.default_value_or_factory)
-    });
-    Some((*value).clone())
 }
 
 /// A double as C++ `std::ostream` prints it by default: `%g`, six significant digits.
@@ -240,120 +191,17 @@ pub(crate) fn scalable_vector(dtype: DLDataType, factor: i32) -> Result<DLDataTy
 // ---------------------------------------------------------------------------------------------
 // Registry hooks
 
-/// A C++ `NativeFunctionView<R(const Node*)>` hook that a registry holds: the C ABI adapter its
-/// opaque pointer names, or a packed function a frontend registered in its place.
-pub(crate) enum NativeHook {
-    Adapter(extern "C" fn(*const c_void) -> TVMFFIAny),
-    Packed(Function),
-}
-
-impl NativeHook {
-    /// The hook `value` holds.
-    pub(crate) fn from_any(value: Any) -> Result<Self> {
-        if value.type_index() != TVMFFITypeIndex::kTVMFFIOpaquePtr as i32 {
-            return Ok(Self::Packed(value.try_into()?));
-        }
-        let address: *mut c_void = value.try_into()?;
-        // SAFETY: the opaque pointer of a `NativeFunctionView` is its C ABI adapter.
-        let adapter = unsafe {
-            std::mem::transmute::<*mut c_void, extern "C" fn(*const c_void) -> TVMFFIAny>(address)
-        };
-        Ok(Self::Adapter(adapter))
-    }
-
-    /// The hook `op` registers in the attribute column `column`, if any.
-    pub(crate) fn of_op(op: &OpObj, column: &'static str) -> Result<Option<Self>> {
-        op_attr(op, column)?.map(Self::from_any).transpose()
-    }
-
-    /// Call the hook on `node`: its result, or the error it reports.
-    pub(crate) fn call<T: ObjectRefCore>(&self, node: &T) -> Result<Any>
-    where
-        for<'a> AnyView<'a>: From<&'a T>,
-    {
-        let result = match self {
-            // SAFETY: `node` keeps the object alive for the call, and the adapter returns an
-            // owned value.
-            Self::Adapter(adapter) => unsafe {
-                let node = ObjectArc::as_ptr(ObjectRefCore::data(node)) as *const c_void;
-                Any::from_raw_ffi_any(adapter(node))
-            },
-            Self::Packed(function) => function.call_packed(&[AnyView::from(node)])?,
-        };
-        expected(result)
-    }
-
-    /// [`NativeHook::call`] of a hook that returns an `R`; a packed hook's result of another type
-    /// is a `TypeError`.
-    pub(crate) fn call_as<T: ObjectRefCore, R: TryFrom<Any>>(&self, node: &T) -> Result<R>
-    where
-        for<'a> AnyView<'a>: From<&'a T>,
-    {
-        R::try_from(self.call(node)?).map_err(|_| hook_result_mismatch())
-    }
-
-    /// [`NativeHook::call`] of a hook that returns nothing.
-    pub(crate) fn call_void<T: ObjectRefCore>(&self, node: &T) -> Result<()>
-    where
-        for<'a> AnyView<'a>: From<&'a T>,
-    {
-        match self.call(node)?.type_index() == TVMFFITypeIndex::kTVMFFINone as i32 {
-            true => Ok(()),
-            false => Err(hook_result_mismatch()),
-        }
-    }
-}
-
-/// Call a hook that takes three object references, such as a C++
-/// `NativeFunctionView<void(const Expr&, const Array<PrimExpr>&, const PrimExpr&)>`, and return its
-/// result or the error it reports. The C ABI adapter takes each reference as the address of an
-/// object pointer; a packed function takes the values.
-pub(crate) fn call_with_refs<A, B, C>(hook: Any, a: &A, b: &B, c: &C) -> Result<Any>
-where
-    A: ObjectRefCore,
-    B: ObjectRefCore,
-    C: ObjectRefCore,
-    for<'x> AnyView<'x>: From<&'x A> + From<&'x B> + From<&'x C>,
-{
-    if hook.type_index() != TVMFFITypeIndex::kTVMFFIOpaquePtr as i32 {
-        let function: Function = hook.try_into()?;
-        return expected(function.call_packed(&[
-            AnyView::from(a),
-            AnyView::from(b),
-            AnyView::from(c),
-        ])?);
-    }
-    type Adapter = extern "C" fn(
-        *const *const TVMFFIObject,
-        *const *const TVMFFIObject,
-        *const *const TVMFFIObject,
-    ) -> TVMFFIAny;
-    fn object<T: ObjectRefCore>(value: &T) -> *const TVMFFIObject {
-        // The pointer is only read while `value` keeps the object alive.
-        ObjectArc::as_ptr(ObjectRefCore::data(value)) as *const TVMFFIObject
-    }
-    let address: *mut c_void = hook.try_into()?;
-    let (a, b, c) = (object(a), object(b), object(c));
-    // SAFETY: the opaque pointer of a `NativeFunctionView` is its C ABI adapter; a C++ object
-    // reference is the address of its single object pointer, which outlives the call; and the
-    // adapter returns an owned value.
-    let result = unsafe {
-        let adapter = std::mem::transmute::<*mut c_void, Adapter>(address);
-        Any::from_raw_ffi_any(adapter(&a, &b, &c))
-    };
-    expected(result)
-}
-
-/// The value of an `Expected` result, or its error.
-fn expected(result: Any) -> Result<Any> {
-    match result.type_index() == TVMFFITypeIndex::kTVMFFIError as i32 {
-        true => Err(result.try_into()?),
-        false => Ok(result),
-    }
-}
-
-fn hook_result_mismatch() -> Error {
-    Error::new(TYPE_ERROR, "Packed hook result type mismatch", "")
+/// The hook `op` registers in the attribute column `column`, if any.
+///
+/// # Safety
+///
+/// A native function in the column must take `Args` and return `R`, as its declaration says.
+pub(crate) unsafe fn op_hook<Args, R>(
+    op: &OpObj,
+    column: &'static str,
+) -> Result<Option<NativeFunction<Args, R>>> {
+    // SAFETY: the caller vouches for the signature.
+    op_attr(op, column)?.map(|hook| unsafe { NativeFunction::from_any(hook) }).transpose()
 }
 
 thread_local! {
@@ -389,28 +237,4 @@ pub(crate) fn cached_op(name: &'static str) -> Result<Op> {
     let op = Op::get(name)?;
     OPS.with(|ops| ops.borrow_mut().insert(name, op.clone()));
     Ok(op)
-}
-
-/// A type attribute column, looked up once it exists.
-pub(crate) struct TypeAttr {
-    name: &'static str,
-    column: OnceLock<TypeAttrColumn>,
-}
-
-impl TypeAttr {
-    pub(crate) const fn new(name: &'static str) -> Self {
-        Self { name, column: OnceLock::new() }
-    }
-
-    /// The value the type of `type_index` registers in this column, if any.
-    pub(crate) fn get(&self, type_index: i32) -> Option<Any> {
-        let column = match self.column.get() {
-            Some(column) => *column,
-            None => {
-                let column = TypeAttrColumn::new(self.name)?;
-                *self.column.get_or_init(|| column)
-            }
-        };
-        column.get(type_index)
-    }
 }
