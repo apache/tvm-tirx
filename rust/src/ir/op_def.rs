@@ -17,11 +17,9 @@
  * under the License.
  */
 
-//! Operator registration from Rust: C++ `OpDef`.
-//!
-//! [`OpDef`] registers an operator with its signature ([`sig`]) and attributes ([`op_attr`]) in a
-//! [`tvm_ffi::static_init_block!`], as C++ does in a `TVM_FFI_STATIC_INIT_BLOCK`. Its hooks are
-//! native functions that C++ calls without packing arguments.
+//! Operator registration. An [`OpDef`] registers an [`Op`] with a signature of [`sig`]
+//! descriptors, from which its call validator is generated, and attribute values keyed by an
+//! [`AttrKey`], such as the shared ones in [`op_attr`].
 
 use std::any::TypeId;
 use std::ffi::c_void;
@@ -39,7 +37,7 @@ use super::stmt::RegionStmtObj;
 use super::support;
 use sig::{Checks, Specs};
 
-/// A chain of steps that registers a new operator from Rust, C++ `OpDef`.
+/// A chain of steps that registers a new operator.
 ///
 /// Each step updates the registry at once, and a failed step skips the rest. The chain completes
 /// when it is dropped, panicking with the error of a failed step, or by [`OpDef::op`], which
@@ -99,7 +97,7 @@ impl OpDef {
     }
 
     /// Set the signature of the operator to `specs`, a descriptor of [`sig`] or a tuple of them in
-    /// order, as C++ `OpDef::signature` does.
+    /// argument order.
     ///
     /// The validator generated from it checks a Call's argument counts, argument types and attrs,
     /// unless a custom validator is set.
@@ -142,15 +140,15 @@ impl OpDef {
         self.invoke("set_attrs_type_key", &[AnyView::from(&key)])
     }
 
-    /// Register the value of the attribute `key` for the operator, as C++ `set_attr(key, value)`
-    /// does; a value already registered fails the chain with a `ValueError`.
+    /// Register the value of the attribute `key` for the operator; a value already registered
+    /// fails the chain with a `ValueError`.
     pub fn set_attr<T: Into<Any>>(self, key: AttrKey<T>, value: impl Into<T>) -> Self {
         let value: T = value.into();
         self.attr(key.name, value.into(), false)
     }
 
     /// Register the value of the attribute `key` for the operator, replacing a value already
-    /// registered, as C++ `set_attr(key, value, true)` does.
+    /// registered.
     pub fn replace_attr<T: Into<Any>>(self, key: AttrKey<T>, value: impl Into<T>) -> Self {
         let value: T = value.into();
         self.attr(key.name, value.into(), true)
@@ -267,11 +265,10 @@ impl Drop for OpDef {
     }
 }
 
-/// The key of an operator attribute, C++ `ffi::reflection::AttrKey<T>`: its name and the type `T`
-/// of its values.
+/// The key of an operator attribute: its name and the type `T` of its values.
 ///
-/// [`op_attr`] and [`tirx::op_attr`](crate::tirx::op_attr) have the keys C++ declares;
-/// [`AttrKey::new`] names another.
+/// [`op_attr`] and [`tirx::op_attr`](crate::tirx::op_attr) have the keys of the built-in
+/// attributes; [`AttrKey::new`] names another.
 pub struct AttrKey<T> {
     name: &'static str,
     value: PhantomData<fn() -> T>,
@@ -297,20 +294,19 @@ impl<T> Clone for AttrKey<T> {
 
 impl<T> Copy for AttrKey<T> {}
 
-/// The keys of the operator attributes of the shared IR, C++ `tvm::op_attr`.
+/// The keys of the operator attributes of the shared IR.
 pub mod op_attr {
     use super::{AttrKey, CallEffectKind};
     use crate::ir::r#type::Type;
 
-    /// The runtime effect of a call (C++ `kCallEffectKind`, `TCallEffectKind`).
+    /// The runtime effect of a call, `TCallEffectKind`.
     pub const CALL_EFFECT_KIND: AttrKey<CallEffectKind> = AttrKey::new("TCallEffectKind");
-    /// The result type of every call, which takes precedence over `FInferType` (C++
-    /// `kFixedReturnType`, `TFixedReturnType`).
+    /// The result type of every call, `TFixedReturnType`, which takes precedence over
+    /// `FInferType`.
     pub const FIXED_RETURN_TYPE: AttrKey<Type> = AttrKey::new("TFixedReturnType");
 }
 
-/// The runtime effect of an operator call, C++ `CallEffectKind`: the value of
-/// [`op_attr::CALL_EFFECT_KIND`].
+/// The runtime effect of an operator call: the value of [`op_attr::CALL_EFFECT_KIND`].
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[repr(i64)]
 pub enum CallEffectKind {
@@ -333,7 +329,7 @@ pub enum CallEffectKind {
 }
 
 impl CallEffectKind {
-    /// An opaque function, about which nothing can be assumed: C++ `kOpaque`, which is
+    /// An opaque function, about which nothing can be assumed: the same value as
     /// [`CallEffectKind::UpdateState`].
     #[allow(non_upper_case_globals)]
     pub const Opaque: Self = Self::UpdateState;
@@ -345,7 +341,7 @@ impl From<CallEffectKind> for Any {
     }
 }
 
-/// Signature descriptors for [`OpDef::signature`], C++ `sig::arg<T>` and friends.
+/// Signature descriptors for [`OpDef::signature`].
 ///
 /// [`arg`](sig::arg) and [`ty_arg`](sig::ty_arg) are fixed value and type arguments,
 /// [`var_args`](sig::var_args) and [`var_ty_args`](sig::var_ty_args) variadic tails, and
@@ -358,16 +354,16 @@ pub mod sig {
     use tvm_ffi::type_traits::{AnyCompatible, DowncastRefFromAny};
     use tvm_ffi::ObjectCore;
 
-    /// A check of an argument against a type, C++ `TypeTraits<T>`.
+    /// A check of an argument against a type.
     ///
     /// Every managed reference that is [`AnyCompatible`] implements it with its strict check;
     /// implement it for another check, as [`TensorVar`](crate::tirx::TensorVar) does.
     pub trait ArgType: 'static {
-        /// Return whether `value`, which is not None, is accepted, as C++ `CheckAnyStrict` does.
+        /// Return whether `value`, which is not None, is accepted, without converting it.
         fn check(value: AnyView<'_>) -> bool;
-        /// Return the expected type, for an error, as C++ `TypeStr` does.
+        /// Return the expected type, for an error.
         fn type_str() -> std::string::String;
-        /// Describe a rejected value, for an error, as C++ `GetMismatchTypeInfo` does.
+        /// Describe a rejected value, for an error.
         ///
         /// By default, the description is the type key of `value`.
         fn mismatch(value: AnyView<'_>) -> std::string::String {
@@ -389,8 +385,8 @@ pub mod sig {
         }
     }
 
-    /// The typed expressions, which are argument types as they are: [`PrimVar`] checks as C++
-    /// `PrimVar` does.
+    /// The typed expressions, which are argument types as they are: [`PrimVar`] accepts a [`Var`]
+    /// whose type is a `PrimType`.
     pub use crate::ir::expr::{IntExpr, PrimExpr, PrimVar};
 
     /// Return whether `value` is a [`Var`], not a subclass, whose type is an `N`, such as
@@ -403,32 +399,32 @@ pub mod sig {
                 .is_some_and(|var| var.ty.downcast_ref::<N>().is_some())
     }
 
-    /// Describe a required value argument `name` of type `T`, C++ `sig::arg<T>`; [`Expr`] accepts
-    /// any.
+    /// Describe a required value argument `name` of type `T`, documented by `doc`; [`Expr`]
+    /// accepts any.
     pub fn arg<T: ArgType>(name: &str, doc: &str) -> Arg<T> {
         Arg { name: String::from(name), doc: String::from(doc), ty: PhantomData }
     }
 
-    /// Describe zero or more further value arguments of type `T`, C++ `sig::var_args<T>`; a
+    /// Describe zero or more further value arguments `name` of type `T`, documented by `doc`; a
     /// signature has at most one variadic value tail.
     pub fn var_args<T: ArgType>(name: &str, doc: &str) -> VarArgs<T> {
         VarArgs { name: String::from(name), doc: String::from(doc), ty: PhantomData }
     }
 
-    /// Describe a required type argument `name` of type `T`, C++ `sig::ty_arg<T>`; [`Type`] accepts
+    /// Describe a required type argument `name` of type `T`, documented by `doc`; [`Type`] accepts
     /// any.
     pub fn ty_arg<T: ArgType>(name: &str, doc: &str) -> TyArg<T> {
         TyArg { name: String::from(name), doc: String::from(doc), ty: PhantomData }
     }
 
-    /// Describe zero or more further type arguments of type `T`, C++ `sig::var_ty_args<T>`; a
+    /// Describe zero or more further type arguments `name` of type `T`, documented by `doc`; a
     /// signature has at most one variadic type-argument tail.
     pub fn var_ty_args<T: ArgType>(name: &str, doc: &str) -> VarTyArgs<T> {
         VarTyArgs { name: String::from(name), doc: String::from(doc), ty: PhantomData }
     }
 
     /// Describe the attributes of a Call: `Call.attrs` holds a `T`, which is also the operator's
-    /// attrs type, C++ `sig::call_attrs<T>`; a signature has at most one.
+    /// attrs type; a signature has at most one.
     pub fn call_attrs<T>() -> CallAttrs<T>
     where
         T: ObjectRefCore + Into<Attrs> + 'static,
@@ -706,8 +702,8 @@ pub mod sig {
     tuple_specs!(A, B, C, D, E, F, G, H, I, J, K);
     tuple_specs!(A, B, C, D, E, F, G, H, I, J, K, L);
 
-    /// C++ `ValidateSignature<Specs...>`: the argument counts, then each argument's type and the
-    /// attrs, in declaration order.
+    /// Check `call` against the signature `L`: the argument counts, then each argument's type and
+    /// the attrs, in declaration order.
     pub(super) fn validate<L: Checks>(call: &CallObj) -> Result<()> {
         const {
             assert!(
@@ -742,8 +738,8 @@ pub mod sig {
         L::check(call, op, (L::ARGS, L::TY_ARGS), (0, 0))
     }
 
-    /// Check argument `index` against `T`. `Base` is the category's base type, which C++ does
-    /// not check.
+    /// Check argument `index` against `T`. `Base` is the category's base type, which accepts any
+    /// value unchecked.
     fn check_value<'a, T: ArgType, Base: 'static>(
         op: &OpObj,
         type_arg: bool,

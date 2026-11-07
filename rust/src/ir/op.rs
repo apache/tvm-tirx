@@ -17,26 +17,9 @@
  * under the License.
  */
 
-//! Operators: the registry entry [`Op`], its [`ArgumentInfo`], and its attribute columns.
-//!
-//! [`Op::get`] looks up a registered operator, and [`Op::attr_map`] reads an attribute column as an
-//! [`OpAttrMap`].
-//!
-//! # Examples
-//!
-//! ```
-//! use tvm_tirx::ir::{Call, CallEffectKind, Op, PrimType, PrimVar, Type, Var, UNKNOWN_LOC};
-//! use tvm_tirx::script::script;
-//!
-//! let exp = Op::get("prim.exp")?;
-//! let x = PrimVar::new("x", PrimType::float(32), UNKNOWN_LOC);
-//! let call = Call::new(None, exp.clone(), [&x], None, Vec::<Type>::new(), UNKNOWN_LOC)?;
-//! assert_eq!(script(&call)?, "T.exp(x)");
-//!
-//! let effects = Op::attr_map::<i64>("TCallEffectKind")?.unwrap();
-//! assert_eq!(effects.get(&exp)?, Some(CallEffectKind::Pure as i64));
-//! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
-//! ```
+//! Operators. An [`Op`] is a registry entry named once per process and called through a
+//! [`Call`](crate::ir::Call); [`OpDef`](crate::ir::OpDef) registers one, and an [`OpAttrMap`]
+//! reads one attribute of every operator, such as its call effect.
 
 // tvm-ffi-stubgen(missing-docs): allow
 // `ir.Op` has three unreflected members, so its complete layout is hand-written below.
@@ -135,6 +118,22 @@ unsafe impl Sync for ValidatorCell {}
 ///
 /// The registry keeps one object per name, so `call.op.same_as(&op)` tests whether a call is to
 /// `op`. Register a new operator with [`OpDef`](crate::ir::OpDef).
+///
+/// # Examples
+///
+/// ```
+/// use tvm_tirx::ir::{Call, CallEffectKind, Op, PrimType, PrimVar, Type, UNKNOWN_LOC};
+/// use tvm_tirx::script::script;
+///
+/// let exp = Op::get("prim.exp")?;
+/// let x = PrimVar::new("x", PrimType::float(32), UNKNOWN_LOC);
+/// let call = Call::new(None, exp.clone(), [&x], None, Vec::<Type>::new(), UNKNOWN_LOC)?;
+/// assert_eq!(script(&call)?, "T.exp(x)");
+///
+/// let effects = Op::attr_map::<i64>("TCallEffectKind")?.unwrap();
+/// assert_eq!(effects.get(&exp)?, Some(CallEffectKind::Pure as i64));
+/// # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
+/// ```
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct Op {
@@ -170,8 +169,8 @@ impl OpObj {
 }
 
 impl Op {
-    /// Look up the operator registered as `name`, a registry singleton as C++ `Op::Get` returns it
-    /// (`ir.GetOp`).
+    /// Look up the operator registered as `name` (`ir.GetOp`); every lookup of a name returns the
+    /// same object.
     ///
     /// # Errors
     ///
@@ -180,14 +179,14 @@ impl Op {
         tvm_ffi::cached_global_func!("ir.GetOp").call_tuple((String::from(name),))?.try_into()
     }
 
-    /// Return whether any operator registered the attribute `name`, as C++ `Op::HasAttrMap` does
-    /// (`ir.ListOpAttrNames`).
+    /// Return whether any operator registered the attribute `name`, even if some operators have no
+    /// value for it (`ir.ListOpAttrNames`).
     pub fn has_attr_map(name: &str) -> Result<bool> {
         Ok(Self::list_attr_names()?.iter().any(|column| column.as_str() == name))
     }
 
-    /// Return the live attribute column `name`, as C++ `Op::GetAttrMap<T>` does, or `None` when no
-    /// operator registered it (`ir.GetOpAttrColumn`).
+    /// Return the live attribute column `name`, or `None` when no operator registered it
+    /// (`ir.GetOpAttrColumn`).
     ///
     /// The map also sees the values registered after it was read.
     pub fn attr_map<T: tvm_ffi::type_traits::AnyCompatible>(
@@ -239,9 +238,10 @@ impl Op {
         Ok(())
     }
 
-    /// Store `validator` as this operator's validator in place, as C++ `OpDef::set_validator` and
-    /// `OpDef::signature` write the registry's node: an opaque pointer to a C ABI adapter, as
-    /// `NativeFunctionView::FromNative` stores one.
+    /// Store `validator` as this operator's validator in place, as
+    /// [`OpDef::set_validator`](crate::ir::OpDef::set_validator) and
+    /// [`OpDef::signature`](crate::ir::OpDef::signature) do: an opaque pointer to a C ABI adapter,
+    /// in the form C++ `NativeFunctionView::FromNative` stores.
     pub(crate) fn write_validator(&self, validator: Any, custom: bool) {
         // SAFETY: as C++ `OpDef` does, registration writes the registry's node in place while no
         // reference into it is live.
@@ -259,6 +259,8 @@ impl Op {
 
 tvm_ffi::unsafe_impl_object_ref_upcast!(Op => Expr);
 
+/// The name and documentation of one argument of an [`Op`], as
+/// [`OpObj::args_info`] lists them.
 // tvm-ffi-stubgen(begin): object/ir.ArgumentInfo
 #[allow(missing_docs)]
 #[repr(C)]
@@ -306,8 +308,8 @@ impl ArgumentInfo {
 unsafe impl tvm_ffi::object::ImmutableObject for ArgumentInfoObj {}
 // tvm-ffi-stubgen(end)
 
-/// A live attribute column of the operator registry, C++ `OpAttrMap<T>`, returned by
-/// [`Op::attr_map`].
+/// A live attribute column of the operator registry: the value of one attribute for every
+/// operator, returned by [`Op::attr_map`].
 ///
 /// It holds the registry's own column, so values registered later stay visible and the map can be
 /// cached. A lookup reads the entry without an FFI call.
@@ -332,8 +334,7 @@ impl<T> OpAttrMap<T> {
 }
 
 impl<T: tvm_ffi::type_traits::AnyCompatible + TryFrom<Any>> OpAttrMap<T> {
-    /// Return the value registered for `op`, or `None` when it has none, as C++
-    /// `OpAttrMap::get(op, None)` does.
+    /// Return the value registered for `op`, or `None` when it has none.
     ///
     /// # Errors
     ///

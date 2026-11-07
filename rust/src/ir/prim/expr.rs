@@ -16,32 +16,13 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-//! Scalar expressions: casts, arithmetic, bitwise and logical operations, comparisons, `Select`
-//! and `Let`.
-//!
-//! The objects `python/tvm_tirx/ir/prim/expr.py` defines. Their `new` checks the operand types,
-//! and never promotes them as the operators of [`super::op`] do.
-//!
-//! # Examples
-//!
-//! ```
-//! use tvm_tirx::ir::prim::{Add, Select, LT};
-//! use tvm_tirx::ir::{PrimType, PrimVar, Var, UNKNOWN_LOC};
-//! use tvm_tirx::script::script;
-//!
-//! let x = PrimVar::new("x", PrimType::int(32), UNKNOWN_LOC);
-//! let next = Add::new(&x, 1, UNKNOWN_LOC)?;
-//! let capped = Select::new(LT::new(&x, 8, UNKNOWN_LOC)?, next, 8, UNKNOWN_LOC)?;
-//! assert_eq!(script(&capped)?, "T.Select(x < 8, x + 1, 8)");
-//!
-//! let f = PrimVar::new("f", PrimType::float(32), UNKNOWN_LOC);
-//! assert!(Add::new(&x, &f, UNKNOWN_LOC).is_err());
-//! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
-//! ```
+//! Primitive operations. Each node, such as [`Add`], [`LT`] or [`Select`], applies one operation
+//! to [`PrimExpr`] operands, lane by lane for vectors; its `new` checks the operand types and
+//! derives the node's type, without the promotion and folding of [`op`](super::op).
 
 // tvm-ffi-stubgen(missing-docs): allow
-// `custom-new` reserves `new` for a constructor with the C++ one's semantics (operand type checks
-// and the derived result type); the generated `from_fields` allocates the fields as given.
+// `custom-new` reserves `new` for a hand-written constructor (operand type checks and the derived
+// result type); the generated `from_fields` allocates the fields as given.
 // tvm-ffi-stubgen(custom-new): prim.Cast
 // tvm-ffi-stubgen(custom-new): prim.LShift
 // tvm-ffi-stubgen(custom-new): prim.RShift
@@ -208,8 +189,7 @@ use tvm_ffi::ObjectRefCore;
 use tvm_ffi::Result;
 // tvm-ffi-stubgen(end)
 
-/// `impl $node { pub fn new(a, b, loc) }` for each binary node, with the checks of its C++
-/// constructor.
+/// `impl $node { pub fn new(a, b, loc) }` for each binary node, which checks the operand types.
 macro_rules! binary_new {
     ($($node:ident: $operands:expr, $doc:literal;)+) => {
         $(
@@ -237,6 +217,7 @@ macro_rules! binary_new {
 // ---------------------------------------------------------------------------------------------
 // Casts
 
+/// The conversion of `value` to the node's type, lane by lane: both have as many lanes.
 // tvm-ffi-stubgen(begin): object/prim.Cast
 #[allow(missing_docs)]
 #[repr(C)]
@@ -297,8 +278,7 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(Cast => Expr, Cast => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 impl Cast {
-    /// Create the node converting `value` to `ty`, which has as many lanes as `value`
-    /// (C++ `Cast(ty, value, loc)`).
+    /// Create the node converting `value` to `ty`, which has as many lanes as `value`.
     ///
     /// # Errors
     ///
@@ -322,6 +302,7 @@ impl Cast {
 // ---------------------------------------------------------------------------------------------
 // Bitwise operations
 
+/// The left shift `a << b` of integer operands of one type.
 // tvm-ffi-stubgen(begin): object/prim.LShift
 #[allow(missing_docs)]
 #[repr(C)]
@@ -385,10 +366,10 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(LShift => Expr, LShift => PrimExpr);
 
 binary_new! {
     LShift: Operands::Bitwise { allow_bool: false },
-        "Create the node `a << b` of integer operands of one type, as C++ \
-         `LShift(a, b, loc)` does.";
+        "Create the node `a << b` of integer operands of one type.";
 }
 
+/// The right shift `a >> b` of integer operands of one type.
 // tvm-ffi-stubgen(begin): object/prim.RShift
 #[allow(missing_docs)]
 #[repr(C)]
@@ -452,10 +433,10 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(RShift => Expr, RShift => PrimExpr);
 
 binary_new! {
     RShift: Operands::Bitwise { allow_bool: false },
-        "Create the node `a >> b` of integer operands of one type, as C++ \
-         `RShift(a, b, loc)` does.";
+        "Create the node `a >> b` of integer operands of one type.";
 }
 
+/// The bitwise and `a & b` of integer or boolean operands of one type.
 // tvm-ffi-stubgen(begin): object/prim.BitwiseAnd
 #[allow(missing_docs)]
 #[repr(C)]
@@ -519,10 +500,10 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(BitwiseAnd => Expr, BitwiseAnd => PrimEx
 
 binary_new! {
     BitwiseAnd: Operands::Bitwise { allow_bool: true },
-        "Create the node `a & b` of integer or boolean operands of one type, as C++ \
-         `BitwiseAnd(a, b, loc)` does.";
+        "Create the node `a & b` of integer or boolean operands of one type.";
 }
 
+/// The bitwise or `a | b` of integer or boolean operands of one type.
 // tvm-ffi-stubgen(begin): object/prim.BitwiseOr
 #[allow(missing_docs)]
 #[repr(C)]
@@ -586,10 +567,10 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(BitwiseOr => Expr, BitwiseOr => PrimExpr
 
 binary_new! {
     BitwiseOr: Operands::Bitwise { allow_bool: true },
-        "Create the node `a | b` of integer or boolean operands of one type, as C++ \
-         `BitwiseOr(a, b, loc)` does.";
+        "Create the node `a | b` of integer or boolean operands of one type.";
 }
 
+/// The bitwise exclusive or `a ^ b` of integer or boolean operands of one type.
 // tvm-ffi-stubgen(begin): object/prim.BitwiseXor
 #[allow(missing_docs)]
 #[repr(C)]
@@ -653,10 +634,10 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(BitwiseXor => Expr, BitwiseXor => PrimEx
 
 binary_new! {
     BitwiseXor: Operands::Bitwise { allow_bool: true },
-        "Create the node `a ^ b` of integer or boolean operands of one type, as C++ \
-         `BitwiseXor(a, b, loc)` does.";
+        "Create the node `a ^ b` of integer or boolean operands of one type.";
 }
 
+/// The bitwise complement `~a` of an integer or boolean operand.
 // tvm-ffi-stubgen(begin): object/prim.BitwiseNot
 #[allow(missing_docs)]
 #[repr(C)]
@@ -717,7 +698,7 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(BitwiseNot => Expr, BitwiseNot => PrimEx
 // tvm-ffi-stubgen(end)
 
 impl BitwiseNot {
-    /// Create the node `~a` over an integer or boolean operand (C++ `BitwiseNot(a, loc)`).
+    /// Create the node `~a` over an integer or boolean operand.
     ///
     /// # Errors
     ///
@@ -739,6 +720,25 @@ impl BitwiseNot {
 // ---------------------------------------------------------------------------------------------
 // Arithmetic
 
+/// The sum `a + b` of operands of one type, elementwise for vectors.
+///
+/// Like every node, [`Add::new`] checks the operand types and neither promotes them nor folds
+/// constants; [`op::add`](super::op::add) and the `+` operator do both.
+///
+/// # Examples
+///
+/// ```
+/// use tvm_tirx::ir::prim::Add;
+/// use tvm_tirx::ir::{PrimType, PrimVar, UNKNOWN_LOC};
+/// use tvm_tirx::script::script;
+///
+/// let x = PrimVar::new("x", PrimType::int(32), UNKNOWN_LOC);
+/// assert_eq!(script(&Add::new(&x, 1, UNKNOWN_LOC)?)?, "x + 1");
+///
+/// let f = PrimVar::new("f", PrimType::float(32), UNKNOWN_LOC);
+/// assert!(Add::new(&x, &f, UNKNOWN_LOC).is_err());
+/// # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
+/// ```
 // tvm-ffi-stubgen(begin): object/prim.Add
 #[allow(missing_docs)]
 #[repr(C)]
@@ -802,9 +802,10 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(Add => Expr, Add => PrimExpr);
 
 binary_new! {
     Add: Operands::Arith,
-        "Create the node `a + b` of operands of one type, as C++ `Add(a, b, loc)` does.";
+        "Create the node `a + b` of operands of one type.";
 }
 
+/// The difference `a - b` of operands of one type, elementwise for vectors.
 // tvm-ffi-stubgen(begin): object/prim.Sub
 #[allow(missing_docs)]
 #[repr(C)]
@@ -868,9 +869,10 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(Sub => Expr, Sub => PrimExpr);
 
 binary_new! {
     Sub: Operands::Arith,
-        "Create the node `a - b` of operands of one type, as C++ `Sub(a, b, loc)` does.";
+        "Create the node `a - b` of operands of one type.";
 }
 
+/// The product `a * b` of operands of one type, elementwise for vectors.
 // tvm-ffi-stubgen(begin): object/prim.Mul
 #[allow(missing_docs)]
 #[repr(C)]
@@ -934,9 +936,10 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(Mul => Expr, Mul => PrimExpr);
 
 binary_new! {
     Mul: Operands::Arith,
-        "Create the node `a * b` of operands of one type, as C++ `Mul(a, b, loc)` does.";
+        "Create the node `a * b` of operands of one type.";
 }
 
+/// The quotient `a / b` of operands of one type; integer division truncates toward zero.
 // tvm-ffi-stubgen(begin): object/prim.Div
 #[allow(missing_docs)]
 #[repr(C)]
@@ -1000,9 +1003,10 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(Div => Expr, Div => PrimExpr);
 
 binary_new! {
     Div: Operands::Arith,
-        "Create the node `a / b` of operands of one type, as C++ `Div(a, b, loc)` does.";
+        "Create the node `a / b` of operands of one type.";
 }
 
+/// The remainder `a % b` of division truncated toward zero, of operands of one type.
 // tvm-ffi-stubgen(begin): object/prim.Mod
 #[allow(missing_docs)]
 #[repr(C)]
@@ -1066,9 +1070,10 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(Mod => Expr, Mod => PrimExpr);
 
 binary_new! {
     Mod: Operands::Arith,
-        "Create the truncated node `a % b` of operands of one type, as C++ `Mod(a, b, loc)` does.";
+        "Create the truncated node `a % b` of operands of one type.";
 }
 
+/// The quotient `floor(a / b)` of operands of one type, rounded toward negative infinity.
 // tvm-ffi-stubgen(begin): object/prim.FloorDiv
 #[allow(missing_docs)]
 #[repr(C)]
@@ -1132,10 +1137,10 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(FloorDiv => Expr, FloorDiv => PrimExpr);
 
 binary_new! {
     FloorDiv: Operands::Arith,
-        "Create the node `floor(a / b)` of operands of one type, as C++ `FloorDiv(a, b, loc)` \
-         does.";
+        "Create the node `floor(a / b)` of operands of one type.";
 }
 
+/// The remainder `a - floor(a / b) * b` of floor division, of operands of one type.
 // tvm-ffi-stubgen(begin): object/prim.FloorMod
 #[allow(missing_docs)]
 #[repr(C)]
@@ -1199,10 +1204,10 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(FloorMod => Expr, FloorMod => PrimExpr);
 
 binary_new! {
     FloorMod: Operands::Arith,
-        "Create the node `a - floor(a / b) * b` of operands of one type, as C++ \
-         `FloorMod(a, b, loc)` does.";
+        "Create the node `a - floor(a / b) * b` of operands of one type.";
 }
 
+/// The smaller of `a` and `b`, of one type, elementwise for vectors.
 // tvm-ffi-stubgen(begin): object/prim.Min
 #[allow(missing_docs)]
 #[repr(C)]
@@ -1266,9 +1271,10 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(Min => Expr, Min => PrimExpr);
 
 binary_new! {
     Min: Operands::Arith,
-        "Create the node `min(a, b)` of operands of one type, as C++ `Min(a, b, loc)` does.";
+        "Create the node `min(a, b)` of operands of one type.";
 }
 
+/// The larger of `a` and `b`, of one type, elementwise for vectors.
 // tvm-ffi-stubgen(begin): object/prim.Max
 #[allow(missing_docs)]
 #[repr(C)]
@@ -1332,12 +1338,13 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(Max => Expr, Max => PrimExpr);
 
 binary_new! {
     Max: Operands::Arith,
-        "Create the node `max(a, b)` of operands of one type, as C++ `Max(a, b, loc)` does.";
+        "Create the node `max(a, b)` of operands of one type.";
 }
 
 // ---------------------------------------------------------------------------------------------
 // Comparisons
 
+/// The comparison `a == b` of operands of one type: a boolean with their lanes.
 // tvm-ffi-stubgen(begin): object/prim.EQ
 #[allow(missing_docs)]
 #[repr(C)]
@@ -1401,10 +1408,10 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(EQ => Expr, EQ => PrimExpr);
 
 binary_new! {
     EQ: Operands::Compare,
-        "Create the boolean node `a == b` of operands of one type, as C++ `EQ(a, b, loc)` \
-         does.";
+        "Create the boolean node `a == b` of operands of one type.";
 }
 
+/// The comparison `a != b` of operands of one type: a boolean with their lanes.
 // tvm-ffi-stubgen(begin): object/prim.NE
 #[allow(missing_docs)]
 #[repr(C)]
@@ -1468,10 +1475,10 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(NE => Expr, NE => PrimExpr);
 
 binary_new! {
     NE: Operands::Compare,
-        "Create the boolean node `a != b` of operands of one type, as C++ `NE(a, b, loc)` \
-         does.";
+        "Create the boolean node `a != b` of operands of one type.";
 }
 
+/// The comparison `a < b` of operands of one type: a boolean with their lanes.
 // tvm-ffi-stubgen(begin): object/prim.LT
 #[allow(missing_docs)]
 #[repr(C)]
@@ -1535,10 +1542,10 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(LT => Expr, LT => PrimExpr);
 
 binary_new! {
     LT: Operands::Compare,
-        "Create the boolean node `a < b` of operands of one type, as C++ `LT(a, b, loc)` \
-         does.";
+        "Create the boolean node `a < b` of operands of one type.";
 }
 
+/// The comparison `a <= b` of operands of one type: a boolean with their lanes.
 // tvm-ffi-stubgen(begin): object/prim.LE
 #[allow(missing_docs)]
 #[repr(C)]
@@ -1602,10 +1609,10 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(LE => Expr, LE => PrimExpr);
 
 binary_new! {
     LE: Operands::Compare,
-        "Create the boolean node `a <= b` of operands of one type, as C++ `LE(a, b, loc)` \
-         does.";
+        "Create the boolean node `a <= b` of operands of one type.";
 }
 
+/// The comparison `a > b` of operands of one type: a boolean with their lanes.
 // tvm-ffi-stubgen(begin): object/prim.GT
 #[allow(missing_docs)]
 #[repr(C)]
@@ -1669,10 +1676,10 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(GT => Expr, GT => PrimExpr);
 
 binary_new! {
     GT: Operands::Compare,
-        "Create the boolean node `a > b` of operands of one type, as C++ `GT(a, b, loc)` \
-         does.";
+        "Create the boolean node `a > b` of operands of one type.";
 }
 
+/// The comparison `a >= b` of operands of one type: a boolean with their lanes.
 // tvm-ffi-stubgen(begin): object/prim.GE
 #[allow(missing_docs)]
 #[repr(C)]
@@ -1736,13 +1743,13 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(GE => Expr, GE => PrimExpr);
 
 binary_new! {
     GE: Operands::Compare,
-        "Create the boolean node `a >= b` of operands of one type, as C++ `GE(a, b, loc)` \
-         does.";
+        "Create the boolean node `a >= b` of operands of one type.";
 }
 
 // ---------------------------------------------------------------------------------------------
 // Logical operations
 
+/// The conjunction `a && b` of boolean operands of one type.
 // tvm-ffi-stubgen(begin): object/prim.And
 #[allow(missing_docs)]
 #[repr(C)]
@@ -1805,7 +1812,7 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(And => Expr, And => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 impl And {
-    /// Create the boolean node `a && b` over boolean operands (C++ `And(a, b, loc)`).
+    /// Create the boolean node `a && b` over boolean operands.
     ///
     /// # Errors
     ///
@@ -1822,6 +1829,7 @@ impl And {
     }
 }
 
+/// The disjunction `a || b` of boolean operands of one type.
 // tvm-ffi-stubgen(begin): object/prim.Or
 #[allow(missing_docs)]
 #[repr(C)]
@@ -1884,7 +1892,7 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(Or => Expr, Or => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 impl Or {
-    /// Create the boolean node `a || b` over boolean operands (C++ `Or(a, b, loc)`).
+    /// Create the boolean node `a || b` over boolean operands.
     ///
     /// # Errors
     ///
@@ -1901,6 +1909,7 @@ impl Or {
     }
 }
 
+/// The negation `!a` of a boolean operand.
 // tvm-ffi-stubgen(begin): object/prim.Not
 #[allow(missing_docs)]
 #[repr(C)]
@@ -1961,7 +1970,7 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(Not => Expr, Not => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 impl Not {
-    /// Create the boolean node `!a` over a boolean operand (C++ `Not(a, loc)`).
+    /// Create the boolean node `!a` over a boolean operand.
     ///
     /// # Errors
     ///
@@ -1979,6 +1988,11 @@ impl Not {
 // ---------------------------------------------------------------------------------------------
 // `Select` and `Let`
 
+/// The choice of `true_value` where `condition` holds and `false_value` elsewhere, lane by lane
+/// for a vector condition.
+///
+/// Both values may be evaluated; [`op::if_then_else`](super::op::if_then_else) evaluates only the
+/// chosen one.
 // tvm-ffi-stubgen(begin): object/prim.Select
 #[allow(missing_docs)]
 #[repr(C)]
@@ -2056,7 +2070,7 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(Select => Expr, Select => PrimExpr);
 
 impl Select {
     /// Create the node choosing `true_value` where `condition` holds and `false_value` elsewhere,
-    /// evaluating both, unlike [`op::if_then_else`](super::op::if_then_else) (C++ `Select`).
+    /// evaluating both, unlike [`op::if_then_else`](super::op::if_then_else).
     ///
     /// # Errors
     ///
@@ -2108,6 +2122,7 @@ impl Select {
     }
 }
 
+/// The expression `body` with `var` bound to `value`, of the type of `body`.
 // tvm-ffi-stubgen(begin): object/prim.Let
 #[allow(missing_docs)]
 #[repr(C)]
@@ -2178,8 +2193,7 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(Let => Expr, Let => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 impl Let {
-    /// Create the node binding `var` to `value` in `body`, of the type of `body`
-    /// (C++ `Let(var, value, body, loc)`).
+    /// Create the node binding `var` to `value` in `body`, of the type of `body`.
     ///
     /// # Errors
     ///
@@ -2212,8 +2226,7 @@ impl Let {
 // ---------------------------------------------------------------------------------------------
 // What the node constructors check
 
-/// What the constructor of a binary node checks of its operands, and the type it gives the node
-/// (`TVM_DEFINE_BINOP_CONSTRUCTOR` and its siblings in `src/ir/prim/expr.cc`).
+/// What the constructor of a binary node checks of its operands, and the type it gives the node.
 #[derive(Clone, Copy)]
 enum Operands {
     /// `Add`, `Min`, ...: operands of one type, which is the node's.
@@ -2224,7 +2237,7 @@ enum Operands {
     Compare,
 }
 
-/// The type of the binary node `node` of `a` and `b`, after the checks of its C++ constructor.
+/// The type of the binary node `node` of `a` and `b`, after checking the operands.
 fn binary_type(node: &str, operands: Operands, a: &PrimExpr, b: &PrimExpr) -> Result<PrimType> {
     let (a_ty, b_dtype) = (a.prim_ty(), b.prim_ty().dtype);
     let a_dtype = a_ty.dtype;
@@ -2257,14 +2270,14 @@ fn binary_type(node: &str, operands: Operands, a: &PrimExpr, b: &PrimExpr) -> Re
     }
 }
 
-/// The boolean type with the lanes of `operand` (C++ `PrimType(DLDataType{kDLBool, 8, lanes})`).
+/// The boolean type with the lanes of `operand`.
 fn bool_type(operand: &PrimType) -> Result<PrimType> {
     use crate::ir::dtype;
     PrimType::try_from(dtype::with_lanes(dtype::bool(), operand.dtype.lanes))
 }
 
-/// The type of the logical node of `a` and `b`, after the checks of the C++ `And` and `Or`
-/// constructors: boolean operands of one type.
+/// The type of the logical node of `a` and `b`, after checking that the operands are booleans of
+/// one type.
 fn logical_type(a: &PrimExpr, b: &PrimExpr) -> Result<PrimType> {
     for (ty, operand) in [(a.prim_ty(), "a_ty"), (b.prim_ty(), "b_ty")] {
         if !ty.matches_code(&[DLDataTypeCode::kDLBool]) {

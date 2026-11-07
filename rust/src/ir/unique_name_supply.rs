@@ -17,21 +17,8 @@
  * under the License.
  */
 
-//! A supply of unique names, for building and rewriting IR.
-//!
-//! # Examples
-//!
-//! ```
-//! use tvm_tirx::ir::UniqueNameSupply;
-//!
-//! let names = UniqueNameSupply::new("fused");
-//! names.reserve_name("x", false)?;
-//!
-//! assert_eq!(names.fresh_name("x", false, true)?, "x_1");
-//!
-//! assert_eq!(names.fresh_name("y", true, true)?, "fused_y");
-//! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
-//! ```
+//! Unique names. A [`UniqueNameSupply`] hands out names that do not collide with the ones it has
+//! given out or reserved, for building and rewriting IR.
 
 // tvm-ffi-stubgen(missing-docs): allow
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
@@ -48,6 +35,24 @@ use tvm_ffi::Result;
 use tvm_ffi::String;
 // tvm-ffi-stubgen(end)
 
+/// A set of names in use, with a prefix, from which [`fresh_name`](Self::fresh_name) derives
+/// names that do not collide.
+///
+/// A supply is mutable: every handle sees the names it has given out or reserved.
+///
+/// # Examples
+///
+/// ```
+/// use tvm_tirx::ir::UniqueNameSupply;
+///
+/// let names = UniqueNameSupply::new("fused");
+/// names.reserve_name("x", false)?;
+///
+/// assert_eq!(names.fresh_name("x", false, true)?, "x_1");
+///
+/// assert_eq!(names.fresh_name("y", true, true)?, "fused_y");
+/// # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
+/// ```
 // tvm-ffi-stubgen(begin): object/ir.UniqueNameSupply
 #[allow(missing_docs)]
 #[repr(C)]

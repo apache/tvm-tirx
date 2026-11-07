@@ -17,8 +17,9 @@
  * under the License.
  */
 
-//! What the constructors written in Rust share: the errors of the C++ checks they reproduce, the
-//! queries C++ makes of a `PrimType`, and calls to the hooks the registries hold.
+//! Constructor support. The hand-written constructors raise their check errors in the text the
+//! native checks use, query a `PrimType` through these helpers, and call the native hooks that
+//! the operator and type registries hold.
 
 use std::cell::{OnceCell, RefCell};
 use std::collections::HashMap;
@@ -44,9 +45,9 @@ pub(crate) const FLOAT: u8 = DLDataTypeCode::kDLFloat as u8;
 pub(crate) const BFLOAT: u8 = DLDataTypeCode::kDLBfloat as u8;
 pub(crate) const BOOL: u8 = DLDataTypeCode::kDLBool as u8;
 
-/// C++ `support::kMaxFloat16`, the largest finite float16.
+/// The largest finite float16.
 pub(crate) const MAX_FLOAT16: f64 = 65504.0;
-/// C++ `support::kMaxBFloat16` (`0x1.fep127`), the largest finite bfloat16.
+/// The largest finite bfloat16, `0x1.fep127`.
 pub(crate) const MAX_BFLOAT16: f64 = 3.389_531_389_251_535_5e38;
 
 /// The largest finite value of each float8 type code, and whether the type is unsigned
@@ -82,21 +83,21 @@ pub(crate) fn float6_bound(code: u8) -> Option<f64> {
 // Errors
 
 /// The value of a native call that cannot fail: the crate links `libtvm_tirx_compiler`, so the
-/// function is registered, and the arguments are ones its C++ counterpart accepts without a
-/// check. A failure means the linked library does not match the sources the crate was built
-/// from, which is an error of the build, so it panics.
+/// function is registered, and the arguments are ones it accepts without a check. A failure means
+/// the linked library does not match the sources the crate was built from, which is an error of
+/// the build, so it panics.
 pub(crate) fn infallible<T>(result: Result<T>) -> T {
     result.expect("a native call that cannot fail with a matching libtvm_tirx_compiler failed")
 }
 
-/// The error of a failed C++ `TVM_FFI_CHECK(condition, kind) << message`; `TVM_FFI_ICHECK` is
-/// `INTERNAL_ERROR`.
+/// The error of a failed check, in the text the native `TVM_FFI_CHECK(condition, kind) << message`
+/// raises; `TVM_FFI_ICHECK` is `INTERNAL_ERROR`.
 pub(crate) fn check_failed(kind: ErrorKind, condition: &str, message: &str) -> Error {
     Error::new(kind, &format!("Check failed: ({condition}) is false: {message}"), "")
 }
 
-/// The error of a failed C++ `TVM_FFI_CHECK_EQ(lhs, rhs, kind)` and its siblings, which print both
-/// sides.
+/// The error of a failed comparison, in the text the native `TVM_FFI_CHECK_EQ(lhs, rhs, kind)` and
+/// its siblings raise, which prints both sides.
 pub(crate) fn compare_failed(
     kind: ErrorKind,
     condition: &str,
@@ -107,7 +108,7 @@ pub(crate) fn compare_failed(
     Error::new(kind, &format!("Check failed: {condition} ({lhs} vs. {rhs}) : {message}"), "")
 }
 
-/// A value as C++ `operator<<` prints it into an error message (`ffi.ReprPrint`).
+/// A value as error messages print it (`ffi.ReprPrint`).
 pub(crate) fn repr<T>(value: &T) -> std::string::String
 where
     for<'a> AnyView<'a>: From<&'a T>,
@@ -119,12 +120,12 @@ where
         .unwrap_or_default()
 }
 
-/// A dtype as C++ prints it, such as `int32`.
+/// A dtype as error messages print it, such as `int32`.
 pub(crate) fn dtype_name(dtype: DLDataType) -> std::string::String {
     dtype.to_string()
 }
 
-/// The registered key of a type index (C++ `TypeIndexToTypeKey`).
+/// The registered key of a type index.
 pub(crate) fn type_key(type_index: i32) -> std::string::String {
     // SAFETY: the type index of a live value is registered, and its information is static.
     unsafe {
@@ -134,7 +135,7 @@ pub(crate) fn type_key(type_index: i32) -> std::string::String {
 }
 
 /// The default value the reflection of the type of `type_index` registers for its own field
-/// `name` (C++ `refl::DefaultValue`), or `None` when it registers none or a factory.
+/// `name`, or `None` when it registers none or a factory.
 pub(crate) fn field_default(type_index: i32, name: &str) -> Option<Any> {
     use TVMFFIFieldFlagBitMask::*;
     // SAFETY: the type information of a registered type is static, and its `num_fields` fields
@@ -193,9 +194,9 @@ impl Display for CppDouble {
 // ---------------------------------------------------------------------------------------------
 // Shared nodes
 
-/// A node C++ shares, such as the `UnknownLoc()` singleton, fetched once per thread so that every
-/// node Rust builds refers to the same object as the nodes C++ builds. The fetch is a native call
-/// that cannot fail (see [`infallible`]).
+/// A node the native library shares, such as the unknown-location singleton, fetched once per
+/// thread so that every node Rust builds refers to the same object as natively built nodes. The
+/// fetch is a native call that cannot fail (see [`infallible`]).
 pub(crate) fn shared<T: Clone + 'static>(
     cell: &'static LocalKey<OnceCell<T>>,
     fetch: impl FnOnce() -> Result<T>,
@@ -211,7 +212,8 @@ pub(crate) fn shared<T: Clone + 'static>(
 // ---------------------------------------------------------------------------------------------
 // Primitive types
 
-/// C++ `PrimType::lanes()`, whose error a scalable vector raises.
+/// The number of lanes of `ty`; a scalable vector has no fixed number and raises an
+/// `InternalError`.
 pub(crate) fn lanes(ty: &PrimType) -> Result<i32> {
     match ty.lanes() {
         Some(lanes) => Ok(i32::from(lanes)),
@@ -222,7 +224,8 @@ pub(crate) fn lanes(ty: &PrimType) -> Result<i32> {
     }
 }
 
-/// C++ `PrimType::ScalableVector(code, bits, factor)`: `factor` times `vscale` lanes.
+/// The scalable-vector dtype of `factor` times `vscale` lanes, with the code and bits of `dtype`;
+/// `factor` must be in `2..32768`.
 pub(crate) fn scalable_vector(dtype: DLDataType, factor: i32) -> Result<DLDataType> {
     if factor <= 1 {
         let message = format!("Invalid value for vscale factor {factor}");
@@ -263,7 +266,7 @@ impl NativeHook {
         op_attr(op, column)?.map(Self::from_any).transpose()
     }
 
-    /// C++ `CallExpected(node)`: the hook's result on `node`, or the error it reports.
+    /// Call the hook on `node`: its result, or the error it reports.
     pub(crate) fn call<T: ObjectRefCore>(&self, node: &T) -> Result<Any>
     where
         for<'a> AnyView<'a>: From<&'a T>,
@@ -281,7 +284,7 @@ impl NativeHook {
     }
 
     /// [`NativeHook::call`] of a hook that returns an `R`; a packed hook's result of another type
-    /// is the error C++ raises for it.
+    /// is a `TypeError`.
     pub(crate) fn call_as<T: ObjectRefCore, R: TryFrom<Any>>(&self, node: &T) -> Result<R>
     where
         for<'a> AnyView<'a>: From<&'a T>,
@@ -301,10 +304,10 @@ impl NativeHook {
     }
 }
 
-/// C++ `CallExpected(dest, indices, value)` of a hook that takes three object references, such as
-/// `NativeFunctionView<void(const Expr&, const Array<PrimExpr>&, const PrimExpr&)>`. The C ABI
-/// adapter takes each reference as the address of an object pointer; a packed function takes the
-/// values.
+/// Call a hook that takes three object references, such as a C++
+/// `NativeFunctionView<void(const Expr&, const Array<PrimExpr>&, const PrimExpr&)>`, and return its
+/// result or the error it reports. The C ABI adapter takes each reference as the address of an
+/// object pointer; a packed function takes the values.
 pub(crate) fn call_with_refs<A, B, C>(hook: Any, a: &A, b: &B, c: &C) -> Result<Any>
 where
     A: ObjectRefCore,
@@ -354,14 +357,13 @@ fn hook_result_mismatch() -> Error {
 }
 
 thread_local! {
-    /// The operator attribute columns, fetched once per thread as C++ keeps them in `static`s.
-    /// A column no operator registered yet is looked up again.
+    /// The operator attribute columns, fetched once per thread. A column no operator registered yet
+    /// is looked up again.
     static OP_ATTR_COLUMNS: RefCell<HashMap<&'static str, Rc<OpAttrMap<Any>>>> =
         RefCell::new(HashMap::new());
 }
 
-/// The value `op` registers in the attribute column `column` (C++ `Op::GetAttrMap(column)[op]`),
-/// of whatever type, or `None`.
+/// The value `op` registers in the attribute column `column`, of whatever type, or `None`.
 pub(crate) fn op_attr(op: &OpObj, column: &'static str) -> Result<Option<Any>> {
     let cached = OP_ATTR_COLUMNS.with(|columns| columns.borrow().get(column).cloned());
     let map = match cached {
@@ -376,8 +378,7 @@ pub(crate) fn op_attr(op: &OpObj, column: &'static str) -> Result<Option<Any>> {
     Ok(map.get_any(op))
 }
 
-/// The registered operator `name` (C++ `Op::Get(name)`), fetched once per thread as C++ keeps an
-/// operator in a `static`.
+/// The registered operator `name`, fetched once per thread.
 pub(crate) fn cached_op(name: &'static str) -> Result<Op> {
     thread_local! {
         static OPS: RefCell<HashMap<&'static str, Op>> = RefCell::new(HashMap::new());
@@ -390,8 +391,7 @@ pub(crate) fn cached_op(name: &'static str) -> Result<Op> {
     Ok(op)
 }
 
-/// A type attribute column, looked up once it exists, as C++ keeps a `TypeAttrColumn` in a
-/// `static`.
+/// A type attribute column, looked up once it exists.
 pub(crate) struct TypeAttr {
     name: &'static str,
     column: OnceLock<TypeAttrColumn>,

@@ -17,33 +17,9 @@
  * under the License.
  */
 
-//! The primitive operators: arithmetic, comparisons, logic, casts and math functions, after C++
-//! `src/ir/prim/op.cc`.
-//!
-//! Unlike the node constructors such as [`Add::new`](super::Add::new), these match their operand
-//! types and fold constants, as C++ does. Each builds at the unknown location, and its `_at`
-//! variant takes one. Operators such as `&x + 1` build an [`ExprResult`], and [`PrimOps`] has the
-//! operations Rust has no operator for.
-//!
-//! Every function returns a `TypeError` for an operand that is not a primitive expression, and the
-//! trigonometric and hyperbolic ones also for an operand that is not a float.
-//!
-//! # Examples
-//!
-//! ```
-//! use tvm_tirx::ir::prim::op::{add, floordiv, floormod, mul};
-//! use tvm_tirx::ir::{PrimType, PrimVar, Var, UNKNOWN_LOC};
-//! use tvm_tirx::script::script;
-//! use tvm_tirx::tvm_ffi::ObjectRefCore;
-//!
-//! let i = PrimVar::new("i", PrimType::int(32), UNKNOWN_LOC);
-//! assert_eq!(script(&floordiv(&i, 16)?)?, "i // 16");
-//! assert_eq!(script(&floormod(&i, 16)?)?, "i % 16");
-//!
-//! assert_eq!(script(&mul(4, 16)?)?, "64");
-//! assert!(add(&i, 0)?.same_as(&i));
-//! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
-//! ```
+//! Primitive operators. Each function, such as [`add`], matches its operand types and folds
+//! constants, where a node constructor such as [`Add::new`](super::Add::new) takes operands as
+//! given; Rust operators such as `&x + 1` build an [`ExprResult`], and [`PrimOps`] has the rest.
 
 // tvm-ffi-stubgen(missing-docs): allow
 // Names the hand-written code uses: the import section keeps them even when no generated block
@@ -351,14 +327,14 @@ mod operators {
     macro_rules! unary_operators {
         ($($ty:ty),+) => {
             $(
-                /// C++ unary `-` (`neg`).
+                /// `-a`: [`neg`](super::neg).
                 impl Neg for $ty {
                     type Output = ExprResult;
                     fn neg(self) -> ExprResult {
                         ExprResult(super::neg(ExprResult::from(self)))
                     }
                 }
-                /// C++ `!` (`logical_not`).
+                /// `!a`: [`logical_not`](super::logical_not).
                 impl Not for $ty {
                     type Output = ExprResult;
                     fn not(self) -> ExprResult {
@@ -426,8 +402,8 @@ macro_rules! binary_methods {
 /// The operations Rust has no operator for, as methods of [`ExprResult`] and every expression
 /// handle.
 ///
-/// The comparisons are named after the C++ functions (`less`, `equal`), since Rust's `eq` and `lt`
-/// return a `bool`.
+/// The comparisons are named `less`, `equal` and so on, since Rust's `eq` and `lt` return a
+/// `bool`.
 ///
 /// # Examples
 ///
@@ -636,8 +612,8 @@ impl PrimOps for ExprResult {
 
 /// An operand of an operator: an expression, an [`ExprResult`] or a literal.
 ///
-/// A literal is typed after the expression it meets, as in C++: an integer takes its type, an `f32`
-/// is a float32 constant and an `f64` a float64 one.
+/// A literal is typed after the expression it meets: an integer takes its type, an `f32` is a
+/// float32 constant and an `f64` a float64 one.
 ///
 /// # Examples
 ///
@@ -673,7 +649,7 @@ impl<T: Into<ExprResult>> Operand for T {
     }
 }
 
-/// C++ `int`: `MakeConst(other.ty(), v)`. `i32` is what an unsuffixed literal falls back to.
+/// A constant of the other operand's type. `i32` is what an unsuffixed literal falls back to.
 impl Operand for i32 {
     fn classify(self) -> OperandKind {
         OperandKind::Int32(self)
@@ -686,14 +662,14 @@ impl Operand for i64 {
     }
 }
 
-/// C++ `float`: a float32 constant, whatever the other side.
+/// A float32 constant, whatever the other side.
 impl Operand for f32 {
     fn classify(self) -> OperandKind {
         OperandKind::Float32(self)
     }
 }
 
-/// C++ `double`: a float64 constant, whatever the other side.
+/// A float64 constant, whatever the other side.
 impl Operand for f64 {
     fn classify(self) -> OperandKind {
         OperandKind::Float64(self)
@@ -741,7 +717,7 @@ fn operands(a: impl Operand, b: impl Operand) -> Result<(PrimExpr, PrimExpr)> {
 }
 
 /// The functions without a location: each builds at the unknown location through its `_at`
-/// variant, as the C++ default argument does.
+/// variant.
 macro_rules! unlocated {
     ($($(#[$doc:meta])* $name:ident($($arg:ident: $ty:ty),*) => $at:ident;)+) => {
         $(
@@ -754,9 +730,9 @@ macro_rules! unlocated {
 }
 
 // ---------------------------------------------------------------------------------------------
-// Constants (C++ `MakeConst`)
+// Constants
 
-/// The value of a constant, as C++ `MakeConst` takes it: an integer or a double.
+/// The value of a constant: an integer or a double.
 ///
 /// Rust integers, `bool`, [`BigInt`], `f32` and `f64` convert into one, so [`make_const`] takes
 /// them directly.
@@ -795,8 +771,7 @@ impl From<f32> for ConstValue {
 }
 
 unlocated! {
-    /// Create the constant `value` of the type `ty`, broadcast over the lanes of a vector type (C++
-    /// `prim::MakeConst(ty, value)`).
+    /// Create the constant `value` of the type `ty`, broadcast over the lanes of a vector type.
     ///
     /// # Errors
     ///
@@ -833,7 +808,7 @@ pub fn convert(value: impl Into<Any>) -> Result<PrimExpr> {
     tvm_ffi::cached_global_func!("prim.convert").call_tuple((value.into(),))?.try_into()
 }
 
-/// C++ `prim::MakeConstScalar(ty, value, loc)`: an `IntImm` for an integer or boolean type, a
+/// The scalar constant `value` of the type `ty`: an `IntImm` for an integer or boolean type, a
 /// `FloatImm` for a floating-point type.
 pub(crate) fn make_const_scalar(
     ty: PrimType,
@@ -879,11 +854,11 @@ pub(crate) fn make_const_scalar(
 }
 
 // ---------------------------------------------------------------------------------------------
-// Casts and type matching (C++ `cast` and `BinaryOpMatchTypes`)
+// Casts and type matching
 
 unlocated! {
     /// Convert `value` to the type `ty`, folding a constant that keeps its value and broadcasting a
-    /// scalar to a vector type (C++ `prim::cast(value, t)`, `prim._cast`).
+    /// scalar to a vector type.
     ///
     /// [`Cast::new`] builds the node without folding.
     ///
@@ -959,8 +934,7 @@ pub fn cast_at(
     Ok(Cast::new(ty, value, loc)?.into())
 }
 
-/// Bring `a` and `b` to one type, as every binary operator does first (C++
-/// `BinaryOpMatchTypes(lhs, rhs)`).
+/// Bring `a` and `b` to one type, as every binary operator does first.
 ///
 /// A scalar next to a vector is broadcast, and both are cast to the promoted type: the wider float,
 /// a float over an integer, the wider integer, unsigned over signed.
@@ -1016,7 +990,7 @@ pub fn match_types_at(
     Ok((a, b))
 }
 
-/// C++ `cast` to a scalar type: a constant folded to `ty` keeping its location (see
+/// [`cast`] to a scalar type: a constant folded to `ty` keeping its location (see
 /// [`fold_cast`]); anything else a [`Cast`].
 fn cast_scalar(value: PrimExpr, ty: PrimType, loc: &Location) -> Result<PrimExpr> {
     match fold_cast(&value, &ty)? {
@@ -1025,7 +999,7 @@ fn cast_scalar(value: PrimExpr, ty: PrimType, loc: &Location) -> Result<PrimExpr
     }
 }
 
-/// A constant cast to the scalar type `to` as C++ `cast` folds it: only when the result is the
+/// A constant cast to the scalar type `to`, as [`cast`] folds it: only when the result is the
 /// same value in `to`, an integer it can represent or a float within its range, and when a float
 /// type that rounds the result does so itself; `None` leaves a [`Cast`].
 fn fold_cast(value: &PrimExpr, ty: &PrimType) -> Result<Option<PrimExpr>> {
@@ -1119,7 +1093,7 @@ fn is_rounded_to_16_bits(value: f64, bfloat: bool) -> bool {
     scaled.trunc() == scaled
 }
 
-/// The exponent C++ `frexp` gives a finite `value`, `e` with `value = m * 2^e` and
+/// The exponent of a finite `value`, `e` with `value = m * 2^e` and
 /// `0.5 <= |m| < 1`, and 0 for zero.
 fn frexp_exponent(value: f64) -> i32 {
     match ((value.to_bits() >> 52) & 0x7ff) as i32 {
@@ -1135,8 +1109,7 @@ fn pow2(exponent: i32) -> f64 {
     f64::from_bits(((exponent + 1023) as u64) << 52)
 }
 
-/// C++ `BroadcastToMatchLanes`: `value`, broadcast to the lanes of `other` when it is a scalar
-/// next to a vector.
+/// `value`, broadcast to the lanes of `other` when it is a scalar next to a vector.
 fn broadcast_to_match_lanes(value: PrimExpr, other: &PrimType) -> Result<PrimExpr> {
     let ty = value.prim_ty();
     if ty.is_scalable_vector()
@@ -1148,7 +1121,7 @@ fn broadcast_to_match_lanes(value: PrimExpr, other: &PrimType) -> Result<PrimExp
     Ok(Broadcast::new(value, lanes_of(other)?, UNKNOWN_LOC)?.into())
 }
 
-/// C++ `PromoteBinaryOpType`: the type both operands of a binary operation take.
+/// The type both operands of a binary operation take.
 fn promote_binary_op_type(lhs: DLDataType, rhs: DLDataType) -> Result<DLDataType> {
     if lhs == rhs {
         return Ok(lhs);
@@ -1193,7 +1166,7 @@ fn promote_binary_op_type(lhs: DLDataType, rhs: DLDataType) -> Result<DLDataType
 }
 
 // ---------------------------------------------------------------------------------------------
-// Arithmetic (`src/ir/prim/op.cc`)
+// Arithmetic
 
 /// The binary operators that match the operand types, fold constants and otherwise build the
 /// raw node; each in a pair with its `_at` variant.
@@ -1223,79 +1196,97 @@ macro_rules! folded_binary {
 }
 
 folded_binary!(
-    /// Build `a + b` (C++ `add`, `prim._OpAdd`).
+    /// Build `a + b`.
+    ///
+    /// Like every operator function, it matches the operand types, folds constants and builds at
+    /// the unknown location; its `_at` variant takes the location. Every operator function
+    /// returns a `TypeError` for an operand that is not a primitive expression, and the
+    /// trigonometric and hyperbolic ones also for an operand that is not a float.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use tvm_tirx::ir::prim::op::{add, floordiv, mul};
+    /// use tvm_tirx::ir::{PrimType, PrimVar, UNKNOWN_LOC};
+    /// use tvm_tirx::script::script;
+    /// use tvm_tirx::tvm_ffi::ObjectRefCore;
+    ///
+    /// let i = PrimVar::new("i", PrimType::int(32), UNKNOWN_LOC);
+    /// assert_eq!(script(&floordiv(&i, 16)?)?, "i // 16");
+    /// assert_eq!(script(&mul(4, 16)?)?, "64");
+    /// assert!(add(&i, 0)?.same_as(&i));
+    /// # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// Returns a `TypeError` if an operand is not a primitive expression, or an `InternalError` if
+    /// the operand types cannot be matched.
     add / add_at: const_fold::add => Add,
-    /// Build `a - b` (C++ `sub`, `prim._OpSub`).
+    /// Build `a - b`.
     sub / sub_at: const_fold::sub => Sub,
-    /// Build `a * b` (C++ `mul`, `prim._OpMul`).
+    /// Build `a * b`.
     mul / mul_at: const_fold::mul => Mul,
-    /// Build `a / b`; integer division rounds towards zero, as in C (C++ `div`, `prim._OpDiv`).
+    /// Build `a / b`; integer division rounds towards zero.
     ///
     /// # Errors
     ///
     /// Returns an `InternalError` if `b` is a constant zero.
     div / div_at: const_fold::div => Div,
-    /// Build the remainder of [`truncdiv`], with the sign of `a` (C++ `truncmod`,
-    /// `prim._OpTruncMod`).
+    /// Build the remainder of [`truncdiv`], with the sign of `a`.
     ///
     /// # Errors
     ///
     /// Returns an `InternalError` if a folded divisor is zero.
     truncmod / truncmod_at: const_fold::truncmod => Mod,
-    /// Build the boolean `a > b` (C++ `greater`, `prim._OpGT`).
+    /// Build the boolean `a > b`.
     gt / gt_at: fold_gt => GT,
-    /// Build the boolean `a >= b` (C++ `greater_equal`, `prim._OpGE`).
+    /// Build the boolean `a >= b`.
     ge / ge_at: fold_ge => GE,
-    /// Build the boolean `a < b` (C++ `less`, `prim._OpLT`).
+    /// Build the boolean `a < b`.
     lt / lt_at: fold_lt => LT,
-    /// Build the boolean `a <= b` (C++ `less_equal`, `prim._OpLE`).
+    /// Build the boolean `a <= b`.
     le / le_at: fold_le => LE,
-    /// Build the boolean `a != b` (C++ `not_equal`, `prim._OpNE`).
+    /// Build the boolean `a != b`.
     ne / ne_at: fold_ne => NE,
 );
 
 unlocated! {
-    /// Build the boolean `a == b` (C++ `equal`, `prim._OpEQ`).
+    /// Build the boolean `a == b`.
     eq(a: impl Operand, b: impl Operand) => eq_at;
-    /// Build `-a`, folding a constant (C++ `neg`).
+    /// Build `-a`, folding a constant.
     neg(a: impl IntoExpr<PrimExpr>) => neg_at;
-    /// Build `a / b`, rounding towards zero, of two integers (C++ `truncdiv`, `prim._OpTruncDiv`).
+    /// Build `a / b`, rounding towards zero, of two integers.
     ///
     /// # Errors
     ///
     /// Returns an `InternalError` if an operand is not an integer or `b` is a constant zero.
     truncdiv(a: impl Operand, b: impl Operand) => truncdiv_at;
-    /// Build `a / b`, rounding down, of two integers (C++ `floordiv`, `prim._OpFloorDiv`).
+    /// Build `a / b`, rounding down, of two integers.
     ///
     /// # Errors
     ///
     /// Returns an `InternalError` if an operand is not an integer or `b` is a constant zero.
     floordiv(a: impl Operand, b: impl Operand) => floordiv_at;
-    /// Build the remainder of [`floordiv`], with the sign of `b` (C++ `floormod`,
-    /// `prim._OpFloorMod`).
+    /// Build the remainder of [`floordiv`], with the sign of `b`.
     ///
     /// # Errors
     ///
     /// Returns an `InternalError` if an operand is not an integer or a folded divisor is zero.
     floormod(a: impl Operand, b: impl Operand) => floormod_at;
-    /// Build `a / b` over non-negative indices, which is [`floordiv`] (C++ `indexdiv`,
-    /// `prim._OpIndexDiv`).
+    /// Build `a / b` over non-negative indices, which is [`floordiv`].
     indexdiv(a: impl Operand, b: impl Operand) => indexdiv_at;
-    /// Build `a % b` over non-negative indices, which is [`floormod`] (C++ `indexmod`,
-    /// `prim._OpIndexMod`).
+    /// Build `a % b` over non-negative indices, which is [`floormod`].
     indexmod(a: impl Operand, b: impl Operand) => indexmod_at;
-    /// Build `a / b`, rounding up, of two integers: `floordiv(a + b - 1, b)` (C++ `ceildiv`,
-    /// `prim._OpCeilDiv`).
+    /// Build `a / b`, rounding up, of two integers: `floordiv(a + b - 1, b)`.
     ///
     /// # Errors
     ///
     /// Returns an `InternalError` if an operand is not an integer or `b` is a constant zero.
     ceildiv(a: impl Operand, b: impl Operand) => ceildiv_at;
-    /// Build the smaller of `a` and `b`; a symbolic infinity on either side decides it (C++ `min`,
-    /// `prim._OpMin`).
+    /// Build the smaller of `a` and `b`; a symbolic infinity on either side decides it.
     min(a: impl Operand, b: impl Operand) => min_at;
-    /// Build the larger of `a` and `b`; a symbolic infinity on either side decides it (C++ `max`,
-    /// `prim._OpMax`).
+    /// Build the larger of `a` and `b`; a symbolic infinity on either side decides it.
     max(a: impl Operand, b: impl Operand) => max_at;
 }
 
@@ -1461,19 +1452,19 @@ fn symbolic_infinities() -> (PrimExpr, PrimExpr) {
 // Logic
 
 unlocated! {
-    /// Build the boolean `a && b`; a constant side folds (C++ `logical_and`, `prim._OpAnd`).
+    /// Build the boolean `a && b`; a constant side folds.
     ///
     /// # Errors
     ///
     /// Returns an `InternalError` if an operand is not a boolean.
     logical_and(a: impl IntoExpr<PrimExpr>, b: impl IntoExpr<PrimExpr>) => logical_and_at;
-    /// Build the boolean `a || b`; a constant side folds (C++ `logical_or`, `prim._OpOr`).
+    /// Build the boolean `a || b`; a constant side folds.
     ///
     /// # Errors
     ///
     /// Returns an `InternalError` if an operand is not a boolean.
     logical_or(a: impl IntoExpr<PrimExpr>, b: impl IntoExpr<PrimExpr>) => logical_or_at;
-    /// Build the boolean `!a`; a constant folds (C++ `logical_not`).
+    /// Build the boolean `!a`; a constant folds.
     ///
     /// # Errors
     ///
@@ -1492,7 +1483,7 @@ unlocated! {
     /// Returns a `ValueError` if `conds` is empty.
     any(conds: impl IntoIterator<Item = impl IntoExpr<PrimExpr>>) => any_at;
     /// Build `true_value` where `cond` holds and `false_value` elsewhere, evaluating only the
-    /// chosen one (C++ `if_then_else`, `prim._OpIfThenElse`).
+    /// chosen one.
     ///
     /// # Errors
     ///
@@ -1603,22 +1594,21 @@ fn fold_conditions(
 // Bitwise operators
 
 unlocated! {
-    /// Build `a << b` of two integers (C++ `left_shift`, `prim.left_shift`).
+    /// Build `a << b` of two integers.
     ///
     /// # Errors
     ///
     /// Returns an `InternalError` if an operand is not an integer, or a constant shift amount is
     /// negative or not less than the width.
     shift_left(a: impl Operand, b: impl Operand) => shift_left_at;
-    /// Build `a >> b` of two integers, sign-extending (C++ `right_shift`, `prim.right_shift`).
+    /// Build `a >> b` of two integers, sign-extending.
     ///
     /// # Errors
     ///
     /// Returns an `InternalError` if an operand is not an integer, or a constant shift amount is
     /// negative or not less than the width.
     shift_right(a: impl Operand, b: impl Operand) => shift_right_at;
-    /// Build the node `~a` of an integer or boolean, which neither promotes nor folds (C++
-    /// `bitwise_neg`).
+    /// Build the node `~a` of an integer or boolean, which neither promotes nor folds.
     ///
     /// # Errors
     ///
@@ -1694,19 +1684,19 @@ macro_rules! bitwise {
 }
 
 bitwise!(
-    /// Build `a & b` of two integers or booleans (C++ `bitwise_and`, `prim.bitwise_and`).
+    /// Build `a & b` of two integers or booleans.
     ///
     /// # Errors
     ///
     /// Returns an `InternalError` if an operand is not an integer or boolean.
     bitwise_and / bitwise_and_at: "&", "bitwise AND", & => BitwiseAnd,
-    /// Build `a | b` of two integers or booleans (C++ `bitwise_or`, `prim.bitwise_or`).
+    /// Build `a | b` of two integers or booleans.
     ///
     /// # Errors
     ///
     /// Returns an `InternalError` if an operand is not an integer or boolean.
     bitwise_or / bitwise_or_at: "|", "bitwise OR", | => BitwiseOr,
-    /// Build `a ^ b` of two integers or booleans (C++ `bitwise_xor`, `prim.bitwise_xor`).
+    /// Build `a ^ b` of two integers or booleans.
     ///
     /// # Errors
     ///
@@ -1765,7 +1755,7 @@ fn fold_shift(
 }
 
 // ---------------------------------------------------------------------------------------------
-// Math functions (`src/ir/prim/math.cc`)
+// Math functions
 
 /// The unary math functions, each in a pair with its `_at` variant, implemented by a function
 /// of the expression and the location.
@@ -1786,46 +1776,44 @@ macro_rules! unary {
 }
 
 unary! {
-    /// Round `x` up (C++ `ceil`, `prim.ceil`).
+    /// Round `x` up.
     ceil / ceil_at => |x, loc| rounding(x, "prim.ceil", f64::ceil, loc);
-    /// Round `x` down (C++ `floor`, `prim.floor`).
+    /// Round `x` down.
     floor / floor_at => |x, loc| rounding(x, "prim.floor", f64::floor, loc);
-    /// Round `x` to the nearest integer; a constant folds a tie to even, as `std::nearbyint` does
-    /// (C++ `round`, `prim.round`).
+    /// Round `x` to the nearest integer; a constant folds a tie to even.
     round / round_at => |x, loc| rounding(x, "prim.round", f64::round_ties_even, loc);
-    /// Round `x` to the nearest integer under the current rounding mode, a tie to even (C++
-    /// `nearbyint`, `prim.nearbyint`).
+    /// Round `x` to the nearest integer under the current rounding mode, a tie to even.
     nearbyint / nearbyint_at => |x, loc| rounding(x, "prim.nearbyint", f64::round_ties_even, loc);
-    /// Round `x` towards zero (C++ `trunc`, `prim.trunc`).
+    /// Round `x` towards zero.
     trunc / trunc_at => |x, loc| rounding(x, "prim.trunc", f64::trunc, loc);
-    /// Build the absolute value of `x`; a constant folds (C++ `abs`, `prim.abs`).
+    /// Build the absolute value of `x`; a constant folds.
     ///
     /// # Errors
     ///
     /// Returns an `InternalError` if `x` is not an integer or a float, such as a boolean.
     abs / abs_at => absolute;
-    /// Build whether `x` is NaN (C++ `isnan`, `prim.isnan`).
+    /// Build whether `x` is NaN.
     isnan / isnan_at => |x, loc| call(None, "prim.isnan", vec![x], loc);
-    /// Build whether `x` is infinite (C++ `isinf`, `prim.isinf`).
+    /// Build whether `x` is infinite.
     ///
     /// # Errors
     ///
     /// Returns an `InternalError` if `x` is not an integer or a float.
     isinf / isinf_at => infinite;
-    /// Build whether `x` is finite (C++ `isfinite`, `prim.isfinite`).
+    /// Build whether `x` is finite.
     ///
     /// # Errors
     ///
     /// Returns an `InternalError` if `x` is not an integer or a float.
     isfinite / isfinite_at => finite;
-    /// Mark `cond` as likely to hold; an integer constant is itself (C++ `likely`, `prim.likely`).
+    /// Mark `cond` as likely to hold; an integer constant is itself.
     likely / likely_at => likely_hint;
-    /// Build a statement that `cond` holds, for simplifications (C++ `assume`, `prim.assume`).
+    /// Build a statement that `cond` holds, for simplifications.
     assume / assume_at => |cond, loc| {
         let ty: Type = PrimType::bool().into();
         call(Some(&ty), "prim.assume", vec![cond], loc)
     };
-    /// Build the number of leading zero bits of `x` (C++ `clz`, `prim.clz`).
+    /// Build the number of leading zero bits of `x`.
     clz / clz_at => |x: PrimExpr, loc| {
         let ty = x.ty.clone();
         call(Some(&ty), "prim.clz", vec![x], loc)
@@ -1833,20 +1821,19 @@ unary! {
 }
 
 unlocated! {
-    /// Create the largest value of the scalar type `ty` (C++ `max_value`, `prim.max_value`).
+    /// Create the largest value of the scalar type `ty`.
     ///
     /// # Errors
     ///
     /// Returns an `InternalError` if `ty` is a vector or has no largest value.
     max_value(ty: impl Into<PrimType>) => max_value_at;
-    /// Create the smallest value of the scalar type `ty` (C++ `min_value`, `prim.min_value`).
+    /// Create the smallest value of the scalar type `ty`.
     ///
     /// # Errors
     ///
     /// Returns an `InternalError` if `ty` is a vector or has no smallest value.
     min_value(ty: impl Into<PrimType>) => min_value_at;
-    /// Create the positive infinity of the scalar `float16`, `float32` or `float64` type `ty` (C++
-    /// `infinity`, `prim.infinity`).
+    /// Create the positive infinity of the scalar `float16`, `float32` or `float64` type `ty`.
     ///
     /// # Errors
     ///
@@ -1932,19 +1919,19 @@ pub fn vscale_at(loc: impl Into<Location>) -> Result<PrimExpr> {
 }
 
 unlocated! {
-    /// Build `x` to the power `y`, of two matched floats (C++ `pow`, `prim._OpPow`).
+    /// Build `x` to the power `y`, of two matched floats.
     ///
     /// # Errors
     ///
     /// Returns an `InternalError` if the operands are not floats or cannot be matched.
     pow(x: impl IntoExpr<PrimExpr>, y: impl IntoExpr<PrimExpr>) => pow_at;
-    /// Build the floating-point remainder of `x / y`, of two matched floats (C++ `fmod`).
+    /// Build the floating-point remainder of `x / y`, of two matched floats.
     ///
     /// # Errors
     ///
     /// Returns an `InternalError` if the operands are not floats or cannot be matched.
     fmod(x: impl IntoExpr<PrimExpr>, y: impl IntoExpr<PrimExpr>) => fmod_at;
-    /// Build `x * y + z` in one rounding (C++ `fma`, `prim.fma`).
+    /// Build `x * y + z` in one rounding.
     fma(
         x: impl IntoExpr<PrimExpr>,
         y: impl IntoExpr<PrimExpr>,
@@ -2024,7 +2011,7 @@ fn absolute(x: PrimExpr, loc: Location) -> Result<PrimExpr> {
     }
 }
 
-/// C++ `IntegerAbs(x, loc)` of a signed integer: a constant folds when its absolute value is a
+/// The absolute value of a signed integer: a constant folds when its absolute value is a
 /// value of its type; anything else is `select(x >= 0, x, -x)`.
 fn integer_abs(x: PrimExpr, loc: Location) -> Result<PrimExpr> {
     let ty = x.prim_ty();
@@ -2106,7 +2093,7 @@ fn float_binary(
 }
 
 // ---------------------------------------------------------------------------------------------
-// Intrinsics (`TVM_DECLARE_INTRIN_UNARY` and friends in `include/tvm/ir/prim/op.h`)
+// Intrinsics
 
 /// The unary intrinsics; `float_only` marks `TVM_DECLARE_FLOAT_INTRIN_UNARY`.
 macro_rules! unary_intrinsics {
@@ -2121,53 +2108,53 @@ macro_rules! unary_intrinsics {
 }
 
 unary_intrinsics! {
-    /// Build `e` to the power `x` (C++ `exp`, `prim.exp`).
+    /// Build `e` to the power `x`.
     exp / exp_at => "prim.exp", false;
-    /// Build `2` to the power `x` (C++ `exp2`, `prim.exp2`).
+    /// Build `2` to the power `x`.
     exp2 / exp2_at => "prim.exp2", false;
-    /// Build `10` to the power `x` (C++ `exp10`, `prim.exp10`).
+    /// Build `10` to the power `x`.
     exp10 / exp10_at => "prim.exp10", false;
-    /// Build the error function of `x` (C++ `erf`, `prim.erf`).
+    /// Build the error function of `x`.
     erf / erf_at => "prim.erf", false;
-    /// Build the sigmoid of `x` (C++ `sigmoid`, `prim.sigmoid`).
+    /// Build the sigmoid of `x`.
     sigmoid / sigmoid_at => "prim.sigmoid", false;
-    /// Build the square root of `x` (C++ `sqrt`, `prim.sqrt`).
+    /// Build the square root of `x`.
     sqrt / sqrt_at => "prim.sqrt", false;
-    /// Build the reciprocal square root of `x` (C++ `rsqrt`, `prim.rsqrt`).
+    /// Build the reciprocal square root of `x`.
     rsqrt / rsqrt_at => "prim.rsqrt", false;
-    /// Build the natural logarithm of `x` (C++ `log`, `prim.log`).
+    /// Build the natural logarithm of `x`.
     log / log_at => "prim.log", false;
-    /// Build the base-2 logarithm of `x` (C++ `log2`, `prim.log2`).
+    /// Build the base-2 logarithm of `x`.
     log2 / log2_at => "prim.log2", false;
-    /// Build the base-10 logarithm of `x` (C++ `log10`, `prim.log10`).
+    /// Build the base-10 logarithm of `x`.
     log10 / log10_at => "prim.log10", false;
-    /// Build `log(1 + x)` (C++ `log1p`, `prim.log1p`).
+    /// Build `log(1 + x)`.
     log1p / log1p_at => "prim.log1p", false;
-    /// Build the number of set bits of `x` (C++ `popcount`, `prim.popcount`).
+    /// Build the number of set bits of `x`.
     popcount / popcount_at => "prim.popcount", false;
-    /// Build the hyperbolic tangent of the float `x` (C++ `tanh`, `prim.tanh`).
+    /// Build the hyperbolic tangent of the float `x`.
     tanh / tanh_at => "prim.tanh", true;
-    /// Build the tangent of the float `x` (C++ `tan`, `prim.tan`).
+    /// Build the tangent of the float `x`.
     tan / tan_at => "prim.tan", true;
-    /// Build the cosine of the float `x` (C++ `cos`, `prim.cos`).
+    /// Build the cosine of the float `x`.
     cos / cos_at => "prim.cos", true;
-    /// Build the hyperbolic cosine of the float `x` (C++ `cosh`, `prim.cosh`).
+    /// Build the hyperbolic cosine of the float `x`.
     cosh / cosh_at => "prim.cosh", true;
-    /// Build the sine of the float `x` (C++ `sin`, `prim.sin`).
+    /// Build the sine of the float `x`.
     sin / sin_at => "prim.sin", true;
-    /// Build the hyperbolic sine of the float `x` (C++ `sinh`, `prim.sinh`).
+    /// Build the hyperbolic sine of the float `x`.
     sinh / sinh_at => "prim.sinh", true;
-    /// Build the arc sine of the float `x` (C++ `asin`, `prim.asin`).
+    /// Build the arc sine of the float `x`.
     asin / asin_at => "prim.asin", true;
-    /// Build the arc cosine of the float `x` (C++ `acos`, `prim.acos`).
+    /// Build the arc cosine of the float `x`.
     acos / acos_at => "prim.acos", true;
-    /// Build the arc tangent of the float `x` (C++ `atan`, `prim.atan`).
+    /// Build the arc tangent of the float `x`.
     atan / atan_at => "prim.atan", true;
-    /// Build the inverse hyperbolic cosine of the float `x` (C++ `acosh`, `prim.acosh`).
+    /// Build the inverse hyperbolic cosine of the float `x`.
     acosh / acosh_at => "prim.acosh", true;
-    /// Build the inverse hyperbolic sine of the float `x` (C++ `asinh`, `prim.asinh`).
+    /// Build the inverse hyperbolic sine of the float `x`.
     asinh / asinh_at => "prim.asinh", true;
-    /// Build the inverse hyperbolic tangent of the float `x` (C++ `atanh`, `prim.atanh`).
+    /// Build the inverse hyperbolic tangent of the float `x`.
     atanh / atanh_at => "prim.atanh", true;
 }
 
@@ -2199,22 +2186,21 @@ macro_rules! binary_intrinsics {
 }
 
 binary_intrinsics! {
-    /// Build the arc tangent of `x / y`, by the signs of both (C++ `atan2`, `prim.atan2`).
+    /// Build the arc tangent of `x / y`, by the signs of both.
     atan2 / atan2_at => "prim.atan2";
-    /// Build the next representable value after `x` towards `y` (C++ `nextafter`,
-    /// `prim.nextafter`).
+    /// Build the next representable value after `x` towards `y`.
     nextafter / nextafter_at => "prim.nextafter";
-    /// Build `x` with the sign of `y` (C++ `copysign`, `prim.copysign`).
+    /// Build `x` with the sign of `y`.
     copysign / copysign_at => "prim.copysign";
-    /// Build `sqrt(x * x + y * y)` (C++ `hypot`, `prim.hypot`).
+    /// Build `sqrt(x * x + y * y)`.
     hypot / hypot_at => "prim.hypot";
-    /// Build `x * 2 ^ y` (C++ `ldexp`, `prim.ldexp`).
+    /// Build `x * 2 ^ y`.
     ldexp / ldexp_at => "prim.ldexp";
 }
 
 /// A unary intrinsic `op`, a call typed as its argument. A bfloat16 argument is computed in
 /// float32 and cast back; with `float_only`, any argument but a float or a bfloat16 is a
-/// `TypeError` (C++ `CheckMathUnaryOpInputDType`).
+/// `TypeError`.
 fn unary_intrinsic(
     op: &'static str,
     x: PrimExpr,
@@ -2242,21 +2228,21 @@ fn unary_intrinsic(
 // ---------------------------------------------------------------------------------------------
 // Data type queries and operand checks the operators share
 
-/// The `float4` code C++ `IsFloat4Type` matches.
+/// The `float4` type code.
 const FLOAT4: DLDataTypeCode = DLDataTypeCode::kDLFloat4_e2m1fn;
 
-/// C++ `IsFloat8Type`.
+/// Whether `code` is a float8 type code.
 fn is_float8(code: u8) -> bool {
     support::float8_bound(code).is_some()
 }
 
-/// C++ `IsFloat6Type`.
+/// Whether `code` is a float6 type code.
 fn is_float6(code: u8) -> bool {
     support::float6_bound(code).is_some()
 }
 
 /// The largest finite value of a float8 or float6 type, and whether the type is unsigned, its
-/// minimum then 0 (C++ `max_value` and `min_value`).
+/// minimum then 0.
 fn small_float_bound(code: u8) -> Option<(f64, bool)> {
     support::float8_bound(code).or_else(|| support::float6_bound(code).map(|max| (max, false)))
 }
@@ -2265,13 +2251,13 @@ fn is_float4(code: u8) -> bool {
     FLOAT4 as u8 == code
 }
 
-/// C++ `MatchesElementType(kDLBfloat, 16)`.
+/// Whether `ty` has the element type bfloat16.
 fn is_bfloat16(ty: &PrimType) -> bool {
     ty.matches_code(&[DLDataTypeCode::kDLBfloat]) && ty.bits() == 16
 }
 
 /// The lanes of a vector type as an expression: the count, or `factor * vscale()` for a scalable
-/// vector (C++ `BroadcastToMatchLanes` and `cast`).
+/// vector.
 fn lanes_of(ty: &PrimType) -> Result<PrimExpr> {
     match ty.vscale_factor() {
         Some(factor) => {
@@ -2299,8 +2285,8 @@ fn is_vscale_call(expr: &PrimExpr) -> Result<bool> {
     Ok(call.op.same_as(&support::cached_op("prim.vscale")?))
 }
 
-/// The `TVM_FFI_ICHECK` an operation makes of an operand's type code: `codes` is the C++ text
-/// of the accepted codes, `message` what it reports.
+/// The `TVM_FFI_ICHECK` an operation makes of an operand's type code: `codes` spells
+/// the accepted codes as the error prints them, `message` what it reports.
 fn check_code(
     operand: &PrimExpr,
     side: &str,

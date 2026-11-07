@@ -17,15 +17,9 @@
  * under the License.
  */
 
-//! Constant folding of the operators, after `TryConstFold<Op>`
-//! (`include/tvm/ir/prim/const_fold.h`).
-//!
-//! Each function takes operands of one type, as `BinaryOpMatchTypes` leaves them, and returns the
-//! folded expression, or `None` when there is nothing to fold. Integers fold exactly, and only
-//! when the result is a value of their type (`IsRepresentable`); floats fold for 32 and 64 bits, a
-//! float32 in single precision and only within the float32 range (`IsInFloat32Range`); a constant
-//! operand also folds the identities (`x + 0`, `x * 1`, ...). Division by a constant zero is an
-//! error, as in C++.
+//! Constant folding. Each function folds one operation on operands already matched to one type, or
+//! returns `None` when there is nothing to fold; a constant operand also folds identities such as
+//! `x + 0`, and division by a constant zero is an error.
 
 use tvm_ffi::{BigInt, DLDataTypeCode, ObjectRefCore, Result, INTERNAL_ERROR};
 
@@ -40,7 +34,7 @@ pub(super) type Folded = Result<Option<PrimExpr>>;
 // ---------------------------------------------------------------------------------------------
 // Arithmetic
 
-/// `TryConstFold<Add>`.
+/// Fold `a + b`.
 pub(super) fn add(a: &PrimExpr, b: &PrimExpr) -> Folded {
     let ty = a.prim_ty();
     let (pa, pb, fa, fb) = (int(a), int(b), float(a), float(b));
@@ -69,7 +63,7 @@ pub(super) fn add(a: &PrimExpr, b: &PrimExpr) -> Folded {
     Ok(None)
 }
 
-/// `TryConstFold<Sub>`.
+/// Fold `a - b`.
 pub(super) fn sub(a: &PrimExpr, b: &PrimExpr) -> Folded {
     let ty = a.prim_ty();
     let (pa, pb, fa, fb) = (int(a), int(b), float(a), float(b));
@@ -92,7 +86,7 @@ pub(super) fn sub(a: &PrimExpr, b: &PrimExpr) -> Folded {
     Ok(None)
 }
 
-/// `TryConstFold<Mul>`.
+/// Fold `a * b`.
 pub(super) fn mul(a: &PrimExpr, b: &PrimExpr) -> Folded {
     let ty = a.prim_ty();
     let (pa, pb, fa, fb) = (int(a), int(b), float(a), float(b));
@@ -141,7 +135,7 @@ pub(super) fn mul(a: &PrimExpr, b: &PrimExpr) -> Folded {
     Ok(None)
 }
 
-/// `TryConstFold<Div>`: integers divide truncating.
+/// Fold `a / b`: integers divide truncating.
 pub(super) fn div(a: &PrimExpr, b: &PrimExpr) -> Folded {
     let ty = a.prim_ty();
     let (pa, pb, fa, fb) = (int(a), int(b), float(a), float(b));
@@ -178,8 +172,8 @@ pub(super) fn div(a: &PrimExpr, b: &PrimExpr) -> Folded {
     Ok(None)
 }
 
-/// `TryConstFold<Mod>`, the truncating remainder: index types fold with the identities, wider
-/// integers fold only two constants.
+/// Fold the truncating remainder `a % b`: index types fold with the identities, wider integers
+/// fold only two constants.
 pub(super) fn truncmod(a: &PrimExpr, b: &PrimExpr) -> Folded {
     let ty = a.prim_ty();
     let (pa, pb) = (int(a), int(b));
@@ -207,7 +201,7 @@ pub(super) fn truncmod(a: &PrimExpr, b: &PrimExpr) -> Folded {
     Ok(None)
 }
 
-/// `TryConstFold<FloorDiv>`.
+/// Fold `floor(a / b)`.
 pub(super) fn floordiv(a: &PrimExpr, b: &PrimExpr) -> Folded {
     let ty = a.prim_ty();
     let (pa, pb, fa, fb) = (int(a), int(b), float(a), float(b));
@@ -245,7 +239,7 @@ pub(super) fn floordiv(a: &PrimExpr, b: &PrimExpr) -> Folded {
     Ok(None)
 }
 
-/// `TryConstFold<FloorMod>`: index types fold with the identities, wider or unsigned integers
+/// Fold `a - floor(a / b) * b`: index types fold with the identities, wider or unsigned integers
 /// fold only two constants.
 pub(super) fn floormod(a: &PrimExpr, b: &PrimExpr) -> Folded {
     let ty = a.prim_ty();
@@ -274,7 +268,7 @@ pub(super) fn floormod(a: &PrimExpr, b: &PrimExpr) -> Folded {
     Ok(None)
 }
 
-/// `TryConstFold<Min>`: two constants, or an operand with itself. Of two floats, the first is kept
+/// Fold `min(a, b)`: two constants, or an operand with itself. Of two floats, the first is kept
 /// when it is NaN or less than the second, and the second otherwise: a NaN in either operand is
 /// the result, and of two equal values (`0.0` and `-0.0`) the second is.
 pub(super) fn min(a: &PrimExpr, b: &PrimExpr) -> Folded {
@@ -291,7 +285,7 @@ pub(super) fn min(a: &PrimExpr, b: &PrimExpr) -> Folded {
     Ok(None)
 }
 
-/// `TryConstFold<Max>`, as [`min`]: the first float is kept when it is NaN or greater.
+/// Fold `max(a, b)`, as [`min`]: the first float is kept when it is NaN or greater.
 pub(super) fn max(a: &PrimExpr, b: &PrimExpr) -> Folded {
     let ty = a.prim_ty();
     if let (Some(x), Some(y)) = (int(a), int(b)) {
@@ -309,7 +303,7 @@ pub(super) fn max(a: &PrimExpr, b: &PrimExpr) -> Folded {
 // ---------------------------------------------------------------------------------------------
 // Comparisons and logic
 
-/// `TryConstFold` of a comparison: two constants compare to a boolean constant.
+/// Fold a comparison: two constants compare to a boolean constant.
 pub(super) fn compare(
     a: &PrimExpr,
     b: &PrimExpr,
@@ -325,7 +319,7 @@ pub(super) fn compare(
     Ok(None)
 }
 
-/// `TryConstFold<And>`: a true constant leaves the other side, a false one is the result.
+/// Fold `a && b`: a true constant leaves the other side, a false one is the result.
 pub(super) fn and(a: &PrimExpr, b: &PrimExpr) -> Folded {
     if let Some(x) = int(a) {
         return keep(if x.is_zero() { a } else { b });
@@ -336,7 +330,7 @@ pub(super) fn and(a: &PrimExpr, b: &PrimExpr) -> Folded {
     Ok(None)
 }
 
-/// `TryConstFold<Or>`: a true constant is the result, a false one leaves the other side.
+/// Fold `a || b`: a true constant is the result, a false one leaves the other side.
 pub(super) fn or(a: &PrimExpr, b: &PrimExpr) -> Folded {
     if let Some(x) = int(a) {
         return keep(if x.is_zero() { b } else { a });
@@ -347,7 +341,7 @@ pub(super) fn or(a: &PrimExpr, b: &PrimExpr) -> Folded {
     Ok(None)
 }
 
-/// `TryConstFold<Not>`.
+/// Fold `!a`.
 pub(super) fn not(a: &PrimExpr) -> Folded {
     match int(a) {
         Some(x) => boolean(x.is_zero()),
@@ -358,13 +352,14 @@ pub(super) fn not(a: &PrimExpr) -> Folded {
 // ---------------------------------------------------------------------------------------------
 // Helpers
 
-/// C++ `IsIndexType`: a scalar `int32` or `int64`, which index arithmetic folds eagerly.
+/// Whether `ty` is an index type, a scalar `int32` or `int64`, which index arithmetic folds
+/// eagerly.
 pub(super) fn is_index_type(ty: &PrimType) -> bool {
     ty.is_scalar() && ty.matches_code(&[DLDataTypeCode::kDLInt]) && matches!(ty.bits(), 32 | 64)
 }
 
-/// C++ `IsRepresentable(value, ty)`: whether the exact integer `value` is a literal of the
-/// scalar type `ty`, an integer in its range or a boolean 0 or 1 (as is an `int1`).
+/// Whether the exact integer `value` is a literal of the scalar type `ty`: an integer in its
+/// range, or a boolean 0 or 1 (as is an `int1`).
 pub(super) fn is_representable(value: &BigInt, ty: &PrimType) -> bool {
     if !ty.is_scalar() || ty.bits() == 0 {
         return false;
@@ -391,8 +386,8 @@ pub(super) fn is_representable(value: &BigInt, ty: &PrimType) -> bool {
     }
 }
 
-/// C++ `IsInFloat32Range(value)`: a value that rounds to a finite float32, or one that is not
-/// finite.
+/// Whether `value` is in the float32 range: it rounds to a finite float32, or is not finite
+/// itself.
 pub(super) fn is_in_float32_range(value: f64) -> bool {
     !value.is_finite() || (f64::from(f32::MIN)..=f64::from(f32::MAX)).contains(&value)
 }
@@ -407,8 +402,7 @@ fn float(expr: &PrimExpr) -> Option<f64> {
     expr.downcast_ref::<FloatImmObj>().map(|imm| imm.value)
 }
 
-/// C++ `IntImm(result_ty, value)` of an exact result, or nothing to fold when it is not a value of
-/// the type.
+/// The constant `value` of type `ty`, or nothing to fold when it is not a value of the type.
 fn exact(ty: &PrimType, value: BigInt) -> Folded {
     match is_representable(&value, ty) {
         true => Ok(Some(IntImm::new(ty.clone(), value, UNKNOWN_LOC)?.into())),
@@ -416,26 +410,26 @@ fn exact(ty: &PrimType, value: BigInt) -> Folded {
     }
 }
 
-/// C++ `FloatImm(ty, value)`.
+/// The float constant `value` of type `ty`.
 fn float_imm(ty: &PrimType, value: f64) -> Folded {
     Ok(Some(FloatImm::new(ty.clone(), value, UNKNOWN_LOC)?.into()))
 }
 
-/// C++ `IntImm::Bool(value)`.
+/// The boolean constant `value`.
 fn boolean(value: bool) -> Folded {
     Ok(Some(IntImm::bool(value).into()))
 }
 
-/// A float32 operation on the operands rounded to float32, as C++ computes `float` arithmetic, or
-/// `None` when the result is beyond the float32 range: C++ checks the result in double precision
-/// before rounding can turn a finite overflow into infinity, and rounding that result to float32
-/// gives the single-precision one (a double holds more than twice the digits of a float).
+/// A float32 operation on the operands rounded to float32, or `None` when the result is beyond
+/// the float32 range: the result is checked in double precision, before rounding can turn a
+/// finite overflow into infinity, and rounding it to float32 gives the single-precision result (a
+/// double holds more than twice the digits of a float).
 fn single(x: f64, y: f64, op: fn(f64, f64) -> f64) -> Option<f64> {
     let result = op(f64::from(x as f32), f64::from(y as f32));
     is_in_float32_range(result).then(|| f64::from(result as f32))
 }
 
-/// C++ `FloatImm(ty, value)` of a folded value, or nothing to fold.
+/// The float constant of a folded `value` of type `ty`, or nothing to fold.
 fn float_imm_of(ty: &PrimType, value: Option<f64>) -> Folded {
     match value {
         Some(value) => float_imm(ty, value),
@@ -443,7 +437,7 @@ fn float_imm_of(ty: &PrimType, value: Option<f64>) -> Folded {
     }
 }
 
-/// The error of `TVM_FFI_ICHECK_NE(pb->value, 0) << "Divide by zero"`.
+/// The `Divide by zero` error of a zero integer divisor.
 fn check_int_divisor(divisor: &BigInt) -> Result<()> {
     match divisor.is_zero() {
         true => Err(support::compare_failed(
@@ -457,7 +451,7 @@ fn check_int_divisor(divisor: &BigInt) -> Result<()> {
     }
 }
 
-/// The error of `TVM_FFI_ICHECK_NE(fb->value, 0) << "Divide by zero"`.
+/// The `Divide by zero` error of a zero float divisor.
 fn check_float_divisor(divisor: f64) -> Result<()> {
     match divisor == 0.0 {
         true => Err(support::compare_failed(

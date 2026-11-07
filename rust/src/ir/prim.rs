@@ -17,10 +17,9 @@
  * under the License.
  */
 
-//! Primitive expressions: scalar arithmetic, comparisons and vector lanes.
-//!
-//! [`expr`] holds the scalar expressions, [`vector_expr`] the vector ones and [`op`] the
-//! type-promoting operators.
+//! Primitive expressions. Each node, such as [`Add`] or [`Ramp`], is a [`PrimExpr`] whose `new`
+//! only checks its operand types; the functions of [`op`], which operators such as `&x + 1` call,
+//! also match the operand types and fold constants.
 
 // tvm-ffi-stubgen(missing-docs): allow
 // An object registered under `prim` that no file has a block for yet is generated here, to be moved
@@ -50,8 +49,8 @@ use std::borrow::Borrow;
 use tvm_ffi::Result;
 // tvm-ffi-stubgen(end)
 
-/// Return whether `lhs` and `rhs` are the same expression tree, without remapping variables: use
-/// structural equality for that (`prim.expr_deep_equal`).
+/// Return whether `lhs` and `rhs` are the same expression tree, comparing variables by identity;
+/// structural equality also matches distinct variables bound at the same place.
 pub fn expr_deep_equal(lhs: impl IntoExpr<PrimExpr>, rhs: impl IntoExpr<PrimExpr>) -> Result<bool> {
     tvm_ffi::cached_global_func!("prim.expr_deep_equal")
         .call_tuple((lhs.into_expr()?.borrow(), rhs.into_expr()?.borrow()))?

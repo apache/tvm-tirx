@@ -17,34 +17,9 @@
  * under the License.
  */
 
-//! The shared IR: expressions, statements, types, functions, modules and operators.
-//!
-//! [`Expr`], [`Stmt`] and [`Type`] are the bases of the three node hierarchies, and [`IRModule`]
-//! holds the functions of a program.
-//!
-//! # Examples
-//!
-//! ```
-//! use tvm_tirx::ir::{
-//!     BaseFunc, DictAttrs, GlobalVar, IRModule, PrimType, PrimVar, Return, SeqStmt,
-//! };
-//! use tvm_tirx::ir::{PrimExpr, Var, UNKNOWN_LOC};
-//! use tvm_tirx::script::script;
-//! use tvm_tirx::tirx::Function;
-//! use tvm_tirx::tvm_ffi::Map;
-//!
-//! let x = PrimVar::new("x", PrimType::int(32), UNKNOWN_LOC);
-//! let y = PrimExpr::try_from(&x * 2 + 1)?;
-//!
-//! let body = SeqStmt::new([Return::new(&y, UNKNOWN_LOC)], UNKNOWN_LOC);
-//! let attrs = DictAttrs::new(Map::new());
-//! let func = Function::new([x], &body, PrimType::int(32), attrs, UNKNOWN_LOC);
-//!
-//! let functions = Map::from_iter([(GlobalVar::new("main", UNKNOWN_LOC), BaseFunc::from(func))]);
-//! let module = IRModule::new(&functions, DictAttrs::new(Map::new()), &Map::new())?;
-//! assert!(script(&module)?.contains("def main(x: T.int32) -> T.int32:"));
-//! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
-//! ```
+//! The IR shared by every dialect. Expressions ([`Expr`]), statements ([`Stmt`]) and types
+//! ([`Type`]) are the three node hierarchies; functions are expressions, and an [`IRModule`] binds
+//! them to global names, the unit of compilation that the passes of [`transform`] rewrite.
 
 // tvm-ffi-stubgen(missing-docs): allow
 // An object registered under `ir` that no file has a block for yet is generated here, to be moved

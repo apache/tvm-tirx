@@ -17,33 +17,14 @@
  * under the License.
  */
 
-//! The DLPack data types by their fields: `dtype::int(32)` where C++ writes `DataType::Int(32)`.
-//!
-//! They are plain values, so they can be constants; [`PrimType::int`](crate::ir::PrimType::int)
-//! and its siblings give the IR type of each.
-//!
-//! # Examples
-//!
-//! ```
-//! use tvm_tirx::ir::{dtype, PrimType};
-//! use tvm_tirx::runtime;
-//! use tvm_tirx::script::script;
-//! use tvm_tirx::tvm_ffi::{DLDevice, DLDeviceType};
-//!
-//! let cpu = DLDevice::new(DLDeviceType::kDLCPU, 0);
-//! let tensor = runtime::empty(&[2, 3], dtype::float(32), cpu, None)?;
-//! assert_eq!(tensor.dtype(), dtype::float(32));
-//!
-//! let half4 = PrimType::try_from(dtype::with_lanes(dtype::float(16), 4))?;
-//! assert_eq!(script(&half4)?, "T.float16x4");
-//! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
-//! ```
+//! Data types. A [`DLDataType`] is the DLPack element type of a tensor or a primitive value;
+//! these functions build them as plain values, usable in constants, and
+//! [`PrimType`](crate::ir::PrimType) is the IR type of one.
 
 use tvm_ffi::DLDataType;
 use tvm_ffi::DLDataTypeCode;
 
-/// Return the signed integer type of `bits` bits, such as `int32` for 32 (C++
-/// `DataType::Int(bits)`).
+/// Return the signed integer type of `bits` bits, such as `int32` for 32.
 pub const fn int(bits: u8) -> DLDataType {
     scalar(DLDataTypeCode::kDLInt, bits)
 }
@@ -68,13 +49,12 @@ pub const fn bool() -> DLDataType {
     scalar(DLDataTypeCode::kDLBool, 8)
 }
 
-/// Return the void type, which C++ encodes as `handle(0, 0)` (`DataType::Void()`).
+/// Return the void type, encoded as an opaque handle of 0 bits and 0 lanes.
 pub const fn void() -> DLDataType {
     DLDataType { code: DLDataTypeCode::kDLOpaqueHandle as u8, bits: 0, lanes: 0 }
 }
 
-/// Return the vector of `lanes` elements of the scalar `dtype`, such as `float16x4` (C++
-/// `DataType::with_lanes`).
+/// Return the vector of `lanes` elements of the scalar `dtype`, such as `float16x4`.
 ///
 /// `lanes` is the raw DLPack lane field: values from 32768 up encode scalable vectors.
 pub const fn with_lanes(dtype: DLDataType, lanes: u16) -> DLDataType {
