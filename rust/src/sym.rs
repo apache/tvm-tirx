@@ -26,6 +26,10 @@
 // to the file of the Python module that defines it.
 // tvm-ffi-stubgen(prefix): sym
 // tvm-ffi-stubgen(skip): sym.ConstraintContext
+// The canonical simplifier's intermediate forms are internal to it.
+// tvm-ffi-stubgen(skip): sym.CanonicalExpr
+// tvm-ffi-stubgen(skip): sym.SplitExpr
+// tvm-ffi-stubgen(skip): sym.SumExpr
 
 pub mod analyzer;
 pub mod constraint;

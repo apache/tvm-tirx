@@ -2320,8 +2320,6 @@ crate::def_expr_op_over_loads!(crate::ir::prim::Shuffle);
 crate::def_expr_op_over_loads!(crate::sym::iter_affine_map::IterMapExpr);
 crate::def_expr_op_over_loads!(crate::sym::iter_affine_map::IterSplitExpr);
 crate::def_expr_op_over_loads!(crate::sym::iter_affine_map::IterSumExpr);
-crate::def_expr_op_over_loads!(crate::sym::analyzer::SplitExpr);
-crate::def_expr_op_over_loads!(crate::sym::analyzer::SumExpr);
 
 // ---------------------------------------------------------------------------------------------
 // What the constant constructors check
