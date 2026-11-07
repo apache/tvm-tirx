@@ -16,7 +16,6 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-#![allow(dead_code, unused_imports)]
 // The generated `new` of a field-less base needs no `Default`, and `UnknownLoc::new` fetches a
 // shared FFI singleton.
 #![allow(clippy::new_without_default)]
@@ -61,13 +60,22 @@ use tvm_ffi::UnsafeInit;
 // tvm-ffi-stubgen(end)
 
 // tvm-ffi-stubgen(begin): object/ir.Location
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct Location {
+    data_: ObjectArc<LocationObj>,
+}
+
+/// The object behind [`Location`].
+///
 /// Complete: reflected fields fill [24, 24) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.Location"]
 pub struct LocationObj {
-    base: Object,
+    base_: Object,
 }
 
 const _: () = {
@@ -76,17 +84,10 @@ const _: () = {
 };
 
 #[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct Location {
-    base: ObjectArc<LocationObj>,
-}
-
-#[allow(missing_docs)]
 impl LocationObj {
     pub fn new() -> Self {
-        let base = Object::new();
-        Self { base }
+        let base_ = Object::new();
+        Self { base_ }
     }
 }
 
@@ -95,20 +96,20 @@ impl Location {
     /// Lossless complete-field allocation.
     pub fn new() -> Self {
         let obj = LocationObj::new();
-        Self { base: ObjectArc::new(obj) }
+        Self { data_: ObjectArc::new(obj) }
     }
 }
 
 impl ShallowCopy for LocationObj {
     fn shallow_copy(&self) -> Self {
-        Self { base: ShallowCopy::shallow_copy(&self.base) }
+        Self { base_: ShallowCopy::shallow_copy(&self.base_) }
     }
 }
 
 unsafe impl UnsafeInit for LocationObj {
     unsafe fn drop_defined_fields(this: *mut Self) {
         unsafe {
-            UnsafeInit::drop_defined_fields(addr_of_mut!((*this).base));
+            UnsafeInit::drop_defined_fields(addr_of_mut!((*this).base_));
         }
     }
 }
@@ -117,6 +118,15 @@ unsafe impl tvm_ffi::object::ImmutableObject for LocationObj {}
 // tvm-ffi-stubgen(end)
 
 // tvm-ffi-stubgen(begin): object/ir.UnknownLoc
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct UnknownLoc {
+    data_: ObjectArc<UnknownLocObj>,
+}
+
+/// The object behind [`UnknownLoc`].
+///
 /// Opaque: vetoed by directive although the layout is reproducible. Fields are read through the C ABI getters.
 #[allow(missing_docs)]
 #[repr(C)]
@@ -124,20 +134,13 @@ unsafe impl tvm_ffi::object::ImmutableObject for LocationObj {}
 #[type_key = "ir.UnknownLoc"]
 #[type_final]
 pub struct UnknownLocObj {
-    base: LocationObj,
-}
-
-#[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct UnknownLoc {
-    base: ObjectArc<UnknownLocObj>,
+    base_: LocationObj,
 }
 
 impl Deref for UnknownLocObj {
     type Target = LocationObj;
     fn deref(&self) -> &LocationObj {
-        &self.base
+        &self.base_
     }
 }
 
@@ -176,6 +179,15 @@ impl From<Unknown> for Location {
 }
 
 // tvm-ffi-stubgen(begin): object/ir.SourceLoc
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct SourceLoc {
+    data_: ObjectArc<SourceLocObj>,
+}
+
+/// The object behind [`SourceLoc`].
+///
 /// Complete: reflected fields fill [24, 48) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
@@ -183,7 +195,7 @@ impl From<Unknown> for Location {
 #[type_key = "ir.SourceLoc"]
 #[type_final]
 pub struct SourceLocObj {
-    base: LocationObj,
+    base_: LocationObj,
     pub source_name: SourceName,
     pub start_line: i32,
     pub start_column: i32,
@@ -196,17 +208,10 @@ const _: () = {
     assert!(::core::mem::align_of::<SourceLocObj>() == 8);
 };
 
-#[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct SourceLoc {
-    base: ObjectArc<SourceLocObj>,
-}
-
 impl Deref for SourceLocObj {
     type Target = LocationObj;
     fn deref(&self) -> &LocationObj {
-        &self.base
+        &self.base_
     }
 }
 
@@ -219,8 +224,8 @@ impl SourceLocObj {
         end_line: i32,
         end_column: i32,
     ) -> Self {
-        let base = LocationObj::new();
-        Self { base, source_name, start_line, start_column, end_line, end_column }
+        let base_ = LocationObj::new();
+        Self { base_, source_name, start_line, start_column, end_line, end_column }
     }
 }
 
@@ -236,7 +241,7 @@ impl SourceLoc {
     ) -> Self {
         let obj =
             SourceLocObj::new(source_name.into(), start_line, start_column, end_line, end_column);
-        Self { base: ObjectArc::new(obj) }
+        Self { data_: ObjectArc::new(obj) }
     }
 }
 
@@ -248,6 +253,15 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(SourceLoc => Location);
 // `ir.SourceLoc` stores its arguments as given: the generated `SourceLoc::new` is the same.
 
 // tvm-ffi-stubgen(begin): object/ir.CallSiteLoc
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct CallSiteLoc {
+    data_: ObjectArc<CallSiteLocObj>,
+}
+
+/// The object behind [`CallSiteLoc`].
+///
 /// Complete: reflected fields fill [24, 40) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
@@ -255,7 +269,7 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(SourceLoc => Location);
 #[type_key = "ir.CallSiteLoc"]
 #[type_final]
 pub struct CallSiteLocObj {
-    base: LocationObj,
+    base_: LocationObj,
     pub callee: Location,
     pub caller: Location,
 }
@@ -265,25 +279,18 @@ const _: () = {
     assert!(::core::mem::align_of::<CallSiteLocObj>() == 8);
 };
 
-#[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct CallSiteLoc {
-    base: ObjectArc<CallSiteLocObj>,
-}
-
 impl Deref for CallSiteLocObj {
     type Target = LocationObj;
     fn deref(&self) -> &LocationObj {
-        &self.base
+        &self.base_
     }
 }
 
 #[allow(missing_docs)]
 impl CallSiteLocObj {
     pub(crate) fn new(callee: Location, caller: Location) -> Self {
-        let base = LocationObj::new();
-        Self { base, callee, caller }
+        let base_ = LocationObj::new();
+        Self { base_, callee, caller }
     }
 }
 
@@ -292,7 +299,7 @@ impl CallSiteLoc {
     /// Lossless complete-field allocation.
     pub fn new(callee: impl Into<Location>, caller: impl Into<Location>) -> Self {
         let obj = CallSiteLocObj::new(callee.into(), caller.into());
-        Self { base: ObjectArc::new(obj) }
+        Self { data_: ObjectArc::new(obj) }
     }
 }
 
@@ -304,6 +311,15 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(CallSiteLoc => Location);
 // `ir.CallSiteLoc` stores its arguments as given: the generated `CallSiteLoc::new` is the same.
 
 // tvm-ffi-stubgen(begin): object/ir.SourceName
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct SourceName {
+    data_: ObjectArc<SourceNameObj>,
+}
+
+/// The object behind [`SourceName`].
+///
 /// Complete: reflected fields fill [24, 40) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
@@ -311,7 +327,7 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(CallSiteLoc => Location);
 #[type_key = "ir.SourceName"]
 #[type_final]
 pub struct SourceNameObj {
-    base: Object,
+    base_: Object,
     pub name: String,
 }
 
@@ -321,17 +337,10 @@ const _: () = {
 };
 
 #[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct SourceName {
-    base: ObjectArc<SourceNameObj>,
-}
-
-#[allow(missing_docs)]
 impl SourceNameObj {
     pub(crate) fn new(name: String) -> Self {
-        let base = Object::new();
-        Self { base, name }
+        let base_ = Object::new();
+        Self { base_, name }
     }
 }
 
@@ -340,7 +349,7 @@ impl SourceName {
     /// Lossless complete-field allocation.
     pub fn new(name: impl Into<String>) -> Self {
         let obj = SourceNameObj::new(name.into());
-        Self { base: ObjectArc::new(obj) }
+        Self { data_: ObjectArc::new(obj) }
     }
 }
 

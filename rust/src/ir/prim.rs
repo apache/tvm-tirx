@@ -16,7 +16,6 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-#![allow(dead_code, unused_imports)]
 
 //! Primitive expressions: scalar arithmetic, comparisons and vector lanes.
 //!

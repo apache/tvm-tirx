@@ -16,7 +16,6 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-#![allow(dead_code, unused_imports)]
 
 //! Tensor types.
 //!
@@ -89,6 +88,15 @@ use tvm_ffi::Result;
 // tvm-ffi-stubgen(end)
 
 // tvm-ffi-stubgen(begin): object/tirx.TensorType
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct TensorType {
+    data_: ObjectArc<TensorTypeObj>,
+}
+
+/// The object behind [`TensorType`].
+///
 /// Complete: reflected fields fill [32, 72) exactly (alignment padding [60, 64)).
 #[allow(missing_docs)]
 #[repr(C)]
@@ -96,7 +104,7 @@ use tvm_ffi::Result;
 #[type_key = "tirx.TensorType"]
 #[type_final]
 pub struct TensorTypeObj {
-    base: TypeObj,
+    base_: TypeObj,
     pub dtype: PrimType,
     pub scope: MemoryScope,
     pub shape: Array<PrimExpr>,
@@ -109,17 +117,10 @@ const _: () = {
     assert!(::core::mem::align_of::<TensorTypeObj>() == 8);
 };
 
-#[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct TensorType {
-    base: ObjectArc<TensorTypeObj>,
-}
-
 impl Deref for TensorTypeObj {
     type Target = TypeObj;
     fn deref(&self) -> &TypeObj {
-        &self.base
+        &self.base_
     }
 }
 
@@ -133,8 +134,8 @@ impl TensorTypeObj {
         data_alignment: i32,
         layout: Option<Layout>,
     ) -> Self {
-        let base = TypeObj::new(loc);
-        Self { base, dtype, scope, shape, data_alignment, layout }
+        let base_ = TypeObj::new(loc);
+        Self { base_, dtype, scope, shape, data_alignment, layout }
     }
 }
 
@@ -157,7 +158,7 @@ impl TensorType {
             data_alignment,
             layout.into(),
         );
-        Self { base: ObjectArc::new(obj) }
+        Self { data_: ObjectArc::new(obj) }
     }
 }
 

@@ -16,7 +16,6 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-#![allow(dead_code, unused_imports)]
 // The generated `new` of a field-less base needs no `Default`.
 #![allow(clippy::new_without_default)]
 
@@ -36,13 +35,22 @@ use tvm_ffi::UnsafeInit;
 // tvm-ffi-stubgen(end)
 
 // tvm-ffi-stubgen(begin): object/ir.GlobalInfo
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct GlobalInfo {
+    data_: ObjectArc<GlobalInfoObj>,
+}
+
+/// The object behind [`GlobalInfo`].
+///
 /// Complete: reflected fields fill [24, 24) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.GlobalInfo"]
 pub struct GlobalInfoObj {
-    base: Object,
+    base_: Object,
 }
 
 const _: () = {
@@ -51,17 +59,10 @@ const _: () = {
 };
 
 #[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct GlobalInfo {
-    base: ObjectArc<GlobalInfoObj>,
-}
-
-#[allow(missing_docs)]
 impl GlobalInfoObj {
     pub fn new() -> Self {
-        let base = Object::new();
-        Self { base }
+        let base_ = Object::new();
+        Self { base_ }
     }
 }
 
@@ -70,20 +71,20 @@ impl GlobalInfo {
     /// Lossless complete-field allocation.
     pub fn new() -> Self {
         let obj = GlobalInfoObj::new();
-        Self { base: ObjectArc::new(obj) }
+        Self { data_: ObjectArc::new(obj) }
     }
 }
 
 impl ShallowCopy for GlobalInfoObj {
     fn shallow_copy(&self) -> Self {
-        Self { base: ShallowCopy::shallow_copy(&self.base) }
+        Self { base_: ShallowCopy::shallow_copy(&self.base_) }
     }
 }
 
 unsafe impl UnsafeInit for GlobalInfoObj {
     unsafe fn drop_defined_fields(this: *mut Self) {
         unsafe {
-            UnsafeInit::drop_defined_fields(addr_of_mut!((*this).base));
+            UnsafeInit::drop_defined_fields(addr_of_mut!((*this).base_));
         }
     }
 }

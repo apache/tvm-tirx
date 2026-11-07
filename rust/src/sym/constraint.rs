@@ -16,7 +16,6 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-#![allow(dead_code, unused_imports)]
 // The generated `new` of a field-less base needs no `Default`.
 #![allow(clippy::new_without_default)]
 
@@ -52,7 +51,7 @@
 
 use std::cell::UnsafeCell;
 use std::mem::{align_of, offset_of, size_of};
-use tvm_ffi::{AnyView, Array, Error, ObjectCore, Result, VALUE_ERROR};
+use tvm_ffi::{AnyView, Array, Error, Result, VALUE_ERROR};
 // tvm-ffi-stubgen(import-object): crate::ir::expr::PrimExpr
 // A binding's value and a predicate are `PrimExpr`s, as in C++.
 // tvm-ffi-stubgen(field): sym.BindingConstraint.value -> PrimExpr
@@ -70,13 +69,22 @@ use tvm_ffi::UnsafeInit;
 // tvm-ffi-stubgen(end)
 
 // tvm-ffi-stubgen(begin): object/sym.Constraint
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct Constraint {
+    data_: ObjectArc<ConstraintObj>,
+}
+
+/// The object behind [`Constraint`].
+///
 /// Complete: reflected fields fill [24, 24) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "sym.Constraint"]
 pub struct ConstraintObj {
-    base: Object,
+    base_: Object,
 }
 
 const _: () = {
@@ -85,17 +93,10 @@ const _: () = {
 };
 
 #[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct Constraint {
-    base: ObjectArc<ConstraintObj>,
-}
-
-#[allow(missing_docs)]
 impl ConstraintObj {
     pub fn new() -> Self {
-        let base = Object::new();
-        Self { base }
+        let base_ = Object::new();
+        Self { base_ }
     }
 }
 
@@ -104,20 +105,20 @@ impl Constraint {
     /// Lossless complete-field allocation.
     pub fn new() -> Self {
         let obj = ConstraintObj::new();
-        Self { base: ObjectArc::new(obj) }
+        Self { data_: ObjectArc::new(obj) }
     }
 }
 
 impl ShallowCopy for ConstraintObj {
     fn shallow_copy(&self) -> Self {
-        Self { base: ShallowCopy::shallow_copy(&self.base) }
+        Self { base_: ShallowCopy::shallow_copy(&self.base_) }
     }
 }
 
 unsafe impl UnsafeInit for ConstraintObj {
     unsafe fn drop_defined_fields(this: *mut Self) {
         unsafe {
-            UnsafeInit::drop_defined_fields(addr_of_mut!((*this).base));
+            UnsafeInit::drop_defined_fields(addr_of_mut!((*this).base_));
         }
     }
 }
@@ -126,6 +127,15 @@ unsafe impl tvm_ffi::object::ImmutableObject for ConstraintObj {}
 // tvm-ffi-stubgen(end)
 
 // tvm-ffi-stubgen(begin): object/sym.BindingConstraint
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct BindingConstraint {
+    data_: ObjectArc<BindingConstraintObj>,
+}
+
+/// The object behind [`BindingConstraint`].
+///
 /// Complete: reflected fields fill [24, 40) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
@@ -133,7 +143,7 @@ unsafe impl tvm_ffi::object::ImmutableObject for ConstraintObj {}
 #[type_key = "sym.BindingConstraint"]
 #[type_final]
 pub struct BindingConstraintObj {
-    base: ConstraintObj,
+    base_: ConstraintObj,
     pub var: Var,
     pub value: PrimExpr,
 }
@@ -143,25 +153,18 @@ const _: () = {
     assert!(::core::mem::align_of::<BindingConstraintObj>() == 8);
 };
 
-#[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct BindingConstraint {
-    base: ObjectArc<BindingConstraintObj>,
-}
-
 impl Deref for BindingConstraintObj {
     type Target = ConstraintObj;
     fn deref(&self) -> &ConstraintObj {
-        &self.base
+        &self.base_
     }
 }
 
 #[allow(missing_docs)]
 impl BindingConstraintObj {
     pub(crate) fn new(var: Var, value: PrimExpr) -> Self {
-        let base = ConstraintObj::new();
-        Self { base, var, value }
+        let base_ = ConstraintObj::new();
+        Self { base_, var, value }
     }
 }
 
@@ -170,7 +173,7 @@ impl BindingConstraint {
     /// Lossless complete-field allocation.
     pub fn new(var: impl Into<Var>, value: impl Into<PrimExpr>) -> Self {
         let obj = BindingConstraintObj::new(var.into(), value.into());
-        Self { base: ObjectArc::new(obj) }
+        Self { data_: ObjectArc::new(obj) }
     }
 }
 
@@ -180,6 +183,15 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(BindingConstraint => Constraint);
 // tvm-ffi-stubgen(end)
 
 // tvm-ffi-stubgen(begin): object/sym.PredicateConstraint
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct PredicateConstraint {
+    data_: ObjectArc<PredicateConstraintObj>,
+}
+
+/// The object behind [`PredicateConstraint`].
+///
 /// Complete: reflected fields fill [24, 40) exactly (alignment padding [33, 40)).
 #[allow(missing_docs)]
 #[repr(C)]
@@ -187,7 +199,7 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(BindingConstraint => Constraint);
 #[type_key = "sym.PredicateConstraint"]
 #[type_final]
 pub struct PredicateConstraintObj {
-    base: ConstraintObj,
+    base_: ConstraintObj,
     pub condition: PrimExpr,
     pub assume_always: bool,
 }
@@ -197,25 +209,18 @@ const _: () = {
     assert!(::core::mem::align_of::<PredicateConstraintObj>() == 8);
 };
 
-#[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct PredicateConstraint {
-    base: ObjectArc<PredicateConstraintObj>,
-}
-
 impl Deref for PredicateConstraintObj {
     type Target = ConstraintObj;
     fn deref(&self) -> &ConstraintObj {
-        &self.base
+        &self.base_
     }
 }
 
 #[allow(missing_docs)]
 impl PredicateConstraintObj {
     pub(crate) fn new(condition: PrimExpr, assume_always: bool) -> Self {
-        let base = ConstraintObj::new();
-        Self { base, condition, assume_always }
+        let base_ = ConstraintObj::new();
+        Self { base_, condition, assume_always }
     }
 }
 
@@ -224,7 +229,7 @@ impl PredicateConstraint {
     /// Lossless complete-field allocation.
     pub fn new(condition: impl Into<PrimExpr>, assume_always: bool) -> Self {
         let obj = PredicateConstraintObj::new(condition.into(), assume_always);
-        Self { base: ObjectArc::new(obj) }
+        Self { data_: ObjectArc::new(obj) }
     }
 }
 
@@ -234,6 +239,15 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(PredicateConstraint => Constraint);
 // tvm-ffi-stubgen(end)
 
 // tvm-ffi-stubgen(begin): object/sym.RangeConstraint
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct RangeConstraint {
+    data_: ObjectArc<RangeConstraintObj>,
+}
+
+/// The object behind [`RangeConstraint`].
+///
 /// Complete: reflected fields fill [24, 40) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
@@ -241,7 +255,7 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(PredicateConstraint => Constraint);
 #[type_key = "sym.RangeConstraint"]
 #[type_final]
 pub struct RangeConstraintObj {
-    base: ConstraintObj,
+    base_: ConstraintObj,
     pub var: Var,
     pub range: Range,
 }
@@ -251,25 +265,18 @@ const _: () = {
     assert!(::core::mem::align_of::<RangeConstraintObj>() == 8);
 };
 
-#[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct RangeConstraint {
-    base: ObjectArc<RangeConstraintObj>,
-}
-
 impl Deref for RangeConstraintObj {
     type Target = ConstraintObj;
     fn deref(&self) -> &ConstraintObj {
-        &self.base
+        &self.base_
     }
 }
 
 #[allow(missing_docs)]
 impl RangeConstraintObj {
     pub(crate) fn new(var: Var, range: Range) -> Self {
-        let base = ConstraintObj::new();
-        Self { base, var, range }
+        let base_ = ConstraintObj::new();
+        Self { base_, var, range }
     }
 }
 
@@ -278,7 +285,7 @@ impl RangeConstraint {
     /// Lossless complete-field allocation.
     pub fn new(var: impl Into<Var>, range: impl Into<Range>) -> Self {
         let obj = RangeConstraintObj::new(var.into(), range.into());
-        Self { base: ObjectArc::new(obj) }
+        Self { data_: ObjectArc::new(obj) }
     }
 }
 
@@ -297,7 +304,7 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(RangeConstraint => Constraint);
 #[type_key = "sym.ConstraintContext"]
 #[type_final]
 pub struct ConstraintContextObj {
-    base: Object,
+    base_: Object,
     parent: Option<ObjectArc<ConstraintContextObj>>,
     parent_prefix_size: i64,
     constraints: UnsafeCell<Array<Constraint>>,
@@ -320,7 +327,7 @@ const _: () = {
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct ConstraintContext {
-    base: ObjectArc<ConstraintContextObj>,
+    data_: ObjectArc<ConstraintContextObj>,
 }
 
 impl ConstraintContextObj {
@@ -408,13 +415,13 @@ impl ConstraintContext {
                 "",
             ));
         }
-        Ok(Self::allocate(Some(parent.base), parent_prefix_size))
+        Ok(Self::allocate(Some(parent.data_), parent_prefix_size))
     }
 
     fn allocate(parent: Option<ObjectArc<ConstraintContextObj>>, prefix: i64) -> Self {
         Self {
-            base: ObjectArc::new(ConstraintContextObj {
-                base: Object::new(),
+            data_: ObjectArc::new(ConstraintContextObj {
+                base_: Object::new(),
                 parent,
                 parent_prefix_size: prefix,
                 // Start with an empty Rust array. Native Append owns all growth;

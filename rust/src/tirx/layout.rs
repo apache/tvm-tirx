@@ -16,7 +16,6 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-#![allow(dead_code, unused_imports)]
 
 //! Layouts: how the indices of a tensor map to memory and to threads.
 //!
@@ -86,25 +85,27 @@ use tvm_ffi::String;
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ffi.Enum"]
 struct FfiEnumObj {
-    base: Object,
+    base_: Object,
 }
 // tvm-ffi-stubgen(end)
 
 // tvm-ffi-stubgen(begin): object/tirx.Layout
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct Layout {
+    data_: ObjectArc<LayoutObj>,
+}
+
+/// The object behind [`Layout`].
+///
 /// Opaque: no metadata of its own: total_size is unknown. Fields are read through the C ABI getters.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "tirx.Layout"]
 pub struct LayoutObj {
-    base: Object,
-}
-
-#[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct Layout {
-    base: ObjectArc<LayoutObj>,
+    base_: Object,
 }
 // tvm-ffi-stubgen(end)
 
@@ -222,6 +223,15 @@ impl Layout {
 }
 
 // tvm-ffi-stubgen(begin): object/tirx.TileLayout
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct TileLayout {
+    data_: ObjectArc<TileLayoutObj>,
+}
+
+/// The object behind [`TileLayout`].
+///
 /// Opaque: parent 'tirx.Layout' is opaque (layout-unknown). Fields are read through the C ABI getters.
 #[allow(missing_docs)]
 #[repr(C)]
@@ -229,20 +239,13 @@ impl Layout {
 #[type_key = "tirx.TileLayout"]
 #[type_final]
 pub struct TileLayoutObj {
-    base: LayoutObj,
-}
-
-#[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct TileLayout {
-    base: ObjectArc<TileLayoutObj>,
+    base_: LayoutObj,
 }
 
 impl Deref for TileLayoutObj {
     type Target = LayoutObj;
     fn deref(&self) -> &LayoutObj {
-        &self.base
+        &self.base_
     }
 }
 
@@ -332,6 +335,15 @@ impl TileLayout {
 }
 
 // tvm-ffi-stubgen(begin): object/tirx.Iter
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct Iter {
+    data_: ObjectArc<IterObj>,
+}
+
+/// The object behind [`Iter`].
+///
 /// Complete: reflected fields fill [24, 48) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
@@ -339,7 +351,7 @@ impl TileLayout {
 #[type_key = "tirx.Iter"]
 #[type_final]
 pub struct IterObj {
-    base: Object,
+    base_: Object,
     pub extent: PrimExpr,
     pub stride: PrimExpr,
     pub axis: Axis,
@@ -351,17 +363,10 @@ const _: () = {
 };
 
 #[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct Iter {
-    base: ObjectArc<IterObj>,
-}
-
-#[allow(missing_docs)]
 impl IterObj {
     pub(crate) fn new(extent: PrimExpr, stride: PrimExpr, axis: Axis) -> Self {
-        let base = Object::new();
-        Self { base, extent, stride, axis }
+        let base_ = Object::new();
+        Self { base_, extent, stride, axis }
     }
 }
 
@@ -374,7 +379,7 @@ impl Iter {
         axis: impl Into<Axis>,
     ) -> Self {
         let obj = IterObj::new(extent.into(), stride.into(), axis.into());
-        Self { base: ObjectArc::new(obj) }
+        Self { data_: ObjectArc::new(obj) }
     }
 }
 
@@ -384,6 +389,15 @@ unsafe impl tvm_ffi::object::ImmutableObject for IterObj {}
 // The native `tirx.Iter` stores its fields as given, as the generated `Iter::new` does.
 
 // tvm-ffi-stubgen(begin): object/tirx.Axis
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct Axis {
+    data_: ObjectArc<AxisObj>,
+}
+
+/// The object behind [`Axis`].
+///
 /// Opaque: parent 'ffi.Enum' is opaque (no-mirror). Fields are read through the C ABI getters.
 #[allow(missing_docs)]
 #[repr(C)]
@@ -391,14 +405,7 @@ unsafe impl tvm_ffi::object::ImmutableObject for IterObj {}
 #[type_key = "tirx.Axis"]
 #[type_final]
 pub struct AxisObj {
-    base: FfiEnumObj,
-}
-
-#[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct Axis {
-    base: ObjectArc<AxisObj>,
+    base_: FfiEnumObj,
 }
 
 unsafe impl tvm_ffi::object::ImmutableObject for AxisObj {}
@@ -443,6 +450,15 @@ impl Axis {
 }
 
 // tvm-ffi-stubgen(begin): object/tirx.ComposeLayout
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct ComposeLayout {
+    data_: ObjectArc<ComposeLayoutObj>,
+}
+
+/// The object behind [`ComposeLayout`].
+///
 /// Opaque: parent 'tirx.Layout' is opaque (layout-unknown). Fields are read through the C ABI getters.
 #[allow(missing_docs)]
 #[repr(C)]
@@ -450,20 +466,13 @@ impl Axis {
 #[type_key = "tirx.ComposeLayout"]
 #[type_final]
 pub struct ComposeLayoutObj {
-    base: LayoutObj,
-}
-
-#[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct ComposeLayout {
-    base: ObjectArc<ComposeLayoutObj>,
+    base_: LayoutObj,
 }
 
 impl Deref for ComposeLayoutObj {
     type Target = LayoutObj;
     fn deref(&self) -> &LayoutObj {
-        &self.base
+        &self.base_
     }
 }
 

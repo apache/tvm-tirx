@@ -16,7 +16,6 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-#![allow(dead_code, unused_imports)]
 
 //! Thread scopes: the levels of a backend's thread hierarchy.
 //!
@@ -57,11 +56,20 @@ use tvm_ffi::String;
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ffi.Enum"]
 struct FfiEnumObj {
-    base: Object,
+    base_: Object,
 }
 // tvm-ffi-stubgen(end)
 
 // tvm-ffi-stubgen(begin): object/tirx.ThreadScope
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct ThreadScope {
+    data_: ObjectArc<ThreadScopeObj>,
+}
+
+/// The object behind [`ThreadScope`].
+///
 /// Opaque: parent 'ffi.Enum' is opaque (no-mirror). Fields are read through the C ABI getters.
 #[allow(missing_docs)]
 #[repr(C)]
@@ -69,14 +77,7 @@ struct FfiEnumObj {
 #[type_key = "tirx.ThreadScope"]
 #[type_final]
 pub struct ThreadScopeObj {
-    base: FfiEnumObj,
-}
-
-#[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct ThreadScope {
-    base: ObjectArc<ThreadScopeObj>,
+    base_: FfiEnumObj,
 }
 
 unsafe impl tvm_ffi::object::ImmutableObject for ThreadScopeObj {}

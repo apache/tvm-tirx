@@ -16,7 +16,6 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-#![allow(dead_code, unused_imports)]
 
 //! Tensor programs: functions, tensor types, index maps, layouts and thread scopes.
 //!

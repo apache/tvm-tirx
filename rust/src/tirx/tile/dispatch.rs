@@ -16,7 +16,6 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-#![allow(dead_code, unused_imports)]
 
 //! The context of tile instruction dispatch.
 //!
@@ -85,6 +84,15 @@ use tvm_ffi::object::ObjectRef;
 // tvm-ffi-stubgen(end)
 
 // tvm-ffi-stubgen(begin): object/tirx.DispatchContext
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct DispatchContext {
+    data_: ObjectArc<DispatchContextObj>,
+}
+
+/// The object behind [`DispatchContext`].
+///
 /// Opaque: field 'launch_params' (Map[str, tuple[ir.Var, ir.Expr]]) has no native mirror. Fields are read through the C ABI getters.
 #[allow(missing_docs)]
 #[repr(C)]
@@ -92,14 +100,7 @@ use tvm_ffi::object::ObjectRef;
 #[type_key = "tirx.DispatchContext"]
 #[type_final]
 pub struct DispatchContextObj {
-    base: Object,
-}
-
-#[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct DispatchContext {
-    base: ObjectArc<DispatchContextObj>,
+    base_: Object,
 }
 
 #[allow(missing_docs)]

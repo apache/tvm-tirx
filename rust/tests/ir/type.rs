@@ -28,9 +28,9 @@ use tvm_tirx::ir::{
     OpaqueType, PrimType, PtrType, StringType, TensorRegionType, TupleType, Type, TypeObj, Var,
     VarObj,
 };
-use tvm_tirx::tvm_ffi::{rs_object, structural_map};
+use tvm_tirx::tvm_ffi::{rs_object, structural_hash, structural_map};
 use tvm_tirx::tvm_ffi::{
-    Any, AnyView, Array, DLDataType, DLDataTypeExt, FieldGetter, ObjectCore, ObjectRefCore, Result,
+    Any, AnyView, Array, DLDataType, DLDataTypeExt, FieldGetter, ObjectCore, ObjectRefCore,
     ShallowCopy, String as FfiString, WalkOrder,
 };
 
@@ -120,7 +120,7 @@ fn types_agree_with_cpp() {
 /// A pair of types with a tag, defined in Rust.
 #[rs_object("testing.rust.PairType", final)]
 pub struct PairTypeObj {
-    base: TypeObj,
+    base_: TypeObj,
     /// The first element.
     pub lhs: Type,
     /// The second element.
@@ -134,7 +134,7 @@ pub struct PairTypeObj {
 #[derive(Clone, tvm_ffi::derive::ObjectRef)]
 #[object_ref(parent = Type)]
 pub struct PairType {
-    data: tvm_ffi::ObjectArc<PairTypeObj>,
+    data_: tvm_ffi::ObjectArc<PairTypeObj>,
 }
 
 impl PairType {
@@ -161,17 +161,6 @@ where
 {
     let text = global("ffi.ReprPrint").call_packed(&[AnyView::from(value)]).unwrap();
     FfiString::try_from(text).unwrap().as_str().to_string()
-}
-
-/// C++ `ffi::StructuralHash()(value)`.
-fn structural_hash<T>(value: &T) -> Result<i64>
-where
-    for<'a> AnyView<'a>: From<&'a T>,
-{
-    let flag = <AnyView as From<&bool>>::from;
-    global("ffi.StructuralHash")
-        .call_packed(&[AnyView::from(value), flag(&false), flag(&false)])?
-        .try_into()
 }
 
 #[test]

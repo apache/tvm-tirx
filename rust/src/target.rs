@@ -16,7 +16,6 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-#![allow(dead_code, unused_imports)]
 
 //! Compilation targets.
 //!
@@ -63,6 +62,15 @@ use tvm_ffi::object::ObjectRef;
 // tvm-ffi-stubgen(end)
 
 // tvm-ffi-stubgen(begin): object/target.Target
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct Target {
+    data_: ObjectArc<TargetObj>,
+}
+
+/// The object behind [`Target`].
+///
 /// Opaque: bytes [72, 88) of [24, 88) are not accounted for by reflected fields. Fields are read through the C ABI getters.
 #[allow(missing_docs)]
 #[repr(C)]
@@ -70,14 +78,7 @@ use tvm_ffi::object::ObjectRef;
 #[type_key = "target.Target"]
 #[type_final]
 pub struct TargetObj {
-    base: Object,
-}
-
-#[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct Target {
-    base: ObjectArc<TargetObj>,
+    base_: Object,
 }
 
 #[allow(missing_docs)]
@@ -201,6 +202,15 @@ impl Drop for TargetScope {
 }
 
 // tvm-ffi-stubgen(begin): object/target.TargetKind
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct TargetKind {
+    data_: ObjectArc<TargetKindObj>,
+}
+
+/// The object behind [`TargetKind`].
+///
 /// Opaque: bytes [56, 152) of [24, 152) are not accounted for by reflected fields. Fields are read through the C ABI getters.
 #[allow(missing_docs)]
 #[repr(C)]
@@ -208,14 +218,7 @@ impl Drop for TargetScope {
 #[type_key = "target.TargetKind"]
 #[type_final]
 pub struct TargetKindObj {
-    base: Object,
-}
-
-#[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct TargetKind {
-    base: ObjectArc<TargetKindObj>,
+    base_: Object,
 }
 
 #[allow(missing_docs)]

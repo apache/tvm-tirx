@@ -16,7 +16,6 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-#![allow(dead_code, unused_imports)]
 
 //! The runtime objects the IR refers to, tensor allocation and runtime queries.
 //!
@@ -67,12 +66,21 @@ use tvm_ffi::Tensor;
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ffi.Enum"]
 struct FfiEnumObj {
-    base: Object,
+    base_: Object,
 }
 // tvm-ffi-stubgen(end)
 
 // `ir.PtrType.storage_scope` refers to this type.
 // tvm-ffi-stubgen(begin): object/runtime.MemoryScope
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct MemoryScope {
+    data_: ObjectArc<MemoryScopeObj>,
+}
+
+/// The object behind [`MemoryScope`].
+///
 /// Opaque: parent 'ffi.Enum' is opaque (no-mirror). Fields are read through the C ABI getters.
 #[allow(missing_docs)]
 #[repr(C)]
@@ -80,14 +88,7 @@ struct FfiEnumObj {
 #[type_key = "runtime.MemoryScope"]
 #[type_final]
 pub struct MemoryScopeObj {
-    base: FfiEnumObj,
-}
-
-#[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct MemoryScope {
-    base: ObjectArc<MemoryScopeObj>,
+    base_: FfiEnumObj,
 }
 
 unsafe impl tvm_ffi::object::ImmutableObject for MemoryScopeObj {}

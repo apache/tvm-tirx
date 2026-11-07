@@ -17,8 +17,6 @@
  * under the License.
  */
 
-#![allow(dead_code, unused_imports)]
-
 //! The analyses of tensor-level IR (`tirx.analysis.*`).
 //!
 //! # Examples

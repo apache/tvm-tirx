@@ -16,7 +16,6 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-#![allow(dead_code, unused_imports)]
 
 //! The TIRx passes and their configurations.
 //!
@@ -64,6 +63,15 @@ use tvm_ffi::String;
 // tvm-ffi-stubgen(end)
 
 // tvm-ffi-stubgen(begin): object/tirx.transform.RemoveNoOpConfig
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct RemoveNoOpConfig {
+    data_: ObjectArc<RemoveNoOpConfigObj>,
+}
+
+/// The object behind [`RemoveNoOpConfig`].
+///
 /// Complete: reflected fields fill [24, 40) exactly (alignment padding [33, 40)).
 #[allow(missing_docs)]
 #[repr(C)]
@@ -71,7 +79,7 @@ use tvm_ffi::String;
 #[type_key = "tirx.transform.RemoveNoOpConfig"]
 #[type_final]
 pub struct RemoveNoOpConfigObj {
-    base: Object,
+    base_: Object,
     pub max_simplification_steps: i64,
     pub ignore_profiler_call: bool,
 }
@@ -82,17 +90,10 @@ const _: () = {
 };
 
 #[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct RemoveNoOpConfig {
-    base: ObjectArc<RemoveNoOpConfigObj>,
-}
-
-#[allow(missing_docs)]
 impl RemoveNoOpConfigObj {
     pub(crate) fn new(max_simplification_steps: i64, ignore_profiler_call: bool) -> Self {
-        let base = Object::new();
-        Self { base, max_simplification_steps, ignore_profiler_call }
+        let base_ = Object::new();
+        Self { base_, max_simplification_steps, ignore_profiler_call }
     }
 }
 
@@ -101,7 +102,7 @@ impl RemoveNoOpConfig {
     /// Lossless complete-field allocation.
     pub fn new(max_simplification_steps: i64, ignore_profiler_call: bool) -> Self {
         let obj = RemoveNoOpConfigObj::new(max_simplification_steps, ignore_profiler_call);
-        Self { base: ObjectArc::new(obj) }
+        Self { data_: ObjectArc::new(obj) }
     }
 }
 
@@ -109,6 +110,15 @@ unsafe impl tvm_ffi::object::ImmutableObject for RemoveNoOpConfigObj {}
 // tvm-ffi-stubgen(end)
 
 // tvm-ffi-stubgen(begin): object/tirx.transform.UnrollLoopConfig
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct UnrollLoopConfig {
+    data_: ObjectArc<UnrollLoopConfigObj>,
+}
+
+/// The object behind [`UnrollLoopConfig`].
+///
 /// Complete: reflected fields fill [24, 48) exactly (alignment padding [44, 48)).
 #[allow(missing_docs)]
 #[repr(C)]
@@ -116,7 +126,7 @@ unsafe impl tvm_ffi::object::ImmutableObject for RemoveNoOpConfigObj {}
 #[type_key = "tirx.transform.UnrollLoopConfig"]
 #[type_final]
 pub struct UnrollLoopConfigObj {
-    base: Object,
+    base_: Object,
     pub auto_max_step: i32,
     pub auto_max_depth: i32,
     pub auto_max_extent: i32,
@@ -130,13 +140,6 @@ const _: () = {
 };
 
 #[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct UnrollLoopConfig {
-    base: ObjectArc<UnrollLoopConfigObj>,
-}
-
-#[allow(missing_docs)]
 impl UnrollLoopConfigObj {
     pub(crate) fn new(
         auto_max_step: i32,
@@ -145,9 +148,9 @@ impl UnrollLoopConfigObj {
         explicit_unroll: i32,
         unroll_local_access: i32,
     ) -> Self {
-        let base = Object::new();
+        let base_ = Object::new();
         Self {
-            base,
+            base_,
             auto_max_step,
             auto_max_depth,
             auto_max_extent,
@@ -174,7 +177,7 @@ impl UnrollLoopConfig {
             explicit_unroll,
             unroll_local_access,
         );
-        Self { base: ObjectArc::new(obj) }
+        Self { data_: ObjectArc::new(obj) }
     }
 }
 

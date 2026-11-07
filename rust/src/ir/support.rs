@@ -32,8 +32,8 @@ use tvm_ffi::tvm_ffi_sys::{
     TVMFFIAny, TVMFFIFieldFlagBitMask, TVMFFIGetTypeInfo, TVMFFIObject, TVMFFITypeIndex,
 };
 use tvm_ffi::{
-    Any, AnyView, Array, DLDataType, DLDataTypeCode, DLDataTypeExt, Error, ErrorKind, Function,
-    ObjectArc, ObjectRefCore, Result, TypeAttrColumn, INTERNAL_ERROR, TYPE_ERROR,
+    Any, AnyView, DLDataType, DLDataTypeCode, DLDataTypeExt, Error, ErrorKind, Function, ObjectArc,
+    ObjectRefCore, Result, TypeAttrColumn, INTERNAL_ERROR, TYPE_ERROR,
 };
 
 use super::{Op, OpAttrMap, OpObj, PrimType};
@@ -413,20 +413,4 @@ impl TypeAttr {
         };
         column.get(type_index)
     }
-}
-
-/// `ffi::StructuralEqual()(lhs, rhs)`, which does not map free variables.
-pub(crate) fn structural_equal<L, R>(lhs: &L, rhs: &R) -> Result<bool>
-where
-    for<'a> AnyView<'a>: From<&'a L> + From<&'a R>,
-{
-    let (map_free_vars, skip_tensor_content) = (false, false);
-    tvm_ffi::cached_global_func!("ffi.StructuralEqual")
-        .call_packed(&[
-            AnyView::from(lhs),
-            AnyView::from(rhs),
-            AnyView::from(&map_free_vars),
-            AnyView::from(&skip_tensor_content),
-        ])?
-        .try_into()
 }

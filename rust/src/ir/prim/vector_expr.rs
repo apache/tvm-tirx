@@ -16,7 +16,6 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-#![allow(dead_code, unused_imports)]
 
 //! Vector expressions: [`Ramp`], [`Broadcast`] and [`Shuffle`].
 //!
@@ -112,6 +111,15 @@ use tvm_ffi::Result;
 // tvm-ffi-stubgen(end)
 
 // tvm-ffi-stubgen(begin): object/prim.Ramp
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct Ramp {
+    data_: ObjectArc<RampObj>,
+}
+
+/// The object behind [`Ramp`].
+///
 /// Complete: reflected fields fill [40, 64) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
@@ -119,8 +127,8 @@ use tvm_ffi::Result;
 #[type_key = "prim.Ramp"]
 #[type_final]
 pub struct RampObj {
-    base: ExprObj,
-    pub base_: PrimExpr,
+    base_: ExprObj,
+    pub base: PrimExpr,
     pub stride: PrimExpr,
     pub lanes: PrimExpr,
 }
@@ -130,17 +138,10 @@ const _: () = {
     assert!(::core::mem::align_of::<RampObj>() == 8);
 };
 
-#[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct Ramp {
-    base: ObjectArc<RampObj>,
-}
-
 impl Deref for RampObj {
     type Target = ExprObj;
     fn deref(&self) -> &ExprObj {
-        &self.base
+        &self.base_
     }
 }
 
@@ -149,12 +150,12 @@ impl RampObj {
     pub(crate) fn new(
         loc: Location,
         ty: PrimType,
-        base_: PrimExpr,
+        base: PrimExpr,
         stride: PrimExpr,
         lanes: PrimExpr,
     ) -> Self {
-        let base = ExprObj::new(loc, ty.into());
-        Self { base, base_, stride, lanes }
+        let base_ = ExprObj::new(loc, ty.into());
+        Self { base_, base, stride, lanes }
     }
 }
 
@@ -164,12 +165,12 @@ impl Ramp {
     pub fn from_fields(
         loc: impl Into<Location>,
         ty: impl Into<PrimType>,
-        base_: impl Into<PrimExpr>,
+        base: impl Into<PrimExpr>,
         stride: impl Into<PrimExpr>,
         lanes: impl Into<PrimExpr>,
     ) -> Self {
-        let obj = RampObj::new(loc.into(), ty.into(), base_.into(), stride.into(), lanes.into());
-        Self { base: ObjectArc::new(obj) }
+        let obj = RampObj::new(loc.into(), ty.into(), base.into(), stride.into(), lanes.into());
+        Self { data_: ObjectArc::new(obj) }
     }
 }
 
@@ -226,6 +227,15 @@ impl Ramp {
 }
 
 // tvm-ffi-stubgen(begin): object/prim.Broadcast
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct Broadcast {
+    data_: ObjectArc<BroadcastObj>,
+}
+
+/// The object behind [`Broadcast`].
+///
 /// Complete: reflected fields fill [40, 56) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
@@ -233,7 +243,7 @@ impl Ramp {
 #[type_key = "prim.Broadcast"]
 #[type_final]
 pub struct BroadcastObj {
-    base: ExprObj,
+    base_: ExprObj,
     pub value: PrimExpr,
     pub lanes: PrimExpr,
 }
@@ -243,25 +253,18 @@ const _: () = {
     assert!(::core::mem::align_of::<BroadcastObj>() == 8);
 };
 
-#[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct Broadcast {
-    base: ObjectArc<BroadcastObj>,
-}
-
 impl Deref for BroadcastObj {
     type Target = ExprObj;
     fn deref(&self) -> &ExprObj {
-        &self.base
+        &self.base_
     }
 }
 
 #[allow(missing_docs)]
 impl BroadcastObj {
     pub(crate) fn new(loc: Location, ty: PrimType, value: PrimExpr, lanes: PrimExpr) -> Self {
-        let base = ExprObj::new(loc, ty.into());
-        Self { base, value, lanes }
+        let base_ = ExprObj::new(loc, ty.into());
+        Self { base_, value, lanes }
     }
 }
 
@@ -275,7 +278,7 @@ impl Broadcast {
         lanes: impl Into<PrimExpr>,
     ) -> Self {
         let obj = BroadcastObj::new(loc.into(), ty.into(), value.into(), lanes.into());
-        Self { base: ObjectArc::new(obj) }
+        Self { data_: ObjectArc::new(obj) }
     }
 }
 
@@ -306,6 +309,15 @@ impl Broadcast {
 }
 
 // tvm-ffi-stubgen(begin): object/prim.Shuffle
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct Shuffle {
+    data_: ObjectArc<ShuffleObj>,
+}
+
+/// The object behind [`Shuffle`].
+///
 /// Complete: reflected fields fill [40, 56) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
@@ -313,7 +325,7 @@ impl Broadcast {
 #[type_key = "prim.Shuffle"]
 #[type_final]
 pub struct ShuffleObj {
-    base: ExprObj,
+    base_: ExprObj,
     pub vectors: Array<PrimExpr>,
     pub indices: Array<PrimExpr>,
 }
@@ -323,17 +335,10 @@ const _: () = {
     assert!(::core::mem::align_of::<ShuffleObj>() == 8);
 };
 
-#[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct Shuffle {
-    base: ObjectArc<ShuffleObj>,
-}
-
 impl Deref for ShuffleObj {
     type Target = ExprObj;
     fn deref(&self) -> &ExprObj {
-        &self.base
+        &self.base_
     }
 }
 
@@ -345,8 +350,8 @@ impl ShuffleObj {
         vectors: Array<PrimExpr>,
         indices: Array<PrimExpr>,
     ) -> Self {
-        let base = ExprObj::new(loc, ty.into());
-        Self { base, vectors, indices }
+        let base_ = ExprObj::new(loc, ty.into());
+        Self { base_, vectors, indices }
     }
 }
 
@@ -360,7 +365,7 @@ impl Shuffle {
         indices: impl Into<Array<PrimExpr>>,
     ) -> Self {
         let obj = ShuffleObj::new(loc.into(), ty.into(), vectors.into(), indices.into());
-        Self { base: ObjectArc::new(obj) }
+        Self { data_: ObjectArc::new(obj) }
     }
 }
 

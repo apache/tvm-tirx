@@ -38,13 +38,13 @@ use tvm_tirx::tvm_ffi::{
 /// A complex number whose real and imaginary parts share a scalar type.
 #[rs_object("my_ext.ComplexType", final)]
 pub struct ComplexTypeObj {
-    base: TypeObj,
+    base_: TypeObj,
     pub dtype: PrimType,
 }
 #[derive(Clone, tvm_ffi::derive::ObjectRef)]
 #[object_ref(parent = Type)]
 pub struct ComplexType {
-    data: tvm_ffi::ObjectArc<ComplexTypeObj>,
+    data_: tvm_ffi::ObjectArc<ComplexTypeObj>,
 }
 
 tvm_ffi::static_init_block! {
@@ -125,9 +125,7 @@ fn validate_call(call: &CallObj) -> Result<()> {
         "my_ext.cmul" => infer_cmul(call)?,
         _ => infer_part(call)?,
     };
-    let matches: bool = tvm_ffi::cached_global_func!("ffi.StructuralEqual")
-        .call_tuple((&expected, &call.ty, false, false))?
-        .try_into()?;
+    let matches = tvm_ffi::structural_equal(&expected, &call.ty)?;
     require(matches, "incorrect result type for complex operator")
 }
 

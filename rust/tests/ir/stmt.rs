@@ -192,7 +192,7 @@ fn statements_agree_with_cpp() {
         ),
     ];
     for (what, var, begin, end, step, body, annotations) in cases {
-        let kind = ForKind::Parallel as i32;
+        let kind = ForKind::Parallel.as_raw();
         let native_for = native(
             "ir.For",
             &[

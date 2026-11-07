@@ -16,7 +16,6 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-#![allow(dead_code, unused_imports)]
 
 //! The analyzer and its results.
 //!
@@ -57,7 +56,6 @@
 // tvm-ffi-stubgen(import-object): tvm_ffi::String
 // tvm-ffi-stubgen(import-object): tvm_ffi::VALUE_ERROR
 // tvm-ffi-stubgen(import-object): crate::ExitOnDrop
-// tvm-ffi-stubgen(import-object): crate::ir::expr::Range
 // tvm-ffi-stubgen(import-object): crate::ir::expr::Var
 // tvm-ffi-stubgen(import-object): crate::sym::int_set::IntSet
 // tvm-ffi-stubgen(import-object): crate::sym::constraint::ConstraintContext
@@ -77,7 +75,6 @@ use crate::ir::expr::Expr;
 use crate::ir::expr::ExprObj;
 use crate::ir::expr::IntoExpr;
 use crate::ir::expr::PrimExpr;
-use crate::ir::expr::Range;
 use crate::ir::expr::Var;
 use crate::ir::support;
 use crate::sym::constraint::ConstraintContext;
@@ -98,6 +95,15 @@ use tvm_ffi::VALUE_ERROR;
 // The analyzer
 
 // tvm-ffi-stubgen(begin): object/sym.Analyzer
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct Analyzer {
+    data_: ObjectArc<AnalyzerObj>,
+}
+
+/// The object behind [`Analyzer`].
+///
 /// Opaque: bytes [24, 120) of [24, 120) are not accounted for by reflected fields. Fields are read through the C ABI getters.
 #[allow(missing_docs)]
 #[repr(C)]
@@ -105,14 +111,7 @@ use tvm_ffi::VALUE_ERROR;
 #[type_key = "sym.Analyzer"]
 #[type_final]
 pub struct AnalyzerObj {
-    base: Object,
-}
-
-#[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct Analyzer {
-    base: ObjectArc<AnalyzerObj>,
+    base_: Object,
 }
 // tvm-ffi-stubgen(end)
 
@@ -378,7 +377,9 @@ impl TryFrom<i64> for CompareResult {
 /// send::<tvm_tirx::sym::AllowUintAsIndexScope>();
 /// ```
 #[must_use = "the assumption ends when the scope is dropped"]
-pub struct AllowUintAsIndexScope(ExitOnDrop);
+pub struct AllowUintAsIndexScope {
+    _exit: ExitOnDrop,
+}
 
 /// Treat `uint32` and `uint64` scalars as non-wrapping index types until the returned scope is
 /// dropped (`sym.AnalyzerEnterAllowUintAsIndex`).
@@ -388,13 +389,22 @@ pub fn allow_uint_as_index() -> Result<AllowUintAsIndexScope> {
     let exit: tvm_ffi::Function = tvm_ffi::cached_global_func!("sym.AnalyzerEnterAllowUintAsIndex")
         .call_tuple(())?
         .try_into()?;
-    Ok(AllowUintAsIndexScope(ExitOnDrop::new(exit)))
+    Ok(AllowUintAsIndexScope { _exit: ExitOnDrop::new(exit) })
 }
 
 // ---------------------------------------------------------------------------------------------
 // Results of the analyses
 
 // tvm-ffi-stubgen(begin): object/sym.ConstIntBound
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct ConstIntBound {
+    data_: ObjectArc<ConstIntBoundObj>,
+}
+
+/// The object behind [`ConstIntBound`].
+///
 /// Complete: reflected fields fill [24, 40) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
@@ -402,7 +412,7 @@ pub fn allow_uint_as_index() -> Result<AllowUintAsIndexScope> {
 #[type_key = "sym.ConstIntBound"]
 #[type_final]
 pub struct ConstIntBoundObj {
-    base: Object,
+    base_: Object,
     pub min_value: i64,
     pub max_value: i64,
 }
@@ -413,17 +423,10 @@ const _: () = {
 };
 
 #[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct ConstIntBound {
-    base: ObjectArc<ConstIntBoundObj>,
-}
-
-#[allow(missing_docs)]
 impl ConstIntBoundObj {
     pub(crate) fn new(min_value: i64, max_value: i64) -> Self {
-        let base = Object::new();
-        Self { base, min_value, max_value }
+        let base_ = Object::new();
+        Self { base_, min_value, max_value }
     }
 }
 
@@ -432,7 +435,7 @@ impl ConstIntBound {
     /// Lossless complete-field allocation.
     pub fn new(min_value: i64, max_value: i64) -> Self {
         let obj = ConstIntBoundObj::new(min_value, max_value);
-        Self { base: ObjectArc::new(obj) }
+        Self { data_: ObjectArc::new(obj) }
     }
 }
 
@@ -440,6 +443,15 @@ unsafe impl tvm_ffi::object::ImmutableObject for ConstIntBoundObj {}
 // tvm-ffi-stubgen(end)
 
 // tvm-ffi-stubgen(begin): object/sym.ModularSet
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct ModularSet {
+    data_: ObjectArc<ModularSetObj>,
+}
+
+/// The object behind [`ModularSet`].
+///
 /// Complete: reflected fields fill [24, 40) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
@@ -447,9 +459,9 @@ unsafe impl tvm_ffi::object::ImmutableObject for ConstIntBoundObj {}
 #[type_key = "sym.ModularSet"]
 #[type_final]
 pub struct ModularSetObj {
-    base: Object,
+    base_: Object,
     pub coeff: i64,
-    pub base_: i64,
+    pub base: i64,
 }
 
 const _: () = {
@@ -458,26 +470,19 @@ const _: () = {
 };
 
 #[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct ModularSet {
-    base: ObjectArc<ModularSetObj>,
-}
-
-#[allow(missing_docs)]
 impl ModularSetObj {
-    pub(crate) fn new(coeff: i64, base_: i64) -> Self {
-        let base = Object::new();
-        Self { base, coeff, base_ }
+    pub(crate) fn new(coeff: i64, base: i64) -> Self {
+        let base_ = Object::new();
+        Self { base_, coeff, base }
     }
 }
 
 #[allow(missing_docs)]
 impl ModularSet {
     /// Lossless complete-field allocation.
-    pub fn new(coeff: i64, base_: i64) -> Self {
-        let obj = ModularSetObj::new(coeff, base_);
-        Self { base: ObjectArc::new(obj) }
+    pub fn new(coeff: i64, base: i64) -> Self {
+        let obj = ModularSetObj::new(coeff, base);
+        Self { data_: ObjectArc::new(obj) }
     }
 }
 
@@ -485,6 +490,15 @@ unsafe impl tvm_ffi::object::ImmutableObject for ModularSetObj {}
 // tvm-ffi-stubgen(end)
 
 // tvm-ffi-stubgen(begin): object/sym.RewriteSimplifierStats
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct RewriteSimplifierStats {
+    data_: ObjectArc<RewriteSimplifierStatsObj>,
+}
+
+/// The object behind [`RewriteSimplifierStats`].
+///
 /// Complete: reflected fields fill [24, 72) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
@@ -492,7 +506,7 @@ unsafe impl tvm_ffi::object::ImmutableObject for ModularSetObj {}
 #[type_key = "sym.RewriteSimplifierStats"]
 #[type_final]
 pub struct RewriteSimplifierStatsObj {
-    base: Object,
+    base_: Object,
     pub nodes_visited: i64,
     pub constraints_entered: i64,
     pub rewrites_attempted: i64,
@@ -507,13 +521,6 @@ const _: () = {
 };
 
 #[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct RewriteSimplifierStats {
-    base: ObjectArc<RewriteSimplifierStatsObj>,
-}
-
-#[allow(missing_docs)]
 impl RewriteSimplifierStatsObj {
     pub(crate) fn new(
         nodes_visited: i64,
@@ -523,9 +530,9 @@ impl RewriteSimplifierStatsObj {
         max_recursive_depth: i64,
         num_recursive_rewrites: i64,
     ) -> Self {
-        let base = Object::new();
+        let base_ = Object::new();
         Self {
-            base,
+            base_,
             nodes_visited,
             constraints_entered,
             rewrites_attempted,
@@ -555,7 +562,7 @@ impl RewriteSimplifierStats {
             max_recursive_depth,
             num_recursive_rewrites,
         );
-        Self { base: ObjectArc::new(obj) }
+        Self { data_: ObjectArc::new(obj) }
     }
 }
 
@@ -566,26 +573,28 @@ unsafe impl tvm_ffi::object::ImmutableObject for RewriteSimplifierStatsObj {}
 // The forms of the canonical simplifier
 
 // tvm-ffi-stubgen(begin): object/sym.CanonicalExpr
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct CanonicalExpr {
+    data_: ObjectArc<CanonicalExprObj>,
+}
+
+/// The object behind [`CanonicalExpr`].
+///
 /// Opaque: no metadata of its own: total_size is unknown. Fields are read through the C ABI getters.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "sym.CanonicalExpr"]
 pub struct CanonicalExprObj {
-    base: ExprObj,
-}
-
-#[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct CanonicalExpr {
-    base: ObjectArc<CanonicalExprObj>,
+    base_: ExprObj,
 }
 
 impl Deref for CanonicalExprObj {
     type Target = ExprObj;
     fn deref(&self) -> &ExprObj {
-        &self.base
+        &self.base_
     }
 }
 
@@ -593,26 +602,28 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(CanonicalExpr => Expr);
 // tvm-ffi-stubgen(end)
 
 // tvm-ffi-stubgen(begin): object/sym.SplitExpr
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct SplitExpr {
+    data_: ObjectArc<SplitExprObj>,
+}
+
+/// The object behind [`SplitExpr`].
+///
 /// Opaque: no metadata of its own: total_size is unknown. Fields are read through the C ABI getters.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "sym.SplitExpr"]
 pub struct SplitExprObj {
-    base: CanonicalExprObj,
-}
-
-#[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct SplitExpr {
-    base: ObjectArc<SplitExprObj>,
+    base_: CanonicalExprObj,
 }
 
 impl Deref for SplitExprObj {
     type Target = CanonicalExprObj;
     fn deref(&self) -> &CanonicalExprObj {
-        &self.base
+        &self.base_
     }
 }
 
@@ -620,26 +631,28 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(SplitExpr => Expr, SplitExpr => Canonica
 // tvm-ffi-stubgen(end)
 
 // tvm-ffi-stubgen(begin): object/sym.SumExpr
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct SumExpr {
+    data_: ObjectArc<SumExprObj>,
+}
+
+/// The object behind [`SumExpr`].
+///
 /// Opaque: no metadata of its own: total_size is unknown. Fields are read through the C ABI getters.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "sym.SumExpr"]
 pub struct SumExprObj {
-    base: CanonicalExprObj,
-}
-
-#[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct SumExpr {
-    base: ObjectArc<SumExprObj>,
+    base_: CanonicalExprObj,
 }
 
 impl Deref for SumExprObj {
     type Target = CanonicalExprObj;
     fn deref(&self) -> &CanonicalExprObj {
-        &self.base
+        &self.base_
     }
 }
 

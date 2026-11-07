@@ -57,7 +57,7 @@ fn analyzer_results_are_read_as_fields() {
         .unwrap()
         .try_into()
         .unwrap();
-    assert_eq!((modular.coeff, modular.base_), (4, 2));
+    assert_eq!((modular.coeff, modular.base), (4, 2));
 
     let stats: RewriteSimplifierStats = global("sym.AnalyzerGetRewriteSimplifyStats")
         .call_tuple((analyzer,))
@@ -98,7 +98,7 @@ fn bounds_and_simplification() {
 
     let modular =
         analyzer.modular_set(op("prim._OpAdd", op("prim._OpMul", &x, int32(4)), int32(2))).unwrap();
-    assert_eq!((modular.coeff, modular.base_), (4, 2));
+    assert_eq!((modular.coeff, modular.base), (4, 2));
 
     assert!(analyzer.can_prove(op("prim._OpLT", &x, int32(16)), ProofStrength::Default).unwrap());
     assert_eq!(analyzer.try_compare(&x, int32(16)).unwrap(), CompareResult::Lt);

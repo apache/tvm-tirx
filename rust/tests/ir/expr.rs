@@ -436,7 +436,7 @@ fn calls_agree_with_cpp() {
     }
 }
 
-// Typed views: `PrimExpr`, `IntExpr` and `PrimVar`.
+// Typed expressions: `PrimExpr`, `IntExpr` and `PrimVar`.
 
 #[test]
 fn views_check_the_type() {

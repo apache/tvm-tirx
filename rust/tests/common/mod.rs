@@ -29,7 +29,7 @@ use tvm_tirx::ir::{BaseFunc, Expr, GlobalInfo, GlobalVar, IRModule, MissingTypeO
 use tvm_tirx::tvm_ffi::tvm_ffi_sys::{TVMFFIGetTypeInfo, TVMFFITypeInfo};
 use tvm_tirx::tvm_ffi::{
     Any, AnyCompatible, AnyView, Array, Function, Map, Module, ObjectCore, ObjectRefCore, Result,
-    String as FfiString,
+    String as FfiString, StructuralOptions,
 };
 
 /// Run the tests of a binary one at a time: registering an operator, a memory scope or the layout
@@ -64,15 +64,7 @@ pub fn global(name: &str) -> Function {
 }
 
 pub fn structural_equal<L: AnyCompatible, R: AnyCompatible>(lhs: &L, rhs: &R) -> bool {
-    let equal = global("ffi.StructuralEqual")
-        .call_packed(&[
-            AnyView::from(lhs),
-            AnyView::from(rhs),
-            AnyView::from(&false),
-            AnyView::from(&false),
-        ])
-        .unwrap();
-    bool::try_from(equal).unwrap()
+    tvm_ffi::structural_equal(lhs, rhs).unwrap()
 }
 
 /// The native function `name` on `args`.
@@ -136,15 +128,8 @@ pub fn agree_kind<T: AnyCompatible>(what: &str, rust: Result<T>, native: Result<
 }
 
 fn any_structural_equal(lhs: &Any, rhs: &Any, map_free_vars: bool) -> bool {
-    let equal = global("ffi.StructuralEqual")
-        .call_packed(&[
-            AnyView::from(lhs),
-            AnyView::from(rhs),
-            AnyView::from(&map_free_vars),
-            AnyView::from(&false),
-        ])
-        .unwrap();
-    bool::try_from(equal).unwrap()
+    let options = StructuralOptions { map_free_vars, ..StructuralOptions::default() };
+    tvm_ffi::structural_equal_with(lhs, rhs, options).unwrap()
 }
 
 pub fn empty_module() -> IRModule {

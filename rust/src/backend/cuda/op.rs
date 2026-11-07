@@ -17,7 +17,7 @@
  * under the License.
  */
 // The reflected field names `M`, `N`, and `K` are kept as they are.
-#![allow(dead_code, unused_imports, non_snake_case)]
+#![allow(non_snake_case)]
 // The generated constructors take one argument per reflected field.
 #![allow(clippy::too_many_arguments)]
 
@@ -38,6 +38,15 @@ use tvm_ffi::String;
 // tvm-ffi-stubgen(end)
 
 // tvm-ffi-stubgen(begin): object/tirx.cuda.TCGen05InstrDescriptorAttrs
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct TCGen05InstrDescriptorAttrs {
+    data_: ObjectArc<TCGen05InstrDescriptorAttrsObj>,
+}
+
+/// The object behind [`TCGen05InstrDescriptorAttrs`].
+///
 /// Complete: reflected fields fill [24, 120) exactly (alignment padding [98, 104), [116, 120)).
 #[allow(non_snake_case)]
 #[allow(missing_docs)]
@@ -46,7 +55,7 @@ use tvm_ffi::String;
 #[type_key = "tirx.cuda.TCGen05InstrDescriptorAttrs"]
 #[type_final]
 pub struct TCGen05InstrDescriptorAttrsObj {
-    base: AttrsObj,
+    base_: AttrsObj,
     pub d_dtype: String,
     pub a_dtype: String,
     pub b_dtype: String,
@@ -67,17 +76,10 @@ const _: () = {
     assert!(::core::mem::align_of::<TCGen05InstrDescriptorAttrsObj>() == 8);
 };
 
-#[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct TCGen05InstrDescriptorAttrs {
-    base: ObjectArc<TCGen05InstrDescriptorAttrsObj>,
-}
-
 impl Deref for TCGen05InstrDescriptorAttrsObj {
     type Target = AttrsObj;
     fn deref(&self) -> &AttrsObj {
-        &self.base
+        &self.base_
     }
 }
 
@@ -99,9 +101,9 @@ impl TCGen05InstrDescriptorAttrsObj {
         sat_d: bool,
         is_sparse: bool,
     ) -> Self {
-        let base = AttrsObj::new();
+        let base_ = AttrsObj::new();
         Self {
-            base,
+            base_,
             d_dtype,
             a_dtype,
             b_dtype,
@@ -153,7 +155,7 @@ impl TCGen05InstrDescriptorAttrs {
             sat_d,
             is_sparse,
         );
-        Self { base: ObjectArc::new(obj) }
+        Self { data_: ObjectArc::new(obj) }
     }
 }
 
@@ -163,6 +165,15 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(TCGen05InstrDescriptorAttrs => Attrs);
 // tvm-ffi-stubgen(end)
 
 // tvm-ffi-stubgen(begin): object/tirx.cuda.TCGen05InstrDescriptorBlockScaledAttrs
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct TCGen05InstrDescriptorBlockScaledAttrs {
+    data_: ObjectArc<TCGen05InstrDescriptorBlockScaledAttrsObj>,
+}
+
+/// The object behind [`TCGen05InstrDescriptorBlockScaledAttrs`].
+///
 /// Complete: reflected fields fill [24, 152) exactly (alignment padding [130, 136), [147, 152)).
 #[allow(non_snake_case)]
 #[allow(missing_docs)]
@@ -171,7 +182,7 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(TCGen05InstrDescriptorAttrs => Attrs);
 #[type_key = "tirx.cuda.TCGen05InstrDescriptorBlockScaledAttrs"]
 #[type_final]
 pub struct TCGen05InstrDescriptorBlockScaledAttrsObj {
-    base: AttrsObj,
+    base_: AttrsObj,
     pub d_dtype: String,
     pub a_dtype: String,
     pub b_dtype: String,
@@ -193,17 +204,10 @@ const _: () = {
     assert!(::core::mem::align_of::<TCGen05InstrDescriptorBlockScaledAttrsObj>() == 8);
 };
 
-#[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct TCGen05InstrDescriptorBlockScaledAttrs {
-    base: ObjectArc<TCGen05InstrDescriptorBlockScaledAttrsObj>,
-}
-
 impl Deref for TCGen05InstrDescriptorBlockScaledAttrsObj {
     type Target = AttrsObj;
     fn deref(&self) -> &AttrsObj {
-        &self.base
+        &self.base_
     }
 }
 
@@ -226,9 +230,9 @@ impl TCGen05InstrDescriptorBlockScaledAttrsObj {
         neg_b: bool,
         is_sparse: bool,
     ) -> Self {
-        let base = AttrsObj::new();
+        let base_ = AttrsObj::new();
         Self {
-            base,
+            base_,
             d_dtype,
             a_dtype,
             b_dtype,
@@ -283,7 +287,7 @@ impl TCGen05InstrDescriptorBlockScaledAttrs {
             neg_b,
             is_sparse,
         );
-        Self { base: ObjectArc::new(obj) }
+        Self { data_: ObjectArc::new(obj) }
     }
 }
 
@@ -293,6 +297,15 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(TCGen05InstrDescriptorBlockScaledAttrs =
 // tvm-ffi-stubgen(end)
 
 // tvm-ffi-stubgen(begin): object/tirx.cuda.TensorMapEncodeTiledAttr
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct TensorMapEncodeTiledAttr {
+    data_: ObjectArc<TensorMapEncodeTiledAttrObj>,
+}
+
+/// The object behind [`TensorMapEncodeTiledAttr`].
+///
 /// Complete: reflected fields fill [24, 80) exactly (alignment padding [28, 32)).
 #[allow(missing_docs)]
 #[repr(C)]
@@ -300,7 +313,7 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(TCGen05InstrDescriptorBlockScaledAttrs =
 #[type_key = "tirx.cuda.TensorMapEncodeTiledAttr"]
 #[type_final]
 pub struct TensorMapEncodeTiledAttrObj {
-    base: AttrsObj,
+    base_: AttrsObj,
     pub descriptor_dtype: DLDataType,
     pub rank: i64,
     pub interleave: i64,
@@ -315,17 +328,10 @@ const _: () = {
     assert!(::core::mem::align_of::<TensorMapEncodeTiledAttrObj>() == 8);
 };
 
-#[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct TensorMapEncodeTiledAttr {
-    base: ObjectArc<TensorMapEncodeTiledAttrObj>,
-}
-
 impl Deref for TensorMapEncodeTiledAttrObj {
     type Target = AttrsObj;
     fn deref(&self) -> &AttrsObj {
-        &self.base
+        &self.base_
     }
 }
 
@@ -340,9 +346,9 @@ impl TensorMapEncodeTiledAttrObj {
         oob_fill: i64,
         force_cu_dtype: i64,
     ) -> Self {
-        let base = AttrsObj::new();
+        let base_ = AttrsObj::new();
         Self {
-            base,
+            base_,
             descriptor_dtype,
             rank,
             interleave,
@@ -375,7 +381,7 @@ impl TensorMapEncodeTiledAttr {
             oob_fill,
             force_cu_dtype,
         );
-        Self { base: ObjectArc::new(obj) }
+        Self { data_: ObjectArc::new(obj) }
     }
 }
 

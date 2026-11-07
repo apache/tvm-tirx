@@ -16,7 +16,6 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-#![allow(dead_code, unused_imports)]
 
 //! Pass instrumentation.
 //!
@@ -75,26 +74,28 @@ use tvm_ffi::String;
 // tvm-ffi-stubgen(end)
 
 // tvm-ffi-stubgen(begin): object/transform.BasePassInstrument
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct BasePassInstrument {
+    data_: ObjectArc<BasePassInstrumentObj>,
+}
+
+/// The object behind [`BasePassInstrument`].
+///
 /// Opaque: no metadata of its own: total_size is unknown. Fields are read through the C ABI getters.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "transform.BasePassInstrument"]
 pub struct BasePassInstrumentObj {
-    base: PassInstrumentObj,
-}
-
-#[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct BasePassInstrument {
-    base: ObjectArc<BasePassInstrumentObj>,
+    base_: PassInstrumentObj,
 }
 
 impl Deref for BasePassInstrumentObj {
     type Target = PassInstrumentObj;
     fn deref(&self) -> &PassInstrumentObj {
-        &self.base
+        &self.base_
     }
 }
 

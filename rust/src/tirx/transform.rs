@@ -16,7 +16,6 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-#![allow(dead_code, unused_imports)]
 
 //! The TIRx passes ([`mod@transform`]) and function passes ([`function_pass`]).
 

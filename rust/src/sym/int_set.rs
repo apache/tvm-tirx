@@ -16,7 +16,6 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-#![allow(dead_code, unused_imports)]
 
 //! Sets of integers: [`IntSet`] and the interval [`IntervalSet`], with bound deduction and region
 //! bound estimation.
@@ -75,20 +74,22 @@ use tvm_ffi::Result;
 // tvm-ffi-stubgen(end)
 
 // tvm-ffi-stubgen(begin): object/sym.IntSet
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct IntSet {
+    data_: ObjectArc<IntSetObj>,
+}
+
+/// The object behind [`IntSet`].
+///
 /// Opaque: no metadata of its own: total_size is unknown. Fields are read through the C ABI getters.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "sym.IntSet"]
 pub struct IntSetObj {
-    base: Object,
-}
-
-#[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct IntSet {
-    base: ObjectArc<IntSetObj>,
+    base_: Object,
 }
 // tvm-ffi-stubgen(end)
 
@@ -120,6 +121,15 @@ impl IntSet {
 }
 
 // tvm-ffi-stubgen(begin): object/sym.IntervalSet
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct IntervalSet {
+    data_: ObjectArc<IntervalSetObj>,
+}
+
+/// The object behind [`IntervalSet`].
+///
 /// Opaque: parent 'sym.IntSet' is opaque (layout-unknown). Fields are read through the C ABI getters.
 #[allow(missing_docs)]
 #[repr(C)]
@@ -127,20 +137,13 @@ impl IntSet {
 #[type_key = "sym.IntervalSet"]
 #[type_final]
 pub struct IntervalSetObj {
-    base: IntSetObj,
-}
-
-#[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct IntervalSet {
-    base: ObjectArc<IntervalSetObj>,
+    base_: IntSetObj,
 }
 
 impl Deref for IntervalSetObj {
     type Target = IntSetObj;
     fn deref(&self) -> &IntSetObj {
-        &self.base
+        &self.base_
     }
 }
 

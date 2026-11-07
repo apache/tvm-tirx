@@ -16,7 +16,6 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-#![allow(dead_code, unused_imports)]
 
 //! The base of every function.
 //!
@@ -71,13 +70,22 @@ use tvm_ffi::reflection::drop_if_defined;
 // tvm-ffi-stubgen(end)
 
 // tvm-ffi-stubgen(begin): object/ir.BaseFunc
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct BaseFunc {
+    data_: ObjectArc<BaseFuncObj>,
+}
+
+/// The object behind [`BaseFunc`].
+///
 /// Complete: reflected fields fill [40, 48) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.BaseFunc"]
 pub struct BaseFuncObj {
-    base: ExprObj,
+    base_: ExprObj,
     pub attrs: DictAttrs,
 }
 
@@ -86,25 +94,18 @@ const _: () = {
     assert!(::core::mem::align_of::<BaseFuncObj>() == 8);
 };
 
-#[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct BaseFunc {
-    base: ObjectArc<BaseFuncObj>,
-}
-
 impl Deref for BaseFuncObj {
     type Target = ExprObj;
     fn deref(&self) -> &ExprObj {
-        &self.base
+        &self.base_
     }
 }
 
 #[allow(missing_docs)]
 impl BaseFuncObj {
     pub fn new(loc: Location, ty: Type, attrs: DictAttrs) -> Self {
-        let base = ExprObj::new(loc, ty);
-        Self { base, attrs }
+        let base_ = ExprObj::new(loc, ty);
+        Self { base_, attrs }
     }
 }
 
@@ -113,20 +114,20 @@ impl BaseFunc {
     /// Lossless complete-field allocation.
     pub fn new(loc: impl Into<Location>, ty: impl Into<Type>, attrs: impl Into<DictAttrs>) -> Self {
         let obj = BaseFuncObj::new(loc.into(), ty.into(), attrs.into());
-        Self { base: ObjectArc::new(obj) }
+        Self { data_: ObjectArc::new(obj) }
     }
 }
 
 impl ShallowCopy for BaseFuncObj {
     fn shallow_copy(&self) -> Self {
-        Self { base: ShallowCopy::shallow_copy(&self.base), attrs: Clone::clone(&self.attrs) }
+        Self { base_: ShallowCopy::shallow_copy(&self.base_), attrs: Clone::clone(&self.attrs) }
     }
 }
 
 unsafe impl UnsafeInit for BaseFuncObj {
     unsafe fn drop_defined_fields(this: *mut Self) {
         unsafe {
-            UnsafeInit::drop_defined_fields(addr_of_mut!((*this).base));
+            UnsafeInit::drop_defined_fields(addr_of_mut!((*this).base_));
             drop_if_defined(addr_of_mut!((*this).attrs));
         }
     }

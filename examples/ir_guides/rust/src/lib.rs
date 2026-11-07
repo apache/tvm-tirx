@@ -203,10 +203,7 @@ fn definitions(func: Function) -> Result<Strings> {
 fn compare_specialized(func: Function, n: Var) -> Result<Array<bool>> {
     let first = specialize(func.clone(), n.clone(), 128)?;
     let second = specialize(func, n, 128)?;
-    let (map_free_vars, skip_tensor_content) = (false, false);
-    let equal: bool = tvm_ffi::Function::get_global("ffi.StructuralEqual")?
-        .call_tuple((&first, &second, map_free_vars, skip_tensor_content))?
-        .try_into()?;
+    let equal = tvm_ffi::structural_equal(&first, &second)?;
     Ok([first.same_as(&second), equal].into_iter().collect())
 }
 // [equal.end]

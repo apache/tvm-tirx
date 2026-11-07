@@ -16,7 +16,6 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-#![allow(dead_code, unused_imports)]
 // The generated `new` of a field-less base needs no `Default`.
 #![allow(clippy::new_without_default)]
 
@@ -55,13 +54,22 @@ use tvm_ffi::UnsafeInit;
 // tvm-ffi-stubgen(end)
 
 // tvm-ffi-stubgen(begin): object/ir.Attrs
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct Attrs {
+    data_: ObjectArc<AttrsObj>,
+}
+
+/// The object behind [`Attrs`].
+///
 /// Complete: reflected fields fill [24, 24) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.Attrs"]
 pub struct AttrsObj {
-    base: Object,
+    base_: Object,
 }
 
 const _: () = {
@@ -70,17 +78,10 @@ const _: () = {
 };
 
 #[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct Attrs {
-    base: ObjectArc<AttrsObj>,
-}
-
-#[allow(missing_docs)]
 impl AttrsObj {
     pub fn new() -> Self {
-        let base = Object::new();
-        Self { base }
+        let base_ = Object::new();
+        Self { base_ }
     }
 }
 
@@ -89,20 +90,20 @@ impl Attrs {
     /// Lossless complete-field allocation.
     pub fn new() -> Self {
         let obj = AttrsObj::new();
-        Self { base: ObjectArc::new(obj) }
+        Self { data_: ObjectArc::new(obj) }
     }
 }
 
 impl ShallowCopy for AttrsObj {
     fn shallow_copy(&self) -> Self {
-        Self { base: ShallowCopy::shallow_copy(&self.base) }
+        Self { base_: ShallowCopy::shallow_copy(&self.base_) }
     }
 }
 
 unsafe impl UnsafeInit for AttrsObj {
     unsafe fn drop_defined_fields(this: *mut Self) {
         unsafe {
-            UnsafeInit::drop_defined_fields(addr_of_mut!((*this).base));
+            UnsafeInit::drop_defined_fields(addr_of_mut!((*this).base_));
         }
     }
 }
@@ -111,6 +112,15 @@ unsafe impl tvm_ffi::object::ImmutableObject for AttrsObj {}
 // tvm-ffi-stubgen(end)
 
 // tvm-ffi-stubgen(begin): object/ir.DictAttrs
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct DictAttrs {
+    data_: ObjectArc<DictAttrsObj>,
+}
+
+/// The object behind [`DictAttrs`].
+///
 /// Complete: reflected fields fill [24, 32) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
@@ -118,7 +128,7 @@ unsafe impl tvm_ffi::object::ImmutableObject for AttrsObj {}
 #[type_key = "ir.DictAttrs"]
 #[type_final]
 pub struct DictAttrsObj {
-    base: AttrsObj,
+    base_: AttrsObj,
     pub dict: Map<String, Any>,
 }
 
@@ -127,25 +137,18 @@ const _: () = {
     assert!(::core::mem::align_of::<DictAttrsObj>() == 8);
 };
 
-#[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct DictAttrs {
-    base: ObjectArc<DictAttrsObj>,
-}
-
 impl Deref for DictAttrsObj {
     type Target = AttrsObj;
     fn deref(&self) -> &AttrsObj {
-        &self.base
+        &self.base_
     }
 }
 
 #[allow(missing_docs)]
 impl DictAttrsObj {
     pub(crate) fn new(dict: Map<String, Any>) -> Self {
-        let base = AttrsObj::new();
-        Self { base, dict }
+        let base_ = AttrsObj::new();
+        Self { base_, dict }
     }
 }
 
@@ -154,7 +157,7 @@ impl DictAttrs {
     /// Lossless complete-field allocation.
     pub fn new(dict: impl Into<Map<String, Any>>) -> Self {
         let obj = DictAttrsObj::new(dict.into());
-        Self { base: ObjectArc::new(obj) }
+        Self { data_: ObjectArc::new(obj) }
     }
 }
 
