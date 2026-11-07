@@ -78,6 +78,7 @@ parallel(
                 source ./tests/scripts/test_task_install_dist_wheels.sh
                 ./tests/scripts/task_python_unittest.sh
                 ./tests/scripts/task_minimal_examples_cpu.sh
+                ./tests/scripts/task_native_examples_cpu.sh
               '""",
               label: 'Run CPU unit tests and examples on the CUDA wheel',
             )
