@@ -88,6 +88,7 @@ pub struct BasePassInstrument {
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "transform.BasePassInstrument"]
+#[type_immutable]
 pub struct BasePassInstrumentObj {
     base_: PassInstrumentObj,
 }

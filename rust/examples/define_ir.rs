@@ -49,7 +49,7 @@ fn loop_index(call: &CallObj) -> Result<Array<Var>> {
 // A type, which Python constructs from its fields, `T.ExamplePair(T.int32, T.float32)`, as it
 // constructs a C++ type.
 /// The type of a pair of values.
-#[rs_object("tirx.ExamplePairType", final)]
+#[rs_object("tirx.ExamplePairType", final, immutable)]
 pub struct ExamplePairTypeObj {
     base_: TypeObj,
     pub first: Type,

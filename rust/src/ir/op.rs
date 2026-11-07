@@ -59,6 +59,9 @@ use tvm_ffi::String;
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.Op"]
 #[type_final]
+// `ir.Op` is not `_type_mutable`: registration finishes initializing an entry, and a shared one
+// is never mutated after.
+#[type_immutable]
 pub struct OpObj {
     base_: ExprObj,
     /// The dense, process-local index of the operator into the attribute columns; never
@@ -99,10 +102,6 @@ const _: () = {
     assert!(::core::mem::offset_of!(OpObj, validator) == 136);
     assert!(::core::mem::offset_of!(OpObj, validator_is_custom) == 152);
 };
-
-// SAFETY: `ir.Op` is not `_type_mutable`: registration finishes initializing an entry, and a
-// shared one is never mutated after.
-unsafe impl tvm_ffi::object::ImmutableObject for OpObj {}
 
 /// The validator slot of an operator: an opaque pointer to a C ABI adapter, written while the
 /// operator is registered and only read after, so it may be shared as the rest of `OpObj` is.

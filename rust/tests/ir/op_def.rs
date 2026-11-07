@@ -407,7 +407,7 @@ fn accept(_call: &CallObj) -> Result<()> {
 }
 
 /// A type and a count, registered with the operators when the test binary loads.
-#[rs_object("rust_test.BlockType", final)]
+#[rs_object("rust_test.BlockType", final, immutable)]
 pub struct BlockTypeObj {
     base_: TypeObj,
     pub elem: Type,

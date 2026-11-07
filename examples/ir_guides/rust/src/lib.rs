@@ -33,12 +33,11 @@ use tvm_tirx::sym::{Analyzer, ConstraintContext, ProofStrength};
 use tvm_tirx::tirx::structural_map_with_constraint_context::structural_map_with_constraint_context;
 use tvm_tirx::tirx::structural_walk_with_constraint_context::structural_walk_with_constraint_context;
 use tvm_tirx::tirx::Function;
-use tvm_tirx::tvm_ffi::extra::structural_mutate::StructuralMutatorView;
-use tvm_tirx::tvm_ffi::extra::structural_visit::{DefRegionKind, StructuralVisitorView};
 use tvm_tirx::tvm_ffi::object::ObjectIdentity;
 use tvm_tirx::tvm_ffi::{
-    self, dispatch, match_any, Any, AnyView, Array, MutationView, ObjectRefCore, Result, Unchanged,
-    UnchangedOr, VisitInterrupt, WalkOrder, WalkResult,
+    self, dispatch, match_any, Any, AnyView, Array, DefRegionKind, MutationView, ObjectRefCore,
+    Result, StructuralMutatorView, StructuralVisitorView, Unchanged, UnchangedOr, VisitInterrupt,
+    WalkOrder, WalkResult,
 };
 
 /// A Python list of strings.

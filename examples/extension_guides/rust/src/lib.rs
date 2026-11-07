@@ -36,7 +36,7 @@ use tvm_tirx::tvm_ffi::{
 
 // begin type
 /// A complex number whose real and imaginary parts share a scalar type.
-#[rs_object("my_ext.ComplexType", final)]
+#[rs_object("my_ext.ComplexType", final, immutable)]
 pub struct ComplexTypeObj {
     base_: TypeObj,
     pub dtype: PrimType,

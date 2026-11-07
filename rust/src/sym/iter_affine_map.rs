@@ -89,6 +89,7 @@ pub struct IterMapExpr {
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "sym.IterMapExpr"]
+#[type_immutable]
 pub struct IterMapExprObj {
     base_: ExprObj,
 }

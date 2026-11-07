@@ -604,6 +604,7 @@ pub struct CanonicalExpr {
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "sym.CanonicalExpr"]
+#[type_immutable]
 pub struct CanonicalExprObj {
     base_: ExprObj,
 }
@@ -634,6 +635,7 @@ pub struct SplitExpr {
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "sym.SplitExpr"]
+#[type_immutable]
 pub struct SplitExprObj {
     base_: CanonicalExprObj,
 }
@@ -665,6 +667,7 @@ pub struct SumExpr {
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "sym.SumExpr"]
+#[type_immutable]
 pub struct SumExprObj {
     base_: CanonicalExprObj,
 }

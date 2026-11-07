@@ -26,11 +26,13 @@ use std::cell::UnsafeCell;
 
 use tvm_ffi::extra::cold_init_lazy_lock::ColdInitLazyLock;
 use tvm_ffi::extra::structural_visit::{
-    StructuralVisitEngine, StructuralVisitorBase, StructuralVisitorObj, StructuralVisitorView,
+    StructuralVisitEngine, StructuralVisitorBase, StructuralVisitorObj,
 };
 use tvm_ffi::reflection::TypeAttrColumn;
 use tvm_ffi::tvm_ffi_sys::{TVMFFIAny, TVMFFITypeIndex};
-use tvm_ffi::{AnyView, Dispatcher, IntoDispatcher, ObjectCore, Result, VisitInterrupt};
+use tvm_ffi::{
+    AnyView, Dispatcher, IntoDispatcher, ObjectCore, Result, StructuralVisitorView, VisitInterrupt,
+};
 
 use super::StructuralVisitorWithConstraintContextObj;
 use crate::sym::ConstraintContext;
