@@ -103,7 +103,7 @@
 //!
 //! ```
 //! use tvm_tirx::ir::{PrimType, Type, TypeObj, UNKNOWN_LOC};
-//! use tvm_tirx::tvm_ffi::{self, rs_object, ObjectRefCore};
+//! use tvm_tirx::tvm_ffi::{self, rs_object, IntoObjectRef, ObjectRefCore};
 //!
 //! #[rs_object("my_ext.PairType", final)]
 //! pub struct PairTypeObj {
@@ -121,7 +121,8 @@
 //! }
 //!
 //! impl PairType {
-//!     pub fn new(first: impl Into<Type>, second: impl Into<Type>) -> Self {
+//!     pub fn new(first: impl IntoObjectRef<Type>, second: impl IntoObjectRef<Type>) -> Self {
+//!         let (first, second) = (first.into_owned_object_ref(), second.into_owned_object_ref());
 //!         Self::from_object(PairTypeObj::new(TypeObj::new(UNKNOWN_LOC.into()), first, second, ""))
 //!     }
 //! }

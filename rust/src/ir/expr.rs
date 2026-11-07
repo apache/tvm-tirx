@@ -77,7 +77,7 @@
 // tvm-ffi-stubgen(import-object): crate::ir::r#type::TupleTypeObj
 // tvm-ffi-stubgen(import-object): crate::ir::support
 // tvm-ffi-stubgen(import-object): std::borrow::Borrow
-// tvm-ffi-stubgen(import-object): tvm_ffi::object::IntoObjectRef
+// tvm-ffi-stubgen(import-object): tvm_ffi::IntoObjectRef
 
 // tvm-ffi-stubgen(begin): import-section
 use crate::ir::attrs::Attrs;
@@ -108,12 +108,12 @@ use tvm_ffi::Array;
 use tvm_ffi::BigInt;
 use tvm_ffi::DLDataType;
 use tvm_ffi::Error;
+use tvm_ffi::IntoObjectRef;
 use tvm_ffi::Object;
 use tvm_ffi::ObjectArc;
 use tvm_ffi::ObjectRefCore;
 use tvm_ffi::Result;
 use tvm_ffi::String;
-use tvm_ffi::object::IntoObjectRef;
 use tvm_ffi::reflection::NativeFunction;
 use tvm_ffi::reflection::ShallowCopy;
 use tvm_ffi::reflection::TypeAttrColumn;
@@ -165,8 +165,8 @@ impl ExprObj {
 #[allow(missing_docs)]
 impl Expr {
     /// Lossless complete-field allocation.
-    pub fn new(loc: impl Into<Location>, ty: impl Into<Type>) -> Self {
-        let obj = ExprObj::new(loc.into(), ty.into());
+    pub fn new(loc: impl IntoObjectRef<Location>, ty: impl IntoObjectRef<Type>) -> Self {
+        let obj = ExprObj::new(loc.into_owned_object_ref(), ty.into_owned_object_ref());
         Self { data_: ObjectArc::new(obj) }
     }
 }
@@ -205,13 +205,13 @@ impl Expr {
     pub fn subscript(
         &self,
         indices: impl IntoIterator<Item = Subscript>,
-        loc: impl Into<Location>,
+        loc: impl IntoObjectRef<Location>,
     ) -> Result<Any> {
         let indices = indices.into_iter().map(|index| Any::from(&index)).collect::<Array<Any>>();
         tvm_ffi::cached_global_func!("ir.SubscriptExprRealize").call_tuple((
             self,
             &indices,
-            &loc.into(),
+            loc.into_object_ref().borrow(),
         ))
     }
 }
@@ -330,6 +330,9 @@ macro_rules! impl_literal_into_expr {
 }
 impl_literal_into_expr!(Expr: i32, i64, bool, f32, f64);
 impl_literal_into_expr!(PrimExpr: i32, i64, bool, f32, f64);
+impl_literal_into_expr!(IntExpr: i32, i64);
+impl_literal_into_expr!(IntImm: i32, i64, bool);
+impl_literal_into_expr!(FloatImm: f32, f64);
 
 // Rust literals, as C++ converts them into an expression: an `i32` and an `f32` through the
 // constructors `PrimExpr(int32_t)` and `PrimExpr(float)`, the others as constants of their type.
@@ -660,8 +663,8 @@ impl StagingExprObj {
 #[allow(missing_docs)]
 impl StagingExpr {
     /// Lossless complete-field allocation.
-    pub fn new(loc: impl Into<Location>, ty: impl Into<Type>) -> Self {
-        let obj = StagingExprObj::new(loc.into(), ty.into());
+    pub fn new(loc: impl IntoObjectRef<Location>, ty: impl IntoObjectRef<Type>) -> Self {
+        let obj = StagingExprObj::new(loc.into_owned_object_ref(), ty.into_owned_object_ref());
         Self { data_: ObjectArc::new(obj) }
     }
 }
@@ -730,8 +733,8 @@ impl OpaqueExprObj {
 #[allow(missing_docs)]
 impl OpaqueExpr {
     /// Lossless complete-field allocation.
-    pub fn new(loc: impl Into<Location>, ty: impl Into<Type>) -> Self {
-        let obj = OpaqueExprObj::new(loc.into(), ty.into());
+    pub fn new(loc: impl IntoObjectRef<Location>, ty: impl IntoObjectRef<Type>) -> Self {
+        let obj = OpaqueExprObj::new(loc.into_owned_object_ref(), ty.into_owned_object_ref());
         Self { data_: ObjectArc::new(obj) }
     }
 }
@@ -808,11 +811,15 @@ impl GlobalVarObj {
 impl GlobalVar {
     /// Lossless complete-field allocation.
     pub fn from_fields(
-        loc: impl Into<Location>,
-        ty: impl Into<Type>,
+        loc: impl IntoObjectRef<Location>,
+        ty: impl IntoObjectRef<Type>,
         name_hint: impl Into<String>,
     ) -> Self {
-        let obj = GlobalVarObj::new(loc.into(), ty.into(), name_hint.into());
+        let obj = GlobalVarObj::new(
+            loc.into_owned_object_ref(),
+            ty.into_owned_object_ref(),
+            name_hint.into(),
+        );
         Self { data_: ObjectArc::new(obj) }
     }
 }
@@ -824,9 +831,9 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(GlobalVar => Expr);
 
 impl GlobalVar {
     /// Create the global variable `name_hint`, of a missing type.
-    pub fn new(name_hint: &str, loc: impl Into<Location>) -> Self {
+    pub fn new(name_hint: &str, loc: impl IntoObjectRef<Location>) -> Self {
         let ty = MissingType::new();
-        Self::from_fields(loc.into(), ty, String::from(name_hint))
+        Self::from_fields(loc.into_owned_object_ref(), ty, String::from(name_hint))
     }
 }
 
@@ -880,11 +887,12 @@ impl TupleObj {
 impl Tuple {
     /// Lossless complete-field allocation.
     pub fn from_fields(
-        loc: impl Into<Location>,
-        ty: impl Into<Type>,
+        loc: impl IntoObjectRef<Location>,
+        ty: impl IntoObjectRef<Type>,
         fields: impl Into<Array<Expr>>,
     ) -> Self {
-        let obj = TupleObj::new(loc.into(), ty.into(), fields.into());
+        let obj =
+            TupleObj::new(loc.into_owned_object_ref(), ty.into_owned_object_ref(), fields.into());
         Self { data_: ObjectArc::new(obj) }
     }
 }
@@ -897,10 +905,11 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(Tuple => Expr);
 impl Tuple {
     /// Create the tuple of `fields`, typed by the types of its fields when they are all known.
     pub fn new(
-        fields: impl IntoIterator<Item = impl Into<Expr>>,
-        loc: impl Into<Location>,
+        fields: impl IntoIterator<Item = impl IntoObjectRef<Expr>>,
+        loc: impl IntoObjectRef<Location>,
     ) -> Self {
-        let fields = fields.into_iter().map(Into::into).collect::<Array<Expr>>();
+        let fields =
+            fields.into_iter().map(IntoObjectRef::into_owned_object_ref).collect::<Array<Expr>>();
         let ty: Type =
             match fields.iter().any(|field| field.ty.downcast_ref::<MissingTypeObj>().is_some()) {
                 true => MissingType::new().into(),
@@ -909,7 +918,7 @@ impl Tuple {
                     TupleType::new(field_types, UNKNOWN_LOC).into()
                 }
             };
-        Self::from_fields(loc.into(), ty, fields)
+        Self::from_fields(loc.into_owned_object_ref(), ty, fields)
     }
 }
 
@@ -961,12 +970,17 @@ impl TupleGetItemObj {
 impl TupleGetItem {
     /// Lossless complete-field allocation.
     pub fn from_fields(
-        loc: impl Into<Location>,
-        ty: impl Into<Type>,
-        tuple_value: impl Into<Expr>,
+        loc: impl IntoObjectRef<Location>,
+        ty: impl IntoObjectRef<Type>,
+        tuple_value: impl IntoObjectRef<Expr>,
         index: i32,
     ) -> Self {
-        let obj = TupleGetItemObj::new(loc.into(), ty.into(), tuple_value.into(), index);
+        let obj = TupleGetItemObj::new(
+            loc.into_owned_object_ref(),
+            ty.into_owned_object_ref(),
+            tuple_value.into_owned_object_ref(),
+            index,
+        );
         Self { data_: ObjectArc::new(obj) }
     }
 }
@@ -984,7 +998,11 @@ impl TupleGetItem {
     ///
     /// Returns an `IndexError` if `index` is negative, or not less than the number of fields of a
     /// tuple of known type.
-    pub fn new(tuple_value: impl IntoExpr, index: i32, loc: impl Into<Location>) -> Result<Self> {
+    pub fn new(
+        tuple_value: impl IntoExpr,
+        index: i32,
+        loc: impl IntoObjectRef<Location>,
+    ) -> Result<Self> {
         let tuple_value = tuple_value.into_owned_expr()?;
         if index < 0 {
             let message = format!(
@@ -1078,12 +1096,17 @@ impl TensorLoadObj {
 impl TensorLoad {
     /// Lossless complete-field allocation.
     pub fn from_fields(
-        loc: impl Into<Location>,
-        ty: impl Into<PrimType>,
-        source: impl Into<Expr>,
+        loc: impl IntoObjectRef<Location>,
+        ty: impl IntoObjectRef<PrimType>,
+        source: impl IntoObjectRef<Expr>,
         indices: impl Into<Array<PrimExpr>>,
     ) -> Self {
-        let obj = TensorLoadObj::new(loc.into(), ty.into(), source.into(), indices.into());
+        let obj = TensorLoadObj::new(
+            loc.into_owned_object_ref(),
+            ty.into_owned_object_ref(),
+            source.into_owned_object_ref(),
+            indices.into(),
+        );
         Self { data_: ObjectArc::new(obj) }
     }
 }
@@ -1104,12 +1127,12 @@ impl TensorLoad {
     pub fn new(
         source: impl IntoExpr,
         indices: impl IntoIterator<Item = impl IntoExpr<PrimExpr>>,
-        loc: impl Into<Location>,
+        loc: impl IntoObjectRef<Location>,
     ) -> Result<Self> {
         // The native library registers the column when it loads, so one lookup suffices.
         static INFER_TYPE: LazyLock<Option<TypeAttrColumn>> =
             LazyLock::new(|| TypeAttrColumn::new("__tvm_tensor_load_infer_type__"));
-        let (source, loc) = (source.into_owned_expr()?, loc.into());
+        let (source, loc) = (source.into_owned_expr()?, loc.into_owned_object_ref());
         let indices = indices
             .into_iter()
             .map(IntoExpr::<PrimExpr>::into_owned_expr)
@@ -1179,8 +1202,8 @@ impl ConstantObj {
 #[allow(missing_docs)]
 impl Constant {
     /// Lossless complete-field allocation.
-    pub fn new(loc: impl Into<Location>, ty: impl Into<Type>) -> Self {
-        let obj = ConstantObj::new(loc.into(), ty.into());
+    pub fn new(loc: impl IntoObjectRef<Location>, ty: impl IntoObjectRef<Type>) -> Self {
+        let obj = ConstantObj::new(loc.into_owned_object_ref(), ty.into_owned_object_ref());
         Self { data_: ObjectArc::new(obj) }
     }
 }
@@ -1250,8 +1273,12 @@ impl FloatImmObj {
 #[allow(missing_docs)]
 impl FloatImm {
     /// Lossless complete-field allocation.
-    pub fn from_fields(loc: impl Into<Location>, ty: impl Into<PrimType>, value: f64) -> Self {
-        let obj = FloatImmObj::new(loc.into(), ty.into(), value);
+    pub fn from_fields(
+        loc: impl IntoObjectRef<Location>,
+        ty: impl IntoObjectRef<PrimType>,
+        value: f64,
+    ) -> Self {
+        let obj = FloatImmObj::new(loc.into_owned_object_ref(), ty.into_owned_object_ref(), value);
         Self { data_: ObjectArc::new(obj) }
     }
 }
@@ -1276,8 +1303,12 @@ impl FloatImm {
     ///
     /// Returns a `ValueError` if `ty` is not a scalar floating-point type, or a finite `value` is
     /// out of its range.
-    pub fn new(ty: impl Into<PrimType>, value: f64, loc: impl Into<Location>) -> Result<Self> {
-        let ty = ty.into();
+    pub fn new(
+        ty: impl IntoObjectRef<PrimType>,
+        value: f64,
+        loc: impl IntoObjectRef<Location>,
+    ) -> Result<Self> {
+        let ty = ty.into_owned_object_ref();
         check_float_imm(&ty, value)?;
         Ok(Self::from_fields(loc, ty, value))
     }
@@ -1361,11 +1392,12 @@ impl IntImmObj {
 impl IntImm {
     /// Lossless complete-field allocation.
     pub fn from_fields(
-        loc: impl Into<Location>,
-        ty: impl Into<PrimType>,
+        loc: impl IntoObjectRef<Location>,
+        ty: impl IntoObjectRef<PrimType>,
         value: impl Into<BigInt>,
     ) -> Self {
-        let obj = IntImmObj::new(loc.into(), ty.into(), value.into());
+        let obj =
+            IntImmObj::new(loc.into_owned_object_ref(), ty.into_owned_object_ref(), value.into());
         Self { data_: ObjectArc::new(obj) }
     }
 }
@@ -1392,11 +1424,11 @@ impl IntImm {
     /// Returns a `ValueError` if `ty` is not a scalar integer or boolean type, or `value` is out of
     /// its range.
     pub fn new(
-        ty: impl Into<PrimType>,
+        ty: impl IntoObjectRef<PrimType>,
         value: impl Into<BigInt>,
-        loc: impl Into<Location>,
+        loc: impl IntoObjectRef<Location>,
     ) -> Result<Self> {
-        let (ty, value) = (ty.into(), value.into());
+        let (ty, value) = (ty.into_owned_object_ref(), value.into());
         check_int_imm(&ty, &value)?;
         Ok(Self::from_fields(loc, ty, value))
     }
@@ -1494,11 +1526,15 @@ impl GenericConstObj {
 impl GenericConst {
     /// Lossless complete-field allocation.
     pub fn from_fields(
-        loc: impl Into<Location>,
-        ty: impl Into<Type>,
+        loc: impl IntoObjectRef<Location>,
+        ty: impl IntoObjectRef<Type>,
         value: impl Into<Any>,
     ) -> Self {
-        let obj = GenericConstObj::new(loc.into(), ty.into(), value.into());
+        let obj = GenericConstObj::new(
+            loc.into_owned_object_ref(),
+            ty.into_owned_object_ref(),
+            value.into(),
+        );
         Self { data_: ObjectArc::new(obj) }
     }
 }
@@ -1517,12 +1553,12 @@ impl GenericConst {
     /// Returns a `TypeError` if `ty` is a [`MissingType`], or `value` is an integer, a boolean, a
     /// float or a string.
     pub fn new(
-        ty: impl Into<Type>,
+        ty: impl IntoObjectRef<Type>,
         value: impl Into<Any>,
-        loc: impl Into<Location>,
+        loc: impl IntoObjectRef<Location>,
     ) -> Result<Self> {
         use TVMFFITypeIndex::*;
-        let (ty, value) = (ty.into(), value.into());
+        let (ty, value) = (ty.into_owned_object_ref(), value.into());
         if ty.downcast_ref::<MissingTypeObj>().is_some() {
             let condition = "!ty.as<MissingType>().has_value()";
             let message = "GenericConst requires an expression type";
@@ -1590,11 +1626,15 @@ impl DataTypeImmObj {
 impl DataTypeImm {
     /// Lossless complete-field allocation.
     pub fn from_fields(
-        loc: impl Into<Location>,
-        ty: impl Into<Type>,
+        loc: impl IntoObjectRef<Location>,
+        ty: impl IntoObjectRef<Type>,
         value: impl Into<DLDataType>,
     ) -> Self {
-        let obj = DataTypeImmObj::new(loc.into(), ty.into(), value.into());
+        let obj = DataTypeImmObj::new(
+            loc.into_owned_object_ref(),
+            ty.into_owned_object_ref(),
+            value.into(),
+        );
         Self { data_: ObjectArc::new(obj) }
     }
 }
@@ -1606,7 +1646,7 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(DataTypeImm => Expr, DataTypeImm => Cons
 
 impl DataTypeImm {
     /// Create the data type `value` as a constant of type [`AnyType`].
-    pub fn new(value: DLDataType, loc: impl Into<Location>) -> Self {
+    pub fn new(value: DLDataType, loc: impl IntoObjectRef<Location>) -> Self {
         let ty = AnyType::new(UNKNOWN_LOC);
         Self::from_fields(loc, ty, value)
     }
@@ -1659,11 +1699,15 @@ impl StringImmObj {
 impl StringImm {
     /// Lossless complete-field allocation.
     pub fn from_fields(
-        loc: impl Into<Location>,
-        ty: impl Into<Type>,
+        loc: impl IntoObjectRef<Location>,
+        ty: impl IntoObjectRef<Type>,
         value: impl Into<String>,
     ) -> Self {
-        let obj = StringImmObj::new(loc.into(), ty.into(), value.into());
+        let obj = StringImmObj::new(
+            loc.into_owned_object_ref(),
+            ty.into_owned_object_ref(),
+            value.into(),
+        );
         Self { data_: ObjectArc::new(obj) }
     }
 }
@@ -1675,9 +1719,9 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(StringImm => Expr, StringImm => Constant
 
 impl StringImm {
     /// Create the string constant `value`, of type [`StringType`].
-    pub fn new(value: &str, loc: impl Into<Location>) -> Self {
+    pub fn new(value: &str, loc: impl IntoObjectRef<Location>) -> Self {
         let ty = StringType::new();
-        Self::from_fields(loc.into(), ty, String::from(value))
+        Self::from_fields(loc.into_owned_object_ref(), ty, String::from(value))
     }
 }
 
@@ -1742,17 +1786,17 @@ impl CallObj {
 impl Call {
     /// Lossless complete-field allocation.
     pub fn from_fields(
-        loc: impl Into<Location>,
-        ty: impl Into<Type>,
-        op: impl Into<Expr>,
+        loc: impl IntoObjectRef<Location>,
+        ty: impl IntoObjectRef<Type>,
+        op: impl IntoObjectRef<Expr>,
         args: impl Into<Array<Expr>>,
         attrs: impl Into<Option<Attrs>>,
         ty_args: impl Into<Array<Type>>,
     ) -> Self {
         let obj = CallObj::new(
-            loc.into(),
-            ty.into(),
-            op.into(),
+            loc.into_owned_object_ref(),
+            ty.into_owned_object_ref(),
+            op.into_owned_object_ref(),
             args.into(),
             attrs.into(),
             ty_args.into(),
@@ -1780,13 +1824,14 @@ impl Call {
         op: impl IntoExpr,
         args: impl IntoIterator<Item = impl IntoExpr>,
         attrs: Option<&Attrs>,
-        ty_args: impl IntoIterator<Item = impl Into<Type>>,
-        loc: impl Into<Location>,
+        ty_args: impl IntoIterator<Item = impl IntoObjectRef<Type>>,
+        loc: impl IntoObjectRef<Location>,
     ) -> Result<Self> {
-        let (op, attrs, loc) = (op.into_owned_expr()?, attrs.cloned(), loc.into());
+        let (op, attrs, loc) = (op.into_owned_expr()?, attrs.cloned(), loc.into_owned_object_ref());
         let args =
             args.into_iter().map(IntoExpr::into_owned_expr).collect::<Result<Array<Expr>>>()?;
-        let ty_args = ty_args.into_iter().map(Into::into).collect::<Array<Type>>();
+        let ty_args =
+            ty_args.into_iter().map(IntoObjectRef::into_owned_object_ref).collect::<Array<Type>>();
         if let Some(ty) = ty {
             return Ok(Self::from_fields(loc, ty.clone(), op, args, attrs, ty_args));
         }
@@ -1893,12 +1938,17 @@ impl TensorRegionObj {
 impl TensorRegion {
     /// Lossless complete-field allocation.
     pub fn from_fields(
-        loc: impl Into<Location>,
-        ty: impl Into<Type>,
-        source: impl Into<Expr>,
+        loc: impl IntoObjectRef<Location>,
+        ty: impl IntoObjectRef<Type>,
+        source: impl IntoObjectRef<Expr>,
         region: impl Into<Array<Range>>,
     ) -> Self {
-        let obj = TensorRegionObj::new(loc.into(), ty.into(), source.into(), region.into());
+        let obj = TensorRegionObj::new(
+            loc.into_owned_object_ref(),
+            ty.into_owned_object_ref(),
+            source.into_owned_object_ref(),
+            region.into(),
+        );
         Self { data_: ObjectArc::new(obj) }
     }
 }
@@ -1911,10 +1961,10 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(TensorRegion => Expr);
 impl TensorRegion {
     /// Create the region `region` of `source`, of type `ty`.
     pub fn new(
-        source: impl Into<Expr>,
+        source: impl IntoObjectRef<Expr>,
         region: impl Into<Array<Range>>,
-        ty: impl Into<Type>,
-        loc: impl Into<Location>,
+        ty: impl IntoObjectRef<Type>,
+        loc: impl IntoObjectRef<Location>,
     ) -> Self {
         Self::from_fields(loc, ty, source, region)
     }
@@ -1970,11 +2020,11 @@ impl VarObj {
 impl Var {
     /// Lossless complete-field allocation.
     pub fn from_fields(
-        loc: impl Into<Location>,
-        ty: impl Into<Type>,
+        loc: impl IntoObjectRef<Location>,
+        ty: impl IntoObjectRef<Type>,
         name: impl Into<String>,
     ) -> Self {
-        let obj = VarObj::new(loc.into(), ty.into(), name.into());
+        let obj = VarObj::new(loc.into_owned_object_ref(), ty.into_owned_object_ref(), name.into());
         Self { data_: ObjectArc::new(obj) }
     }
 }
@@ -2002,8 +2052,16 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(Var => Expr);
 impl Var {
     /// Create the variable `name` of type `ty`; a variable whose type is not known yet takes
     /// [`MissingType::new`].
-    pub fn new(name: &str, ty: impl Into<Type>, loc: impl Into<Location>) -> Self {
-        Self::from_fields(loc.into(), ty.into(), String::from(name))
+    pub fn new(
+        name: &str,
+        ty: impl IntoObjectRef<Type>,
+        loc: impl IntoObjectRef<Location>,
+    ) -> Self {
+        Self::from_fields(
+            loc.into_owned_object_ref(),
+            ty.into_owned_object_ref(),
+            String::from(name),
+        )
     }
 }
 
@@ -2072,8 +2130,12 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(PrimVar => Expr, PrimVar => PrimExpr);
 
 impl PrimVar {
     /// Create the variable `name` of the primitive type `ty`.
-    pub fn new(name: &str, ty: impl Into<PrimType>, loc: impl Into<Location>) -> Self {
-        Var::new(name, ty.into(), loc)
+    pub fn new(
+        name: &str,
+        ty: impl IntoObjectRef<PrimType>,
+        loc: impl IntoObjectRef<Location>,
+    ) -> Self {
+        Var::new(name, ty.into_owned_object_ref(), loc)
             .downcast()
             .expect("a variable of a `PrimType` is a `PrimVar`")
     }
@@ -2132,12 +2194,17 @@ impl LambdaExprObj {
 impl LambdaExpr {
     /// Lossless complete-field allocation.
     pub fn from_fields(
-        loc: impl Into<Location>,
-        ty: impl Into<Type>,
+        loc: impl IntoObjectRef<Location>,
+        ty: impl IntoObjectRef<Type>,
         vars: impl Into<Array<Var>>,
-        body: impl Into<Expr>,
+        body: impl IntoObjectRef<Expr>,
     ) -> Self {
-        let obj = LambdaExprObj::new(loc.into(), ty.into(), vars.into(), body.into());
+        let obj = LambdaExprObj::new(
+            loc.into_owned_object_ref(),
+            ty.into_owned_object_ref(),
+            vars.into(),
+            body.into_owned_object_ref(),
+        );
         Self { data_: ObjectArc::new(obj) }
     }
 }
@@ -2151,14 +2218,17 @@ impl LambdaExpr {
     /// Create the lambda of `vars` that evaluates to `body`, of the function type from the types of
     /// `vars` to the type of `body`.
     pub fn new(
-        vars: impl IntoIterator<Item = impl Into<Var>>,
-        body: impl Into<Expr>,
-        loc: impl Into<Location>,
+        vars: impl IntoIterator<Item = impl IntoObjectRef<Var>>,
+        body: impl IntoObjectRef<Expr>,
+        loc: impl IntoObjectRef<Location>,
     ) -> Self {
-        let (vars, body) = (vars.into_iter().map(Into::into).collect::<Array<Var>>(), body.into());
+        let (vars, body) = (
+            vars.into_iter().map(IntoObjectRef::into_owned_object_ref).collect::<Array<Var>>(),
+            body.into_owned_object_ref(),
+        );
         let arg_types = vars.iter().map(|var| var.ty.clone()).collect::<Vec<Type>>();
         let ty = FuncType::new(arg_types, body.ty.clone());
-        Self::from_fields(loc.into(), ty, vars, body)
+        Self::from_fields(loc.into_owned_object_ref(), ty, vars, body)
     }
 
     /// Return the body with `arguments` substituted for the variables (`ir.LambdaExprApply`).
@@ -2233,11 +2303,15 @@ impl RangeObj {
 impl Range {
     /// Lossless complete-field allocation.
     pub fn from_fields(
-        begin: impl Into<PrimExpr>,
-        extent: impl Into<PrimExpr>,
-        loc: impl Into<Location>,
+        begin: impl IntoObjectRef<PrimExpr>,
+        extent: impl IntoObjectRef<PrimExpr>,
+        loc: impl IntoObjectRef<Location>,
     ) -> Self {
-        let obj = RangeObj::new(begin.into(), extent.into(), loc.into());
+        let obj = RangeObj::new(
+            begin.into_owned_object_ref(),
+            extent.into_owned_object_ref(),
+            loc.into_owned_object_ref(),
+        );
         Self { data_: ObjectArc::new(obj) }
     }
 }
@@ -2251,21 +2325,21 @@ impl Range {
     pub fn new(
         begin: impl IntoExpr<PrimExpr>,
         end: impl IntoExpr<PrimExpr>,
-        loc: impl Into<Location>,
+        loc: impl IntoObjectRef<Location>,
     ) -> Result<Self> {
         let (begin, end) = (begin.into_owned_expr()?, end.into_owned_expr()?);
         let extent = Self::get_extent_from_begin_end(&begin, end)?;
-        Ok(Self::from_fields(begin, extent, loc.into()))
+        Ok(Self::from_fields(begin, extent, loc.into_owned_object_ref()))
     }
 
     /// Create the range of `extent` values from `min_value`.
     pub fn from_min_extent(
         min_value: impl IntoExpr<PrimExpr>,
         extent: impl IntoExpr<PrimExpr>,
-        loc: impl Into<Location>,
+        loc: impl IntoObjectRef<Location>,
     ) -> Result<Self> {
         let (min_value, extent) = (min_value.into_owned_expr()?, extent.into_owned_expr()?);
-        Ok(Self::from_fields(min_value, extent, loc.into()))
+        Ok(Self::from_fields(min_value, extent, loc.into_owned_object_ref()))
     }
 
     /// Return the extent `end - begin` of the range `[begin, end)`, folded.

@@ -38,6 +38,7 @@
 // A tensor's shape is a list of `PrimExpr`s, as C++ `TensorTypeObj` holds it.
 // tvm-ffi-stubgen(field): tirx.TensorType.shape -> Array<PrimExpr>
 // tvm-ffi-stubgen(import-object): tvm_ffi::Array
+// tvm-ffi-stubgen(import-object): tvm_ffi::IntoObjectRef
 // tvm-ffi-stubgen(begin): import-section
 use crate::ir::expr::IntoExpr;
 use crate::ir::expr::PrimExpr;
@@ -52,6 +53,7 @@ use crate::tirx::layout::Layout;
 use std::ops::Deref;
 use tvm_ffi::AnyView;
 use tvm_ffi::Array;
+use tvm_ffi::IntoObjectRef;
 use tvm_ffi::ObjectArc;
 use tvm_ffi::ObjectCore;
 use tvm_ffi::Result;
@@ -140,17 +142,17 @@ impl TensorTypeObj {
 impl TensorType {
     /// Lossless complete-field allocation.
     pub fn from_fields(
-        loc: impl Into<Location>,
-        dtype: impl Into<PrimType>,
-        scope: impl Into<MemoryScope>,
+        loc: impl IntoObjectRef<Location>,
+        dtype: impl IntoObjectRef<PrimType>,
+        scope: impl IntoObjectRef<MemoryScope>,
         shape: impl Into<Array<PrimExpr>>,
         data_alignment: i32,
         layout: impl Into<Option<Layout>>,
     ) -> Self {
         let obj = TensorTypeObj::new(
-            loc.into(),
-            dtype.into(),
-            scope.into(),
+            loc.into_owned_object_ref(),
+            dtype.into_owned_object_ref(),
+            scope.into_owned_object_ref(),
             shape.into(),
             data_alignment,
             layout.into(),
@@ -169,11 +171,11 @@ impl TensorType {
     /// bytes (the runtime's allocation alignment when 0 or less), with `layout` if given.
     pub fn new(
         shape: impl IntoIterator<Item = impl IntoExpr<PrimExpr>>,
-        dtype: impl Into<PrimType>,
-        scope: impl Into<MemoryScope>,
+        dtype: impl IntoObjectRef<PrimType>,
+        scope: impl IntoObjectRef<MemoryScope>,
         data_alignment: i32,
         layout: Option<&Layout>,
-        loc: impl Into<Location>,
+        loc: impl IntoObjectRef<Location>,
     ) -> Result<Self> {
         let shape = shape
             .into_iter()
@@ -184,9 +186,9 @@ impl TensorType {
             false => data_alignment,
         };
         Ok(Self::from_fields(
-            loc.into(),
-            dtype.into(),
-            scope.into(),
+            loc.into_owned_object_ref(),
+            dtype.into_owned_object_ref(),
+            scope.into_owned_object_ref(),
             shape,
             data_alignment,
             layout.cloned(),

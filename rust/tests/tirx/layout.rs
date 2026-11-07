@@ -75,7 +75,7 @@ fn thread_layout_scope() {
     global("tirx.cuda.RegisterLayoutAxes").call_tuple(()).unwrap();
     let laneid = Axis::get_or_register("laneid");
     let lanes =
-        TileLayout::new([Iter::new(int32(32), int32(1), laneid)], Vec::<Iter>::new(), &Map::new());
+        TileLayout::new([Iter::new(int32(32), int32(1), laneid)], Vec::<Iter>::new(), Map::new());
     let (inner, outer) = lanes.get_scope().unwrap().unwrap();
     assert_eq!(inner.local_name().unwrap().as_str(), "thread");
     assert_eq!(outer.local_name().unwrap().as_str(), "warp");

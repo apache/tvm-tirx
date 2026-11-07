@@ -48,7 +48,7 @@ fn types() {
     TensorRegionType::new();
     let i32_ty = PrimType::int(32);
     assert_eq!(i32_ty.dtype, dtype::int(32));
-    let ptr = PtrType::new(&i32_ty, &scope()).unwrap();
+    let ptr = PtrType::new(&i32_ty, scope()).unwrap();
     assert!(structural_equal(&ptr.element_type, &i32_ty));
     let tuple = TupleType::new([&i32_ty, &i32_ty], UNKNOWN_LOC);
     assert_eq!(tuple.fields.len(), 2);
@@ -97,7 +97,7 @@ fn types_agree_with_cpp() {
     let missing: Type = MissingType::new().into();
     for (what, element) in [("PtrType", &int32), ("PtrType(missing)", &missing)] {
         let native_ptr = native("ir.PtrType", &[element.into(), (&scope()).into()]);
-        agree(what, PtrType::new(element, &scope()), native_ptr);
+        agree(what, PtrType::new(element, scope()), native_ptr);
     }
     for (what, fields) in
         [("TupleType", vec![int32.clone(), float32.clone()]), ("TupleType(empty)", vec![])]
@@ -176,7 +176,8 @@ fn rust_type_registers_under_ir_type_with_its_fields_reflected() {
     let fields: Vec<(String, i64, i64)> = (0..info.num_fields as usize)
         .map(|index| {
             let field = unsafe { &*info.fields.add(index) };
-            (field.name.as_str().to_string(), field.offset, field.flags)
+            // SAFETY: the type table holds its field names as UTF-8 for the life of the process.
+            (unsafe { field.name.as_str() }.to_string(), field.offset, field.flags)
         })
         .collect();
     assert_eq!(

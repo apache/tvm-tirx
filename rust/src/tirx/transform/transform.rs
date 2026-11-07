@@ -29,11 +29,15 @@
 // tvm-ffi-stubgen(import-object): crate::tirx::function::Function
 // tvm-ffi-stubgen(import-object): tvm_ffi::Result
 // tvm-ffi-stubgen(import-object): tvm_ffi::String
+// tvm-ffi-stubgen(import-object): tvm_ffi::IntoObjectRef
+// tvm-ffi-stubgen(import-object): std::borrow::Borrow
 
 // tvm-ffi-stubgen(begin): import-section
 use crate::ir::transform::core::Pass;
 use crate::target::Target;
 use crate::tirx::function::Function;
+use std::borrow::Borrow;
+use tvm_ffi::IntoObjectRef;
 use tvm_ffi::Object;
 use tvm_ffi::ObjectArc;
 use tvm_ffi::Result;
@@ -191,9 +195,9 @@ pub fn bf16_storage_legalize() -> Result<Pass> {
 
 /// Bind `target` to the functions and classify host and device helpers
 /// (`tirx.transform.BindTarget`).
-pub fn bind_target(target: impl Into<Target>) -> Result<Pass> {
+pub fn bind_target(target: impl IntoObjectRef<Target>) -> Result<Pass> {
     tvm_ffi::cached_global_func!("tirx.transform.BindTarget")
-        .call_tuple((&target.into(),))?
+        .call_tuple((target.into_object_ref().borrow(),))?
         .try_into()
 }
 
@@ -309,7 +313,7 @@ pub fn pointer_value_type_rewrite() -> Result<Pass> {
 /// # let main = Function::new(Vec::<Var>::new(), &body, MissingType::new(), attrs, UNKNOWN_LOC);
 /// # let main_var = GlobalVar::new("main", UNKNOWN_LOC);
 /// # let functions = Map::from_iter([(main_var, BaseFunc::from(&main))]);
-/// # let module = IRModule::new(&functions, DictAttrs::new(Map::new()), &Map::new())?;
+/// # let module = IRModule::new(&functions, DictAttrs::new(Map::new()), Map::new())?;
 ///
 /// let module = transform::remove_no_op()?.run(module)?;
 /// let main: Function = module.lookup_name("main")?.try_into()?;

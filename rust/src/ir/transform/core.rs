@@ -29,13 +29,17 @@
 // does.
 // tvm-ffi-stubgen(import-object): crate::ir::module::IRModule
 // tvm-ffi-stubgen(import-object): crate::ir::support
+// tvm-ffi-stubgen(import-object): tvm_ffi::IntoObjectRef
+// tvm-ffi-stubgen(import-object): std::borrow::Borrow
 
 // tvm-ffi-stubgen(begin): import-section
 use crate::ir::module::IRModule;
 use crate::ir::support;
+use std::borrow::Borrow;
 use std::ops::Deref;
 use tvm_ffi::Any;
 use tvm_ffi::Array;
+use tvm_ffi::IntoObjectRef;
 use tvm_ffi::Map;
 use tvm_ffi::Object;
 use tvm_ffi::ObjectArc;
@@ -66,7 +70,7 @@ use tvm_ffi::reflection::FieldGetter;
 /// let pipeline = Pass::from(Sequential::new([mark("a"), mark("b")], info));
 /// let ctx = PassContext::new(2, [""; 0], ["b"], Vec::<PassInstrument>::new(), None)?;
 /// let _scope = ctx.enter()?;
-/// let empty = IRModule::new(&Map::new(), DictAttrs::new(Map::new()), &Map::new())?;
+/// let empty = IRModule::new(Map::new(), DictAttrs::new(Map::new()), Map::new())?;
 /// let module = pipeline.run(empty)?;
 /// assert!(module.get_attr("a")?.is_some() && module.get_attr("b")?.is_none());
 /// # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
@@ -101,8 +105,8 @@ impl Pass {
     /// (`transform.RunPass`).
     ///
     /// An instrument's `should_run` hook may skip the pass, unless the context requires it.
-    pub fn run(&self, module: impl Into<IRModule>) -> Result<IRModule> {
-        let module = tvm_ffi::RValueRef::new(module.into());
+    pub fn run(&self, module: impl IntoObjectRef<IRModule>) -> Result<IRModule> {
+        let module = tvm_ffi::RValueRef::new(module.into_owned_object_ref());
         tvm_ffi::cached_global_func!("transform.RunPass")
             .call_packed(&[tvm_ffi::AnyView::from(self), tvm_ffi::AnyView::from(&module)])?
             .try_into()
@@ -208,7 +212,7 @@ impl ModulePass {
     /// The pass may run on any thread, so `pass_func` is `Send + Sync`.
     pub fn new(
         pass_func: impl Fn(IRModule, PassContext) -> Result<IRModule> + Send + Sync + 'static,
-        pass_info: impl Into<PassInfo>,
+        pass_info: impl IntoObjectRef<PassInfo>,
     ) -> Self {
         let pass_func = tvm_ffi::Function::from_typed(
             move |module: tvm_ffi::RValueRef<IRModule>, ctx: PassContext| {
@@ -217,7 +221,7 @@ impl ModulePass {
         );
         support::infallible(
             tvm_ffi::cached_global_func!("transform.MakeModulePass")
-                .call_tuple((&pass_func, &pass_info.into()))
+                .call_tuple((&pass_func, pass_info.into_object_ref().borrow()))
                 .and_then(|any| any.try_into()),
         )
     }
@@ -275,11 +279,13 @@ impl Sequential {
     /// It skips the passes the current pass context disables, and those whose level exceeds the
     /// context's `opt_level` unless the context requires them.
     pub fn new(
-        passes: impl IntoIterator<Item = impl Into<Pass>>,
-        pass_info: impl Into<PassInfo>,
+        passes: impl IntoIterator<Item = impl IntoObjectRef<Pass>>,
+        pass_info: impl IntoObjectRef<PassInfo>,
     ) -> Self {
-        let passes = passes.into_iter().map(Into::into).collect::<Array<Pass>>();
-        let pass_info = pass_info.into();
+        let passes =
+            passes.into_iter().map(IntoObjectRef::into_owned_object_ref).collect::<Array<Pass>>();
+        let pass_info = pass_info.into_object_ref();
+        let pass_info: &PassInfo = pass_info.borrow();
         support::infallible(
             tvm_ffi::cached_global_func!("transform.Sequential")
                 .call_tuple((&passes, pass_info.opt_level, &pass_info.name))
@@ -373,17 +379,19 @@ impl PassContext {
         opt_level: i32,
         required_pass: impl IntoIterator<Item = impl AsRef<str>>,
         disabled_pass: impl IntoIterator<Item = impl AsRef<str>>,
-        instruments: impl IntoIterator<Item = impl Into<PassInstrument>>,
-        config: Option<&Map<String, Any>>,
+        instruments: impl IntoIterator<Item = impl IntoObjectRef<PassInstrument>>,
+        config: impl Into<Option<Map<String, Any>>>,
     ) -> Result<Self> {
         let required_pass =
             required_pass.into_iter().map(|name| String::from(name.as_ref())).collect::<Array<_>>();
         let disabled_pass =
             disabled_pass.into_iter().map(|name| String::from(name.as_ref())).collect::<Array<_>>();
-        let instruments =
-            instruments.into_iter().map(Into::into).collect::<Array<PassInstrument>>();
+        let instruments = instruments
+            .into_iter()
+            .map(IntoObjectRef::into_owned_object_ref)
+            .collect::<Array<PassInstrument>>();
         tvm_ffi::cached_global_func!("transform.PassContext")
-            .call_tuple((opt_level, &required_pass, &disabled_pass, &instruments, config.cloned()))?
+            .call_tuple((opt_level, &required_pass, &disabled_pass, &instruments, config.into()))?
             .try_into()
     }
 
@@ -414,10 +422,12 @@ impl PassContext {
     /// `enter_pass_ctx` hook, after which the context has no instruments.
     pub fn override_instruments(
         &self,
-        instruments: impl IntoIterator<Item = impl Into<PassInstrument>>,
+        instruments: impl IntoIterator<Item = impl IntoObjectRef<PassInstrument>>,
     ) -> Result<()> {
-        let instruments =
-            instruments.into_iter().map(Into::into).collect::<Array<PassInstrument>>();
+        let instruments = instruments
+            .into_iter()
+            .map(IntoObjectRef::into_owned_object_ref)
+            .collect::<Array<PassInstrument>>();
         tvm_ffi::cached_global_func!("transform.OverrideInstruments")
             .call_tuple((self, &instruments))?;
         Ok(())

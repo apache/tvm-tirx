@@ -153,7 +153,8 @@ pub fn runtime_type_info<N: ObjectCore>() -> &'static TVMFFITypeInfo {
 /// The Rust struct agrees with the registry on key, depth, parent, and (when complete) size.
 pub fn assert_type_contract<N: ObjectCore, P: ObjectCore>(complete: bool) {
     let info = runtime_type_info::<N>();
-    assert_eq!(info.type_key.as_str(), N::TYPE_KEY);
+    // SAFETY: the type table holds its keys as UTF-8 for the life of the process.
+    assert_eq!(unsafe { info.type_key.as_str() }, N::TYPE_KEY);
     assert_eq!(info.type_depth, N::TYPE_DEPTH, "depth of {}", N::TYPE_KEY);
     assert_eq!(N::TYPE_DEPTH, P::TYPE_DEPTH + 1, "parent of {}", N::TYPE_KEY);
     let parent = unsafe { *info.type_acenstors.add(P::TYPE_DEPTH as usize) };

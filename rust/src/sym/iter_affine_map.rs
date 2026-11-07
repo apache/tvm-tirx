@@ -43,6 +43,7 @@
 // tvm-ffi-stubgen(field): sym.IterMapResult.padding_predicate -> PrimExpr
 // tvm-ffi-stubgen(nullable): sym.IterMapResult.padding_predicate
 // tvm-ffi-stubgen(import-object): std::borrow::Borrow
+// tvm-ffi-stubgen(import-object): tvm_ffi::IntoObjectRef
 // tvm-ffi-stubgen(field): sym.IterSplitExpr.lower_factor -> PrimExpr
 // tvm-ffi-stubgen(field): sym.IterSplitExpr.extent -> PrimExpr
 // tvm-ffi-stubgen(field): sym.IterSplitExpr.scale -> PrimExpr
@@ -61,6 +62,7 @@ use std::borrow::Borrow;
 use std::ops::Deref;
 use tvm_ffi::AnyView;
 use tvm_ffi::Array;
+use tvm_ffi::IntoObjectRef;
 use tvm_ffi::Map;
 use tvm_ffi::Object;
 use tvm_ffi::ObjectArc;
@@ -122,7 +124,7 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(IterMapExpr => Expr, IterMapExpr => Prim
 /// let iters = Map::from_iter([(x.clone(), four.clone()), (y.clone(), four)]);
 ///
 /// let bijective = IterMapLevel::Bijective;
-/// let map = sym::detect_iter_map([&x * 4 + &y], &iters, true, bijective, None, true)?;
+/// let map = sym::detect_iter_map([&x * 4 + &y], iters, true, bijective, None, true)?;
 /// assert!(map.errors.is_empty());
 ///
 /// let o = PrimVar::new("o", PrimType::int(32), UNKNOWN_LOC);
@@ -224,8 +226,8 @@ impl IterMarkObj {
 #[allow(missing_docs)]
 impl IterMark {
     /// Lossless complete-field allocation.
-    pub fn new(source: impl Into<PrimExpr>, extent: impl Into<PrimExpr>) -> Self {
-        let obj = IterMarkObj::new(source.into(), extent.into());
+    pub fn new(source: impl IntoObjectRef<PrimExpr>, extent: impl IntoObjectRef<PrimExpr>) -> Self {
+        let obj = IterMarkObj::new(source.into_owned_object_ref(), extent.into_owned_object_ref());
         Self { data_: ObjectArc::new(obj) }
     }
 }
@@ -334,14 +336,14 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(IterSumExpr => Expr, IterSumExpr => Iter
 impl IterSplitExpr {
     /// Create the split `(source // lower_factor) % extent * scale` (`sym.IterSplitExpr`).
     pub fn new(
-        source: impl Into<IterMark>,
+        source: impl IntoObjectRef<IterMark>,
         lower_factor: impl IntoExpr<PrimExpr>,
         extent: impl IntoExpr<PrimExpr>,
         scale: impl IntoExpr<PrimExpr>,
     ) -> Result<Self> {
         tvm_ffi::cached_global_func!("sym.IterSplitExpr")
             .call_tuple((
-                &source.into(),
+                source.into_object_ref().borrow(),
                 lower_factor.into_expr()?.borrow(),
                 extent.into_expr()?.borrow(),
                 scale.into_expr()?.borrow(),
@@ -353,13 +355,16 @@ impl IterSplitExpr {
 impl IterSumExpr {
     /// Create the sum of the splits `args` plus `base` (`sym.IterSumExpr`).
     pub fn new(
-        args: impl IntoIterator<Item = impl Into<IterSplitExpr>>,
-        base: impl Into<PrimExpr>,
+        args: impl IntoIterator<Item = impl IntoObjectRef<IterSplitExpr>>,
+        base: impl IntoObjectRef<PrimExpr>,
     ) -> Self {
-        let args = args.into_iter().map(Into::into).collect::<Array<IterSplitExpr>>();
+        let args = args
+            .into_iter()
+            .map(IntoObjectRef::into_owned_object_ref)
+            .collect::<Array<IterSplitExpr>>();
         support::infallible(
             tvm_ffi::cached_global_func!("sym.IterSumExpr")
-                .call_tuple((&args, &base.into()))
+                .call_tuple((&args, base.into_object_ref().borrow()))
                 .and_then(|any| any.try_into()),
         )
     }
@@ -384,7 +389,7 @@ pub enum IterMapLevel {
 /// When they are not, the `indices` of the result are empty and its `errors` say why.
 pub fn detect_iter_map(
     indices: impl IntoIterator<Item = impl IntoExpr<PrimExpr>>,
-    input_iters: &Map<PrimVar, Range>,
+    input_iters: impl Into<Map<PrimVar, Range>>,
     predicate: impl IntoExpr<PrimExpr>,
     check_level: IterMapLevel,
     analyzer: Option<&Analyzer>,
@@ -392,14 +397,14 @@ pub fn detect_iter_map(
 ) -> Result<IterMapResult> {
     let indices =
         indices.into_iter().map(IntoExpr::into_owned_expr).collect::<Result<Array<PrimExpr>>>()?;
-    let (predicate, analyzer) = (predicate.into_owned_expr()?, analyzer.cloned());
+    let predicate = predicate.into_expr()?;
     tvm_ffi::cached_global_func!("sym.DetectIterMap")
         .call_packed(&[
             AnyView::from(&indices),
-            AnyView::from(input_iters),
-            AnyView::from(&predicate),
+            AnyView::from(&input_iters.into()),
+            AnyView::from(predicate.borrow()),
             AnyView::from(&(check_level as i32)),
-            AnyView::from(&analyzer),
+            analyzer.map_or_else(AnyView::new, AnyView::from),
             AnyView::from(&simplify_trivial_iterators),
         ])?
         .try_into()
@@ -409,11 +414,11 @@ pub fn detect_iter_map(
 /// its `base` (`sym.NormalizeToIterSum`).
 pub fn normalize_to_iter_sum(
     index: impl IntoExpr<PrimExpr>,
-    input_iters: &Map<PrimVar, Range>,
+    input_iters: impl Into<Map<PrimVar, Range>>,
     analyzer: Option<&Analyzer>,
 ) -> Result<IterSumExpr> {
     tvm_ffi::cached_global_func!("sym.NormalizeToIterSum")
-        .call_tuple((index.into_expr()?.borrow(), input_iters, analyzer.cloned()))?
+        .call_tuple((index.into_expr()?.borrow(), &input_iters.into(), analyzer.cloned()))?
         .try_into()
 }
 
@@ -421,7 +426,7 @@ pub fn normalize_to_iter_sum(
 /// iterator maps (`sym.IterMapSimplify`).
 pub fn iter_map_simplify(
     indices: impl IntoIterator<Item = impl IntoExpr<PrimExpr>>,
-    input_iters: &Map<PrimVar, Range>,
+    input_iters: impl Into<Map<PrimVar, Range>>,
     predicate: impl IntoExpr<PrimExpr>,
     check_level: IterMapLevel,
     analyzer: Option<&Analyzer>,
@@ -429,14 +434,14 @@ pub fn iter_map_simplify(
 ) -> Result<Array<PrimExpr>> {
     let indices =
         indices.into_iter().map(IntoExpr::into_owned_expr).collect::<Result<Array<PrimExpr>>>()?;
-    let (predicate, analyzer) = (predicate.into_owned_expr()?, analyzer.cloned());
+    let predicate = predicate.into_expr()?;
     tvm_ffi::cached_global_func!("sym.IterMapSimplify")
         .call_packed(&[
             AnyView::from(&indices),
-            AnyView::from(input_iters),
-            AnyView::from(&predicate),
+            AnyView::from(&input_iters.into()),
+            AnyView::from(predicate.borrow()),
             AnyView::from(&(check_level as i32)),
-            AnyView::from(&analyzer),
+            analyzer.map_or_else(AnyView::new, AnyView::from),
             AnyView::from(&simplify_trivial_iterators),
         ])?
         .try_into()
@@ -456,8 +461,8 @@ pub fn normalize_iter_map_to_expr(expr: impl IntoExpr<PrimExpr>) -> Result<PrimE
 /// the outer and inner predicates, or empty when the bindings cannot be divided.
 pub fn subspace_divide(
     bindings: impl IntoIterator<Item = impl IntoExpr<PrimExpr>>,
-    input_iters: &Map<PrimVar, Range>,
-    sub_iters: impl IntoIterator<Item = impl Into<PrimVar>>,
+    input_iters: impl Into<Map<PrimVar, Range>>,
+    sub_iters: impl IntoIterator<Item = impl IntoObjectRef<PrimVar>>,
     predicate: impl IntoExpr<PrimExpr>,
     check_level: IterMapLevel,
     analyzer: Option<&Analyzer>,
@@ -465,16 +470,17 @@ pub fn subspace_divide(
 ) -> Result<Array<Array<IterMark>>> {
     let bindings =
         bindings.into_iter().map(IntoExpr::into_owned_expr).collect::<Result<Array<PrimExpr>>>()?;
-    let sub_iters = sub_iters.into_iter().map(Into::into).collect::<Array<PrimVar>>();
-    let (predicate, analyzer) = (predicate.into_owned_expr()?, analyzer.cloned());
+    let sub_iters =
+        sub_iters.into_iter().map(IntoObjectRef::into_owned_object_ref).collect::<Array<PrimVar>>();
+    let predicate = predicate.into_expr()?;
     tvm_ffi::cached_global_func!("sym.SubspaceDivide")
         .call_packed(&[
             AnyView::from(&bindings),
-            AnyView::from(input_iters),
+            AnyView::from(&input_iters.into()),
             AnyView::from(&sub_iters),
-            AnyView::from(&predicate),
+            AnyView::from(predicate.borrow()),
             AnyView::from(&(check_level as i32)),
-            AnyView::from(&analyzer),
+            analyzer.map_or_else(AnyView::new, AnyView::from),
             AnyView::from(&simplify_trivial_iterators),
         ])?
         .try_into()
@@ -483,10 +489,13 @@ pub fn subspace_divide(
 /// Return the inputs of the bijective iterator map `iter_map` as expressions of its `outputs`
 /// (`sym.InverseAffineIterMap`).
 pub fn inverse_affine_iter_map(
-    iter_map: impl IntoIterator<Item = impl Into<IterSumExpr>>,
+    iter_map: impl IntoIterator<Item = impl IntoObjectRef<IterSumExpr>>,
     outputs: impl IntoIterator<Item = impl IntoExpr<PrimExpr>>,
 ) -> Result<Map<Var, PrimExpr>> {
-    let iter_map = iter_map.into_iter().map(Into::into).collect::<Array<IterSumExpr>>();
+    let iter_map = iter_map
+        .into_iter()
+        .map(IntoObjectRef::into_owned_object_ref)
+        .collect::<Array<IterSumExpr>>();
     let outputs =
         outputs.into_iter().map(IntoExpr::into_owned_expr).collect::<Result<Array<PrimExpr>>>()?;
     tvm_ffi::cached_global_func!("sym.InverseAffineIterMap")

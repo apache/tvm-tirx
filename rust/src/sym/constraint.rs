@@ -30,6 +30,8 @@ use std::cell::UnsafeCell;
 use std::mem::{align_of, offset_of, size_of};
 use tvm_ffi::{AnyView, Array, Error, Result, VALUE_ERROR};
 // tvm-ffi-stubgen(import-object): crate::ir::expr::PrimExpr
+// tvm-ffi-stubgen(import-object): tvm_ffi::IntoObjectRef
+// tvm-ffi-stubgen(import-object): std::borrow::Borrow
 // A binding's value and a predicate are `PrimExpr`s, as in C++.
 // tvm-ffi-stubgen(field): sym.BindingConstraint.value -> PrimExpr
 // tvm-ffi-stubgen(field): sym.PredicateConstraint.condition -> PrimExpr
@@ -37,8 +39,10 @@ use tvm_ffi::{AnyView, Array, Error, Result, VALUE_ERROR};
 use crate::ir::expr::PrimExpr;
 use crate::ir::expr::Range;
 use crate::ir::expr::Var;
+use std::borrow::Borrow;
 use std::ops::Deref;
 use std::ptr::addr_of_mut;
+use tvm_ffi::IntoObjectRef;
 use tvm_ffi::Object;
 use tvm_ffi::ObjectArc;
 use tvm_ffi::reflection::ShallowCopy;
@@ -151,8 +155,9 @@ impl BindingConstraintObj {
 #[allow(missing_docs)]
 impl BindingConstraint {
     /// Lossless complete-field allocation.
-    pub fn new(var: impl Into<Var>, value: impl Into<PrimExpr>) -> Self {
-        let obj = BindingConstraintObj::new(var.into(), value.into());
+    pub fn new(var: impl IntoObjectRef<Var>, value: impl IntoObjectRef<PrimExpr>) -> Self {
+        let obj =
+            BindingConstraintObj::new(var.into_owned_object_ref(), value.into_owned_object_ref());
         Self { data_: ObjectArc::new(obj) }
     }
 }
@@ -209,8 +214,8 @@ impl PredicateConstraintObj {
 #[allow(missing_docs)]
 impl PredicateConstraint {
     /// Lossless complete-field allocation.
-    pub fn new(condition: impl Into<PrimExpr>, assume_always: bool) -> Self {
-        let obj = PredicateConstraintObj::new(condition.into(), assume_always);
+    pub fn new(condition: impl IntoObjectRef<PrimExpr>, assume_always: bool) -> Self {
+        let obj = PredicateConstraintObj::new(condition.into_owned_object_ref(), assume_always);
         Self { data_: ObjectArc::new(obj) }
     }
 }
@@ -267,8 +272,9 @@ impl RangeConstraintObj {
 #[allow(missing_docs)]
 impl RangeConstraint {
     /// Lossless complete-field allocation.
-    pub fn new(var: impl Into<Var>, range: impl Into<Range>) -> Self {
-        let obj = RangeConstraintObj::new(var.into(), range.into());
+    pub fn new(var: impl IntoObjectRef<Var>, range: impl IntoObjectRef<Range>) -> Self {
+        let obj =
+            RangeConstraintObj::new(var.into_owned_object_ref(), range.into_owned_object_ref());
         Self { data_: ObjectArc::new(obj) }
     }
 }
@@ -319,9 +325,9 @@ const _: () = {
 ///
 /// let x = PrimVar::new("x", PrimType::int(32), UNKNOWN_LOC);
 /// let outer = ConstraintContext::new();
-/// outer.append(&PredicateConstraint::new(ge(&x, 0)?, false).into())?;
+/// outer.append(PredicateConstraint::new(ge(&x, 0)?, false))?;
 /// let inner = outer.snapshot()?;
-/// inner.append(&PredicateConstraint::new(lt(&x, 16)?, false).into())?;
+/// inner.append(PredicateConstraint::new(lt(&x, 16)?, false))?;
 ///
 /// let analyzer = Analyzer::new();
 /// analyzer.sync_constraint_context(&inner)?;
@@ -340,9 +346,11 @@ impl ConstraintContextObj {
     /// Append `constraint` to the local entries (`sym.ConstraintContextAppend`).
     ///
     /// Do not append to the active context of a running native visitor.
-    pub fn append(&self, constraint: &Constraint) -> Result<()> {
-        tvm_ffi::cached_global_func!("sym.ConstraintContextAppend")
-            .call_packed(&[AnyView::from(self), AnyView::from(constraint)])?;
+    pub fn append(&self, constraint: impl IntoObjectRef<Constraint>) -> Result<()> {
+        tvm_ffi::cached_global_func!("sym.ConstraintContextAppend").call_packed(&[
+            AnyView::from(self),
+            AnyView::from(constraint.into_object_ref().borrow()),
+        ])?;
         Ok(())
     }
 
@@ -412,7 +420,11 @@ impl ConstraintContext {
     /// # Errors
     ///
     /// Returns an error if `parent_prefix_size` is negative or larger than the parent's local size.
-    pub fn with_parent_prefix_size(parent: Self, parent_prefix_size: i64) -> Result<Self> {
+    pub fn with_parent_prefix_size(
+        parent: impl IntoObjectRef<ConstraintContext>,
+        parent_prefix_size: i64,
+    ) -> Result<Self> {
+        let parent = parent.into_owned_object_ref();
         if parent_prefix_size < 0 || parent_prefix_size > parent.local_size() {
             return Err(Error::new(
                 VALUE_ERROR,

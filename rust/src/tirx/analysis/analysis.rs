@@ -78,9 +78,9 @@ pub fn verify_memory(func: impl IntoObjectRef<Function>) -> Result<bool> {
 /// ```
 pub fn undefined_vars(
     node: impl Into<Any>,
-    defs: impl IntoIterator<Item = impl Into<Var>>,
+    defs: impl IntoIterator<Item = impl IntoObjectRef<Var>>,
 ) -> Result<Array<Var>> {
-    let defs = defs.into_iter().map(Into::into).collect::<Array<Var>>();
+    let defs = defs.into_iter().map(IntoObjectRef::into_owned_object_ref).collect::<Array<Var>>();
     tvm_ffi::cached_global_func!("tirx.analysis.UndefinedVars")
         .call_tuple((&node.into(), &defs))?
         .try_into()
@@ -109,9 +109,10 @@ pub fn check_well_formed_module(
 /// an empty array if `expr` has no such form (`tirx.analysis.DetectLinearEquation`).
 pub fn detect_linear_equation(
     expr: impl IntoExpr<PrimExpr>,
-    vars: impl IntoIterator<Item = impl Into<PrimVar>>,
+    vars: impl IntoIterator<Item = impl IntoObjectRef<PrimVar>>,
 ) -> Result<Array<PrimExpr>> {
-    let vars = vars.into_iter().map(Into::into).collect::<Array<PrimVar>>();
+    let vars =
+        vars.into_iter().map(IntoObjectRef::into_owned_object_ref).collect::<Array<PrimVar>>();
     tvm_ffi::cached_global_func!("tirx.analysis.DetectLinearEquation")
         .call_tuple((expr.into_expr()?.borrow(), &vars))?
         .try_into()
@@ -122,9 +123,10 @@ pub fn detect_linear_equation(
 /// (`tirx.analysis.DetectClipBound`).
 pub fn detect_clip_bound(
     expr: impl IntoExpr<PrimExpr>,
-    vars: impl IntoIterator<Item = impl Into<PrimVar>>,
+    vars: impl IntoIterator<Item = impl IntoObjectRef<PrimVar>>,
 ) -> Result<Array<Option<PrimExpr>>> {
-    let vars = vars.into_iter().map(Into::into).collect::<Array<PrimVar>>();
+    let vars =
+        vars.into_iter().map(IntoObjectRef::into_owned_object_ref).collect::<Array<PrimVar>>();
     tvm_ffi::cached_global_func!("tirx.analysis.DetectClipBound")
         .call_tuple((expr.into_expr()?.borrow(), &vars))?
         .try_into()

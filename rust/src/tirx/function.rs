@@ -34,6 +34,8 @@
 // tvm-ffi-stubgen(import-object): crate::ir::r#type::MissingTypeObj
 // tvm-ffi-stubgen(import-object): crate::ir::r#type::TupleType
 // tvm-ffi-stubgen(import-object): crate::ir::location::UNKNOWN_LOC
+// tvm-ffi-stubgen(import-object): tvm_ffi::IntoObjectRef
+// tvm-ffi-stubgen(import-object): std::borrow::Borrow
 
 // tvm-ffi-stubgen(begin): import-section
 use crate::ir::attrs::DictAttrs;
@@ -48,8 +50,10 @@ use crate::ir::r#type::MissingTypeObj;
 use crate::ir::r#type::TupleType;
 use crate::ir::r#type::Type;
 use crate::ir::stmt::SeqStmt;
+use std::borrow::Borrow;
 use std::ops::Deref;
 use tvm_ffi::Array;
+use tvm_ffi::IntoObjectRef;
 use tvm_ffi::ObjectArc;
 use tvm_ffi::ObjectRefCore;
 use tvm_ffi::Result;
@@ -130,20 +134,20 @@ impl FunctionObj {
 impl Function {
     /// Lossless complete-field allocation.
     pub fn from_fields(
-        loc: impl Into<Location>,
-        ty: impl Into<Type>,
-        attrs: impl Into<DictAttrs>,
+        loc: impl IntoObjectRef<Location>,
+        ty: impl IntoObjectRef<Type>,
+        attrs: impl IntoObjectRef<DictAttrs>,
         params: impl Into<Array<Var>>,
-        ret_type: impl Into<Type>,
-        body: impl Into<SeqStmt>,
+        ret_type: impl IntoObjectRef<Type>,
+        body: impl IntoObjectRef<SeqStmt>,
     ) -> Self {
         let obj = FunctionObj::new(
-            loc.into(),
-            ty.into(),
-            attrs.into(),
+            loc.into_owned_object_ref(),
+            ty.into_owned_object_ref(),
+            attrs.into_owned_object_ref(),
             params.into(),
-            ret_type.into(),
-            body.into(),
+            ret_type.into_owned_object_ref(),
+            body.into_owned_object_ref(),
         );
         Self { data_: ObjectArc::new(obj) }
     }
@@ -158,25 +162,35 @@ impl Function {
     /// Create the function of `params`, `body`, `ret_type` and `attrs`, typed by the function
     /// type of its signature; a missing return type becomes void, the empty tuple type.
     pub fn new(
-        params: impl IntoIterator<Item = impl Into<Var>>,
-        body: &SeqStmt,
-        ret_type: impl Into<Type>,
-        attrs: impl Into<DictAttrs>,
-        loc: impl Into<Location>,
+        params: impl IntoIterator<Item = impl IntoObjectRef<Var>>,
+        body: impl IntoObjectRef<SeqStmt>,
+        ret_type: impl IntoObjectRef<Type>,
+        attrs: impl IntoObjectRef<DictAttrs>,
+        loc: impl IntoObjectRef<Location>,
     ) -> Self {
-        let params = params.into_iter().map(Into::into).collect::<Array<Var>>();
-        let ret_type: Type = ret_type.into();
+        let params =
+            params.into_iter().map(IntoObjectRef::into_owned_object_ref).collect::<Array<Var>>();
+        let ret_type = ret_type.into_owned_object_ref();
         let ret_type = match ret_type.downcast_ref::<MissingTypeObj>() {
             Some(_) => TupleType::new(Vec::<Type>::new(), UNKNOWN_LOC).into(),
             None => ret_type,
         };
         let param_types = params.iter().map(|param| param.ty.clone()).collect::<Vec<Type>>();
         let ty = FuncType::new(param_types, ret_type.clone());
-        Self::from_fields(loc.into(), ty, attrs.into(), params, ret_type, body.clone())
+        Self::from_fields(
+            loc.into_owned_object_ref(),
+            ty,
+            attrs.into_owned_object_ref(),
+            params,
+            ret_type,
+            body.into_owned_object_ref(),
+        )
     }
 }
 
 /// Return `func` with fresh variable definitions, their uses remapped (`tirx.RenewDef`).
-pub fn renew_def(func: impl Into<Function>) -> Result<Function> {
-    tvm_ffi::cached_global_func!("tirx.RenewDef").call_tuple((&func.into(),))?.try_into()
+pub fn renew_def(func: impl IntoObjectRef<Function>) -> Result<Function> {
+    tvm_ffi::cached_global_func!("tirx.RenewDef")
+        .call_tuple((func.into_object_ref().borrow(),))?
+        .try_into()
 }

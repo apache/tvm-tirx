@@ -28,11 +28,15 @@
 // does.
 // tvm-ffi-stubgen(import-object): tvm_ffi::Module
 // tvm-ffi-stubgen(import-object): crate::ir::module::IRModule
+// tvm-ffi-stubgen(import-object): tvm_ffi::IntoObjectRef
+// tvm-ffi-stubgen(import-object): std::borrow::Borrow
 
 // tvm-ffi-stubgen(begin): import-section
 use crate::ir::module::IRModule;
+use std::borrow::Borrow;
 use tvm_ffi::Any;
 use tvm_ffi::Array;
+use tvm_ffi::IntoObjectRef;
 use tvm_ffi::Map;
 use tvm_ffi::Module;
 use tvm_ffi::Object;
@@ -128,8 +132,8 @@ impl Target {
     /// # Errors
     ///
     /// Returns an error if the config is invalid, as [`new`](Self::new) does.
-    pub fn from_config(config: &Map<String, Any>) -> Result<Self> {
-        tvm_ffi::cached_global_func!("target.Target").call_tuple((config,))?.try_into()
+    pub fn from_config(config: impl Into<Map<String, Any>>) -> Result<Self> {
+        tvm_ffi::cached_global_func!("target.Target").call_tuple((&config.into(),))?.try_into()
     }
 
     /// Make this the current target until the returned [`TargetScope`] is dropped
@@ -280,13 +284,17 @@ pub fn list_tags() -> Result<Map<String, Target>> {
 ///
 /// let config: Map<String, Any> =
 ///     [("kind".into(), Any::from(String::from("llvm")))].into_iter().collect();
-/// target::register_tag("my_ext/cpu", &config, false)?;
+/// target::register_tag("my_ext/cpu", config, false)?;
 /// assert_eq!(Target::new("my_ext/cpu")?.kind()?.name()?, "llvm");
 /// # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
 /// ```
-pub fn register_tag(name: &str, config: &Map<String, Any>, override_: bool) -> Result<Target> {
+pub fn register_tag(
+    name: &str,
+    config: impl Into<Map<String, Any>>,
+    override_: bool,
+) -> Result<Target> {
     tvm_ffi::cached_global_func!("target.TargetTagAddTag")
-        .call_tuple((String::from(name), config, override_))?
+        .call_tuple((String::from(name), &config.into(), override_))?
         .try_into()
 }
 
@@ -298,9 +306,13 @@ pub fn register_tag(name: &str, config: &Map<String, Any>, override_: bool) -> R
 /// # Errors
 ///
 /// Returns an error if the code generator is not built in, or the error it raises.
-pub fn build(kind: &str, module: impl Into<IRModule>, target: impl Into<Target>) -> Result<Module> {
+pub fn build(
+    kind: &str,
+    module: impl IntoObjectRef<IRModule>,
+    target: impl IntoObjectRef<Target>,
+) -> Result<Module> {
     // The code generators are looked up by name: which ones exist depends on the build.
     tvm_ffi::Function::get_global(&format!("target.build.{kind}"))?
-        .call_tuple((&module.into(), &target.into()))?
+        .call_tuple((module.into_object_ref().borrow(), target.into_object_ref().borrow()))?
         .try_into()
 }

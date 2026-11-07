@@ -39,7 +39,9 @@ use std::sync::OnceLock;
 
 use tvm_tirx::ir::*;
 use tvm_tirx::runtime::MemoryScope;
-use tvm_tirx::tvm_ffi::{AnyView, Array, DLDataType, DLDataTypeExt, Map, String as FfiString};
+use tvm_tirx::tvm_ffi::{
+    AnyView, Array, DLDataType, DLDataTypeExt, IntoObjectRef, Map, String as FfiString,
+};
 
 use common::global;
 
@@ -96,7 +98,7 @@ fn tensor_var(name: &str) -> Var {
     Var::new(name, ty, UNKNOWN_LOC)
 }
 
-fn seq(stmts: impl IntoIterator<Item = impl Into<Stmt>>) -> SeqStmt {
+fn seq(stmts: impl IntoIterator<Item = impl IntoObjectRef<Stmt>>) -> SeqStmt {
     SeqStmt::new(stmts, UNKNOWN_LOC)
 }
 

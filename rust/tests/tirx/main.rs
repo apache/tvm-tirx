@@ -95,7 +95,7 @@ fn tile_8x8() -> TileLayout {
     TileLayout::new(
         [Iter::new(int32(8), int32(8), m.clone()), Iter::new(int32(8), int32(1), m)],
         Vec::<Iter>::new(),
-        &Map::new(),
+        Map::new(),
     )
 }
 
@@ -123,7 +123,7 @@ fn module_of(name: &str, func: &Function) -> IRModule {
     IRModule::new(
         &functions,
         DictAttrs::new(Map::new()),
-        &Map::<FfiString, Array<GlobalInfo>>::new(),
+        Map::<FfiString, Array<GlobalInfo>>::new(),
     )
     .unwrap()
 }

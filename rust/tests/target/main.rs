@@ -87,7 +87,7 @@ fn construction_and_queries() {
         TypeIndex::kTVMFFINone as i32
     );
 
-    let c = Target::from_config(&config("c")).unwrap();
+    let c = Target::from_config(config("c")).unwrap();
     assert_eq!(c.kind().unwrap().name().unwrap().as_str(), "c");
     assert!(llvm.with_host(Some(&c)).unwrap().host().unwrap().is_some());
     assert!(llvm.with_host(None).unwrap().host().unwrap().is_none());
@@ -113,11 +113,11 @@ fn scope_ends_on_drop() {
 
 #[test]
 fn tags() {
-    let tagged = target::register_tag("rust-test/llvm", &config("llvm"), true).unwrap();
+    let tagged = target::register_tag("rust-test/llvm", config("llvm"), true).unwrap();
     assert_eq!(tagged.kind().unwrap().name().unwrap().as_str(), "llvm");
     let tags = target::list_tags().unwrap();
     assert!(tags.contains_key(&FfiString::from("rust-test/llvm")).unwrap());
-    assert!(target::register_tag("rust-test/llvm", &config("llvm"), false).is_err());
+    assert!(target::register_tag("rust-test/llvm", config("llvm"), false).is_err());
 }
 
 #[test]

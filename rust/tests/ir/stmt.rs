@@ -44,17 +44,9 @@ fn statements() {
     let kind = ForKind::Unrolled;
     let annotations: Map<FfiString, Any> =
         [(FfiString::from("note"), Any::from(1i64))].into_iter().collect();
-    let for_ = For::new(
-        &x,
-        int32(0),
-        int32(16),
-        int32(1),
-        kind,
-        &evaluate,
-        Some(&annotations),
-        UNKNOWN_LOC,
-    )
-    .unwrap();
+    let for_ =
+        For::new(&x, int32(0), int32(16), int32(1), kind, &evaluate, annotations, UNKNOWN_LOC)
+            .unwrap();
     assert_eq!(for_.kind, kind);
     assert_eq!(for_.body.seq.len(), 1);
     let less = op("prim._OpLT", &x, int32(4));
@@ -206,16 +198,8 @@ fn statements_agree_with_cpp() {
                 (&UnknownLoc::new()).into(),
             ],
         );
-        let rust = For::new(
-            var,
-            &begin,
-            &end,
-            &step,
-            ForKind::Parallel,
-            &body,
-            annotations.as_ref(),
-            UNKNOWN_LOC,
-        );
+        let rust =
+            For::new(var, &begin, &end, &step, ForKind::Parallel, &body, annotations, UNKNOWN_LOC);
         agree(what, rust, native_for);
     }
 

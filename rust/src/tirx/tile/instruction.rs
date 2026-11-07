@@ -35,6 +35,7 @@
 // tvm-ffi-stubgen(import-object): tvm_ffi::Result
 // tvm-ffi-stubgen(import-object): crate::ir::expr::IntoExpr
 // tvm-ffi-stubgen(import-object): std::borrow::Borrow
+// tvm-ffi-stubgen(import-object): tvm_ffi::IntoObjectRef
 
 // tvm-ffi-stubgen(begin): import-section
 use crate::ir::attrs::Attrs;
@@ -47,6 +48,7 @@ use crate::tirx::thread_scope::ThreadScope;
 use std::borrow::Borrow;
 use std::ops::Deref;
 use tvm_ffi::Array;
+use tvm_ffi::IntoObjectRef;
 use tvm_ffi::ObjectArc;
 use tvm_ffi::Optional;
 use tvm_ffi::Result;
@@ -98,8 +100,8 @@ impl ScopeAttrsObj {
 #[allow(missing_docs)]
 impl ScopeAttrs {
     /// Lossless complete-field allocation.
-    pub fn new(scope: impl Into<ThreadScope>) -> Self {
-        let obj = ScopeAttrsObj::new(scope.into());
+    pub fn new(scope: impl IntoObjectRef<ThreadScope>) -> Self {
+        let obj = ScopeAttrsObj::new(scope.into_owned_object_ref());
         Self { data_: ObjectArc::new(obj) }
     }
 }
@@ -175,7 +177,7 @@ impl TrnAttrsObj {
 impl TrnAttrs {
     /// Lossless complete-field allocation.
     pub fn new(
-        scope: impl Into<ThreadScope>,
+        scope: impl IntoObjectRef<ThreadScope>,
         max_inst_size: impl Into<Optional<i64>>,
         opcode: impl Into<String>,
         reduce_op: impl Into<String>,
@@ -186,7 +188,7 @@ impl TrnAttrs {
         reverse1: bool,
     ) -> Self {
         let obj = TrnAttrsObj::new(
-            scope.into(),
+            scope.into_owned_object_ref(),
             max_inst_size.into(),
             opcode.into(),
             reduce_op.into(),
@@ -255,11 +257,11 @@ pub fn as_tensor_region(value: impl IntoExpr) -> Result<TensorRegion> {
 /// # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
 /// ```
 pub fn configure_tensor_instruction(
-    op: impl Into<Op>,
+    op: impl IntoObjectRef<Op>,
     validator: impl Fn(Call) -> Result<()> + Send + Sync + 'static,
 ) -> Result<()> {
     let validator = tvm_ffi::Function::from_typed(validator);
     tvm_ffi::cached_global_func!("tirx.ConfigureTensorInstruction")
-        .call_tuple((&op.into(), &validator))?;
+        .call_tuple((op.into_object_ref().borrow(), &validator))?;
     Ok(())
 }
