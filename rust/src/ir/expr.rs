@@ -75,8 +75,6 @@
 // tvm-ffi-stubgen(import-object): crate::ir::r#type::PrimTypeObj
 // tvm-ffi-stubgen(import-object): tvm_ffi::Error
 // tvm-ffi-stubgen(import-object): tvm_ffi::ObjectRefCore
-// tvm-ffi-stubgen(import-object): tvm_ffi::object::is_instance_of
-// tvm-ffi-stubgen(import-object): tvm_ffi::tvm_ffi_sys::TVMFFIAny
 // tvm-ffi-stubgen(import-object): tvm_ffi::AnyView
 // tvm-ffi-stubgen(import-object): tvm_ffi::Result
 // tvm-ffi-stubgen(import-object): tvm_ffi::tvm_ffi_sys::TVMFFITypeIndex
@@ -134,9 +132,7 @@ use tvm_ffi::ShallowCopy;
 use tvm_ffi::String;
 use tvm_ffi::UnsafeInit;
 use tvm_ffi::object::IntoObjectRef;
-use tvm_ffi::object::is_instance_of;
 use tvm_ffi::reflection::drop_if_defined;
-use tvm_ffi::tvm_ffi_sys::TVMFFIAny;
 use tvm_ffi::tvm_ffi_sys::TVMFFITypeIndex;
 // tvm-ffi-stubgen(end)
 
@@ -437,7 +433,13 @@ unsafe impl tvm_ffi::object::ObjectRefAnyCompatible for PrimExpr {
         if index == TVMFFITypeIndex::kTVMFFIBool as i32 {
             Some(IntImm::bool(bool::try_from(value).ok()?).into())
         } else if index == TVMFFITypeIndex::kTVMFFIInt as i32 {
-            Some(int_imm(i64::try_from(value).ok()?).into())
+            // C++ `TypeTraits<IntImm>::ConvertFallbackValue` keeps an int that fits as `int32`.
+            let value = i64::try_from(value).ok()?;
+            let constant = match i32::try_from(value) {
+                Ok(value) => IntImm::int32(value),
+                Err(_) => IntImm::int64(value),
+            };
+            Some(constant.into())
         } else if index == TVMFFITypeIndex::kTVMFFIFloat as i32 {
             let value = f64::try_from(value).ok()?;
             FloatImm::new(PrimType::float(32), value, UNKNOWN_LOC).ok().map(Into::into)
@@ -451,7 +453,7 @@ unsafe impl tvm_ffi::object::ObjectRefAnyCompatible for PrimExpr {
     }
 
     fn custom_mismatch_type_info(value: tvm_ffi::AnyView<'_>) -> std::string::String {
-        typed_expr_mismatch(value.as_raw_ffi_any())
+        typed_expr_mismatch(value)
     }
 }
 
@@ -501,7 +503,8 @@ unsafe impl tvm_ffi::object::ObjectRefAnyCompatible for IntExpr {
         if value.type_index() != TVMFFITypeIndex::kTVMFFIInt as i32 {
             return None;
         }
-        Some(int_constant(int_imm(i64::try_from(value).ok()?)))
+        let expr = <PrimExpr as tvm_ffi::object::ObjectRefAnyCompatible>::convert_fallback(value)?;
+        IntExpr::try_from(expr).ok()
     }
 
     fn custom_type_str() -> std::string::String {
@@ -509,7 +512,7 @@ unsafe impl tvm_ffi::object::ObjectRefAnyCompatible for IntExpr {
     }
 
     fn custom_mismatch_type_info(value: tvm_ffi::AnyView<'_>) -> std::string::String {
-        typed_expr_mismatch(value.as_raw_ffi_any())
+        typed_expr_mismatch(value)
     }
 }
 
@@ -587,9 +590,7 @@ impl From<i64> for IntExpr {
 
 /// The `IntExpr` of an integer constant, which `int32` and `int64` constants are.
 fn int_constant(constant: IntImm) -> IntExpr {
-    debug_assert!(scalar_int(PrimExpr::from(&constant).prim_ty()));
-    // SAFETY: the constant is typed by a scalar integer type.
-    unsafe { IntExpr::from_data(ObjectRefCore::into_data(Expr::from(constant))) }
+    Expr::from(constant).downcast().expect("an integer constant is an `IntExpr`")
 }
 
 // The checks and conversions of the typed expressions.
@@ -600,37 +601,17 @@ fn scalar_int(ty: &PrimType) -> bool {
     ty.is_scalar() && ty.matches_code(&[kDLInt, kDLUInt])
 }
 
-/// The expression `data` holds, if it holds one.
-///
-/// # Safety
-///
-/// `data` is a live FFI value.
-unsafe fn expr_of(data: &TVMFFIAny) -> Option<&ExprObj> {
-    let is_object = data.type_index >= TVMFFITypeIndex::kTVMFFIStaticObjectBegin as i32;
-    // SAFETY: an object of an `ir.Expr` type is an `ExprObj`.
-    (is_object && is_instance_of::<ExprObj>(data.type_index))
-        .then(|| unsafe { &*(data.data_union.v_obj as *const ExprObj) })
-}
-
 /// What a typed expression names a value it rejects (C++ `TypeTraits<TypedExpr<T>>::GetMismatchTypeInfo`):
 /// an expression with its type, `ir.StringImm[ty=ir.StringType]`, or the type key of another value.
-fn typed_expr_mismatch(data: &TVMFFIAny) -> std::string::String {
-    // SAFETY: a mismatch is reported for a live value.
-    let Some(expr) = (unsafe { expr_of(data) }) else { return support::type_key(data.type_index) };
+fn typed_expr_mismatch(value: AnyView<'_>) -> std::string::String {
+    let Some(expr) = value.downcast_ref::<ExprObj>() else {
+        return support::type_key(value.type_index());
+    };
     let ty = match expr.ty.downcast_ref::<PrimTypeObj>() {
         Some(prim) => support::dtype_name(prim.dtype),
         None => support::type_key(AnyView::from(&expr.ty).type_index()),
     };
-    format!("{}[ty={ty}]", support::type_key(data.type_index))
-}
-
-/// An `int32` constant when `value` fits, and an `int64` one otherwise (C++
-/// `TypeTraits<IntImm>::ConvertFallbackValue`).
-fn int_imm(value: i64) -> IntImm {
-    match i32::try_from(value) {
-        Ok(value) => IntImm::int32(value),
-        Err(_) => IntImm::int64(value),
-    }
+    format!("{}[ty={ty}]", support::type_key(value.type_index()))
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -1943,9 +1924,9 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(PrimVar => Expr, PrimVar => PrimExpr);
 impl PrimVar {
     /// Create the variable `name` of the primitive type `ty` (C++ `PrimVar(name, ty, loc)`).
     pub fn new(name: &str, ty: impl Into<PrimType>, loc: impl Into<Location>) -> Self {
-        let var = Var::new(name, ty.into(), loc);
-        // SAFETY: the variable is typed by a `PrimType`.
-        unsafe { Self::from_data(ObjectRefCore::into_data(var)) }
+        Var::new(name, ty.into(), loc)
+            .downcast()
+            .expect("a variable of a `PrimType` is a `PrimVar`")
     }
 }
 

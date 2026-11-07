@@ -245,8 +245,8 @@ impl Op {
     /// `OpDef::signature` write the registry's node: an opaque pointer to a C ABI adapter, as
     /// `NativeFunctionView::FromNative` stores one.
     pub(crate) fn write_validator(&self, validator: Any, custom: bool) {
-        // SAFETY: C++ `OpDef` writes these members of the registry's node in place too. No
-        // reference into the node is live, and registration is not synchronized with readers.
+        // SAFETY: as C++ `OpDef` does, registration writes the registry's node in place while no
+        // reference into it is live.
         unsafe {
             let node = ObjectArc::as_ptr(ObjectRefCore::data(self)) as *mut OpObj;
             let previous = std::ptr::replace(
@@ -327,7 +327,7 @@ impl<T> OpAttrMap<T> {
     }
 }
 
-impl<T: tvm_ffi::type_traits::AnyCompatible> OpAttrMap<T> {
+impl<T: tvm_ffi::type_traits::AnyCompatible + TryFrom<Any>> OpAttrMap<T> {
     /// Return the value registered for `op`, or `None` when it has none, as C++
     /// `OpAttrMap::get(op, None)` does.
     ///
@@ -336,29 +336,21 @@ impl<T: tvm_ffi::type_traits::AnyCompatible> OpAttrMap<T> {
     /// Returns a `TypeError` if the value is not a `T`.
     pub fn get(&self, op: &OpObj) -> Result<Option<T>> {
         let Some(entry) = self.entry(op) else { return Ok(None) };
-        let mut raw = Any::into_raw_ffi_any(entry);
-        // SAFETY: `raw` owns the entry's reference, which is either moved into the `T` or
-        // released below.
-        unsafe {
-            if T::check_any_strict(&raw) {
-                return Ok(Some(T::move_from_any_after_check(&mut raw)));
-            }
-            let cast = T::try_cast_from_any_view(&raw);
-            let mismatch = cast.is_err().then(|| T::get_mismatch_type_info(&raw));
-            drop(Any::from_raw_ffi_any(raw));
-            match (cast, mismatch) {
-                (Ok(value), _) => Ok(Some(value)),
-                (Err(()), mismatch) => Err(tvm_ffi::Error::new(
-                    tvm_ffi::TYPE_ERROR,
-                    &format!(
-                        "Op attribute {} of {} has unexpected type {}",
-                        self.name.as_str(),
-                        op.name.as_str(),
-                        mismatch.unwrap_or_default()
-                    ),
-                    "",
-                )),
-            }
+        if let Ok(value) = T::try_from(entry) {
+            return Ok(Some(value));
         }
+        // The conversion took the entry; read it again to name its type.
+        let mismatch =
+            self.entry(op).map(|entry| T::get_mismatch_type_info(entry.as_raw_ffi_any()));
+        Err(tvm_ffi::Error::new(
+            tvm_ffi::TYPE_ERROR,
+            &format!(
+                "Op attribute {} of {} has unexpected type {}",
+                self.name.as_str(),
+                op.name.as_str(),
+                mismatch.unwrap_or_default()
+            ),
+            "",
+        ))
     }
 }

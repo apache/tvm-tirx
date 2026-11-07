@@ -318,7 +318,7 @@ impl ConstraintContextObj {
 
     /// Return the number of local entries, excluding captured ancestors.
     pub fn local_size(&self) -> i64 {
-        // No callback or mutation occurs during this short borrow.
+        // SAFETY: nothing can append during this short borrow.
         unsafe { (&*self.constraints.get()).len() as i64 }
     }
 
@@ -330,7 +330,8 @@ impl ConstraintContextObj {
     }
 
     fn local_array(&self) -> Array<Constraint> {
-        // Hold an owning clone before any callback; native append then uses COW.
+        // SAFETY: the borrow ends with this clone, before any callback can append; an append then
+        // copies the array on write.
         unsafe { (&*self.constraints.get()).clone() }
     }
 

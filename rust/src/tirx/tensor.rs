@@ -57,7 +57,6 @@
 // tvm-ffi-stubgen(import-object): tvm_ffi::Result
 // tvm-ffi-stubgen(import-object): crate::ir::support
 // tvm-ffi-stubgen(import-object): crate::ir::sig
-// tvm-ffi-stubgen(import-object): tvm_ffi::tvm_ffi_sys::TVMFFIAny
 // tvm-ffi-stubgen(import-object): crate::ir::expr::IntoExpr
 // tvm-ffi-stubgen(import-object): crate::ir::expr::PrimExpr
 // A tensor's shape is a list of `PrimExpr`s, as C++ `TensorTypeObj` holds it.
@@ -86,7 +85,6 @@ use tvm_ffi::IntoObjectRef;
 use tvm_ffi::ObjectArc;
 use tvm_ffi::ObjectCore;
 use tvm_ffi::Result;
-use tvm_ffi::tvm_ffi_sys::TVMFFIAny;
 // tvm-ffi-stubgen(end)
 
 // tvm-ffi-stubgen(begin): object/tirx.TensorType
@@ -207,7 +205,7 @@ impl TensorType {
 pub struct TensorVar;
 
 impl sig::ArgType for TensorVar {
-    fn check(value: &TVMFFIAny) -> bool {
+    fn check(value: AnyView<'_>) -> bool {
         sig::var_of_type::<TensorTypeObj>(value)
     }
 

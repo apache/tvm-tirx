@@ -193,7 +193,7 @@ pub(super) fn truncmod(a: &PrimExpr, b: &PrimExpr) -> Folded {
         }
         if let Some(y) = pb {
             if is_one(y) {
-                return int_imm(ty, BigInt::from(0i64));
+                return Ok(Some(IntImm::new(ty.clone(), BigInt::from(0i64), UNKNOWN_LOC)?.into()));
             }
             check_int_divisor(y)?;
         }
@@ -260,7 +260,7 @@ pub(super) fn floormod(a: &PrimExpr, b: &PrimExpr) -> Folded {
         }
         if let Some(y) = pb {
             if is_one(y) {
-                return int_imm(ty, BigInt::from(0i64));
+                return Ok(Some(IntImm::new(ty.clone(), BigInt::from(0i64), UNKNOWN_LOC)?.into()));
             }
             check_int_divisor(y)?;
         }
@@ -280,7 +280,7 @@ pub(super) fn floormod(a: &PrimExpr, b: &PrimExpr) -> Folded {
 pub(super) fn min(a: &PrimExpr, b: &PrimExpr) -> Folded {
     let ty = a.prim_ty();
     if let (Some(x), Some(y)) = (int(a), int(b)) {
-        return int_imm(ty, x.min(y).clone());
+        return Ok(Some(IntImm::new(ty.clone(), x.min(y).clone(), UNKNOWN_LOC)?.into()));
     }
     if let (Some(x), Some(y)) = (float(a), float(b)) {
         return keep(if x.is_nan() || x < y { a } else { b });
@@ -295,7 +295,7 @@ pub(super) fn min(a: &PrimExpr, b: &PrimExpr) -> Folded {
 pub(super) fn max(a: &PrimExpr, b: &PrimExpr) -> Folded {
     let ty = a.prim_ty();
     if let (Some(x), Some(y)) = (int(a), int(b)) {
-        return int_imm(ty, x.max(y).clone());
+        return Ok(Some(IntImm::new(ty.clone(), x.max(y).clone(), UNKNOWN_LOC)?.into()));
     }
     if let (Some(x), Some(y)) = (float(a), float(b)) {
         return keep(if x.is_nan() || x > y { a } else { b });
@@ -407,16 +407,11 @@ fn float(expr: &PrimExpr) -> Option<f64> {
     expr.downcast_ref::<FloatImmObj>().map(|imm| imm.value)
 }
 
-/// C++ `IntImm(ty, value)`.
-fn int_imm(ty: &PrimType, value: BigInt) -> Folded {
-    Ok(Some(IntImm::new(ty.clone(), value, UNKNOWN_LOC)?.into()))
-}
-
 /// C++ `IntImm(result_ty, value)` of an exact result, or nothing to fold when it is not a value of
 /// the type.
 fn exact(ty: &PrimType, value: BigInt) -> Folded {
     match is_representable(&value, ty) {
-        true => int_imm(ty, value),
+        true => Ok(Some(IntImm::new(ty.clone(), value, UNKNOWN_LOC)?.into())),
         false => Ok(None),
     }
 }

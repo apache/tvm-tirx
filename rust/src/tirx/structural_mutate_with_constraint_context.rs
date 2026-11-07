@@ -50,6 +50,7 @@ impl StructuralMutatorWithConstraintContextBase {
     /// current prefix.
     #[inline]
     pub fn constraints(&self) -> ConstraintContext {
+        // SAFETY: the borrow ends with this clone, before anything can replace the field.
         unsafe { (&*self.constraints.get()).clone() }
     }
 

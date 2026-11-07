@@ -354,9 +354,8 @@ impl From<CallEffectKind> for Any {
 /// also check its type; implement [`ArgType`](sig::ArgType) for another check.
 pub mod sig {
     use super::*;
-    use crate::ir::expr::ExprObj;
-    use crate::ir::r#type::PrimTypeObj;
-    use tvm_ffi::type_traits::AnyCompatible;
+    use crate::ir::expr::VarObj;
+    use tvm_ffi::type_traits::{AnyCompatible, DowncastRefFromAny};
     use tvm_ffi::ObjectCore;
 
     /// A check of an argument against a type, C++ `TypeTraits<T>`.
@@ -365,29 +364,28 @@ pub mod sig {
     /// implement it for another check, as [`TensorVar`](crate::tirx::TensorVar) does.
     pub trait ArgType: 'static {
         /// Return whether `value`, which is not None, is accepted, as C++ `CheckAnyStrict` does.
-        fn check(value: &TVMFFIAny) -> bool;
+        fn check(value: AnyView<'_>) -> bool;
         /// Return the expected type, for an error, as C++ `TypeStr` does.
         fn type_str() -> std::string::String;
         /// Describe a rejected value, for an error, as C++ `GetMismatchTypeInfo` does.
         ///
         /// By default, the description is the type key of `value`.
-        fn mismatch(value: &TVMFFIAny) -> std::string::String {
-            support::type_key(value.type_index)
+        fn mismatch(value: AnyView<'_>) -> std::string::String {
+            support::type_key(value.type_index())
         }
     }
 
-    impl<T: ObjectRefCore + AnyCompatible + 'static> ArgType for T {
-        fn check(value: &TVMFFIAny) -> bool {
-            // SAFETY: `value` is a live FFI value.
-            unsafe { T::check_any_strict(value) }
+    impl<T: ObjectRefCore + AnyCompatible + DowncastRefFromAny + 'static> ArgType for T {
+        fn check(value: AnyView<'_>) -> bool {
+            value.downcast_ref::<T>().is_some()
         }
 
         fn type_str() -> std::string::String {
             T::type_str()
         }
 
-        fn mismatch(value: &TVMFFIAny) -> std::string::String {
-            T::get_mismatch_type_info(value)
+        fn mismatch(value: AnyView<'_>) -> std::string::String {
+            T::get_mismatch_type_info(value.as_raw_ffi_any())
         }
     }
 
@@ -396,20 +394,13 @@ pub mod sig {
     pub use crate::ir::expr::{IntExpr, PrimExpr, PrimVar};
 
     /// Return whether `value` is a [`Var`], not a subclass, whose type is an `N`, such as
-    /// `PrimTypeObj`: the check of [`PrimVar`] and of other variable argument types.
-    pub fn var_of_type<N: ObjectCore>(value: &TVMFFIAny) -> bool {
-        value.type_index == crate::ir::expr::VarObj::type_index()
-            && expr(value).is_some_and(|var| var.ty.downcast_ref::<N>().is_some())
-    }
-
-    /// The expression `value` holds, if it holds one.
-    fn expr(value: &TVMFFIAny) -> Option<&ExprObj> {
-        let is_object = value.type_index >= TVMFFITypeIndex::kTVMFFIStaticObjectBegin as i32;
-        // SAFETY: an object value of an `ir.Expr` type points to an `ExprObj`.
-        unsafe {
-            (is_object && Expr::check_any_strict(value))
-                .then(|| &*(value.data_union.v_obj as *const ExprObj))
-        }
+    /// `TensorTypeObj`: the check of variable argument types such as
+    /// [`TensorVar`](crate::tirx::TensorVar).
+    pub fn var_of_type<N: ObjectCore>(value: AnyView<'_>) -> bool {
+        value.type_index() == VarObj::type_index()
+            && value
+                .downcast_ref::<VarObj>()
+                .is_some_and(|var| var.ty.downcast_ref::<N>().is_some())
     }
 
     /// Describe a required value argument `name` of type `T`, C++ `sig::arg<T>`; [`Expr`] accepts
@@ -763,9 +754,8 @@ pub mod sig {
             return Ok(());
         }
         // Borrowed in place: indexing an `Array` bumps no reference count.
-        let view = value();
-        let value = view.as_raw_ffi_any();
-        if value.type_index != TVMFFITypeIndex::kTVMFFINone as i32 && T::check(value) {
+        let value = value();
+        if value.type_index() != TVMFFITypeIndex::kTVMFFINone as i32 && T::check(value) {
             return Ok(());
         }
         let (fixed, tail) = match type_arg {
