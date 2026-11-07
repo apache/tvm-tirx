@@ -57,6 +57,7 @@ use tvm_ffi::ObjectCore;
 use tvm_ffi::Result;
 use tvm_ffi::String;
 use tvm_ffi::enum_ref::EnumObj;
+use tvm_ffi::extra::cold_init_lazy_lock::ColdInitLazyLock;
 use tvm_ffi::reflection::FieldGetter;
 // tvm-ffi-stubgen(end)
 
@@ -253,15 +254,21 @@ impl Deref for TileLayoutObj {
 #[allow(missing_docs)]
 impl TileLayoutObj {
     pub fn shard(&self) -> Result<Array<Iter>> {
-        FieldGetter::new(Self::type_index(), "shard")?.get(self)
+        static GETTER: ColdInitLazyLock<Result<FieldGetter>> =
+            ColdInitLazyLock::new(|| FieldGetter::new(TileLayoutObj::type_index(), "shard"));
+        GETTER.clone()?.get(self)
     }
 
     pub fn replica(&self) -> Result<Array<Iter>> {
-        FieldGetter::new(Self::type_index(), "replica")?.get(self)
+        static GETTER: ColdInitLazyLock<Result<FieldGetter>> =
+            ColdInitLazyLock::new(|| FieldGetter::new(TileLayoutObj::type_index(), "replica"));
+        GETTER.clone()?.get(self)
     }
 
     pub fn offset(&self) -> Result<Map<Axis, PrimExpr>> {
-        FieldGetter::new(Self::type_index(), "offset")?.get(self)
+        static GETTER: ColdInitLazyLock<Result<FieldGetter>> =
+            ColdInitLazyLock::new(|| FieldGetter::new(TileLayoutObj::type_index(), "offset"));
+        GETTER.clone()?.get(self)
     }
 }
 
@@ -498,31 +505,51 @@ impl Deref for ComposeLayoutObj {
 #[allow(missing_docs)]
 impl ComposeLayoutObj {
     pub fn per_element(&self) -> Result<i64> {
-        FieldGetter::new(Self::type_index(), "per_element")?.get(self)
+        static GETTER: ColdInitLazyLock<Result<FieldGetter>> = ColdInitLazyLock::new(|| {
+            FieldGetter::new(ComposeLayoutObj::type_index(), "per_element")
+        });
+        GETTER.clone()?.get(self)
     }
 
     pub fn swizzle_len(&self) -> Result<i64> {
-        FieldGetter::new(Self::type_index(), "swizzle_len")?.get(self)
+        static GETTER: ColdInitLazyLock<Result<FieldGetter>> = ColdInitLazyLock::new(|| {
+            FieldGetter::new(ComposeLayoutObj::type_index(), "swizzle_len")
+        });
+        GETTER.clone()?.get(self)
     }
 
     pub fn atom_len(&self) -> Result<i64> {
-        FieldGetter::new(Self::type_index(), "atom_len")?.get(self)
+        static GETTER: ColdInitLazyLock<Result<FieldGetter>> =
+            ColdInitLazyLock::new(|| FieldGetter::new(ComposeLayoutObj::type_index(), "atom_len"));
+        GETTER.clone()?.get(self)
     }
 
     pub fn swizzle_inner(&self) -> Result<bool> {
-        FieldGetter::new(Self::type_index(), "swizzle_inner")?.get(self)
+        static GETTER: ColdInitLazyLock<Result<FieldGetter>> = ColdInitLazyLock::new(|| {
+            FieldGetter::new(ComposeLayoutObj::type_index(), "swizzle_inner")
+        });
+        GETTER.clone()?.get(self)
     }
 
     pub fn inner_mask(&self) -> Result<i64> {
-        FieldGetter::new(Self::type_index(), "inner_mask")?.get(self)
+        static GETTER: ColdInitLazyLock<Result<FieldGetter>> = ColdInitLazyLock::new(|| {
+            FieldGetter::new(ComposeLayoutObj::type_index(), "inner_mask")
+        });
+        GETTER.clone()?.get(self)
     }
 
     pub fn outer_mask(&self) -> Result<i64> {
-        FieldGetter::new(Self::type_index(), "outer_mask")?.get(self)
+        static GETTER: ColdInitLazyLock<Result<FieldGetter>> = ColdInitLazyLock::new(|| {
+            FieldGetter::new(ComposeLayoutObj::type_index(), "outer_mask")
+        });
+        GETTER.clone()?.get(self)
     }
 
     pub fn tile_layout(&self) -> Result<TileLayout> {
-        FieldGetter::new(Self::type_index(), "tile_layout")?.get(self)
+        static GETTER: ColdInitLazyLock<Result<FieldGetter>> = ColdInitLazyLock::new(|| {
+            FieldGetter::new(ComposeLayoutObj::type_index(), "tile_layout")
+        });
+        GETTER.clone()?.get(self)
     }
 }
 

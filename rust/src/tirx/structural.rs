@@ -29,6 +29,7 @@ use tvm_ffi::Object;
 use tvm_ffi::ObjectArc;
 use tvm_ffi::ObjectCore;
 use tvm_ffi::Result;
+use tvm_ffi::extra::cold_init_lazy_lock::ColdInitLazyLock;
 use tvm_ffi::reflection::FieldGetter;
 
 /// Header-only stand-in for the builtin `ffi.StructuralMutator`; it only carries the ancestor depth.
@@ -77,7 +78,10 @@ pub struct StructuralMutatorWithConstraintContextObj {
 #[allow(missing_docs)]
 impl StructuralMutatorWithConstraintContextObj {
     pub fn constraints(&self) -> Result<ConstraintContext> {
-        FieldGetter::new(Self::type_index(), "constraints")?.get(self)
+        static GETTER: ColdInitLazyLock<Result<FieldGetter>> = ColdInitLazyLock::new(|| {
+            FieldGetter::new(StructuralMutatorWithConstraintContextObj::type_index(), "constraints")
+        });
+        GETTER.clone()?.get(self)
     }
 }
 // tvm-ffi-stubgen(end)
@@ -107,7 +111,10 @@ pub struct StructuralVisitorWithConstraintContextObj {
 #[allow(missing_docs)]
 impl StructuralVisitorWithConstraintContextObj {
     pub fn constraints(&self) -> Result<ConstraintContext> {
-        FieldGetter::new(Self::type_index(), "constraints")?.get(self)
+        static GETTER: ColdInitLazyLock<Result<FieldGetter>> = ColdInitLazyLock::new(|| {
+            FieldGetter::new(StructuralVisitorWithConstraintContextObj::type_index(), "constraints")
+        });
+        GETTER.clone()?.get(self)
     }
 }
 // tvm-ffi-stubgen(end)

@@ -44,6 +44,7 @@ use tvm_ffi::ObjectArc;
 use tvm_ffi::ObjectCore;
 use tvm_ffi::Result;
 use tvm_ffi::String;
+use tvm_ffi::extra::cold_init_lazy_lock::ColdInitLazyLock;
 use tvm_ffi::object::ObjectRef;
 use tvm_ffi::reflection::FieldGetter;
 // tvm-ffi-stubgen(end)
@@ -90,23 +91,33 @@ pub struct TargetObj {
 #[allow(missing_docs)]
 impl TargetObj {
     pub fn kind(&self) -> Result<TargetKind> {
-        FieldGetter::new(Self::type_index(), "kind")?.get(self)
+        static GETTER: ColdInitLazyLock<Result<FieldGetter>> =
+            ColdInitLazyLock::new(|| FieldGetter::new(TargetObj::type_index(), "kind"));
+        GETTER.clone()?.get(self)
     }
 
     pub fn tag(&self) -> Result<String> {
-        FieldGetter::new(Self::type_index(), "tag")?.get(self)
+        static GETTER: ColdInitLazyLock<Result<FieldGetter>> =
+            ColdInitLazyLock::new(|| FieldGetter::new(TargetObj::type_index(), "tag"));
+        GETTER.clone()?.get(self)
     }
 
     pub fn keys(&self) -> Result<Array<String>> {
-        FieldGetter::new(Self::type_index(), "keys")?.get(self)
+        static GETTER: ColdInitLazyLock<Result<FieldGetter>> =
+            ColdInitLazyLock::new(|| FieldGetter::new(TargetObj::type_index(), "keys"));
+        GETTER.clone()?.get(self)
     }
 
     pub fn attrs(&self) -> Result<Map<String, Any>> {
-        FieldGetter::new(Self::type_index(), "attrs")?.get(self)
+        static GETTER: ColdInitLazyLock<Result<FieldGetter>> =
+            ColdInitLazyLock::new(|| FieldGetter::new(TargetObj::type_index(), "attrs"));
+        GETTER.clone()?.get(self)
     }
 
     pub fn host(&self) -> Result<Option<ObjectRef>> {
-        FieldGetter::new(Self::type_index(), "host")?.get(self)
+        static GETTER: ColdInitLazyLock<Result<FieldGetter>> =
+            ColdInitLazyLock::new(|| FieldGetter::new(TargetObj::type_index(), "host"));
+        GETTER.clone()?.get(self)
     }
 }
 // tvm-ffi-stubgen(end)
@@ -232,15 +243,22 @@ pub struct TargetKindObj {
 #[allow(missing_docs)]
 impl TargetKindObj {
     pub fn name(&self) -> Result<String> {
-        FieldGetter::new(Self::type_index(), "name")?.get(self)
+        static GETTER: ColdInitLazyLock<Result<FieldGetter>> =
+            ColdInitLazyLock::new(|| FieldGetter::new(TargetKindObj::type_index(), "name"));
+        GETTER.clone()?.get(self)
     }
 
     pub fn default_device_type(&self) -> Result<i64> {
-        FieldGetter::new(Self::type_index(), "default_device_type")?.get(self)
+        static GETTER: ColdInitLazyLock<Result<FieldGetter>> = ColdInitLazyLock::new(|| {
+            FieldGetter::new(TargetKindObj::type_index(), "default_device_type")
+        });
+        GETTER.clone()?.get(self)
     }
 
     pub fn default_keys(&self) -> Result<Array<String>> {
-        FieldGetter::new(Self::type_index(), "default_keys")?.get(self)
+        static GETTER: ColdInitLazyLock<Result<FieldGetter>> =
+            ColdInitLazyLock::new(|| FieldGetter::new(TargetKindObj::type_index(), "default_keys"));
+        GETTER.clone()?.get(self)
     }
 }
 // tvm-ffi-stubgen(end)

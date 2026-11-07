@@ -58,6 +58,7 @@ use tvm_ffi::ObjectCore;
 use tvm_ffi::ObjectRefCore;
 use tvm_ffi::Result;
 use tvm_ffi::String;
+use tvm_ffi::extra::cold_init_lazy_lock::ColdInitLazyLock;
 use tvm_ffi::object::ObjectRef;
 use tvm_ffi::reflection::FieldGetter;
 // tvm-ffi-stubgen(end)
@@ -118,43 +119,70 @@ pub struct DispatchContextObj {
 #[allow(missing_docs)]
 impl DispatchContextObj {
     pub fn target(&self) -> Result<Target> {
-        FieldGetter::new(Self::type_index(), "target")?.get(self)
+        static GETTER: ColdInitLazyLock<Result<FieldGetter>> =
+            ColdInitLazyLock::new(|| FieldGetter::new(DispatchContextObj::type_index(), "target"));
+        GETTER.clone()?.get(self)
     }
 
     pub fn thread_scope(&self) -> Result<ThreadScope> {
-        FieldGetter::new(Self::type_index(), "thread_scope")?.get(self)
+        static GETTER: ColdInitLazyLock<Result<FieldGetter>> = ColdInitLazyLock::new(|| {
+            FieldGetter::new(DispatchContextObj::type_index(), "thread_scope")
+        });
+        GETTER.clone()?.get(self)
     }
 
     pub fn launch_params(&self) -> Result<Any> {
-        FieldGetter::new(Self::type_index(), "launch_params")?.get_any(self)
+        static GETTER: ColdInitLazyLock<Result<FieldGetter>> = ColdInitLazyLock::new(|| {
+            FieldGetter::new(DispatchContextObj::type_index(), "launch_params")
+        });
+        GETTER.clone()?.get_any(self)
     }
 
     pub fn var_range_map(&self) -> Result<Map<Var, Range>> {
-        FieldGetter::new(Self::type_index(), "var_range_map")?.get(self)
+        static GETTER: ColdInitLazyLock<Result<FieldGetter>> = ColdInitLazyLock::new(|| {
+            FieldGetter::new(DispatchContextObj::type_index(), "var_range_map")
+        });
+        GETTER.clone()?.get(self)
     }
 
     pub fn alloc_only(&self) -> Result<bool> {
-        FieldGetter::new(Self::type_index(), "alloc_only")?.get(self)
+        static GETTER: ColdInitLazyLock<Result<FieldGetter>> = ColdInitLazyLock::new(|| {
+            FieldGetter::new(DispatchContextObj::type_index(), "alloc_only")
+        });
+        GETTER.clone()?.get(self)
     }
 
     pub fn callbacks(&self) -> Result<Map<String, ObjectRef>> {
-        FieldGetter::new(Self::type_index(), "callbacks")?.get(self)
+        static GETTER: ColdInitLazyLock<Result<FieldGetter>> = ColdInitLazyLock::new(|| {
+            FieldGetter::new(DispatchContextObj::type_index(), "callbacks")
+        });
+        GETTER.clone()?.get(self)
     }
 
     pub fn shared_state(&self) -> Result<Map<String, ObjectRef>> {
-        FieldGetter::new(Self::type_index(), "shared_state")?.get(self)
+        static GETTER: ColdInitLazyLock<Result<FieldGetter>> = ColdInitLazyLock::new(|| {
+            FieldGetter::new(DispatchContextObj::type_index(), "shared_state")
+        });
+        GETTER.clone()?.get(self)
     }
 
     pub fn inter(&self) -> Result<Map<String, Array<PrimExpr>>> {
-        FieldGetter::new(Self::type_index(), "inter")?.get(self)
+        static GETTER: ColdInitLazyLock<Result<FieldGetter>> =
+            ColdInitLazyLock::new(|| FieldGetter::new(DispatchContextObj::type_index(), "inter"));
+        GETTER.clone()?.get(self)
     }
 
     pub fn intra(&self) -> Result<Map<String, Array<PrimExpr>>> {
-        FieldGetter::new(Self::type_index(), "intra")?.get(self)
+        static GETTER: ColdInitLazyLock<Result<FieldGetter>> =
+            ColdInitLazyLock::new(|| FieldGetter::new(DispatchContextObj::type_index(), "intra"));
+        GETTER.clone()?.get(self)
     }
 
     pub fn scope_kind(&self) -> Result<String> {
-        FieldGetter::new(Self::type_index(), "scope_kind")?.get(self)
+        static GETTER: ColdInitLazyLock<Result<FieldGetter>> = ColdInitLazyLock::new(|| {
+            FieldGetter::new(DispatchContextObj::type_index(), "scope_kind")
+        });
+        GETTER.clone()?.get(self)
     }
 }
 // tvm-ffi-stubgen(end)

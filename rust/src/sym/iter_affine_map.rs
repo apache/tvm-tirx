@@ -69,6 +69,7 @@ use tvm_ffi::ObjectArc;
 use tvm_ffi::ObjectCore;
 use tvm_ffi::Result;
 use tvm_ffi::String;
+use tvm_ffi::extra::cold_init_lazy_lock::ColdInitLazyLock;
 use tvm_ffi::reflection::FieldGetter;
 // tvm-ffi-stubgen(end)
 
@@ -268,19 +269,28 @@ impl Deref for IterSplitExprObj {
 #[allow(missing_docs)]
 impl IterSplitExprObj {
     pub fn source(&self) -> Result<IterMark> {
-        FieldGetter::new(Self::type_index(), "source")?.get(self)
+        static GETTER: ColdInitLazyLock<Result<FieldGetter>> =
+            ColdInitLazyLock::new(|| FieldGetter::new(IterSplitExprObj::type_index(), "source"));
+        GETTER.clone()?.get(self)
     }
 
     pub fn lower_factor(&self) -> Result<PrimExpr> {
-        FieldGetter::new(Self::type_index(), "lower_factor")?.get(self)
+        static GETTER: ColdInitLazyLock<Result<FieldGetter>> = ColdInitLazyLock::new(|| {
+            FieldGetter::new(IterSplitExprObj::type_index(), "lower_factor")
+        });
+        GETTER.clone()?.get(self)
     }
 
     pub fn extent(&self) -> Result<PrimExpr> {
-        FieldGetter::new(Self::type_index(), "extent")?.get(self)
+        static GETTER: ColdInitLazyLock<Result<FieldGetter>> =
+            ColdInitLazyLock::new(|| FieldGetter::new(IterSplitExprObj::type_index(), "extent"));
+        GETTER.clone()?.get(self)
     }
 
     pub fn scale(&self) -> Result<PrimExpr> {
-        FieldGetter::new(Self::type_index(), "scale")?.get(self)
+        static GETTER: ColdInitLazyLock<Result<FieldGetter>> =
+            ColdInitLazyLock::new(|| FieldGetter::new(IterSplitExprObj::type_index(), "scale"));
+        GETTER.clone()?.get(self)
     }
 }
 
@@ -320,11 +330,15 @@ impl Deref for IterSumExprObj {
 #[allow(missing_docs)]
 impl IterSumExprObj {
     pub fn args(&self) -> Result<Array<IterSplitExpr>> {
-        FieldGetter::new(Self::type_index(), "args")?.get(self)
+        static GETTER: ColdInitLazyLock<Result<FieldGetter>> =
+            ColdInitLazyLock::new(|| FieldGetter::new(IterSumExprObj::type_index(), "args"));
+        GETTER.clone()?.get(self)
     }
 
     pub fn base(&self) -> Result<PrimExpr> {
-        FieldGetter::new(Self::type_index(), "base")?.get(self)
+        static GETTER: ColdInitLazyLock<Result<FieldGetter>> =
+            ColdInitLazyLock::new(|| FieldGetter::new(IterSumExprObj::type_index(), "base"));
+        GETTER.clone()?.get(self)
     }
 }
 

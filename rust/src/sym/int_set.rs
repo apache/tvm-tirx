@@ -53,6 +53,7 @@ use tvm_ffi::Object;
 use tvm_ffi::ObjectArc;
 use tvm_ffi::ObjectCore;
 use tvm_ffi::Result;
+use tvm_ffi::extra::cold_init_lazy_lock::ColdInitLazyLock;
 use tvm_ffi::reflection::FieldGetter;
 // tvm-ffi-stubgen(end)
 
@@ -158,11 +159,15 @@ impl Deref for IntervalSetObj {
 #[allow(missing_docs)]
 impl IntervalSetObj {
     pub fn min_value(&self) -> Result<PrimExpr> {
-        FieldGetter::new(Self::type_index(), "min_value")?.get(self)
+        static GETTER: ColdInitLazyLock<Result<FieldGetter>> =
+            ColdInitLazyLock::new(|| FieldGetter::new(IntervalSetObj::type_index(), "min_value"));
+        GETTER.clone()?.get(self)
     }
 
     pub fn max_value(&self) -> Result<PrimExpr> {
-        FieldGetter::new(Self::type_index(), "max_value")?.get(self)
+        static GETTER: ColdInitLazyLock<Result<FieldGetter>> =
+            ColdInitLazyLock::new(|| FieldGetter::new(IntervalSetObj::type_index(), "max_value"));
+        GETTER.clone()?.get(self)
     }
 }
 

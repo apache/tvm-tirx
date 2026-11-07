@@ -48,6 +48,7 @@ use tvm_ffi::ObjectArc;
 use tvm_ffi::ObjectCore;
 use tvm_ffi::Result;
 use tvm_ffi::String;
+use tvm_ffi::extra::cold_init_lazy_lock::ColdInitLazyLock;
 use tvm_ffi::reflection::FieldGetter;
 // tvm-ffi-stubgen(end)
 
@@ -198,7 +199,9 @@ impl Deref for ModulePassObj {
 #[allow(missing_docs)]
 impl ModulePassObj {
     pub fn pass_info(&self) -> Result<PassInfo> {
-        FieldGetter::new(Self::type_index(), "pass_info")?.get(self)
+        static GETTER: ColdInitLazyLock<Result<FieldGetter>> =
+            ColdInitLazyLock::new(|| FieldGetter::new(ModulePassObj::type_index(), "pass_info"));
+        GETTER.clone()?.get(self)
     }
 }
 
@@ -260,11 +263,15 @@ impl Deref for SequentialObj {
 #[allow(missing_docs)]
 impl SequentialObj {
     pub fn pass_info(&self) -> Result<PassInfo> {
-        FieldGetter::new(Self::type_index(), "pass_info")?.get(self)
+        static GETTER: ColdInitLazyLock<Result<FieldGetter>> =
+            ColdInitLazyLock::new(|| FieldGetter::new(SequentialObj::type_index(), "pass_info"));
+        GETTER.clone()?.get(self)
     }
 
     pub fn passes(&self) -> Result<Array<Pass>> {
-        FieldGetter::new(Self::type_index(), "passes")?.get(self)
+        static GETTER: ColdInitLazyLock<Result<FieldGetter>> =
+            ColdInitLazyLock::new(|| FieldGetter::new(SequentialObj::type_index(), "passes"));
+        GETTER.clone()?.get(self)
     }
 }
 
@@ -502,7 +509,9 @@ pub struct PassInstrumentObj {
 #[allow(missing_docs)]
 impl PassInstrumentObj {
     pub fn name(&self) -> Result<String> {
-        FieldGetter::new(Self::type_index(), "name")?.get(self)
+        static GETTER: ColdInitLazyLock<Result<FieldGetter>> =
+            ColdInitLazyLock::new(|| FieldGetter::new(PassInstrumentObj::type_index(), "name"));
+        GETTER.clone()?.get(self)
     }
 }
 // tvm-ffi-stubgen(end)
