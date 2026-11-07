@@ -75,7 +75,7 @@ use tvm_ffi::String;
 ///
 /// let main = GlobalVar::new("main", UNKNOWN_LOC);
 /// let functions = Map::from_iter([(main.clone(), BaseFunc::from(func))]);
-/// let module = IRModule::new(&functions, DictAttrs::new(Map::new()), &Map::new())?;
+/// let module = IRModule::new(&functions, DictAttrs::new(Map::new()), Map::new())?;
 ///
 /// assert!(module.lookup(&main)?.same_as(&module.lookup_name("main")?));
 /// # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
@@ -127,13 +127,13 @@ impl IRModule {
     /// Lossless complete-field allocation.
     pub fn from_fields(
         functions: impl Into<Map<GlobalVar, BaseFunc>>,
-        attrs: impl Into<DictAttrs>,
+        attrs: impl IntoObjectRef<DictAttrs>,
         global_infos: impl Into<Map<String, Array<GlobalInfo>>>,
         global_var_map_: impl Into<Map<String, GlobalVar>>,
     ) -> Self {
         let obj = IRModuleObj::new(
             functions.into(),
-            attrs.into(),
+            attrs.into_owned_object_ref(),
             global_infos.into(),
             global_var_map_.into(),
         );
@@ -150,10 +150,11 @@ impl IRModule {
     ///
     /// Returns an `InternalError` if two global variables of `functions` have the same name.
     pub fn new(
-        functions: &Map<GlobalVar, BaseFunc>,
-        attrs: impl Into<DictAttrs>,
-        global_infos: &Map<String, Array<GlobalInfo>>,
+        functions: impl Into<Map<GlobalVar, BaseFunc>>,
+        attrs: impl IntoObjectRef<DictAttrs>,
+        global_infos: impl Into<Map<String, Array<GlobalInfo>>>,
     ) -> Result<Self> {
+        let functions = functions.into();
         let mut names = std::collections::HashSet::new();
         let mut global_var_map = Vec::with_capacity(functions.len());
         for (var, _) in functions.iter() {
@@ -166,7 +167,7 @@ impl IRModule {
             global_var_map.push((name, var));
         }
         let global_var_map = global_var_map.into_iter().collect::<Map<String, GlobalVar>>();
-        Ok(Self::from_fields(functions.clone(), attrs, global_infos.clone(), global_var_map))
+        Ok(Self::from_fields(functions, attrs, global_infos, global_var_map))
     }
 
     /// Create the module of `functions` and `expr`, a function bound to its `global_symbol`, or to
@@ -175,9 +176,12 @@ impl IRModule {
     /// # Errors
     ///
     /// Returns a `TypeError` if `expr` is not a function.
-    pub fn from_expr(expr: impl IntoExpr, functions: &Map<GlobalVar, BaseFunc>) -> Result<Self> {
+    pub fn from_expr(
+        expr: impl IntoExpr,
+        functions: impl Into<Map<GlobalVar, BaseFunc>>,
+    ) -> Result<Self> {
         tvm_ffi::cached_global_func!("ir.IRModuleFromExpr")
-            .call_tuple((expr.into_expr()?.borrow(), functions))?
+            .call_tuple((expr.into_expr()?.borrow(), &functions.into()))?
             .try_into()
     }
 
@@ -194,14 +198,14 @@ impl IRModule {
     /// Returns an `InternalError` if the module has another global variable of the same name.
     pub fn add(
         &self,
-        var: impl Into<GlobalVar>,
-        func: impl Into<BaseFunc>,
+        var: impl IntoObjectRef<GlobalVar>,
+        func: impl IntoObjectRef<BaseFunc>,
         update: bool,
     ) -> Result<()> {
         tvm_ffi::cached_global_func!("ir.IRModuleAdd").call_tuple((
             self,
-            &var.into(),
-            &func.into(),
+            var.into_object_ref().borrow(),
+            func.into_object_ref().borrow(),
             update,
         ))?;
         Ok(())
@@ -290,8 +294,9 @@ impl IRModule {
     ///
     /// Returns an `InternalError` if a function of `other` has the name of another global variable
     /// of the module.
-    pub fn update(&self, other: &IRModule) -> Result<()> {
-        tvm_ffi::cached_global_func!("ir.IRModuleUpdate").call_tuple((self, other))?;
+    pub fn update(&self, other: impl IntoObjectRef<IRModule>) -> Result<()> {
+        tvm_ffi::cached_global_func!("ir.IRModuleUpdate")
+            .call_tuple((self, other.into_object_ref().borrow()))?;
         Ok(())
     }
 
@@ -300,11 +305,15 @@ impl IRModule {
     /// # Errors
     ///
     /// Returns an `InternalError` if the module has another global variable of the same name.
-    pub fn update_func(&self, var: impl Into<GlobalVar>, func: impl Into<BaseFunc>) -> Result<()> {
+    pub fn update_func(
+        &self,
+        var: impl IntoObjectRef<GlobalVar>,
+        func: impl IntoObjectRef<BaseFunc>,
+    ) -> Result<()> {
         tvm_ffi::cached_global_func!("ir.IRModuleUpdateFunction").call_tuple((
             self,
-            &var.into(),
-            &func.into(),
+            var.into_object_ref().borrow(),
+            func.into_object_ref().borrow(),
         ))?;
         Ok(())
     }
@@ -313,9 +322,12 @@ impl IRModule {
     pub fn update_global_info(
         &self,
         name: &str,
-        global_info: impl IntoIterator<Item = impl Into<GlobalInfo>>,
+        global_info: impl IntoIterator<Item = impl IntoObjectRef<GlobalInfo>>,
     ) -> Result<()> {
-        let global_info = global_info.into_iter().map(Into::into).collect::<Array<GlobalInfo>>();
+        let global_info = global_info
+            .into_iter()
+            .map(IntoObjectRef::into_owned_object_ref)
+            .collect::<Array<GlobalInfo>>();
         tvm_ffi::cached_global_func!("ir.IRModuleUpdateGlobalInfo").call_tuple((
             self,
             String::from(name),
@@ -349,9 +361,9 @@ impl IRModule {
     /// Return the module with the attributes of `attrs` set (`ir.IRModuleWithAttrs`).
     ///
     /// Consumes `self`, as [`with_attr`](Self::with_attr) does.
-    pub fn with_attrs(self, attrs: &Map<String, Any>) -> Result<IRModule> {
+    pub fn with_attrs(self, attrs: impl Into<Map<String, Any>>) -> Result<IRModule> {
         tvm_ffi::cached_global_func!("ir.IRModuleWithAttrs")
-            .call_tuple((RValueRef::new(self), attrs))?
+            .call_tuple((RValueRef::new(self), &attrs.into()))?
             .try_into()
     }
 

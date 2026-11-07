@@ -27,6 +27,7 @@ use crate::ir::location::Location;
 use crate::ir::r#type::Type;
 use crate::ir::r#type::TypeObj;
 use std::ops::Deref;
+use tvm_ffi::IntoObjectRef;
 use tvm_ffi::ObjectArc;
 // tvm-ffi-stubgen(end)
 
@@ -77,8 +78,8 @@ impl TensorMapTypeObj {
 #[allow(missing_docs)]
 impl TensorMapType {
     /// Lossless complete-field allocation.
-    pub fn new(loc: impl Into<Location>) -> Self {
-        let obj = TensorMapTypeObj::new(loc.into());
+    pub fn new(loc: impl IntoObjectRef<Location>) -> Self {
+        let obj = TensorMapTypeObj::new(loc.into_owned_object_ref());
         Self { data_: ObjectArc::new(obj) }
     }
 }

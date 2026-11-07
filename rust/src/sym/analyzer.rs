@@ -91,7 +91,7 @@ use tvm_ffi::VALUE_ERROR;
 /// let x = PrimVar::new("x", PrimType::int(32), UNKNOWN_LOC);
 /// let context = ConstraintContext::new();
 /// let domain = Range::from_min_extent(0, 16, UNKNOWN_LOC)?;
-/// context.append(&RangeConstraint::new(x.clone(), domain).into())?;
+/// context.append(RangeConstraint::new(x.clone(), domain))?;
 /// let analyzer = Analyzer::new();
 /// analyzer.sync_constraint_context(&context)?;
 ///
@@ -158,9 +158,14 @@ impl Analyzer {
     /// # Errors
     ///
     /// Returns an error for a reentrant synchronization, or if `context` defines a variable twice.
-    pub fn sync_constraint_context(&self, context: &ConstraintContext) -> Result<()> {
-        tvm_ffi::cached_global_func!("sym.AnalyzerSyncConstraintContext")
-            .call_packed(&[tvm_ffi::AnyView::from(self), tvm_ffi::AnyView::from(context)])?;
+    pub fn sync_constraint_context(
+        &self,
+        context: impl IntoObjectRef<ConstraintContext>,
+    ) -> Result<()> {
+        tvm_ffi::cached_global_func!("sym.AnalyzerSyncConstraintContext").call_packed(&[
+            tvm_ffi::AnyView::from(self),
+            tvm_ffi::AnyView::from(context.into_object_ref().borrow()),
+        ])?;
         Ok(())
     }
 
@@ -201,10 +206,10 @@ impl Analyzer {
     pub fn int_set(
         &self,
         expr: impl IntoExpr<PrimExpr>,
-        dom_map: Option<&Map<Var, IntSet>>,
+        dom_map: impl Into<Option<Map<Var, IntSet>>>,
     ) -> Result<IntSet> {
         tvm_ffi::cached_global_func!("sym.AnalyzerIntSet")
-            .call_tuple((self, expr.into_expr()?.borrow(), dom_map.cloned()))?
+            .call_tuple((self, expr.into_expr()?.borrow(), dom_map.into()))?
             .try_into()
     }
 

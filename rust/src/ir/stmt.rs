@@ -61,6 +61,7 @@
 // tvm-ffi-stubgen(import-object): crate::ir::expr::IntoExpr
 // tvm-ffi-stubgen(import-object): crate::ir::expr::PrimExpr
 // tvm-ffi-stubgen(import-object): crate::ir::expr::PrimVar
+// tvm-ffi-stubgen(import-object): tvm_ffi::IntoObjectRef
 // Loop bounds, conditions and stored values are primitive, as C++ types them: `ForObj` holds a
 // `PrimVar var` and `PrimExpr begin, end, step`.
 // tvm-ffi-stubgen(field): ir.AssertStmt.condition -> PrimExpr
@@ -101,6 +102,7 @@ use tvm_ffi::Array;
 use tvm_ffi::BigInt;
 use tvm_ffi::DLDataTypeCode;
 use tvm_ffi::Error;
+use tvm_ffi::IntoObjectRef;
 use tvm_ffi::Map;
 use tvm_ffi::Object;
 use tvm_ffi::ObjectArc;
@@ -181,8 +183,8 @@ impl StmtObj {
 #[allow(missing_docs)]
 impl Stmt {
     /// Lossless complete-field allocation.
-    pub fn new(loc: impl Into<Location>) -> Self {
-        let obj = StmtObj::new(loc.into());
+    pub fn new(loc: impl IntoObjectRef<Location>) -> Self {
+        let obj = StmtObj::new(loc.into_owned_object_ref());
         Self { data_: ObjectArc::new(obj) }
     }
 }
@@ -253,11 +255,15 @@ impl BindObj {
 impl Bind {
     /// Lossless complete-field allocation.
     pub fn from_fields(
-        loc: impl Into<Location>,
-        var: impl Into<Var>,
-        value: impl Into<Expr>,
+        loc: impl IntoObjectRef<Location>,
+        var: impl IntoObjectRef<Var>,
+        value: impl IntoObjectRef<Expr>,
     ) -> Self {
-        let obj = BindObj::new(loc.into(), var.into(), value.into());
+        let obj = BindObj::new(
+            loc.into_owned_object_ref(),
+            var.into_owned_object_ref(),
+            value.into_owned_object_ref(),
+        );
         Self { data_: ObjectArc::new(obj) }
     }
 }
@@ -276,16 +282,16 @@ impl Bind {
     /// Returns an `InternalError` if the type of `value` is not structurally equal to the type of
     /// `var`.
     pub fn new(
-        var: impl Into<Var>,
+        var: impl IntoObjectRef<Var>,
         value: impl IntoExpr,
-        loc: impl Into<Location>,
+        loc: impl IntoObjectRef<Location>,
     ) -> Result<Self> {
-        let (var, value) = (var.into(), value.into_owned_expr()?);
+        let (var, value) = (var.into_owned_object_ref(), value.into_owned_expr()?);
         if !tvm_ffi::structural_equal(&value.ty, &var.ty)? {
             let condition = "ffi::StructuralEqual()(value->ty, var->ty)";
             return Err(support::check_failed(tvm_ffi::INTERNAL_ERROR, condition, ""));
         }
-        Ok(Self::from_fields(loc.into(), var, value))
+        Ok(Self::from_fields(loc.into_owned_object_ref(), var, value))
     }
 }
 
@@ -343,15 +349,15 @@ impl AssertStmtObj {
 impl AssertStmt {
     /// Lossless complete-field allocation.
     pub fn from_fields(
-        loc: impl Into<Location>,
-        condition: impl Into<PrimExpr>,
-        error_kind: impl Into<StringImm>,
+        loc: impl IntoObjectRef<Location>,
+        condition: impl IntoObjectRef<PrimExpr>,
+        error_kind: impl IntoObjectRef<StringImm>,
         message_parts: impl Into<Array<StringImm>>,
     ) -> Self {
         let obj = AssertStmtObj::new(
-            loc.into(),
-            condition.into(),
-            error_kind.into(),
+            loc.into_owned_object_ref(),
+            condition.into_owned_object_ref(),
+            error_kind.into_owned_object_ref(),
             message_parts.into(),
         );
         Self { data_: ObjectArc::new(obj) }
@@ -372,12 +378,16 @@ impl AssertStmt {
     /// Returns an `InternalError` if `condition` is not boolean.
     pub fn new(
         condition: impl IntoExpr<PrimExpr>,
-        error_kind: impl Into<StringImm>,
-        message_parts: impl IntoIterator<Item = impl Into<StringImm>>,
-        loc: impl Into<Location>,
+        error_kind: impl IntoObjectRef<StringImm>,
+        message_parts: impl IntoIterator<Item = impl IntoObjectRef<StringImm>>,
+        loc: impl IntoObjectRef<Location>,
     ) -> Result<Self> {
-        let (condition, error_kind) = (condition.into_owned_expr()?, error_kind.into());
-        let message_parts = message_parts.into_iter().map(Into::into).collect::<Array<StringImm>>();
+        let (condition, error_kind) =
+            (condition.into_owned_expr()?, error_kind.into_owned_object_ref());
+        let message_parts = message_parts
+            .into_iter()
+            .map(IntoObjectRef::into_owned_object_ref)
+            .collect::<Array<StringImm>>();
         let condition_ty = condition.prim_ty();
         if !condition_ty.matches_code(&[DLDataTypeCode::kDLBool]) {
             let message = format!(
@@ -387,7 +397,7 @@ impl AssertStmt {
             let check = "condition_ty.MatchesCode(DLDataTypeCode::kDLBool)";
             return Err(support::check_failed(tvm_ffi::INTERNAL_ERROR, check, &message));
         }
-        Ok(Self::from_fields(loc.into(), condition, error_kind, message_parts))
+        Ok(Self::from_fields(loc.into_owned_object_ref(), condition, error_kind, message_parts))
     }
 }
 
@@ -485,23 +495,23 @@ impl ForObj {
 impl For {
     /// Lossless complete-field allocation.
     pub fn from_fields(
-        loc: impl Into<Location>,
-        var: impl Into<PrimVar>,
-        begin: impl Into<PrimExpr>,
-        end: impl Into<PrimExpr>,
-        step: impl Into<PrimExpr>,
+        loc: impl IntoObjectRef<Location>,
+        var: impl IntoObjectRef<PrimVar>,
+        begin: impl IntoObjectRef<PrimExpr>,
+        end: impl IntoObjectRef<PrimExpr>,
+        step: impl IntoObjectRef<PrimExpr>,
         kind: impl Into<ForKind>,
-        body: impl Into<SeqStmt>,
+        body: impl IntoObjectRef<SeqStmt>,
         annotations: impl Into<Map<String, Any>>,
     ) -> Self {
         let obj = ForObj::new(
-            loc.into(),
-            var.into(),
-            begin.into(),
-            end.into(),
-            step.into(),
+            loc.into_owned_object_ref(),
+            var.into_owned_object_ref(),
+            begin.into_owned_object_ref(),
+            end.into_owned_object_ref(),
+            step.into_owned_object_ref(),
             kind.into(),
-            body.into(),
+            body.into_owned_object_ref(),
             annotations.into(),
         );
         Self { data_: ObjectArc::new(obj) }
@@ -532,21 +542,25 @@ impl For {
     /// or the step does not fit or match the type of `var`.
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        var: impl Into<PrimVar>,
+        var: impl IntoObjectRef<PrimVar>,
         begin: impl IntoExpr<PrimExpr>,
         end: impl IntoExpr<PrimExpr>,
         step: impl IntoExpr<PrimExpr>,
         kind: ForKind,
-        body: impl Into<Stmt>,
-        annotations: Option<&Map<String, Any>>,
-        loc: impl Into<Location>,
+        body: impl IntoObjectRef<Stmt>,
+        annotations: impl Into<Option<Map<String, Any>>>,
+        loc: impl IntoObjectRef<Location>,
     ) -> Result<Self> {
-        let (var, begin, end, step) =
-            (var.into(), begin.into_owned_expr()?, end.into_owned_expr()?, step.into_owned_expr()?);
+        let (var, begin, end, step) = (
+            var.into_owned_object_ref(),
+            begin.into_owned_expr()?,
+            end.into_owned_expr()?,
+            step.into_owned_expr()?,
+        );
         let var_expr: PrimExpr = var.clone().into();
         let var_ty = var.prim_ty().clone();
-        let body = into_body(body.into())?;
-        let annotations = annotations.cloned().unwrap_or_else(Map::new);
+        let body = into_body(body.into_owned_object_ref())?;
+        let annotations = annotations.into().unwrap_or_else(Map::new);
         for (expr, field) in [(&var_expr, "var"), (&begin, "begin"), (&end, "end"), (&step, "step")]
         {
             let ty = expr.prim_ty();
@@ -607,7 +621,16 @@ impl For {
         same_type(&end, "var.ty() == end.ty()")?;
         let step = promote(step)?;
         same_type(&step, "var.ty() == step.ty()")?;
-        Ok(Self::from_fields(loc.into(), var, begin, end, step, kind, body, annotations))
+        Ok(Self::from_fields(
+            loc.into_owned_object_ref(),
+            var,
+            begin,
+            end,
+            step,
+            kind,
+            body,
+            annotations,
+        ))
     }
 }
 
@@ -658,11 +681,15 @@ impl WhileObj {
 impl While {
     /// Lossless complete-field allocation.
     pub fn from_fields(
-        loc: impl Into<Location>,
-        condition: impl Into<PrimExpr>,
-        body: impl Into<SeqStmt>,
+        loc: impl IntoObjectRef<Location>,
+        condition: impl IntoObjectRef<PrimExpr>,
+        body: impl IntoObjectRef<SeqStmt>,
     ) -> Self {
-        let obj = WhileObj::new(loc.into(), condition.into(), body.into());
+        let obj = WhileObj::new(
+            loc.into_owned_object_ref(),
+            condition.into_owned_object_ref(),
+            body.into_owned_object_ref(),
+        );
         Self { data_: ObjectArc::new(obj) }
     }
 }
@@ -681,11 +708,11 @@ impl While {
     /// Returns an `InternalError` if `condition` is a vector.
     pub fn new(
         condition: impl IntoExpr<PrimExpr>,
-        body: impl Into<Stmt>,
-        loc: impl Into<Location>,
+        body: impl IntoObjectRef<Stmt>,
+        loc: impl IntoObjectRef<Location>,
     ) -> Result<Self> {
         let condition = condition.into_owned_expr()?;
-        let body = into_body(body.into())?;
+        let body = into_body(body.into_owned_object_ref())?;
         if !condition.prim_ty().is_scalar() {
             let check = "condition.ty().IsScalar()";
             return Err(support::check_failed(tvm_ffi::INTERNAL_ERROR, check, ""));
@@ -748,12 +775,17 @@ impl TensorStoreObj {
 impl TensorStore {
     /// Lossless complete-field allocation.
     pub fn from_fields(
-        loc: impl Into<Location>,
-        dest: impl Into<Expr>,
+        loc: impl IntoObjectRef<Location>,
+        dest: impl IntoObjectRef<Expr>,
         indices: impl Into<Array<PrimExpr>>,
-        value: impl Into<PrimExpr>,
+        value: impl IntoObjectRef<PrimExpr>,
     ) -> Self {
-        let obj = TensorStoreObj::new(loc.into(), dest.into(), indices.into(), value.into());
+        let obj = TensorStoreObj::new(
+            loc.into_owned_object_ref(),
+            dest.into_owned_object_ref(),
+            indices.into(),
+            value.into_owned_object_ref(),
+        );
         Self { data_: ObjectArc::new(obj) }
     }
 }
@@ -775,7 +807,7 @@ impl TensorStore {
         dest: impl IntoExpr,
         indices: impl IntoIterator<Item = impl IntoExpr<PrimExpr>>,
         value: impl IntoExpr<PrimExpr>,
-        loc: impl Into<Location>,
+        loc: impl IntoObjectRef<Location>,
     ) -> Result<Self> {
         // The native library registers the column when it loads, so one lookup suffices.
         static VALIDATE: LazyLock<Option<TypeAttrColumn>> =
@@ -802,7 +834,7 @@ impl TensorStore {
         let validate: NativeFunction<(&Expr, &Array<PrimExpr>, &PrimExpr)> =
             unsafe { NativeFunction::from_any(validate)? };
         validate.call((&dest, &indices, &value))?;
-        Ok(Self::from_fields(loc.into(), dest, indices, value))
+        Ok(Self::from_fields(loc.into_owned_object_ref(), dest, indices, value))
     }
 }
 
@@ -869,21 +901,21 @@ impl RegionStmtObj {
 impl RegionStmt {
     /// Lossless complete-field allocation.
     pub fn from_fields(
-        loc: impl Into<Location>,
-        op: impl Into<Op>,
+        loc: impl IntoObjectRef<Location>,
+        op: impl IntoObjectRef<Op>,
         args: impl Into<Array<Expr>>,
         body_params: impl Into<Array<Var>>,
-        attrs: impl Into<DictAttrs>,
-        body: impl Into<SeqStmt>,
+        attrs: impl IntoObjectRef<DictAttrs>,
+        body: impl IntoObjectRef<SeqStmt>,
         result_vars: impl Into<Array<Var>>,
     ) -> Self {
         let obj = RegionStmtObj::new(
-            loc.into(),
-            op.into(),
+            loc.into_owned_object_ref(),
+            op.into_owned_object_ref(),
             args.into(),
             body_params.into(),
-            attrs.into(),
-            body.into(),
+            attrs.into_owned_object_ref(),
+            body.into_owned_object_ref(),
             result_vars.into(),
         );
         Self { data_: ObjectArc::new(obj) }
@@ -905,19 +937,29 @@ impl RegionStmt {
     /// Returns a `ValueError` if `body_params` do not match the parameters the operator gives or a
     /// variable is defined twice, or the error of the operator's validators.
     pub fn new(
-        op: impl Into<Op>,
+        op: impl IntoObjectRef<Op>,
         args: impl IntoIterator<Item = impl IntoExpr>,
-        body_params: impl IntoIterator<Item = impl Into<Var>>,
-        attrs: impl Into<DictAttrs>,
-        body: impl Into<Stmt>,
-        result_vars: impl IntoIterator<Item = impl Into<Var>>,
-        loc: impl Into<Location>,
+        body_params: impl IntoIterator<Item = impl IntoObjectRef<Var>>,
+        attrs: impl IntoObjectRef<DictAttrs>,
+        body: impl IntoObjectRef<Stmt>,
+        result_vars: impl IntoIterator<Item = impl IntoObjectRef<Var>>,
+        loc: impl IntoObjectRef<Location>,
     ) -> Result<Self> {
-        let (op, attrs, body) = (op.into(), attrs.into(), into_body(body.into())?);
+        let (op, attrs, body) = (
+            op.into_owned_object_ref(),
+            attrs.into_owned_object_ref(),
+            into_body(body.into_owned_object_ref())?,
+        );
         let args =
             args.into_iter().map(IntoExpr::into_owned_expr).collect::<Result<Array<Expr>>>()?;
-        let body_params = body_params.into_iter().map(Into::into).collect::<Array<Var>>();
-        let result_vars = result_vars.into_iter().map(Into::into).collect::<Array<Var>>();
+        let body_params = body_params
+            .into_iter()
+            .map(IntoObjectRef::into_owned_object_ref)
+            .collect::<Array<Var>>();
+        let result_vars = result_vars
+            .into_iter()
+            .map(IntoObjectRef::into_owned_object_ref)
+            .collect::<Array<Var>>();
         let name = op.name.as_str().to_string();
         let expected = region_body_params(&op, &args, &attrs)?;
         if body_params.len() != expected.len() {
@@ -949,7 +991,15 @@ impl RegionStmt {
                 return Err(support::check_failed(tvm_ffi::VALUE_ERROR, condition, message));
             }
         }
-        let region = Self::from_fields(loc.into(), op, args, body_params, attrs, body, result_vars);
+        let region = Self::from_fields(
+            loc.into_owned_object_ref(),
+            op,
+            args,
+            body_params,
+            attrs,
+            body,
+            result_vars,
+        );
         // SAFETY: `FRegionValidate` holds `void(const RegionStmtObj*)` hooks.
         let validate =
             unsafe { support::op_hook::<(&RegionStmtObj,), ()>(&region.op, "FRegionValidate")? };
@@ -1007,8 +1057,8 @@ impl SeqStmtObj {
 #[allow(missing_docs)]
 impl SeqStmt {
     /// Lossless complete-field allocation.
-    pub fn from_fields(loc: impl Into<Location>, seq: impl Into<Array<Stmt>>) -> Self {
-        let obj = SeqStmtObj::new(loc.into(), seq.into());
+    pub fn from_fields(loc: impl IntoObjectRef<Location>, seq: impl Into<Array<Stmt>>) -> Self {
+        let obj = SeqStmtObj::new(loc.into_owned_object_ref(), seq.into());
         Self { data_: ObjectArc::new(obj) }
     }
 }
@@ -1021,9 +1071,13 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(SeqStmt => Stmt);
 impl SeqStmt {
     /// Create the sequence of `seq`, with nested sequences flattened and no-ops (`Evaluate(0)`)
     /// dropped.
-    pub fn new(seq: impl IntoIterator<Item = impl Into<Stmt>>, loc: impl Into<Location>) -> Self {
-        let seq = seq.into_iter().map(Into::into).collect::<Array<Stmt>>();
-        Self::from_fields(loc.into(), flatten(seq))
+    pub fn new(
+        seq: impl IntoIterator<Item = impl IntoObjectRef<Stmt>>,
+        loc: impl IntoObjectRef<Location>,
+    ) -> Self {
+        let seq =
+            seq.into_iter().map(IntoObjectRef::into_owned_object_ref).collect::<Array<Stmt>>();
+        Self::from_fields(loc.into_owned_object_ref(), flatten(seq))
     }
 }
 
@@ -1081,12 +1135,17 @@ impl IfObj {
 impl If {
     /// Lossless complete-field allocation.
     pub fn from_fields(
-        loc: impl Into<Location>,
-        condition: impl Into<PrimExpr>,
-        then_case: impl Into<SeqStmt>,
+        loc: impl IntoObjectRef<Location>,
+        condition: impl IntoObjectRef<PrimExpr>,
+        then_case: impl IntoObjectRef<SeqStmt>,
         else_case: impl Into<Option<SeqStmt>>,
     ) -> Self {
-        let obj = IfObj::new(loc.into(), condition.into(), then_case.into(), else_case.into());
+        let obj = IfObj::new(
+            loc.into_owned_object_ref(),
+            condition.into_owned_object_ref(),
+            then_case.into_owned_object_ref(),
+            else_case.into(),
+        );
         Self { data_: ObjectArc::new(obj) }
     }
 }
@@ -1100,14 +1159,14 @@ impl If {
     /// Create the statement running `then_case` if `condition` holds, else `else_case` if given.
     pub fn new(
         condition: impl IntoExpr<PrimExpr>,
-        then_case: impl Into<Stmt>,
+        then_case: impl IntoObjectRef<Stmt>,
         else_case: Option<&Stmt>,
-        loc: impl Into<Location>,
+        loc: impl IntoObjectRef<Location>,
     ) -> Result<Self> {
         let condition = condition.into_owned_expr()?;
-        let then_case = into_body(then_case.into())?;
+        let then_case = into_body(then_case.into_owned_object_ref())?;
         let else_case = else_case.map(|stmt| into_body(stmt.clone())).transpose()?;
-        Ok(Self::from_fields(loc.into(), condition, then_case, else_case))
+        Ok(Self::from_fields(loc.into_owned_object_ref(), condition, then_case, else_case))
     }
 }
 
@@ -1157,8 +1216,8 @@ impl EvaluateObj {
 #[allow(missing_docs)]
 impl Evaluate {
     /// Lossless complete-field allocation.
-    pub fn from_fields(loc: impl Into<Location>, value: impl Into<Expr>) -> Self {
-        let obj = EvaluateObj::new(loc.into(), value.into());
+    pub fn from_fields(loc: impl IntoObjectRef<Location>, value: impl IntoObjectRef<Expr>) -> Self {
+        let obj = EvaluateObj::new(loc.into_owned_object_ref(), value.into_owned_object_ref());
         Self { data_: ObjectArc::new(obj) }
     }
 }
@@ -1170,8 +1229,8 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(Evaluate => Stmt);
 
 impl Evaluate {
     /// Create the statement evaluating `value` for its side effects.
-    pub fn new(value: impl Into<Expr>, loc: impl Into<Location>) -> Self {
-        Self::from_fields(loc.into(), value.into())
+    pub fn new(value: impl IntoObjectRef<Expr>, loc: impl IntoObjectRef<Location>) -> Self {
+        Self::from_fields(loc.into_owned_object_ref(), value.into_owned_object_ref())
     }
 }
 
@@ -1219,8 +1278,8 @@ impl BreakObj {
 #[allow(missing_docs)]
 impl Break {
     /// Lossless complete-field allocation.
-    pub fn new(loc: impl Into<Location>) -> Self {
-        let obj = BreakObj::new(loc.into());
+    pub fn new(loc: impl IntoObjectRef<Location>) -> Self {
+        let obj = BreakObj::new(loc.into_owned_object_ref());
         Self { data_: ObjectArc::new(obj) }
     }
 }
@@ -1277,8 +1336,8 @@ impl ReturnObj {
 #[allow(missing_docs)]
 impl Return {
     /// Lossless complete-field allocation.
-    pub fn from_fields(loc: impl Into<Location>, value: impl Into<Expr>) -> Self {
-        let obj = ReturnObj::new(loc.into(), value.into());
+    pub fn from_fields(loc: impl IntoObjectRef<Location>, value: impl IntoObjectRef<Expr>) -> Self {
+        let obj = ReturnObj::new(loc.into_owned_object_ref(), value.into_owned_object_ref());
         Self { data_: ObjectArc::new(obj) }
     }
 }
@@ -1290,8 +1349,8 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(Return => Stmt);
 
 impl Return {
     /// Create the statement returning `value` from the enclosing function.
-    pub fn new(value: impl Into<Expr>, loc: impl Into<Location>) -> Self {
-        Self::from_fields(loc.into(), value.into())
+    pub fn new(value: impl IntoObjectRef<Expr>, loc: impl IntoObjectRef<Location>) -> Self {
+        Self::from_fields(loc.into_owned_object_ref(), value.into_owned_object_ref())
     }
 }
 
@@ -1339,8 +1398,8 @@ impl ContinueObj {
 #[allow(missing_docs)]
 impl Continue {
     /// Lossless complete-field allocation.
-    pub fn new(loc: impl Into<Location>) -> Self {
-        let obj = ContinueObj::new(loc.into());
+    pub fn new(loc: impl IntoObjectRef<Location>) -> Self {
+        let obj = ContinueObj::new(loc.into_owned_object_ref());
         Self { data_: ObjectArc::new(obj) }
     }
 }

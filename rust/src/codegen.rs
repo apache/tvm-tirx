@@ -28,12 +28,16 @@
 // tvm-ffi-stubgen(import-object): tvm_ffi::String
 // tvm-ffi-stubgen(import-object): crate::ir::module::IRModule
 // tvm-ffi-stubgen(import-object): crate::target::Target
+// tvm-ffi-stubgen(import-object): tvm_ffi::IntoObjectRef
+// tvm-ffi-stubgen(import-object): std::borrow::Borrow
 
 pub mod llvm;
 
 // tvm-ffi-stubgen(begin): import-section
 use crate::ir::module::IRModule;
 use crate::target::Target;
+use std::borrow::Borrow;
+use tvm_ffi::IntoObjectRef;
 use tvm_ffi::Module;
 use tvm_ffi::Result;
 use tvm_ffi::String;
@@ -64,15 +68,18 @@ use tvm_ffi::String;
 /// # let add_one = Function::new([&x], &body, PrimType::int(32), attrs, UNKNOWN_LOC);
 ///
 /// let functions = Map::from_iter([(GlobalVar::new("add_one", UNKNOWN_LOC), add_one.into())]);
-/// let module = IRModule::new(&functions, DictAttrs::new(Map::new()), &Map::new())?;
+/// let module = IRModule::new(&functions, DictAttrs::new(Map::new()), Map::new())?;
 ///
 /// let compiled = codegen::build_module(&module, Target::new("c")?)?;
 /// assert!(compiled.implements_function_with_imports("add_one")?);
 /// # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
 /// ```
-pub fn build_module(module: impl Into<IRModule>, target: impl Into<Target>) -> Result<Module> {
+pub fn build_module(
+    module: impl IntoObjectRef<IRModule>,
+    target: impl IntoObjectRef<Target>,
+) -> Result<Module> {
     tvm_ffi::cached_global_func!("codegen.Build")
-        .call_tuple((&module.into(), &target.into()))?
+        .call_tuple((module.into_object_ref().borrow(), target.into_object_ref().borrow()))?
         .try_into()
 }
 

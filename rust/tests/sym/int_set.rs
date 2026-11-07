@@ -85,7 +85,7 @@ fn int_sets() {
         &empty,
     )
     .unwrap();
-    let bound = analyzer.int_set(&x, Some(&Map::from_iter([(Var::from(&x), bound)]))).unwrap();
+    let bound = analyzer.int_set(&x, Map::from_iter([(Var::from(&x), bound)])).unwrap();
     assert!(!bound.is_everything().unwrap());
 }
 

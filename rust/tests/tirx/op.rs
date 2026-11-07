@@ -48,7 +48,7 @@ fn prim_var(name: &str) -> PrimVar {
 }
 
 fn ptr(element: &str) -> Type {
-    PtrType::new(prim(element), &memory_scope()).unwrap().into()
+    PtrType::new(prim(element), memory_scope()).unwrap().into()
 }
 
 #[test]

@@ -31,12 +31,16 @@
 // tvm-ffi-stubgen(import-object): tvm_ffi::Shape
 // tvm-ffi-stubgen(import-object): tvm_ffi::String
 // tvm-ffi-stubgen(import-object): tvm_ffi::Tensor
+// tvm-ffi-stubgen(import-object): tvm_ffi::IntoObjectRef
+// tvm-ffi-stubgen(import-object): std::borrow::Borrow
 
 // tvm-ffi-stubgen(begin): import-section
+use std::borrow::Borrow;
 use tvm_ffi::Any;
 use tvm_ffi::DLDataType;
 use tvm_ffi::DLDevice;
 use tvm_ffi::EnumObj;
+use tvm_ffi::IntoObjectRef;
 use tvm_ffi::ObjectArc;
 use tvm_ffi::Result;
 use tvm_ffi::Shape;
@@ -121,13 +125,18 @@ pub fn empty(
 ///
 /// Returns an error if `source` is not contiguous or the view does not fit in its storage.
 pub fn create_view(
-    source: &Tensor,
+    source: impl IntoObjectRef<Tensor>,
     shape: &[i64],
     dtype: DLDataType,
     relative_byte_offset: u64,
 ) -> Result<Tensor> {
     tvm_ffi::cached_global_func!("runtime.TensorCreateView")
-        .call_tuple((source, Shape::from(shape), dtype, relative_byte_offset))?
+        .call_tuple((
+            source.into_object_ref().borrow(),
+            Shape::from(shape),
+            dtype,
+            relative_byte_offset,
+        ))?
         .try_into()
 }
 
@@ -140,7 +149,7 @@ pub fn create_view(
 /// then `false`.
 pub fn get_device_attr(device: DLDevice, name: &str) -> Result<Any> {
     tvm_ffi::cached_global_func!("runtime.GetDeviceAttr").call_tuple((
-        device.device_type as i32,
+        device.device_type,
         device.device_id,
         String::from(name),
     ))

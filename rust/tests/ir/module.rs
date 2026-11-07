@@ -31,7 +31,7 @@ fn modules() {
     let func = function(0);
     let main = GlobalVar::new("main", UNKNOWN_LOC);
     let functions: Map<GlobalVar, BaseFunc> = [(main.clone(), func.clone())].into_iter().collect();
-    let module = IRModule::new(&functions, DictAttrs::new(Map::new()), &Map::new()).unwrap();
+    let module = IRModule::new(&functions, DictAttrs::new(Map::new()), Map::new()).unwrap();
     assert!(module.contains("main").unwrap());
     assert!(module.contains_global_var(&main).unwrap());
     assert!(module.has_global_var("main").unwrap());
@@ -53,7 +53,7 @@ fn modules() {
     let extra_var = GlobalVar::new("extra", UNKNOWN_LOC);
     let extra_functions: Map<GlobalVar, BaseFunc> =
         [(extra_var.clone(), function(4))].into_iter().collect();
-    let extra = IRModule::new(&extra_functions, DictAttrs::new(Map::new()), &Map::new()).unwrap();
+    let extra = IRModule::new(&extra_functions, DictAttrs::new(Map::new()), Map::new()).unwrap();
     module.update(&extra).unwrap();
     assert!(module.contains("extra").unwrap());
     module.update_global_info("info", Vec::<GlobalInfo>::new()).unwrap();
@@ -74,7 +74,7 @@ fn modules() {
     let module = module.without_attr("note").unwrap();
     assert!(module.get_attr("note").unwrap().is_none());
 
-    let from_expr = IRModule::from_expr(function(5), &Map::new()).unwrap();
+    let from_expr = IRModule::from_expr(function(5), Map::new()).unwrap();
     assert!(from_expr.contains("main").unwrap());
 }
 

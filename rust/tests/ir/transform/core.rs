@@ -47,7 +47,7 @@ fn pass_context_scope() {
     assert!(!configs.is_empty());
     let unknown: Map<FfiString, Any> =
         [(FfiString::from("no.such.option"), Any::from(1i64))].into_iter().collect();
-    assert!(PassContext::new(2, [""; 0], [""; 0], no_instruments(), Some(&unknown)).is_err());
+    assert!(PassContext::new(2, [""; 0], [""; 0], no_instruments(), unknown).is_err());
 }
 
 #[test]

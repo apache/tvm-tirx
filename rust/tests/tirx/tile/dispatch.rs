@@ -38,12 +38,12 @@ fn dispatch_contexts() {
         &target,
         &warp,
         [("threadIdx.x", tx_var.clone(), int32(32))],
-        &Map::new(),
+        Map::new(),
         true,
-        &Map::new(),
-        &Map::new(),
-        &Map::new(),
-        &Map::new(),
+        Map::new(),
+        Map::new(),
+        Map::new(),
+        Map::new(),
         "warp",
     )
     .unwrap();
@@ -66,7 +66,7 @@ fn dispatch_contexts() {
     let ty =
         TensorType::new([int32(4)], PrimType::float(32), &scope, 0, None, UNKNOWN_LOC).unwrap();
     let tensor = var("T", &ty);
-    ctx.add_alloc_tensor(&tensor, Vec::<PrimExpr>::new(), &Map::<FfiString, Any>::new()).unwrap();
+    ctx.add_alloc_tensor(&tensor, Vec::<PrimExpr>::new(), Map::<FfiString, Any>::new()).unwrap();
     ctx.add_post_tensor_def_stmt(&tensor, &stmt).unwrap();
     assert_eq!(ctx.callbacks().unwrap().len(), 4);
 }

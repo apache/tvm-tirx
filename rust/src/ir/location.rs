@@ -31,11 +31,13 @@
 // does.
 // tvm-ffi-stubgen(import-object): tvm_ffi::Result
 // tvm-ffi-stubgen(import-object): crate::ir::support
+// tvm-ffi-stubgen(import-object): tvm_ffi::IntoObjectRef
 
 // tvm-ffi-stubgen(begin): import-section
 use crate::ir::support;
 use std::ops::Deref;
 use std::ptr::addr_of_mut;
+use tvm_ffi::IntoObjectRef;
 use tvm_ffi::Object;
 use tvm_ffi::ObjectArc;
 use tvm_ffi::Result;
@@ -47,8 +49,7 @@ use tvm_ffi::reflection::UnsafeInit;
 /// Where an IR node comes from, for diagnostics: an [`UnknownLoc`], a [`SourceLoc`] or a
 /// [`CallSiteLoc`].
 ///
-/// A constructor takes its `loc` as any `impl Into<Location>`, such as a `SourceLoc` or
-/// [`UNKNOWN_LOC`].
+/// A constructor takes its `loc` as any location, such as a `SourceLoc` or [`UNKNOWN_LOC`].
 ///
 /// # Examples
 ///
@@ -166,8 +167,8 @@ impl UnknownLoc {
     }
 }
 
-/// A marker for the unknown location as the `loc` argument of a constructor, which takes any
-/// `impl Into<Location>`: `Var::new("x", ty, UNKNOWN_LOC)`.
+/// A marker for the unknown location as the `loc` argument of a constructor:
+/// `Var::new("x", ty, UNKNOWN_LOC)`.
 ///
 /// [`UnknownLoc::new`] is the same location as a value.
 #[derive(Clone, Copy, Debug)]
@@ -179,6 +180,14 @@ pub const UNKNOWN_LOC: Unknown = Unknown;
 impl From<Unknown> for Location {
     fn from(_: Unknown) -> Self {
         UnknownLoc::new().into()
+    }
+}
+
+impl IntoObjectRef<Location> for Unknown {
+    type Output = Location;
+    #[inline]
+    fn into_object_ref(self) -> Location {
+        self.into()
     }
 }
 
@@ -239,14 +248,19 @@ impl SourceLocObj {
 impl SourceLoc {
     /// Lossless complete-field allocation.
     pub fn new(
-        source_name: impl Into<SourceName>,
+        source_name: impl IntoObjectRef<SourceName>,
         start_line: i32,
         start_column: i32,
         end_line: i32,
         end_column: i32,
     ) -> Self {
-        let obj =
-            SourceLocObj::new(source_name.into(), start_line, start_column, end_line, end_column);
+        let obj = SourceLocObj::new(
+            source_name.into_owned_object_ref(),
+            start_line,
+            start_column,
+            end_line,
+            end_column,
+        );
         Self { data_: ObjectArc::new(obj) }
     }
 }
@@ -305,8 +319,9 @@ impl CallSiteLocObj {
 #[allow(missing_docs)]
 impl CallSiteLoc {
     /// Lossless complete-field allocation.
-    pub fn new(callee: impl Into<Location>, caller: impl Into<Location>) -> Self {
-        let obj = CallSiteLocObj::new(callee.into(), caller.into());
+    pub fn new(callee: impl IntoObjectRef<Location>, caller: impl IntoObjectRef<Location>) -> Self {
+        let obj =
+            CallSiteLocObj::new(callee.into_owned_object_ref(), caller.into_owned_object_ref());
         Self { data_: ObjectArc::new(obj) }
     }
 }

@@ -38,6 +38,7 @@
 // A tile layout's offsets are `PrimExpr`s, as C++ `TileLayoutObj` holds them.
 // tvm-ffi-stubgen(field): tirx.TileLayout.offset -> Map<Axis, PrimExpr>
 // tvm-ffi-stubgen(import-object): tvm_ffi::Map
+// tvm-ffi-stubgen(import-object): tvm_ffi::IntoObjectRef
 // tvm-ffi-stubgen(begin): import-section
 use crate::ir::expr::IntoExpr;
 use crate::ir::expr::PrimExpr;
@@ -49,6 +50,7 @@ use std::ops::Deref;
 use tvm_ffi::Any;
 use tvm_ffi::Array;
 use tvm_ffi::EnumObj;
+use tvm_ffi::IntoObjectRef;
 use tvm_ffi::Map;
 use tvm_ffi::Object;
 use tvm_ffi::ObjectArc;
@@ -76,7 +78,7 @@ use tvm_ffi::reflection::FieldGetter;
 ///
 /// let m = Axis::get_or_register("m");
 /// let shard = [Iter::new(8, 8, m.clone()), Iter::new(8, 1, m)];
-/// let layout = Layout::from(&TileLayout::new(shard, Vec::<Iter>::new(), &Map::new()));
+/// let layout = Layout::from(&TileLayout::new(shard, Vec::<Iter>::new(), Map::new()));
 /// assert_eq!(script(&layout.size(None)?)?, "64");
 ///
 /// let i = PrimVar::new("i", PrimType::int(32), UNKNOWN_LOC);
@@ -141,14 +143,14 @@ impl Layout {
     pub fn apply(
         &self,
         coord: impl IntoIterator<Item = impl IntoExpr<PrimExpr>>,
-        analyzer: &Analyzer,
+        analyzer: impl IntoObjectRef<Analyzer>,
     ) -> Result<Map<String, PrimExpr>> {
         let coord = coord
             .into_iter()
             .map(IntoExpr::into_owned_expr)
             .collect::<Result<Array<PrimExpr>>>()?;
         tvm_ffi::cached_global_func!("tirx.LayoutApply")
-            .call_tuple((self, &coord, analyzer))?
+            .call_tuple((self, &coord, analyzer.into_object_ref().borrow()))?
             .try_into()
     }
 
@@ -157,10 +159,10 @@ impl Layout {
     pub fn apply_linear(
         &self,
         coord: impl IntoExpr<PrimExpr>,
-        analyzer: &Analyzer,
+        analyzer: impl IntoObjectRef<Analyzer>,
     ) -> Result<Map<String, PrimExpr>> {
         tvm_ffi::cached_global_func!("tirx.LayoutApplyLinear")
-            .call_tuple((self, coord.into_expr()?.borrow(), analyzer))?
+            .call_tuple((self, coord.into_expr()?.borrow(), analyzer.into_object_ref().borrow()))?
             .try_into()
     }
 
@@ -170,7 +172,7 @@ impl Layout {
         &self,
         coord: impl IntoIterator<Item = impl IntoExpr<PrimExpr>>,
         shape: impl IntoIterator<Item = impl IntoExpr<PrimExpr>>,
-        analyzer: &Analyzer,
+        analyzer: impl IntoObjectRef<Analyzer>,
     ) -> Result<Map<String, PrimExpr>> {
         let coord = coord
             .into_iter()
@@ -181,7 +183,7 @@ impl Layout {
             .map(IntoExpr::into_owned_expr)
             .collect::<Result<Array<PrimExpr>>>()?;
         tvm_ffi::cached_global_func!("tirx.LayoutApplyWithShape")
-            .call_tuple((self, &coord, &shape, analyzer))?
+            .call_tuple((self, &coord, &shape, analyzer.into_object_ref().borrow()))?
             .try_into()
     }
 
@@ -199,11 +201,10 @@ impl Layout {
     /// grouped by its shape.
     pub fn tile(
         &self,
-        outer: impl Into<TileLayout>,
+        outer: impl IntoObjectRef<TileLayout>,
         outer_shape: impl IntoIterator<Item = impl IntoExpr<PrimExpr>>,
         inner_shape: impl IntoIterator<Item = impl IntoExpr<PrimExpr>>,
     ) -> Result<Layout> {
-        let outer = outer.into();
         let outer_shape = outer_shape
             .into_iter()
             .map(IntoExpr::into_owned_expr)
@@ -213,7 +214,7 @@ impl Layout {
             .map(IntoExpr::into_owned_expr)
             .collect::<Result<Array<PrimExpr>>>()?;
         tvm_ffi::cached_global_func!("tirx.LayoutTile")
-            .call_tuple((self, &outer, &outer_shape, &inner_shape))?
+            .call_tuple((self, outer.into_object_ref().borrow(), &outer_shape, &inner_shape))?
             .try_into()
     }
 }
@@ -272,15 +273,17 @@ impl TileLayout {
     /// Create the tile layout of the `shard` and `replica` iterators, shifted by `offset`
     /// (`tirx.TileLayout`).
     pub fn new(
-        shard: impl IntoIterator<Item = impl Into<Iter>>,
-        replica: impl IntoIterator<Item = impl Into<Iter>>,
-        offset: &Map<Axis, PrimExpr>,
+        shard: impl IntoIterator<Item = impl IntoObjectRef<Iter>>,
+        replica: impl IntoIterator<Item = impl IntoObjectRef<Iter>>,
+        offset: impl Into<Map<Axis, PrimExpr>>,
     ) -> Self {
-        let shard = shard.into_iter().map(Into::into).collect::<Array<Iter>>();
-        let replica = replica.into_iter().map(Into::into).collect::<Array<Iter>>();
+        let shard =
+            shard.into_iter().map(IntoObjectRef::into_owned_object_ref).collect::<Array<Iter>>();
+        let replica =
+            replica.into_iter().map(IntoObjectRef::into_owned_object_ref).collect::<Array<Iter>>();
         support::infallible(
             tvm_ffi::cached_global_func!("tirx.TileLayout")
-                .call_tuple((&shard, &replica, offset))
+                .call_tuple((&shard, &replica, &offset.into()))
                 .and_then(|any| any.try_into()),
         )
     }
@@ -375,11 +378,15 @@ impl IterObj {
 impl Iter {
     /// Lossless complete-field allocation.
     pub fn new(
-        extent: impl Into<PrimExpr>,
-        stride: impl Into<PrimExpr>,
-        axis: impl Into<Axis>,
+        extent: impl IntoObjectRef<PrimExpr>,
+        stride: impl IntoObjectRef<PrimExpr>,
+        axis: impl IntoObjectRef<Axis>,
     ) -> Self {
-        let obj = IterObj::new(extent.into(), stride.into(), axis.into());
+        let obj = IterObj::new(
+            extent.into_owned_object_ref(),
+            stride.into_owned_object_ref(),
+            axis.into_owned_object_ref(),
+        );
         Self { data_: ObjectArc::new(obj) }
     }
 }
@@ -539,12 +546,17 @@ impl ComposeLayout {
         per_element: i32,
         swizzle_len: i32,
         atom_len: i32,
-        tile_layout: impl Into<TileLayout>,
+        tile_layout: impl IntoObjectRef<TileLayout>,
         swizzle_inner: bool,
     ) -> Result<Self> {
-        let tile_layout = tile_layout.into();
         tvm_ffi::cached_global_func!("tirx.ComposeLayout")
-            .call_tuple((per_element, swizzle_len, atom_len, &tile_layout, swizzle_inner))?
+            .call_tuple((
+                per_element,
+                swizzle_len,
+                atom_len,
+                tile_layout.into_object_ref().borrow(),
+                swizzle_inner,
+            ))?
             .try_into()
     }
 }

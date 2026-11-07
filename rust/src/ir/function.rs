@@ -39,6 +39,7 @@ use crate::ir::r#type::Type;
 use std::ops::Deref;
 use std::ptr::addr_of_mut;
 use tvm_ffi::Any;
+use tvm_ffi::IntoObjectRef;
 use tvm_ffi::Map;
 use tvm_ffi::ObjectArc;
 use tvm_ffi::RValueRef;
@@ -113,8 +114,16 @@ impl BaseFuncObj {
 #[allow(missing_docs)]
 impl BaseFunc {
     /// Lossless complete-field allocation.
-    pub fn new(loc: impl Into<Location>, ty: impl Into<Type>, attrs: impl Into<DictAttrs>) -> Self {
-        let obj = BaseFuncObj::new(loc.into(), ty.into(), attrs.into());
+    pub fn new(
+        loc: impl IntoObjectRef<Location>,
+        ty: impl IntoObjectRef<Type>,
+        attrs: impl IntoObjectRef<DictAttrs>,
+    ) -> Self {
+        let obj = BaseFuncObj::new(
+            loc.into_owned_object_ref(),
+            ty.into_owned_object_ref(),
+            attrs.into_owned_object_ref(),
+        );
         Self { data_: ObjectArc::new(obj) }
     }
 }
@@ -158,9 +167,9 @@ impl BaseFunc {
     /// Return the function with the attributes of `attrs` set (`ir.BaseFuncWithAttrs`).
     ///
     /// Consumes `self`, as [`with_attr`](Self::with_attr) does.
-    pub fn with_attrs(self, attrs: &Map<String, Any>) -> Result<BaseFunc> {
+    pub fn with_attrs(self, attrs: impl Into<Map<String, Any>>) -> Result<BaseFunc> {
         tvm_ffi::cached_global_func!("ir.BaseFuncWithAttrs")
-            .call_tuple((RValueRef::new(self), attrs))?
+            .call_tuple((RValueRef::new(self), &attrs.into()))?
             .try_into()
     }
 
