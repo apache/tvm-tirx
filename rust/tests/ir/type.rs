@@ -30,7 +30,7 @@ use tvm_tirx::ir::{
 };
 use tvm_tirx::tvm_ffi::{rs_object, structural_hash, structural_map};
 use tvm_tirx::tvm_ffi::{
-    Any, AnyView, Array, DLDataType, DLDataTypeExt, FieldGetter, ObjectCore, ObjectRefCore, Result,
+    Any, AnyView, Array, DLDataType, DLDataTypeExt, FieldGetter, ObjectCore, ObjectRefCore,
     ShallowCopy, String as FfiString, WalkOrder,
 };
 
