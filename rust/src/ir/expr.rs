@@ -60,6 +60,8 @@
 // tvm-ffi-stubgen(import-object): tvm_ffi::AnyView
 // tvm-ffi-stubgen(import-object): tvm_ffi::Result
 // tvm-ffi-stubgen(import-object): tvm_ffi::reflection::NativeFunction
+// tvm-ffi-stubgen(import-object): tvm_ffi::reflection::TypeAttrColumn
+// tvm-ffi-stubgen(import-object): std::sync::LazyLock
 // tvm-ffi-stubgen(import-object): tvm_ffi::tvm_ffi_sys::TVMFFITypeIndex
 // tvm-ffi-stubgen(import-object): crate::ir::location::UNKNOWN_LOC
 // tvm-ffi-stubgen(import-object): crate::ir::op::OpObj
@@ -99,6 +101,7 @@ use crate::ir::support;
 use std::borrow::Borrow;
 use std::ops::Deref;
 use std::ptr::addr_of_mut;
+use std::sync::LazyLock;
 use tvm_ffi::Any;
 use tvm_ffi::AnyView;
 use tvm_ffi::Array;
@@ -113,6 +116,7 @@ use tvm_ffi::String;
 use tvm_ffi::object::IntoObjectRef;
 use tvm_ffi::reflection::NativeFunction;
 use tvm_ffi::reflection::ShallowCopy;
+use tvm_ffi::reflection::TypeAttrColumn;
 use tvm_ffi::reflection::UnsafeInit;
 use tvm_ffi::reflection::drop_if_defined;
 use tvm_ffi::tvm_ffi_sys::TVMFFITypeIndex;
@@ -1102,15 +1106,16 @@ impl TensorLoad {
         indices: impl IntoIterator<Item = impl IntoExpr<PrimExpr>>,
         loc: impl Into<Location>,
     ) -> Result<Self> {
-        static INFER_TYPE: support::TypeAttr =
-            support::TypeAttr::new("__tvm_tensor_load_infer_type__");
+        // The native library registers the column when it loads, so one lookup suffices.
+        static INFER_TYPE: LazyLock<Option<TypeAttrColumn>> =
+            LazyLock::new(|| TypeAttrColumn::new("__tvm_tensor_load_infer_type__"));
         let (source, loc) = (source.into_owned_expr()?, loc.into());
         let indices = indices
             .into_iter()
             .map(IntoExpr::<PrimExpr>::into_owned_expr)
             .collect::<Result<Array<PrimExpr>>>()?;
         let ty_index = AnyView::from(&source.ty).type_index();
-        let Some(infer) = INFER_TYPE.get(ty_index) else {
+        let Some(infer) = INFER_TYPE.and_then(|column| column.get(ty_index)) else {
             let message = format!(
                 "Type {} does not support TensorLoad",
                 tvm_ffi::reflection::type_key(ty_index).unwrap_or_default()

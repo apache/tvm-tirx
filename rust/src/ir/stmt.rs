@@ -47,6 +47,8 @@
 // tvm-ffi-stubgen(import-object): tvm_ffi::ObjectRefCore
 // tvm-ffi-stubgen(import-object): tvm_ffi::Result
 // tvm-ffi-stubgen(import-object): tvm_ffi::reflection::NativeFunction
+// tvm-ffi-stubgen(import-object): tvm_ffi::reflection::TypeAttrColumn
+// tvm-ffi-stubgen(import-object): std::sync::LazyLock
 // tvm-ffi-stubgen(import-object): crate::ir::expr::CallObj
 // tvm-ffi-stubgen(import-object): crate::ir::expr::Call
 // tvm-ffi-stubgen(import-object): crate::ir::expr::IntImm
@@ -92,6 +94,7 @@ use crate::ir::r#type::PrimType;
 use crate::ir::support;
 use std::ops::Deref;
 use std::ptr::addr_of_mut;
+use std::sync::LazyLock;
 use tvm_ffi::Any;
 use tvm_ffi::AnyView;
 use tvm_ffi::Array;
@@ -107,6 +110,7 @@ use tvm_ffi::String;
 use tvm_ffi::VALUE_ERROR;
 use tvm_ffi::reflection::NativeFunction;
 use tvm_ffi::reflection::ShallowCopy;
+use tvm_ffi::reflection::TypeAttrColumn;
 use tvm_ffi::reflection::UnsafeInit;
 use tvm_ffi::reflection::drop_if_defined;
 // tvm-ffi-stubgen(end)
@@ -773,15 +777,16 @@ impl TensorStore {
         value: impl IntoExpr<PrimExpr>,
         loc: impl Into<Location>,
     ) -> Result<Self> {
-        static VALIDATE: support::TypeAttr =
-            support::TypeAttr::new("__tvm_tensor_store_validate__");
+        // The native library registers the column when it loads, so one lookup suffices.
+        static VALIDATE: LazyLock<Option<TypeAttrColumn>> =
+            LazyLock::new(|| TypeAttrColumn::new("__tvm_tensor_store_validate__"));
         let (dest, value) = (dest.into_owned_expr()?, value.into_owned_expr()?);
         let indices = indices
             .into_iter()
             .map(IntoExpr::into_owned_expr)
             .collect::<Result<Array<PrimExpr>>>()?;
         let ty_index = AnyView::from(&dest.ty).type_index();
-        let Some(validate) = VALIDATE.get(ty_index) else {
+        let Some(validate) = VALIDATE.and_then(|column| column.get(ty_index)) else {
             let message = format!(
                 "Type {} does not support TensorStore",
                 tvm_ffi::reflection::type_key(ty_index).unwrap_or_default()

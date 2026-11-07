@@ -25,7 +25,6 @@ use std::cell::{OnceCell, RefCell};
 use std::collections::HashMap;
 use std::fmt::Display;
 use std::rc::Rc;
-use std::sync::OnceLock;
 use std::thread::LocalKey;
 
 use tvm_ffi::tvm_ffi_sys::{TVMFFIFieldFlagBitMask, TVMFFIGetTypeInfo};
@@ -33,7 +32,7 @@ use tvm_ffi::{
     Any, DLDataType, DLDataTypeCode, DLDataTypeExt, Error, ErrorKind, Result, INTERNAL_ERROR,
 };
 
-use tvm_ffi::reflection::{NativeFunction, TypeAttrColumn};
+use tvm_ffi::reflection::NativeFunction;
 
 use super::{Op, OpAttrMap, OpObj, PrimType};
 
@@ -263,28 +262,4 @@ pub(crate) fn cached_op(name: &'static str) -> Result<Op> {
     let op = Op::get(name)?;
     OPS.with(|ops| ops.borrow_mut().insert(name, op.clone()));
     Ok(op)
-}
-
-/// A type attribute column, looked up once it exists.
-pub(crate) struct TypeAttr {
-    name: &'static str,
-    column: OnceLock<TypeAttrColumn>,
-}
-
-impl TypeAttr {
-    pub(crate) const fn new(name: &'static str) -> Self {
-        Self { name, column: OnceLock::new() }
-    }
-
-    /// The value the type of `type_index` registers in this column, if any.
-    pub(crate) fn get(&self, type_index: i32) -> Option<Any> {
-        let column = match self.column.get() {
-            Some(column) => *column,
-            None => {
-                let column = TypeAttrColumn::new(self.name)?;
-                *self.column.get_or_init(|| column)
-            }
-        };
-        column.get(type_index)
-    }
 }
