@@ -36,28 +36,20 @@
 use tvm_ffi::Any;
 use tvm_ffi::DLDataType;
 use tvm_ffi::DLDevice;
-use tvm_ffi::Object;
+use tvm_ffi::EnumObj;
 use tvm_ffi::ObjectArc;
 use tvm_ffi::Result;
 use tvm_ffi::Shape;
 use tvm_ffi::String;
 use tvm_ffi::Tensor;
-
-/// Header-only stand-in for the builtin `ffi.Enum`; it only carries the ancestor depth.
-#[allow(dead_code)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::Object)]
-#[type_key = "ffi.Enum"]
-struct FfiEnumObj {
-    base_: Object,
-}
 // tvm-ffi-stubgen(end)
 
 // `ir.PtrType.storage_scope` refers to this type.
 /// A registered memory space, such as `global` or `shared`, that a pointer or tensor lives in.
 ///
 /// Registration order has no meaning, and a backend must support a scope before it can allocate
-/// storage in it; [`MemoryScope::register`] adds one.
+/// storage in it; [`EnumDef::new`](tvm_ffi::reflection::EnumDef::new) adds one, and
+/// [`EnumRef::get`](tvm_ffi::EnumRef::get) looks one up by name.
 // tvm-ffi-stubgen(begin): object/runtime.MemoryScope
 #[allow(missing_docs)]
 #[repr(C)]
@@ -68,31 +60,25 @@ pub struct MemoryScope {
 
 /// The object behind [`MemoryScope`].
 ///
-/// Opaque: parent 'ffi.Enum' is opaque (no-mirror). Fields are read through the C ABI getters.
+/// Complete: reflected fields fill [48, 48) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "runtime.MemoryScope"]
 #[type_final]
 pub struct MemoryScopeObj {
-    base_: FfiEnumObj,
+    base_: EnumObj,
 }
+
+const _: () = {
+    assert!(::core::mem::size_of::<MemoryScopeObj>() == 48);
+    assert!(::core::mem::align_of::<MemoryScopeObj>() == 8);
+};
 
 unsafe impl tvm_ffi::object::ImmutableObject for MemoryScopeObj {}
-// tvm-ffi-stubgen(end)
 
-impl MemoryScope {
-    /// Register the memory scope `name` (`runtime.MemoryScopeRegister`).
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if `name` is empty, contains a null character, or is already registered.
-    pub fn register(name: &str) -> Result<Self> {
-        tvm_ffi::cached_global_func!("runtime.MemoryScopeRegister")
-            .call_tuple((String::from(name),))?
-            .try_into()
-    }
-}
+impl tvm_ffi::EnumRef for MemoryScope {}
+// tvm-ffi-stubgen(end)
 
 /// Allocate an uninitialized tensor on `device`, in the memory scope `mem_scope` or the global one
 /// (`runtime.TensorAllocWithScope`).

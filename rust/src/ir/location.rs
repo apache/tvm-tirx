@@ -39,9 +39,9 @@ use std::ptr::addr_of_mut;
 use tvm_ffi::Object;
 use tvm_ffi::ObjectArc;
 use tvm_ffi::Result;
-use tvm_ffi::ShallowCopy;
 use tvm_ffi::String;
-use tvm_ffi::UnsafeInit;
+use tvm_ffi::reflection::ShallowCopy;
+use tvm_ffi::reflection::UnsafeInit;
 // tvm-ffi-stubgen(end)
 
 /// Where an IR node comes from, for diagnostics: an [`UnknownLoc`], a [`SourceLoc`] or a

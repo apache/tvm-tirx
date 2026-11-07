@@ -41,8 +41,8 @@ use std::ops::Deref;
 use std::ptr::addr_of_mut;
 use tvm_ffi::Object;
 use tvm_ffi::ObjectArc;
-use tvm_ffi::ShallowCopy;
-use tvm_ffi::UnsafeInit;
+use tvm_ffi::reflection::ShallowCopy;
+use tvm_ffi::reflection::UnsafeInit;
 // tvm-ffi-stubgen(end)
 
 /// The base of every fact a [`ConstraintContext`] holds; it owns no analyzer state.

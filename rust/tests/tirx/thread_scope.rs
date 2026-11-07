@@ -20,6 +20,7 @@
 //! Tests of `tirx::thread_scope`.
 
 use tvm_tirx::tirx::ThreadScope;
+use tvm_tirx::tvm_ffi::EnumRef;
 
 use crate::common::serial;
 

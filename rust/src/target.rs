@@ -33,7 +33,6 @@
 use crate::ir::module::IRModule;
 use tvm_ffi::Any;
 use tvm_ffi::Array;
-use tvm_ffi::FieldGetter;
 use tvm_ffi::Map;
 use tvm_ffi::Module;
 use tvm_ffi::Object;
@@ -42,6 +41,7 @@ use tvm_ffi::ObjectCore;
 use tvm_ffi::Result;
 use tvm_ffi::String;
 use tvm_ffi::object::ObjectRef;
+use tvm_ffi::reflection::FieldGetter;
 // tvm-ffi-stubgen(end)
 
 /// A compilation target: its `kind`, the `keys` that classify it, such as `cpu`, the `attrs` of

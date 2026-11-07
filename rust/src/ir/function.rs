@@ -43,9 +43,9 @@ use tvm_ffi::Map;
 use tvm_ffi::ObjectArc;
 use tvm_ffi::RValueRef;
 use tvm_ffi::Result;
-use tvm_ffi::ShallowCopy;
 use tvm_ffi::String;
-use tvm_ffi::UnsafeInit;
+use tvm_ffi::reflection::ShallowCopy;
+use tvm_ffi::reflection::UnsafeInit;
 use tvm_ffi::reflection::drop_if_defined;
 // tvm-ffi-stubgen(end)
 

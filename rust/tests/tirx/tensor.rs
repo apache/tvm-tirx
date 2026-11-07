@@ -20,10 +20,10 @@
 //! Tests of `tirx::tensor`: tensor types.
 
 use tvm_tirx::ir::{UNKNOWN_LOC, UnknownLoc, Expr, PrimExpr, PrimType, StringImm};
-use tvm_tirx::tirx::{tensor_is_scalar, Layout, TensorType};
+use tvm_tirx::tirx::{Layout, TensorType};
 use tvm_tirx::tvm_ffi::Array;
 
-use super::{int32, memory_scope, tile_8x8, var};
+use super::{int32, memory_scope, tile_8x8};
 use crate::common::{agree, agree_kind, native, serial};
 
 #[test]
@@ -45,8 +45,6 @@ fn tensor_types() {
     )
     .unwrap();
     assert!(laid_out.has_default_layout(None).unwrap());
-    assert!(tensor_is_scalar(var("A", &ty), true).unwrap());
-    assert!(!tensor_is_scalar(var("B", &laid_out), true).unwrap());
 }
 
 #[test]

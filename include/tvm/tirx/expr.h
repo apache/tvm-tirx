@@ -71,13 +71,6 @@ class TensorVar : public Var {
   /*! \brief Return the storage scope associated with this tensor. */
   runtime::MemoryScope scope() const { return ty()->scope; }
 
-  /*!
-   * \brief Return true if the tensor is a scalar.
-   * \param alloc_or_decl Whether to consider alloc_scalar and decl_scalar as scalar. True for
-   * alloc_scalar, False for decl_scalar.
-   */
-  TVM_TIRX_DLL bool IsScalar(bool alloc_or_decl = true) const;
-
   explicit TensorVar(ffi::ObjectPtr<VarObj> node) : TensorVar(Var(std::move(node))) {}
   explicit TensorVar(ffi::UnsafeInit tag) : Var(tag) {}
   TVM_FFI_DEFINE_DEFAULT_COPY_MOVE_AND_ASSIGN(TensorVar);

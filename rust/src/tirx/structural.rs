@@ -25,11 +25,11 @@
 
 // tvm-ffi-stubgen(begin): import-section
 use crate::sym::constraint::ConstraintContext;
-use tvm_ffi::FieldGetter;
 use tvm_ffi::Object;
 use tvm_ffi::ObjectArc;
 use tvm_ffi::ObjectCore;
 use tvm_ffi::Result;
+use tvm_ffi::reflection::FieldGetter;
 
 /// Header-only stand-in for the builtin `ffi.StructuralMutator`; it only carries the ancestor depth.
 #[allow(dead_code)]

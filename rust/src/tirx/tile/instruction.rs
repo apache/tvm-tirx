@@ -232,7 +232,7 @@ pub fn as_tensor_region(value: impl IntoExpr) -> Result<TensorRegion> {
 /// use tvm_tirx::ir::{Attrs, Call, OpDef, PrimType, Type, UNKNOWN_LOC};
 /// use tvm_tirx::tirx::tile::{configure_tensor_instruction, ScopeAttrs, ScopeAttrsObj};
 /// use tvm_tirx::tirx::ThreadScope;
-/// use tvm_tirx::tvm_ffi::{ensure, ObjectRefCore, Result, VALUE_ERROR};
+/// use tvm_tirx::tvm_ffi::{ensure, EnumRef, ObjectRefCore, Result, VALUE_ERROR};
 ///
 /// let op = OpDef::new("my_ext.tile_fill", "Fill a tile.")
 ///     .add_arg("value", "The fill value.")
