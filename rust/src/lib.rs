@@ -47,10 +47,10 @@
 //! use tvm_tirx::tvm_ffi::{Function, String};
 //!
 //! let target = Target::new("llvm")?;
-//! assert_eq!(target.kind()?.name()?, "llvm");
+//! assert_eq!(target.kind.name()?, "llvm");
 //!
 //! let same = Function::get_global("target.Target")?.call_tuple((String::from("llvm"),))?;
-//! assert_eq!(Target::try_from(same)?.kind()?.name()?, "llvm");
+//! assert_eq!(Target::try_from(same)?.kind.name()?, "llvm");
 //! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
 //! ```
 //!

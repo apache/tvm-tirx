@@ -26,6 +26,7 @@
 // does.
 // tvm-ffi-stubgen(import-object): tvm_ffi::AnyView
 // tvm-ffi-stubgen(import-object): tvm_ffi::Map
+// tvm-ffi-stubgen(import-object): tvm_ffi::Result
 // tvm-ffi-stubgen(import-object): crate::ir::expr::Range
 // tvm-ffi-stubgen(import-object): crate::ir::expr::Var
 // tvm-ffi-stubgen(import-object): crate::sym::analyzer::Analyzer
@@ -44,6 +45,8 @@
 // tvm-ffi-stubgen(nullable): sym.IterMapResult.padding_predicate
 // tvm-ffi-stubgen(import-object): std::borrow::Borrow
 // tvm-ffi-stubgen(import-object): tvm_ffi::IntoObjectRef
+// tvm-ffi-stubgen(custom-new): sym.IterSplitExpr
+// tvm-ffi-stubgen(custom-new): sym.IterSumExpr
 // tvm-ffi-stubgen(field): sym.IterSplitExpr.lower_factor -> PrimExpr
 // tvm-ffi-stubgen(field): sym.IterSplitExpr.extent -> PrimExpr
 // tvm-ffi-stubgen(field): sym.IterSplitExpr.scale -> PrimExpr
@@ -56,6 +59,8 @@ use crate::ir::expr::PrimExpr;
 use crate::ir::expr::PrimVar;
 use crate::ir::expr::Range;
 use crate::ir::expr::Var;
+use crate::ir::location::Location;
+use crate::ir::r#type::Type;
 use crate::ir::support;
 use crate::sym::analyzer::Analyzer;
 use std::borrow::Borrow;
@@ -66,11 +71,8 @@ use tvm_ffi::IntoObjectRef;
 use tvm_ffi::Map;
 use tvm_ffi::Object;
 use tvm_ffi::ObjectArc;
-use tvm_ffi::ObjectCore;
 use tvm_ffi::Result;
 use tvm_ffi::String;
-use tvm_ffi::extra::cold_init_lazy_lock::ColdInitLazyLock;
-use tvm_ffi::reflection::FieldGetter;
 // tvm-ffi-stubgen(end)
 
 /// The base of the iterator map forms, [`IterSplitExpr`] and [`IterSumExpr`]. They hold the result
@@ -85,20 +87,43 @@ pub struct IterMapExpr {
 
 /// The object behind [`IterMapExpr`].
 ///
-/// Opaque: no metadata of its own: total_size is unknown. Fields are read through the C ABI getters.
+/// Complete: reflected fields fill [40, 40) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "sym.IterMapExpr"]
 #[type_immutable]
+#[type_rs_parent]
 pub struct IterMapExprObj {
     base_: ExprObj,
 }
+
+const _: () = {
+    assert!(::core::mem::size_of::<IterMapExprObj>() == 40);
+    assert!(::core::mem::align_of::<IterMapExprObj>() == 8);
+};
 
 impl Deref for IterMapExprObj {
     type Target = ExprObj;
     fn deref(&self) -> &ExprObj {
         &self.base_
+    }
+}
+
+#[allow(missing_docs)]
+impl IterMapExprObj {
+    pub fn new(loc: Location, ty: Type) -> Self {
+        let base_ = ExprObj::new(loc, ty);
+        Self { base_ }
+    }
+}
+
+#[allow(missing_docs)]
+impl IterMapExpr {
+    /// Lossless complete-field allocation.
+    pub fn new(loc: impl IntoObjectRef<Location>, ty: impl IntoObjectRef<Type>) -> Self {
+        let obj = IterMapExprObj::new(loc.into_owned_object_ref(), ty.into_owned_object_ref());
+        Self { data_: ObjectArc::new(obj) }
     }
 }
 
@@ -248,7 +273,7 @@ pub struct IterSplitExpr {
 
 /// The object behind [`IterSplitExpr`].
 ///
-/// Opaque: parent 'sym.IterMapExpr' is opaque (layout-unknown). Fields are read through the C ABI getters.
+/// Complete: reflected fields fill [40, 72) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -257,7 +282,16 @@ pub struct IterSplitExpr {
 #[type_immutable]
 pub struct IterSplitExprObj {
     base_: IterMapExprObj,
+    pub source: IterMark,
+    pub lower_factor: PrimExpr,
+    pub extent: PrimExpr,
+    pub scale: PrimExpr,
 }
+
+const _: () = {
+    assert!(::core::mem::size_of::<IterSplitExprObj>() == 72);
+    assert!(::core::mem::align_of::<IterSplitExprObj>() == 8);
+};
 
 impl Deref for IterSplitExprObj {
     type Target = IterMapExprObj;
@@ -268,29 +302,39 @@ impl Deref for IterSplitExprObj {
 
 #[allow(missing_docs)]
 impl IterSplitExprObj {
-    pub fn source(&self) -> Result<IterMark> {
-        static GETTER: ColdInitLazyLock<Result<FieldGetter>> =
-            ColdInitLazyLock::new(|| FieldGetter::new(IterSplitExprObj::type_index(), "source"));
-        GETTER.clone()?.get(self)
+    pub(crate) fn new(
+        loc: Location,
+        ty: Type,
+        source: IterMark,
+        lower_factor: PrimExpr,
+        extent: PrimExpr,
+        scale: PrimExpr,
+    ) -> Self {
+        let base_ = IterMapExprObj::new(loc, ty);
+        Self { base_, source, lower_factor, extent, scale }
     }
+}
 
-    pub fn lower_factor(&self) -> Result<PrimExpr> {
-        static GETTER: ColdInitLazyLock<Result<FieldGetter>> = ColdInitLazyLock::new(|| {
-            FieldGetter::new(IterSplitExprObj::type_index(), "lower_factor")
-        });
-        GETTER.clone()?.get(self)
-    }
-
-    pub fn extent(&self) -> Result<PrimExpr> {
-        static GETTER: ColdInitLazyLock<Result<FieldGetter>> =
-            ColdInitLazyLock::new(|| FieldGetter::new(IterSplitExprObj::type_index(), "extent"));
-        GETTER.clone()?.get(self)
-    }
-
-    pub fn scale(&self) -> Result<PrimExpr> {
-        static GETTER: ColdInitLazyLock<Result<FieldGetter>> =
-            ColdInitLazyLock::new(|| FieldGetter::new(IterSplitExprObj::type_index(), "scale"));
-        GETTER.clone()?.get(self)
+#[allow(missing_docs)]
+impl IterSplitExpr {
+    /// Lossless complete-field allocation.
+    pub fn from_fields(
+        loc: impl IntoObjectRef<Location>,
+        ty: impl IntoObjectRef<Type>,
+        source: impl IntoObjectRef<IterMark>,
+        lower_factor: impl IntoObjectRef<PrimExpr>,
+        extent: impl IntoObjectRef<PrimExpr>,
+        scale: impl IntoObjectRef<PrimExpr>,
+    ) -> Self {
+        let obj = IterSplitExprObj::new(
+            loc.into_owned_object_ref(),
+            ty.into_owned_object_ref(),
+            source.into_owned_object_ref(),
+            lower_factor.into_owned_object_ref(),
+            extent.into_owned_object_ref(),
+            scale.into_owned_object_ref(),
+        );
+        Self { data_: ObjectArc::new(obj) }
     }
 }
 
@@ -309,7 +353,7 @@ pub struct IterSumExpr {
 
 /// The object behind [`IterSumExpr`].
 ///
-/// Opaque: parent 'sym.IterMapExpr' is opaque (layout-unknown). Fields are read through the C ABI getters.
+/// Complete: reflected fields fill [40, 56) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -318,7 +362,14 @@ pub struct IterSumExpr {
 #[type_immutable]
 pub struct IterSumExprObj {
     base_: IterMapExprObj,
+    pub args: Array<IterSplitExpr>,
+    pub base: PrimExpr,
 }
+
+const _: () = {
+    assert!(::core::mem::size_of::<IterSumExprObj>() == 56);
+    assert!(::core::mem::align_of::<IterSumExprObj>() == 8);
+};
 
 impl Deref for IterSumExprObj {
     type Target = IterMapExprObj;
@@ -329,16 +380,28 @@ impl Deref for IterSumExprObj {
 
 #[allow(missing_docs)]
 impl IterSumExprObj {
-    pub fn args(&self) -> Result<Array<IterSplitExpr>> {
-        static GETTER: ColdInitLazyLock<Result<FieldGetter>> =
-            ColdInitLazyLock::new(|| FieldGetter::new(IterSumExprObj::type_index(), "args"));
-        GETTER.clone()?.get(self)
+    pub(crate) fn new(loc: Location, ty: Type, args: Array<IterSplitExpr>, base: PrimExpr) -> Self {
+        let base_ = IterMapExprObj::new(loc, ty);
+        Self { base_, args, base }
     }
+}
 
-    pub fn base(&self) -> Result<PrimExpr> {
-        static GETTER: ColdInitLazyLock<Result<FieldGetter>> =
-            ColdInitLazyLock::new(|| FieldGetter::new(IterSumExprObj::type_index(), "base"));
-        GETTER.clone()?.get(self)
+#[allow(missing_docs)]
+impl IterSumExpr {
+    /// Lossless complete-field allocation.
+    pub fn from_fields(
+        loc: impl IntoObjectRef<Location>,
+        ty: impl IntoObjectRef<Type>,
+        args: impl Into<Array<IterSplitExpr>>,
+        base: impl IntoObjectRef<PrimExpr>,
+    ) -> Self {
+        let obj = IterSumExprObj::new(
+            loc.into_owned_object_ref(),
+            ty.into_owned_object_ref(),
+            args.into(),
+            base.into_owned_object_ref(),
+        );
+        Self { data_: ObjectArc::new(obj) }
     }
 }
 

@@ -67,22 +67,22 @@ fn iter_maps_decompose_into_marks_and_splits() {
     // Each index is one split of a mark of extent 4, whose source is itself a sum over the
     // mark of x on [0, 16): x // 4 takes lower factor 4 of it, x % 4 lower factor 1.
     let only_split = |sum: &IterSumExpr| -> IterSplitExpr {
-        let splits = sum.args().unwrap();
+        let splits = sum.args.clone();
         assert_eq!(splits.len(), 1);
         splits.get(0).unwrap()
     };
     let mut lower_factors = Vec::new();
     for sum in result.indices.iter() {
-        assert_eq!(as_int(sum.base().unwrap()), 0);
+        assert_eq!(as_int(sum.base.clone()), 0);
         let outer = only_split(sum);
-        let mark: IterMark = outer.source().unwrap();
+        let mark: IterMark = outer.source.clone();
         assert_eq!(as_int(mark.extent.clone()), 4);
         let inner_sum: IterSumExpr = mark.source.clone().downcast().unwrap();
         let inner = only_split(&inner_sum);
-        let x_mark: IterMark = inner.source().unwrap();
+        let x_mark: IterMark = inner.source.clone();
         assert!(mark_is(&x_mark, &x, 16));
-        assert_eq!(as_int(inner.extent().unwrap()), 4);
-        lower_factors.push(as_int(inner.lower_factor().unwrap()));
+        assert_eq!(as_int(inner.extent.clone()), 4);
+        lower_factors.push(as_int(inner.lower_factor.clone()));
     }
     assert_eq!(lower_factors, vec![4, 1]);
 }
@@ -105,7 +105,7 @@ fn iter_maps() {
     assert!(analyzer.can_prove_equal(normalized, index.clone()).unwrap());
 
     let sum = normalize_to_iter_sum(index.clone(), &dom, Some(&analyzer)).unwrap();
-    assert_eq!(sum.args().unwrap().len(), 2);
+    assert_eq!(sum.args.len(), 2);
 
     let simplified =
         iter_map_simplify([index.clone()], &dom, &predicate, IterMapLevel::default(), None, true)
@@ -130,7 +130,7 @@ fn iter_maps() {
 
     let mark = IterMark::new(x.clone(), int32(4));
     let split = IterSplitExpr::new(mark, int32(1), int32(4), int32(1)).unwrap();
-    assert!(analyzer.can_prove_equal(split.scale().unwrap(), int32(1)).unwrap());
+    assert!(analyzer.can_prove_equal(split.scale.clone(), int32(1)).unwrap());
     let sum = IterSumExpr::new([split], int32(0));
-    assert_eq!(sum.args().unwrap().len(), 1);
+    assert_eq!(sum.args.len(), 1);
 }

@@ -16,6 +16,8 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+// The generated `new` of a field-less base needs no `Default`.
+#![allow(clippy::new_without_default)]
 
 //! Layouts. A [`Layout`] maps the logical indices of a tensor to coordinates on named [`Axis`]es,
 //! a memory offset and the threads that hold each element; a [`TileLayout`] builds the map from
@@ -28,6 +30,7 @@
 // tvm-ffi-stubgen(import-object): crate::tirx::thread_scope::ThreadScope
 // tvm-ffi-stubgen(import-object): tvm_ffi::Any
 // tvm-ffi-stubgen(import-object): tvm_ffi::String
+// tvm-ffi-stubgen(import-object): tvm_ffi::Result
 // tvm-ffi-stubgen(import-object): crate::ir::support
 // tvm-ffi-stubgen(import-object): crate::ir::expr::IntoExpr
 // tvm-ffi-stubgen(import-object): std::borrow::Borrow
@@ -39,6 +42,14 @@
 // tvm-ffi-stubgen(field): tirx.TileLayout.offset -> Map<Axis, PrimExpr>
 // tvm-ffi-stubgen(import-object): tvm_ffi::Map
 // tvm-ffi-stubgen(import-object): tvm_ffi::IntoObjectRef
+// tvm-ffi-stubgen(custom-new): tirx.TileLayout
+// tvm-ffi-stubgen(custom-new): tirx.ComposeLayout
+// tvm-ffi-stubgen(field): tirx.ComposeLayout.per_element -> i32
+// tvm-ffi-stubgen(field): tirx.ComposeLayout.swizzle_len -> i32
+// tvm-ffi-stubgen(field): tirx.ComposeLayout.atom_len -> i32
+// tvm-ffi-stubgen(field): tirx.ComposeLayout.inner_mask -> i32
+// tvm-ffi-stubgen(field): tirx.ComposeLayout.outer_mask -> i32
+
 // tvm-ffi-stubgen(begin): import-section
 use crate::ir::expr::IntoExpr;
 use crate::ir::expr::PrimExpr;
@@ -53,12 +64,9 @@ use tvm_ffi::IntoObjectRef;
 use tvm_ffi::Map;
 use tvm_ffi::Object;
 use tvm_ffi::ObjectArc;
-use tvm_ffi::ObjectCore;
 use tvm_ffi::Result;
 use tvm_ffi::String;
 use tvm_ffi::enum_ref::EnumObj;
-use tvm_ffi::extra::cold_init_lazy_lock::ColdInitLazyLock;
-use tvm_ffi::reflection::FieldGetter;
 // tvm-ffi-stubgen(end)
 
 /// The base of every layout: a map from the logical indices of a tensor to a coordinate on each
@@ -98,13 +106,37 @@ pub struct Layout {
 
 /// The object behind [`Layout`].
 ///
-/// Opaque: no metadata of its own: total_size is unknown. Fields are read through the C ABI getters.
+/// Complete: reflected fields fill [24, 24) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "tirx.Layout"]
+#[type_immutable]
+#[type_rs_parent]
 pub struct LayoutObj {
     base_: Object,
+}
+
+const _: () = {
+    assert!(::core::mem::size_of::<LayoutObj>() == 24);
+    assert!(::core::mem::align_of::<LayoutObj>() == 8);
+};
+
+#[allow(missing_docs)]
+impl LayoutObj {
+    pub fn new() -> Self {
+        let base_ = Object::new();
+        Self { base_ }
+    }
+}
+
+#[allow(missing_docs)]
+impl Layout {
+    /// Lossless complete-field allocation.
+    pub fn new() -> Self {
+        let obj = LayoutObj::new();
+        Self { data_: ObjectArc::new(obj) }
+    }
 }
 // tvm-ffi-stubgen(end)
 
@@ -233,7 +265,7 @@ pub struct TileLayout {
 
 /// The object behind [`TileLayout`].
 ///
-/// Opaque: parent 'tirx.Layout' is opaque (layout-unknown). Fields are read through the C ABI getters.
+/// Complete: reflected fields fill [24, 48) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -242,7 +274,15 @@ pub struct TileLayout {
 #[type_immutable]
 pub struct TileLayoutObj {
     base_: LayoutObj,
+    pub shard: Array<Iter>,
+    pub replica: Array<Iter>,
+    pub offset: Map<Axis, PrimExpr>,
 }
+
+const _: () = {
+    assert!(::core::mem::size_of::<TileLayoutObj>() == 48);
+    assert!(::core::mem::align_of::<TileLayoutObj>() == 8);
+};
 
 impl Deref for TileLayoutObj {
     type Target = LayoutObj;
@@ -253,22 +293,26 @@ impl Deref for TileLayoutObj {
 
 #[allow(missing_docs)]
 impl TileLayoutObj {
-    pub fn shard(&self) -> Result<Array<Iter>> {
-        static GETTER: ColdInitLazyLock<Result<FieldGetter>> =
-            ColdInitLazyLock::new(|| FieldGetter::new(TileLayoutObj::type_index(), "shard"));
-        GETTER.clone()?.get(self)
+    pub(crate) fn new(
+        shard: Array<Iter>,
+        replica: Array<Iter>,
+        offset: Map<Axis, PrimExpr>,
+    ) -> Self {
+        let base_ = LayoutObj::new();
+        Self { base_, shard, replica, offset }
     }
+}
 
-    pub fn replica(&self) -> Result<Array<Iter>> {
-        static GETTER: ColdInitLazyLock<Result<FieldGetter>> =
-            ColdInitLazyLock::new(|| FieldGetter::new(TileLayoutObj::type_index(), "replica"));
-        GETTER.clone()?.get(self)
-    }
-
-    pub fn offset(&self) -> Result<Map<Axis, PrimExpr>> {
-        static GETTER: ColdInitLazyLock<Result<FieldGetter>> =
-            ColdInitLazyLock::new(|| FieldGetter::new(TileLayoutObj::type_index(), "offset"));
-        GETTER.clone()?.get(self)
+#[allow(missing_docs)]
+impl TileLayout {
+    /// Lossless complete-field allocation.
+    pub fn from_fields(
+        shard: impl Into<Array<Iter>>,
+        replica: impl Into<Array<Iter>>,
+        offset: impl Into<Map<Axis, PrimExpr>>,
+    ) -> Self {
+        let obj = TileLayoutObj::new(shard.into(), replica.into(), offset.into());
+        Self { data_: ObjectArc::new(obj) }
     }
 }
 
@@ -484,7 +528,7 @@ pub struct ComposeLayout {
 
 /// The object behind [`ComposeLayout`].
 ///
-/// Opaque: parent 'tirx.Layout' is opaque (layout-unknown). Fields are read through the C ABI getters.
+/// Complete: reflected fields fill [24, 56) exactly (alignment padding [37, 40)).
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -493,7 +537,19 @@ pub struct ComposeLayout {
 #[type_immutable]
 pub struct ComposeLayoutObj {
     base_: LayoutObj,
+    pub per_element: i32,
+    pub swizzle_len: i32,
+    pub atom_len: i32,
+    pub swizzle_inner: bool,
+    pub tile_layout: TileLayout,
+    pub inner_mask: i32,
+    pub outer_mask: i32,
 }
+
+const _: () = {
+    assert!(::core::mem::size_of::<ComposeLayoutObj>() == 56);
+    assert!(::core::mem::align_of::<ComposeLayoutObj>() == 8);
+};
 
 impl Deref for ComposeLayoutObj {
     type Target = LayoutObj;
@@ -504,52 +560,51 @@ impl Deref for ComposeLayoutObj {
 
 #[allow(missing_docs)]
 impl ComposeLayoutObj {
-    pub fn per_element(&self) -> Result<i64> {
-        static GETTER: ColdInitLazyLock<Result<FieldGetter>> = ColdInitLazyLock::new(|| {
-            FieldGetter::new(ComposeLayoutObj::type_index(), "per_element")
-        });
-        GETTER.clone()?.get(self)
+    pub(crate) fn new(
+        per_element: i32,
+        swizzle_len: i32,
+        atom_len: i32,
+        swizzle_inner: bool,
+        tile_layout: TileLayout,
+        inner_mask: i32,
+        outer_mask: i32,
+    ) -> Self {
+        let base_ = LayoutObj::new();
+        Self {
+            base_,
+            per_element,
+            swizzle_len,
+            atom_len,
+            swizzle_inner,
+            tile_layout,
+            inner_mask,
+            outer_mask,
+        }
     }
+}
 
-    pub fn swizzle_len(&self) -> Result<i64> {
-        static GETTER: ColdInitLazyLock<Result<FieldGetter>> = ColdInitLazyLock::new(|| {
-            FieldGetter::new(ComposeLayoutObj::type_index(), "swizzle_len")
-        });
-        GETTER.clone()?.get(self)
-    }
-
-    pub fn atom_len(&self) -> Result<i64> {
-        static GETTER: ColdInitLazyLock<Result<FieldGetter>> =
-            ColdInitLazyLock::new(|| FieldGetter::new(ComposeLayoutObj::type_index(), "atom_len"));
-        GETTER.clone()?.get(self)
-    }
-
-    pub fn swizzle_inner(&self) -> Result<bool> {
-        static GETTER: ColdInitLazyLock<Result<FieldGetter>> = ColdInitLazyLock::new(|| {
-            FieldGetter::new(ComposeLayoutObj::type_index(), "swizzle_inner")
-        });
-        GETTER.clone()?.get(self)
-    }
-
-    pub fn inner_mask(&self) -> Result<i64> {
-        static GETTER: ColdInitLazyLock<Result<FieldGetter>> = ColdInitLazyLock::new(|| {
-            FieldGetter::new(ComposeLayoutObj::type_index(), "inner_mask")
-        });
-        GETTER.clone()?.get(self)
-    }
-
-    pub fn outer_mask(&self) -> Result<i64> {
-        static GETTER: ColdInitLazyLock<Result<FieldGetter>> = ColdInitLazyLock::new(|| {
-            FieldGetter::new(ComposeLayoutObj::type_index(), "outer_mask")
-        });
-        GETTER.clone()?.get(self)
-    }
-
-    pub fn tile_layout(&self) -> Result<TileLayout> {
-        static GETTER: ColdInitLazyLock<Result<FieldGetter>> = ColdInitLazyLock::new(|| {
-            FieldGetter::new(ComposeLayoutObj::type_index(), "tile_layout")
-        });
-        GETTER.clone()?.get(self)
+#[allow(missing_docs)]
+impl ComposeLayout {
+    /// Lossless complete-field allocation.
+    pub fn from_fields(
+        per_element: i32,
+        swizzle_len: i32,
+        atom_len: i32,
+        swizzle_inner: bool,
+        tile_layout: impl IntoObjectRef<TileLayout>,
+        inner_mask: i32,
+        outer_mask: i32,
+    ) -> Self {
+        let obj = ComposeLayoutObj::new(
+            per_element,
+            swizzle_len,
+            atom_len,
+            swizzle_inner,
+            tile_layout.into_owned_object_ref(),
+            inner_mask,
+            outer_mask,
+        );
+        Self { data_: ObjectArc::new(obj) }
     }
 }
 

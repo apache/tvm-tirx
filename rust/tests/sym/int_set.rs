@@ -49,15 +49,15 @@ fn interval_sets_are_read_through_accessors() {
         .unwrap();
     let interval: IntervalSet = set.downcast().unwrap();
     let as_int = |expr: PrimExpr| expr.downcast::<IntImm>().unwrap().value.to_i64().unwrap();
-    assert_eq!(as_int(interval.min_value().unwrap()), 2);
-    assert_eq!(as_int(interval.max_value().unwrap()), 20);
+    assert_eq!(as_int(interval.min_value.clone()), 2);
+    assert_eq!(as_int(interval.max_value.clone()), 20);
 }
 
 #[test]
 fn int_sets() {
     let analyzer = Analyzer::new();
     let interval = IntervalSet::new(int32(0), int32(10));
-    assert!(analyzer.can_prove_equal(interval.min_value().unwrap(), int32(0)).unwrap());
+    assert!(analyzer.can_prove_equal(interval.min_value.clone(), int32(0)).unwrap());
     let set: IntSet = interval.into();
     assert!(!set.is_nothing().unwrap());
     assert!(!set.is_everything().unwrap());

@@ -16,6 +16,8 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+// The generated `new` of a field-less base needs no `Default`.
+#![allow(clippy::new_without_default)]
 
 //! Integer sets. An [`IntSet`], such as the interval [`IntervalSet`], bounds the values an
 //! expression takes; [`deduce_bound`] solves a condition for a variable, and the
@@ -26,6 +28,8 @@
 // does.
 // tvm-ffi-stubgen(import-object): tvm_ffi::Array
 // tvm-ffi-stubgen(import-object): tvm_ffi::Map
+// tvm-ffi-stubgen(import-object): tvm_ffi::Result
+// tvm-ffi-stubgen(custom-new): sym.IntervalSet
 // tvm-ffi-stubgen(import-object): crate::ir::expr::Range
 // tvm-ffi-stubgen(import-object): crate::ir::expr::Var
 // tvm-ffi-stubgen(import-object): crate::sym::analyzer::Analyzer
@@ -51,10 +55,7 @@ use tvm_ffi::IntoObjectRef;
 use tvm_ffi::Map;
 use tvm_ffi::Object;
 use tvm_ffi::ObjectArc;
-use tvm_ffi::ObjectCore;
 use tvm_ffi::Result;
-use tvm_ffi::extra::cold_init_lazy_lock::ColdInitLazyLock;
-use tvm_ffi::reflection::FieldGetter;
 // tvm-ffi-stubgen(end)
 
 /// The base of every set of integers, one dimension each, that bounds the values an expression
@@ -89,13 +90,37 @@ pub struct IntSet {
 
 /// The object behind [`IntSet`].
 ///
-/// Opaque: no metadata of its own: total_size is unknown. Fields are read through the C ABI getters.
+/// Complete: reflected fields fill [24, 24) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "sym.IntSet"]
+#[type_immutable]
+#[type_rs_parent]
 pub struct IntSetObj {
     base_: Object,
+}
+
+const _: () = {
+    assert!(::core::mem::size_of::<IntSetObj>() == 24);
+    assert!(::core::mem::align_of::<IntSetObj>() == 8);
+};
+
+#[allow(missing_docs)]
+impl IntSetObj {
+    pub fn new() -> Self {
+        let base_ = Object::new();
+        Self { base_ }
+    }
+}
+
+#[allow(missing_docs)]
+impl IntSet {
+    /// Lossless complete-field allocation.
+    pub fn new() -> Self {
+        let obj = IntSetObj::new();
+        Self { data_: ObjectArc::new(obj) }
+    }
 }
 // tvm-ffi-stubgen(end)
 
@@ -138,7 +163,7 @@ pub struct IntervalSet {
 
 /// The object behind [`IntervalSet`].
 ///
-/// Opaque: parent 'sym.IntSet' is opaque (layout-unknown). Fields are read through the C ABI getters.
+/// Complete: reflected fields fill [24, 40) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -147,7 +172,14 @@ pub struct IntervalSet {
 #[type_immutable]
 pub struct IntervalSetObj {
     base_: IntSetObj,
+    pub min_value: PrimExpr,
+    pub max_value: PrimExpr,
 }
+
+const _: () = {
+    assert!(::core::mem::size_of::<IntervalSetObj>() == 40);
+    assert!(::core::mem::align_of::<IntervalSetObj>() == 8);
+};
 
 impl Deref for IntervalSetObj {
     type Target = IntSetObj;
@@ -158,16 +190,24 @@ impl Deref for IntervalSetObj {
 
 #[allow(missing_docs)]
 impl IntervalSetObj {
-    pub fn min_value(&self) -> Result<PrimExpr> {
-        static GETTER: ColdInitLazyLock<Result<FieldGetter>> =
-            ColdInitLazyLock::new(|| FieldGetter::new(IntervalSetObj::type_index(), "min_value"));
-        GETTER.clone()?.get(self)
+    pub(crate) fn new(min_value: PrimExpr, max_value: PrimExpr) -> Self {
+        let base_ = IntSetObj::new();
+        Self { base_, min_value, max_value }
     }
+}
 
-    pub fn max_value(&self) -> Result<PrimExpr> {
-        static GETTER: ColdInitLazyLock<Result<FieldGetter>> =
-            ColdInitLazyLock::new(|| FieldGetter::new(IntervalSetObj::type_index(), "max_value"));
-        GETTER.clone()?.get(self)
+#[allow(missing_docs)]
+impl IntervalSet {
+    /// Lossless complete-field allocation.
+    pub fn from_fields(
+        min_value: impl IntoObjectRef<PrimExpr>,
+        max_value: impl IntoObjectRef<PrimExpr>,
+    ) -> Self {
+        let obj = IntervalSetObj::new(
+            min_value.into_owned_object_ref(),
+            max_value.into_owned_object_ref(),
+        );
+        Self { data_: ObjectArc::new(obj) }
     }
 }
 

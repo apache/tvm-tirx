@@ -30,6 +30,7 @@
 // tvm-ffi-stubgen(import-object): crate::ir::module::IRModule
 // tvm-ffi-stubgen(import-object): tvm_ffi::IntoObjectRef
 // tvm-ffi-stubgen(import-object): std::borrow::Borrow
+// tvm-ffi-stubgen(custom-new): target.Target
 
 // tvm-ffi-stubgen(begin): import-section
 use crate::ir::module::IRModule;
@@ -78,7 +79,7 @@ pub struct Target {
 
 /// The object behind [`Target`].
 ///
-/// Opaque: bytes [72, 88) of [24, 88) are not accounted for by reflected fields. Fields are read through the C ABI getters.
+/// Complete: reflected fields fill [24, 72) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -86,38 +87,50 @@ pub struct Target {
 #[type_final]
 pub struct TargetObj {
     base_: Object,
+    pub kind: TargetKind,
+    pub host: Option<ObjectRef>,
+    pub tag: String,
+    pub keys: Array<String>,
+    pub attrs: Map<String, Any>,
 }
+
+const _: () = {
+    assert!(::core::mem::size_of::<TargetObj>() == 72);
+    assert!(::core::mem::align_of::<TargetObj>() == 8);
+};
 
 #[allow(missing_docs)]
 impl TargetObj {
-    pub fn kind(&self) -> Result<TargetKind> {
-        static GETTER: ColdInitLazyLock<Result<FieldGetter>> =
-            ColdInitLazyLock::new(|| FieldGetter::new(TargetObj::type_index(), "kind"));
-        GETTER.clone()?.get(self)
+    pub(crate) fn new(
+        kind: TargetKind,
+        host: Option<ObjectRef>,
+        tag: String,
+        keys: Array<String>,
+        attrs: Map<String, Any>,
+    ) -> Self {
+        let base_ = Object::new();
+        Self { base_, kind, host, tag, keys, attrs }
     }
+}
 
-    pub fn tag(&self) -> Result<String> {
-        static GETTER: ColdInitLazyLock<Result<FieldGetter>> =
-            ColdInitLazyLock::new(|| FieldGetter::new(TargetObj::type_index(), "tag"));
-        GETTER.clone()?.get(self)
-    }
-
-    pub fn keys(&self) -> Result<Array<String>> {
-        static GETTER: ColdInitLazyLock<Result<FieldGetter>> =
-            ColdInitLazyLock::new(|| FieldGetter::new(TargetObj::type_index(), "keys"));
-        GETTER.clone()?.get(self)
-    }
-
-    pub fn attrs(&self) -> Result<Map<String, Any>> {
-        static GETTER: ColdInitLazyLock<Result<FieldGetter>> =
-            ColdInitLazyLock::new(|| FieldGetter::new(TargetObj::type_index(), "attrs"));
-        GETTER.clone()?.get(self)
-    }
-
-    pub fn host(&self) -> Result<Option<ObjectRef>> {
-        static GETTER: ColdInitLazyLock<Result<FieldGetter>> =
-            ColdInitLazyLock::new(|| FieldGetter::new(TargetObj::type_index(), "host"));
-        GETTER.clone()?.get(self)
+#[allow(missing_docs)]
+impl Target {
+    /// Lossless complete-field allocation.
+    pub fn from_fields(
+        kind: impl IntoObjectRef<TargetKind>,
+        host: impl Into<Option<ObjectRef>>,
+        tag: impl Into<String>,
+        keys: impl Into<Array<String>>,
+        attrs: impl Into<Map<String, Any>>,
+    ) -> Self {
+        let obj = TargetObj::new(
+            kind.into_owned_object_ref(),
+            host.into(),
+            tag.into(),
+            keys.into(),
+            attrs.into(),
+        );
+        Self { data_: ObjectArc::new(obj) }
     }
 }
 // tvm-ffi-stubgen(end)
@@ -303,7 +316,7 @@ pub fn list_tags() -> Result<Map<String, Target>> {
 /// let config: Map<String, Any> =
 ///     [("kind".into(), Any::from(String::from("llvm")))].into_iter().collect();
 /// target::register_tag("my_ext/cpu", config, false)?;
-/// assert_eq!(Target::new("my_ext/cpu")?.kind()?.name()?, "llvm");
+/// assert_eq!(Target::new("my_ext/cpu")?.kind.name()?, "llvm");
 /// # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
 /// ```
 pub fn register_tag(
