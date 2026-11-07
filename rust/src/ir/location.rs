@@ -20,23 +20,8 @@
 // shared FFI singleton.
 #![allow(clippy::new_without_default)]
 
-//! Source locations of IR nodes, for diagnostics.
-//!
-//! A [`Location`] is an [`UnknownLoc`], a [`SourceLoc`] (a span in a [`SourceName`]), or a
-//! [`CallSiteLoc`] (a callee location seen from a caller).
-//!
-//! # Examples
-//!
-//! ```
-//! use tvm_tirx::ir::{PrimType, PrimVar, SourceLoc, SourceName, Var};
-//! use tvm_tirx::tvm_ffi::ObjectRefCore;
-//!
-//! let span = SourceLoc::new(SourceName::get("kernel.py"), 3, 1, 3, 10);
-//!
-//! let x = PrimVar::new("x", PrimType::int(32), &span);
-//! assert!(x.loc.same_as(&span));
-//! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
-//! ```
+//! Source locations. Every IR node carries a [`Location`] for diagnostics: an [`UnknownLoc`], a
+//! [`SourceLoc`] span in a source, or a [`CallSiteLoc`] that pairs a location with its caller's.
 
 // tvm-ffi-stubgen(missing-docs): allow
 // C++ has one `UnknownLoc`, which `UnknownLoc::new` returns: `opaque` generates no allocator for
@@ -59,6 +44,24 @@ use tvm_ffi::String;
 use tvm_ffi::UnsafeInit;
 // tvm-ffi-stubgen(end)
 
+/// Where an IR node comes from, for diagnostics: an [`UnknownLoc`], a [`SourceLoc`] or a
+/// [`CallSiteLoc`].
+///
+/// A constructor takes its `loc` as any `impl Into<Location>`, such as a `SourceLoc` or
+/// [`UNKNOWN_LOC`].
+///
+/// # Examples
+///
+/// ```
+/// use tvm_tirx::ir::{PrimType, PrimVar, SourceLoc, SourceName, Var};
+/// use tvm_tirx::tvm_ffi::ObjectRefCore;
+///
+/// let span = SourceLoc::new(SourceName::get("kernel.py"), 3, 1, 3, 10);
+///
+/// let x = PrimVar::new("x", PrimType::int(32), &span);
+/// assert!(x.loc.same_as(&span));
+/// # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
+/// ```
 // tvm-ffi-stubgen(begin): object/ir.Location
 #[allow(missing_docs)]
 #[repr(C)]
@@ -117,6 +120,7 @@ unsafe impl UnsafeInit for LocationObj {
 unsafe impl tvm_ffi::object::ImmutableObject for LocationObj {}
 // tvm-ffi-stubgen(end)
 
+/// The location of a node with no source information, a single shared object.
 // tvm-ffi-stubgen(begin): object/ir.UnknownLoc
 #[allow(missing_docs)]
 #[repr(C)]
@@ -169,7 +173,7 @@ impl UnknownLoc {
 #[derive(Clone, Copy, Debug)]
 pub struct Unknown;
 
-/// The unknown location, as Python's `UNKNOWN_LOC`.
+/// The unknown location, as the `loc` argument of a constructor.
 pub const UNKNOWN_LOC: Unknown = Unknown;
 
 impl From<Unknown> for Location {
@@ -178,6 +182,8 @@ impl From<Unknown> for Location {
     }
 }
 
+/// The span from `start_line`, `start_column` to `end_line`, `end_column` in the source
+/// `source_name`, in the line and column numbering of the frontend that produced it.
 // tvm-ffi-stubgen(begin): object/ir.SourceLoc
 #[allow(missing_docs)]
 #[repr(C)]
@@ -252,6 +258,8 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(SourceLoc => Location);
 
 // `ir.SourceLoc` stores its arguments as given: the generated `SourceLoc::new` is the same.
 
+/// The location `callee` of a node, together with the location `caller` of the call site it
+/// comes from.
 // tvm-ffi-stubgen(begin): object/ir.CallSiteLoc
 #[allow(missing_docs)]
 #[repr(C)]
@@ -310,6 +318,8 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(CallSiteLoc => Location);
 
 // `ir.CallSiteLoc` stores its arguments as given: the generated `CallSiteLoc::new` is the same.
 
+/// The name of a source, such as a file name; [`SourceName::get`] returns the shared object for a
+/// name.
 // tvm-ffi-stubgen(begin): object/ir.SourceName
 #[allow(missing_docs)]
 #[repr(C)]

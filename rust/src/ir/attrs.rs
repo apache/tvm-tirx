@@ -19,25 +19,8 @@
 // The generated `new` of a field-less base needs no `Default`.
 #![allow(clippy::new_without_default)]
 
-//! Attributes attached to calls, functions and modules.
-//!
-//! The objects `python/tvm_tirx/ir/attrs.py` defines. [`Attrs`] is the base of every attribute
-//! object, and [`DictAttrs`] holds named values in a map.
-//!
-//! # Examples
-//!
-//! ```
-//! use tvm_tirx::ir::{DictAttrs, IRModule};
-//! use tvm_tirx::tvm_ffi::{Any, Map, String};
-//!
-//! let dict: Map<String, Any> =
-//!     [("system_lib_prefix".into(), Any::from(String::from("my_lib_")))].into_iter().collect();
-//! let module = IRModule::new(&Map::new(), DictAttrs::new(dict), &Map::new())?;
-//!
-//! let prefix = module.attrs.dict.get(&"system_lib_prefix".into())?.unwrap();
-//! assert_eq!(String::try_from(prefix)?, "my_lib_");
-//! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
-//! ```
+//! Attributes. Calls, functions and modules carry metadata as [`Attrs`]: a typed attribute object
+//! of an operator, or a [`DictAttrs`] map of named values.
 
 // tvm-ffi-stubgen(missing-docs): allow
 
@@ -53,6 +36,7 @@ use tvm_ffi::String;
 use tvm_ffi::UnsafeInit;
 // tvm-ffi-stubgen(end)
 
+/// The base of every attribute object, the metadata attached to a call, a function or a module.
 // tvm-ffi-stubgen(begin): object/ir.Attrs
 #[allow(missing_docs)]
 #[repr(C)]
@@ -111,6 +95,23 @@ unsafe impl UnsafeInit for AttrsObj {
 unsafe impl tvm_ffi::object::ImmutableObject for AttrsObj {}
 // tvm-ffi-stubgen(end)
 
+/// Attributes as a map `dict` from names to values, such as the attributes of a function or a
+/// module.
+///
+/// # Examples
+///
+/// ```
+/// use tvm_tirx::ir::{DictAttrs, IRModule};
+/// use tvm_tirx::tvm_ffi::{Any, Map, String};
+///
+/// let dict: Map<String, Any> =
+///     [("system_lib_prefix".into(), Any::from(String::from("my_lib_")))].into_iter().collect();
+/// let module = IRModule::new(&Map::new(), DictAttrs::new(dict), &Map::new())?;
+///
+/// let prefix = module.attrs.dict.get(&"system_lib_prefix".into())?.unwrap();
+/// assert_eq!(String::try_from(prefix)?, "my_lib_");
+/// # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
+/// ```
 // tvm-ffi-stubgen(begin): object/ir.DictAttrs
 #[allow(missing_docs)]
 #[repr(C)]

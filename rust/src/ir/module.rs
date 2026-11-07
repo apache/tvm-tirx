@@ -17,34 +17,13 @@
  * under the License.
  */
 
-//! The module: the unit of compilation.
-//!
-//! An [`IRModule`] maps global variables to functions, with the module attributes and module-level
-//! information. Adding, updating or removing functions changes the module through every handle to
-//! it; [`IRModule::shallow_copy`] makes one to change independently.
-//!
-//! # Examples
-//!
-//! ```
-//! use tvm_tirx::ir::{BaseFunc, DictAttrs, GlobalVar, IRModule, UNKNOWN_LOC};
-//! use tvm_tirx::tvm_ffi::{Map, ObjectRefCore};
-//! # use tvm_tirx::ir::{PrimType, Return, SeqStmt, Var};
-//! # use tvm_tirx::tirx::Function;
-//! # let body = SeqStmt::new([Return::new(0, UNKNOWN_LOC)], UNKNOWN_LOC);
-//! # let attrs = DictAttrs::new(Map::new());
-//! # let func = Function::new(Vec::<Var>::new(), &body, PrimType::int(32), attrs, UNKNOWN_LOC);
-//!
-//! let main = GlobalVar::new("main", UNKNOWN_LOC);
-//! let functions = Map::from_iter([(main.clone(), BaseFunc::from(func))]);
-//! let module = IRModule::new(&functions, DictAttrs::new(Map::new()), &Map::new())?;
-//!
-//! assert!(module.lookup(&main)?.same_as(&module.lookup_name("main")?));
-//! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
-//! ```
+//! Modules. An [`IRModule`] is the unit of compilation, the input and output of passes: it maps
+//! each [`GlobalVar`] to a function ([`BaseFunc`]), and carries module attributes and module-level
+//! information.
 
 // tvm-ffi-stubgen(missing-docs): allow
-// `custom-new` reserves `new` for the C++ constructor, which derives the global variable map; the
-// generated `from_fields` allocates the fields as given.
+// `custom-new` reserves `new` for a hand-written constructor, which derives the global variable
+// map; the generated `from_fields` allocates the fields as given.
 // tvm-ffi-stubgen(custom-new): ir.IRModule
 // The name index is internal: C++ registers it with the trailing `_` of a private member.
 // tvm-ffi-stubgen(visibility): ir.IRModule.global_var_map_ -> pub(crate)
@@ -77,6 +56,30 @@ use tvm_ffi::Result;
 use tvm_ffi::String;
 // tvm-ffi-stubgen(end)
 
+/// A set of functions, each bound to a [`GlobalVar`] with a unique name, with the module
+/// attributes `attrs` and the module-level information `global_infos`.
+///
+/// A module is mutable: adding, updating or removing functions changes it through every handle to
+/// it, and [`shallow_copy`](Self::shallow_copy) makes one to change independently.
+///
+/// # Examples
+///
+/// ```
+/// use tvm_tirx::ir::{BaseFunc, DictAttrs, GlobalVar, IRModule, UNKNOWN_LOC};
+/// use tvm_tirx::tvm_ffi::{Map, ObjectRefCore};
+/// # use tvm_tirx::ir::{PrimType, Return, SeqStmt, Var};
+/// # use tvm_tirx::tirx::Function;
+/// # let body = SeqStmt::new([Return::new(0, UNKNOWN_LOC)], UNKNOWN_LOC);
+/// # let attrs = DictAttrs::new(Map::new());
+/// # let func = Function::new(Vec::<Var>::new(), &body, PrimType::int(32), attrs, UNKNOWN_LOC);
+///
+/// let main = GlobalVar::new("main", UNKNOWN_LOC);
+/// let functions = Map::from_iter([(main.clone(), BaseFunc::from(func))]);
+/// let module = IRModule::new(&functions, DictAttrs::new(Map::new()), &Map::new())?;
+///
+/// assert!(module.lookup(&main)?.same_as(&module.lookup_name("main")?));
+/// # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
+/// ```
 // tvm-ffi-stubgen(begin): object/ir.IRModule
 #[allow(missing_docs)]
 #[repr(C)]
@@ -141,7 +144,7 @@ impl IRModule {
 
 impl IRModule {
     /// Create the module of `functions`, with the attributes `attrs` and the module-level
-    /// information `global_infos` (C++ `IRModule(functions, attrs, global_infos)`).
+    /// information `global_infos`, keyed by name.
     ///
     /// # Errors
     ///
@@ -179,7 +182,6 @@ impl IRModule {
     }
 
     /// Return a copy of the module that shares its functions (`ir.IRModuleClone`).
-    ///
     pub fn shallow_copy(&self) -> Result<Self> {
         tvm_ffi::cached_global_func!("ir.IRModuleClone").call_tuple((self,))?.try_into()
     }

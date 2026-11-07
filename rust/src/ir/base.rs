@@ -17,24 +17,8 @@
  * under the License.
  */
 
-//! Functions of the global registry referred to by name.
-//!
-//! The objects `python/tvm_tirx/ir/base.py` defines. An [`EnvFunc`] is a registered global
-//! function kept with its name, so it is serialized by name.
-//!
-//! # Examples
-//!
-//! ```
-//! use tvm_tirx::ir::EnvFunc;
-//! use tvm_tirx::tvm_ffi::{Function, Result};
-//!
-//! # let double = Function::from_typed(|x: i64| -> Result<i64> { Ok(x * 2) });
-//! # Function::register_global("my_ext.double", double)?;
-//! let double = EnvFunc::get("my_ext.double")?;
-//!
-//! assert_eq!(i64::try_from(double.func.call_tuple((21_i64,))?)?, 42);
-//! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
-//! ```
+//! Registry functions held by name. An [`EnvFunc`] keeps a registered global function with its
+//! name, so IR that refers to it serializes the name and resolves it again when loaded.
 
 // tvm-ffi-stubgen(missing-docs): allow
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
@@ -49,6 +33,24 @@ use tvm_ffi::Result;
 use tvm_ffi::String;
 // tvm-ffi-stubgen(end)
 
+/// A registered global function `func` kept with its registry name `name`.
+///
+/// The name identifies it: it is serialized by name, loading looks the name up again, and
+/// structural equality compares the name and ignores `func`.
+///
+/// # Examples
+///
+/// ```
+/// use tvm_tirx::ir::EnvFunc;
+/// use tvm_tirx::tvm_ffi::{Function, Result};
+///
+/// # let double = Function::from_typed(|x: i64| -> Result<i64> { Ok(x * 2) });
+/// # Function::register_global("my_ext.double", double)?;
+/// let double = EnvFunc::get("my_ext.double")?;
+///
+/// assert_eq!(i64::try_from(double.func.call_tuple((21_i64,))?)?, 42);
+/// # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
+/// ```
 // tvm-ffi-stubgen(begin): object/ir.EnvFunc
 #[allow(missing_docs)]
 #[repr(C)]

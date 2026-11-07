@@ -17,29 +17,9 @@
  * under the License.
  */
 
-//! The base of every function.
-//!
-//! [`BaseFunc`] carries the type, location and attributes of a function; a dialect defines the
-//! function itself, such as [`Function`](crate::tirx::Function).
-//!
-//! # Examples
-//!
-//! ```
-//! use tvm_tirx::ir::{BaseFunc, DictAttrs, PrimType, Return, SeqStmt, Var, UNKNOWN_LOC};
-//! use tvm_tirx::script::script;
-//! use tvm_tirx::tirx::Function;
-//! use tvm_tirx::tvm_ffi::{Map, String};
-//!
-//! let body = SeqStmt::new([Return::new(0, UNKNOWN_LOC)], UNKNOWN_LOC);
-//! let attrs = DictAttrs::new(Map::new());
-//! let func = Function::new(Vec::<Var>::new(), &body, PrimType::int(32), attrs, UNKNOWN_LOC);
-//! let func = BaseFunc::from(func);
-//! assert!(script(&func)?.contains("@T.function(private=True)"));
-//!
-//! let exported = func.with_attr("global_symbol", String::from("main"))?;
-//! assert!(script(&exported)?.contains("@T.function\ndef main()"));
-//! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
-//! ```
+//! Functions. Every function is a [`BaseFunc`], an expression that carries the function's
+//! attributes; a dialect defines the function itself, such as
+//! [`Function`](crate::tirx::Function), and an [`IRModule`](super::IRModule) binds it to a name.
 
 // tvm-ffi-stubgen(missing-docs): allow
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
@@ -69,6 +49,27 @@ use tvm_ffi::UnsafeInit;
 use tvm_ffi::reflection::drop_if_defined;
 // tvm-ffi-stubgen(end)
 
+/// The base of every function: an expression, typed by the function's type, with the function
+/// attributes `attrs`, such as its `global_symbol`.
+///
+/// # Examples
+///
+/// ```
+/// use tvm_tirx::ir::{BaseFunc, DictAttrs, PrimType, Return, SeqStmt, Var, UNKNOWN_LOC};
+/// use tvm_tirx::script::script;
+/// use tvm_tirx::tirx::Function;
+/// use tvm_tirx::tvm_ffi::{Map, String};
+///
+/// let body = SeqStmt::new([Return::new(0, UNKNOWN_LOC)], UNKNOWN_LOC);
+/// let attrs = DictAttrs::new(Map::new());
+/// let func = Function::new(Vec::<Var>::new(), &body, PrimType::int(32), attrs, UNKNOWN_LOC);
+/// let func = BaseFunc::from(func);
+/// assert!(script(&func)?.contains("@T.function(private=True)"));
+///
+/// let exported = func.with_attr("global_symbol", String::from("main"))?;
+/// assert!(script(&exported)?.contains("@T.function\ndef main()"));
+/// # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
+/// ```
 // tvm-ffi-stubgen(begin): object/ir.BaseFunc
 #[allow(missing_docs)]
 #[repr(C)]

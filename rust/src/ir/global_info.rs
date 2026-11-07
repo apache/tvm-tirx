@@ -19,10 +19,8 @@
 // The generated `new` of a field-less base needs no `Default`.
 #![allow(clippy::new_without_default)]
 
-//! Module-level information that is not a function.
-//!
-//! The objects `python/tvm_tirx/ir/global_info.py` defines. [`GlobalInfo`] is the base of the
-//! entries an [`IRModule`](super::IRModule) keeps by name in `global_infos`.
+//! Module-level information. A [`GlobalInfo`] is information an [`IRModule`](super::IRModule)
+//! holds besides its functions, kept by name in `global_infos`.
 
 // tvm-ffi-stubgen(missing-docs): allow
 
@@ -34,6 +32,8 @@ use tvm_ffi::ShallowCopy;
 use tvm_ffi::UnsafeInit;
 // tvm-ffi-stubgen(end)
 
+/// The base of the module-level information an [`IRModule`](super::IRModule) keeps by name in
+/// `global_infos`.
 // tvm-ffi-stubgen(begin): object/ir.GlobalInfo
 #[allow(missing_docs)]
 #[repr(C)]
