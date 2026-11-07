@@ -17,34 +17,9 @@
  * under the License.
  */
 
-//! Passes and the context they run in.
-//!
-//! [`ModulePass`] and [`Sequential`] are [`Pass`]es over a module. A [`PassContext`] holds the
-//! optimization level, the required and disabled passes, the configuration and the instruments of a
-//! run; [`PassContext::enter`] makes it current.
-//!
-//! # Examples
-//!
-//! ```
-//! use tvm_tirx::ir::transform::{ModulePass, Pass, PassContext, PassInfo, PassInstrument};
-//! use tvm_tirx::ir::transform::Sequential;
-//! use tvm_tirx::ir::{DictAttrs, IRModule, IntImm};
-//! use tvm_tirx::tvm_ffi::Map;
-//!
-//! let mark = |name: &'static str| {
-//!     let pass = move |module: IRModule, _ctx| module.with_attr(name, IntImm::bool(true));
-//!     ModulePass::new(pass, PassInfo::new(0, name))
-//! };
-//!
-//! let info = PassInfo::new(0, "pipeline");
-//! let pipeline = Pass::from(Sequential::new([mark("a"), mark("b")], info));
-//! let ctx = PassContext::new(2, [""; 0], ["b"], Vec::<PassInstrument>::new(), None)?;
-//! let _scope = ctx.enter()?;
-//! let empty = IRModule::new(&Map::new(), DictAttrs::new(Map::new()), &Map::new())?;
-//! let module = pipeline.run(empty)?;
-//! assert!(module.get_attr("a")?.is_some() && module.get_attr("b")?.is_none());
-//! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
-//! ```
+//! Passes. A [`Pass`] transforms an [`IRModule`] under the current [`PassContext`], which decides
+//! the passes that run and the instruments that observe them; [`ModulePass`] wraps a function and
+//! [`Sequential`] runs passes in order.
 
 // tvm-ffi-stubgen(missing-docs): allow
 // `custom-new` reserves `new` for the checked `transform.PassContext`; the generated `from_fields`
@@ -70,6 +45,32 @@ use tvm_ffi::Result;
 use tvm_ffi::String;
 // tvm-ffi-stubgen(end)
 
+/// A transformation of an [`IRModule`], with a name and an optimization level ([`PassInfo`]).
+///
+/// [`run`](Self::run) applies it under the current [`PassContext`].
+///
+/// # Examples
+///
+/// ```
+/// use tvm_tirx::ir::transform::{ModulePass, Pass, PassContext, PassInfo, PassInstrument};
+/// use tvm_tirx::ir::transform::Sequential;
+/// use tvm_tirx::ir::{DictAttrs, IRModule, IntImm};
+/// use tvm_tirx::tvm_ffi::Map;
+///
+/// let mark = |name: &'static str| {
+///     let pass = move |module: IRModule, _ctx| module.with_attr(name, IntImm::bool(true));
+///     ModulePass::new(pass, PassInfo::new(0, name))
+/// };
+///
+/// let info = PassInfo::new(0, "pipeline");
+/// let pipeline = Pass::from(Sequential::new([mark("a"), mark("b")], info));
+/// let ctx = PassContext::new(2, [""; 0], ["b"], Vec::<PassInstrument>::new(), None)?;
+/// let _scope = ctx.enter()?;
+/// let empty = IRModule::new(&Map::new(), DictAttrs::new(Map::new()), &Map::new())?;
+/// let module = pipeline.run(empty)?;
+/// assert!(module.get_attr("a")?.is_some() && module.get_attr("b")?.is_none());
+/// # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
+/// ```
 // tvm-ffi-stubgen(begin): object/transform.Pass
 #[allow(missing_docs)]
 #[repr(C)]
@@ -108,6 +109,8 @@ impl Pass {
     }
 }
 
+/// The name `name` and optimization level `opt_level` of a pass, by which a [`PassContext`]
+/// requires, disables or skips it.
 // tvm-ffi-stubgen(begin): object/transform.PassInfo
 #[allow(missing_docs)]
 #[repr(C)]
@@ -158,6 +161,7 @@ unsafe impl tvm_ffi::object::ImmutableObject for PassInfoObj {}
 // `PassInfo::new` above has the semantics of the native `transform.PassInfo`, which only stores
 // its fields.
 
+/// A pass that applies a function to the whole module.
 // tvm-ffi-stubgen(begin): object/transform.ModulePass
 #[allow(missing_docs)]
 #[repr(C)]
@@ -219,6 +223,8 @@ impl ModulePass {
     }
 }
 
+/// A pass that runs a list of passes in order, skipping the ones the current [`PassContext`] does
+/// not enable.
 // tvm-ffi-stubgen(begin): object/transform.Sequential
 #[allow(missing_docs)]
 #[repr(C)]
@@ -263,12 +269,11 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(Sequential => Pass);
 // tvm-ffi-stubgen(end)
 
 impl Sequential {
-    /// Create a pass with the information `pass_info` that runs `passes` in order
-    /// (C++ `Sequential(passes, pass_info)`).
+    /// Create a pass named by `pass_info` that runs `passes` in order; a pipeline with only a name
+    /// takes `PassInfo::new(0, name)`.
     ///
     /// It skips the passes the current pass context disables, and those whose level exceeds the
-    /// context's `opt_level` unless the context requires them. C++ `Sequential(passes, name)` is
-    /// `Sequential::new(passes, PassInfo::new(0, name))`.
+    /// context's `opt_level` unless the context requires them.
     pub fn new(
         passes: impl IntoIterator<Item = impl Into<Pass>>,
         pass_info: impl Into<PassInfo>,
@@ -283,6 +288,11 @@ impl Sequential {
     }
 }
 
+/// The settings passes run under: the optimization level `opt_level`, the passes in
+/// `required_pass` and `disabled_pass`, the configuration options `config` and the
+/// `instruments`.
+///
+/// [`enter`](Self::enter) makes it the current context of the thread.
 // tvm-ffi-stubgen(begin): object/transform.PassContext
 #[allow(missing_docs)]
 #[repr(C)]
@@ -458,6 +468,8 @@ impl Drop for PassContextScope {
     }
 }
 
+/// The base of instruments, which a [`PassContext`] calls around each pass it runs, such as to
+/// trace or time them.
 // tvm-ffi-stubgen(begin): object/transform.PassInstrument
 #[allow(missing_docs)]
 #[repr(C)]

@@ -17,7 +17,8 @@
  * under the License.
  */
 
-//! The pass infrastructure: passes, pass contexts and instrumentation.
+//! Pass infrastructure. A [`Pass`] transforms an [`IRModule`](super::IRModule) under the current
+//! [`PassContext`], whose instruments observe each pass it runs.
 
 // tvm-ffi-stubgen(missing-docs): allow
 // An object registered under `transform` that no file has a block for yet is generated here, to be

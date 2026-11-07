@@ -17,36 +17,8 @@
  * under the License.
  */
 
-//! Pass instrumentation.
-//!
-//! A [`BasePassInstrument`] is a [`PassInstrument`] whose hooks are callbacks, such as Rust
-//! closures ([`BasePassInstrument::new`]).
-//!
-//! # Examples
-//!
-//! ```
-//! use std::sync::{Arc, Mutex};
-//! use tvm_tirx::ir::transform::{BasePassInstrument, ModulePass, Pass, PassContext, PassInfo};
-//! use tvm_tirx::ir::transform::PassInstrumentHooks;
-//! use tvm_tirx::ir::{DictAttrs, IRModule};
-//! use tvm_tirx::tvm_ffi::Map;
-//!
-//! let log = Arc::new(Mutex::new(Vec::new()));
-//! let sink = log.clone();
-//! let hooks = PassInstrumentHooks {
-//!     run_before_pass: Some(Box::new(move |_module, info| {
-//!         Ok(sink.lock().unwrap().push(info.name.as_str().to_owned()))
-//!     })),
-//!     ..Default::default()
-//! };
-//! let tracer = BasePassInstrument::new("tracer", hooks);
-//!
-//! let _scope = PassContext::new(2, [""; 0], [""; 0], [tracer], None)?.enter()?;
-//! let noop = Pass::from(ModulePass::new(|module, _ctx| Ok(module), PassInfo::new(0, "noop")));
-//! noop.run(IRModule::new(&Map::new(), DictAttrs::new(Map::new()), &Map::new())?)?;
-//! assert_eq!(*log.lock().unwrap(), ["noop"]);
-//! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
-//! ```
+//! Pass instruments. A [`BasePassInstrument`] is a [`PassInstrument`] whose hooks are callbacks,
+//! such as Rust closures, that a [`PassContext`](super::PassContext) calls around each pass.
 
 // tvm-ffi-stubgen(missing-docs): allow
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
@@ -73,6 +45,34 @@ use tvm_ffi::Result;
 use tvm_ffi::String;
 // tvm-ffi-stubgen(end)
 
+/// An instrument named `name` that calls the hooks it is created with: when a pass context is
+/// entered or exited, and before and after each pass.
+///
+/// # Examples
+///
+/// ```
+/// use std::sync::{Arc, Mutex};
+/// use tvm_tirx::ir::transform::{BasePassInstrument, ModulePass, Pass, PassContext, PassInfo};
+/// use tvm_tirx::ir::transform::PassInstrumentHooks;
+/// use tvm_tirx::ir::{DictAttrs, IRModule};
+/// use tvm_tirx::tvm_ffi::Map;
+///
+/// let log = Arc::new(Mutex::new(Vec::new()));
+/// let sink = log.clone();
+/// let hooks = PassInstrumentHooks {
+///     run_before_pass: Some(Box::new(move |_module, info| {
+///         Ok(sink.lock().unwrap().push(info.name.as_str().to_owned()))
+///     })),
+///     ..Default::default()
+/// };
+/// let tracer = BasePassInstrument::new("tracer", hooks);
+///
+/// let _scope = PassContext::new(2, [""; 0], [""; 0], [tracer], None)?.enter()?;
+/// let noop = Pass::from(ModulePass::new(|module, _ctx| Ok(module), PassInfo::new(0, "noop")));
+/// noop.run(IRModule::new(&Map::new(), DictAttrs::new(Map::new()), &Map::new())?)?;
+/// assert_eq!(*log.lock().unwrap(), ["noop"]);
+/// # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
+/// ```
 // tvm-ffi-stubgen(begin): object/transform.BasePassInstrument
 #[allow(missing_docs)]
 #[repr(C)]
@@ -161,17 +161,16 @@ impl BasePassInstrument {
     }
 }
 
-/// Create an instrument that times the passes, for [`render_pass_timing`]: Python's
-/// `PassTimingInstrument()` (`transform.instrument.MakePassTimingInstrument`).
-///
+/// Create an instrument that times the passes, for [`render_pass_timing`]
+/// (`transform.instrument.MakePassTimingInstrument`).
 pub fn pass_timing_instrument() -> Result<BasePassInstrument> {
     tvm_ffi::cached_global_func!("transform.instrument.MakePassTimingInstrument")
         .call_tuple(())?
         .try_into()
 }
 
-/// Render the pass times that a [`pass_timing_instrument`] recorded, as Python's
-/// `PassTimingInstrument.render()` does (`transform.instrument.RenderTimePassProfiles`).
+/// Render the pass times that a [`pass_timing_instrument`] recorded
+/// (`transform.instrument.RenderTimePassProfiles`).
 ///
 /// The result has a line per pass timed on this thread, and is empty when none was.
 ///
