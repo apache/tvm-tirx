@@ -17,29 +17,12 @@
  * under the License.
  */
 
-//! Types: primitive, pointer, tuple, function and the special types.
-//!
-//! [`Type`] is the base of every type, which a dialect extends, as
-//! [`TensorType`](crate::tirx::TensorType) does. [`PrimType::int`], [`PrimType::float`] and their
-//! siblings are the common primitive types, as C++ writes `PrimType::Int(32)`.
-//!
-//! # Examples
-//!
-//! ```
-//! use tvm_tirx::ir::{FuncType, PrimType, TupleType, UNKNOWN_LOC};
-//! use tvm_tirx::script::script;
-//!
-//! let int32 = PrimType::int(32);
-//! assert_eq!(script(&PrimType::float(16).with_lanes(4)?)?, "T.float16x4");
-//!
-//! let pair = TupleType::new([&int32, &int32], UNKNOWN_LOC);
-//! let func = FuncType::new([&int32], &pair);
-//! assert_eq!(script(&func)?, "T.Func([T.int32], T.Tuple(T.int32, T.int32))");
-//! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
-//! ```
+//! Types. Every expression carries a [`Type`]; a [`PrimType`] types the primitive scalars and
+//! vectors that arithmetic works on, and a dialect extends `Type` with its own kinds, as
+//! [`TensorType`](crate::tirx::TensorType) does.
 
 // tvm-ffi-stubgen(missing-docs): allow
-// `custom-new` reserves `new` for a constructor with the C++ one's semantics (defaults, the shared
+// `custom-new` reserves `new` for a hand-written constructor (defaults, checks, the shared
 // `MissingType`, `NoneType` and `TensorRegionType` nodes); the generated `from_fields`
 // allocates the fields as given.
 // tvm-ffi-stubgen(custom-new): ir.MissingType
@@ -84,6 +67,7 @@ use tvm_ffi::VALUE_ERROR;
 use tvm_ffi::reflection::drop_if_defined;
 // tvm-ffi-stubgen(end)
 
+/// The base of every type; `loc` is the source location the type was written at.
 // tvm-ffi-stubgen(begin): object/ir.Type
 #[allow(missing_docs)]
 #[repr(C)]
@@ -144,6 +128,10 @@ unsafe impl UnsafeInit for TypeObj {
 unsafe impl tvm_ffi::object::ImmutableObject for TypeObj {}
 // tvm-ffi-stubgen(end)
 
+/// The type of a node whose type has not been given or inferred yet.
+///
+/// It is a placeholder, not a type of any value: unlike [`AnyType`], it must be resolved before
+/// the IR is fully typed.
 // tvm-ffi-stubgen(begin): object/ir.MissingType
 #[allow(missing_docs)]
 #[repr(C)]
@@ -213,6 +201,7 @@ impl MissingType {
     }
 }
 
+/// The type whose only value is `None`.
 // tvm-ffi-stubgen(begin): object/ir.NoneType
 #[allow(missing_docs)]
 #[repr(C)]
@@ -281,6 +270,8 @@ impl NoneType {
     }
 }
 
+/// The top type, which admits any value: the type of a value with no more specific type, such
+/// as a data type constant ([`DataTypeImm`](crate::ir::DataTypeImm)).
 // tvm-ffi-stubgen(begin): object/ir.AnyType
 #[allow(missing_docs)]
 #[repr(C)]
@@ -337,6 +328,8 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(AnyType => Type);
 
 // `ir.AnyType` stores its location as given: the generated `AnyType::new` is the same.
 
+/// The type of a [`TensorRegion`](crate::ir::TensorRegion), a multi-dimensional region of a
+/// tensor.
 // tvm-ffi-stubgen(begin): object/ir.TensorRegionType
 #[allow(missing_docs)]
 #[repr(C)]
@@ -406,6 +399,8 @@ impl TensorRegionType {
     }
 }
 
+/// The type of opaque construction-time values, such as an
+/// [`OpaqueExpr`](crate::ir::OpaqueExpr), which must be removed before the IR is finished.
 // tvm-ffi-stubgen(begin): object/ir.OpaqueType
 #[allow(missing_docs)]
 #[repr(C)]
@@ -461,14 +456,31 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(OpaqueType => Type);
 // tvm-ffi-stubgen(end)
 
 impl OpaqueType {
-    /// Create an opaque type at the unknown location (C++ `OpaqueType()`).
-    // Not `Default`, as no IR node is: the C++ constructor builds it.
+    /// Create an opaque type at the unknown location.
+    // Not `Default`, as no IR node is.
     #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         Self::from_fields(UNKNOWN_LOC)
     }
 }
 
+/// A primitive type: a scalar or a vector of a DLPack data type `dtype`, or `void`.
+///
+/// It types the operands of arithmetic. [`PrimType::int`], [`PrimType::float`] and their
+/// siblings give the common scalars, [`with_lanes`](PrimType::with_lanes) and
+/// [`with_scalable_lanes`](PrimType::with_scalable_lanes) the vectors.
+///
+/// # Examples
+///
+/// ```
+/// use tvm_tirx::ir::PrimType;
+/// use tvm_tirx::script::script;
+///
+/// let half4 = PrimType::float(16).with_lanes(4)?;
+/// assert_eq!(half4.lanes(), Some(4));
+/// assert_eq!(script(&half4)?, "T.float16x4");
+/// # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
+/// ```
 // tvm-ffi-stubgen(begin): object/ir.PrimType
 #[allow(missing_docs)]
 #[repr(C)]
@@ -550,44 +562,43 @@ impl TryFrom<DLDataType> for PrimType {
 }
 
 impl PrimType {
-    /// The primitive type of a dtype C++ always accepts, which fails only when the compiler library
-    /// is not loaded.
+    /// The primitive type of a dtype that is always valid, which fails only when the compiler
+    /// library is not loaded.
     fn builtin(dtype: DLDataType) -> Self {
         support::infallible(Self::try_from(dtype))
     }
 
-    /// Return the signed integer type of `bits` bits (C++ `PrimType::Int(bits)`).
+    /// Return the scalar signed integer type of `bits` bits.
     pub fn int(bits: u8) -> Self {
         Self::builtin(dtype::int(bits))
     }
 
-    /// Return the unsigned integer type of `bits` bits (C++ `PrimType::UInt(bits)`).
+    /// Return the scalar unsigned integer type of `bits` bits.
     pub fn uint(bits: u8) -> Self {
         Self::builtin(dtype::uint(bits))
     }
 
-    /// Return the IEEE floating-point type of `bits` bits (C++ `PrimType::Float(bits)`).
+    /// Return the scalar IEEE floating-point type of `bits` bits.
     pub fn float(bits: u8) -> Self {
         Self::builtin(dtype::float(bits))
     }
 
-    /// Return the brain floating-point type of `bits` bits (C++ `PrimType::BFloat(bits)`).
+    /// Return the scalar brain floating-point type of `bits` bits.
     pub fn bfloat(bits: u8) -> Self {
         Self::builtin(dtype::bfloat(bits))
     }
 
-    /// Return the boolean type (C++ `PrimType::Bool()`).
+    /// Return the scalar boolean type.
     pub fn bool() -> Self {
         Self::builtin(dtype::bool())
     }
 
-    /// Return the void type (C++ `PrimType::Void()`).
+    /// Return the void type.
     pub fn void() -> Self {
         Self::builtin(dtype::void())
     }
 
-    /// Return the vector of `lanes` elements of this scalar type (C++ `PrimType::Int(bits, lanes)`
-    /// and `WithLanes(lanes)`).
+    /// Return the vector of `lanes` elements of this scalar type.
     ///
     /// [`with_scalable_lanes`](Self::with_scalable_lanes) builds the scalable vectors.
     ///
@@ -603,8 +614,7 @@ impl PrimType {
         Self::try_from(dtype::with_lanes(self.dtype, lanes))
     }
 
-    /// Return the scalable vector of `factor` times `vscale` elements of this scalar type, with the
-    /// C++ checks of the factor (C++ `PrimType::ScalableVector(code, bits, factor)`).
+    /// Return the scalable vector of `factor` times `vscale` elements of this scalar type.
     ///
     /// # Errors
     ///
@@ -698,13 +708,15 @@ impl PrimType {
         Some((usize::from(self.bits()) * lanes).div_ceil(8))
     }
 
-    /// The lanes field as C++ reads it: negative for a scalable vector.
+    /// The lanes field read as signed: negative for a scalable vector.
     #[inline(always)]
     fn encoded_lanes(&self) -> i16 {
         self.dtype.lanes as i16
     }
 }
 
+/// The type of a string value, such as a [`StringImm`](crate::ir::StringImm); how a string is
+/// stored depends on where it is used.
 // tvm-ffi-stubgen(begin): object/ir.StringType
 #[allow(missing_docs)]
 #[repr(C)]
@@ -760,14 +772,16 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(StringType => Type);
 // tvm-ffi-stubgen(end)
 
 impl StringType {
-    /// Create the string type at the unknown location (C++ `StringType()`).
-    // Not `Default`, as no IR node is: the C++ constructor builds it.
+    /// Create the string type at the unknown location.
+    // Not `Default`, as no IR node is.
     #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         Self::from_fields(UNKNOWN_LOC)
     }
 }
 
+/// The type of a pointer to values of `element_type` in the memory `scope`, a low-level type
+/// for code generation.
 // tvm-ffi-stubgen(begin): object/ir.PtrType
 #[allow(missing_docs)]
 #[repr(C)]
@@ -829,8 +843,8 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(PtrType => Type);
 // tvm-ffi-stubgen(end)
 
 impl PtrType {
-    /// Create the type of a pointer to `element_type` in the memory `scope`, at the unknown
-    /// location (C++ `PtrType(element_type, scope)`).
+    /// Create the type of a pointer to values of `element_type` in the memory `scope`, at the
+    /// unknown location.
     ///
     /// # Errors
     ///
@@ -846,6 +860,7 @@ impl PtrType {
     }
 }
 
+/// The type of a tuple: the types of its `fields`, in order.
 // tvm-ffi-stubgen(begin): object/ir.TupleType
 #[allow(missing_docs)]
 #[repr(C)]
@@ -902,8 +917,7 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(TupleType => Type);
 // tvm-ffi-stubgen(end)
 
 impl TupleType {
-    /// Create the type of a tuple of `fields`, the void type if there are none
-    /// (C++ `TupleType(fields, loc)`).
+    /// Create the type of a tuple whose fields have the types `fields`, at `loc`.
     pub fn new(
         fields: impl IntoIterator<Item = impl Into<Type>>,
         loc: impl Into<Location>,
@@ -913,6 +927,7 @@ impl TupleType {
     }
 }
 
+/// The type of a function from arguments of `arg_types` to a result of `ret_type`.
 // tvm-ffi-stubgen(begin): object/ir.FuncType
 #[allow(missing_docs)]
 #[repr(C)]
@@ -974,8 +989,8 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(FuncType => Type);
 // tvm-ffi-stubgen(end)
 
 impl FuncType {
-    /// Create the type of a function from `arg_types` to `ret_type`, at the unknown location
-    /// (C++ `FuncType(arg_types, ret_type)`).
+    /// Create the type of a function from arguments of `arg_types` to a result of `ret_type`, at
+    /// the unknown location.
     pub fn new(
         arg_types: impl IntoIterator<Item = impl Into<Type>>,
         ret_type: impl Into<Type>,

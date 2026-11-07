@@ -17,18 +17,17 @@
  * under the License.
  */
 
-//! Registering IR types from Rust: [`register_type`], which a [`tvm_ffi::static_init_block!`]
-//! calls for an `rs_object` type, as C++ registers a type with `refl::ObjectDef`.
+//! Type registration. An IR type defined in Rust with `rs_object` calls [`register_type`] in a
+//! [`tvm_ffi::static_init_block!`], so Python can construct it once its library loads.
 
 use tvm_ffi::{Function, ObjectCore, ObjectRefCore, Result, String};
 
 use super::support;
 
-/// Register the IR type of the reference `R`, an `rs_object` type, as C++ registers one with
-/// `refl::ObjectDef`.
+/// Expose the IR type of the reference `R`, an `rs_object` type, to Python.
 ///
 /// Call it in a [`tvm_ffi::static_init_block!`], so that the type is registered when its program or
-/// library loads. Python then constructs the type from its fields, as it constructs a C++ type, if
+/// library loads. Python then constructs the type from its fields, like a built-in type, if
 /// `tvm_tirx` is imported before the library loads.
 ///
 /// # Errors
