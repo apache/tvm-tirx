@@ -24,9 +24,8 @@ use tvm_tirx::sym::{
     BindingConstraintObj, ConstraintContext, PredicateConstraintObj, RangeConstraintObj,
 };
 use tvm_tirx::tirx::structural_map_with_constraint_context::structural_map_with_constraint_context as map;
-use tvm_tirx::tvm_ffi::extra::structural_visit::DefRegionKind;
 use tvm_tirx::tvm_ffi::{
-    Any, AnyView, Error, ObjectRefCore, Result, Unchanged, WalkOrder, RUNTIME_ERROR,
+    Any, AnyView, DefRegionKind, Error, ObjectRefCore, Result, Unchanged, WalkOrder, RUNTIME_ERROR,
 };
 
 use super::{int32, op};

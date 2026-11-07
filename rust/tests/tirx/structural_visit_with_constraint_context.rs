@@ -24,9 +24,9 @@ use tvm_tirx::sym::{Constraint, ConstraintContext, PredicateConstraintObj, Range
 use tvm_tirx::tirx::structural_visit_with_constraint_context::{
     structural_visit_with_constraint_context as visit, StructuralVisitorWithConstraintContextView,
 };
-use tvm_tirx::tvm_ffi::extra::structural_visit::DefRegionKind;
 use tvm_tirx::tvm_ffi::{
-    dispatch, AnyView, Array, Error, Map, ObjectRefCore, Result, VisitInterrupt, RUNTIME_ERROR,
+    dispatch, AnyView, Array, DefRegionKind, Error, Map, ObjectRefCore, Result, VisitInterrupt,
+    RUNTIME_ERROR,
 };
 
 use super::int32;

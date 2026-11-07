@@ -21,8 +21,10 @@
 //! on every value with the facts in scope there, to observe the value, not to rewrite it.
 
 use std::borrow::BorrowMut;
-use tvm_ffi::extra::structural_visit::DefRegionKind;
-use tvm_ffi::{Any, AnyView, Dispatcher, IntoDispatcher, Result, VisitInterrupt, WalkOrder, WalkResult};
+use tvm_ffi::{
+    Any, AnyView, DefRegionKind, Dispatcher, IntoDispatcher, Result, VisitInterrupt, WalkOrder,
+    WalkResult,
+};
 
 use crate::sym::ConstraintContext;
 use super::structural_visit_with_constraint_context::{

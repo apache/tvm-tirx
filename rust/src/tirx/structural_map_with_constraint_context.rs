@@ -23,9 +23,9 @@
 
 use std::borrow::BorrowMut;
 
-use tvm_ffi::extra::structural_visit::DefRegionKind;
 use tvm_ffi::{
-    Any, AnyView, Dispatcher, IntoDispatcher, MutationView, Object, Result, UnchangedOr, WalkOrder,
+    Any, AnyView, DefRegionKind, Dispatcher, IntoDispatcher, MutationView, Object, Result,
+    UnchangedOr, WalkOrder,
 };
 
 use super::structural_mutate_with_constraint_context::{

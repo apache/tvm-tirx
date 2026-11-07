@@ -26,15 +26,14 @@ use std::cell::UnsafeCell;
 
 use tvm_ffi::extra::cold_init_lazy_lock::ColdInitLazyLock;
 use tvm_ffi::extra::structural_mutate::{
-    InplaceMode, StructuralMutateEngine, StructuralMutatorBase, StructuralMutatorObj,
-    StructuralMutatorView,
+    StructuralMutateEngine, StructuralMutatorBase, StructuralMutatorObj,
 };
 use tvm_ffi::reflection::TypeAttrColumn;
 use tvm_ffi::object::ObjectRef;
 use tvm_ffi::tvm_ffi_sys::{TVMFFIAny, TVMFFITypeIndex};
 use tvm_ffi::{
-    Any, Dispatcher, IntoDispatcher, MutationView, ObjectArc, ObjectCore, ObjectRefCore, Result,
-    UnchangedOr,
+    Any, Dispatcher, InplaceMode, IntoDispatcher, MutationView, ObjectArc, ObjectCore,
+    ObjectRefCore, Result, StructuralMutatorView, UnchangedOr,
 };
 
 use super::StructuralMutatorWithConstraintContextObj;
