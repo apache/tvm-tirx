@@ -51,7 +51,10 @@ using prim::IsOne;
 using prim::IsZero;
 using prim::MakeConst;
 
-TVM_FFI_STATIC_INIT_BLOCK() { IntervalSetObj::RegisterReflection(); }
+TVM_FFI_STATIC_INIT_BLOCK() {
+  ffi::reflection::ObjectDef<IntSetObj>();
+  IntervalSetObj::RegisterReflection();
+}
 
 IntervalSet::IntervalSet(PrimExpr min_value, PrimExpr max_value) : IntSet(ffi::UnsafeInit{}) {
   auto node = ffi::make_object<IntervalSetObj>(std::move(min_value), std::move(max_value));
