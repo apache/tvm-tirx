@@ -71,7 +71,7 @@
 //! use tvm_tirx::tvm_ffi::{self, Result};
 //! # use tvm_tirx::ir::TypeObj;
 //! # use tvm_tirx::tvm_ffi::{rs_object, ObjectRefCore};
-//! # #[rs_object("my_ext.PairType", final)]
+//! # #[rs_object("my_ext.PairType", final, immutable)]
 //! # pub struct PairTypeObj { base_: TypeObj, pub first: Type, pub second: Type }
 //! # #[derive(Clone, tvm_ffi::derive::ObjectRef)]
 //! # #[object_ref(parent = Type)]
@@ -105,7 +105,7 @@
 //! use tvm_tirx::ir::{PrimType, Type, TypeObj, UNKNOWN_LOC};
 //! use tvm_tirx::tvm_ffi::{self, rs_object, IntoObjectRef, ObjectRefCore};
 //!
-//! #[rs_object("my_ext.PairType", final)]
+//! #[rs_object("my_ext.PairType", final, immutable)]
 //! pub struct PairTypeObj {
 //!     base_: TypeObj,
 //!     pub first: Type,

@@ -119,7 +119,7 @@ fn types_agree_with_cpp() {
 }
 
 /// A pair of types with a tag, defined in Rust.
-#[rs_object("testing.rust.PairType", final)]
+#[rs_object("testing.rust.PairType", final, immutable)]
 pub struct PairTypeObj {
     base_: TypeObj,
     /// The first element.

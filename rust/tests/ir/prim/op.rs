@@ -489,7 +489,7 @@ fn select_folding_and_the_first_error() {
     };
     let direct =
         global("prim._OpTruncDiv").call_tuple((Expr::from(&f), Expr::from(&x), UnknownLoc::new()));
-    let direct = direct.err().expect("the native operation raises");
+    let direct = direct.expect_err("the native operation raises");
     assert_eq!(error.kind(), direct.kind());
     assert_eq!(error.message(), direct.message());
     // The type system rejects `string + 1`; the check a non-PrimType operand needs fails.

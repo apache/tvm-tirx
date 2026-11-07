@@ -39,7 +39,7 @@ use tvm_ffi::{Function, ObjectCore, ObjectRefCore, Result, String};
 /// use tvm_tirx::script::script;
 /// use tvm_tirx::tvm_ffi::{self, rs_object, IntoObjectRef};
 ///
-/// #[rs_object("my_ext.PairType", final)]
+/// #[rs_object("my_ext.PairType", final, immutable)]
 /// pub struct PairTypeObj {
 ///     base_: TypeObj,
 ///     pub first: Type,
