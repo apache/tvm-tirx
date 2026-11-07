@@ -41,12 +41,9 @@ use crate::ir::expr::Range;
 use crate::ir::expr::Var;
 use std::borrow::Borrow;
 use std::ops::Deref;
-use std::ptr::addr_of_mut;
 use tvm_ffi::IntoObjectRef;
 use tvm_ffi::Object;
 use tvm_ffi::ObjectArc;
-use tvm_ffi::reflection::ShallowCopy;
-use tvm_ffi::reflection::UnsafeInit;
 // tvm-ffi-stubgen(end)
 
 /// The base of every fact a [`ConstraintContext`] holds; it owns no analyzer state.
@@ -65,6 +62,8 @@ pub struct Constraint {
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "sym.Constraint"]
+#[type_immutable]
+#[type_rs_parent]
 pub struct ConstraintObj {
     base_: Object,
 }
@@ -90,22 +89,6 @@ impl Constraint {
         Self { data_: ObjectArc::new(obj) }
     }
 }
-
-impl ShallowCopy for ConstraintObj {
-    fn shallow_copy(&self) -> Self {
-        Self { base_: ShallowCopy::shallow_copy(&self.base_) }
-    }
-}
-
-unsafe impl UnsafeInit for ConstraintObj {
-    unsafe fn drop_defined_fields(this: *mut Self) {
-        unsafe {
-            UnsafeInit::drop_defined_fields(addr_of_mut!((*this).base_));
-        }
-    }
-}
-
-unsafe impl tvm_ffi::object::ImmutableObject for ConstraintObj {}
 // tvm-ffi-stubgen(end)
 
 /// The binding of `var` to `value`. The value is the bound expression as written, memory reads
@@ -126,6 +109,7 @@ pub struct BindingConstraint {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "sym.BindingConstraint"]
 #[type_final]
+#[type_immutable]
 pub struct BindingConstraintObj {
     base_: ConstraintObj,
     pub var: Var,
@@ -162,9 +146,7 @@ impl BindingConstraint {
     }
 }
 
-unsafe impl tvm_ffi::object::ImmutableObject for BindingConstraintObj {}
-
-tvm_ffi::unsafe_impl_object_ref_upcast!(BindingConstraint => Constraint);
+tvm_ffi::impl_object_ref_upcast!(BindingConstraint => Constraint);
 // tvm-ffi-stubgen(end)
 
 /// The fact that the boolean `condition` holds. With `assume_always`, the caller guarantees it
@@ -185,6 +167,7 @@ pub struct PredicateConstraint {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "sym.PredicateConstraint"]
 #[type_final]
+#[type_immutable]
 pub struct PredicateConstraintObj {
     base_: ConstraintObj,
     pub condition: PrimExpr,
@@ -220,9 +203,7 @@ impl PredicateConstraint {
     }
 }
 
-unsafe impl tvm_ffi::object::ImmutableObject for PredicateConstraintObj {}
-
-tvm_ffi::unsafe_impl_object_ref_upcast!(PredicateConstraint => Constraint);
+tvm_ffi::impl_object_ref_upcast!(PredicateConstraint => Constraint);
 // tvm-ffi-stubgen(end)
 
 /// The fact that `var` lies in the half-open `range`, which may be wider than the values `var`
@@ -243,6 +224,7 @@ pub struct RangeConstraint {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "sym.RangeConstraint"]
 #[type_final]
+#[type_immutable]
 pub struct RangeConstraintObj {
     base_: ConstraintObj,
     pub var: Var,
@@ -279,9 +261,7 @@ impl RangeConstraint {
     }
 }
 
-unsafe impl tvm_ffi::object::ImmutableObject for RangeConstraintObj {}
-
-tvm_ffi::unsafe_impl_object_ref_upcast!(RangeConstraint => Constraint);
+tvm_ffi::impl_object_ref_upcast!(RangeConstraint => Constraint);
 // tvm-ffi-stubgen(end)
 
 /// The object of a [`ConstraintContext`], with the layout of the native one and a stable identity.

@@ -27,23 +27,22 @@
 // C++ has one `UnknownLoc`, which `UnknownLoc::new` returns: `opaque` generates no allocator for
 // another one. It has no fields, so it loses no field access.
 // tvm-ffi-stubgen(opaque): ir.UnknownLoc
+// tvm-ffi-stubgen(field): ir.SourceLoc.start_line -> i32
+// tvm-ffi-stubgen(field): ir.SourceLoc.start_column -> i32
+// tvm-ffi-stubgen(field): ir.SourceLoc.end_line -> i32
+// tvm-ffi-stubgen(field): ir.SourceLoc.end_column -> i32
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
-// tvm-ffi-stubgen(import-object): tvm_ffi::Result
 // tvm-ffi-stubgen(import-object): crate::ir::support
 // tvm-ffi-stubgen(import-object): tvm_ffi::IntoObjectRef
 
 // tvm-ffi-stubgen(begin): import-section
 use crate::ir::support;
 use std::ops::Deref;
-use std::ptr::addr_of_mut;
 use tvm_ffi::IntoObjectRef;
 use tvm_ffi::Object;
 use tvm_ffi::ObjectArc;
-use tvm_ffi::Result;
 use tvm_ffi::String;
-use tvm_ffi::reflection::ShallowCopy;
-use tvm_ffi::reflection::UnsafeInit;
 // tvm-ffi-stubgen(end)
 
 /// Where an IR node comes from, for diagnostics: an [`UnknownLoc`], a [`SourceLoc`] or a
@@ -78,6 +77,8 @@ pub struct Location {
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.Location"]
+#[type_immutable]
+#[type_rs_parent]
 pub struct LocationObj {
     base_: Object,
 }
@@ -103,22 +104,6 @@ impl Location {
         Self { data_: ObjectArc::new(obj) }
     }
 }
-
-impl ShallowCopy for LocationObj {
-    fn shallow_copy(&self) -> Self {
-        Self { base_: ShallowCopy::shallow_copy(&self.base_) }
-    }
-}
-
-unsafe impl UnsafeInit for LocationObj {
-    unsafe fn drop_defined_fields(this: *mut Self) {
-        unsafe {
-            UnsafeInit::drop_defined_fields(addr_of_mut!((*this).base_));
-        }
-    }
-}
-
-unsafe impl tvm_ffi::object::ImmutableObject for LocationObj {}
 // tvm-ffi-stubgen(end)
 
 /// The location of a node with no source information, a single shared object.
@@ -138,6 +123,7 @@ pub struct UnknownLoc {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.UnknownLoc"]
 #[type_final]
+#[type_immutable]
 pub struct UnknownLocObj {
     base_: LocationObj,
 }
@@ -149,9 +135,7 @@ impl Deref for UnknownLocObj {
     }
 }
 
-unsafe impl tvm_ffi::object::ImmutableObject for UnknownLocObj {}
-
-tvm_ffi::unsafe_impl_object_ref_upcast!(UnknownLoc => Location);
+tvm_ffi::impl_object_ref_upcast!(UnknownLoc => Location);
 // tvm-ffi-stubgen(end)
 
 impl UnknownLoc {
@@ -209,6 +193,7 @@ pub struct SourceLoc {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.SourceLoc"]
 #[type_final]
+#[type_immutable]
 pub struct SourceLocObj {
     base_: LocationObj,
     pub source_name: SourceName,
@@ -265,9 +250,7 @@ impl SourceLoc {
     }
 }
 
-unsafe impl tvm_ffi::object::ImmutableObject for SourceLocObj {}
-
-tvm_ffi::unsafe_impl_object_ref_upcast!(SourceLoc => Location);
+tvm_ffi::impl_object_ref_upcast!(SourceLoc => Location);
 // tvm-ffi-stubgen(end)
 
 // `ir.SourceLoc` stores its arguments as given: the generated `SourceLoc::new` is the same.
@@ -290,6 +273,7 @@ pub struct CallSiteLoc {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.CallSiteLoc"]
 #[type_final]
+#[type_immutable]
 pub struct CallSiteLocObj {
     base_: LocationObj,
     pub callee: Location,
@@ -326,9 +310,7 @@ impl CallSiteLoc {
     }
 }
 
-unsafe impl tvm_ffi::object::ImmutableObject for CallSiteLocObj {}
-
-tvm_ffi::unsafe_impl_object_ref_upcast!(CallSiteLoc => Location);
+tvm_ffi::impl_object_ref_upcast!(CallSiteLoc => Location);
 // tvm-ffi-stubgen(end)
 
 // `ir.CallSiteLoc` stores its arguments as given: the generated `CallSiteLoc::new` is the same.
@@ -351,6 +333,7 @@ pub struct SourceName {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.SourceName"]
 #[type_final]
+#[type_immutable]
 pub struct SourceNameObj {
     base_: Object,
     pub name: String,
@@ -377,8 +360,6 @@ impl SourceName {
         Self { data_: ObjectArc::new(obj) }
     }
 }
-
-unsafe impl tvm_ffi::object::ImmutableObject for SourceNameObj {}
 // tvm-ffi-stubgen(end)
 
 impl SourceName {

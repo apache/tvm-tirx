@@ -51,6 +51,7 @@ pub struct TensorMapType {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "tirx.TensorMapType"]
 #[type_final]
+#[type_immutable]
 pub struct TensorMapTypeObj {
     base_: TypeObj,
 }
@@ -84,9 +85,7 @@ impl TensorMapType {
     }
 }
 
-unsafe impl tvm_ffi::object::ImmutableObject for TensorMapTypeObj {}
-
-tvm_ffi::unsafe_impl_object_ref_upcast!(TensorMapType => Type);
+tvm_ffi::impl_object_ref_upcast!(TensorMapType => Type);
 // tvm-ffi-stubgen(end)
 
 // The native `tirx.TensorMapType` stores the location as given, as the generated

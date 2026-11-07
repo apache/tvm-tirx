@@ -53,7 +53,6 @@ use crate::ir::location::UNKNOWN_LOC;
 use crate::ir::support;
 use crate::runtime::MemoryScope;
 use std::ops::Deref;
-use std::ptr::addr_of_mut;
 use tvm_ffi::Array;
 use tvm_ffi::DLDataType;
 use tvm_ffi::DLDataTypeCode;
@@ -64,9 +63,6 @@ use tvm_ffi::ObjectArc;
 use tvm_ffi::ObjectRefCore;
 use tvm_ffi::Result;
 use tvm_ffi::VALUE_ERROR;
-use tvm_ffi::reflection::ShallowCopy;
-use tvm_ffi::reflection::UnsafeInit;
-use tvm_ffi::reflection::drop_if_defined;
 // tvm-ffi-stubgen(end)
 
 /// The base of every type; `loc` is the source location the type was written at.
@@ -85,6 +81,8 @@ pub struct Type {
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.Type"]
+#[type_immutable]
+#[type_rs_parent]
 pub struct TypeObj {
     base_: Object,
     pub loc: Location,
@@ -111,23 +109,6 @@ impl Type {
         Self { data_: ObjectArc::new(obj) }
     }
 }
-
-impl ShallowCopy for TypeObj {
-    fn shallow_copy(&self) -> Self {
-        Self { base_: ShallowCopy::shallow_copy(&self.base_), loc: Clone::clone(&self.loc) }
-    }
-}
-
-unsafe impl UnsafeInit for TypeObj {
-    unsafe fn drop_defined_fields(this: *mut Self) {
-        unsafe {
-            UnsafeInit::drop_defined_fields(addr_of_mut!((*this).base_));
-            drop_if_defined(addr_of_mut!((*this).loc));
-        }
-    }
-}
-
-unsafe impl tvm_ffi::object::ImmutableObject for TypeObj {}
 // tvm-ffi-stubgen(end)
 
 /// The type of a node whose type has not been given or inferred yet.
@@ -150,6 +131,7 @@ pub struct MissingType {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.MissingType"]
 #[type_final]
+#[type_immutable]
 pub struct MissingTypeObj {
     base_: TypeObj,
 }
@@ -183,9 +165,7 @@ impl MissingType {
     }
 }
 
-unsafe impl tvm_ffi::object::ImmutableObject for MissingTypeObj {}
-
-tvm_ffi::unsafe_impl_object_ref_upcast!(MissingType => Type);
+tvm_ffi::impl_object_ref_upcast!(MissingType => Type);
 // tvm-ffi-stubgen(end)
 
 impl MissingType {
@@ -220,6 +200,7 @@ pub struct NoneType {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.NoneType"]
 #[type_final]
+#[type_immutable]
 pub struct NoneTypeObj {
     base_: TypeObj,
 }
@@ -253,9 +234,7 @@ impl NoneType {
     }
 }
 
-unsafe impl tvm_ffi::object::ImmutableObject for NoneTypeObj {}
-
-tvm_ffi::unsafe_impl_object_ref_upcast!(NoneType => Type);
+tvm_ffi::impl_object_ref_upcast!(NoneType => Type);
 // tvm-ffi-stubgen(end)
 
 impl NoneType {
@@ -290,6 +269,7 @@ pub struct AnyType {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.AnyType"]
 #[type_final]
+#[type_immutable]
 pub struct AnyTypeObj {
     base_: TypeObj,
 }
@@ -323,9 +303,7 @@ impl AnyType {
     }
 }
 
-unsafe impl tvm_ffi::object::ImmutableObject for AnyTypeObj {}
-
-tvm_ffi::unsafe_impl_object_ref_upcast!(AnyType => Type);
+tvm_ffi::impl_object_ref_upcast!(AnyType => Type);
 // tvm-ffi-stubgen(end)
 
 // `ir.AnyType` stores its location as given: the generated `AnyType::new` is the same.
@@ -348,6 +326,7 @@ pub struct TensorRegionType {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.TensorRegionType"]
 #[type_final]
+#[type_immutable]
 pub struct TensorRegionTypeObj {
     base_: TypeObj,
 }
@@ -381,9 +360,7 @@ impl TensorRegionType {
     }
 }
 
-unsafe impl tvm_ffi::object::ImmutableObject for TensorRegionTypeObj {}
-
-tvm_ffi::unsafe_impl_object_ref_upcast!(TensorRegionType => Type);
+tvm_ffi::impl_object_ref_upcast!(TensorRegionType => Type);
 // tvm-ffi-stubgen(end)
 
 impl TensorRegionType {
@@ -419,6 +396,7 @@ pub struct OpaqueType {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.OpaqueType"]
 #[type_final]
+#[type_immutable]
 pub struct OpaqueTypeObj {
     base_: TypeObj,
 }
@@ -452,9 +430,7 @@ impl OpaqueType {
     }
 }
 
-unsafe impl tvm_ffi::object::ImmutableObject for OpaqueTypeObj {}
-
-tvm_ffi::unsafe_impl_object_ref_upcast!(OpaqueType => Type);
+tvm_ffi::impl_object_ref_upcast!(OpaqueType => Type);
 // tvm-ffi-stubgen(end)
 
 impl OpaqueType {
@@ -499,6 +475,7 @@ pub struct PrimType {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.PrimType"]
 #[type_final]
+#[type_immutable]
 pub struct PrimTypeObj {
     base_: TypeObj,
     pub dtype: DLDataType,
@@ -533,9 +510,7 @@ impl PrimType {
     }
 }
 
-unsafe impl tvm_ffi::object::ImmutableObject for PrimTypeObj {}
-
-tvm_ffi::unsafe_impl_object_ref_upcast!(PrimType => Type);
+tvm_ffi::impl_object_ref_upcast!(PrimType => Type);
 // tvm-ffi-stubgen(end)
 
 /// The primitive type of a dtype, checked to be a valid primitive type (`ir.PrimType`).
@@ -735,6 +710,7 @@ pub struct StringType {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.StringType"]
 #[type_final]
+#[type_immutable]
 pub struct StringTypeObj {
     base_: TypeObj,
 }
@@ -768,9 +744,7 @@ impl StringType {
     }
 }
 
-unsafe impl tvm_ffi::object::ImmutableObject for StringTypeObj {}
-
-tvm_ffi::unsafe_impl_object_ref_upcast!(StringType => Type);
+tvm_ffi::impl_object_ref_upcast!(StringType => Type);
 // tvm-ffi-stubgen(end)
 
 impl StringType {
@@ -800,6 +774,7 @@ pub struct PtrType {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.PtrType"]
 #[type_final]
+#[type_immutable]
 pub struct PtrTypeObj {
     base_: TypeObj,
     pub element_type: Type,
@@ -843,9 +818,7 @@ impl PtrType {
     }
 }
 
-unsafe impl tvm_ffi::object::ImmutableObject for PtrTypeObj {}
-
-tvm_ffi::unsafe_impl_object_ref_upcast!(PtrType => Type);
+tvm_ffi::impl_object_ref_upcast!(PtrType => Type);
 // tvm-ffi-stubgen(end)
 
 impl PtrType {
@@ -886,6 +859,7 @@ pub struct TupleType {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.TupleType"]
 #[type_final]
+#[type_immutable]
 pub struct TupleTypeObj {
     base_: TypeObj,
     pub fields: Array<Type>,
@@ -920,9 +894,7 @@ impl TupleType {
     }
 }
 
-unsafe impl tvm_ffi::object::ImmutableObject for TupleTypeObj {}
-
-tvm_ffi::unsafe_impl_object_ref_upcast!(TupleType => Type);
+tvm_ffi::impl_object_ref_upcast!(TupleType => Type);
 // tvm-ffi-stubgen(end)
 
 impl TupleType {
@@ -954,6 +926,7 @@ pub struct FuncType {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.FuncType"]
 #[type_final]
+#[type_immutable]
 pub struct FuncTypeObj {
     base_: TypeObj,
     pub arg_types: Array<Type>,
@@ -997,9 +970,7 @@ impl FuncType {
     }
 }
 
-unsafe impl tvm_ffi::object::ImmutableObject for FuncTypeObj {}
-
-tvm_ffi::unsafe_impl_object_ref_upcast!(FuncType => Type);
+tvm_ffi::impl_object_ref_upcast!(FuncType => Type);
 // tvm-ffi-stubgen(end)
 
 impl FuncType {

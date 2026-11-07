@@ -424,6 +424,7 @@ pub struct ConstIntBound {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "sym.ConstIntBound"]
 #[type_final]
+#[type_immutable]
 pub struct ConstIntBoundObj {
     base_: Object,
     pub min_value: i64,
@@ -451,8 +452,6 @@ impl ConstIntBound {
         Self { data_: ObjectArc::new(obj) }
     }
 }
-
-unsafe impl tvm_ffi::object::ImmutableObject for ConstIntBoundObj {}
 // tvm-ffi-stubgen(end)
 
 /// The congruence class `{coeff * x + base}` over the integers `x` that an integer expression lies
@@ -473,6 +472,7 @@ pub struct ModularSet {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "sym.ModularSet"]
 #[type_final]
+#[type_immutable]
 pub struct ModularSetObj {
     base_: Object,
     pub coeff: i64,
@@ -500,8 +500,6 @@ impl ModularSet {
         Self { data_: ObjectArc::new(obj) }
     }
 }
-
-unsafe impl tvm_ffi::object::ImmutableObject for ModularSetObj {}
 // tvm-ffi-stubgen(end)
 
 /// The counters of an analyzer's rewrite simplifier: the nodes it visited, the constraints it
@@ -523,6 +521,7 @@ pub struct RewriteSimplifierStats {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "sym.RewriteSimplifierStats"]
 #[type_final]
+#[type_immutable]
 pub struct RewriteSimplifierStatsObj {
     base_: Object,
     pub nodes_visited: i64,
@@ -583,8 +582,6 @@ impl RewriteSimplifierStats {
         Self { data_: ObjectArc::new(obj) }
     }
 }
-
-unsafe impl tvm_ffi::object::ImmutableObject for RewriteSimplifierStatsObj {}
 // tvm-ffi-stubgen(end)
 
 // ---------------------------------------------------------------------------------------------
@@ -618,7 +615,7 @@ impl Deref for CanonicalExprObj {
     }
 }
 
-tvm_ffi::unsafe_impl_object_ref_upcast!(CanonicalExpr => Expr);
+tvm_ffi::impl_object_ref_upcast!(CanonicalExpr => Expr);
 // tvm-ffi-stubgen(end)
 
 /// The canonical form of a split index: `((index % upper_factor) / lower_factor) * scale`.
@@ -648,7 +645,8 @@ impl Deref for SplitExprObj {
     }
 }
 
-tvm_ffi::unsafe_impl_object_ref_upcast!(SplitExpr => Expr, SplitExpr => CanonicalExpr, SplitExpr => PrimExpr);
+tvm_ffi::impl_object_ref_upcast!(SplitExpr => Expr, SplitExpr => CanonicalExpr);
+tvm_ffi::impl_object_ref_upcast!(unsafe SplitExpr => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 /// The canonical form of a sum: a sum of [`SplitExpr`]s plus a constant base.
@@ -678,5 +676,6 @@ impl Deref for SumExprObj {
     }
 }
 
-tvm_ffi::unsafe_impl_object_ref_upcast!(SumExpr => Expr, SumExpr => CanonicalExpr, SumExpr => PrimExpr);
+tvm_ffi::impl_object_ref_upcast!(SumExpr => Expr, SumExpr => CanonicalExpr);
+tvm_ffi::impl_object_ref_upcast!(unsafe SumExpr => PrimExpr);
 // tvm-ffi-stubgen(end)

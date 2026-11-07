@@ -610,7 +610,7 @@ fn static_init_blocks_define_operators_and_types() {
 
     // The type `register_type` registers with them: tvm-ffi constructs it from its fields,
     // positionally or by keyword, and reads it back from a JSON graph.
-    let init: Function = tvm_ffi::reflection::TypeAttrColumn::new("__ffi_init__")
+    let init: Function = tvm_ffi::reflection::TypeAttrColumn::lookup("__ffi_init__")
         .and_then(|column| column.get(BlockTypeObj::type_index()))
         .unwrap()
         .try_into()

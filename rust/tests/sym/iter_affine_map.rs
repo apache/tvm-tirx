@@ -21,7 +21,8 @@
 
 use tvm_tirx::ir::{ExprObj, IntImm, PrimExpr, PrimVar, Range, Var};
 use tvm_tirx::sym::*;
-use tvm_tirx::tvm_ffi::{Array, Map, Object, ObjectIdentity, ObjectRefCore};
+use tvm_tirx::tvm_ffi::object::ObjectIdentity;
+use tvm_tirx::tvm_ffi::{Array, Map, Object, ObjectRefCore};
 
 use super::{fixture, int32, op, range, var, Fixture};
 use crate::common::{assert_type_contracts, global};

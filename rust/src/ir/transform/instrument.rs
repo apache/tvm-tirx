@@ -99,7 +99,7 @@ impl Deref for BasePassInstrumentObj {
     }
 }
 
-tvm_ffi::unsafe_impl_object_ref_upcast!(BasePassInstrument => PassInstrument);
+tvm_ffi::impl_object_ref_upcast!(BasePassInstrument => PassInstrument);
 // tvm-ffi-stubgen(end)
 
 /// A hook of a [`BasePassInstrument`], called when a pass context is entered or exited.

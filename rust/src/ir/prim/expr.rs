@@ -236,6 +236,7 @@ pub struct Cast {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "prim.Cast"]
 #[type_final]
+#[type_immutable]
 pub struct CastObj {
     base_: ExprObj,
     pub value: PrimExpr,
@@ -278,9 +279,8 @@ impl Cast {
     }
 }
 
-unsafe impl tvm_ffi::object::ImmutableObject for CastObj {}
-
-tvm_ffi::unsafe_impl_object_ref_upcast!(Cast => Expr, Cast => PrimExpr);
+tvm_ffi::impl_object_ref_upcast!(Cast => Expr);
+tvm_ffi::impl_object_ref_upcast!(unsafe Cast => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 impl Cast {
@@ -325,6 +325,7 @@ pub struct LShift {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "prim.LShift"]
 #[type_final]
+#[type_immutable]
 pub struct LShiftObj {
     base_: ExprObj,
     pub a: PrimExpr,
@@ -370,9 +371,8 @@ impl LShift {
     }
 }
 
-unsafe impl tvm_ffi::object::ImmutableObject for LShiftObj {}
-
-tvm_ffi::unsafe_impl_object_ref_upcast!(LShift => Expr, LShift => PrimExpr);
+tvm_ffi::impl_object_ref_upcast!(LShift => Expr);
+tvm_ffi::impl_object_ref_upcast!(unsafe LShift => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 binary_new! {
@@ -397,6 +397,7 @@ pub struct RShift {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "prim.RShift"]
 #[type_final]
+#[type_immutable]
 pub struct RShiftObj {
     base_: ExprObj,
     pub a: PrimExpr,
@@ -442,9 +443,8 @@ impl RShift {
     }
 }
 
-unsafe impl tvm_ffi::object::ImmutableObject for RShiftObj {}
-
-tvm_ffi::unsafe_impl_object_ref_upcast!(RShift => Expr, RShift => PrimExpr);
+tvm_ffi::impl_object_ref_upcast!(RShift => Expr);
+tvm_ffi::impl_object_ref_upcast!(unsafe RShift => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 binary_new! {
@@ -469,6 +469,7 @@ pub struct BitwiseAnd {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "prim.BitwiseAnd"]
 #[type_final]
+#[type_immutable]
 pub struct BitwiseAndObj {
     base_: ExprObj,
     pub a: PrimExpr,
@@ -514,9 +515,8 @@ impl BitwiseAnd {
     }
 }
 
-unsafe impl tvm_ffi::object::ImmutableObject for BitwiseAndObj {}
-
-tvm_ffi::unsafe_impl_object_ref_upcast!(BitwiseAnd => Expr, BitwiseAnd => PrimExpr);
+tvm_ffi::impl_object_ref_upcast!(BitwiseAnd => Expr);
+tvm_ffi::impl_object_ref_upcast!(unsafe BitwiseAnd => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 binary_new! {
@@ -541,6 +541,7 @@ pub struct BitwiseOr {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "prim.BitwiseOr"]
 #[type_final]
+#[type_immutable]
 pub struct BitwiseOrObj {
     base_: ExprObj,
     pub a: PrimExpr,
@@ -586,9 +587,8 @@ impl BitwiseOr {
     }
 }
 
-unsafe impl tvm_ffi::object::ImmutableObject for BitwiseOrObj {}
-
-tvm_ffi::unsafe_impl_object_ref_upcast!(BitwiseOr => Expr, BitwiseOr => PrimExpr);
+tvm_ffi::impl_object_ref_upcast!(BitwiseOr => Expr);
+tvm_ffi::impl_object_ref_upcast!(unsafe BitwiseOr => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 binary_new! {
@@ -613,6 +613,7 @@ pub struct BitwiseXor {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "prim.BitwiseXor"]
 #[type_final]
+#[type_immutable]
 pub struct BitwiseXorObj {
     base_: ExprObj,
     pub a: PrimExpr,
@@ -658,9 +659,8 @@ impl BitwiseXor {
     }
 }
 
-unsafe impl tvm_ffi::object::ImmutableObject for BitwiseXorObj {}
-
-tvm_ffi::unsafe_impl_object_ref_upcast!(BitwiseXor => Expr, BitwiseXor => PrimExpr);
+tvm_ffi::impl_object_ref_upcast!(BitwiseXor => Expr);
+tvm_ffi::impl_object_ref_upcast!(unsafe BitwiseXor => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 binary_new! {
@@ -685,6 +685,7 @@ pub struct BitwiseNot {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "prim.BitwiseNot"]
 #[type_final]
+#[type_immutable]
 pub struct BitwiseNotObj {
     base_: ExprObj,
     pub a: PrimExpr,
@@ -727,9 +728,8 @@ impl BitwiseNot {
     }
 }
 
-unsafe impl tvm_ffi::object::ImmutableObject for BitwiseNotObj {}
-
-tvm_ffi::unsafe_impl_object_ref_upcast!(BitwiseNot => Expr, BitwiseNot => PrimExpr);
+tvm_ffi::impl_object_ref_upcast!(BitwiseNot => Expr);
+tvm_ffi::impl_object_ref_upcast!(unsafe BitwiseNot => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 impl BitwiseNot {
@@ -790,6 +790,7 @@ pub struct Add {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "prim.Add"]
 #[type_final]
+#[type_immutable]
 pub struct AddObj {
     base_: ExprObj,
     pub a: PrimExpr,
@@ -835,9 +836,8 @@ impl Add {
     }
 }
 
-unsafe impl tvm_ffi::object::ImmutableObject for AddObj {}
-
-tvm_ffi::unsafe_impl_object_ref_upcast!(Add => Expr, Add => PrimExpr);
+tvm_ffi::impl_object_ref_upcast!(Add => Expr);
+tvm_ffi::impl_object_ref_upcast!(unsafe Add => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 binary_new! {
@@ -862,6 +862,7 @@ pub struct Sub {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "prim.Sub"]
 #[type_final]
+#[type_immutable]
 pub struct SubObj {
     base_: ExprObj,
     pub a: PrimExpr,
@@ -907,9 +908,8 @@ impl Sub {
     }
 }
 
-unsafe impl tvm_ffi::object::ImmutableObject for SubObj {}
-
-tvm_ffi::unsafe_impl_object_ref_upcast!(Sub => Expr, Sub => PrimExpr);
+tvm_ffi::impl_object_ref_upcast!(Sub => Expr);
+tvm_ffi::impl_object_ref_upcast!(unsafe Sub => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 binary_new! {
@@ -934,6 +934,7 @@ pub struct Mul {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "prim.Mul"]
 #[type_final]
+#[type_immutable]
 pub struct MulObj {
     base_: ExprObj,
     pub a: PrimExpr,
@@ -979,9 +980,8 @@ impl Mul {
     }
 }
 
-unsafe impl tvm_ffi::object::ImmutableObject for MulObj {}
-
-tvm_ffi::unsafe_impl_object_ref_upcast!(Mul => Expr, Mul => PrimExpr);
+tvm_ffi::impl_object_ref_upcast!(Mul => Expr);
+tvm_ffi::impl_object_ref_upcast!(unsafe Mul => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 binary_new! {
@@ -1006,6 +1006,7 @@ pub struct Div {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "prim.Div"]
 #[type_final]
+#[type_immutable]
 pub struct DivObj {
     base_: ExprObj,
     pub a: PrimExpr,
@@ -1051,9 +1052,8 @@ impl Div {
     }
 }
 
-unsafe impl tvm_ffi::object::ImmutableObject for DivObj {}
-
-tvm_ffi::unsafe_impl_object_ref_upcast!(Div => Expr, Div => PrimExpr);
+tvm_ffi::impl_object_ref_upcast!(Div => Expr);
+tvm_ffi::impl_object_ref_upcast!(unsafe Div => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 binary_new! {
@@ -1078,6 +1078,7 @@ pub struct Mod {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "prim.Mod"]
 #[type_final]
+#[type_immutable]
 pub struct ModObj {
     base_: ExprObj,
     pub a: PrimExpr,
@@ -1123,9 +1124,8 @@ impl Mod {
     }
 }
 
-unsafe impl tvm_ffi::object::ImmutableObject for ModObj {}
-
-tvm_ffi::unsafe_impl_object_ref_upcast!(Mod => Expr, Mod => PrimExpr);
+tvm_ffi::impl_object_ref_upcast!(Mod => Expr);
+tvm_ffi::impl_object_ref_upcast!(unsafe Mod => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 binary_new! {
@@ -1150,6 +1150,7 @@ pub struct FloorDiv {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "prim.FloorDiv"]
 #[type_final]
+#[type_immutable]
 pub struct FloorDivObj {
     base_: ExprObj,
     pub a: PrimExpr,
@@ -1195,9 +1196,8 @@ impl FloorDiv {
     }
 }
 
-unsafe impl tvm_ffi::object::ImmutableObject for FloorDivObj {}
-
-tvm_ffi::unsafe_impl_object_ref_upcast!(FloorDiv => Expr, FloorDiv => PrimExpr);
+tvm_ffi::impl_object_ref_upcast!(FloorDiv => Expr);
+tvm_ffi::impl_object_ref_upcast!(unsafe FloorDiv => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 binary_new! {
@@ -1222,6 +1222,7 @@ pub struct FloorMod {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "prim.FloorMod"]
 #[type_final]
+#[type_immutable]
 pub struct FloorModObj {
     base_: ExprObj,
     pub a: PrimExpr,
@@ -1267,9 +1268,8 @@ impl FloorMod {
     }
 }
 
-unsafe impl tvm_ffi::object::ImmutableObject for FloorModObj {}
-
-tvm_ffi::unsafe_impl_object_ref_upcast!(FloorMod => Expr, FloorMod => PrimExpr);
+tvm_ffi::impl_object_ref_upcast!(FloorMod => Expr);
+tvm_ffi::impl_object_ref_upcast!(unsafe FloorMod => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 binary_new! {
@@ -1294,6 +1294,7 @@ pub struct Min {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "prim.Min"]
 #[type_final]
+#[type_immutable]
 pub struct MinObj {
     base_: ExprObj,
     pub a: PrimExpr,
@@ -1339,9 +1340,8 @@ impl Min {
     }
 }
 
-unsafe impl tvm_ffi::object::ImmutableObject for MinObj {}
-
-tvm_ffi::unsafe_impl_object_ref_upcast!(Min => Expr, Min => PrimExpr);
+tvm_ffi::impl_object_ref_upcast!(Min => Expr);
+tvm_ffi::impl_object_ref_upcast!(unsafe Min => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 binary_new! {
@@ -1366,6 +1366,7 @@ pub struct Max {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "prim.Max"]
 #[type_final]
+#[type_immutable]
 pub struct MaxObj {
     base_: ExprObj,
     pub a: PrimExpr,
@@ -1411,9 +1412,8 @@ impl Max {
     }
 }
 
-unsafe impl tvm_ffi::object::ImmutableObject for MaxObj {}
-
-tvm_ffi::unsafe_impl_object_ref_upcast!(Max => Expr, Max => PrimExpr);
+tvm_ffi::impl_object_ref_upcast!(Max => Expr);
+tvm_ffi::impl_object_ref_upcast!(unsafe Max => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 binary_new! {
@@ -1441,6 +1441,7 @@ pub struct EQ {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "prim.EQ"]
 #[type_final]
+#[type_immutable]
 pub struct EQObj {
     base_: ExprObj,
     pub a: PrimExpr,
@@ -1486,9 +1487,8 @@ impl EQ {
     }
 }
 
-unsafe impl tvm_ffi::object::ImmutableObject for EQObj {}
-
-tvm_ffi::unsafe_impl_object_ref_upcast!(EQ => Expr, EQ => PrimExpr);
+tvm_ffi::impl_object_ref_upcast!(EQ => Expr);
+tvm_ffi::impl_object_ref_upcast!(unsafe EQ => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 binary_new! {
@@ -1513,6 +1513,7 @@ pub struct NE {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "prim.NE"]
 #[type_final]
+#[type_immutable]
 pub struct NEObj {
     base_: ExprObj,
     pub a: PrimExpr,
@@ -1558,9 +1559,8 @@ impl NE {
     }
 }
 
-unsafe impl tvm_ffi::object::ImmutableObject for NEObj {}
-
-tvm_ffi::unsafe_impl_object_ref_upcast!(NE => Expr, NE => PrimExpr);
+tvm_ffi::impl_object_ref_upcast!(NE => Expr);
+tvm_ffi::impl_object_ref_upcast!(unsafe NE => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 binary_new! {
@@ -1585,6 +1585,7 @@ pub struct LT {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "prim.LT"]
 #[type_final]
+#[type_immutable]
 pub struct LTObj {
     base_: ExprObj,
     pub a: PrimExpr,
@@ -1630,9 +1631,8 @@ impl LT {
     }
 }
 
-unsafe impl tvm_ffi::object::ImmutableObject for LTObj {}
-
-tvm_ffi::unsafe_impl_object_ref_upcast!(LT => Expr, LT => PrimExpr);
+tvm_ffi::impl_object_ref_upcast!(LT => Expr);
+tvm_ffi::impl_object_ref_upcast!(unsafe LT => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 binary_new! {
@@ -1657,6 +1657,7 @@ pub struct LE {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "prim.LE"]
 #[type_final]
+#[type_immutable]
 pub struct LEObj {
     base_: ExprObj,
     pub a: PrimExpr,
@@ -1702,9 +1703,8 @@ impl LE {
     }
 }
 
-unsafe impl tvm_ffi::object::ImmutableObject for LEObj {}
-
-tvm_ffi::unsafe_impl_object_ref_upcast!(LE => Expr, LE => PrimExpr);
+tvm_ffi::impl_object_ref_upcast!(LE => Expr);
+tvm_ffi::impl_object_ref_upcast!(unsafe LE => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 binary_new! {
@@ -1729,6 +1729,7 @@ pub struct GT {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "prim.GT"]
 #[type_final]
+#[type_immutable]
 pub struct GTObj {
     base_: ExprObj,
     pub a: PrimExpr,
@@ -1774,9 +1775,8 @@ impl GT {
     }
 }
 
-unsafe impl tvm_ffi::object::ImmutableObject for GTObj {}
-
-tvm_ffi::unsafe_impl_object_ref_upcast!(GT => Expr, GT => PrimExpr);
+tvm_ffi::impl_object_ref_upcast!(GT => Expr);
+tvm_ffi::impl_object_ref_upcast!(unsafe GT => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 binary_new! {
@@ -1801,6 +1801,7 @@ pub struct GE {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "prim.GE"]
 #[type_final]
+#[type_immutable]
 pub struct GEObj {
     base_: ExprObj,
     pub a: PrimExpr,
@@ -1846,9 +1847,8 @@ impl GE {
     }
 }
 
-unsafe impl tvm_ffi::object::ImmutableObject for GEObj {}
-
-tvm_ffi::unsafe_impl_object_ref_upcast!(GE => Expr, GE => PrimExpr);
+tvm_ffi::impl_object_ref_upcast!(GE => Expr);
+tvm_ffi::impl_object_ref_upcast!(unsafe GE => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 binary_new! {
@@ -1876,6 +1876,7 @@ pub struct And {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "prim.And"]
 #[type_final]
+#[type_immutable]
 pub struct AndObj {
     base_: ExprObj,
     pub a: PrimExpr,
@@ -1921,9 +1922,8 @@ impl And {
     }
 }
 
-unsafe impl tvm_ffi::object::ImmutableObject for AndObj {}
-
-tvm_ffi::unsafe_impl_object_ref_upcast!(And => Expr, And => PrimExpr);
+tvm_ffi::impl_object_ref_upcast!(And => Expr);
+tvm_ffi::impl_object_ref_upcast!(unsafe And => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 impl And {
@@ -1961,6 +1961,7 @@ pub struct Or {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "prim.Or"]
 #[type_final]
+#[type_immutable]
 pub struct OrObj {
     base_: ExprObj,
     pub a: PrimExpr,
@@ -2006,9 +2007,8 @@ impl Or {
     }
 }
 
-unsafe impl tvm_ffi::object::ImmutableObject for OrObj {}
-
-tvm_ffi::unsafe_impl_object_ref_upcast!(Or => Expr, Or => PrimExpr);
+tvm_ffi::impl_object_ref_upcast!(Or => Expr);
+tvm_ffi::impl_object_ref_upcast!(unsafe Or => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 impl Or {
@@ -2046,6 +2046,7 @@ pub struct Not {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "prim.Not"]
 #[type_final]
+#[type_immutable]
 pub struct NotObj {
     base_: ExprObj,
     pub a: PrimExpr,
@@ -2088,9 +2089,8 @@ impl Not {
     }
 }
 
-unsafe impl tvm_ffi::object::ImmutableObject for NotObj {}
-
-tvm_ffi::unsafe_impl_object_ref_upcast!(Not => Expr, Not => PrimExpr);
+tvm_ffi::impl_object_ref_upcast!(Not => Expr);
+tvm_ffi::impl_object_ref_upcast!(unsafe Not => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 impl Not {
@@ -2133,6 +2133,7 @@ pub struct Select {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "prim.Select"]
 #[type_final]
+#[type_immutable]
 pub struct SelectObj {
     base_: ExprObj,
     pub condition: PrimExpr,
@@ -2187,9 +2188,8 @@ impl Select {
     }
 }
 
-unsafe impl tvm_ffi::object::ImmutableObject for SelectObj {}
-
-tvm_ffi::unsafe_impl_object_ref_upcast!(Select => Expr, Select => PrimExpr);
+tvm_ffi::impl_object_ref_upcast!(Select => Expr);
+tvm_ffi::impl_object_ref_upcast!(unsafe Select => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 impl Select {
@@ -2263,6 +2263,7 @@ pub struct Let {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "prim.Let"]
 #[type_final]
+#[type_immutable]
 pub struct LetObj {
     base_: ExprObj,
     pub var: Var,
@@ -2317,9 +2318,8 @@ impl Let {
     }
 }
 
-unsafe impl tvm_ffi::object::ImmutableObject for LetObj {}
-
-tvm_ffi::unsafe_impl_object_ref_upcast!(Let => Expr, Let => PrimExpr);
+tvm_ffi::impl_object_ref_upcast!(Let => Expr);
+tvm_ffi::impl_object_ref_upcast!(unsafe Let => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 impl Let {

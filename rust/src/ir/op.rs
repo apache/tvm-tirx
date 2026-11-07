@@ -199,7 +199,7 @@ impl Op {
     pub(crate) fn attr_column<T>(name: &str) -> Result<Option<OpAttrMap<T>>> {
         let column =
             tvm_ffi::cached_global_func!("ir.GetOpAttrColumn").call_tuple((String::from(name),))?;
-        if column.type_index() == tvm_ffi::tvm_ffi_sys::TVMFFITypeIndex::kTVMFFINone as i32 {
+        if column.is_none() {
             return Ok(None);
         }
         if column.type_index() != tvm_ffi::tvm_ffi_sys::TVMFFITypeIndex::kTVMFFIList as i32 {
@@ -257,7 +257,7 @@ impl Op {
     }
 }
 
-tvm_ffi::unsafe_impl_object_ref_upcast!(Op => Expr);
+tvm_ffi::impl_object_ref_upcast!(Op => Expr);
 
 /// The name and documentation of one argument of an [`Op`], as
 /// [`OpObj::args_info`] lists them.
@@ -277,6 +277,7 @@ pub struct ArgumentInfo {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.ArgumentInfo"]
 #[type_final]
+#[type_immutable]
 pub struct ArgumentInfoObj {
     base_: Object,
     pub name: String,
@@ -304,8 +305,6 @@ impl ArgumentInfo {
         Self { data_: ObjectArc::new(obj) }
     }
 }
-
-unsafe impl tvm_ffi::object::ImmutableObject for ArgumentInfoObj {}
 // tvm-ffi-stubgen(end)
 
 /// A live attribute column of the operator registry: the value of one attribute for every
@@ -323,8 +322,7 @@ impl<T> OpAttrMap<T> {
     /// The entry of `op` in the column, unless it has none.
     fn entry(&self, op: &OpObj) -> Option<Any> {
         let value = self.column.get(op.index as usize).ok()?;
-        (value.type_index() != tvm_ffi::tvm_ffi_sys::TVMFFITypeIndex::kTVMFFINone as i32)
-            .then_some(value)
+        (!value.is_none()).then_some(value)
     }
 
     /// The value `op` registers in this column, of whatever type, or `None`.

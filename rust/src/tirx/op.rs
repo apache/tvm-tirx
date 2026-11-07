@@ -108,6 +108,7 @@ pub struct CallFFIKernelAttr {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "tirx.CallFFIKernelAttr"]
 #[type_final]
+#[type_immutable]
 pub struct CallFFIKernelAttrObj {
     base_: AttrsObj,
     pub launch_params: Array<String>,
@@ -160,9 +161,7 @@ impl CallFFIKernelAttr {
     }
 }
 
-unsafe impl tvm_ffi::object::ImmutableObject for CallFFIKernelAttrObj {}
-
-tvm_ffi::unsafe_impl_object_ref_upcast!(CallFFIKernelAttr => Attrs);
+tvm_ffi::impl_object_ref_upcast!(CallFFIKernelAttr => Attrs);
 // tvm-ffi-stubgen(end)
 
 // The native `tirx.CallFFIKernelAttr` stores its fields as given, as the generated

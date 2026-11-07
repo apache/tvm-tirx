@@ -94,7 +94,6 @@ use crate::ir::r#type::MissingTypeObj;
 use crate::ir::r#type::PrimType;
 use crate::ir::support;
 use std::ops::Deref;
-use std::ptr::addr_of_mut;
 use std::sync::LazyLock;
 use tvm_ffi::Any;
 use tvm_ffi::AnyView;
@@ -111,10 +110,7 @@ use tvm_ffi::Result;
 use tvm_ffi::String;
 use tvm_ffi::VALUE_ERROR;
 use tvm_ffi::reflection::NativeFunction;
-use tvm_ffi::reflection::ShallowCopy;
 use tvm_ffi::reflection::TypeAttrColumn;
-use tvm_ffi::reflection::UnsafeInit;
-use tvm_ffi::reflection::drop_if_defined;
 // tvm-ffi-stubgen(end)
 
 /// The base of every statement: its source location `loc`.
@@ -162,6 +158,8 @@ pub struct Stmt {
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.Stmt"]
+#[type_immutable]
+#[type_rs_parent]
 pub struct StmtObj {
     base_: Object,
     pub loc: Location,
@@ -188,23 +186,6 @@ impl Stmt {
         Self { data_: ObjectArc::new(obj) }
     }
 }
-
-impl ShallowCopy for StmtObj {
-    fn shallow_copy(&self) -> Self {
-        Self { base_: ShallowCopy::shallow_copy(&self.base_), loc: Clone::clone(&self.loc) }
-    }
-}
-
-unsafe impl UnsafeInit for StmtObj {
-    unsafe fn drop_defined_fields(this: *mut Self) {
-        unsafe {
-            UnsafeInit::drop_defined_fields(addr_of_mut!((*this).base_));
-            drop_if_defined(addr_of_mut!((*this).loc));
-        }
-    }
-}
-
-unsafe impl tvm_ffi::object::ImmutableObject for StmtObj {}
 // tvm-ffi-stubgen(end)
 
 /// The binding of the variable `var` to `value`, visible to the statements after it in the
@@ -225,6 +206,7 @@ pub struct Bind {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.Bind"]
 #[type_final]
+#[type_immutable]
 pub struct BindObj {
     base_: StmtObj,
     pub var: Var,
@@ -268,9 +250,7 @@ impl Bind {
     }
 }
 
-unsafe impl tvm_ffi::object::ImmutableObject for BindObj {}
-
-tvm_ffi::unsafe_impl_object_ref_upcast!(Bind => Stmt);
+tvm_ffi::impl_object_ref_upcast!(Bind => Stmt);
 // tvm-ffi-stubgen(end)
 
 impl Bind {
@@ -313,6 +293,7 @@ pub struct AssertStmt {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.AssertStmt"]
 #[type_final]
+#[type_immutable]
 pub struct AssertStmtObj {
     base_: StmtObj,
     pub condition: PrimExpr,
@@ -364,9 +345,7 @@ impl AssertStmt {
     }
 }
 
-unsafe impl tvm_ffi::object::ImmutableObject for AssertStmtObj {}
-
-tvm_ffi::unsafe_impl_object_ref_upcast!(AssertStmt => Stmt);
+tvm_ffi::impl_object_ref_upcast!(AssertStmt => Stmt);
 // tvm-ffi-stubgen(end)
 
 impl AssertStmt {
@@ -451,6 +430,7 @@ impl TryFrom<i64> for ForKind {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.For"]
 #[type_final]
+#[type_immutable]
 pub struct ForObj {
     base_: StmtObj,
     pub var: PrimVar,
@@ -518,9 +498,7 @@ impl For {
     }
 }
 
-unsafe impl tvm_ffi::object::ImmutableObject for ForObj {}
-
-tvm_ffi::unsafe_impl_object_ref_upcast!(For => Stmt);
+tvm_ffi::impl_object_ref_upcast!(For => Stmt);
 // tvm-ffi-stubgen(end)
 
 impl Default for ForKind {
@@ -651,6 +629,7 @@ pub struct While {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.While"]
 #[type_final]
+#[type_immutable]
 pub struct WhileObj {
     base_: StmtObj,
     pub condition: PrimExpr,
@@ -694,9 +673,7 @@ impl While {
     }
 }
 
-unsafe impl tvm_ffi::object::ImmutableObject for WhileObj {}
-
-tvm_ffi::unsafe_impl_object_ref_upcast!(While => Stmt);
+tvm_ffi::impl_object_ref_upcast!(While => Stmt);
 // tvm-ffi-stubgen(end)
 
 impl While {
@@ -739,6 +716,7 @@ pub struct TensorStore {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.TensorStore"]
 #[type_final]
+#[type_immutable]
 pub struct TensorStoreObj {
     base_: StmtObj,
     pub dest: Expr,
@@ -790,9 +768,7 @@ impl TensorStore {
     }
 }
 
-unsafe impl tvm_ffi::object::ImmutableObject for TensorStoreObj {}
-
-tvm_ffi::unsafe_impl_object_ref_upcast!(TensorStore => Stmt);
+tvm_ffi::impl_object_ref_upcast!(TensorStore => Stmt);
 // tvm-ffi-stubgen(end)
 
 impl TensorStore {
@@ -811,7 +787,7 @@ impl TensorStore {
     ) -> Result<Self> {
         // The native library registers the column when it loads, so one lookup suffices.
         static VALIDATE: LazyLock<Option<TypeAttrColumn>> =
-            LazyLock::new(|| TypeAttrColumn::new("__tvm_tensor_store_validate__"));
+            LazyLock::new(|| TypeAttrColumn::lookup("__tvm_tensor_store_validate__"));
         let (dest, value) = (dest.into_owned_expr()?, value.into_owned_expr()?);
         let indices = indices
             .into_iter()
@@ -859,6 +835,7 @@ pub struct RegionStmt {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.RegionStmt"]
 #[type_final]
+#[type_immutable]
 pub struct RegionStmtObj {
     base_: StmtObj,
     pub op: Op,
@@ -922,9 +899,7 @@ impl RegionStmt {
     }
 }
 
-unsafe impl tvm_ffi::object::ImmutableObject for RegionStmtObj {}
-
-tvm_ffi::unsafe_impl_object_ref_upcast!(RegionStmt => Stmt);
+tvm_ffi::impl_object_ref_upcast!(RegionStmt => Stmt);
 // tvm-ffi-stubgen(end)
 
 impl RegionStmt {
@@ -1029,6 +1004,7 @@ pub struct SeqStmt {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.SeqStmt"]
 #[type_final]
+#[type_immutable]
 pub struct SeqStmtObj {
     base_: StmtObj,
     pub seq: Array<Stmt>,
@@ -1063,9 +1039,7 @@ impl SeqStmt {
     }
 }
 
-unsafe impl tvm_ffi::object::ImmutableObject for SeqStmtObj {}
-
-tvm_ffi::unsafe_impl_object_ref_upcast!(SeqStmt => Stmt);
+tvm_ffi::impl_object_ref_upcast!(SeqStmt => Stmt);
 // tvm-ffi-stubgen(end)
 
 impl SeqStmt {
@@ -1099,6 +1073,7 @@ pub struct If {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.If"]
 #[type_final]
+#[type_immutable]
 pub struct IfObj {
     base_: StmtObj,
     pub condition: PrimExpr,
@@ -1150,9 +1125,7 @@ impl If {
     }
 }
 
-unsafe impl tvm_ffi::object::ImmutableObject for IfObj {}
-
-tvm_ffi::unsafe_impl_object_ref_upcast!(If => Stmt);
+tvm_ffi::impl_object_ref_upcast!(If => Stmt);
 // tvm-ffi-stubgen(end)
 
 impl If {
@@ -1188,6 +1161,7 @@ pub struct Evaluate {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.Evaluate"]
 #[type_final]
+#[type_immutable]
 pub struct EvaluateObj {
     base_: StmtObj,
     pub value: Expr,
@@ -1222,9 +1196,7 @@ impl Evaluate {
     }
 }
 
-unsafe impl tvm_ffi::object::ImmutableObject for EvaluateObj {}
-
-tvm_ffi::unsafe_impl_object_ref_upcast!(Evaluate => Stmt);
+tvm_ffi::impl_object_ref_upcast!(Evaluate => Stmt);
 // tvm-ffi-stubgen(end)
 
 impl Evaluate {
@@ -1251,6 +1223,7 @@ pub struct Break {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.Break"]
 #[type_final]
+#[type_immutable]
 pub struct BreakObj {
     base_: StmtObj,
 }
@@ -1284,9 +1257,7 @@ impl Break {
     }
 }
 
-unsafe impl tvm_ffi::object::ImmutableObject for BreakObj {}
-
-tvm_ffi::unsafe_impl_object_ref_upcast!(Break => Stmt);
+tvm_ffi::impl_object_ref_upcast!(Break => Stmt);
 // tvm-ffi-stubgen(end)
 
 // `ir.Break` stores its location as given: the generated `Break::new` is the same.
@@ -1308,6 +1279,7 @@ pub struct Return {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.Return"]
 #[type_final]
+#[type_immutable]
 pub struct ReturnObj {
     base_: StmtObj,
     pub value: Expr,
@@ -1342,9 +1314,7 @@ impl Return {
     }
 }
 
-unsafe impl tvm_ffi::object::ImmutableObject for ReturnObj {}
-
-tvm_ffi::unsafe_impl_object_ref_upcast!(Return => Stmt);
+tvm_ffi::impl_object_ref_upcast!(Return => Stmt);
 // tvm-ffi-stubgen(end)
 
 impl Return {
@@ -1371,6 +1341,7 @@ pub struct Continue {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.Continue"]
 #[type_final]
+#[type_immutable]
 pub struct ContinueObj {
     base_: StmtObj,
 }
@@ -1404,9 +1375,7 @@ impl Continue {
     }
 }
 
-unsafe impl tvm_ffi::object::ImmutableObject for ContinueObj {}
-
-tvm_ffi::unsafe_impl_object_ref_upcast!(Continue => Stmt);
+tvm_ffi::impl_object_ref_upcast!(Continue => Stmt);
 // tvm-ffi-stubgen(end)
 
 // `ir.Continue` stores its location as given: the generated `Continue::new` is the same.

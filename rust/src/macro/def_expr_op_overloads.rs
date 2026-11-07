@@ -54,7 +54,7 @@
 /// }
 ///
 /// // Every thread index is an `int32`, as `new` makes it.
-/// tvm_ffi::unsafe_impl_object_ref_upcast!(ThreadIndex => PrimExpr);
+/// tvm_ffi::impl_object_ref_upcast!(unsafe ThreadIndex => PrimExpr);
 /// tvm_tirx::def_expr_op_over_loads!(ThreadIndex);
 ///
 /// # fn main() -> tvm_tirx::tvm_ffi::Result<()> {

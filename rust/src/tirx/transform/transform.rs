@@ -22,6 +22,11 @@
 //! [`remove_no_op`] and [`unroll_loop`].
 
 // tvm-ffi-stubgen(missing-docs): allow
+// tvm-ffi-stubgen(field): tirx.transform.UnrollLoopConfig.auto_max_step -> i32
+// tvm-ffi-stubgen(field): tirx.transform.UnrollLoopConfig.auto_max_depth -> i32
+// tvm-ffi-stubgen(field): tirx.transform.UnrollLoopConfig.auto_max_extent -> i32
+// tvm-ffi-stubgen(field): tirx.transform.UnrollLoopConfig.explicit_unroll -> i32
+// tvm-ffi-stubgen(field): tirx.transform.UnrollLoopConfig.unroll_local_access -> i32
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
 // tvm-ffi-stubgen(import-object): crate::ir::transform::core::Pass
@@ -64,6 +69,7 @@ pub struct RemoveNoOpConfig {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "tirx.transform.RemoveNoOpConfig"]
 #[type_final]
+#[type_immutable]
 pub struct RemoveNoOpConfigObj {
     base_: Object,
     pub max_simplification_steps: i64,
@@ -91,8 +97,6 @@ impl RemoveNoOpConfig {
         Self { data_: ObjectArc::new(obj) }
     }
 }
-
-unsafe impl tvm_ffi::object::ImmutableObject for RemoveNoOpConfigObj {}
 // tvm-ffi-stubgen(end)
 
 /// The configuration of [`unroll_loop`], the pass context option `tirx.UnrollLoop`.
@@ -117,6 +121,7 @@ pub struct UnrollLoopConfig {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "tirx.transform.UnrollLoopConfig"]
 #[type_final]
+#[type_immutable]
 pub struct UnrollLoopConfigObj {
     base_: Object,
     pub auto_max_step: i32,
@@ -172,8 +177,6 @@ impl UnrollLoopConfig {
         Self { data_: ObjectArc::new(obj) }
     }
 }
-
-unsafe impl tvm_ffi::object::ImmutableObject for UnrollLoopConfigObj {}
 // tvm-ffi-stubgen(end)
 
 /// Infer and mark an unambiguous TIRx entry function (`tirx.transform.AnnotateEntryFunc`).

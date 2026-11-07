@@ -30,7 +30,7 @@
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
 // tvm-ffi-stubgen(import-object): tvm_ffi::Any
-// tvm-ffi-stubgen(import-object): tvm_ffi::RValueRef
+// tvm-ffi-stubgen(import-object): tvm_ffi::rvalue_ref::RValueRef
 // tvm-ffi-stubgen(import-object): tvm_ffi::Result
 // tvm-ffi-stubgen(import-object): crate::ir::support
 // tvm-ffi-stubgen(import-object): crate::ir::expr::IntoExpr
@@ -51,9 +51,9 @@ use tvm_ffi::IntoObjectRef;
 use tvm_ffi::Map;
 use tvm_ffi::Object;
 use tvm_ffi::ObjectArc;
-use tvm_ffi::RValueRef;
 use tvm_ffi::Result;
 use tvm_ffi::String;
+use tvm_ffi::rvalue_ref::RValueRef;
 // tvm-ffi-stubgen(end)
 
 /// A set of functions, each bound to a [`GlobalVar`] with a unique name, with the module
@@ -345,8 +345,7 @@ impl IRModule {
     pub fn get_attr(&self, key: &str) -> Result<Option<Any>> {
         let value = tvm_ffi::cached_global_func!("ir.IRModuleGetAttr")
             .call_tuple((self, String::from(key)))?;
-        let is_none = value.type_index() == tvm_ffi::TypeIndex::kTVMFFINone as i32;
-        Ok((!is_none).then_some(value))
+        Ok((!value.is_none()).then_some(value))
     }
 
     /// Return the module with the attribute `key` set to `value` (`ir.IRModuleWithAttr`).

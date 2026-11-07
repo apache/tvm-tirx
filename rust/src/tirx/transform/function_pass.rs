@@ -26,7 +26,7 @@
 // tvm-ffi-stubgen(import-object): crate::ir::module::IRModule
 // tvm-ffi-stubgen(import-object): crate::ir::transform::core::PassContext
 // tvm-ffi-stubgen(import-object): crate::tirx::function::Function
-// tvm-ffi-stubgen(import-object): tvm_ffi::RValueRef
+// tvm-ffi-stubgen(import-object): tvm_ffi::rvalue_ref::RValueRef
 // tvm-ffi-stubgen(import-object): crate::ir::support
 // tvm-ffi-stubgen(import-object): tvm_ffi::IntoObjectRef
 // tvm-ffi-stubgen(import-object): std::borrow::Borrow
@@ -44,9 +44,9 @@ use std::ops::Deref;
 use tvm_ffi::IntoObjectRef;
 use tvm_ffi::ObjectArc;
 use tvm_ffi::ObjectCore;
-use tvm_ffi::RValueRef;
 use tvm_ffi::Result;
 use tvm_ffi::reflection::FieldGetter;
+use tvm_ffi::rvalue_ref::RValueRef;
 // tvm-ffi-stubgen(end)
 
 /// A pass that replaces each TIRx function of a module by what a function returns for it, or
@@ -92,6 +92,7 @@ pub struct FunctionPass {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "tirx.FunctionPass"]
 #[type_final]
+#[type_immutable]
 pub struct FunctionPassObj {
     base_: PassObj,
 }
@@ -110,9 +111,7 @@ impl FunctionPassObj {
     }
 }
 
-unsafe impl tvm_ffi::object::ImmutableObject for FunctionPassObj {}
-
-tvm_ffi::unsafe_impl_object_ref_upcast!(FunctionPass => Pass);
+tvm_ffi::impl_object_ref_upcast!(FunctionPass => Pass);
 // tvm-ffi-stubgen(end)
 
 impl FunctionPass {

@@ -37,6 +37,7 @@
 // tvm-ffi-stubgen(import-object): crate::ir::expr::PrimExpr
 // A tensor's shape is a list of `PrimExpr`s, as C++ `TensorTypeObj` holds it.
 // tvm-ffi-stubgen(field): tirx.TensorType.shape -> Array<PrimExpr>
+// tvm-ffi-stubgen(field): tirx.TensorType.data_alignment -> i32
 // tvm-ffi-stubgen(import-object): tvm_ffi::Array
 // tvm-ffi-stubgen(import-object): tvm_ffi::IntoObjectRef
 // tvm-ffi-stubgen(begin): import-section
@@ -102,6 +103,7 @@ pub struct TensorType {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "tirx.TensorType"]
 #[type_final]
+#[type_immutable]
 pub struct TensorTypeObj {
     base_: TypeObj,
     pub dtype: PrimType,
@@ -161,9 +163,7 @@ impl TensorType {
     }
 }
 
-unsafe impl tvm_ffi::object::ImmutableObject for TensorTypeObj {}
-
-tvm_ffi::unsafe_impl_object_ref_upcast!(TensorType => Type);
+tvm_ffi::impl_object_ref_upcast!(TensorType => Type);
 // tvm-ffi-stubgen(end)
 
 impl TensorType {

@@ -25,11 +25,8 @@
 // tvm-ffi-stubgen(missing-docs): allow
 
 // tvm-ffi-stubgen(begin): import-section
-use std::ptr::addr_of_mut;
 use tvm_ffi::Object;
 use tvm_ffi::ObjectArc;
-use tvm_ffi::reflection::ShallowCopy;
-use tvm_ffi::reflection::UnsafeInit;
 // tvm-ffi-stubgen(end)
 
 /// The base of the module-level information an [`IRModule`](super::IRModule) keeps by name in
@@ -49,6 +46,8 @@ pub struct GlobalInfo {
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.GlobalInfo"]
+#[type_immutable]
+#[type_rs_parent]
 pub struct GlobalInfoObj {
     base_: Object,
 }
@@ -74,20 +73,4 @@ impl GlobalInfo {
         Self { data_: ObjectArc::new(obj) }
     }
 }
-
-impl ShallowCopy for GlobalInfoObj {
-    fn shallow_copy(&self) -> Self {
-        Self { base_: ShallowCopy::shallow_copy(&self.base_) }
-    }
-}
-
-unsafe impl UnsafeInit for GlobalInfoObj {
-    unsafe fn drop_defined_fields(this: *mut Self) {
-        unsafe {
-            UnsafeInit::drop_defined_fields(addr_of_mut!((*this).base_));
-        }
-    }
-}
-
-unsafe impl tvm_ffi::object::ImmutableObject for GlobalInfoObj {}
 // tvm-ffi-stubgen(end)

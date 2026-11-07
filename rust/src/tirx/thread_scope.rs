@@ -30,11 +30,11 @@
 
 // tvm-ffi-stubgen(begin): import-section
 use std::borrow::Borrow;
-use tvm_ffi::EnumObj;
 use tvm_ffi::IntoObjectRef;
 use tvm_ffi::ObjectArc;
 use tvm_ffi::Result;
 use tvm_ffi::String;
+use tvm_ffi::enum_ref::EnumObj;
 // tvm-ffi-stubgen(end)
 
 /// A level of a backend's thread hierarchy, named `backend.level`, such as `cuda.warp`.
@@ -73,6 +73,7 @@ pub struct ThreadScope {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "tirx.ThreadScope"]
 #[type_final]
+#[type_immutable]
 pub struct ThreadScopeObj {
     base_: EnumObj,
 }
@@ -81,8 +82,6 @@ const _: () = {
     assert!(::core::mem::size_of::<ThreadScopeObj>() == 48);
     assert!(::core::mem::align_of::<ThreadScopeObj>() == 8);
 };
-
-unsafe impl tvm_ffi::object::ImmutableObject for ThreadScopeObj {}
 
 impl tvm_ffi::EnumRef for ThreadScope {}
 // tvm-ffi-stubgen(end)

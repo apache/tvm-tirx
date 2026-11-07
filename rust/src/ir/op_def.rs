@@ -25,7 +25,6 @@ use std::any::TypeId;
 use std::marker::PhantomData;
 
 use tvm_ffi::reflection::NativeFunction;
-use tvm_ffi::tvm_ffi_sys::TVMFFITypeIndex;
 use tvm_ffi::{Any, AnyView, Array, Error, ObjectRefCore, Result, String, TYPE_ERROR, VALUE_ERROR};
 
 use super::attrs::Attrs;
@@ -110,7 +109,8 @@ impl OpDef {
         let def = self.invoke("_set_signature", &args).then(|op| {
             if !op.validator_is_custom() {
                 let hook: NativeFunction<(&CallObj,)> = sig::validate::<S::Checks>.into();
-                op.write_validator(hook.into(), false);
+                // SAFETY: an operator validator is a `void(const CallObj*)` hook.
+                op.write_validator(unsafe { hook.into_any() }, false);
             }
             Ok(())
         });
@@ -172,7 +172,8 @@ impl OpDef {
         F: Fn(&CallObj) -> Result<Type> + Copy + 'static,
     {
         let hook: NativeFunction<(&CallObj,), Type> = infer.into();
-        self.attr("FInferType", hook.into(), false)
+        // SAFETY: `FInferType` holds `Type(const CallObj*)` hooks.
+        self.attr("FInferType", unsafe { hook.into_any() }, false)
     }
 
     /// Set a custom validator of the operator, `validate`, a function or a closure that captures
@@ -190,7 +191,8 @@ impl OpDef {
                 let message = format!("Validator of {} is already registered", op.name.as_str());
                 return Err(Error::new(VALUE_ERROR, &message, ""));
             }
-            op.write_validator(hook.into(), true);
+            // SAFETY: an operator validator is a `void(const CallObj*)` hook.
+            op.write_validator(unsafe { hook.into_any() }, true);
             Ok(())
         })
     }
@@ -206,7 +208,8 @@ impl OpDef {
         F: Fn(&CallObj) -> Result<Array<Var>> + Copy + 'static,
     {
         let hook: NativeFunction<(&CallObj,), Array<Var>> = body_params.into();
-        self.attr("FRegionGetBodyParams", hook.into(), false)
+        // SAFETY: `FRegionGetBodyParams` holds `Array<Var>(const CallObj*)` hooks.
+        self.attr("FRegionGetBodyParams", unsafe { hook.into_any() }, false)
     }
 
     /// Set the check of the operator's regions, its `FRegionValidate`, to `validate`, a function or
@@ -219,7 +222,8 @@ impl OpDef {
         F: Fn(&RegionStmtObj) -> Result<()> + Copy + 'static,
     {
         let hook: NativeFunction<(&RegionStmtObj,)> = validate.into();
-        self.attr("FRegionValidate", hook.into(), false)
+        // SAFETY: `FRegionValidate` holds `void(const RegionStmtObj*)` hooks.
+        self.attr("FRegionValidate", unsafe { hook.into_any() }, false)
     }
 
     fn attr(self, key: &str, value: Any, replace: bool) -> Self {
@@ -752,7 +756,7 @@ pub mod sig {
         }
         // Borrowed in place: indexing an `Array` bumps no reference count.
         let value = value();
-        if value.type_index() != TVMFFITypeIndex::kTVMFFINone as i32 && T::check(value) {
+        if !value.is_none() && T::check(value) {
             return Ok(());
         }
         let (fixed, tail) = match type_arg {
