@@ -17,39 +17,18 @@
  * under the License.
  */
 
-//! Vector expressions: [`Ramp`], [`Broadcast`] and [`Shuffle`].
-//!
-//! The objects `python/tvm_tirx/ir/prim/vector_expr.py` defines. A [`Ramp`] is `lanes` values
-//! from `base_` by `stride`, a [`Broadcast`] repeats a value over `lanes`, and a [`Shuffle`]
-//! selects lanes from its vectors.
-//!
-//! # Examples
-//!
-//! ```
-//! use tvm_tirx::ir::prim::{Broadcast, Ramp, Shuffle};
-//! use tvm_tirx::ir::{PrimExpr, PrimType, PrimVar, Var, UNKNOWN_LOC};
-//! use tvm_tirx::script::script;
-//!
-//! let i = PrimVar::new("i", PrimType::int(32), UNKNOWN_LOC);
-//! let index = Ramp::new(&i * 4, 1, 4, UNKNOWN_LOC)?;
-//! assert_eq!(script(&index)?, "T.Ramp(i * 4, 1, 4)");
-//!
-//! let shifted = PrimExpr::try_from(&index + Broadcast::new(&i, 4, UNKNOWN_LOC)?)?;
-//! assert_eq!(script(&shifted)?, "T.Ramp(i * 4, 1, 4) + T.Broadcast(i, 4)");
-//!
-//! let reversed = Shuffle::new([&index], [3, 2, 1, 0], UNKNOWN_LOC)?;
-//! assert_eq!(reversed.indices.len(), 4);
-//! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
-//! ```
+//! Vector expressions. A vector is built from scalars by a [`Ramp`] (`lanes` values from `base`
+//! by `stride`) or a [`Broadcast`] (one value repeated), and rearranged by a [`Shuffle`]; its lane
+//! count is a constant or, for a scalable vector, `vscale() * factor`.
 
 // tvm-ffi-stubgen(missing-docs): allow
-// `custom-new` reserves `new` for a constructor with the C++ one's semantics (operand checks and the
-// derived vector type); the generated `from_fields` allocates the fields as given.
+// `custom-new` reserves `new` for a hand-written constructor (operand checks and the derived vector
+// type); the generated `from_fields` allocates the fields as given.
 // tvm-ffi-stubgen(custom-new): prim.Ramp
 // tvm-ffi-stubgen(custom-new): prim.Broadcast
 // tvm-ffi-stubgen(custom-new): prim.Shuffle
-// Every node is typed by a `PrimType` and holds `PrimExpr` operands, as in C++: its allocator
-// takes a `PrimType`, and it converts into a `PrimExpr` without a check.
+// Every node is typed by a `PrimType` and holds `PrimExpr` operands: its allocator takes a
+// `PrimType`, and it converts into a `PrimExpr` without a check.
 // tvm-ffi-stubgen(field): prim.Ramp.ty -> PrimType
 // tvm-ffi-stubgen(field): prim.Ramp.base -> PrimExpr
 // tvm-ffi-stubgen(field): prim.Ramp.stride -> PrimExpr
@@ -110,6 +89,24 @@ use tvm_ffi::ObjectRefCore;
 use tvm_ffi::Result;
 // tvm-ffi-stubgen(end)
 
+/// The vector of `lanes` values `base`, `base + stride`, ..., such as the indices of a vector
+/// load; `base` and `stride` are scalar `int32`, `int64`, `uint32` or `uint64`.
+///
+/// # Examples
+///
+/// ```
+/// use tvm_tirx::ir::prim::{Broadcast, Ramp};
+/// use tvm_tirx::ir::{PrimExpr, PrimType, PrimVar, UNKNOWN_LOC};
+/// use tvm_tirx::script::script;
+///
+/// let i = PrimVar::new("i", PrimType::int(32), UNKNOWN_LOC);
+/// let index = Ramp::new(&i * 4, 1, 4, UNKNOWN_LOC)?;
+/// assert_eq!(script(&index)?, "T.Ramp(i * 4, 1, 4)");
+///
+/// let shifted = PrimExpr::try_from(&index + Broadcast::new(&i, 4, UNKNOWN_LOC)?)?;
+/// assert_eq!(script(&shifted)?, "T.Ramp(i * 4, 1, 4) + T.Broadcast(i, 4)");
+/// # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
+/// ```
 // tvm-ffi-stubgen(begin): object/prim.Ramp
 #[allow(missing_docs)]
 #[repr(C)]
@@ -181,7 +178,7 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(Ramp => Expr, Ramp => PrimExpr);
 
 impl Ramp {
     /// Create the vector of `lanes` values from `base` by `stride`, with `stride` cast to the type
-    /// of `base` (C++ `Ramp(base, stride, lanes, loc)`).
+    /// of `base`.
     ///
     /// # Errors
     ///
@@ -226,6 +223,7 @@ impl Ramp {
     }
 }
 
+/// The vector of `lanes` copies of the scalar `value`.
 // tvm-ffi-stubgen(begin): object/prim.Broadcast
 #[allow(missing_docs)]
 #[repr(C)]
@@ -288,7 +286,7 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(Broadcast => Expr, Broadcast => PrimExpr
 // tvm-ffi-stubgen(end)
 
 impl Broadcast {
-    /// Create the vector of `lanes` copies of the scalar `value` (C++ `Broadcast`).
+    /// Create the vector of `lanes` copies of the scalar `value`.
     ///
     /// # Errors
     ///
@@ -308,6 +306,8 @@ impl Broadcast {
     }
 }
 
+/// The vector of the lanes at `indices` of the concatenated `vectors`, which share an element
+/// type.
 // tvm-ffi-stubgen(begin): object/prim.Shuffle
 #[allow(missing_docs)]
 #[repr(C)]
@@ -375,8 +375,7 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(Shuffle => Expr, Shuffle => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 impl Shuffle {
-    /// Create the vector of the lanes at `indices` of the concatenated `vectors`
-    /// (C++ `Shuffle(vectors, indices, loc)`).
+    /// Create the vector of the lanes at `indices` of the concatenated `vectors`.
     ///
     /// # Errors
     ///
@@ -457,7 +456,7 @@ fn vector_lanes(element: &PrimType, lanes: PrimExpr) -> Result<(PrimType, PrimEx
     Ok((ty, vscale_lanes(factor)?))
 }
 
-/// The lane count of a scalable vector of `factor` times `vscale` lanes, as C++ spells it:
+/// The lane count of a scalable vector of `factor` times `vscale` lanes, spelled
 /// `vscale() * factor`, both `int32`.
 pub(crate) fn vscale_lanes(factor: i32) -> Result<PrimExpr> {
     let vscale = support::cached_op("prim.vscale")?;
@@ -473,7 +472,7 @@ pub(crate) fn vscale_lanes(factor: i32) -> Result<PrimExpr> {
     Ok(Mul::new(PrimExpr::try_from(vscale)?, IntImm::int32(factor), UNKNOWN_LOC)?.into())
 }
 
-/// `factor` when `lanes` is `factor * vscale` or `vscale * factor` (C++ `ExtractVscaleFactor`).
+/// `factor` when `lanes` is `factor * vscale` or `vscale * factor`.
 fn vscale_factor(lanes: &PrimExpr) -> Result<Option<i32>> {
     let Some(mul) = lanes.downcast_ref::<MulObj>() else { return Ok(None) };
     let vscale = support::cached_op("prim.vscale")?;
