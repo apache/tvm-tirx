@@ -16,20 +16,23 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-// The generated `new` of a field-less base needs no `Default`.
-#![allow(clippy::new_without_default)]
 
 //! Integer sets. An [`IntSet`], such as the interval [`IntervalSet`], bounds the values an
 //! expression takes; [`deduce_bound`] solves a condition for a variable, and the
 //! `estimate_region_*` functions bound the region a set of accesses covers.
 
 // tvm-ffi-stubgen(missing-docs): allow
+// The sets are hand-written: C++ constructs them, so they have no field-wise allocator.
+// tvm-ffi-stubgen(ty-map): sym.IntSet -> crate::sym::int_set::IntSet
+// tvm-ffi-stubgen(ty-map): sym.IntervalSet -> crate::sym::int_set::IntervalSet
+// tvm-ffi-stubgen(import-object): std::ops::Deref
+// tvm-ffi-stubgen(import-object): tvm_ffi::Object
+// tvm-ffi-stubgen(import-object): tvm_ffi::ObjectArc
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
 // tvm-ffi-stubgen(import-object): tvm_ffi::Array
 // tvm-ffi-stubgen(import-object): tvm_ffi::Map
 // tvm-ffi-stubgen(import-object): tvm_ffi::Result
-// tvm-ffi-stubgen(custom-new): sym.IntervalSet
 // tvm-ffi-stubgen(import-object): crate::ir::expr::Range
 // tvm-ffi-stubgen(import-object): crate::ir::expr::Var
 // tvm-ffi-stubgen(import-object): crate::sym::analyzer::Analyzer
@@ -38,9 +41,6 @@
 // tvm-ffi-stubgen(import-object): crate::ir::expr::PrimExpr
 // tvm-ffi-stubgen(import-object): std::borrow::Borrow
 // tvm-ffi-stubgen(import-object): tvm_ffi::IntoObjectRef
-// An interval is bounded by `PrimExpr`s, as C++ `IntervalSetObj` holds them.
-// tvm-ffi-stubgen(field): sym.IntervalSet.min_value -> PrimExpr
-// tvm-ffi-stubgen(field): sym.IntervalSet.max_value -> PrimExpr
 // tvm-ffi-stubgen(begin): import-section
 use crate::ir::expr::IntoExpr;
 use crate::ir::expr::PrimExpr;
@@ -80,7 +80,6 @@ use tvm_ffi::Result;
 /// assert_eq!(script(&bound)?, "sym.IntervalSet(min_value=neg_inf, max_value=15)");
 /// # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
 /// ```
-// tvm-ffi-stubgen(begin): object/sym.IntSet
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
@@ -105,24 +104,6 @@ const _: () = {
     assert!(::core::mem::size_of::<IntSetObj>() == 24);
     assert!(::core::mem::align_of::<IntSetObj>() == 8);
 };
-
-#[allow(missing_docs)]
-impl IntSetObj {
-    pub fn new() -> Self {
-        let base_ = Object::new();
-        Self { base_ }
-    }
-}
-
-#[allow(missing_docs)]
-impl IntSet {
-    /// Lossless complete-field allocation.
-    pub fn new() -> Self {
-        let obj = IntSetObj::new();
-        Self { data_: ObjectArc::new(obj) }
-    }
-}
-// tvm-ffi-stubgen(end)
 
 impl IntSet {
     /// Return whether the set is empty (`sym.IntSetIsNothing`).
@@ -153,7 +134,6 @@ impl IntSet {
 
 /// The interval `[min_value, max_value]` of integers, whose bounds are symbolic expressions and
 /// may be [`neg_inf`] or [`pos_inf`].
-// tvm-ffi-stubgen(begin): object/sym.IntervalSet
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
@@ -188,31 +168,7 @@ impl Deref for IntervalSetObj {
     }
 }
 
-#[allow(missing_docs)]
-impl IntervalSetObj {
-    pub(crate) fn new(min_value: PrimExpr, max_value: PrimExpr) -> Self {
-        let base_ = IntSetObj::new();
-        Self { base_, min_value, max_value }
-    }
-}
-
-#[allow(missing_docs)]
-impl IntervalSet {
-    /// Lossless complete-field allocation.
-    pub fn from_fields(
-        min_value: impl IntoObjectRef<PrimExpr>,
-        max_value: impl IntoObjectRef<PrimExpr>,
-    ) -> Self {
-        let obj = IntervalSetObj::new(
-            min_value.into_owned_object_ref(),
-            max_value.into_owned_object_ref(),
-        );
-        Self { data_: ObjectArc::new(obj) }
-    }
-}
-
 tvm_ffi::impl_object_ref_upcast!(IntervalSet => IntSet);
-// tvm-ffi-stubgen(end)
 
 impl IntervalSet {
     /// Create the interval `[min_value, max_value]`, whose bounds may be [`neg_inf`] and

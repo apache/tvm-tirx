@@ -24,13 +24,19 @@
 // tvm-ffi-stubgen(missing-docs): allow
 // Every object registered under `target` has its block in this file.
 // tvm-ffi-stubgen(prefix): target
+// `target.Target` is hand-written below: a target is built by parsing its config, never from
+// raw fields.
+// tvm-ffi-stubgen(skip): target.Target
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
 // tvm-ffi-stubgen(import-object): tvm_ffi::Module
 // tvm-ffi-stubgen(import-object): crate::ir::module::IRModule
 // tvm-ffi-stubgen(import-object): tvm_ffi::IntoObjectRef
 // tvm-ffi-stubgen(import-object): std::borrow::Borrow
-// tvm-ffi-stubgen(custom-new): target.Target
+// tvm-ffi-stubgen(ty-map): target.Target -> crate::target::Target
+// tvm-ffi-stubgen(import-object): tvm_ffi::Any
+// tvm-ffi-stubgen(import-object): tvm_ffi::Map
+// tvm-ffi-stubgen(import-object): tvm_ffi::object::ObjectRef
 
 // tvm-ffi-stubgen(begin): import-section
 use crate::ir::module::IRModule;
@@ -69,7 +75,6 @@ use tvm_ffi::reflection::FieldGetter;
 /// assert!(Target::current(true)?.is_none());
 /// # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
 /// ```
-// tvm-ffi-stubgen(begin): object/target.Target
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
@@ -98,42 +103,6 @@ const _: () = {
     assert!(::core::mem::size_of::<TargetObj>() == 72);
     assert!(::core::mem::align_of::<TargetObj>() == 8);
 };
-
-#[allow(missing_docs)]
-impl TargetObj {
-    pub(crate) fn new(
-        kind: TargetKind,
-        host: Option<ObjectRef>,
-        tag: String,
-        keys: Array<String>,
-        attrs: Map<String, Any>,
-    ) -> Self {
-        let base_ = Object::new();
-        Self { base_, kind, host, tag, keys, attrs }
-    }
-}
-
-#[allow(missing_docs)]
-impl Target {
-    /// Lossless complete-field allocation.
-    pub fn from_fields(
-        kind: impl IntoObjectRef<TargetKind>,
-        host: impl Into<Option<ObjectRef>>,
-        tag: impl Into<String>,
-        keys: impl Into<Array<String>>,
-        attrs: impl Into<Map<String, Any>>,
-    ) -> Self {
-        let obj = TargetObj::new(
-            kind.into_owned_object_ref(),
-            host.into(),
-            tag.into(),
-            keys.into(),
-            attrs.into(),
-        );
-        Self { data_: ObjectArc::new(obj) }
-    }
-}
-// tvm-ffi-stubgen(end)
 
 impl Target {
     /// Create the target that a tag (`"nvidia/nvidia-a100"`), a kind name (`"llvm"`) or a JSON

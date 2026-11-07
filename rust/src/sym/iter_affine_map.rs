@@ -22,6 +22,14 @@
 //! functions simplify, divide and invert such maps.
 
 // tvm-ffi-stubgen(missing-docs): allow
+// The iterator forms are hand-written: C++ constructs them, so they have no field-wise
+// allocator.
+// tvm-ffi-stubgen(ty-map): sym.IterMapExpr -> crate::sym::iter_affine_map::IterMapExpr
+// tvm-ffi-stubgen(ty-map): sym.IterSplitExpr -> crate::sym::iter_affine_map::IterSplitExpr
+// tvm-ffi-stubgen(ty-map): sym.IterSumExpr -> crate::sym::iter_affine_map::IterSumExpr
+// tvm-ffi-stubgen(import-object): crate::ir::expr::Expr
+// tvm-ffi-stubgen(import-object): crate::ir::expr::ExprObj
+// tvm-ffi-stubgen(import-object): std::ops::Deref
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
 // tvm-ffi-stubgen(import-object): tvm_ffi::AnyView
@@ -34,23 +42,13 @@
 // tvm-ffi-stubgen(import-object): crate::ir::expr::IntoExpr
 // tvm-ffi-stubgen(import-object): crate::ir::expr::PrimExpr
 // tvm-ffi-stubgen(import-object): crate::ir::expr::PrimVar
-// The iterator forms are primitive expressions, as C++ `IterMapExpr` derives from `PrimExpr`, and
-// their marks and padding predicate are `PrimExpr`s.
-// tvm-ffi-stubgen(upcast): sym.IterMapExpr -> PrimExpr
-// tvm-ffi-stubgen(upcast): sym.IterSplitExpr -> PrimExpr
-// tvm-ffi-stubgen(upcast): sym.IterSumExpr -> PrimExpr
+// The marks and the padding predicate are `PrimExpr`s, as in C++.
 // tvm-ffi-stubgen(field): sym.IterMark.source -> PrimExpr
 // tvm-ffi-stubgen(field): sym.IterMark.extent -> PrimExpr
 // tvm-ffi-stubgen(field): sym.IterMapResult.padding_predicate -> PrimExpr
 // tvm-ffi-stubgen(nullable): sym.IterMapResult.padding_predicate
 // tvm-ffi-stubgen(import-object): std::borrow::Borrow
 // tvm-ffi-stubgen(import-object): tvm_ffi::IntoObjectRef
-// tvm-ffi-stubgen(custom-new): sym.IterSplitExpr
-// tvm-ffi-stubgen(custom-new): sym.IterSumExpr
-// tvm-ffi-stubgen(field): sym.IterSplitExpr.lower_factor -> PrimExpr
-// tvm-ffi-stubgen(field): sym.IterSplitExpr.extent -> PrimExpr
-// tvm-ffi-stubgen(field): sym.IterSplitExpr.scale -> PrimExpr
-// tvm-ffi-stubgen(field): sym.IterSumExpr.base -> PrimExpr
 // tvm-ffi-stubgen(begin): import-section
 use crate::ir::expr::Expr;
 use crate::ir::expr::ExprObj;
@@ -59,8 +57,6 @@ use crate::ir::expr::PrimExpr;
 use crate::ir::expr::PrimVar;
 use crate::ir::expr::Range;
 use crate::ir::expr::Var;
-use crate::ir::location::Location;
-use crate::ir::r#type::Type;
 use crate::ir::support;
 use crate::sym::analyzer::Analyzer;
 use std::borrow::Borrow;
@@ -77,7 +73,6 @@ use tvm_ffi::String;
 
 /// The base of the iterator map forms, [`IterSplitExpr`] and [`IterSumExpr`]. They hold the result
 /// of detection and do not appear in a well-formed function.
-// tvm-ffi-stubgen(begin): object/sym.IterMapExpr
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
@@ -110,26 +105,8 @@ impl Deref for IterMapExprObj {
     }
 }
 
-#[allow(missing_docs)]
-impl IterMapExprObj {
-    pub fn new(loc: Location, ty: Type) -> Self {
-        let base_ = ExprObj::new(loc, ty);
-        Self { base_ }
-    }
-}
-
-#[allow(missing_docs)]
-impl IterMapExpr {
-    /// Lossless complete-field allocation.
-    pub fn new(loc: impl IntoObjectRef<Location>, ty: impl IntoObjectRef<Type>) -> Self {
-        let obj = IterMapExprObj::new(loc.into_owned_object_ref(), ty.into_owned_object_ref());
-        Self { data_: ObjectArc::new(obj) }
-    }
-}
-
 tvm_ffi::impl_object_ref_upcast!(IterMapExpr => Expr);
 tvm_ffi::impl_object_ref_upcast!(unsafe IterMapExpr => PrimExpr);
-// tvm-ffi-stubgen(end)
 
 /// The result of [`detect_iter_map`]: the detected `indices`, or empty `indices` and the `errors`
 /// that say why detection failed.
@@ -263,7 +240,6 @@ impl IterMark {
 // tvm-ffi-stubgen(end)
 
 /// The split `(source // lower_factor) % extent * scale` of the marked iterator `source`.
-// tvm-ffi-stubgen(begin): object/sym.IterSplitExpr
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
@@ -300,50 +276,10 @@ impl Deref for IterSplitExprObj {
     }
 }
 
-#[allow(missing_docs)]
-impl IterSplitExprObj {
-    pub(crate) fn new(
-        loc: Location,
-        ty: Type,
-        source: IterMark,
-        lower_factor: PrimExpr,
-        extent: PrimExpr,
-        scale: PrimExpr,
-    ) -> Self {
-        let base_ = IterMapExprObj::new(loc, ty);
-        Self { base_, source, lower_factor, extent, scale }
-    }
-}
-
-#[allow(missing_docs)]
-impl IterSplitExpr {
-    /// Lossless complete-field allocation.
-    pub fn from_fields(
-        loc: impl IntoObjectRef<Location>,
-        ty: impl IntoObjectRef<Type>,
-        source: impl IntoObjectRef<IterMark>,
-        lower_factor: impl IntoObjectRef<PrimExpr>,
-        extent: impl IntoObjectRef<PrimExpr>,
-        scale: impl IntoObjectRef<PrimExpr>,
-    ) -> Self {
-        let obj = IterSplitExprObj::new(
-            loc.into_owned_object_ref(),
-            ty.into_owned_object_ref(),
-            source.into_owned_object_ref(),
-            lower_factor.into_owned_object_ref(),
-            extent.into_owned_object_ref(),
-            scale.into_owned_object_ref(),
-        );
-        Self { data_: ObjectArc::new(obj) }
-    }
-}
-
 tvm_ffi::impl_object_ref_upcast!(IterSplitExpr => Expr, IterSplitExpr => IterMapExpr);
 tvm_ffi::impl_object_ref_upcast!(unsafe IterSplitExpr => PrimExpr);
-// tvm-ffi-stubgen(end)
 
 /// The sum of the splits `args` plus `base`.
-// tvm-ffi-stubgen(begin): object/sym.IterSumExpr
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
@@ -378,36 +314,8 @@ impl Deref for IterSumExprObj {
     }
 }
 
-#[allow(missing_docs)]
-impl IterSumExprObj {
-    pub(crate) fn new(loc: Location, ty: Type, args: Array<IterSplitExpr>, base: PrimExpr) -> Self {
-        let base_ = IterMapExprObj::new(loc, ty);
-        Self { base_, args, base }
-    }
-}
-
-#[allow(missing_docs)]
-impl IterSumExpr {
-    /// Lossless complete-field allocation.
-    pub fn from_fields(
-        loc: impl IntoObjectRef<Location>,
-        ty: impl IntoObjectRef<Type>,
-        args: impl Into<Array<IterSplitExpr>>,
-        base: impl IntoObjectRef<PrimExpr>,
-    ) -> Self {
-        let obj = IterSumExprObj::new(
-            loc.into_owned_object_ref(),
-            ty.into_owned_object_ref(),
-            args.into(),
-            base.into_owned_object_ref(),
-        );
-        Self { data_: ObjectArc::new(obj) }
-    }
-}
-
 tvm_ffi::impl_object_ref_upcast!(IterSumExpr => Expr, IterSumExpr => IterMapExpr);
 tvm_ffi::impl_object_ref_upcast!(unsafe IterSumExpr => PrimExpr);
-// tvm-ffi-stubgen(end)
 
 // `IterMark::new` is generated: the native `sym.IterMark` constructor stores the fields as given.
 

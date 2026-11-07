@@ -30,6 +30,12 @@
 // tvm-ffi-stubgen(skip): sym.CanonicalExpr
 // tvm-ffi-stubgen(skip): sym.SplitExpr
 // tvm-ffi-stubgen(skip): sym.SumExpr
+// Integer sets and iterator sums are hand-written in their modules: C++ constructs them.
+// tvm-ffi-stubgen(skip): sym.IntSet
+// tvm-ffi-stubgen(skip): sym.IntervalSet
+// tvm-ffi-stubgen(skip): sym.IterMapExpr
+// tvm-ffi-stubgen(skip): sym.IterSplitExpr
+// tvm-ffi-stubgen(skip): sym.IterSumExpr
 
 pub mod analyzer;
 pub mod constraint;
