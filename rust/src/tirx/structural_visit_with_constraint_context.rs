@@ -64,7 +64,7 @@ impl StructuralVisitorWithConstraintContextBase {
 }
 
 // SAFETY: repr(C) mirrors the complete base in the matching native header.
-// Stub generation cannot certify its private tail; the binding requires the
+// Stub generation cannot certify its private tail; the definition requires the
 // matching native build. All fields begin with the same state as the native
 // constructor. Native-mutated fields use UnsafeCell. The type identity is the
 // registered specialized type, while the shared engine installs its vtable and

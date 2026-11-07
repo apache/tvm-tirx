@@ -33,13 +33,14 @@
 //! - [`codegen`]: compiling IR modules into runtime modules.
 //! - [`script`]: printing IR objects as TVMScript.
 //!
-//! # Using the bindings
+//! # Using the crate
 //!
 //! The crate links `libtvm_tirx_compiler`, which the build script finds through
 //! `tvm-tirx-config --libdir`; `tvm-tirx-config` and `tvm-ffi-config` must be on `PATH` when the
-//! crate is built. Native functions have Rust wrappers, such as [`target::Target::new`] for
-//! `target.Target`, and any of them can be called through [`tvm_ffi::Function::get_global`]. A
-//! program that uses only `tvm_ffi`, without calling a wrapper, must link the library itself
+//! crate is built. Many of its APIs call global functions of that library, as
+//! [`target::Target::new`] calls `target.Target`, and any global function can also be called
+//! through [`tvm_ffi::Function::get_global`]. A program that calls them only through `tvm_ffi`,
+//! without an API of this crate, must link the library itself
 //! (`tvm-tirx-config --libs compiler`).
 //!
 //! ```

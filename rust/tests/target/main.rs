@@ -39,7 +39,7 @@ fn native_target(name: &str) -> Target {
 
 #[test]
 fn generated_types_match_the_registry() {
-    // Both hold members reflection does not describe, so both bindings are opaque.
+    // Both hold members reflection does not describe, so both definitions are opaque.
     assert_type_contracts!(false; TargetObj: Object, TargetKindObj: Object);
 }
 
