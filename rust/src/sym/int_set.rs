@@ -17,28 +17,9 @@
  * under the License.
  */
 
-//! Sets of integers: [`IntSet`] and the interval [`IntervalSet`], with bound deduction and region
-//! bound estimation.
-//!
-//! # Examples
-//!
-//! ```
-//! use tvm_tirx::ir::prim::op::PrimOps;
-//! use tvm_tirx::ir::{PrimType, PrimVar, Var, UNKNOWN_LOC};
-//! use tvm_tirx::script::script;
-//! use tvm_tirx::sym::{self, Analyzer, IntSet, IntervalSet};
-//! use tvm_tirx::tvm_ffi::Map;
-//!
-//! let i = PrimVar::new("i", PrimType::int(32), UNKNOWN_LOC);
-//! let dom_map = Map::from_iter([(Var::from(&i), IntSet::from(IntervalSet::new(0, 15)))]);
-//! let set = Analyzer::new().int_set(&i * 2 + 1, Some(&dom_map))?;
-//! assert_eq!(script(&set)?, "sym.IntervalSet(min_value=1, max_value=31)");
-//!
-//! let none = Map::<Var, IntSet>::new();
-//! let bound = sym::deduce_bound(&i, (&i * 4 + 3).less(64), &none, &none)?;
-//! assert_eq!(script(&bound)?, "sym.IntervalSet(min_value=neg_inf, max_value=15)");
-//! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
-//! ```
+//! Integer sets. An [`IntSet`], such as the interval [`IntervalSet`], bounds the values an
+//! expression takes; [`deduce_bound`] solves a condition for a variable, and the
+//! `estimate_region_*` functions bound the region a set of accesses covers.
 
 // tvm-ffi-stubgen(missing-docs): allow
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
@@ -73,6 +54,28 @@ use tvm_ffi::ObjectCore;
 use tvm_ffi::Result;
 // tvm-ffi-stubgen(end)
 
+/// The base of every set of integers, one dimension each, that bounds the values an expression
+/// takes; [`Analyzer::int_set`] computes one.
+///
+/// # Examples
+///
+/// ```
+/// use tvm_tirx::ir::prim::op::PrimOps;
+/// use tvm_tirx::ir::{PrimType, PrimVar, Var, UNKNOWN_LOC};
+/// use tvm_tirx::script::script;
+/// use tvm_tirx::sym::{self, Analyzer, IntSet, IntervalSet};
+/// use tvm_tirx::tvm_ffi::Map;
+///
+/// let i = PrimVar::new("i", PrimType::int(32), UNKNOWN_LOC);
+/// let dom_map = Map::from_iter([(Var::from(&i), IntSet::from(IntervalSet::new(0, 15)))]);
+/// let set = Analyzer::new().int_set(&i * 2 + 1, Some(&dom_map))?;
+/// assert_eq!(script(&set)?, "sym.IntervalSet(min_value=1, max_value=31)");
+///
+/// let none = Map::<Var, IntSet>::new();
+/// let bound = sym::deduce_bound(&i, (&i * 4 + 3).less(64), &none, &none)?;
+/// assert_eq!(script(&bound)?, "sym.IntervalSet(min_value=neg_inf, max_value=15)");
+/// # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
+/// ```
 // tvm-ffi-stubgen(begin): object/sym.IntSet
 #[allow(missing_docs)]
 #[repr(C)]
@@ -120,6 +123,8 @@ impl IntSet {
     }
 }
 
+/// The interval `[min_value, max_value]` of integers, whose bounds are symbolic expressions and
+/// may be [`neg_inf`] or [`pos_inf`].
 // tvm-ffi-stubgen(begin): object/sym.IntervalSet
 #[allow(missing_docs)]
 #[repr(C)]

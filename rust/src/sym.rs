@@ -17,10 +17,9 @@
  * under the License.
  */
 
-//! Symbolic analysis of integer expressions.
-//!
-//! An [`Analyzer`] proves and simplifies under the facts of a [`ConstraintContext`]; [`int_set`]
-//! bounds expressions, and [`iter_affine_map`] detects iterator maps.
+//! Symbolic integer analysis. An [`Analyzer`] proves, bounds and simplifies integer expressions
+//! under the facts of a [`ConstraintContext`]; [`int_set`] and [`iter_affine_map`] describe the
+//! values and the iterator structure of index expressions.
 
 // tvm-ffi-stubgen(missing-docs): allow
 // An object registered under `sym` that no file has a block for yet is generated here, to be moved

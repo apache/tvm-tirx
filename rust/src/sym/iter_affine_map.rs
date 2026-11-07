@@ -17,34 +17,9 @@
  * under the License.
  */
 
-//! Iterator maps: index expressions as sums of splits of iterators.
-//!
-//! An [`IterSumExpr`] is a sum of [`IterSplitExpr`]s `(source // lower_factor) % extent * scale`
-//! plus `base_`. [`detect_iter_map`] detects them, and its [`IterMapResult`] reports `errors`.
-//!
-//! # Examples
-//!
-//! ```
-//! use tvm_tirx::ir::{PrimType, PrimVar, Range, Var, UNKNOWN_LOC};
-//! use tvm_tirx::script::script;
-//! use tvm_tirx::sym::{self, IterMapLevel};
-//! use tvm_tirx::tvm_ffi::Map;
-//!
-//! let x = PrimVar::new("x", PrimType::int(32), UNKNOWN_LOC);
-//! let y = PrimVar::new("y", PrimType::int(32), UNKNOWN_LOC);
-//! let four = Range::from_min_extent(0, 4, UNKNOWN_LOC)?;
-//! let iters = Map::from_iter([(x.clone(), four.clone()), (y.clone(), four)]);
-//!
-//! let bijective = IterMapLevel::Bijective;
-//! let map = sym::detect_iter_map([&x * 4 + &y], &iters, true, bijective, None, true)?;
-//! assert!(map.errors.is_empty());
-//!
-//! let o = PrimVar::new("o", PrimType::int(32), UNKNOWN_LOC);
-//! let inverse = sym::inverse_affine_iter_map(map.indices.iter(), [&o])?;
-//! assert_eq!(script(&inverse.get(&Var::from(&x))?.unwrap())?, "o // 4");
-//! assert_eq!(script(&inverse.get(&Var::from(&y))?.unwrap())?, "o % 4");
-//! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
-//! ```
+//! Iterator maps. An iterator map writes index expressions as [`IterSumExpr`]s, sums of
+//! [`IterSplitExpr`]s of [`IterMark`]ed iterators; [`detect_iter_map`] finds one, and the other
+//! functions simplify, divide and invert such maps.
 
 // tvm-ffi-stubgen(missing-docs): allow
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
@@ -95,6 +70,8 @@ use tvm_ffi::Result;
 use tvm_ffi::String;
 // tvm-ffi-stubgen(end)
 
+/// The base of the iterator map forms, [`IterSplitExpr`] and [`IterSumExpr`]. They hold the result
+/// of detection and do not appear in a well-formed function.
 // tvm-ffi-stubgen(begin): object/sym.IterMapExpr
 #[allow(missing_docs)]
 #[repr(C)]
@@ -124,6 +101,36 @@ impl Deref for IterMapExprObj {
 tvm_ffi::unsafe_impl_object_ref_upcast!(IterMapExpr => Expr, IterMapExpr => PrimExpr);
 // tvm-ffi-stubgen(end)
 
+/// The result of [`detect_iter_map`]: the detected `indices`, or empty `indices` and the `errors`
+/// that say why detection failed.
+///
+/// `padding_predicate`, over the input iterators, holds for the indices that the returned
+/// iterators cover beyond the bounds of the input ones; it is `None` if detection failed before
+/// computing it.
+///
+/// # Examples
+///
+/// ```
+/// use tvm_tirx::ir::{PrimType, PrimVar, Range, Var, UNKNOWN_LOC};
+/// use tvm_tirx::script::script;
+/// use tvm_tirx::sym::{self, IterMapLevel};
+/// use tvm_tirx::tvm_ffi::Map;
+///
+/// let x = PrimVar::new("x", PrimType::int(32), UNKNOWN_LOC);
+/// let y = PrimVar::new("y", PrimType::int(32), UNKNOWN_LOC);
+/// let four = Range::from_min_extent(0, 4, UNKNOWN_LOC)?;
+/// let iters = Map::from_iter([(x.clone(), four.clone()), (y.clone(), four)]);
+///
+/// let bijective = IterMapLevel::Bijective;
+/// let map = sym::detect_iter_map([&x * 4 + &y], &iters, true, bijective, None, true)?;
+/// assert!(map.errors.is_empty());
+///
+/// let o = PrimVar::new("o", PrimType::int(32), UNKNOWN_LOC);
+/// let inverse = sym::inverse_affine_iter_map(map.indices.iter(), [&o])?;
+/// assert_eq!(script(&inverse.get(&Var::from(&x))?.unwrap())?, "o // 4");
+/// assert_eq!(script(&inverse.get(&Var::from(&y))?.unwrap())?, "o % 4");
+/// # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
+/// ```
 // tvm-ffi-stubgen(begin): object/sym.IterMapResult
 #[allow(missing_docs)]
 #[repr(C)]
@@ -178,6 +185,7 @@ impl IterMapResult {
 }
 // tvm-ffi-stubgen(end)
 
+/// The mark of `source` as an iterator over `[0, extent)`.
 // tvm-ffi-stubgen(begin): object/sym.IterMark
 #[allow(missing_docs)]
 #[repr(C)]
@@ -225,6 +233,7 @@ impl IterMark {
 unsafe impl tvm_ffi::object::ImmutableObject for IterMarkObj {}
 // tvm-ffi-stubgen(end)
 
+/// The split `(source // lower_factor) % extent * scale` of the marked iterator `source`.
 // tvm-ffi-stubgen(begin): object/sym.IterSplitExpr
 #[allow(missing_docs)]
 #[repr(C)]
@@ -276,6 +285,7 @@ unsafe impl tvm_ffi::object::ImmutableObject for IterSplitExprObj {}
 tvm_ffi::unsafe_impl_object_ref_upcast!(IterSplitExpr => Expr, IterSplitExpr => IterMapExpr, IterSplitExpr => PrimExpr);
 // tvm-ffi-stubgen(end)
 
+/// The sum of the splits `args` plus `base`.
 // tvm-ffi-stubgen(begin): object/sym.IterSumExpr
 #[allow(missing_docs)]
 #[repr(C)]
@@ -355,7 +365,7 @@ impl IterSumExpr {
     }
 }
 
-/// How strictly an iterator map is checked, the C++ `sym::IterMapLevel`.
+/// How strictly an iterator map is checked.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 #[repr(i32)]
 pub enum IterMapLevel {
