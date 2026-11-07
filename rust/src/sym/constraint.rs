@@ -19,32 +19,9 @@
 // The generated `new` of a field-less base needs no `Default`.
 #![allow(clippy::new_without_default)]
 
-//! Constraints: the facts in scope at a point of a traversal.
-//!
-//! A [`ConstraintContext`] holds [`BindingConstraint`]s, [`RangeConstraint`]s and
-//! [`PredicateConstraint`]s, ancestors' first. Its handles are neither `Send` nor `Sync`; do not
-//! share a context across threads, also not through an erased `ObjectRef`.
-//!
-//! # Examples
-//!
-//! ```
-//! use tvm_tirx::ir::prim::op::{ge, lt};
-//! use tvm_tirx::ir::{PrimType, PrimVar, Var, UNKNOWN_LOC};
-//! use tvm_tirx::sym::{Analyzer, ConstraintContext, PredicateConstraint, ProofStrength};
-//!
-//! let x = PrimVar::new("x", PrimType::int(32), UNKNOWN_LOC);
-//! let outer = ConstraintContext::new();
-//! outer.append(&PredicateConstraint::new(ge(&x, 0)?, false).into())?;
-//! let inner = outer.snapshot()?;
-//! inner.append(&PredicateConstraint::new(lt(&x, 16)?, false).into())?;
-//!
-//! let analyzer = Analyzer::new();
-//! analyzer.sync_constraint_context(&inner)?;
-//! assert!(analyzer.can_prove(lt(&x, 16)?, ProofStrength::Default)?);
-//! analyzer.sync_constraint_context(&outer)?;
-//! assert!(!analyzer.can_prove(lt(&x, 16)?, ProofStrength::Default)?);
-//! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
-//! ```
+//! Constraints. A [`Constraint`] is one fact in scope, a [`BindingConstraint`],
+//! [`RangeConstraint`] or [`PredicateConstraint`]; a [`ConstraintContext`] holds the facts in
+//! scope at a point of a traversal, which an [`Analyzer`](super::Analyzer) proves under.
 
 // tvm-ffi-stubgen(missing-docs): allow
 // tvm-ffi-stubgen(ty-map): sym.ConstraintContext -> crate::sym::constraint::ConstraintContext
@@ -68,6 +45,7 @@ use tvm_ffi::ShallowCopy;
 use tvm_ffi::UnsafeInit;
 // tvm-ffi-stubgen(end)
 
+/// The base of every fact a [`ConstraintContext`] holds; it owns no analyzer state.
 // tvm-ffi-stubgen(begin): object/sym.Constraint
 #[allow(missing_docs)]
 #[repr(C)]
@@ -126,6 +104,8 @@ unsafe impl UnsafeInit for ConstraintObj {
 unsafe impl tvm_ffi::object::ImmutableObject for ConstraintObj {}
 // tvm-ffi-stubgen(end)
 
+/// The binding of `var` to `value`. The value is the bound expression as written, memory reads
+/// included: it records what `var` was bound to, not an equality that holds afterwards.
 // tvm-ffi-stubgen(begin): object/sym.BindingConstraint
 #[allow(missing_docs)]
 #[repr(C)]
@@ -182,6 +162,8 @@ unsafe impl tvm_ffi::object::ImmutableObject for BindingConstraintObj {}
 tvm_ffi::unsafe_impl_object_ref_upcast!(BindingConstraint => Constraint);
 // tvm-ffi-stubgen(end)
 
+/// The fact that the boolean `condition` holds. With `assume_always`, the caller guarantees it
+/// holds throughout the scope, even after the values it reads change.
 // tvm-ffi-stubgen(begin): object/sym.PredicateConstraint
 #[allow(missing_docs)]
 #[repr(C)]
@@ -238,6 +220,8 @@ unsafe impl tvm_ffi::object::ImmutableObject for PredicateConstraintObj {}
 tvm_ffi::unsafe_impl_object_ref_upcast!(PredicateConstraint => Constraint);
 // tvm-ffi-stubgen(end)
 
+/// The fact that `var` lies in the half-open `range`, which may be wider than the values `var`
+/// takes.
 // tvm-ffi-stubgen(begin): object/sym.RangeConstraint
 #[allow(missing_docs)]
 #[repr(C)]
@@ -323,7 +307,29 @@ const _: () = {
 /// A context of constraints: the premises in effect at a point of a traversal, ancestors' first.
 ///
 /// Clones share the context's identity and later appends; use
-/// [`snapshot`](ConstraintContextObj::snapshot) to capture the current prefix.
+/// [`snapshot`](ConstraintContextObj::snapshot) to capture the current prefix. A context is neither
+/// `Send` nor `Sync`: do not share one across threads, also not through an erased `ObjectRef`.
+///
+/// # Examples
+///
+/// ```
+/// use tvm_tirx::ir::prim::op::{ge, lt};
+/// use tvm_tirx::ir::{PrimType, PrimVar, Var, UNKNOWN_LOC};
+/// use tvm_tirx::sym::{Analyzer, ConstraintContext, PredicateConstraint, ProofStrength};
+///
+/// let x = PrimVar::new("x", PrimType::int(32), UNKNOWN_LOC);
+/// let outer = ConstraintContext::new();
+/// outer.append(&PredicateConstraint::new(ge(&x, 0)?, false).into())?;
+/// let inner = outer.snapshot()?;
+/// inner.append(&PredicateConstraint::new(lt(&x, 16)?, false).into())?;
+///
+/// let analyzer = Analyzer::new();
+/// analyzer.sync_constraint_context(&inner)?;
+/// assert!(analyzer.can_prove(lt(&x, 16)?, ProofStrength::Default)?);
+/// analyzer.sync_constraint_context(&outer)?;
+/// assert!(!analyzer.can_prove(lt(&x, 16)?, ProofStrength::Default)?);
+/// # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
+/// ```
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct ConstraintContext {
@@ -393,8 +399,7 @@ impl ConstraintContextObj {
 }
 
 impl ConstraintContext {
-    /// Create an empty root context, with the complete native-compatible layout (C++
-    /// `ConstraintContext()`).
+    /// Create an empty root context, with the complete native-compatible layout.
     pub fn new() -> Self {
         Self::allocate(None, 0)
     }

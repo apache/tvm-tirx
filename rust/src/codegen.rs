@@ -17,9 +17,8 @@
  * under the License.
  */
 
-//! Code generation: IR modules compiled into runtime modules.
-//!
-//! The queries of the LLVM backend are in [`llvm`].
+//! Code generation. [`build_module`] compiles an [`IRModule`] into a runtime [`Module`] with the
+//! code generator of the target's kind, and [`llvm`] queries the LLVM backend.
 
 // tvm-ffi-stubgen(missing-docs): allow
 // Names the hand-written wrappers use: the import section keeps them even when no generated block

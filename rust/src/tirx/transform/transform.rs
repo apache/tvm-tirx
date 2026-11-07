@@ -17,31 +17,9 @@
  * under the License.
  */
 
-//! The TIRx passes and their configurations.
-//!
-//! Each function returns a [`Pass`]; [`RemoveNoOpConfig`] and [`UnrollLoopConfig`] configure
+//! The passes of the dialect. Each function returns a [`Pass`] over the TIRx functions of a module;
+//! [`RemoveNoOpConfig`] and [`UnrollLoopConfig`] are the pass context options that configure
 //! [`remove_no_op`] and [`unroll_loop`].
-//!
-//! # Examples
-//!
-//! ```
-//! use tvm_tirx::tirx::{transform, Function};
-//! use tvm_tirx::tvm_ffi::{Error, ObjectRefCore};
-//! # use tvm_tirx::ir::{BaseFunc, DictAttrs, Evaluate, GlobalVar, IRModule, MissingType, SeqStmt};
-//! # use tvm_tirx::ir::{Var, UNKNOWN_LOC};
-//! # use tvm_tirx::tvm_ffi::Map;
-//! # let body = SeqStmt::new([Evaluate::new(1, UNKNOWN_LOC)], UNKNOWN_LOC);
-//! # let attrs = DictAttrs::new(Map::new());
-//! # let main = Function::new(Vec::<Var>::new(), &body, MissingType::new(), attrs, UNKNOWN_LOC);
-//! # let main_var = GlobalVar::new("main", UNKNOWN_LOC);
-//! # let functions = Map::from_iter([(main_var, BaseFunc::from(&main))]);
-//! # let module = IRModule::new(&functions, DictAttrs::new(Map::new()), &Map::new())?;
-//!
-//! let module = transform::remove_no_op()?.run(module)?;
-//! let main: Function = module.lookup_name("main")?.try_into()?;
-//! assert!(main.body.seq.is_empty());
-//! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
-//! ```
 
 // tvm-ffi-stubgen(missing-docs): allow
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
@@ -62,6 +40,10 @@ use tvm_ffi::Result;
 use tvm_ffi::String;
 // tvm-ffi-stubgen(end)
 
+/// The configuration of [`remove_no_op`], the pass context option `tirx.RemoveNoOp`:
+/// `ignore_profiler_call` treats profiler calls as no-ops, and a non-zero
+/// `max_simplification_steps` makes the simplifier fail after that many rewrite steps, for
+/// debugging.
 // tvm-ffi-stubgen(begin): object/tirx.transform.RemoveNoOpConfig
 #[allow(missing_docs)]
 #[repr(C)]
@@ -109,6 +91,12 @@ impl RemoveNoOpConfig {
 unsafe impl tvm_ffi::object::ImmutableObject for RemoveNoOpConfigObj {}
 // tvm-ffi-stubgen(end)
 
+/// The configuration of [`unroll_loop`], the pass context option `tirx.UnrollLoop`.
+///
+/// A loop is unrolled automatically within `auto_max_step` steps, `auto_max_depth` nesting levels
+/// and an extent of `auto_max_extent`; `explicit_unroll` unrolls the loop in the IR rather than
+/// marking it with a pragma, and `unroll_local_access` always unrolls loops that access local
+/// memory.
 // tvm-ffi-stubgen(begin): object/tirx.transform.UnrollLoopConfig
 #[allow(missing_docs)]
 #[repr(C)]
@@ -307,6 +295,27 @@ pub fn pointer_value_type_rewrite() -> Result<Pass> {
 }
 
 /// Remove effect-free statements and provably empty control flow (`tirx.transform.RemoveNoOp`).
+///
+/// # Examples
+///
+/// ```
+/// use tvm_tirx::tirx::{transform, Function};
+/// use tvm_tirx::tvm_ffi::{Error, ObjectRefCore};
+/// # use tvm_tirx::ir::{BaseFunc, DictAttrs, Evaluate, GlobalVar, IRModule, MissingType, SeqStmt};
+/// # use tvm_tirx::ir::{Var, UNKNOWN_LOC};
+/// # use tvm_tirx::tvm_ffi::Map;
+/// # let body = SeqStmt::new([Evaluate::new(1, UNKNOWN_LOC)], UNKNOWN_LOC);
+/// # let attrs = DictAttrs::new(Map::new());
+/// # let main = Function::new(Vec::<Var>::new(), &body, MissingType::new(), attrs, UNKNOWN_LOC);
+/// # let main_var = GlobalVar::new("main", UNKNOWN_LOC);
+/// # let functions = Map::from_iter([(main_var, BaseFunc::from(&main))]);
+/// # let module = IRModule::new(&functions, DictAttrs::new(Map::new()), &Map::new())?;
+///
+/// let module = transform::remove_no_op()?.run(module)?;
+/// let main: Function = module.lookup_name("main")?.try_into()?;
+/// assert!(main.body.seq.is_empty());
+/// # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
+/// ```
 pub fn remove_no_op() -> Result<Pass> {
     tvm_ffi::cached_global_func!("tirx.transform.RemoveNoOp").call_tuple(())?.try_into()
 }

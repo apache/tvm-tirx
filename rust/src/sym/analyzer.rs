@@ -17,31 +17,9 @@
  * under the License.
  */
 
-//! The analyzer and its results.
-//!
-//! An [`Analyzer`] proves and simplifies expressions under the facts it knows. [`ConstIntBound`]
-//! and [`ModularSet`] are its bound and modular results.
-//!
-//! # Examples
-//!
-//! ```
-//! use tvm_tirx::ir::prim::op::floordiv;
-//! use tvm_tirx::ir::{PrimType, PrimVar, Range, Var, UNKNOWN_LOC};
-//! use tvm_tirx::script::script;
-//! use tvm_tirx::sym::{Analyzer, ConstraintContext, RangeConstraint};
-//!
-//! let x = PrimVar::new("x", PrimType::int(32), UNKNOWN_LOC);
-//! let context = ConstraintContext::new();
-//! let domain = Range::from_min_extent(0, 16, UNKNOWN_LOC)?;
-//! context.append(&RangeConstraint::new(x.clone(), domain).into())?;
-//! let analyzer = Analyzer::new();
-//! analyzer.sync_constraint_context(&context)?;
-//!
-//! assert_eq!(script(&analyzer.simplify(floordiv(&x, 16)?, 2)?)?, "0");
-//!
-//! assert_eq!(script(&Analyzer::new().simplify(floordiv(&x, 16)?, 2)?)?, "x // 16");
-//! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
-//! ```
+//! The analyzer. An [`Analyzer`] proves, bounds and simplifies integer expressions under the facts
+//! of a [`ConstraintContext`]; its bounds are [`ConstIntBound`]s and [`ModularSet`]s, and
+//! [`SplitExpr`] and [`SumExpr`] are the forms its canonical simplifier works in.
 
 // tvm-ffi-stubgen(missing-docs): allow
 // Python has no class for `CanonicalExpr`, `SumExpr` and `SplitExpr`, the forms of the canonical
@@ -94,6 +72,34 @@ use tvm_ffi::VALUE_ERROR;
 // ---------------------------------------------------------------------------------------------
 // The analyzer
 
+/// An analyzer of integer expressions: it proves, bounds and simplifies them under the facts it
+/// knows, which [`sync_constraint_context`](Analyzer::sync_constraint_context) sets from a
+/// [`ConstraintContext`].
+///
+/// A clone shares the analyzer and its facts; [`deep_clone`](Analyzer::deep_clone) copies them.
+/// When the build includes the Z3 prover, default-strength proofs fall back to it unless
+/// [`set_z3_default_fallback`](Analyzer::set_z3_default_fallback) turns that off.
+///
+/// # Examples
+///
+/// ```
+/// use tvm_tirx::ir::prim::op::floordiv;
+/// use tvm_tirx::ir::{PrimType, PrimVar, Range, Var, UNKNOWN_LOC};
+/// use tvm_tirx::script::script;
+/// use tvm_tirx::sym::{Analyzer, ConstraintContext, RangeConstraint};
+///
+/// let x = PrimVar::new("x", PrimType::int(32), UNKNOWN_LOC);
+/// let context = ConstraintContext::new();
+/// let domain = Range::from_min_extent(0, 16, UNKNOWN_LOC)?;
+/// context.append(&RangeConstraint::new(x.clone(), domain).into())?;
+/// let analyzer = Analyzer::new();
+/// analyzer.sync_constraint_context(&context)?;
+///
+/// assert_eq!(script(&analyzer.simplify(floordiv(&x, 16)?, 2)?)?, "0");
+///
+/// assert_eq!(script(&Analyzer::new().simplify(floordiv(&x, 16)?, 2)?)?, "x // 16");
+/// # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
+/// ```
 // tvm-ffi-stubgen(begin): object/sym.Analyzer
 #[allow(missing_docs)]
 #[repr(C)]
@@ -313,7 +319,7 @@ impl Analyzer {
     }
 }
 
-/// How hard [`Analyzer::can_prove`] tries, the C++ `sym::ProofStrength`.
+/// How hard [`Analyzer::can_prove`] tries.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 #[repr(i32)]
 pub enum ProofStrength {
@@ -324,7 +330,7 @@ pub enum ProofStrength {
     SymbolicBound = 1,
 }
 
-/// The result of [`Analyzer::try_compare`], the C++ `sym::CompareResult`.
+/// The result of [`Analyzer::try_compare`].
 ///
 /// The relations other than `Inconsistent` and `Unknown` say what is known of `lhs` against `rhs`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -395,6 +401,8 @@ pub fn allow_uint_as_index() -> Result<AllowUintAsIndexScope> {
 // ---------------------------------------------------------------------------------------------
 // Results of the analyses
 
+/// The inclusive constant bounds `[min_value, max_value]` of an integer expression, where
+/// `i64::MAX` and `-i64::MAX` stand for unbounded ends.
 // tvm-ffi-stubgen(begin): object/sym.ConstIntBound
 #[allow(missing_docs)]
 #[repr(C)]
@@ -442,6 +450,8 @@ impl ConstIntBound {
 unsafe impl tvm_ffi::object::ImmutableObject for ConstIntBoundObj {}
 // tvm-ffi-stubgen(end)
 
+/// The congruence class `{coeff * x + base}` over the integers `x` that an integer expression lies
+/// in: a `coeff` of 0 is the single value `base`, and a `coeff` of 1 any integer.
 // tvm-ffi-stubgen(begin): object/sym.ModularSet
 #[allow(missing_docs)]
 #[repr(C)]
@@ -489,6 +499,9 @@ impl ModularSet {
 unsafe impl tvm_ffi::object::ImmutableObject for ModularSetObj {}
 // tvm-ffi-stubgen(end)
 
+/// The counters of an analyzer's rewrite simplifier: the nodes it visited, the constraints it
+/// entered, the rewrites it attempted and performed, its deepest recursion and its recursive
+/// rewrites.
 // tvm-ffi-stubgen(begin): object/sym.RewriteSimplifierStats
 #[allow(missing_docs)]
 #[repr(C)]
@@ -572,6 +585,8 @@ unsafe impl tvm_ffi::object::ImmutableObject for RewriteSimplifierStatsObj {}
 // ---------------------------------------------------------------------------------------------
 // The forms of the canonical simplifier
 
+/// The base of the intermediate forms the canonical simplifier introduces, [`SplitExpr`] and
+/// [`SumExpr`].
 // tvm-ffi-stubgen(begin): object/sym.CanonicalExpr
 #[allow(missing_docs)]
 #[repr(C)]
@@ -601,6 +616,7 @@ impl Deref for CanonicalExprObj {
 tvm_ffi::unsafe_impl_object_ref_upcast!(CanonicalExpr => Expr);
 // tvm-ffi-stubgen(end)
 
+/// The canonical form of a split index: `((index % upper_factor) / lower_factor) * scale`.
 // tvm-ffi-stubgen(begin): object/sym.SplitExpr
 #[allow(missing_docs)]
 #[repr(C)]
@@ -630,6 +646,7 @@ impl Deref for SplitExprObj {
 tvm_ffi::unsafe_impl_object_ref_upcast!(SplitExpr => Expr, SplitExpr => CanonicalExpr, SplitExpr => PrimExpr);
 // tvm-ffi-stubgen(end)
 
+/// The canonical form of a sum: a sum of [`SplitExpr`]s plus a constant base.
 // tvm-ffi-stubgen(begin): object/sym.SumExpr
 #[allow(missing_docs)]
 #[repr(C)]

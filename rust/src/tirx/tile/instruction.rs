@@ -19,10 +19,9 @@
 // The generated constructors take one argument per reflected field.
 #![allow(clippy::too_many_arguments)]
 
-//! The attributes of tile instruction calls.
-//!
-//! [`ScopeAttrs`] holds the thread scope of an instruction and [`TrnAttrs`] the scope and options
-//! of a Trainium (`trn`) instruction; their type keys are `tirx.tensor.*`.
+//! Tile instruction calls. Each call carries the static attributes its operator registers, such as
+//! [`ScopeAttrs`] or [`TrnAttrs`], and is checked by the validator
+//! [`configure_tensor_instruction`] installs.
 
 // tvm-ffi-stubgen(missing-docs): allow
 // Every object registered under `tirx.tensor` has its block in this file.
@@ -54,6 +53,7 @@ use tvm_ffi::Result;
 use tvm_ffi::String;
 // tvm-ffi-stubgen(end)
 
+/// The attributes of a tile instruction call that needs only the thread `scope` it runs at.
 // tvm-ffi-stubgen(begin): object/tirx.tensor.ScopeAttrs
 #[allow(missing_docs)]
 #[repr(C)]
@@ -109,6 +109,9 @@ unsafe impl tvm_ffi::object::ImmutableObject for ScopeAttrsObj {}
 tvm_ffi::unsafe_impl_object_ref_upcast!(ScopeAttrs => Attrs);
 // tvm-ffi-stubgen(end)
 
+/// The attributes of a Trainium (`trn`) tile instruction call: the thread `scope` it runs at, an
+/// optional instruction size limit `max_inst_size`, and the options the `trn` backend lowers it
+/// with (`opcode`, `reduce_op`, `op0`, `op1`, `axes`, `negate`, `reverse1`).
 // tvm-ffi-stubgen(begin): object/tirx.tensor.TrnAttrs
 #[allow(missing_docs)]
 #[repr(C)]

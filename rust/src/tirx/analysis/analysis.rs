@@ -17,22 +17,7 @@
  * under the License.
  */
 
-//! The analyses of tensor-level IR (`tirx.analysis.*`).
-//!
-//! # Examples
-//!
-//! ```
-//! use tvm_tirx::ir::{Expr, PrimType, PrimVar, Var, UNKNOWN_LOC};
-//! use tvm_tirx::tirx::analysis;
-//! use tvm_tirx::tvm_ffi::ObjectRefCore;
-//!
-//! let x = PrimVar::new("x", PrimType::int(32), UNKNOWN_LOC);
-//! let y = PrimVar::new("y", PrimType::int(32), UNKNOWN_LOC);
-//! let sum: Expr = (&x + &y).try_into()?;
-//! let undefined = analysis::undefined_vars(sum, [&x])?;
-//! assert!(undefined.len() == 1 && undefined.get(0)?.same_as(&y));
-//! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
-//! ```
+//! The analyses, which [`analysis`](super) re-exports.
 
 // tvm-ffi-stubgen(missing-docs): allow
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
@@ -76,6 +61,21 @@ pub fn verify_memory(func: impl IntoObjectRef<Function>) -> Result<bool> {
 
 /// Return the variables `node`, a statement or an expression, uses but neither defines nor finds in
 /// `defs` (`tirx.analysis.UndefinedVars`).
+///
+/// # Examples
+///
+/// ```
+/// use tvm_tirx::ir::{Expr, PrimType, PrimVar, Var, UNKNOWN_LOC};
+/// use tvm_tirx::tirx::analysis;
+/// use tvm_tirx::tvm_ffi::ObjectRefCore;
+///
+/// let x = PrimVar::new("x", PrimType::int(32), UNKNOWN_LOC);
+/// let y = PrimVar::new("y", PrimType::int(32), UNKNOWN_LOC);
+/// let sum: Expr = (&x + &y).try_into()?;
+/// let undefined = analysis::undefined_vars(sum, [&x])?;
+/// assert!(undefined.len() == 1 && undefined.get(0)?.same_as(&y));
+/// # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
+/// ```
 pub fn undefined_vars(
     node: impl Into<Any>,
     defs: impl IntoIterator<Item = impl Into<Var>>,

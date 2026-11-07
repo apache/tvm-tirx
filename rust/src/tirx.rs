@@ -17,10 +17,9 @@
  * under the License.
  */
 
-//! Tensor programs: functions, tensor types, index maps, layouts and thread scopes.
-//!
-//! [`structural`] holds the traversals that keep the facts in scope, [`tile`] the tile
-//! instructions, [`transform`] the passes and [`analysis`] the analyses.
+//! Tensor programs. A [`Function`] computes on tensors, variables typed by a [`TensorType`] whose
+//! [`Layout`] maps their indices to memory and threads; [`tile`] instructions are dispatched per
+//! [`ThreadScope`], and [`transform`] and [`analysis`] hold the passes and analyses.
 
 // tvm-ffi-stubgen(missing-docs): allow
 // An object registered under `tirx` that no file has a block for yet is generated here, to be moved

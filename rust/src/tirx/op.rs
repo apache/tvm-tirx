@@ -17,24 +17,9 @@
  * under the License.
  */
 
-//! Attributes of TIRx operator calls.
-//!
-//! The functions build TIRx operator calls; a [`CallFFIKernelAttr`] holds the launch parameters of
-//! a `call_ffi_kernel`.
-//!
-//! # Examples
-//!
-//! ```
-//! use tvm_tirx::ir::{PrimType, PrimVar, Var, UNKNOWN_LOC};
-//! use tvm_tirx::script::script;
-//! use tvm_tirx::tirx::{logaddexp, reinterpret};
-//!
-//! let x = PrimVar::new("x", PrimType::float(32), UNKNOWN_LOC);
-//! let y = PrimVar::new("y", PrimType::float(32), UNKNOWN_LOC);
-//! assert_eq!(script(&logaddexp(&x, &y)?)?, "T.log(T.exp(x) + T.exp(y))");
-//! assert_eq!(script(&reinterpret(PrimType::int(32), &x)?)?, "T.reinterpret(x, ty=T.int32)");
-//! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
-//! ```
+//! Operators of the dialect. The functions build calls of its operators, such as [`logaddexp`]
+//! and [`reinterpret`]; a [`CallFFIKernelAttr`] holds the launch metadata of a `call_ffi_kernel`
+//! call.
 
 // tvm-ffi-stubgen(missing-docs): allow
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
@@ -96,6 +81,13 @@ use tvm_ffi::String;
 use tvm_ffi::TYPE_ERROR;
 // tvm-ffi-stubgen(end)
 
+/// The launch metadata of a `call_ffi_kernel` call, whose arguments are the kernel symbol, the
+/// kernel operands and then the launch values.
+///
+/// `launch_params` tags the launch values in order (a flag-only tag takes no value, and the dynamic
+/// shared-memory size, when present, comes last), `launch_fields` names the CUDA launch
+/// configuration field each launch value sets, `num_kernel_args` counts the kernel operands, and
+/// `kernel_attrs` holds the compile-time requirements of the kernel.
 // tvm-ffi-stubgen(begin): object/tirx.CallFFIKernelAttr
 #[allow(missing_docs)]
 #[repr(C)]
@@ -172,8 +164,7 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(CallFFIKernelAttr => Attrs);
 // The native `tirx.CallFFIKernelAttr` stores its fields as given, as the generated
 // `CallFFIKernelAttr::new` does.
 
-/// Build `log(exp(a) + exp(b))` of the floating-point `a` and `b`, matched to one type
-/// (C++ `tirx::logaddexp`, `tirx._OpLogAddExp`).
+/// Build `log(exp(a) + exp(b))` of the floating-point `a` and `b`, matched to one type.
 ///
 /// # Errors
 ///
@@ -200,11 +191,22 @@ pub fn logaddexp_at(
     log(add(exp(a)?, exp(b)?)?)
 }
 
-/// Reinterpret `value` bit for bit as the primitive or pointer type `ty`
-/// (C++ `tirx::reinterpret(target_ty, value, loc)`, `tirx.reinterpret`).
+/// Reinterpret `value` bit for bit as the primitive or pointer type `ty` (`tirx.reinterpret`).
 ///
 /// Besides primitive types of the same size, a string reinterprets as a pointer and a pointer as a
 /// scalar `int64`, and back.
+///
+/// # Examples
+///
+/// ```
+/// use tvm_tirx::ir::{PrimType, PrimVar, UNKNOWN_LOC};
+/// use tvm_tirx::script::script;
+/// use tvm_tirx::tirx::reinterpret;
+///
+/// let x = PrimVar::new("x", PrimType::float(32), UNKNOWN_LOC);
+/// assert_eq!(script(&reinterpret(PrimType::int(32), &x)?)?, "T.reinterpret(x, ty=T.int32)");
+/// # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
+/// ```
 ///
 /// # Errors
 ///
@@ -307,10 +309,10 @@ pub fn reinterpret_at(
 }
 
 /// Build a rational approximation of `erf(arg)` on `[-4, 4]` in `bits`-bit floats, as the Metal and
-/// WebGPU backends lower `erf` (C++ `tirx::fast_erf_float_expr(arg, bits)`).
+/// WebGPU backends lower `erf`.
 pub fn fast_erf_float_expr(arg: impl IntoExpr<PrimExpr>, bits: u8) -> Result<PrimExpr> {
     let ty = PrimType::float(bits);
-    // The C++ coefficients are `float` literals.
+    // The coefficients are single-precision values.
     let constant =
         |value: f32| -> ExprResult { FloatImm::new(&ty, f64::from(value), UNKNOWN_LOC).into() };
     // alpha_1, alpha_3, ..., alpha_13: the odd coefficients of the numerator.
@@ -335,7 +337,7 @@ pub fn fast_erf_float_expr(arg: impl IntoExpr<PrimExpr>, bits: u8) -> Result<Pri
     ];
     let x = arg.into_owned_expr()?.min(constant(4.0)).max(constant(-4.0));
     let x2 = &x * &x;
-    // Horner's rule from the highest coefficient down, as C++ writes it out.
+    // Horner's rule from the highest coefficient down.
     let mut p = &x2 * constant(alpha[6]) + constant(alpha[5]);
     for coefficient in alpha[..5].iter().rev() {
         p = &x2 * p + constant(*coefficient);

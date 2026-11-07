@@ -17,7 +17,7 @@
  * under the License.
  */
 
-//! The CUDA backend: the objects of the `tirx.cuda` namespace.
+//! The CUDA backend. [`op`] holds the static attributes its instructions carry.
 
 // tvm-ffi-stubgen(missing-docs): allow
 // An object registered under `tirx.cuda` that no file has a block for yet is generated here, to be

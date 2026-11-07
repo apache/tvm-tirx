@@ -17,22 +17,8 @@
  * under the License.
  */
 
-//! Types of TIRx operations.
-//!
-//! [`TensorMapType`] is the type of a tensor map.
-//!
-//! # Examples
-//!
-//! ```
-//! use tvm_tirx::ir::UNKNOWN_LOC;
-//! use tvm_tirx::script::script;
-//! use tvm_tirx::tirx::TensorMapType;
-//!
-//! let ty = TensorMapType::new(UNKNOWN_LOC);
-//! assert_eq!(script(&ty)?, "T.TensorMap()");
-//!
-//! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
-//! ```
+//! Types of the dialect beyond tensors. A [`TensorMapType`] types the tensor-map descriptors that
+//! backend memory operations take; tensors are typed by [`TensorType`](super::TensorType).
 
 // tvm-ffi-stubgen(missing-docs): allow
 
@@ -44,6 +30,10 @@ use std::ops::Deref;
 use tvm_ffi::ObjectArc;
 // tvm-ffi-stubgen(end)
 
+/// The type of a tensor-map descriptor, which backend memory operations take.
+///
+/// A pointer to it points at the descriptor storage, not at tensor data; the operation that
+/// creates a descriptor defines its shape and layout.
 // tvm-ffi-stubgen(begin): object/tirx.TensorMapType
 #[allow(missing_docs)]
 #[repr(C)]

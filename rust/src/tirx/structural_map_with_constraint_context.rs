@@ -17,7 +17,9 @@
  * under the License.
  */
 
-//! Constraint-aware structural mapping: rewrite each value with the facts in scope.
+//! Constraint-aware structural mapping. [`structural_map_with_constraint_context`] calls a closure
+//! on every value with the facts in scope there and replaces the value with what it returns,
+//! unless that is `Unchanged`.
 
 use std::borrow::BorrowMut;
 

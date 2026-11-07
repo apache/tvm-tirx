@@ -17,32 +17,9 @@
  * under the License.
  */
 
-//! Layouts: how the indices of a tensor map to memory and to threads.
-//!
-//! A [`TileLayout`] maps indices through the [`Iter`]s of its `shard` (distinct elements) and
-//! `replica` (copies), each an extent and a stride over an [`Axis`]; a [`ComposeLayout`] swizzles
-//! its memory coordinate. Both are [`Layout`]s.
-//!
-//! # Examples
-//!
-//! ```
-//! use tvm_tirx::ir::{PrimType, PrimVar, Var, UNKNOWN_LOC};
-//! use tvm_tirx::script::script;
-//! use tvm_tirx::sym::Analyzer;
-//! use tvm_tirx::tirx::{Axis, Iter, Layout, TileLayout};
-//! use tvm_tirx::tvm_ffi::Map;
-//!
-//! let m = Axis::get("m");
-//! let shard = [Iter::new(8, 8, m.clone()), Iter::new(8, 1, m)];
-//! let layout = Layout::from(&TileLayout::new(shard, Vec::<Iter>::new(), &Map::new()));
-//! assert_eq!(script(&layout.size(None)?)?, "64");
-//!
-//! let i = PrimVar::new("i", PrimType::int(32), UNKNOWN_LOC);
-//! let j = PrimVar::new("j", PrimType::int(32), UNKNOWN_LOC);
-//! let offset = layout.apply([&i, &j], &Analyzer::new())?.get(&"m".into())?.unwrap();
-//! assert_eq!(script(&offset)?, "i * 8 + j");
-//! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
-//! ```
+//! Layouts. A [`Layout`] maps the logical indices of a tensor to coordinates on named [`Axis`]es,
+//! a memory offset and the threads that hold each element; a [`TileLayout`] builds the map from
+//! strided [`Iter`] factors, and a [`ComposeLayout`] swizzles the memory coordinate of one.
 
 // tvm-ffi-stubgen(missing-docs): allow
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
@@ -89,6 +66,33 @@ struct FfiEnumObj {
 }
 // tvm-ffi-stubgen(end)
 
+/// The base of every layout: a map from the logical indices of a tensor to a coordinate on each
+/// of its [`Axis`]es, such as the memory axis `m` or a thread axis.
+///
+/// [`apply`](Layout::apply) maps one index, [`size`](Layout::size) is the number of elements the
+/// layout maps and [`span`](Layout::span) the extent of the coordinates it reaches. Each kind of
+/// layout, such as [`TileLayout`] or [`ComposeLayout`], is a subtype.
+///
+/// # Examples
+///
+/// ```
+/// use tvm_tirx::ir::{PrimType, PrimVar, Var, UNKNOWN_LOC};
+/// use tvm_tirx::script::script;
+/// use tvm_tirx::sym::Analyzer;
+/// use tvm_tirx::tirx::{Axis, Iter, Layout, TileLayout};
+/// use tvm_tirx::tvm_ffi::Map;
+///
+/// let m = Axis::get("m");
+/// let shard = [Iter::new(8, 8, m.clone()), Iter::new(8, 1, m)];
+/// let layout = Layout::from(&TileLayout::new(shard, Vec::<Iter>::new(), &Map::new()));
+/// assert_eq!(script(&layout.size(None)?)?, "64");
+///
+/// let i = PrimVar::new("i", PrimType::int(32), UNKNOWN_LOC);
+/// let j = PrimVar::new("j", PrimType::int(32), UNKNOWN_LOC);
+/// let offset = layout.apply([&i, &j], &Analyzer::new())?.get(&"m".into())?.unwrap();
+/// assert_eq!(script(&offset)?, "i * 8 + j");
+/// # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
+/// ```
 // tvm-ffi-stubgen(begin): object/tirx.Layout
 #[allow(missing_docs)]
 #[repr(C)]
@@ -222,6 +226,9 @@ impl Layout {
     }
 }
 
+/// The layout of strided factors: each [`Iter`] of `shard` spans distinct elements and each of
+/// `replica` their copies, adding its stride per position to the coordinate on its axis, from the
+/// origin `offset` gives on each axis.
 // tvm-ffi-stubgen(begin): object/tirx.TileLayout
 #[allow(missing_docs)]
 #[repr(C)]
@@ -334,6 +341,8 @@ impl TileLayout {
     }
 }
 
+/// One factor of a [`TileLayout`]: `extent` positions, each adding `stride` to the coordinate on
+/// `axis`.
 // tvm-ffi-stubgen(begin): object/tirx.Iter
 #[allow(missing_docs)]
 #[repr(C)]
@@ -388,6 +397,9 @@ unsafe impl tvm_ffi::object::ImmutableObject for IterObj {}
 
 // The native `tirx.Iter` stores its fields as given, as the generated `Iter::new` does.
 
+/// A named coordinate a layout maps to: the memory axis `m`, or a thread axis, such as `laneid`,
+/// that indexes the threads of a scope. Each name is one registered axis, which [`Axis::get`]
+/// looks up.
 // tvm-ffi-stubgen(begin): object/tirx.Axis
 #[allow(missing_docs)]
 #[repr(C)]
@@ -449,6 +461,9 @@ impl Axis {
     }
 }
 
+/// The layout `tile_layout` with its memory coordinate XOR-swizzled: above the low `per_element`
+/// bits, the group of `swizzle_len` bits `atom_len` bits up is XORed into the group below if
+/// `swizzle_inner`, and the lower group into the upper one otherwise.
 // tvm-ffi-stubgen(begin): object/tirx.ComposeLayout
 #[allow(missing_docs)]
 #[repr(C)]

@@ -17,32 +17,13 @@
  * under the License.
  */
 
-//! Tensor functions.
-//!
-//! A [`Function`] is a [`BaseFunc`] with parameters, a return type and a sequence body.
-//!
-//! # Examples
-//!
-//! ```
-//! use tvm_tirx::ir::{DictAttrs, PrimType, PrimVar, Return, SeqStmt, Var, UNKNOWN_LOC};
-//! use tvm_tirx::script::script;
-//! use tvm_tirx::tirx::{renew_def, Function};
-//! use tvm_tirx::tvm_ffi::{Map, ObjectRefCore};
-//!
-//! let x = PrimVar::new("x", PrimType::int(32), UNKNOWN_LOC);
-//! let body = SeqStmt::new([Return::new(&x, UNKNOWN_LOC)], UNKNOWN_LOC);
-//! let attrs = DictAttrs::new(Map::new());
-//! let identity = Function::new([&x], &body, PrimType::int(32), attrs, UNKNOWN_LOC);
-//! assert!(script(&identity)?.as_str().contains("def main(x: T.int32) -> T.int32:"));
-//!
-//! let copy = renew_def(&identity)?;
-//! assert!(!copy.params.get(0)?.same_as(&x));
-//! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
-//! ```
+//! Functions of the dialect. A [`Function`] is a [`BaseFunc`] whose type is derived from its
+//! parameters and return type, with a [`SeqStmt`] body; [`renew_def`] copies one with fresh
+//! variables.
 
 // tvm-ffi-stubgen(missing-docs): allow
-// `custom-new` reserves `new` for a constructor with the C++ one's semantics (`ty` derived from the
-// signature); the generated `from_fields` allocates the fields as given.
+// `custom-new` reserves `new` for a hand-written constructor (`ty` derived from the signature); the
+// generated `from_fields` allocates the fields as given.
 // tvm-ffi-stubgen(custom-new): tirx.Function
 
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
@@ -74,6 +55,27 @@ use tvm_ffi::ObjectRefCore;
 use tvm_ffi::Result;
 // tvm-ffi-stubgen(end)
 
+/// A function: `params`, a `body` and a `ret_type`, typed by the [`FuncType`] of its parameter
+/// and return types. A declaration has an empty body and the `declaration` attribute set.
+///
+/// # Examples
+///
+/// ```
+/// use tvm_tirx::ir::{DictAttrs, PrimType, PrimVar, Return, SeqStmt, Var, UNKNOWN_LOC};
+/// use tvm_tirx::script::script;
+/// use tvm_tirx::tirx::{renew_def, Function};
+/// use tvm_tirx::tvm_ffi::{Map, ObjectRefCore};
+///
+/// let x = PrimVar::new("x", PrimType::int(32), UNKNOWN_LOC);
+/// let body = SeqStmt::new([Return::new(&x, UNKNOWN_LOC)], UNKNOWN_LOC);
+/// let attrs = DictAttrs::new(Map::new());
+/// let identity = Function::new([&x], &body, PrimType::int(32), attrs, UNKNOWN_LOC);
+/// assert!(script(&identity)?.as_str().contains("def main(x: T.int32) -> T.int32:"));
+///
+/// let copy = renew_def(&identity)?;
+/// assert!(!copy.params.get(0)?.same_as(&x));
+/// # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
+/// ```
 // tvm-ffi-stubgen(begin): object/tirx.Function
 #[allow(missing_docs)]
 #[repr(C)]
@@ -153,8 +155,8 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(Function => Expr, Function => BaseFunc);
 // tvm-ffi-stubgen(end)
 
 impl Function {
-    /// Create the function of `params`, `body`, `ret_type` and `attrs`; a missing return type
-    /// becomes void (C++ `Function(params, body, ret_type, attrs, loc)`).
+    /// Create the function of `params`, `body`, `ret_type` and `attrs`, typed by the function
+    /// type of its signature; a missing return type becomes void, the empty tuple type.
     pub fn new(
         params: impl IntoIterator<Item = impl Into<Var>>,
         body: &SeqStmt,

@@ -17,26 +17,9 @@
  * under the License.
  */
 
-//! The LLVM backend: intrinsics, the host CPU and the CPUs and features of LLVM targets.
-//!
-//! The queries are registered by `libtvm_tirx_llvm_backend` when it is loaded, as `import tvm_tirx`
-//! loads it. A query given no target uses the current one.
-//!
-//! # Examples
-//!
-//! ```
-//! use std::env::consts::{DLL_PREFIX, DLL_SUFFIX};
-//! use tvm_tirx::codegen::llvm;
-//! use tvm_tirx::target::Target;
-//! use tvm_tirx::tvm_ffi::Module;
-//!
-//! let backend = format!("{DLL_PREFIX}tvm_tirx_llvm_backend{DLL_SUFFIX}");
-//! let _backend = Module::load_from_file(backend)?;
-//! let cpu = llvm::get_system_cpu()?;
-//! let host = Target::new(&format!(r#"{{"kind": "llvm", "mcpu": "{}"}}"#, cpu.as_str()))?;
-//! assert!(llvm::get_vector_width(Some(&host))? > 0);
-//! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
-//! ```
+//! The LLVM backend. Queries of LLVM intrinsics, the host CPU and the CPUs and features of LLVM
+//! targets, which `libtvm_tirx_llvm_backend` registers when it is loaded; a query given no target
+//! uses the current one.
 
 // tvm-ffi-stubgen(missing-docs): allow
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
@@ -124,6 +107,22 @@ pub fn cpu_has_feature(feature: &str, target: Option<&Target>) -> Result<bool> {
 
 /// Return the vector width of the CPU of `target` in bits, or -1 for a target that is not `llvm`
 /// (`codegen.llvm_get_vector_width`).
+///
+/// # Examples
+///
+/// ```
+/// use std::env::consts::{DLL_PREFIX, DLL_SUFFIX};
+/// use tvm_tirx::codegen::llvm;
+/// use tvm_tirx::target::Target;
+/// use tvm_tirx::tvm_ffi::Module;
+///
+/// let backend = format!("{DLL_PREFIX}tvm_tirx_llvm_backend{DLL_SUFFIX}");
+/// let _backend = Module::load_from_file(backend)?;
+/// let cpu = llvm::get_system_cpu()?;
+/// let host = Target::new(&format!(r#"{{"kind": "llvm", "mcpu": "{}"}}"#, cpu.as_str()))?;
+/// assert!(llvm::get_vector_width(Some(&host))? > 0);
+/// # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
+/// ```
 pub fn get_vector_width(target: Option<&Target>) -> Result<i32> {
     tvm_ffi::Function::get_global("codegen.llvm_get_vector_width")?
         .call_tuple((target.cloned(),))?

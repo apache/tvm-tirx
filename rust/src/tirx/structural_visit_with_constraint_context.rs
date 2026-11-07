@@ -17,7 +17,9 @@
  * under the License.
  */
 
-//! Constraint-aware structural visiting: visit values with the facts in scope.
+//! Constraint-aware structural visiting. [`structural_visit_with_constraint_context`] visits a
+//! value with a dispatcher whose handlers read the facts in scope from the
+//! [`StructuralVisitorWithConstraintContextView`] they are given.
 
 use std::borrow::BorrowMut;
 use std::cell::UnsafeCell;

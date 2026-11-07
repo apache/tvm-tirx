@@ -17,25 +17,8 @@
  * under the License.
  */
 
-//! The runtime objects the IR refers to, tensor allocation and runtime queries.
-//!
-//! A [`MemoryScope`] is the storage scope of a [`PtrType`](crate::ir::PtrType).
-//!
-//! # Examples
-//!
-//! ```
-//! use tvm_tirx::ir::dtype;
-//! use tvm_tirx::runtime;
-//! use tvm_tirx::tvm_ffi::{DLDevice, DLDeviceType};
-//!
-//! let cpu = DLDevice::new(DLDeviceType::kDLCPU, 0);
-//! let buffer = runtime::empty(&[2, 8], dtype::float(32), cpu, None)?;
-//!
-//! let bytes = runtime::create_view(&buffer, &[64], dtype::int(8), 0)?;
-//! assert_eq!(bytes.shape(), &[64]);
-//!
-//! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
-//! ```
+//! Runtime objects and queries. A [`MemoryScope`] names the memory a pointer or tensor lives in;
+//! the functions allocate tensors and query devices and the runtime.
 
 // tvm-ffi-stubgen(missing-docs): allow
 // No `prefix`: only the objects with a block below are bound, not all of `runtime`.
@@ -71,6 +54,10 @@ struct FfiEnumObj {
 // tvm-ffi-stubgen(end)
 
 // `ir.PtrType.storage_scope` refers to this type.
+/// A registered memory space, such as `global` or `shared`, that a pointer or tensor lives in.
+///
+/// Registration order has no meaning, and a backend must support a scope before it can allocate
+/// storage in it; [`MemoryScope::register`] adds one.
 // tvm-ffi-stubgen(begin): object/runtime.MemoryScope
 #[allow(missing_docs)]
 #[repr(C)]
@@ -114,6 +101,22 @@ impl MemoryScope {
 ///
 /// Returns an error if the allocator of `device` does not support `mem_scope`; the CPU one supports
 /// only the global scope.
+///
+/// # Examples
+///
+/// ```
+/// use tvm_tirx::ir::dtype;
+/// use tvm_tirx::runtime;
+/// use tvm_tirx::tvm_ffi::{DLDevice, DLDeviceType};
+///
+/// let cpu = DLDevice::new(DLDeviceType::kDLCPU, 0);
+/// let buffer = runtime::empty(&[2, 8], dtype::float(32), cpu, None)?;
+///
+/// let bytes = runtime::create_view(&buffer, &[64], dtype::int(8), 0)?;
+/// assert_eq!(bytes.shape(), &[64]);
+///
+/// # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
+/// ```
 pub fn empty(
     shape: &[i64],
     dtype: DLDataType,
