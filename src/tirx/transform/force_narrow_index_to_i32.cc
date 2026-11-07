@@ -26,6 +26,7 @@
 #include <tvm/ffi/cast.h>
 #include <tvm/ffi/reflection/registry.h>
 #include <tvm/ir/prim/op.h>
+#include <tvm/tirx/layout.h>
 #include <tvm/tirx/op/memory.h>
 #include <tvm/tirx/stmt_functor.h>
 #include <tvm/tirx/transform.h>
@@ -64,13 +65,20 @@ class Int32DTypeNarrower : public IndexDataTypeNormalizer {
     }
   }
 
+  /*! \brief Whether `ty` has the layout of TVMScript scalar storage, not merely one element. */
+  static bool IsScalarTensor(const TensorType& ty) {
+    return ty->shape.size() == 1 && prim::IsOne(ty->shape[0]) && ty->data_alignment == 64 &&
+           (!ty->layout.has_value() ||
+            (ty->layout.as<TileLayoutObj>() &&
+             ty->layout.value().Canonicalize().as_or_throw<TileLayout>().IsTrivial()));
+  }
+
   /*! \brief Reject allocated integer tensors wider than int32. */
   void CheckAllocatedTensor(const TensorVar& buf) const {
     // Scalar assignments in TVMScript use local scalar storage.  Keep its explicit
     // dtype (e.g. an int64 opaque call result) and cast at narrowed index uses.
-    // IsScalar checks the scalar layout contract, not merely the allocation size.
     static const auto local = runtime::MemoryScope::Get("local");
-    bool is_local_scalar = buf.scope() == local && buf.IsScalar();
+    bool is_local_scalar = buf.scope() == local && IsScalarTensor(buf.ty());
     if (!is_local_scalar && buf.dtype().MatchesCode(DLDataTypeCode::kDLInt) &&
         buf.dtype().bits() > 32) {
       TVM_FFI_THROW(InternalError)

@@ -17,9 +17,9 @@
  * under the License.
  */
 
-//! Tensors. A tensor is a [`Var`] whose type is a [`TensorType`], which fixes its shape, element
-//! type, memory scope, alignment and [`Layout`]; loads and stores subscript the variable, and
-//! [`TensorVar`] matches one in an operator signature.
+//! Tensors. A tensor is a [`Var`](crate::ir::Var) whose type is a [`TensorType`], which fixes its
+//! shape, element type, memory scope, alignment and [`Layout`]; loads and stores subscript the
+//! variable, and [`TensorVar`] matches one in an operator signature.
 
 // tvm-ffi-stubgen(missing-docs): allow
 // `custom-new` reserves `new` for a hand-written constructor (defaults); the generated
@@ -28,7 +28,6 @@
 
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
-// tvm-ffi-stubgen(import-object): crate::ir::expr::Var
 // tvm-ffi-stubgen(import-object): crate::sym::analyzer::Analyzer
 // tvm-ffi-stubgen(import-object): tvm_ffi::AnyView
 // tvm-ffi-stubgen(import-object): tvm_ffi::ObjectCore
@@ -39,12 +38,9 @@
 // A tensor's shape is a list of `PrimExpr`s, as C++ `TensorTypeObj` holds it.
 // tvm-ffi-stubgen(field): tirx.TensorType.shape -> Array<PrimExpr>
 // tvm-ffi-stubgen(import-object): tvm_ffi::Array
-// tvm-ffi-stubgen(import-object): std::borrow::Borrow
-// tvm-ffi-stubgen(import-object): tvm_ffi::IntoObjectRef
 // tvm-ffi-stubgen(begin): import-section
 use crate::ir::expr::IntoExpr;
 use crate::ir::expr::PrimExpr;
-use crate::ir::expr::Var;
 use crate::ir::location::Location;
 use crate::ir::r#type::PrimType;
 use crate::ir::r#type::Type;
@@ -53,11 +49,9 @@ use crate::ir::sig;
 use crate::runtime::MemoryScope;
 use crate::sym::analyzer::Analyzer;
 use crate::tirx::layout::Layout;
-use std::borrow::Borrow;
 use std::ops::Deref;
 use tvm_ffi::AnyView;
 use tvm_ffi::Array;
-use tvm_ffi::IntoObjectRef;
 use tvm_ffi::ObjectArc;
 use tvm_ffi::ObjectCore;
 use tvm_ffi::Result;
@@ -208,8 +202,8 @@ impl TensorType {
     }
 }
 
-/// A signature descriptor ([`sig::ArgType`]) that matches a [`Var`] whose type is a
-/// [`TensorType`]; it is not a type of its own.
+/// A signature descriptor ([`sig::ArgType`]) that matches a [`Var`](crate::ir::Var) whose type is
+/// a [`TensorType`]; it is not a type of its own.
 pub struct TensorVar;
 
 impl sig::ArgType for TensorVar {
@@ -220,19 +214,6 @@ impl sig::ArgType for TensorVar {
     fn type_str() -> std::string::String {
         crate::ir::expr::VarObj::TYPE_KEY.into()
     }
-}
-
-/// Return whether the tensor variable `tensor` is a scalar: one element, the default alignment and
-/// a trivial layout; `alloc_or_decl` is true for `alloc_scalar`, false for `decl_scalar`
-/// (`tirx.TensorIsScalar`).
-///
-/// # Errors
-///
-/// Returns an error if the type of `tensor` is not a [`TensorType`].
-pub fn tensor_is_scalar(tensor: impl IntoObjectRef<Var>, alloc_or_decl: bool) -> Result<bool> {
-    tvm_ffi::cached_global_func!("tirx.TensorIsScalar")
-        .call_tuple((tensor.into_object_ref().borrow(), alloc_or_decl))?
-        .try_into()
 }
 
 /// The runtime's allocation alignment, which a build may configure, read from the default the

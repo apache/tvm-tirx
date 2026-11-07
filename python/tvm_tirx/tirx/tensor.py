@@ -149,7 +149,6 @@ class TensorType(Type):
         at(loc, self)
 
     __expr_methods__ = (
-        "is_scalar",
         "ptr_to",
         "view",
         "permute",
@@ -200,22 +199,6 @@ class TensorType(Type):
         """
         _check_tensor_receiver(self, expr)
         return self.scope
-
-    def is_scalar(self, expr, alloc_or_decl=True):
-        """Check if the tensor is a scalar.
-
-        Parameters
-        ----------
-        alloc_or_decl : bool, optional
-            Whether to consider alloc_scalar and decl_scalar as scalar. True for alloc_scalar,
-            False for decl_scalar.
-
-        Returns
-        -------
-            bool: True if the tensor is a scalar, False otherwise.
-        """
-        _check_tensor_receiver(self, expr)
-        return _ffi_api.TensorIsScalar(expr, alloc_or_decl)
 
     def ptr_to(self, expr, indices):
         """Get the pointer to the tensor at the given indices (logical indices).

@@ -418,12 +418,5 @@ ffi::Array<PrimExpr> TensorTypeObj::ElemOffset(ffi::Array<PrimExpr> input_indice
 TensorVar::TensorVar(ffi::String name, TensorType type, Location loc)
     : Var(Var(std::move(name), std::move(type), std::move(loc))) {}
 
-bool TensorVar::IsScalar(bool alloc_or_decl) const { return ty()->IsScalar(alloc_or_decl); }
-
-TVM_FFI_STATIC_INIT_BLOCK() {
-  namespace refl = tvm::ffi::reflection;
-  refl::GlobalDef().def_method("tirx.TensorIsScalar", &TensorVar::IsScalar);
-}
-
 }  // namespace tirx
 }  // namespace tvm
