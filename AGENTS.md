@@ -202,11 +202,6 @@ Use the existing tag-based style, for example `[FIX]`, `[REFACTOR]`, `[FEAT]`,
   transformations, code generation, and runtime support.
 - **Runtime and FFI**: TVM FFI supplies objects, reflection, and packed function
   calls. TIRx supplies its compiler library and device-aware runtime.
-- **C++ and Rust**: the two languages are peers. Each defines IR types,
-  operators, and passes and registers them the same way. The IR objects that
-  `tvm-ffi-stubgen` generates for Rust share the ABI layout of their C++
-  definitions, so an object passes between the two languages as the same
-  pointer, without conversion.
 
 ## Documentation
 
