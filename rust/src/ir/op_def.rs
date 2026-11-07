@@ -142,17 +142,17 @@ impl OpDef {
     }
 
     /// Register the value of the attribute `key` for the operator; a value already registered
-    /// fails the chain with a `ValueError`.
+    /// fails the chain with a `ValueError`, and an opaque pointer with a `TypeError`.
     pub fn set_attr<T: Into<Any>>(self, key: AttrKey<T>, value: impl Into<T>) -> Self {
         let value: T = value.into();
-        self.attr(key.name, value.into(), false)
+        self.value_attr(key.name, value.into(), false)
     }
 
     /// Register the value of the attribute `key` for the operator, replacing a value already
-    /// registered.
+    /// registered; an opaque pointer fails the chain with a `TypeError`.
     pub fn replace_attr<T: Into<Any>>(self, key: AttrKey<T>, value: impl Into<T>) -> Self {
         let value: T = value.into();
-        self.attr(key.name, value.into(), true)
+        self.value_attr(key.name, value.into(), true)
     }
 
     /// Remove the operator's value of the attribute `key`; a missing value is ignored, and live
@@ -224,6 +224,17 @@ impl OpDef {
         let hook: NativeFunction<(&RegionStmtObj,)> = validate.into();
         // SAFETY: `FRegionValidate` holds `void(const RegionStmtObj*)` hooks.
         self.attr("FRegionValidate", unsafe { hook.into_any() }, false)
+    }
+
+    /// [`attr`](Self::attr) for a value that is not a hook. Native code calls an opaque pointer
+    /// in a hook column as a function, and operator attributes live for the process, so only the
+    /// hook setters store one.
+    fn value_attr(self, key: &str, value: Any, replace: bool) -> Self {
+        if value.type_index() == tvm_ffi::TypeIndex::kTVMFFIOpaquePtr as i32 {
+            let message = format!("Attribute {key} cannot be an opaque pointer");
+            return self.then(|_| Err(Error::new(TYPE_ERROR, &message, "")));
+        }
+        self.attr(key, value, replace)
     }
 
     fn attr(self, key: &str, value: Any, replace: bool) -> Self {
