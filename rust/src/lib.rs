@@ -98,9 +98,8 @@
 //! # Ok::<(), tvm_ffi::Error>(())
 //! ```
 //!
-//! A type extends [`ir::TypeObj`]; its fields are reflected, so the native compiler, Python and
-//! the TVMScript printer see them. The generated code names `tvm_ffi`, which
-//! `use tvm_tirx::tvm_ffi` brings into scope.
+//! A type extends [`ir::TypeObj`]; its fields are reflected, so Python and the TVMScript printer
+//! see them. The generated code names `tvm_ffi`, which `use tvm_tirx::tvm_ffi` brings into scope.
 //!
 //! ```
 //! use tvm_tirx::ir::{PrimType, Type, TypeObj, UNKNOWN_LOC};
@@ -160,10 +159,6 @@
 //! ```
 
 #![warn(missing_docs)]
-
-// Maintainer note: the wrappers keep the names of the native API (methods in snake case), and a
-// constructor `new` runs the checks and defaults of the native constructor; its argument order is
-// chosen for Rust.
 
 pub mod backend;
 pub mod codegen;
