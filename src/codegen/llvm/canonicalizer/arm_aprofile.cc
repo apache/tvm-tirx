@@ -38,25 +38,6 @@ namespace canonicalizer {
 namespace llvm {
 namespace aprofile {
 
-double GetArchVersion(ffi::Array<ffi::String> mattr) {
-  for (const ffi::String& attr : mattr) {
-    std::string attr_string = attr;
-    size_t attr_len = attr_string.size();
-    if (attr_len >= 4 && attr_string.substr(0, 2) == "+v" && attr_string.back() == 'a') {
-      std::string version_string = attr_string.substr(2, attr_string.size() - 2);
-      return atof(version_string.data());
-    }
-  }
-  return 0.0;
-}
-
-double GetArchVersion(ffi::Optional<ffi::Array<ffi::String>> attr) {
-  if (!attr) {
-    return false;
-  }
-  return GetArchVersion(attr.value());
-}
-
 bool IsAArch32(ffi::Optional<ffi::String> mtriple, ffi::Optional<ffi::String> mcpu) {
   if (mtriple) {
     bool is_mprofile = mcpu && mcpu.value().starts_with("cortex-m");
