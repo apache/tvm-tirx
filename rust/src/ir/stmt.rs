@@ -19,40 +19,13 @@
 // The generated constructors take one argument per reflected field.
 #![allow(clippy::too_many_arguments)]
 
-//! Statements: bindings, assertions, loops, conditionals, tensor stores and sequences.
-//!
-//! The objects `python/tvm_tirx/ir/stmt.py` defines. [`Stmt`] is the base of every statement; a
-//! body given as one statement is wrapped in a [`SeqStmt`].
-//!
-//! # Examples
-//!
-//! ```
-//! use tvm_tirx::ir::prim::op::PrimOps;
-//! use tvm_tirx::ir::{
-//!     AssertStmt, Bind, For, ForKind, PrimType, PrimVar, SeqStmt, Stmt, StringImm, Var,
-//! };
-//! use tvm_tirx::ir::UNKNOWN_LOC;
-//! use tvm_tirx::script::script;
-//!
-//! let i = PrimVar::new("i", PrimType::int(32), UNKNOWN_LOC);
-//! let x = PrimVar::new("x", PrimType::int(32), UNKNOWN_LOC);
-//! let bind = Bind::new(&x, &i + 1, UNKNOWN_LOC)?;
-//! let kind = StringImm::new("ValueError", UNKNOWN_LOC);
-//! let check = AssertStmt::new(x.less(17), kind, [StringImm::new("x", UNKNOWN_LOC)], UNKNOWN_LOC)?;
-//!
-//! let body = SeqStmt::new([Stmt::from(bind), check.into()], UNKNOWN_LOC);
-//! let loop_ = For::new(&i, 0, 16, 1, ForKind::Default, body, None, UNKNOWN_LOC)?;
-//! let expected = "\
-//! for i in range(16):
-//!     x: T.let[T.int32] = i + 1
-//!     assert x < 17, (\"ValueError\", [\"x\"])";
-//! assert_eq!(script(&loop_)?, expected);
-//! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
-//! ```
+//! Statements. Every statement is a [`Stmt`]; the body of a loop, conditional or region is a
+//! [`SeqStmt`], so a single statement given as a body is wrapped in one, and a [`Bind`] binds a
+//! variable for the statements after it in the enclosing body.
 
 // tvm-ffi-stubgen(missing-docs): allow
-// `custom-new` reserves `new` for a constructor with the C++ one's semantics (defaults, implicit
-// conversions, validation); the generated `from_fields` allocates the fields as given.
+// `custom-new` reserves `new` for a hand-written constructor (defaults, implicit conversions,
+// validation); the generated `from_fields` allocates the fields as given.
 // tvm-ffi-stubgen(custom-new): ir.Bind
 // tvm-ffi-stubgen(custom-new): ir.AssertStmt
 // tvm-ffi-stubgen(custom-new): ir.For
@@ -136,6 +109,36 @@ use tvm_ffi::reflection::drop_if_defined;
 use tvm_ffi::tvm_ffi_sys::TVMFFITypeIndex;
 // tvm-ffi-stubgen(end)
 
+/// The base of every statement: its source location `loc`.
+///
+/// Each kind of statement is a subtype that adds its operands; it converts into a `Stmt` for
+/// free, and a `Stmt` is checked back into one with `downcast_ref` or `downcast`.
+///
+/// # Examples
+///
+/// ```
+/// use tvm_tirx::ir::prim::op::PrimOps;
+/// use tvm_tirx::ir::{
+///     AssertStmt, Bind, For, ForKind, PrimType, PrimVar, SeqStmt, Stmt, StringImm,
+/// };
+/// use tvm_tirx::ir::UNKNOWN_LOC;
+/// use tvm_tirx::script::script;
+///
+/// let i = PrimVar::new("i", PrimType::int(32), UNKNOWN_LOC);
+/// let x = PrimVar::new("x", PrimType::int(32), UNKNOWN_LOC);
+/// let bind = Bind::new(&x, &i + 1, UNKNOWN_LOC)?;
+/// let kind = StringImm::new("ValueError", UNKNOWN_LOC);
+/// let check = AssertStmt::new(x.less(17), kind, [StringImm::new("x", UNKNOWN_LOC)], UNKNOWN_LOC)?;
+///
+/// let body = SeqStmt::new([Stmt::from(bind), check.into()], UNKNOWN_LOC);
+/// let loop_ = For::new(&i, 0, 16, 1, ForKind::Default, body, None, UNKNOWN_LOC)?;
+/// let expected = "\
+/// for i in range(16):
+///     x: T.let[T.int32] = i + 1
+///     assert x < 17, (\"ValueError\", [\"x\"])";
+/// assert_eq!(script(&loop_)?, expected);
+/// # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
+/// ```
 // tvm-ffi-stubgen(begin): object/ir.Stmt
 #[allow(missing_docs)]
 #[repr(C)]
@@ -196,6 +199,8 @@ unsafe impl UnsafeInit for StmtObj {
 unsafe impl tvm_ffi::object::ImmutableObject for StmtObj {}
 // tvm-ffi-stubgen(end)
 
+/// The binding of the variable `var` to `value`, visible to the statements after it in the
+/// enclosing body. It has no body of its own.
 // tvm-ffi-stubgen(begin): object/ir.Bind
 #[allow(missing_docs)]
 #[repr(C)]
@@ -257,8 +262,8 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(Bind => Stmt);
 // tvm-ffi-stubgen(end)
 
 impl Bind {
-    /// Create the statement binding `var` to `value`, of the same type, for the rest of the
-    /// enclosing scope (C++ `Bind(var, value, loc)`).
+    /// Create the statement binding `var` to `value`, of the same type, for the statements
+    /// after it in the enclosing body.
     ///
     /// # Errors
     ///
@@ -278,6 +283,8 @@ impl Bind {
     }
 }
 
+/// The check that the boolean `condition` holds, raising an error of kind `error_kind`, such as
+/// `"ValueError"`, whose message concatenates `message_parts` when it does not.
 // tvm-ffi-stubgen(begin): object/ir.AssertStmt
 #[allow(missing_docs)]
 #[repr(C)]
@@ -352,7 +359,7 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(AssertStmt => Stmt);
 
 impl AssertStmt {
     /// Create the statement asserting the boolean `condition`, raising an `error_kind` error with
-    /// the message `message_parts` when it fails (C++ `AssertStmt`).
+    /// the message `message_parts` when it fails.
     ///
     /// # Errors
     ///
@@ -379,6 +386,11 @@ impl AssertStmt {
     }
 }
 
+/// The loop of `var` from `begin` while below `end`, incremented by `step`, running `body`.
+///
+/// `kind` gives the execution semantics of the iterations, sequential, parallel, vectorized or
+/// unrolled, which transformations preserve; `annotations` hold properties of the loop that the
+/// consuming dialect interprets.
 // tvm-ffi-stubgen(begin): object/ir.For
 #[allow(missing_docs)]
 #[repr(C)]
@@ -497,7 +509,7 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(For => Stmt);
 // tvm-ffi-stubgen(end)
 
 impl Default for ForKind {
-    /// The ordinary loop, of sequential iterations (C++ `ForKind::kDefault`).
+    /// The ordinary loop, of sequential iterations.
     fn default() -> Self {
         Self::Default
     }
@@ -505,7 +517,7 @@ impl Default for ForKind {
 
 impl For {
     /// Create the loop of the scalar integer `var` from `begin` to `end` by `step`, running `body`
-    /// with the `kind` semantics (C++ `For(var, begin, end, step, kind, body, annotations, loc)`).
+    /// with the `kind` semantics and the `annotations` (none when `None`).
     ///
     /// A constant bound or step of another integer type is converted to the type of `var`.
     ///
@@ -597,6 +609,7 @@ impl For {
     }
 }
 
+/// The loop running `body` while the scalar `condition` holds.
 // tvm-ffi-stubgen(begin): object/ir.While
 #[allow(missing_docs)]
 #[repr(C)]
@@ -658,8 +671,8 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(While => Stmt);
 // tvm-ffi-stubgen(end)
 
 impl While {
-    /// Create the loop running `body` while the scalar `condition` holds, checked to be well formed
-    /// (C++ `While(condition, body, loc)`).
+    /// Create the loop running `body` while the scalar `condition` holds, checked to be well
+    /// formed.
     ///
     /// # Errors
     ///
@@ -679,6 +692,8 @@ impl While {
     }
 }
 
+/// The store of the primitive `value` at `indices` of `dest`: a store into a tensor, or into any
+/// expression whose type supports it.
 // tvm-ffi-stubgen(begin): object/ir.TensorStore
 #[allow(missing_docs)]
 #[repr(C)]
@@ -748,7 +763,7 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(TensorStore => Stmt);
 
 impl TensorStore {
     /// Create the store of `value` into the element of `dest` at `indices`, checked by the
-    /// validation the type of `dest` registers (C++ `TensorStore(dest, indices, value, loc)`).
+    /// validation the type of `dest` registers.
     ///
     /// # Errors
     ///
@@ -786,6 +801,11 @@ impl TensorStore {
     }
 }
 
+/// A statement with one body, whose meaning the region operator `op` defines.
+///
+/// `args` and `attrs` are evaluated in the enclosing scope. `body_params` are the variables the
+/// operator's contract defines for `body`, visible only there, and `result_vars` are defined for
+/// the statements after the region.
 // tvm-ffi-stubgen(begin): object/ir.RegionStmt
 #[allow(missing_docs)]
 #[repr(C)]
@@ -871,8 +891,9 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(RegionStmt => Stmt);
 // tvm-ffi-stubgen(end)
 
 impl RegionStmt {
-    /// Create the region of the region operator `op` on `args`, whose `body` binds `body_params`
-    /// and defines `result_vars`, checked against the contract of the operator (C++ `RegionStmt`).
+    /// Create the region of the region operator `op` on `args` with the attributes `attrs`,
+    /// whose `body` binds `body_params` and which defines `result_vars`, checked against the
+    /// contract of the operator.
     ///
     /// # Errors
     ///
@@ -931,6 +952,9 @@ impl RegionStmt {
     }
 }
 
+/// The statements `seq`, run in order: the body of a loop, conditional or region.
+///
+/// [`SeqStmt::new`] flattens nested sequences and drops no-ops.
 // tvm-ffi-stubgen(begin): object/ir.SeqStmt
 #[allow(missing_docs)]
 #[repr(C)]
@@ -988,13 +1012,15 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(SeqStmt => Stmt);
 
 impl SeqStmt {
     /// Create the sequence of `seq`, with nested sequences flattened and no-ops (`Evaluate(0)`)
-    /// dropped (C++ `SeqStmt(seq, loc)`).
+    /// dropped.
     pub fn new(seq: impl IntoIterator<Item = impl Into<Stmt>>, loc: impl Into<Location>) -> Self {
         let seq = seq.into_iter().map(Into::into).collect::<Array<Stmt>>();
         Self::from_fields(loc.into(), flatten(seq))
     }
 }
 
+/// The conditional running `then_case` when `condition` holds, and `else_case`, if any,
+/// otherwise.
 // tvm-ffi-stubgen(begin): object/ir.If
 #[allow(missing_docs)]
 #[repr(C)]
@@ -1063,8 +1089,7 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(If => Stmt);
 // tvm-ffi-stubgen(end)
 
 impl If {
-    /// Create the statement running `then_case` if `condition` holds, else `else_case` if given
-    /// (C++ `If(condition, then_case, else_case, loc)`).
+    /// Create the statement running `then_case` if `condition` holds, else `else_case` if given.
     pub fn new(
         condition: impl IntoExpr<PrimExpr>,
         then_case: impl Into<Stmt>,
@@ -1078,6 +1103,8 @@ impl If {
     }
 }
 
+/// The evaluation of `value` for its side effects, its result discarded. `Evaluate` of the
+/// constant `0` is a no-op.
 // tvm-ffi-stubgen(begin): object/ir.Evaluate
 #[allow(missing_docs)]
 #[repr(C)]
@@ -1134,12 +1161,13 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(Evaluate => Stmt);
 // tvm-ffi-stubgen(end)
 
 impl Evaluate {
-    /// Create the statement evaluating `value` for its side effects (C++ `Evaluate(value, loc)`).
+    /// Create the statement evaluating `value` for its side effects.
     pub fn new(value: impl Into<Expr>, loc: impl Into<Location>) -> Self {
         Self::from_fields(loc.into(), value.into())
     }
 }
 
+/// The exit from the innermost enclosing loop.
 // tvm-ffi-stubgen(begin): object/ir.Break
 #[allow(missing_docs)]
 #[repr(C)]
@@ -1196,6 +1224,7 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(Break => Stmt);
 
 // `ir.Break` stores its location as given: the generated `Break::new` is the same.
 
+/// The exit from the enclosing function, returning `value`.
 // tvm-ffi-stubgen(begin): object/ir.Return
 #[allow(missing_docs)]
 #[repr(C)]
@@ -1252,12 +1281,13 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(Return => Stmt);
 // tvm-ffi-stubgen(end)
 
 impl Return {
-    /// Create the statement returning `value` from the enclosing function (C++ `Return`).
+    /// Create the statement returning `value` from the enclosing function.
     pub fn new(value: impl Into<Expr>, loc: impl Into<Location>) -> Self {
         Self::from_fields(loc.into(), value.into())
     }
 }
 
+/// The jump to the next iteration of the innermost enclosing loop.
 // tvm-ffi-stubgen(begin): object/ir.Continue
 #[allow(missing_docs)]
 #[repr(C)]
@@ -1317,7 +1347,7 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(Continue => Stmt);
 // ---------------------------------------------------------------------------------------------
 // Helpers
 
-/// Whether `value` is in the range of the integer type `ty` (C++ `IntImmValueFits`).
+/// Whether `value` is in the range of the integer type `ty`.
 fn int_imm_value_fits(value: &BigInt, ty: &PrimType) -> Result<bool> {
     let bits = u32::from(ty.bits());
     if ty.matches_code(&[DLDataTypeCode::kDLUInt]) {
@@ -1329,8 +1359,7 @@ fn int_imm_value_fits(value: &BigInt, ty: &PrimType) -> Result<bool> {
 }
 
 /// The parameters the body of a region of `op` on `args` binds, which the operator's
-/// `FRegionGetBodyParams` gives once its validator accepts the arguments
-/// (C++ `GetRegionBodyParams`).
+/// `FRegionGetBodyParams` gives once its validator accepts the arguments.
 fn region_body_params(op: &Op, args: &Array<Expr>, attrs: &DictAttrs) -> Result<Array<Var>> {
     let name = op.name.as_str();
     let Some(get_body_params) = support::NativeHook::of_op(op, "FRegionGetBodyParams")? else {
@@ -1391,15 +1420,15 @@ fn flatten(seq: Array<Stmt>) -> Array<Stmt> {
     Array::from_vec(flattened)
 }
 
-/// Whether `stmt` is `Evaluate(0)`, the no-op a sequence drops (C++ `IsSeqStmtNoOp`).
+/// Whether `stmt` is `Evaluate(0)`, the no-op a sequence drops.
 fn is_no_op(stmt: &Stmt) -> bool {
     stmt.downcast_ref::<EvaluateObj>()
         .and_then(|evaluate| evaluate.value.downcast_ref::<IntImmObj>())
         .is_some_and(|imm| imm.value == BigInt::from(0i64))
 }
 
-/// A statement as a body, as C++ converts a `Stmt` to a `SeqStmt`: a sequence as it is, any other
-/// statement as the sequence of it at its location (C++ `SeqStmt(stmt)`).
+/// A statement as a body: a sequence as it is, any other statement as the sequence of it at its
+/// location.
 fn into_body(stmt: Stmt) -> Result<SeqStmt> {
     if stmt.downcast_ref::<SeqStmtObj>().is_some() {
         return Ok(stmt.downcast().expect("a SeqStmt"));
