@@ -101,10 +101,10 @@ use tvm_ffi::Object;
 use tvm_ffi::ObjectArc;
 use tvm_ffi::ObjectRefCore;
 use tvm_ffi::Result;
-use tvm_ffi::ShallowCopy;
 use tvm_ffi::String;
-use tvm_ffi::UnsafeInit;
 use tvm_ffi::VALUE_ERROR;
+use tvm_ffi::reflection::ShallowCopy;
+use tvm_ffi::reflection::UnsafeInit;
 use tvm_ffi::reflection::drop_if_defined;
 use tvm_ffi::tvm_ffi_sys::TVMFFITypeIndex;
 // tvm-ffi-stubgen(end)

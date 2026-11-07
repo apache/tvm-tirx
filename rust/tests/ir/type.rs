@@ -28,10 +28,11 @@ use tvm_tirx::ir::{
     OpaqueType, PrimType, PtrType, StringType, TensorRegionType, TupleType, Type, TypeObj, Var,
     VarObj,
 };
+use tvm_tirx::tvm_ffi::reflection::{FieldGetter, ShallowCopy};
 use tvm_tirx::tvm_ffi::{rs_object, structural_hash, structural_map};
 use tvm_tirx::tvm_ffi::{
-    Any, AnyView, Array, DLDataType, DLDataTypeExt, FieldGetter, ObjectCore, ObjectRefCore,
-    ShallowCopy, String as FfiString, WalkOrder,
+    Any, AnyView, Array, DLDataType, DLDataTypeExt, ObjectCore, ObjectRefCore, String as FfiString,
+    WalkOrder,
 };
 
 use super::{scope};

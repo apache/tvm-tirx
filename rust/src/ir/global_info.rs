@@ -28,8 +28,8 @@
 use std::ptr::addr_of_mut;
 use tvm_ffi::Object;
 use tvm_ffi::ObjectArc;
-use tvm_ffi::ShallowCopy;
-use tvm_ffi::UnsafeInit;
+use tvm_ffi::reflection::ShallowCopy;
+use tvm_ffi::reflection::UnsafeInit;
 // tvm-ffi-stubgen(end)
 
 /// The base of the module-level information an [`IRModule`](super::IRModule) keeps by name in

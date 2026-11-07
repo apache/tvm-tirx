@@ -48,22 +48,14 @@ use std::borrow::Borrow;
 use std::ops::Deref;
 use tvm_ffi::Any;
 use tvm_ffi::Array;
-use tvm_ffi::FieldGetter;
+use tvm_ffi::EnumObj;
 use tvm_ffi::Map;
 use tvm_ffi::Object;
 use tvm_ffi::ObjectArc;
 use tvm_ffi::ObjectCore;
 use tvm_ffi::Result;
 use tvm_ffi::String;
-
-/// Header-only stand-in for the builtin `ffi.Enum`; it only carries the ancestor depth.
-#[allow(dead_code)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::Object)]
-#[type_key = "ffi.Enum"]
-struct FfiEnumObj {
-    base_: Object,
-}
+use tvm_ffi::reflection::FieldGetter;
 // tvm-ffi-stubgen(end)
 
 /// The base of every layout: a map from the logical indices of a tensor to a coordinate on each
@@ -410,17 +402,24 @@ pub struct Axis {
 
 /// The object behind [`Axis`].
 ///
-/// Opaque: parent 'ffi.Enum' is opaque (no-mirror). Fields are read through the C ABI getters.
+/// Complete: reflected fields fill [48, 48) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "tirx.Axis"]
 #[type_final]
 pub struct AxisObj {
-    base_: FfiEnumObj,
+    base_: EnumObj,
 }
 
+const _: () = {
+    assert!(::core::mem::size_of::<AxisObj>() == 48);
+    assert!(::core::mem::align_of::<AxisObj>() == 8);
+};
+
 unsafe impl tvm_ffi::object::ImmutableObject for AxisObj {}
+
+impl tvm_ffi::EnumRef for Axis {}
 // tvm-ffi-stubgen(end)
 
 impl Axis {

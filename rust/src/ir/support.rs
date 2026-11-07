@@ -34,8 +34,10 @@ use tvm_ffi::tvm_ffi_sys::{
 };
 use tvm_ffi::{
     Any, AnyView, DLDataType, DLDataTypeCode, DLDataTypeExt, Error, ErrorKind, Function, ObjectArc,
-    ObjectRefCore, Result, TypeAttrColumn, INTERNAL_ERROR, TYPE_ERROR,
+    ObjectRefCore, Result, INTERNAL_ERROR, TYPE_ERROR,
 };
+
+use tvm_ffi::reflection::TypeAttrColumn;
 
 use super::{Op, OpAttrMap, OpObj, PrimType};
 

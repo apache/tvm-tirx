@@ -30,20 +30,11 @@
 
 // tvm-ffi-stubgen(begin): import-section
 use std::borrow::Borrow;
+use tvm_ffi::EnumObj;
 use tvm_ffi::IntoObjectRef;
-use tvm_ffi::Object;
 use tvm_ffi::ObjectArc;
 use tvm_ffi::Result;
 use tvm_ffi::String;
-
-/// Header-only stand-in for the builtin `ffi.Enum`; it only carries the ancestor depth.
-#[allow(dead_code)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::Object)]
-#[type_key = "ffi.Enum"]
-struct FfiEnumObj {
-    base_: Object,
-}
 // tvm-ffi-stubgen(end)
 
 /// A level of a backend's thread hierarchy, named `backend.level`, such as `cuda.warp`.
@@ -73,17 +64,24 @@ pub struct ThreadScope {
 
 /// The object behind [`ThreadScope`].
 ///
-/// Opaque: parent 'ffi.Enum' is opaque (no-mirror). Fields are read through the C ABI getters.
+/// Complete: reflected fields fill [48, 48) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "tirx.ThreadScope"]
 #[type_final]
 pub struct ThreadScopeObj {
-    base_: FfiEnumObj,
+    base_: EnumObj,
 }
 
+const _: () = {
+    assert!(::core::mem::size_of::<ThreadScopeObj>() == 48);
+    assert!(::core::mem::align_of::<ThreadScopeObj>() == 8);
+};
+
 unsafe impl tvm_ffi::object::ImmutableObject for ThreadScopeObj {}
+
+impl tvm_ffi::EnumRef for ThreadScope {}
 // tvm-ffi-stubgen(end)
 
 impl ThreadScope {

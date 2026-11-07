@@ -38,11 +38,11 @@ use crate::ir::transform::core::PassInfo;
 use crate::ir::transform::core::PassObj;
 use crate::tirx::function::Function;
 use std::ops::Deref;
-use tvm_ffi::FieldGetter;
 use tvm_ffi::ObjectArc;
 use tvm_ffi::ObjectCore;
 use tvm_ffi::RValueRef;
 use tvm_ffi::Result;
+use tvm_ffi::reflection::FieldGetter;
 // tvm-ffi-stubgen(end)
 
 /// A pass that replaces each TIRx function of a module by what a function returns for it, or
