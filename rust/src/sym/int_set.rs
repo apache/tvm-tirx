@@ -143,6 +143,7 @@ pub struct IntervalSet {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "sym.IntervalSet"]
 #[type_final]
+#[type_immutable]
 pub struct IntervalSetObj {
     base_: IntSetObj,
 }
@@ -165,9 +166,7 @@ impl IntervalSetObj {
     }
 }
 
-unsafe impl tvm_ffi::object::ImmutableObject for IntervalSetObj {}
-
-tvm_ffi::unsafe_impl_object_ref_upcast!(IntervalSet => IntSet);
+tvm_ffi::impl_object_ref_upcast!(IntervalSet => IntSet);
 // tvm-ffi-stubgen(end)
 
 impl IntervalSet {

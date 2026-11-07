@@ -72,6 +72,7 @@ pub struct ScopeAttrs {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "tirx.tensor.ScopeAttrs"]
 #[type_final]
+#[type_immutable]
 pub struct ScopeAttrsObj {
     base_: AttrsObj,
     pub scope: ThreadScope,
@@ -106,9 +107,7 @@ impl ScopeAttrs {
     }
 }
 
-unsafe impl tvm_ffi::object::ImmutableObject for ScopeAttrsObj {}
-
-tvm_ffi::unsafe_impl_object_ref_upcast!(ScopeAttrs => Attrs);
+tvm_ffi::impl_object_ref_upcast!(ScopeAttrs => Attrs);
 // tvm-ffi-stubgen(end)
 
 /// The attributes of a Trainium (`trn`) tile instruction call: the thread `scope` it runs at, an
@@ -130,6 +129,7 @@ pub struct TrnAttrs {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "tirx.tensor.TrnAttrs"]
 #[type_final]
+#[type_immutable]
 pub struct TrnAttrsObj {
     base_: AttrsObj,
     pub scope: ThreadScope,
@@ -202,9 +202,7 @@ impl TrnAttrs {
     }
 }
 
-unsafe impl tvm_ffi::object::ImmutableObject for TrnAttrsObj {}
-
-tvm_ffi::unsafe_impl_object_ref_upcast!(TrnAttrs => Attrs);
+tvm_ffi::impl_object_ref_upcast!(TrnAttrs => Attrs);
 // tvm-ffi-stubgen(end)
 
 /// Return the tensor region `value` covers: a `TensorLoad` converted, a [`TensorRegion`] as is

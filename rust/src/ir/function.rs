@@ -26,7 +26,7 @@
 // does.
 // tvm-ffi-stubgen(import-object): tvm_ffi::Any
 // tvm-ffi-stubgen(import-object): tvm_ffi::Map
-// tvm-ffi-stubgen(import-object): tvm_ffi::RValueRef
+// tvm-ffi-stubgen(import-object): tvm_ffi::rvalue_ref::RValueRef
 // tvm-ffi-stubgen(import-object): tvm_ffi::Result
 // tvm-ffi-stubgen(import-object): tvm_ffi::String
 
@@ -37,17 +37,13 @@ use crate::ir::expr::ExprObj;
 use crate::ir::location::Location;
 use crate::ir::r#type::Type;
 use std::ops::Deref;
-use std::ptr::addr_of_mut;
 use tvm_ffi::Any;
 use tvm_ffi::IntoObjectRef;
 use tvm_ffi::Map;
 use tvm_ffi::ObjectArc;
-use tvm_ffi::RValueRef;
 use tvm_ffi::Result;
 use tvm_ffi::String;
-use tvm_ffi::reflection::ShallowCopy;
-use tvm_ffi::reflection::UnsafeInit;
-use tvm_ffi::reflection::drop_if_defined;
+use tvm_ffi::rvalue_ref::RValueRef;
 // tvm-ffi-stubgen(end)
 
 /// The base of every function: an expression, typed by the function's type, with the function
@@ -86,6 +82,8 @@ pub struct BaseFunc {
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.BaseFunc"]
+#[type_immutable]
+#[type_rs_parent]
 pub struct BaseFuncObj {
     base_: ExprObj,
     pub attrs: DictAttrs,
@@ -128,24 +126,7 @@ impl BaseFunc {
     }
 }
 
-impl ShallowCopy for BaseFuncObj {
-    fn shallow_copy(&self) -> Self {
-        Self { base_: ShallowCopy::shallow_copy(&self.base_), attrs: Clone::clone(&self.attrs) }
-    }
-}
-
-unsafe impl UnsafeInit for BaseFuncObj {
-    unsafe fn drop_defined_fields(this: *mut Self) {
-        unsafe {
-            UnsafeInit::drop_defined_fields(addr_of_mut!((*this).base_));
-            drop_if_defined(addr_of_mut!((*this).attrs));
-        }
-    }
-}
-
-unsafe impl tvm_ffi::object::ImmutableObject for BaseFuncObj {}
-
-tvm_ffi::unsafe_impl_object_ref_upcast!(BaseFunc => Expr);
+tvm_ffi::impl_object_ref_upcast!(BaseFunc => Expr);
 // tvm-ffi-stubgen(end)
 
 impl BaseFunc {

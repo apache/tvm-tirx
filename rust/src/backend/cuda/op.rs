@@ -57,6 +57,7 @@ pub struct TCGen05InstrDescriptorAttrs {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "tirx.cuda.TCGen05InstrDescriptorAttrs"]
 #[type_final]
+#[type_immutable]
 pub struct TCGen05InstrDescriptorAttrsObj {
     base_: AttrsObj,
     pub d_dtype: String,
@@ -162,9 +163,7 @@ impl TCGen05InstrDescriptorAttrs {
     }
 }
 
-unsafe impl tvm_ffi::object::ImmutableObject for TCGen05InstrDescriptorAttrsObj {}
-
-tvm_ffi::unsafe_impl_object_ref_upcast!(TCGen05InstrDescriptorAttrs => Attrs);
+tvm_ffi::impl_object_ref_upcast!(TCGen05InstrDescriptorAttrs => Attrs);
 // tvm-ffi-stubgen(end)
 
 /// The static options of a block-scaled `tcgen05` instruction descriptor, which
@@ -188,6 +187,7 @@ pub struct TCGen05InstrDescriptorBlockScaledAttrs {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "tirx.cuda.TCGen05InstrDescriptorBlockScaledAttrs"]
 #[type_final]
+#[type_immutable]
 pub struct TCGen05InstrDescriptorBlockScaledAttrsObj {
     base_: AttrsObj,
     pub d_dtype: String,
@@ -298,9 +298,7 @@ impl TCGen05InstrDescriptorBlockScaledAttrs {
     }
 }
 
-unsafe impl tvm_ffi::object::ImmutableObject for TCGen05InstrDescriptorBlockScaledAttrsObj {}
-
-tvm_ffi::unsafe_impl_object_ref_upcast!(TCGen05InstrDescriptorBlockScaledAttrs => Attrs);
+tvm_ffi::impl_object_ref_upcast!(TCGen05InstrDescriptorBlockScaledAttrs => Attrs);
 // tvm-ffi-stubgen(end)
 
 /// The fixed options of a `tirx.cuda.tensormap_encode_tiled` call, which encodes a tiled tensor map
@@ -322,6 +320,7 @@ pub struct TensorMapEncodeTiledAttr {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "tirx.cuda.TensorMapEncodeTiledAttr"]
 #[type_final]
+#[type_immutable]
 pub struct TensorMapEncodeTiledAttrObj {
     base_: AttrsObj,
     pub descriptor_dtype: DLDataType,
@@ -395,7 +394,5 @@ impl TensorMapEncodeTiledAttr {
     }
 }
 
-unsafe impl tvm_ffi::object::ImmutableObject for TensorMapEncodeTiledAttrObj {}
-
-tvm_ffi::unsafe_impl_object_ref_upcast!(TensorMapEncodeTiledAttr => Attrs);
+tvm_ffi::impl_object_ref_upcast!(TensorMapEncodeTiledAttr => Attrs);
 // tvm-ffi-stubgen(end)

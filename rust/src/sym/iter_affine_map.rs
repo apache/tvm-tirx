@@ -100,7 +100,8 @@ impl Deref for IterMapExprObj {
     }
 }
 
-tvm_ffi::unsafe_impl_object_ref_upcast!(IterMapExpr => Expr, IterMapExpr => PrimExpr);
+tvm_ffi::impl_object_ref_upcast!(IterMapExpr => Expr);
+tvm_ffi::impl_object_ref_upcast!(unsafe IterMapExpr => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 /// The result of [`detect_iter_map`]: the detected `indices`, or empty `indices` and the `errors`
@@ -204,6 +205,7 @@ pub struct IterMark {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "sym.IterMark"]
 #[type_final]
+#[type_immutable]
 pub struct IterMarkObj {
     base_: Object,
     pub source: PrimExpr,
@@ -231,8 +233,6 @@ impl IterMark {
         Self { data_: ObjectArc::new(obj) }
     }
 }
-
-unsafe impl tvm_ffi::object::ImmutableObject for IterMarkObj {}
 // tvm-ffi-stubgen(end)
 
 /// The split `(source // lower_factor) % extent * scale` of the marked iterator `source`.
@@ -252,6 +252,7 @@ pub struct IterSplitExpr {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "sym.IterSplitExpr"]
 #[type_final]
+#[type_immutable]
 pub struct IterSplitExprObj {
     base_: IterMapExprObj,
 }
@@ -282,9 +283,8 @@ impl IterSplitExprObj {
     }
 }
 
-unsafe impl tvm_ffi::object::ImmutableObject for IterSplitExprObj {}
-
-tvm_ffi::unsafe_impl_object_ref_upcast!(IterSplitExpr => Expr, IterSplitExpr => IterMapExpr, IterSplitExpr => PrimExpr);
+tvm_ffi::impl_object_ref_upcast!(IterSplitExpr => Expr, IterSplitExpr => IterMapExpr);
+tvm_ffi::impl_object_ref_upcast!(unsafe IterSplitExpr => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 /// The sum of the splits `args` plus `base`.
@@ -304,6 +304,7 @@ pub struct IterSumExpr {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "sym.IterSumExpr"]
 #[type_final]
+#[type_immutable]
 pub struct IterSumExprObj {
     base_: IterMapExprObj,
 }
@@ -326,9 +327,8 @@ impl IterSumExprObj {
     }
 }
 
-unsafe impl tvm_ffi::object::ImmutableObject for IterSumExprObj {}
-
-tvm_ffi::unsafe_impl_object_ref_upcast!(IterSumExpr => Expr, IterSumExpr => IterMapExpr, IterSumExpr => PrimExpr);
+tvm_ffi::impl_object_ref_upcast!(IterSumExpr => Expr, IterSumExpr => IterMapExpr);
+tvm_ffi::impl_object_ref_upcast!(unsafe IterSumExpr => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 // `IterMark::new` is generated: the native `sym.IterMark` constructor stores the fields as given.

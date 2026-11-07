@@ -25,13 +25,12 @@ use std::borrow::BorrowMut;
 use std::cell::UnsafeCell;
 
 use tvm_ffi::extra::cold_init_lazy_lock::ColdInitLazyLock;
-use tvm_ffi::extra::structural_visit::StructuralVisitorBase;
+use tvm_ffi::extra::structural_visit::{
+    StructuralVisitEngine, StructuralVisitorBase, StructuralVisitorObj, StructuralVisitorView,
+};
 use tvm_ffi::reflection::TypeAttrColumn;
 use tvm_ffi::tvm_ffi_sys::{TVMFFIAny, TVMFFITypeIndex};
-use tvm_ffi::{
-    AnyView, Dispatcher, IntoDispatcher, ObjectCore, Result, StructuralVisitEngine,
-    StructuralVisitorObj, StructuralVisitorView, VisitInterrupt,
-};
+use tvm_ffi::{AnyView, Dispatcher, IntoDispatcher, ObjectCore, Result, VisitInterrupt};
 
 use super::StructuralVisitorWithConstraintContextObj;
 use crate::sym::ConstraintContext;
@@ -87,7 +86,7 @@ unsafe impl StructuralVisitorBase for StructuralVisitorWithConstraintContextBase
     #[inline(always)]
     unsafe fn default_visit_raw(runtime: *mut Self, value: AnyView<'_>) -> TVMFFIAny {
         static HOOKS: ColdInitLazyLock<Option<TypeAttrColumn>> =
-            ColdInitLazyLock::new(|| TypeAttrColumn::new("__s_visit_with_constraint_context__"));
+            ColdInitLazyLock::new(|| TypeAttrColumn::lookup("__s_visit_with_constraint_context__"));
         // Copy the borrowed token before reentry. Packed dispatch acquires an
         // owning Function before invoking a callback that could register hooks.
         let hook = HOOKS

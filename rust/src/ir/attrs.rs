@@ -26,14 +26,11 @@
 
 // tvm-ffi-stubgen(begin): import-section
 use std::ops::Deref;
-use std::ptr::addr_of_mut;
 use tvm_ffi::Any;
 use tvm_ffi::Map;
 use tvm_ffi::Object;
 use tvm_ffi::ObjectArc;
 use tvm_ffi::String;
-use tvm_ffi::reflection::ShallowCopy;
-use tvm_ffi::reflection::UnsafeInit;
 // tvm-ffi-stubgen(end)
 
 /// The base of every attribute object, the metadata attached to a call, a function or a module.
@@ -52,6 +49,8 @@ pub struct Attrs {
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.Attrs"]
+#[type_immutable]
+#[type_rs_parent]
 pub struct AttrsObj {
     base_: Object,
 }
@@ -77,22 +76,6 @@ impl Attrs {
         Self { data_: ObjectArc::new(obj) }
     }
 }
-
-impl ShallowCopy for AttrsObj {
-    fn shallow_copy(&self) -> Self {
-        Self { base_: ShallowCopy::shallow_copy(&self.base_) }
-    }
-}
-
-unsafe impl UnsafeInit for AttrsObj {
-    unsafe fn drop_defined_fields(this: *mut Self) {
-        unsafe {
-            UnsafeInit::drop_defined_fields(addr_of_mut!((*this).base_));
-        }
-    }
-}
-
-unsafe impl tvm_ffi::object::ImmutableObject for AttrsObj {}
 // tvm-ffi-stubgen(end)
 
 /// Attributes as a map `dict` from names to values, such as the attributes of a function or a
@@ -128,6 +111,7 @@ pub struct DictAttrs {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.DictAttrs"]
 #[type_final]
+#[type_immutable]
 pub struct DictAttrsObj {
     base_: AttrsObj,
     pub dict: Map<String, Any>,
@@ -162,7 +146,5 @@ impl DictAttrs {
     }
 }
 
-unsafe impl tvm_ffi::object::ImmutableObject for DictAttrsObj {}
-
-tvm_ffi::unsafe_impl_object_ref_upcast!(DictAttrs => Attrs);
+tvm_ffi::impl_object_ref_upcast!(DictAttrs => Attrs);
 // tvm-ffi-stubgen(end)

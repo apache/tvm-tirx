@@ -25,6 +25,8 @@
 // `custom-new` reserves `new` for the checked `transform.PassContext`; the generated `from_fields`
 // allocates the fields as given.
 // tvm-ffi-stubgen(custom-new): transform.PassContext
+// tvm-ffi-stubgen(field): transform.PassInfo.opt_level -> i32
+// tvm-ffi-stubgen(field): transform.PassContext.opt_level -> i32
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
 // tvm-ffi-stubgen(import-object): crate::ir::module::IRModule
@@ -106,7 +108,7 @@ impl Pass {
     ///
     /// An instrument's `should_run` hook may skip the pass, unless the context requires it.
     pub fn run(&self, module: impl IntoObjectRef<IRModule>) -> Result<IRModule> {
-        let module = tvm_ffi::RValueRef::new(module.into_owned_object_ref());
+        let module = tvm_ffi::rvalue_ref::RValueRef::new(module.into_owned_object_ref());
         tvm_ffi::cached_global_func!("transform.RunPass")
             .call_packed(&[tvm_ffi::AnyView::from(self), tvm_ffi::AnyView::from(&module)])?
             .try_into()
@@ -131,6 +133,7 @@ pub struct PassInfo {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "transform.PassInfo"]
 #[type_final]
+#[type_immutable]
 pub struct PassInfoObj {
     base_: Object,
     pub opt_level: i32,
@@ -158,8 +161,6 @@ impl PassInfo {
         Self { data_: ObjectArc::new(obj) }
     }
 }
-
-unsafe impl tvm_ffi::object::ImmutableObject for PassInfoObj {}
 // tvm-ffi-stubgen(end)
 
 // `PassInfo::new` above has the semantics of the native `transform.PassInfo`, which only stores
@@ -182,6 +183,7 @@ pub struct ModulePass {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "transform.ModulePass"]
 #[type_final]
+#[type_immutable]
 pub struct ModulePassObj {
     base_: PassObj,
 }
@@ -200,9 +202,7 @@ impl ModulePassObj {
     }
 }
 
-unsafe impl tvm_ffi::object::ImmutableObject for ModulePassObj {}
-
-tvm_ffi::unsafe_impl_object_ref_upcast!(ModulePass => Pass);
+tvm_ffi::impl_object_ref_upcast!(ModulePass => Pass);
 // tvm-ffi-stubgen(end)
 
 impl ModulePass {
@@ -215,7 +215,7 @@ impl ModulePass {
         pass_info: impl IntoObjectRef<PassInfo>,
     ) -> Self {
         let pass_func = tvm_ffi::Function::from_typed(
-            move |module: tvm_ffi::RValueRef<IRModule>, ctx: PassContext| {
+            move |module: tvm_ffi::rvalue_ref::RValueRef<IRModule>, ctx: PassContext| {
                 pass_func(module.into_inner(), ctx)
             },
         );
@@ -245,6 +245,7 @@ pub struct Sequential {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "transform.Sequential"]
 #[type_final]
+#[type_immutable]
 pub struct SequentialObj {
     base_: PassObj,
 }
@@ -267,9 +268,7 @@ impl SequentialObj {
     }
 }
 
-unsafe impl tvm_ffi::object::ImmutableObject for SequentialObj {}
-
-tvm_ffi::unsafe_impl_object_ref_upcast!(Sequential => Pass);
+tvm_ffi::impl_object_ref_upcast!(Sequential => Pass);
 // tvm-ffi-stubgen(end)
 
 impl Sequential {
@@ -495,6 +494,7 @@ pub struct PassInstrument {
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "transform.PassInstrument"]
+#[type_immutable]
 pub struct PassInstrumentObj {
     base_: Object,
 }
@@ -505,8 +505,6 @@ impl PassInstrumentObj {
         FieldGetter::new(Self::type_index(), "name")?.get(self)
     }
 }
-
-unsafe impl tvm_ffi::object::ImmutableObject for PassInstrumentObj {}
 // tvm-ffi-stubgen(end)
 
 /// Create a pass that logs `header` and the module, which it returns unchanged

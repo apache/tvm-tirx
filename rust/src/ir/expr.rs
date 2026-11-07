@@ -51,6 +51,7 @@
 // A range is bounded by `PrimExpr`s, as C++ `RangeObj` holds `PrimExpr begin, extent`.
 // tvm-ffi-stubgen(field): ir.Range.begin -> PrimExpr
 // tvm-ffi-stubgen(field): ir.Range.extent -> PrimExpr
+// tvm-ffi-stubgen(field): ir.TupleGetItem.index -> i32
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
 // tvm-ffi-stubgen(import-object): crate::ir::prim::op::ExprResult
@@ -100,7 +101,6 @@ use crate::ir::r#type::Type;
 use crate::ir::support;
 use std::borrow::Borrow;
 use std::ops::Deref;
-use std::ptr::addr_of_mut;
 use std::sync::LazyLock;
 use tvm_ffi::Any;
 use tvm_ffi::AnyView;
@@ -115,10 +115,7 @@ use tvm_ffi::ObjectRefCore;
 use tvm_ffi::Result;
 use tvm_ffi::String;
 use tvm_ffi::reflection::NativeFunction;
-use tvm_ffi::reflection::ShallowCopy;
 use tvm_ffi::reflection::TypeAttrColumn;
-use tvm_ffi::reflection::UnsafeInit;
-use tvm_ffi::reflection::drop_if_defined;
 use tvm_ffi::tvm_ffi_sys::TVMFFITypeIndex;
 // tvm-ffi-stubgen(end)
 
@@ -143,6 +140,8 @@ pub struct Expr {
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.Expr"]
+#[type_immutable]
+#[type_rs_parent]
 pub struct ExprObj {
     base_: Object,
     pub loc: Location,
@@ -170,28 +169,6 @@ impl Expr {
         Self { data_: ObjectArc::new(obj) }
     }
 }
-
-impl ShallowCopy for ExprObj {
-    fn shallow_copy(&self) -> Self {
-        Self {
-            base_: ShallowCopy::shallow_copy(&self.base_),
-            loc: Clone::clone(&self.loc),
-            ty: Clone::clone(&self.ty),
-        }
-    }
-}
-
-unsafe impl UnsafeInit for ExprObj {
-    unsafe fn drop_defined_fields(this: *mut Self) {
-        unsafe {
-            UnsafeInit::drop_defined_fields(addr_of_mut!((*this).base_));
-            drop_if_defined(addr_of_mut!((*this).loc));
-            drop_if_defined(addr_of_mut!((*this).ty));
-        }
-    }
-}
-
-unsafe impl tvm_ffi::object::ImmutableObject for ExprObj {}
 // tvm-ffi-stubgen(end)
 
 impl Expr {
@@ -485,7 +462,7 @@ impl PrimExpr {
 /// ```
 #[repr(transparent)]
 #[derive(Clone, tvm_ffi::derive::ObjectRef)]
-#[object_ref(parent = PrimExpr, skip_any_compatible)]
+#[object_ref(unsafe parent = PrimExpr, skip_any_compatible)]
 pub struct IntExpr {
     data_: ObjectArc<ExprObj>,
 }
@@ -525,7 +502,7 @@ impl IntExpr {
     }
 }
 
-tvm_ffi::unsafe_impl_object_ref_upcast!(IntExpr => Expr);
+tvm_ffi::impl_object_ref_upcast!(unsafe IntExpr => Expr);
 
 /// The built expression, checked to be an integer, or the first error raised while building it.
 impl TryFrom<ExprResult> for IntExpr {
@@ -636,6 +613,8 @@ pub struct StagingExpr {
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.StagingExpr"]
+#[type_immutable]
+#[type_rs_parent]
 pub struct StagingExprObj {
     base_: ExprObj,
 }
@@ -669,23 +648,7 @@ impl StagingExpr {
     }
 }
 
-impl ShallowCopy for StagingExprObj {
-    fn shallow_copy(&self) -> Self {
-        Self { base_: ShallowCopy::shallow_copy(&self.base_) }
-    }
-}
-
-unsafe impl UnsafeInit for StagingExprObj {
-    unsafe fn drop_defined_fields(this: *mut Self) {
-        unsafe {
-            UnsafeInit::drop_defined_fields(addr_of_mut!((*this).base_));
-        }
-    }
-}
-
-unsafe impl tvm_ffi::object::ImmutableObject for StagingExprObj {}
-
-tvm_ffi::unsafe_impl_object_ref_upcast!(StagingExpr => Expr);
+tvm_ffi::impl_object_ref_upcast!(StagingExpr => Expr);
 // tvm-ffi-stubgen(end)
 
 /// The base of opaque construction-time expressions, which generic expression visitors and
@@ -706,6 +669,8 @@ pub struct OpaqueExpr {
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.OpaqueExpr"]
+#[type_immutable]
+#[type_rs_parent]
 pub struct OpaqueExprObj {
     base_: ExprObj,
 }
@@ -739,23 +704,7 @@ impl OpaqueExpr {
     }
 }
 
-impl ShallowCopy for OpaqueExprObj {
-    fn shallow_copy(&self) -> Self {
-        Self { base_: ShallowCopy::shallow_copy(&self.base_) }
-    }
-}
-
-unsafe impl UnsafeInit for OpaqueExprObj {
-    unsafe fn drop_defined_fields(this: *mut Self) {
-        unsafe {
-            UnsafeInit::drop_defined_fields(addr_of_mut!((*this).base_));
-        }
-    }
-}
-
-unsafe impl tvm_ffi::object::ImmutableObject for OpaqueExprObj {}
-
-tvm_ffi::unsafe_impl_object_ref_upcast!(OpaqueExpr => Expr);
+tvm_ffi::impl_object_ref_upcast!(OpaqueExpr => Expr);
 // tvm-ffi-stubgen(end)
 
 /// A global variable: a reference to a function of the module, by which functions call each
@@ -782,6 +731,7 @@ pub struct GlobalVar {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.GlobalVar"]
 #[type_final]
+#[type_immutable]
 pub struct GlobalVarObj {
     base_: ExprObj,
     pub name_hint: String,
@@ -824,9 +774,7 @@ impl GlobalVar {
     }
 }
 
-unsafe impl tvm_ffi::object::ImmutableObject for GlobalVarObj {}
-
-tvm_ffi::unsafe_impl_object_ref_upcast!(GlobalVar => Expr);
+tvm_ffi::impl_object_ref_upcast!(GlobalVar => Expr);
 // tvm-ffi-stubgen(end)
 
 impl GlobalVar {
@@ -858,6 +806,7 @@ pub struct Tuple {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.Tuple"]
 #[type_final]
+#[type_immutable]
 pub struct TupleObj {
     base_: ExprObj,
     pub fields: Array<Expr>,
@@ -897,9 +846,7 @@ impl Tuple {
     }
 }
 
-unsafe impl tvm_ffi::object::ImmutableObject for TupleObj {}
-
-tvm_ffi::unsafe_impl_object_ref_upcast!(Tuple => Expr);
+tvm_ffi::impl_object_ref_upcast!(Tuple => Expr);
 // tvm-ffi-stubgen(end)
 
 impl Tuple {
@@ -940,6 +887,7 @@ pub struct TupleGetItem {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.TupleGetItem"]
 #[type_final]
+#[type_immutable]
 pub struct TupleGetItemObj {
     base_: ExprObj,
     pub tuple_value: Expr,
@@ -985,9 +933,7 @@ impl TupleGetItem {
     }
 }
 
-unsafe impl tvm_ffi::object::ImmutableObject for TupleGetItemObj {}
-
-tvm_ffi::unsafe_impl_object_ref_upcast!(TupleGetItem => Expr);
+tvm_ffi::impl_object_ref_upcast!(TupleGetItem => Expr);
 // tvm-ffi-stubgen(end)
 
 impl TupleGetItem {
@@ -1066,6 +1012,7 @@ pub struct TensorLoad {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.TensorLoad"]
 #[type_final]
+#[type_immutable]
 pub struct TensorLoadObj {
     base_: ExprObj,
     pub source: Expr,
@@ -1111,9 +1058,8 @@ impl TensorLoad {
     }
 }
 
-unsafe impl tvm_ffi::object::ImmutableObject for TensorLoadObj {}
-
-tvm_ffi::unsafe_impl_object_ref_upcast!(TensorLoad => Expr, TensorLoad => PrimExpr);
+tvm_ffi::impl_object_ref_upcast!(TensorLoad => Expr);
+tvm_ffi::impl_object_ref_upcast!(unsafe TensorLoad => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 impl TensorLoad {
@@ -1131,7 +1077,7 @@ impl TensorLoad {
     ) -> Result<Self> {
         // The native library registers the column when it loads, so one lookup suffices.
         static INFER_TYPE: LazyLock<Option<TypeAttrColumn>> =
-            LazyLock::new(|| TypeAttrColumn::new("__tvm_tensor_load_infer_type__"));
+            LazyLock::new(|| TypeAttrColumn::lookup("__tvm_tensor_load_infer_type__"));
         let (source, loc) = (source.into_owned_expr()?, loc.into_owned_object_ref());
         let indices = indices
             .into_iter()
@@ -1175,6 +1121,8 @@ pub struct Constant {
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.Constant"]
+#[type_immutable]
+#[type_rs_parent]
 pub struct ConstantObj {
     base_: ExprObj,
 }
@@ -1208,23 +1156,7 @@ impl Constant {
     }
 }
 
-impl ShallowCopy for ConstantObj {
-    fn shallow_copy(&self) -> Self {
-        Self { base_: ShallowCopy::shallow_copy(&self.base_) }
-    }
-}
-
-unsafe impl UnsafeInit for ConstantObj {
-    unsafe fn drop_defined_fields(this: *mut Self) {
-        unsafe {
-            UnsafeInit::drop_defined_fields(addr_of_mut!((*this).base_));
-        }
-    }
-}
-
-unsafe impl tvm_ffi::object::ImmutableObject for ConstantObj {}
-
-tvm_ffi::unsafe_impl_object_ref_upcast!(Constant => Expr);
+tvm_ffi::impl_object_ref_upcast!(Constant => Expr);
 // tvm-ffi-stubgen(end)
 
 /// A floating-point constant of a scalar floating-point type, its value held as an `f64`.
@@ -1245,6 +1177,7 @@ pub struct FloatImm {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.FloatImm"]
 #[type_final]
+#[type_immutable]
 pub struct FloatImmObj {
     base_: ConstantObj,
     pub value: f64,
@@ -1283,9 +1216,8 @@ impl FloatImm {
     }
 }
 
-unsafe impl tvm_ffi::object::ImmutableObject for FloatImmObj {}
-
-tvm_ffi::unsafe_impl_object_ref_upcast!(FloatImm => Expr, FloatImm => Constant, FloatImm => PrimExpr);
+tvm_ffi::impl_object_ref_upcast!(FloatImm => Expr, FloatImm => Constant);
+tvm_ffi::impl_object_ref_upcast!(unsafe FloatImm => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 impl FloatImm {
@@ -1363,6 +1295,7 @@ pub struct IntImm {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.IntImm"]
 #[type_final]
+#[type_immutable]
 pub struct IntImmObj {
     base_: ConstantObj,
     pub value: BigInt,
@@ -1402,9 +1335,8 @@ impl IntImm {
     }
 }
 
-unsafe impl tvm_ffi::object::ImmutableObject for IntImmObj {}
-
-tvm_ffi::unsafe_impl_object_ref_upcast!(IntImm => Expr, IntImm => Constant, IntImm => PrimExpr);
+tvm_ffi::impl_object_ref_upcast!(IntImm => Expr, IntImm => Constant);
+tvm_ffi::impl_object_ref_upcast!(unsafe IntImm => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 impl IntImm {
@@ -1497,6 +1429,7 @@ pub struct GenericConst {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.GenericConst"]
 #[type_final]
+#[type_immutable]
 pub struct GenericConstObj {
     base_: ConstantObj,
     pub value: Any,
@@ -1539,9 +1472,7 @@ impl GenericConst {
     }
 }
 
-unsafe impl tvm_ffi::object::ImmutableObject for GenericConstObj {}
-
-tvm_ffi::unsafe_impl_object_ref_upcast!(GenericConst => Expr, GenericConst => Constant);
+tvm_ffi::impl_object_ref_upcast!(GenericConst => Expr, GenericConst => Constant);
 // tvm-ffi-stubgen(end)
 
 impl GenericConst {
@@ -1597,6 +1528,7 @@ pub struct DataTypeImm {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.DataTypeImm"]
 #[type_final]
+#[type_immutable]
 pub struct DataTypeImmObj {
     base_: ConstantObj,
     pub value: DLDataType,
@@ -1639,9 +1571,7 @@ impl DataTypeImm {
     }
 }
 
-unsafe impl tvm_ffi::object::ImmutableObject for DataTypeImmObj {}
-
-tvm_ffi::unsafe_impl_object_ref_upcast!(DataTypeImm => Expr, DataTypeImm => Constant);
+tvm_ffi::impl_object_ref_upcast!(DataTypeImm => Expr, DataTypeImm => Constant);
 // tvm-ffi-stubgen(end)
 
 impl DataTypeImm {
@@ -1670,6 +1600,7 @@ pub struct StringImm {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.StringImm"]
 #[type_final]
+#[type_immutable]
 pub struct StringImmObj {
     base_: ConstantObj,
     pub value: String,
@@ -1712,9 +1643,7 @@ impl StringImm {
     }
 }
 
-unsafe impl tvm_ffi::object::ImmutableObject for StringImmObj {}
-
-tvm_ffi::unsafe_impl_object_ref_upcast!(StringImm => Expr, StringImm => Constant);
+tvm_ffi::impl_object_ref_upcast!(StringImm => Expr, StringImm => Constant);
 // tvm-ffi-stubgen(end)
 
 impl StringImm {
@@ -1747,6 +1676,7 @@ pub struct Call {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.Call"]
 #[type_final]
+#[type_immutable]
 pub struct CallObj {
     base_: ExprObj,
     pub op: Expr,
@@ -1805,9 +1735,7 @@ impl Call {
     }
 }
 
-unsafe impl tvm_ffi::object::ImmutableObject for CallObj {}
-
-tvm_ffi::unsafe_impl_object_ref_upcast!(Call => Expr);
+tvm_ffi::impl_object_ref_upcast!(Call => Expr);
 // tvm-ffi-stubgen(end)
 
 impl Call {
@@ -1908,6 +1836,7 @@ pub struct TensorRegion {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.TensorRegion"]
 #[type_final]
+#[type_immutable]
 pub struct TensorRegionObj {
     base_: ExprObj,
     pub source: Expr,
@@ -1953,9 +1882,7 @@ impl TensorRegion {
     }
 }
 
-unsafe impl tvm_ffi::object::ImmutableObject for TensorRegionObj {}
-
-tvm_ffi::unsafe_impl_object_ref_upcast!(TensorRegion => Expr);
+tvm_ffi::impl_object_ref_upcast!(TensorRegion => Expr);
 // tvm-ffi-stubgen(end)
 
 impl TensorRegion {
@@ -1991,6 +1918,8 @@ pub struct Var {
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.Var"]
+#[type_immutable]
+#[type_rs_parent]
 pub struct VarObj {
     base_: ExprObj,
     pub name: String,
@@ -2029,24 +1958,7 @@ impl Var {
     }
 }
 
-impl ShallowCopy for VarObj {
-    fn shallow_copy(&self) -> Self {
-        Self { base_: ShallowCopy::shallow_copy(&self.base_), name: Clone::clone(&self.name) }
-    }
-}
-
-unsafe impl UnsafeInit for VarObj {
-    unsafe fn drop_defined_fields(this: *mut Self) {
-        unsafe {
-            UnsafeInit::drop_defined_fields(addr_of_mut!((*this).base_));
-            drop_if_defined(addr_of_mut!((*this).name));
-        }
-    }
-}
-
-unsafe impl tvm_ffi::object::ImmutableObject for VarObj {}
-
-tvm_ffi::unsafe_impl_object_ref_upcast!(Var => Expr);
+tvm_ffi::impl_object_ref_upcast!(Var => Expr);
 // tvm-ffi-stubgen(end)
 
 impl Var {
@@ -2126,7 +2038,7 @@ impl PrimVar {
     }
 }
 
-tvm_ffi::unsafe_impl_object_ref_upcast!(PrimVar => Expr, PrimVar => PrimExpr);
+tvm_ffi::impl_object_ref_upcast!(unsafe PrimVar => Expr, PrimVar => PrimExpr);
 
 impl PrimVar {
     /// Create the variable `name` of the primitive type `ty`.
@@ -2164,6 +2076,7 @@ pub struct LambdaExpr {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.LambdaExpr"]
 #[type_final]
+#[type_immutable]
 pub struct LambdaExprObj {
     base_: StagingExprObj,
     pub vars: Array<Var>,
@@ -2209,9 +2122,7 @@ impl LambdaExpr {
     }
 }
 
-unsafe impl tvm_ffi::object::ImmutableObject for LambdaExprObj {}
-
-tvm_ffi::unsafe_impl_object_ref_upcast!(LambdaExpr => Expr, LambdaExpr => StagingExpr);
+tvm_ffi::impl_object_ref_upcast!(LambdaExpr => Expr, LambdaExpr => StagingExpr);
 // tvm-ffi-stubgen(end)
 
 impl LambdaExpr {
@@ -2279,6 +2190,7 @@ pub struct Range {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.Range"]
 #[type_final]
+#[type_immutable]
 pub struct RangeObj {
     base_: Object,
     pub begin: PrimExpr,
@@ -2315,8 +2227,6 @@ impl Range {
         Self { data_: ObjectArc::new(obj) }
     }
 }
-
-unsafe impl tvm_ffi::object::ImmutableObject for RangeObj {}
 // tvm-ffi-stubgen(end)
 
 impl Range {

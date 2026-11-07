@@ -97,6 +97,7 @@ pub struct IndexMap {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "tirx.IndexMap"]
 #[type_final]
+#[type_immutable]
 pub struct IndexMapObj {
     base_: Object,
     pub initial_indices: Array<PrimVar>,
@@ -137,8 +138,6 @@ impl IndexMap {
         Self { data_: ObjectArc::new(obj) }
     }
 }
-
-unsafe impl tvm_ffi::object::ImmutableObject for IndexMapObj {}
 // tvm-ffi-stubgen(end)
 
 impl IndexMap {

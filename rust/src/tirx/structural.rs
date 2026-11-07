@@ -32,20 +32,22 @@ use tvm_ffi::Result;
 use tvm_ffi::reflection::FieldGetter;
 
 /// Header-only stand-in for the builtin `ffi.StructuralMutator`; it only carries the ancestor depth.
+#[doc(hidden)]
 #[allow(dead_code)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ffi.StructuralMutator"]
-struct FfiStructuralMutatorObj {
+pub struct FfiStructuralMutatorObj {
     base_: Object,
 }
 
 /// Header-only stand-in for the builtin `ffi.StructuralVisitor`; it only carries the ancestor depth.
+#[doc(hidden)]
 #[allow(dead_code)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ffi.StructuralVisitor"]
-struct FfiStructuralVisitorObj {
+pub struct FfiStructuralVisitorObj {
     base_: Object,
 }
 // tvm-ffi-stubgen(end)

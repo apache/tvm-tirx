@@ -25,13 +25,16 @@ use std::borrow::BorrowMut;
 use std::cell::UnsafeCell;
 
 use tvm_ffi::extra::cold_init_lazy_lock::ColdInitLazyLock;
-use tvm_ffi::extra::structural_mutate::{StructuralMutateEngine, StructuralMutatorBase};
+use tvm_ffi::extra::structural_mutate::{
+    InplaceMode, StructuralMutateEngine, StructuralMutatorBase, StructuralMutatorObj,
+    StructuralMutatorView,
+};
 use tvm_ffi::reflection::TypeAttrColumn;
 use tvm_ffi::object::ObjectRef;
 use tvm_ffi::tvm_ffi_sys::{TVMFFIAny, TVMFFITypeIndex};
 use tvm_ffi::{
-    Any, Dispatcher, InplaceMode, IntoDispatcher, MutationView, ObjectArc, ObjectCore,
-    ObjectRefCore, Result, StructuralMutatorObj, StructuralMutatorView, UnchangedOr,
+    Any, Dispatcher, IntoDispatcher, MutationView, ObjectArc, ObjectCore, ObjectRefCore, Result,
+    UnchangedOr,
 };
 
 use super::StructuralMutatorWithConstraintContextObj;
@@ -84,10 +87,11 @@ unsafe impl StructuralMutatorBase for StructuralMutatorWithConstraintContextBase
 
     #[inline(always)]
     unsafe fn default_mutate_raw(runtime: *mut Self, value: MutationView<'_>) -> TVMFFIAny {
-        static COPYING: ColdInitLazyLock<Option<TypeAttrColumn>> =
-            ColdInitLazyLock::new(|| TypeAttrColumn::new("__s_mutate_with_constraint_context__"));
+        static COPYING: ColdInitLazyLock<Option<TypeAttrColumn>> = ColdInitLazyLock::new(|| {
+            TypeAttrColumn::lookup("__s_mutate_with_constraint_context__")
+        });
         static INPLACE: ColdInitLazyLock<Option<TypeAttrColumn>> = ColdInitLazyLock::new(|| {
-            TypeAttrColumn::new("__s_maybe_inplace_mutate_with_constraint_context__")
+            TypeAttrColumn::lookup("__s_maybe_inplace_mutate_with_constraint_context__")
         });
         let borrowed = value.as_any_view();
         let lookup = |column: Option<TypeAttrColumn>| {

@@ -30,7 +30,7 @@
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
 // tvm-ffi-stubgen(import-object): tvm_ffi::Any
-// tvm-ffi-stubgen(import-object): tvm_ffi::RValueRef
+// tvm-ffi-stubgen(import-object): tvm_ffi::rvalue_ref::RValueRef
 // tvm-ffi-stubgen(import-object): tvm_ffi::Result
 // tvm-ffi-stubgen(import-object): crate::ir::support
 // tvm-ffi-stubgen(import-object): crate::ir::expr::IntoExpr
@@ -51,9 +51,9 @@ use tvm_ffi::IntoObjectRef;
 use tvm_ffi::Map;
 use tvm_ffi::Object;
 use tvm_ffi::ObjectArc;
-use tvm_ffi::RValueRef;
 use tvm_ffi::Result;
 use tvm_ffi::String;
+use tvm_ffi::rvalue_ref::RValueRef;
 // tvm-ffi-stubgen(end)
 
 /// A set of functions, each bound to a [`GlobalVar`] with a unique name, with the module

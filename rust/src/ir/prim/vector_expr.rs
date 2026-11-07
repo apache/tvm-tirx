@@ -125,6 +125,7 @@ pub struct Ramp {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "prim.Ramp"]
 #[type_final]
+#[type_immutable]
 pub struct RampObj {
     base_: ExprObj,
     pub base: PrimExpr,
@@ -179,9 +180,8 @@ impl Ramp {
     }
 }
 
-unsafe impl tvm_ffi::object::ImmutableObject for RampObj {}
-
-tvm_ffi::unsafe_impl_object_ref_upcast!(Ramp => Expr, Ramp => PrimExpr);
+tvm_ffi::impl_object_ref_upcast!(Ramp => Expr);
+tvm_ffi::impl_object_ref_upcast!(unsafe Ramp => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 impl Ramp {
@@ -248,6 +248,7 @@ pub struct Broadcast {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "prim.Broadcast"]
 #[type_final]
+#[type_immutable]
 pub struct BroadcastObj {
     base_: ExprObj,
     pub value: PrimExpr,
@@ -293,9 +294,8 @@ impl Broadcast {
     }
 }
 
-unsafe impl tvm_ffi::object::ImmutableObject for BroadcastObj {}
-
-tvm_ffi::unsafe_impl_object_ref_upcast!(Broadcast => Expr, Broadcast => PrimExpr);
+tvm_ffi::impl_object_ref_upcast!(Broadcast => Expr);
+tvm_ffi::impl_object_ref_upcast!(unsafe Broadcast => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 impl Broadcast {
@@ -337,6 +337,7 @@ pub struct Shuffle {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "prim.Shuffle"]
 #[type_final]
+#[type_immutable]
 pub struct ShuffleObj {
     base_: ExprObj,
     pub vectors: Array<PrimExpr>,
@@ -387,9 +388,8 @@ impl Shuffle {
     }
 }
 
-unsafe impl tvm_ffi::object::ImmutableObject for ShuffleObj {}
-
-tvm_ffi::unsafe_impl_object_ref_upcast!(Shuffle => Expr, Shuffle => PrimExpr);
+tvm_ffi::impl_object_ref_upcast!(Shuffle => Expr);
+tvm_ffi::impl_object_ref_upcast!(unsafe Shuffle => PrimExpr);
 // tvm-ffi-stubgen(end)
 
 impl Shuffle {

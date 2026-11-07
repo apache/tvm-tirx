@@ -39,13 +39,13 @@ use std::borrow::Borrow;
 use tvm_ffi::Any;
 use tvm_ffi::DLDataType;
 use tvm_ffi::DLDevice;
-use tvm_ffi::EnumObj;
 use tvm_ffi::IntoObjectRef;
 use tvm_ffi::ObjectArc;
 use tvm_ffi::Result;
 use tvm_ffi::Shape;
 use tvm_ffi::String;
 use tvm_ffi::Tensor;
+use tvm_ffi::enum_ref::EnumObj;
 // tvm-ffi-stubgen(end)
 
 // `ir.PtrType.storage_scope` refers to this type.
@@ -70,6 +70,7 @@ pub struct MemoryScope {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "runtime.MemoryScope"]
 #[type_final]
+#[type_immutable]
 pub struct MemoryScopeObj {
     base_: EnumObj,
 }
@@ -78,8 +79,6 @@ const _: () = {
     assert!(::core::mem::size_of::<MemoryScopeObj>() == 48);
     assert!(::core::mem::align_of::<MemoryScopeObj>() == 8);
 };
-
-unsafe impl tvm_ffi::object::ImmutableObject for MemoryScopeObj {}
 
 impl tvm_ffi::EnumRef for MemoryScope {}
 // tvm-ffi-stubgen(end)

@@ -257,7 +257,7 @@ impl Op {
     }
 }
 
-tvm_ffi::unsafe_impl_object_ref_upcast!(Op => Expr);
+tvm_ffi::impl_object_ref_upcast!(unsafe Op => Expr);
 
 /// The name and documentation of one argument of an [`Op`], as
 /// [`OpObj::args_info`] lists them.
@@ -277,6 +277,7 @@ pub struct ArgumentInfo {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.ArgumentInfo"]
 #[type_final]
+#[type_immutable]
 pub struct ArgumentInfoObj {
     base_: Object,
     pub name: String,
@@ -304,8 +305,6 @@ impl ArgumentInfo {
         Self { data_: ObjectArc::new(obj) }
     }
 }
-
-unsafe impl tvm_ffi::object::ImmutableObject for ArgumentInfoObj {}
 // tvm-ffi-stubgen(end)
 
 /// A live attribute column of the operator registry: the value of one attribute for every

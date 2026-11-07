@@ -25,9 +25,8 @@ use tvm_tirx::tirx::structural_mutate_with_constraint_context::{
     structural_mutate_with_constraint_context as mutate,
     StructuralMutatorWithConstraintContextView as View,
 };
-use tvm_tirx::tvm_ffi::{
-    dispatch, Any, DefRegionKind, MutationView, ObjectRefCore, Result, Unchanged, UnchangedOr,
-};
+use tvm_tirx::tvm_ffi::extra::structural_visit::DefRegionKind;
+use tvm_tirx::tvm_ffi::{dispatch, Any, MutationView, ObjectRefCore, Result, Unchanged, UnchangedOr};
 
 use super::{int32, op};
 use crate::common::serial;

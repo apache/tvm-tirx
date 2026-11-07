@@ -24,9 +24,8 @@ use tvm_tirx::sym::{
     Analyzer, BindingConstraintObj, ConstraintContext, PredicateConstraintObj, RangeConstraintObj,
 };
 use tvm_tirx::tirx::structural_walk_with_constraint_context::structural_walk_with_constraint_context as walk;
-use tvm_tirx::tvm_ffi::{
-    AnyView, DefRegionKind, Error, ObjectRefCore, Result, WalkOrder, WalkResult, RUNTIME_ERROR,
-};
+use tvm_tirx::tvm_ffi::extra::structural_visit::DefRegionKind;
+use tvm_tirx::tvm_ffi::{AnyView, Error, ObjectRefCore, Result, WalkOrder, WalkResult, RUNTIME_ERROR};
 use super::int32;
 use crate::common::serial;
 

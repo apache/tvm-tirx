@@ -96,6 +96,7 @@ pub struct Function {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "tirx.Function"]
 #[type_final]
+#[type_immutable]
 pub struct FunctionObj {
     base_: BaseFuncObj,
     pub params: Array<Var>,
@@ -153,9 +154,7 @@ impl Function {
     }
 }
 
-unsafe impl tvm_ffi::object::ImmutableObject for FunctionObj {}
-
-tvm_ffi::unsafe_impl_object_ref_upcast!(Function => Expr, Function => BaseFunc);
+tvm_ffi::impl_object_ref_upcast!(Function => Expr, Function => BaseFunc);
 // tvm-ffi-stubgen(end)
 
 impl Function {

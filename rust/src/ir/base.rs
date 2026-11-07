@@ -68,6 +68,7 @@ pub struct EnvFunc {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.EnvFunc"]
 #[type_final]
+#[type_immutable]
 pub struct EnvFuncObj {
     base_: Object,
     pub name: String,
@@ -95,8 +96,6 @@ impl EnvFunc {
         Self { data_: ObjectArc::new(obj) }
     }
 }
-
-unsafe impl tvm_ffi::object::ImmutableObject for EnvFuncObj {}
 // tvm-ffi-stubgen(end)
 
 impl EnvFunc {

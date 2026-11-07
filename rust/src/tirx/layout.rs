@@ -49,7 +49,6 @@ use std::borrow::Borrow;
 use std::ops::Deref;
 use tvm_ffi::Any;
 use tvm_ffi::Array;
-use tvm_ffi::EnumObj;
 use tvm_ffi::IntoObjectRef;
 use tvm_ffi::Map;
 use tvm_ffi::Object;
@@ -57,6 +56,7 @@ use tvm_ffi::ObjectArc;
 use tvm_ffi::ObjectCore;
 use tvm_ffi::Result;
 use tvm_ffi::String;
+use tvm_ffi::enum_ref::EnumObj;
 use tvm_ffi::reflection::FieldGetter;
 // tvm-ffi-stubgen(end)
 
@@ -238,6 +238,7 @@ pub struct TileLayout {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "tirx.TileLayout"]
 #[type_final]
+#[type_immutable]
 pub struct TileLayoutObj {
     base_: LayoutObj,
 }
@@ -264,9 +265,7 @@ impl TileLayoutObj {
     }
 }
 
-unsafe impl tvm_ffi::object::ImmutableObject for TileLayoutObj {}
-
-tvm_ffi::unsafe_impl_object_ref_upcast!(TileLayout => Layout);
+tvm_ffi::impl_object_ref_upcast!(TileLayout => Layout);
 // tvm-ffi-stubgen(end)
 
 impl TileLayout {
@@ -354,6 +353,7 @@ pub struct Iter {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "tirx.Iter"]
 #[type_final]
+#[type_immutable]
 pub struct IterObj {
     base_: Object,
     pub extent: PrimExpr,
@@ -390,8 +390,6 @@ impl Iter {
         Self { data_: ObjectArc::new(obj) }
     }
 }
-
-unsafe impl tvm_ffi::object::ImmutableObject for IterObj {}
 // tvm-ffi-stubgen(end)
 
 // The native `tirx.Iter` stores its fields as given, as the generated `Iter::new` does.
@@ -415,6 +413,7 @@ pub struct Axis {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "tirx.Axis"]
 #[type_final]
+#[type_immutable]
 pub struct AxisObj {
     base_: EnumObj,
 }
@@ -423,8 +422,6 @@ const _: () = {
     assert!(::core::mem::size_of::<AxisObj>() == 48);
     assert!(::core::mem::align_of::<AxisObj>() == 8);
 };
-
-unsafe impl tvm_ffi::object::ImmutableObject for AxisObj {}
 
 impl tvm_ffi::EnumRef for Axis {}
 // tvm-ffi-stubgen(end)
@@ -486,6 +483,7 @@ pub struct ComposeLayout {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "tirx.ComposeLayout"]
 #[type_final]
+#[type_immutable]
 pub struct ComposeLayoutObj {
     base_: LayoutObj,
 }
@@ -528,9 +526,7 @@ impl ComposeLayoutObj {
     }
 }
 
-unsafe impl tvm_ffi::object::ImmutableObject for ComposeLayoutObj {}
-
-tvm_ffi::unsafe_impl_object_ref_upcast!(ComposeLayout => Layout);
+tvm_ffi::impl_object_ref_upcast!(ComposeLayout => Layout);
 // tvm-ffi-stubgen(end)
 
 impl ComposeLayout {

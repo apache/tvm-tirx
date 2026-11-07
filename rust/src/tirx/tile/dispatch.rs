@@ -110,6 +110,7 @@ pub struct DispatchContext {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "tirx.DispatchContext"]
 #[type_final]
+#[type_immutable]
 pub struct DispatchContextObj {
     base_: Object,
 }
@@ -156,8 +157,6 @@ impl DispatchContextObj {
         FieldGetter::new(Self::type_index(), "scope_kind")?.get(self)
     }
 }
-
-unsafe impl tvm_ffi::object::ImmutableObject for DispatchContextObj {}
 // tvm-ffi-stubgen(end)
 
 impl DispatchContext {
