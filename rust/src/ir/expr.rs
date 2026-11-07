@@ -1917,17 +1917,11 @@ pub struct PrimVar {
     data: ObjectArc<VarObj>,
 }
 
-// SAFETY: a `PrimVar` is a `Var`, not a subclass, typed by a `PrimType`; nothing else converts
-// into one.
+// SAFETY: a `PrimVar` is a `Var` typed by a `PrimType`; nothing else converts into one.
 unsafe impl tvm_ffi::object::ObjectRefAnyCompatible for PrimVar {
-    // C++ `TypeTraits<PrimVar>::CheckAnyStrict`: exactly `ir.Var`, typed by a `PrimType`.
     #[inline]
     fn extra_check(obj: &VarObj) -> bool {
-        // SAFETY: an object starts with its header, which holds its runtime type index.
-        let header =
-            unsafe { &*(obj as *const VarObj).cast::<tvm_ffi::tvm_ffi_sys::TVMFFIObject>() };
-        header.type_index == <VarObj as tvm_ffi::ObjectCore>::type_index()
-            && obj.ty.downcast_ref::<PrimTypeObj>().is_some()
+        obj.ty.downcast_ref::<PrimTypeObj>().is_some()
     }
 
     fn custom_type_str() -> std::string::String {
