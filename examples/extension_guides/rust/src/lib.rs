@@ -38,13 +38,13 @@ use tvm_tirx::tvm_ffi::{
 /// A complex number whose real and imaginary parts share a scalar type.
 #[rs_object("my_ext.ComplexType", final)]
 pub struct ComplexTypeObj {
-    base: TypeObj,
+    base_: TypeObj,
     pub dtype: PrimType,
 }
 #[derive(Clone, tvm_ffi::derive::ObjectRef)]
 #[object_ref(parent = Type)]
 pub struct ComplexType {
-    data: tvm_ffi::ObjectArc<ComplexTypeObj>,
+    data_: tvm_ffi::ObjectArc<ComplexTypeObj>,
 }
 
 tvm_ffi::static_init_block! {

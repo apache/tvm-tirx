@@ -120,7 +120,7 @@ fn types_agree_with_cpp() {
 /// A pair of types with a tag, defined in Rust.
 #[rs_object("testing.rust.PairType", final)]
 pub struct PairTypeObj {
-    base: TypeObj,
+    base_: TypeObj,
     /// The first element.
     pub lhs: Type,
     /// The second element.
@@ -134,7 +134,7 @@ pub struct PairTypeObj {
 #[derive(Clone, tvm_ffi::derive::ObjectRef)]
 #[object_ref(parent = Type)]
 pub struct PairType {
-    data: tvm_ffi::ObjectArc<PairTypeObj>,
+    data_: tvm_ffi::ObjectArc<PairTypeObj>,
 }
 
 impl PairType {

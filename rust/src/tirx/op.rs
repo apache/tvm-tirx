@@ -97,6 +97,15 @@ use tvm_ffi::TYPE_ERROR;
 // tvm-ffi-stubgen(end)
 
 // tvm-ffi-stubgen(begin): object/tirx.CallFFIKernelAttr
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct CallFFIKernelAttr {
+    data_: ObjectArc<CallFFIKernelAttrObj>,
+}
+
+/// The object behind [`CallFFIKernelAttr`].
+///
 /// Complete: reflected fields fill [24, 56) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
@@ -104,7 +113,7 @@ use tvm_ffi::TYPE_ERROR;
 #[type_key = "tirx.CallFFIKernelAttr"]
 #[type_final]
 pub struct CallFFIKernelAttrObj {
-    base: AttrsObj,
+    base_: AttrsObj,
     pub launch_params: Array<String>,
     pub launch_fields: Array<String>,
     pub num_kernel_args: i64,
@@ -116,17 +125,10 @@ const _: () = {
     assert!(::core::mem::align_of::<CallFFIKernelAttrObj>() == 8);
 };
 
-#[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct CallFFIKernelAttr {
-    base: ObjectArc<CallFFIKernelAttrObj>,
-}
-
 impl Deref for CallFFIKernelAttrObj {
     type Target = AttrsObj;
     fn deref(&self) -> &AttrsObj {
-        &self.base
+        &self.base_
     }
 }
 
@@ -138,8 +140,8 @@ impl CallFFIKernelAttrObj {
         num_kernel_args: i64,
         kernel_attrs: Map<String, i64>,
     ) -> Self {
-        let base = AttrsObj::new();
-        Self { base, launch_params, launch_fields, num_kernel_args, kernel_attrs }
+        let base_ = AttrsObj::new();
+        Self { base_, launch_params, launch_fields, num_kernel_args, kernel_attrs }
     }
 }
 
@@ -158,7 +160,7 @@ impl CallFFIKernelAttr {
             num_kernel_args,
             kernel_attrs.into(),
         );
-        Self { base: ObjectArc::new(obj) }
+        Self { data_: ObjectArc::new(obj) }
     }
 }
 

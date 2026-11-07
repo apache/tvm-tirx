@@ -77,7 +77,7 @@ use tvm_ffi::String;
 #[type_key = "ir.Op"]
 #[type_final]
 pub struct OpObj {
-    base: ExprObj,
+    base_: ExprObj,
     /// The dense, process-local index of the operator into the attribute columns; never
     /// serialized.
     pub index: u32,
@@ -138,13 +138,13 @@ unsafe impl Sync for ValidatorCell {}
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct Op {
-    base: ObjectArc<OpObj>,
+    data_: ObjectArc<OpObj>,
 }
 
 impl Deref for OpObj {
     type Target = ExprObj;
     fn deref(&self) -> &ExprObj {
-        &self.base
+        &self.base_
     }
 }
 
@@ -260,6 +260,15 @@ impl Op {
 tvm_ffi::unsafe_impl_object_ref_upcast!(Op => Expr);
 
 // tvm-ffi-stubgen(begin): object/ir.ArgumentInfo
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct ArgumentInfo {
+    data_: ObjectArc<ArgumentInfoObj>,
+}
+
+/// The object behind [`ArgumentInfo`].
+///
 /// Complete: reflected fields fill [24, 56) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
@@ -267,7 +276,7 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(Op => Expr);
 #[type_key = "ir.ArgumentInfo"]
 #[type_final]
 pub struct ArgumentInfoObj {
-    base: Object,
+    base_: Object,
     pub name: String,
     pub doc: String,
 }
@@ -278,17 +287,10 @@ const _: () = {
 };
 
 #[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct ArgumentInfo {
-    base: ObjectArc<ArgumentInfoObj>,
-}
-
-#[allow(missing_docs)]
 impl ArgumentInfoObj {
     pub(crate) fn new(name: String, doc: String) -> Self {
-        let base = Object::new();
-        Self { base, name, doc }
+        let base_ = Object::new();
+        Self { base_, name, doc }
     }
 }
 
@@ -297,7 +299,7 @@ impl ArgumentInfo {
     /// Lossless complete-field allocation.
     pub fn new(name: impl Into<String>, doc: impl Into<String>) -> Self {
         let obj = ArgumentInfoObj::new(name.into(), doc.into());
-        Self { base: ObjectArc::new(obj) }
+        Self { data_: ObjectArc::new(obj) }
     }
 }
 

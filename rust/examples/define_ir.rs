@@ -51,14 +51,14 @@ fn loop_index(call: &CallObj) -> Result<Array<Var>> {
 /// The type of a pair of values.
 #[rs_object("tirx.ExamplePairType", final)]
 pub struct ExamplePairTypeObj {
-    base: TypeObj,
+    base_: TypeObj,
     pub first: Type,
     pub second: Type,
 }
 #[derive(Clone, tvm_ffi::derive::ObjectRef)]
 #[object_ref(parent = Type)]
 pub struct ExamplePairType {
-    data: tvm_ffi::ObjectArc<ExamplePairTypeObj>,
+    data_: tvm_ffi::ObjectArc<ExamplePairTypeObj>,
 }
 
 tvm_ffi::static_init_block! {

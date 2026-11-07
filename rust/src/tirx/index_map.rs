@@ -76,6 +76,15 @@ use tvm_ffi::object::ObjectRef;
 // tvm-ffi-stubgen(end)
 
 // tvm-ffi-stubgen(begin): object/tirx.IndexMap
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct IndexMap {
+    data_: ObjectArc<IndexMapObj>,
+}
+
+/// The object behind [`IndexMap`].
+///
 /// Complete: reflected fields fill [24, 48) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
@@ -83,7 +92,7 @@ use tvm_ffi::object::ObjectRef;
 #[type_key = "tirx.IndexMap"]
 #[type_final]
 pub struct IndexMapObj {
-    base: Object,
+    base_: Object,
     pub initial_indices: Array<PrimVar>,
     pub final_indices: Array<PrimExpr>,
     pub inverse_index_map: Option<ObjectRef>,
@@ -95,21 +104,14 @@ const _: () = {
 };
 
 #[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct IndexMap {
-    base: ObjectArc<IndexMapObj>,
-}
-
-#[allow(missing_docs)]
 impl IndexMapObj {
     pub(crate) fn new(
         initial_indices: Array<PrimVar>,
         final_indices: Array<PrimExpr>,
         inverse_index_map: Option<ObjectRef>,
     ) -> Self {
-        let base = Object::new();
-        Self { base, initial_indices, final_indices, inverse_index_map }
+        let base_ = Object::new();
+        Self { base_, initial_indices, final_indices, inverse_index_map }
     }
 }
 
@@ -126,7 +128,7 @@ impl IndexMap {
             final_indices.into(),
             inverse_index_map.into(),
         );
-        Self { base: ObjectArc::new(obj) }
+        Self { data_: ObjectArc::new(obj) }
     }
 }
 

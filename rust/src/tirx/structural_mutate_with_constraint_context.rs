@@ -40,7 +40,7 @@ use crate::sym::ConstraintContext;
 /// Its layout mirrors the native one, so it requires the matching native build.
 #[repr(C)]
 pub struct StructuralMutatorWithConstraintContextBase {
-    base: StructuralMutatorObj,
+    base_: StructuralMutatorObj,
     constraints: UnsafeCell<ConstraintContext>,
     needs_child_context: UnsafeCell<bool>,
 }
@@ -70,7 +70,7 @@ impl StructuralMutatorWithConstraintContextBase {
 unsafe impl StructuralMutatorBase for StructuralMutatorWithConstraintContextBase {
     fn new() -> Result<Self> {
         Ok(Self {
-            base: StructuralMutatorObj::default(),
+            base_: StructuralMutatorObj::default(),
             constraints: UnsafeCell::new(ConstraintContext::new()),
             needs_child_context: UnsafeCell::new(false),
         })

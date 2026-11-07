@@ -36,13 +36,13 @@
 ///
 /// #[rs_object("my_ext.ThreadIndex", final)]
 /// pub struct ThreadIndexObj {
-///     base: ExprObj,
+///     base_: ExprObj,
 ///     pub axis: i64,
 /// }
 /// #[derive(Clone, tvm_ffi::derive::ObjectRef)]
 /// #[object_ref(parent = Expr)]
 /// pub struct ThreadIndex {
-///     data: tvm_ffi::ObjectArc<ThreadIndexObj>,
+///     data_: tvm_ffi::ObjectArc<ThreadIndexObj>,
 /// }
 ///
 /// impl ThreadIndex {

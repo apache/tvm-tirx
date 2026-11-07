@@ -75,6 +75,15 @@ use tvm_ffi::Result;
 // tvm-ffi-stubgen(end)
 
 // tvm-ffi-stubgen(begin): object/tirx.Function
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct Function {
+    data_: ObjectArc<FunctionObj>,
+}
+
+/// The object behind [`Function`].
+///
 /// Complete: reflected fields fill [48, 72) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
@@ -82,7 +91,7 @@ use tvm_ffi::Result;
 #[type_key = "tirx.Function"]
 #[type_final]
 pub struct FunctionObj {
-    base: BaseFuncObj,
+    base_: BaseFuncObj,
     pub params: Array<Var>,
     pub ret_type: Type,
     pub body: SeqStmt,
@@ -93,17 +102,10 @@ const _: () = {
     assert!(::core::mem::align_of::<FunctionObj>() == 8);
 };
 
-#[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct Function {
-    base: ObjectArc<FunctionObj>,
-}
-
 impl Deref for FunctionObj {
     type Target = BaseFuncObj;
     fn deref(&self) -> &BaseFuncObj {
-        &self.base
+        &self.base_
     }
 }
 
@@ -117,8 +119,8 @@ impl FunctionObj {
         ret_type: Type,
         body: SeqStmt,
     ) -> Self {
-        let base = BaseFuncObj::new(loc, ty, attrs);
-        Self { base, params, ret_type, body }
+        let base_ = BaseFuncObj::new(loc, ty, attrs);
+        Self { base_, params, ret_type, body }
     }
 }
 
@@ -141,7 +143,7 @@ impl Function {
             ret_type.into(),
             body.into(),
         );
-        Self { base: ObjectArc::new(obj) }
+        Self { data_: ObjectArc::new(obj) }
     }
 }
 

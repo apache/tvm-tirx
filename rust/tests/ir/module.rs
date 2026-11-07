@@ -107,7 +107,10 @@ fn modules_agree_with_cpp() {
         if let (Ok(rust), Ok(native_module)) = (&rust, &native_module) {
             let native_module: IRModule = native_module.clone().try_into().unwrap();
             assert!(
-                structural_equal(&rust.global_var_map, &native_module.global_var_map),
+                structural_equal(
+                    &rust.get_global_vars().unwrap(),
+                    &native_module.get_global_vars().unwrap()
+                ),
                 "{what}"
             );
         }

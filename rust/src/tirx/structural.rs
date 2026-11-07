@@ -40,7 +40,7 @@ use tvm_ffi::Result;
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ffi.StructuralMutator"]
 struct FfiStructuralMutatorObj {
-    base: Object,
+    base_: Object,
 }
 
 /// Header-only stand-in for the builtin `ffi.StructuralVisitor`; it only carries the ancestor depth.
@@ -49,25 +49,27 @@ struct FfiStructuralMutatorObj {
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ffi.StructuralVisitor"]
 struct FfiStructuralVisitorObj {
-    base: Object,
+    base_: Object,
 }
 // tvm-ffi-stubgen(end)
 
 // tvm-ffi-stubgen(begin): object/tirx.StructuralMutatorWithConstraintContext
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct StructuralMutatorWithConstraintContext {
+    data_: ObjectArc<StructuralMutatorWithConstraintContextObj>,
+}
+
+/// The object behind [`StructuralMutatorWithConstraintContext`].
+///
 /// Opaque: parent 'ffi.StructuralMutator' is opaque (no-mirror). Fields are read through the C ABI getters.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "tirx.StructuralMutatorWithConstraintContext"]
 pub struct StructuralMutatorWithConstraintContextObj {
-    base: FfiStructuralMutatorObj,
-}
-
-#[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct StructuralMutatorWithConstraintContext {
-    base: ObjectArc<StructuralMutatorWithConstraintContextObj>,
+    base_: FfiStructuralMutatorObj,
 }
 
 #[allow(missing_docs)]
@@ -79,20 +81,22 @@ impl StructuralMutatorWithConstraintContextObj {
 // tvm-ffi-stubgen(end)
 
 // tvm-ffi-stubgen(begin): object/tirx.StructuralVisitorWithConstraintContext
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct StructuralVisitorWithConstraintContext {
+    data_: ObjectArc<StructuralVisitorWithConstraintContextObj>,
+}
+
+/// The object behind [`StructuralVisitorWithConstraintContext`].
+///
 /// Opaque: parent 'ffi.StructuralVisitor' is opaque (no-mirror). Fields are read through the C ABI getters.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "tirx.StructuralVisitorWithConstraintContext"]
 pub struct StructuralVisitorWithConstraintContextObj {
-    base: FfiStructuralVisitorObj,
-}
-
-#[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct StructuralVisitorWithConstraintContext {
-    base: ObjectArc<StructuralVisitorWithConstraintContextObj>,
+    base_: FfiStructuralVisitorObj,
 }
 
 #[allow(missing_docs)]

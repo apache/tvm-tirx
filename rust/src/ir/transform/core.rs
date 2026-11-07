@@ -71,20 +71,22 @@ use tvm_ffi::String;
 // tvm-ffi-stubgen(end)
 
 // tvm-ffi-stubgen(begin): object/transform.Pass
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct Pass {
+    data_: ObjectArc<PassObj>,
+}
+
+/// The object behind [`Pass`].
+///
 /// Opaque: no metadata of its own: total_size is unknown. Fields are read through the C ABI getters.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "transform.Pass"]
 pub struct PassObj {
-    base: Object,
-}
-
-#[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct Pass {
-    base: ObjectArc<PassObj>,
+    base_: Object,
 }
 // tvm-ffi-stubgen(end)
 
@@ -107,6 +109,15 @@ impl Pass {
 }
 
 // tvm-ffi-stubgen(begin): object/transform.PassInfo
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct PassInfo {
+    data_: ObjectArc<PassInfoObj>,
+}
+
+/// The object behind [`PassInfo`].
+///
 /// Complete: reflected fields fill [24, 48) exactly (alignment padding [28, 32)).
 #[allow(missing_docs)]
 #[repr(C)]
@@ -114,7 +125,7 @@ impl Pass {
 #[type_key = "transform.PassInfo"]
 #[type_final]
 pub struct PassInfoObj {
-    base: Object,
+    base_: Object,
     pub opt_level: i32,
     pub name: String,
 }
@@ -125,17 +136,10 @@ const _: () = {
 };
 
 #[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct PassInfo {
-    base: ObjectArc<PassInfoObj>,
-}
-
-#[allow(missing_docs)]
 impl PassInfoObj {
     pub(crate) fn new(opt_level: i32, name: String) -> Self {
-        let base = Object::new();
-        Self { base, opt_level, name }
+        let base_ = Object::new();
+        Self { base_, opt_level, name }
     }
 }
 
@@ -144,7 +148,7 @@ impl PassInfo {
     /// Lossless complete-field allocation.
     pub fn new(opt_level: i32, name: impl Into<String>) -> Self {
         let obj = PassInfoObj::new(opt_level, name.into());
-        Self { base: ObjectArc::new(obj) }
+        Self { data_: ObjectArc::new(obj) }
     }
 }
 
@@ -155,6 +159,15 @@ unsafe impl tvm_ffi::object::ImmutableObject for PassInfoObj {}
 // its fields.
 
 // tvm-ffi-stubgen(begin): object/transform.ModulePass
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct ModulePass {
+    data_: ObjectArc<ModulePassObj>,
+}
+
+/// The object behind [`ModulePass`].
+///
 /// Opaque: parent 'transform.Pass' is opaque (layout-unknown). Fields are read through the C ABI getters.
 #[allow(missing_docs)]
 #[repr(C)]
@@ -162,20 +175,13 @@ unsafe impl tvm_ffi::object::ImmutableObject for PassInfoObj {}
 #[type_key = "transform.ModulePass"]
 #[type_final]
 pub struct ModulePassObj {
-    base: PassObj,
-}
-
-#[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct ModulePass {
-    base: ObjectArc<ModulePassObj>,
+    base_: PassObj,
 }
 
 impl Deref for ModulePassObj {
     type Target = PassObj;
     fn deref(&self) -> &PassObj {
-        &self.base
+        &self.base_
     }
 }
 
@@ -214,6 +220,15 @@ impl ModulePass {
 }
 
 // tvm-ffi-stubgen(begin): object/transform.Sequential
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct Sequential {
+    data_: ObjectArc<SequentialObj>,
+}
+
+/// The object behind [`Sequential`].
+///
 /// Opaque: parent 'transform.Pass' is opaque (layout-unknown). Fields are read through the C ABI getters.
 #[allow(missing_docs)]
 #[repr(C)]
@@ -221,20 +236,13 @@ impl ModulePass {
 #[type_key = "transform.Sequential"]
 #[type_final]
 pub struct SequentialObj {
-    base: PassObj,
-}
-
-#[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct Sequential {
-    base: ObjectArc<SequentialObj>,
+    base_: PassObj,
 }
 
 impl Deref for SequentialObj {
     type Target = PassObj;
     fn deref(&self) -> &PassObj {
-        &self.base
+        &self.base_
     }
 }
 
@@ -276,6 +284,15 @@ impl Sequential {
 }
 
 // tvm-ffi-stubgen(begin): object/transform.PassContext
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct PassContext {
+    data_: ObjectArc<PassContextObj>,
+}
+
+/// The object behind [`PassContext`].
+///
 /// Complete: reflected fields fill [24, 64) exactly (alignment padding [28, 32)).
 #[allow(missing_docs)]
 #[repr(C)]
@@ -283,7 +300,7 @@ impl Sequential {
 #[type_key = "transform.PassContext"]
 #[type_final]
 pub struct PassContextObj {
-    base: Object,
+    base_: Object,
     pub opt_level: i32,
     pub required_pass: Array<String>,
     pub disabled_pass: Array<String>,
@@ -297,13 +314,6 @@ const _: () = {
 };
 
 #[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct PassContext {
-    base: ObjectArc<PassContextObj>,
-}
-
-#[allow(missing_docs)]
 impl PassContextObj {
     pub(crate) fn new(
         opt_level: i32,
@@ -312,8 +322,8 @@ impl PassContextObj {
         config: Map<String, Any>,
         instruments: Array<PassInstrument>,
     ) -> Self {
-        let base = Object::new();
-        Self { base, opt_level, required_pass, disabled_pass, config, instruments }
+        let base_ = Object::new();
+        Self { base_, opt_level, required_pass, disabled_pass, config, instruments }
     }
 }
 
@@ -334,7 +344,7 @@ impl PassContext {
             config.into(),
             instruments.into(),
         );
-        Self { base: ObjectArc::new(obj) }
+        Self { data_: ObjectArc::new(obj) }
     }
 }
 // tvm-ffi-stubgen(end)
@@ -449,20 +459,22 @@ impl Drop for PassContextScope {
 }
 
 // tvm-ffi-stubgen(begin): object/transform.PassInstrument
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct PassInstrument {
+    data_: ObjectArc<PassInstrumentObj>,
+}
+
+/// The object behind [`PassInstrument`].
+///
 /// Opaque: bytes [40, 48) of [24, 48) are not accounted for by reflected fields. Fields are read through the C ABI getters.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "transform.PassInstrument"]
 pub struct PassInstrumentObj {
-    base: Object,
-}
-
-#[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct PassInstrument {
-    base: ObjectArc<PassInstrumentObj>,
+    base_: Object,
 }
 
 #[allow(missing_docs)]

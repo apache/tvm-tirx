@@ -16,10 +16,6 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-// The generated imports include `Type` for the inherited `ty`, which the `field` directives below
-// narrow to `PrimType`.
-#![allow(unused_imports)]
-
 //! Scalar expressions: casts, arithmetic, bitwise and logical operations, comparisons, `Select`
 //! and `Let`.
 //!
@@ -203,7 +199,6 @@ use crate::ir::expr::Var;
 use crate::ir::location::Location;
 use crate::ir::r#type::PrimType;
 use crate::ir::r#type::PrimTypeObj;
-use crate::ir::r#type::Type;
 use crate::ir::support;
 use std::ops::Deref;
 use tvm_ffi::AnyView;
@@ -243,6 +238,15 @@ macro_rules! binary_new {
 // Casts
 
 // tvm-ffi-stubgen(begin): object/prim.Cast
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct Cast {
+    data_: ObjectArc<CastObj>,
+}
+
+/// The object behind [`Cast`].
+///
 /// Complete: reflected fields fill [40, 48) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
@@ -250,7 +254,7 @@ macro_rules! binary_new {
 #[type_key = "prim.Cast"]
 #[type_final]
 pub struct CastObj {
-    base: ExprObj,
+    base_: ExprObj,
     pub value: PrimExpr,
 }
 
@@ -259,25 +263,18 @@ const _: () = {
     assert!(::core::mem::align_of::<CastObj>() == 8);
 };
 
-#[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct Cast {
-    base: ObjectArc<CastObj>,
-}
-
 impl Deref for CastObj {
     type Target = ExprObj;
     fn deref(&self) -> &ExprObj {
-        &self.base
+        &self.base_
     }
 }
 
 #[allow(missing_docs)]
 impl CastObj {
     pub(crate) fn new(loc: Location, ty: PrimType, value: PrimExpr) -> Self {
-        let base = ExprObj::new(loc, ty.into());
-        Self { base, value }
+        let base_ = ExprObj::new(loc, ty.into());
+        Self { base_, value }
     }
 }
 
@@ -290,7 +287,7 @@ impl Cast {
         value: impl Into<PrimExpr>,
     ) -> Self {
         let obj = CastObj::new(loc.into(), ty.into(), value.into());
-        Self { base: ObjectArc::new(obj) }
+        Self { data_: ObjectArc::new(obj) }
     }
 }
 
@@ -326,6 +323,15 @@ impl Cast {
 // Bitwise operations
 
 // tvm-ffi-stubgen(begin): object/prim.LShift
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct LShift {
+    data_: ObjectArc<LShiftObj>,
+}
+
+/// The object behind [`LShift`].
+///
 /// Complete: reflected fields fill [40, 56) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
@@ -333,7 +339,7 @@ impl Cast {
 #[type_key = "prim.LShift"]
 #[type_final]
 pub struct LShiftObj {
-    base: ExprObj,
+    base_: ExprObj,
     pub a: PrimExpr,
     pub b: PrimExpr,
 }
@@ -343,25 +349,18 @@ const _: () = {
     assert!(::core::mem::align_of::<LShiftObj>() == 8);
 };
 
-#[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct LShift {
-    base: ObjectArc<LShiftObj>,
-}
-
 impl Deref for LShiftObj {
     type Target = ExprObj;
     fn deref(&self) -> &ExprObj {
-        &self.base
+        &self.base_
     }
 }
 
 #[allow(missing_docs)]
 impl LShiftObj {
     pub(crate) fn new(loc: Location, ty: PrimType, a: PrimExpr, b: PrimExpr) -> Self {
-        let base = ExprObj::new(loc, ty.into());
-        Self { base, a, b }
+        let base_ = ExprObj::new(loc, ty.into());
+        Self { base_, a, b }
     }
 }
 
@@ -375,7 +374,7 @@ impl LShift {
         b: impl Into<PrimExpr>,
     ) -> Self {
         let obj = LShiftObj::new(loc.into(), ty.into(), a.into(), b.into());
-        Self { base: ObjectArc::new(obj) }
+        Self { data_: ObjectArc::new(obj) }
     }
 }
 
@@ -391,6 +390,15 @@ binary_new! {
 }
 
 // tvm-ffi-stubgen(begin): object/prim.RShift
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct RShift {
+    data_: ObjectArc<RShiftObj>,
+}
+
+/// The object behind [`RShift`].
+///
 /// Complete: reflected fields fill [40, 56) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
@@ -398,7 +406,7 @@ binary_new! {
 #[type_key = "prim.RShift"]
 #[type_final]
 pub struct RShiftObj {
-    base: ExprObj,
+    base_: ExprObj,
     pub a: PrimExpr,
     pub b: PrimExpr,
 }
@@ -408,25 +416,18 @@ const _: () = {
     assert!(::core::mem::align_of::<RShiftObj>() == 8);
 };
 
-#[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct RShift {
-    base: ObjectArc<RShiftObj>,
-}
-
 impl Deref for RShiftObj {
     type Target = ExprObj;
     fn deref(&self) -> &ExprObj {
-        &self.base
+        &self.base_
     }
 }
 
 #[allow(missing_docs)]
 impl RShiftObj {
     pub(crate) fn new(loc: Location, ty: PrimType, a: PrimExpr, b: PrimExpr) -> Self {
-        let base = ExprObj::new(loc, ty.into());
-        Self { base, a, b }
+        let base_ = ExprObj::new(loc, ty.into());
+        Self { base_, a, b }
     }
 }
 
@@ -440,7 +441,7 @@ impl RShift {
         b: impl Into<PrimExpr>,
     ) -> Self {
         let obj = RShiftObj::new(loc.into(), ty.into(), a.into(), b.into());
-        Self { base: ObjectArc::new(obj) }
+        Self { data_: ObjectArc::new(obj) }
     }
 }
 
@@ -456,6 +457,15 @@ binary_new! {
 }
 
 // tvm-ffi-stubgen(begin): object/prim.BitwiseAnd
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct BitwiseAnd {
+    data_: ObjectArc<BitwiseAndObj>,
+}
+
+/// The object behind [`BitwiseAnd`].
+///
 /// Complete: reflected fields fill [40, 56) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
@@ -463,7 +473,7 @@ binary_new! {
 #[type_key = "prim.BitwiseAnd"]
 #[type_final]
 pub struct BitwiseAndObj {
-    base: ExprObj,
+    base_: ExprObj,
     pub a: PrimExpr,
     pub b: PrimExpr,
 }
@@ -473,25 +483,18 @@ const _: () = {
     assert!(::core::mem::align_of::<BitwiseAndObj>() == 8);
 };
 
-#[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct BitwiseAnd {
-    base: ObjectArc<BitwiseAndObj>,
-}
-
 impl Deref for BitwiseAndObj {
     type Target = ExprObj;
     fn deref(&self) -> &ExprObj {
-        &self.base
+        &self.base_
     }
 }
 
 #[allow(missing_docs)]
 impl BitwiseAndObj {
     pub(crate) fn new(loc: Location, ty: PrimType, a: PrimExpr, b: PrimExpr) -> Self {
-        let base = ExprObj::new(loc, ty.into());
-        Self { base, a, b }
+        let base_ = ExprObj::new(loc, ty.into());
+        Self { base_, a, b }
     }
 }
 
@@ -505,7 +508,7 @@ impl BitwiseAnd {
         b: impl Into<PrimExpr>,
     ) -> Self {
         let obj = BitwiseAndObj::new(loc.into(), ty.into(), a.into(), b.into());
-        Self { base: ObjectArc::new(obj) }
+        Self { data_: ObjectArc::new(obj) }
     }
 }
 
@@ -521,6 +524,15 @@ binary_new! {
 }
 
 // tvm-ffi-stubgen(begin): object/prim.BitwiseOr
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct BitwiseOr {
+    data_: ObjectArc<BitwiseOrObj>,
+}
+
+/// The object behind [`BitwiseOr`].
+///
 /// Complete: reflected fields fill [40, 56) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
@@ -528,7 +540,7 @@ binary_new! {
 #[type_key = "prim.BitwiseOr"]
 #[type_final]
 pub struct BitwiseOrObj {
-    base: ExprObj,
+    base_: ExprObj,
     pub a: PrimExpr,
     pub b: PrimExpr,
 }
@@ -538,25 +550,18 @@ const _: () = {
     assert!(::core::mem::align_of::<BitwiseOrObj>() == 8);
 };
 
-#[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct BitwiseOr {
-    base: ObjectArc<BitwiseOrObj>,
-}
-
 impl Deref for BitwiseOrObj {
     type Target = ExprObj;
     fn deref(&self) -> &ExprObj {
-        &self.base
+        &self.base_
     }
 }
 
 #[allow(missing_docs)]
 impl BitwiseOrObj {
     pub(crate) fn new(loc: Location, ty: PrimType, a: PrimExpr, b: PrimExpr) -> Self {
-        let base = ExprObj::new(loc, ty.into());
-        Self { base, a, b }
+        let base_ = ExprObj::new(loc, ty.into());
+        Self { base_, a, b }
     }
 }
 
@@ -570,7 +575,7 @@ impl BitwiseOr {
         b: impl Into<PrimExpr>,
     ) -> Self {
         let obj = BitwiseOrObj::new(loc.into(), ty.into(), a.into(), b.into());
-        Self { base: ObjectArc::new(obj) }
+        Self { data_: ObjectArc::new(obj) }
     }
 }
 
@@ -586,6 +591,15 @@ binary_new! {
 }
 
 // tvm-ffi-stubgen(begin): object/prim.BitwiseXor
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct BitwiseXor {
+    data_: ObjectArc<BitwiseXorObj>,
+}
+
+/// The object behind [`BitwiseXor`].
+///
 /// Complete: reflected fields fill [40, 56) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
@@ -593,7 +607,7 @@ binary_new! {
 #[type_key = "prim.BitwiseXor"]
 #[type_final]
 pub struct BitwiseXorObj {
-    base: ExprObj,
+    base_: ExprObj,
     pub a: PrimExpr,
     pub b: PrimExpr,
 }
@@ -603,25 +617,18 @@ const _: () = {
     assert!(::core::mem::align_of::<BitwiseXorObj>() == 8);
 };
 
-#[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct BitwiseXor {
-    base: ObjectArc<BitwiseXorObj>,
-}
-
 impl Deref for BitwiseXorObj {
     type Target = ExprObj;
     fn deref(&self) -> &ExprObj {
-        &self.base
+        &self.base_
     }
 }
 
 #[allow(missing_docs)]
 impl BitwiseXorObj {
     pub(crate) fn new(loc: Location, ty: PrimType, a: PrimExpr, b: PrimExpr) -> Self {
-        let base = ExprObj::new(loc, ty.into());
-        Self { base, a, b }
+        let base_ = ExprObj::new(loc, ty.into());
+        Self { base_, a, b }
     }
 }
 
@@ -635,7 +642,7 @@ impl BitwiseXor {
         b: impl Into<PrimExpr>,
     ) -> Self {
         let obj = BitwiseXorObj::new(loc.into(), ty.into(), a.into(), b.into());
-        Self { base: ObjectArc::new(obj) }
+        Self { data_: ObjectArc::new(obj) }
     }
 }
 
@@ -651,6 +658,15 @@ binary_new! {
 }
 
 // tvm-ffi-stubgen(begin): object/prim.BitwiseNot
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct BitwiseNot {
+    data_: ObjectArc<BitwiseNotObj>,
+}
+
+/// The object behind [`BitwiseNot`].
+///
 /// Complete: reflected fields fill [40, 48) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
@@ -658,7 +674,7 @@ binary_new! {
 #[type_key = "prim.BitwiseNot"]
 #[type_final]
 pub struct BitwiseNotObj {
-    base: ExprObj,
+    base_: ExprObj,
     pub a: PrimExpr,
 }
 
@@ -667,25 +683,18 @@ const _: () = {
     assert!(::core::mem::align_of::<BitwiseNotObj>() == 8);
 };
 
-#[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct BitwiseNot {
-    base: ObjectArc<BitwiseNotObj>,
-}
-
 impl Deref for BitwiseNotObj {
     type Target = ExprObj;
     fn deref(&self) -> &ExprObj {
-        &self.base
+        &self.base_
     }
 }
 
 #[allow(missing_docs)]
 impl BitwiseNotObj {
     pub(crate) fn new(loc: Location, ty: PrimType, a: PrimExpr) -> Self {
-        let base = ExprObj::new(loc, ty.into());
-        Self { base, a }
+        let base_ = ExprObj::new(loc, ty.into());
+        Self { base_, a }
     }
 }
 
@@ -698,7 +707,7 @@ impl BitwiseNot {
         a: impl Into<PrimExpr>,
     ) -> Self {
         let obj = BitwiseNotObj::new(loc.into(), ty.into(), a.into());
-        Self { base: ObjectArc::new(obj) }
+        Self { data_: ObjectArc::new(obj) }
     }
 }
 
@@ -731,6 +740,15 @@ impl BitwiseNot {
 // Arithmetic
 
 // tvm-ffi-stubgen(begin): object/prim.Add
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct Add {
+    data_: ObjectArc<AddObj>,
+}
+
+/// The object behind [`Add`].
+///
 /// Complete: reflected fields fill [40, 56) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
@@ -738,7 +756,7 @@ impl BitwiseNot {
 #[type_key = "prim.Add"]
 #[type_final]
 pub struct AddObj {
-    base: ExprObj,
+    base_: ExprObj,
     pub a: PrimExpr,
     pub b: PrimExpr,
 }
@@ -748,25 +766,18 @@ const _: () = {
     assert!(::core::mem::align_of::<AddObj>() == 8);
 };
 
-#[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct Add {
-    base: ObjectArc<AddObj>,
-}
-
 impl Deref for AddObj {
     type Target = ExprObj;
     fn deref(&self) -> &ExprObj {
-        &self.base
+        &self.base_
     }
 }
 
 #[allow(missing_docs)]
 impl AddObj {
     pub(crate) fn new(loc: Location, ty: PrimType, a: PrimExpr, b: PrimExpr) -> Self {
-        let base = ExprObj::new(loc, ty.into());
-        Self { base, a, b }
+        let base_ = ExprObj::new(loc, ty.into());
+        Self { base_, a, b }
     }
 }
 
@@ -780,7 +791,7 @@ impl Add {
         b: impl Into<PrimExpr>,
     ) -> Self {
         let obj = AddObj::new(loc.into(), ty.into(), a.into(), b.into());
-        Self { base: ObjectArc::new(obj) }
+        Self { data_: ObjectArc::new(obj) }
     }
 }
 
@@ -795,6 +806,15 @@ binary_new! {
 }
 
 // tvm-ffi-stubgen(begin): object/prim.Sub
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct Sub {
+    data_: ObjectArc<SubObj>,
+}
+
+/// The object behind [`Sub`].
+///
 /// Complete: reflected fields fill [40, 56) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
@@ -802,7 +822,7 @@ binary_new! {
 #[type_key = "prim.Sub"]
 #[type_final]
 pub struct SubObj {
-    base: ExprObj,
+    base_: ExprObj,
     pub a: PrimExpr,
     pub b: PrimExpr,
 }
@@ -812,25 +832,18 @@ const _: () = {
     assert!(::core::mem::align_of::<SubObj>() == 8);
 };
 
-#[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct Sub {
-    base: ObjectArc<SubObj>,
-}
-
 impl Deref for SubObj {
     type Target = ExprObj;
     fn deref(&self) -> &ExprObj {
-        &self.base
+        &self.base_
     }
 }
 
 #[allow(missing_docs)]
 impl SubObj {
     pub(crate) fn new(loc: Location, ty: PrimType, a: PrimExpr, b: PrimExpr) -> Self {
-        let base = ExprObj::new(loc, ty.into());
-        Self { base, a, b }
+        let base_ = ExprObj::new(loc, ty.into());
+        Self { base_, a, b }
     }
 }
 
@@ -844,7 +857,7 @@ impl Sub {
         b: impl Into<PrimExpr>,
     ) -> Self {
         let obj = SubObj::new(loc.into(), ty.into(), a.into(), b.into());
-        Self { base: ObjectArc::new(obj) }
+        Self { data_: ObjectArc::new(obj) }
     }
 }
 
@@ -859,6 +872,15 @@ binary_new! {
 }
 
 // tvm-ffi-stubgen(begin): object/prim.Mul
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct Mul {
+    data_: ObjectArc<MulObj>,
+}
+
+/// The object behind [`Mul`].
+///
 /// Complete: reflected fields fill [40, 56) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
@@ -866,7 +888,7 @@ binary_new! {
 #[type_key = "prim.Mul"]
 #[type_final]
 pub struct MulObj {
-    base: ExprObj,
+    base_: ExprObj,
     pub a: PrimExpr,
     pub b: PrimExpr,
 }
@@ -876,25 +898,18 @@ const _: () = {
     assert!(::core::mem::align_of::<MulObj>() == 8);
 };
 
-#[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct Mul {
-    base: ObjectArc<MulObj>,
-}
-
 impl Deref for MulObj {
     type Target = ExprObj;
     fn deref(&self) -> &ExprObj {
-        &self.base
+        &self.base_
     }
 }
 
 #[allow(missing_docs)]
 impl MulObj {
     pub(crate) fn new(loc: Location, ty: PrimType, a: PrimExpr, b: PrimExpr) -> Self {
-        let base = ExprObj::new(loc, ty.into());
-        Self { base, a, b }
+        let base_ = ExprObj::new(loc, ty.into());
+        Self { base_, a, b }
     }
 }
 
@@ -908,7 +923,7 @@ impl Mul {
         b: impl Into<PrimExpr>,
     ) -> Self {
         let obj = MulObj::new(loc.into(), ty.into(), a.into(), b.into());
-        Self { base: ObjectArc::new(obj) }
+        Self { data_: ObjectArc::new(obj) }
     }
 }
 
@@ -923,6 +938,15 @@ binary_new! {
 }
 
 // tvm-ffi-stubgen(begin): object/prim.Div
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct Div {
+    data_: ObjectArc<DivObj>,
+}
+
+/// The object behind [`Div`].
+///
 /// Complete: reflected fields fill [40, 56) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
@@ -930,7 +954,7 @@ binary_new! {
 #[type_key = "prim.Div"]
 #[type_final]
 pub struct DivObj {
-    base: ExprObj,
+    base_: ExprObj,
     pub a: PrimExpr,
     pub b: PrimExpr,
 }
@@ -940,25 +964,18 @@ const _: () = {
     assert!(::core::mem::align_of::<DivObj>() == 8);
 };
 
-#[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct Div {
-    base: ObjectArc<DivObj>,
-}
-
 impl Deref for DivObj {
     type Target = ExprObj;
     fn deref(&self) -> &ExprObj {
-        &self.base
+        &self.base_
     }
 }
 
 #[allow(missing_docs)]
 impl DivObj {
     pub(crate) fn new(loc: Location, ty: PrimType, a: PrimExpr, b: PrimExpr) -> Self {
-        let base = ExprObj::new(loc, ty.into());
-        Self { base, a, b }
+        let base_ = ExprObj::new(loc, ty.into());
+        Self { base_, a, b }
     }
 }
 
@@ -972,7 +989,7 @@ impl Div {
         b: impl Into<PrimExpr>,
     ) -> Self {
         let obj = DivObj::new(loc.into(), ty.into(), a.into(), b.into());
-        Self { base: ObjectArc::new(obj) }
+        Self { data_: ObjectArc::new(obj) }
     }
 }
 
@@ -987,6 +1004,15 @@ binary_new! {
 }
 
 // tvm-ffi-stubgen(begin): object/prim.Mod
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct Mod {
+    data_: ObjectArc<ModObj>,
+}
+
+/// The object behind [`Mod`].
+///
 /// Complete: reflected fields fill [40, 56) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
@@ -994,7 +1020,7 @@ binary_new! {
 #[type_key = "prim.Mod"]
 #[type_final]
 pub struct ModObj {
-    base: ExprObj,
+    base_: ExprObj,
     pub a: PrimExpr,
     pub b: PrimExpr,
 }
@@ -1004,25 +1030,18 @@ const _: () = {
     assert!(::core::mem::align_of::<ModObj>() == 8);
 };
 
-#[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct Mod {
-    base: ObjectArc<ModObj>,
-}
-
 impl Deref for ModObj {
     type Target = ExprObj;
     fn deref(&self) -> &ExprObj {
-        &self.base
+        &self.base_
     }
 }
 
 #[allow(missing_docs)]
 impl ModObj {
     pub(crate) fn new(loc: Location, ty: PrimType, a: PrimExpr, b: PrimExpr) -> Self {
-        let base = ExprObj::new(loc, ty.into());
-        Self { base, a, b }
+        let base_ = ExprObj::new(loc, ty.into());
+        Self { base_, a, b }
     }
 }
 
@@ -1036,7 +1055,7 @@ impl Mod {
         b: impl Into<PrimExpr>,
     ) -> Self {
         let obj = ModObj::new(loc.into(), ty.into(), a.into(), b.into());
-        Self { base: ObjectArc::new(obj) }
+        Self { data_: ObjectArc::new(obj) }
     }
 }
 
@@ -1051,6 +1070,15 @@ binary_new! {
 }
 
 // tvm-ffi-stubgen(begin): object/prim.FloorDiv
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct FloorDiv {
+    data_: ObjectArc<FloorDivObj>,
+}
+
+/// The object behind [`FloorDiv`].
+///
 /// Complete: reflected fields fill [40, 56) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
@@ -1058,7 +1086,7 @@ binary_new! {
 #[type_key = "prim.FloorDiv"]
 #[type_final]
 pub struct FloorDivObj {
-    base: ExprObj,
+    base_: ExprObj,
     pub a: PrimExpr,
     pub b: PrimExpr,
 }
@@ -1068,25 +1096,18 @@ const _: () = {
     assert!(::core::mem::align_of::<FloorDivObj>() == 8);
 };
 
-#[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct FloorDiv {
-    base: ObjectArc<FloorDivObj>,
-}
-
 impl Deref for FloorDivObj {
     type Target = ExprObj;
     fn deref(&self) -> &ExprObj {
-        &self.base
+        &self.base_
     }
 }
 
 #[allow(missing_docs)]
 impl FloorDivObj {
     pub(crate) fn new(loc: Location, ty: PrimType, a: PrimExpr, b: PrimExpr) -> Self {
-        let base = ExprObj::new(loc, ty.into());
-        Self { base, a, b }
+        let base_ = ExprObj::new(loc, ty.into());
+        Self { base_, a, b }
     }
 }
 
@@ -1100,7 +1121,7 @@ impl FloorDiv {
         b: impl Into<PrimExpr>,
     ) -> Self {
         let obj = FloorDivObj::new(loc.into(), ty.into(), a.into(), b.into());
-        Self { base: ObjectArc::new(obj) }
+        Self { data_: ObjectArc::new(obj) }
     }
 }
 
@@ -1116,6 +1137,15 @@ binary_new! {
 }
 
 // tvm-ffi-stubgen(begin): object/prim.FloorMod
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct FloorMod {
+    data_: ObjectArc<FloorModObj>,
+}
+
+/// The object behind [`FloorMod`].
+///
 /// Complete: reflected fields fill [40, 56) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
@@ -1123,7 +1153,7 @@ binary_new! {
 #[type_key = "prim.FloorMod"]
 #[type_final]
 pub struct FloorModObj {
-    base: ExprObj,
+    base_: ExprObj,
     pub a: PrimExpr,
     pub b: PrimExpr,
 }
@@ -1133,25 +1163,18 @@ const _: () = {
     assert!(::core::mem::align_of::<FloorModObj>() == 8);
 };
 
-#[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct FloorMod {
-    base: ObjectArc<FloorModObj>,
-}
-
 impl Deref for FloorModObj {
     type Target = ExprObj;
     fn deref(&self) -> &ExprObj {
-        &self.base
+        &self.base_
     }
 }
 
 #[allow(missing_docs)]
 impl FloorModObj {
     pub(crate) fn new(loc: Location, ty: PrimType, a: PrimExpr, b: PrimExpr) -> Self {
-        let base = ExprObj::new(loc, ty.into());
-        Self { base, a, b }
+        let base_ = ExprObj::new(loc, ty.into());
+        Self { base_, a, b }
     }
 }
 
@@ -1165,7 +1188,7 @@ impl FloorMod {
         b: impl Into<PrimExpr>,
     ) -> Self {
         let obj = FloorModObj::new(loc.into(), ty.into(), a.into(), b.into());
-        Self { base: ObjectArc::new(obj) }
+        Self { data_: ObjectArc::new(obj) }
     }
 }
 
@@ -1181,6 +1204,15 @@ binary_new! {
 }
 
 // tvm-ffi-stubgen(begin): object/prim.Min
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct Min {
+    data_: ObjectArc<MinObj>,
+}
+
+/// The object behind [`Min`].
+///
 /// Complete: reflected fields fill [40, 56) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
@@ -1188,7 +1220,7 @@ binary_new! {
 #[type_key = "prim.Min"]
 #[type_final]
 pub struct MinObj {
-    base: ExprObj,
+    base_: ExprObj,
     pub a: PrimExpr,
     pub b: PrimExpr,
 }
@@ -1198,25 +1230,18 @@ const _: () = {
     assert!(::core::mem::align_of::<MinObj>() == 8);
 };
 
-#[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct Min {
-    base: ObjectArc<MinObj>,
-}
-
 impl Deref for MinObj {
     type Target = ExprObj;
     fn deref(&self) -> &ExprObj {
-        &self.base
+        &self.base_
     }
 }
 
 #[allow(missing_docs)]
 impl MinObj {
     pub(crate) fn new(loc: Location, ty: PrimType, a: PrimExpr, b: PrimExpr) -> Self {
-        let base = ExprObj::new(loc, ty.into());
-        Self { base, a, b }
+        let base_ = ExprObj::new(loc, ty.into());
+        Self { base_, a, b }
     }
 }
 
@@ -1230,7 +1255,7 @@ impl Min {
         b: impl Into<PrimExpr>,
     ) -> Self {
         let obj = MinObj::new(loc.into(), ty.into(), a.into(), b.into());
-        Self { base: ObjectArc::new(obj) }
+        Self { data_: ObjectArc::new(obj) }
     }
 }
 
@@ -1245,6 +1270,15 @@ binary_new! {
 }
 
 // tvm-ffi-stubgen(begin): object/prim.Max
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct Max {
+    data_: ObjectArc<MaxObj>,
+}
+
+/// The object behind [`Max`].
+///
 /// Complete: reflected fields fill [40, 56) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
@@ -1252,7 +1286,7 @@ binary_new! {
 #[type_key = "prim.Max"]
 #[type_final]
 pub struct MaxObj {
-    base: ExprObj,
+    base_: ExprObj,
     pub a: PrimExpr,
     pub b: PrimExpr,
 }
@@ -1262,25 +1296,18 @@ const _: () = {
     assert!(::core::mem::align_of::<MaxObj>() == 8);
 };
 
-#[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct Max {
-    base: ObjectArc<MaxObj>,
-}
-
 impl Deref for MaxObj {
     type Target = ExprObj;
     fn deref(&self) -> &ExprObj {
-        &self.base
+        &self.base_
     }
 }
 
 #[allow(missing_docs)]
 impl MaxObj {
     pub(crate) fn new(loc: Location, ty: PrimType, a: PrimExpr, b: PrimExpr) -> Self {
-        let base = ExprObj::new(loc, ty.into());
-        Self { base, a, b }
+        let base_ = ExprObj::new(loc, ty.into());
+        Self { base_, a, b }
     }
 }
 
@@ -1294,7 +1321,7 @@ impl Max {
         b: impl Into<PrimExpr>,
     ) -> Self {
         let obj = MaxObj::new(loc.into(), ty.into(), a.into(), b.into());
-        Self { base: ObjectArc::new(obj) }
+        Self { data_: ObjectArc::new(obj) }
     }
 }
 
@@ -1312,6 +1339,15 @@ binary_new! {
 // Comparisons
 
 // tvm-ffi-stubgen(begin): object/prim.EQ
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct EQ {
+    data_: ObjectArc<EQObj>,
+}
+
+/// The object behind [`EQ`].
+///
 /// Complete: reflected fields fill [40, 56) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
@@ -1319,7 +1355,7 @@ binary_new! {
 #[type_key = "prim.EQ"]
 #[type_final]
 pub struct EQObj {
-    base: ExprObj,
+    base_: ExprObj,
     pub a: PrimExpr,
     pub b: PrimExpr,
 }
@@ -1329,25 +1365,18 @@ const _: () = {
     assert!(::core::mem::align_of::<EQObj>() == 8);
 };
 
-#[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct EQ {
-    base: ObjectArc<EQObj>,
-}
-
 impl Deref for EQObj {
     type Target = ExprObj;
     fn deref(&self) -> &ExprObj {
-        &self.base
+        &self.base_
     }
 }
 
 #[allow(missing_docs)]
 impl EQObj {
     pub(crate) fn new(loc: Location, ty: PrimType, a: PrimExpr, b: PrimExpr) -> Self {
-        let base = ExprObj::new(loc, ty.into());
-        Self { base, a, b }
+        let base_ = ExprObj::new(loc, ty.into());
+        Self { base_, a, b }
     }
 }
 
@@ -1361,7 +1390,7 @@ impl EQ {
         b: impl Into<PrimExpr>,
     ) -> Self {
         let obj = EQObj::new(loc.into(), ty.into(), a.into(), b.into());
-        Self { base: ObjectArc::new(obj) }
+        Self { data_: ObjectArc::new(obj) }
     }
 }
 
@@ -1377,6 +1406,15 @@ binary_new! {
 }
 
 // tvm-ffi-stubgen(begin): object/prim.NE
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct NE {
+    data_: ObjectArc<NEObj>,
+}
+
+/// The object behind [`NE`].
+///
 /// Complete: reflected fields fill [40, 56) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
@@ -1384,7 +1422,7 @@ binary_new! {
 #[type_key = "prim.NE"]
 #[type_final]
 pub struct NEObj {
-    base: ExprObj,
+    base_: ExprObj,
     pub a: PrimExpr,
     pub b: PrimExpr,
 }
@@ -1394,25 +1432,18 @@ const _: () = {
     assert!(::core::mem::align_of::<NEObj>() == 8);
 };
 
-#[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct NE {
-    base: ObjectArc<NEObj>,
-}
-
 impl Deref for NEObj {
     type Target = ExprObj;
     fn deref(&self) -> &ExprObj {
-        &self.base
+        &self.base_
     }
 }
 
 #[allow(missing_docs)]
 impl NEObj {
     pub(crate) fn new(loc: Location, ty: PrimType, a: PrimExpr, b: PrimExpr) -> Self {
-        let base = ExprObj::new(loc, ty.into());
-        Self { base, a, b }
+        let base_ = ExprObj::new(loc, ty.into());
+        Self { base_, a, b }
     }
 }
 
@@ -1426,7 +1457,7 @@ impl NE {
         b: impl Into<PrimExpr>,
     ) -> Self {
         let obj = NEObj::new(loc.into(), ty.into(), a.into(), b.into());
-        Self { base: ObjectArc::new(obj) }
+        Self { data_: ObjectArc::new(obj) }
     }
 }
 
@@ -1442,6 +1473,15 @@ binary_new! {
 }
 
 // tvm-ffi-stubgen(begin): object/prim.LT
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct LT {
+    data_: ObjectArc<LTObj>,
+}
+
+/// The object behind [`LT`].
+///
 /// Complete: reflected fields fill [40, 56) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
@@ -1449,7 +1489,7 @@ binary_new! {
 #[type_key = "prim.LT"]
 #[type_final]
 pub struct LTObj {
-    base: ExprObj,
+    base_: ExprObj,
     pub a: PrimExpr,
     pub b: PrimExpr,
 }
@@ -1459,25 +1499,18 @@ const _: () = {
     assert!(::core::mem::align_of::<LTObj>() == 8);
 };
 
-#[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct LT {
-    base: ObjectArc<LTObj>,
-}
-
 impl Deref for LTObj {
     type Target = ExprObj;
     fn deref(&self) -> &ExprObj {
-        &self.base
+        &self.base_
     }
 }
 
 #[allow(missing_docs)]
 impl LTObj {
     pub(crate) fn new(loc: Location, ty: PrimType, a: PrimExpr, b: PrimExpr) -> Self {
-        let base = ExprObj::new(loc, ty.into());
-        Self { base, a, b }
+        let base_ = ExprObj::new(loc, ty.into());
+        Self { base_, a, b }
     }
 }
 
@@ -1491,7 +1524,7 @@ impl LT {
         b: impl Into<PrimExpr>,
     ) -> Self {
         let obj = LTObj::new(loc.into(), ty.into(), a.into(), b.into());
-        Self { base: ObjectArc::new(obj) }
+        Self { data_: ObjectArc::new(obj) }
     }
 }
 
@@ -1507,6 +1540,15 @@ binary_new! {
 }
 
 // tvm-ffi-stubgen(begin): object/prim.LE
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct LE {
+    data_: ObjectArc<LEObj>,
+}
+
+/// The object behind [`LE`].
+///
 /// Complete: reflected fields fill [40, 56) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
@@ -1514,7 +1556,7 @@ binary_new! {
 #[type_key = "prim.LE"]
 #[type_final]
 pub struct LEObj {
-    base: ExprObj,
+    base_: ExprObj,
     pub a: PrimExpr,
     pub b: PrimExpr,
 }
@@ -1524,25 +1566,18 @@ const _: () = {
     assert!(::core::mem::align_of::<LEObj>() == 8);
 };
 
-#[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct LE {
-    base: ObjectArc<LEObj>,
-}
-
 impl Deref for LEObj {
     type Target = ExprObj;
     fn deref(&self) -> &ExprObj {
-        &self.base
+        &self.base_
     }
 }
 
 #[allow(missing_docs)]
 impl LEObj {
     pub(crate) fn new(loc: Location, ty: PrimType, a: PrimExpr, b: PrimExpr) -> Self {
-        let base = ExprObj::new(loc, ty.into());
-        Self { base, a, b }
+        let base_ = ExprObj::new(loc, ty.into());
+        Self { base_, a, b }
     }
 }
 
@@ -1556,7 +1591,7 @@ impl LE {
         b: impl Into<PrimExpr>,
     ) -> Self {
         let obj = LEObj::new(loc.into(), ty.into(), a.into(), b.into());
-        Self { base: ObjectArc::new(obj) }
+        Self { data_: ObjectArc::new(obj) }
     }
 }
 
@@ -1572,6 +1607,15 @@ binary_new! {
 }
 
 // tvm-ffi-stubgen(begin): object/prim.GT
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct GT {
+    data_: ObjectArc<GTObj>,
+}
+
+/// The object behind [`GT`].
+///
 /// Complete: reflected fields fill [40, 56) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
@@ -1579,7 +1623,7 @@ binary_new! {
 #[type_key = "prim.GT"]
 #[type_final]
 pub struct GTObj {
-    base: ExprObj,
+    base_: ExprObj,
     pub a: PrimExpr,
     pub b: PrimExpr,
 }
@@ -1589,25 +1633,18 @@ const _: () = {
     assert!(::core::mem::align_of::<GTObj>() == 8);
 };
 
-#[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct GT {
-    base: ObjectArc<GTObj>,
-}
-
 impl Deref for GTObj {
     type Target = ExprObj;
     fn deref(&self) -> &ExprObj {
-        &self.base
+        &self.base_
     }
 }
 
 #[allow(missing_docs)]
 impl GTObj {
     pub(crate) fn new(loc: Location, ty: PrimType, a: PrimExpr, b: PrimExpr) -> Self {
-        let base = ExprObj::new(loc, ty.into());
-        Self { base, a, b }
+        let base_ = ExprObj::new(loc, ty.into());
+        Self { base_, a, b }
     }
 }
 
@@ -1621,7 +1658,7 @@ impl GT {
         b: impl Into<PrimExpr>,
     ) -> Self {
         let obj = GTObj::new(loc.into(), ty.into(), a.into(), b.into());
-        Self { base: ObjectArc::new(obj) }
+        Self { data_: ObjectArc::new(obj) }
     }
 }
 
@@ -1637,6 +1674,15 @@ binary_new! {
 }
 
 // tvm-ffi-stubgen(begin): object/prim.GE
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct GE {
+    data_: ObjectArc<GEObj>,
+}
+
+/// The object behind [`GE`].
+///
 /// Complete: reflected fields fill [40, 56) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
@@ -1644,7 +1690,7 @@ binary_new! {
 #[type_key = "prim.GE"]
 #[type_final]
 pub struct GEObj {
-    base: ExprObj,
+    base_: ExprObj,
     pub a: PrimExpr,
     pub b: PrimExpr,
 }
@@ -1654,25 +1700,18 @@ const _: () = {
     assert!(::core::mem::align_of::<GEObj>() == 8);
 };
 
-#[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct GE {
-    base: ObjectArc<GEObj>,
-}
-
 impl Deref for GEObj {
     type Target = ExprObj;
     fn deref(&self) -> &ExprObj {
-        &self.base
+        &self.base_
     }
 }
 
 #[allow(missing_docs)]
 impl GEObj {
     pub(crate) fn new(loc: Location, ty: PrimType, a: PrimExpr, b: PrimExpr) -> Self {
-        let base = ExprObj::new(loc, ty.into());
-        Self { base, a, b }
+        let base_ = ExprObj::new(loc, ty.into());
+        Self { base_, a, b }
     }
 }
 
@@ -1686,7 +1725,7 @@ impl GE {
         b: impl Into<PrimExpr>,
     ) -> Self {
         let obj = GEObj::new(loc.into(), ty.into(), a.into(), b.into());
-        Self { base: ObjectArc::new(obj) }
+        Self { data_: ObjectArc::new(obj) }
     }
 }
 
@@ -1705,6 +1744,15 @@ binary_new! {
 // Logical operations
 
 // tvm-ffi-stubgen(begin): object/prim.And
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct And {
+    data_: ObjectArc<AndObj>,
+}
+
+/// The object behind [`And`].
+///
 /// Complete: reflected fields fill [40, 56) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
@@ -1712,7 +1760,7 @@ binary_new! {
 #[type_key = "prim.And"]
 #[type_final]
 pub struct AndObj {
-    base: ExprObj,
+    base_: ExprObj,
     pub a: PrimExpr,
     pub b: PrimExpr,
 }
@@ -1722,25 +1770,18 @@ const _: () = {
     assert!(::core::mem::align_of::<AndObj>() == 8);
 };
 
-#[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct And {
-    base: ObjectArc<AndObj>,
-}
-
 impl Deref for AndObj {
     type Target = ExprObj;
     fn deref(&self) -> &ExprObj {
-        &self.base
+        &self.base_
     }
 }
 
 #[allow(missing_docs)]
 impl AndObj {
     pub(crate) fn new(loc: Location, ty: PrimType, a: PrimExpr, b: PrimExpr) -> Self {
-        let base = ExprObj::new(loc, ty.into());
-        Self { base, a, b }
+        let base_ = ExprObj::new(loc, ty.into());
+        Self { base_, a, b }
     }
 }
 
@@ -1754,7 +1795,7 @@ impl And {
         b: impl Into<PrimExpr>,
     ) -> Self {
         let obj = AndObj::new(loc.into(), ty.into(), a.into(), b.into());
-        Self { base: ObjectArc::new(obj) }
+        Self { data_: ObjectArc::new(obj) }
     }
 }
 
@@ -1782,6 +1823,15 @@ impl And {
 }
 
 // tvm-ffi-stubgen(begin): object/prim.Or
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct Or {
+    data_: ObjectArc<OrObj>,
+}
+
+/// The object behind [`Or`].
+///
 /// Complete: reflected fields fill [40, 56) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
@@ -1789,7 +1839,7 @@ impl And {
 #[type_key = "prim.Or"]
 #[type_final]
 pub struct OrObj {
-    base: ExprObj,
+    base_: ExprObj,
     pub a: PrimExpr,
     pub b: PrimExpr,
 }
@@ -1799,25 +1849,18 @@ const _: () = {
     assert!(::core::mem::align_of::<OrObj>() == 8);
 };
 
-#[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct Or {
-    base: ObjectArc<OrObj>,
-}
-
 impl Deref for OrObj {
     type Target = ExprObj;
     fn deref(&self) -> &ExprObj {
-        &self.base
+        &self.base_
     }
 }
 
 #[allow(missing_docs)]
 impl OrObj {
     pub(crate) fn new(loc: Location, ty: PrimType, a: PrimExpr, b: PrimExpr) -> Self {
-        let base = ExprObj::new(loc, ty.into());
-        Self { base, a, b }
+        let base_ = ExprObj::new(loc, ty.into());
+        Self { base_, a, b }
     }
 }
 
@@ -1831,7 +1874,7 @@ impl Or {
         b: impl Into<PrimExpr>,
     ) -> Self {
         let obj = OrObj::new(loc.into(), ty.into(), a.into(), b.into());
-        Self { base: ObjectArc::new(obj) }
+        Self { data_: ObjectArc::new(obj) }
     }
 }
 
@@ -1859,6 +1902,15 @@ impl Or {
 }
 
 // tvm-ffi-stubgen(begin): object/prim.Not
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct Not {
+    data_: ObjectArc<NotObj>,
+}
+
+/// The object behind [`Not`].
+///
 /// Complete: reflected fields fill [40, 48) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
@@ -1866,7 +1918,7 @@ impl Or {
 #[type_key = "prim.Not"]
 #[type_final]
 pub struct NotObj {
-    base: ExprObj,
+    base_: ExprObj,
     pub a: PrimExpr,
 }
 
@@ -1875,25 +1927,18 @@ const _: () = {
     assert!(::core::mem::align_of::<NotObj>() == 8);
 };
 
-#[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct Not {
-    base: ObjectArc<NotObj>,
-}
-
 impl Deref for NotObj {
     type Target = ExprObj;
     fn deref(&self) -> &ExprObj {
-        &self.base
+        &self.base_
     }
 }
 
 #[allow(missing_docs)]
 impl NotObj {
     pub(crate) fn new(loc: Location, ty: PrimType, a: PrimExpr) -> Self {
-        let base = ExprObj::new(loc, ty.into());
-        Self { base, a }
+        let base_ = ExprObj::new(loc, ty.into());
+        Self { base_, a }
     }
 }
 
@@ -1906,7 +1951,7 @@ impl Not {
         a: impl Into<PrimExpr>,
     ) -> Self {
         let obj = NotObj::new(loc.into(), ty.into(), a.into());
-        Self { base: ObjectArc::new(obj) }
+        Self { data_: ObjectArc::new(obj) }
     }
 }
 
@@ -1935,6 +1980,15 @@ impl Not {
 // `Select` and `Let`
 
 // tvm-ffi-stubgen(begin): object/prim.Select
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct Select {
+    data_: ObjectArc<SelectObj>,
+}
+
+/// The object behind [`Select`].
+///
 /// Complete: reflected fields fill [40, 64) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
@@ -1942,7 +1996,7 @@ impl Not {
 #[type_key = "prim.Select"]
 #[type_final]
 pub struct SelectObj {
-    base: ExprObj,
+    base_: ExprObj,
     pub condition: PrimExpr,
     pub true_value: PrimExpr,
     pub false_value: PrimExpr,
@@ -1953,17 +2007,10 @@ const _: () = {
     assert!(::core::mem::align_of::<SelectObj>() == 8);
 };
 
-#[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct Select {
-    base: ObjectArc<SelectObj>,
-}
-
 impl Deref for SelectObj {
     type Target = ExprObj;
     fn deref(&self) -> &ExprObj {
-        &self.base
+        &self.base_
     }
 }
 
@@ -1976,8 +2023,8 @@ impl SelectObj {
         true_value: PrimExpr,
         false_value: PrimExpr,
     ) -> Self {
-        let base = ExprObj::new(loc, ty.into());
-        Self { base, condition, true_value, false_value }
+        let base_ = ExprObj::new(loc, ty.into());
+        Self { base_, condition, true_value, false_value }
     }
 }
 
@@ -1998,7 +2045,7 @@ impl Select {
             true_value.into(),
             false_value.into(),
         );
-        Self { base: ObjectArc::new(obj) }
+        Self { data_: ObjectArc::new(obj) }
     }
 }
 
@@ -2062,6 +2109,15 @@ impl Select {
 }
 
 // tvm-ffi-stubgen(begin): object/prim.Let
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct Let {
+    data_: ObjectArc<LetObj>,
+}
+
+/// The object behind [`Let`].
+///
 /// Complete: reflected fields fill [40, 64) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
@@ -2069,7 +2125,7 @@ impl Select {
 #[type_key = "prim.Let"]
 #[type_final]
 pub struct LetObj {
-    base: ExprObj,
+    base_: ExprObj,
     pub var: Var,
     pub value: PrimExpr,
     pub body: PrimExpr,
@@ -2080,17 +2136,10 @@ const _: () = {
     assert!(::core::mem::align_of::<LetObj>() == 8);
 };
 
-#[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct Let {
-    base: ObjectArc<LetObj>,
-}
-
 impl Deref for LetObj {
     type Target = ExprObj;
     fn deref(&self) -> &ExprObj {
-        &self.base
+        &self.base_
     }
 }
 
@@ -2103,8 +2152,8 @@ impl LetObj {
         value: PrimExpr,
         body: PrimExpr,
     ) -> Self {
-        let base = ExprObj::new(loc, ty.into());
-        Self { base, var, value, body }
+        let base_ = ExprObj::new(loc, ty.into());
+        Self { base_, var, value, body }
     }
 }
 
@@ -2119,7 +2168,7 @@ impl Let {
         body: impl Into<PrimExpr>,
     ) -> Self {
         let obj = LetObj::new(loc.into(), ty.into(), var.into(), value.into(), body.into());
-        Self { base: ObjectArc::new(obj) }
+        Self { data_: ObjectArc::new(obj) }
     }
 }
 

@@ -40,7 +40,7 @@ use crate::sym::ConstraintContext;
 /// one, so it requires the matching native build.
 #[repr(C)]
 pub struct StructuralVisitorWithConstraintContextBase {
-    base: StructuralVisitorObj,
+    base_: StructuralVisitorObj,
     constraints: UnsafeCell<ConstraintContext>,
     needs_child_context: UnsafeCell<bool>,
 }
@@ -72,7 +72,7 @@ impl StructuralVisitorWithConstraintContextBase {
 unsafe impl StructuralVisitorBase for StructuralVisitorWithConstraintContextBase {
     fn new() -> Result<Self> {
         Ok(Self {
-            base: StructuralVisitorObj::default(),
+            base_: StructuralVisitorObj::default(),
             constraints: UnsafeCell::new(ConstraintContext::new()),
             needs_child_context: UnsafeCell::new(false),
         })

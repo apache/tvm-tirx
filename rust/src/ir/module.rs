@@ -46,6 +46,8 @@
 // `custom-new` reserves `new` for the C++ constructor, which derives the global variable map; the
 // generated `from_fields` allocates the fields as given.
 // tvm-ffi-stubgen(custom-new): ir.IRModule
+// The name index is internal: C++ registers it with the trailing `_` of a private member.
+// tvm-ffi-stubgen(visibility): ir.IRModule.global_var_map_ -> pub(crate)
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
 // tvm-ffi-stubgen(import-object): tvm_ffi::Any
@@ -76,6 +78,15 @@ use tvm_ffi::String;
 // tvm-ffi-stubgen(end)
 
 // tvm-ffi-stubgen(begin): object/ir.IRModule
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct IRModule {
+    data_: ObjectArc<IRModuleObj>,
+}
+
+/// The object behind [`IRModule`].
+///
 /// Complete: reflected fields fill [24, 56) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
@@ -83,11 +94,11 @@ use tvm_ffi::String;
 #[type_key = "ir.IRModule"]
 #[type_final]
 pub struct IRModuleObj {
-    base: Object,
+    base_: Object,
     pub functions: Map<GlobalVar, BaseFunc>,
     pub attrs: DictAttrs,
     pub global_infos: Map<String, Array<GlobalInfo>>,
-    pub global_var_map: Map<String, GlobalVar>,
+    pub(crate) global_var_map_: Map<String, GlobalVar>,
 }
 
 const _: () = {
@@ -96,22 +107,15 @@ const _: () = {
 };
 
 #[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct IRModule {
-    base: ObjectArc<IRModuleObj>,
-}
-
-#[allow(missing_docs)]
 impl IRModuleObj {
     pub(crate) fn new(
         functions: Map<GlobalVar, BaseFunc>,
         attrs: DictAttrs,
         global_infos: Map<String, Array<GlobalInfo>>,
-        global_var_map: Map<String, GlobalVar>,
+        global_var_map_: Map<String, GlobalVar>,
     ) -> Self {
-        let base = Object::new();
-        Self { base, functions, attrs, global_infos, global_var_map }
+        let base_ = Object::new();
+        Self { base_, functions, attrs, global_infos, global_var_map_ }
     }
 }
 
@@ -122,15 +126,15 @@ impl IRModule {
         functions: impl Into<Map<GlobalVar, BaseFunc>>,
         attrs: impl Into<DictAttrs>,
         global_infos: impl Into<Map<String, Array<GlobalInfo>>>,
-        global_var_map: impl Into<Map<String, GlobalVar>>,
+        global_var_map_: impl Into<Map<String, GlobalVar>>,
     ) -> Self {
         let obj = IRModuleObj::new(
             functions.into(),
             attrs.into(),
             global_infos.into(),
-            global_var_map.into(),
+            global_var_map_.into(),
         );
-        Self { base: ObjectArc::new(obj) }
+        Self { data_: ObjectArc::new(obj) }
     }
 }
 // tvm-ffi-stubgen(end)

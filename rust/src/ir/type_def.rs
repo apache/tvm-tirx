@@ -44,7 +44,7 @@ use super::support;
 ///
 /// #[rs_object("my_ext.PairType", final)]
 /// pub struct PairTypeObj {
-///     base: TypeObj,
+///     base_: TypeObj,
 ///     pub first: Type,
 ///     #[reflect(kw_only)]
 ///     pub second: Type,
@@ -52,7 +52,7 @@ use super::support;
 /// #[derive(Clone, tvm_ffi::derive::ObjectRef)]
 /// #[object_ref(parent = Type)]
 /// pub struct PairType {
-///     data: tvm_ffi::ObjectArc<PairTypeObj>,
+///     data_: tvm_ffi::ObjectArc<PairTypeObj>,
 /// }
 ///
 /// impl PairType {

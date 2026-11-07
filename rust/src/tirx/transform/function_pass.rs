@@ -72,6 +72,15 @@ use tvm_ffi::Result;
 // tvm-ffi-stubgen(end)
 
 // tvm-ffi-stubgen(begin): object/tirx.FunctionPass
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct FunctionPass {
+    data_: ObjectArc<FunctionPassObj>,
+}
+
+/// The object behind [`FunctionPass`].
+///
 /// Opaque: parent 'transform.Pass' is opaque (layout-unknown). Fields are read through the C ABI getters.
 #[allow(missing_docs)]
 #[repr(C)]
@@ -79,20 +88,13 @@ use tvm_ffi::Result;
 #[type_key = "tirx.FunctionPass"]
 #[type_final]
 pub struct FunctionPassObj {
-    base: PassObj,
-}
-
-#[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct FunctionPass {
-    base: ObjectArc<FunctionPassObj>,
+    base_: PassObj,
 }
 
 impl Deref for FunctionPassObj {
     type Target = PassObj;
     fn deref(&self) -> &PassObj {
-        &self.base
+        &self.base_
     }
 }
 

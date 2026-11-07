@@ -55,6 +55,15 @@ use tvm_ffi::String;
 // tvm-ffi-stubgen(end)
 
 // tvm-ffi-stubgen(begin): object/tirx.tensor.ScopeAttrs
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct ScopeAttrs {
+    data_: ObjectArc<ScopeAttrsObj>,
+}
+
+/// The object behind [`ScopeAttrs`].
+///
 /// Complete: reflected fields fill [24, 32) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
@@ -62,7 +71,7 @@ use tvm_ffi::String;
 #[type_key = "tirx.tensor.ScopeAttrs"]
 #[type_final]
 pub struct ScopeAttrsObj {
-    base: AttrsObj,
+    base_: AttrsObj,
     pub scope: ThreadScope,
 }
 
@@ -71,25 +80,18 @@ const _: () = {
     assert!(::core::mem::align_of::<ScopeAttrsObj>() == 8);
 };
 
-#[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct ScopeAttrs {
-    base: ObjectArc<ScopeAttrsObj>,
-}
-
 impl Deref for ScopeAttrsObj {
     type Target = AttrsObj;
     fn deref(&self) -> &AttrsObj {
-        &self.base
+        &self.base_
     }
 }
 
 #[allow(missing_docs)]
 impl ScopeAttrsObj {
     pub(crate) fn new(scope: ThreadScope) -> Self {
-        let base = AttrsObj::new();
-        Self { base, scope }
+        let base_ = AttrsObj::new();
+        Self { base_, scope }
     }
 }
 
@@ -98,7 +100,7 @@ impl ScopeAttrs {
     /// Lossless complete-field allocation.
     pub fn new(scope: impl Into<ThreadScope>) -> Self {
         let obj = ScopeAttrsObj::new(scope.into());
-        Self { base: ObjectArc::new(obj) }
+        Self { data_: ObjectArc::new(obj) }
     }
 }
 
@@ -108,6 +110,15 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(ScopeAttrs => Attrs);
 // tvm-ffi-stubgen(end)
 
 // tvm-ffi-stubgen(begin): object/tirx.tensor.TrnAttrs
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct TrnAttrs {
+    data_: ObjectArc<TrnAttrsObj>,
+}
+
+/// The object behind [`TrnAttrs`].
+///
 /// Complete: reflected fields fill [24, 128) exactly (alignment padding [122, 128)).
 #[allow(missing_docs)]
 #[repr(C)]
@@ -115,7 +126,7 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(ScopeAttrs => Attrs);
 #[type_key = "tirx.tensor.TrnAttrs"]
 #[type_final]
 pub struct TrnAttrsObj {
-    base: AttrsObj,
+    base_: AttrsObj,
     pub scope: ThreadScope,
     pub max_inst_size: Optional<i64>,
     pub opcode: String,
@@ -132,17 +143,10 @@ const _: () = {
     assert!(::core::mem::align_of::<TrnAttrsObj>() == 8);
 };
 
-#[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct TrnAttrs {
-    base: ObjectArc<TrnAttrsObj>,
-}
-
 impl Deref for TrnAttrsObj {
     type Target = AttrsObj;
     fn deref(&self) -> &AttrsObj {
-        &self.base
+        &self.base_
     }
 }
 
@@ -159,8 +163,8 @@ impl TrnAttrsObj {
         negate: bool,
         reverse1: bool,
     ) -> Self {
-        let base = AttrsObj::new();
-        Self { base, scope, max_inst_size, opcode, reduce_op, op0, op1, axes, negate, reverse1 }
+        let base_ = AttrsObj::new();
+        Self { base_, scope, max_inst_size, opcode, reduce_op, op0, op1, axes, negate, reverse1 }
     }
 }
 
@@ -189,7 +193,7 @@ impl TrnAttrs {
             negate,
             reverse1,
         );
-        Self { base: ObjectArc::new(obj) }
+        Self { data_: ObjectArc::new(obj) }
     }
 }
 

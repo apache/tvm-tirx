@@ -85,13 +85,22 @@ use tvm_ffi::reflection::drop_if_defined;
 // tvm-ffi-stubgen(end)
 
 // tvm-ffi-stubgen(begin): object/ir.Type
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct Type {
+    data_: ObjectArc<TypeObj>,
+}
+
+/// The object behind [`Type`].
+///
 /// Complete: reflected fields fill [24, 32) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.Type"]
 pub struct TypeObj {
-    base: Object,
+    base_: Object,
     pub loc: Location,
 }
 
@@ -101,17 +110,10 @@ const _: () = {
 };
 
 #[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct Type {
-    base: ObjectArc<TypeObj>,
-}
-
-#[allow(missing_docs)]
 impl TypeObj {
     pub fn new(loc: Location) -> Self {
-        let base = Object::new();
-        Self { base, loc }
+        let base_ = Object::new();
+        Self { base_, loc }
     }
 }
 
@@ -120,20 +122,20 @@ impl Type {
     /// Lossless complete-field allocation.
     pub fn new(loc: impl Into<Location>) -> Self {
         let obj = TypeObj::new(loc.into());
-        Self { base: ObjectArc::new(obj) }
+        Self { data_: ObjectArc::new(obj) }
     }
 }
 
 impl ShallowCopy for TypeObj {
     fn shallow_copy(&self) -> Self {
-        Self { base: ShallowCopy::shallow_copy(&self.base), loc: Clone::clone(&self.loc) }
+        Self { base_: ShallowCopy::shallow_copy(&self.base_), loc: Clone::clone(&self.loc) }
     }
 }
 
 unsafe impl UnsafeInit for TypeObj {
     unsafe fn drop_defined_fields(this: *mut Self) {
         unsafe {
-            UnsafeInit::drop_defined_fields(addr_of_mut!((*this).base));
+            UnsafeInit::drop_defined_fields(addr_of_mut!((*this).base_));
             drop_if_defined(addr_of_mut!((*this).loc));
         }
     }
@@ -143,6 +145,15 @@ unsafe impl tvm_ffi::object::ImmutableObject for TypeObj {}
 // tvm-ffi-stubgen(end)
 
 // tvm-ffi-stubgen(begin): object/ir.MissingType
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct MissingType {
+    data_: ObjectArc<MissingTypeObj>,
+}
+
+/// The object behind [`MissingType`].
+///
 /// Complete: reflected fields fill [32, 32) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
@@ -150,7 +161,7 @@ unsafe impl tvm_ffi::object::ImmutableObject for TypeObj {}
 #[type_key = "ir.MissingType"]
 #[type_final]
 pub struct MissingTypeObj {
-    base: TypeObj,
+    base_: TypeObj,
 }
 
 const _: () = {
@@ -158,25 +169,18 @@ const _: () = {
     assert!(::core::mem::align_of::<MissingTypeObj>() == 8);
 };
 
-#[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct MissingType {
-    base: ObjectArc<MissingTypeObj>,
-}
-
 impl Deref for MissingTypeObj {
     type Target = TypeObj;
     fn deref(&self) -> &TypeObj {
-        &self.base
+        &self.base_
     }
 }
 
 #[allow(missing_docs)]
 impl MissingTypeObj {
     pub(crate) fn new(loc: Location) -> Self {
-        let base = TypeObj::new(loc);
-        Self { base }
+        let base_ = TypeObj::new(loc);
+        Self { base_ }
     }
 }
 
@@ -185,7 +189,7 @@ impl MissingType {
     /// Lossless complete-field allocation.
     pub fn from_fields(loc: impl Into<Location>) -> Self {
         let obj = MissingTypeObj::new(loc.into());
-        Self { base: ObjectArc::new(obj) }
+        Self { data_: ObjectArc::new(obj) }
     }
 }
 
@@ -210,6 +214,15 @@ impl MissingType {
 }
 
 // tvm-ffi-stubgen(begin): object/ir.NoneType
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct NoneType {
+    data_: ObjectArc<NoneTypeObj>,
+}
+
+/// The object behind [`NoneType`].
+///
 /// Complete: reflected fields fill [32, 32) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
@@ -217,7 +230,7 @@ impl MissingType {
 #[type_key = "ir.NoneType"]
 #[type_final]
 pub struct NoneTypeObj {
-    base: TypeObj,
+    base_: TypeObj,
 }
 
 const _: () = {
@@ -225,25 +238,18 @@ const _: () = {
     assert!(::core::mem::align_of::<NoneTypeObj>() == 8);
 };
 
-#[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct NoneType {
-    base: ObjectArc<NoneTypeObj>,
-}
-
 impl Deref for NoneTypeObj {
     type Target = TypeObj;
     fn deref(&self) -> &TypeObj {
-        &self.base
+        &self.base_
     }
 }
 
 #[allow(missing_docs)]
 impl NoneTypeObj {
     pub(crate) fn new(loc: Location) -> Self {
-        let base = TypeObj::new(loc);
-        Self { base }
+        let base_ = TypeObj::new(loc);
+        Self { base_ }
     }
 }
 
@@ -252,7 +258,7 @@ impl NoneType {
     /// Lossless complete-field allocation.
     pub fn from_fields(loc: impl Into<Location>) -> Self {
         let obj = NoneTypeObj::new(loc.into());
-        Self { base: ObjectArc::new(obj) }
+        Self { data_: ObjectArc::new(obj) }
     }
 }
 
@@ -276,6 +282,15 @@ impl NoneType {
 }
 
 // tvm-ffi-stubgen(begin): object/ir.AnyType
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct AnyType {
+    data_: ObjectArc<AnyTypeObj>,
+}
+
+/// The object behind [`AnyType`].
+///
 /// Complete: reflected fields fill [32, 32) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
@@ -283,7 +298,7 @@ impl NoneType {
 #[type_key = "ir.AnyType"]
 #[type_final]
 pub struct AnyTypeObj {
-    base: TypeObj,
+    base_: TypeObj,
 }
 
 const _: () = {
@@ -291,25 +306,18 @@ const _: () = {
     assert!(::core::mem::align_of::<AnyTypeObj>() == 8);
 };
 
-#[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct AnyType {
-    base: ObjectArc<AnyTypeObj>,
-}
-
 impl Deref for AnyTypeObj {
     type Target = TypeObj;
     fn deref(&self) -> &TypeObj {
-        &self.base
+        &self.base_
     }
 }
 
 #[allow(missing_docs)]
 impl AnyTypeObj {
     pub(crate) fn new(loc: Location) -> Self {
-        let base = TypeObj::new(loc);
-        Self { base }
+        let base_ = TypeObj::new(loc);
+        Self { base_ }
     }
 }
 
@@ -318,7 +326,7 @@ impl AnyType {
     /// Lossless complete-field allocation.
     pub fn new(loc: impl Into<Location>) -> Self {
         let obj = AnyTypeObj::new(loc.into());
-        Self { base: ObjectArc::new(obj) }
+        Self { data_: ObjectArc::new(obj) }
     }
 }
 
@@ -330,6 +338,15 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(AnyType => Type);
 // `ir.AnyType` stores its location as given: the generated `AnyType::new` is the same.
 
 // tvm-ffi-stubgen(begin): object/ir.TensorRegionType
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct TensorRegionType {
+    data_: ObjectArc<TensorRegionTypeObj>,
+}
+
+/// The object behind [`TensorRegionType`].
+///
 /// Complete: reflected fields fill [32, 32) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
@@ -337,7 +354,7 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(AnyType => Type);
 #[type_key = "ir.TensorRegionType"]
 #[type_final]
 pub struct TensorRegionTypeObj {
-    base: TypeObj,
+    base_: TypeObj,
 }
 
 const _: () = {
@@ -345,25 +362,18 @@ const _: () = {
     assert!(::core::mem::align_of::<TensorRegionTypeObj>() == 8);
 };
 
-#[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct TensorRegionType {
-    base: ObjectArc<TensorRegionTypeObj>,
-}
-
 impl Deref for TensorRegionTypeObj {
     type Target = TypeObj;
     fn deref(&self) -> &TypeObj {
-        &self.base
+        &self.base_
     }
 }
 
 #[allow(missing_docs)]
 impl TensorRegionTypeObj {
     pub(crate) fn new(loc: Location) -> Self {
-        let base = TypeObj::new(loc);
-        Self { base }
+        let base_ = TypeObj::new(loc);
+        Self { base_ }
     }
 }
 
@@ -372,7 +382,7 @@ impl TensorRegionType {
     /// Lossless complete-field allocation.
     pub fn from_fields(loc: impl Into<Location>) -> Self {
         let obj = TensorRegionTypeObj::new(loc.into());
-        Self { base: ObjectArc::new(obj) }
+        Self { data_: ObjectArc::new(obj) }
     }
 }
 
@@ -397,6 +407,15 @@ impl TensorRegionType {
 }
 
 // tvm-ffi-stubgen(begin): object/ir.OpaqueType
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct OpaqueType {
+    data_: ObjectArc<OpaqueTypeObj>,
+}
+
+/// The object behind [`OpaqueType`].
+///
 /// Complete: reflected fields fill [32, 32) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
@@ -404,7 +423,7 @@ impl TensorRegionType {
 #[type_key = "ir.OpaqueType"]
 #[type_final]
 pub struct OpaqueTypeObj {
-    base: TypeObj,
+    base_: TypeObj,
 }
 
 const _: () = {
@@ -412,25 +431,18 @@ const _: () = {
     assert!(::core::mem::align_of::<OpaqueTypeObj>() == 8);
 };
 
-#[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct OpaqueType {
-    base: ObjectArc<OpaqueTypeObj>,
-}
-
 impl Deref for OpaqueTypeObj {
     type Target = TypeObj;
     fn deref(&self) -> &TypeObj {
-        &self.base
+        &self.base_
     }
 }
 
 #[allow(missing_docs)]
 impl OpaqueTypeObj {
     pub(crate) fn new(loc: Location) -> Self {
-        let base = TypeObj::new(loc);
-        Self { base }
+        let base_ = TypeObj::new(loc);
+        Self { base_ }
     }
 }
 
@@ -439,7 +451,7 @@ impl OpaqueType {
     /// Lossless complete-field allocation.
     pub fn from_fields(loc: impl Into<Location>) -> Self {
         let obj = OpaqueTypeObj::new(loc.into());
-        Self { base: ObjectArc::new(obj) }
+        Self { data_: ObjectArc::new(obj) }
     }
 }
 
@@ -458,6 +470,15 @@ impl OpaqueType {
 }
 
 // tvm-ffi-stubgen(begin): object/ir.PrimType
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct PrimType {
+    data_: ObjectArc<PrimTypeObj>,
+}
+
+/// The object behind [`PrimType`].
+///
 /// Complete: reflected fields fill [32, 40) exactly (alignment padding [36, 40)).
 #[allow(missing_docs)]
 #[repr(C)]
@@ -465,7 +486,7 @@ impl OpaqueType {
 #[type_key = "ir.PrimType"]
 #[type_final]
 pub struct PrimTypeObj {
-    base: TypeObj,
+    base_: TypeObj,
     pub dtype: DLDataType,
 }
 
@@ -474,25 +495,18 @@ const _: () = {
     assert!(::core::mem::align_of::<PrimTypeObj>() == 8);
 };
 
-#[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct PrimType {
-    base: ObjectArc<PrimTypeObj>,
-}
-
 impl Deref for PrimTypeObj {
     type Target = TypeObj;
     fn deref(&self) -> &TypeObj {
-        &self.base
+        &self.base_
     }
 }
 
 #[allow(missing_docs)]
 impl PrimTypeObj {
     pub(crate) fn new(loc: Location, dtype: DLDataType) -> Self {
-        let base = TypeObj::new(loc);
-        Self { base, dtype }
+        let base_ = TypeObj::new(loc);
+        Self { base_, dtype }
     }
 }
 
@@ -501,7 +515,7 @@ impl PrimType {
     /// Lossless complete-field allocation.
     pub fn from_fields(loc: impl Into<Location>, dtype: impl Into<DLDataType>) -> Self {
         let obj = PrimTypeObj::new(loc.into(), dtype.into());
-        Self { base: ObjectArc::new(obj) }
+        Self { data_: ObjectArc::new(obj) }
     }
 }
 
@@ -692,6 +706,15 @@ impl PrimType {
 }
 
 // tvm-ffi-stubgen(begin): object/ir.StringType
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct StringType {
+    data_: ObjectArc<StringTypeObj>,
+}
+
+/// The object behind [`StringType`].
+///
 /// Complete: reflected fields fill [32, 32) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
@@ -699,7 +722,7 @@ impl PrimType {
 #[type_key = "ir.StringType"]
 #[type_final]
 pub struct StringTypeObj {
-    base: TypeObj,
+    base_: TypeObj,
 }
 
 const _: () = {
@@ -707,25 +730,18 @@ const _: () = {
     assert!(::core::mem::align_of::<StringTypeObj>() == 8);
 };
 
-#[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct StringType {
-    base: ObjectArc<StringTypeObj>,
-}
-
 impl Deref for StringTypeObj {
     type Target = TypeObj;
     fn deref(&self) -> &TypeObj {
-        &self.base
+        &self.base_
     }
 }
 
 #[allow(missing_docs)]
 impl StringTypeObj {
     pub(crate) fn new(loc: Location) -> Self {
-        let base = TypeObj::new(loc);
-        Self { base }
+        let base_ = TypeObj::new(loc);
+        Self { base_ }
     }
 }
 
@@ -734,7 +750,7 @@ impl StringType {
     /// Lossless complete-field allocation.
     pub fn from_fields(loc: impl Into<Location>) -> Self {
         let obj = StringTypeObj::new(loc.into());
-        Self { base: ObjectArc::new(obj) }
+        Self { data_: ObjectArc::new(obj) }
     }
 }
 
@@ -753,6 +769,15 @@ impl StringType {
 }
 
 // tvm-ffi-stubgen(begin): object/ir.PtrType
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct PtrType {
+    data_: ObjectArc<PtrTypeObj>,
+}
+
+/// The object behind [`PtrType`].
+///
 /// Complete: reflected fields fill [32, 48) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
@@ -760,7 +785,7 @@ impl StringType {
 #[type_key = "ir.PtrType"]
 #[type_final]
 pub struct PtrTypeObj {
-    base: TypeObj,
+    base_: TypeObj,
     pub element_type: Type,
     pub scope: MemoryScope,
 }
@@ -770,25 +795,18 @@ const _: () = {
     assert!(::core::mem::align_of::<PtrTypeObj>() == 8);
 };
 
-#[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct PtrType {
-    base: ObjectArc<PtrTypeObj>,
-}
-
 impl Deref for PtrTypeObj {
     type Target = TypeObj;
     fn deref(&self) -> &TypeObj {
-        &self.base
+        &self.base_
     }
 }
 
 #[allow(missing_docs)]
 impl PtrTypeObj {
     pub(crate) fn new(loc: Location, element_type: Type, scope: MemoryScope) -> Self {
-        let base = TypeObj::new(loc);
-        Self { base, element_type, scope }
+        let base_ = TypeObj::new(loc);
+        Self { base_, element_type, scope }
     }
 }
 
@@ -801,7 +819,7 @@ impl PtrType {
         scope: impl Into<MemoryScope>,
     ) -> Self {
         let obj = PtrTypeObj::new(loc.into(), element_type.into(), scope.into());
-        Self { base: ObjectArc::new(obj) }
+        Self { data_: ObjectArc::new(obj) }
     }
 }
 
@@ -829,6 +847,15 @@ impl PtrType {
 }
 
 // tvm-ffi-stubgen(begin): object/ir.TupleType
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct TupleType {
+    data_: ObjectArc<TupleTypeObj>,
+}
+
+/// The object behind [`TupleType`].
+///
 /// Complete: reflected fields fill [32, 40) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
@@ -836,7 +863,7 @@ impl PtrType {
 #[type_key = "ir.TupleType"]
 #[type_final]
 pub struct TupleTypeObj {
-    base: TypeObj,
+    base_: TypeObj,
     pub fields: Array<Type>,
 }
 
@@ -845,25 +872,18 @@ const _: () = {
     assert!(::core::mem::align_of::<TupleTypeObj>() == 8);
 };
 
-#[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct TupleType {
-    base: ObjectArc<TupleTypeObj>,
-}
-
 impl Deref for TupleTypeObj {
     type Target = TypeObj;
     fn deref(&self) -> &TypeObj {
-        &self.base
+        &self.base_
     }
 }
 
 #[allow(missing_docs)]
 impl TupleTypeObj {
     pub(crate) fn new(loc: Location, fields: Array<Type>) -> Self {
-        let base = TypeObj::new(loc);
-        Self { base, fields }
+        let base_ = TypeObj::new(loc);
+        Self { base_, fields }
     }
 }
 
@@ -872,7 +892,7 @@ impl TupleType {
     /// Lossless complete-field allocation.
     pub fn from_fields(loc: impl Into<Location>, fields: impl Into<Array<Type>>) -> Self {
         let obj = TupleTypeObj::new(loc.into(), fields.into());
-        Self { base: ObjectArc::new(obj) }
+        Self { data_: ObjectArc::new(obj) }
     }
 }
 
@@ -894,6 +914,15 @@ impl TupleType {
 }
 
 // tvm-ffi-stubgen(begin): object/ir.FuncType
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct FuncType {
+    data_: ObjectArc<FuncTypeObj>,
+}
+
+/// The object behind [`FuncType`].
+///
 /// Complete: reflected fields fill [32, 48) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
@@ -901,7 +930,7 @@ impl TupleType {
 #[type_key = "ir.FuncType"]
 #[type_final]
 pub struct FuncTypeObj {
-    base: TypeObj,
+    base_: TypeObj,
     pub arg_types: Array<Type>,
     pub ret_type: Type,
 }
@@ -911,25 +940,18 @@ const _: () = {
     assert!(::core::mem::align_of::<FuncTypeObj>() == 8);
 };
 
-#[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct FuncType {
-    base: ObjectArc<FuncTypeObj>,
-}
-
 impl Deref for FuncTypeObj {
     type Target = TypeObj;
     fn deref(&self) -> &TypeObj {
-        &self.base
+        &self.base_
     }
 }
 
 #[allow(missing_docs)]
 impl FuncTypeObj {
     pub(crate) fn new(loc: Location, arg_types: Array<Type>, ret_type: Type) -> Self {
-        let base = TypeObj::new(loc);
-        Self { base, arg_types, ret_type }
+        let base_ = TypeObj::new(loc);
+        Self { base_, arg_types, ret_type }
     }
 }
 
@@ -942,7 +964,7 @@ impl FuncType {
         ret_type: impl Into<Type>,
     ) -> Self {
         let obj = FuncTypeObj::new(loc.into(), arg_types.into(), ret_type.into());
-        Self { base: ObjectArc::new(obj) }
+        Self { data_: ObjectArc::new(obj) }
     }
 }
 

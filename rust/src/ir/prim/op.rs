@@ -938,18 +938,18 @@ pub fn cast_at(
         // cast need not be affine.
         let integer = ty.matches_code(&INTEGER) && matches!(ty.bits(), 32 | 64);
         if let (Some(base), Some(stride)) =
-            (const_fold::int(&ramp.base_), const_fold::int(&ramp.stride))
+            (const_fold::int(&ramp.base), const_fold::int(&ramp.stride))
         {
             if ty.is_fixed_length_vector() && integer {
                 let last = base + stride * i64::from(support::lanes(&ty)? - 1);
-                let source = ramp.base_.prim_ty();
+                let source = ramp.base.prim_ty();
                 let fits = |value: &BigInt| const_fold::is_representable(value, &element);
                 if fits(base)
                     && fits(stride)
                     && fits(&last)
                     && const_fold::is_representable(&last, source)
                 {
-                    let base = cast_at(ramp.base_.clone(), element.clone(), loc.clone())?;
+                    let base = cast_at(ramp.base.clone(), element.clone(), loc.clone())?;
                     let stride = cast_at(ramp.stride.clone(), element, loc.clone())?;
                     return Ok(Ramp::new(base, stride, ramp.lanes.clone(), loc)?.into());
                 }

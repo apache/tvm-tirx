@@ -63,9 +63,9 @@
 // tvm-ffi-stubgen(custom-new): ir.Evaluate
 // tvm-ffi-stubgen(custom-new): ir.Return
 // tvm-ffi-stubgen(custom-new): ir.While
-// A loop's kind is C++ `ForKind`, whose four values the C++ enum fixes: a closed Rust enum of
-// the native `int` field.
-// tvm-ffi-stubgen(enum): ir.For.kind -> ForKind(i32) closed { Default=0, Parallel=1, Vectorized=2, Unrolled=3 }
+// A loop's kind is C++ `ForKind`. The `enum` directive declares it as an open newtype of the
+// native `int` field, so a value Rust does not name reads back intact.
+// tvm-ffi-stubgen(enum): ir.For.kind -> ForKind(i32) { Default=0, Parallel=1, Vectorized=2, Unrolled=3 }
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
 // tvm-ffi-stubgen(import-object): tvm_ffi::AnyView
@@ -137,13 +137,22 @@ use tvm_ffi::tvm_ffi_sys::TVMFFITypeIndex;
 // tvm-ffi-stubgen(end)
 
 // tvm-ffi-stubgen(begin): object/ir.Stmt
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct Stmt {
+    data_: ObjectArc<StmtObj>,
+}
+
+/// The object behind [`Stmt`].
+///
 /// Complete: reflected fields fill [24, 32) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.Stmt"]
 pub struct StmtObj {
-    base: Object,
+    base_: Object,
     pub loc: Location,
 }
 
@@ -153,17 +162,10 @@ const _: () = {
 };
 
 #[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct Stmt {
-    base: ObjectArc<StmtObj>,
-}
-
-#[allow(missing_docs)]
 impl StmtObj {
     pub fn new(loc: Location) -> Self {
-        let base = Object::new();
-        Self { base, loc }
+        let base_ = Object::new();
+        Self { base_, loc }
     }
 }
 
@@ -172,20 +174,20 @@ impl Stmt {
     /// Lossless complete-field allocation.
     pub fn new(loc: impl Into<Location>) -> Self {
         let obj = StmtObj::new(loc.into());
-        Self { base: ObjectArc::new(obj) }
+        Self { data_: ObjectArc::new(obj) }
     }
 }
 
 impl ShallowCopy for StmtObj {
     fn shallow_copy(&self) -> Self {
-        Self { base: ShallowCopy::shallow_copy(&self.base), loc: Clone::clone(&self.loc) }
+        Self { base_: ShallowCopy::shallow_copy(&self.base_), loc: Clone::clone(&self.loc) }
     }
 }
 
 unsafe impl UnsafeInit for StmtObj {
     unsafe fn drop_defined_fields(this: *mut Self) {
         unsafe {
-            UnsafeInit::drop_defined_fields(addr_of_mut!((*this).base));
+            UnsafeInit::drop_defined_fields(addr_of_mut!((*this).base_));
             drop_if_defined(addr_of_mut!((*this).loc));
         }
     }
@@ -195,6 +197,15 @@ unsafe impl tvm_ffi::object::ImmutableObject for StmtObj {}
 // tvm-ffi-stubgen(end)
 
 // tvm-ffi-stubgen(begin): object/ir.Bind
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct Bind {
+    data_: ObjectArc<BindObj>,
+}
+
+/// The object behind [`Bind`].
+///
 /// Complete: reflected fields fill [32, 48) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
@@ -202,7 +213,7 @@ unsafe impl tvm_ffi::object::ImmutableObject for StmtObj {}
 #[type_key = "ir.Bind"]
 #[type_final]
 pub struct BindObj {
-    base: StmtObj,
+    base_: StmtObj,
     pub var: Var,
     pub value: Expr,
 }
@@ -212,25 +223,18 @@ const _: () = {
     assert!(::core::mem::align_of::<BindObj>() == 8);
 };
 
-#[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct Bind {
-    base: ObjectArc<BindObj>,
-}
-
 impl Deref for BindObj {
     type Target = StmtObj;
     fn deref(&self) -> &StmtObj {
-        &self.base
+        &self.base_
     }
 }
 
 #[allow(missing_docs)]
 impl BindObj {
     pub(crate) fn new(loc: Location, var: Var, value: Expr) -> Self {
-        let base = StmtObj::new(loc);
-        Self { base, var, value }
+        let base_ = StmtObj::new(loc);
+        Self { base_, var, value }
     }
 }
 
@@ -243,7 +247,7 @@ impl Bind {
         value: impl Into<Expr>,
     ) -> Self {
         let obj = BindObj::new(loc.into(), var.into(), value.into());
-        Self { base: ObjectArc::new(obj) }
+        Self { data_: ObjectArc::new(obj) }
     }
 }
 
@@ -275,6 +279,15 @@ impl Bind {
 }
 
 // tvm-ffi-stubgen(begin): object/ir.AssertStmt
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct AssertStmt {
+    data_: ObjectArc<AssertStmtObj>,
+}
+
+/// The object behind [`AssertStmt`].
+///
 /// Complete: reflected fields fill [32, 56) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
@@ -282,7 +295,7 @@ impl Bind {
 #[type_key = "ir.AssertStmt"]
 #[type_final]
 pub struct AssertStmtObj {
-    base: StmtObj,
+    base_: StmtObj,
     pub condition: PrimExpr,
     pub error_kind: StringImm,
     pub message_parts: Array<StringImm>,
@@ -293,17 +306,10 @@ const _: () = {
     assert!(::core::mem::align_of::<AssertStmtObj>() == 8);
 };
 
-#[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct AssertStmt {
-    base: ObjectArc<AssertStmtObj>,
-}
-
 impl Deref for AssertStmtObj {
     type Target = StmtObj;
     fn deref(&self) -> &StmtObj {
-        &self.base
+        &self.base_
     }
 }
 
@@ -315,8 +321,8 @@ impl AssertStmtObj {
         error_kind: StringImm,
         message_parts: Array<StringImm>,
     ) -> Self {
-        let base = StmtObj::new(loc);
-        Self { base, condition, error_kind, message_parts }
+        let base_ = StmtObj::new(loc);
+        Self { base_, condition, error_kind, message_parts }
     }
 }
 
@@ -335,7 +341,7 @@ impl AssertStmt {
             error_kind.into(),
             message_parts.into(),
         );
-        Self { base: ObjectArc::new(obj) }
+        Self { data_: ObjectArc::new(obj) }
     }
 }
 
@@ -375,28 +381,43 @@ impl AssertStmt {
 
 // tvm-ffi-stubgen(begin): object/ir.For
 #[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct For {
+    data_: ObjectArc<ForObj>,
+}
+
+#[allow(missing_docs)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-#[repr(i32)]
-pub enum ForKind {
-    Default = 0,
-    Parallel = 1,
-    Vectorized = 2,
-    Unrolled = 3,
+#[repr(transparent)]
+pub struct ForKind(i32);
+
+#[allow(missing_docs)]
+#[allow(non_upper_case_globals)]
+impl ForKind {
+    pub const Default: Self = Self(0);
+    pub const Parallel: Self = Self(1);
+    pub const Vectorized: Self = Self(2);
+    pub const Unrolled: Self = Self(3);
+    pub const fn from_raw(value: i32) -> Self {
+        Self(value)
+    }
+    pub const fn as_raw(self) -> i32 {
+        self.0
+    }
 }
 
 impl TryFrom<i64> for ForKind {
     type Error = Error;
     fn try_from(value: i64) -> Result<Self> {
-        match value {
-            0 => Ok(Self::Default),
-            1 => Ok(Self::Parallel),
-            2 => Ok(Self::Vectorized),
-            3 => Ok(Self::Unrolled),
-            _ => Err(Error::new(VALUE_ERROR, &format!("ForKind has no value {value}"), "")),
-        }
+        i32::try_from(value).map(Self).map_err(|_| {
+            Error::new(VALUE_ERROR, &format!("ForKind value {value} does not fit i32"), "")
+        })
     }
 }
 
+/// The object behind [`For`].
+///
 /// Complete: reflected fields fill [32, 88) exactly (alignment padding [68, 72)).
 #[allow(missing_docs)]
 #[repr(C)]
@@ -404,7 +425,7 @@ impl TryFrom<i64> for ForKind {
 #[type_key = "ir.For"]
 #[type_final]
 pub struct ForObj {
-    base: StmtObj,
+    base_: StmtObj,
     pub var: PrimVar,
     pub begin: PrimExpr,
     pub end: PrimExpr,
@@ -419,17 +440,10 @@ const _: () = {
     assert!(::core::mem::align_of::<ForObj>() == 8);
 };
 
-#[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct For {
-    base: ObjectArc<ForObj>,
-}
-
 impl Deref for ForObj {
     type Target = StmtObj;
     fn deref(&self) -> &StmtObj {
-        &self.base
+        &self.base_
     }
 }
 
@@ -445,8 +459,8 @@ impl ForObj {
         body: SeqStmt,
         annotations: Map<String, Any>,
     ) -> Self {
-        let base = StmtObj::new(loc);
-        Self { base, var, begin, end, step, kind, body, annotations }
+        let base_ = StmtObj::new(loc);
+        Self { base_, var, begin, end, step, kind, body, annotations }
     }
 }
 
@@ -473,7 +487,7 @@ impl For {
             body.into(),
             annotations.into(),
         );
-        Self { base: ObjectArc::new(obj) }
+        Self { data_: ObjectArc::new(obj) }
     }
 }
 
@@ -584,6 +598,15 @@ impl For {
 }
 
 // tvm-ffi-stubgen(begin): object/ir.While
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct While {
+    data_: ObjectArc<WhileObj>,
+}
+
+/// The object behind [`While`].
+///
 /// Complete: reflected fields fill [32, 48) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
@@ -591,7 +614,7 @@ impl For {
 #[type_key = "ir.While"]
 #[type_final]
 pub struct WhileObj {
-    base: StmtObj,
+    base_: StmtObj,
     pub condition: PrimExpr,
     pub body: SeqStmt,
 }
@@ -601,25 +624,18 @@ const _: () = {
     assert!(::core::mem::align_of::<WhileObj>() == 8);
 };
 
-#[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct While {
-    base: ObjectArc<WhileObj>,
-}
-
 impl Deref for WhileObj {
     type Target = StmtObj;
     fn deref(&self) -> &StmtObj {
-        &self.base
+        &self.base_
     }
 }
 
 #[allow(missing_docs)]
 impl WhileObj {
     pub(crate) fn new(loc: Location, condition: PrimExpr, body: SeqStmt) -> Self {
-        let base = StmtObj::new(loc);
-        Self { base, condition, body }
+        let base_ = StmtObj::new(loc);
+        Self { base_, condition, body }
     }
 }
 
@@ -632,7 +648,7 @@ impl While {
         body: impl Into<SeqStmt>,
     ) -> Self {
         let obj = WhileObj::new(loc.into(), condition.into(), body.into());
-        Self { base: ObjectArc::new(obj) }
+        Self { data_: ObjectArc::new(obj) }
     }
 }
 
@@ -664,6 +680,15 @@ impl While {
 }
 
 // tvm-ffi-stubgen(begin): object/ir.TensorStore
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct TensorStore {
+    data_: ObjectArc<TensorStoreObj>,
+}
+
+/// The object behind [`TensorStore`].
+///
 /// Complete: reflected fields fill [32, 56) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
@@ -671,7 +696,7 @@ impl While {
 #[type_key = "ir.TensorStore"]
 #[type_final]
 pub struct TensorStoreObj {
-    base: StmtObj,
+    base_: StmtObj,
     pub dest: Expr,
     pub indices: Array<PrimExpr>,
     pub value: PrimExpr,
@@ -682,17 +707,10 @@ const _: () = {
     assert!(::core::mem::align_of::<TensorStoreObj>() == 8);
 };
 
-#[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct TensorStore {
-    base: ObjectArc<TensorStoreObj>,
-}
-
 impl Deref for TensorStoreObj {
     type Target = StmtObj;
     fn deref(&self) -> &StmtObj {
-        &self.base
+        &self.base_
     }
 }
 
@@ -704,8 +722,8 @@ impl TensorStoreObj {
         indices: Array<PrimExpr>,
         value: PrimExpr,
     ) -> Self {
-        let base = StmtObj::new(loc);
-        Self { base, dest, indices, value }
+        let base_ = StmtObj::new(loc);
+        Self { base_, dest, indices, value }
     }
 }
 
@@ -719,7 +737,7 @@ impl TensorStore {
         value: impl Into<PrimExpr>,
     ) -> Self {
         let obj = TensorStoreObj::new(loc.into(), dest.into(), indices.into(), value.into());
-        Self { base: ObjectArc::new(obj) }
+        Self { data_: ObjectArc::new(obj) }
     }
 }
 
@@ -769,6 +787,15 @@ impl TensorStore {
 }
 
 // tvm-ffi-stubgen(begin): object/ir.RegionStmt
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct RegionStmt {
+    data_: ObjectArc<RegionStmtObj>,
+}
+
+/// The object behind [`RegionStmt`].
+///
 /// Complete: reflected fields fill [32, 80) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
@@ -776,7 +803,7 @@ impl TensorStore {
 #[type_key = "ir.RegionStmt"]
 #[type_final]
 pub struct RegionStmtObj {
-    base: StmtObj,
+    base_: StmtObj,
     pub op: Op,
     pub args: Array<Expr>,
     pub body_params: Array<Var>,
@@ -790,17 +817,10 @@ const _: () = {
     assert!(::core::mem::align_of::<RegionStmtObj>() == 8);
 };
 
-#[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct RegionStmt {
-    base: ObjectArc<RegionStmtObj>,
-}
-
 impl Deref for RegionStmtObj {
     type Target = StmtObj;
     fn deref(&self) -> &StmtObj {
-        &self.base
+        &self.base_
     }
 }
 
@@ -815,8 +835,8 @@ impl RegionStmtObj {
         body: SeqStmt,
         result_vars: Array<Var>,
     ) -> Self {
-        let base = StmtObj::new(loc);
-        Self { base, op, args, body_params, attrs, body, result_vars }
+        let base_ = StmtObj::new(loc);
+        Self { base_, op, args, body_params, attrs, body, result_vars }
     }
 }
 
@@ -841,7 +861,7 @@ impl RegionStmt {
             body.into(),
             result_vars.into(),
         );
-        Self { base: ObjectArc::new(obj) }
+        Self { data_: ObjectArc::new(obj) }
     }
 }
 
@@ -912,6 +932,15 @@ impl RegionStmt {
 }
 
 // tvm-ffi-stubgen(begin): object/ir.SeqStmt
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct SeqStmt {
+    data_: ObjectArc<SeqStmtObj>,
+}
+
+/// The object behind [`SeqStmt`].
+///
 /// Complete: reflected fields fill [32, 40) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
@@ -919,7 +948,7 @@ impl RegionStmt {
 #[type_key = "ir.SeqStmt"]
 #[type_final]
 pub struct SeqStmtObj {
-    base: StmtObj,
+    base_: StmtObj,
     pub seq: Array<Stmt>,
 }
 
@@ -928,25 +957,18 @@ const _: () = {
     assert!(::core::mem::align_of::<SeqStmtObj>() == 8);
 };
 
-#[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct SeqStmt {
-    base: ObjectArc<SeqStmtObj>,
-}
-
 impl Deref for SeqStmtObj {
     type Target = StmtObj;
     fn deref(&self) -> &StmtObj {
-        &self.base
+        &self.base_
     }
 }
 
 #[allow(missing_docs)]
 impl SeqStmtObj {
     pub(crate) fn new(loc: Location, seq: Array<Stmt>) -> Self {
-        let base = StmtObj::new(loc);
-        Self { base, seq }
+        let base_ = StmtObj::new(loc);
+        Self { base_, seq }
     }
 }
 
@@ -955,7 +977,7 @@ impl SeqStmt {
     /// Lossless complete-field allocation.
     pub fn from_fields(loc: impl Into<Location>, seq: impl Into<Array<Stmt>>) -> Self {
         let obj = SeqStmtObj::new(loc.into(), seq.into());
-        Self { base: ObjectArc::new(obj) }
+        Self { data_: ObjectArc::new(obj) }
     }
 }
 
@@ -974,6 +996,15 @@ impl SeqStmt {
 }
 
 // tvm-ffi-stubgen(begin): object/ir.If
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct If {
+    data_: ObjectArc<IfObj>,
+}
+
+/// The object behind [`If`].
+///
 /// Complete: reflected fields fill [32, 56) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
@@ -981,7 +1012,7 @@ impl SeqStmt {
 #[type_key = "ir.If"]
 #[type_final]
 pub struct IfObj {
-    base: StmtObj,
+    base_: StmtObj,
     pub condition: PrimExpr,
     pub then_case: SeqStmt,
     pub else_case: Option<SeqStmt>,
@@ -992,17 +1023,10 @@ const _: () = {
     assert!(::core::mem::align_of::<IfObj>() == 8);
 };
 
-#[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct If {
-    base: ObjectArc<IfObj>,
-}
-
 impl Deref for IfObj {
     type Target = StmtObj;
     fn deref(&self) -> &StmtObj {
-        &self.base
+        &self.base_
     }
 }
 
@@ -1014,8 +1038,8 @@ impl IfObj {
         then_case: SeqStmt,
         else_case: Option<SeqStmt>,
     ) -> Self {
-        let base = StmtObj::new(loc);
-        Self { base, condition, then_case, else_case }
+        let base_ = StmtObj::new(loc);
+        Self { base_, condition, then_case, else_case }
     }
 }
 
@@ -1029,7 +1053,7 @@ impl If {
         else_case: impl Into<Option<SeqStmt>>,
     ) -> Self {
         let obj = IfObj::new(loc.into(), condition.into(), then_case.into(), else_case.into());
-        Self { base: ObjectArc::new(obj) }
+        Self { data_: ObjectArc::new(obj) }
     }
 }
 
@@ -1055,6 +1079,15 @@ impl If {
 }
 
 // tvm-ffi-stubgen(begin): object/ir.Evaluate
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct Evaluate {
+    data_: ObjectArc<EvaluateObj>,
+}
+
+/// The object behind [`Evaluate`].
+///
 /// Complete: reflected fields fill [32, 40) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
@@ -1062,7 +1095,7 @@ impl If {
 #[type_key = "ir.Evaluate"]
 #[type_final]
 pub struct EvaluateObj {
-    base: StmtObj,
+    base_: StmtObj,
     pub value: Expr,
 }
 
@@ -1071,25 +1104,18 @@ const _: () = {
     assert!(::core::mem::align_of::<EvaluateObj>() == 8);
 };
 
-#[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct Evaluate {
-    base: ObjectArc<EvaluateObj>,
-}
-
 impl Deref for EvaluateObj {
     type Target = StmtObj;
     fn deref(&self) -> &StmtObj {
-        &self.base
+        &self.base_
     }
 }
 
 #[allow(missing_docs)]
 impl EvaluateObj {
     pub(crate) fn new(loc: Location, value: Expr) -> Self {
-        let base = StmtObj::new(loc);
-        Self { base, value }
+        let base_ = StmtObj::new(loc);
+        Self { base_, value }
     }
 }
 
@@ -1098,7 +1124,7 @@ impl Evaluate {
     /// Lossless complete-field allocation.
     pub fn from_fields(loc: impl Into<Location>, value: impl Into<Expr>) -> Self {
         let obj = EvaluateObj::new(loc.into(), value.into());
-        Self { base: ObjectArc::new(obj) }
+        Self { data_: ObjectArc::new(obj) }
     }
 }
 
@@ -1115,6 +1141,15 @@ impl Evaluate {
 }
 
 // tvm-ffi-stubgen(begin): object/ir.Break
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct Break {
+    data_: ObjectArc<BreakObj>,
+}
+
+/// The object behind [`Break`].
+///
 /// Complete: reflected fields fill [32, 32) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
@@ -1122,7 +1157,7 @@ impl Evaluate {
 #[type_key = "ir.Break"]
 #[type_final]
 pub struct BreakObj {
-    base: StmtObj,
+    base_: StmtObj,
 }
 
 const _: () = {
@@ -1130,25 +1165,18 @@ const _: () = {
     assert!(::core::mem::align_of::<BreakObj>() == 8);
 };
 
-#[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct Break {
-    base: ObjectArc<BreakObj>,
-}
-
 impl Deref for BreakObj {
     type Target = StmtObj;
     fn deref(&self) -> &StmtObj {
-        &self.base
+        &self.base_
     }
 }
 
 #[allow(missing_docs)]
 impl BreakObj {
     pub(crate) fn new(loc: Location) -> Self {
-        let base = StmtObj::new(loc);
-        Self { base }
+        let base_ = StmtObj::new(loc);
+        Self { base_ }
     }
 }
 
@@ -1157,7 +1185,7 @@ impl Break {
     /// Lossless complete-field allocation.
     pub fn new(loc: impl Into<Location>) -> Self {
         let obj = BreakObj::new(loc.into());
-        Self { base: ObjectArc::new(obj) }
+        Self { data_: ObjectArc::new(obj) }
     }
 }
 
@@ -1169,6 +1197,15 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(Break => Stmt);
 // `ir.Break` stores its location as given: the generated `Break::new` is the same.
 
 // tvm-ffi-stubgen(begin): object/ir.Return
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct Return {
+    data_: ObjectArc<ReturnObj>,
+}
+
+/// The object behind [`Return`].
+///
 /// Complete: reflected fields fill [32, 40) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
@@ -1176,7 +1213,7 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(Break => Stmt);
 #[type_key = "ir.Return"]
 #[type_final]
 pub struct ReturnObj {
-    base: StmtObj,
+    base_: StmtObj,
     pub value: Expr,
 }
 
@@ -1185,25 +1222,18 @@ const _: () = {
     assert!(::core::mem::align_of::<ReturnObj>() == 8);
 };
 
-#[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct Return {
-    base: ObjectArc<ReturnObj>,
-}
-
 impl Deref for ReturnObj {
     type Target = StmtObj;
     fn deref(&self) -> &StmtObj {
-        &self.base
+        &self.base_
     }
 }
 
 #[allow(missing_docs)]
 impl ReturnObj {
     pub(crate) fn new(loc: Location, value: Expr) -> Self {
-        let base = StmtObj::new(loc);
-        Self { base, value }
+        let base_ = StmtObj::new(loc);
+        Self { base_, value }
     }
 }
 
@@ -1212,7 +1242,7 @@ impl Return {
     /// Lossless complete-field allocation.
     pub fn from_fields(loc: impl Into<Location>, value: impl Into<Expr>) -> Self {
         let obj = ReturnObj::new(loc.into(), value.into());
-        Self { base: ObjectArc::new(obj) }
+        Self { data_: ObjectArc::new(obj) }
     }
 }
 
@@ -1229,6 +1259,15 @@ impl Return {
 }
 
 // tvm-ffi-stubgen(begin): object/ir.Continue
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct Continue {
+    data_: ObjectArc<ContinueObj>,
+}
+
+/// The object behind [`Continue`].
+///
 /// Complete: reflected fields fill [32, 32) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
@@ -1236,7 +1275,7 @@ impl Return {
 #[type_key = "ir.Continue"]
 #[type_final]
 pub struct ContinueObj {
-    base: StmtObj,
+    base_: StmtObj,
 }
 
 const _: () = {
@@ -1244,25 +1283,18 @@ const _: () = {
     assert!(::core::mem::align_of::<ContinueObj>() == 8);
 };
 
-#[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct Continue {
-    base: ObjectArc<ContinueObj>,
-}
-
 impl Deref for ContinueObj {
     type Target = StmtObj;
     fn deref(&self) -> &StmtObj {
-        &self.base
+        &self.base_
     }
 }
 
 #[allow(missing_docs)]
 impl ContinueObj {
     pub(crate) fn new(loc: Location) -> Self {
-        let base = StmtObj::new(loc);
-        Self { base }
+        let base_ = StmtObj::new(loc);
+        Self { base_ }
     }
 }
 
@@ -1271,7 +1303,7 @@ impl Continue {
     /// Lossless complete-field allocation.
     pub fn new(loc: impl Into<Location>) -> Self {
         let obj = ContinueObj::new(loc.into());
-        Self { base: ObjectArc::new(obj) }
+        Self { data_: ObjectArc::new(obj) }
     }
 }
 

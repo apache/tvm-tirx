@@ -50,6 +50,15 @@ use tvm_ffi::String;
 // tvm-ffi-stubgen(end)
 
 // tvm-ffi-stubgen(begin): object/ir.EnvFunc
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct EnvFunc {
+    data_: ObjectArc<EnvFuncObj>,
+}
+
+/// The object behind [`EnvFunc`].
+///
 /// Complete: reflected fields fill [24, 48) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
@@ -57,7 +66,7 @@ use tvm_ffi::String;
 #[type_key = "ir.EnvFunc"]
 #[type_final]
 pub struct EnvFuncObj {
-    base: Object,
+    base_: Object,
     pub name: String,
     pub func: Function,
 }
@@ -68,17 +77,10 @@ const _: () = {
 };
 
 #[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct EnvFunc {
-    base: ObjectArc<EnvFuncObj>,
-}
-
-#[allow(missing_docs)]
 impl EnvFuncObj {
     pub(crate) fn new(name: String, func: Function) -> Self {
-        let base = Object::new();
-        Self { base, name, func }
+        let base_ = Object::new();
+        Self { base_, name, func }
     }
 }
 
@@ -87,7 +89,7 @@ impl EnvFunc {
     /// Lossless complete-field allocation.
     pub fn new(name: impl Into<String>, func: impl Into<Function>) -> Self {
         let obj = EnvFuncObj::new(name.into(), func.into());
-        Self { base: ObjectArc::new(obj) }
+        Self { data_: ObjectArc::new(obj) }
     }
 }
 

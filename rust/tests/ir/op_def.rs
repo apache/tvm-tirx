@@ -416,7 +416,7 @@ fn accept(_call: &CallObj) -> Result<()> {
 /// A type and a count, registered with the operators when the test binary loads.
 #[rs_object("rust_test.BlockType", final)]
 pub struct BlockTypeObj {
-    base: TypeObj,
+    base_: TypeObj,
     pub elem: Type,
     #[reflect(kw_only)]
     pub count: i64,
@@ -424,7 +424,7 @@ pub struct BlockTypeObj {
 #[derive(Clone, tvm_ffi::derive::ObjectRef)]
 #[object_ref(parent = Type)]
 pub struct BlockType {
-    data: tvm_ffi::ObjectArc<BlockTypeObj>,
+    data_: tvm_ffi::ObjectArc<BlockTypeObj>,
 }
 
 tvm_ffi::static_init_block! {

@@ -201,7 +201,7 @@ This is the newtype pattern. Simplified from the crate, the pair is:
    #[derive(Object)]
    #[type_key = "prim.Add"]
    pub struct AddObj {
-       base: ExprObj,
+       base_: ExprObj,
        pub a: PrimExpr,
        pub b: PrimExpr,
    }
@@ -209,7 +209,7 @@ This is the newtype pattern. Simplified from the crate, the pair is:
    #[repr(C)]
    #[derive(ObjectRef, Clone)]
    pub struct Add {
-       base: ObjectArc<AddObj>,
+       data_: ObjectArc<AddObj>,
    }
 
 Rust has no inheritance; instead, ``#[repr(C)]`` puts the parent's object,
