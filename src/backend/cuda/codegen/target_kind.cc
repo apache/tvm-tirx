@@ -35,6 +35,8 @@
 
 #include <string>
 
+#include "../../../support/version.h"
+
 namespace tvm {
 
 namespace backend {
@@ -83,7 +85,8 @@ ffi::Map<ffi::String, ffi::Any> UpdateCUDAAttrs(ffi::Map<ffi::String, ffi::Any> 
       // Require an explicit architecture when resolving compilation, not here.
       return target;
     }
-    archInt = std::stod(version.cast<std::string>()) * 10 + 0.1;
+    auto [major, minor] = support::ParseVersion(version.cast<std::string>());
+    archInt = major * 10 + minor;
     if (archInt >= 90) {
       target.Set("arch", ffi::String("sm_") + std::to_string(archInt) + "a");
     } else {
@@ -106,7 +109,8 @@ ffi::Map<ffi::String, ffi::Any> UpdateNVPTXAttrs(ffi::Map<ffi::String, ffi::Any>
       LOG(WARNING) << "Unable to detect CUDA version, default to \"-mcpu=sm_50\" instead";
       arch = 50;
     } else {
-      arch = std::stod(version.cast<std::string>()) * 10 + 0.1;
+      auto [major, minor] = support::ParseVersion(version.cast<std::string>());
+      arch = major * 10 + minor;
     }
     target.Set("mcpu", ffi::String("sm_") + std::to_string(arch));
   }

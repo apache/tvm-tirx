@@ -29,6 +29,7 @@
 
 #include <sstream>
 
+#include "../../../support/version.h"
 #include "../memory_scope.h"
 #include "opencl_common.h"
 
@@ -799,28 +800,27 @@ void OpenCLWorkspace::Init(const std::string& type_key, const std::string& devic
       }
       std::vector<cl_device_id> devices_matched = cl::GetDeviceIDs(platform_id, device_type);
       std::vector<cl_device_id> supported_devices = {};
-      auto get_version_str = [](int version) {
-        std::ostringstream out;
-        out.precision(1);
-        out << std::fixed << version / 100.f;
-        return out.str();
+      constexpr std::pair<int, int> target_version = {CL_TARGET_OPENCL_VERSION / 100,
+                                                      CL_TARGET_OPENCL_VERSION % 100 / 10};
+      auto get_version_str = [](std::pair<int, int> version) {
+        return std::to_string(version.first) + "." + std::to_string(version.second);
       };
       for (auto& device : devices_matched) {
         std::string ver = GetOpenCLVersion(device);
-        int opencl_version = std::stod(ver) * 100;
-        if (opencl_version >= CL_TARGET_OPENCL_VERSION) {
+        auto opencl_version = support::ParseVersion(ver);
+        if (opencl_version >= target_version) {
           supported_devices.push_back(device);
         } else {
           std::string dev_msg = GetDeviceInfo(device, CL_DEVICE_NAME) +
                                 " has OpenCL version == " + get_version_str(opencl_version);
           LOG(WARNING) << "TVM supports devices with OpenCL version >= "
-                       << get_version_str(CL_TARGET_OPENCL_VERSION) << ", device " << dev_msg
+                       << get_version_str(target_version) << ", device " << dev_msg
                        << ". This device will be ignored.";
 
           if (noDevicesErrorMsg.empty()) {
             noDevicesErrorMsg =
                 "Probably this error happen because TVM supports devices with OpenCL version >= " +
-                get_version_str(CL_TARGET_OPENCL_VERSION) + ". We found the following devices:\n";
+                get_version_str(target_version) + ". We found the following devices:\n";
           }
           noDevicesErrorMsg += "\t" + dev_msg + "\n";
         }
