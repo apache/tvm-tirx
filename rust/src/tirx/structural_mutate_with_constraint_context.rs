@@ -105,7 +105,7 @@ unsafe impl StructuralMutatorBase for StructuralMutatorWithConstraintContextBase
                 // alias. Borrow in place so the count is the slot's own reference.
                 borrowed
                     .downcast_ref::<ObjectRef>()
-                    .is_some_and(|owner| ObjectArc::strong_count(ObjectRef::data(owner)) == 1)
+                    .is_some_and(|owner| ObjectArc::is_unique(ObjectRef::data(owner)))
             })
         } else {
             None

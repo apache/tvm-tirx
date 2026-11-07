@@ -24,7 +24,7 @@
 mod common;
 
 use tvm_tirx::target::{self, Target, TargetKind, TargetKindObj, TargetObj};
-use tvm_tirx::tvm_ffi::{Any, Map, Object, ObjectRefCore, String as FfiString, TypeIndex};
+use tvm_tirx::tvm_ffi::{Any, Map, Object, ObjectRefCore, String as FfiString};
 
 use common::{assert_type_contracts, empty_module, global, load_llvm_backend};
 
@@ -82,10 +82,7 @@ fn construction_and_queries() {
     assert_eq!(llvm.get_target_device_type().unwrap(), 1);
     assert!(llvm.export().unwrap().contains_key(&FfiString::from("kind")).unwrap());
     assert!(llvm.as_json().unwrap().as_str().contains("llvm"));
-    assert_eq!(
-        llvm.feature("no_such_feature").unwrap().type_index(),
-        TypeIndex::kTVMFFINone as i32
-    );
+    assert!(llvm.feature("no_such_feature").unwrap().is_none());
 
     let c = Target::from_config(config("c")).unwrap();
     assert_eq!(c.kind().unwrap().name().unwrap().as_str(), "c");

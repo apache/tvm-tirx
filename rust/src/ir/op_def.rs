@@ -25,7 +25,6 @@ use std::any::TypeId;
 use std::marker::PhantomData;
 
 use tvm_ffi::reflection::NativeFunction;
-use tvm_ffi::tvm_ffi_sys::TVMFFITypeIndex;
 use tvm_ffi::{Any, AnyView, Array, Error, ObjectRefCore, Result, String, TYPE_ERROR, VALUE_ERROR};
 
 use super::attrs::Attrs;
@@ -757,7 +756,7 @@ pub mod sig {
         }
         // Borrowed in place: indexing an `Array` bumps no reference count.
         let value = value();
-        if value.type_index() != TVMFFITypeIndex::kTVMFFINone as i32 && T::check(value) {
+        if !value.is_none() && T::check(value) {
             return Ok(());
         }
         let (fixed, tail) = match type_arg {

@@ -26,7 +26,7 @@ mod common;
 use tvm_tirx::runtime::{self, MemoryScope};
 use tvm_tirx::ir::dtype;
 use tvm_tirx::tvm_ffi::reflection::EnumDef;
-use tvm_tirx::tvm_ffi::{DLDevice, DLDeviceType, TypeIndex};
+use tvm_tirx::tvm_ffi::{DLDevice, DLDeviceType};
 
 #[test]
 fn tensors() {
@@ -68,7 +68,7 @@ fn device_attrs() {
     let exist = runtime::get_device_attr(cpu, "exist").unwrap();
     assert!(bool::try_from(exist).unwrap());
     let missing = runtime::get_device_attr(cpu, "no_such_attr").unwrap();
-    assert_eq!(missing.type_index(), TypeIndex::kTVMFFINone as i32);
+    assert!(missing.is_none());
 }
 
 #[test]

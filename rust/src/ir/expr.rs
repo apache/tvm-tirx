@@ -502,7 +502,7 @@ impl IntExpr {
     }
 }
 
-tvm_ffi::impl_object_ref_upcast!(unsafe IntExpr => Expr);
+tvm_ffi::impl_object_ref_upcast!(IntExpr => Expr);
 
 /// The built expression, checked to be an integer, or the first error raised while building it.
 impl TryFrom<ExprResult> for IntExpr {
@@ -1783,7 +1783,7 @@ impl Call {
     /// Returns the error the validator raises.
     pub fn validate(&self) -> Result<()> {
         let Some(op) = self.op.downcast_ref::<OpObj>() else { return Ok(()) };
-        if op.validator().type_index() == TVMFFITypeIndex::kTVMFFINone as i32 {
+        if op.validator().is_none() {
             return Ok(());
         }
         // SAFETY: an operator validator is a `void(const CallObj*)` hook.
@@ -2038,7 +2038,8 @@ impl PrimVar {
     }
 }
 
-tvm_ffi::impl_object_ref_upcast!(unsafe PrimVar => Expr, PrimVar => PrimExpr);
+tvm_ffi::impl_object_ref_upcast!(PrimVar => Expr);
+tvm_ffi::impl_object_ref_upcast!(unsafe PrimVar => PrimExpr);
 
 impl PrimVar {
     /// Create the variable `name` of the primitive type `ty`.

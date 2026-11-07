@@ -345,8 +345,7 @@ impl IRModule {
     pub fn get_attr(&self, key: &str) -> Result<Option<Any>> {
         let value = tvm_ffi::cached_global_func!("ir.IRModuleGetAttr")
             .call_tuple((self, String::from(key)))?;
-        let is_none = value.type_index() == tvm_ffi::TypeIndex::kTVMFFINone as i32;
-        Ok((!is_none).then_some(value))
+        Ok((!value.is_none()).then_some(value))
     }
 
     /// Return the module with the attribute `key` set to `value` (`ir.IRModuleWithAttr`).
