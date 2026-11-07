@@ -32,8 +32,8 @@ use tvm_ffi::tvm_ffi_sys::{
     TVMFFIAny, TVMFFIFieldFlagBitMask, TVMFFIGetTypeInfo, TVMFFIObject, TVMFFITypeIndex,
 };
 use tvm_ffi::{
-    Any, AnyView, Array, DLDataType, DLDataTypeCode, DLDataTypeExt, Error, ErrorKind, Function,
-    ObjectArc, ObjectRefCore, Result, TypeAttrColumn, INTERNAL_ERROR, TYPE_ERROR,
+    Any, AnyView, DLDataType, DLDataTypeCode, DLDataTypeExt, Error, ErrorKind, Function, ObjectArc,
+    ObjectRefCore, Result, TypeAttrColumn, INTERNAL_ERROR, TYPE_ERROR,
 };
 
 use super::{Op, OpAttrMap, OpObj, PrimType};

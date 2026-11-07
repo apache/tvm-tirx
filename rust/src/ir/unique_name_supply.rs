@@ -16,7 +16,6 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-#![allow(dead_code, unused_imports)]
 
 //! A supply of unique names, for building and rewriting IR.
 //!

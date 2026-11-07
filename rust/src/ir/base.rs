@@ -16,7 +16,6 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-#![allow(dead_code, unused_imports)]
 
 //! Functions of the global registry referred to by name.
 //!

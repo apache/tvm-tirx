@@ -16,7 +16,6 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-#![allow(dead_code, unused_imports)]
 // The generated constructors take one argument per reflected field.
 #![allow(clippy::too_many_arguments)]
 
@@ -82,7 +81,6 @@
 // tvm-ffi-stubgen(import-object): crate::ir::r#type::MissingType
 // tvm-ffi-stubgen(import-object): crate::ir::r#type::MissingTypeObj
 // tvm-ffi-stubgen(import-object): crate::ir::r#type::PrimType
-// tvm-ffi-stubgen(import-object): crate::ir::r#type::Type
 // tvm-ffi-stubgen(import-object): crate::ir::support
 // tvm-ffi-stubgen(import-object): crate::ir::expr::IntoExpr
 // tvm-ffi-stubgen(import-object): crate::ir::expr::PrimExpr
@@ -116,7 +114,6 @@ use crate::ir::op::Op;
 use crate::ir::r#type::MissingType;
 use crate::ir::r#type::MissingTypeObj;
 use crate::ir::r#type::PrimType;
-use crate::ir::r#type::Type;
 use crate::ir::support;
 use std::ops::Deref;
 use std::ptr::addr_of_mut;

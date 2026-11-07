@@ -16,7 +16,6 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-#![allow(dead_code, unused_imports)]
 
 //! The primitive operators: arithmetic, comparisons, logic, casts and math functions, after C++
 //! `src/ir/prim/op.cc`.
@@ -68,11 +67,8 @@
 // tvm-ffi-stubgen(import-object): crate::ir::expr::IntImmObj
 // tvm-ffi-stubgen(import-object): crate::ir::expr::IntoExpr
 // tvm-ffi-stubgen(import-object): crate::ir::expr::PrimExpr
-// tvm-ffi-stubgen(import-object): crate::ir::expr::TensorLoad
-// tvm-ffi-stubgen(import-object): crate::ir::expr::Var
 // tvm-ffi-stubgen(import-object): crate::ir::location::Location
 // tvm-ffi-stubgen(import-object): crate::ir::location::UNKNOWN_LOC
-// tvm-ffi-stubgen(import-object): crate::ir::location::UnknownLoc
 // tvm-ffi-stubgen(import-object): crate::ir::prim::const_fold
 // tvm-ffi-stubgen(import-object): crate::ir::prim::expr::Add
 // tvm-ffi-stubgen(import-object): crate::ir::prim::expr::And
@@ -90,7 +86,6 @@
 // tvm-ffi-stubgen(import-object): crate::ir::prim::expr::LE
 // tvm-ffi-stubgen(import-object): crate::ir::prim::expr::LShift
 // tvm-ffi-stubgen(import-object): crate::ir::prim::expr::LT
-// tvm-ffi-stubgen(import-object): crate::ir::prim::expr::Let
 // tvm-ffi-stubgen(import-object): crate::ir::prim::expr::Max
 // tvm-ffi-stubgen(import-object): crate::ir::prim::expr::Min
 // tvm-ffi-stubgen(import-object): crate::ir::prim::expr::Mod
@@ -105,7 +100,6 @@
 // tvm-ffi-stubgen(import-object): crate::ir::prim::vector_expr::BroadcastObj
 // tvm-ffi-stubgen(import-object): crate::ir::prim::vector_expr::Ramp
 // tvm-ffi-stubgen(import-object): crate::ir::prim::vector_expr::RampObj
-// tvm-ffi-stubgen(import-object): crate::ir::prim::vector_expr::Shuffle
 // tvm-ffi-stubgen(import-object): crate::ir::r#type::PrimType
 // tvm-ffi-stubgen(import-object): crate::ir::r#type::Type
 // tvm-ffi-stubgen(import-object): crate::ir::support
@@ -121,11 +115,8 @@ use crate::ir::expr::IntImm;
 use crate::ir::expr::IntImmObj;
 use crate::ir::expr::IntoExpr;
 use crate::ir::expr::PrimExpr;
-use crate::ir::expr::TensorLoad;
-use crate::ir::expr::Var;
 use crate::ir::location::Location;
 use crate::ir::location::UNKNOWN_LOC;
-use crate::ir::location::UnknownLoc;
 use crate::ir::prim::const_fold;
 use crate::ir::prim::expr::Add;
 use crate::ir::prim::expr::And;
@@ -143,7 +134,6 @@ use crate::ir::prim::expr::GT;
 use crate::ir::prim::expr::LE;
 use crate::ir::prim::expr::LShift;
 use crate::ir::prim::expr::LT;
-use crate::ir::prim::expr::Let;
 use crate::ir::prim::expr::Max;
 use crate::ir::prim::expr::Min;
 use crate::ir::prim::expr::Mod;
@@ -158,7 +148,6 @@ use crate::ir::prim::vector_expr::Broadcast;
 use crate::ir::prim::vector_expr::BroadcastObj;
 use crate::ir::prim::vector_expr::Ramp;
 use crate::ir::prim::vector_expr::RampObj;
-use crate::ir::prim::vector_expr::Shuffle;
 use crate::ir::r#type::PrimType;
 use crate::ir::r#type::Type;
 use crate::ir::support;

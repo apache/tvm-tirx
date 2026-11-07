@@ -16,7 +16,6 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-#![allow(dead_code, unused_imports)]
 
 //! Backend-specific objects, such as the attributes of CUDA instructions in [`cuda`].
 

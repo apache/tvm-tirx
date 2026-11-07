@@ -16,7 +16,6 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-#![allow(dead_code, unused_imports)]
 
 //! Layouts: how the indices of a tensor map to memory and to threads.
 //!

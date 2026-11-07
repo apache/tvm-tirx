@@ -16,7 +16,6 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-#![allow(dead_code, unused_imports)]
 
 //! The analyzer and its results.
 //!
@@ -57,7 +56,6 @@
 // tvm-ffi-stubgen(import-object): tvm_ffi::String
 // tvm-ffi-stubgen(import-object): tvm_ffi::VALUE_ERROR
 // tvm-ffi-stubgen(import-object): crate::ExitOnDrop
-// tvm-ffi-stubgen(import-object): crate::ir::expr::Range
 // tvm-ffi-stubgen(import-object): crate::ir::expr::Var
 // tvm-ffi-stubgen(import-object): crate::sym::int_set::IntSet
 // tvm-ffi-stubgen(import-object): crate::sym::constraint::ConstraintContext
@@ -77,7 +75,6 @@ use crate::ir::expr::Expr;
 use crate::ir::expr::ExprObj;
 use crate::ir::expr::IntoExpr;
 use crate::ir::expr::PrimExpr;
-use crate::ir::expr::Range;
 use crate::ir::expr::Var;
 use crate::ir::support;
 use crate::sym::constraint::ConstraintContext;
@@ -378,7 +375,9 @@ impl TryFrom<i64> for CompareResult {
 /// send::<tvm_tirx::sym::AllowUintAsIndexScope>();
 /// ```
 #[must_use = "the assumption ends when the scope is dropped"]
-pub struct AllowUintAsIndexScope(ExitOnDrop);
+pub struct AllowUintAsIndexScope {
+    _exit: ExitOnDrop,
+}
 
 /// Treat `uint32` and `uint64` scalars as non-wrapping index types until the returned scope is
 /// dropped (`sym.AnalyzerEnterAllowUintAsIndex`).
@@ -388,7 +387,7 @@ pub fn allow_uint_as_index() -> Result<AllowUintAsIndexScope> {
     let exit: tvm_ffi::Function = tvm_ffi::cached_global_func!("sym.AnalyzerEnterAllowUintAsIndex")
         .call_tuple(())?
         .try_into()?;
-    Ok(AllowUintAsIndexScope(ExitOnDrop::new(exit)))
+    Ok(AllowUintAsIndexScope { _exit: ExitOnDrop::new(exit) })
 }
 
 // ---------------------------------------------------------------------------------------------

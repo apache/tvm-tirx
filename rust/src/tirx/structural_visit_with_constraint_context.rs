@@ -32,7 +32,7 @@ use tvm_ffi::{
 };
 
 use super::StructuralVisitorWithConstraintContextObj;
-use crate::sym::{ConstraintContext, ConstraintContextObj};
+use crate::sym::ConstraintContext;
 
 /// The base of a constraint-aware visitor, holding the constraint context of the current value.
 ///
@@ -47,7 +47,8 @@ pub struct StructuralVisitorWithConstraintContextBase {
 
 impl StructuralVisitorWithConstraintContextBase {
     /// Return the constraint context in effect at the current value; use
-    /// [`ConstraintContextObj::snapshot`] to keep its current prefix.
+    /// [`ConstraintContextObj::snapshot`](crate::sym::ConstraintContextObj::snapshot) to keep its
+    /// current prefix.
     pub fn constraints(&self) -> ConstraintContext {
         // SAFETY: the borrow ends with this clone, before anything can replace the field.
         unsafe { (&*self.constraints.get()).clone() }

@@ -16,7 +16,6 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-#![allow(dead_code, unused_imports)]
 // The generated constructors take one argument per reflected field.
 #![allow(clippy::too_many_arguments)]
 
@@ -32,7 +31,6 @@
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
 // tvm-ffi-stubgen(import-object): crate::ir::expr::Call
-// tvm-ffi-stubgen(import-object): crate::ir::expr::Expr
 // tvm-ffi-stubgen(import-object): crate::ir::expr::TensorRegion
 // tvm-ffi-stubgen(import-object): crate::ir::op::Op
 // tvm-ffi-stubgen(import-object): tvm_ffi::Result
@@ -43,7 +41,6 @@
 use crate::ir::attrs::Attrs;
 use crate::ir::attrs::AttrsObj;
 use crate::ir::expr::Call;
-use crate::ir::expr::Expr;
 use crate::ir::expr::IntoExpr;
 use crate::ir::expr::TensorRegion;
 use crate::ir::op::Op;

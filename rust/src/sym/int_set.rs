@@ -16,7 +16,6 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-#![allow(dead_code, unused_imports)]
 
 //! Sets of integers: [`IntSet`] and the interval [`IntervalSet`], with bound deduction and region
 //! bound estimation.

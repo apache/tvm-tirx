@@ -16,7 +16,6 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-#![allow(dead_code, unused_imports)]
 
 //! Tile instructions: their attributes ([`instruction`]) and the context they are dispatched in
 //! ([`dispatch`]).

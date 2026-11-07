@@ -16,7 +16,6 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-#![allow(dead_code, unused_imports)]
 // The generated `new` of a field-less base needs no `Default`, and `UnknownLoc::new` fetches a
 // shared FFI singleton.
 #![allow(clippy::new_without_default)]

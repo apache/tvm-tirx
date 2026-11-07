@@ -16,7 +16,6 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-#![allow(dead_code, unused_imports)]
 // The generated `new` of a field-less base needs no `Default`.
 #![allow(clippy::new_without_default)]
 
@@ -52,7 +51,7 @@
 
 use std::cell::UnsafeCell;
 use std::mem::{align_of, offset_of, size_of};
-use tvm_ffi::{AnyView, Array, Error, ObjectCore, Result, VALUE_ERROR};
+use tvm_ffi::{AnyView, Array, Error, Result, VALUE_ERROR};
 // tvm-ffi-stubgen(import-object): crate::ir::expr::PrimExpr
 // A binding's value and a predicate are `PrimExpr`s, as in C++.
 // tvm-ffi-stubgen(field): sym.BindingConstraint.value -> PrimExpr

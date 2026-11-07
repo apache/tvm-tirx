@@ -16,7 +16,6 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-#![allow(dead_code, unused_imports)]
 
 //! Expressions: variables, constants, calls, tuples and tensor accesses.
 //!
@@ -92,13 +91,11 @@
 // tvm-ffi-stubgen(import-object): crate::ir::r#type::TupleType
 // tvm-ffi-stubgen(import-object): crate::ir::r#type::TupleTypeObj
 // tvm-ffi-stubgen(import-object): crate::ir::support
-// tvm-ffi-stubgen(import-object): crate::ir::dtype
 // tvm-ffi-stubgen(import-object): std::borrow::Borrow
 // tvm-ffi-stubgen(import-object): tvm_ffi::object::IntoObjectRef
 
 // tvm-ffi-stubgen(begin): import-section
 use crate::ir::attrs::Attrs;
-use crate::ir::dtype;
 use crate::ir::location::Location;
 use crate::ir::location::UNKNOWN_LOC;
 use crate::ir::op::OpObj;

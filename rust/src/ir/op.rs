@@ -16,7 +16,6 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-#![allow(dead_code, unused_imports)]
 
 //! Operators: the registry entry [`Op`], its [`ArgumentInfo`], and its attribute columns.
 //!
@@ -52,13 +51,11 @@
 // tvm-ffi-stubgen(import-object): tvm_ffi::String
 // tvm-ffi-stubgen(import-object): crate::ir::expr::Expr
 // tvm-ffi-stubgen(import-object): crate::ir::expr::ExprObj
-// tvm-ffi-stubgen(import-object): crate::ir::support
 // tvm-ffi-stubgen(import-object): tvm_ffi::ObjectRefCore
 
 // tvm-ffi-stubgen(begin): import-section
 use crate::ir::expr::Expr;
 use crate::ir::expr::ExprObj;
-use crate::ir::support;
 use std::ops::Deref;
 use tvm_ffi::Any;
 use tvm_ffi::Array;

@@ -16,7 +16,9 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-#![allow(dead_code, unused_imports)]
+// The generated imports include `Type` for the inherited `ty`, which the `field` directives below
+// narrow to `PrimType`.
+#![allow(unused_imports)]
 
 //! Scalar expressions: casts, arithmetic, bitwise and logical operations, comparisons, `Select`
 //! and `Let`.
@@ -183,7 +185,6 @@
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
 // tvm-ffi-stubgen(import-object): tvm_ffi::AnyView
-// tvm-ffi-stubgen(import-object): tvm_ffi::DLDataType
 // tvm-ffi-stubgen(import-object): tvm_ffi::DLDataTypeCode
 // tvm-ffi-stubgen(import-object): tvm_ffi::ObjectRefCore
 // tvm-ffi-stubgen(import-object): tvm_ffi::Result
@@ -206,7 +207,6 @@ use crate::ir::r#type::Type;
 use crate::ir::support;
 use std::ops::Deref;
 use tvm_ffi::AnyView;
-use tvm_ffi::DLDataType;
 use tvm_ffi::DLDataTypeCode;
 use tvm_ffi::ObjectArc;
 use tvm_ffi::ObjectRefCore;

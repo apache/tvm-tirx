@@ -16,7 +16,6 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-#![allow(dead_code, unused_imports)]
 
 //! The module: the unit of compilation.
 //!
@@ -52,7 +51,6 @@
 // tvm-ffi-stubgen(import-object): tvm_ffi::Any
 // tvm-ffi-stubgen(import-object): tvm_ffi::RValueRef
 // tvm-ffi-stubgen(import-object): tvm_ffi::Result
-// tvm-ffi-stubgen(import-object): crate::ir::expr::Expr
 // tvm-ffi-stubgen(import-object): crate::ir::support
 // tvm-ffi-stubgen(import-object): crate::ir::expr::IntoExpr
 // tvm-ffi-stubgen(import-object): std::borrow::Borrow
@@ -60,7 +58,6 @@
 
 // tvm-ffi-stubgen(begin): import-section
 use crate::ir::attrs::DictAttrs;
-use crate::ir::expr::Expr;
 use crate::ir::expr::GlobalVar;
 use crate::ir::expr::IntoExpr;
 use crate::ir::function::BaseFunc;

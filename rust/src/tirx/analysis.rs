@@ -17,8 +17,6 @@
  * under the License.
  */
 
-#![allow(dead_code, unused_imports)]
-
 //! Analyses of tensor-level IR: memory accesses, undefined variables, linear patterns and
 //! well-formedness.
 
