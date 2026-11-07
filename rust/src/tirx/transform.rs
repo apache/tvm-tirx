@@ -17,7 +17,8 @@
  * under the License.
  */
 
-//! The TIRx passes ([`mod@transform`]) and function passes ([`function_pass`]).
+//! Passes of the dialect. [`mod@transform`] holds the passes over TIRx functions, and
+//! [`function_pass`] builds one from a Rust closure.
 
 // tvm-ffi-stubgen(missing-docs): allow
 // An object registered under `tirx.transform` that no file has a block for yet is generated here,

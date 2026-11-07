@@ -17,7 +17,9 @@
  * under the License.
  */
 
-//! Constraint-aware structural mutation: rewrite values with the facts in scope.
+//! Constraint-aware structural mutation. [`structural_mutate_with_constraint_context`] rewrites a
+//! value with a dispatcher whose handlers read the facts in scope from the
+//! [`StructuralMutatorWithConstraintContextView`] they are given.
 
 use std::borrow::BorrowMut;
 use std::cell::UnsafeCell;

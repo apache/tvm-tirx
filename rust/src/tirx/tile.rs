@@ -17,8 +17,8 @@
  * under the License.
  */
 
-//! Tile instructions: their attributes ([`instruction`]) and the context they are dispatched in
-//! ([`dispatch`]).
+//! Tile instructions. [`instruction`] holds the attributes their calls carry and their validation,
+//! and [`dispatch`] the context a lowering dispatches each call in.
 
 pub mod dispatch;
 pub mod instruction;

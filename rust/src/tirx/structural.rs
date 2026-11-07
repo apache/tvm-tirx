@@ -17,12 +17,9 @@
  * under the License.
  */
 
-//! Structural traversal with the facts in scope.
-//!
-//! A [`StructuralVisitorWithConstraintContext`] visits values and a
-//! [`StructuralMutatorWithConstraintContext`] transforms them, keeping the [`ConstraintContext`] of
-//! the bindings, ranges and guards in effect at the current value. From Rust, run them with the
-//! `structural_*_with_constraint_context` entry points.
+//! Constraint-aware traversal. A [`StructuralVisitorWithConstraintContext`] visits values and a
+//! [`StructuralMutatorWithConstraintContext`] rewrites them, each keeping the [`ConstraintContext`]
+//! of the bindings, ranges and guards in scope at the current value.
 
 // tvm-ffi-stubgen(missing-docs): allow
 
@@ -53,6 +50,9 @@ struct FfiStructuralVisitorObj {
 }
 // tvm-ffi-stubgen(end)
 
+/// A structural mutator that keeps the [`ConstraintContext`] in scope at the current value, read
+/// with `constraints`; Rust code runs one with
+/// [`structural_mutate_with_constraint_context`](mod@super::structural_mutate_with_constraint_context).
 // tvm-ffi-stubgen(begin): object/tirx.StructuralMutatorWithConstraintContext
 #[allow(missing_docs)]
 #[repr(C)]
@@ -80,6 +80,9 @@ impl StructuralMutatorWithConstraintContextObj {
 }
 // tvm-ffi-stubgen(end)
 
+/// A structural visitor that keeps the [`ConstraintContext`] in scope at the current value, read
+/// with `constraints`; Rust code runs one with
+/// [`structural_visit_with_constraint_context`](mod@super::structural_visit_with_constraint_context).
 // tvm-ffi-stubgen(begin): object/tirx.StructuralVisitorWithConstraintContext
 #[allow(missing_docs)]
 #[repr(C)]

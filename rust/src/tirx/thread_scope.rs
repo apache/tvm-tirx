@@ -17,22 +17,8 @@
  * under the License.
  */
 
-//! Thread scopes: the levels of a backend's thread hierarchy.
-//!
-//! A [`ThreadScope`], such as `cuda.warp`, is looked up by name with [`ThreadScope::get`].
-//!
-//! # Examples
-//!
-//! ```
-//! use tvm_tirx::tirx::ThreadScope;
-//!
-//! let warp = ThreadScope::get("cuda.warp")?;
-//! assert_eq!((warp.backend()?, warp.local_name()?), ("cuda".into(), "warp".into()));
-//!
-//! let cta = ThreadScope::get("cuda.cta")?;
-//! assert!(cta.is_higher_than(&warp)?);
-//! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
-//! ```
+//! Thread scopes. A [`ThreadScope`] is one level of a backend's thread hierarchy, such as
+//! `cuda.warp`; each backend registers its levels, ranked from the widest down.
 
 // tvm-ffi-stubgen(missing-docs): allow
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
@@ -60,6 +46,23 @@ struct FfiEnumObj {
 }
 // tvm-ffi-stubgen(end)
 
+/// A level of a backend's thread hierarchy, named `backend.level`, such as `cuda.warp`.
+///
+/// Backends register their scopes; [`ThreadScope::get`] only looks one up. Within a backend,
+/// [`rank`](ThreadScope::rank) orders the levels, a wider scope ranking lower.
+///
+/// # Examples
+///
+/// ```
+/// use tvm_tirx::tirx::ThreadScope;
+///
+/// let warp = ThreadScope::get("cuda.warp")?;
+/// assert_eq!((warp.backend()?, warp.local_name()?), ("cuda".into(), "warp".into()));
+///
+/// let cta = ThreadScope::get("cuda.cta")?;
+/// assert!(cta.is_higher_than(&warp)?);
+/// # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
+/// ```
 // tvm-ffi-stubgen(begin): object/tirx.ThreadScope
 #[allow(missing_docs)]
 #[repr(C)]

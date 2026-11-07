@@ -17,34 +17,8 @@
  * under the License.
  */
 
-//! Function passes.
-//!
-//! A [`FunctionPass`] is a [`Pass`] that transforms each TIRx function of a module.
-//!
-//! # Examples
-//!
-//! ```
-//! use tvm_tirx::ir::transform::{Pass, PassInfo};
-//! use tvm_tirx::tirx::transform::FunctionPass;
-//! # use tvm_tirx::ir::{BaseFunc, DictAttrs, Evaluate, GlobalVar, IRModule, MissingType, SeqStmt};
-//! # use tvm_tirx::ir::{Var, UNKNOWN_LOC};
-//! # use tvm_tirx::tirx::Function;
-//! # use tvm_tirx::tvm_ffi::Map;
-//! # let body = SeqStmt::new([Evaluate::new(1, UNKNOWN_LOC)], UNKNOWN_LOC);
-//! # let attrs = DictAttrs::new(Map::new());
-//! # let main = Function::new(Vec::<Var>::new(), &body, MissingType::new(), attrs, UNKNOWN_LOC);
-//! # let main_var = GlobalVar::new("main", UNKNOWN_LOC);
-//! # let functions = Map::from_iter([(main_var, BaseFunc::from(&main))]);
-//! # let module = IRModule::new(&functions, DictAttrs::new(Map::new()), &Map::new())?;
-//!
-//! let pass = FunctionPass::new(
-//!     |func, _module, _ctx| Ok((!func.params.is_empty()).then_some(func)),
-//!     PassInfo::new(0, "my_ext.RemoveNullary"),
-//! );
-//! let module = Pass::from(&pass).run(module)?;
-//! assert!(!module.contains("main")?);
-//! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
-//! ```
+//! Function passes. A [`FunctionPass`] is a [`Pass`] that rewrites each TIRx function of a module
+//! on its own, given the module and the pass context.
 
 // tvm-ffi-stubgen(missing-docs): allow
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
@@ -71,6 +45,33 @@ use tvm_ffi::RValueRef;
 use tvm_ffi::Result;
 // tvm-ffi-stubgen(end)
 
+/// A pass that replaces each TIRx function of a module by what a function returns for it, or
+/// removes it for `None`; [`FunctionPass::new`] creates one from a Rust closure.
+///
+/// # Examples
+///
+/// ```
+/// use tvm_tirx::ir::transform::{Pass, PassInfo};
+/// use tvm_tirx::tirx::transform::FunctionPass;
+/// # use tvm_tirx::ir::{BaseFunc, DictAttrs, Evaluate, GlobalVar, IRModule, MissingType, SeqStmt};
+/// # use tvm_tirx::ir::{Var, UNKNOWN_LOC};
+/// # use tvm_tirx::tirx::Function;
+/// # use tvm_tirx::tvm_ffi::Map;
+/// # let body = SeqStmt::new([Evaluate::new(1, UNKNOWN_LOC)], UNKNOWN_LOC);
+/// # let attrs = DictAttrs::new(Map::new());
+/// # let main = Function::new(Vec::<Var>::new(), &body, MissingType::new(), attrs, UNKNOWN_LOC);
+/// # let main_var = GlobalVar::new("main", UNKNOWN_LOC);
+/// # let functions = Map::from_iter([(main_var, BaseFunc::from(&main))]);
+/// # let module = IRModule::new(&functions, DictAttrs::new(Map::new()), &Map::new())?;
+///
+/// let pass = FunctionPass::new(
+///     |func, _module, _ctx| Ok((!func.params.is_empty()).then_some(func)),
+///     PassInfo::new(0, "my_ext.RemoveNullary"),
+/// );
+/// let module = Pass::from(&pass).run(module)?;
+/// assert!(!module.contains("main")?);
+/// # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
+/// ```
 // tvm-ffi-stubgen(begin): object/tirx.FunctionPass
 #[allow(missing_docs)]
 #[repr(C)]

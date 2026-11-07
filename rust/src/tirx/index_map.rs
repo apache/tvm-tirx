@@ -17,29 +17,9 @@
  * under the License.
  */
 
-//! Index maps.
-//!
-//! An [`IndexMap`] maps its `initial_indices` to its `final_indices`, as `(i, j) -> (j, i)` does.
-//!
-//! # Examples
-//!
-//! ```
-//! use tvm_tirx::ir::{PrimExpr, PrimType, PrimVar, UNKNOWN_LOC};
-//! use tvm_tirx::script::script;
-//! use tvm_tirx::tirx::IndexMap;
-//! use tvm_tirx::tvm_ffi::{Array, Result};
-//!
-//! let i = PrimVar::new("i", PrimType::int(32), UNKNOWN_LOC);
-//! let j = PrimVar::new("j", PrimType::int(32), UNKNOWN_LOC);
-//! let transpose = IndexMap::new([&i, &j], [&j, &i], None)?;
-//! assert_eq!(script(&transpose)?, "T.index_map(lambda i, j: (j, i))");
-//!
-//! let text =
-//!     |exprs: Array<PrimExpr>| exprs.iter().map(script).collect::<Result<Vec<_>>>();
-//! assert_eq!(text(transpose.map_indices([1, 2], None)?)?, ["2", "1"]);
-//!
-//! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
-//! ```
+//! Index maps. An [`IndexMap`] maps the indices of one representation of a tensor to those of
+//! another, as a layout transformation does; it maps indices, shapes and tensor data, and inverts
+//! when it is bijective.
 
 // tvm-ffi-stubgen(missing-docs): allow
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
@@ -51,7 +31,7 @@
 // tvm-ffi-stubgen(import-object): tvm_ffi::Tensor
 // tvm-ffi-stubgen(import-object): crate::ir::expr::IntoExpr
 // tvm-ffi-stubgen(import-object): crate::ir::expr::PrimExpr
-// `custom-new` reserves `new` for the C++ constructor, which takes the inverse as an `IndexMap`; the
+// `custom-new` reserves `new` for a constructor that takes the inverse as an `IndexMap`; the
 // generated `from_fields` stores it as the `ObjectRef` the field holds.
 // tvm-ffi-stubgen(custom-new): tirx.IndexMap
 // The indices a map computes are `PrimExpr`s, as C++ `IndexMapObj` holds them.
@@ -75,6 +55,28 @@ use tvm_ffi::Tensor;
 use tvm_ffi::object::ObjectRef;
 // tvm-ffi-stubgen(end)
 
+/// The map from the index variables `initial_indices` to the expressions `final_indices` over
+/// them, such as `(i, j) -> (j, i)`, with its inverse `inverse_index_map` when it is known.
+///
+/// # Examples
+///
+/// ```
+/// use tvm_tirx::ir::{PrimExpr, PrimType, PrimVar, UNKNOWN_LOC};
+/// use tvm_tirx::script::script;
+/// use tvm_tirx::tirx::IndexMap;
+/// use tvm_tirx::tvm_ffi::{Array, Result};
+///
+/// let i = PrimVar::new("i", PrimType::int(32), UNKNOWN_LOC);
+/// let j = PrimVar::new("j", PrimType::int(32), UNKNOWN_LOC);
+/// let transpose = IndexMap::new([&i, &j], [&j, &i], None)?;
+/// assert_eq!(script(&transpose)?, "T.index_map(lambda i, j: (j, i))");
+///
+/// let text =
+///     |exprs: Array<PrimExpr>| exprs.iter().map(script).collect::<Result<Vec<_>>>();
+/// assert_eq!(text(transpose.map_indices([1, 2], None)?)?, ["2", "1"]);
+///
+/// # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
+/// ```
 // tvm-ffi-stubgen(begin): object/tirx.IndexMap
 #[allow(missing_docs)]
 #[repr(C)]
@@ -137,8 +139,7 @@ unsafe impl tvm_ffi::object::ImmutableObject for IndexMapObj {}
 
 impl IndexMap {
     /// Create the map from `initial_indices` to `final_indices`, with the inverse
-    /// `inverse_index_map` if it is known (C++ `IndexMap(initial_indices, final_indices,
-    /// inverse_index_map)`).
+    /// `inverse_index_map` if it is known.
     pub fn new(
         initial_indices: impl IntoIterator<Item = impl Into<PrimVar>>,
         final_indices: impl IntoIterator<Item = impl IntoExpr<PrimExpr>>,

@@ -17,14 +17,14 @@
  * under the License.
  */
 
-//! The operator attributes of TIRx (C++ `tvm::tirx::op_attr`), for
-//! [`OpDef::set_attr`](crate::ir::OpDef::set_attr).
+//! Operator attributes. The typed keys of the attributes the dialect reads from an operator, set
+//! with [`OpDef::set_attr`](crate::ir::OpDef::set_attr).
 
 use tvm_ffi::String;
 
 use crate::ir::AttrKey;
 
-/// The global symbol of the operator after lowering (C++ `kGlobalSymbol`, `TGlobalSymbol`).
+/// The global symbol the operator lowers to.
 pub const GLOBAL_SYMBOL: AttrKey<String> = AttrKey::new("TGlobalSymbol");
-/// Whether the operator is overloaded for vector forms (C++ `kVectorizable`, `TVectorizable`).
+/// Whether the operator is overloaded for vector operands.
 pub const VECTORIZABLE: AttrKey<bool> = AttrKey::new("TVectorizable");

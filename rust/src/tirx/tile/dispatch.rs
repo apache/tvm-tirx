@@ -17,34 +17,9 @@
  * under the License.
  */
 
-//! The context of tile instruction dispatch.
-//!
-//! A [`DispatchContext`] gives a lowering its target, thread scope, launch parameters and variable
-//! ranges, and the state shared between dispatches.
-//!
-//! # Examples
-//!
-//! ```
-//! use tvm_tirx::ir::{Evaluate, IntImm, PrimType, PrimVar, UNKNOWN_LOC};
-//! use tvm_tirx::target::Target;
-//! use tvm_tirx::tirx::tile::DispatchContext;
-//! use tvm_tirx::tirx::ThreadScope;
-//! use tvm_tirx::tvm_ffi::Map;
-//!
-//! let tx = PrimVar::new("tx", PrimType::int(32), UNKNOWN_LOC);
-//! let ctx = DispatchContext::new(
-//!     Target::new("cuda")?,
-//!     ThreadScope::get("cuda.warp")?,
-//!     [("threadIdx.x", tx, 32.into())],
-//!     &Map::new(), false, &Map::new(), &Map::new(), &Map::new(), &Map::new(),
-//!     "warp",
-//! )?;
-//!
-//! ctx.cache_set("my_ext.zero", &IntImm::int32(0))?;
-//! assert!(ctx.cache_get("my_ext.zero")?.is_some());
-//! ctx.add_init_stmt(Evaluate::new(1, UNKNOWN_LOC), false)?;
-//! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
-//! ```
+//! Tile instruction dispatch. A lowering dispatches each tile instruction call with a
+//! [`DispatchContext`], which describes where the call runs and collects the statements and
+//! allocations the dispatch requests.
 
 // tvm-ffi-stubgen(missing-docs): allow
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
@@ -83,6 +58,38 @@ use tvm_ffi::String;
 use tvm_ffi::object::ObjectRef;
 // tvm-ffi-stubgen(end)
 
+/// The context a tile instruction call is lowered in: the `target`, the `thread_scope` of the
+/// call, the kernel's `launch_params`, the ranges of the loop variables in scope
+/// (`var_range_map`), the axis views across and within teams (`inter`, `intra`) and the
+/// `scope_kind`.
+///
+/// Through it a dispatch requests allocations and statements, and caches objects that later
+/// dispatches of the same lowering reuse. A context with `alloc_only` set is used only to allocate
+/// tensors.
+///
+/// # Examples
+///
+/// ```
+/// use tvm_tirx::ir::{Evaluate, IntImm, PrimType, PrimVar, UNKNOWN_LOC};
+/// use tvm_tirx::target::Target;
+/// use tvm_tirx::tirx::tile::DispatchContext;
+/// use tvm_tirx::tirx::ThreadScope;
+/// use tvm_tirx::tvm_ffi::Map;
+///
+/// let tx = PrimVar::new("tx", PrimType::int(32), UNKNOWN_LOC);
+/// let ctx = DispatchContext::new(
+///     Target::new("cuda")?,
+///     ThreadScope::get("cuda.warp")?,
+///     [("threadIdx.x", tx, 32.into())],
+///     &Map::new(), false, &Map::new(), &Map::new(), &Map::new(), &Map::new(),
+///     "warp",
+/// )?;
+///
+/// ctx.cache_set("my_ext.zero", &IntImm::int32(0))?;
+/// assert!(ctx.cache_get("my_ext.zero")?.is_some());
+/// ctx.add_init_stmt(Evaluate::new(1, UNKNOWN_LOC), false)?;
+/// # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
+/// ```
 // tvm-ffi-stubgen(begin): object/tirx.DispatchContext
 #[allow(missing_docs)]
 #[repr(C)]

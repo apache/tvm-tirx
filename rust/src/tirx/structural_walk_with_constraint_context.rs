@@ -17,7 +17,8 @@
  * under the License.
  */
 
-//! Constraint-aware structural walking: observe values with the facts in scope.
+//! Constraint-aware structural walking. [`structural_walk_with_constraint_context`] calls a closure
+//! on every value with the facts in scope there, to observe the value, not to rewrite it.
 
 use std::borrow::BorrowMut;
 use tvm_ffi::{

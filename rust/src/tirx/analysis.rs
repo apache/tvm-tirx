@@ -17,8 +17,8 @@
  * under the License.
  */
 
-//! Analyses of tensor-level IR: memory accesses, undefined variables, linear patterns and
-//! well-formedness.
+//! Analyses. Read-only queries over functions, statements and expressions: well-formedness and
+//! host memory access checks, undefined variables, and linear and clip-bound index patterns.
 
 #[allow(clippy::module_inception)]
 pub mod analysis;

@@ -17,35 +17,13 @@
  * under the License.
  */
 
-//! Tensor types.
-//!
-//! A [`TensorType`] is the element type, memory scope, shape, data alignment and optional layout of
-//! a tensor.
-//!
-//! # Examples
-//!
-//! ```
-//! use tvm_tirx::ir::{Expr, PrimType, PrimVar, Subscript, Var, UNKNOWN_LOC};
-//! use tvm_tirx::runtime::MemoryScope;
-//! use tvm_tirx::script::script;
-//! use tvm_tirx::tirx::TensorType;
-//!
-//! let scratch = MemoryScope::register("my_ext.scratch")?;
-//! let ty = TensorType::new([16, 16], PrimType::float(32), &scratch, 0, None, UNKNOWN_LOC)?;
-//! assert_eq!(script(&ty)?, r#"T.Tensor((16, 16), T.float32, scope="my_ext.scratch")"#);
-//!
-//! let a = Expr::from(Var::new("A", &ty, UNKNOWN_LOC));
-//! let i = PrimVar::new("i", PrimType::int(32), UNKNOWN_LOC);
-//! let point = [Subscript::Index(i.into()), Subscript::Index(0.into())];
-//! let element = a.subscript(point, UNKNOWN_LOC)?;
-//! assert_eq!(script(&Expr::try_from(element)?)?, "A[i, 0]");
-//!
-//! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
-//! ```
+//! Tensors. A tensor is a [`Var`] whose type is a [`TensorType`], which fixes its shape, element
+//! type, memory scope, alignment and [`Layout`]; loads and stores subscript the variable, and
+//! [`TensorVar`] matches one in an operator signature.
 
 // tvm-ffi-stubgen(missing-docs): allow
-// `custom-new` reserves `new` for a constructor with the C++ one's semantics (defaults); the
-// generated `from_fields` allocates the fields as given.
+// `custom-new` reserves `new` for a hand-written constructor (defaults); the generated
+// `from_fields` allocates the fields as given.
 // tvm-ffi-stubgen(custom-new): tirx.TensorType
 
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
@@ -87,6 +65,32 @@ use tvm_ffi::ObjectCore;
 use tvm_ffi::Result;
 // tvm-ffi-stubgen(end)
 
+/// The type of a tensor of `shape` and element type `dtype` in the memory `scope`, with its data
+/// pointer aligned to `data_alignment` bytes and an optional `layout` from indices to storage.
+///
+/// The shape is the one loads and stores index. The data pointer is not part of the type; the
+/// definition of the tensor variable binds it.
+///
+/// # Examples
+///
+/// ```
+/// use tvm_tirx::ir::{Expr, PrimType, PrimVar, Subscript, Var, UNKNOWN_LOC};
+/// use tvm_tirx::runtime::MemoryScope;
+/// use tvm_tirx::script::script;
+/// use tvm_tirx::tirx::TensorType;
+///
+/// let scratch = MemoryScope::register("my_ext.scratch")?;
+/// let ty = TensorType::new([16, 16], PrimType::float(32), &scratch, 0, None, UNKNOWN_LOC)?;
+/// assert_eq!(script(&ty)?, r#"T.Tensor((16, 16), T.float32, scope="my_ext.scratch")"#);
+///
+/// let a = Expr::from(Var::new("A", &ty, UNKNOWN_LOC));
+/// let i = PrimVar::new("i", PrimType::int(32), UNKNOWN_LOC);
+/// let point = [Subscript::Index(i.into()), Subscript::Index(0.into())];
+/// let element = a.subscript(point, UNKNOWN_LOC)?;
+/// assert_eq!(script(&Expr::try_from(element)?)?, "A[i, 0]");
+///
+/// # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
+/// ```
 // tvm-ffi-stubgen(begin): object/tirx.TensorType
 #[allow(missing_docs)]
 #[repr(C)]
@@ -169,8 +173,7 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(TensorType => Type);
 
 impl TensorType {
     /// Create the type of a tensor of `shape` and `dtype` in `scope`, aligned to `data_alignment`
-    /// bytes (the runtime's allocation alignment when 0 or less), with `layout` if given (C++
-    /// `TensorType(shape, dtype, scope, data_alignment, layout, loc)`).
+    /// bytes (the runtime's allocation alignment when 0 or less), with `layout` if given.
     pub fn new(
         shape: impl IntoIterator<Item = impl IntoExpr<PrimExpr>>,
         dtype: impl Into<PrimType>,
@@ -206,8 +209,8 @@ impl TensorType {
     }
 }
 
-/// A signature descriptor ([`sig::ArgType`]) of a `Var`, not a subclass, whose type is a
-/// [`TensorType`] (C++ `tirx::TensorVar`).
+/// A signature descriptor ([`sig::ArgType`]) that matches a [`Var`] whose type is a
+/// [`TensorType`]; it is not a type of its own.
 pub struct TensorVar;
 
 impl sig::ArgType for TensorVar {
@@ -233,8 +236,8 @@ pub fn tensor_is_scalar(tensor: impl IntoObjectRef<Var>, alloc_or_decl: bool) ->
         .try_into()
 }
 
-/// The runtime's allocation alignment (C++ `runtime::kAllocAlignment`, which a build may set),
-/// read from the default the reflection registers for `TensorType::data_alignment`.
+/// The runtime's allocation alignment, which a build may configure, read from the default the
+/// reflection registers for `TensorType::data_alignment`.
 fn alloc_alignment() -> Result<i32> {
     static ALLOC_ALIGNMENT: std::sync::OnceLock<i32> = std::sync::OnceLock::new();
     if let Some(alignment) = ALLOC_ALIGNMENT.get() {
