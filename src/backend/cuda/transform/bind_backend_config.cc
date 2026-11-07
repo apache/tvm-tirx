@@ -20,13 +20,15 @@
 /*! \file bind_backend_config.cc
  *  \brief Resolve CUDA configuration before any target-sensitive lowering.
  */
+#include <tvm/ffi/extra/structural_equal.h>
+#include <tvm/ffi/extra/structural_key.h>
 #include <tvm/ffi/reflection/registry.h>
 #include <tvm/ir/unique_name_supply.h>
 #include <tvm/target/target.h>
 #include <tvm/tirx/stmt_functor.h>
 #include <tvm/tirx/transform.h>
 
-#include <map>
+#include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
@@ -156,7 +158,7 @@ class DeviceHelperSpecializer : public StmtExprMutator {
     if (auto existing = replacements_.Get(callee.value())) {
       replacement = existing.value();
     } else {
-      bool same_group = original_target.value()->str() == target_->str() &&
+      bool same_group = ffi::StructuralEqual()(original_target.value(), target_) &&
                         original->GetAttr<ffi::String>("backend_config").value_or("") == config_;
       replacement = same_group
                         ? callee.value()
@@ -239,7 +241,7 @@ Pass SpecializeDeviceHelpers() {
     IRModule result({}, mod->attrs, mod->global_infos);
     UniqueNameSupply names(mod->functions.begin(), mod->functions.end(),
                            [](const auto& kv) { return kv.first->name_hint; });
-    std::map<std::string, ffi::ObjectPtr<DeviceHelperSpecializer>> groups;
+    std::unordered_map<ffi::StructuralKey, ffi::ObjectPtr<DeviceHelperSpecializer>> groups;
     for (auto [gv, base] : mod->functions) {
       auto func = base.as<Function>();
       if (!func.has_value()) {
@@ -257,8 +259,7 @@ Pass SpecializeDeviceHelpers() {
         continue;
       }
       auto config = func.value()->GetAttr<ffi::String>("backend_config").value_or("");
-      std::string key = std::string(target.value()->str()) + "\n" + std::string(config);
-      auto& group = groups[key];
+      auto& group = groups[ffi::StructuralKey(ffi::Array<ffi::Any>{target.value(), config})];
       if (!group)
         group =
             ffi::make_object<DeviceHelperSpecializer>(mod, result, names, target.value(), config);
