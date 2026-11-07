@@ -42,6 +42,7 @@
 //! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
 //! ```
 
+// tvm-ffi-stubgen(missing-docs): allow
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
 // tvm-ffi-stubgen(import-object): crate::ir::expr::Range
@@ -77,6 +78,7 @@ use tvm_ffi::object::ObjectRef;
 
 // tvm-ffi-stubgen(begin): object/tirx.IndexMap
 /// Complete: reflected fields fill [24, 48) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "tirx.IndexMap"]
@@ -93,12 +95,14 @@ const _: () = {
     assert!(::core::mem::align_of::<IndexMapObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct IndexMap {
     base: ObjectArc<IndexMapObj>,
 }
 
+#[allow(missing_docs)]
 impl IndexMapObj {
     pub(crate) fn new(
         initial_indices: Array<PrimVar>,
@@ -110,6 +114,7 @@ impl IndexMapObj {
     }
 }
 
+#[allow(missing_docs)]
 impl IndexMap {
     /// Lossless complete-field allocation.
     pub fn from_fields(

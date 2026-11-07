@@ -46,6 +46,7 @@
 //! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
 //! ```
 
+// tvm-ffi-stubgen(missing-docs): allow
 // Names the hand-written code uses: the import section keeps them even when no generated block
 // does.
 // tvm-ffi-stubgen(import-object): tvm_ffi::Any
@@ -58,8 +59,6 @@
 // tvm-ffi-stubgen(import-object): tvm_ffi::Result
 // tvm-ffi-stubgen(import-object): tvm_ffi::TYPE_ERROR
 // tvm-ffi-stubgen(import-object): tvm_ffi::VALUE_ERROR
-// tvm-ffi-stubgen(import-object): crate::ir::dtype::void
-// tvm-ffi-stubgen(import-object): crate::ir::dtype::with_lanes
 // tvm-ffi-stubgen(import-object): crate::ir::expr::Call
 // tvm-ffi-stubgen(import-object): crate::ir::expr::CallObj
 // tvm-ffi-stubgen(import-object): crate::ir::expr::Expr
@@ -113,8 +112,6 @@
 // tvm-ffi-stubgen(import-object): crate::sym
 
 // tvm-ffi-stubgen(begin): import-section
-use crate::ir::dtype::void;
-use crate::ir::dtype::with_lanes;
 use crate::ir::expr::Call;
 use crate::ir::expr::CallObj;
 use crate::ir::expr::Expr;
@@ -210,10 +207,10 @@ use tvm_ffi::VALUE_ERROR;
 pub struct ExprResult(Result<PrimExpr>);
 
 impl ExprResult {
-    /// The dtype a literal next to this expression takes (`MakeConst(this.ty(), v)`).
-    fn dtype(&self) -> Result<DLDataType> {
+    /// The type a literal next to this expression takes (`MakeConst(this.ty(), v)`).
+    fn prim_ty(&self) -> Result<PrimType> {
         match &self.0 {
-            Ok(expr) => Ok(expr.dtype()),
+            Ok(expr) => Ok(expr.prim_ty().clone()),
             Err(error) => Err(error.clone()),
         }
     }
@@ -716,9 +713,7 @@ impl Operand for f64 {
 
 /// An operand next to `peer`: a literal is typed after it.
 fn typed_after(operand: OperandKind, peer: &ExprResult) -> ExprResult {
-    let constant = |value: i64| {
-        ExprResult(peer.dtype().and_then(|dtype| make_const(PrimType::from_dtype(dtype)?, value)))
-    };
+    let constant = |value: i64| ExprResult(peer.prim_ty().and_then(|ty| make_const(ty, value)));
     match operand {
         OperandKind::Expr(expr) => expr,
         OperandKind::Int32(value) => constant(i64::from(value)),
@@ -827,14 +822,14 @@ pub fn make_const_at(
     value: impl Into<ConstValue>,
     loc: impl Into<Location>,
 ) -> Result<PrimExpr> {
-    let (dtype, value, loc) = (ty.into().dtype, value.into(), loc.into());
-    if !is_vector(dtype) {
-        return make_const_scalar(dtype, value, &loc);
+    let (ty, value, loc) = (ty.into(), value.into(), loc.into());
+    if !ty.is_scalable_vector() && !ty.is_fixed_length_vector() {
+        return make_const_scalar(ty, value, &loc);
     }
-    let scalar = make_const_scalar(with_lanes(dtype, 1), value, &loc)?;
-    let lanes = match support::is_fixed_length_vector(dtype) {
-        true => IntImm::int32(support::lanes(dtype)?).into(),
-        false => super::vector_expr::vscale_lanes(vscale_factor(dtype))?,
+    let scalar = make_const_scalar(ty.with_lanes(1)?, value, &loc)?;
+    let lanes = match ty.vscale_factor() {
+        Some(factor) => super::vector_expr::vscale_lanes(i32::from(factor))?,
+        None => IntImm::int32(support::lanes(&ty)?).into(),
     };
     Ok(Broadcast::new(scalar, lanes, loc)?.into())
 }
@@ -849,19 +844,20 @@ pub fn convert(value: impl Into<Any>) -> Result<PrimExpr> {
     tvm_ffi::cached_global_func!("prim.convert").call_tuple((value.into(),))?.try_into()
 }
 
-/// C++ `prim::MakeConstScalar(dtype, value, loc)`: an `IntImm` for an integer or boolean type, a
+/// C++ `prim::MakeConstScalar(ty, value, loc)`: an `IntImm` for an integer or boolean type, a
 /// `FloatImm` for a floating-point type.
 pub(crate) fn make_const_scalar(
-    dtype: DLDataType,
+    ty: PrimType,
     value: ConstValue,
     loc: &Location,
 ) -> Result<PrimExpr> {
-    let code = dtype.code;
-    if matches!(code, support::INT | support::UINT | support::BOOL) {
+    let code = ty.dtype.code;
+    let unsigned = ty.matches_code(&[DLDataTypeCode::kDLUInt]);
+    if ty.matches_code(&INTEGER_OR_BOOL) {
         let value = match value {
             ConstValue::Int(value) => value,
             ConstValue::Float(value) => {
-                if code == support::UINT && value < 0.0 {
+                if unsigned && value < 0.0 {
                     let message = format!(
                         "cannot make uint from negative value {}",
                         support::CppDouble(value)
@@ -871,25 +867,24 @@ pub(crate) fn make_const_scalar(
                 BigInt::try_from(value)?
             }
         };
-        if code == support::UINT && value.is_negative() {
+        if unsigned && value.is_negative() {
             let message = format!("cannot make uint from negative value {value}");
             return Err(support::check_failed(INTERNAL_ERROR, "value >= 0", &message));
         }
-        return Ok(IntImm::new(PrimType::from_dtype(dtype)?, value, loc.clone())?.into());
+        return Ok(IntImm::new(ty, value, loc.clone())?.into());
     }
-    if code == support::FLOAT
+    if ty.matches_code(&[DLDataTypeCode::kDLFloat])
         || is_float8(code)
         || is_float6(code)
         || is_float4(code)
-        || is_bfloat16(dtype)
+        || is_bfloat16(&ty)
     {
         let value = match value {
             ConstValue::Int(value) => value.to_f64()?,
             ConstValue::Float(value) => value,
         };
-        return Ok(FloatImm::new(PrimType::from_dtype(dtype)?, value, loc.clone())?.into());
+        return Ok(FloatImm::new(ty, value, loc.clone())?.into());
     }
-    let ty = PrimType::from_dtype(dtype)?;
     let message = format!("cannot make const for type {}", support::repr(&ty));
     Err(Error::new(INTERNAL_ERROR, &message, ""))
 }
@@ -917,29 +912,29 @@ pub fn cast_at(
     loc: impl Into<Location>,
 ) -> Result<PrimExpr> {
     let (value, ty, loc) = (value.into_owned_expr()?, ty.into(), loc.into());
-    let (from, to) = (value.dtype(), ty.dtype);
-    if from == to {
+    let from = value.prim_ty().clone();
+    if from.dtype == ty.dtype {
         return Ok(value);
     }
-    if from == void() {
+    if from.is_void() {
         let message = "Cannot cast an expression with the void sentinel type";
         return Err(support::check_failed(TYPE_ERROR, "!value.ty().IsVoid()", message));
     }
-    if support::is_scalar(to) {
+    if ty.is_scalar() {
         return cast_scalar(value, ty, &loc);
     }
-    let element = PrimType::from_dtype(with_lanes(to, 1))?;
-    if !is_vector(from) {
+    let element = ty.with_lanes(1)?;
+    if !from.is_scalable_vector() && !from.is_fixed_length_vector() {
         let value = cast_at(value, element, loc.clone())?;
-        return Ok(Broadcast::new(value, lanes_of(to)?, loc)?.into());
+        return Ok(Broadcast::new(value, lanes_of(&ty)?, loc)?.into());
     }
-    if support::is_scalable_vector(from) != support::is_scalable_vector(to) {
+    if from.is_scalable_vector() != ty.is_scalable_vector() {
         let condition = "value.ty().IsScalableVector() == dtype.IsScalableVector()";
         return Err(support::check_failed(INTERNAL_ERROR, condition, ""));
     }
-    let lanes_match = match support::is_scalable_vector(from) {
-        true => vscale_factor(from) == vscale_factor(to),
-        false => support::lanes(from)? == support::lanes(to)?,
+    let lanes_match = match from.is_scalable_vector() {
+        true => from.vscale_factor() == ty.vscale_factor(),
+        false => from.lanes() == ty.lanes(),
     };
     if !lanes_match {
         return Err(support::check_failed(INTERNAL_ERROR, "lanes_match", ""));
@@ -952,14 +947,14 @@ pub fn cast_at(
         // Casting the base and the stride is valid only when every lane is the same integer in
         // both types: widening must not remove an overflow of the source, and a floating-point
         // cast need not be affine.
-        let integer = matches!(to.code, support::INT | support::UINT) && matches!(to.bits, 32 | 64);
+        let integer = ty.matches_code(&INTEGER) && matches!(ty.bits(), 32 | 64);
         if let (Some(base), Some(stride)) =
             (const_fold::int(&ramp.base_), const_fold::int(&ramp.stride))
         {
-            if support::is_fixed_length_vector(to) && integer {
-                let last = base + stride * i64::from(support::lanes(to)? - 1);
-                let source = support::prim_dtype(&ramp.base_)?;
-                let fits = |value: &BigInt| const_fold::is_representable(value, element.dtype);
+            if ty.is_fixed_length_vector() && integer {
+                let last = base + stride * i64::from(support::lanes(&ty)? - 1);
+                let source = ramp.base_.prim_ty();
+                let fits = |value: &BigInt| const_fold::is_representable(value, &element);
                 if fits(base)
                     && fits(stride)
                     && fits(&last)
@@ -999,22 +994,22 @@ pub fn match_types_at(
     loc: impl Into<Location>,
 ) -> Result<(PrimExpr, PrimExpr)> {
     let (a, b, loc) = (a.into_owned_expr()?, b.into_owned_expr()?, loc.into());
-    let (a_dtype, b_dtype) = (a.dtype(), b.dtype());
-    if a_dtype == b_dtype {
+    if a.prim_ty().dtype == b.prim_ty().dtype {
         return Ok((a, b));
     }
-    let a = broadcast_to_match_lanes(a, b_dtype)?;
-    let b = broadcast_to_match_lanes(b, a.dtype())?;
-    let (a_dtype, b_dtype) = (a.dtype(), b.dtype());
-    if support::is_scalable_vector(a_dtype) != support::is_scalable_vector(b_dtype) {
+    let a = broadcast_to_match_lanes(a, b.prim_ty())?;
+    let b = broadcast_to_match_lanes(b, a.prim_ty())?;
+    let (a_ty, b_ty) = (a.prim_ty(), b.prim_ty());
+    if a_ty.is_scalable_vector() != b_ty.is_scalable_vector() {
         let condition = "lhs_ty.IsScalableVector() == rhs_ty.IsScalableVector()";
         let message = "Can't match scalable and fixed length vectors";
         return Err(support::check_failed(INTERNAL_ERROR, condition, message));
     }
-    let lanes_match = match support::is_scalable_vector(a_dtype) {
-        true => vscale_factor(a_dtype) == vscale_factor(b_dtype),
-        false => support::lanes(a_dtype)? == support::lanes(b_dtype)?,
+    let lanes_match = match a_ty.is_scalable_vector() {
+        true => a_ty.vscale_factor() == b_ty.vscale_factor(),
+        false => a_ty.lanes() == b_ty.lanes(),
     };
+    let (a_dtype, b_dtype) = (a_ty.dtype, b_ty.dtype);
     if !lanes_match {
         let (lhs, rhs) = (support::dtype_name(a_dtype), support::dtype_name(b_dtype));
         let message = format!("Cannot match type {lhs} vs {rhs}");
@@ -1023,11 +1018,11 @@ pub fn match_types_at(
     let promoted = promote_binary_op_type(a_dtype, b_dtype)?;
     let a = match a_dtype == promoted {
         true => a,
-        false => cast_at(a, PrimType::from_dtype(promoted)?, loc.clone())?,
+        false => cast_at(a, PrimType::try_from(promoted)?, loc.clone())?,
     };
     let b = match b_dtype == promoted {
         true => b,
-        false => cast_at(b, PrimType::from_dtype(promoted)?, loc)?,
+        false => cast_at(b, PrimType::try_from(promoted)?, loc)?,
     };
     Ok((a, b))
 }
@@ -1035,7 +1030,7 @@ pub fn match_types_at(
 /// C++ `cast` to a scalar type: a constant folded to `ty` keeping its location (see
 /// [`fold_cast`]); anything else a [`Cast`].
 fn cast_scalar(value: PrimExpr, ty: PrimType, loc: &Location) -> Result<PrimExpr> {
-    match fold_cast(&value, ty.dtype)? {
+    match fold_cast(&value, &ty)? {
         Some(folded) => Ok(folded),
         None => Ok(Cast::new(ty, value, loc.clone())?.into()),
     }
@@ -1044,24 +1039,24 @@ fn cast_scalar(value: PrimExpr, ty: PrimType, loc: &Location) -> Result<PrimExpr
 /// A constant cast to the scalar type `to` as C++ `cast` folds it: only when the result is the
 /// same value in `to`, an integer it can represent or a float within its range, and when a float
 /// type that rounds the result does so itself; `None` leaves a [`Cast`].
-fn fold_cast(value: &PrimExpr, to: DLDataType) -> Result<Option<PrimExpr>> {
-    let integer = matches!(to.code, support::INT | support::UINT | support::BOOL);
-    let float32 = to.code == support::FLOAT && to.bits == 32;
-    let float64 = to.code == support::FLOAT && to.bits == 64;
-    let limit_16 = match (to.code, to.bits) {
+fn fold_cast(value: &PrimExpr, ty: &PrimType) -> Result<Option<PrimExpr>> {
+    let integer = ty.matches_code(&INTEGER_OR_BOOL);
+    let float32 = ty.matches_code(&[DLDataTypeCode::kDLFloat]) && ty.bits() == 32;
+    let float64 = ty.matches_code(&[DLDataTypeCode::kDLFloat]) && ty.bits() == 64;
+    let limit_16 = match (ty.dtype.code, ty.bits()) {
         (support::FLOAT, 16) => Some(support::MAX_FLOAT16),
         (support::BFLOAT, 16) => Some(support::MAX_BFLOAT16),
         _ => None,
     };
     let int = |value: BigInt, loc: &Location| -> Result<Option<PrimExpr>> {
-        Ok(Some(IntImm::new(PrimType::from_dtype(to)?, value, loc.clone())?.into()))
+        Ok(Some(IntImm::new(ty.clone(), value, loc.clone())?.into()))
     };
     let float = |value: f64, loc: &Location| -> Result<Option<PrimExpr>> {
-        Ok(Some(FloatImm::new(PrimType::from_dtype(to)?, value, loc.clone())?.into()))
+        Ok(Some(FloatImm::new(ty.clone(), value, loc.clone())?.into()))
     };
     if let Some(imm) = value.downcast_ref::<IntImmObj>() {
         if integer {
-            if const_fold::is_representable(&imm.value, to) {
+            if const_fold::is_representable(&imm.value, ty) {
                 return int(imm.value.clone(), &imm.loc);
             }
         } else if float32 {
@@ -1081,9 +1076,9 @@ fn fold_cast(value: &PrimExpr, to: DLDataType) -> Result<Option<PrimExpr>> {
             }
         }
     } else if let Some(imm) = value.downcast_ref::<FloatImmObj>() {
-        let from = value.dtype();
-        if imm.value.is_finite() && from.bits == 16 {
-            let bfloat = match from.code {
+        let from = value.prim_ty();
+        if imm.value.is_finite() && from.bits() == 16 {
+            let bfloat = match from.dtype.code {
                 support::FLOAT => Some(false),
                 support::BFLOAT => Some(true),
                 _ => None,
@@ -1093,16 +1088,17 @@ fn fold_cast(value: &PrimExpr, to: DLDataType) -> Result<Option<PrimExpr>> {
                 return Ok(None);
             }
         }
-        let source = match from.code == support::FLOAT && from.bits == 32 {
+        let source = match from.matches_code(&[DLDataTypeCode::kDLFloat]) && from.bits() == 32 {
             true => f64::from(imm.value as f32),
             false => imm.value,
         };
         if integer {
             // A cast to bool tests for nonzero rather than truncating a fraction.
-            let fits_bool = to.code != support::BOOL || source == 0.0 || source == 1.0;
+            let fits_bool =
+                !ty.matches_code(&[DLDataTypeCode::kDLBool]) || source == 0.0 || source == 1.0;
             if source.is_finite() && fits_bool {
                 let result = BigInt::try_from(source)?;
-                if const_fold::is_representable(&result, to) {
+                if const_fold::is_representable(&result, ty) {
                     return int(result, &imm.loc);
                 }
             }
@@ -1111,7 +1107,8 @@ fn fold_cast(value: &PrimExpr, to: DLDataType) -> Result<Option<PrimExpr>> {
                 return float(f64::from(source as f32), &imm.loc);
             }
         } else if float64
-            && ((from.code == support::FLOAT && matches!(from.bits, 16 | 32)) || is_bfloat16(from))
+            && ((from.matches_code(&[DLDataTypeCode::kDLFloat]) && matches!(from.bits(), 16 | 32))
+                || is_bfloat16(from))
         {
             // Source rounding was checked above; widening preserves its value exactly.
             return float(source, &imm.loc);
@@ -1151,8 +1148,12 @@ fn pow2(exponent: i32) -> f64 {
 
 /// C++ `BroadcastToMatchLanes`: `value`, broadcast to the lanes of `other` when it is a scalar
 /// next to a vector.
-fn broadcast_to_match_lanes(value: PrimExpr, other: DLDataType) -> Result<PrimExpr> {
-    if is_vector(value.dtype()) || !is_vector(other) {
+fn broadcast_to_match_lanes(value: PrimExpr, other: &PrimType) -> Result<PrimExpr> {
+    let ty = value.prim_ty();
+    if ty.is_scalable_vector()
+        || ty.is_fixed_length_vector()
+        || (!other.is_scalable_vector() && !other.is_fixed_length_vector())
+    {
         return Ok(value);
     }
     Ok(Broadcast::new(value, lanes_of(other)?, UNKNOWN_LOC)?.into())
@@ -1325,17 +1326,17 @@ pub fn eq_at(a: impl Operand, b: impl Operand, loc: impl Into<Location>) -> Resu
 /// Build [`neg`] at the location `loc`.
 pub fn neg_at(a: impl IntoExpr<PrimExpr>, loc: impl Into<Location>) -> Result<PrimExpr> {
     let (a, loc) = (a.into_owned_expr()?, loc.into());
-    let dtype = a.dtype();
+    let ty = a.prim_ty().clone();
     if let Some(imm) = a.downcast_ref::<IntImmObj>() {
         let value = -imm.value.clone();
-        if const_fold::is_representable(&value, dtype) {
-            return Ok(IntImm::new(PrimType::from_dtype(dtype)?, value, loc)?.into());
+        if const_fold::is_representable(&value, &ty) {
+            return Ok(IntImm::new(ty, value, loc)?.into());
         }
     }
     if let Some(imm) = a.downcast_ref::<FloatImmObj>() {
-        return Ok(FloatImm::new(PrimType::from_dtype(dtype)?, -imm.value, loc)?.into());
+        return Ok(FloatImm::new(ty, -imm.value, loc)?.into());
     }
-    sub(make_const_at(PrimType::from_dtype(dtype)?, 0, loc)?, a)
+    sub(make_const_at(ty, 0, loc)?, a)
 }
 
 /// Build [`truncdiv`] at the location `loc`.
@@ -1383,7 +1384,7 @@ pub fn ceildiv_at(a: impl Operand, b: impl Operand, loc: impl Into<Location>) ->
     check_integers(&a, &b)?;
     let (a, b) = match_types_at(a, b, loc.clone())?;
     let sum = add(a, b.clone())?;
-    let one = make_const(sum.ty(), 1)?;
+    let one = make_const(sum.prim_ty().clone(), 1)?;
     let numerator = sub(sum, one)?;
     match const_fold::floordiv(&numerator, &b)? {
         Some(folded) => Ok(folded),
@@ -1521,7 +1522,7 @@ pub fn logical_and_at(
     loc: impl Into<Location>,
 ) -> Result<PrimExpr> {
     let (a, b) = (a.into_owned_expr()?, b.into_owned_expr()?);
-    check_operands(&a, &b, "&&", "logical AND", "boolean", (&[support::BOOL], BOOL_CODES))?;
+    check_operands(&a, &b, "&&", "logical AND", "boolean", (&BOOLEAN, BOOL_CODES))?;
     match const_fold::and(&a, &b)? {
         Some(folded) => Ok(folded),
         None => Ok(And::new(a, b, loc)?.into()),
@@ -1535,7 +1536,7 @@ pub fn logical_or_at(
     loc: impl Into<Location>,
 ) -> Result<PrimExpr> {
     let (a, b) = (a.into_owned_expr()?, b.into_owned_expr()?);
-    check_operands(&a, &b, "||", "logical OR", "boolean", (&[support::BOOL], BOOL_CODES))?;
+    check_operands(&a, &b, "||", "logical OR", "boolean", (&BOOLEAN, BOOL_CODES))?;
     match const_fold::or(&a, &b)? {
         Some(folded) => Ok(folded),
         None => Ok(Or::new(a, b, loc)?.into()),
@@ -1545,7 +1546,7 @@ pub fn logical_or_at(
 /// Build [`logical_not`] at the location `loc`.
 pub fn logical_not_at(a: impl IntoExpr<PrimExpr>, loc: impl Into<Location>) -> Result<PrimExpr> {
     let a = a.into_owned_expr()?;
-    check_code(&a, "a", &[support::BOOL], BOOL_CODES, || {
+    check_code(&a, "a", &BOOLEAN, BOOL_CODES, || {
         format!(
             "Expected boolean argument for ! operator (logical NOT), but received {} of type {}",
             support::repr(&a),
@@ -1582,7 +1583,7 @@ pub fn if_then_else_at(
     loc: impl Into<Location>,
 ) -> Result<PrimExpr> {
     let (cond, loc) = (cond.into_owned_expr()?, loc.into());
-    if cond.dtype().code != support::BOOL {
+    if !cond.prim_ty().matches_code(&[DLDataTypeCode::kDLBool]) {
         let condition = "cond.ty().MatchesCode(DLDataTypeCode::kDLBool)";
         let message = "if_then_else only accept the condition to be boolean type.";
         return Err(support::check_failed(INTERNAL_ERROR, condition, message));
@@ -1645,10 +1646,10 @@ pub fn shift_left_at(
     let ((a, b), loc) = (operands(a, b)?, loc.into());
     check_operands(&a, &b, "<<", "left shift", "integer", (&INTEGER, INTEGER_CODES))?;
     let (a, b) = match_types_at(a, b, loc.clone())?;
-    let dtype = a.dtype();
+    let ty = a.prim_ty().clone();
     let shift = |x: &BigInt, y: &BigInt| {
         let value = x.try_shl(y.clone())?;
-        Ok(const_fold::is_representable(&value, dtype).then_some(value))
+        Ok(const_fold::is_representable(&value, &ty).then_some(value))
     };
     match fold_shift(&a, &b, shift, &loc)? {
         Some(folded) => Ok(folded),
@@ -1690,13 +1691,12 @@ macro_rules! bitwise {
                 let accepted = (&INTEGER_OR_BOOL[..], INTEGER_OR_BOOL_CODES);
                 check_operands(&a, &b, $symbol, $what, "integer", accepted)?;
                 let (a, b) = match_types_at(a, b, loc.clone())?;
-                let dtype = a.dtype();
-                let index = const_fold::is_index_type(dtype)
-                    && const_fold::is_index_type(b.dtype());
+                let ty = a.prim_ty();
+                let index = const_fold::is_index_type(ty) && const_fold::is_index_type(b.prim_ty());
                 if let (true, Some(x), Some(y)) =
                     (index, const_fold::int(&a), const_fold::int(&b))
                 {
-                    return Ok(IntImm::new(PrimType::from_dtype(dtype)?, x $op y, loc)?.into());
+                    return Ok(IntImm::new(ty.clone(), x $op y, loc)?.into());
                 }
                 Ok($node::new(a, b, loc)?.into())
             }
@@ -1748,26 +1748,25 @@ fn fold_shift(
     shift: impl FnOnce(&BigInt, &BigInt) -> Result<Option<BigInt>>,
     loc: &Location,
 ) -> const_fold::Folded {
-    let dtype = a.dtype();
-    if !const_fold::is_index_type(dtype) || !const_fold::is_index_type(b.dtype()) {
+    let ty = a.prim_ty();
+    if !const_fold::is_index_type(ty) || !const_fold::is_index_type(b.prim_ty()) {
         return Ok(None);
     }
     let (pa, pb) = (const_fold::int(a), const_fold::int(b));
     if let Some(y) = pb {
-        if y.is_negative() || *y >= BigInt::from(i64::from(dtype.bits)) {
-            let ty = a.ty();
+        if y.is_negative() || *y >= BigInt::from(i64::from(ty.bits())) {
             let condition = "pb->value >= 0 && pb->value < result_ty.bits()";
             let message = format!(
                 "Shift amount must be non-negative and less than {} for type {}",
-                dtype.bits,
-                support::repr(&ty)
+                ty.bits(),
+                support::repr(ty)
             );
             return Err(support::check_failed(INTERNAL_ERROR, condition, &message));
         }
     }
     if let (Some(x), Some(y)) = (pa, pb) {
         if let Some(value) = shift(x, y)? {
-            return Ok(Some(IntImm::new(PrimType::from_dtype(dtype)?, value, loc.clone())?.into()));
+            return Ok(Some(IntImm::new(ty.clone(), value, loc.clone())?.into()));
         }
     }
     if pb.is_some_and(BigInt::is_zero) {
@@ -1872,13 +1871,10 @@ unlocated! {
 /// Build [`max_value`] at the location `loc`.
 pub fn max_value_at(ty: impl Into<PrimType>, loc: impl Into<Location>) -> Result<PrimExpr> {
     let (ty, loc) = (ty.into(), loc.into());
-    let dtype = ty.dtype;
-    check_scalar(dtype)?;
-    let (code, bits) = (dtype.code, dtype.bits);
-    let int =
-        |value: BigInt| Ok(IntImm::new(PrimType::from_dtype(dtype)?, value, loc.clone())?.into());
-    let float =
-        |value: f64| Ok(FloatImm::new(PrimType::from_dtype(dtype)?, value, loc.clone())?.into());
+    check_scalar(&ty)?;
+    let (code, bits) = (ty.dtype.code, ty.bits());
+    let int = |value: BigInt| Ok(IntImm::new(ty.clone(), value, loc.clone())?.into());
+    let float = |value: f64| Ok(FloatImm::new(ty.clone(), value, loc.clone())?.into());
     match code {
         support::INT if bits == 64 => int(BigInt::from(i64::MAX)),
         support::INT if bits < 64 => int(BigInt::from((1i64 << (bits - 1)) - 1)),
@@ -1902,13 +1898,10 @@ pub fn max_value_at(ty: impl Into<PrimType>, loc: impl Into<Location>) -> Result
 /// Build [`min_value`] at the location `loc`.
 pub fn min_value_at(ty: impl Into<PrimType>, loc: impl Into<Location>) -> Result<PrimExpr> {
     let (ty, loc) = (ty.into(), loc.into());
-    let dtype = ty.dtype;
-    check_scalar(dtype)?;
-    let (code, bits) = (dtype.code, dtype.bits);
-    let int =
-        |value: BigInt| Ok(IntImm::new(PrimType::from_dtype(dtype)?, value, loc.clone())?.into());
-    let float =
-        |value: f64| Ok(FloatImm::new(PrimType::from_dtype(dtype)?, value, loc.clone())?.into());
+    check_scalar(&ty)?;
+    let (code, bits) = (ty.dtype.code, ty.bits());
+    let int = |value: BigInt| Ok(IntImm::new(ty.clone(), value, loc.clone())?.into());
+    let float = |value: f64| Ok(FloatImm::new(ty.clone(), value, loc.clone())?.into());
     match code {
         support::INT if bits == 64 => int(BigInt::from(i64::MIN)),
         support::INT if bits < 64 => int(BigInt::from(-(1i64 << (bits - 1)))),
@@ -1932,15 +1925,10 @@ pub fn min_value_at(ty: impl Into<PrimType>, loc: impl Into<Location>) -> Result
 /// Build [`infinity`] at the location `loc`.
 pub fn infinity_at(ty: impl Into<PrimType>, loc: impl Into<Location>) -> Result<PrimExpr> {
     let (ty, loc) = (ty.into(), loc.into());
-    let dtype = ty.dtype;
-    check_scalar(dtype)?;
-    match (dtype.code, dtype.bits) {
-        (support::FLOAT, 64) => {
-            Ok(FloatImm::new(PrimType::from_dtype(dtype)?, f64::INFINITY, loc)?.into())
-        }
-        (support::FLOAT, 32 | 16) => {
-            Ok(FloatImm::new(PrimType::from_dtype(dtype)?, f64::from(f32::INFINITY), loc)?.into())
-        }
+    check_scalar(&ty)?;
+    match (ty.dtype.code, ty.bits()) {
+        (support::FLOAT, 64) => Ok(FloatImm::new(ty, f64::INFINITY, loc)?.into()),
+        (support::FLOAT, 32 | 16) => Ok(FloatImm::new(ty, f64::from(f32::INFINITY), loc)?.into()),
         _ => {
             let message = format!("Cannot decide infinity for type {}", support::repr(&ty));
             Err(Error::new(INTERNAL_ERROR, &message, ""))
@@ -2013,27 +2001,23 @@ fn rounding(
     fold: fn(f64) -> f64,
     loc: Location,
 ) -> Result<PrimExpr> {
-    let dtype = x.dtype();
-    if matches!(dtype.code, support::INT | support::UINT | support::BOOL) {
+    let ty = x.prim_ty();
+    if ty.matches_code(&INTEGER_OR_BOOL) {
         return Ok(x);
     }
     if let Some(imm) = x.downcast_ref::<FloatImmObj>() {
-        return Ok(
-            FloatImm::new(PrimType::from_dtype(dtype)?, fold(imm.value), imm.loc.clone())?.into()
-        );
+        return Ok(FloatImm::new(ty.clone(), fold(imm.value), imm.loc.clone())?.into());
     }
     let ty = x.ty.clone();
     call(Some(&ty), op, vec![x], loc)
 }
 
 fn absolute(x: PrimExpr, loc: Location) -> Result<PrimExpr> {
-    let dtype = x.dtype();
-    match dtype.code {
+    match x.prim_ty().dtype.code {
         support::INT => integer_abs(x, loc),
         support::FLOAT | support::BFLOAT => match x.downcast_ref::<FloatImmObj>() {
             Some(imm) => {
-                Ok(FloatImm::new(PrimType::from_dtype(dtype)?, imm.value.abs(), imm.loc.clone())?
-                    .into())
+                Ok(FloatImm::new(x.prim_ty().clone(), imm.value.abs(), imm.loc.clone())?.into())
             }
             None => {
                 let ty = x.ty.clone();
@@ -2054,29 +2038,29 @@ fn absolute(x: PrimExpr, loc: Location) -> Result<PrimExpr> {
 /// C++ `IntegerAbs(x, loc)` of a signed integer: a constant folds when its absolute value is a
 /// value of its type; anything else is `select(x >= 0, x, -x)`.
 fn integer_abs(x: PrimExpr, loc: Location) -> Result<PrimExpr> {
-    let dtype = x.dtype();
+    let ty = x.prim_ty();
     if let Some(imm) = x.downcast_ref::<IntImmObj>() {
         let value = match imm.value.is_negative() {
             true => -imm.value.clone(),
             false => imm.value.clone(),
         };
-        if const_fold::is_representable(&value, dtype) {
-            return Ok(IntImm::new(PrimType::from_dtype(dtype)?, value, imm.loc.clone())?.into());
+        if const_fold::is_representable(&value, ty) {
+            return Ok(IntImm::new(ty.clone(), value, imm.loc.clone())?.into());
         }
     }
-    let zero = make_const(PrimType::from_dtype(dtype)?, 0)?;
+    let zero = make_const(ty.clone(), 0)?;
     let nonnegative = ge(x.clone(), zero)?;
     let negated = neg(x.clone())?;
     Ok(Select::new(nonnegative, x, negated, loc)?.into())
 }
 
 fn infinite(x: PrimExpr, loc: Location) -> Result<PrimExpr> {
-    let dtype = x.dtype();
-    let result = PrimType::bool().with_lanes(support::lanes(dtype)? as u16)?;
-    match dtype.code {
+    let ty = x.prim_ty().clone();
+    let result = PrimType::bool().with_lanes(support::lanes(&ty)? as u16)?;
+    match ty.dtype.code {
         support::INT | support::UINT => make_const_at(result, false, loc),
         support::FLOAT => {
-            let infinity = infinity_at(x.ty(), loc.clone())?;
+            let infinity = infinity_at(ty, loc.clone())?;
             let at_infinity = eq(abs_at(x.clone(), loc.clone())?, infinity)?;
             let not_nan = logical_not(isnan_at(x, loc)?)?;
             logical_and(at_infinity, not_nan)
@@ -2106,8 +2090,8 @@ fn likely_hint(cond: PrimExpr, loc: Location) -> Result<PrimExpr> {
 }
 
 /// The check `TVM_FFI_ICHECK_EQ(dtype.lanes(), 1)` of the limits.
-fn check_scalar(dtype: DLDataType) -> Result<()> {
-    let lanes = support::lanes(dtype)?;
+fn check_scalar(ty: &PrimType) -> Result<()> {
+    let lanes = support::lanes(ty)?;
     match lanes == 1 {
         true => Ok(()),
         false => Err(support::compare_failed(INTERNAL_ERROR, "dtype.lanes() == 1", lanes, 1, "")),
@@ -2123,7 +2107,7 @@ fn float_binary(
     loc: Location,
 ) -> Result<PrimExpr> {
     let (x, y) = match_types_at(x, y, loc.clone())?;
-    if x.dtype().code != support::FLOAT {
+    if !x.prim_ty().matches_code(&[DLDataTypeCode::kDLFloat]) {
         let condition = "x.ty().MatchesCode(DLDataTypeCode::kDLFloat)";
         let message = format!("{what} only applies to float");
         return Err(support::check_failed(INTERNAL_ERROR, condition, &message));
@@ -2248,26 +2232,22 @@ fn unary_intrinsic(
     float_only: bool,
     loc: Location,
 ) -> Result<PrimExpr> {
-    let dtype = x.dtype();
-    if float_only && dtype.code != support::FLOAT && !is_bfloat16(dtype) {
+    let ty = x.prim_ty().clone();
+    if float_only && !ty.matches_code(&[DLDataTypeCode::kDLFloat]) && !is_bfloat16(&ty) {
         let condition = "dtype.code() == DLDataTypeCode::kDLFloat || \
                          dtype.MatchesElementType(DLDataTypeCode::kDLBfloat, 16)";
         let message =
             format!("{op} only supports floating-point inputs, but got {}", support::repr(&x.ty));
         return Err(support::check_failed(TYPE_ERROR, condition, &message));
     }
-    if !is_bfloat16(dtype) {
+    if !is_bfloat16(&ty) {
         let ty = x.ty.clone();
         return call(Some(&ty), op, vec![x], loc);
     }
-    let float32 = match support::is_scalable_vector(dtype) {
-        true => support::scalable_vector(PrimType::float(32).dtype, vscale_factor(dtype))?,
-        false => with_lanes(PrimType::float(32).dtype, dtype.lanes),
-    };
-    let float32 = PrimType::from_dtype(float32)?;
+    let float32 = ty.with_code(DLDataTypeCode::kDLFloat)?.with_bits(32)?;
     let x_float32: PrimExpr = Cast::new(float32.clone(), x, loc.clone())?.into();
     let result = call(Some(&float32.into()), op, vec![x_float32], loc.clone())?;
-    Ok(Cast::new(PrimType::from_dtype(dtype)?, result, loc)?.into())
+    Ok(Cast::new(ty, result, loc)?.into())
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -2297,29 +2277,19 @@ fn is_float4(code: u8) -> bool {
 }
 
 /// C++ `MatchesElementType(kDLBfloat, 16)`.
-fn is_bfloat16(dtype: DLDataType) -> bool {
-    dtype.code == support::BFLOAT && dtype.bits == 16
-}
-
-/// A vector of any kind: fixed length or scalable.
-fn is_vector(dtype: DLDataType) -> bool {
-    support::is_scalable_vector(dtype) || support::is_fixed_length_vector(dtype)
-}
-
-/// The vscale factor a scalable vector type encodes (C++ `VScaleFactor`).
-fn vscale_factor(dtype: DLDataType) -> i32 {
-    -i32::from(support::encoded_lanes(dtype))
+fn is_bfloat16(ty: &PrimType) -> bool {
+    ty.matches_code(&[DLDataTypeCode::kDLBfloat]) && ty.bits() == 16
 }
 
 /// The lanes of a vector type as an expression: the count, or `factor * vscale()` for a scalable
 /// vector (C++ `BroadcastToMatchLanes` and `cast`).
-fn lanes_of(dtype: DLDataType) -> Result<PrimExpr> {
-    match support::is_scalable_vector(dtype) {
-        true => {
-            let factor = IntImm::int32(vscale_factor(dtype));
+fn lanes_of(ty: &PrimType) -> Result<PrimExpr> {
+    match ty.vscale_factor() {
+        Some(factor) => {
+            let factor = IntImm::int32(i32::from(factor));
             Ok(Mul::new(factor, vscale()?, UNKNOWN_LOC)?.into())
         }
-        false => Ok(IntImm::int32(support::lanes(dtype)?).into()),
+        None => Ok(IntImm::int32(support::lanes(ty)?).into()),
     }
 }
 
@@ -2345,22 +2315,24 @@ fn is_vscale_call(expr: &PrimExpr) -> Result<bool> {
 fn check_code(
     operand: &PrimExpr,
     side: &str,
-    accepted: &[u8],
+    accepted: &[DLDataTypeCode],
     codes: &str,
     message: impl FnOnce() -> String,
 ) -> Result<()> {
-    if accepted.contains(&operand.dtype().code) {
+    if operand.prim_ty().matches_code(accepted) {
         return Ok(());
     }
     let condition = format!("{side}.ty().MatchesCode({codes})");
     Err(support::check_failed(INTERNAL_ERROR, &condition, &message()))
 }
 
-const INTEGER: [u8; 2] = [support::INT, support::UINT];
+const INTEGER: [DLDataTypeCode; 2] = [DLDataTypeCode::kDLInt, DLDataTypeCode::kDLUInt];
 const INTEGER_CODES: &str = "DLDataTypeCode::kDLInt, DLDataTypeCode::kDLUInt";
-const INTEGER_OR_BOOL: [u8; 3] = [support::INT, support::UINT, support::BOOL];
+const INTEGER_OR_BOOL: [DLDataTypeCode; 3] =
+    [DLDataTypeCode::kDLInt, DLDataTypeCode::kDLUInt, DLDataTypeCode::kDLBool];
 const INTEGER_OR_BOOL_CODES: &str =
     "DLDataTypeCode::kDLInt, DLDataTypeCode::kDLUInt, DLDataTypeCode::kDLBool";
+const BOOLEAN: [DLDataTypeCode; 1] = [DLDataTypeCode::kDLBool];
 const BOOL_CODES: &str = "DLDataTypeCode::kDLBool";
 
 /// `TVM_FFI_ICHECK(x.ty().MatchesCode(kDLInt, kDLUInt)) << x` of the integer divisions, on both
@@ -2378,7 +2350,7 @@ fn check_operands(
     symbol: &str,
     what: &str,
     kind: &str,
-    (accepted, codes): (&[u8], &str),
+    (accepted, codes): (&[DLDataTypeCode], &str),
 ) -> Result<()> {
     for (operand, side, which) in [(a, "a", "LHS"), (b, "b", "RHS")] {
         check_code(operand, side, accepted, codes, || {

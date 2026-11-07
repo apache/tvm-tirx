@@ -47,6 +47,7 @@
 //! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
 //! ```
 
+// tvm-ffi-stubgen(missing-docs): allow
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
 // tvm-ffi-stubgen(import-object): crate::ir::stmt::Stmt
@@ -85,6 +86,7 @@ use tvm_ffi::object::ObjectRef;
 
 // tvm-ffi-stubgen(begin): object/tirx.DispatchContext
 /// Opaque: field 'launch_params' (Map[str, tuple[ir.Var, ir.Expr]]) has no native mirror. Fields are read through the C ABI getters.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "tirx.DispatchContext"]
@@ -93,12 +95,14 @@ pub struct DispatchContextObj {
     base: Object,
 }
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct DispatchContext {
     base: ObjectArc<DispatchContextObj>,
 }
 
+#[allow(missing_docs)]
 impl DispatchContextObj {
     pub fn target(&self) -> Result<Target> {
         FieldGetter::new(Self::type_index(), "target")?.get(self)

@@ -41,6 +41,7 @@
 //! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
 //! ```
 
+// tvm-ffi-stubgen(missing-docs): allow
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
 // tvm-ffi-stubgen(import-object): tvm_ffi::Array
@@ -75,6 +76,7 @@ use tvm_ffi::Result;
 
 // tvm-ffi-stubgen(begin): object/sym.IntSet
 /// Opaque: no metadata of its own: total_size is unknown. Fields are read through the C ABI getters.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "sym.IntSet"]
@@ -82,6 +84,7 @@ pub struct IntSetObj {
     base: Object,
 }
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct IntSet {
@@ -118,6 +121,7 @@ impl IntSet {
 
 // tvm-ffi-stubgen(begin): object/sym.IntervalSet
 /// Opaque: parent 'sym.IntSet' is opaque (layout-unknown). Fields are read through the C ABI getters.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "sym.IntervalSet"]
@@ -126,6 +130,7 @@ pub struct IntervalSetObj {
     base: IntSetObj,
 }
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct IntervalSet {
@@ -139,6 +144,7 @@ impl Deref for IntervalSetObj {
     }
 }
 
+#[allow(missing_docs)]
 impl IntervalSetObj {
     pub fn min_value(&self) -> Result<PrimExpr> {
         FieldGetter::new(Self::type_index(), "min_value")?.get(self)

@@ -47,6 +47,7 @@
 //! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
 //! ```
 
+// tvm-ffi-stubgen(missing-docs): allow
 // `custom-new` reserves `new` for the checked `transform.PassContext`; the generated `from_fields`
 // allocates the fields as given.
 // tvm-ffi-stubgen(custom-new): transform.PassContext
@@ -72,6 +73,7 @@ use tvm_ffi::String;
 
 // tvm-ffi-stubgen(begin): object/transform.Pass
 /// Opaque: no metadata of its own: total_size is unknown. Fields are read through the C ABI getters.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "transform.Pass"]
@@ -79,6 +81,7 @@ pub struct PassObj {
     base: Object,
 }
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct Pass {
@@ -106,6 +109,7 @@ impl Pass {
 
 // tvm-ffi-stubgen(begin): object/transform.PassInfo
 /// Complete: reflected fields fill [24, 48) exactly (alignment padding [28, 32)).
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "transform.PassInfo"]
@@ -121,12 +125,14 @@ const _: () = {
     assert!(::core::mem::align_of::<PassInfoObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct PassInfo {
     base: ObjectArc<PassInfoObj>,
 }
 
+#[allow(missing_docs)]
 impl PassInfoObj {
     pub(crate) fn new(opt_level: i32, name: String) -> Self {
         let base = Object::new();
@@ -134,6 +140,7 @@ impl PassInfoObj {
     }
 }
 
+#[allow(missing_docs)]
 impl PassInfo {
     /// Lossless complete-field allocation.
     pub fn new(opt_level: i32, name: impl Into<String>) -> Self {
@@ -150,6 +157,7 @@ unsafe impl tvm_ffi::object::ImmutableObject for PassInfoObj {}
 
 // tvm-ffi-stubgen(begin): object/transform.ModulePass
 /// Opaque: parent 'transform.Pass' is opaque (layout-unknown). Fields are read through the C ABI getters.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "transform.ModulePass"]
@@ -158,6 +166,7 @@ pub struct ModulePassObj {
     base: PassObj,
 }
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct ModulePass {
@@ -171,6 +180,7 @@ impl Deref for ModulePassObj {
     }
 }
 
+#[allow(missing_docs)]
 impl ModulePassObj {
     pub fn pass_info(&self) -> Result<PassInfo> {
         FieldGetter::new(Self::type_index(), "pass_info")?.get(self)
@@ -206,6 +216,7 @@ impl ModulePass {
 
 // tvm-ffi-stubgen(begin): object/transform.Sequential
 /// Opaque: parent 'transform.Pass' is opaque (layout-unknown). Fields are read through the C ABI getters.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "transform.Sequential"]
@@ -214,6 +225,7 @@ pub struct SequentialObj {
     base: PassObj,
 }
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct Sequential {
@@ -227,6 +239,7 @@ impl Deref for SequentialObj {
     }
 }
 
+#[allow(missing_docs)]
 impl SequentialObj {
     pub fn pass_info(&self) -> Result<PassInfo> {
         FieldGetter::new(Self::type_index(), "pass_info")?.get(self)
@@ -265,6 +278,7 @@ impl Sequential {
 
 // tvm-ffi-stubgen(begin): object/transform.PassContext
 /// Complete: reflected fields fill [24, 64) exactly (alignment padding [28, 32)).
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "transform.PassContext"]
@@ -283,12 +297,14 @@ const _: () = {
     assert!(::core::mem::align_of::<PassContextObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct PassContext {
     base: ObjectArc<PassContextObj>,
 }
 
+#[allow(missing_docs)]
 impl PassContextObj {
     pub(crate) fn new(
         opt_level: i32,
@@ -302,6 +318,7 @@ impl PassContextObj {
     }
 }
 
+#[allow(missing_docs)]
 impl PassContext {
     /// Lossless complete-field allocation.
     pub fn from_fields(
@@ -434,6 +451,7 @@ impl Drop for PassContextScope {
 
 // tvm-ffi-stubgen(begin): object/transform.PassInstrument
 /// Opaque: bytes [40, 48) of [24, 48) are not accounted for by reflected fields. Fields are read through the C ABI getters.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "transform.PassInstrument"]
@@ -441,12 +459,14 @@ pub struct PassInstrumentObj {
     base: Object,
 }
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct PassInstrument {
     base: ObjectArc<PassInstrumentObj>,
 }
 
+#[allow(missing_docs)]
 impl PassInstrumentObj {
     pub fn name(&self) -> Result<String> {
         FieldGetter::new(Self::type_index(), "name")?.get(self)

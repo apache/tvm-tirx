@@ -25,6 +25,8 @@
 //! the bindings, ranges and guards in effect at the current value. From Rust, run them with the
 //! `structural_*_with_constraint_context` entry points.
 
+// tvm-ffi-stubgen(missing-docs): allow
+
 // tvm-ffi-stubgen(begin): import-section
 use crate::sym::constraint::ConstraintContext;
 use tvm_ffi::FieldGetter;
@@ -54,6 +56,7 @@ struct FfiStructuralVisitorObj {
 
 // tvm-ffi-stubgen(begin): object/tirx.StructuralMutatorWithConstraintContext
 /// Opaque: parent 'ffi.StructuralMutator' is opaque (no-mirror). Fields are read through the C ABI getters.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "tirx.StructuralMutatorWithConstraintContext"]
@@ -61,12 +64,14 @@ pub struct StructuralMutatorWithConstraintContextObj {
     base: FfiStructuralMutatorObj,
 }
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct StructuralMutatorWithConstraintContext {
     base: ObjectArc<StructuralMutatorWithConstraintContextObj>,
 }
 
+#[allow(missing_docs)]
 impl StructuralMutatorWithConstraintContextObj {
     pub fn constraints(&self) -> Result<ConstraintContext> {
         FieldGetter::new(Self::type_index(), "constraints")?.get(self)
@@ -76,6 +81,7 @@ impl StructuralMutatorWithConstraintContextObj {
 
 // tvm-ffi-stubgen(begin): object/tirx.StructuralVisitorWithConstraintContext
 /// Opaque: parent 'ffi.StructuralVisitor' is opaque (no-mirror). Fields are read through the C ABI getters.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "tirx.StructuralVisitorWithConstraintContext"]
@@ -83,12 +89,14 @@ pub struct StructuralVisitorWithConstraintContextObj {
     base: FfiStructuralVisitorObj,
 }
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct StructuralVisitorWithConstraintContext {
     base: ObjectArc<StructuralVisitorWithConstraintContextObj>,
 }
 
+#[allow(missing_docs)]
 impl StructuralVisitorWithConstraintContextObj {
     pub fn constraints(&self) -> Result<ConstraintContext> {
         FieldGetter::new(Self::type_index(), "constraints")?.get(self)

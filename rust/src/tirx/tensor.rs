@@ -44,6 +44,7 @@
 //! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
 //! ```
 
+// tvm-ffi-stubgen(missing-docs): allow
 // `custom-new` reserves `new` for a constructor with the C++ one's semantics (defaults); the
 // generated `from_fields` allocates the fields as given.
 // tvm-ffi-stubgen(custom-new): tirx.TensorType
@@ -57,7 +58,6 @@
 // tvm-ffi-stubgen(import-object): tvm_ffi::Result
 // tvm-ffi-stubgen(import-object): crate::ir::support
 // tvm-ffi-stubgen(import-object): crate::ir::sig
-// tvm-ffi-stubgen(import-object): tvm_ffi::tvm_ffi_sys::TVMFFIAny
 // tvm-ffi-stubgen(import-object): crate::ir::expr::IntoExpr
 // tvm-ffi-stubgen(import-object): crate::ir::expr::PrimExpr
 // A tensor's shape is a list of `PrimExpr`s, as C++ `TensorTypeObj` holds it.
@@ -86,11 +86,11 @@ use tvm_ffi::IntoObjectRef;
 use tvm_ffi::ObjectArc;
 use tvm_ffi::ObjectCore;
 use tvm_ffi::Result;
-use tvm_ffi::tvm_ffi_sys::TVMFFIAny;
 // tvm-ffi-stubgen(end)
 
 // tvm-ffi-stubgen(begin): object/tirx.TensorType
 /// Complete: reflected fields fill [32, 72) exactly (alignment padding [60, 64)).
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "tirx.TensorType"]
@@ -109,6 +109,7 @@ const _: () = {
     assert!(::core::mem::align_of::<TensorTypeObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct TensorType {
@@ -122,6 +123,7 @@ impl Deref for TensorTypeObj {
     }
 }
 
+#[allow(missing_docs)]
 impl TensorTypeObj {
     pub(crate) fn new(
         loc: Location,
@@ -136,6 +138,7 @@ impl TensorTypeObj {
     }
 }
 
+#[allow(missing_docs)]
 impl TensorType {
     /// Lossless complete-field allocation.
     pub fn from_fields(
@@ -207,7 +210,7 @@ impl TensorType {
 pub struct TensorVar;
 
 impl sig::ArgType for TensorVar {
-    fn check(value: &TVMFFIAny) -> bool {
+    fn check(value: AnyView<'_>) -> bool {
         sig::var_of_type::<TensorTypeObj>(value)
     }
 

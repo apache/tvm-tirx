@@ -51,6 +51,7 @@
 //! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
 //! ```
 
+// tvm-ffi-stubgen(missing-docs): allow
 // `custom-new` reserves `new` for a constructor with the C++ one's semantics (defaults, implicit
 // conversions, validation); the generated `from_fields` allocates the fields as given.
 // tvm-ffi-stubgen(custom-new): ir.Bind
@@ -63,14 +64,14 @@
 // tvm-ffi-stubgen(custom-new): ir.Evaluate
 // tvm-ffi-stubgen(custom-new): ir.Return
 // tvm-ffi-stubgen(custom-new): ir.While
-// A loop's kind is C++ `ForKind`. The `enum` directive declares it as an open newtype of the
-// native `int` field, so a value Rust does not name reads back intact.
-// tvm-ffi-stubgen(enum): ir.For.kind -> ForKind(i32) { Default=0, Parallel=1, Vectorized=2, Unrolled=3 }
+// A loop's kind is C++ `ForKind`, whose four values the C++ enum fixes: a closed Rust enum of
+// the native `int` field.
+// tvm-ffi-stubgen(enum): ir.For.kind -> ForKind(i32) closed { Default=0, Parallel=1, Vectorized=2, Unrolled=3 }
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
 // tvm-ffi-stubgen(import-object): tvm_ffi::AnyView
 // tvm-ffi-stubgen(import-object): tvm_ffi::BigInt
-// tvm-ffi-stubgen(import-object): tvm_ffi::DLDataType
+// tvm-ffi-stubgen(import-object): tvm_ffi::DLDataTypeCode
 // tvm-ffi-stubgen(import-object): tvm_ffi::ObjectRefCore
 // tvm-ffi-stubgen(import-object): tvm_ffi::Result
 // tvm-ffi-stubgen(import-object): tvm_ffi::tvm_ffi_sys::TVMFFITypeIndex
@@ -123,7 +124,7 @@ use tvm_ffi::Any;
 use tvm_ffi::AnyView;
 use tvm_ffi::Array;
 use tvm_ffi::BigInt;
-use tvm_ffi::DLDataType;
+use tvm_ffi::DLDataTypeCode;
 use tvm_ffi::Error;
 use tvm_ffi::Map;
 use tvm_ffi::Object;
@@ -140,6 +141,7 @@ use tvm_ffi::tvm_ffi_sys::TVMFFITypeIndex;
 
 // tvm-ffi-stubgen(begin): object/ir.Stmt
 /// Complete: reflected fields fill [24, 32) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.Stmt"]
@@ -153,12 +155,14 @@ const _: () = {
     assert!(::core::mem::align_of::<StmtObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct Stmt {
     base: ObjectArc<StmtObj>,
 }
 
+#[allow(missing_docs)]
 impl StmtObj {
     pub fn new(loc: Location) -> Self {
         let base = Object::new();
@@ -166,6 +170,7 @@ impl StmtObj {
     }
 }
 
+#[allow(missing_docs)]
 impl Stmt {
     /// Lossless complete-field allocation.
     pub fn new(loc: impl Into<Location>) -> Self {
@@ -194,6 +199,7 @@ unsafe impl tvm_ffi::object::ImmutableObject for StmtObj {}
 
 // tvm-ffi-stubgen(begin): object/ir.Bind
 /// Complete: reflected fields fill [32, 48) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.Bind"]
@@ -209,6 +215,7 @@ const _: () = {
     assert!(::core::mem::align_of::<BindObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct Bind {
@@ -222,6 +229,7 @@ impl Deref for BindObj {
     }
 }
 
+#[allow(missing_docs)]
 impl BindObj {
     pub(crate) fn new(loc: Location, var: Var, value: Expr) -> Self {
         let base = StmtObj::new(loc);
@@ -229,6 +237,7 @@ impl BindObj {
     }
 }
 
+#[allow(missing_docs)]
 impl Bind {
     /// Lossless complete-field allocation.
     pub fn from_fields(
@@ -270,6 +279,7 @@ impl Bind {
 
 // tvm-ffi-stubgen(begin): object/ir.AssertStmt
 /// Complete: reflected fields fill [32, 56) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.AssertStmt"]
@@ -286,6 +296,7 @@ const _: () = {
     assert!(::core::mem::align_of::<AssertStmtObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct AssertStmt {
@@ -299,6 +310,7 @@ impl Deref for AssertStmtObj {
     }
 }
 
+#[allow(missing_docs)]
 impl AssertStmtObj {
     pub(crate) fn new(
         loc: Location,
@@ -311,6 +323,7 @@ impl AssertStmtObj {
     }
 }
 
+#[allow(missing_docs)]
 impl AssertStmt {
     /// Lossless complete-field allocation.
     pub fn from_fields(
@@ -349,12 +362,12 @@ impl AssertStmt {
     ) -> Result<Self> {
         let (condition, error_kind) = (condition.into_owned_expr()?, error_kind.into());
         let message_parts = message_parts.into_iter().map(Into::into).collect::<Array<StringImm>>();
-        let condition_ty = condition.ty();
-        if condition_ty.dtype.code != support::BOOL {
+        let condition_ty = condition.prim_ty();
+        if !condition_ty.matches_code(&[DLDataTypeCode::kDLBool]) {
             let message = format!(
                 "AssertStmt should have boolean condition, but received {} with dtype {}",
                 support::repr(&condition),
-                support::repr(&condition_ty)
+                support::repr(condition_ty)
             );
             let check = "condition_ty.MatchesCode(DLDataTypeCode::kDLBool)";
             return Err(support::check_failed(tvm_ffi::INTERNAL_ERROR, check, &message));
@@ -364,34 +377,31 @@ impl AssertStmt {
 }
 
 // tvm-ffi-stubgen(begin): object/ir.For
+#[allow(missing_docs)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-#[repr(transparent)]
-pub struct ForKind(i32);
-
-#[allow(non_upper_case_globals)]
-impl ForKind {
-    pub const Default: Self = Self(0);
-    pub const Parallel: Self = Self(1);
-    pub const Vectorized: Self = Self(2);
-    pub const Unrolled: Self = Self(3);
-    pub const fn from_raw(value: i32) -> Self {
-        Self(value)
-    }
-    pub const fn as_raw(self) -> i32 {
-        self.0
-    }
+#[repr(i32)]
+pub enum ForKind {
+    Default = 0,
+    Parallel = 1,
+    Vectorized = 2,
+    Unrolled = 3,
 }
 
 impl TryFrom<i64> for ForKind {
     type Error = Error;
     fn try_from(value: i64) -> Result<Self> {
-        i32::try_from(value).map(Self).map_err(|_| {
-            Error::new(VALUE_ERROR, &format!("ForKind value {value} does not fit i32"), "")
-        })
+        match value {
+            0 => Ok(Self::Default),
+            1 => Ok(Self::Parallel),
+            2 => Ok(Self::Vectorized),
+            3 => Ok(Self::Unrolled),
+            _ => Err(Error::new(VALUE_ERROR, &format!("ForKind has no value {value}"), "")),
+        }
     }
 }
 
 /// Complete: reflected fields fill [32, 88) exactly (alignment padding [68, 72)).
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.For"]
@@ -412,6 +422,7 @@ const _: () = {
     assert!(::core::mem::align_of::<ForObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct For {
@@ -425,6 +436,7 @@ impl Deref for ForObj {
     }
 }
 
+#[allow(missing_docs)]
 impl ForObj {
     pub(crate) fn new(
         loc: Location,
@@ -441,6 +453,7 @@ impl ForObj {
     }
 }
 
+#[allow(missing_docs)]
 impl For {
     /// Lossless complete-field allocation.
     pub fn from_fields(
@@ -503,19 +516,20 @@ impl For {
         let (var, begin, end, step) =
             (var.into(), begin.into_owned_expr()?, end.into_owned_expr()?, step.into_owned_expr()?);
         let var_expr: PrimExpr = var.clone().into();
-        let var_ty = var.ty();
+        let var_ty = var.prim_ty().clone();
         let body = into_body(body.into())?;
         let annotations = annotations.cloned().unwrap_or_else(Map::new);
         for (expr, field) in [(&var_expr, "var"), (&begin, "begin"), (&end, "end"), (&step, "step")]
         {
-            let ty = expr.ty();
-            let dtype = ty.dtype;
-            if !support::is_scalar(dtype) || !matches!(dtype.code, support::INT | support::UINT) {
+            let ty = expr.prim_ty();
+            if !ty.is_scalar()
+                || !ty.matches_code(&[DLDataTypeCode::kDLUInt, DLDataTypeCode::kDLInt])
+            {
                 let message = format!(
                     "TIR For nodes require a scalar integer as the {field}, but received {} with \
                      dtype {}",
                     support::repr(expr),
-                    support::repr(&ty)
+                    support::repr(ty)
                 );
                 let condition = "dtype.IsScalar() && (dtype.MatchesCode(DLDataTypeCode::kDLUInt, \
                                  DLDataTypeCode::kDLInt))";
@@ -524,12 +538,12 @@ impl For {
         }
         // A constant of another integer type takes the type of `var` if its value fits.
         let promote = |expr: PrimExpr| -> Result<PrimExpr> {
-            let ty = expr.ty();
+            let ty = expr.prim_ty().clone();
             if ty.dtype == var_ty.dtype {
                 return Ok(expr);
             }
             if let Some(imm) = expr.downcast_ref::<IntImmObj>() {
-                if !int_imm_value_fits(&imm.value, var_ty.dtype)? {
+                if !int_imm_value_fits(&imm.value, &var_ty)? {
                     let message = format!(
                         "Literal value {} is not representable in the loop variable's dtype ({})",
                         imm.value,
@@ -544,7 +558,7 @@ impl For {
                 }
                 return Ok(IntImm::new(var_ty.clone(), imm.value.clone(), UNKNOWN_LOC)?.into());
             }
-            if ty.dtype.bits > var_ty.dtype.bits {
+            if ty.bits() > var_ty.bits() {
                 let message = format!(
                     " Loop variable's dtype ({}) is narrower than that of `begin` or `end` ({})",
                     support::repr(&var_ty),
@@ -556,11 +570,11 @@ impl For {
             Ok(expr)
         };
         let same_type = |expr: &PrimExpr, condition: &str| -> Result<()> {
-            let ty = expr.ty();
+            let ty = expr.prim_ty();
             if ty.dtype == var_ty.dtype {
                 return Ok(());
             }
-            let message = format!("{} vs {}", support::repr(&var_ty), support::repr(&ty));
+            let message = format!("{} vs {}", support::repr(&var_ty), support::repr(ty));
             Err(support::check_failed(tvm_ffi::INTERNAL_ERROR, condition, &message))
         };
         let (begin, end) = (promote(begin)?, promote(end)?);
@@ -574,6 +588,7 @@ impl For {
 
 // tvm-ffi-stubgen(begin): object/ir.While
 /// Complete: reflected fields fill [32, 48) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.While"]
@@ -589,6 +604,7 @@ const _: () = {
     assert!(::core::mem::align_of::<WhileObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct While {
@@ -602,6 +618,7 @@ impl Deref for WhileObj {
     }
 }
 
+#[allow(missing_docs)]
 impl WhileObj {
     pub(crate) fn new(loc: Location, condition: PrimExpr, body: SeqStmt) -> Self {
         let base = StmtObj::new(loc);
@@ -609,6 +626,7 @@ impl WhileObj {
     }
 }
 
+#[allow(missing_docs)]
 impl While {
     /// Lossless complete-field allocation.
     pub fn from_fields(
@@ -639,9 +657,8 @@ impl While {
         loc: impl Into<Location>,
     ) -> Result<Self> {
         let condition = condition.into_owned_expr()?;
-        let condition_dtype = condition.dtype();
         let body = into_body(body.into())?;
-        if !support::is_scalar(condition_dtype) {
+        if !condition.prim_ty().is_scalar() {
             let check = "condition.ty().IsScalar()";
             return Err(support::check_failed(tvm_ffi::INTERNAL_ERROR, check, ""));
         }
@@ -651,6 +668,7 @@ impl While {
 
 // tvm-ffi-stubgen(begin): object/ir.TensorStore
 /// Complete: reflected fields fill [32, 56) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.TensorStore"]
@@ -667,6 +685,7 @@ const _: () = {
     assert!(::core::mem::align_of::<TensorStoreObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct TensorStore {
@@ -680,6 +699,7 @@ impl Deref for TensorStoreObj {
     }
 }
 
+#[allow(missing_docs)]
 impl TensorStoreObj {
     pub(crate) fn new(
         loc: Location,
@@ -692,6 +712,7 @@ impl TensorStoreObj {
     }
 }
 
+#[allow(missing_docs)]
 impl TensorStore {
     /// Lossless complete-field allocation.
     pub fn from_fields(
@@ -752,6 +773,7 @@ impl TensorStore {
 
 // tvm-ffi-stubgen(begin): object/ir.RegionStmt
 /// Complete: reflected fields fill [32, 80) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.RegionStmt"]
@@ -771,6 +793,7 @@ const _: () = {
     assert!(::core::mem::align_of::<RegionStmtObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct RegionStmt {
@@ -784,6 +807,7 @@ impl Deref for RegionStmtObj {
     }
 }
 
+#[allow(missing_docs)]
 impl RegionStmtObj {
     pub(crate) fn new(
         loc: Location,
@@ -799,6 +823,7 @@ impl RegionStmtObj {
     }
 }
 
+#[allow(missing_docs)]
 impl RegionStmt {
     /// Lossless complete-field allocation.
     pub fn from_fields(
@@ -891,6 +916,7 @@ impl RegionStmt {
 
 // tvm-ffi-stubgen(begin): object/ir.SeqStmt
 /// Complete: reflected fields fill [32, 40) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.SeqStmt"]
@@ -905,6 +931,7 @@ const _: () = {
     assert!(::core::mem::align_of::<SeqStmtObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct SeqStmt {
@@ -918,6 +945,7 @@ impl Deref for SeqStmtObj {
     }
 }
 
+#[allow(missing_docs)]
 impl SeqStmtObj {
     pub(crate) fn new(loc: Location, seq: Array<Stmt>) -> Self {
         let base = StmtObj::new(loc);
@@ -925,6 +953,7 @@ impl SeqStmtObj {
     }
 }
 
+#[allow(missing_docs)]
 impl SeqStmt {
     /// Lossless complete-field allocation.
     pub fn from_fields(loc: impl Into<Location>, seq: impl Into<Array<Stmt>>) -> Self {
@@ -949,6 +978,7 @@ impl SeqStmt {
 
 // tvm-ffi-stubgen(begin): object/ir.If
 /// Complete: reflected fields fill [32, 56) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.If"]
@@ -965,6 +995,7 @@ const _: () = {
     assert!(::core::mem::align_of::<IfObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct If {
@@ -978,6 +1009,7 @@ impl Deref for IfObj {
     }
 }
 
+#[allow(missing_docs)]
 impl IfObj {
     pub(crate) fn new(
         loc: Location,
@@ -990,6 +1022,7 @@ impl IfObj {
     }
 }
 
+#[allow(missing_docs)]
 impl If {
     /// Lossless complete-field allocation.
     pub fn from_fields(
@@ -1026,6 +1059,7 @@ impl If {
 
 // tvm-ffi-stubgen(begin): object/ir.Evaluate
 /// Complete: reflected fields fill [32, 40) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.Evaluate"]
@@ -1040,6 +1074,7 @@ const _: () = {
     assert!(::core::mem::align_of::<EvaluateObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct Evaluate {
@@ -1053,6 +1088,7 @@ impl Deref for EvaluateObj {
     }
 }
 
+#[allow(missing_docs)]
 impl EvaluateObj {
     pub(crate) fn new(loc: Location, value: Expr) -> Self {
         let base = StmtObj::new(loc);
@@ -1060,6 +1096,7 @@ impl EvaluateObj {
     }
 }
 
+#[allow(missing_docs)]
 impl Evaluate {
     /// Lossless complete-field allocation.
     pub fn from_fields(loc: impl Into<Location>, value: impl Into<Expr>) -> Self {
@@ -1082,6 +1119,7 @@ impl Evaluate {
 
 // tvm-ffi-stubgen(begin): object/ir.Break
 /// Complete: reflected fields fill [32, 32) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.Break"]
@@ -1095,6 +1133,7 @@ const _: () = {
     assert!(::core::mem::align_of::<BreakObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct Break {
@@ -1108,6 +1147,7 @@ impl Deref for BreakObj {
     }
 }
 
+#[allow(missing_docs)]
 impl BreakObj {
     pub(crate) fn new(loc: Location) -> Self {
         let base = StmtObj::new(loc);
@@ -1115,6 +1155,7 @@ impl BreakObj {
     }
 }
 
+#[allow(missing_docs)]
 impl Break {
     /// Lossless complete-field allocation.
     pub fn new(loc: impl Into<Location>) -> Self {
@@ -1132,6 +1173,7 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(Break => Stmt);
 
 // tvm-ffi-stubgen(begin): object/ir.Return
 /// Complete: reflected fields fill [32, 40) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.Return"]
@@ -1146,6 +1188,7 @@ const _: () = {
     assert!(::core::mem::align_of::<ReturnObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct Return {
@@ -1159,6 +1202,7 @@ impl Deref for ReturnObj {
     }
 }
 
+#[allow(missing_docs)]
 impl ReturnObj {
     pub(crate) fn new(loc: Location, value: Expr) -> Self {
         let base = StmtObj::new(loc);
@@ -1166,6 +1210,7 @@ impl ReturnObj {
     }
 }
 
+#[allow(missing_docs)]
 impl Return {
     /// Lossless complete-field allocation.
     pub fn from_fields(loc: impl Into<Location>, value: impl Into<Expr>) -> Self {
@@ -1188,6 +1233,7 @@ impl Return {
 
 // tvm-ffi-stubgen(begin): object/ir.Continue
 /// Complete: reflected fields fill [32, 32) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.Continue"]
@@ -1201,6 +1247,7 @@ const _: () = {
     assert!(::core::mem::align_of::<ContinueObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct Continue {
@@ -1214,6 +1261,7 @@ impl Deref for ContinueObj {
     }
 }
 
+#[allow(missing_docs)]
 impl ContinueObj {
     pub(crate) fn new(loc: Location) -> Self {
         let base = StmtObj::new(loc);
@@ -1221,6 +1269,7 @@ impl ContinueObj {
     }
 }
 
+#[allow(missing_docs)]
 impl Continue {
     /// Lossless complete-field allocation.
     pub fn new(loc: impl Into<Location>) -> Self {
@@ -1239,10 +1288,10 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(Continue => Stmt);
 // ---------------------------------------------------------------------------------------------
 // Helpers
 
-/// Whether `value` is in the range of the integer type `dtype` (C++ `IntImmValueFits`).
-fn int_imm_value_fits(value: &BigInt, dtype: DLDataType) -> Result<bool> {
-    let bits = dtype.bits as u32;
-    if dtype.code == support::UINT {
+/// Whether `value` is in the range of the integer type `ty` (C++ `IntImmValueFits`).
+fn int_imm_value_fits(value: &BigInt, ty: &PrimType) -> Result<bool> {
+    let bits = u32::from(ty.bits());
+    if ty.matches_code(&[DLDataTypeCode::kDLUInt]) {
         let limit = BigInt::from(1i64).try_shl(bits as i64)?;
         return Ok(!value.is_negative() && *value < limit);
     }

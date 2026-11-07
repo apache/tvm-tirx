@@ -21,7 +21,7 @@
 //! Expressions: variables, constants, calls, tuples and tensor accesses.
 //!
 //! The objects `python/tvm_tirx/ir/expr.py` defines. [`Expr`] is the base of every expression;
-//! [`PrimExpr`] and [`IntExpr`] are views of one checked to have a primitive or integer type. The
+//! [`PrimExpr`] and [`IntExpr`] are expressions checked to have a primitive or integer type. The
 //! primitive arithmetic and vector expressions are in [`prim`](super::prim).
 //!
 //! # Examples
@@ -40,6 +40,7 @@
 //! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
 //! ```
 
+// tvm-ffi-stubgen(missing-docs): allow
 // `custom-new` reserves `new` for a constructor with the C++ one's arguments and semantics
 // (argument order, checks, defaults, implicit conversions, a derived type); the generated
 // `from_fields` allocates the fields as given, inherited fields first.
@@ -75,9 +76,6 @@
 // tvm-ffi-stubgen(import-object): crate::ir::r#type::PrimTypeObj
 // tvm-ffi-stubgen(import-object): tvm_ffi::Error
 // tvm-ffi-stubgen(import-object): tvm_ffi::ObjectRefCore
-// tvm-ffi-stubgen(import-object): tvm_ffi::object::is_instance_of
-// tvm-ffi-stubgen(import-object): tvm_ffi::tvm_ffi_sys::TVMFFIAny
-// tvm-ffi-stubgen(import-object): tvm_ffi::type_traits::AnyCompatible
 // tvm-ffi-stubgen(import-object): tvm_ffi::AnyView
 // tvm-ffi-stubgen(import-object): tvm_ffi::Result
 // tvm-ffi-stubgen(import-object): tvm_ffi::tvm_ffi_sys::TVMFFITypeIndex
@@ -135,15 +133,13 @@ use tvm_ffi::ShallowCopy;
 use tvm_ffi::String;
 use tvm_ffi::UnsafeInit;
 use tvm_ffi::object::IntoObjectRef;
-use tvm_ffi::object::is_instance_of;
 use tvm_ffi::reflection::drop_if_defined;
-use tvm_ffi::tvm_ffi_sys::TVMFFIAny;
 use tvm_ffi::tvm_ffi_sys::TVMFFITypeIndex;
-use tvm_ffi::type_traits::AnyCompatible;
 // tvm-ffi-stubgen(end)
 
 // tvm-ffi-stubgen(begin): object/ir.Expr
 /// Complete: reflected fields fill [24, 40) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.Expr"]
@@ -158,12 +154,14 @@ const _: () = {
     assert!(::core::mem::align_of::<ExprObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct Expr {
     base: ObjectArc<ExprObj>,
 }
 
+#[allow(missing_docs)]
 impl ExprObj {
     pub fn new(loc: Location, ty: Type) -> Self {
         let base = Object::new();
@@ -171,6 +169,7 @@ impl ExprObj {
     }
 }
 
+#[allow(missing_docs)]
 impl Expr {
     /// Lossless complete-field allocation.
     pub fn new(loc: impl Into<Location>, ty: impl Into<Type>) -> Self {
@@ -374,77 +373,164 @@ impl From<f64> for Expr {
 }
 
 // ---------------------------------------------------------------------------------------------
-// Typed views: `PrimExpr` and `IntExpr` (C++ `TypedExpr`)
+// Typed expressions: `PrimExpr` and `IntExpr`
 
-crate::r#macro::typed_expr_view! {
-    /// An expression typed by a `PrimType` (C++ `PrimExpr`): a constant, a variable, an operator
-    /// on scalars or vectors, or a call that returns one.
-    ///
-    /// `PrimExpr` and [`IntExpr`] are typed views (C++ `TypedExpr`): an [`Expr`] checked when the
-    /// view is made, so a function that takes one needs no check of its own. A view converts into
-    /// an `Expr` for free; an `Expr` converts into a view only through `TryFrom`, whose error names
-    /// the expression and its type.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use tvm_tirx::ir::{dtype, Expr, PrimExpr, PrimType, PrimVar, StringImm, Var, UNKNOWN_LOC};
-    ///
-    /// fn is_scalar(expr: &PrimExpr) -> bool {
-    ///     expr.dtype().lanes == 1
-    /// }
-    ///
-    /// let x = PrimVar::new("x", PrimType::int(32), UNKNOWN_LOC);
-    /// assert!(is_scalar(&PrimExpr::try_from(&x + 1)?));
-    ///
-    /// let text = Expr::from(StringImm::new("hi", UNKNOWN_LOC));
-    /// let error = PrimExpr::try_from(text).err().unwrap();
-    /// assert!(error.message().contains("ir.StringImm[ty=ir.StringType]"));
-    /// # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
-    /// ```
-    ///
-    /// An `Expr` is not a `PrimExpr` until it is checked, nor a `PrimExpr` an `IntExpr`:
-    ///
-    /// ```compile_fail
-    /// # use tvm_tirx::ir::{Expr, PrimExpr};
-    /// fn widen(expr: Expr) -> PrimExpr {
-    ///     expr
-    /// }
-    /// ```
-    ///
-    /// ```compile_fail
-    /// # use tvm_tirx::ir::{IntExpr, PrimExpr};
-    /// fn narrow(expr: PrimExpr) -> IntExpr {
-    ///     expr.into()
-    /// }
-    /// ```
-    PrimExpr, "ir.PrimExpr", base = Expr(ExprObj), check = is_prim_expr,
-    mismatch = typed_expr_mismatch, fallback = prim_literal
+/// An expression typed by a `PrimType` (C++ `PrimExpr`): a constant, a variable, an operator
+/// on scalars or vectors, or a call that returns one.
+///
+/// `PrimExpr` and [`IntExpr`] are typed expressions: an [`Expr`] checked when the reference
+/// is made, so a function that takes one needs no check of its own. A typed expression
+/// converts into an `Expr` for free; an `Expr` converts into one only through `TryFrom`, whose
+/// error names the expression and its type.
+///
+/// # Examples
+///
+/// ```
+/// use tvm_tirx::ir::{dtype, Expr, PrimExpr, PrimType, PrimVar, StringImm, Var, UNKNOWN_LOC};
+///
+/// fn is_scalar(expr: &PrimExpr) -> bool {
+///     expr.prim_ty().is_scalar()
+/// }
+///
+/// let x = PrimVar::new("x", PrimType::int(32), UNKNOWN_LOC);
+/// assert!(is_scalar(&PrimExpr::try_from(&x + 1)?));
+///
+/// let text = Expr::from(StringImm::new("hi", UNKNOWN_LOC));
+/// let error = PrimExpr::try_from(text).err().unwrap();
+/// assert!(error.message().contains("ir.StringImm[ty=ir.StringType]"));
+/// # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
+/// ```
+///
+/// An `Expr` is not a `PrimExpr` until it is checked, nor a `PrimExpr` an `IntExpr`:
+///
+/// ```compile_fail
+/// # use tvm_tirx::ir::{Expr, PrimExpr};
+/// fn widen(expr: Expr) -> PrimExpr {
+///     expr
+/// }
+/// ```
+///
+/// ```compile_fail
+/// # use tvm_tirx::ir::{IntExpr, PrimExpr};
+/// fn narrow(expr: PrimExpr) -> IntExpr {
+///     expr.into()
+/// }
+/// ```
+#[repr(transparent)]
+#[derive(Clone, tvm_ffi::derive::ObjectRef)]
+#[object_ref(parent = Expr, skip_any_compatible)]
+pub struct PrimExpr {
+    data: ObjectArc<ExprObj>,
 }
 
-crate::r#macro::typed_expr_view! {
-    /// A [`PrimExpr`] of a scalar signed or unsigned integer type of any width (C++ `IntExpr`),
-    /// such as an index or an extent.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use tvm_tirx::ir::{IntExpr, PrimType, PrimVar, Var, UNKNOWN_LOC};
-    /// use tvm_tirx::script::script;
-    ///
-    /// let i = PrimVar::new("i", PrimType::int(64), UNKNOWN_LOC);
-    /// let offset = IntExpr::try_from(&i * 4)?;
-    /// assert_eq!(script(&offset)?, "i * T.int64(4)");
-    ///
-    /// let f = PrimVar::new("f", PrimType::float(32), UNKNOWN_LOC);
-    /// assert!(IntExpr::try_from(&f * 4).is_err());
-    /// # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
-    /// ```
-    IntExpr, "ir.IntExpr", base = Expr(ExprObj), check = is_int_expr,
-    mismatch = typed_expr_mismatch, fallback = int_literal
+// SAFETY: a `PrimExpr` is an `Expr` typed by a `PrimType`, and the literals it converts are
+// constants, which are.
+unsafe impl tvm_ffi::object::ObjectRefAnyCompatible for PrimExpr {
+    #[inline]
+    fn extra_check(obj: &ExprObj) -> bool {
+        obj.ty.downcast_ref::<PrimTypeObj>().is_some()
+    }
+
+    // As C++ converts an `Any` into a `PrimExpr`: a bool is a boolean constant, an int an `int32`
+    // constant when it fits and an `int64` one otherwise, and a float a `float32` constant.
+    fn convert_fallback(value: AnyView<'_>) -> Option<Self> {
+        let index = value.type_index();
+        if index == TVMFFITypeIndex::kTVMFFIBool as i32 {
+            Some(IntImm::bool(bool::try_from(value).ok()?).into())
+        } else if index == TVMFFITypeIndex::kTVMFFIInt as i32 {
+            // C++ `TypeTraits<IntImm>::ConvertFallbackValue` keeps an int that fits as `int32`.
+            let value = i64::try_from(value).ok()?;
+            let constant = match i32::try_from(value) {
+                Ok(value) => IntImm::int32(value),
+                Err(_) => IntImm::int64(value),
+            };
+            Some(constant.into())
+        } else if index == TVMFFITypeIndex::kTVMFFIFloat as i32 {
+            let value = f64::try_from(value).ok()?;
+            FloatImm::new(PrimType::float(32), value, UNKNOWN_LOC).ok().map(Into::into)
+        } else {
+            None
+        }
+    }
+
+    fn custom_type_str() -> std::string::String {
+        "ir.PrimExpr".into()
+    }
+
+    fn custom_mismatch_type_info(value: tvm_ffi::AnyView<'_>) -> std::string::String {
+        typed_expr_mismatch(value)
+    }
 }
 
-tvm_ffi::unsafe_impl_object_ref_upcast!(PrimExpr => Expr, IntExpr => Expr, IntExpr => PrimExpr);
+crate::def_expr_op_over_loads!(PrimExpr);
+
+impl PrimExpr {
+    /// Return the type of this expression, the [`PrimType`] its check guarantees.
+    pub fn prim_ty(&self) -> &PrimType {
+        self.data.ty.downcast_ref::<PrimType>().expect("a typed expression has a `PrimType`")
+    }
+}
+
+/// A [`PrimExpr`] of a scalar signed or unsigned integer type of any width (C++ `IntExpr`),
+/// such as an index or an extent.
+///
+/// # Examples
+///
+/// ```
+/// use tvm_tirx::ir::{IntExpr, PrimType, PrimVar, Var, UNKNOWN_LOC};
+/// use tvm_tirx::script::script;
+///
+/// let i = PrimVar::new("i", PrimType::int(64), UNKNOWN_LOC);
+/// let offset = IntExpr::try_from(&i * 4)?;
+/// assert_eq!(script(&offset)?, "i * T.int64(4)");
+///
+/// let f = PrimVar::new("f", PrimType::float(32), UNKNOWN_LOC);
+/// assert!(IntExpr::try_from(&f * 4).is_err());
+/// # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
+/// ```
+#[repr(transparent)]
+#[derive(Clone, tvm_ffi::derive::ObjectRef)]
+#[object_ref(parent = PrimExpr, skip_any_compatible)]
+pub struct IntExpr {
+    data: ObjectArc<ExprObj>,
+}
+
+// SAFETY: an `IntExpr` is a `PrimExpr` typed by a scalar integer type, and the int literal it
+// converts is an integer constant.
+unsafe impl tvm_ffi::object::ObjectRefAnyCompatible for IntExpr {
+    #[inline]
+    fn extra_check(obj: &ExprObj) -> bool {
+        obj.ty.downcast_ref::<PrimType>().is_some_and(scalar_int)
+    }
+
+    // An int converts as it does into a `PrimExpr`; no other literal does.
+    fn convert_fallback(value: AnyView<'_>) -> Option<Self> {
+        if value.type_index() != TVMFFITypeIndex::kTVMFFIInt as i32 {
+            return None;
+        }
+        let expr = <PrimExpr as tvm_ffi::object::ObjectRefAnyCompatible>::convert_fallback(value)?;
+        IntExpr::try_from(expr).ok()
+    }
+
+    fn custom_type_str() -> std::string::String {
+        "ir.IntExpr".into()
+    }
+
+    fn custom_mismatch_type_info(value: tvm_ffi::AnyView<'_>) -> std::string::String {
+        typed_expr_mismatch(value)
+    }
+}
+
+crate::def_expr_op_over_loads!(IntExpr);
+
+impl IntExpr {
+    /// Return the type of this expression, the [`PrimType`] its check guarantees.
+    pub fn prim_ty(&self) -> &PrimType {
+        self.data.ty.downcast_ref::<PrimType>().expect("a typed expression has a `PrimType`")
+    }
+}
+
+tvm_ffi::unsafe_impl_object_ref_upcast!(IntExpr => Expr);
 
 /// The built expression, checked to be an integer, or the first error raised while building it.
 impl TryFrom<ExprResult> for IntExpr {
@@ -509,135 +595,28 @@ impl From<i64> for IntExpr {
 
 /// The `IntExpr` of an integer constant, which `int32` and `int64` constants are.
 fn int_constant(constant: IntImm) -> IntExpr {
-    debug_assert!(scalar_int(PrimExpr::from(&constant).dtype()));
-    // SAFETY: the constant is typed by a scalar integer type.
-    unsafe { IntExpr::from_data(ObjectRefCore::into_data(Expr::from(constant))) }
+    Expr::from(constant).downcast().expect("an integer constant is an `IntExpr`")
 }
 
-// The checks and conversions of the views.
+// The checks and conversions of the typed expressions.
 
 /// A scalar signed or unsigned integer type.
-fn scalar_int(dtype: DLDataType) -> bool {
-    dtype.lanes == 1 && matches!(dtype.code, support::INT | support::UINT)
+fn scalar_int(ty: &PrimType) -> bool {
+    use tvm_ffi::DLDataTypeCode::{kDLInt, kDLUInt};
+    ty.is_scalar() && ty.matches_code(&[kDLInt, kDLUInt])
 }
 
-/// The expression `data` holds, if it holds one.
-///
-/// # Safety
-///
-/// `data` is a live FFI value.
-unsafe fn expr_of(data: &TVMFFIAny) -> Option<&ExprObj> {
-    let is_object = data.type_index >= TVMFFITypeIndex::kTVMFFIStaticObjectBegin as i32;
-    // SAFETY: an object of an `ir.Expr` type is an `ExprObj`.
-    (is_object && is_instance_of::<ExprObj>(data.type_index))
-        .then(|| unsafe { &*(data.data_union.v_obj as *const ExprObj) })
-}
-
-/// The dtype of the expression `data` holds, if it holds one typed by a `PrimType`.
-///
-/// # Safety
-///
-/// `data` is a live FFI value.
-unsafe fn prim_dtype(data: &TVMFFIAny) -> Option<DLDataType> {
-    Some(unsafe { expr_of(data) }?.ty.downcast_ref::<PrimTypeObj>()?.dtype)
-}
-
-/// Whether `data` holds an expression typed by a `PrimType`.
-///
-/// # Safety
-///
-/// `data` is a live FFI value.
-unsafe fn is_prim_expr(data: &TVMFFIAny) -> bool {
-    unsafe { prim_dtype(data) }.is_some()
-}
-
-/// Whether `data` holds an expression typed by a scalar integer type.
-///
-/// # Safety
-///
-/// `data` is a live FFI value.
-unsafe fn is_int_expr(data: &TVMFFIAny) -> bool {
-    unsafe { prim_dtype(data) }.is_some_and(scalar_int)
-}
-
-/// Whether `data` holds a `Var`, not a subclass, typed by a `PrimType` (C++
-/// `TypeTraits<PrimVar>::CheckAnyStrict`).
-///
-/// # Safety
-///
-/// `data` is a live FFI value.
-unsafe fn is_prim_var(data: &TVMFFIAny) -> bool {
-    crate::ir::op_def::sig::var_of_type::<PrimTypeObj>(data)
-}
-
-/// The type key of a value a [`PrimVar`] rejects (C++ `TypeTraits<PrimVar>::GetMismatchTypeInfo`).
-fn type_key_mismatch(data: &TVMFFIAny) -> std::string::String {
-    support::type_key(data.type_index)
-}
-
-/// No value that is not a variable converts into a [`PrimVar`].
-///
-/// # Safety
-///
-/// `data` is a live FFI value.
-unsafe fn no_literal<T>(_: &TVMFFIAny) -> Option<T> {
-    None
-}
-
-/// What a view names a value it rejects (C++ `TypeTraits<TypedExpr<T>>::GetMismatchTypeInfo`):
+/// What a typed expression names a value it rejects (C++ `TypeTraits<TypedExpr<T>>::GetMismatchTypeInfo`):
 /// an expression with its type, `ir.StringImm[ty=ir.StringType]`, or the type key of another value.
-fn typed_expr_mismatch(data: &TVMFFIAny) -> std::string::String {
-    // SAFETY: a mismatch is reported for a live value.
-    let Some(expr) = (unsafe { expr_of(data) }) else { return support::type_key(data.type_index) };
+fn typed_expr_mismatch(value: AnyView<'_>) -> std::string::String {
+    let Some(expr) = value.downcast_ref::<ExprObj>() else {
+        return support::type_key(value.type_index());
+    };
     let ty = match expr.ty.downcast_ref::<PrimTypeObj>() {
         Some(prim) => support::dtype_name(prim.dtype),
         None => support::type_key(AnyView::from(&expr.ty).type_index()),
     };
-    format!("{}[ty={ty}]", support::type_key(data.type_index))
-}
-
-/// The constant of the int, bool or float `data` holds, as C++ converts an `Any` into a
-/// `PrimExpr`: a bool is a boolean constant, an int an `int32` constant when it fits and an
-/// `int64` one otherwise, and a float a `float32` constant.
-///
-/// # Safety
-///
-/// `data` is a live FFI value.
-unsafe fn prim_literal(data: &TVMFFIAny) -> Option<PrimExpr> {
-    let index = data.type_index;
-    // SAFETY: the type index says which member of the union holds the value.
-    unsafe {
-        if index == TVMFFITypeIndex::kTVMFFIBool as i32 {
-            Some(IntImm::bool(data.data_union.v_int64 != 0).into())
-        } else if index == TVMFFITypeIndex::kTVMFFIInt as i32 {
-            Some(int_imm(data.data_union.v_int64).into())
-        } else if index == TVMFFITypeIndex::kTVMFFIFloat as i32 {
-            let value = data.data_union.v_float64;
-            FloatImm::new(PrimType::float(32), value, UNKNOWN_LOC).ok().map(Into::into)
-        } else {
-            None
-        }
-    }
-}
-
-/// The constant of the int `data` holds, as [`prim_literal`] makes it.
-///
-/// # Safety
-///
-/// `data` is a live FFI value.
-unsafe fn int_literal(data: &TVMFFIAny) -> Option<IntExpr> {
-    // SAFETY: an int is held in `v_int64`.
-    (data.type_index == TVMFFITypeIndex::kTVMFFIInt as i32)
-        .then(|| int_constant(int_imm(unsafe { data.data_union.v_int64 })))
-}
-
-/// An `int32` constant when `value` fits, and an `int64` one otherwise (C++
-/// `TypeTraits<IntImm>::ConvertFallbackValue`).
-fn int_imm(value: i64) -> IntImm {
-    match i32::try_from(value) {
-        Ok(value) => IntImm::int32(value),
-        Err(_) => IntImm::int64(value),
-    }
+    format!("{}[ty={ty}]", support::type_key(value.type_index()))
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -645,6 +624,7 @@ fn int_imm(value: i64) -> IntImm {
 
 // tvm-ffi-stubgen(begin): object/ir.StagingExpr
 /// Complete: reflected fields fill [40, 40) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.StagingExpr"]
@@ -657,6 +637,7 @@ const _: () = {
     assert!(::core::mem::align_of::<StagingExprObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct StagingExpr {
@@ -670,6 +651,7 @@ impl Deref for StagingExprObj {
     }
 }
 
+#[allow(missing_docs)]
 impl StagingExprObj {
     pub fn new(loc: Location, ty: Type) -> Self {
         let base = ExprObj::new(loc, ty);
@@ -677,6 +659,7 @@ impl StagingExprObj {
     }
 }
 
+#[allow(missing_docs)]
 impl StagingExpr {
     /// Lossless complete-field allocation.
     pub fn new(loc: impl Into<Location>, ty: impl Into<Type>) -> Self {
@@ -706,6 +689,7 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(StagingExpr => Expr);
 
 // tvm-ffi-stubgen(begin): object/ir.OpaqueExpr
 /// Complete: reflected fields fill [40, 40) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.OpaqueExpr"]
@@ -718,6 +702,7 @@ const _: () = {
     assert!(::core::mem::align_of::<OpaqueExprObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct OpaqueExpr {
@@ -731,6 +716,7 @@ impl Deref for OpaqueExprObj {
     }
 }
 
+#[allow(missing_docs)]
 impl OpaqueExprObj {
     pub fn new(loc: Location, ty: Type) -> Self {
         let base = ExprObj::new(loc, ty);
@@ -738,6 +724,7 @@ impl OpaqueExprObj {
     }
 }
 
+#[allow(missing_docs)]
 impl OpaqueExpr {
     /// Lossless complete-field allocation.
     pub fn new(loc: impl Into<Location>, ty: impl Into<Type>) -> Self {
@@ -767,6 +754,7 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(OpaqueExpr => Expr);
 
 // tvm-ffi-stubgen(begin): object/ir.GlobalVar
 /// Complete: reflected fields fill [40, 56) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.GlobalVar"]
@@ -781,6 +769,7 @@ const _: () = {
     assert!(::core::mem::align_of::<GlobalVarObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct GlobalVar {
@@ -794,6 +783,7 @@ impl Deref for GlobalVarObj {
     }
 }
 
+#[allow(missing_docs)]
 impl GlobalVarObj {
     pub(crate) fn new(loc: Location, ty: Type, name_hint: String) -> Self {
         let base = ExprObj::new(loc, ty);
@@ -801,6 +791,7 @@ impl GlobalVarObj {
     }
 }
 
+#[allow(missing_docs)]
 impl GlobalVar {
     /// Lossless complete-field allocation.
     pub fn from_fields(
@@ -828,6 +819,7 @@ impl GlobalVar {
 
 // tvm-ffi-stubgen(begin): object/ir.Tuple
 /// Complete: reflected fields fill [40, 48) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.Tuple"]
@@ -842,6 +834,7 @@ const _: () = {
     assert!(::core::mem::align_of::<TupleObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct Tuple {
@@ -855,6 +848,7 @@ impl Deref for TupleObj {
     }
 }
 
+#[allow(missing_docs)]
 impl TupleObj {
     pub(crate) fn new(loc: Location, ty: Type, fields: Array<Expr>) -> Self {
         let base = ExprObj::new(loc, ty);
@@ -862,6 +856,7 @@ impl TupleObj {
     }
 }
 
+#[allow(missing_docs)]
 impl Tuple {
     /// Lossless complete-field allocation.
     pub fn from_fields(
@@ -901,6 +896,7 @@ impl Tuple {
 
 // tvm-ffi-stubgen(begin): object/ir.TupleGetItem
 /// Complete: reflected fields fill [40, 56) exactly (alignment padding [52, 56)).
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.TupleGetItem"]
@@ -916,6 +912,7 @@ const _: () = {
     assert!(::core::mem::align_of::<TupleGetItemObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct TupleGetItem {
@@ -929,6 +926,7 @@ impl Deref for TupleGetItemObj {
     }
 }
 
+#[allow(missing_docs)]
 impl TupleGetItemObj {
     pub(crate) fn new(loc: Location, ty: Type, tuple_value: Expr, index: i32) -> Self {
         let base = ExprObj::new(loc, ty);
@@ -936,6 +934,7 @@ impl TupleGetItemObj {
     }
 }
 
+#[allow(missing_docs)]
 impl TupleGetItem {
     /// Lossless complete-field allocation.
     pub fn from_fields(
@@ -1006,6 +1005,7 @@ impl TupleGetItem {
 
 // tvm-ffi-stubgen(begin): object/ir.TensorLoad
 /// Complete: reflected fields fill [40, 56) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.TensorLoad"]
@@ -1021,6 +1021,7 @@ const _: () = {
     assert!(::core::mem::align_of::<TensorLoadObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct TensorLoad {
@@ -1034,6 +1035,7 @@ impl Deref for TensorLoadObj {
     }
 }
 
+#[allow(missing_docs)]
 impl TensorLoadObj {
     pub(crate) fn new(loc: Location, ty: PrimType, source: Expr, indices: Array<PrimExpr>) -> Self {
         let base = ExprObj::new(loc, ty.into());
@@ -1041,6 +1043,7 @@ impl TensorLoadObj {
     }
 }
 
+#[allow(missing_docs)]
 impl TensorLoad {
     /// Lossless complete-field allocation.
     pub fn from_fields(
@@ -1097,6 +1100,7 @@ impl TensorLoad {
 
 // tvm-ffi-stubgen(begin): object/ir.Constant
 /// Complete: reflected fields fill [40, 40) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.Constant"]
@@ -1109,6 +1113,7 @@ const _: () = {
     assert!(::core::mem::align_of::<ConstantObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct Constant {
@@ -1122,6 +1127,7 @@ impl Deref for ConstantObj {
     }
 }
 
+#[allow(missing_docs)]
 impl ConstantObj {
     pub fn new(loc: Location, ty: Type) -> Self {
         let base = ExprObj::new(loc, ty);
@@ -1129,6 +1135,7 @@ impl ConstantObj {
     }
 }
 
+#[allow(missing_docs)]
 impl Constant {
     /// Lossless complete-field allocation.
     pub fn new(loc: impl Into<Location>, ty: impl Into<Type>) -> Self {
@@ -1158,6 +1165,7 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(Constant => Expr);
 
 // tvm-ffi-stubgen(begin): object/ir.FloatImm
 /// Complete: reflected fields fill [40, 48) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.FloatImm"]
@@ -1172,6 +1180,7 @@ const _: () = {
     assert!(::core::mem::align_of::<FloatImmObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct FloatImm {
@@ -1185,6 +1194,7 @@ impl Deref for FloatImmObj {
     }
 }
 
+#[allow(missing_docs)]
 impl FloatImmObj {
     pub(crate) fn new(loc: Location, ty: PrimType, value: f64) -> Self {
         let base = ConstantObj::new(loc, ty.into());
@@ -1192,6 +1202,7 @@ impl FloatImmObj {
     }
 }
 
+#[allow(missing_docs)]
 impl FloatImm {
     /// Lossless complete-field allocation.
     pub fn from_fields(loc: impl Into<Location>, ty: impl Into<PrimType>, value: f64) -> Self {
@@ -1223,7 +1234,7 @@ impl FloatImm {
     /// out of its range.
     pub fn new(ty: impl Into<PrimType>, value: f64, loc: impl Into<Location>) -> Result<Self> {
         let ty = ty.into();
-        check_float_imm(ty.dtype, value)?;
+        check_float_imm(&ty, value)?;
         Ok(Self::from_fields(loc, ty, value))
     }
 
@@ -1262,6 +1273,7 @@ impl From<f64> for FloatImm {
 
 // tvm-ffi-stubgen(begin): object/ir.IntImm
 /// Complete: reflected fields fill [40, 56) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.IntImm"]
@@ -1276,6 +1288,7 @@ const _: () = {
     assert!(::core::mem::align_of::<IntImmObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct IntImm {
@@ -1289,6 +1302,7 @@ impl Deref for IntImmObj {
     }
 }
 
+#[allow(missing_docs)]
 impl IntImmObj {
     pub(crate) fn new(loc: Location, ty: PrimType, value: BigInt) -> Self {
         let base = ConstantObj::new(loc, ty.into());
@@ -1296,6 +1310,7 @@ impl IntImmObj {
     }
 }
 
+#[allow(missing_docs)]
 impl IntImm {
     /// Lossless complete-field allocation.
     pub fn from_fields(
@@ -1335,7 +1350,7 @@ impl IntImm {
         loc: impl Into<Location>,
     ) -> Result<Self> {
         let (ty, value) = (ty.into(), value.into());
-        check_int_imm(ty.dtype, &value)?;
+        check_int_imm(&ty, &value)?;
         Ok(Self::from_fields(loc, ty, value))
     }
 
@@ -1384,6 +1399,7 @@ impl From<bool> for IntImm {
 
 // tvm-ffi-stubgen(begin): object/ir.GenericConst
 /// Complete: reflected fields fill [40, 56) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.GenericConst"]
@@ -1398,6 +1414,7 @@ const _: () = {
     assert!(::core::mem::align_of::<GenericConstObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct GenericConst {
@@ -1411,6 +1428,7 @@ impl Deref for GenericConstObj {
     }
 }
 
+#[allow(missing_docs)]
 impl GenericConstObj {
     pub(crate) fn new(loc: Location, ty: Type, value: Any) -> Self {
         let base = ConstantObj::new(loc, ty);
@@ -1418,6 +1436,7 @@ impl GenericConstObj {
     }
 }
 
+#[allow(missing_docs)]
 impl GenericConst {
     /// Lossless complete-field allocation.
     pub fn from_fields(
@@ -1472,6 +1491,7 @@ impl GenericConst {
 
 // tvm-ffi-stubgen(begin): object/ir.DataTypeImm
 /// Complete: reflected fields fill [40, 48) exactly (alignment padding [44, 48)).
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.DataTypeImm"]
@@ -1486,6 +1506,7 @@ const _: () = {
     assert!(::core::mem::align_of::<DataTypeImmObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct DataTypeImm {
@@ -1499,6 +1520,7 @@ impl Deref for DataTypeImmObj {
     }
 }
 
+#[allow(missing_docs)]
 impl DataTypeImmObj {
     pub(crate) fn new(loc: Location, ty: Type, value: DLDataType) -> Self {
         let base = ConstantObj::new(loc, ty);
@@ -1506,6 +1528,7 @@ impl DataTypeImmObj {
     }
 }
 
+#[allow(missing_docs)]
 impl DataTypeImm {
     /// Lossless complete-field allocation.
     pub fn from_fields(
@@ -1534,6 +1557,7 @@ impl DataTypeImm {
 
 // tvm-ffi-stubgen(begin): object/ir.StringImm
 /// Complete: reflected fields fill [40, 56) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.StringImm"]
@@ -1548,6 +1572,7 @@ const _: () = {
     assert!(::core::mem::align_of::<StringImmObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct StringImm {
@@ -1561,6 +1586,7 @@ impl Deref for StringImmObj {
     }
 }
 
+#[allow(missing_docs)]
 impl StringImmObj {
     pub(crate) fn new(loc: Location, ty: Type, value: String) -> Self {
         let base = ConstantObj::new(loc, ty);
@@ -1568,6 +1594,7 @@ impl StringImmObj {
     }
 }
 
+#[allow(missing_docs)]
 impl StringImm {
     /// Lossless complete-field allocation.
     pub fn from_fields(
@@ -1595,6 +1622,7 @@ impl StringImm {
 
 // tvm-ffi-stubgen(begin): object/ir.Call
 /// Complete: reflected fields fill [40, 72) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.Call"]
@@ -1612,6 +1640,7 @@ const _: () = {
     assert!(::core::mem::align_of::<CallObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct Call {
@@ -1625,6 +1654,7 @@ impl Deref for CallObj {
     }
 }
 
+#[allow(missing_docs)]
 impl CallObj {
     pub(crate) fn new(
         loc: Location,
@@ -1639,6 +1669,7 @@ impl CallObj {
     }
 }
 
+#[allow(missing_docs)]
 impl Call {
     /// Lossless complete-field allocation.
     pub fn from_fields(
@@ -1743,6 +1774,7 @@ impl Call {
 
 // tvm-ffi-stubgen(begin): object/ir.TensorRegion
 /// Complete: reflected fields fill [40, 56) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.TensorRegion"]
@@ -1758,6 +1790,7 @@ const _: () = {
     assert!(::core::mem::align_of::<TensorRegionObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct TensorRegion {
@@ -1771,6 +1804,7 @@ impl Deref for TensorRegionObj {
     }
 }
 
+#[allow(missing_docs)]
 impl TensorRegionObj {
     pub(crate) fn new(loc: Location, ty: Type, source: Expr, region: Array<Range>) -> Self {
         let base = ExprObj::new(loc, ty);
@@ -1778,6 +1812,7 @@ impl TensorRegionObj {
     }
 }
 
+#[allow(missing_docs)]
 impl TensorRegion {
     /// Lossless complete-field allocation.
     pub fn from_fields(
@@ -1811,6 +1846,7 @@ impl TensorRegion {
 
 // tvm-ffi-stubgen(begin): object/ir.Var
 /// Complete: reflected fields fill [40, 56) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.Var"]
@@ -1824,6 +1860,7 @@ const _: () = {
     assert!(::core::mem::align_of::<VarObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct Var {
@@ -1837,6 +1874,7 @@ impl Deref for VarObj {
     }
 }
 
+#[allow(missing_docs)]
 impl VarObj {
     pub fn new(loc: Location, ty: Type, name: String) -> Self {
         let base = ExprObj::new(loc, ty);
@@ -1844,6 +1882,7 @@ impl VarObj {
     }
 }
 
+#[allow(missing_docs)]
 impl Var {
     /// Lossless complete-field allocation.
     pub fn from_fields(
@@ -1884,57 +1923,81 @@ impl Var {
     }
 }
 
-crate::r#macro::typed_expr_view! {
-    /// A [`Var`] typed by a `PrimType` (C++ `PrimVar`): a scalar or vector variable, which takes
-    /// part in arithmetic as a [`PrimExpr`].
-    ///
-    /// A `PrimVar` is a view of a `Var`, as [`PrimExpr`] is of an `Expr`: [`PrimVar::new`] types it
-    /// by a `PrimType`, and a `Var` becomes one only through the check of C++ `PrimVar`, by
-    /// `downcast_ref`, which borrows it in place, or `downcast`, which takes it. It converts into a
-    /// `Var`, a `PrimExpr` and an `Expr` for free, and reads the variable through `Deref`.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use tvm_tirx::ir::{MissingType, PrimExpr, PrimType, PrimVar, Var, UNKNOWN_LOC};
-    /// use tvm_tirx::script::script;
-    /// use tvm_tirx::tvm_ffi::{ObjectRefCore};
-    ///
-    /// let i = PrimVar::new("i", PrimType::int(32), UNKNOWN_LOC);
-    /// assert_eq!(i.name.as_str(), "i");
-    /// assert_eq!(script(&PrimExpr::try_from(&i * 4 + 1)?)?, "i * 4 + 1");
-    ///
-    /// let var: Var = i.into();
-    /// assert!(var.downcast_ref::<PrimVar>().is_some());
-    /// let untyped = Var::new("u", MissingType::new(), UNKNOWN_LOC);
-    /// assert!(untyped.downcast::<PrimVar>().is_err());
-    /// # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
-    /// ```
-    ///
-    /// A `Var` takes no part in arithmetic until it is checked, as in C++:
-    ///
-    /// ```compile_fail
-    /// # use tvm_tirx::ir::{PrimType, Var, UNKNOWN_LOC};
-    /// let x = Var::new("x", PrimType::int(32), UNKNOWN_LOC);
-    /// let _ = &x + 1;
-    /// ```
-    PrimVar, "ir.Var", base = Var(VarObj), check = is_prim_var, mismatch = type_key_mismatch,
-    fallback = no_literal
+/// A [`Var`] typed by a `PrimType` (C++ `PrimVar`): a scalar or vector variable, which takes
+/// part in arithmetic as a [`PrimExpr`].
+///
+/// A `PrimVar` is a typed `Var`, as [`PrimExpr`] is a typed `Expr`: [`PrimVar::new`] types it
+/// by a `PrimType`, and a `Var` becomes one only through the check of C++ `PrimVar`, by
+/// `downcast_ref`, which borrows it in place, or `downcast`, which takes it. It converts into a
+/// `Var`, a `PrimExpr` and an `Expr` for free, and reads the variable through `Deref`.
+///
+/// # Examples
+///
+/// ```
+/// use tvm_tirx::ir::{MissingType, PrimExpr, PrimType, PrimVar, Var, UNKNOWN_LOC};
+/// use tvm_tirx::script::script;
+/// use tvm_tirx::tvm_ffi::{ObjectRefCore};
+///
+/// let i = PrimVar::new("i", PrimType::int(32), UNKNOWN_LOC);
+/// assert_eq!(i.name.as_str(), "i");
+/// assert_eq!(script(&PrimExpr::try_from(&i * 4 + 1)?)?, "i * 4 + 1");
+///
+/// let var: Var = i.into();
+/// assert!(var.downcast_ref::<PrimVar>().is_some());
+/// let untyped = Var::new("u", MissingType::new(), UNKNOWN_LOC);
+/// assert!(untyped.downcast::<PrimVar>().is_err());
+/// # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
+/// ```
+///
+/// A `Var` takes no part in arithmetic until it is checked, as in C++:
+///
+/// ```compile_fail
+/// # use tvm_tirx::ir::{PrimType, Var, UNKNOWN_LOC};
+/// let x = Var::new("x", PrimType::int(32), UNKNOWN_LOC);
+/// let _ = &x + 1;
+/// ```
+#[repr(transparent)]
+#[derive(Clone, tvm_ffi::derive::ObjectRef)]
+#[object_ref(parent = Var, skip_any_compatible)]
+pub struct PrimVar {
+    data: ObjectArc<VarObj>,
 }
 
-tvm_ffi::unsafe_impl_object_ref_upcast!(PrimVar => Expr, PrimVar => Var, PrimVar => PrimExpr);
+// SAFETY: a `PrimVar` is a `Var` typed by a `PrimType`; nothing else converts into one.
+unsafe impl tvm_ffi::object::ObjectRefAnyCompatible for PrimVar {
+    #[inline]
+    fn extra_check(obj: &VarObj) -> bool {
+        obj.ty.downcast_ref::<PrimTypeObj>().is_some()
+    }
+
+    fn custom_type_str() -> std::string::String {
+        "ir.Var".into()
+    }
+}
+
+crate::def_expr_op_over_loads!(PrimVar);
+
+impl PrimVar {
+    /// Return the type of this expression, the [`PrimType`] its check guarantees.
+    pub fn prim_ty(&self) -> &PrimType {
+        self.data.ty.downcast_ref::<PrimType>().expect("a typed expression has a `PrimType`")
+    }
+}
+
+tvm_ffi::unsafe_impl_object_ref_upcast!(PrimVar => Expr, PrimVar => PrimExpr);
 
 impl PrimVar {
     /// Create the variable `name` of the primitive type `ty` (C++ `PrimVar(name, ty, loc)`).
     pub fn new(name: &str, ty: impl Into<PrimType>, loc: impl Into<Location>) -> Self {
-        let var = Var::new(name, ty.into(), loc);
-        // SAFETY: the variable is typed by a `PrimType`.
-        unsafe { Self::from_data(ObjectRefCore::into_data(var)) }
+        Var::new(name, ty.into(), loc)
+            .downcast()
+            .expect("a variable of a `PrimType` is a `PrimVar`")
     }
 }
 
 // tvm-ffi-stubgen(begin): object/ir.LambdaExpr
 /// Complete: reflected fields fill [40, 56) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.LambdaExpr"]
@@ -1950,6 +2013,7 @@ const _: () = {
     assert!(::core::mem::align_of::<LambdaExprObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct LambdaExpr {
@@ -1963,6 +2027,7 @@ impl Deref for LambdaExprObj {
     }
 }
 
+#[allow(missing_docs)]
 impl LambdaExprObj {
     pub(crate) fn new(loc: Location, ty: Type, vars: Array<Var>, body: Expr) -> Self {
         let base = StagingExprObj::new(loc, ty);
@@ -1970,6 +2035,7 @@ impl LambdaExprObj {
     }
 }
 
+#[allow(missing_docs)]
 impl LambdaExpr {
     /// Lossless complete-field allocation.
     pub fn from_fields(
@@ -2020,6 +2086,7 @@ impl LambdaExpr {
 
 // tvm-ffi-stubgen(begin): object/ir.Range
 /// Complete: reflected fields fill [24, 48) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.Range"]
@@ -2036,12 +2103,14 @@ const _: () = {
     assert!(::core::mem::align_of::<RangeObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct Range {
     base: ObjectArc<RangeObj>,
 }
 
+#[allow(missing_docs)]
 impl RangeObj {
     pub(crate) fn new(begin: PrimExpr, extent: PrimExpr, loc: Location) -> Self {
         let base = Object::new();
@@ -2049,6 +2118,7 @@ impl RangeObj {
     }
 }
 
+#[allow(missing_docs)]
 impl Range {
     /// Lossless complete-field allocation.
     pub fn from_fields(
@@ -2112,7 +2182,7 @@ impl Range {
 }
 
 // The operators apply to the expressions typed by a `PrimType`, the subtypes of `PrimExpr`, as the
-// C++ operators take `PrimExpr`; the typed views get theirs from `typed_expr_view!`. An `Expr`, a
+// C++ operators take `PrimExpr`; the typed expressions get theirs where they are defined. An `Expr`, a
 // `Var` or a `Call` is checked first, with `downcast_ref` or `downcast`.
 crate::def_expr_op_over_loads!(IntImm);
 crate::def_expr_op_over_loads!(FloatImm);
@@ -2163,24 +2233,25 @@ crate::def_expr_op_over_loads!(crate::sym::analyzer::SumExpr);
 
 /// The checks of C++ `FloatImm(ty, value)`: a scalar floating-point type whose range holds a
 /// finite `value`.
-fn check_float_imm(dtype: DLDataType, value: f64) -> Result<()> {
+fn check_float_imm(ty: &PrimType, value: f64) -> Result<()> {
     use support::{check_failed, compare_failed, CppDouble};
+    use tvm_ffi::DLDataTypeCode::{kDLBfloat, kDLFloat, kDLFloat4_e2m1fn};
     use tvm_ffi::VALUE_ERROR;
-    const FLOAT4_E2M1FN: u8 = tvm_ffi::DLDataTypeCode::kDLFloat4_e2m1fn as u8;
     /// `ffi::DLExtDataTypeCode::kDLExtCustomBegin`.
     const CUSTOM_BEGIN: u8 = 129;
-    if support::is_scalable_vector(dtype) || support::is_fixed_length_vector(dtype) {
+    let dtype = ty.dtype;
+    if ty.is_scalable_vector() || ty.is_fixed_length_vector() {
         let condition = "!value_ty.IsScalableVector() && !value_ty.IsFixedLengthVector()";
         return Err(check_failed(VALUE_ERROR, condition, "FloatImm can only take scalar."));
     }
-    let (code, bits) = (dtype.code, dtype.bits);
+    let (code, bits) = (dtype.code, ty.bits());
     let float8 = support::float8_bound(code);
     let float6 = support::float6_bound(code);
-    let supported = code == support::FLOAT
+    let supported = ty.matches_code(&[kDLFloat])
         || float8.is_some()
         || float6.is_some()
-        || (code == support::BFLOAT && bits == 16)
-        || (code == FLOAT4_E2M1FN && bits == 4)
+        || (ty.matches_code(&[kDLBfloat]) && bits == 16)
+        || (ty.matches_code(&[kDLFloat4_e2m1fn]) && bits == 4)
         || code >= CUSTOM_BEGIN;
     let name = || support::dtype_name(dtype);
     if !supported {
@@ -2210,12 +2281,12 @@ fn check_float_imm(dtype: DLDataType, value: f64) -> Result<()> {
             ),
             ("value <= std::numeric_limits<float>::max()", f32::MAX as f64),
         )
-    } else if code == support::FLOAT && bits == 16 {
+    } else if ty.matches_code(&[kDLFloat]) && bits == 16 {
         (
             ("value >= -support::kMaxFloat16", -support::MAX_FLOAT16, "exceeds minimum of"),
             ("value <= support::kMaxFloat16", support::MAX_FLOAT16),
         )
-    } else if code == support::BFLOAT && bits == 16 {
+    } else if ty.matches_code(&[kDLBfloat]) && bits == 16 {
         (
             ("value >= -support::kMaxBFloat16", -support::MAX_BFLOAT16, "exceeds minimum of"),
             ("value <= support::kMaxBFloat16", support::MAX_BFLOAT16),
@@ -2228,7 +2299,7 @@ fn check_float_imm(dtype: DLDataType, value: f64) -> Result<()> {
         (low, ("value <= bound", bound))
     } else if let Some(bound) = float6 {
         (("value >= -bound", -bound, "below minimum of"), ("value <= bound", bound))
-    } else if code == FLOAT4_E2M1FN {
+    } else if ty.matches_code(&[kDLFloat4_e2m1fn]) {
         (("value >= -bound", -6.0, "below minimum of"), ("value <= bound", 6.0))
     } else {
         return Ok(());
@@ -2248,29 +2319,31 @@ fn check_float_imm(dtype: DLDataType, value: f64) -> Result<()> {
 
 /// The checks of C++ `IntImm(ty, value)`: a scalar integer or boolean type whose range holds
 /// `value`. The messages are built only when a check fails.
-fn check_int_imm(dtype: DLDataType, value: &BigInt) -> Result<()> {
+fn check_int_imm(ty: &PrimType, value: &BigInt) -> Result<()> {
     use support::{check_failed, compare_failed};
+    use tvm_ffi::DLDataTypeCode::{kDLBool, kDLInt, kDLUInt};
     use tvm_ffi::VALUE_ERROR;
+    let dtype = ty.dtype;
     let name = || support::dtype_name(dtype);
-    if support::is_scalable_vector(dtype) || support::is_fixed_length_vector(dtype) {
+    if ty.is_scalable_vector() || ty.is_fixed_length_vector() {
         let condition = "!value_ty.IsScalableVector() && !value_ty.IsFixedLengthVector()";
         let message = format!("IntImm can only take scalar, but {} was supplied.", name());
         return Err(check_failed(VALUE_ERROR, condition, &message));
     }
-    if !matches!(dtype.code, support::INT | support::UINT | support::BOOL) {
+    if !ty.matches_code(&[kDLInt, kDLUInt, kDLBool]) {
         let condition = "value_ty.MatchesCode(DLDataTypeCode::kDLInt, DLDataTypeCode::kDLUInt, \
                          DLDataTypeCode::kDLBool)";
         let message =
             format!("IntImm supports only int or uint or bool type, but {} was supplied.", name());
         return Err(check_failed(VALUE_ERROR, condition, &message));
     }
-    let bits = dtype.bits as u32;
+    let bits = u32::from(ty.bits());
     if bits == 0 {
         let message = "IntImm requires a positive integer width";
         return Err(compare_failed(VALUE_ERROR, "bits > 0", bits, 0, message));
     }
     let zero = BigInt::from(0i64);
-    if dtype.code == support::UINT {
+    if ty.matches_code(&[kDLUInt]) {
         if *value < zero {
             let message =
                 format!("Literal value {value} is negative for unsigned integer type {}", name());
@@ -2290,7 +2363,7 @@ fn check_int_imm(dtype: DLDataType, value: &BigInt) -> Result<()> {
                 return Err(compare_failed(VALUE_ERROR, condition, value, &limit, &message()));
             }
         }
-    } else if bits == 1 || dtype.code == support::BOOL {
+    } else if bits == 1 || ty.matches_code(&[kDLBool]) {
         if *value != zero && *value != BigInt::from(1i64) {
             let message = format!("{value} exceeds range of {}", name());
             return Err(check_failed(VALUE_ERROR, "value == 0 || value == 1", &message));

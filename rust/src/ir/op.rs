@@ -39,6 +39,7 @@
 //! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
 //! ```
 
+// tvm-ffi-stubgen(missing-docs): allow
 // `ir.Op` has three unreflected members, so its complete layout is hand-written below.
 // tvm-ffi-stubgen(ty-map): ir.Op -> crate::ir::op::Op
 // Names the hand-written `Op` binding uses: the import section keeps them even when no
@@ -245,8 +246,8 @@ impl Op {
     /// `OpDef::signature` write the registry's node: an opaque pointer to a C ABI adapter, as
     /// `NativeFunctionView::FromNative` stores one.
     pub(crate) fn write_validator(&self, validator: Any, custom: bool) {
-        // SAFETY: C++ `OpDef` writes these members of the registry's node in place too. No
-        // reference into the node is live, and registration is not synchronized with readers.
+        // SAFETY: as C++ `OpDef` does, registration writes the registry's node in place while no
+        // reference into it is live.
         unsafe {
             let node = ObjectArc::as_ptr(ObjectRefCore::data(self)) as *mut OpObj;
             let previous = std::ptr::replace(
@@ -263,6 +264,7 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(Op => Expr);
 
 // tvm-ffi-stubgen(begin): object/ir.ArgumentInfo
 /// Complete: reflected fields fill [24, 56) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.ArgumentInfo"]
@@ -278,12 +280,14 @@ const _: () = {
     assert!(::core::mem::align_of::<ArgumentInfoObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct ArgumentInfo {
     base: ObjectArc<ArgumentInfoObj>,
 }
 
+#[allow(missing_docs)]
 impl ArgumentInfoObj {
     pub(crate) fn new(name: String, doc: String) -> Self {
         let base = Object::new();
@@ -291,6 +295,7 @@ impl ArgumentInfoObj {
     }
 }
 
+#[allow(missing_docs)]
 impl ArgumentInfo {
     /// Lossless complete-field allocation.
     pub fn new(name: impl Into<String>, doc: impl Into<String>) -> Self {
@@ -302,49 +307,32 @@ impl ArgumentInfo {
 unsafe impl tvm_ffi::object::ImmutableObject for ArgumentInfoObj {}
 // tvm-ffi-stubgen(end)
 
-// The crate has no `ffi.List` binding, so the column is read through the `TVMFFISeqCell` that
-// `ffi.List` shares with `ffi.Array` (`c_api.h`).
 /// A live attribute column of the operator registry, C++ `OpAttrMap<T>`, returned by
 /// [`Op::attr_map`].
 ///
 /// It holds the registry's own column, so values registered later stay visible and the map can be
 /// cached. A lookup reads the entry without an FFI call.
 pub struct OpAttrMap<T> {
-    column: tvm_ffi::object::ObjectRef,
+    column: tvm_ffi::List<Any>,
     name: String,
     _value: std::marker::PhantomData<T>,
 }
 
 impl<T> OpAttrMap<T> {
     /// The entry of `op` in the column, unless it has none.
-    fn entry(&self, op: &OpObj) -> Option<&tvm_ffi::tvm_ffi_sys::TVMFFIAny> {
-        // SAFETY: `column` is an `ffi.List` (checked by `Op::attr_map`) that `self` keeps alive.
-        // The cell is read on every lookup because growth may move the element buffer.
-        let cell = unsafe {
-            let data = tvm_ffi::object::ObjectRefCore::data(&self.column);
-            &*(ObjectArc::as_ptr(data) as *const support::SeqCell)
-        };
-        let index = op.index as usize;
-        if index >= cell.size as usize {
-            return None;
-        }
-        // SAFETY: `index` is within the `size` initialized entries.
-        let entry = unsafe { &*cell.data.add(index) };
-        (entry.type_index != tvm_ffi::tvm_ffi_sys::TVMFFITypeIndex::kTVMFFINone as i32)
-            .then_some(entry)
+    fn entry(&self, op: &OpObj) -> Option<Any> {
+        let value = self.column.get(op.index as usize).ok()?;
+        (value.type_index() != tvm_ffi::tvm_ffi_sys::TVMFFITypeIndex::kTVMFFINone as i32)
+            .then_some(value)
     }
 
     /// The value `op` registers in this column, of whatever type, or `None`.
     pub(crate) fn get_any(&self, op: &OpObj) -> Option<Any> {
-        self.entry(op).map(|entry| {
-            // SAFETY: the borrowed entry is copied, never released.
-            let entry = std::mem::ManuallyDrop::new(unsafe { Any::from_raw_ffi_any(*entry) });
-            (*entry).clone()
-        })
+        self.entry(op)
     }
 }
 
-impl<T: tvm_ffi::type_traits::AnyCompatible> OpAttrMap<T> {
+impl<T: tvm_ffi::type_traits::AnyCompatible + TryFrom<Any>> OpAttrMap<T> {
     /// Return the value registered for `op`, or `None` when it has none, as C++
     /// `OpAttrMap::get(op, None)` does.
     ///
@@ -353,19 +341,21 @@ impl<T: tvm_ffi::type_traits::AnyCompatible> OpAttrMap<T> {
     /// Returns a `TypeError` if the value is not a `T`.
     pub fn get(&self, op: &OpObj) -> Result<Option<T>> {
         let Some(entry) = self.entry(op) else { return Ok(None) };
-        // SAFETY: `entry` is a live element of the column.
-        match unsafe { T::try_cast_from_any_view(entry) } {
-            Ok(value) => Ok(Some(value)),
-            Err(()) => Err(tvm_ffi::Error::new(
-                tvm_ffi::TYPE_ERROR,
-                &format!(
-                    "Op attribute {} of {} has unexpected type {}",
-                    self.name.as_str(),
-                    op.name.as_str(),
-                    T::get_mismatch_type_info(entry)
-                ),
-                "",
-            )),
+        if let Ok(value) = T::try_from(entry) {
+            return Ok(Some(value));
         }
+        // The conversion took the entry; read it again to name its type.
+        let mismatch =
+            self.entry(op).map(|entry| T::get_mismatch_type_info(entry.as_raw_ffi_any()));
+        Err(tvm_ffi::Error::new(
+            tvm_ffi::TYPE_ERROR,
+            &format!(
+                "Op attribute {} of {} has unexpected type {}",
+                self.name.as_str(),
+                op.name.as_str(),
+                mismatch.unwrap_or_default()
+            ),
+            "",
+        ))
     }
 }

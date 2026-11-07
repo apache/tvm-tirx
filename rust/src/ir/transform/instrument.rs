@@ -49,6 +49,7 @@
 //! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
 //! ```
 
+// tvm-ffi-stubgen(missing-docs): allow
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
 // tvm-ffi-stubgen(import-object): crate::ir::module::IRModule
@@ -75,6 +76,7 @@ use tvm_ffi::String;
 
 // tvm-ffi-stubgen(begin): object/transform.BasePassInstrument
 /// Opaque: no metadata of its own: total_size is unknown. Fields are read through the C ABI getters.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "transform.BasePassInstrument"]
@@ -82,6 +84,7 @@ pub struct BasePassInstrumentObj {
     base: PassInstrumentObj,
 }
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct BasePassInstrument {

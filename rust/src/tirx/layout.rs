@@ -45,6 +45,7 @@
 //! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
 //! ```
 
+// tvm-ffi-stubgen(missing-docs): allow
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
 // tvm-ffi-stubgen(import-object): crate::sym::analyzer::Analyzer
@@ -91,6 +92,7 @@ struct FfiEnumObj {
 
 // tvm-ffi-stubgen(begin): object/tirx.Layout
 /// Opaque: no metadata of its own: total_size is unknown. Fields are read through the C ABI getters.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "tirx.Layout"]
@@ -98,6 +100,7 @@ pub struct LayoutObj {
     base: Object,
 }
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct Layout {
@@ -220,6 +223,7 @@ impl Layout {
 
 // tvm-ffi-stubgen(begin): object/tirx.TileLayout
 /// Opaque: parent 'tirx.Layout' is opaque (layout-unknown). Fields are read through the C ABI getters.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "tirx.TileLayout"]
@@ -228,6 +232,7 @@ pub struct TileLayoutObj {
     base: LayoutObj,
 }
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct TileLayout {
@@ -241,6 +246,7 @@ impl Deref for TileLayoutObj {
     }
 }
 
+#[allow(missing_docs)]
 impl TileLayoutObj {
     pub fn shard(&self) -> Result<Array<Iter>> {
         FieldGetter::new(Self::type_index(), "shard")?.get(self)
@@ -327,6 +333,7 @@ impl TileLayout {
 
 // tvm-ffi-stubgen(begin): object/tirx.Iter
 /// Complete: reflected fields fill [24, 48) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "tirx.Iter"]
@@ -343,12 +350,14 @@ const _: () = {
     assert!(::core::mem::align_of::<IterObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct Iter {
     base: ObjectArc<IterObj>,
 }
 
+#[allow(missing_docs)]
 impl IterObj {
     pub(crate) fn new(extent: PrimExpr, stride: PrimExpr, axis: Axis) -> Self {
         let base = Object::new();
@@ -356,6 +365,7 @@ impl IterObj {
     }
 }
 
+#[allow(missing_docs)]
 impl Iter {
     /// Lossless complete-field allocation.
     pub fn new(
@@ -375,6 +385,7 @@ unsafe impl tvm_ffi::object::ImmutableObject for IterObj {}
 
 // tvm-ffi-stubgen(begin): object/tirx.Axis
 /// Opaque: parent 'ffi.Enum' is opaque (no-mirror). Fields are read through the C ABI getters.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "tirx.Axis"]
@@ -383,6 +394,7 @@ pub struct AxisObj {
     base: FfiEnumObj,
 }
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct Axis {
@@ -432,6 +444,7 @@ impl Axis {
 
 // tvm-ffi-stubgen(begin): object/tirx.ComposeLayout
 /// Opaque: parent 'tirx.Layout' is opaque (layout-unknown). Fields are read through the C ABI getters.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "tirx.ComposeLayout"]
@@ -440,6 +453,7 @@ pub struct ComposeLayoutObj {
     base: LayoutObj,
 }
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct ComposeLayout {
@@ -453,6 +467,7 @@ impl Deref for ComposeLayoutObj {
     }
 }
 
+#[allow(missing_docs)]
 impl ComposeLayoutObj {
     pub fn per_element(&self) -> Result<i64> {
         FieldGetter::new(Self::type_index(), "per_element")?.get(self)

@@ -23,6 +23,7 @@
 //! An [`Analyzer`] proves and simplifies under the facts of a [`ConstraintContext`]; [`int_set`]
 //! bounds expressions, and [`iter_affine_map`] detects iterator maps.
 
+// tvm-ffi-stubgen(missing-docs): allow
 // An object registered under `sym` that no file has a block for yet is generated here, to be moved
 // to the file of the Python module that defines it.
 // tvm-ffi-stubgen(prefix): sym

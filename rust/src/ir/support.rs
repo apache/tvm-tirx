@@ -36,7 +36,7 @@ use tvm_ffi::{
     ObjectArc, ObjectRefCore, Result, TypeAttrColumn, INTERNAL_ERROR, TYPE_ERROR,
 };
 
-use super::{Expr, Op, OpAttrMap, OpObj, PrimType, PrimTypeObj};
+use super::{Op, OpAttrMap, OpObj, PrimType};
 
 pub(crate) const INT: u8 = DLDataTypeCode::kDLInt as u8;
 pub(crate) const UINT: u8 = DLDataTypeCode::kDLUInt as u8;
@@ -211,53 +211,15 @@ pub(crate) fn shared<T: Clone + 'static>(
 // ---------------------------------------------------------------------------------------------
 // Primitive types
 
-/// The type of a primitive expression. C++ takes such an argument as a `PrimExpr`, whose
-/// conversion accepts only an expression of a `PrimType`.
-pub(crate) fn prim_type(expr: &(impl AsRef<Expr> + ?Sized)) -> Result<PrimType> {
-    let expr = expr.as_ref();
-    match expr.ty.downcast_ref::<PrimTypeObj>() {
-        Some(_) => Ok(expr.ty.downcast_ref::<PrimType>().cloned().expect("a PrimType")),
-        None => Err(not_a_prim_expr(expr)),
+/// C++ `PrimType::lanes()`, whose error a scalable vector raises.
+pub(crate) fn lanes(ty: &PrimType) -> Result<i32> {
+    match ty.lanes() {
+        Some(lanes) => Ok(i32::from(lanes)),
+        None => {
+            let message = "Can't fetch the lanes of a scalable vector at a compile time.";
+            Err(Error::new(INTERNAL_ERROR, message, ""))
+        }
     }
-}
-
-/// The dtype of a primitive expression ([`prim_type`]).
-pub(crate) fn prim_dtype(expr: &(impl AsRef<Expr> + ?Sized)) -> Result<DLDataType> {
-    let expr = expr.as_ref();
-    match expr.ty.downcast_ref::<PrimTypeObj>() {
-        Some(ty) => Ok(ty.dtype),
-        None => Err(not_a_prim_expr(expr)),
-    }
-}
-
-/// The lanes of a dtype as C++ decodes them: negative for a scalable vector.
-pub(crate) fn encoded_lanes(dtype: DLDataType) -> i16 {
-    dtype.lanes as i16
-}
-
-/// C++ `PrimType::IsScalar()`.
-pub(crate) fn is_scalar(dtype: DLDataType) -> bool {
-    encoded_lanes(dtype) == 1
-}
-
-/// C++ `PrimType::IsScalableVector()`.
-pub(crate) fn is_scalable_vector(dtype: DLDataType) -> bool {
-    encoded_lanes(dtype) < -1
-}
-
-/// C++ `PrimType::IsFixedLengthVector()`.
-pub(crate) fn is_fixed_length_vector(dtype: DLDataType) -> bool {
-    encoded_lanes(dtype) > 1
-}
-
-/// C++ `PrimType::lanes()`, which a scalable vector does not have.
-pub(crate) fn lanes(dtype: DLDataType) -> Result<i32> {
-    let lanes = encoded_lanes(dtype);
-    if lanes < 0 {
-        let message = "Can't fetch the lanes of a scalable vector at a compile time.";
-        return Err(Error::new(INTERNAL_ERROR, message, ""));
-    }
-    Ok(lanes as i32)
 }
 
 /// C++ `PrimType::ScalableVector(code, bits, factor)`: `factor` times `vscale` lanes.
@@ -270,44 +232,6 @@ pub(crate) fn scalable_vector(dtype: DLDataType, factor: i32) -> Result<DLDataTy
         return Err(compare_failed(INTERNAL_ERROR, "lanes < 32768", factor, 32768, ""));
     }
     Ok(DLDataType { code: dtype.code, bits: dtype.bits, lanes: (-factor) as u16 })
-}
-
-fn not_a_prim_expr(expr: &Expr) -> Error {
-    let message = format!(
-        "Expected `ir.PrimExpr` but got `{}[ty={}]`",
-        type_key(AnyView::from(expr).type_index()),
-        type_key(AnyView::from(&expr.ty).type_index()),
-    );
-    Error::new(TYPE_ERROR, &message, "")
-}
-
-// ---------------------------------------------------------------------------------------------
-// Sequences
-
-/// The object header followed by `TVMFFISeqCell`, the layout `ffi.List` and `ffi.Array` share
-/// (`c_api.h`).
-#[repr(C)]
-pub(crate) struct SeqCell {
-    pub(crate) object: tvm_ffi::Object,
-    pub(crate) data: *const TVMFFIAny,
-    pub(crate) size: i64,
-    pub(crate) capacity: i64,
-    pub(crate) data_deleter: Option<unsafe extern "C" fn(*mut c_void)>,
-}
-
-/// The elements of an `ffi.Array`, read in place.
-pub(crate) fn array_cells<T: tvm_ffi::type_traits::ContainerElement + Clone>(
-    array: &Array<T>,
-) -> &[TVMFFIAny] {
-    // SAFETY: an `ffi.Array` is the object header followed by `TVMFFISeqCell`, and `array` keeps
-    // its `size` elements alive.
-    unsafe {
-        let cell = &*(ObjectArc::as_ptr(ObjectRefCore::data(array)) as *const SeqCell);
-        if cell.size == 0 {
-            return &[];
-        }
-        std::slice::from_raw_parts(cell.data, cell.size as usize)
-    }
 }
 
 // ---------------------------------------------------------------------------------------------

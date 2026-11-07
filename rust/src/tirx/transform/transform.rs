@@ -44,6 +44,7 @@
 //! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
 //! ```
 
+// tvm-ffi-stubgen(missing-docs): allow
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
 // tvm-ffi-stubgen(import-object): crate::ir::transform::core::Pass
@@ -64,6 +65,7 @@ use tvm_ffi::String;
 
 // tvm-ffi-stubgen(begin): object/tirx.transform.RemoveNoOpConfig
 /// Complete: reflected fields fill [24, 40) exactly (alignment padding [33, 40)).
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "tirx.transform.RemoveNoOpConfig"]
@@ -79,12 +81,14 @@ const _: () = {
     assert!(::core::mem::align_of::<RemoveNoOpConfigObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct RemoveNoOpConfig {
     base: ObjectArc<RemoveNoOpConfigObj>,
 }
 
+#[allow(missing_docs)]
 impl RemoveNoOpConfigObj {
     pub(crate) fn new(max_simplification_steps: i64, ignore_profiler_call: bool) -> Self {
         let base = Object::new();
@@ -92,6 +96,7 @@ impl RemoveNoOpConfigObj {
     }
 }
 
+#[allow(missing_docs)]
 impl RemoveNoOpConfig {
     /// Lossless complete-field allocation.
     pub fn new(max_simplification_steps: i64, ignore_profiler_call: bool) -> Self {
@@ -105,6 +110,7 @@ unsafe impl tvm_ffi::object::ImmutableObject for RemoveNoOpConfigObj {}
 
 // tvm-ffi-stubgen(begin): object/tirx.transform.UnrollLoopConfig
 /// Complete: reflected fields fill [24, 48) exactly (alignment padding [44, 48)).
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "tirx.transform.UnrollLoopConfig"]
@@ -123,12 +129,14 @@ const _: () = {
     assert!(::core::mem::align_of::<UnrollLoopConfigObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct UnrollLoopConfig {
     base: ObjectArc<UnrollLoopConfigObj>,
 }
 
+#[allow(missing_docs)]
 impl UnrollLoopConfigObj {
     pub(crate) fn new(
         auto_max_step: i32,
@@ -149,6 +157,7 @@ impl UnrollLoopConfigObj {
     }
 }
 
+#[allow(missing_docs)]
 impl UnrollLoopConfig {
     /// Lossless complete-field allocation.
     pub fn new(

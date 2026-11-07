@@ -77,15 +77,10 @@ where
         let kind = mutator.def_region_kind();
         if PRE {
             let mode = value.inplace_mode();
-            // The mapper cannot access this runtime. Its context borrow ends
-            // before descent, which may replace the interior-mutable field.
-            let result = unsafe {
-                self.mapper.dispatch_tuple((
-                    value.as_any_view(),
-                    mutator.base().constraints_for_observer(),
-                    kind,
-                ))
-            };
+            // SAFETY: the mapper cannot reach this mutator, and the borrow ends with the
+            // callback, before descent can replace the field.
+            let constraints = unsafe { mutator.base().constraints_for_observer() };
+            let result = self.mapper.dispatch_tuple((value.as_any_view(), constraints, kind));
             let Some(result) = result else {
                 return mutator.default_mutate(self, value);
             };
@@ -120,13 +115,9 @@ where
             let mapped = mutator.default_mutate(self, value)?;
             let current = if mapped.is_unchanged() { original } else { AnyView::from(&mapped) };
             // Scoped native hooks have restored the incoming context here.
-            let result = unsafe {
-                self.mapper.dispatch_tuple((
-                    current,
-                    mutator.base().constraints_for_observer(),
-                    kind,
-                ))
-            };
+            // SAFETY: as above; descent has ended.
+            let constraints = unsafe { mutator.base().constraints_for_observer() };
+            let result = self.mapper.dispatch_tuple((current, constraints, kind));
             match result {
                 Some(result) => {
                     let result = result?;

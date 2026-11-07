@@ -97,7 +97,7 @@ fn constants_agree_with_cpp() {
         let what = format!("FloatImm({name}, {value})");
         agree(
             &what,
-            PrimType::from_dtype(parse_dtype(name))
+            PrimType::try_from(parse_dtype(name))
                 .and_then(|ty| FloatImm::new(ty, value, UNKNOWN_LOC)),
             native,
         );
@@ -132,7 +132,7 @@ fn constants_agree_with_cpp() {
         let what = format!("IntImm({name}, {value})");
         agree(
             &what,
-            PrimType::from_dtype(parse_dtype(name))
+            PrimType::try_from(parse_dtype(name))
                 .and_then(|ty| IntImm::new(ty, value.clone(), UNKNOWN_LOC)),
             native,
         );
@@ -226,7 +226,7 @@ fn shared_nodes_are_the_native_ones() {
     let int32_dtype = dtype::int(32);
     let int32_ty: Type =
         native("ir.PrimType", &[(&int32_dtype).into()]).unwrap().try_into().unwrap();
-    assert!(PrimType::from_dtype(int32_dtype).unwrap().same_as(&int32_ty));
+    assert!(PrimType::try_from(int32_dtype).unwrap().same_as(&int32_ty));
 }
 
 #[test]
@@ -448,10 +448,9 @@ fn views_check_the_type() {
 
     // An expression is a view only when its type is one the view accepts.
     let prim = PrimExpr::try_from(&i).unwrap();
-    assert_eq!(prim.dtype(), dtype::int(32));
-    assert_eq!(prim.ty().dtype, dtype::int(32));
+    assert_eq!(prim.prim_ty().dtype, dtype::int(32));
     assert!(prim.same_as(&i));
-    assert_eq!(PrimExpr::try_from(&x).unwrap().dtype(), dtype::float(32));
+    assert_eq!(PrimExpr::try_from(&x).unwrap().prim_ty().dtype, dtype::float(32));
     let error = PrimExpr::try_from(&a).err().unwrap();
     assert_eq!(error.kind(), TYPE_ERROR);
     assert!(error.message().contains("`ir.Var[ty=tirx.TensorType]` to `ir.PrimExpr`"), "{error}");
@@ -469,8 +468,8 @@ fn views_check_the_type() {
     let widened: PrimExpr = index.clone().into();
     let expr: Expr = index.clone().into();
     assert!(widened.same_as(&expr));
-    assert_eq!(index.dtype(), dtype::int(32));
-    assert!(index.as_expr().same_as(&i));
+    assert_eq!(index.prim_ty().dtype, dtype::int(32));
+    assert!(index.same_as(&i));
     let borrowed: &PrimExpr = index.as_ref();
     assert!(borrowed.same_as(&i));
     // A view reads the fields of its object.
@@ -482,12 +481,12 @@ fn views_check_the_type() {
 fn constants_and_loads_are_views() {
     let _serial = serial();
     // Constants and loads are typed by a `PrimType`, so they convert without a check.
-    assert_eq!(PrimExpr::from(IntImm::int64(1)).dtype(), dtype::int(64));
-    assert_eq!(PrimExpr::from(FloatImm::float32(0.5)).dtype(), dtype::float(32));
+    assert_eq!(PrimExpr::from(IntImm::int64(1)).prim_ty().dtype, dtype::int(64));
+    assert_eq!(PrimExpr::from(FloatImm::float32(0.5)).prim_ty().dtype, dtype::float(32));
     let load = TensorLoad::new(tensor_var("A"), [int32_var("i")], UNKNOWN_LOC).unwrap();
     let indices: &Array<PrimExpr> = &load.indices;
-    assert_eq!(indices.get(0).unwrap().dtype(), dtype::int(32));
-    assert_eq!(PrimExpr::from(&load).dtype(), dtype::float(32));
+    assert_eq!(indices.get(0).unwrap().prim_ty().dtype, dtype::int(32));
+    assert_eq!(PrimExpr::from(&load).prim_ty().dtype, dtype::float(32));
 
     // A load takes `PrimExpr` indices: the type system rejects a string, whose check fails.
     let text = Expr::from(StringImm::new("s", UNKNOWN_LOC));
@@ -495,13 +494,13 @@ fn constants_and_loads_are_views() {
     assert_eq!(error.kind(), TYPE_ERROR);
 
     // Rust literals.
-    assert_eq!(PrimExpr::from(1).dtype(), dtype::int(32));
-    assert_eq!(PrimExpr::from(1i64).dtype(), dtype::int(64));
-    assert_eq!(PrimExpr::from(true).dtype(), dtype::bool());
-    assert_eq!(PrimExpr::from(1.5f32).dtype(), dtype::float(32));
-    assert_eq!(PrimExpr::from(1.5f64).dtype(), dtype::float(64));
-    assert_eq!(IntExpr::from(7).dtype(), dtype::int(32));
-    assert_eq!(IntExpr::from(7i64).dtype(), dtype::int(64));
+    assert_eq!(PrimExpr::from(1).prim_ty().dtype, dtype::int(32));
+    assert_eq!(PrimExpr::from(1i64).prim_ty().dtype, dtype::int(64));
+    assert_eq!(PrimExpr::from(true).prim_ty().dtype, dtype::bool());
+    assert_eq!(PrimExpr::from(1.5f32).prim_ty().dtype, dtype::float(32));
+    assert_eq!(PrimExpr::from(1.5f64).prim_ty().dtype, dtype::float(64));
+    assert_eq!(IntExpr::from(7).prim_ty().dtype, dtype::int(32));
+    assert_eq!(IntExpr::from(7i64).prim_ty().dtype, dtype::int(64));
 }
 
 #[test]
@@ -512,12 +511,12 @@ fn any_converts_as_in_cpp() {
     let i = int32_var("i");
     assert!(PrimExpr::try_from(Any::from(i.clone())).unwrap().same_as(&i));
     assert!(PrimExpr::try_from(Any::from(tensor_var("A"))).is_err());
-    assert_eq!(PrimExpr::try_from(Any::from(true)).unwrap().dtype(), dtype::bool());
-    assert_eq!(PrimExpr::try_from(Any::from(3i64)).unwrap().dtype(), dtype::int(32));
-    assert_eq!(PrimExpr::try_from(Any::from(1i64 << 40)).unwrap().dtype(), dtype::int(64));
-    assert_eq!(PrimExpr::try_from(Any::from(0.5f64)).unwrap().dtype(), dtype::float(32));
+    assert_eq!(PrimExpr::try_from(Any::from(true)).unwrap().prim_ty().dtype, dtype::bool());
+    assert_eq!(PrimExpr::try_from(Any::from(3i64)).unwrap().prim_ty().dtype, dtype::int(32));
+    assert_eq!(PrimExpr::try_from(Any::from(1i64 << 40)).unwrap().prim_ty().dtype, dtype::int(64));
+    assert_eq!(PrimExpr::try_from(Any::from(0.5f64)).unwrap().prim_ty().dtype, dtype::float(32));
     assert!(PrimExpr::try_from(Any::from(tvm_tirx::tvm_ffi::String::from("s"))).is_err());
-    assert_eq!(IntExpr::try_from(Any::from(3i64)).unwrap().dtype(), dtype::int(32));
+    assert_eq!(IntExpr::try_from(Any::from(3i64)).unwrap().prim_ty().dtype, dtype::int(32));
     assert!(IntExpr::try_from(Any::from(true)).is_err());
     assert!(IntExpr::try_from(Any::from(0.5f64)).is_err());
 
@@ -525,7 +524,7 @@ fn any_converts_as_in_cpp() {
     let mixed: Array<Any> = [Any::from(i.clone()), Any::from(2i64)].into_iter().collect();
     let views: Array<PrimExpr> = Any::from(mixed).try_into().unwrap();
     assert!(views.get(0).unwrap().same_as(&i));
-    assert_eq!(views.get(1).unwrap().dtype(), dtype::int(32));
+    assert_eq!(views.get(1).unwrap().prim_ty().dtype, dtype::int(32));
     let exprs: Array<Expr> =
         [Expr::from(i), StringImm::new("s", UNKNOWN_LOC).into()].into_iter().collect();
     assert!(Array::<PrimExpr>::try_from(Any::from(exprs)).is_err());
@@ -537,15 +536,15 @@ fn operators_take_views() {
     let i = IntExpr::try_from(Expr::from(int32_var("i"))).unwrap();
     let j = int32_var_expr("j");
     let sum = PrimExpr::try_from(&i + &j + 1).unwrap();
-    assert_eq!(sum.dtype(), dtype::int(32));
-    assert_eq!(IntExpr::try_from(i.clone() * 2).unwrap().dtype(), dtype::int(32));
+    assert_eq!(sum.prim_ty().dtype, dtype::int(32));
+    assert_eq!(IntExpr::try_from(i.clone() * 2).unwrap().prim_ty().dtype, dtype::int(32));
     // An `Expr` has no operators: the type system rejects a tensor operand, whose check fails.
     let error = PrimExpr::try_from(Expr::from(tensor_var("A"))).err().unwrap();
     assert_eq!(error.kind(), TYPE_ERROR);
     assert!(error.message().contains("ir.Var[ty=tirx.TensorType]"), "{error}");
     // `ObjectRefCore` downcasts between views as it does between node types.
     let back: IntExpr = sum.downcast().unwrap();
-    assert_eq!(back.dtype(), dtype::int(32));
+    assert_eq!(back.prim_ty().dtype, dtype::int(32));
 }
 
 #[test]
@@ -554,8 +553,7 @@ fn prim_vars_are_views() {
     // `PrimVar::new` types the variable by a `PrimType`, and reads it as a `Var`.
     let i = PrimVar::new("i", PrimType::int(32), UNKNOWN_LOC);
     assert_eq!(i.name.as_str(), "i");
-    assert_eq!(i.dtype(), dtype::int(32));
-    assert_eq!(i.ty().dtype, dtype::int(32));
+    assert_eq!(i.prim_ty().dtype, dtype::int(32));
 
     // It widens for free into a `Var`, a `PrimExpr` and an `Expr`: the same node.
     let var: Var = i.clone().into();
@@ -564,13 +562,13 @@ fn prim_vars_are_views() {
     assert!(var.same_as(&i) && prim.same_as(&i) && expr.same_as(&i));
     let borrowed: &Var = i.as_ref();
     assert!(borrowed.same_as(&i));
-    assert!(i.as_expr().same_as(&i));
+    assert!(i.same_as(&i));
 
     // A `Var` narrows only through the check of C++ `PrimVar`: `downcast_ref` borrows it in place
     // and `downcast` takes it.
     assert!(var.downcast_ref::<PrimVar>().unwrap().same_as(&i));
     let vector = Var::new("v", PrimType::float(32).with_lanes(4).unwrap(), UNKNOWN_LOC);
-    assert_eq!(vector.downcast::<PrimVar>().unwrap().dtype().lanes, 4);
+    assert_eq!(vector.downcast::<PrimVar>().unwrap().prim_ty().lanes(), Some(4));
     let untyped = Var::new("u", MissingType::new(), UNKNOWN_LOC);
     assert!(untyped.downcast_ref::<PrimVar>().is_none());
     let error = PrimVar::try_from(&untyped).unwrap_err();
@@ -581,7 +579,7 @@ fn prim_vars_are_views() {
 
     // It takes part in arithmetic as a `PrimExpr`.
     let sum = PrimExpr::try_from(&i * 4 + 1).unwrap();
-    assert_eq!(sum.dtype(), dtype::int(32));
+    assert_eq!(sum.prim_ty().dtype, dtype::int(32));
 }
 
 /// An `int32` variable as a `PrimExpr`.

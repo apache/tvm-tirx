@@ -79,7 +79,7 @@ fn builtin_types() {
         assert_eq!(ty.dtype, dtype, "{name}");
         let shared: Type = native("ir.PrimType", &[(&dtype).into()]).unwrap().try_into().unwrap();
         assert!(ty.same_as(&shared), "{name}");
-        assert!(ty.same_as(&PrimType::from_dtype(dtype).unwrap()), "{name}");
+        assert!(ty.same_as(&PrimType::try_from(dtype).unwrap()), "{name}");
     }
     let void = PrimType::void();
     assert_eq!(void.dtype, dtype::void());

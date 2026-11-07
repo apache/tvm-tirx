@@ -39,6 +39,7 @@
 //! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
 //! ```
 
+// tvm-ffi-stubgen(missing-docs): allow
 // `custom-new` reserves `new` for a constructor with the C++ one's semantics (defaults, the shared
 // `MissingType`, `NoneType` and `TensorRegionType` nodes); the generated `from_fields`
 // allocates the fields as given.
@@ -59,6 +60,7 @@
 // tvm-ffi-stubgen(import-object): crate::ir::support
 // tvm-ffi-stubgen(import-object): crate::ir::dtype
 // tvm-ffi-stubgen(import-object): tvm_ffi::Error
+// tvm-ffi-stubgen(import-object): tvm_ffi::DLDataTypeCode
 // tvm-ffi-stubgen(import-object): tvm_ffi::VALUE_ERROR
 
 // tvm-ffi-stubgen(begin): import-section
@@ -71,6 +73,7 @@ use std::ops::Deref;
 use std::ptr::addr_of_mut;
 use tvm_ffi::Array;
 use tvm_ffi::DLDataType;
+use tvm_ffi::DLDataTypeCode;
 use tvm_ffi::Error;
 use tvm_ffi::Object;
 use tvm_ffi::ObjectArc;
@@ -84,6 +87,7 @@ use tvm_ffi::reflection::drop_if_defined;
 
 // tvm-ffi-stubgen(begin): object/ir.Type
 /// Complete: reflected fields fill [24, 32) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.Type"]
@@ -97,12 +101,14 @@ const _: () = {
     assert!(::core::mem::align_of::<TypeObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct Type {
     base: ObjectArc<TypeObj>,
 }
 
+#[allow(missing_docs)]
 impl TypeObj {
     pub fn new(loc: Location) -> Self {
         let base = Object::new();
@@ -110,6 +116,7 @@ impl TypeObj {
     }
 }
 
+#[allow(missing_docs)]
 impl Type {
     /// Lossless complete-field allocation.
     pub fn new(loc: impl Into<Location>) -> Self {
@@ -138,6 +145,7 @@ unsafe impl tvm_ffi::object::ImmutableObject for TypeObj {}
 
 // tvm-ffi-stubgen(begin): object/ir.MissingType
 /// Complete: reflected fields fill [32, 32) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.MissingType"]
@@ -151,6 +159,7 @@ const _: () = {
     assert!(::core::mem::align_of::<MissingTypeObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct MissingType {
@@ -164,6 +173,7 @@ impl Deref for MissingTypeObj {
     }
 }
 
+#[allow(missing_docs)]
 impl MissingTypeObj {
     pub(crate) fn new(loc: Location) -> Self {
         let base = TypeObj::new(loc);
@@ -171,6 +181,7 @@ impl MissingTypeObj {
     }
 }
 
+#[allow(missing_docs)]
 impl MissingType {
     /// Lossless complete-field allocation.
     pub fn from_fields(loc: impl Into<Location>) -> Self {
@@ -201,6 +212,7 @@ impl MissingType {
 
 // tvm-ffi-stubgen(begin): object/ir.NoneType
 /// Complete: reflected fields fill [32, 32) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.NoneType"]
@@ -214,6 +226,7 @@ const _: () = {
     assert!(::core::mem::align_of::<NoneTypeObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct NoneType {
@@ -227,6 +240,7 @@ impl Deref for NoneTypeObj {
     }
 }
 
+#[allow(missing_docs)]
 impl NoneTypeObj {
     pub(crate) fn new(loc: Location) -> Self {
         let base = TypeObj::new(loc);
@@ -234,6 +248,7 @@ impl NoneTypeObj {
     }
 }
 
+#[allow(missing_docs)]
 impl NoneType {
     /// Lossless complete-field allocation.
     pub fn from_fields(loc: impl Into<Location>) -> Self {
@@ -263,6 +278,7 @@ impl NoneType {
 
 // tvm-ffi-stubgen(begin): object/ir.AnyType
 /// Complete: reflected fields fill [32, 32) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.AnyType"]
@@ -276,6 +292,7 @@ const _: () = {
     assert!(::core::mem::align_of::<AnyTypeObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct AnyType {
@@ -289,6 +306,7 @@ impl Deref for AnyTypeObj {
     }
 }
 
+#[allow(missing_docs)]
 impl AnyTypeObj {
     pub(crate) fn new(loc: Location) -> Self {
         let base = TypeObj::new(loc);
@@ -296,6 +314,7 @@ impl AnyTypeObj {
     }
 }
 
+#[allow(missing_docs)]
 impl AnyType {
     /// Lossless complete-field allocation.
     pub fn new(loc: impl Into<Location>) -> Self {
@@ -313,6 +332,7 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(AnyType => Type);
 
 // tvm-ffi-stubgen(begin): object/ir.TensorRegionType
 /// Complete: reflected fields fill [32, 32) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.TensorRegionType"]
@@ -326,6 +346,7 @@ const _: () = {
     assert!(::core::mem::align_of::<TensorRegionTypeObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct TensorRegionType {
@@ -339,6 +360,7 @@ impl Deref for TensorRegionTypeObj {
     }
 }
 
+#[allow(missing_docs)]
 impl TensorRegionTypeObj {
     pub(crate) fn new(loc: Location) -> Self {
         let base = TypeObj::new(loc);
@@ -346,6 +368,7 @@ impl TensorRegionTypeObj {
     }
 }
 
+#[allow(missing_docs)]
 impl TensorRegionType {
     /// Lossless complete-field allocation.
     pub fn from_fields(loc: impl Into<Location>) -> Self {
@@ -376,6 +399,7 @@ impl TensorRegionType {
 
 // tvm-ffi-stubgen(begin): object/ir.OpaqueType
 /// Complete: reflected fields fill [32, 32) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.OpaqueType"]
@@ -389,6 +413,7 @@ const _: () = {
     assert!(::core::mem::align_of::<OpaqueTypeObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct OpaqueType {
@@ -402,6 +427,7 @@ impl Deref for OpaqueTypeObj {
     }
 }
 
+#[allow(missing_docs)]
 impl OpaqueTypeObj {
     pub(crate) fn new(loc: Location) -> Self {
         let base = TypeObj::new(loc);
@@ -409,6 +435,7 @@ impl OpaqueTypeObj {
     }
 }
 
+#[allow(missing_docs)]
 impl OpaqueType {
     /// Lossless complete-field allocation.
     pub fn from_fields(loc: impl Into<Location>) -> Self {
@@ -433,6 +460,7 @@ impl OpaqueType {
 
 // tvm-ffi-stubgen(begin): object/ir.PrimType
 /// Complete: reflected fields fill [32, 40) exactly (alignment padding [36, 40)).
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.PrimType"]
@@ -447,6 +475,7 @@ const _: () = {
     assert!(::core::mem::align_of::<PrimTypeObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct PrimType {
@@ -460,6 +489,7 @@ impl Deref for PrimTypeObj {
     }
 }
 
+#[allow(missing_docs)]
 impl PrimTypeObj {
     pub(crate) fn new(loc: Location, dtype: DLDataType) -> Self {
         let base = TypeObj::new(loc);
@@ -467,6 +497,7 @@ impl PrimTypeObj {
     }
 }
 
+#[allow(missing_docs)]
 impl PrimType {
     /// Lossless complete-field allocation.
     pub fn from_fields(loc: impl Into<Location>, dtype: impl Into<DLDataType>) -> Self {
@@ -480,14 +511,16 @@ unsafe impl tvm_ffi::object::ImmutableObject for PrimTypeObj {}
 tvm_ffi::unsafe_impl_object_ref_upcast!(PrimType => Type);
 // tvm-ffi-stubgen(end)
 
-impl PrimType {
-    /// Return the primitive type of `dtype`, checked to be a valid primitive type (`ir.PrimType`).
-    ///
-    /// # Errors
-    ///
-    /// Returns a `TypeError` if `dtype` is an opaque handle other than `void`: a pointer is a
-    /// [`PtrType`].
-    pub fn from_dtype(dtype: DLDataType) -> Result<Self> {
+/// The primitive type of a dtype, checked to be a valid primitive type (`ir.PrimType`).
+///
+/// # Errors
+///
+/// Returns a `TypeError` if the dtype is an opaque handle other than `void`: a pointer is a
+/// [`PtrType`].
+impl TryFrom<DLDataType> for PrimType {
+    type Error = Error;
+
+    fn try_from(dtype: DLDataType) -> Result<Self> {
         thread_local! {
             static PRIM_TYPES: std::cell::RefCell<std::collections::HashMap<(u8, u8, u16), PrimType>> =
                 std::cell::RefCell::new(std::collections::HashMap::new());
@@ -501,11 +534,13 @@ impl PrimType {
         PRIM_TYPES.with(|types| types.borrow_mut().insert(key, ty.clone()));
         Ok(ty)
     }
+}
 
-    /// [`PrimType::from_dtype`] of a dtype C++ always accepts, which fails only when the compiler
-    /// library is not loaded.
+impl PrimType {
+    /// The primitive type of a dtype C++ always accepts, which fails only when the compiler library
+    /// is not loaded.
     fn builtin(dtype: DLDataType) -> Self {
-        support::infallible(Self::from_dtype(dtype))
+        support::infallible(Self::try_from(dtype))
     }
 
     /// Return the signed integer type of `bits` bits (C++ `PrimType::Int(bits)`).
@@ -552,7 +587,7 @@ impl PrimType {
             let message = format!("a fixed-length vector has fewer than 32768 lanes, not {lanes}");
             return Err(Error::new(VALUE_ERROR, &message, ""));
         }
-        Self::from_dtype(dtype::with_lanes(self.dtype, lanes))
+        Self::try_from(dtype::with_lanes(self.dtype, lanes))
     }
 
     /// Return the scalable vector of `factor` times `vscale` elements of this scalar type, with the
@@ -563,12 +598,103 @@ impl PrimType {
     /// Returns an `InternalError` if `factor` is 1 or less, or 32768 or more, or a `TypeError` if
     /// the vector is of an opaque handle.
     pub fn with_scalable_lanes(&self, factor: u16) -> Result<Self> {
-        Self::from_dtype(support::scalable_vector(self.dtype, i32::from(factor))?)
+        Self::try_from(support::scalable_vector(self.dtype, i32::from(factor))?)
+    }
+
+    /// Return this type with the type code `code`, keeping the bits and the lanes.
+    ///
+    /// # Errors
+    ///
+    /// Returns a `TypeError` if the result is an opaque handle other than `void`.
+    pub fn with_code(&self, code: DLDataTypeCode) -> Result<Self> {
+        Self::try_from(DLDataType { code: code as u8, ..self.dtype })
+    }
+
+    /// Return this type with elements of `bits` bits, keeping the type code and the lanes.
+    ///
+    /// # Errors
+    ///
+    /// Returns a `TypeError` if the result is an opaque handle other than `void`.
+    pub fn with_bits(&self, bits: u8) -> Result<Self> {
+        Self::try_from(DLDataType { bits, ..self.dtype })
+    }
+
+    /// Return whether the type code is any of `codes`; the bits and the lanes are ignored.
+    #[inline(always)]
+    pub fn matches_code(&self, codes: &[DLDataTypeCode]) -> bool {
+        codes.iter().any(|&code| self.dtype.code == code as u8)
+    }
+
+    /// The bit width of one element.
+    #[inline(always)]
+    pub fn bits(&self) -> u8 {
+        self.dtype.bits
+    }
+
+    /// Return whether this type is a scalar: neither a fixed-length nor a scalable vector, nor
+    /// `void`.
+    #[inline(always)]
+    pub fn is_scalar(&self) -> bool {
+        self.encoded_lanes() == 1
+    }
+
+    /// Return whether this type is `void`, the opaque handle of no bits and no lanes.
+    #[inline(always)]
+    pub fn is_void(&self) -> bool {
+        self.dtype == dtype::void()
+    }
+
+    /// Return whether this type is a scalable vector, of a multiple of `vscale` lanes.
+    ///
+    /// See also [`with_scalable_lanes`](Self::with_scalable_lanes).
+    #[inline(always)]
+    pub fn is_scalable_vector(&self) -> bool {
+        self.encoded_lanes() < -1
+    }
+
+    /// Return whether this type is a vector of a fixed number of lanes.
+    ///
+    /// See also [`with_lanes`](Self::with_lanes).
+    #[inline(always)]
+    pub fn is_fixed_length_vector(&self) -> bool {
+        self.encoded_lanes() > 1
+    }
+
+    /// Return the number of lanes, 1 for a scalar, or `None` for a scalable vector, whose lanes
+    /// are known only at run time.
+    #[inline(always)]
+    pub fn lanes(&self) -> Option<u16> {
+        u16::try_from(self.encoded_lanes()).ok()
+    }
+
+    /// Return the factor of `vscale` in the lanes of a scalable vector, or `None` for any other
+    /// type.
+    #[inline(always)]
+    pub fn vscale_factor(&self) -> Option<u16> {
+        match self.is_scalable_vector() {
+            true => Some(self.encoded_lanes().unsigned_abs()),
+            false => None,
+        }
+    }
+
+    /// Return the number of bytes that store a value of this type, its sub-byte elements packed,
+    /// or `None` for a scalable vector.
+    #[inline(always)]
+    pub fn storage_bytes(&self) -> Option<usize> {
+        let lanes = usize::from(self.lanes()?);
+        Some((usize::from(self.bits()) * lanes).div_ceil(8))
+    }
+
+    /// The lanes field as C++ reads it: negative for a scalable vector.
+    #[inline(always)]
+    fn encoded_lanes(&self) -> i16 {
+        self.dtype.lanes as i16
     }
 }
 
 // tvm-ffi-stubgen(begin): object/ir.StringType
 /// Complete: reflected fields fill [32, 32) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.StringType"]
@@ -582,6 +708,7 @@ const _: () = {
     assert!(::core::mem::align_of::<StringTypeObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct StringType {
@@ -595,6 +722,7 @@ impl Deref for StringTypeObj {
     }
 }
 
+#[allow(missing_docs)]
 impl StringTypeObj {
     pub(crate) fn new(loc: Location) -> Self {
         let base = TypeObj::new(loc);
@@ -602,6 +730,7 @@ impl StringTypeObj {
     }
 }
 
+#[allow(missing_docs)]
 impl StringType {
     /// Lossless complete-field allocation.
     pub fn from_fields(loc: impl Into<Location>) -> Self {
@@ -626,6 +755,7 @@ impl StringType {
 
 // tvm-ffi-stubgen(begin): object/ir.PtrType
 /// Complete: reflected fields fill [32, 48) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.PtrType"]
@@ -641,6 +771,7 @@ const _: () = {
     assert!(::core::mem::align_of::<PtrTypeObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct PtrType {
@@ -654,6 +785,7 @@ impl Deref for PtrTypeObj {
     }
 }
 
+#[allow(missing_docs)]
 impl PtrTypeObj {
     pub(crate) fn new(loc: Location, element_type: Type, scope: MemoryScope) -> Self {
         let base = TypeObj::new(loc);
@@ -661,6 +793,7 @@ impl PtrTypeObj {
     }
 }
 
+#[allow(missing_docs)]
 impl PtrType {
     /// Lossless complete-field allocation.
     pub fn from_fields(
@@ -698,6 +831,7 @@ impl PtrType {
 
 // tvm-ffi-stubgen(begin): object/ir.TupleType
 /// Complete: reflected fields fill [32, 40) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.TupleType"]
@@ -712,6 +846,7 @@ const _: () = {
     assert!(::core::mem::align_of::<TupleTypeObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct TupleType {
@@ -725,6 +860,7 @@ impl Deref for TupleTypeObj {
     }
 }
 
+#[allow(missing_docs)]
 impl TupleTypeObj {
     pub(crate) fn new(loc: Location, fields: Array<Type>) -> Self {
         let base = TypeObj::new(loc);
@@ -732,6 +868,7 @@ impl TupleTypeObj {
     }
 }
 
+#[allow(missing_docs)]
 impl TupleType {
     /// Lossless complete-field allocation.
     pub fn from_fields(loc: impl Into<Location>, fields: impl Into<Array<Type>>) -> Self {
@@ -759,6 +896,7 @@ impl TupleType {
 
 // tvm-ffi-stubgen(begin): object/ir.FuncType
 /// Complete: reflected fields fill [32, 48) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.FuncType"]
@@ -774,6 +912,7 @@ const _: () = {
     assert!(::core::mem::align_of::<FuncTypeObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct FuncType {
@@ -787,6 +926,7 @@ impl Deref for FuncTypeObj {
     }
 }
 
+#[allow(missing_docs)]
 impl FuncTypeObj {
     pub(crate) fn new(loc: Location, arg_types: Array<Type>, ret_type: Type) -> Self {
         let base = TypeObj::new(loc);
@@ -794,6 +934,7 @@ impl FuncTypeObj {
     }
 }
 
+#[allow(missing_docs)]
 impl FuncType {
     /// Lossless complete-field allocation.
     pub fn from_fields(

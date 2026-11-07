@@ -160,6 +160,8 @@
 //! uv run --no-sync cargo test --manifest-path rust/Cargo.toml
 //! ```
 
+#![warn(missing_docs)]
+
 pub mod backend;
 pub mod codegen;
 pub mod ir;

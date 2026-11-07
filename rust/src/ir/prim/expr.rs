@@ -41,6 +41,7 @@
 //! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
 //! ```
 
+// tvm-ffi-stubgen(missing-docs): allow
 // `custom-new` reserves `new` for a constructor with the C++ one's semantics (operand type checks
 // and the derived result type); the generated `from_fields` allocates the fields as given.
 // tvm-ffi-stubgen(custom-new): prim.Cast
@@ -183,6 +184,7 @@
 // does.
 // tvm-ffi-stubgen(import-object): tvm_ffi::AnyView
 // tvm-ffi-stubgen(import-object): tvm_ffi::DLDataType
+// tvm-ffi-stubgen(import-object): tvm_ffi::DLDataTypeCode
 // tvm-ffi-stubgen(import-object): tvm_ffi::ObjectRefCore
 // tvm-ffi-stubgen(import-object): tvm_ffi::Result
 // tvm-ffi-stubgen(import-object): crate::ir::r#type::PrimType
@@ -205,6 +207,7 @@ use crate::ir::support;
 use std::ops::Deref;
 use tvm_ffi::AnyView;
 use tvm_ffi::DLDataType;
+use tvm_ffi::DLDataTypeCode;
 use tvm_ffi::ObjectArc;
 use tvm_ffi::ObjectRefCore;
 use tvm_ffi::Result;
@@ -241,6 +244,7 @@ macro_rules! binary_new {
 
 // tvm-ffi-stubgen(begin): object/prim.Cast
 /// Complete: reflected fields fill [40, 48) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "prim.Cast"]
@@ -255,6 +259,7 @@ const _: () = {
     assert!(::core::mem::align_of::<CastObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct Cast {
@@ -268,6 +273,7 @@ impl Deref for CastObj {
     }
 }
 
+#[allow(missing_docs)]
 impl CastObj {
     pub(crate) fn new(loc: Location, ty: PrimType, value: PrimExpr) -> Self {
         let base = ExprObj::new(loc, ty.into());
@@ -275,6 +281,7 @@ impl CastObj {
     }
 }
 
+#[allow(missing_docs)]
 impl Cast {
     /// Lossless complete-field allocation.
     pub fn from_fields(
@@ -305,7 +312,7 @@ impl Cast {
         loc: impl Into<Location>,
     ) -> Result<Self> {
         let (ty, value) = (ty.into(), value.into_owned_expr()?);
-        let value_dtype = value.dtype();
+        let value_dtype = value.prim_ty().dtype;
         if ty.dtype.lanes != value_dtype.lanes {
             let condition = "ty->dtype.lanes == value_expr_ty->dtype.lanes";
             let (lhs, rhs) = (ty.dtype.lanes, value_dtype.lanes);
@@ -320,6 +327,7 @@ impl Cast {
 
 // tvm-ffi-stubgen(begin): object/prim.LShift
 /// Complete: reflected fields fill [40, 56) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "prim.LShift"]
@@ -335,6 +343,7 @@ const _: () = {
     assert!(::core::mem::align_of::<LShiftObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct LShift {
@@ -348,6 +357,7 @@ impl Deref for LShiftObj {
     }
 }
 
+#[allow(missing_docs)]
 impl LShiftObj {
     pub(crate) fn new(loc: Location, ty: PrimType, a: PrimExpr, b: PrimExpr) -> Self {
         let base = ExprObj::new(loc, ty.into());
@@ -355,6 +365,7 @@ impl LShiftObj {
     }
 }
 
+#[allow(missing_docs)]
 impl LShift {
     /// Lossless complete-field allocation.
     pub fn from_fields(
@@ -381,6 +392,7 @@ binary_new! {
 
 // tvm-ffi-stubgen(begin): object/prim.RShift
 /// Complete: reflected fields fill [40, 56) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "prim.RShift"]
@@ -396,6 +408,7 @@ const _: () = {
     assert!(::core::mem::align_of::<RShiftObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct RShift {
@@ -409,6 +422,7 @@ impl Deref for RShiftObj {
     }
 }
 
+#[allow(missing_docs)]
 impl RShiftObj {
     pub(crate) fn new(loc: Location, ty: PrimType, a: PrimExpr, b: PrimExpr) -> Self {
         let base = ExprObj::new(loc, ty.into());
@@ -416,6 +430,7 @@ impl RShiftObj {
     }
 }
 
+#[allow(missing_docs)]
 impl RShift {
     /// Lossless complete-field allocation.
     pub fn from_fields(
@@ -442,6 +457,7 @@ binary_new! {
 
 // tvm-ffi-stubgen(begin): object/prim.BitwiseAnd
 /// Complete: reflected fields fill [40, 56) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "prim.BitwiseAnd"]
@@ -457,6 +473,7 @@ const _: () = {
     assert!(::core::mem::align_of::<BitwiseAndObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct BitwiseAnd {
@@ -470,6 +487,7 @@ impl Deref for BitwiseAndObj {
     }
 }
 
+#[allow(missing_docs)]
 impl BitwiseAndObj {
     pub(crate) fn new(loc: Location, ty: PrimType, a: PrimExpr, b: PrimExpr) -> Self {
         let base = ExprObj::new(loc, ty.into());
@@ -477,6 +495,7 @@ impl BitwiseAndObj {
     }
 }
 
+#[allow(missing_docs)]
 impl BitwiseAnd {
     /// Lossless complete-field allocation.
     pub fn from_fields(
@@ -503,6 +522,7 @@ binary_new! {
 
 // tvm-ffi-stubgen(begin): object/prim.BitwiseOr
 /// Complete: reflected fields fill [40, 56) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "prim.BitwiseOr"]
@@ -518,6 +538,7 @@ const _: () = {
     assert!(::core::mem::align_of::<BitwiseOrObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct BitwiseOr {
@@ -531,6 +552,7 @@ impl Deref for BitwiseOrObj {
     }
 }
 
+#[allow(missing_docs)]
 impl BitwiseOrObj {
     pub(crate) fn new(loc: Location, ty: PrimType, a: PrimExpr, b: PrimExpr) -> Self {
         let base = ExprObj::new(loc, ty.into());
@@ -538,6 +560,7 @@ impl BitwiseOrObj {
     }
 }
 
+#[allow(missing_docs)]
 impl BitwiseOr {
     /// Lossless complete-field allocation.
     pub fn from_fields(
@@ -564,6 +587,7 @@ binary_new! {
 
 // tvm-ffi-stubgen(begin): object/prim.BitwiseXor
 /// Complete: reflected fields fill [40, 56) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "prim.BitwiseXor"]
@@ -579,6 +603,7 @@ const _: () = {
     assert!(::core::mem::align_of::<BitwiseXorObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct BitwiseXor {
@@ -592,6 +617,7 @@ impl Deref for BitwiseXorObj {
     }
 }
 
+#[allow(missing_docs)]
 impl BitwiseXorObj {
     pub(crate) fn new(loc: Location, ty: PrimType, a: PrimExpr, b: PrimExpr) -> Self {
         let base = ExprObj::new(loc, ty.into());
@@ -599,6 +625,7 @@ impl BitwiseXorObj {
     }
 }
 
+#[allow(missing_docs)]
 impl BitwiseXor {
     /// Lossless complete-field allocation.
     pub fn from_fields(
@@ -625,6 +652,7 @@ binary_new! {
 
 // tvm-ffi-stubgen(begin): object/prim.BitwiseNot
 /// Complete: reflected fields fill [40, 48) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "prim.BitwiseNot"]
@@ -639,6 +667,7 @@ const _: () = {
     assert!(::core::mem::align_of::<BitwiseNotObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct BitwiseNot {
@@ -652,6 +681,7 @@ impl Deref for BitwiseNotObj {
     }
 }
 
+#[allow(missing_docs)]
 impl BitwiseNotObj {
     pub(crate) fn new(loc: Location, ty: PrimType, a: PrimExpr) -> Self {
         let base = ExprObj::new(loc, ty.into());
@@ -659,6 +689,7 @@ impl BitwiseNotObj {
     }
 }
 
+#[allow(missing_docs)]
 impl BitwiseNot {
     /// Lossless complete-field allocation.
     pub fn from_fields(
@@ -684,13 +715,15 @@ impl BitwiseNot {
     /// Returns a `TypeError` if `a` is not of an integer or boolean type.
     pub fn new(a: impl IntoExpr<PrimExpr>, loc: impl Into<Location>) -> Result<Self> {
         let a = a.into_owned_expr()?;
-        if !matches!(a.dtype().code, support::INT | support::UINT | support::BOOL) {
+        let integer_or_bool =
+            [DLDataTypeCode::kDLInt, DLDataTypeCode::kDLUInt, DLDataTypeCode::kDLBool];
+        if !a.prim_ty().matches_code(&integer_or_bool) {
             let condition = "a_ty.MatchesCode(DLDataTypeCode::kDLInt, DLDataTypeCode::kDLUInt) || \
                              a_ty.MatchesCode(DLDataTypeCode::kDLBool)";
             let message = "BitwiseNot requires an integer or boolean operand";
             return Err(support::check_failed(tvm_ffi::TYPE_ERROR, condition, message));
         }
-        Ok(Self::from_fields(loc.into(), a.ty(), a))
+        Ok(Self::from_fields(loc.into(), a.prim_ty().clone(), a))
     }
 }
 
@@ -699,6 +732,7 @@ impl BitwiseNot {
 
 // tvm-ffi-stubgen(begin): object/prim.Add
 /// Complete: reflected fields fill [40, 56) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "prim.Add"]
@@ -714,6 +748,7 @@ const _: () = {
     assert!(::core::mem::align_of::<AddObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct Add {
@@ -727,6 +762,7 @@ impl Deref for AddObj {
     }
 }
 
+#[allow(missing_docs)]
 impl AddObj {
     pub(crate) fn new(loc: Location, ty: PrimType, a: PrimExpr, b: PrimExpr) -> Self {
         let base = ExprObj::new(loc, ty.into());
@@ -734,6 +770,7 @@ impl AddObj {
     }
 }
 
+#[allow(missing_docs)]
 impl Add {
     /// Lossless complete-field allocation.
     pub fn from_fields(
@@ -759,6 +796,7 @@ binary_new! {
 
 // tvm-ffi-stubgen(begin): object/prim.Sub
 /// Complete: reflected fields fill [40, 56) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "prim.Sub"]
@@ -774,6 +812,7 @@ const _: () = {
     assert!(::core::mem::align_of::<SubObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct Sub {
@@ -787,6 +826,7 @@ impl Deref for SubObj {
     }
 }
 
+#[allow(missing_docs)]
 impl SubObj {
     pub(crate) fn new(loc: Location, ty: PrimType, a: PrimExpr, b: PrimExpr) -> Self {
         let base = ExprObj::new(loc, ty.into());
@@ -794,6 +834,7 @@ impl SubObj {
     }
 }
 
+#[allow(missing_docs)]
 impl Sub {
     /// Lossless complete-field allocation.
     pub fn from_fields(
@@ -819,6 +860,7 @@ binary_new! {
 
 // tvm-ffi-stubgen(begin): object/prim.Mul
 /// Complete: reflected fields fill [40, 56) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "prim.Mul"]
@@ -834,6 +876,7 @@ const _: () = {
     assert!(::core::mem::align_of::<MulObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct Mul {
@@ -847,6 +890,7 @@ impl Deref for MulObj {
     }
 }
 
+#[allow(missing_docs)]
 impl MulObj {
     pub(crate) fn new(loc: Location, ty: PrimType, a: PrimExpr, b: PrimExpr) -> Self {
         let base = ExprObj::new(loc, ty.into());
@@ -854,6 +898,7 @@ impl MulObj {
     }
 }
 
+#[allow(missing_docs)]
 impl Mul {
     /// Lossless complete-field allocation.
     pub fn from_fields(
@@ -879,6 +924,7 @@ binary_new! {
 
 // tvm-ffi-stubgen(begin): object/prim.Div
 /// Complete: reflected fields fill [40, 56) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "prim.Div"]
@@ -894,6 +940,7 @@ const _: () = {
     assert!(::core::mem::align_of::<DivObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct Div {
@@ -907,6 +954,7 @@ impl Deref for DivObj {
     }
 }
 
+#[allow(missing_docs)]
 impl DivObj {
     pub(crate) fn new(loc: Location, ty: PrimType, a: PrimExpr, b: PrimExpr) -> Self {
         let base = ExprObj::new(loc, ty.into());
@@ -914,6 +962,7 @@ impl DivObj {
     }
 }
 
+#[allow(missing_docs)]
 impl Div {
     /// Lossless complete-field allocation.
     pub fn from_fields(
@@ -939,6 +988,7 @@ binary_new! {
 
 // tvm-ffi-stubgen(begin): object/prim.Mod
 /// Complete: reflected fields fill [40, 56) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "prim.Mod"]
@@ -954,6 +1004,7 @@ const _: () = {
     assert!(::core::mem::align_of::<ModObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct Mod {
@@ -967,6 +1018,7 @@ impl Deref for ModObj {
     }
 }
 
+#[allow(missing_docs)]
 impl ModObj {
     pub(crate) fn new(loc: Location, ty: PrimType, a: PrimExpr, b: PrimExpr) -> Self {
         let base = ExprObj::new(loc, ty.into());
@@ -974,6 +1026,7 @@ impl ModObj {
     }
 }
 
+#[allow(missing_docs)]
 impl Mod {
     /// Lossless complete-field allocation.
     pub fn from_fields(
@@ -999,6 +1052,7 @@ binary_new! {
 
 // tvm-ffi-stubgen(begin): object/prim.FloorDiv
 /// Complete: reflected fields fill [40, 56) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "prim.FloorDiv"]
@@ -1014,6 +1068,7 @@ const _: () = {
     assert!(::core::mem::align_of::<FloorDivObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct FloorDiv {
@@ -1027,6 +1082,7 @@ impl Deref for FloorDivObj {
     }
 }
 
+#[allow(missing_docs)]
 impl FloorDivObj {
     pub(crate) fn new(loc: Location, ty: PrimType, a: PrimExpr, b: PrimExpr) -> Self {
         let base = ExprObj::new(loc, ty.into());
@@ -1034,6 +1090,7 @@ impl FloorDivObj {
     }
 }
 
+#[allow(missing_docs)]
 impl FloorDiv {
     /// Lossless complete-field allocation.
     pub fn from_fields(
@@ -1060,6 +1117,7 @@ binary_new! {
 
 // tvm-ffi-stubgen(begin): object/prim.FloorMod
 /// Complete: reflected fields fill [40, 56) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "prim.FloorMod"]
@@ -1075,6 +1133,7 @@ const _: () = {
     assert!(::core::mem::align_of::<FloorModObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct FloorMod {
@@ -1088,6 +1147,7 @@ impl Deref for FloorModObj {
     }
 }
 
+#[allow(missing_docs)]
 impl FloorModObj {
     pub(crate) fn new(loc: Location, ty: PrimType, a: PrimExpr, b: PrimExpr) -> Self {
         let base = ExprObj::new(loc, ty.into());
@@ -1095,6 +1155,7 @@ impl FloorModObj {
     }
 }
 
+#[allow(missing_docs)]
 impl FloorMod {
     /// Lossless complete-field allocation.
     pub fn from_fields(
@@ -1121,6 +1182,7 @@ binary_new! {
 
 // tvm-ffi-stubgen(begin): object/prim.Min
 /// Complete: reflected fields fill [40, 56) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "prim.Min"]
@@ -1136,6 +1198,7 @@ const _: () = {
     assert!(::core::mem::align_of::<MinObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct Min {
@@ -1149,6 +1212,7 @@ impl Deref for MinObj {
     }
 }
 
+#[allow(missing_docs)]
 impl MinObj {
     pub(crate) fn new(loc: Location, ty: PrimType, a: PrimExpr, b: PrimExpr) -> Self {
         let base = ExprObj::new(loc, ty.into());
@@ -1156,6 +1220,7 @@ impl MinObj {
     }
 }
 
+#[allow(missing_docs)]
 impl Min {
     /// Lossless complete-field allocation.
     pub fn from_fields(
@@ -1181,6 +1246,7 @@ binary_new! {
 
 // tvm-ffi-stubgen(begin): object/prim.Max
 /// Complete: reflected fields fill [40, 56) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "prim.Max"]
@@ -1196,6 +1262,7 @@ const _: () = {
     assert!(::core::mem::align_of::<MaxObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct Max {
@@ -1209,6 +1276,7 @@ impl Deref for MaxObj {
     }
 }
 
+#[allow(missing_docs)]
 impl MaxObj {
     pub(crate) fn new(loc: Location, ty: PrimType, a: PrimExpr, b: PrimExpr) -> Self {
         let base = ExprObj::new(loc, ty.into());
@@ -1216,6 +1284,7 @@ impl MaxObj {
     }
 }
 
+#[allow(missing_docs)]
 impl Max {
     /// Lossless complete-field allocation.
     pub fn from_fields(
@@ -1244,6 +1313,7 @@ binary_new! {
 
 // tvm-ffi-stubgen(begin): object/prim.EQ
 /// Complete: reflected fields fill [40, 56) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "prim.EQ"]
@@ -1259,6 +1329,7 @@ const _: () = {
     assert!(::core::mem::align_of::<EQObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct EQ {
@@ -1272,6 +1343,7 @@ impl Deref for EQObj {
     }
 }
 
+#[allow(missing_docs)]
 impl EQObj {
     pub(crate) fn new(loc: Location, ty: PrimType, a: PrimExpr, b: PrimExpr) -> Self {
         let base = ExprObj::new(loc, ty.into());
@@ -1279,6 +1351,7 @@ impl EQObj {
     }
 }
 
+#[allow(missing_docs)]
 impl EQ {
     /// Lossless complete-field allocation.
     pub fn from_fields(
@@ -1305,6 +1378,7 @@ binary_new! {
 
 // tvm-ffi-stubgen(begin): object/prim.NE
 /// Complete: reflected fields fill [40, 56) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "prim.NE"]
@@ -1320,6 +1394,7 @@ const _: () = {
     assert!(::core::mem::align_of::<NEObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct NE {
@@ -1333,6 +1408,7 @@ impl Deref for NEObj {
     }
 }
 
+#[allow(missing_docs)]
 impl NEObj {
     pub(crate) fn new(loc: Location, ty: PrimType, a: PrimExpr, b: PrimExpr) -> Self {
         let base = ExprObj::new(loc, ty.into());
@@ -1340,6 +1416,7 @@ impl NEObj {
     }
 }
 
+#[allow(missing_docs)]
 impl NE {
     /// Lossless complete-field allocation.
     pub fn from_fields(
@@ -1366,6 +1443,7 @@ binary_new! {
 
 // tvm-ffi-stubgen(begin): object/prim.LT
 /// Complete: reflected fields fill [40, 56) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "prim.LT"]
@@ -1381,6 +1459,7 @@ const _: () = {
     assert!(::core::mem::align_of::<LTObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct LT {
@@ -1394,6 +1473,7 @@ impl Deref for LTObj {
     }
 }
 
+#[allow(missing_docs)]
 impl LTObj {
     pub(crate) fn new(loc: Location, ty: PrimType, a: PrimExpr, b: PrimExpr) -> Self {
         let base = ExprObj::new(loc, ty.into());
@@ -1401,6 +1481,7 @@ impl LTObj {
     }
 }
 
+#[allow(missing_docs)]
 impl LT {
     /// Lossless complete-field allocation.
     pub fn from_fields(
@@ -1427,6 +1508,7 @@ binary_new! {
 
 // tvm-ffi-stubgen(begin): object/prim.LE
 /// Complete: reflected fields fill [40, 56) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "prim.LE"]
@@ -1442,6 +1524,7 @@ const _: () = {
     assert!(::core::mem::align_of::<LEObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct LE {
@@ -1455,6 +1538,7 @@ impl Deref for LEObj {
     }
 }
 
+#[allow(missing_docs)]
 impl LEObj {
     pub(crate) fn new(loc: Location, ty: PrimType, a: PrimExpr, b: PrimExpr) -> Self {
         let base = ExprObj::new(loc, ty.into());
@@ -1462,6 +1546,7 @@ impl LEObj {
     }
 }
 
+#[allow(missing_docs)]
 impl LE {
     /// Lossless complete-field allocation.
     pub fn from_fields(
@@ -1488,6 +1573,7 @@ binary_new! {
 
 // tvm-ffi-stubgen(begin): object/prim.GT
 /// Complete: reflected fields fill [40, 56) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "prim.GT"]
@@ -1503,6 +1589,7 @@ const _: () = {
     assert!(::core::mem::align_of::<GTObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct GT {
@@ -1516,6 +1603,7 @@ impl Deref for GTObj {
     }
 }
 
+#[allow(missing_docs)]
 impl GTObj {
     pub(crate) fn new(loc: Location, ty: PrimType, a: PrimExpr, b: PrimExpr) -> Self {
         let base = ExprObj::new(loc, ty.into());
@@ -1523,6 +1611,7 @@ impl GTObj {
     }
 }
 
+#[allow(missing_docs)]
 impl GT {
     /// Lossless complete-field allocation.
     pub fn from_fields(
@@ -1549,6 +1638,7 @@ binary_new! {
 
 // tvm-ffi-stubgen(begin): object/prim.GE
 /// Complete: reflected fields fill [40, 56) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "prim.GE"]
@@ -1564,6 +1654,7 @@ const _: () = {
     assert!(::core::mem::align_of::<GEObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct GE {
@@ -1577,6 +1668,7 @@ impl Deref for GEObj {
     }
 }
 
+#[allow(missing_docs)]
 impl GEObj {
     pub(crate) fn new(loc: Location, ty: PrimType, a: PrimExpr, b: PrimExpr) -> Self {
         let base = ExprObj::new(loc, ty.into());
@@ -1584,6 +1676,7 @@ impl GEObj {
     }
 }
 
+#[allow(missing_docs)]
 impl GE {
     /// Lossless complete-field allocation.
     pub fn from_fields(
@@ -1613,6 +1706,7 @@ binary_new! {
 
 // tvm-ffi-stubgen(begin): object/prim.And
 /// Complete: reflected fields fill [40, 56) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "prim.And"]
@@ -1628,6 +1722,7 @@ const _: () = {
     assert!(::core::mem::align_of::<AndObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct And {
@@ -1641,6 +1736,7 @@ impl Deref for AndObj {
     }
 }
 
+#[allow(missing_docs)]
 impl AndObj {
     pub(crate) fn new(loc: Location, ty: PrimType, a: PrimExpr, b: PrimExpr) -> Self {
         let base = ExprObj::new(loc, ty.into());
@@ -1648,6 +1744,7 @@ impl AndObj {
     }
 }
 
+#[allow(missing_docs)]
 impl And {
     /// Lossless complete-field allocation.
     pub fn from_fields(
@@ -1686,6 +1783,7 @@ impl And {
 
 // tvm-ffi-stubgen(begin): object/prim.Or
 /// Complete: reflected fields fill [40, 56) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "prim.Or"]
@@ -1701,6 +1799,7 @@ const _: () = {
     assert!(::core::mem::align_of::<OrObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct Or {
@@ -1714,6 +1813,7 @@ impl Deref for OrObj {
     }
 }
 
+#[allow(missing_docs)]
 impl OrObj {
     pub(crate) fn new(loc: Location, ty: PrimType, a: PrimExpr, b: PrimExpr) -> Self {
         let base = ExprObj::new(loc, ty.into());
@@ -1721,6 +1821,7 @@ impl OrObj {
     }
 }
 
+#[allow(missing_docs)]
 impl Or {
     /// Lossless complete-field allocation.
     pub fn from_fields(
@@ -1759,6 +1860,7 @@ impl Or {
 
 // tvm-ffi-stubgen(begin): object/prim.Not
 /// Complete: reflected fields fill [40, 48) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "prim.Not"]
@@ -1773,6 +1875,7 @@ const _: () = {
     assert!(::core::mem::align_of::<NotObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct Not {
@@ -1786,6 +1889,7 @@ impl Deref for NotObj {
     }
 }
 
+#[allow(missing_docs)]
 impl NotObj {
     pub(crate) fn new(loc: Location, ty: PrimType, a: PrimExpr) -> Self {
         let base = ExprObj::new(loc, ty.into());
@@ -1793,6 +1897,7 @@ impl NotObj {
     }
 }
 
+#[allow(missing_docs)]
 impl Not {
     /// Lossless complete-field allocation.
     pub fn from_fields(
@@ -1818,12 +1923,11 @@ impl Not {
     /// Returns an `InternalError` if `a` is not boolean.
     pub fn new(a: impl IntoExpr<PrimExpr>, loc: impl Into<Location>) -> Result<Self> {
         let a = a.into_owned_expr()?;
-        let a_dtype = a.dtype();
-        if a_dtype.code != support::BOOL {
+        if !a.prim_ty().matches_code(&[DLDataTypeCode::kDLBool]) {
             let condition = "a_ty.MatchesCode(DLDataTypeCode::kDLBool)";
             return Err(support::check_failed(tvm_ffi::INTERNAL_ERROR, condition, ""));
         }
-        Ok(Self::from_fields(loc.into(), bool_type(a_dtype)?, a))
+        Ok(Self::from_fields(loc.into(), bool_type(a.prim_ty())?, a))
     }
 }
 
@@ -1832,6 +1936,7 @@ impl Not {
 
 // tvm-ffi-stubgen(begin): object/prim.Select
 /// Complete: reflected fields fill [40, 64) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "prim.Select"]
@@ -1848,6 +1953,7 @@ const _: () = {
     assert!(::core::mem::align_of::<SelectObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct Select {
@@ -1861,6 +1967,7 @@ impl Deref for SelectObj {
     }
 }
 
+#[allow(missing_docs)]
 impl SelectObj {
     pub(crate) fn new(
         loc: Location,
@@ -1874,6 +1981,7 @@ impl SelectObj {
     }
 }
 
+#[allow(missing_docs)]
 impl Select {
     /// Lossless complete-field allocation.
     pub fn from_fields(
@@ -1918,22 +2026,19 @@ impl Select {
             true_value.into_owned_expr()?,
             false_value.into_owned_expr()?,
         );
-        let condition_dtype = condition.dtype();
-        let true_dtype = true_value.dtype();
-        let false_dtype = false_value.dtype();
-        if condition_dtype.code != support::BOOL {
+        let (condition_ty, true_ty) = (condition.prim_ty(), true_value.prim_ty());
+        let (true_dtype, false_dtype) = (true_ty.dtype, false_value.prim_ty().dtype);
+        if !condition_ty.matches_code(&[DLDataTypeCode::kDLBool]) {
             let condition = "condition_ty.MatchesCode(DLDataTypeCode::kDLBool)";
             return Err(support::check_failed(tvm_ffi::INTERNAL_ERROR, condition, ""));
         }
         // C++ `GetLanesOrVScaleFactor(ty)`.
-        let lanes_or_vscale_factor = |dtype: DLDataType| -> Result<i32> {
-            match support::is_scalable_vector(dtype) {
-                true => Ok(-(support::encoded_lanes(dtype) as i32)),
-                false => support::lanes(dtype),
-            }
+        let lanes_or_vscale_factor = |ty: &PrimType| match ty.vscale_factor() {
+            Some(factor) => Ok(i32::from(factor)),
+            None => support::lanes(ty),
         };
-        if lanes_or_vscale_factor(condition_dtype)? != lanes_or_vscale_factor(true_dtype)?
-            && !support::is_scalar(condition_dtype)
+        if lanes_or_vscale_factor(condition_ty)? != lanes_or_vscale_factor(true_ty)?
+            && !condition_ty.is_scalar()
         {
             let condition = "GetLanesOrVScaleFactor(condition_ty) == \
                              GetLanesOrVScaleFactor(true_ty) || condition_ty.IsScalar()";
@@ -1951,13 +2056,14 @@ impl Select {
                 &message,
             ));
         }
-        let ty = true_value.ty();
+        let ty = true_ty.clone();
         Ok(Self::from_fields(loc.into(), ty, condition, true_value, false_value))
     }
 }
 
 // tvm-ffi-stubgen(begin): object/prim.Let
 /// Complete: reflected fields fill [40, 64) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "prim.Let"]
@@ -1974,6 +2080,7 @@ const _: () = {
     assert!(::core::mem::align_of::<LetObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct Let {
@@ -1987,6 +2094,7 @@ impl Deref for LetObj {
     }
 }
 
+#[allow(missing_docs)]
 impl LetObj {
     pub(crate) fn new(
         loc: Location,
@@ -2000,6 +2108,7 @@ impl LetObj {
     }
 }
 
+#[allow(missing_docs)]
 impl Let {
     /// Lossless complete-field allocation.
     pub fn from_fields(
@@ -2034,7 +2143,7 @@ impl Let {
         loc: impl Into<Location>,
     ) -> Result<Self> {
         let (var, value, body) = (var.into(), value.into_owned_expr()?, body.into_owned_expr()?);
-        let value_dtype = value.dtype();
+        let value_dtype = value.prim_ty().dtype;
         let Some(var_ty) = var.ty.downcast_ref::<PrimTypeObj>() else {
             let message = format!(
                 "Cannot treat type `{}` as type `ir.PrimType`",
@@ -2046,7 +2155,7 @@ impl Let {
             let condition = "value.ty() == var->ty.as_or_throw<PrimType>()";
             return Err(support::check_failed(tvm_ffi::INTERNAL_ERROR, condition, ""));
         }
-        let ty = body.ty();
+        let ty = body.prim_ty().clone();
         Ok(Self::from_fields(loc.into(), ty, var, value, body))
     }
 }
@@ -2068,7 +2177,8 @@ enum Operands {
 
 /// The type of the binary node `node` of `a` and `b`, after the checks of its C++ constructor.
 fn binary_type(node: &str, operands: Operands, a: &PrimExpr, b: &PrimExpr) -> Result<PrimType> {
-    let (a_dtype, b_dtype) = (a.dtype(), b.dtype());
+    let (a_ty, b_dtype) = (a.prim_ty(), b.prim_ty().dtype);
+    let a_dtype = a_ty.dtype;
     if a_dtype != b_dtype {
         let message = format!(
             "mismatched types. {} vs. {}\n",
@@ -2079,12 +2189,12 @@ fn binary_type(node: &str, operands: Operands, a: &PrimExpr, b: &PrimExpr) -> Re
         return Err(support::check_failed(tvm_ffi::TYPE_ERROR, condition, &message));
     }
     match operands {
-        Operands::Arith => Ok(a.ty()),
+        Operands::Arith => Ok(a_ty.clone()),
         Operands::Bitwise { allow_bool } => {
-            let code = a_dtype.code;
-            if matches!(code, support::INT | support::UINT) || (allow_bool && code == support::BOOL)
+            if a_ty.matches_code(&[DLDataTypeCode::kDLInt, DLDataTypeCode::kDLUInt])
+                || (allow_bool && a_ty.matches_code(&[DLDataTypeCode::kDLBool]))
             {
-                return Ok(a.ty());
+                return Ok(a_ty.clone());
             }
             let condition = format!(
                 "a.ty().MatchesCode(DLDataTypeCode::kDLInt, DLDataTypeCode::kDLUInt) || \
@@ -2094,28 +2204,27 @@ fn binary_type(node: &str, operands: Operands, a: &PrimExpr, b: &PrimExpr) -> Re
             let message = format!("{node} requires {operands} operands");
             Err(support::check_failed(tvm_ffi::TYPE_ERROR, &condition, &message))
         }
-        Operands::Compare => bool_type(a_dtype),
+        Operands::Compare => bool_type(a_ty),
     }
 }
 
-/// The boolean type with the lanes of `dtype` (C++ `PrimType(DLDataType{kDLBool, 8, lanes})`).
-fn bool_type(operand: DLDataType) -> Result<PrimType> {
+/// The boolean type with the lanes of `operand` (C++ `PrimType(DLDataType{kDLBool, 8, lanes})`).
+fn bool_type(operand: &PrimType) -> Result<PrimType> {
     use crate::ir::dtype;
-    PrimType::from_dtype(dtype::with_lanes(dtype::bool(), operand.lanes))
+    PrimType::try_from(dtype::with_lanes(dtype::bool(), operand.dtype.lanes))
 }
 
 /// The type of the logical node of `a` and `b`, after the checks of the C++ `And` and `Or`
 /// constructors: boolean operands of one type.
 fn logical_type(a: &PrimExpr, b: &PrimExpr) -> Result<PrimType> {
-    let (a_dtype, b_dtype) = (a.dtype(), b.dtype());
-    for (dtype, operand) in [(a_dtype, "a_ty"), (b_dtype, "b_ty")] {
-        if dtype.code != support::BOOL {
+    for (ty, operand) in [(a.prim_ty(), "a_ty"), (b.prim_ty(), "b_ty")] {
+        if !ty.matches_code(&[DLDataTypeCode::kDLBool]) {
             let condition = format!("{operand}.MatchesCode(DLDataTypeCode::kDLBool)");
             return Err(support::check_failed(tvm_ffi::INTERNAL_ERROR, &condition, ""));
         }
     }
-    if a_dtype != b_dtype {
+    if a.prim_ty().dtype != b.prim_ty().dtype {
         return Err(support::check_failed(tvm_ffi::TYPE_ERROR, "a_ty == b_ty", "mismatched types"));
     }
-    bool_type(a_dtype)
+    bool_type(a.prim_ty())
 }

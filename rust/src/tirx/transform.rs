@@ -20,6 +20,7 @@
 
 //! The TIRx passes ([`mod@transform`]) and function passes ([`function_pass`]).
 
+// tvm-ffi-stubgen(missing-docs): allow
 // An object registered under `tirx.transform` that no file has a block for yet is generated here,
 // to be moved to the file of the Python module that defines it.
 // tvm-ffi-stubgen(prefix): tirx.transform

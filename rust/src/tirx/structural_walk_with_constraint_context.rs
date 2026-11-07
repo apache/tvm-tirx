@@ -78,17 +78,11 @@ where
                 return Ok(Some(interrupt));
             }
         }
-        // Post callbacks observe the restored context. The observer cannot access
-        // this runtime's visitor; a nested walk creates its own runtime. Appending
-        // mutates context contents, not this handle. End the field borrow before
-        // any default descent can replace it; observers may clone it to retain it.
-        let outcome = unsafe {
-            (&mut *self.observer).dispatch_tuple((
-                value,
-                visitor.base().constraints_for_observer(),
-                kind,
-            ))
-        };
+        // Post callbacks observe the restored context.
+        // SAFETY: the observer cannot reach this visitor (a nested walk has its own runtime), and
+        // the borrow ends with the callback, before default descent can replace the field.
+        let constraints = unsafe { visitor.base().constraints_for_observer() };
+        let outcome = (&mut *self.observer).dispatch_tuple((value, constraints, kind));
         let outcome = match outcome {
             Some(result) => result?,
             None => WalkResult::Advance,

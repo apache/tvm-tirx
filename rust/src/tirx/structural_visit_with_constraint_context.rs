@@ -49,7 +49,7 @@ impl StructuralVisitorWithConstraintContextBase {
     /// Return the constraint context in effect at the current value; use
     /// [`ConstraintContextObj::snapshot`] to keep its current prefix.
     pub fn constraints(&self) -> ConstraintContext {
-        // No reference to the replaceable field survives this short clone.
+        // SAFETY: the borrow ends with this clone, before anything can replace the field.
         unsafe { (&*self.constraints.get()).clone() }
     }
 

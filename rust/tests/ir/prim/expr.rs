@@ -118,7 +118,7 @@ fn binary_nodes_agree_with_cpp() {
             // The type system rejects a string operand; its check fails as the native one does.
             let what = format!("{}(string)", stringify!($node));
             let name = concat!("prim.", stringify!($node));
-            let native = native_with_loc(name, &[&text, x.as_expr()]);
+            let native = native_with_loc(name, &[&text, x.as_ref()]);
             let rust = PrimExpr::try_from(&text).and_then(|a| prim::$node::new(a, &x, UNKNOWN_LOC));
             agree_kind(&what, rust, native);
         )+};

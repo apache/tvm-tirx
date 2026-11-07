@@ -47,6 +47,7 @@
 //! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
 //! ```
 
+// tvm-ffi-stubgen(missing-docs): allow
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
 // tvm-ffi-stubgen(import-object): tvm_ffi::AnyView
@@ -97,6 +98,7 @@ use tvm_ffi::String;
 
 // tvm-ffi-stubgen(begin): object/sym.IterMapExpr
 /// Opaque: no metadata of its own: total_size is unknown. Fields are read through the C ABI getters.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "sym.IterMapExpr"]
@@ -104,6 +106,7 @@ pub struct IterMapExprObj {
     base: ExprObj,
 }
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct IterMapExpr {
@@ -122,6 +125,7 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(IterMapExpr => Expr, IterMapExpr => Prim
 
 // tvm-ffi-stubgen(begin): object/sym.IterMapResult
 /// Complete: reflected fields fill [24, 48) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "sym.IterMapResult"]
@@ -138,12 +142,14 @@ const _: () = {
     assert!(::core::mem::align_of::<IterMapResultObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct IterMapResult {
     base: ObjectArc<IterMapResultObj>,
 }
 
+#[allow(missing_docs)]
 impl IterMapResultObj {
     pub(crate) fn new(
         indices: Array<IterSumExpr>,
@@ -155,6 +161,7 @@ impl IterMapResultObj {
     }
 }
 
+#[allow(missing_docs)]
 impl IterMapResult {
     /// Lossless complete-field allocation.
     pub fn new(
@@ -170,6 +177,7 @@ impl IterMapResult {
 
 // tvm-ffi-stubgen(begin): object/sym.IterMark
 /// Complete: reflected fields fill [24, 40) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "sym.IterMark"]
@@ -185,12 +193,14 @@ const _: () = {
     assert!(::core::mem::align_of::<IterMarkObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct IterMark {
     base: ObjectArc<IterMarkObj>,
 }
 
+#[allow(missing_docs)]
 impl IterMarkObj {
     pub(crate) fn new(source: PrimExpr, extent: PrimExpr) -> Self {
         let base = Object::new();
@@ -198,6 +208,7 @@ impl IterMarkObj {
     }
 }
 
+#[allow(missing_docs)]
 impl IterMark {
     /// Lossless complete-field allocation.
     pub fn new(source: impl Into<PrimExpr>, extent: impl Into<PrimExpr>) -> Self {
@@ -211,6 +222,7 @@ unsafe impl tvm_ffi::object::ImmutableObject for IterMarkObj {}
 
 // tvm-ffi-stubgen(begin): object/sym.IterSplitExpr
 /// Opaque: parent 'sym.IterMapExpr' is opaque (layout-unknown). Fields are read through the C ABI getters.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "sym.IterSplitExpr"]
@@ -219,6 +231,7 @@ pub struct IterSplitExprObj {
     base: IterMapExprObj,
 }
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct IterSplitExpr {
@@ -232,6 +245,7 @@ impl Deref for IterSplitExprObj {
     }
 }
 
+#[allow(missing_docs)]
 impl IterSplitExprObj {
     pub fn source(&self) -> Result<IterMark> {
         FieldGetter::new(Self::type_index(), "source")?.get(self)
@@ -257,6 +271,7 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(IterSplitExpr => Expr, IterSplitExpr => 
 
 // tvm-ffi-stubgen(begin): object/sym.IterSumExpr
 /// Opaque: parent 'sym.IterMapExpr' is opaque (layout-unknown). Fields are read through the C ABI getters.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "sym.IterSumExpr"]
@@ -265,6 +280,7 @@ pub struct IterSumExprObj {
     base: IterMapExprObj,
 }
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct IterSumExpr {
@@ -278,6 +294,7 @@ impl Deref for IterSumExprObj {
     }
 }
 
+#[allow(missing_docs)]
 impl IterSumExprObj {
     pub fn args(&self) -> Result<Array<IterSplitExpr>> {
         FieldGetter::new(Self::type_index(), "args")?.get(self)

@@ -40,7 +40,7 @@ where
 }
 
 fn prim(name: &str) -> PrimType {
-    PrimType::from_dtype(tvm_tirx::tvm_ffi::DLDataType::try_from_str(name).unwrap()).unwrap()
+    PrimType::try_from(tvm_tirx::tvm_ffi::DLDataType::try_from_str(name).unwrap()).unwrap()
 }
 
 fn prim_var(name: &str) -> PrimVar {
