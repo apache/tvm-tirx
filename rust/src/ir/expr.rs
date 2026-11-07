@@ -59,6 +59,7 @@
 // tvm-ffi-stubgen(import-object): tvm_ffi::ObjectRefCore
 // tvm-ffi-stubgen(import-object): tvm_ffi::AnyView
 // tvm-ffi-stubgen(import-object): tvm_ffi::Result
+// tvm-ffi-stubgen(import-object): tvm_ffi::reflection::NativeFunction
 // tvm-ffi-stubgen(import-object): tvm_ffi::tvm_ffi_sys::TVMFFITypeIndex
 // tvm-ffi-stubgen(import-object): crate::ir::location::UNKNOWN_LOC
 // tvm-ffi-stubgen(import-object): crate::ir::op::OpObj
@@ -110,6 +111,7 @@ use tvm_ffi::ObjectRefCore;
 use tvm_ffi::Result;
 use tvm_ffi::String;
 use tvm_ffi::object::IntoObjectRef;
+use tvm_ffi::reflection::NativeFunction;
 use tvm_ffi::reflection::ShallowCopy;
 use tvm_ffi::reflection::UnsafeInit;
 use tvm_ffi::reflection::drop_if_defined;
@@ -1113,11 +1115,13 @@ impl TensorLoad {
             return Err(support::check_failed(tvm_ffi::TYPE_ERROR, "infer.has_value()", &message));
         };
         // The hook types a load that has no type yet. Such a load is no `TensorLoad`, which is
-        // typed by a `PrimType`, so it is made as an `Expr`.
+        // typed by a `PrimType`, so only its object is made.
         let base_ = ExprObj::new(loc.clone(), MissingType::new().into());
         let untyped = TensorLoadObj { base_, source: source.clone(), indices: indices.clone() };
-        let untyped = Expr::from(Self { data_: ObjectArc::new(untyped) });
-        let ty: PrimType = support::NativeHook::from_any(infer)?.call_as(&untyped)?;
+        // SAFETY: the column holds `PrimType(const TensorLoadObj*)` hooks.
+        let infer: NativeFunction<(&TensorLoadObj,), PrimType> =
+            unsafe { NativeFunction::from_any(infer)? };
+        let ty = infer.call((&*ObjectArc::new(untyped),))?;
         Ok(Self::from_fields(loc, ty, source, indices))
     }
 }
@@ -1801,7 +1805,10 @@ impl Call {
         if op.validator().type_index() == TVMFFITypeIndex::kTVMFFINone as i32 {
             return Ok(());
         }
-        support::NativeHook::from_any(op.validator().clone())?.call_void(self)
+        // SAFETY: an operator validator is a `void(const CallObj*)` hook.
+        let validate: NativeFunction<(&CallObj,)> =
+            unsafe { NativeFunction::from_any(op.validator().clone())? };
+        validate.call((&**self,))
     }
 
     /// Return the result type the operator infers from the current inputs, without changing the
@@ -1821,8 +1828,9 @@ impl Call {
         if let Some(fixed) = support::op_attr(op, "TFixedReturnType")? {
             return fixed.try_into();
         }
-        match support::NativeHook::of_op(op, "FInferType")? {
-            Some(infer) => infer.call_as(self),
+        // SAFETY: `FInferType` holds `Type(const CallObj*)` hooks.
+        match unsafe { support::op_hook::<(&CallObj,), Type>(op, "FInferType")? } {
+            Some(infer) => infer.call((&**self,)),
             None => Ok(MissingType::new().into()),
         }
     }

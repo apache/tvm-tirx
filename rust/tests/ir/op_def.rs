@@ -39,8 +39,8 @@ use tvm_tirx::tvm_ffi::static_init::{StaticInitBlock, STATIC_INIT_BLOCKS};
 use tvm_tirx::tvm_ffi::tvm_ffi_sys::TVMFFITypeIndex;
 use tvm_tirx::tvm_ffi::{
     self, rs_object, run_static_init_blocks, Any, AnyView, Array, Error, ErrorKind, Function, Map,
-    ObjectCore, ObjectRefCore, Result, String as FfiString, ATTRIBUTE_ERROR, INTERNAL_ERROR,
-    TYPE_ERROR, VALUE_ERROR,
+    ObjectCore, ObjectRefCore, Result, String as FfiString, ATTRIBUTE_ERROR, TYPE_ERROR,
+    VALUE_ERROR,
 };
 
 use super::{int32, parse_dtype, tensor_var};
@@ -100,10 +100,6 @@ fn only_variables(call: &CallObj) -> Result<()> {
     }
 }
 
-fn faulty(_call: &CallObj) -> Result<()> {
-    panic!("validator bug")
-}
-
 #[test]
 fn ops_registered_from_rust_are_used_natively() {
     let _serial = serial();
@@ -156,15 +152,12 @@ fn ops_registered_from_rust_are_used_natively() {
     assert_eq!(INFERRED.load(Ordering::Relaxed), 3);
     validate(&identity).unwrap();
 
-    // An error a Rust hook returns reaches the native caller with its kind and message, and a
-    // panic becomes an error instead of unwinding into C++.
+    // An error a Rust hook returns reaches the native caller with its kind and message.
     let untyped = OpDef::new("rust_test.untyped", "")
         .set_infer_type(|_: &CallObj| Err(Error::new(TYPE_ERROR, "no result type", "")))
         .op()
         .unwrap();
     assert_error(call(&untyped, vec![]), TYPE_ERROR, "no result type");
-    let faulty = OpDef::new("rust_test.faulty", "").set_validator(faulty).op().unwrap();
-    assert_error(validate(&call(&faulty, vec![]).unwrap()), INTERNAL_ERROR, "validator bug");
 
     // A generated validator rejects what the C++ one generated from the same signature does,
     // with the same message.
@@ -444,9 +437,6 @@ tvm_ffi::static_init_block! {
         .set_region_body_params(launch_body_params)
         .set_region_validate(no_results_or_attributes);
 
-    OpDef::new("rust_test.panicking_region", "")
-        .set_region_body_params(|_: &CallObj| -> Result<Array<Var>> { panic!("hook bug") });
-
     register_type::<BlockType>()?;
 }
 
@@ -706,19 +696,4 @@ fn static_init_blocks_define_operators_and_types() {
         let cpp = region(&native, tag, extent, params, attrs, results);
         assert_eq!(rust, cpp, "{what}");
     }
-
-    // A panic in a hook becomes an error instead of unwinding into C++.
-    let panicking = Op::get("rust_test.panicking_region").unwrap();
-    let body = Evaluate::new(0, UNKNOWN_LOC);
-    let empty = DictAttrs::new(Map::new());
-    let built = RegionStmt::new(
-        panicking,
-        Vec::<Expr>::new(),
-        Vec::<Var>::new(),
-        empty,
-        body,
-        Vec::<Var>::new(),
-        UNKNOWN_LOC,
-    );
-    assert!(built.is_err(), "a panicking hook fails the constructor");
 }

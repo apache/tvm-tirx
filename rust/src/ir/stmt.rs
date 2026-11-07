@@ -46,7 +46,8 @@
 // tvm-ffi-stubgen(import-object): tvm_ffi::DLDataTypeCode
 // tvm-ffi-stubgen(import-object): tvm_ffi::ObjectRefCore
 // tvm-ffi-stubgen(import-object): tvm_ffi::Result
-// tvm-ffi-stubgen(import-object): tvm_ffi::tvm_ffi_sys::TVMFFITypeIndex
+// tvm-ffi-stubgen(import-object): tvm_ffi::reflection::NativeFunction
+// tvm-ffi-stubgen(import-object): crate::ir::expr::CallObj
 // tvm-ffi-stubgen(import-object): crate::ir::expr::Call
 // tvm-ffi-stubgen(import-object): crate::ir::expr::IntImm
 // tvm-ffi-stubgen(import-object): crate::ir::expr::IntImmObj
@@ -73,6 +74,7 @@
 // tvm-ffi-stubgen(begin): import-section
 use crate::ir::attrs::DictAttrs;
 use crate::ir::expr::Call;
+use crate::ir::expr::CallObj;
 use crate::ir::expr::Expr;
 use crate::ir::expr::IntImm;
 use crate::ir::expr::IntImmObj;
@@ -103,10 +105,10 @@ use tvm_ffi::ObjectRefCore;
 use tvm_ffi::Result;
 use tvm_ffi::String;
 use tvm_ffi::VALUE_ERROR;
+use tvm_ffi::reflection::NativeFunction;
 use tvm_ffi::reflection::ShallowCopy;
 use tvm_ffi::reflection::UnsafeInit;
 use tvm_ffi::reflection::drop_if_defined;
-use tvm_ffi::tvm_ffi_sys::TVMFFITypeIndex;
 // tvm-ffi-stubgen(end)
 
 /// The base of every statement: its source location `loc`.
@@ -792,11 +794,11 @@ impl TensorStore {
                 &message,
             ));
         };
-        let result = support::call_with_refs(validate, &dest, &indices, &value)?;
-        if result.type_index() != TVMFFITypeIndex::kTVMFFINone as i32 {
-            let message = "Packed hook result type mismatch";
-            return Err(tvm_ffi::Error::new(tvm_ffi::TYPE_ERROR, message, ""));
-        }
+        // SAFETY: the column holds
+        // `void(const Expr&, const Array<PrimExpr>&, const PrimExpr&)` hooks.
+        let validate: NativeFunction<(&Expr, &Array<PrimExpr>, &PrimExpr)> =
+            unsafe { NativeFunction::from_any(validate)? };
+        validate.call((&dest, &indices, &value))?;
         Ok(Self::from_fields(loc.into(), dest, indices, value))
     }
 }
@@ -945,8 +947,11 @@ impl RegionStmt {
             }
         }
         let region = Self::from_fields(loc.into(), op, args, body_params, attrs, body, result_vars);
-        if let Some(validate) = support::NativeHook::of_op(&region.op, "FRegionValidate")? {
-            validate.call_void(&region)?;
+        // SAFETY: `FRegionValidate` holds `void(const RegionStmtObj*)` hooks.
+        let validate =
+            unsafe { support::op_hook::<(&RegionStmtObj,), ()>(&region.op, "FRegionValidate")? };
+        if let Some(validate) = validate {
+            validate.call((&*region,))?;
         }
         Ok(region)
     }
@@ -1362,7 +1367,10 @@ fn int_imm_value_fits(value: &BigInt, ty: &PrimType) -> Result<bool> {
 /// `FRegionGetBodyParams` gives once its validator accepts the arguments.
 fn region_body_params(op: &Op, args: &Array<Expr>, attrs: &DictAttrs) -> Result<Array<Var>> {
     let name = op.name.as_str();
-    let Some(get_body_params) = support::NativeHook::of_op(op, "FRegionGetBodyParams")? else {
+    // SAFETY: `FRegionGetBodyParams` holds `Array<Var>(const CallObj*)` hooks.
+    let get_body_params =
+        unsafe { support::op_hook::<(&CallObj,), Array<Var>>(op, "FRegionGetBodyParams")? };
+    let Some(get_body_params) = get_body_params else {
         let message = format!(
             "{name} does not support region construction: FRegionGetBodyParams is required"
         );
@@ -1377,7 +1385,7 @@ fn region_body_params(op: &Op, args: &Array<Expr>, attrs: &DictAttrs) -> Result<
         Array::from_vec(vec![]),
     );
     signature.validate()?;
-    let params: Array<Var> = get_body_params.call_as(&signature)?;
+    let params = get_body_params.call((&*signature,))?;
     let mut definitions = std::collections::HashSet::new();
     for param in params.iter() {
         if param.ty.downcast_ref::<MissingTypeObj>().is_some() {
