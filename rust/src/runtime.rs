@@ -48,7 +48,8 @@ use tvm_ffi::Tensor;
 /// A registered memory space, such as `global` or `shared`, that a pointer or tensor lives in.
 ///
 /// Registration order has no meaning, and a backend must support a scope before it can allocate
-/// storage in it; [`MemoryScope::register`] adds one.
+/// storage in it; [`EnumDef::new`](tvm_ffi::reflection::EnumDef::new) adds one, and
+/// [`EnumRef::get`](tvm_ffi::EnumRef::get) looks one up by name.
 // tvm-ffi-stubgen(begin): object/runtime.MemoryScope
 #[allow(missing_docs)]
 #[repr(C)]
@@ -78,19 +79,6 @@ unsafe impl tvm_ffi::object::ImmutableObject for MemoryScopeObj {}
 
 impl tvm_ffi::EnumRef for MemoryScope {}
 // tvm-ffi-stubgen(end)
-
-impl MemoryScope {
-    /// Register the memory scope `name` (`runtime.MemoryScopeRegister`).
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if `name` is empty, contains a null character, or is already registered.
-    pub fn register(name: &str) -> Result<Self> {
-        tvm_ffi::cached_global_func!("runtime.MemoryScopeRegister")
-            .call_tuple((String::from(name),))?
-            .try_into()
-    }
-}
 
 /// Allocate an uninitialized tensor on `device`, in the memory scope `mem_scope` or the global one
 /// (`runtime.TensorAllocWithScope`).

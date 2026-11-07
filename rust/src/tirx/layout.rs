@@ -74,7 +74,7 @@ use tvm_ffi::reflection::FieldGetter;
 /// use tvm_tirx::tirx::{Axis, Iter, Layout, TileLayout};
 /// use tvm_tirx::tvm_ffi::Map;
 ///
-/// let m = Axis::get("m");
+/// let m = Axis::get_or_register("m");
 /// let shard = [Iter::new(8, 8, m.clone()), Iter::new(8, 1, m)];
 /// let layout = Layout::from(&TileLayout::new(shard, Vec::<Iter>::new(), &Map::new()));
 /// assert_eq!(script(&layout.size(None)?)?, "64");
@@ -390,8 +390,8 @@ unsafe impl tvm_ffi::object::ImmutableObject for IterObj {}
 // The native `tirx.Iter` stores its fields as given, as the generated `Iter::new` does.
 
 /// A named coordinate a layout maps to: the memory axis `m`, or a thread axis, such as `laneid`,
-/// that indexes the threads of a scope. Each name is one registered axis, which [`Axis::get`]
-/// looks up.
+/// that indexes the threads of a scope. Each name is one registered axis, which
+/// [`Axis::get_or_register`] looks up, registering it on first use.
 // tvm-ffi-stubgen(begin): object/tirx.Axis
 #[allow(missing_docs)]
 #[repr(C)]
@@ -424,8 +424,8 @@ impl tvm_ffi::EnumRef for Axis {}
 
 impl Axis {
     /// Look up the axis named `name`, such as the memory axis `m`, registering it on first use
-    /// (`tirx.AxisGet`).
-    pub fn get(name: &str) -> Self {
+    /// (`tirx.AxisGet`). [`EnumRef::get`](tvm_ffi::EnumRef::get) only looks up.
+    pub fn get_or_register(name: &str) -> Self {
         support::infallible(
             tvm_ffi::cached_global_func!("tirx.AxisGet")
                 .call_tuple((String::from(name),))

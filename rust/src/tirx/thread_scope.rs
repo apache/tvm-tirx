@@ -39,13 +39,14 @@ use tvm_ffi::String;
 
 /// A level of a backend's thread hierarchy, named `backend.level`, such as `cuda.warp`.
 ///
-/// Backends register their scopes; [`ThreadScope::get`] only looks one up. Within a backend,
+/// Backends register their scopes; [`EnumRef::get`] only looks one up. Within a backend,
 /// [`rank`](ThreadScope::rank) orders the levels, a wider scope ranking lower.
 ///
 /// # Examples
 ///
 /// ```
 /// use tvm_tirx::tirx::ThreadScope;
+/// use tvm_tirx::tvm_ffi::EnumRef;
 ///
 /// let warp = ThreadScope::get("cuda.warp")?;
 /// assert_eq!((warp.backend()?, warp.local_name()?), ("cuda".into(), "warp".into()));
@@ -54,6 +55,8 @@ use tvm_ffi::String;
 /// assert!(cta.is_higher_than(&warp)?);
 /// # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
 /// ```
+///
+/// [`EnumRef::get`]: tvm_ffi::EnumRef::get
 // tvm-ffi-stubgen(begin): object/tirx.ThreadScope
 #[allow(missing_docs)]
 #[repr(C)]
@@ -85,17 +88,6 @@ impl tvm_ffi::EnumRef for ThreadScope {}
 // tvm-ffi-stubgen(end)
 
 impl ThreadScope {
-    /// Look up the thread scope named `name`, such as `cuda.warp` (`tirx.ThreadScopeGet`).
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if no thread scope is registered as `name`.
-    pub fn get(name: &str) -> Result<Self> {
-        tvm_ffi::cached_global_func!("tirx.ThreadScopeGet")
-            .call_tuple((String::from(name),))?
-            .try_into()
-    }
-
     /// Return the backend that registered the scope, such as `cuda` (`tirx.ThreadScopeGetBackend`).
     pub fn backend(&self) -> Result<String> {
         tvm_ffi::cached_global_func!("tirx.ThreadScopeGetBackend").call_tuple((self,))?.try_into()

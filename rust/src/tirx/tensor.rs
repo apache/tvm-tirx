@@ -78,8 +78,9 @@ use tvm_ffi::Result;
 /// use tvm_tirx::runtime::MemoryScope;
 /// use tvm_tirx::script::script;
 /// use tvm_tirx::tirx::TensorType;
+/// use tvm_tirx::tvm_ffi::reflection::EnumDef;
 ///
-/// let scratch = MemoryScope::register("my_ext.scratch")?;
+/// let scratch = EnumDef::<MemoryScope>::new("my_ext.scratch")?.value();
 /// let ty = TensorType::new([16, 16], PrimType::float(32), &scratch, 0, None, UNKNOWN_LOC)?;
 /// assert_eq!(script(&ty)?, r#"T.Tensor((16, 16), T.float32, scope="my_ext.scratch")"#);
 ///

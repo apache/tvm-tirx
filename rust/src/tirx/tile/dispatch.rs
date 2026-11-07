@@ -74,7 +74,7 @@ use tvm_ffi::reflection::FieldGetter;
 /// use tvm_tirx::target::Target;
 /// use tvm_tirx::tirx::tile::DispatchContext;
 /// use tvm_tirx::tirx::ThreadScope;
-/// use tvm_tirx::tvm_ffi::Map;
+/// use tvm_tirx::tvm_ffi::{EnumRef, Map};
 ///
 /// let tx = PrimVar::new("tx", PrimType::int(32), UNKNOWN_LOC);
 /// let ctx = DispatchContext::new(

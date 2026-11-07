@@ -30,7 +30,7 @@ use crate::common::{global, serial};
 #[test]
 fn memory_axes() {
     let _serial = serial();
-    let m = Axis::get("m");
+    let m = Axis::get_or_register("m");
     assert!(m.is_memory().unwrap() && !m.is_thread().unwrap());
     assert!(m.backend().unwrap().is_none());
     assert!(m.get_scope().unwrap().is_none());
@@ -73,7 +73,7 @@ fn layouts() {
 fn thread_layout_scope() {
     let _serial = serial();
     global("tirx.cuda.RegisterLayoutAxes").call_tuple(()).unwrap();
-    let laneid = Axis::get("laneid");
+    let laneid = Axis::get_or_register("laneid");
     let lanes =
         TileLayout::new([Iter::new(int32(32), int32(1), laneid)], Vec::<Iter>::new(), &Map::new());
     let (inner, outer) = lanes.get_scope().unwrap().unwrap();
