@@ -27,11 +27,9 @@ use std::fmt::Display;
 use std::rc::Rc;
 use std::thread::LocalKey;
 
-use tvm_ffi::tvm_ffi_sys::{TVMFFIFieldFlagBitMask, TVMFFIGetTypeInfo};
 use tvm_ffi::{
     Any, DLDataType, DLDataTypeCode, DLDataTypeExt, Error, ErrorKind, Result, INTERNAL_ERROR,
 };
-
 use tvm_ffi::reflection::NativeFunction;
 
 use super::{Op, OpAttrMap, OpObj, PrimType};
@@ -108,29 +106,6 @@ pub(crate) fn compare_failed(
 /// A dtype as error messages print it, such as `int32`.
 pub(crate) fn dtype_name(dtype: DLDataType) -> std::string::String {
     dtype.to_string()
-}
-
-/// The default value the reflection of the type of `type_index` registers for its own field
-/// `name`, or `None` when it registers none or a factory.
-pub(crate) fn field_default(type_index: i32, name: &str) -> Option<Any> {
-    use TVMFFIFieldFlagBitMask::*;
-    // SAFETY: the type information of a registered type is static, and its `num_fields` fields
-    // are initialized.
-    let field = unsafe {
-        let info = &*TVMFFIGetTypeInfo(type_index);
-        let fields = std::slice::from_raw_parts(info.fields, info.num_fields as usize);
-        fields.iter().find(|field| field.name.as_str() == name)?
-    };
-    let has_default = field.flags & kTVMFFIFieldFlagBitMaskHasDefault as i64 != 0;
-    let from_factory = field.flags & kTVMFFIFieldFlagBitMaskDefaultFromFactory as i64 != 0;
-    if !has_default || from_factory {
-        return None;
-    }
-    // SAFETY: the registry owns the default value; it is copied, never released.
-    let value = std::mem::ManuallyDrop::new(unsafe {
-        Any::from_raw_ffi_any(field.default_value_or_factory)
-    });
-    Some((*value).clone())
 }
 
 /// A double as C++ `std::ostream` prints it by default: `%g`, six significant digits.

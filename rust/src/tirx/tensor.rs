@@ -33,7 +33,6 @@
 // tvm-ffi-stubgen(import-object): tvm_ffi::AnyView
 // tvm-ffi-stubgen(import-object): tvm_ffi::ObjectCore
 // tvm-ffi-stubgen(import-object): tvm_ffi::Result
-// tvm-ffi-stubgen(import-object): crate::ir::support
 // tvm-ffi-stubgen(import-object): crate::ir::sig
 // tvm-ffi-stubgen(import-object): crate::ir::expr::IntoExpr
 // tvm-ffi-stubgen(import-object): crate::ir::expr::PrimExpr
@@ -51,7 +50,6 @@ use crate::ir::r#type::PrimType;
 use crate::ir::r#type::Type;
 use crate::ir::r#type::TypeObj;
 use crate::ir::sig;
-use crate::ir::support;
 use crate::runtime::MemoryScope;
 use crate::sym::analyzer::Analyzer;
 use crate::tirx::layout::Layout;
@@ -244,7 +242,7 @@ fn alloc_alignment() -> Result<i32> {
     if let Some(alignment) = ALLOC_ALIGNMENT.get() {
         return Ok(*alignment);
     }
-    let Some(default) = support::field_default(TensorTypeObj::type_index(), "data_alignment")
+    let Some(default) = tvm_ffi::reflection::field_default::<TensorTypeObj>("data_alignment")
     else {
         let message = "tirx.TensorType registers no default data_alignment";
         return Err(tvm_ffi::Error::new(tvm_ffi::INTERNAL_ERROR, message, ""));
