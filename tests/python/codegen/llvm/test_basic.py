@@ -1191,44 +1191,62 @@ def test_masked_load_non_unit_stride():
 
 
 @pytest.mark.skipif(not env.has_llvm(), reason="need llvm")
-@pytest.mark.parametrize("n", [0, 1, 2])
-def test_masked_load_non_unit_stride_values(n):
+@pytest.mark.parametrize("start, end", [(0, 0), (0, 1), (1, 2), (0, 2)])
+def test_masked_load_non_unit_stride_values(start, end):
     @I.ir_module
     class Module:
         @T.function
-        def main(A: T.Tensor((3,), "float32"), B: T.Tensor((2,), "float32"), n: T.int32):
+        def main(
+            A: T.Tensor((3,), "float32"),
+            B: T.Tensor((2,), "float32"),
+            start: T.int32,
+            end: T.int32,
+        ):
             B[T.Ramp(0, 1, 2)] = T.call_intrin(
                 "tirx.masked_load",
                 A,
                 T.Ramp(0, 2, 2),
-                T.Ramp(0, 1, 2) < T.Broadcast(n, 2),
+                (T.Ramp(0, 1, 2) >= T.Broadcast(start, 2))
+                & (T.Ramp(0, 1, 2) < T.Broadcast(end, 2)),
                 ty="float32x2",
             )
 
     f = tvm_tirx.compile(Module, target="llvm")
     a = tvm_tirx.runtime.tensor(np.array([1.0, 2.0, 3.0], dtype="float32"))
     b = tvm_tirx.runtime.tensor(np.full(2, -1.0, dtype="float32"))
-    f(a, b, n)
+    f(a, b, start, end)
     # Inactive lanes are poison, so only the active ones are checked.
-    np.testing.assert_array_equal(b.numpy()[:n], [1.0, 3.0][:n])
+    np.testing.assert_array_equal(b.numpy()[start:end], [1.0, 3.0][start:end])
 
 
 @pytest.mark.skipif(not env.has_llvm(), reason="need llvm")
 @pytest.mark.parametrize(
-    "n, expected", [(0, [-1.0, -1.0, -1.0]), (1, [1.0, -1.0, -1.0]), (2, [1.0, -1.0, 2.0])]
+    "start, end, expected",
+    [
+        (0, 0, [-1.0, -1.0, -1.0]),
+        (0, 1, [1.0, -1.0, -1.0]),
+        (1, 2, [-1.0, -1.0, 2.0]),
+        (0, 2, [1.0, -1.0, 2.0]),
+    ],
 )
-def test_masked_store_non_unit_stride(n, expected):
+def test_masked_store_non_unit_stride(start, end, expected):
     @I.ir_module
     class Module:
         @T.function
-        def main(A: T.Tensor((2,), "float32"), B: T.Tensor((3,), "float32"), n: T.int32):
+        def main(
+            A: T.Tensor((2,), "float32"),
+            B: T.Tensor((3,), "float32"),
+            start: T.int32,
+            end: T.int32,
+        ):
             T.evaluate(
                 T.call_intrin(
                     "tirx.masked_store",
                     B,
                     A[T.Ramp(0, 1, 2)],
                     T.Ramp(0, 2, 2),
-                    T.Ramp(0, 1, 2) < T.Broadcast(n, 2),
+                    (T.Ramp(0, 1, 2) >= T.Broadcast(start, 2))
+                    & (T.Ramp(0, 1, 2) < T.Broadcast(end, 2)),
                     ty="void",
                 )
             )
@@ -1236,7 +1254,7 @@ def test_masked_store_non_unit_stride(n, expected):
     f = tvm_tirx.compile(Module, target="llvm")
     a = tvm_tirx.runtime.tensor(np.array([1.0, 2.0], dtype="float32"))
     b = tvm_tirx.runtime.tensor(np.full(3, -1.0, dtype="float32"))
-    f(a, b, n)
+    f(a, b, start, end)
     np.testing.assert_array_equal(b.numpy(), expected)
 
 
