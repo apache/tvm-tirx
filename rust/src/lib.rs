@@ -99,8 +99,8 @@
 //! ```
 //!
 //! A type extends [`ir::TypeObj`]; its fields are reflected, so the native compiler, Python and
-//! the TVMScript printer see them. The generated code names `tvm_ffi`, which `use tvm_tirx::tvm_ffi` brings into
-//! scope.
+//! the TVMScript printer see them. The generated code names `tvm_ffi`, which
+//! `use tvm_tirx::tvm_ffi` brings into scope.
 //!
 //! ```
 //! use tvm_tirx::ir::{PrimType, Type, TypeObj, UNKNOWN_LOC};
