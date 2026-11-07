@@ -17,6 +17,7 @@
  * under the License.
  */
 
-//! Backend-specific objects, such as the attributes of CUDA instructions in [`cuda`].
+//! Backends. Each submodule holds the objects of one backend, such as the attributes of the CUDA
+//! instructions in [`cuda`].
 
 pub mod cuda;

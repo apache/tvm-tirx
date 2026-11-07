@@ -23,9 +23,9 @@
 /// The type, a module-scope path to a reference wrapper implementing `Clone` and
 /// `Into<PrimExpr>`, gets the operators `+`, `-`, `*`, `&`, `|`, `^`, `<<`, `>>`, unary `-` and `!`
 /// and [`PrimOps`](crate::ir::prim::PrimOps), all returning an
-/// [`ExprResult`](crate::ir::prim::ExprResult). As the C++ operators take a `PrimExpr`, the type
-/// is one: an upcast to [`PrimExpr`](crate::ir::PrimExpr) declares that every value of it is typed
-/// by a `PrimType`.
+/// [`ExprResult`](crate::ir::prim::ExprResult). The operators take [`PrimExpr`](crate::ir::PrimExpr)
+/// operands, so the type must convert into one: its upcast to `PrimExpr` declares that every value
+/// of it is typed by a `PrimType`.
 ///
 /// # Examples
 ///

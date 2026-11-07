@@ -17,26 +17,9 @@
  * under the License.
  */
 
-//! Compilation targets.
-//!
-//! A [`Target`] has a [`TargetKind`], keys, attributes and an optional host. It is created from a
-//! tag, a kind name or a config, and made the current target with [`Target::scope`].
-//!
-//! # Examples
-//!
-//! ```
-//! use tvm_tirx::target::Target;
-//! use tvm_tirx::tvm_ffi::ObjectRefCore;
-//!
-//! let cpu = Target::new(r#"{"kind": "llvm", "mcpu": "skylake"}"#)?;
-//! assert!(cpu.as_json()?.as_str().contains(r#""keys":["cpu"]"#));
-//!
-//! let scope = cpu.scope()?;
-//! assert!(Target::current(false)?.unwrap().same_as(&cpu));
-//! drop(scope);
-//! assert!(Target::current(true)?.is_none());
-//! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
-//! ```
+//! Compilation targets. A [`Target`] describes the device and options code is compiled for, as an
+//! instance of a registered [`TargetKind`]; it is created from a tag, a kind name or a config, and
+//! [`Target::scope`] makes it the current one.
 
 // tvm-ffi-stubgen(missing-docs): allow
 // Every object registered under `target` has its block in this file.
@@ -61,6 +44,25 @@ use tvm_ffi::String;
 use tvm_ffi::object::ObjectRef;
 // tvm-ffi-stubgen(end)
 
+/// A compilation target: its `kind`, the `keys` that classify it, such as `cpu`, the `attrs` of
+/// its options, and an optional `host` target for the code that runs on the host. A target may come
+/// from a registered `tag`, such as `nvidia/nvidia-a100`.
+///
+/// # Examples
+///
+/// ```
+/// use tvm_tirx::target::Target;
+/// use tvm_tirx::tvm_ffi::ObjectRefCore;
+///
+/// let cpu = Target::new(r#"{"kind": "llvm", "mcpu": "skylake"}"#)?;
+/// assert!(cpu.as_json()?.as_str().contains(r#""keys":["cpu"]"#));
+///
+/// let scope = cpu.scope()?;
+/// assert!(Target::current(false)?.unwrap().same_as(&cpu));
+/// drop(scope);
+/// assert!(Target::current(true)?.is_none());
+/// # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
+/// ```
 // tvm-ffi-stubgen(begin): object/target.Target
 #[allow(missing_docs)]
 #[repr(C)]
@@ -201,6 +203,8 @@ impl Drop for TargetScope {
     }
 }
 
+/// A kind of target, such as `llvm` or `cuda`: its `name`, the options it takes, and the device
+/// type and keys of its targets by default.
 // tvm-ffi-stubgen(begin): object/target.TargetKind
 #[allow(missing_docs)]
 #[repr(C)]

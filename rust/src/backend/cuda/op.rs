@@ -21,10 +21,9 @@
 // The generated constructors take one argument per reflected field.
 #![allow(clippy::too_many_arguments)]
 
-//! The attributes of CUDA instructions.
-//!
-//! [`TCGen05InstrDescriptorAttrs`] and [`TCGen05InstrDescriptorBlockScaledAttrs`] describe a
-//! `tcgen05` instruction descriptor, and [`TensorMapEncodeTiledAttr`] a tiled tensor-map encoding.
+//! Attributes of CUDA instructions. [`TCGen05InstrDescriptorAttrs`] and
+//! [`TCGen05InstrDescriptorBlockScaledAttrs`] are the static options of a `tcgen05` instruction
+//! descriptor, and [`TensorMapEncodeTiledAttr`] those of a tiled tensor-map encoding.
 
 // tvm-ffi-stubgen(missing-docs): allow
 
@@ -37,6 +36,10 @@ use tvm_ffi::ObjectArc;
 use tvm_ffi::String;
 // tvm-ffi-stubgen(end)
 
+/// The static options of a dense `tcgen05` instruction descriptor, which
+/// `tirx.cuda.tcgen05_encode_instr_descriptor` encodes: the data types of the result `d_dtype` and
+/// the operands `a_dtype` and `b_dtype`, the shape `M` x `N` x `K`, the operand transposes, the
+/// number of CTA groups, operand negation, result saturation `sat_d` and sparsity.
 // tvm-ffi-stubgen(begin): object/tirx.cuda.TCGen05InstrDescriptorAttrs
 #[allow(missing_docs)]
 #[repr(C)]
@@ -164,6 +167,10 @@ unsafe impl tvm_ffi::object::ImmutableObject for TCGen05InstrDescriptorAttrsObj 
 tvm_ffi::unsafe_impl_object_ref_upcast!(TCGen05InstrDescriptorAttrs => Attrs);
 // tvm-ffi-stubgen(end)
 
+/// The static options of a block-scaled `tcgen05` instruction descriptor, which
+/// `tirx.cuda.tcgen05_encode_instr_descriptor_block_scaled` encodes: those of
+/// [`TCGen05InstrDescriptorAttrs`] but saturation, and the data types of the scale factors
+/// `sfa_dtype` and `sfb_dtype`.
 // tvm-ffi-stubgen(begin): object/tirx.cuda.TCGen05InstrDescriptorBlockScaledAttrs
 #[allow(missing_docs)]
 #[repr(C)]
@@ -296,6 +303,9 @@ unsafe impl tvm_ffi::object::ImmutableObject for TCGen05InstrDescriptorBlockScal
 tvm_ffi::unsafe_impl_object_ref_upcast!(TCGen05InstrDescriptorBlockScaledAttrs => Attrs);
 // tvm-ffi-stubgen(end)
 
+/// The fixed options of a `tirx.cuda.tensormap_encode_tiled` call, which encodes a tiled tensor map
+/// at run time: the `descriptor_dtype` and `rank` of the tensor, and its interleave, swizzle, L2
+/// promotion, out-of-bounds fill and data-type options.
 // tvm-ffi-stubgen(begin): object/tirx.cuda.TensorMapEncodeTiledAttr
 #[allow(missing_docs)]
 #[repr(C)]
