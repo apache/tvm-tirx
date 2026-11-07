@@ -44,6 +44,7 @@
 #include <vector>
 
 #include "../../../codegen/build_common.h"
+#include "../../../codegen/min_max_utils.h"
 #include "cuda_fallback_module.h"
 #include "literal/cuda_half_t.h"
 #include "literal/cuda_int8_t.h"
@@ -80,15 +81,6 @@ TVM_FFI_INLINE bool IsFloat4(const PrimType& ty) {
 TVM_FFI_INLINE bool IsPackedFloat(const PrimType& ty) {
   return IsFloat8(ty) || IsFloat6(ty) || IsFloat4(ty);
 }
-
-// Constant-operand classification for min/max, the same classification as
-// the host side's min_max_utils.h (#31), scalar FloatImm only here. A
-// constant NaN lhs is the result (the rhs is still bound and evaluated); a
-// constant NaN rhs keeps the lhs on any comparison outcome; a constant
-// non-NaN operand lets the ternary skip its NaN clause (an ordered compare
-// against a constant is never NaN). A vector constant (Broadcast of a
-// FloatImm) takes the general per-lane path.
-TVM_FFI_INLINE const FloatImmObj* AsFloatImm(const PrimExpr& e) { return e.as<FloatImmObj>(); }
 
 // NaN-preserving min/max is emitted for float, half and bfloat16: the C
 // ternary below keeps the NaN operand instead of discarding it (apache/tvm
@@ -790,19 +782,20 @@ void CodeGenCUDA::PrintMinMaxNanPreservingImpl(const T* op, const char* opstr,
   int ssa_scope = BeginScope();
   std::string va = PrintExprToSSA(op->a);
   std::string vb = PrintExprToSSA(op->b);
-  const FloatImmObj* ca = AsFloatImm(op->a);
-  const FloatImmObj* cb = AsFloatImm(op->b);
-  if (ca != nullptr && std::isnan(ca->value)) {
+  // classification shared with the host side (min_max_utils.h)
+  FloatNaNStatus ca = GetFloatNaNStatus(op->a);
+  FloatNaNStatus cb = GetFloatNaNStatus(op->b);
+  if (ca == FloatNaNStatus::kKnownNaN) {
     // a constant NaN lhs is the result; the rhs stays bound above.
     os << va;
-  } else if (ca != nullptr) {
+  } else if (ca == FloatNaNStatus::kKnownNotNaN) {
     // lhs is a constant non-NaN: ordered compare, b's NaN makes the compare
     // false and b is kept.
     os << "((" << va << ' ' << cmp << ' ' << vb << ") ? " << va << " : " << vb << ')';
-  } else if (cb != nullptr && std::isnan(cb->value)) {
+  } else if (cb == FloatNaNStatus::kKnownNaN) {
     // rhs is a constant NaN: keep a on any comparison outcome.
     os << "((" << va << " != " << va << ") ? " << va << " : " << vb << ')';
-  } else if (cb != nullptr) {
+  } else if (cb == FloatNaNStatus::kKnownNotNaN) {
     // rhs is a constant non-NaN: reverse to a non-strict compare so a's NaN
     // makes the compare false and a is kept; ties take b.
     const char* rcmp = (cmp[0] == '<') ? ">=" : "<=";
