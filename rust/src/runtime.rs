@@ -38,6 +38,7 @@
 //! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
 //! ```
 
+// tvm-ffi-stubgen(missing-docs): allow
 // No `prefix`: only the objects with a block below are bound, not all of `runtime`.
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
@@ -73,6 +74,7 @@ struct FfiEnumObj {
 // `ir.PtrType.storage_scope` refers to this type.
 // tvm-ffi-stubgen(begin): object/runtime.MemoryScope
 /// Opaque: parent 'ffi.Enum' is opaque (no-mirror). Fields are read through the C ABI getters.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "runtime.MemoryScope"]
@@ -81,6 +83,7 @@ pub struct MemoryScopeObj {
     base: FfiEnumObj,
 }
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct MemoryScope {

@@ -34,6 +34,7 @@
 //! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
 //! ```
 
+// tvm-ffi-stubgen(missing-docs): allow
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
 // tvm-ffi-stubgen(import-object): tvm_ffi::Result
@@ -50,6 +51,7 @@ use tvm_ffi::String;
 
 // tvm-ffi-stubgen(begin): object/ir.UniqueNameSupply
 /// Opaque: bytes [24, 64) of [24, 64) are not accounted for by reflected fields. Fields are read through the C ABI getters.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.UniqueNameSupply"]
@@ -58,6 +60,7 @@ pub struct UniqueNameSupplyObj {
     base: Object,
 }
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct UniqueNameSupply {

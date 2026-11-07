@@ -47,6 +47,7 @@
 //! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
 //! ```
 
+// tvm-ffi-stubgen(missing-docs): allow
 // An object registered under `ir` that no file has a block for yet is generated here, to be moved
 // to the file of the Python module that defines it.
 // tvm-ffi-stubgen(prefix): ir

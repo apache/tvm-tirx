@@ -39,6 +39,7 @@
 //! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
 //! ```
 
+// tvm-ffi-stubgen(missing-docs): allow
 // `ir.Op` has three unreflected members, so its complete layout is hand-written below.
 // tvm-ffi-stubgen(ty-map): ir.Op -> crate::ir::op::Op
 // Names the hand-written `Op` binding uses: the import section keeps them even when no
@@ -263,6 +264,7 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(Op => Expr);
 
 // tvm-ffi-stubgen(begin): object/ir.ArgumentInfo
 /// Complete: reflected fields fill [24, 56) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.ArgumentInfo"]
@@ -278,12 +280,14 @@ const _: () = {
     assert!(::core::mem::align_of::<ArgumentInfoObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct ArgumentInfo {
     base: ObjectArc<ArgumentInfoObj>,
 }
 
+#[allow(missing_docs)]
 impl ArgumentInfoObj {
     pub(crate) fn new(name: String, doc: String) -> Self {
         let base = Object::new();
@@ -291,6 +295,7 @@ impl ArgumentInfoObj {
     }
 }
 
+#[allow(missing_docs)]
 impl ArgumentInfo {
     /// Lossless complete-field allocation.
     pub fn new(name: impl Into<String>, doc: impl Into<String>) -> Self {

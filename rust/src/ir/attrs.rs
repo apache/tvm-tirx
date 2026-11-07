@@ -40,6 +40,8 @@
 //! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
 //! ```
 
+// tvm-ffi-stubgen(missing-docs): allow
+
 // tvm-ffi-stubgen(begin): import-section
 use std::ops::Deref;
 use std::ptr::addr_of_mut;
@@ -54,6 +56,7 @@ use tvm_ffi::UnsafeInit;
 
 // tvm-ffi-stubgen(begin): object/ir.Attrs
 /// Complete: reflected fields fill [24, 24) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.Attrs"]
@@ -66,12 +69,14 @@ const _: () = {
     assert!(::core::mem::align_of::<AttrsObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct Attrs {
     base: ObjectArc<AttrsObj>,
 }
 
+#[allow(missing_docs)]
 impl AttrsObj {
     pub fn new() -> Self {
         let base = Object::new();
@@ -79,6 +84,7 @@ impl AttrsObj {
     }
 }
 
+#[allow(missing_docs)]
 impl Attrs {
     /// Lossless complete-field allocation.
     pub fn new() -> Self {
@@ -106,6 +112,7 @@ unsafe impl tvm_ffi::object::ImmutableObject for AttrsObj {}
 
 // tvm-ffi-stubgen(begin): object/ir.DictAttrs
 /// Complete: reflected fields fill [24, 32) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.DictAttrs"]
@@ -120,6 +127,7 @@ const _: () = {
     assert!(::core::mem::align_of::<DictAttrsObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct DictAttrs {
@@ -133,6 +141,7 @@ impl Deref for DictAttrsObj {
     }
 }
 
+#[allow(missing_docs)]
 impl DictAttrsObj {
     pub(crate) fn new(dict: Map<String, Any>) -> Self {
         let base = AttrsObj::new();
@@ -140,6 +149,7 @@ impl DictAttrsObj {
     }
 }
 
+#[allow(missing_docs)]
 impl DictAttrs {
     /// Lossless complete-field allocation.
     pub fn new(dict: impl Into<Map<String, Any>>) -> Self {

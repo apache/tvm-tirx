@@ -25,6 +25,7 @@
 //! [`ScopeAttrs`] holds the thread scope of an instruction and [`TrnAttrs`] the scope and options
 //! of a Trainium (`trn`) instruction; their type keys are `tirx.tensor.*`.
 
+// tvm-ffi-stubgen(missing-docs): allow
 // Every object registered under `tirx.tensor` has its block in this file.
 // tvm-ffi-stubgen(prefix): tirx.tensor
 
@@ -58,6 +59,7 @@ use tvm_ffi::String;
 
 // tvm-ffi-stubgen(begin): object/tirx.tensor.ScopeAttrs
 /// Complete: reflected fields fill [24, 32) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "tirx.tensor.ScopeAttrs"]
@@ -72,6 +74,7 @@ const _: () = {
     assert!(::core::mem::align_of::<ScopeAttrsObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct ScopeAttrs {
@@ -85,6 +88,7 @@ impl Deref for ScopeAttrsObj {
     }
 }
 
+#[allow(missing_docs)]
 impl ScopeAttrsObj {
     pub(crate) fn new(scope: ThreadScope) -> Self {
         let base = AttrsObj::new();
@@ -92,6 +96,7 @@ impl ScopeAttrsObj {
     }
 }
 
+#[allow(missing_docs)]
 impl ScopeAttrs {
     /// Lossless complete-field allocation.
     pub fn new(scope: impl Into<ThreadScope>) -> Self {
@@ -107,6 +112,7 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(ScopeAttrs => Attrs);
 
 // tvm-ffi-stubgen(begin): object/tirx.tensor.TrnAttrs
 /// Complete: reflected fields fill [24, 128) exactly (alignment padding [122, 128)).
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "tirx.tensor.TrnAttrs"]
@@ -129,6 +135,7 @@ const _: () = {
     assert!(::core::mem::align_of::<TrnAttrsObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct TrnAttrs {
@@ -142,6 +149,7 @@ impl Deref for TrnAttrsObj {
     }
 }
 
+#[allow(missing_docs)]
 impl TrnAttrsObj {
     pub(crate) fn new(
         scope: ThreadScope,
@@ -159,6 +167,7 @@ impl TrnAttrsObj {
     }
 }
 
+#[allow(missing_docs)]
 impl TrnAttrs {
     /// Lossless complete-field allocation.
     pub fn new(

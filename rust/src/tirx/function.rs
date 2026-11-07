@@ -41,6 +41,7 @@
 //! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
 //! ```
 
+// tvm-ffi-stubgen(missing-docs): allow
 // `custom-new` reserves `new` for a constructor with the C++ one's semantics (`ty` derived from the
 // signature); the generated `from_fields` allocates the fields as given.
 // tvm-ffi-stubgen(custom-new): tirx.Function
@@ -76,6 +77,7 @@ use tvm_ffi::Result;
 
 // tvm-ffi-stubgen(begin): object/tirx.Function
 /// Complete: reflected fields fill [48, 72) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "tirx.Function"]
@@ -92,6 +94,7 @@ const _: () = {
     assert!(::core::mem::align_of::<FunctionObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct Function {
@@ -105,6 +108,7 @@ impl Deref for FunctionObj {
     }
 }
 
+#[allow(missing_docs)]
 impl FunctionObj {
     pub(crate) fn new(
         loc: Location,
@@ -119,6 +123,7 @@ impl FunctionObj {
     }
 }
 
+#[allow(missing_docs)]
 impl Function {
     /// Lossless complete-field allocation.
     pub fn from_fields(

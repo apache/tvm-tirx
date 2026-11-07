@@ -41,6 +41,7 @@
 //! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
 //! ```
 
+// tvm-ffi-stubgen(missing-docs): allow
 // `custom-new` reserves `new` for a constructor with the C++ one's semantics (operand type checks
 // and the derived result type); the generated `from_fields` allocates the fields as given.
 // tvm-ffi-stubgen(custom-new): prim.Cast
@@ -243,6 +244,7 @@ macro_rules! binary_new {
 
 // tvm-ffi-stubgen(begin): object/prim.Cast
 /// Complete: reflected fields fill [40, 48) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "prim.Cast"]
@@ -257,6 +259,7 @@ const _: () = {
     assert!(::core::mem::align_of::<CastObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct Cast {
@@ -270,6 +273,7 @@ impl Deref for CastObj {
     }
 }
 
+#[allow(missing_docs)]
 impl CastObj {
     pub(crate) fn new(loc: Location, ty: PrimType, value: PrimExpr) -> Self {
         let base = ExprObj::new(loc, ty.into());
@@ -277,6 +281,7 @@ impl CastObj {
     }
 }
 
+#[allow(missing_docs)]
 impl Cast {
     /// Lossless complete-field allocation.
     pub fn from_fields(
@@ -322,6 +327,7 @@ impl Cast {
 
 // tvm-ffi-stubgen(begin): object/prim.LShift
 /// Complete: reflected fields fill [40, 56) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "prim.LShift"]
@@ -337,6 +343,7 @@ const _: () = {
     assert!(::core::mem::align_of::<LShiftObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct LShift {
@@ -350,6 +357,7 @@ impl Deref for LShiftObj {
     }
 }
 
+#[allow(missing_docs)]
 impl LShiftObj {
     pub(crate) fn new(loc: Location, ty: PrimType, a: PrimExpr, b: PrimExpr) -> Self {
         let base = ExprObj::new(loc, ty.into());
@@ -357,6 +365,7 @@ impl LShiftObj {
     }
 }
 
+#[allow(missing_docs)]
 impl LShift {
     /// Lossless complete-field allocation.
     pub fn from_fields(
@@ -383,6 +392,7 @@ binary_new! {
 
 // tvm-ffi-stubgen(begin): object/prim.RShift
 /// Complete: reflected fields fill [40, 56) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "prim.RShift"]
@@ -398,6 +408,7 @@ const _: () = {
     assert!(::core::mem::align_of::<RShiftObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct RShift {
@@ -411,6 +422,7 @@ impl Deref for RShiftObj {
     }
 }
 
+#[allow(missing_docs)]
 impl RShiftObj {
     pub(crate) fn new(loc: Location, ty: PrimType, a: PrimExpr, b: PrimExpr) -> Self {
         let base = ExprObj::new(loc, ty.into());
@@ -418,6 +430,7 @@ impl RShiftObj {
     }
 }
 
+#[allow(missing_docs)]
 impl RShift {
     /// Lossless complete-field allocation.
     pub fn from_fields(
@@ -444,6 +457,7 @@ binary_new! {
 
 // tvm-ffi-stubgen(begin): object/prim.BitwiseAnd
 /// Complete: reflected fields fill [40, 56) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "prim.BitwiseAnd"]
@@ -459,6 +473,7 @@ const _: () = {
     assert!(::core::mem::align_of::<BitwiseAndObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct BitwiseAnd {
@@ -472,6 +487,7 @@ impl Deref for BitwiseAndObj {
     }
 }
 
+#[allow(missing_docs)]
 impl BitwiseAndObj {
     pub(crate) fn new(loc: Location, ty: PrimType, a: PrimExpr, b: PrimExpr) -> Self {
         let base = ExprObj::new(loc, ty.into());
@@ -479,6 +495,7 @@ impl BitwiseAndObj {
     }
 }
 
+#[allow(missing_docs)]
 impl BitwiseAnd {
     /// Lossless complete-field allocation.
     pub fn from_fields(
@@ -505,6 +522,7 @@ binary_new! {
 
 // tvm-ffi-stubgen(begin): object/prim.BitwiseOr
 /// Complete: reflected fields fill [40, 56) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "prim.BitwiseOr"]
@@ -520,6 +538,7 @@ const _: () = {
     assert!(::core::mem::align_of::<BitwiseOrObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct BitwiseOr {
@@ -533,6 +552,7 @@ impl Deref for BitwiseOrObj {
     }
 }
 
+#[allow(missing_docs)]
 impl BitwiseOrObj {
     pub(crate) fn new(loc: Location, ty: PrimType, a: PrimExpr, b: PrimExpr) -> Self {
         let base = ExprObj::new(loc, ty.into());
@@ -540,6 +560,7 @@ impl BitwiseOrObj {
     }
 }
 
+#[allow(missing_docs)]
 impl BitwiseOr {
     /// Lossless complete-field allocation.
     pub fn from_fields(
@@ -566,6 +587,7 @@ binary_new! {
 
 // tvm-ffi-stubgen(begin): object/prim.BitwiseXor
 /// Complete: reflected fields fill [40, 56) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "prim.BitwiseXor"]
@@ -581,6 +603,7 @@ const _: () = {
     assert!(::core::mem::align_of::<BitwiseXorObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct BitwiseXor {
@@ -594,6 +617,7 @@ impl Deref for BitwiseXorObj {
     }
 }
 
+#[allow(missing_docs)]
 impl BitwiseXorObj {
     pub(crate) fn new(loc: Location, ty: PrimType, a: PrimExpr, b: PrimExpr) -> Self {
         let base = ExprObj::new(loc, ty.into());
@@ -601,6 +625,7 @@ impl BitwiseXorObj {
     }
 }
 
+#[allow(missing_docs)]
 impl BitwiseXor {
     /// Lossless complete-field allocation.
     pub fn from_fields(
@@ -627,6 +652,7 @@ binary_new! {
 
 // tvm-ffi-stubgen(begin): object/prim.BitwiseNot
 /// Complete: reflected fields fill [40, 48) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "prim.BitwiseNot"]
@@ -641,6 +667,7 @@ const _: () = {
     assert!(::core::mem::align_of::<BitwiseNotObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct BitwiseNot {
@@ -654,6 +681,7 @@ impl Deref for BitwiseNotObj {
     }
 }
 
+#[allow(missing_docs)]
 impl BitwiseNotObj {
     pub(crate) fn new(loc: Location, ty: PrimType, a: PrimExpr) -> Self {
         let base = ExprObj::new(loc, ty.into());
@@ -661,6 +689,7 @@ impl BitwiseNotObj {
     }
 }
 
+#[allow(missing_docs)]
 impl BitwiseNot {
     /// Lossless complete-field allocation.
     pub fn from_fields(
@@ -703,6 +732,7 @@ impl BitwiseNot {
 
 // tvm-ffi-stubgen(begin): object/prim.Add
 /// Complete: reflected fields fill [40, 56) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "prim.Add"]
@@ -718,6 +748,7 @@ const _: () = {
     assert!(::core::mem::align_of::<AddObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct Add {
@@ -731,6 +762,7 @@ impl Deref for AddObj {
     }
 }
 
+#[allow(missing_docs)]
 impl AddObj {
     pub(crate) fn new(loc: Location, ty: PrimType, a: PrimExpr, b: PrimExpr) -> Self {
         let base = ExprObj::new(loc, ty.into());
@@ -738,6 +770,7 @@ impl AddObj {
     }
 }
 
+#[allow(missing_docs)]
 impl Add {
     /// Lossless complete-field allocation.
     pub fn from_fields(
@@ -763,6 +796,7 @@ binary_new! {
 
 // tvm-ffi-stubgen(begin): object/prim.Sub
 /// Complete: reflected fields fill [40, 56) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "prim.Sub"]
@@ -778,6 +812,7 @@ const _: () = {
     assert!(::core::mem::align_of::<SubObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct Sub {
@@ -791,6 +826,7 @@ impl Deref for SubObj {
     }
 }
 
+#[allow(missing_docs)]
 impl SubObj {
     pub(crate) fn new(loc: Location, ty: PrimType, a: PrimExpr, b: PrimExpr) -> Self {
         let base = ExprObj::new(loc, ty.into());
@@ -798,6 +834,7 @@ impl SubObj {
     }
 }
 
+#[allow(missing_docs)]
 impl Sub {
     /// Lossless complete-field allocation.
     pub fn from_fields(
@@ -823,6 +860,7 @@ binary_new! {
 
 // tvm-ffi-stubgen(begin): object/prim.Mul
 /// Complete: reflected fields fill [40, 56) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "prim.Mul"]
@@ -838,6 +876,7 @@ const _: () = {
     assert!(::core::mem::align_of::<MulObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct Mul {
@@ -851,6 +890,7 @@ impl Deref for MulObj {
     }
 }
 
+#[allow(missing_docs)]
 impl MulObj {
     pub(crate) fn new(loc: Location, ty: PrimType, a: PrimExpr, b: PrimExpr) -> Self {
         let base = ExprObj::new(loc, ty.into());
@@ -858,6 +898,7 @@ impl MulObj {
     }
 }
 
+#[allow(missing_docs)]
 impl Mul {
     /// Lossless complete-field allocation.
     pub fn from_fields(
@@ -883,6 +924,7 @@ binary_new! {
 
 // tvm-ffi-stubgen(begin): object/prim.Div
 /// Complete: reflected fields fill [40, 56) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "prim.Div"]
@@ -898,6 +940,7 @@ const _: () = {
     assert!(::core::mem::align_of::<DivObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct Div {
@@ -911,6 +954,7 @@ impl Deref for DivObj {
     }
 }
 
+#[allow(missing_docs)]
 impl DivObj {
     pub(crate) fn new(loc: Location, ty: PrimType, a: PrimExpr, b: PrimExpr) -> Self {
         let base = ExprObj::new(loc, ty.into());
@@ -918,6 +962,7 @@ impl DivObj {
     }
 }
 
+#[allow(missing_docs)]
 impl Div {
     /// Lossless complete-field allocation.
     pub fn from_fields(
@@ -943,6 +988,7 @@ binary_new! {
 
 // tvm-ffi-stubgen(begin): object/prim.Mod
 /// Complete: reflected fields fill [40, 56) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "prim.Mod"]
@@ -958,6 +1004,7 @@ const _: () = {
     assert!(::core::mem::align_of::<ModObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct Mod {
@@ -971,6 +1018,7 @@ impl Deref for ModObj {
     }
 }
 
+#[allow(missing_docs)]
 impl ModObj {
     pub(crate) fn new(loc: Location, ty: PrimType, a: PrimExpr, b: PrimExpr) -> Self {
         let base = ExprObj::new(loc, ty.into());
@@ -978,6 +1026,7 @@ impl ModObj {
     }
 }
 
+#[allow(missing_docs)]
 impl Mod {
     /// Lossless complete-field allocation.
     pub fn from_fields(
@@ -1003,6 +1052,7 @@ binary_new! {
 
 // tvm-ffi-stubgen(begin): object/prim.FloorDiv
 /// Complete: reflected fields fill [40, 56) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "prim.FloorDiv"]
@@ -1018,6 +1068,7 @@ const _: () = {
     assert!(::core::mem::align_of::<FloorDivObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct FloorDiv {
@@ -1031,6 +1082,7 @@ impl Deref for FloorDivObj {
     }
 }
 
+#[allow(missing_docs)]
 impl FloorDivObj {
     pub(crate) fn new(loc: Location, ty: PrimType, a: PrimExpr, b: PrimExpr) -> Self {
         let base = ExprObj::new(loc, ty.into());
@@ -1038,6 +1090,7 @@ impl FloorDivObj {
     }
 }
 
+#[allow(missing_docs)]
 impl FloorDiv {
     /// Lossless complete-field allocation.
     pub fn from_fields(
@@ -1064,6 +1117,7 @@ binary_new! {
 
 // tvm-ffi-stubgen(begin): object/prim.FloorMod
 /// Complete: reflected fields fill [40, 56) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "prim.FloorMod"]
@@ -1079,6 +1133,7 @@ const _: () = {
     assert!(::core::mem::align_of::<FloorModObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct FloorMod {
@@ -1092,6 +1147,7 @@ impl Deref for FloorModObj {
     }
 }
 
+#[allow(missing_docs)]
 impl FloorModObj {
     pub(crate) fn new(loc: Location, ty: PrimType, a: PrimExpr, b: PrimExpr) -> Self {
         let base = ExprObj::new(loc, ty.into());
@@ -1099,6 +1155,7 @@ impl FloorModObj {
     }
 }
 
+#[allow(missing_docs)]
 impl FloorMod {
     /// Lossless complete-field allocation.
     pub fn from_fields(
@@ -1125,6 +1182,7 @@ binary_new! {
 
 // tvm-ffi-stubgen(begin): object/prim.Min
 /// Complete: reflected fields fill [40, 56) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "prim.Min"]
@@ -1140,6 +1198,7 @@ const _: () = {
     assert!(::core::mem::align_of::<MinObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct Min {
@@ -1153,6 +1212,7 @@ impl Deref for MinObj {
     }
 }
 
+#[allow(missing_docs)]
 impl MinObj {
     pub(crate) fn new(loc: Location, ty: PrimType, a: PrimExpr, b: PrimExpr) -> Self {
         let base = ExprObj::new(loc, ty.into());
@@ -1160,6 +1220,7 @@ impl MinObj {
     }
 }
 
+#[allow(missing_docs)]
 impl Min {
     /// Lossless complete-field allocation.
     pub fn from_fields(
@@ -1185,6 +1246,7 @@ binary_new! {
 
 // tvm-ffi-stubgen(begin): object/prim.Max
 /// Complete: reflected fields fill [40, 56) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "prim.Max"]
@@ -1200,6 +1262,7 @@ const _: () = {
     assert!(::core::mem::align_of::<MaxObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct Max {
@@ -1213,6 +1276,7 @@ impl Deref for MaxObj {
     }
 }
 
+#[allow(missing_docs)]
 impl MaxObj {
     pub(crate) fn new(loc: Location, ty: PrimType, a: PrimExpr, b: PrimExpr) -> Self {
         let base = ExprObj::new(loc, ty.into());
@@ -1220,6 +1284,7 @@ impl MaxObj {
     }
 }
 
+#[allow(missing_docs)]
 impl Max {
     /// Lossless complete-field allocation.
     pub fn from_fields(
@@ -1248,6 +1313,7 @@ binary_new! {
 
 // tvm-ffi-stubgen(begin): object/prim.EQ
 /// Complete: reflected fields fill [40, 56) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "prim.EQ"]
@@ -1263,6 +1329,7 @@ const _: () = {
     assert!(::core::mem::align_of::<EQObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct EQ {
@@ -1276,6 +1343,7 @@ impl Deref for EQObj {
     }
 }
 
+#[allow(missing_docs)]
 impl EQObj {
     pub(crate) fn new(loc: Location, ty: PrimType, a: PrimExpr, b: PrimExpr) -> Self {
         let base = ExprObj::new(loc, ty.into());
@@ -1283,6 +1351,7 @@ impl EQObj {
     }
 }
 
+#[allow(missing_docs)]
 impl EQ {
     /// Lossless complete-field allocation.
     pub fn from_fields(
@@ -1309,6 +1378,7 @@ binary_new! {
 
 // tvm-ffi-stubgen(begin): object/prim.NE
 /// Complete: reflected fields fill [40, 56) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "prim.NE"]
@@ -1324,6 +1394,7 @@ const _: () = {
     assert!(::core::mem::align_of::<NEObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct NE {
@@ -1337,6 +1408,7 @@ impl Deref for NEObj {
     }
 }
 
+#[allow(missing_docs)]
 impl NEObj {
     pub(crate) fn new(loc: Location, ty: PrimType, a: PrimExpr, b: PrimExpr) -> Self {
         let base = ExprObj::new(loc, ty.into());
@@ -1344,6 +1416,7 @@ impl NEObj {
     }
 }
 
+#[allow(missing_docs)]
 impl NE {
     /// Lossless complete-field allocation.
     pub fn from_fields(
@@ -1370,6 +1443,7 @@ binary_new! {
 
 // tvm-ffi-stubgen(begin): object/prim.LT
 /// Complete: reflected fields fill [40, 56) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "prim.LT"]
@@ -1385,6 +1459,7 @@ const _: () = {
     assert!(::core::mem::align_of::<LTObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct LT {
@@ -1398,6 +1473,7 @@ impl Deref for LTObj {
     }
 }
 
+#[allow(missing_docs)]
 impl LTObj {
     pub(crate) fn new(loc: Location, ty: PrimType, a: PrimExpr, b: PrimExpr) -> Self {
         let base = ExprObj::new(loc, ty.into());
@@ -1405,6 +1481,7 @@ impl LTObj {
     }
 }
 
+#[allow(missing_docs)]
 impl LT {
     /// Lossless complete-field allocation.
     pub fn from_fields(
@@ -1431,6 +1508,7 @@ binary_new! {
 
 // tvm-ffi-stubgen(begin): object/prim.LE
 /// Complete: reflected fields fill [40, 56) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "prim.LE"]
@@ -1446,6 +1524,7 @@ const _: () = {
     assert!(::core::mem::align_of::<LEObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct LE {
@@ -1459,6 +1538,7 @@ impl Deref for LEObj {
     }
 }
 
+#[allow(missing_docs)]
 impl LEObj {
     pub(crate) fn new(loc: Location, ty: PrimType, a: PrimExpr, b: PrimExpr) -> Self {
         let base = ExprObj::new(loc, ty.into());
@@ -1466,6 +1546,7 @@ impl LEObj {
     }
 }
 
+#[allow(missing_docs)]
 impl LE {
     /// Lossless complete-field allocation.
     pub fn from_fields(
@@ -1492,6 +1573,7 @@ binary_new! {
 
 // tvm-ffi-stubgen(begin): object/prim.GT
 /// Complete: reflected fields fill [40, 56) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "prim.GT"]
@@ -1507,6 +1589,7 @@ const _: () = {
     assert!(::core::mem::align_of::<GTObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct GT {
@@ -1520,6 +1603,7 @@ impl Deref for GTObj {
     }
 }
 
+#[allow(missing_docs)]
 impl GTObj {
     pub(crate) fn new(loc: Location, ty: PrimType, a: PrimExpr, b: PrimExpr) -> Self {
         let base = ExprObj::new(loc, ty.into());
@@ -1527,6 +1611,7 @@ impl GTObj {
     }
 }
 
+#[allow(missing_docs)]
 impl GT {
     /// Lossless complete-field allocation.
     pub fn from_fields(
@@ -1553,6 +1638,7 @@ binary_new! {
 
 // tvm-ffi-stubgen(begin): object/prim.GE
 /// Complete: reflected fields fill [40, 56) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "prim.GE"]
@@ -1568,6 +1654,7 @@ const _: () = {
     assert!(::core::mem::align_of::<GEObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct GE {
@@ -1581,6 +1668,7 @@ impl Deref for GEObj {
     }
 }
 
+#[allow(missing_docs)]
 impl GEObj {
     pub(crate) fn new(loc: Location, ty: PrimType, a: PrimExpr, b: PrimExpr) -> Self {
         let base = ExprObj::new(loc, ty.into());
@@ -1588,6 +1676,7 @@ impl GEObj {
     }
 }
 
+#[allow(missing_docs)]
 impl GE {
     /// Lossless complete-field allocation.
     pub fn from_fields(
@@ -1617,6 +1706,7 @@ binary_new! {
 
 // tvm-ffi-stubgen(begin): object/prim.And
 /// Complete: reflected fields fill [40, 56) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "prim.And"]
@@ -1632,6 +1722,7 @@ const _: () = {
     assert!(::core::mem::align_of::<AndObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct And {
@@ -1645,6 +1736,7 @@ impl Deref for AndObj {
     }
 }
 
+#[allow(missing_docs)]
 impl AndObj {
     pub(crate) fn new(loc: Location, ty: PrimType, a: PrimExpr, b: PrimExpr) -> Self {
         let base = ExprObj::new(loc, ty.into());
@@ -1652,6 +1744,7 @@ impl AndObj {
     }
 }
 
+#[allow(missing_docs)]
 impl And {
     /// Lossless complete-field allocation.
     pub fn from_fields(
@@ -1690,6 +1783,7 @@ impl And {
 
 // tvm-ffi-stubgen(begin): object/prim.Or
 /// Complete: reflected fields fill [40, 56) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "prim.Or"]
@@ -1705,6 +1799,7 @@ const _: () = {
     assert!(::core::mem::align_of::<OrObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct Or {
@@ -1718,6 +1813,7 @@ impl Deref for OrObj {
     }
 }
 
+#[allow(missing_docs)]
 impl OrObj {
     pub(crate) fn new(loc: Location, ty: PrimType, a: PrimExpr, b: PrimExpr) -> Self {
         let base = ExprObj::new(loc, ty.into());
@@ -1725,6 +1821,7 @@ impl OrObj {
     }
 }
 
+#[allow(missing_docs)]
 impl Or {
     /// Lossless complete-field allocation.
     pub fn from_fields(
@@ -1763,6 +1860,7 @@ impl Or {
 
 // tvm-ffi-stubgen(begin): object/prim.Not
 /// Complete: reflected fields fill [40, 48) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "prim.Not"]
@@ -1777,6 +1875,7 @@ const _: () = {
     assert!(::core::mem::align_of::<NotObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct Not {
@@ -1790,6 +1889,7 @@ impl Deref for NotObj {
     }
 }
 
+#[allow(missing_docs)]
 impl NotObj {
     pub(crate) fn new(loc: Location, ty: PrimType, a: PrimExpr) -> Self {
         let base = ExprObj::new(loc, ty.into());
@@ -1797,6 +1897,7 @@ impl NotObj {
     }
 }
 
+#[allow(missing_docs)]
 impl Not {
     /// Lossless complete-field allocation.
     pub fn from_fields(
@@ -1835,6 +1936,7 @@ impl Not {
 
 // tvm-ffi-stubgen(begin): object/prim.Select
 /// Complete: reflected fields fill [40, 64) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "prim.Select"]
@@ -1851,6 +1953,7 @@ const _: () = {
     assert!(::core::mem::align_of::<SelectObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct Select {
@@ -1864,6 +1967,7 @@ impl Deref for SelectObj {
     }
 }
 
+#[allow(missing_docs)]
 impl SelectObj {
     pub(crate) fn new(
         loc: Location,
@@ -1877,6 +1981,7 @@ impl SelectObj {
     }
 }
 
+#[allow(missing_docs)]
 impl Select {
     /// Lossless complete-field allocation.
     pub fn from_fields(
@@ -1958,6 +2063,7 @@ impl Select {
 
 // tvm-ffi-stubgen(begin): object/prim.Let
 /// Complete: reflected fields fill [40, 64) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "prim.Let"]
@@ -1974,6 +2080,7 @@ const _: () = {
     assert!(::core::mem::align_of::<LetObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct Let {
@@ -1987,6 +2094,7 @@ impl Deref for LetObj {
     }
 }
 
+#[allow(missing_docs)]
 impl LetObj {
     pub(crate) fn new(
         loc: Location,
@@ -2000,6 +2108,7 @@ impl LetObj {
     }
 }
 
+#[allow(missing_docs)]
 impl Let {
     /// Lossless complete-field allocation.
     pub fn from_fields(

@@ -37,6 +37,7 @@
 //! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
 //! ```
 
+// tvm-ffi-stubgen(missing-docs): allow
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
 // tvm-ffi-stubgen(import-object): crate::ir::expr::Expr
@@ -98,6 +99,7 @@ use tvm_ffi::TYPE_ERROR;
 
 // tvm-ffi-stubgen(begin): object/tirx.CallFFIKernelAttr
 /// Complete: reflected fields fill [24, 56) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "tirx.CallFFIKernelAttr"]
@@ -115,6 +117,7 @@ const _: () = {
     assert!(::core::mem::align_of::<CallFFIKernelAttrObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct CallFFIKernelAttr {
@@ -128,6 +131,7 @@ impl Deref for CallFFIKernelAttrObj {
     }
 }
 
+#[allow(missing_docs)]
 impl CallFFIKernelAttrObj {
     pub(crate) fn new(
         launch_params: Array<String>,
@@ -140,6 +144,7 @@ impl CallFFIKernelAttrObj {
     }
 }
 
+#[allow(missing_docs)]
 impl CallFFIKernelAttr {
     /// Lossless complete-field allocation.
     pub fn new(

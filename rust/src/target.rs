@@ -39,6 +39,7 @@
 //! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
 //! ```
 
+// tvm-ffi-stubgen(missing-docs): allow
 // Every object registered under `target` has its block in this file.
 // tvm-ffi-stubgen(prefix): target
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
@@ -63,6 +64,7 @@ use tvm_ffi::object::ObjectRef;
 
 // tvm-ffi-stubgen(begin): object/target.Target
 /// Opaque: bytes [72, 88) of [24, 88) are not accounted for by reflected fields. Fields are read through the C ABI getters.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "target.Target"]
@@ -71,12 +73,14 @@ pub struct TargetObj {
     base: Object,
 }
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct Target {
     base: ObjectArc<TargetObj>,
 }
 
+#[allow(missing_docs)]
 impl TargetObj {
     pub fn kind(&self) -> Result<TargetKind> {
         FieldGetter::new(Self::type_index(), "kind")?.get(self)
@@ -198,6 +202,7 @@ impl Drop for TargetScope {
 
 // tvm-ffi-stubgen(begin): object/target.TargetKind
 /// Opaque: bytes [56, 152) of [24, 152) are not accounted for by reflected fields. Fields are read through the C ABI getters.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "target.TargetKind"]
@@ -206,12 +211,14 @@ pub struct TargetKindObj {
     base: Object,
 }
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct TargetKind {
     base: ObjectArc<TargetKindObj>,
 }
 
+#[allow(missing_docs)]
 impl TargetKindObj {
     pub fn name(&self) -> Result<String> {
         FieldGetter::new(Self::type_index(), "name")?.get(self)

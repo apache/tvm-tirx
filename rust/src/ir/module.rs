@@ -43,6 +43,7 @@
 //! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
 //! ```
 
+// tvm-ffi-stubgen(missing-docs): allow
 // `custom-new` reserves `new` for the C++ constructor, which derives the global variable map; the
 // generated `from_fields` allocates the fields as given.
 // tvm-ffi-stubgen(custom-new): ir.IRModule
@@ -79,6 +80,7 @@ use tvm_ffi::String;
 
 // tvm-ffi-stubgen(begin): object/ir.IRModule
 /// Complete: reflected fields fill [24, 56) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.IRModule"]
@@ -96,12 +98,14 @@ const _: () = {
     assert!(::core::mem::align_of::<IRModuleObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct IRModule {
     base: ObjectArc<IRModuleObj>,
 }
 
+#[allow(missing_docs)]
 impl IRModuleObj {
     pub(crate) fn new(
         functions: Map<GlobalVar, BaseFunc>,
@@ -114,6 +118,7 @@ impl IRModuleObj {
     }
 }
 
+#[allow(missing_docs)]
 impl IRModule {
     /// Lossless complete-field allocation.
     pub fn from_fields(

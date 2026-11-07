@@ -35,6 +35,8 @@
 //! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
 //! ```
 
+// tvm-ffi-stubgen(missing-docs): allow
+
 // tvm-ffi-stubgen(begin): import-section
 use crate::ir::location::Location;
 use crate::ir::r#type::Type;
@@ -45,6 +47,7 @@ use tvm_ffi::ObjectArc;
 
 // tvm-ffi-stubgen(begin): object/tirx.TensorMapType
 /// Complete: reflected fields fill [32, 32) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "tirx.TensorMapType"]
@@ -58,6 +61,7 @@ const _: () = {
     assert!(::core::mem::align_of::<TensorMapTypeObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct TensorMapType {
@@ -71,6 +75,7 @@ impl Deref for TensorMapTypeObj {
     }
 }
 
+#[allow(missing_docs)]
 impl TensorMapTypeObj {
     pub(crate) fn new(loc: Location) -> Self {
         let base = TypeObj::new(loc);
@@ -78,6 +83,7 @@ impl TensorMapTypeObj {
     }
 }
 
+#[allow(missing_docs)]
 impl TensorMapType {
     /// Lossless complete-field allocation.
     pub fn new(loc: impl Into<Location>) -> Self {

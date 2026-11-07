@@ -47,6 +47,7 @@
 //! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
 //! ```
 
+// tvm-ffi-stubgen(missing-docs): allow
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
 // tvm-ffi-stubgen(import-object): crate::ir::module::IRModule
@@ -73,6 +74,7 @@ use tvm_ffi::Result;
 
 // tvm-ffi-stubgen(begin): object/tirx.FunctionPass
 /// Opaque: parent 'transform.Pass' is opaque (layout-unknown). Fields are read through the C ABI getters.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "tirx.FunctionPass"]
@@ -81,6 +83,7 @@ pub struct FunctionPassObj {
     base: PassObj,
 }
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct FunctionPass {
@@ -94,6 +97,7 @@ impl Deref for FunctionPassObj {
     }
 }
 
+#[allow(missing_docs)]
 impl FunctionPassObj {
     pub fn pass_info(&self) -> Result<PassInfo> {
         FieldGetter::new(Self::type_index(), "pass_info")?.get(self)

@@ -43,6 +43,7 @@
 //! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
 //! ```
 
+// tvm-ffi-stubgen(missing-docs): allow
 // `custom-new` reserves `new` for a constructor with the C++ one's semantics (operand checks and the
 // derived vector type); the generated `from_fields` allocates the fields as given.
 // tvm-ffi-stubgen(custom-new): prim.Ramp
@@ -112,6 +113,7 @@ use tvm_ffi::Result;
 
 // tvm-ffi-stubgen(begin): object/prim.Ramp
 /// Complete: reflected fields fill [40, 64) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "prim.Ramp"]
@@ -128,6 +130,7 @@ const _: () = {
     assert!(::core::mem::align_of::<RampObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct Ramp {
@@ -141,6 +144,7 @@ impl Deref for RampObj {
     }
 }
 
+#[allow(missing_docs)]
 impl RampObj {
     pub(crate) fn new(
         loc: Location,
@@ -154,6 +158,7 @@ impl RampObj {
     }
 }
 
+#[allow(missing_docs)]
 impl Ramp {
     /// Lossless complete-field allocation.
     pub fn from_fields(
@@ -222,6 +227,7 @@ impl Ramp {
 
 // tvm-ffi-stubgen(begin): object/prim.Broadcast
 /// Complete: reflected fields fill [40, 56) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "prim.Broadcast"]
@@ -237,6 +243,7 @@ const _: () = {
     assert!(::core::mem::align_of::<BroadcastObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct Broadcast {
@@ -250,6 +257,7 @@ impl Deref for BroadcastObj {
     }
 }
 
+#[allow(missing_docs)]
 impl BroadcastObj {
     pub(crate) fn new(loc: Location, ty: PrimType, value: PrimExpr, lanes: PrimExpr) -> Self {
         let base = ExprObj::new(loc, ty.into());
@@ -257,6 +265,7 @@ impl BroadcastObj {
     }
 }
 
+#[allow(missing_docs)]
 impl Broadcast {
     /// Lossless complete-field allocation.
     pub fn from_fields(
@@ -298,6 +307,7 @@ impl Broadcast {
 
 // tvm-ffi-stubgen(begin): object/prim.Shuffle
 /// Complete: reflected fields fill [40, 56) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "prim.Shuffle"]
@@ -313,6 +323,7 @@ const _: () = {
     assert!(::core::mem::align_of::<ShuffleObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct Shuffle {
@@ -326,6 +337,7 @@ impl Deref for ShuffleObj {
     }
 }
 
+#[allow(missing_docs)]
 impl ShuffleObj {
     pub(crate) fn new(
         loc: Location,
@@ -338,6 +350,7 @@ impl ShuffleObj {
     }
 }
 
+#[allow(missing_docs)]
 impl Shuffle {
     /// Lossless complete-field allocation.
     pub fn from_fields(

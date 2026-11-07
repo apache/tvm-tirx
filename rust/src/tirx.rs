@@ -23,6 +23,7 @@
 //! [`structural`] holds the traversals that keep the facts in scope, [`tile`] the tile
 //! instructions, [`transform`] the passes and [`analysis`] the analyses.
 
+// tvm-ffi-stubgen(missing-docs): allow
 // An object registered under `tirx` that no file has a block for yet is generated here, to be moved
 // to the file of the Python module that defines it.
 // tvm-ffi-stubgen(prefix): tirx

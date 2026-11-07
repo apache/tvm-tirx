@@ -42,6 +42,7 @@
 //! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
 //! ```
 
+// tvm-ffi-stubgen(missing-docs): allow
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
 // tvm-ffi-stubgen(import-object): tvm_ffi::Any
@@ -71,6 +72,7 @@ use tvm_ffi::reflection::drop_if_defined;
 
 // tvm-ffi-stubgen(begin): object/ir.BaseFunc
 /// Complete: reflected fields fill [40, 48) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.BaseFunc"]
@@ -84,6 +86,7 @@ const _: () = {
     assert!(::core::mem::align_of::<BaseFuncObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct BaseFunc {
@@ -97,6 +100,7 @@ impl Deref for BaseFuncObj {
     }
 }
 
+#[allow(missing_docs)]
 impl BaseFuncObj {
     pub fn new(loc: Location, ty: Type, attrs: DictAttrs) -> Self {
         let base = ExprObj::new(loc, ty);
@@ -104,6 +108,7 @@ impl BaseFuncObj {
     }
 }
 
+#[allow(missing_docs)]
 impl BaseFunc {
     /// Lossless complete-field allocation.
     pub fn new(loc: impl Into<Location>, ty: impl Into<Type>, attrs: impl Into<DictAttrs>) -> Self {

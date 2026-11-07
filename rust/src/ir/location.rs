@@ -39,6 +39,7 @@
 //! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
 //! ```
 
+// tvm-ffi-stubgen(missing-docs): allow
 // C++ has one `UnknownLoc`, which `UnknownLoc::new` returns: `opaque` generates no allocator for
 // another one. It has no fields, so it loses no field access.
 // tvm-ffi-stubgen(opaque): ir.UnknownLoc
@@ -61,6 +62,7 @@ use tvm_ffi::UnsafeInit;
 
 // tvm-ffi-stubgen(begin): object/ir.Location
 /// Complete: reflected fields fill [24, 24) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.Location"]
@@ -73,12 +75,14 @@ const _: () = {
     assert!(::core::mem::align_of::<LocationObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct Location {
     base: ObjectArc<LocationObj>,
 }
 
+#[allow(missing_docs)]
 impl LocationObj {
     pub fn new() -> Self {
         let base = Object::new();
@@ -86,6 +90,7 @@ impl LocationObj {
     }
 }
 
+#[allow(missing_docs)]
 impl Location {
     /// Lossless complete-field allocation.
     pub fn new() -> Self {
@@ -113,6 +118,7 @@ unsafe impl tvm_ffi::object::ImmutableObject for LocationObj {}
 
 // tvm-ffi-stubgen(begin): object/ir.UnknownLoc
 /// Opaque: vetoed by directive although the layout is reproducible. Fields are read through the C ABI getters.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.UnknownLoc"]
@@ -121,6 +127,7 @@ pub struct UnknownLocObj {
     base: LocationObj,
 }
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct UnknownLoc {
@@ -170,6 +177,7 @@ impl From<Unknown> for Location {
 
 // tvm-ffi-stubgen(begin): object/ir.SourceLoc
 /// Complete: reflected fields fill [24, 48) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.SourceLoc"]
@@ -188,6 +196,7 @@ const _: () = {
     assert!(::core::mem::align_of::<SourceLocObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct SourceLoc {
@@ -201,6 +210,7 @@ impl Deref for SourceLocObj {
     }
 }
 
+#[allow(missing_docs)]
 impl SourceLocObj {
     pub(crate) fn new(
         source_name: SourceName,
@@ -214,6 +224,7 @@ impl SourceLocObj {
     }
 }
 
+#[allow(missing_docs)]
 impl SourceLoc {
     /// Lossless complete-field allocation.
     pub fn new(
@@ -238,6 +249,7 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(SourceLoc => Location);
 
 // tvm-ffi-stubgen(begin): object/ir.CallSiteLoc
 /// Complete: reflected fields fill [24, 40) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.CallSiteLoc"]
@@ -253,6 +265,7 @@ const _: () = {
     assert!(::core::mem::align_of::<CallSiteLocObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct CallSiteLoc {
@@ -266,6 +279,7 @@ impl Deref for CallSiteLocObj {
     }
 }
 
+#[allow(missing_docs)]
 impl CallSiteLocObj {
     pub(crate) fn new(callee: Location, caller: Location) -> Self {
         let base = LocationObj::new();
@@ -273,6 +287,7 @@ impl CallSiteLocObj {
     }
 }
 
+#[allow(missing_docs)]
 impl CallSiteLoc {
     /// Lossless complete-field allocation.
     pub fn new(callee: impl Into<Location>, caller: impl Into<Location>) -> Self {
@@ -290,6 +305,7 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(CallSiteLoc => Location);
 
 // tvm-ffi-stubgen(begin): object/ir.SourceName
 /// Complete: reflected fields fill [24, 40) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.SourceName"]
@@ -304,12 +320,14 @@ const _: () = {
     assert!(::core::mem::align_of::<SourceNameObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct SourceName {
     base: ObjectArc<SourceNameObj>,
 }
 
+#[allow(missing_docs)]
 impl SourceNameObj {
     pub(crate) fn new(name: String) -> Self {
         let base = Object::new();
@@ -317,6 +335,7 @@ impl SourceNameObj {
     }
 }
 
+#[allow(missing_docs)]
 impl SourceName {
     /// Lossless complete-field allocation.
     pub fn new(name: impl Into<String>) -> Self {

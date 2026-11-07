@@ -26,6 +26,8 @@
 //! [`TCGen05InstrDescriptorAttrs`] and [`TCGen05InstrDescriptorBlockScaledAttrs`] describe a
 //! `tcgen05` instruction descriptor, and [`TensorMapEncodeTiledAttr`] a tiled tensor-map encoding.
 
+// tvm-ffi-stubgen(missing-docs): allow
+
 // tvm-ffi-stubgen(begin): import-section
 use crate::ir::attrs::Attrs;
 use crate::ir::attrs::AttrsObj;
@@ -38,6 +40,7 @@ use tvm_ffi::String;
 // tvm-ffi-stubgen(begin): object/tirx.cuda.TCGen05InstrDescriptorAttrs
 /// Complete: reflected fields fill [24, 120) exactly (alignment padding [98, 104), [116, 120)).
 #[allow(non_snake_case)]
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "tirx.cuda.TCGen05InstrDescriptorAttrs"]
@@ -64,6 +67,7 @@ const _: () = {
     assert!(::core::mem::align_of::<TCGen05InstrDescriptorAttrsObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct TCGen05InstrDescriptorAttrs {
@@ -77,6 +81,7 @@ impl Deref for TCGen05InstrDescriptorAttrsObj {
     }
 }
 
+#[allow(missing_docs)]
 impl TCGen05InstrDescriptorAttrsObj {
     #[allow(non_snake_case)]
     pub(crate) fn new(
@@ -114,6 +119,7 @@ impl TCGen05InstrDescriptorAttrsObj {
     }
 }
 
+#[allow(missing_docs)]
 impl TCGen05InstrDescriptorAttrs {
     /// Lossless complete-field allocation.
     #[allow(non_snake_case)]
@@ -159,6 +165,7 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(TCGen05InstrDescriptorAttrs => Attrs);
 // tvm-ffi-stubgen(begin): object/tirx.cuda.TCGen05InstrDescriptorBlockScaledAttrs
 /// Complete: reflected fields fill [24, 152) exactly (alignment padding [130, 136), [147, 152)).
 #[allow(non_snake_case)]
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "tirx.cuda.TCGen05InstrDescriptorBlockScaledAttrs"]
@@ -186,6 +193,7 @@ const _: () = {
     assert!(::core::mem::align_of::<TCGen05InstrDescriptorBlockScaledAttrsObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct TCGen05InstrDescriptorBlockScaledAttrs {
@@ -199,6 +207,7 @@ impl Deref for TCGen05InstrDescriptorBlockScaledAttrsObj {
     }
 }
 
+#[allow(missing_docs)]
 impl TCGen05InstrDescriptorBlockScaledAttrsObj {
     #[allow(non_snake_case)]
     pub(crate) fn new(
@@ -238,6 +247,7 @@ impl TCGen05InstrDescriptorBlockScaledAttrsObj {
     }
 }
 
+#[allow(missing_docs)]
 impl TCGen05InstrDescriptorBlockScaledAttrs {
     /// Lossless complete-field allocation.
     #[allow(non_snake_case)]
@@ -284,6 +294,7 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(TCGen05InstrDescriptorBlockScaledAttrs =
 
 // tvm-ffi-stubgen(begin): object/tirx.cuda.TensorMapEncodeTiledAttr
 /// Complete: reflected fields fill [24, 80) exactly (alignment padding [28, 32)).
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "tirx.cuda.TensorMapEncodeTiledAttr"]
@@ -304,6 +315,7 @@ const _: () = {
     assert!(::core::mem::align_of::<TensorMapEncodeTiledAttrObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct TensorMapEncodeTiledAttr {
@@ -317,6 +329,7 @@ impl Deref for TensorMapEncodeTiledAttrObj {
     }
 }
 
+#[allow(missing_docs)]
 impl TensorMapEncodeTiledAttrObj {
     pub(crate) fn new(
         descriptor_dtype: DLDataType,
@@ -341,6 +354,7 @@ impl TensorMapEncodeTiledAttrObj {
     }
 }
 
+#[allow(missing_docs)]
 impl TensorMapEncodeTiledAttr {
     /// Lossless complete-field allocation.
     pub fn new(

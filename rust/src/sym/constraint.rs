@@ -47,6 +47,7 @@
 //! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
 //! ```
 
+// tvm-ffi-stubgen(missing-docs): allow
 // tvm-ffi-stubgen(ty-map): sym.ConstraintContext -> crate::sym::constraint::ConstraintContext
 
 use std::cell::UnsafeCell;
@@ -70,6 +71,7 @@ use tvm_ffi::UnsafeInit;
 
 // tvm-ffi-stubgen(begin): object/sym.Constraint
 /// Complete: reflected fields fill [24, 24) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "sym.Constraint"]
@@ -82,12 +84,14 @@ const _: () = {
     assert!(::core::mem::align_of::<ConstraintObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct Constraint {
     base: ObjectArc<ConstraintObj>,
 }
 
+#[allow(missing_docs)]
 impl ConstraintObj {
     pub fn new() -> Self {
         let base = Object::new();
@@ -95,6 +99,7 @@ impl ConstraintObj {
     }
 }
 
+#[allow(missing_docs)]
 impl Constraint {
     /// Lossless complete-field allocation.
     pub fn new() -> Self {
@@ -122,6 +127,7 @@ unsafe impl tvm_ffi::object::ImmutableObject for ConstraintObj {}
 
 // tvm-ffi-stubgen(begin): object/sym.BindingConstraint
 /// Complete: reflected fields fill [24, 40) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "sym.BindingConstraint"]
@@ -137,6 +143,7 @@ const _: () = {
     assert!(::core::mem::align_of::<BindingConstraintObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct BindingConstraint {
@@ -150,6 +157,7 @@ impl Deref for BindingConstraintObj {
     }
 }
 
+#[allow(missing_docs)]
 impl BindingConstraintObj {
     pub(crate) fn new(var: Var, value: PrimExpr) -> Self {
         let base = ConstraintObj::new();
@@ -157,6 +165,7 @@ impl BindingConstraintObj {
     }
 }
 
+#[allow(missing_docs)]
 impl BindingConstraint {
     /// Lossless complete-field allocation.
     pub fn new(var: impl Into<Var>, value: impl Into<PrimExpr>) -> Self {
@@ -172,6 +181,7 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(BindingConstraint => Constraint);
 
 // tvm-ffi-stubgen(begin): object/sym.PredicateConstraint
 /// Complete: reflected fields fill [24, 40) exactly (alignment padding [33, 40)).
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "sym.PredicateConstraint"]
@@ -187,6 +197,7 @@ const _: () = {
     assert!(::core::mem::align_of::<PredicateConstraintObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct PredicateConstraint {
@@ -200,6 +211,7 @@ impl Deref for PredicateConstraintObj {
     }
 }
 
+#[allow(missing_docs)]
 impl PredicateConstraintObj {
     pub(crate) fn new(condition: PrimExpr, assume_always: bool) -> Self {
         let base = ConstraintObj::new();
@@ -207,6 +219,7 @@ impl PredicateConstraintObj {
     }
 }
 
+#[allow(missing_docs)]
 impl PredicateConstraint {
     /// Lossless complete-field allocation.
     pub fn new(condition: impl Into<PrimExpr>, assume_always: bool) -> Self {
@@ -222,6 +235,7 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(PredicateConstraint => Constraint);
 
 // tvm-ffi-stubgen(begin): object/sym.RangeConstraint
 /// Complete: reflected fields fill [24, 40) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "sym.RangeConstraint"]
@@ -237,6 +251,7 @@ const _: () = {
     assert!(::core::mem::align_of::<RangeConstraintObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct RangeConstraint {
@@ -250,6 +265,7 @@ impl Deref for RangeConstraintObj {
     }
 }
 
+#[allow(missing_docs)]
 impl RangeConstraintObj {
     pub(crate) fn new(var: Var, range: Range) -> Self {
         let base = ConstraintObj::new();
@@ -257,6 +273,7 @@ impl RangeConstraintObj {
     }
 }
 
+#[allow(missing_docs)]
 impl RangeConstraint {
     /// Lossless complete-field allocation.
     pub fn new(var: impl Into<Var>, range: impl Into<Range>) -> Self {

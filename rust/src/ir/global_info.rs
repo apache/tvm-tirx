@@ -25,6 +25,8 @@
 //! The objects `python/tvm_tirx/ir/global_info.py` defines. [`GlobalInfo`] is the base of the
 //! entries an [`IRModule`](super::IRModule) keeps by name in `global_infos`.
 
+// tvm-ffi-stubgen(missing-docs): allow
+
 // tvm-ffi-stubgen(begin): import-section
 use std::ptr::addr_of_mut;
 use tvm_ffi::Object;
@@ -35,6 +37,7 @@ use tvm_ffi::UnsafeInit;
 
 // tvm-ffi-stubgen(begin): object/ir.GlobalInfo
 /// Complete: reflected fields fill [24, 24) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.GlobalInfo"]
@@ -47,12 +50,14 @@ const _: () = {
     assert!(::core::mem::align_of::<GlobalInfoObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct GlobalInfo {
     base: ObjectArc<GlobalInfoObj>,
 }
 
+#[allow(missing_docs)]
 impl GlobalInfoObj {
     pub fn new() -> Self {
         let base = Object::new();
@@ -60,6 +65,7 @@ impl GlobalInfoObj {
     }
 }
 
+#[allow(missing_docs)]
 impl GlobalInfo {
     /// Lossless complete-field allocation.
     pub fn new() -> Self {

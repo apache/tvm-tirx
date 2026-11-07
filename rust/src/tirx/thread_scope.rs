@@ -35,6 +35,7 @@
 //! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
 //! ```
 
+// tvm-ffi-stubgen(missing-docs): allow
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
 // tvm-ffi-stubgen(import-object): tvm_ffi::Result
@@ -62,6 +63,7 @@ struct FfiEnumObj {
 
 // tvm-ffi-stubgen(begin): object/tirx.ThreadScope
 /// Opaque: parent 'ffi.Enum' is opaque (no-mirror). Fields are read through the C ABI getters.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "tirx.ThreadScope"]
@@ -70,6 +72,7 @@ pub struct ThreadScopeObj {
     base: FfiEnumObj,
 }
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct ThreadScope {

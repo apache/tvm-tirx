@@ -44,6 +44,7 @@
 //! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
 //! ```
 
+// tvm-ffi-stubgen(missing-docs): allow
 // Python has no class for `CanonicalExpr`, `SumExpr` and `SplitExpr`, the forms of the canonical
 // simplifier, or for the `RewriteSimplifierStats` that `Analyzer.rewrite_simplify_stats()`
 // returns; they are here, with the analyzer they belong to.
@@ -98,6 +99,7 @@ use tvm_ffi::VALUE_ERROR;
 
 // tvm-ffi-stubgen(begin): object/sym.Analyzer
 /// Opaque: bytes [24, 120) of [24, 120) are not accounted for by reflected fields. Fields are read through the C ABI getters.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "sym.Analyzer"]
@@ -106,6 +108,7 @@ pub struct AnalyzerObj {
     base: Object,
 }
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct Analyzer {
@@ -393,6 +396,7 @@ pub fn allow_uint_as_index() -> Result<AllowUintAsIndexScope> {
 
 // tvm-ffi-stubgen(begin): object/sym.ConstIntBound
 /// Complete: reflected fields fill [24, 40) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "sym.ConstIntBound"]
@@ -408,12 +412,14 @@ const _: () = {
     assert!(::core::mem::align_of::<ConstIntBoundObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct ConstIntBound {
     base: ObjectArc<ConstIntBoundObj>,
 }
 
+#[allow(missing_docs)]
 impl ConstIntBoundObj {
     pub(crate) fn new(min_value: i64, max_value: i64) -> Self {
         let base = Object::new();
@@ -421,6 +427,7 @@ impl ConstIntBoundObj {
     }
 }
 
+#[allow(missing_docs)]
 impl ConstIntBound {
     /// Lossless complete-field allocation.
     pub fn new(min_value: i64, max_value: i64) -> Self {
@@ -434,6 +441,7 @@ unsafe impl tvm_ffi::object::ImmutableObject for ConstIntBoundObj {}
 
 // tvm-ffi-stubgen(begin): object/sym.ModularSet
 /// Complete: reflected fields fill [24, 40) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "sym.ModularSet"]
@@ -449,12 +457,14 @@ const _: () = {
     assert!(::core::mem::align_of::<ModularSetObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct ModularSet {
     base: ObjectArc<ModularSetObj>,
 }
 
+#[allow(missing_docs)]
 impl ModularSetObj {
     pub(crate) fn new(coeff: i64, base_: i64) -> Self {
         let base = Object::new();
@@ -462,6 +472,7 @@ impl ModularSetObj {
     }
 }
 
+#[allow(missing_docs)]
 impl ModularSet {
     /// Lossless complete-field allocation.
     pub fn new(coeff: i64, base_: i64) -> Self {
@@ -475,6 +486,7 @@ unsafe impl tvm_ffi::object::ImmutableObject for ModularSetObj {}
 
 // tvm-ffi-stubgen(begin): object/sym.RewriteSimplifierStats
 /// Complete: reflected fields fill [24, 72) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "sym.RewriteSimplifierStats"]
@@ -494,12 +506,14 @@ const _: () = {
     assert!(::core::mem::align_of::<RewriteSimplifierStatsObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct RewriteSimplifierStats {
     base: ObjectArc<RewriteSimplifierStatsObj>,
 }
 
+#[allow(missing_docs)]
 impl RewriteSimplifierStatsObj {
     pub(crate) fn new(
         nodes_visited: i64,
@@ -522,6 +536,7 @@ impl RewriteSimplifierStatsObj {
     }
 }
 
+#[allow(missing_docs)]
 impl RewriteSimplifierStats {
     /// Lossless complete-field allocation.
     pub fn new(
@@ -552,6 +567,7 @@ unsafe impl tvm_ffi::object::ImmutableObject for RewriteSimplifierStatsObj {}
 
 // tvm-ffi-stubgen(begin): object/sym.CanonicalExpr
 /// Opaque: no metadata of its own: total_size is unknown. Fields are read through the C ABI getters.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "sym.CanonicalExpr"]
@@ -559,6 +575,7 @@ pub struct CanonicalExprObj {
     base: ExprObj,
 }
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct CanonicalExpr {
@@ -577,6 +594,7 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(CanonicalExpr => Expr);
 
 // tvm-ffi-stubgen(begin): object/sym.SplitExpr
 /// Opaque: no metadata of its own: total_size is unknown. Fields are read through the C ABI getters.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "sym.SplitExpr"]
@@ -584,6 +602,7 @@ pub struct SplitExprObj {
     base: CanonicalExprObj,
 }
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct SplitExpr {
@@ -602,6 +621,7 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(SplitExpr => Expr, SplitExpr => Canonica
 
 // tvm-ffi-stubgen(begin): object/sym.SumExpr
 /// Opaque: no metadata of its own: total_size is unknown. Fields are read through the C ABI getters.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "sym.SumExpr"]
@@ -609,6 +629,7 @@ pub struct SumExprObj {
     base: CanonicalExprObj,
 }
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct SumExpr {

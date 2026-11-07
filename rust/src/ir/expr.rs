@@ -40,6 +40,7 @@
 //! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
 //! ```
 
+// tvm-ffi-stubgen(missing-docs): allow
 // `custom-new` reserves `new` for a constructor with the C++ one's arguments and semantics
 // (argument order, checks, defaults, implicit conversions, a derived type); the generated
 // `from_fields` allocates the fields as given, inherited fields first.
@@ -138,6 +139,7 @@ use tvm_ffi::tvm_ffi_sys::TVMFFITypeIndex;
 
 // tvm-ffi-stubgen(begin): object/ir.Expr
 /// Complete: reflected fields fill [24, 40) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.Expr"]
@@ -152,12 +154,14 @@ const _: () = {
     assert!(::core::mem::align_of::<ExprObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct Expr {
     base: ObjectArc<ExprObj>,
 }
 
+#[allow(missing_docs)]
 impl ExprObj {
     pub fn new(loc: Location, ty: Type) -> Self {
         let base = Object::new();
@@ -165,6 +169,7 @@ impl ExprObj {
     }
 }
 
+#[allow(missing_docs)]
 impl Expr {
     /// Lossless complete-field allocation.
     pub fn new(loc: impl Into<Location>, ty: impl Into<Type>) -> Self {
@@ -619,6 +624,7 @@ fn typed_expr_mismatch(value: AnyView<'_>) -> std::string::String {
 
 // tvm-ffi-stubgen(begin): object/ir.StagingExpr
 /// Complete: reflected fields fill [40, 40) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.StagingExpr"]
@@ -631,6 +637,7 @@ const _: () = {
     assert!(::core::mem::align_of::<StagingExprObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct StagingExpr {
@@ -644,6 +651,7 @@ impl Deref for StagingExprObj {
     }
 }
 
+#[allow(missing_docs)]
 impl StagingExprObj {
     pub fn new(loc: Location, ty: Type) -> Self {
         let base = ExprObj::new(loc, ty);
@@ -651,6 +659,7 @@ impl StagingExprObj {
     }
 }
 
+#[allow(missing_docs)]
 impl StagingExpr {
     /// Lossless complete-field allocation.
     pub fn new(loc: impl Into<Location>, ty: impl Into<Type>) -> Self {
@@ -680,6 +689,7 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(StagingExpr => Expr);
 
 // tvm-ffi-stubgen(begin): object/ir.OpaqueExpr
 /// Complete: reflected fields fill [40, 40) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.OpaqueExpr"]
@@ -692,6 +702,7 @@ const _: () = {
     assert!(::core::mem::align_of::<OpaqueExprObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct OpaqueExpr {
@@ -705,6 +716,7 @@ impl Deref for OpaqueExprObj {
     }
 }
 
+#[allow(missing_docs)]
 impl OpaqueExprObj {
     pub fn new(loc: Location, ty: Type) -> Self {
         let base = ExprObj::new(loc, ty);
@@ -712,6 +724,7 @@ impl OpaqueExprObj {
     }
 }
 
+#[allow(missing_docs)]
 impl OpaqueExpr {
     /// Lossless complete-field allocation.
     pub fn new(loc: impl Into<Location>, ty: impl Into<Type>) -> Self {
@@ -741,6 +754,7 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(OpaqueExpr => Expr);
 
 // tvm-ffi-stubgen(begin): object/ir.GlobalVar
 /// Complete: reflected fields fill [40, 56) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.GlobalVar"]
@@ -755,6 +769,7 @@ const _: () = {
     assert!(::core::mem::align_of::<GlobalVarObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct GlobalVar {
@@ -768,6 +783,7 @@ impl Deref for GlobalVarObj {
     }
 }
 
+#[allow(missing_docs)]
 impl GlobalVarObj {
     pub(crate) fn new(loc: Location, ty: Type, name_hint: String) -> Self {
         let base = ExprObj::new(loc, ty);
@@ -775,6 +791,7 @@ impl GlobalVarObj {
     }
 }
 
+#[allow(missing_docs)]
 impl GlobalVar {
     /// Lossless complete-field allocation.
     pub fn from_fields(
@@ -802,6 +819,7 @@ impl GlobalVar {
 
 // tvm-ffi-stubgen(begin): object/ir.Tuple
 /// Complete: reflected fields fill [40, 48) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.Tuple"]
@@ -816,6 +834,7 @@ const _: () = {
     assert!(::core::mem::align_of::<TupleObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct Tuple {
@@ -829,6 +848,7 @@ impl Deref for TupleObj {
     }
 }
 
+#[allow(missing_docs)]
 impl TupleObj {
     pub(crate) fn new(loc: Location, ty: Type, fields: Array<Expr>) -> Self {
         let base = ExprObj::new(loc, ty);
@@ -836,6 +856,7 @@ impl TupleObj {
     }
 }
 
+#[allow(missing_docs)]
 impl Tuple {
     /// Lossless complete-field allocation.
     pub fn from_fields(
@@ -875,6 +896,7 @@ impl Tuple {
 
 // tvm-ffi-stubgen(begin): object/ir.TupleGetItem
 /// Complete: reflected fields fill [40, 56) exactly (alignment padding [52, 56)).
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.TupleGetItem"]
@@ -890,6 +912,7 @@ const _: () = {
     assert!(::core::mem::align_of::<TupleGetItemObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct TupleGetItem {
@@ -903,6 +926,7 @@ impl Deref for TupleGetItemObj {
     }
 }
 
+#[allow(missing_docs)]
 impl TupleGetItemObj {
     pub(crate) fn new(loc: Location, ty: Type, tuple_value: Expr, index: i32) -> Self {
         let base = ExprObj::new(loc, ty);
@@ -910,6 +934,7 @@ impl TupleGetItemObj {
     }
 }
 
+#[allow(missing_docs)]
 impl TupleGetItem {
     /// Lossless complete-field allocation.
     pub fn from_fields(
@@ -980,6 +1005,7 @@ impl TupleGetItem {
 
 // tvm-ffi-stubgen(begin): object/ir.TensorLoad
 /// Complete: reflected fields fill [40, 56) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.TensorLoad"]
@@ -995,6 +1021,7 @@ const _: () = {
     assert!(::core::mem::align_of::<TensorLoadObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct TensorLoad {
@@ -1008,6 +1035,7 @@ impl Deref for TensorLoadObj {
     }
 }
 
+#[allow(missing_docs)]
 impl TensorLoadObj {
     pub(crate) fn new(loc: Location, ty: PrimType, source: Expr, indices: Array<PrimExpr>) -> Self {
         let base = ExprObj::new(loc, ty.into());
@@ -1015,6 +1043,7 @@ impl TensorLoadObj {
     }
 }
 
+#[allow(missing_docs)]
 impl TensorLoad {
     /// Lossless complete-field allocation.
     pub fn from_fields(
@@ -1071,6 +1100,7 @@ impl TensorLoad {
 
 // tvm-ffi-stubgen(begin): object/ir.Constant
 /// Complete: reflected fields fill [40, 40) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.Constant"]
@@ -1083,6 +1113,7 @@ const _: () = {
     assert!(::core::mem::align_of::<ConstantObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct Constant {
@@ -1096,6 +1127,7 @@ impl Deref for ConstantObj {
     }
 }
 
+#[allow(missing_docs)]
 impl ConstantObj {
     pub fn new(loc: Location, ty: Type) -> Self {
         let base = ExprObj::new(loc, ty);
@@ -1103,6 +1135,7 @@ impl ConstantObj {
     }
 }
 
+#[allow(missing_docs)]
 impl Constant {
     /// Lossless complete-field allocation.
     pub fn new(loc: impl Into<Location>, ty: impl Into<Type>) -> Self {
@@ -1132,6 +1165,7 @@ tvm_ffi::unsafe_impl_object_ref_upcast!(Constant => Expr);
 
 // tvm-ffi-stubgen(begin): object/ir.FloatImm
 /// Complete: reflected fields fill [40, 48) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.FloatImm"]
@@ -1146,6 +1180,7 @@ const _: () = {
     assert!(::core::mem::align_of::<FloatImmObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct FloatImm {
@@ -1159,6 +1194,7 @@ impl Deref for FloatImmObj {
     }
 }
 
+#[allow(missing_docs)]
 impl FloatImmObj {
     pub(crate) fn new(loc: Location, ty: PrimType, value: f64) -> Self {
         let base = ConstantObj::new(loc, ty.into());
@@ -1166,6 +1202,7 @@ impl FloatImmObj {
     }
 }
 
+#[allow(missing_docs)]
 impl FloatImm {
     /// Lossless complete-field allocation.
     pub fn from_fields(loc: impl Into<Location>, ty: impl Into<PrimType>, value: f64) -> Self {
@@ -1236,6 +1273,7 @@ impl From<f64> for FloatImm {
 
 // tvm-ffi-stubgen(begin): object/ir.IntImm
 /// Complete: reflected fields fill [40, 56) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.IntImm"]
@@ -1250,6 +1288,7 @@ const _: () = {
     assert!(::core::mem::align_of::<IntImmObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct IntImm {
@@ -1263,6 +1302,7 @@ impl Deref for IntImmObj {
     }
 }
 
+#[allow(missing_docs)]
 impl IntImmObj {
     pub(crate) fn new(loc: Location, ty: PrimType, value: BigInt) -> Self {
         let base = ConstantObj::new(loc, ty.into());
@@ -1270,6 +1310,7 @@ impl IntImmObj {
     }
 }
 
+#[allow(missing_docs)]
 impl IntImm {
     /// Lossless complete-field allocation.
     pub fn from_fields(
@@ -1358,6 +1399,7 @@ impl From<bool> for IntImm {
 
 // tvm-ffi-stubgen(begin): object/ir.GenericConst
 /// Complete: reflected fields fill [40, 56) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.GenericConst"]
@@ -1372,6 +1414,7 @@ const _: () = {
     assert!(::core::mem::align_of::<GenericConstObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct GenericConst {
@@ -1385,6 +1428,7 @@ impl Deref for GenericConstObj {
     }
 }
 
+#[allow(missing_docs)]
 impl GenericConstObj {
     pub(crate) fn new(loc: Location, ty: Type, value: Any) -> Self {
         let base = ConstantObj::new(loc, ty);
@@ -1392,6 +1436,7 @@ impl GenericConstObj {
     }
 }
 
+#[allow(missing_docs)]
 impl GenericConst {
     /// Lossless complete-field allocation.
     pub fn from_fields(
@@ -1446,6 +1491,7 @@ impl GenericConst {
 
 // tvm-ffi-stubgen(begin): object/ir.DataTypeImm
 /// Complete: reflected fields fill [40, 48) exactly (alignment padding [44, 48)).
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.DataTypeImm"]
@@ -1460,6 +1506,7 @@ const _: () = {
     assert!(::core::mem::align_of::<DataTypeImmObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct DataTypeImm {
@@ -1473,6 +1520,7 @@ impl Deref for DataTypeImmObj {
     }
 }
 
+#[allow(missing_docs)]
 impl DataTypeImmObj {
     pub(crate) fn new(loc: Location, ty: Type, value: DLDataType) -> Self {
         let base = ConstantObj::new(loc, ty);
@@ -1480,6 +1528,7 @@ impl DataTypeImmObj {
     }
 }
 
+#[allow(missing_docs)]
 impl DataTypeImm {
     /// Lossless complete-field allocation.
     pub fn from_fields(
@@ -1508,6 +1557,7 @@ impl DataTypeImm {
 
 // tvm-ffi-stubgen(begin): object/ir.StringImm
 /// Complete: reflected fields fill [40, 56) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.StringImm"]
@@ -1522,6 +1572,7 @@ const _: () = {
     assert!(::core::mem::align_of::<StringImmObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct StringImm {
@@ -1535,6 +1586,7 @@ impl Deref for StringImmObj {
     }
 }
 
+#[allow(missing_docs)]
 impl StringImmObj {
     pub(crate) fn new(loc: Location, ty: Type, value: String) -> Self {
         let base = ConstantObj::new(loc, ty);
@@ -1542,6 +1594,7 @@ impl StringImmObj {
     }
 }
 
+#[allow(missing_docs)]
 impl StringImm {
     /// Lossless complete-field allocation.
     pub fn from_fields(
@@ -1569,6 +1622,7 @@ impl StringImm {
 
 // tvm-ffi-stubgen(begin): object/ir.Call
 /// Complete: reflected fields fill [40, 72) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.Call"]
@@ -1586,6 +1640,7 @@ const _: () = {
     assert!(::core::mem::align_of::<CallObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct Call {
@@ -1599,6 +1654,7 @@ impl Deref for CallObj {
     }
 }
 
+#[allow(missing_docs)]
 impl CallObj {
     pub(crate) fn new(
         loc: Location,
@@ -1613,6 +1669,7 @@ impl CallObj {
     }
 }
 
+#[allow(missing_docs)]
 impl Call {
     /// Lossless complete-field allocation.
     pub fn from_fields(
@@ -1717,6 +1774,7 @@ impl Call {
 
 // tvm-ffi-stubgen(begin): object/ir.TensorRegion
 /// Complete: reflected fields fill [40, 56) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.TensorRegion"]
@@ -1732,6 +1790,7 @@ const _: () = {
     assert!(::core::mem::align_of::<TensorRegionObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct TensorRegion {
@@ -1745,6 +1804,7 @@ impl Deref for TensorRegionObj {
     }
 }
 
+#[allow(missing_docs)]
 impl TensorRegionObj {
     pub(crate) fn new(loc: Location, ty: Type, source: Expr, region: Array<Range>) -> Self {
         let base = ExprObj::new(loc, ty);
@@ -1752,6 +1812,7 @@ impl TensorRegionObj {
     }
 }
 
+#[allow(missing_docs)]
 impl TensorRegion {
     /// Lossless complete-field allocation.
     pub fn from_fields(
@@ -1785,6 +1846,7 @@ impl TensorRegion {
 
 // tvm-ffi-stubgen(begin): object/ir.Var
 /// Complete: reflected fields fill [40, 56) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.Var"]
@@ -1798,6 +1860,7 @@ const _: () = {
     assert!(::core::mem::align_of::<VarObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct Var {
@@ -1811,6 +1874,7 @@ impl Deref for VarObj {
     }
 }
 
+#[allow(missing_docs)]
 impl VarObj {
     pub fn new(loc: Location, ty: Type, name: String) -> Self {
         let base = ExprObj::new(loc, ty);
@@ -1818,6 +1882,7 @@ impl VarObj {
     }
 }
 
+#[allow(missing_docs)]
 impl Var {
     /// Lossless complete-field allocation.
     pub fn from_fields(
@@ -1932,6 +1997,7 @@ impl PrimVar {
 
 // tvm-ffi-stubgen(begin): object/ir.LambdaExpr
 /// Complete: reflected fields fill [40, 56) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.LambdaExpr"]
@@ -1947,6 +2013,7 @@ const _: () = {
     assert!(::core::mem::align_of::<LambdaExprObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct LambdaExpr {
@@ -1960,6 +2027,7 @@ impl Deref for LambdaExprObj {
     }
 }
 
+#[allow(missing_docs)]
 impl LambdaExprObj {
     pub(crate) fn new(loc: Location, ty: Type, vars: Array<Var>, body: Expr) -> Self {
         let base = StagingExprObj::new(loc, ty);
@@ -1967,6 +2035,7 @@ impl LambdaExprObj {
     }
 }
 
+#[allow(missing_docs)]
 impl LambdaExpr {
     /// Lossless complete-field allocation.
     pub fn from_fields(
@@ -2017,6 +2086,7 @@ impl LambdaExpr {
 
 // tvm-ffi-stubgen(begin): object/ir.Range
 /// Complete: reflected fields fill [24, 48) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.Range"]
@@ -2033,12 +2103,14 @@ const _: () = {
     assert!(::core::mem::align_of::<RangeObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct Range {
     base: ObjectArc<RangeObj>,
 }
 
+#[allow(missing_docs)]
 impl RangeObj {
     pub(crate) fn new(begin: PrimExpr, extent: PrimExpr, loc: Location) -> Self {
         let base = Object::new();
@@ -2046,6 +2118,7 @@ impl RangeObj {
     }
 }
 
+#[allow(missing_docs)]
 impl Range {
     /// Lossless complete-field allocation.
     pub fn from_fields(

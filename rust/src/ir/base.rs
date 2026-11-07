@@ -37,6 +37,7 @@
 //! # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
 //! ```
 
+// tvm-ffi-stubgen(missing-docs): allow
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
 // tvm-ffi-stubgen(import-object): tvm_ffi::Result
@@ -51,6 +52,7 @@ use tvm_ffi::String;
 
 // tvm-ffi-stubgen(begin): object/ir.EnvFunc
 /// Complete: reflected fields fill [24, 48) exactly.
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "ir.EnvFunc"]
@@ -66,12 +68,14 @@ const _: () = {
     assert!(::core::mem::align_of::<EnvFuncObj>() == 8);
 };
 
+#[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
 pub struct EnvFunc {
     base: ObjectArc<EnvFuncObj>,
 }
 
+#[allow(missing_docs)]
 impl EnvFuncObj {
     pub(crate) fn new(name: String, func: Function) -> Self {
         let base = Object::new();
@@ -79,6 +83,7 @@ impl EnvFuncObj {
     }
 }
 
+#[allow(missing_docs)]
 impl EnvFunc {
     /// Lossless complete-field allocation.
     pub fn new(name: impl Into<String>, func: impl Into<Function>) -> Self {

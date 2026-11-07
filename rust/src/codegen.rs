@@ -22,6 +22,7 @@
 //!
 //! The queries of the LLVM backend are in [`llvm`].
 
+// tvm-ffi-stubgen(missing-docs): allow
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
 // tvm-ffi-stubgen(import-object): tvm_ffi::Module
