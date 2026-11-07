@@ -125,9 +125,7 @@ fn validate_call(call: &CallObj) -> Result<()> {
         "my_ext.cmul" => infer_cmul(call)?,
         _ => infer_part(call)?,
     };
-    let matches: bool = tvm_ffi::cached_global_func!("ffi.StructuralEqual")
-        .call_tuple((&expected, &call.ty, false, false))?
-        .try_into()?;
+    let matches = tvm_ffi::structural_equal(&expected, &call.ty)?;
     require(matches, "incorrect result type for complex operator")
 }
 

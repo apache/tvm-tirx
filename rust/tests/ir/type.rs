@@ -28,7 +28,7 @@ use tvm_tirx::ir::{
     OpaqueType, PrimType, PtrType, StringType, TensorRegionType, TupleType, Type, TypeObj, Var,
     VarObj,
 };
-use tvm_tirx::tvm_ffi::{rs_object, structural_map};
+use tvm_tirx::tvm_ffi::{rs_object, structural_hash, structural_map};
 use tvm_tirx::tvm_ffi::{
     Any, AnyView, Array, DLDataType, DLDataTypeExt, FieldGetter, ObjectCore, ObjectRefCore, Result,
     ShallowCopy, String as FfiString, WalkOrder,
@@ -161,17 +161,6 @@ where
 {
     let text = global("ffi.ReprPrint").call_packed(&[AnyView::from(value)]).unwrap();
     FfiString::try_from(text).unwrap().as_str().to_string()
-}
-
-/// C++ `ffi::StructuralHash()(value)`.
-fn structural_hash<T>(value: &T) -> Result<i64>
-where
-    for<'a> AnyView<'a>: From<&'a T>,
-{
-    let flag = <AnyView as From<&bool>>::from;
-    global("ffi.StructuralHash")
-        .call_packed(&[AnyView::from(value), flag(&false), flag(&false)])?
-        .try_into()
 }
 
 #[test]

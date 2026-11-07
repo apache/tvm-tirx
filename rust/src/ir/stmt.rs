@@ -270,7 +270,7 @@ impl Bind {
         loc: impl Into<Location>,
     ) -> Result<Self> {
         let (var, value) = (var.into(), value.into_owned_expr()?);
-        if !support::structural_equal(&value.ty, &var.ty)? {
+        if !tvm_ffi::structural_equal(&value.ty, &var.ty)? {
             let condition = "ffi::StructuralEqual()(value->ty, var->ty)";
             return Err(support::check_failed(tvm_ffi::INTERNAL_ERROR, condition, ""));
         }
@@ -907,7 +907,7 @@ impl RegionStmt {
             ));
         }
         for (i, (param, expected)) in body_params.iter().zip(expected.iter()).enumerate() {
-            if !support::structural_equal(&param.ty, &expected.ty)? {
+            if !tvm_ffi::structural_equal(&param.ty, &expected.ty)? {
                 let condition =
                     "ffi::StructuralEqual()(body_params[i]->ty, expected_params[i]->ty)";
                 let message =
