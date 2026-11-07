@@ -2210,7 +2210,8 @@ impl Let {
         let Some(var_ty) = var.ty.downcast_ref::<PrimTypeObj>() else {
             let message = format!(
                 "Cannot treat type `{}` as type `ir.PrimType`",
-                support::type_key(AnyView::from(&var.ty).type_index())
+                tvm_ffi::reflection::type_key(AnyView::from(&var.ty).type_index())
+                    .unwrap_or_default()
             );
             return Err(tvm_ffi::Error::new(tvm_ffi::TYPE_ERROR, &message, ""));
         };

@@ -33,7 +33,6 @@ use super::expr::{CallObj, Expr, Var};
 use super::op::{Op, OpObj};
 use super::r#type::Type;
 use super::stmt::RegionStmtObj;
-use super::support;
 use sig::{Checks, Specs};
 
 /// A chain of steps that registers a new operator.
@@ -365,7 +364,7 @@ pub mod sig {
         ///
         /// By default, the description is the type key of `value`.
         fn mismatch(value: AnyView<'_>) -> std::string::String {
-            support::type_key(value.type_index())
+            tvm_ffi::reflection::type_key(value.type_index()).unwrap_or_default().to_string()
         }
     }
 
@@ -582,7 +581,11 @@ pub mod sig {
             let actual = match &call.attrs {
                 Some(attrs) if attrs.downcast_ref::<T::ContainerType>().is_some() => return Ok(()),
                 Some(attrs) => {
-                    format!("`{}`", support::type_key(AnyView::from(attrs).type_index()))
+                    format!(
+                        "`{}`",
+                        tvm_ffi::reflection::type_key(AnyView::from(attrs).type_index())
+                            .unwrap_or_default()
+                    )
                 }
                 None => "None".into(),
             };

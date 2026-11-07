@@ -183,7 +183,7 @@ pub fn logaddexp_at(
     for (operand, side) in [(&a, "a"), (&b, "b")] {
         if !operand.prim_ty().matches_code(&[DLDataTypeCode::kDLFloat]) {
             let condition = format!("{side}.ty().MatchesCode(DLDataTypeCode::kDLFloat)");
-            let message = support::repr(operand);
+            let message = operand.to_string();
             return Err(support::check_failed(INTERNAL_ERROR, &condition, &message));
         }
     }
@@ -229,10 +229,7 @@ pub fn reinterpret_at(
     };
     if value.downcast_ref::<StringImmObj>().is_some() {
         if !target_is_pointer {
-            let message = format!(
-                "String reinterpret requires a pointer target, but got {}",
-                support::repr(&ty)
-            );
+            let message = format!("String reinterpret requires a pointer target, but got {ty}");
             return type_error("target_ty.as<PtrTypeObj>()", message);
         }
     } else if let Some(target) = ty.downcast_ref::<PrimType>() {
@@ -252,38 +249,28 @@ pub fn reinterpret_at(
                                      ((value_dtype.MatchesCode(DLDataTypeCode::kDLFloat4_e2m1fn) || \
                                      target_prim.MatchesCode(DLDataTypeCode::kDLFloat4_e2m1fn)) && \
                                      value_dtype.StorageBytes() == target_prim.StorageBytes())";
-                    let message = format!(
-                        "Reinterpret requires size match {} vs {}",
-                        support::repr(&ty),
-                        support::repr(&value.ty)
-                    );
+                    let message = format!("Reinterpret requires size match {} vs {}", ty, value.ty);
                     return Err(support::check_failed(INTERNAL_ERROR, condition, &message));
                 }
             }
         } else {
             if !source_is_pointer {
-                let message = format!(
-                    "Reinterpret source must be PrimType or PtrType, but got {}",
-                    support::repr(&value.ty)
-                );
+                let message =
+                    format!("Reinterpret source must be PrimType or PtrType, but got {}", value.ty);
                 return type_error("value->ty.as<PtrTypeObj>()", message);
             }
             if !is_scalar_int64(target) {
                 let condition = "target_dtype.value().IsScalar() && target_dtype.value().bits() == 64 && \
                                  target_dtype.value().MatchesCode(DLDataTypeCode::kDLInt, DLDataTypeCode::kDLUInt)";
                 let message = format!(
-                    "Pointer reinterpret requires a scalar 64-bit integer target, but got {}",
-                    support::repr(&ty)
+                    "Pointer reinterpret requires a scalar 64-bit integer target, but got {ty}"
                 );
                 return type_error(condition, message);
             }
         }
     } else {
         if !target_is_pointer {
-            let message = format!(
-                "Reinterpret target must be PrimType or PtrType, but got {}",
-                support::repr(&ty)
-            );
+            let message = format!("Reinterpret target must be PrimType or PtrType, but got {ty}");
             return type_error("target_ty.as<PtrTypeObj>()", message);
         }
         if let Some(source) = value.ty.downcast_ref::<PrimType>() {
@@ -292,15 +279,13 @@ pub fn reinterpret_at(
                                  source_dtype.value().MatchesCode(DLDataTypeCode::kDLInt, DLDataTypeCode::kDLUInt)";
                 let message = format!(
                     "Pointer reinterpret requires a scalar 64-bit integer source, but got {}",
-                    support::repr(&value.ty)
+                    value.ty
                 );
                 return type_error(condition, message);
             }
         } else if !source_is_pointer {
-            let message = format!(
-                "Reinterpret source must be PrimType or PtrType, but got {}",
-                support::repr(&value.ty)
-            );
+            let message =
+                format!("Reinterpret source must be PrimType or PtrType, but got {}", value.ty);
             return type_error("value->ty.as<PtrTypeObj>()", message);
         }
     }

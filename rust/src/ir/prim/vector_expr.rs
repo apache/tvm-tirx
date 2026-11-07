@@ -209,7 +209,7 @@ impl Ramp {
                 );
                 let message = format!(
                     "Ramp {field} must be scalar int32, int64, uint32, or uint64, but got {}",
-                    support::repr(ty)
+                    ty
                 );
                 return Err(support::check_failed(tvm_ffi::TYPE_ERROR, &condition, &message));
             }
@@ -449,7 +449,7 @@ fn vector_lanes(element: &PrimType, lanes: PrimExpr) -> Result<(PrimType, PrimEx
         return Ok((ty, IntImm::int32(count).into()));
     }
     let Some(factor) = vscale_factor(&lanes)? else {
-        let message = format!("Invalid expression for scalable lanes {}", support::repr(&lanes));
+        let message = format!("Invalid expression for scalable lanes {lanes}");
         return Err(support::check_failed(tvm_ffi::INTERNAL_ERROR, "vscale_factor", &message));
     };
     let ty = PrimType::try_from(support::scalable_vector(element.dtype, factor)?)?;

@@ -30,8 +30,7 @@ use std::thread::LocalKey;
 
 use tvm_ffi::tvm_ffi_sys::{TVMFFIFieldFlagBitMask, TVMFFIGetTypeInfo};
 use tvm_ffi::{
-    Any, AnyView, DLDataType, DLDataTypeCode, DLDataTypeExt, Error, ErrorKind, Result,
-    INTERNAL_ERROR,
+    Any, DLDataType, DLDataTypeCode, DLDataTypeExt, Error, ErrorKind, Result, INTERNAL_ERROR,
 };
 
 use tvm_ffi::reflection::{NativeFunction, TypeAttrColumn};
@@ -107,30 +106,9 @@ pub(crate) fn compare_failed(
     Error::new(kind, &format!("Check failed: {condition} ({lhs} vs. {rhs}) : {message}"), "")
 }
 
-/// A value as error messages print it (`ffi.ReprPrint`).
-pub(crate) fn repr<T>(value: &T) -> std::string::String
-where
-    for<'a> AnyView<'a>: From<&'a T>,
-{
-    tvm_ffi::cached_global_func!("ffi.ReprPrint")
-        .call_packed(&[AnyView::from(value)])
-        .and_then(tvm_ffi::String::try_from)
-        .map(|text| text.as_str().to_string())
-        .unwrap_or_default()
-}
-
 /// A dtype as error messages print it, such as `int32`.
 pub(crate) fn dtype_name(dtype: DLDataType) -> std::string::String {
     dtype.to_string()
-}
-
-/// The registered key of a type index.
-pub(crate) fn type_key(type_index: i32) -> std::string::String {
-    // SAFETY: the type index of a live value is registered, and its information is static.
-    unsafe {
-        let info = TVMFFIGetTypeInfo(type_index);
-        (*info).type_key.as_str().to_string()
-    }
 }
 
 /// The default value the reflection of the type of `type_index` registers for its own field

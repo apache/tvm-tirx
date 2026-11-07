@@ -378,8 +378,7 @@ impl AssertStmt {
         if !condition_ty.matches_code(&[DLDataTypeCode::kDLBool]) {
             let message = format!(
                 "AssertStmt should have boolean condition, but received {} with dtype {}",
-                support::repr(&condition),
-                support::repr(condition_ty)
+                condition, condition_ty
             );
             let check = "condition_ty.MatchesCode(DLDataTypeCode::kDLBool)";
             return Err(support::check_failed(tvm_ffi::INTERNAL_ERROR, check, &message));
@@ -553,8 +552,7 @@ impl For {
                 let message = format!(
                     "TIR For nodes require a scalar integer as the {field}, but received {} with \
                      dtype {}",
-                    support::repr(expr),
-                    support::repr(ty)
+                    expr, ty
                 );
                 let condition = "dtype.IsScalar() && (dtype.MatchesCode(DLDataTypeCode::kDLUInt, \
                                  DLDataTypeCode::kDLInt))";
@@ -571,8 +569,7 @@ impl For {
                 if !int_imm_value_fits(&imm.value, &var_ty)? {
                     let message = format!(
                         "Literal value {} is not representable in the loop variable's dtype ({})",
-                        imm.value,
-                        support::repr(&var_ty)
+                        imm.value, var_ty
                     );
                     let condition = "IntImmValueFits(a->value, var_ty)";
                     return Err(support::check_failed(
@@ -586,8 +583,7 @@ impl For {
             if ty.bits() > var_ty.bits() {
                 let message = format!(
                     " Loop variable's dtype ({}) is narrower than that of `begin` or `end` ({})",
-                    support::repr(&var_ty),
-                    support::repr(&ty)
+                    var_ty, ty
                 );
                 let condition = "e_ty.bits() <= var_ty.bits()";
                 return Err(support::check_failed(tvm_ffi::INTERNAL_ERROR, condition, &message));
@@ -599,7 +595,7 @@ impl For {
             if ty.dtype == var_ty.dtype {
                 return Ok(());
             }
-            let message = format!("{} vs {}", support::repr(&var_ty), support::repr(ty));
+            let message = format!("{var_ty} vs {ty}");
             Err(support::check_failed(tvm_ffi::INTERNAL_ERROR, condition, &message))
         };
         let (begin, end) = (promote(begin)?, promote(end)?);
@@ -786,8 +782,10 @@ impl TensorStore {
             .collect::<Result<Array<PrimExpr>>>()?;
         let ty_index = AnyView::from(&dest.ty).type_index();
         let Some(validate) = VALIDATE.get(ty_index) else {
-            let message =
-                format!("Type {} does not support TensorStore", support::type_key(ty_index));
+            let message = format!(
+                "Type {} does not support TensorStore",
+                tvm_ffi::reflection::type_key(ty_index).unwrap_or_default()
+            );
             return Err(support::check_failed(
                 tvm_ffi::TYPE_ERROR,
                 "validate.has_value()",
