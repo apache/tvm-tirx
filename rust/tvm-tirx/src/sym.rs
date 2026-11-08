@@ -21,10 +21,9 @@
 //! under the facts of a [`ConstraintContext`]; [`int_set`] and [`iter_affine_map`] describe the
 //! values and the iterator structure of index expressions.
 
-// tvm-ffi-stubgen(file): mod(missing_docs = allow)
 // An object registered under `sym` that no file has a block for yet is generated here, to be moved
 // to the file of the Python module that defines it.
-// tvm-ffi-stubgen(file): mod(prefix = sym)
+// tvm-ffi-stubgen(file): mod(missing_docs = allow, prefix = sym)
 // tvm-ffi-stubgen(object): sym.ConstraintContext(skip)
 // The canonical simplifier's intermediate forms are internal to it.
 // tvm-ffi-stubgen(object): sym.CanonicalExpr(skip)

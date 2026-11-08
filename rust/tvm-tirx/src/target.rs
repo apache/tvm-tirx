@@ -20,19 +20,17 @@
 //! Compilation targets. A [`Target`] describes the device and options code is compiled for, as an
 //! instance of a registered [`TargetKind`]; it is created from a tag, a kind name or a config.
 
-// tvm-ffi-stubgen(file): mod(missing_docs = allow)
 // Every object registered under `target` has its block in this file.
-// tvm-ffi-stubgen(file): mod(prefix = target)
+// tvm-ffi-stubgen(file): mod(missing_docs = allow, prefix = target)
 // `target.Target` is hand-written below: a target is built by parsing its config, never from
 // raw fields.
-// tvm-ffi-stubgen(object): target.Target(skip)
+// tvm-ffi-stubgen(object): target.Target(skip, ty_map = crate::target::Target)
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
 // tvm-ffi-stubgen(import): tvm_ffi::Module
 // tvm-ffi-stubgen(import): crate::ir::module::IRModule
 // tvm-ffi-stubgen(import): tvm_ffi::IntoArg
 // tvm-ffi-stubgen(import): std::borrow::Borrow
-// tvm-ffi-stubgen(object): target.Target(ty_map = crate::target::Target)
 // tvm-ffi-stubgen(import): tvm_ffi::Any
 // tvm-ffi-stubgen(import): tvm_ffi::Map
 // tvm-ffi-stubgen(import): tvm_ffi::object::ObjectRef

@@ -21,10 +21,9 @@
 //! ([`Type`]) are the three node hierarchies; functions are expressions, and an [`IRModule`] binds
 //! them to global names, the unit of compilation that the passes of [`transform`] rewrite.
 
-// tvm-ffi-stubgen(file): mod(missing_docs = allow)
 // An object registered under `ir` that no file has a block for yet is generated here, to be moved
 // to the file of the Python module that defines it.
-// tvm-ffi-stubgen(file): mod(prefix = ir)
+// tvm-ffi-stubgen(file): mod(missing_docs = allow, prefix = ir)
 // `ir.Op` is hand-written in `op.rs`.
 // tvm-ffi-stubgen(object): ir.Op(skip)
 

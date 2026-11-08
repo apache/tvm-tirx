@@ -23,9 +23,8 @@
 //! [`ScopeAttrs`] or [`TrnAttrs`], and is checked by the validator
 //! [`configure_tensor_instruction`] installs.
 
-// tvm-ffi-stubgen(file): mod(missing_docs = allow)
 // Every object registered under `tirx.tensor` has its block in this file.
-// tvm-ffi-stubgen(file): mod(prefix = tirx.tensor)
+// tvm-ffi-stubgen(file): mod(missing_docs = allow, prefix = tirx.tensor)
 
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.

@@ -21,10 +21,9 @@
 //! only checks its operand types; the functions of [`op`], which operators such as `&x + 1` call,
 //! also match the operand types and fold constants.
 
-// tvm-ffi-stubgen(file): mod(missing_docs = allow)
 // An object registered under `prim` that no file has a block for yet is generated here, to be moved
 // to the file of the Python module that defines it.
-// tvm-ffi-stubgen(file): mod(prefix = prim)
+// tvm-ffi-stubgen(file): mod(missing_docs = allow, prefix = prim)
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
 // tvm-ffi-stubgen(import): tvm_ffi::Result

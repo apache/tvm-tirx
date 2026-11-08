@@ -24,24 +24,21 @@
 // tvm-ffi-stubgen(file): mod(missing_docs = allow)
 // `custom_new` reserves `new` for a hand-written constructor (operand checks and the derived vector
 // type); the generated `from_fields` allocates the fields as given.
-// tvm-ffi-stubgen(object): prim.Ramp(custom_new)
-// tvm-ffi-stubgen(object): prim.Broadcast(custom_new)
-// tvm-ffi-stubgen(object): prim.Shuffle(custom_new)
+// tvm-ffi-stubgen(object): prim.Ramp(custom_new, upcast = PrimExpr)
+// tvm-ffi-stubgen(object): prim.Broadcast(custom_new, upcast = PrimExpr)
+// tvm-ffi-stubgen(object): prim.Shuffle(custom_new, upcast = PrimExpr)
 // Every node is typed by a `PrimType` and holds `PrimExpr` operands: its allocator takes a
 // `PrimType`, and it converts into a `PrimExpr` without a check.
 // tvm-ffi-stubgen(field): prim.Ramp.ty(type = PrimType)
 // tvm-ffi-stubgen(field): prim.Ramp.base(type = PrimExpr)
 // tvm-ffi-stubgen(field): prim.Ramp.stride(type = PrimExpr)
 // tvm-ffi-stubgen(field): prim.Ramp.lanes(type = PrimExpr)
-// tvm-ffi-stubgen(object): prim.Ramp(upcast = PrimExpr)
 // tvm-ffi-stubgen(field): prim.Broadcast.ty(type = PrimType)
 // tvm-ffi-stubgen(field): prim.Broadcast.value(type = PrimExpr)
 // tvm-ffi-stubgen(field): prim.Broadcast.lanes(type = PrimExpr)
-// tvm-ffi-stubgen(object): prim.Broadcast(upcast = PrimExpr)
 // tvm-ffi-stubgen(field): prim.Shuffle.ty(type = PrimType)
 // tvm-ffi-stubgen(field): prim.Shuffle.vectors(type = Array<PrimExpr>)
 // tvm-ffi-stubgen(field): prim.Shuffle.indices(type = Array<PrimExpr>)
-// tvm-ffi-stubgen(object): prim.Shuffle(upcast = PrimExpr)
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
 // tvm-ffi-stubgen(import): tvm_ffi::DLDataTypeCode

@@ -45,8 +45,7 @@
 // The marks and the padding predicate are `PrimExpr`s, as in C++.
 // tvm-ffi-stubgen(field): sym.IterMark.source(type = PrimExpr)
 // tvm-ffi-stubgen(field): sym.IterMark.extent(type = PrimExpr)
-// tvm-ffi-stubgen(field): sym.IterMapResult.padding_predicate(type = PrimExpr)
-// tvm-ffi-stubgen(field): sym.IterMapResult.padding_predicate(nullable)
+// tvm-ffi-stubgen(field): sym.IterMapResult.padding_predicate(type = PrimExpr, nullable)
 // tvm-ffi-stubgen(import): std::borrow::Borrow
 // tvm-ffi-stubgen(import): tvm_ffi::IntoArg
 // tvm-ffi-stubgen(begin): import-section

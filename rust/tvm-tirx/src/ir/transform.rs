@@ -20,10 +20,9 @@
 //! Pass infrastructure. A [`Pass`] transforms an [`IRModule`](super::IRModule) under the current
 //! [`PassContext`], whose instruments observe each pass it runs.
 
-// tvm-ffi-stubgen(file): mod(missing_docs = allow)
 // An object registered under `transform` that no file has a block for yet is generated here, to be
 // moved to the file of the Python module that defines it.
-// tvm-ffi-stubgen(file): mod(prefix = transform)
+// tvm-ffi-stubgen(file): mod(missing_docs = allow, prefix = transform)
 
 pub mod core;
 pub mod instrument;
