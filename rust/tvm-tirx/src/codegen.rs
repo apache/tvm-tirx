@@ -28,7 +28,7 @@
 // tvm-ffi-stubgen(import-object): tvm_ffi::String
 // tvm-ffi-stubgen(import-object): crate::ir::module::IRModule
 // tvm-ffi-stubgen(import-object): crate::target::Target
-// tvm-ffi-stubgen(import-object): tvm_ffi::IntoObjectRef
+// tvm-ffi-stubgen(import-object): tvm_ffi::IntoArg
 // tvm-ffi-stubgen(import-object): std::borrow::Borrow
 
 pub mod llvm;
@@ -37,7 +37,7 @@ pub mod llvm;
 use crate::ir::module::IRModule;
 use crate::target::Target;
 use std::borrow::Borrow;
-use tvm_ffi::IntoObjectRef;
+use tvm_ffi::IntoArg;
 use tvm_ffi::Module;
 use tvm_ffi::Result;
 use tvm_ffi::String;
@@ -75,11 +75,11 @@ use tvm_ffi::String;
 /// # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
 /// ```
 pub fn build_module(
-    module: impl IntoObjectRef<IRModule>,
-    target: impl IntoObjectRef<Target>,
+    module: impl IntoArg<IRModule>,
+    target: impl IntoArg<Target>,
 ) -> Result<Module> {
     tvm_ffi::cached_global_func!("codegen.Build")
-        .call_tuple((module.into_object_ref().borrow(), target.into_object_ref().borrow()))?
+        .call_tuple((module.into_arg().borrow(), target.into_arg().borrow()))?
         .try_into()
 }
 

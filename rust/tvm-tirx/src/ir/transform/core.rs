@@ -31,7 +31,7 @@
 // does.
 // tvm-ffi-stubgen(import-object): crate::ir::module::IRModule
 // tvm-ffi-stubgen(import-object): crate::ir::support
-// tvm-ffi-stubgen(import-object): tvm_ffi::IntoObjectRef
+// tvm-ffi-stubgen(import-object): tvm_ffi::IntoArg
 // tvm-ffi-stubgen(import-object): std::borrow::Borrow
 
 // tvm-ffi-stubgen(begin): import-section
@@ -41,15 +41,13 @@ use std::borrow::Borrow;
 use std::ops::Deref;
 use tvm_ffi::Any;
 use tvm_ffi::Array;
-use tvm_ffi::IntoObjectRef;
+use tvm_ffi::IntoArg;
 use tvm_ffi::Map;
 use tvm_ffi::Object;
 use tvm_ffi::ObjectArc;
-use tvm_ffi::ObjectCore;
 use tvm_ffi::Result;
 use tvm_ffi::String;
-use tvm_ffi::extra::cold_init_lazy_lock::ColdInitLazyLock;
-use tvm_ffi::reflection::FieldGetter;
+use tvm_ffi::cached_field_getter;
 // tvm-ffi-stubgen(end)
 
 /// A transformation of an [`IRModule`], with a name and an optimization level ([`PassInfo`]).
@@ -92,7 +90,7 @@ pub struct Pass {
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
-#[type_key = "transform.Pass"]
+#[object(type_key = "transform.Pass")]
 pub struct PassObj {
     base_: Object,
 }
@@ -108,8 +106,8 @@ impl Pass {
     /// (`transform.RunPass`).
     ///
     /// An instrument's `should_run` hook may skip the pass, unless the context requires it.
-    pub fn run(&self, module: impl IntoObjectRef<IRModule>) -> Result<IRModule> {
-        let module = tvm_ffi::rvalue_ref::RValueRef::new(module.into_owned_object_ref());
+    pub fn run(&self, module: impl IntoArg<IRModule>) -> Result<IRModule> {
+        let module = tvm_ffi::rvalue_ref::RValueRef::new(module.into_owned());
         tvm_ffi::cached_global_func!("transform.RunPass")
             .call_packed(&[tvm_ffi::AnyView::from(self), tvm_ffi::AnyView::from(&module)])?
             .try_into()
@@ -132,9 +130,7 @@ pub struct PassInfo {
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
-#[type_key = "transform.PassInfo"]
-#[type_final]
-#[type_immutable]
+#[object(type_key = "transform.PassInfo", final, immutable)]
 pub struct PassInfoObj {
     base_: Object,
     pub opt_level: i32,
@@ -182,9 +178,7 @@ pub struct ModulePass {
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
-#[type_key = "transform.ModulePass"]
-#[type_final]
-#[type_immutable]
+#[object(type_key = "transform.ModulePass", final, immutable)]
 pub struct ModulePassObj {
     base_: PassObj,
 }
@@ -199,9 +193,7 @@ impl Deref for ModulePassObj {
 #[allow(missing_docs)]
 impl ModulePassObj {
     pub fn pass_info(&self) -> Result<PassInfo> {
-        static GETTER: ColdInitLazyLock<Result<FieldGetter>> =
-            ColdInitLazyLock::new(|| FieldGetter::new(ModulePassObj::type_index(), "pass_info"));
-        GETTER.clone()?.get(self)
+        cached_field_getter!(ModulePassObj, "pass_info").get(self)
     }
 }
 
@@ -215,7 +207,7 @@ impl ModulePass {
     /// The pass may run on any thread, so `pass_func` is `Send + Sync`.
     pub fn new(
         pass_func: impl Fn(IRModule, PassContext) -> Result<IRModule> + Send + Sync + 'static,
-        pass_info: impl IntoObjectRef<PassInfo>,
+        pass_info: impl IntoArg<PassInfo>,
     ) -> Self {
         let pass_func = tvm_ffi::Function::from_typed(
             move |module: tvm_ffi::rvalue_ref::RValueRef<IRModule>, ctx: PassContext| {
@@ -224,7 +216,7 @@ impl ModulePass {
         );
         support::infallible(
             tvm_ffi::cached_global_func!("transform.MakeModulePass")
-                .call_tuple((&pass_func, pass_info.into_object_ref().borrow()))
+                .call_tuple((&pass_func, pass_info.into_arg().borrow()))
                 .and_then(|any| any.try_into()),
         )
     }
@@ -246,9 +238,7 @@ pub struct Sequential {
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
-#[type_key = "transform.Sequential"]
-#[type_final]
-#[type_immutable]
+#[object(type_key = "transform.Sequential", final, immutable)]
 pub struct SequentialObj {
     base_: PassObj,
 }
@@ -263,15 +253,11 @@ impl Deref for SequentialObj {
 #[allow(missing_docs)]
 impl SequentialObj {
     pub fn pass_info(&self) -> Result<PassInfo> {
-        static GETTER: ColdInitLazyLock<Result<FieldGetter>> =
-            ColdInitLazyLock::new(|| FieldGetter::new(SequentialObj::type_index(), "pass_info"));
-        GETTER.clone()?.get(self)
+        cached_field_getter!(SequentialObj, "pass_info").get(self)
     }
 
     pub fn passes(&self) -> Result<Array<Pass>> {
-        static GETTER: ColdInitLazyLock<Result<FieldGetter>> =
-            ColdInitLazyLock::new(|| FieldGetter::new(SequentialObj::type_index(), "passes"));
-        GETTER.clone()?.get(self)
+        cached_field_getter!(SequentialObj, "passes").get(self)
     }
 }
 
@@ -285,12 +271,11 @@ impl Sequential {
     /// It skips the passes the current pass context disables, and those whose level exceeds the
     /// context's `opt_level` unless the context requires them.
     pub fn new(
-        passes: impl IntoIterator<Item = impl IntoObjectRef<Pass>>,
-        pass_info: impl IntoObjectRef<PassInfo>,
+        passes: impl IntoIterator<Item = impl IntoArg<Pass>>,
+        pass_info: impl IntoArg<PassInfo>,
     ) -> Self {
-        let passes =
-            passes.into_iter().map(IntoObjectRef::into_owned_object_ref).collect::<Array<Pass>>();
-        let pass_info = pass_info.into_object_ref();
+        let passes = passes.into_iter().map(IntoArg::into_owned).collect::<Array<Pass>>();
+        let pass_info = pass_info.into_arg();
         let pass_info: &PassInfo = pass_info.borrow();
         support::infallible(
             tvm_ffi::cached_global_func!("transform.Sequential")
@@ -319,8 +304,7 @@ pub struct PassContext {
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
-#[type_key = "transform.PassContext"]
-#[type_final]
+#[object(type_key = "transform.PassContext", final)]
 pub struct PassContextObj {
     base_: Object,
     pub opt_level: i32,
@@ -385,17 +369,15 @@ impl PassContext {
         opt_level: i32,
         required_pass: impl IntoIterator<Item = impl AsRef<str>>,
         disabled_pass: impl IntoIterator<Item = impl AsRef<str>>,
-        instruments: impl IntoIterator<Item = impl IntoObjectRef<PassInstrument>>,
+        instruments: impl IntoIterator<Item = impl IntoArg<PassInstrument>>,
         config: impl Into<Option<Map<String, Any>>>,
     ) -> Result<Self> {
         let required_pass =
             required_pass.into_iter().map(|name| String::from(name.as_ref())).collect::<Array<_>>();
         let disabled_pass =
             disabled_pass.into_iter().map(|name| String::from(name.as_ref())).collect::<Array<_>>();
-        let instruments = instruments
-            .into_iter()
-            .map(IntoObjectRef::into_owned_object_ref)
-            .collect::<Array<PassInstrument>>();
+        let instruments =
+            instruments.into_iter().map(IntoArg::into_owned).collect::<Array<PassInstrument>>();
         tvm_ffi::cached_global_func!("transform.PassContext")
             .call_tuple((opt_level, &required_pass, &disabled_pass, &instruments, config.into()))?
             .try_into()
@@ -428,12 +410,10 @@ impl PassContext {
     /// `enter_pass_ctx` hook, after which the context has no instruments.
     pub fn override_instruments(
         &self,
-        instruments: impl IntoIterator<Item = impl IntoObjectRef<PassInstrument>>,
+        instruments: impl IntoIterator<Item = impl IntoArg<PassInstrument>>,
     ) -> Result<()> {
-        let instruments = instruments
-            .into_iter()
-            .map(IntoObjectRef::into_owned_object_ref)
-            .collect::<Array<PassInstrument>>();
+        let instruments =
+            instruments.into_iter().map(IntoArg::into_owned).collect::<Array<PassInstrument>>();
         tvm_ffi::cached_global_func!("transform.OverrideInstruments")
             .call_tuple((self, &instruments))?;
         Ok(())
@@ -500,8 +480,7 @@ pub struct PassInstrument {
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
-#[type_key = "transform.PassInstrument"]
-#[type_immutable]
+#[object(type_key = "transform.PassInstrument", immutable)]
 pub struct PassInstrumentObj {
     base_: Object,
 }
@@ -509,9 +488,7 @@ pub struct PassInstrumentObj {
 #[allow(missing_docs)]
 impl PassInstrumentObj {
     pub fn name(&self) -> Result<String> {
-        static GETTER: ColdInitLazyLock<Result<FieldGetter>> =
-            ColdInitLazyLock::new(|| FieldGetter::new(PassInstrumentObj::type_index(), "name"));
-        GETTER.clone()?.get(self)
+        cached_field_getter!(PassInstrumentObj, "name").get(self)
     }
 }
 // tvm-ffi-stubgen(end)

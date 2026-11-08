@@ -45,9 +45,9 @@ impl<'v, 'c, 'r, 'a, D, const PRE: bool>
     > for &mut WalkVisitor<'a, D, PRE>
 where
     for<'s, 'b, 'ctx> &'s mut D: Dispatcher<
-        (AnyView<'b>, &'ctx ConstraintContext, DefRegionKind),
-        Option<Result<WalkResult>>,
-    >,
+            (AnyView<'b>, &'ctx ConstraintContext, DefRegionKind),
+            Option<Result<WalkResult>>,
+        >,
 {
     #[inline(always)]
     fn dispatch_tuple(
@@ -73,11 +73,9 @@ where
         visitor: &mut StructuralVisitorWithConstraintContextView<'_, Self>,
     ) -> Result<Option<VisitInterrupt>> {
         let kind = visitor.def_region_kind();
-        if !PRE {
-            if let Some(interrupt) = visitor.default_visit(self, value)? {
-                core::hint::cold_path();
-                return Ok(Some(interrupt));
-            }
+        if !PRE && let Some(interrupt) = visitor.default_visit(self, value)? {
+            core::hint::cold_path();
+            return Ok(Some(interrupt));
         }
         // Post callbacks observe the restored context.
         // SAFETY: the observer cannot reach this visitor (a nested walk has its own runtime), and
@@ -148,12 +146,12 @@ where
     R: Into<AnyView<'input>>,
     O: BorrowMut<D>,
     for<'v, 'c> H: IntoDispatcher<
-        (AnyView<'v>, &'c ConstraintContext, DefRegionKind),
-        Option<Result<WalkResult>>,
-        M,
-        Target = D,
-        Output = O,
-    >,
+            (AnyView<'v>, &'c ConstraintContext, DefRegionKind),
+            Option<Result<WalkResult>>,
+            M,
+            Target = D,
+            Output = O,
+        >,
     for<'s, 'v, 'c> &'s mut D:
         Dispatcher<(AnyView<'v>, &'c ConstraintContext, DefRegionKind), Option<Result<WalkResult>>>,
 {

@@ -31,7 +31,7 @@
 // tvm-ffi-stubgen(import-object): tvm_ffi::Shape
 // tvm-ffi-stubgen(import-object): tvm_ffi::String
 // tvm-ffi-stubgen(import-object): tvm_ffi::Tensor
-// tvm-ffi-stubgen(import-object): tvm_ffi::IntoObjectRef
+// tvm-ffi-stubgen(import-object): tvm_ffi::IntoArg
 // tvm-ffi-stubgen(import-object): std::borrow::Borrow
 
 // tvm-ffi-stubgen(begin): import-section
@@ -39,7 +39,7 @@ use std::borrow::Borrow;
 use tvm_ffi::Any;
 use tvm_ffi::DLDataType;
 use tvm_ffi::DLDevice;
-use tvm_ffi::IntoObjectRef;
+use tvm_ffi::IntoArg;
 use tvm_ffi::ObjectArc;
 use tvm_ffi::Result;
 use tvm_ffi::Shape;
@@ -68,9 +68,7 @@ pub struct MemoryScope {
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
-#[type_key = "runtime.MemoryScope"]
-#[type_final]
-#[type_immutable]
+#[object(type_key = "runtime.MemoryScope", final, immutable)]
 pub struct MemoryScopeObj {
     base_: EnumObj,
 }
@@ -124,18 +122,13 @@ pub fn empty(
 ///
 /// Returns an error if `source` is not contiguous or the view does not fit in its storage.
 pub fn create_view(
-    source: impl IntoObjectRef<Tensor>,
+    source: impl IntoArg<Tensor>,
     shape: &[i64],
     dtype: DLDataType,
     relative_byte_offset: u64,
 ) -> Result<Tensor> {
     tvm_ffi::cached_global_func!("runtime.TensorCreateView")
-        .call_tuple((
-            source.into_object_ref().borrow(),
-            Shape::from(shape),
-            dtype,
-            relative_byte_offset,
-        ))?
+        .call_tuple((source.into_arg().borrow(), Shape::from(shape), dtype, relative_byte_offset))?
         .try_into()
 }
 

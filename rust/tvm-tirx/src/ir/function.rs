@@ -38,7 +38,7 @@ use crate::ir::location::Location;
 use crate::ir::r#type::Type;
 use std::ops::Deref;
 use tvm_ffi::Any;
-use tvm_ffi::IntoObjectRef;
+use tvm_ffi::IntoArg;
 use tvm_ffi::Map;
 use tvm_ffi::ObjectArc;
 use tvm_ffi::Result;
@@ -81,9 +81,7 @@ pub struct BaseFunc {
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
-#[type_key = "ir.BaseFunc"]
-#[type_immutable]
-#[type_rs_parent]
+#[object(type_key = "ir.BaseFunc", immutable, rs_parent)]
 pub struct BaseFuncObj {
     base_: ExprObj,
     pub attrs: DictAttrs,
@@ -113,15 +111,11 @@ impl BaseFuncObj {
 impl BaseFunc {
     /// Lossless complete-field allocation.
     pub fn new(
-        loc: impl IntoObjectRef<Location>,
-        ty: impl IntoObjectRef<Type>,
-        attrs: impl IntoObjectRef<DictAttrs>,
+        loc: impl IntoArg<Location>,
+        ty: impl IntoArg<Type>,
+        attrs: impl IntoArg<DictAttrs>,
     ) -> Self {
-        let obj = BaseFuncObj::new(
-            loc.into_owned_object_ref(),
-            ty.into_owned_object_ref(),
-            attrs.into_owned_object_ref(),
-        );
+        let obj = BaseFuncObj::new(loc.into_owned(), ty.into_owned(), attrs.into_owned());
         Self { data_: ObjectArc::new(obj) }
     }
 }

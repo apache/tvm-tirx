@@ -45,9 +45,7 @@ pub struct GlobalInfo {
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
-#[type_key = "ir.GlobalInfo"]
-#[type_immutable]
-#[type_rs_parent]
+#[object(type_key = "ir.GlobalInfo", immutable, rs_parent)]
 pub struct GlobalInfoObj {
     base_: Object,
 }

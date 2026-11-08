@@ -44,7 +44,7 @@
 // tvm-ffi-stubgen(import-object): tvm_ffi::Error
 // tvm-ffi-stubgen(import-object): tvm_ffi::DLDataTypeCode
 // tvm-ffi-stubgen(import-object): tvm_ffi::VALUE_ERROR
-// tvm-ffi-stubgen(import-object): tvm_ffi::IntoObjectRef
+// tvm-ffi-stubgen(import-object): tvm_ffi::IntoArg
 
 // tvm-ffi-stubgen(begin): import-section
 use crate::ir::dtype;
@@ -57,7 +57,7 @@ use tvm_ffi::Array;
 use tvm_ffi::DLDataType;
 use tvm_ffi::DLDataTypeCode;
 use tvm_ffi::Error;
-use tvm_ffi::IntoObjectRef;
+use tvm_ffi::IntoArg;
 use tvm_ffi::Object;
 use tvm_ffi::ObjectArc;
 use tvm_ffi::ObjectRefCore;
@@ -80,9 +80,7 @@ pub struct Type {
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
-#[type_key = "ir.Type"]
-#[type_immutable]
-#[type_rs_parent]
+#[object(type_key = "ir.Type", immutable, rs_parent)]
 pub struct TypeObj {
     base_: Object,
     pub loc: Location,
@@ -104,8 +102,8 @@ impl TypeObj {
 #[allow(missing_docs)]
 impl Type {
     /// Lossless complete-field allocation.
-    pub fn new(loc: impl IntoObjectRef<Location>) -> Self {
-        let obj = TypeObj::new(loc.into_owned_object_ref());
+    pub fn new(loc: impl IntoArg<Location>) -> Self {
+        let obj = TypeObj::new(loc.into_owned());
         Self { data_: ObjectArc::new(obj) }
     }
 }
@@ -129,9 +127,7 @@ pub struct MissingType {
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
-#[type_key = "ir.MissingType"]
-#[type_final]
-#[type_immutable]
+#[object(type_key = "ir.MissingType", final, immutable)]
 pub struct MissingTypeObj {
     base_: TypeObj,
 }
@@ -159,8 +155,8 @@ impl MissingTypeObj {
 #[allow(missing_docs)]
 impl MissingType {
     /// Lossless complete-field allocation.
-    pub fn from_fields(loc: impl IntoObjectRef<Location>) -> Self {
-        let obj = MissingTypeObj::new(loc.into_owned_object_ref());
+    pub fn from_fields(loc: impl IntoArg<Location>) -> Self {
+        let obj = MissingTypeObj::new(loc.into_owned());
         Self { data_: ObjectArc::new(obj) }
     }
 }
@@ -198,9 +194,7 @@ pub struct NoneType {
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
-#[type_key = "ir.NoneType"]
-#[type_final]
-#[type_immutable]
+#[object(type_key = "ir.NoneType", final, immutable)]
 pub struct NoneTypeObj {
     base_: TypeObj,
 }
@@ -228,8 +222,8 @@ impl NoneTypeObj {
 #[allow(missing_docs)]
 impl NoneType {
     /// Lossless complete-field allocation.
-    pub fn from_fields(loc: impl IntoObjectRef<Location>) -> Self {
-        let obj = NoneTypeObj::new(loc.into_owned_object_ref());
+    pub fn from_fields(loc: impl IntoArg<Location>) -> Self {
+        let obj = NoneTypeObj::new(loc.into_owned());
         Self { data_: ObjectArc::new(obj) }
     }
 }
@@ -267,9 +261,7 @@ pub struct AnyType {
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
-#[type_key = "ir.AnyType"]
-#[type_final]
-#[type_immutable]
+#[object(type_key = "ir.AnyType", final, immutable)]
 pub struct AnyTypeObj {
     base_: TypeObj,
 }
@@ -297,8 +289,8 @@ impl AnyTypeObj {
 #[allow(missing_docs)]
 impl AnyType {
     /// Lossless complete-field allocation.
-    pub fn new(loc: impl IntoObjectRef<Location>) -> Self {
-        let obj = AnyTypeObj::new(loc.into_owned_object_ref());
+    pub fn new(loc: impl IntoArg<Location>) -> Self {
+        let obj = AnyTypeObj::new(loc.into_owned());
         Self { data_: ObjectArc::new(obj) }
     }
 }
@@ -324,9 +316,7 @@ pub struct TensorRegionType {
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
-#[type_key = "ir.TensorRegionType"]
-#[type_final]
-#[type_immutable]
+#[object(type_key = "ir.TensorRegionType", final, immutable)]
 pub struct TensorRegionTypeObj {
     base_: TypeObj,
 }
@@ -354,8 +344,8 @@ impl TensorRegionTypeObj {
 #[allow(missing_docs)]
 impl TensorRegionType {
     /// Lossless complete-field allocation.
-    pub fn from_fields(loc: impl IntoObjectRef<Location>) -> Self {
-        let obj = TensorRegionTypeObj::new(loc.into_owned_object_ref());
+    pub fn from_fields(loc: impl IntoArg<Location>) -> Self {
+        let obj = TensorRegionTypeObj::new(loc.into_owned());
         Self { data_: ObjectArc::new(obj) }
     }
 }
@@ -394,9 +384,7 @@ pub struct OpaqueType {
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
-#[type_key = "ir.OpaqueType"]
-#[type_final]
-#[type_immutable]
+#[object(type_key = "ir.OpaqueType", final, immutable)]
 pub struct OpaqueTypeObj {
     base_: TypeObj,
 }
@@ -424,8 +412,8 @@ impl OpaqueTypeObj {
 #[allow(missing_docs)]
 impl OpaqueType {
     /// Lossless complete-field allocation.
-    pub fn from_fields(loc: impl IntoObjectRef<Location>) -> Self {
-        let obj = OpaqueTypeObj::new(loc.into_owned_object_ref());
+    pub fn from_fields(loc: impl IntoArg<Location>) -> Self {
+        let obj = OpaqueTypeObj::new(loc.into_owned());
         Self { data_: ObjectArc::new(obj) }
     }
 }
@@ -473,9 +461,7 @@ pub struct PrimType {
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
-#[type_key = "ir.PrimType"]
-#[type_final]
-#[type_immutable]
+#[object(type_key = "ir.PrimType", final, immutable)]
 pub struct PrimTypeObj {
     base_: TypeObj,
     pub dtype: DLDataType,
@@ -504,8 +490,8 @@ impl PrimTypeObj {
 #[allow(missing_docs)]
 impl PrimType {
     /// Lossless complete-field allocation.
-    pub fn from_fields(loc: impl IntoObjectRef<Location>, dtype: impl Into<DLDataType>) -> Self {
-        let obj = PrimTypeObj::new(loc.into_owned_object_ref(), dtype.into());
+    pub fn from_fields(loc: impl IntoArg<Location>, dtype: impl Into<DLDataType>) -> Self {
+        let obj = PrimTypeObj::new(loc.into_owned(), dtype.into());
         Self { data_: ObjectArc::new(obj) }
     }
 }
@@ -586,7 +572,7 @@ impl PrimType {
     pub fn with_lanes(&self, lanes: u16) -> Result<Self> {
         if i16::try_from(lanes).is_err() {
             let message = format!("a fixed-length vector has fewer than 32768 lanes, not {lanes}");
-            return Err(Error::new(VALUE_ERROR, &message, ""));
+            return Err(Error::new(VALUE_ERROR, &message));
         }
         Self::try_from(dtype::with_lanes(self.dtype, lanes))
     }
@@ -708,9 +694,7 @@ pub struct StringType {
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
-#[type_key = "ir.StringType"]
-#[type_final]
-#[type_immutable]
+#[object(type_key = "ir.StringType", final, immutable)]
 pub struct StringTypeObj {
     base_: TypeObj,
 }
@@ -738,8 +722,8 @@ impl StringTypeObj {
 #[allow(missing_docs)]
 impl StringType {
     /// Lossless complete-field allocation.
-    pub fn from_fields(loc: impl IntoObjectRef<Location>) -> Self {
-        let obj = StringTypeObj::new(loc.into_owned_object_ref());
+    pub fn from_fields(loc: impl IntoArg<Location>) -> Self {
+        let obj = StringTypeObj::new(loc.into_owned());
         Self { data_: ObjectArc::new(obj) }
     }
 }
@@ -772,9 +756,7 @@ pub struct PtrType {
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
-#[type_key = "ir.PtrType"]
-#[type_final]
-#[type_immutable]
+#[object(type_key = "ir.PtrType", final, immutable)]
 pub struct PtrTypeObj {
     base_: TypeObj,
     pub element_type: Type,
@@ -805,15 +787,11 @@ impl PtrTypeObj {
 impl PtrType {
     /// Lossless complete-field allocation.
     pub fn from_fields(
-        loc: impl IntoObjectRef<Location>,
-        element_type: impl IntoObjectRef<Type>,
-        scope: impl IntoObjectRef<MemoryScope>,
+        loc: impl IntoArg<Location>,
+        element_type: impl IntoArg<Type>,
+        scope: impl IntoArg<MemoryScope>,
     ) -> Self {
-        let obj = PtrTypeObj::new(
-            loc.into_owned_object_ref(),
-            element_type.into_owned_object_ref(),
-            scope.into_owned_object_ref(),
-        );
+        let obj = PtrTypeObj::new(loc.into_owned(), element_type.into_owned(), scope.into_owned());
         Self { data_: ObjectArc::new(obj) }
     }
 }
@@ -828,17 +806,14 @@ impl PtrType {
     /// # Errors
     ///
     /// Returns an `InternalError` if `element_type` is a [`MissingType`].
-    pub fn new(
-        element_type: impl IntoObjectRef<Type>,
-        scope: impl IntoObjectRef<MemoryScope>,
-    ) -> Result<Self> {
-        let element_type = element_type.into_owned_object_ref();
+    pub fn new(element_type: impl IntoArg<Type>, scope: impl IntoArg<MemoryScope>) -> Result<Self> {
+        let element_type = element_type.into_owned();
         if element_type.downcast_ref::<MissingTypeObj>().is_some() {
             let condition = "!element_type.as<MissingType>().has_value()";
             let message = "PtrType element_type cannot be Type::Missing()";
             return Err(support::check_failed(tvm_ffi::INTERNAL_ERROR, condition, message));
         }
-        Ok(Self::from_fields(UNKNOWN_LOC, element_type, scope.into_owned_object_ref()))
+        Ok(Self::from_fields(UNKNOWN_LOC, element_type, scope.into_owned()))
     }
 }
 
@@ -857,9 +832,7 @@ pub struct TupleType {
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
-#[type_key = "ir.TupleType"]
-#[type_final]
-#[type_immutable]
+#[object(type_key = "ir.TupleType", final, immutable)]
 pub struct TupleTypeObj {
     base_: TypeObj,
     pub fields: Array<Type>,
@@ -888,8 +861,8 @@ impl TupleTypeObj {
 #[allow(missing_docs)]
 impl TupleType {
     /// Lossless complete-field allocation.
-    pub fn from_fields(loc: impl IntoObjectRef<Location>, fields: impl Into<Array<Type>>) -> Self {
-        let obj = TupleTypeObj::new(loc.into_owned_object_ref(), fields.into());
+    pub fn from_fields(loc: impl IntoArg<Location>, fields: impl Into<Array<Type>>) -> Self {
+        let obj = TupleTypeObj::new(loc.into_owned(), fields.into());
         Self { data_: ObjectArc::new(obj) }
     }
 }
@@ -900,12 +873,11 @@ tvm_ffi::impl_object_ref_upcast!(TupleType => Type);
 impl TupleType {
     /// Create the type of a tuple whose fields have the types `fields`, at `loc`.
     pub fn new(
-        fields: impl IntoIterator<Item = impl IntoObjectRef<Type>>,
-        loc: impl IntoObjectRef<Location>,
+        fields: impl IntoIterator<Item = impl IntoArg<Type>>,
+        loc: impl IntoArg<Location>,
     ) -> Self {
-        let fields =
-            fields.into_iter().map(IntoObjectRef::into_owned_object_ref).collect::<Array<Type>>();
-        Self::from_fields(loc.into_owned_object_ref(), fields)
+        let fields = fields.into_iter().map(IntoArg::into_owned).collect::<Array<Type>>();
+        Self::from_fields(loc.into_owned(), fields)
     }
 }
 
@@ -924,9 +896,7 @@ pub struct FuncType {
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
-#[type_key = "ir.FuncType"]
-#[type_final]
-#[type_immutable]
+#[object(type_key = "ir.FuncType", final, immutable)]
 pub struct FuncTypeObj {
     base_: TypeObj,
     pub arg_types: Array<Type>,
@@ -957,15 +927,11 @@ impl FuncTypeObj {
 impl FuncType {
     /// Lossless complete-field allocation.
     pub fn from_fields(
-        loc: impl IntoObjectRef<Location>,
+        loc: impl IntoArg<Location>,
         arg_types: impl Into<Array<Type>>,
-        ret_type: impl IntoObjectRef<Type>,
+        ret_type: impl IntoArg<Type>,
     ) -> Self {
-        let obj = FuncTypeObj::new(
-            loc.into_owned_object_ref(),
-            arg_types.into(),
-            ret_type.into_owned_object_ref(),
-        );
+        let obj = FuncTypeObj::new(loc.into_owned(), arg_types.into(), ret_type.into_owned());
         Self { data_: ObjectArc::new(obj) }
     }
 }
@@ -977,13 +943,10 @@ impl FuncType {
     /// Create the type of a function from arguments of `arg_types` to a result of `ret_type`, at
     /// the unknown location.
     pub fn new(
-        arg_types: impl IntoIterator<Item = impl IntoObjectRef<Type>>,
-        ret_type: impl IntoObjectRef<Type>,
+        arg_types: impl IntoIterator<Item = impl IntoArg<Type>>,
+        ret_type: impl IntoArg<Type>,
     ) -> Self {
-        let arg_types = arg_types
-            .into_iter()
-            .map(IntoObjectRef::into_owned_object_ref)
-            .collect::<Array<Type>>();
-        Self::from_fields(UNKNOWN_LOC, arg_types, ret_type.into_owned_object_ref())
+        let arg_types = arg_types.into_iter().map(IntoArg::into_owned).collect::<Array<Type>>();
+        Self::from_fields(UNKNOWN_LOC, arg_types, ret_type.into_owned())
     }
 }

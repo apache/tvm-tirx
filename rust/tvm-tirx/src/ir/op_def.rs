@@ -46,7 +46,7 @@ use sig::{Checks, Specs};
 ///
 /// # Examples
 ///
-/// ```
+/// ```standalone_crate
 /// use tvm_tirx::ir::op_attr::CALL_EFFECT_KIND;
 /// use tvm_tirx::ir::sig::{self, IntExpr};
 /// use tvm_tirx::ir::{
@@ -56,7 +56,7 @@ use sig::{Checks, Specs};
 /// use tvm_tirx::tvm_ffi::{self, Result};
 ///
 /// fn first_arg_type(call: &CallObj) -> Result<Type> {
-///     Ok(call.args.get(0)?.ty.clone())
+///     Ok(call.args[0].ty.clone())
 /// }
 ///
 /// tvm_ffi::static_init_block! {
@@ -189,7 +189,7 @@ impl OpDef {
         self.then(|op| {
             if op.validator_is_custom() {
                 let message = format!("Validator of {} is already registered", op.name.as_str());
-                return Err(Error::new(VALUE_ERROR, &message, ""));
+                return Err(Error::new(VALUE_ERROR, &message));
             }
             // SAFETY: an operator validator is a `void(const CallObj*)` hook.
             op.write_validator(unsafe { hook.into_any() }, true);
@@ -232,7 +232,7 @@ impl OpDef {
     fn value_attr(self, key: &str, value: Any, replace: bool) -> Self {
         if value.type_index() == tvm_ffi::TypeIndex::kTVMFFIOpaquePtr as i32 {
             let message = format!("Attribute {key} cannot be an opaque pointer");
-            return self.then(|_| Err(Error::new(TYPE_ERROR, &message, "")));
+            return self.then(|_| Err(Error::new(TYPE_ERROR, &message)));
         }
         self.attr(key, value, replace)
     }
@@ -609,7 +609,7 @@ pub mod sig {
                 op.name.as_str(),
                 T::ContainerType::TYPE_KEY,
             );
-            Err(Error::new(TYPE_ERROR, &message, ""))
+            Err(Error::new(TYPE_ERROR, &message))
         }
     }
 
@@ -728,7 +728,7 @@ pub mod sig {
             )
         };
         let Some(op) = call.op.downcast_ref::<OpObj>() else {
-            return Err(Error::new(TYPE_ERROR, "Invalid Op Call", ""));
+            return Err(Error::new(TYPE_ERROR, "Invalid Op Call"));
         };
         let count = |label: &str, expected: usize, tail: bool, unit: &str, got: usize| {
             let short = if tail { got < expected } else { got != expected };
@@ -741,7 +741,7 @@ pub mod sig {
                 "Op `{}`: {label} expected {at_least}{expected} {unit}{plural}, got {got}",
                 op.name.as_str()
             );
-            Err(Error::new(TYPE_ERROR, &message, ""))
+            Err(Error::new(TYPE_ERROR, &message))
         };
         count("Call.args", L::ARGS, L::VAR_ARGS == 1, "argument", call.args.len())?;
         count(
@@ -775,8 +775,8 @@ pub mod sig {
             true => (&op.ty_args_info, &op.var_ty_args_info),
         };
         let name = match fixed.get(index) {
-            Ok(info) => Some(info.name.clone()),
-            Err(_) => tail.as_ref().map(|info| info.name.clone()),
+            Some(info) => Some(info.name.clone()),
+            None => tail.as_ref().map(|info| info.name.clone()),
         };
         let name = match name {
             Some(name) if !name.as_str().is_empty() => format!(" (`{}`)", name.as_str()),
@@ -789,7 +789,7 @@ pub mod sig {
             T::type_str(),
             T::mismatch(value),
         );
-        Err(Error::new(TYPE_ERROR, &message, ""))
+        Err(Error::new(TYPE_ERROR, &message))
     }
 }
 

@@ -65,7 +65,7 @@ fn module_and_sequential_passes() {
 
     let failing = ModulePass::new(
         |_module, _ctx| {
-            Err(tvm_tirx::tvm_ffi::Error::new(tvm_tirx::tvm_ffi::VALUE_ERROR, "refused", ""))
+            Err(tvm_tirx::tvm_ffi::Error::new(tvm_tirx::tvm_ffi::VALUE_ERROR, "refused"))
         },
         PassInfo::new(0, "failing"),
     );

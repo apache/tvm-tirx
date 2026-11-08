@@ -27,7 +27,7 @@ use crate::ir::location::Location;
 use crate::ir::r#type::Type;
 use crate::ir::r#type::TypeObj;
 use std::ops::Deref;
-use tvm_ffi::IntoObjectRef;
+use tvm_ffi::IntoArg;
 use tvm_ffi::ObjectArc;
 // tvm-ffi-stubgen(end)
 
@@ -49,9 +49,7 @@ pub struct TensorMapType {
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
-#[type_key = "tirx.TensorMapType"]
-#[type_final]
-#[type_immutable]
+#[object(type_key = "tirx.TensorMapType", final, immutable)]
 pub struct TensorMapTypeObj {
     base_: TypeObj,
 }
@@ -79,8 +77,8 @@ impl TensorMapTypeObj {
 #[allow(missing_docs)]
 impl TensorMapType {
     /// Lossless complete-field allocation.
-    pub fn new(loc: impl IntoObjectRef<Location>) -> Self {
-        let obj = TensorMapTypeObj::new(loc.into_owned_object_ref());
+    pub fn new(loc: impl IntoArg<Location>) -> Self {
+        let obj = TensorMapTypeObj::new(loc.into_owned());
         Self { data_: ObjectArc::new(obj) }
     }
 }

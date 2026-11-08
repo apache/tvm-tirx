@@ -28,7 +28,7 @@
 // tvm-ffi-stubgen(import-object): crate::tirx::function::Function
 // tvm-ffi-stubgen(import-object): tvm_ffi::rvalue_ref::RValueRef
 // tvm-ffi-stubgen(import-object): crate::ir::support
-// tvm-ffi-stubgen(import-object): tvm_ffi::IntoObjectRef
+// tvm-ffi-stubgen(import-object): tvm_ffi::IntoArg
 // tvm-ffi-stubgen(import-object): std::borrow::Borrow
 
 // tvm-ffi-stubgen(begin): import-section
@@ -41,12 +41,10 @@ use crate::ir::transform::core::PassObj;
 use crate::tirx::function::Function;
 use std::borrow::Borrow;
 use std::ops::Deref;
-use tvm_ffi::IntoObjectRef;
+use tvm_ffi::IntoArg;
 use tvm_ffi::ObjectArc;
-use tvm_ffi::ObjectCore;
 use tvm_ffi::Result;
-use tvm_ffi::extra::cold_init_lazy_lock::ColdInitLazyLock;
-use tvm_ffi::reflection::FieldGetter;
+use tvm_ffi::cached_field_getter;
 use tvm_ffi::rvalue_ref::RValueRef;
 // tvm-ffi-stubgen(end)
 
@@ -91,9 +89,7 @@ pub struct FunctionPass {
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
-#[type_key = "tirx.FunctionPass"]
-#[type_final]
-#[type_immutable]
+#[object(type_key = "tirx.FunctionPass", final, immutable)]
 pub struct FunctionPassObj {
     base_: PassObj,
 }
@@ -108,9 +104,7 @@ impl Deref for FunctionPassObj {
 #[allow(missing_docs)]
 impl FunctionPassObj {
     pub fn pass_info(&self) -> Result<PassInfo> {
-        static GETTER: ColdInitLazyLock<Result<FieldGetter>> =
-            ColdInitLazyLock::new(|| FieldGetter::new(FunctionPassObj::type_index(), "pass_info"));
-        GETTER.clone()?.get(self)
+        cached_field_getter!(FunctionPassObj, "pass_info").get(self)
     }
 }
 
@@ -126,10 +120,10 @@ impl FunctionPass {
     /// reference.
     pub fn new(
         pass_func: impl Fn(Function, IRModule, PassContext) -> Result<Option<Function>>
-            + Send
-            + Sync
-            + 'static,
-        pass_info: impl IntoObjectRef<PassInfo>,
+        + Send
+        + Sync
+        + 'static,
+        pass_info: impl IntoArg<PassInfo>,
     ) -> Self {
         let pass_func = tvm_ffi::Function::from_typed(
             move |func: RValueRef<Function>, module: IRModule, ctx: PassContext| {
@@ -138,7 +132,7 @@ impl FunctionPass {
         );
         support::infallible(
             tvm_ffi::cached_global_func!("tirx.transform.CreateFunctionPass")
-                .call_tuple((&pass_func, pass_info.into_object_ref().borrow()))
+                .call_tuple((&pass_func, pass_info.into_arg().borrow()))
                 .and_then(|any| any.try_into()),
         )
     }

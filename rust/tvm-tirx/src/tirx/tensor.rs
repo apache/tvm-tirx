@@ -39,7 +39,7 @@
 // tvm-ffi-stubgen(field): tirx.TensorType.shape -> Array<PrimExpr>
 // tvm-ffi-stubgen(field): tirx.TensorType.data_alignment -> i32
 // tvm-ffi-stubgen(import-object): tvm_ffi::Array
-// tvm-ffi-stubgen(import-object): tvm_ffi::IntoObjectRef
+// tvm-ffi-stubgen(import-object): tvm_ffi::IntoArg
 // tvm-ffi-stubgen(begin): import-section
 use crate::ir::expr::IntoExpr;
 use crate::ir::expr::PrimExpr;
@@ -54,7 +54,7 @@ use crate::tirx::layout::Layout;
 use std::ops::Deref;
 use tvm_ffi::AnyView;
 use tvm_ffi::Array;
-use tvm_ffi::IntoObjectRef;
+use tvm_ffi::IntoArg;
 use tvm_ffi::ObjectArc;
 use tvm_ffi::ObjectCore;
 use tvm_ffi::Result;
@@ -101,9 +101,7 @@ pub struct TensorType {
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
-#[type_key = "tirx.TensorType"]
-#[type_final]
-#[type_immutable]
+#[object(type_key = "tirx.TensorType", final, immutable)]
 pub struct TensorTypeObj {
     base_: TypeObj,
     pub dtype: PrimType,
@@ -144,17 +142,17 @@ impl TensorTypeObj {
 impl TensorType {
     /// Lossless complete-field allocation.
     pub fn from_fields(
-        loc: impl IntoObjectRef<Location>,
-        dtype: impl IntoObjectRef<PrimType>,
-        scope: impl IntoObjectRef<MemoryScope>,
+        loc: impl IntoArg<Location>,
+        dtype: impl IntoArg<PrimType>,
+        scope: impl IntoArg<MemoryScope>,
         shape: impl Into<Array<PrimExpr>>,
         data_alignment: i32,
         layout: impl Into<Option<Layout>>,
     ) -> Self {
         let obj = TensorTypeObj::new(
-            loc.into_owned_object_ref(),
-            dtype.into_owned_object_ref(),
-            scope.into_owned_object_ref(),
+            loc.into_owned(),
+            dtype.into_owned(),
+            scope.into_owned(),
             shape.into(),
             data_alignment,
             layout.into(),
@@ -171,11 +169,11 @@ impl TensorType {
     /// bytes (the runtime's allocation alignment when 0 or less), with `layout` if given.
     pub fn new(
         shape: impl IntoIterator<Item = impl IntoExpr<PrimExpr>>,
-        dtype: impl IntoObjectRef<PrimType>,
-        scope: impl IntoObjectRef<MemoryScope>,
+        dtype: impl IntoArg<PrimType>,
+        scope: impl IntoArg<MemoryScope>,
         data_alignment: i32,
         layout: Option<&Layout>,
-        loc: impl IntoObjectRef<Location>,
+        loc: impl IntoArg<Location>,
     ) -> Result<Self> {
         let shape = shape
             .into_iter()
@@ -186,9 +184,9 @@ impl TensorType {
             false => data_alignment,
         };
         Ok(Self::from_fields(
-            loc.into_owned_object_ref(),
-            dtype.into_owned_object_ref(),
-            scope.into_owned_object_ref(),
+            loc.into_owned(),
+            dtype.into_owned(),
+            scope.into_owned(),
             shape,
             data_alignment,
             layout.cloned(),
@@ -228,10 +226,10 @@ fn alloc_alignment() -> Result<i32> {
     let Some(default) = tvm_ffi::reflection::field_default::<TensorTypeObj>("data_alignment")
     else {
         let message = "tirx.TensorType registers no default data_alignment";
-        return Err(tvm_ffi::Error::new(tvm_ffi::INTERNAL_ERROR, message, ""));
+        return Err(tvm_ffi::Error::new(tvm_ffi::INTERNAL_ERROR, message));
     };
     let alignment = i32::try_from(i64::try_from(default)?).map_err(|_| {
-        tvm_ffi::Error::new(tvm_ffi::INTERNAL_ERROR, "the default data_alignment exceeds i32", "")
+        tvm_ffi::Error::new(tvm_ffi::INTERNAL_ERROR, "the default data_alignment exceeds i32")
     })?;
     Ok(*ALLOC_ALIGNMENT.get_or_init(|| alignment))
 }

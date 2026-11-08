@@ -173,7 +173,7 @@ fn interrupts_restore_native_scope_and_errors_terminate() {
             self.seen += 1;
             assert_eq!(visitor.base().constraints().to_array().len(), 3);
             if self.fail {
-                Err(Error::new(RUNTIME_ERROR, "constraint stop", ""))
+                Err(Error::new(RUNTIME_ERROR, "constraint stop"))
             } else {
                 Ok(Some(VisitInterrupt::new(17_i64)))
             }
@@ -268,8 +268,9 @@ fn native_assume_and_thread_launch_hooks_preserve_fact_timing() {
     assert!(predicate.condition.same_as(&condition));
     let range = seen.facts[2].1[1].downcast_ref::<RangeConstraintObj>().unwrap();
     assert!(range.var.same_as(&thread));
-    assert!(seen
-        .definitions
-        .iter()
-        .any(|(name, kind)| name == "thread_index" && *kind == DefRegionKind::Simple));
+    assert!(
+        seen.definitions
+            .iter()
+            .any(|(name, kind)| name == "thread_index" && *kind == DefRegionKind::Simple)
+    );
 }

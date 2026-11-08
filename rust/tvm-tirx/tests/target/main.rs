@@ -79,7 +79,7 @@ fn construction_and_queries() {
     let llvm = Target::new("llvm").unwrap();
     assert_eq!(llvm.kind.name().unwrap().as_str(), "llvm");
     assert_eq!(llvm.get_target_device_type().unwrap(), 1);
-    assert!(llvm.export().unwrap().contains_key(&FfiString::from("kind")).unwrap());
+    assert!(llvm.export().unwrap().contains_key(FfiString::from("kind")).unwrap());
     assert!(llvm.as_json().unwrap().as_str().contains("llvm"));
     assert!(llvm.feature("no_such_feature").unwrap().is_none());
 
@@ -91,7 +91,7 @@ fn construction_and_queries() {
     let kinds = Target::list_kinds().unwrap();
     assert!(kinds.iter().any(|kind| kind.as_str() == "llvm"));
     let options = llvm.kind.options().unwrap();
-    assert!(options.contains_key(&FfiString::from("mtriple")).unwrap());
+    assert!(options.contains_key(FfiString::from("mtriple")).unwrap());
     assert_eq!(TargetKind::options_from_name("llvm").unwrap().len(), options.len());
 }
 
@@ -112,7 +112,7 @@ fn tags() {
     let tagged = target::register_tag("rust-test/llvm", config("llvm"), true).unwrap();
     assert_eq!(tagged.kind.name().unwrap().as_str(), "llvm");
     let tags = target::list_tags().unwrap();
-    assert!(tags.contains_key(&FfiString::from("rust-test/llvm")).unwrap());
+    assert!(tags.contains_key(FfiString::from("rust-test/llvm")).unwrap());
     assert!(target::register_tag("rust-test/llvm", config("llvm"), false).is_err());
 }
 

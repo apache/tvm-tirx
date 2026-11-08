@@ -77,9 +77,9 @@ fn cuda_queries() {
     if !runtime::enabled("cuda").unwrap() {
         return;
     }
-    if let Ok(count) = runtime::get_cuda_device_count() {
-        if count > 0 {
-            assert!(runtime::get_cuda_free_memory().unwrap().as_str().contains("bytes free"));
-        }
+    if let Ok(count) = runtime::get_cuda_device_count()
+        && count > 0
+    {
+        assert!(runtime::get_cuda_free_memory().unwrap().as_str().contains("bytes free"));
     }
 }

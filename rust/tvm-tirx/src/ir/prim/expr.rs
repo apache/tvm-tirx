@@ -170,7 +170,7 @@
 // tvm-ffi-stubgen(import-object): crate::ir::r#type::PrimTypeObj
 // tvm-ffi-stubgen(import-object): crate::ir::support
 // tvm-ffi-stubgen(import-object): crate::ir::expr::IntoExpr
-// tvm-ffi-stubgen(import-object): tvm_ffi::IntoObjectRef
+// tvm-ffi-stubgen(import-object): tvm_ffi::IntoArg
 
 // tvm-ffi-stubgen(begin): import-section
 use crate::ir::expr::Expr;
@@ -185,7 +185,7 @@ use crate::ir::support;
 use std::ops::Deref;
 use tvm_ffi::AnyView;
 use tvm_ffi::DLDataTypeCode;
-use tvm_ffi::IntoObjectRef;
+use tvm_ffi::IntoArg;
 use tvm_ffi::ObjectArc;
 use tvm_ffi::ObjectRefCore;
 use tvm_ffi::Result;
@@ -205,11 +205,11 @@ macro_rules! binary_new {
                 pub fn new(
                     a: impl IntoExpr<PrimExpr>,
                     b: impl IntoExpr<PrimExpr>,
-                    loc: impl IntoObjectRef<Location>,
+                    loc: impl IntoArg<Location>,
                 ) -> Result<Self> {
                     let (a, b) = (a.into_owned_expr()?, b.into_owned_expr()?);
                     let ty = binary_type(stringify!($node), $operands, &a, &b)?;
-                    Ok(Self::from_fields(loc.into_owned_object_ref(), ty, a, b))
+                    Ok(Self::from_fields(loc.into_owned(), ty, a, b))
                 }
             }
         )+
@@ -234,9 +234,7 @@ pub struct Cast {
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
-#[type_key = "prim.Cast"]
-#[type_final]
-#[type_immutable]
+#[object(type_key = "prim.Cast", final, immutable)]
 pub struct CastObj {
     base_: ExprObj,
     pub value: PrimExpr,
@@ -266,15 +264,11 @@ impl CastObj {
 impl Cast {
     /// Lossless complete-field allocation.
     pub fn from_fields(
-        loc: impl IntoObjectRef<Location>,
-        ty: impl IntoObjectRef<PrimType>,
-        value: impl IntoObjectRef<PrimExpr>,
+        loc: impl IntoArg<Location>,
+        ty: impl IntoArg<PrimType>,
+        value: impl IntoArg<PrimExpr>,
     ) -> Self {
-        let obj = CastObj::new(
-            loc.into_owned_object_ref(),
-            ty.into_owned_object_ref(),
-            value.into_owned_object_ref(),
-        );
+        let obj = CastObj::new(loc.into_owned(), ty.into_owned(), value.into_owned());
         Self { data_: ObjectArc::new(obj) }
     }
 }
@@ -290,18 +284,18 @@ impl Cast {
     ///
     /// Returns an `InternalError` if `ty` and the type of `value` have different numbers of lanes.
     pub fn new(
-        ty: impl IntoObjectRef<PrimType>,
+        ty: impl IntoArg<PrimType>,
         value: impl IntoExpr<PrimExpr>,
-        loc: impl IntoObjectRef<Location>,
+        loc: impl IntoArg<Location>,
     ) -> Result<Self> {
-        let (ty, value) = (ty.into_owned_object_ref(), value.into_owned_expr()?);
+        let (ty, value) = (ty.into_owned(), value.into_owned_expr()?);
         let value_dtype = value.prim_ty().dtype;
         if ty.dtype.lanes != value_dtype.lanes {
             let condition = "ty->dtype.lanes == value_expr_ty->dtype.lanes";
             let (lhs, rhs) = (ty.dtype.lanes, value_dtype.lanes);
             return Err(support::compare_failed(tvm_ffi::INTERNAL_ERROR, condition, lhs, rhs, ""));
         }
-        Ok(Self::from_fields(loc.into_owned_object_ref(), ty, value))
+        Ok(Self::from_fields(loc.into_owned(), ty, value))
     }
 }
 
@@ -323,9 +317,7 @@ pub struct LShift {
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
-#[type_key = "prim.LShift"]
-#[type_final]
-#[type_immutable]
+#[object(type_key = "prim.LShift", final, immutable)]
 pub struct LShiftObj {
     base_: ExprObj,
     pub a: PrimExpr,
@@ -356,17 +348,12 @@ impl LShiftObj {
 impl LShift {
     /// Lossless complete-field allocation.
     pub fn from_fields(
-        loc: impl IntoObjectRef<Location>,
-        ty: impl IntoObjectRef<PrimType>,
-        a: impl IntoObjectRef<PrimExpr>,
-        b: impl IntoObjectRef<PrimExpr>,
+        loc: impl IntoArg<Location>,
+        ty: impl IntoArg<PrimType>,
+        a: impl IntoArg<PrimExpr>,
+        b: impl IntoArg<PrimExpr>,
     ) -> Self {
-        let obj = LShiftObj::new(
-            loc.into_owned_object_ref(),
-            ty.into_owned_object_ref(),
-            a.into_owned_object_ref(),
-            b.into_owned_object_ref(),
-        );
+        let obj = LShiftObj::new(loc.into_owned(), ty.into_owned(), a.into_owned(), b.into_owned());
         Self { data_: ObjectArc::new(obj) }
     }
 }
@@ -395,9 +382,7 @@ pub struct RShift {
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
-#[type_key = "prim.RShift"]
-#[type_final]
-#[type_immutable]
+#[object(type_key = "prim.RShift", final, immutable)]
 pub struct RShiftObj {
     base_: ExprObj,
     pub a: PrimExpr,
@@ -428,17 +413,12 @@ impl RShiftObj {
 impl RShift {
     /// Lossless complete-field allocation.
     pub fn from_fields(
-        loc: impl IntoObjectRef<Location>,
-        ty: impl IntoObjectRef<PrimType>,
-        a: impl IntoObjectRef<PrimExpr>,
-        b: impl IntoObjectRef<PrimExpr>,
+        loc: impl IntoArg<Location>,
+        ty: impl IntoArg<PrimType>,
+        a: impl IntoArg<PrimExpr>,
+        b: impl IntoArg<PrimExpr>,
     ) -> Self {
-        let obj = RShiftObj::new(
-            loc.into_owned_object_ref(),
-            ty.into_owned_object_ref(),
-            a.into_owned_object_ref(),
-            b.into_owned_object_ref(),
-        );
+        let obj = RShiftObj::new(loc.into_owned(), ty.into_owned(), a.into_owned(), b.into_owned());
         Self { data_: ObjectArc::new(obj) }
     }
 }
@@ -467,9 +447,7 @@ pub struct BitwiseAnd {
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
-#[type_key = "prim.BitwiseAnd"]
-#[type_final]
-#[type_immutable]
+#[object(type_key = "prim.BitwiseAnd", final, immutable)]
 pub struct BitwiseAndObj {
     base_: ExprObj,
     pub a: PrimExpr,
@@ -500,17 +478,13 @@ impl BitwiseAndObj {
 impl BitwiseAnd {
     /// Lossless complete-field allocation.
     pub fn from_fields(
-        loc: impl IntoObjectRef<Location>,
-        ty: impl IntoObjectRef<PrimType>,
-        a: impl IntoObjectRef<PrimExpr>,
-        b: impl IntoObjectRef<PrimExpr>,
+        loc: impl IntoArg<Location>,
+        ty: impl IntoArg<PrimType>,
+        a: impl IntoArg<PrimExpr>,
+        b: impl IntoArg<PrimExpr>,
     ) -> Self {
-        let obj = BitwiseAndObj::new(
-            loc.into_owned_object_ref(),
-            ty.into_owned_object_ref(),
-            a.into_owned_object_ref(),
-            b.into_owned_object_ref(),
-        );
+        let obj =
+            BitwiseAndObj::new(loc.into_owned(), ty.into_owned(), a.into_owned(), b.into_owned());
         Self { data_: ObjectArc::new(obj) }
     }
 }
@@ -539,9 +513,7 @@ pub struct BitwiseOr {
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
-#[type_key = "prim.BitwiseOr"]
-#[type_final]
-#[type_immutable]
+#[object(type_key = "prim.BitwiseOr", final, immutable)]
 pub struct BitwiseOrObj {
     base_: ExprObj,
     pub a: PrimExpr,
@@ -572,17 +544,13 @@ impl BitwiseOrObj {
 impl BitwiseOr {
     /// Lossless complete-field allocation.
     pub fn from_fields(
-        loc: impl IntoObjectRef<Location>,
-        ty: impl IntoObjectRef<PrimType>,
-        a: impl IntoObjectRef<PrimExpr>,
-        b: impl IntoObjectRef<PrimExpr>,
+        loc: impl IntoArg<Location>,
+        ty: impl IntoArg<PrimType>,
+        a: impl IntoArg<PrimExpr>,
+        b: impl IntoArg<PrimExpr>,
     ) -> Self {
-        let obj = BitwiseOrObj::new(
-            loc.into_owned_object_ref(),
-            ty.into_owned_object_ref(),
-            a.into_owned_object_ref(),
-            b.into_owned_object_ref(),
-        );
+        let obj =
+            BitwiseOrObj::new(loc.into_owned(), ty.into_owned(), a.into_owned(), b.into_owned());
         Self { data_: ObjectArc::new(obj) }
     }
 }
@@ -611,9 +579,7 @@ pub struct BitwiseXor {
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
-#[type_key = "prim.BitwiseXor"]
-#[type_final]
-#[type_immutable]
+#[object(type_key = "prim.BitwiseXor", final, immutable)]
 pub struct BitwiseXorObj {
     base_: ExprObj,
     pub a: PrimExpr,
@@ -644,17 +610,13 @@ impl BitwiseXorObj {
 impl BitwiseXor {
     /// Lossless complete-field allocation.
     pub fn from_fields(
-        loc: impl IntoObjectRef<Location>,
-        ty: impl IntoObjectRef<PrimType>,
-        a: impl IntoObjectRef<PrimExpr>,
-        b: impl IntoObjectRef<PrimExpr>,
+        loc: impl IntoArg<Location>,
+        ty: impl IntoArg<PrimType>,
+        a: impl IntoArg<PrimExpr>,
+        b: impl IntoArg<PrimExpr>,
     ) -> Self {
-        let obj = BitwiseXorObj::new(
-            loc.into_owned_object_ref(),
-            ty.into_owned_object_ref(),
-            a.into_owned_object_ref(),
-            b.into_owned_object_ref(),
-        );
+        let obj =
+            BitwiseXorObj::new(loc.into_owned(), ty.into_owned(), a.into_owned(), b.into_owned());
         Self { data_: ObjectArc::new(obj) }
     }
 }
@@ -683,9 +645,7 @@ pub struct BitwiseNot {
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
-#[type_key = "prim.BitwiseNot"]
-#[type_final]
-#[type_immutable]
+#[object(type_key = "prim.BitwiseNot", final, immutable)]
 pub struct BitwiseNotObj {
     base_: ExprObj,
     pub a: PrimExpr,
@@ -715,15 +675,11 @@ impl BitwiseNotObj {
 impl BitwiseNot {
     /// Lossless complete-field allocation.
     pub fn from_fields(
-        loc: impl IntoObjectRef<Location>,
-        ty: impl IntoObjectRef<PrimType>,
-        a: impl IntoObjectRef<PrimExpr>,
+        loc: impl IntoArg<Location>,
+        ty: impl IntoArg<PrimType>,
+        a: impl IntoArg<PrimExpr>,
     ) -> Self {
-        let obj = BitwiseNotObj::new(
-            loc.into_owned_object_ref(),
-            ty.into_owned_object_ref(),
-            a.into_owned_object_ref(),
-        );
+        let obj = BitwiseNotObj::new(loc.into_owned(), ty.into_owned(), a.into_owned());
         Self { data_: ObjectArc::new(obj) }
     }
 }
@@ -738,7 +694,7 @@ impl BitwiseNot {
     /// # Errors
     ///
     /// Returns a `TypeError` if `a` is not of an integer or boolean type.
-    pub fn new(a: impl IntoExpr<PrimExpr>, loc: impl IntoObjectRef<Location>) -> Result<Self> {
+    pub fn new(a: impl IntoExpr<PrimExpr>, loc: impl IntoArg<Location>) -> Result<Self> {
         let a = a.into_owned_expr()?;
         let integer_or_bool =
             [DLDataTypeCode::kDLInt, DLDataTypeCode::kDLUInt, DLDataTypeCode::kDLBool];
@@ -748,7 +704,7 @@ impl BitwiseNot {
             let message = "BitwiseNot requires an integer or boolean operand";
             return Err(support::check_failed(tvm_ffi::TYPE_ERROR, condition, message));
         }
-        Ok(Self::from_fields(loc.into_owned_object_ref(), a.prim_ty().clone(), a))
+        Ok(Self::from_fields(loc.into_owned(), a.prim_ty().clone(), a))
     }
 }
 
@@ -788,9 +744,7 @@ pub struct Add {
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
-#[type_key = "prim.Add"]
-#[type_final]
-#[type_immutable]
+#[object(type_key = "prim.Add", final, immutable)]
 pub struct AddObj {
     base_: ExprObj,
     pub a: PrimExpr,
@@ -821,17 +775,12 @@ impl AddObj {
 impl Add {
     /// Lossless complete-field allocation.
     pub fn from_fields(
-        loc: impl IntoObjectRef<Location>,
-        ty: impl IntoObjectRef<PrimType>,
-        a: impl IntoObjectRef<PrimExpr>,
-        b: impl IntoObjectRef<PrimExpr>,
+        loc: impl IntoArg<Location>,
+        ty: impl IntoArg<PrimType>,
+        a: impl IntoArg<PrimExpr>,
+        b: impl IntoArg<PrimExpr>,
     ) -> Self {
-        let obj = AddObj::new(
-            loc.into_owned_object_ref(),
-            ty.into_owned_object_ref(),
-            a.into_owned_object_ref(),
-            b.into_owned_object_ref(),
-        );
+        let obj = AddObj::new(loc.into_owned(), ty.into_owned(), a.into_owned(), b.into_owned());
         Self { data_: ObjectArc::new(obj) }
     }
 }
@@ -860,9 +809,7 @@ pub struct Sub {
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
-#[type_key = "prim.Sub"]
-#[type_final]
-#[type_immutable]
+#[object(type_key = "prim.Sub", final, immutable)]
 pub struct SubObj {
     base_: ExprObj,
     pub a: PrimExpr,
@@ -893,17 +840,12 @@ impl SubObj {
 impl Sub {
     /// Lossless complete-field allocation.
     pub fn from_fields(
-        loc: impl IntoObjectRef<Location>,
-        ty: impl IntoObjectRef<PrimType>,
-        a: impl IntoObjectRef<PrimExpr>,
-        b: impl IntoObjectRef<PrimExpr>,
+        loc: impl IntoArg<Location>,
+        ty: impl IntoArg<PrimType>,
+        a: impl IntoArg<PrimExpr>,
+        b: impl IntoArg<PrimExpr>,
     ) -> Self {
-        let obj = SubObj::new(
-            loc.into_owned_object_ref(),
-            ty.into_owned_object_ref(),
-            a.into_owned_object_ref(),
-            b.into_owned_object_ref(),
-        );
+        let obj = SubObj::new(loc.into_owned(), ty.into_owned(), a.into_owned(), b.into_owned());
         Self { data_: ObjectArc::new(obj) }
     }
 }
@@ -932,9 +874,7 @@ pub struct Mul {
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
-#[type_key = "prim.Mul"]
-#[type_final]
-#[type_immutable]
+#[object(type_key = "prim.Mul", final, immutable)]
 pub struct MulObj {
     base_: ExprObj,
     pub a: PrimExpr,
@@ -965,17 +905,12 @@ impl MulObj {
 impl Mul {
     /// Lossless complete-field allocation.
     pub fn from_fields(
-        loc: impl IntoObjectRef<Location>,
-        ty: impl IntoObjectRef<PrimType>,
-        a: impl IntoObjectRef<PrimExpr>,
-        b: impl IntoObjectRef<PrimExpr>,
+        loc: impl IntoArg<Location>,
+        ty: impl IntoArg<PrimType>,
+        a: impl IntoArg<PrimExpr>,
+        b: impl IntoArg<PrimExpr>,
     ) -> Self {
-        let obj = MulObj::new(
-            loc.into_owned_object_ref(),
-            ty.into_owned_object_ref(),
-            a.into_owned_object_ref(),
-            b.into_owned_object_ref(),
-        );
+        let obj = MulObj::new(loc.into_owned(), ty.into_owned(), a.into_owned(), b.into_owned());
         Self { data_: ObjectArc::new(obj) }
     }
 }
@@ -1004,9 +939,7 @@ pub struct Div {
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
-#[type_key = "prim.Div"]
-#[type_final]
-#[type_immutable]
+#[object(type_key = "prim.Div", final, immutable)]
 pub struct DivObj {
     base_: ExprObj,
     pub a: PrimExpr,
@@ -1037,17 +970,12 @@ impl DivObj {
 impl Div {
     /// Lossless complete-field allocation.
     pub fn from_fields(
-        loc: impl IntoObjectRef<Location>,
-        ty: impl IntoObjectRef<PrimType>,
-        a: impl IntoObjectRef<PrimExpr>,
-        b: impl IntoObjectRef<PrimExpr>,
+        loc: impl IntoArg<Location>,
+        ty: impl IntoArg<PrimType>,
+        a: impl IntoArg<PrimExpr>,
+        b: impl IntoArg<PrimExpr>,
     ) -> Self {
-        let obj = DivObj::new(
-            loc.into_owned_object_ref(),
-            ty.into_owned_object_ref(),
-            a.into_owned_object_ref(),
-            b.into_owned_object_ref(),
-        );
+        let obj = DivObj::new(loc.into_owned(), ty.into_owned(), a.into_owned(), b.into_owned());
         Self { data_: ObjectArc::new(obj) }
     }
 }
@@ -1076,9 +1004,7 @@ pub struct Mod {
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
-#[type_key = "prim.Mod"]
-#[type_final]
-#[type_immutable]
+#[object(type_key = "prim.Mod", final, immutable)]
 pub struct ModObj {
     base_: ExprObj,
     pub a: PrimExpr,
@@ -1109,17 +1035,12 @@ impl ModObj {
 impl Mod {
     /// Lossless complete-field allocation.
     pub fn from_fields(
-        loc: impl IntoObjectRef<Location>,
-        ty: impl IntoObjectRef<PrimType>,
-        a: impl IntoObjectRef<PrimExpr>,
-        b: impl IntoObjectRef<PrimExpr>,
+        loc: impl IntoArg<Location>,
+        ty: impl IntoArg<PrimType>,
+        a: impl IntoArg<PrimExpr>,
+        b: impl IntoArg<PrimExpr>,
     ) -> Self {
-        let obj = ModObj::new(
-            loc.into_owned_object_ref(),
-            ty.into_owned_object_ref(),
-            a.into_owned_object_ref(),
-            b.into_owned_object_ref(),
-        );
+        let obj = ModObj::new(loc.into_owned(), ty.into_owned(), a.into_owned(), b.into_owned());
         Self { data_: ObjectArc::new(obj) }
     }
 }
@@ -1148,9 +1069,7 @@ pub struct FloorDiv {
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
-#[type_key = "prim.FloorDiv"]
-#[type_final]
-#[type_immutable]
+#[object(type_key = "prim.FloorDiv", final, immutable)]
 pub struct FloorDivObj {
     base_: ExprObj,
     pub a: PrimExpr,
@@ -1181,17 +1100,13 @@ impl FloorDivObj {
 impl FloorDiv {
     /// Lossless complete-field allocation.
     pub fn from_fields(
-        loc: impl IntoObjectRef<Location>,
-        ty: impl IntoObjectRef<PrimType>,
-        a: impl IntoObjectRef<PrimExpr>,
-        b: impl IntoObjectRef<PrimExpr>,
+        loc: impl IntoArg<Location>,
+        ty: impl IntoArg<PrimType>,
+        a: impl IntoArg<PrimExpr>,
+        b: impl IntoArg<PrimExpr>,
     ) -> Self {
-        let obj = FloorDivObj::new(
-            loc.into_owned_object_ref(),
-            ty.into_owned_object_ref(),
-            a.into_owned_object_ref(),
-            b.into_owned_object_ref(),
-        );
+        let obj =
+            FloorDivObj::new(loc.into_owned(), ty.into_owned(), a.into_owned(), b.into_owned());
         Self { data_: ObjectArc::new(obj) }
     }
 }
@@ -1220,9 +1135,7 @@ pub struct FloorMod {
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
-#[type_key = "prim.FloorMod"]
-#[type_final]
-#[type_immutable]
+#[object(type_key = "prim.FloorMod", final, immutable)]
 pub struct FloorModObj {
     base_: ExprObj,
     pub a: PrimExpr,
@@ -1253,17 +1166,13 @@ impl FloorModObj {
 impl FloorMod {
     /// Lossless complete-field allocation.
     pub fn from_fields(
-        loc: impl IntoObjectRef<Location>,
-        ty: impl IntoObjectRef<PrimType>,
-        a: impl IntoObjectRef<PrimExpr>,
-        b: impl IntoObjectRef<PrimExpr>,
+        loc: impl IntoArg<Location>,
+        ty: impl IntoArg<PrimType>,
+        a: impl IntoArg<PrimExpr>,
+        b: impl IntoArg<PrimExpr>,
     ) -> Self {
-        let obj = FloorModObj::new(
-            loc.into_owned_object_ref(),
-            ty.into_owned_object_ref(),
-            a.into_owned_object_ref(),
-            b.into_owned_object_ref(),
-        );
+        let obj =
+            FloorModObj::new(loc.into_owned(), ty.into_owned(), a.into_owned(), b.into_owned());
         Self { data_: ObjectArc::new(obj) }
     }
 }
@@ -1292,9 +1201,7 @@ pub struct Min {
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
-#[type_key = "prim.Min"]
-#[type_final]
-#[type_immutable]
+#[object(type_key = "prim.Min", final, immutable)]
 pub struct MinObj {
     base_: ExprObj,
     pub a: PrimExpr,
@@ -1325,17 +1232,12 @@ impl MinObj {
 impl Min {
     /// Lossless complete-field allocation.
     pub fn from_fields(
-        loc: impl IntoObjectRef<Location>,
-        ty: impl IntoObjectRef<PrimType>,
-        a: impl IntoObjectRef<PrimExpr>,
-        b: impl IntoObjectRef<PrimExpr>,
+        loc: impl IntoArg<Location>,
+        ty: impl IntoArg<PrimType>,
+        a: impl IntoArg<PrimExpr>,
+        b: impl IntoArg<PrimExpr>,
     ) -> Self {
-        let obj = MinObj::new(
-            loc.into_owned_object_ref(),
-            ty.into_owned_object_ref(),
-            a.into_owned_object_ref(),
-            b.into_owned_object_ref(),
-        );
+        let obj = MinObj::new(loc.into_owned(), ty.into_owned(), a.into_owned(), b.into_owned());
         Self { data_: ObjectArc::new(obj) }
     }
 }
@@ -1364,9 +1266,7 @@ pub struct Max {
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
-#[type_key = "prim.Max"]
-#[type_final]
-#[type_immutable]
+#[object(type_key = "prim.Max", final, immutable)]
 pub struct MaxObj {
     base_: ExprObj,
     pub a: PrimExpr,
@@ -1397,17 +1297,12 @@ impl MaxObj {
 impl Max {
     /// Lossless complete-field allocation.
     pub fn from_fields(
-        loc: impl IntoObjectRef<Location>,
-        ty: impl IntoObjectRef<PrimType>,
-        a: impl IntoObjectRef<PrimExpr>,
-        b: impl IntoObjectRef<PrimExpr>,
+        loc: impl IntoArg<Location>,
+        ty: impl IntoArg<PrimType>,
+        a: impl IntoArg<PrimExpr>,
+        b: impl IntoArg<PrimExpr>,
     ) -> Self {
-        let obj = MaxObj::new(
-            loc.into_owned_object_ref(),
-            ty.into_owned_object_ref(),
-            a.into_owned_object_ref(),
-            b.into_owned_object_ref(),
-        );
+        let obj = MaxObj::new(loc.into_owned(), ty.into_owned(), a.into_owned(), b.into_owned());
         Self { data_: ObjectArc::new(obj) }
     }
 }
@@ -1439,9 +1334,7 @@ pub struct EQ {
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
-#[type_key = "prim.EQ"]
-#[type_final]
-#[type_immutable]
+#[object(type_key = "prim.EQ", final, immutable)]
 pub struct EQObj {
     base_: ExprObj,
     pub a: PrimExpr,
@@ -1472,17 +1365,12 @@ impl EQObj {
 impl EQ {
     /// Lossless complete-field allocation.
     pub fn from_fields(
-        loc: impl IntoObjectRef<Location>,
-        ty: impl IntoObjectRef<PrimType>,
-        a: impl IntoObjectRef<PrimExpr>,
-        b: impl IntoObjectRef<PrimExpr>,
+        loc: impl IntoArg<Location>,
+        ty: impl IntoArg<PrimType>,
+        a: impl IntoArg<PrimExpr>,
+        b: impl IntoArg<PrimExpr>,
     ) -> Self {
-        let obj = EQObj::new(
-            loc.into_owned_object_ref(),
-            ty.into_owned_object_ref(),
-            a.into_owned_object_ref(),
-            b.into_owned_object_ref(),
-        );
+        let obj = EQObj::new(loc.into_owned(), ty.into_owned(), a.into_owned(), b.into_owned());
         Self { data_: ObjectArc::new(obj) }
     }
 }
@@ -1511,9 +1399,7 @@ pub struct NE {
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
-#[type_key = "prim.NE"]
-#[type_final]
-#[type_immutable]
+#[object(type_key = "prim.NE", final, immutable)]
 pub struct NEObj {
     base_: ExprObj,
     pub a: PrimExpr,
@@ -1544,17 +1430,12 @@ impl NEObj {
 impl NE {
     /// Lossless complete-field allocation.
     pub fn from_fields(
-        loc: impl IntoObjectRef<Location>,
-        ty: impl IntoObjectRef<PrimType>,
-        a: impl IntoObjectRef<PrimExpr>,
-        b: impl IntoObjectRef<PrimExpr>,
+        loc: impl IntoArg<Location>,
+        ty: impl IntoArg<PrimType>,
+        a: impl IntoArg<PrimExpr>,
+        b: impl IntoArg<PrimExpr>,
     ) -> Self {
-        let obj = NEObj::new(
-            loc.into_owned_object_ref(),
-            ty.into_owned_object_ref(),
-            a.into_owned_object_ref(),
-            b.into_owned_object_ref(),
-        );
+        let obj = NEObj::new(loc.into_owned(), ty.into_owned(), a.into_owned(), b.into_owned());
         Self { data_: ObjectArc::new(obj) }
     }
 }
@@ -1583,9 +1464,7 @@ pub struct LT {
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
-#[type_key = "prim.LT"]
-#[type_final]
-#[type_immutable]
+#[object(type_key = "prim.LT", final, immutable)]
 pub struct LTObj {
     base_: ExprObj,
     pub a: PrimExpr,
@@ -1616,17 +1495,12 @@ impl LTObj {
 impl LT {
     /// Lossless complete-field allocation.
     pub fn from_fields(
-        loc: impl IntoObjectRef<Location>,
-        ty: impl IntoObjectRef<PrimType>,
-        a: impl IntoObjectRef<PrimExpr>,
-        b: impl IntoObjectRef<PrimExpr>,
+        loc: impl IntoArg<Location>,
+        ty: impl IntoArg<PrimType>,
+        a: impl IntoArg<PrimExpr>,
+        b: impl IntoArg<PrimExpr>,
     ) -> Self {
-        let obj = LTObj::new(
-            loc.into_owned_object_ref(),
-            ty.into_owned_object_ref(),
-            a.into_owned_object_ref(),
-            b.into_owned_object_ref(),
-        );
+        let obj = LTObj::new(loc.into_owned(), ty.into_owned(), a.into_owned(), b.into_owned());
         Self { data_: ObjectArc::new(obj) }
     }
 }
@@ -1655,9 +1529,7 @@ pub struct LE {
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
-#[type_key = "prim.LE"]
-#[type_final]
-#[type_immutable]
+#[object(type_key = "prim.LE", final, immutable)]
 pub struct LEObj {
     base_: ExprObj,
     pub a: PrimExpr,
@@ -1688,17 +1560,12 @@ impl LEObj {
 impl LE {
     /// Lossless complete-field allocation.
     pub fn from_fields(
-        loc: impl IntoObjectRef<Location>,
-        ty: impl IntoObjectRef<PrimType>,
-        a: impl IntoObjectRef<PrimExpr>,
-        b: impl IntoObjectRef<PrimExpr>,
+        loc: impl IntoArg<Location>,
+        ty: impl IntoArg<PrimType>,
+        a: impl IntoArg<PrimExpr>,
+        b: impl IntoArg<PrimExpr>,
     ) -> Self {
-        let obj = LEObj::new(
-            loc.into_owned_object_ref(),
-            ty.into_owned_object_ref(),
-            a.into_owned_object_ref(),
-            b.into_owned_object_ref(),
-        );
+        let obj = LEObj::new(loc.into_owned(), ty.into_owned(), a.into_owned(), b.into_owned());
         Self { data_: ObjectArc::new(obj) }
     }
 }
@@ -1727,9 +1594,7 @@ pub struct GT {
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
-#[type_key = "prim.GT"]
-#[type_final]
-#[type_immutable]
+#[object(type_key = "prim.GT", final, immutable)]
 pub struct GTObj {
     base_: ExprObj,
     pub a: PrimExpr,
@@ -1760,17 +1625,12 @@ impl GTObj {
 impl GT {
     /// Lossless complete-field allocation.
     pub fn from_fields(
-        loc: impl IntoObjectRef<Location>,
-        ty: impl IntoObjectRef<PrimType>,
-        a: impl IntoObjectRef<PrimExpr>,
-        b: impl IntoObjectRef<PrimExpr>,
+        loc: impl IntoArg<Location>,
+        ty: impl IntoArg<PrimType>,
+        a: impl IntoArg<PrimExpr>,
+        b: impl IntoArg<PrimExpr>,
     ) -> Self {
-        let obj = GTObj::new(
-            loc.into_owned_object_ref(),
-            ty.into_owned_object_ref(),
-            a.into_owned_object_ref(),
-            b.into_owned_object_ref(),
-        );
+        let obj = GTObj::new(loc.into_owned(), ty.into_owned(), a.into_owned(), b.into_owned());
         Self { data_: ObjectArc::new(obj) }
     }
 }
@@ -1799,9 +1659,7 @@ pub struct GE {
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
-#[type_key = "prim.GE"]
-#[type_final]
-#[type_immutable]
+#[object(type_key = "prim.GE", final, immutable)]
 pub struct GEObj {
     base_: ExprObj,
     pub a: PrimExpr,
@@ -1832,17 +1690,12 @@ impl GEObj {
 impl GE {
     /// Lossless complete-field allocation.
     pub fn from_fields(
-        loc: impl IntoObjectRef<Location>,
-        ty: impl IntoObjectRef<PrimType>,
-        a: impl IntoObjectRef<PrimExpr>,
-        b: impl IntoObjectRef<PrimExpr>,
+        loc: impl IntoArg<Location>,
+        ty: impl IntoArg<PrimType>,
+        a: impl IntoArg<PrimExpr>,
+        b: impl IntoArg<PrimExpr>,
     ) -> Self {
-        let obj = GEObj::new(
-            loc.into_owned_object_ref(),
-            ty.into_owned_object_ref(),
-            a.into_owned_object_ref(),
-            b.into_owned_object_ref(),
-        );
+        let obj = GEObj::new(loc.into_owned(), ty.into_owned(), a.into_owned(), b.into_owned());
         Self { data_: ObjectArc::new(obj) }
     }
 }
@@ -1874,9 +1727,7 @@ pub struct And {
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
-#[type_key = "prim.And"]
-#[type_final]
-#[type_immutable]
+#[object(type_key = "prim.And", final, immutable)]
 pub struct AndObj {
     base_: ExprObj,
     pub a: PrimExpr,
@@ -1907,17 +1758,12 @@ impl AndObj {
 impl And {
     /// Lossless complete-field allocation.
     pub fn from_fields(
-        loc: impl IntoObjectRef<Location>,
-        ty: impl IntoObjectRef<PrimType>,
-        a: impl IntoObjectRef<PrimExpr>,
-        b: impl IntoObjectRef<PrimExpr>,
+        loc: impl IntoArg<Location>,
+        ty: impl IntoArg<PrimType>,
+        a: impl IntoArg<PrimExpr>,
+        b: impl IntoArg<PrimExpr>,
     ) -> Self {
-        let obj = AndObj::new(
-            loc.into_owned_object_ref(),
-            ty.into_owned_object_ref(),
-            a.into_owned_object_ref(),
-            b.into_owned_object_ref(),
-        );
+        let obj = AndObj::new(loc.into_owned(), ty.into_owned(), a.into_owned(), b.into_owned());
         Self { data_: ObjectArc::new(obj) }
     }
 }
@@ -1936,11 +1782,11 @@ impl And {
     pub fn new(
         a: impl IntoExpr<PrimExpr>,
         b: impl IntoExpr<PrimExpr>,
-        loc: impl IntoObjectRef<Location>,
+        loc: impl IntoArg<Location>,
     ) -> Result<Self> {
         let (a, b) = (a.into_owned_expr()?, b.into_owned_expr()?);
         let ty = logical_type(&a, &b)?;
-        Ok(Self::from_fields(loc.into_owned_object_ref(), ty, a, b))
+        Ok(Self::from_fields(loc.into_owned(), ty, a, b))
     }
 }
 
@@ -1959,9 +1805,7 @@ pub struct Or {
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
-#[type_key = "prim.Or"]
-#[type_final]
-#[type_immutable]
+#[object(type_key = "prim.Or", final, immutable)]
 pub struct OrObj {
     base_: ExprObj,
     pub a: PrimExpr,
@@ -1992,17 +1836,12 @@ impl OrObj {
 impl Or {
     /// Lossless complete-field allocation.
     pub fn from_fields(
-        loc: impl IntoObjectRef<Location>,
-        ty: impl IntoObjectRef<PrimType>,
-        a: impl IntoObjectRef<PrimExpr>,
-        b: impl IntoObjectRef<PrimExpr>,
+        loc: impl IntoArg<Location>,
+        ty: impl IntoArg<PrimType>,
+        a: impl IntoArg<PrimExpr>,
+        b: impl IntoArg<PrimExpr>,
     ) -> Self {
-        let obj = OrObj::new(
-            loc.into_owned_object_ref(),
-            ty.into_owned_object_ref(),
-            a.into_owned_object_ref(),
-            b.into_owned_object_ref(),
-        );
+        let obj = OrObj::new(loc.into_owned(), ty.into_owned(), a.into_owned(), b.into_owned());
         Self { data_: ObjectArc::new(obj) }
     }
 }
@@ -2021,11 +1860,11 @@ impl Or {
     pub fn new(
         a: impl IntoExpr<PrimExpr>,
         b: impl IntoExpr<PrimExpr>,
-        loc: impl IntoObjectRef<Location>,
+        loc: impl IntoArg<Location>,
     ) -> Result<Self> {
         let (a, b) = (a.into_owned_expr()?, b.into_owned_expr()?);
         let ty = logical_type(&a, &b)?;
-        Ok(Self::from_fields(loc.into_owned_object_ref(), ty, a, b))
+        Ok(Self::from_fields(loc.into_owned(), ty, a, b))
     }
 }
 
@@ -2044,9 +1883,7 @@ pub struct Not {
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
-#[type_key = "prim.Not"]
-#[type_final]
-#[type_immutable]
+#[object(type_key = "prim.Not", final, immutable)]
 pub struct NotObj {
     base_: ExprObj,
     pub a: PrimExpr,
@@ -2076,15 +1913,11 @@ impl NotObj {
 impl Not {
     /// Lossless complete-field allocation.
     pub fn from_fields(
-        loc: impl IntoObjectRef<Location>,
-        ty: impl IntoObjectRef<PrimType>,
-        a: impl IntoObjectRef<PrimExpr>,
+        loc: impl IntoArg<Location>,
+        ty: impl IntoArg<PrimType>,
+        a: impl IntoArg<PrimExpr>,
     ) -> Self {
-        let obj = NotObj::new(
-            loc.into_owned_object_ref(),
-            ty.into_owned_object_ref(),
-            a.into_owned_object_ref(),
-        );
+        let obj = NotObj::new(loc.into_owned(), ty.into_owned(), a.into_owned());
         Self { data_: ObjectArc::new(obj) }
     }
 }
@@ -2099,13 +1932,13 @@ impl Not {
     /// # Errors
     ///
     /// Returns an `InternalError` if `a` is not boolean.
-    pub fn new(a: impl IntoExpr<PrimExpr>, loc: impl IntoObjectRef<Location>) -> Result<Self> {
+    pub fn new(a: impl IntoExpr<PrimExpr>, loc: impl IntoArg<Location>) -> Result<Self> {
         let a = a.into_owned_expr()?;
         if !a.prim_ty().matches_code(&[DLDataTypeCode::kDLBool]) {
             let condition = "a_ty.MatchesCode(DLDataTypeCode::kDLBool)";
             return Err(support::check_failed(tvm_ffi::INTERNAL_ERROR, condition, ""));
         }
-        Ok(Self::from_fields(loc.into_owned_object_ref(), bool_type(a.prim_ty())?, a))
+        Ok(Self::from_fields(loc.into_owned(), bool_type(a.prim_ty())?, a))
     }
 }
 
@@ -2131,9 +1964,7 @@ pub struct Select {
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
-#[type_key = "prim.Select"]
-#[type_final]
-#[type_immutable]
+#[object(type_key = "prim.Select", final, immutable)]
 pub struct SelectObj {
     base_: ExprObj,
     pub condition: PrimExpr,
@@ -2171,18 +2002,18 @@ impl SelectObj {
 impl Select {
     /// Lossless complete-field allocation.
     pub fn from_fields(
-        loc: impl IntoObjectRef<Location>,
-        ty: impl IntoObjectRef<PrimType>,
-        condition: impl IntoObjectRef<PrimExpr>,
-        true_value: impl IntoObjectRef<PrimExpr>,
-        false_value: impl IntoObjectRef<PrimExpr>,
+        loc: impl IntoArg<Location>,
+        ty: impl IntoArg<PrimType>,
+        condition: impl IntoArg<PrimExpr>,
+        true_value: impl IntoArg<PrimExpr>,
+        false_value: impl IntoArg<PrimExpr>,
     ) -> Self {
         let obj = SelectObj::new(
-            loc.into_owned_object_ref(),
-            ty.into_owned_object_ref(),
-            condition.into_owned_object_ref(),
-            true_value.into_owned_object_ref(),
-            false_value.into_owned_object_ref(),
+            loc.into_owned(),
+            ty.into_owned(),
+            condition.into_owned(),
+            true_value.into_owned(),
+            false_value.into_owned(),
         );
         Self { data_: ObjectArc::new(obj) }
     }
@@ -2204,7 +2035,7 @@ impl Select {
         condition: impl IntoExpr<PrimExpr>,
         true_value: impl IntoExpr<PrimExpr>,
         false_value: impl IntoExpr<PrimExpr>,
-        loc: impl IntoObjectRef<Location>,
+        loc: impl IntoArg<Location>,
     ) -> Result<Self> {
         let (condition, true_value, false_value) = (
             condition.into_owned_expr()?,
@@ -2242,7 +2073,7 @@ impl Select {
             ));
         }
         let ty = true_ty.clone();
-        Ok(Self::from_fields(loc.into_owned_object_ref(), ty, condition, true_value, false_value))
+        Ok(Self::from_fields(loc.into_owned(), ty, condition, true_value, false_value))
     }
 }
 
@@ -2261,9 +2092,7 @@ pub struct Let {
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
-#[type_key = "prim.Let"]
-#[type_final]
-#[type_immutable]
+#[object(type_key = "prim.Let", final, immutable)]
 pub struct LetObj {
     base_: ExprObj,
     pub var: Var,
@@ -2301,18 +2130,18 @@ impl LetObj {
 impl Let {
     /// Lossless complete-field allocation.
     pub fn from_fields(
-        loc: impl IntoObjectRef<Location>,
-        ty: impl IntoObjectRef<PrimType>,
-        var: impl IntoObjectRef<Var>,
-        value: impl IntoObjectRef<PrimExpr>,
-        body: impl IntoObjectRef<PrimExpr>,
+        loc: impl IntoArg<Location>,
+        ty: impl IntoArg<PrimType>,
+        var: impl IntoArg<Var>,
+        value: impl IntoArg<PrimExpr>,
+        body: impl IntoArg<PrimExpr>,
     ) -> Self {
         let obj = LetObj::new(
-            loc.into_owned_object_ref(),
-            ty.into_owned_object_ref(),
-            var.into_owned_object_ref(),
-            value.into_owned_object_ref(),
-            body.into_owned_object_ref(),
+            loc.into_owned(),
+            ty.into_owned(),
+            var.into_owned(),
+            value.into_owned(),
+            body.into_owned(),
         );
         Self { data_: ObjectArc::new(obj) }
     }
@@ -2330,13 +2159,13 @@ impl Let {
     /// Returns an `InternalError` if `value` is not of the type of `var`, or a `TypeError` if the
     /// type of `var` is not a `PrimType`.
     pub fn new(
-        var: impl IntoObjectRef<Var>,
+        var: impl IntoArg<Var>,
         value: impl IntoExpr<PrimExpr>,
         body: impl IntoExpr<PrimExpr>,
-        loc: impl IntoObjectRef<Location>,
+        loc: impl IntoArg<Location>,
     ) -> Result<Self> {
         let (var, value, body) =
-            (var.into_owned_object_ref(), value.into_owned_expr()?, body.into_owned_expr()?);
+            (var.into_owned(), value.into_owned_expr()?, body.into_owned_expr()?);
         let value_dtype = value.prim_ty().dtype;
         let Some(var_ty) = var.ty.downcast_ref::<PrimTypeObj>() else {
             let message = format!(
@@ -2344,14 +2173,14 @@ impl Let {
                 tvm_ffi::reflection::type_key(AnyView::from(&var.ty).type_index())
                     .unwrap_or_default()
             );
-            return Err(tvm_ffi::Error::new(tvm_ffi::TYPE_ERROR, &message, ""));
+            return Err(tvm_ffi::Error::new(tvm_ffi::TYPE_ERROR, &message));
         };
         if value_dtype != var_ty.dtype {
             let condition = "value.ty() == var->ty.as_or_throw<PrimType>()";
             return Err(support::check_failed(tvm_ffi::INTERNAL_ERROR, condition, ""));
         }
         let ty = body.prim_ty().clone();
-        Ok(Self::from_fields(loc.into_owned_object_ref(), ty, var, value, body))
+        Ok(Self::from_fields(loc.into_owned(), ty, var, value, body))
     }
 }
 

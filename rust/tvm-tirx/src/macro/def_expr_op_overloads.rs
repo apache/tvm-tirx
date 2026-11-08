@@ -29,12 +29,12 @@
 ///
 /// # Examples
 ///
-/// ```
+/// ```standalone_crate
 /// use tvm_tirx::ir::{Expr, ExprObj, PrimExpr, PrimType, UNKNOWN_LOC};
 /// use tvm_tirx::sym::Analyzer;
 /// use tvm_tirx::tvm_ffi::{self, rs_object, ObjectRefCore};
 ///
-/// #[rs_object("my_ext.ThreadIndex", final, immutable)]
+/// #[rs_object(type_key = "my_ext.ThreadIndex", final, immutable)]
 /// pub struct ThreadIndexObj {
 ///     base_: ExprObj,
 ///     pub axis: i64,

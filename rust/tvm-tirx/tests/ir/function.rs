@@ -30,7 +30,7 @@ fn function_attrs() {
     let func = function(0);
     let copy = func.copy().unwrap();
     let with = copy.with_attr("note", 7i64).unwrap();
-    assert!(with.attrs.dict.get(&FfiString::from("note")).is_ok());
+    assert!(with.attrs.dict.get(FfiString::from("note")).is_ok());
     assert!(func.attrs.dict.is_empty());
     let attrs: Map<FfiString, Any> =
         [(FfiString::from("other"), Any::from(int32(1)))].into_iter().collect();

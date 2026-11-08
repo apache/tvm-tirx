@@ -31,7 +31,7 @@
 // does.
 // tvm-ffi-stubgen(import-object): tvm_ffi::Module
 // tvm-ffi-stubgen(import-object): crate::ir::module::IRModule
-// tvm-ffi-stubgen(import-object): tvm_ffi::IntoObjectRef
+// tvm-ffi-stubgen(import-object): tvm_ffi::IntoArg
 // tvm-ffi-stubgen(import-object): std::borrow::Borrow
 // tvm-ffi-stubgen(ty-map): target.Target -> crate::target::Target
 // tvm-ffi-stubgen(import-object): tvm_ffi::Any
@@ -43,17 +43,15 @@ use crate::ir::module::IRModule;
 use std::borrow::Borrow;
 use tvm_ffi::Any;
 use tvm_ffi::Array;
-use tvm_ffi::IntoObjectRef;
+use tvm_ffi::IntoArg;
 use tvm_ffi::Map;
 use tvm_ffi::Module;
 use tvm_ffi::Object;
 use tvm_ffi::ObjectArc;
-use tvm_ffi::ObjectCore;
 use tvm_ffi::Result;
 use tvm_ffi::String;
-use tvm_ffi::extra::cold_init_lazy_lock::ColdInitLazyLock;
+use tvm_ffi::cached_field_getter;
 use tvm_ffi::object::ObjectRef;
-use tvm_ffi::reflection::FieldGetter;
 // tvm-ffi-stubgen(end)
 
 /// A compilation target: its `kind`, the `keys` that classify it, such as `cpu`, the `attrs` of
@@ -88,8 +86,7 @@ pub struct Target {
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
-#[type_key = "target.Target"]
-#[type_final]
+#[object(type_key = "target.Target", final)]
 pub struct TargetObj {
     base_: Object,
     pub kind: TargetKind,
@@ -216,8 +213,7 @@ pub struct TargetKind {
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
-#[type_key = "target.TargetKind"]
-#[type_final]
+#[object(type_key = "target.TargetKind", final)]
 pub struct TargetKindObj {
     base_: Object,
 }
@@ -225,22 +221,15 @@ pub struct TargetKindObj {
 #[allow(missing_docs)]
 impl TargetKindObj {
     pub fn name(&self) -> Result<String> {
-        static GETTER: ColdInitLazyLock<Result<FieldGetter>> =
-            ColdInitLazyLock::new(|| FieldGetter::new(TargetKindObj::type_index(), "name"));
-        GETTER.clone()?.get(self)
+        cached_field_getter!(TargetKindObj, "name").get(self)
     }
 
     pub fn default_device_type(&self) -> Result<i64> {
-        static GETTER: ColdInitLazyLock<Result<FieldGetter>> = ColdInitLazyLock::new(|| {
-            FieldGetter::new(TargetKindObj::type_index(), "default_device_type")
-        });
-        GETTER.clone()?.get(self)
+        cached_field_getter!(TargetKindObj, "default_device_type").get(self)
     }
 
     pub fn default_keys(&self) -> Result<Array<String>> {
-        static GETTER: ColdInitLazyLock<Result<FieldGetter>> =
-            ColdInitLazyLock::new(|| FieldGetter::new(TargetKindObj::type_index(), "default_keys"));
-        GETTER.clone()?.get(self)
+        cached_field_getter!(TargetKindObj, "default_keys").get(self)
     }
 }
 // tvm-ffi-stubgen(end)
@@ -308,11 +297,11 @@ pub fn register_tag(
 /// Returns an error if the code generator is not built in, or the error it raises.
 pub fn build(
     kind: &str,
-    module: impl IntoObjectRef<IRModule>,
-    target: impl IntoObjectRef<Target>,
+    module: impl IntoArg<IRModule>,
+    target: impl IntoArg<Target>,
 ) -> Result<Module> {
     // The code generators are looked up by name: which ones exist depends on the build.
     tvm_ffi::Function::get_global(&format!("target.build.{kind}"))?
-        .call_tuple((module.into_object_ref().borrow(), target.into_object_ref().borrow()))?
+        .call_tuple((module.into_arg().borrow(), target.into_arg().borrow()))?
         .try_into()
 }

@@ -192,11 +192,11 @@ pub(super) fn truncmod(a: &PrimExpr, b: &PrimExpr) -> Folded {
             check_int_divisor(y)?;
         }
     }
-    if let (Some(x), Some(y)) = (pa, pb) {
-        if ty.bits() >= 64 {
-            check_int_divisor(y)?;
-            return exact(ty, x.try_rem(y)?);
-        }
+    if let (Some(x), Some(y)) = (pa, pb)
+        && ty.bits() >= 64
+    {
+        check_int_divisor(y)?;
+        return exact(ty, x.try_rem(y)?);
     }
     Ok(None)
 }
@@ -218,14 +218,14 @@ pub(super) fn floordiv(a: &PrimExpr, b: &PrimExpr) -> Folded {
         }
         check_int_divisor(y)?;
     }
-    if let (Some(x), Some(y)) = (fa, fb) {
-        if y != 0.0 {
-            return match ty.bits() {
-                32 => float_imm_of(ty, single(x, y, |x, y| x / y).map(f64::floor)),
-                64 => float_imm(ty, (x / y).floor()),
-                _ => Ok(None),
-            };
-        }
+    if let (Some(x), Some(y)) = (fa, fb)
+        && y != 0.0
+    {
+        return match ty.bits() {
+            32 => float_imm_of(ty, single(x, y, |x, y| x / y).map(f64::floor)),
+            64 => float_imm(ty, (x / y).floor()),
+            _ => Ok(None),
+        };
     }
     if fa == Some(0.0) {
         return keep(a);
@@ -259,11 +259,11 @@ pub(super) fn floormod(a: &PrimExpr, b: &PrimExpr) -> Folded {
             check_int_divisor(y)?;
         }
     }
-    if let (Some(x), Some(y)) = (pa, pb) {
-        if ty.bits() >= 64 || ty.matches_code(&[DLDataTypeCode::kDLUInt]) {
-            check_int_divisor(y)?;
-            return exact(ty, x.floor_mod(y)?);
-        }
+    if let (Some(x), Some(y)) = (pa, pb)
+        && (ty.bits() >= 64 || ty.matches_code(&[DLDataTypeCode::kDLUInt]))
+    {
+        check_int_divisor(y)?;
+        return exact(ty, x.floor_mod(y)?);
     }
     Ok(None)
 }

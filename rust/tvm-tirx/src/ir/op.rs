@@ -57,11 +57,9 @@ use tvm_ffi::String;
 /// Only the registry constructs one: get an operator with [`Op::get`].
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
-#[type_key = "ir.Op"]
-#[type_final]
 // `ir.Op` is not `_type_mutable`: registration finishes initializing an entry, and a shared one
 // is never mutated after.
-#[type_immutable]
+#[object(type_key = "ir.Op", final, immutable)]
 pub struct OpObj {
     base_: ExprObj,
     /// The dense, process-local index of the operator into the attribute columns; never
@@ -205,7 +203,6 @@ impl Op {
             return Err(tvm_ffi::Error::new(
                 tvm_ffi::TYPE_ERROR,
                 &format!("Op attribute column {name} is not an ffi.List"),
-                "",
             ));
         }
         Ok(Some(OpAttrMap {
@@ -274,9 +271,7 @@ pub struct ArgumentInfo {
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
-#[type_key = "ir.ArgumentInfo"]
-#[type_final]
-#[type_immutable]
+#[object(type_key = "ir.ArgumentInfo", final, immutable)]
 pub struct ArgumentInfoObj {
     base_: Object,
     pub name: String,
@@ -352,7 +347,6 @@ impl<T: tvm_ffi::type_traits::AnyCompatible + TryFrom<Any>> OpAttrMap<T> {
                 op.name.as_str(),
                 mismatch.unwrap_or_default()
             ),
-            "",
         ))
     }
 }

@@ -110,10 +110,10 @@ fn main() {
     }
     let sep = if loader_var == "PATH" { ";" } else { ":" };
     let mut dirs = vec![ffi_lib_dir, tirx_lib_dir];
-    if let Ok(prev) = env::var(loader_var) {
-        if !prev.is_empty() {
-            dirs.insert(0, prev);
-        }
+    if let Ok(prev) = env::var(loader_var)
+        && !prev.is_empty()
+    {
+        dirs.insert(0, prev);
     }
     println!("cargo:rustc-env={loader_var}={}", dirs.join(sep));
 }

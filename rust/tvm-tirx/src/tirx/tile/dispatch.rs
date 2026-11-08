@@ -31,7 +31,7 @@
 // tvm-ffi-stubgen(import-object): crate::ir::expr::PrimExpr
 // tvm-ffi-stubgen(import-object): crate::ir::expr::PrimVar
 // tvm-ffi-stubgen(import-object): tvm_ffi::Array
-// tvm-ffi-stubgen(import-object): tvm_ffi::IntoObjectRef
+// tvm-ffi-stubgen(import-object): tvm_ffi::IntoArg
 // tvm-ffi-stubgen(import-object): std::borrow::Borrow
 // The axis extents and offsets are `PrimExpr`s, as C++ `DispatchContextObj` holds them.
 // tvm-ffi-stubgen(field): tirx.DispatchContext.inter -> Map<String, Array<PrimExpr>>
@@ -50,17 +50,15 @@ use std::borrow::Borrow;
 use tvm_ffi::Any;
 use tvm_ffi::AnyView;
 use tvm_ffi::Array;
-use tvm_ffi::IntoObjectRef;
+use tvm_ffi::IntoArg;
 use tvm_ffi::Map;
 use tvm_ffi::Object;
 use tvm_ffi::ObjectArc;
-use tvm_ffi::ObjectCore;
 use tvm_ffi::ObjectRefCore;
 use tvm_ffi::Result;
 use tvm_ffi::String;
-use tvm_ffi::extra::cold_init_lazy_lock::ColdInitLazyLock;
+use tvm_ffi::cached_field_getter;
 use tvm_ffi::object::ObjectRef;
-use tvm_ffi::reflection::FieldGetter;
 // tvm-ffi-stubgen(end)
 
 /// The context a tile instruction call is lowered in: the `target`, the `thread_scope` of the
@@ -109,9 +107,7 @@ pub struct DispatchContext {
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
-#[type_key = "tirx.DispatchContext"]
-#[type_final]
-#[type_immutable]
+#[object(type_key = "tirx.DispatchContext", final, immutable)]
 pub struct DispatchContextObj {
     base_: Object,
 }
@@ -119,70 +115,43 @@ pub struct DispatchContextObj {
 #[allow(missing_docs)]
 impl DispatchContextObj {
     pub fn target(&self) -> Result<Target> {
-        static GETTER: ColdInitLazyLock<Result<FieldGetter>> =
-            ColdInitLazyLock::new(|| FieldGetter::new(DispatchContextObj::type_index(), "target"));
-        GETTER.clone()?.get(self)
+        cached_field_getter!(DispatchContextObj, "target").get(self)
     }
 
     pub fn thread_scope(&self) -> Result<ThreadScope> {
-        static GETTER: ColdInitLazyLock<Result<FieldGetter>> = ColdInitLazyLock::new(|| {
-            FieldGetter::new(DispatchContextObj::type_index(), "thread_scope")
-        });
-        GETTER.clone()?.get(self)
+        cached_field_getter!(DispatchContextObj, "thread_scope").get(self)
     }
 
     pub fn launch_params(&self) -> Result<Any> {
-        static GETTER: ColdInitLazyLock<Result<FieldGetter>> = ColdInitLazyLock::new(|| {
-            FieldGetter::new(DispatchContextObj::type_index(), "launch_params")
-        });
-        GETTER.clone()?.get_any(self)
+        cached_field_getter!(DispatchContextObj, "launch_params").get_any(self)
     }
 
     pub fn var_range_map(&self) -> Result<Map<Var, Range>> {
-        static GETTER: ColdInitLazyLock<Result<FieldGetter>> = ColdInitLazyLock::new(|| {
-            FieldGetter::new(DispatchContextObj::type_index(), "var_range_map")
-        });
-        GETTER.clone()?.get(self)
+        cached_field_getter!(DispatchContextObj, "var_range_map").get(self)
     }
 
     pub fn alloc_only(&self) -> Result<bool> {
-        static GETTER: ColdInitLazyLock<Result<FieldGetter>> = ColdInitLazyLock::new(|| {
-            FieldGetter::new(DispatchContextObj::type_index(), "alloc_only")
-        });
-        GETTER.clone()?.get(self)
+        cached_field_getter!(DispatchContextObj, "alloc_only").get(self)
     }
 
     pub fn callbacks(&self) -> Result<Map<String, ObjectRef>> {
-        static GETTER: ColdInitLazyLock<Result<FieldGetter>> = ColdInitLazyLock::new(|| {
-            FieldGetter::new(DispatchContextObj::type_index(), "callbacks")
-        });
-        GETTER.clone()?.get(self)
+        cached_field_getter!(DispatchContextObj, "callbacks").get(self)
     }
 
     pub fn shared_state(&self) -> Result<Map<String, ObjectRef>> {
-        static GETTER: ColdInitLazyLock<Result<FieldGetter>> = ColdInitLazyLock::new(|| {
-            FieldGetter::new(DispatchContextObj::type_index(), "shared_state")
-        });
-        GETTER.clone()?.get(self)
+        cached_field_getter!(DispatchContextObj, "shared_state").get(self)
     }
 
     pub fn inter(&self) -> Result<Map<String, Array<PrimExpr>>> {
-        static GETTER: ColdInitLazyLock<Result<FieldGetter>> =
-            ColdInitLazyLock::new(|| FieldGetter::new(DispatchContextObj::type_index(), "inter"));
-        GETTER.clone()?.get(self)
+        cached_field_getter!(DispatchContextObj, "inter").get(self)
     }
 
     pub fn intra(&self) -> Result<Map<String, Array<PrimExpr>>> {
-        static GETTER: ColdInitLazyLock<Result<FieldGetter>> =
-            ColdInitLazyLock::new(|| FieldGetter::new(DispatchContextObj::type_index(), "intra"));
-        GETTER.clone()?.get(self)
+        cached_field_getter!(DispatchContextObj, "intra").get(self)
     }
 
     pub fn scope_kind(&self) -> Result<String> {
-        static GETTER: ColdInitLazyLock<Result<FieldGetter>> = ColdInitLazyLock::new(|| {
-            FieldGetter::new(DispatchContextObj::type_index(), "scope_kind")
-        });
-        GETTER.clone()?.get(self)
+        cached_field_getter!(DispatchContextObj, "scope_kind").get(self)
     }
 }
 // tvm-ffi-stubgen(end)
@@ -199,10 +168,10 @@ impl DispatchContext {
     /// is neither empty nor the local name of `thread_scope`.
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        target: impl IntoObjectRef<Target>,
-        thread_scope: impl IntoObjectRef<ThreadScope>,
+        target: impl IntoArg<Target>,
+        thread_scope: impl IntoArg<ThreadScope>,
         launch_params: impl IntoIterator<
-            Item = (impl AsRef<str>, impl IntoObjectRef<PrimVar>, impl IntoExpr<PrimExpr>),
+            Item = (impl AsRef<str>, impl IntoArg<PrimVar>, impl IntoExpr<PrimExpr>),
         >,
         var_range_map: impl Into<Map<Var, Range>>,
         alloc_only: bool,
@@ -215,15 +184,18 @@ impl DispatchContext {
         let launch_params = launch_params
             .into_iter()
             .map(|(name, var, extent)| {
-                let (var, extent) = (var.into_owned_object_ref(), extent.into_owned_expr()?);
-                Ok((String::from(name), Array::from_vec(vec![Any::from(var), Any::from(extent)])))
+                let (var, extent) = (var.into_owned(), extent.into_owned_expr()?);
+                Ok((
+                    String::from(name.as_ref()),
+                    Array::from_vec(vec![Any::from(var), Any::from(extent)]),
+                ))
             })
             .collect::<Result<Map<String, Array<Any>>>>()?;
         let scope_kind = String::from(scope_kind);
         tvm_ffi::cached_global_func!("tirx.DispatchContext")
             .call_packed(&[
-                AnyView::from(target.into_object_ref().borrow()),
-                AnyView::from(thread_scope.into_object_ref().borrow()),
+                AnyView::from(target.into_arg().borrow()),
+                AnyView::from(thread_scope.into_arg().borrow()),
                 AnyView::from(&launch_params),
                 AnyView::from(&var_range_map.into()),
                 AnyView::from(&alloc_only),
@@ -241,7 +213,7 @@ impl DispatchContext {
     /// (`tirx.DispatchContextAddAllocTensor`).
     pub fn add_alloc_tensor(
         &self,
-        tensor: impl IntoObjectRef<Var>,
+        tensor: impl IntoArg<Var>,
         allocated_addr: impl IntoIterator<Item = impl IntoExpr<PrimExpr>>,
         annotations: impl Into<Map<String, Any>>,
     ) -> Result<()> {
@@ -251,7 +223,7 @@ impl DispatchContext {
             .collect::<Result<Array<PrimExpr>>>()?;
         tvm_ffi::cached_global_func!("tirx.DispatchContextAddAllocTensor").call_tuple((
             self,
-            tensor.into_object_ref().borrow(),
+            tensor.into_arg().borrow(),
             &allocated_addr,
             &annotations.into(),
         ))?;
@@ -260,10 +232,10 @@ impl DispatchContext {
 
     /// Request `stmt` at the start of the host code if `host`, else of the kernel
     /// (`tirx.DispatchContextAddInitStmt`).
-    pub fn add_init_stmt(&self, stmt: impl IntoObjectRef<Stmt>, host: bool) -> Result<()> {
+    pub fn add_init_stmt(&self, stmt: impl IntoArg<Stmt>, host: bool) -> Result<()> {
         tvm_ffi::cached_global_func!("tirx.DispatchContextAddInitStmt").call_tuple((
             self,
-            stmt.into_object_ref().borrow(),
+            stmt.into_arg().borrow(),
             host,
         ))?;
         Ok(())
@@ -273,13 +245,13 @@ impl DispatchContext {
     /// (`tirx.DispatchContextAddPostTensorDefStmt`).
     pub fn add_post_tensor_def_stmt(
         &self,
-        tensor: impl IntoObjectRef<Var>,
-        stmt: impl IntoObjectRef<Stmt>,
+        tensor: impl IntoArg<Var>,
+        stmt: impl IntoArg<Stmt>,
     ) -> Result<()> {
         tvm_ffi::cached_global_func!("tirx.DispatchContextAddPostTensorDefStmt").call_tuple((
             self,
-            tensor.into_object_ref().borrow(),
-            stmt.into_object_ref().borrow(),
+            tensor.into_arg().borrow(),
+            stmt.into_arg().borrow(),
         ))?;
         Ok(())
     }

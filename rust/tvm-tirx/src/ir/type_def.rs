@@ -34,12 +34,12 @@ use tvm_ffi::{Function, ObjectCore, ObjectRefCore, Result, String};
 ///
 /// # Examples
 ///
-/// ```
+/// ```standalone_crate
 /// use tvm_tirx::ir::{register_type, PrimType, Type, TypeObj, Var, UNKNOWN_LOC};
 /// use tvm_tirx::script::script;
-/// use tvm_tirx::tvm_ffi::{self, rs_object, IntoObjectRef};
+/// use tvm_tirx::tvm_ffi::{self, rs_object, IntoArg};
 ///
-/// #[rs_object("my_ext.PairType", final, immutable)]
+/// #[rs_object(type_key = "my_ext.PairType", final, immutable)]
 /// pub struct PairTypeObj {
 ///     base_: TypeObj,
 ///     pub first: Type,
@@ -53,8 +53,8 @@ use tvm_ffi::{Function, ObjectCore, ObjectRefCore, Result, String};
 /// }
 ///
 /// impl PairType {
-///     pub fn new(first: impl IntoObjectRef<Type>, second: impl IntoObjectRef<Type>) -> Self {
-///         let (first, second) = (first.into_owned_object_ref(), second.into_owned_object_ref());
+///     pub fn new(first: impl IntoArg<Type>, second: impl IntoArg<Type>) -> Self {
+///         let (first, second) = (first.into_owned(), second.into_owned());
 ///         Self::from_object(PairTypeObj::new(TypeObj::new(UNKNOWN_LOC.into()), first, second))
 ///     }
 /// }

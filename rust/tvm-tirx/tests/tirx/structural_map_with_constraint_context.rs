@@ -178,7 +178,7 @@ fn replacement_order_identity_aliases_and_errors() {
             SeqStmt::new([eval(11), eval(12)], UNKNOWN_LOC),
             |_: &EvaluateObj| -> Result<Any> {
                 calls += 1;
-                Err(Error::new(RUNTIME_ERROR, "map stop", ""))
+                Err(Error::new(RUNTIME_ERROR, "map stop"))
             },
             order,
         )
