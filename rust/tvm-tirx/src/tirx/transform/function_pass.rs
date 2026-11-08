@@ -20,16 +20,16 @@
 //! Function passes. A [`FunctionPass`] is a [`Pass`] that rewrites each TIRx function of a module
 //! on its own, given the module and the pass context.
 
-// tvm-ffi-stubgen(missing-docs): allow
+// tvm-ffi-stubgen(file): mod(missing_docs = allow)
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
-// tvm-ffi-stubgen(import-object): crate::ir::module::IRModule
-// tvm-ffi-stubgen(import-object): crate::ir::transform::core::PassContext
-// tvm-ffi-stubgen(import-object): crate::tirx::function::Function
-// tvm-ffi-stubgen(import-object): tvm_ffi::rvalue_ref::RValueRef
-// tvm-ffi-stubgen(import-object): crate::ir::support
-// tvm-ffi-stubgen(import-object): tvm_ffi::IntoArg
-// tvm-ffi-stubgen(import-object): std::borrow::Borrow
+// tvm-ffi-stubgen(import): crate::ir::module::IRModule
+// tvm-ffi-stubgen(import): crate::ir::transform::core::PassContext
+// tvm-ffi-stubgen(import): crate::tirx::function::Function
+// tvm-ffi-stubgen(import): tvm_ffi::rvalue_ref::RValueRef
+// tvm-ffi-stubgen(import): crate::ir::support
+// tvm-ffi-stubgen(import): tvm_ffi::IntoArg
+// tvm-ffi-stubgen(import): std::borrow::Borrow
 
 // tvm-ffi-stubgen(begin): import-section
 use crate::ir::module::IRModule;
@@ -84,8 +84,7 @@ pub struct FunctionPass {
 }
 
 /// The object behind [`FunctionPass`].
-///
-/// Opaque: parent 'transform.Pass' is opaque (layout-unknown). Fields are read through the C ABI getters.
+// Opaque: parent 'transform.Pass' is opaque (layout-unknown). Fields are read through the C ABI getters.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]

@@ -21,29 +21,29 @@
 //! a memory offset and the threads that hold each element; a [`TileLayout`] builds the map from
 //! strided [`Iter`] factors, and a [`ComposeLayout`] swizzles the memory coordinate of one.
 
-// tvm-ffi-stubgen(missing-docs): allow
+// tvm-ffi-stubgen(file): mod(missing_docs = allow)
 // The layouts are hand-written: C++ constructs them, so they have no field-wise allocator.
-// tvm-ffi-stubgen(ty-map): tirx.Layout -> crate::tirx::layout::Layout
-// tvm-ffi-stubgen(ty-map): tirx.TileLayout -> crate::tirx::layout::TileLayout
-// tvm-ffi-stubgen(ty-map): tirx.ComposeLayout -> crate::tirx::layout::ComposeLayout
-// tvm-ffi-stubgen(import-object): std::ops::Deref
-// tvm-ffi-stubgen(import-object): tvm_ffi::Array
+// tvm-ffi-stubgen(object): tirx.Layout(ty_map = crate::tirx::layout::Layout)
+// tvm-ffi-stubgen(object): tirx.TileLayout(ty_map = crate::tirx::layout::TileLayout)
+// tvm-ffi-stubgen(object): tirx.ComposeLayout(ty_map = crate::tirx::layout::ComposeLayout)
+// tvm-ffi-stubgen(import): std::ops::Deref
+// tvm-ffi-stubgen(import): tvm_ffi::Array
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
-// tvm-ffi-stubgen(import-object): crate::sym::analyzer::Analyzer
-// tvm-ffi-stubgen(import-object): crate::tirx::thread_scope::ThreadScope
-// tvm-ffi-stubgen(import-object): tvm_ffi::Any
-// tvm-ffi-stubgen(import-object): tvm_ffi::String
-// tvm-ffi-stubgen(import-object): tvm_ffi::Result
-// tvm-ffi-stubgen(import-object): crate::ir::support
-// tvm-ffi-stubgen(import-object): crate::ir::expr::IntoExpr
-// tvm-ffi-stubgen(import-object): std::borrow::Borrow
-// tvm-ffi-stubgen(import-object): crate::ir::expr::PrimExpr
+// tvm-ffi-stubgen(import): crate::sym::analyzer::Analyzer
+// tvm-ffi-stubgen(import): crate::tirx::thread_scope::ThreadScope
+// tvm-ffi-stubgen(import): tvm_ffi::Any
+// tvm-ffi-stubgen(import): tvm_ffi::String
+// tvm-ffi-stubgen(import): tvm_ffi::Result
+// tvm-ffi-stubgen(import): crate::ir::support
+// tvm-ffi-stubgen(import): crate::ir::expr::IntoExpr
+// tvm-ffi-stubgen(import): std::borrow::Borrow
+// tvm-ffi-stubgen(import): crate::ir::expr::PrimExpr
 // An iterator's extent and stride are `PrimExpr`s, as C++ `IterObj` holds them.
-// tvm-ffi-stubgen(field): tirx.Iter.extent -> PrimExpr
-// tvm-ffi-stubgen(field): tirx.Iter.stride -> PrimExpr
-// tvm-ffi-stubgen(import-object): tvm_ffi::Map
-// tvm-ffi-stubgen(import-object): tvm_ffi::IntoArg
+// tvm-ffi-stubgen(field): tirx.Iter.extent(type = PrimExpr)
+// tvm-ffi-stubgen(field): tirx.Iter.stride(type = PrimExpr)
+// tvm-ffi-stubgen(import): tvm_ffi::Map
+// tvm-ffi-stubgen(import): tvm_ffi::IntoArg
 
 // tvm-ffi-stubgen(begin): import-section
 use crate::ir::expr::IntoExpr;
@@ -150,14 +150,14 @@ impl Layout {
     pub fn apply(
         &self,
         coord: impl IntoIterator<Item = impl IntoExpr<PrimExpr>>,
-        analyzer: impl IntoArg<Analyzer>,
+        analyzer: &Analyzer,
     ) -> Result<Map<String, PrimExpr>> {
         let coord = coord
             .into_iter()
             .map(IntoExpr::into_owned_expr)
             .collect::<Result<Array<PrimExpr>>>()?;
         tvm_ffi::cached_global_func!("tirx.LayoutApply")
-            .call_tuple((self, &coord, analyzer.into_arg().borrow()))?
+            .call_tuple((self, &coord, analyzer))?
             .try_into()
     }
 
@@ -166,10 +166,10 @@ impl Layout {
     pub fn apply_linear(
         &self,
         coord: impl IntoExpr<PrimExpr>,
-        analyzer: impl IntoArg<Analyzer>,
+        analyzer: &Analyzer,
     ) -> Result<Map<String, PrimExpr>> {
         tvm_ffi::cached_global_func!("tirx.LayoutApplyLinear")
-            .call_tuple((self, coord.into_expr()?.borrow(), analyzer.into_arg().borrow()))?
+            .call_tuple((self, coord.into_expr()?.borrow(), analyzer))?
             .try_into()
     }
 
@@ -179,7 +179,7 @@ impl Layout {
         &self,
         coord: impl IntoIterator<Item = impl IntoExpr<PrimExpr>>,
         shape: impl IntoIterator<Item = impl IntoExpr<PrimExpr>>,
-        analyzer: impl IntoArg<Analyzer>,
+        analyzer: &Analyzer,
     ) -> Result<Map<String, PrimExpr>> {
         let coord = coord
             .into_iter()
@@ -190,7 +190,7 @@ impl Layout {
             .map(IntoExpr::into_owned_expr)
             .collect::<Result<Array<PrimExpr>>>()?;
         tvm_ffi::cached_global_func!("tirx.LayoutApplyWithShape")
-            .call_tuple((self, &coord, &shape, analyzer.into_arg().borrow()))?
+            .call_tuple((self, &coord, &shape, analyzer))?
             .try_into()
     }
 
@@ -340,8 +340,7 @@ pub struct Iter {
 }
 
 /// The object behind [`Iter`].
-///
-/// Complete: reflected fields fill [24, 48) exactly.
+// Complete: reflected fields fill [24, 48) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -368,7 +367,7 @@ impl IterObj {
 
 #[allow(missing_docs)]
 impl Iter {
-    /// Lossless complete-field allocation.
+    /// Create a `Iter` from its field values.
     pub fn new(
         extent: impl IntoArg<PrimExpr>,
         stride: impl IntoArg<PrimExpr>,
@@ -394,8 +393,7 @@ pub struct Axis {
 }
 
 /// The object behind [`Axis`].
-///
-/// Complete: reflected fields fill [48, 48) exactly.
+// Complete: reflected fields fill [48, 48) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]

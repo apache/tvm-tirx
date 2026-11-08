@@ -21,34 +21,34 @@
 //! and [`reinterpret`]; a [`CallFFIKernelAttr`] holds the launch metadata of a `call_ffi_kernel`
 //! call.
 
-// tvm-ffi-stubgen(missing-docs): allow
+// tvm-ffi-stubgen(file): mod(missing_docs = allow)
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
-// tvm-ffi-stubgen(import-object): crate::ir::expr::Expr
-// tvm-ffi-stubgen(import-object): crate::ir::location::Location
-// tvm-ffi-stubgen(import-object): crate::ir::r#type::Type
-// tvm-ffi-stubgen(import-object): tvm_ffi::Result
-// tvm-ffi-stubgen(import-object): crate::ir::expr::Call
-// tvm-ffi-stubgen(import-object): crate::ir::expr::FloatImm
-// tvm-ffi-stubgen(import-object): crate::ir::expr::StringImmObj
-// tvm-ffi-stubgen(import-object): crate::ir::location::UNKNOWN_LOC
-// tvm-ffi-stubgen(import-object): crate::ir::prim::op::ExprResult
-// tvm-ffi-stubgen(import-object): crate::ir::prim::op::PrimOps
-// tvm-ffi-stubgen(import-object): crate::ir::prim::op::add
-// tvm-ffi-stubgen(import-object): crate::ir::prim::op::exp
-// tvm-ffi-stubgen(import-object): crate::ir::prim::op::log
-// tvm-ffi-stubgen(import-object): crate::ir::prim::op::match_types_at
-// tvm-ffi-stubgen(import-object): crate::ir::r#type::PrimType
-// tvm-ffi-stubgen(import-object): crate::ir::r#type::PtrTypeObj
-// tvm-ffi-stubgen(import-object): crate::ir::support
-// tvm-ffi-stubgen(import-object): tvm_ffi::DLDataTypeCode
-// tvm-ffi-stubgen(import-object): tvm_ffi::INTERNAL_ERROR
-// tvm-ffi-stubgen(import-object): tvm_ffi::ObjectRefCore
-// tvm-ffi-stubgen(import-object): tvm_ffi::TYPE_ERROR
-// tvm-ffi-stubgen(import-object): crate::ir::expr::IntoExpr
-// tvm-ffi-stubgen(import-object): crate::ir::expr::PrimExpr
-// tvm-ffi-stubgen(import-object): tvm_ffi::IntoArg
-// tvm-ffi-stubgen(import-object): std::borrow::Borrow
+// tvm-ffi-stubgen(import): crate::ir::expr::Expr
+// tvm-ffi-stubgen(import): crate::ir::location::Location
+// tvm-ffi-stubgen(import): crate::ir::r#type::Type
+// tvm-ffi-stubgen(import): tvm_ffi::Result
+// tvm-ffi-stubgen(import): crate::ir::expr::Call
+// tvm-ffi-stubgen(import): crate::ir::expr::FloatImm
+// tvm-ffi-stubgen(import): crate::ir::expr::StringImmObj
+// tvm-ffi-stubgen(import): crate::ir::location::UNKNOWN_LOC
+// tvm-ffi-stubgen(import): crate::ir::prim::op::ExprResult
+// tvm-ffi-stubgen(import): crate::ir::prim::op::PrimOps
+// tvm-ffi-stubgen(import): crate::ir::prim::op::add
+// tvm-ffi-stubgen(import): crate::ir::prim::op::exp
+// tvm-ffi-stubgen(import): crate::ir::prim::op::log
+// tvm-ffi-stubgen(import): crate::ir::prim::op::match_types_at
+// tvm-ffi-stubgen(import): crate::ir::r#type::PrimType
+// tvm-ffi-stubgen(import): crate::ir::r#type::PtrTypeObj
+// tvm-ffi-stubgen(import): crate::ir::support
+// tvm-ffi-stubgen(import): tvm_ffi::DLDataTypeCode
+// tvm-ffi-stubgen(import): tvm_ffi::INTERNAL_ERROR
+// tvm-ffi-stubgen(import): tvm_ffi::ObjectRefCore
+// tvm-ffi-stubgen(import): tvm_ffi::TYPE_ERROR
+// tvm-ffi-stubgen(import): crate::ir::expr::IntoExpr
+// tvm-ffi-stubgen(import): crate::ir::expr::PrimExpr
+// tvm-ffi-stubgen(import): tvm_ffi::IntoArg
+// tvm-ffi-stubgen(import): std::borrow::Borrow
 
 // tvm-ffi-stubgen(begin): import-section
 use crate::ir::attrs::Attrs;
@@ -101,8 +101,7 @@ pub struct CallFFIKernelAttr {
 }
 
 /// The object behind [`CallFFIKernelAttr`].
-///
-/// Complete: reflected fields fill [24, 56) exactly.
+// Complete: reflected fields fill [24, 56) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -142,7 +141,7 @@ impl CallFFIKernelAttrObj {
 
 #[allow(missing_docs)]
 impl CallFFIKernelAttr {
-    /// Lossless complete-field allocation.
+    /// Create a `CallFFIKernelAttr` from its field values.
     pub fn new(
         launch_params: impl Into<Array<String>>,
         launch_fields: impl Into<Array<String>>,

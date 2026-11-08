@@ -232,6 +232,7 @@ Ramp::Ramp(PrimExpr base, PrimExpr stride, PrimExpr lanes, Location loc)
   if (lanes_as_int) {
     int lanes = lanes_as_int->value.as<int>().value();
     TVM_FFI_ICHECK_GT(lanes, 1);
+    TVM_FFI_ICHECK_LT(lanes, 32768);
     node->ExprObj::ty = base_ty.WithLanes(lanes);
     // Stick to int32 lanes for fixed length vectors
     node->lanes = lanes;
@@ -273,6 +274,7 @@ Broadcast::Broadcast(PrimExpr value, PrimExpr lanes, Location loc) : PrimExpr(ff
   if (lanes_int) {
     int lanes = lanes_int->value.as<int>().value();
     TVM_FFI_ICHECK_GT(lanes, 1);
+    TVM_FFI_ICHECK_LT(lanes, 32768);
     node->ExprObj::ty = value_ty.WithLanes(lanes);
     // Stick to int32 lanes for fixed length vectors
     node->lanes = lanes;
@@ -320,6 +322,7 @@ Shuffle::Shuffle(ffi::Array<PrimExpr> vectors, ffi::Array<PrimExpr> indices, Loc
     total_lanes += val_ty.lanes();
   }
   TVM_FFI_ICHECK_LE(indices.size(), static_cast<size_t>(total_lanes));
+  TVM_FFI_ICHECK_LT(indices.size(), 32768U);
 
   ffi::ObjectPtr<ShuffleObj> node = ffi::make_object<ShuffleObj>();
   node->ExprObj::ty = base_type.WithLanes(static_cast<int>(indices.size()));

@@ -21,25 +21,25 @@
 //! shape, element type, memory scope, alignment and [`Layout`]; loads and stores subscript the
 //! variable, and [`TensorVar`] matches one in an operator signature.
 
-// tvm-ffi-stubgen(missing-docs): allow
-// `custom-new` reserves `new` for a hand-written constructor (defaults); the generated
+// tvm-ffi-stubgen(file): mod(missing_docs = allow)
+// `custom_new` reserves `new` for a hand-written constructor (defaults); the generated
 // `from_fields` allocates the fields as given.
-// tvm-ffi-stubgen(custom-new): tirx.TensorType
+// tvm-ffi-stubgen(object): tirx.TensorType(custom_new)
 
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
-// tvm-ffi-stubgen(import-object): crate::sym::analyzer::Analyzer
-// tvm-ffi-stubgen(import-object): tvm_ffi::AnyView
-// tvm-ffi-stubgen(import-object): tvm_ffi::ObjectCore
-// tvm-ffi-stubgen(import-object): tvm_ffi::Result
-// tvm-ffi-stubgen(import-object): crate::ir::sig
-// tvm-ffi-stubgen(import-object): crate::ir::expr::IntoExpr
-// tvm-ffi-stubgen(import-object): crate::ir::expr::PrimExpr
+// tvm-ffi-stubgen(import): crate::sym::analyzer::Analyzer
+// tvm-ffi-stubgen(import): tvm_ffi::AnyView
+// tvm-ffi-stubgen(import): tvm_ffi::ObjectCore
+// tvm-ffi-stubgen(import): tvm_ffi::Result
+// tvm-ffi-stubgen(import): crate::ir::sig
+// tvm-ffi-stubgen(import): crate::ir::expr::IntoExpr
+// tvm-ffi-stubgen(import): crate::ir::expr::PrimExpr
 // A tensor's shape is a list of `PrimExpr`s, as C++ `TensorTypeObj` holds it.
-// tvm-ffi-stubgen(field): tirx.TensorType.shape -> Array<PrimExpr>
-// tvm-ffi-stubgen(field): tirx.TensorType.data_alignment -> i32
-// tvm-ffi-stubgen(import-object): tvm_ffi::Array
-// tvm-ffi-stubgen(import-object): tvm_ffi::IntoArg
+// tvm-ffi-stubgen(field): tirx.TensorType.shape(type = Array<PrimExpr>)
+// tvm-ffi-stubgen(field): tirx.TensorType.data_alignment(type = i32)
+// tvm-ffi-stubgen(import): tvm_ffi::Array
+// tvm-ffi-stubgen(import): tvm_ffi::IntoArg
 // tvm-ffi-stubgen(begin): import-section
 use crate::ir::expr::IntoExpr;
 use crate::ir::expr::PrimExpr;
@@ -96,8 +96,7 @@ pub struct TensorType {
 }
 
 /// The object behind [`TensorType`].
-///
-/// Complete: reflected fields fill [32, 72) exactly (alignment padding [60, 64)).
+// Complete: reflected fields fill [32, 72) exactly (alignment padding [60, 64)).
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -140,7 +139,7 @@ impl TensorTypeObj {
 
 #[allow(missing_docs)]
 impl TensorType {
-    /// Lossless complete-field allocation.
+    /// Create a `TensorType` from its field values.
     pub fn from_fields(
         loc: impl IntoArg<Location>,
         dtype: impl IntoArg<PrimType>,

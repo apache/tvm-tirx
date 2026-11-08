@@ -55,9 +55,6 @@ fn llvm_queries() {
     assert!(llvm::get_vector_width(Some(&target)).unwrap() > 0);
     assert_eq!(llvm::get_vector_width(Some(&Target::new("c").unwrap())).unwrap(), -1);
 
-    // Without a target, the queries use the current one.
-    let _scope = target.scope().unwrap();
-    assert_eq!(llvm::get_cpu_features(None).unwrap().len(), features.len());
     let cpu = llvm::get_system_cpu().unwrap();
     assert!(
         llvm::is_valid_cpu(cpu.as_str(), triple.as_str()).unwrap() || cpu.as_str() == "generic"

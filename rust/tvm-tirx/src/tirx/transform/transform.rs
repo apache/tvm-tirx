@@ -21,21 +21,21 @@
 //! [`RemoveNoOpConfig`] and [`UnrollLoopConfig`] are the pass context options that configure
 //! [`remove_no_op`] and [`unroll_loop`].
 
-// tvm-ffi-stubgen(missing-docs): allow
-// tvm-ffi-stubgen(field): tirx.transform.UnrollLoopConfig.auto_max_step -> i32
-// tvm-ffi-stubgen(field): tirx.transform.UnrollLoopConfig.auto_max_depth -> i32
-// tvm-ffi-stubgen(field): tirx.transform.UnrollLoopConfig.auto_max_extent -> i32
-// tvm-ffi-stubgen(field): tirx.transform.UnrollLoopConfig.explicit_unroll -> i32
-// tvm-ffi-stubgen(field): tirx.transform.UnrollLoopConfig.unroll_local_access -> i32
+// tvm-ffi-stubgen(file): mod(missing_docs = allow)
+// tvm-ffi-stubgen(field): tirx.transform.UnrollLoopConfig.auto_max_step(type = i32)
+// tvm-ffi-stubgen(field): tirx.transform.UnrollLoopConfig.auto_max_depth(type = i32)
+// tvm-ffi-stubgen(field): tirx.transform.UnrollLoopConfig.auto_max_extent(type = i32)
+// tvm-ffi-stubgen(field): tirx.transform.UnrollLoopConfig.explicit_unroll(type = i32)
+// tvm-ffi-stubgen(field): tirx.transform.UnrollLoopConfig.unroll_local_access(type = i32)
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
-// tvm-ffi-stubgen(import-object): crate::ir::transform::core::Pass
-// tvm-ffi-stubgen(import-object): crate::target::Target
-// tvm-ffi-stubgen(import-object): crate::tirx::function::Function
-// tvm-ffi-stubgen(import-object): tvm_ffi::Result
-// tvm-ffi-stubgen(import-object): tvm_ffi::String
-// tvm-ffi-stubgen(import-object): tvm_ffi::IntoArg
-// tvm-ffi-stubgen(import-object): std::borrow::Borrow
+// tvm-ffi-stubgen(import): crate::ir::transform::core::Pass
+// tvm-ffi-stubgen(import): crate::target::Target
+// tvm-ffi-stubgen(import): crate::tirx::function::Function
+// tvm-ffi-stubgen(import): tvm_ffi::Result
+// tvm-ffi-stubgen(import): tvm_ffi::String
+// tvm-ffi-stubgen(import): tvm_ffi::IntoArg
+// tvm-ffi-stubgen(import): std::borrow::Borrow
 
 // tvm-ffi-stubgen(begin): import-section
 use crate::ir::transform::core::Pass;
@@ -62,8 +62,7 @@ pub struct RemoveNoOpConfig {
 }
 
 /// The object behind [`RemoveNoOpConfig`].
-///
-/// Complete: reflected fields fill [24, 40) exactly (alignment padding [33, 40)).
+// Complete: reflected fields fill [24, 40) exactly (alignment padding [33, 40)).
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -89,7 +88,7 @@ impl RemoveNoOpConfigObj {
 
 #[allow(missing_docs)]
 impl RemoveNoOpConfig {
-    /// Lossless complete-field allocation.
+    /// Create a `RemoveNoOpConfig` from its field values.
     pub fn new(max_simplification_steps: i64, ignore_profiler_call: bool) -> Self {
         let obj = RemoveNoOpConfigObj::new(max_simplification_steps, ignore_profiler_call);
         Self { data_: ObjectArc::new(obj) }
@@ -112,8 +111,7 @@ pub struct UnrollLoopConfig {
 }
 
 /// The object behind [`UnrollLoopConfig`].
-///
-/// Complete: reflected fields fill [24, 48) exactly (alignment padding [44, 48)).
+// Complete: reflected fields fill [24, 48) exactly (alignment padding [44, 48)).
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -155,7 +153,7 @@ impl UnrollLoopConfigObj {
 
 #[allow(missing_docs)]
 impl UnrollLoopConfig {
-    /// Lossless complete-field allocation.
+    /// Create a `UnrollLoopConfig` from its field values.
     pub fn new(
         auto_max_step: i32,
         auto_max_depth: i32,

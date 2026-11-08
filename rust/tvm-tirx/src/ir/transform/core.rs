@@ -21,18 +21,18 @@
 //! the passes that run and the instruments that observe them; [`ModulePass`] wraps a function and
 //! [`Sequential`] runs passes in order.
 
-// tvm-ffi-stubgen(missing-docs): allow
-// `custom-new` reserves `new` for the checked `transform.PassContext`; the generated `from_fields`
+// tvm-ffi-stubgen(file): mod(missing_docs = allow)
+// `custom_new` reserves `new` for the checked `transform.PassContext`; the generated `from_fields`
 // allocates the fields as given.
-// tvm-ffi-stubgen(custom-new): transform.PassContext
-// tvm-ffi-stubgen(field): transform.PassInfo.opt_level -> i32
-// tvm-ffi-stubgen(field): transform.PassContext.opt_level -> i32
+// tvm-ffi-stubgen(object): transform.PassContext(custom_new)
+// tvm-ffi-stubgen(field): transform.PassInfo.opt_level(type = i32)
+// tvm-ffi-stubgen(field): transform.PassContext.opt_level(type = i32)
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
-// tvm-ffi-stubgen(import-object): crate::ir::module::IRModule
-// tvm-ffi-stubgen(import-object): crate::ir::support
-// tvm-ffi-stubgen(import-object): tvm_ffi::IntoArg
-// tvm-ffi-stubgen(import-object): std::borrow::Borrow
+// tvm-ffi-stubgen(import): crate::ir::module::IRModule
+// tvm-ffi-stubgen(import): crate::ir::support
+// tvm-ffi-stubgen(import): tvm_ffi::IntoArg
+// tvm-ffi-stubgen(import): std::borrow::Borrow
 
 // tvm-ffi-stubgen(begin): import-section
 use crate::ir::module::IRModule;
@@ -69,7 +69,7 @@ use tvm_ffi::cached_field_getter;
 ///
 /// let info = PassInfo::new(0, "pipeline");
 /// let pipeline = Pass::from(Sequential::new([mark("a"), mark("b")], info));
-/// let ctx = PassContext::new(2, [""; 0], ["b"], Vec::<PassInstrument>::new(), None)?;
+/// let ctx = PassContext::new(2, &[], &["b"], &[], None)?;
 /// let _scope = ctx.enter()?;
 /// let empty = IRModule::new(Map::new(), DictAttrs::new(Map::new()), Map::new())?;
 /// let module = pipeline.run(empty)?;
@@ -85,8 +85,7 @@ pub struct Pass {
 }
 
 /// The object behind [`Pass`].
-///
-/// Opaque: no metadata of its own: total_size is unknown. Fields are read through the C ABI getters.
+// Opaque: no metadata of its own: total_size is unknown. Fields are read through the C ABI getters.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -125,8 +124,7 @@ pub struct PassInfo {
 }
 
 /// The object behind [`PassInfo`].
-///
-/// Complete: reflected fields fill [24, 48) exactly (alignment padding [28, 32)).
+// Complete: reflected fields fill [24, 48) exactly (alignment padding [28, 32)).
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -152,7 +150,7 @@ impl PassInfoObj {
 
 #[allow(missing_docs)]
 impl PassInfo {
-    /// Lossless complete-field allocation.
+    /// Create a `PassInfo` from its field values.
     pub fn new(opt_level: i32, name: impl Into<String>) -> Self {
         let obj = PassInfoObj::new(opt_level, name.into());
         Self { data_: ObjectArc::new(obj) }
@@ -173,8 +171,7 @@ pub struct ModulePass {
 }
 
 /// The object behind [`ModulePass`].
-///
-/// Opaque: parent 'transform.Pass' is opaque (layout-unknown). Fields are read through the C ABI getters.
+// Opaque: parent 'transform.Pass' is opaque (layout-unknown). Fields are read through the C ABI getters.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -233,8 +230,7 @@ pub struct Sequential {
 }
 
 /// The object behind [`Sequential`].
-///
-/// Opaque: parent 'transform.Pass' is opaque (layout-unknown). Fields are read through the C ABI getters.
+// Opaque: parent 'transform.Pass' is opaque (layout-unknown). Fields are read through the C ABI getters.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -299,8 +295,7 @@ pub struct PassContext {
 }
 
 /// The object behind [`PassContext`].
-///
-/// Complete: reflected fields fill [24, 64) exactly (alignment padding [28, 32)).
+// Complete: reflected fields fill [24, 64) exactly (alignment padding [28, 32)).
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -335,7 +330,7 @@ impl PassContextObj {
 
 #[allow(missing_docs)]
 impl PassContext {
-    /// Lossless complete-field allocation.
+    /// Create a `PassContext` from its field values.
     pub fn from_fields(
         opt_level: i32,
         required_pass: impl Into<Array<String>>,
@@ -367,17 +362,14 @@ impl PassContext {
     /// value, or the error of converting a value to its option type.
     pub fn new(
         opt_level: i32,
-        required_pass: impl IntoIterator<Item = impl AsRef<str>>,
-        disabled_pass: impl IntoIterator<Item = impl AsRef<str>>,
-        instruments: impl IntoIterator<Item = impl IntoArg<PassInstrument>>,
+        required_pass: &[&str],
+        disabled_pass: &[&str],
+        instruments: &[PassInstrument],
         config: impl Into<Option<Map<String, Any>>>,
     ) -> Result<Self> {
-        let required_pass =
-            required_pass.into_iter().map(|name| String::from(name.as_ref())).collect::<Array<_>>();
-        let disabled_pass =
-            disabled_pass.into_iter().map(|name| String::from(name.as_ref())).collect::<Array<_>>();
-        let instruments =
-            instruments.into_iter().map(IntoArg::into_owned).collect::<Array<PassInstrument>>();
+        let required_pass = required_pass.iter().copied().map(String::from).collect::<Array<_>>();
+        let disabled_pass = disabled_pass.iter().copied().map(String::from).collect::<Array<_>>();
+        let instruments = instruments.iter().cloned().collect::<Array<PassInstrument>>();
         tvm_ffi::cached_global_func!("transform.PassContext")
             .call_tuple((opt_level, &required_pass, &disabled_pass, &instruments, config.into()))?
             .try_into()
@@ -436,8 +428,8 @@ impl PassContext {
 /// ```
 /// use tvm_tirx::ir::transform::{PassContext, PassInstrument};
 ///
-/// let outer = PassContext::new(3, [""; 0], [""; 0], Vec::<PassInstrument>::new(), None)?;
-/// let inner = PassContext::new(1, [""; 0], [""; 0], Vec::<PassInstrument>::new(), None)?;
+/// let outer = PassContext::new(3, &[], &[], &[], None)?;
+/// let inner = PassContext::new(1, &[], &[], &[], None)?;
 /// let outer_scope = outer.enter()?;
 /// let inner_scope = inner.enter()?;
 /// assert_eq!(PassContext::current()?.opt_level, 1);
@@ -475,8 +467,7 @@ pub struct PassInstrument {
 }
 
 /// The object behind [`PassInstrument`].
-///
-/// Opaque: bytes [40, 48) of [24, 48) are not accounted for by reflected fields. Fields are read through the C ABI getters.
+// Opaque: bytes [40, 48) of [24, 48) are not accounted for by reflected fields. Fields are read through the C ABI getters.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]

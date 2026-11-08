@@ -21,20 +21,20 @@
 //! [`Call`](crate::ir::Call); [`OpDef`](crate::ir::OpDef) registers one, and an [`OpAttrMap`]
 //! reads one attribute of every operator, such as its call effect.
 
-// tvm-ffi-stubgen(missing-docs): allow
+// tvm-ffi-stubgen(file): mod(missing_docs = allow)
 // `ir.Op` has three unreflected members, so its complete layout is hand-written below.
-// tvm-ffi-stubgen(ty-map): ir.Op -> crate::ir::op::Op
+// tvm-ffi-stubgen(object): ir.Op(ty_map = crate::ir::op::Op)
 // Names the hand-written `Op` definition uses: the import section keeps them even when no
 // generated block does.
-// tvm-ffi-stubgen(import-object): std::ops::Deref
-// tvm-ffi-stubgen(import-object): tvm_ffi::Any
-// tvm-ffi-stubgen(import-object): tvm_ffi::Array
-// tvm-ffi-stubgen(import-object): tvm_ffi::ObjectArc
-// tvm-ffi-stubgen(import-object): tvm_ffi::Result
-// tvm-ffi-stubgen(import-object): tvm_ffi::String
-// tvm-ffi-stubgen(import-object): crate::ir::expr::Expr
-// tvm-ffi-stubgen(import-object): crate::ir::expr::ExprObj
-// tvm-ffi-stubgen(import-object): tvm_ffi::ObjectRefCore
+// tvm-ffi-stubgen(import): std::ops::Deref
+// tvm-ffi-stubgen(import): tvm_ffi::Any
+// tvm-ffi-stubgen(import): tvm_ffi::Array
+// tvm-ffi-stubgen(import): tvm_ffi::ObjectArc
+// tvm-ffi-stubgen(import): tvm_ffi::Result
+// tvm-ffi-stubgen(import): tvm_ffi::String
+// tvm-ffi-stubgen(import): crate::ir::expr::Expr
+// tvm-ffi-stubgen(import): crate::ir::expr::ExprObj
+// tvm-ffi-stubgen(import): tvm_ffi::ObjectRefCore
 
 // tvm-ffi-stubgen(begin): import-section
 use crate::ir::expr::Expr;
@@ -200,10 +200,7 @@ impl Op {
             return Ok(None);
         }
         if column.type_index() != tvm_ffi::tvm_ffi_sys::TVMFFITypeIndex::kTVMFFIList as i32 {
-            return Err(tvm_ffi::Error::new(
-                tvm_ffi::TYPE_ERROR,
-                &format!("Op attribute column {name} is not an ffi.List"),
-            ));
+            tvm_ffi::bail!(tvm_ffi::TYPE_ERROR, "Op attribute column {name} is not an ffi.List");
         }
         Ok(Some(OpAttrMap {
             column: column.try_into()?,
@@ -266,8 +263,7 @@ pub struct ArgumentInfo {
 }
 
 /// The object behind [`ArgumentInfo`].
-///
-/// Complete: reflected fields fill [24, 56) exactly.
+// Complete: reflected fields fill [24, 56) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -293,7 +289,7 @@ impl ArgumentInfoObj {
 
 #[allow(missing_docs)]
 impl ArgumentInfo {
-    /// Lossless complete-field allocation.
+    /// Create a `ArgumentInfo` from its field values.
     pub fn new(name: impl Into<String>, doc: impl Into<String>) -> Self {
         let obj = ArgumentInfoObj::new(name.into(), doc.into());
         Self { data_: ObjectArc::new(obj) }
@@ -339,14 +335,12 @@ impl<T: tvm_ffi::type_traits::AnyCompatible + TryFrom<Any>> OpAttrMap<T> {
         // The conversion took the entry; read it again to name its type.
         let mismatch =
             self.entry(op).map(|entry| T::get_mismatch_type_info(entry.as_raw_ffi_any()));
-        Err(tvm_ffi::Error::new(
+        Err(tvm_ffi::format_err!(
             tvm_ffi::TYPE_ERROR,
-            &format!(
-                "Op attribute {} of {} has unexpected type {}",
-                self.name.as_str(),
-                op.name.as_str(),
-                mismatch.unwrap_or_default()
-            ),
+            "Op attribute {} of {} has unexpected type {}",
+            self.name.as_str(),
+            op.name.as_str(),
+            mismatch.unwrap_or_default()
         ))
     }
 }

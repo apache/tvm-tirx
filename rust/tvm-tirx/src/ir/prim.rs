@@ -21,15 +21,14 @@
 //! only checks its operand types; the functions of [`op`], which operators such as `&x + 1` call,
 //! also match the operand types and fold constants.
 
-// tvm-ffi-stubgen(missing-docs): allow
 // An object registered under `prim` that no file has a block for yet is generated here, to be moved
 // to the file of the Python module that defines it.
-// tvm-ffi-stubgen(prefix): prim
+// tvm-ffi-stubgen(file): mod(missing_docs = allow, prefix = prim)
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
-// tvm-ffi-stubgen(import-object): tvm_ffi::Result
-// tvm-ffi-stubgen(import-object): crate::ir::expr::PrimExpr
-// tvm-ffi-stubgen(import-object): crate::ir::expr::IntoExpr
+// tvm-ffi-stubgen(import): tvm_ffi::Result
+// tvm-ffi-stubgen(import): crate::ir::expr::PrimExpr
+// tvm-ffi-stubgen(import): crate::ir::expr::IntoExpr
 
 mod const_fold;
 pub mod expr;
@@ -40,7 +39,7 @@ pub use expr::*;
 pub use op::*;
 pub use vector_expr::*;
 
-// tvm-ffi-stubgen(import-object): std::borrow::Borrow
+// tvm-ffi-stubgen(import): std::borrow::Borrow
 
 // tvm-ffi-stubgen(begin): import-section
 use crate::ir::expr::IntoExpr;

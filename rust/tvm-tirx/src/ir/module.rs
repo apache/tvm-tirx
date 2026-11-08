@@ -21,21 +21,21 @@
 //! each [`GlobalVar`] to a function ([`BaseFunc`]), and carries module attributes and module-level
 //! information.
 
-// tvm-ffi-stubgen(missing-docs): allow
-// `custom-new` reserves `new` for a hand-written constructor, which derives the global variable
+// tvm-ffi-stubgen(file): mod(missing_docs = allow)
+// `custom_new` reserves `new` for a hand-written constructor, which derives the global variable
 // map; the generated `from_fields` allocates the fields as given.
-// tvm-ffi-stubgen(custom-new): ir.IRModule
+// tvm-ffi-stubgen(object): ir.IRModule(custom_new)
 // The name index is internal: C++ registers it with the trailing `_` of a private member.
-// tvm-ffi-stubgen(visibility): ir.IRModule.global_var_map_ -> pub(crate)
+// tvm-ffi-stubgen(field): ir.IRModule.global_var_map_(visibility = pub(crate))
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
-// tvm-ffi-stubgen(import-object): tvm_ffi::Any
-// tvm-ffi-stubgen(import-object): tvm_ffi::rvalue_ref::RValueRef
-// tvm-ffi-stubgen(import-object): tvm_ffi::Result
-// tvm-ffi-stubgen(import-object): crate::ir::support
-// tvm-ffi-stubgen(import-object): crate::ir::expr::IntoExpr
-// tvm-ffi-stubgen(import-object): std::borrow::Borrow
-// tvm-ffi-stubgen(import-object): tvm_ffi::IntoArg
+// tvm-ffi-stubgen(import): tvm_ffi::Any
+// tvm-ffi-stubgen(import): tvm_ffi::rvalue_ref::RValueRef
+// tvm-ffi-stubgen(import): tvm_ffi::Result
+// tvm-ffi-stubgen(import): crate::ir::support
+// tvm-ffi-stubgen(import): crate::ir::expr::IntoExpr
+// tvm-ffi-stubgen(import): std::borrow::Borrow
+// tvm-ffi-stubgen(import): tvm_ffi::IntoArg
 
 // tvm-ffi-stubgen(begin): import-section
 use crate::ir::attrs::DictAttrs;
@@ -89,8 +89,7 @@ pub struct IRModule {
 }
 
 /// The object behind [`IRModule`].
-///
-/// Complete: reflected fields fill [24, 56) exactly.
+// Complete: reflected fields fill [24, 56) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -123,7 +122,7 @@ impl IRModuleObj {
 
 #[allow(missing_docs)]
 impl IRModule {
-    /// Lossless complete-field allocation.
+    /// Create a `IRModule` from its field values.
     pub fn from_fields(
         functions: impl Into<Map<GlobalVar, BaseFunc>>,
         attrs: impl IntoArg<DictAttrs>,

@@ -23,18 +23,22 @@
 //! Source locations. Every IR node carries a [`Location`] for diagnostics: an [`UnknownLoc`], a
 //! [`SourceLoc`] span in a source, or a [`CallSiteLoc`] that pairs a location with its caller's.
 
-// tvm-ffi-stubgen(missing-docs): allow
+// tvm-ffi-stubgen(file): mod(missing_docs = allow)
 // C++ has one `UnknownLoc`, which `UnknownLoc::new` returns: `opaque` generates no allocator for
 // another one. It has no fields, so it loses no field access.
-// tvm-ffi-stubgen(opaque): ir.UnknownLoc
-// tvm-ffi-stubgen(field): ir.SourceLoc.start_line -> i32
-// tvm-ffi-stubgen(field): ir.SourceLoc.start_column -> i32
-// tvm-ffi-stubgen(field): ir.SourceLoc.end_line -> i32
-// tvm-ffi-stubgen(field): ir.SourceLoc.end_column -> i32
+// tvm-ffi-stubgen(object): ir.UnknownLoc(opaque)
+// `no_new` generates no allocator for the abstract base: a value is one of its subtypes.
+// tvm-ffi-stubgen(object): ir.Location(no_new)
+// `SourceName::get` interns names; `no_new` generates no allocator for a second object of a name.
+// tvm-ffi-stubgen(object): ir.SourceName(no_new)
+// tvm-ffi-stubgen(field): ir.SourceLoc.start_line(type = i32)
+// tvm-ffi-stubgen(field): ir.SourceLoc.start_column(type = i32)
+// tvm-ffi-stubgen(field): ir.SourceLoc.end_line(type = i32)
+// tvm-ffi-stubgen(field): ir.SourceLoc.end_column(type = i32)
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
-// tvm-ffi-stubgen(import-object): crate::ir::support
-// tvm-ffi-stubgen(import-object): tvm_ffi::IntoArg
+// tvm-ffi-stubgen(import): crate::ir::support
+// tvm-ffi-stubgen(import): tvm_ffi::IntoArg
 
 // tvm-ffi-stubgen(begin): import-section
 use crate::ir::support;
@@ -71,8 +75,7 @@ pub struct Location {
 }
 
 /// The object behind [`Location`].
-///
-/// Complete: reflected fields fill [24, 24) exactly.
+// Complete: reflected fields fill [24, 24) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -93,15 +96,6 @@ impl LocationObj {
         Self { base_ }
     }
 }
-
-#[allow(missing_docs)]
-impl Location {
-    /// Lossless complete-field allocation.
-    pub fn new() -> Self {
-        let obj = LocationObj::new();
-        Self { data_: ObjectArc::new(obj) }
-    }
-}
 // tvm-ffi-stubgen(end)
 
 /// The location of a node with no source information, a single shared object.
@@ -114,8 +108,7 @@ pub struct UnknownLoc {
 }
 
 /// The object behind [`UnknownLoc`].
-///
-/// Opaque: vetoed by directive although the layout is reproducible. Fields are read through the C ABI getters.
+// Opaque: vetoed by directive although the layout is reproducible. Fields are read through the C ABI getters.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -186,8 +179,7 @@ pub struct SourceLoc {
 }
 
 /// The object behind [`SourceLoc`].
-///
-/// Complete: reflected fields fill [24, 48) exactly.
+// Complete: reflected fields fill [24, 48) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -229,7 +221,7 @@ impl SourceLocObj {
 
 #[allow(missing_docs)]
 impl SourceLoc {
-    /// Lossless complete-field allocation.
+    /// Create a `SourceLoc` from its field values.
     pub fn new(
         source_name: impl IntoArg<SourceName>,
         start_line: i32,
@@ -264,8 +256,7 @@ pub struct CallSiteLoc {
 }
 
 /// The object behind [`CallSiteLoc`].
-///
-/// Complete: reflected fields fill [24, 40) exactly.
+// Complete: reflected fields fill [24, 40) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -298,7 +289,7 @@ impl CallSiteLocObj {
 
 #[allow(missing_docs)]
 impl CallSiteLoc {
-    /// Lossless complete-field allocation.
+    /// Create a `CallSiteLoc` from its field values.
     pub fn new(callee: impl IntoArg<Location>, caller: impl IntoArg<Location>) -> Self {
         let obj = CallSiteLocObj::new(callee.into_owned(), caller.into_owned());
         Self { data_: ObjectArc::new(obj) }
@@ -321,8 +312,7 @@ pub struct SourceName {
 }
 
 /// The object behind [`SourceName`].
-///
-/// Complete: reflected fields fill [24, 40) exactly.
+// Complete: reflected fields fill [24, 40) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -336,23 +326,6 @@ const _: () = {
     assert!(::core::mem::size_of::<SourceNameObj>() == 40);
     assert!(::core::mem::align_of::<SourceNameObj>() == 8);
 };
-
-#[allow(missing_docs)]
-impl SourceNameObj {
-    pub(crate) fn new(name: String) -> Self {
-        let base_ = Object::new();
-        Self { base_, name }
-    }
-}
-
-#[allow(missing_docs)]
-impl SourceName {
-    /// Lossless complete-field allocation.
-    pub fn new(name: impl Into<String>) -> Self {
-        let obj = SourceNameObj::new(name.into());
-        Self { data_: ObjectArc::new(obj) }
-    }
-}
 // tvm-ffi-stubgen(end)
 
 impl SourceName {

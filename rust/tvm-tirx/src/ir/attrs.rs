@@ -22,7 +22,9 @@
 //! Attributes. Calls, functions and modules carry metadata as [`Attrs`]: a typed attribute object
 //! of an operator, or a [`DictAttrs`] map of named values.
 
-// tvm-ffi-stubgen(missing-docs): allow
+// tvm-ffi-stubgen(file): mod(missing_docs = allow)
+// `no_new` generates no allocator for the abstract base: a value is one of its subtypes.
+// tvm-ffi-stubgen(object): ir.Attrs(no_new)
 
 // tvm-ffi-stubgen(begin): import-section
 use std::ops::Deref;
@@ -43,8 +45,7 @@ pub struct Attrs {
 }
 
 /// The object behind [`Attrs`].
-///
-/// Complete: reflected fields fill [24, 24) exactly.
+// Complete: reflected fields fill [24, 24) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -63,15 +64,6 @@ impl AttrsObj {
     pub fn new() -> Self {
         let base_ = Object::new();
         Self { base_ }
-    }
-}
-
-#[allow(missing_docs)]
-impl Attrs {
-    /// Lossless complete-field allocation.
-    pub fn new() -> Self {
-        let obj = AttrsObj::new();
-        Self { data_: ObjectArc::new(obj) }
     }
 }
 // tvm-ffi-stubgen(end)
@@ -102,8 +94,7 @@ pub struct DictAttrs {
 }
 
 /// The object behind [`DictAttrs`].
-///
-/// Complete: reflected fields fill [24, 32) exactly.
+// Complete: reflected fields fill [24, 32) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -135,7 +126,7 @@ impl DictAttrsObj {
 
 #[allow(missing_docs)]
 impl DictAttrs {
-    /// Lossless complete-field allocation.
+    /// Create a `DictAttrs` from its field values.
     pub fn new(dict: impl Into<Map<String, Any>>) -> Self {
         let obj = DictAttrsObj::new(dict.into());
         Self { data_: ObjectArc::new(obj) }

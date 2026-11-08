@@ -25,11 +25,7 @@ mod instrument;
 
 use std::sync::{Arc, Mutex};
 
-use tvm_tirx::ir::transform::{ModulePass, PassInfo, PassInstrument};
-
-fn no_instruments() -> Vec<PassInstrument> {
-    Vec::new()
-}
+use tvm_tirx::ir::transform::{ModulePass, PassInfo};
 
 type Log = Arc<Mutex<Vec<String>>>;
 

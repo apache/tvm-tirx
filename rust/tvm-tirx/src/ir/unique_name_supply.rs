@@ -20,12 +20,12 @@
 //! Unique names. A [`UniqueNameSupply`] hands out names that do not collide with the ones it has
 //! given out or reserved, for building and rewriting IR.
 
-// tvm-ffi-stubgen(missing-docs): allow
+// tvm-ffi-stubgen(file): mod(missing_docs = allow)
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
-// tvm-ffi-stubgen(import-object): tvm_ffi::Result
-// tvm-ffi-stubgen(import-object): tvm_ffi::String
-// tvm-ffi-stubgen(import-object): crate::ir::support
+// tvm-ffi-stubgen(import): tvm_ffi::Result
+// tvm-ffi-stubgen(import): tvm_ffi::String
+// tvm-ffi-stubgen(import): crate::ir::support
 
 // tvm-ffi-stubgen(begin): import-section
 use crate::ir::support;
@@ -62,8 +62,7 @@ pub struct UniqueNameSupply {
 }
 
 /// The object behind [`UniqueNameSupply`].
-///
-/// Opaque: bytes [24, 64) of [24, 64) are not accounted for by reflected fields. Fields are read through the C ABI getters.
+// Opaque: bytes [24, 64) of [24, 64) are not accounted for by reflected fields. Fields are read through the C ABI getters.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]

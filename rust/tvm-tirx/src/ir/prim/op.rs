@@ -21,67 +21,67 @@
 //! constants, where a node constructor such as [`Add::new`](super::Add::new) takes operands as
 //! given; Rust operators such as `&x + 1` build an [`ExprResult`], and [`PrimOps`] has the rest.
 
-// tvm-ffi-stubgen(missing-docs): allow
+// tvm-ffi-stubgen(file): mod(missing_docs = allow)
 // Names the hand-written code uses: the import section keeps them even when no generated block
 // does.
-// tvm-ffi-stubgen(import-object): tvm_ffi::Any
-// tvm-ffi-stubgen(import-object): tvm_ffi::BigInt
-// tvm-ffi-stubgen(import-object): tvm_ffi::DLDataType
-// tvm-ffi-stubgen(import-object): tvm_ffi::DLDataTypeCode
-// tvm-ffi-stubgen(import-object): tvm_ffi::Error
-// tvm-ffi-stubgen(import-object): tvm_ffi::INTERNAL_ERROR
-// tvm-ffi-stubgen(import-object): tvm_ffi::ObjectRefCore
-// tvm-ffi-stubgen(import-object): tvm_ffi::Result
-// tvm-ffi-stubgen(import-object): tvm_ffi::TYPE_ERROR
-// tvm-ffi-stubgen(import-object): tvm_ffi::VALUE_ERROR
-// tvm-ffi-stubgen(import-object): crate::ir::expr::Call
-// tvm-ffi-stubgen(import-object): crate::ir::expr::CallObj
-// tvm-ffi-stubgen(import-object): crate::ir::expr::Expr
-// tvm-ffi-stubgen(import-object): crate::ir::expr::FloatImm
-// tvm-ffi-stubgen(import-object): crate::ir::expr::FloatImmObj
-// tvm-ffi-stubgen(import-object): crate::ir::expr::IntImm
-// tvm-ffi-stubgen(import-object): crate::ir::expr::IntImmObj
-// tvm-ffi-stubgen(import-object): crate::ir::expr::IntoExpr
-// tvm-ffi-stubgen(import-object): crate::ir::expr::PrimExpr
-// tvm-ffi-stubgen(import-object): crate::ir::location::Location
-// tvm-ffi-stubgen(import-object): crate::ir::location::UNKNOWN_LOC
-// tvm-ffi-stubgen(import-object): crate::ir::prim::const_fold
-// tvm-ffi-stubgen(import-object): crate::ir::prim::expr::Add
-// tvm-ffi-stubgen(import-object): crate::ir::prim::expr::And
-// tvm-ffi-stubgen(import-object): crate::ir::prim::expr::BitwiseAnd
-// tvm-ffi-stubgen(import-object): crate::ir::prim::expr::BitwiseNot
-// tvm-ffi-stubgen(import-object): crate::ir::prim::expr::BitwiseOr
-// tvm-ffi-stubgen(import-object): crate::ir::prim::expr::BitwiseXor
-// tvm-ffi-stubgen(import-object): crate::ir::prim::expr::Cast
-// tvm-ffi-stubgen(import-object): crate::ir::prim::expr::Div
-// tvm-ffi-stubgen(import-object): crate::ir::prim::expr::EQ
-// tvm-ffi-stubgen(import-object): crate::ir::prim::expr::FloorDiv
-// tvm-ffi-stubgen(import-object): crate::ir::prim::expr::FloorMod
-// tvm-ffi-stubgen(import-object): crate::ir::prim::expr::GE
-// tvm-ffi-stubgen(import-object): crate::ir::prim::expr::GT
-// tvm-ffi-stubgen(import-object): crate::ir::prim::expr::LE
-// tvm-ffi-stubgen(import-object): crate::ir::prim::expr::LShift
-// tvm-ffi-stubgen(import-object): crate::ir::prim::expr::LT
-// tvm-ffi-stubgen(import-object): crate::ir::prim::expr::Max
-// tvm-ffi-stubgen(import-object): crate::ir::prim::expr::Min
-// tvm-ffi-stubgen(import-object): crate::ir::prim::expr::Mod
-// tvm-ffi-stubgen(import-object): crate::ir::prim::expr::Mul
-// tvm-ffi-stubgen(import-object): crate::ir::prim::expr::NE
-// tvm-ffi-stubgen(import-object): crate::ir::prim::expr::Not
-// tvm-ffi-stubgen(import-object): crate::ir::prim::expr::Or
-// tvm-ffi-stubgen(import-object): crate::ir::prim::expr::RShift
-// tvm-ffi-stubgen(import-object): crate::ir::prim::expr::Select
-// tvm-ffi-stubgen(import-object): crate::ir::prim::expr::Sub
-// tvm-ffi-stubgen(import-object): crate::ir::prim::vector_expr::Broadcast
-// tvm-ffi-stubgen(import-object): crate::ir::prim::vector_expr::BroadcastObj
-// tvm-ffi-stubgen(import-object): crate::ir::prim::vector_expr::Ramp
-// tvm-ffi-stubgen(import-object): crate::ir::prim::vector_expr::RampObj
-// tvm-ffi-stubgen(import-object): crate::ir::r#type::PrimType
-// tvm-ffi-stubgen(import-object): crate::ir::r#type::Type
-// tvm-ffi-stubgen(import-object): crate::ir::support
-// tvm-ffi-stubgen(import-object): crate::sym
-// tvm-ffi-stubgen(import-object): tvm_ffi::IntoArg
-// tvm-ffi-stubgen(import-object): std::borrow::Borrow
+// tvm-ffi-stubgen(import): tvm_ffi::Any
+// tvm-ffi-stubgen(import): tvm_ffi::BigInt
+// tvm-ffi-stubgen(import): tvm_ffi::DLDataType
+// tvm-ffi-stubgen(import): tvm_ffi::DLDataTypeCode
+// tvm-ffi-stubgen(import): tvm_ffi::Error
+// tvm-ffi-stubgen(import): tvm_ffi::INTERNAL_ERROR
+// tvm-ffi-stubgen(import): tvm_ffi::ObjectRefCore
+// tvm-ffi-stubgen(import): tvm_ffi::Result
+// tvm-ffi-stubgen(import): tvm_ffi::TYPE_ERROR
+// tvm-ffi-stubgen(import): tvm_ffi::VALUE_ERROR
+// tvm-ffi-stubgen(import): crate::ir::expr::Call
+// tvm-ffi-stubgen(import): crate::ir::expr::CallObj
+// tvm-ffi-stubgen(import): crate::ir::expr::Expr
+// tvm-ffi-stubgen(import): crate::ir::expr::FloatImm
+// tvm-ffi-stubgen(import): crate::ir::expr::FloatImmObj
+// tvm-ffi-stubgen(import): crate::ir::expr::IntImm
+// tvm-ffi-stubgen(import): crate::ir::expr::IntImmObj
+// tvm-ffi-stubgen(import): crate::ir::expr::IntoExpr
+// tvm-ffi-stubgen(import): crate::ir::expr::PrimExpr
+// tvm-ffi-stubgen(import): crate::ir::location::Location
+// tvm-ffi-stubgen(import): crate::ir::location::UNKNOWN_LOC
+// tvm-ffi-stubgen(import): crate::ir::prim::const_fold
+// tvm-ffi-stubgen(import): crate::ir::prim::expr::Add
+// tvm-ffi-stubgen(import): crate::ir::prim::expr::And
+// tvm-ffi-stubgen(import): crate::ir::prim::expr::BitwiseAnd
+// tvm-ffi-stubgen(import): crate::ir::prim::expr::BitwiseNot
+// tvm-ffi-stubgen(import): crate::ir::prim::expr::BitwiseOr
+// tvm-ffi-stubgen(import): crate::ir::prim::expr::BitwiseXor
+// tvm-ffi-stubgen(import): crate::ir::prim::expr::Cast
+// tvm-ffi-stubgen(import): crate::ir::prim::expr::Div
+// tvm-ffi-stubgen(import): crate::ir::prim::expr::EQ
+// tvm-ffi-stubgen(import): crate::ir::prim::expr::FloorDiv
+// tvm-ffi-stubgen(import): crate::ir::prim::expr::FloorMod
+// tvm-ffi-stubgen(import): crate::ir::prim::expr::GE
+// tvm-ffi-stubgen(import): crate::ir::prim::expr::GT
+// tvm-ffi-stubgen(import): crate::ir::prim::expr::LE
+// tvm-ffi-stubgen(import): crate::ir::prim::expr::LShift
+// tvm-ffi-stubgen(import): crate::ir::prim::expr::LT
+// tvm-ffi-stubgen(import): crate::ir::prim::expr::Max
+// tvm-ffi-stubgen(import): crate::ir::prim::expr::Min
+// tvm-ffi-stubgen(import): crate::ir::prim::expr::Mod
+// tvm-ffi-stubgen(import): crate::ir::prim::expr::Mul
+// tvm-ffi-stubgen(import): crate::ir::prim::expr::NE
+// tvm-ffi-stubgen(import): crate::ir::prim::expr::Not
+// tvm-ffi-stubgen(import): crate::ir::prim::expr::Or
+// tvm-ffi-stubgen(import): crate::ir::prim::expr::RShift
+// tvm-ffi-stubgen(import): crate::ir::prim::expr::Select
+// tvm-ffi-stubgen(import): crate::ir::prim::expr::Sub
+// tvm-ffi-stubgen(import): crate::ir::prim::vector_expr::Broadcast
+// tvm-ffi-stubgen(import): crate::ir::prim::vector_expr::BroadcastObj
+// tvm-ffi-stubgen(import): crate::ir::prim::vector_expr::Ramp
+// tvm-ffi-stubgen(import): crate::ir::prim::vector_expr::RampObj
+// tvm-ffi-stubgen(import): crate::ir::r#type::PrimType
+// tvm-ffi-stubgen(import): crate::ir::r#type::Type
+// tvm-ffi-stubgen(import): crate::ir::support
+// tvm-ffi-stubgen(import): crate::sym
+// tvm-ffi-stubgen(import): tvm_ffi::IntoArg
+// tvm-ffi-stubgen(import): std::borrow::Borrow
 
 // tvm-ffi-stubgen(begin): import-section
 use crate::ir::expr::Call;
@@ -790,16 +790,16 @@ pub fn make_const_at(
     value: impl Into<ConstValue>,
     loc: impl IntoArg<Location>,
 ) -> Result<PrimExpr> {
-    let (ty, value, loc) = (ty.into_owned(), value.into(), loc.into_arg());
+    let (ty, value) = (ty.into_owned(), value.into());
     if !ty.is_scalable_vector() && !ty.is_fixed_length_vector() {
-        return make_const_scalar(ty, value, loc.borrow());
+        return make_const_scalar(ty, value, loc.into_arg().borrow());
     }
-    let scalar = make_const_scalar(ty.with_lanes(1)?, value, loc.borrow())?;
+    let loc = loc.into_owned();
+    let scalar = make_const_scalar(ty.with_lanes(1)?, value, &loc)?;
     let lanes = match ty.vscale_factor() {
         Some(factor) => super::vector_expr::vscale_lanes(i32::from(factor))?,
         None => IntImm::int32(support::lanes(&ty)?).into(),
     };
-    let loc: Location = loc.borrow().clone();
     Ok(Broadcast::new(scalar, lanes, loc)?.into())
 }
 
@@ -854,8 +854,7 @@ pub(crate) fn make_const_scalar(
         };
         return Ok(FloatImm::new(ty, value, loc.clone())?.into());
     }
-    let message = format!("cannot make const for type {ty}");
-    Err(Error::new(INTERNAL_ERROR, &message))
+    Err(tvm_ffi::format_err!(INTERNAL_ERROR, "cannot make const for type {ty}"))
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -880,12 +879,12 @@ pub fn cast_at(
     ty: impl IntoArg<PrimType>,
     loc: impl IntoArg<Location>,
 ) -> Result<PrimExpr> {
-    let (value, ty) = (value.into_owned_expr()?, ty.into_arg());
+    let (value, ty) = (value.into_owned_expr()?, ty.into_owned());
     let from = value.prim_ty().clone();
-    if from.dtype == ty.borrow().dtype {
+    if from.dtype == ty.dtype {
         return Ok(value);
     }
-    let (ty, loc): (PrimType, Location) = (ty.borrow().clone(), loc.into_owned());
+    let loc = loc.into_owned();
     if from.is_void() {
         let message = "Cannot cast an expression with the void sentinel type";
         return Err(support::check_failed(TYPE_ERROR, "!value.ty().IsVoid()", message));
@@ -1166,8 +1165,7 @@ fn promote_binary_op_type(lhs: DLDataType, rhs: DLDataType) -> Result<DLDataType
         },
         _ => {
             let (lhs, rhs) = (support::dtype_name(lhs), support::dtype_name(rhs));
-            let message = format!("Cannot match type {lhs} vs {rhs}");
-            Err(Error::new(INTERNAL_ERROR, &message))
+            Err(tvm_ffi::format_err!(INTERNAL_ERROR, "Cannot match type {lhs} vs {rhs}"))
         }
     }
 }
@@ -1210,6 +1208,11 @@ folded_binary!(
     /// returns a `TypeError` for an operand that is not a primitive expression, and the
     /// trigonometric and hyperbolic ones also for an operand that is not a float.
     ///
+    /// # Errors
+    ///
+    /// Returns a `TypeError` if an operand is not a primitive expression, or an `InternalError` if
+    /// the operand types cannot be matched.
+    ///
     /// # Examples
     ///
     /// ```
@@ -1224,11 +1227,6 @@ folded_binary!(
     /// assert!(add(&i, 0)?.same_as(&i));
     /// # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
     /// ```
-    ///
-    /// # Errors
-    ///
-    /// Returns a `TypeError` if an operand is not a primitive expression, or an `InternalError` if
-    /// the operand types cannot be matched.
     add / add_at: const_fold::add => Add,
     /// Build `a - b`.
     sub / sub_at: const_fold::sub => Sub,
@@ -1614,8 +1612,7 @@ fn fold_conditions(
 ) -> Result<PrimExpr> {
     let mut conds = conds.into_iter().map(IntoExpr::into_owned_expr);
     let Some(first) = conds.next() else {
-        let message = format!("{name} must take at least 1 argument");
-        return Err(Error::new(VALUE_ERROR, &message));
+        tvm_ffi::bail!(VALUE_ERROR, "{name} must take at least 1 argument");
     };
     conds.try_fold(first?, |acc, cond| op(acc, cond?, loc.clone()))
 }
@@ -1897,8 +1894,7 @@ pub fn max_value_at(ty: impl IntoArg<PrimType>, loc: impl IntoArg<Location>) -> 
         _ => match small_float_bound(code) {
             Some((max, _)) => float(max),
             None => {
-                let message = format!("Cannot decide max_value for type{ty}");
-                Err(Error::new(INTERNAL_ERROR, &message))
+                Err(tvm_ffi::format_err!(INTERNAL_ERROR, "Cannot decide max_value for type{ty}"))
             }
         },
     }
@@ -1925,8 +1921,7 @@ pub fn min_value_at(ty: impl IntoArg<PrimType>, loc: impl IntoArg<Location>) -> 
             Some((_, true)) => float(0.0),
             Some((max, false)) => float(-max),
             None => {
-                let message = format!("Cannot decide min_value for type{ty}");
-                Err(Error::new(INTERNAL_ERROR, &message))
+                Err(tvm_ffi::format_err!(INTERNAL_ERROR, "Cannot decide min_value for type{ty}"))
             }
         },
     }
@@ -1939,10 +1934,7 @@ pub fn infinity_at(ty: impl IntoArg<PrimType>, loc: impl IntoArg<Location>) -> R
     match (ty.dtype.code, ty.bits()) {
         (support::FLOAT, 64) => Ok(FloatImm::new(ty, f64::INFINITY, loc)?.into()),
         (support::FLOAT, 32 | 16) => Ok(FloatImm::new(ty, f64::from(f32::INFINITY), loc)?.into()),
-        _ => {
-            let message = format!("Cannot decide infinity for type {ty}");
-            Err(Error::new(INTERNAL_ERROR, &message))
-        }
+        _ => Err(tvm_ffi::format_err!(INTERNAL_ERROR, "Cannot decide infinity for type {ty}")),
     }
 }
 
@@ -2040,13 +2032,11 @@ fn absolute(x: PrimExpr, loc: Location) -> Result<PrimExpr> {
             }
         },
         support::UINT => Ok(x),
-        _ => {
-            let message = format!(
-                "Data type {} not supported for absolute op. Skipping absolute op...",
-                x.ty
-            );
-            Err(Error::new(INTERNAL_ERROR, &message))
-        }
+        _ => Err(tvm_ffi::format_err!(
+            INTERNAL_ERROR,
+            "Data type {} not supported for absolute op. Skipping absolute op...",
+            x.ty
+        )),
     }
 }
 
@@ -2080,11 +2070,11 @@ fn infinite(x: PrimExpr, loc: Location) -> Result<PrimExpr> {
             let not_nan = logical_not(isnan_at(x, loc)?)?;
             logical_and(at_infinity, not_nan)
         }
-        _ => {
-            let message =
-                format!("Data type {} not supported for finiteness ops. Skipping it...", x.ty);
-            Err(Error::new(INTERNAL_ERROR, &message))
-        }
+        _ => Err(tvm_ffi::format_err!(
+            INTERNAL_ERROR,
+            "Data type {} not supported for finiteness ops. Skipping it...",
+            x.ty
+        )),
     }
 }
 

@@ -25,7 +25,7 @@ pub mod analysis;
 
 pub use analysis::*;
 
-// tvm-ffi-stubgen(missing-docs): allow
+// tvm-ffi-stubgen(file): mod(missing_docs = allow)
 
 // tvm-ffi-stubgen(begin): import-section
 // tvm-ffi-stubgen(end)

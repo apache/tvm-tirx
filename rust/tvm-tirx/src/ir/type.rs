@@ -21,30 +21,32 @@
 //! vectors that arithmetic works on, and a dialect extends `Type` with its own kinds, as
 //! [`TensorType`](crate::tirx::TensorType) does.
 
-// tvm-ffi-stubgen(missing-docs): allow
-// `custom-new` reserves `new` for a hand-written constructor (defaults, checks, the shared
+// tvm-ffi-stubgen(file): mod(missing_docs = allow)
+// `custom_new` reserves `new` for a hand-written constructor (defaults, checks, the shared
 // `MissingType`, `NoneType` and `TensorRegionType` nodes); the generated `from_fields`
 // allocates the fields as given.
-// tvm-ffi-stubgen(custom-new): ir.MissingType
-// tvm-ffi-stubgen(custom-new): ir.NoneType
-// tvm-ffi-stubgen(custom-new): ir.TensorRegionType
-// tvm-ffi-stubgen(custom-new): ir.PtrType
-// tvm-ffi-stubgen(custom-new): ir.TupleType
-// tvm-ffi-stubgen(custom-new): ir.FuncType
-// tvm-ffi-stubgen(custom-new): ir.PrimType
-// tvm-ffi-stubgen(custom-new): ir.OpaqueType
-// tvm-ffi-stubgen(custom-new): ir.StringType
+// tvm-ffi-stubgen(object): ir.MissingType(custom_new)
+// tvm-ffi-stubgen(object): ir.NoneType(custom_new)
+// tvm-ffi-stubgen(object): ir.TensorRegionType(custom_new)
+// tvm-ffi-stubgen(object): ir.PtrType(custom_new)
+// tvm-ffi-stubgen(object): ir.TupleType(custom_new)
+// tvm-ffi-stubgen(object): ir.FuncType(custom_new)
+// tvm-ffi-stubgen(object): ir.PrimType(custom_new)
+// tvm-ffi-stubgen(object): ir.OpaqueType(custom_new)
+// tvm-ffi-stubgen(object): ir.StringType(custom_new)
+// `no_new` generates no allocator for the abstract base: a value is one of its subtypes.
+// tvm-ffi-stubgen(object): ir.Type(no_new)
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
-// tvm-ffi-stubgen(import-object): tvm_ffi::ObjectRefCore
-// tvm-ffi-stubgen(import-object): tvm_ffi::Result
-// tvm-ffi-stubgen(import-object): crate::ir::location::UNKNOWN_LOC
-// tvm-ffi-stubgen(import-object): crate::ir::support
-// tvm-ffi-stubgen(import-object): crate::ir::dtype
-// tvm-ffi-stubgen(import-object): tvm_ffi::Error
-// tvm-ffi-stubgen(import-object): tvm_ffi::DLDataTypeCode
-// tvm-ffi-stubgen(import-object): tvm_ffi::VALUE_ERROR
-// tvm-ffi-stubgen(import-object): tvm_ffi::IntoArg
+// tvm-ffi-stubgen(import): tvm_ffi::ObjectRefCore
+// tvm-ffi-stubgen(import): tvm_ffi::Result
+// tvm-ffi-stubgen(import): crate::ir::location::UNKNOWN_LOC
+// tvm-ffi-stubgen(import): crate::ir::support
+// tvm-ffi-stubgen(import): crate::ir::dtype
+// tvm-ffi-stubgen(import): tvm_ffi::Error
+// tvm-ffi-stubgen(import): tvm_ffi::DLDataTypeCode
+// tvm-ffi-stubgen(import): tvm_ffi::VALUE_ERROR
+// tvm-ffi-stubgen(import): tvm_ffi::IntoArg
 
 // tvm-ffi-stubgen(begin): import-section
 use crate::ir::dtype;
@@ -75,8 +77,7 @@ pub struct Type {
 }
 
 /// The object behind [`Type`].
-///
-/// Complete: reflected fields fill [24, 32) exactly.
+// Complete: reflected fields fill [24, 32) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -98,15 +99,6 @@ impl TypeObj {
         Self { base_, loc }
     }
 }
-
-#[allow(missing_docs)]
-impl Type {
-    /// Lossless complete-field allocation.
-    pub fn new(loc: impl IntoArg<Location>) -> Self {
-        let obj = TypeObj::new(loc.into_owned());
-        Self { data_: ObjectArc::new(obj) }
-    }
-}
 // tvm-ffi-stubgen(end)
 
 /// The type of a node whose type has not been given or inferred yet.
@@ -122,8 +114,7 @@ pub struct MissingType {
 }
 
 /// The object behind [`MissingType`].
-///
-/// Complete: reflected fields fill [32, 32) exactly.
+// Complete: reflected fields fill [32, 32) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -154,7 +145,7 @@ impl MissingTypeObj {
 
 #[allow(missing_docs)]
 impl MissingType {
-    /// Lossless complete-field allocation.
+    /// Create a `MissingType` from its field values.
     pub fn from_fields(loc: impl IntoArg<Location>) -> Self {
         let obj = MissingTypeObj::new(loc.into_owned());
         Self { data_: ObjectArc::new(obj) }
@@ -189,8 +180,7 @@ pub struct NoneType {
 }
 
 /// The object behind [`NoneType`].
-///
-/// Complete: reflected fields fill [32, 32) exactly.
+// Complete: reflected fields fill [32, 32) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -221,7 +211,7 @@ impl NoneTypeObj {
 
 #[allow(missing_docs)]
 impl NoneType {
-    /// Lossless complete-field allocation.
+    /// Create a `NoneType` from its field values.
     pub fn from_fields(loc: impl IntoArg<Location>) -> Self {
         let obj = NoneTypeObj::new(loc.into_owned());
         Self { data_: ObjectArc::new(obj) }
@@ -256,8 +246,7 @@ pub struct AnyType {
 }
 
 /// The object behind [`AnyType`].
-///
-/// Complete: reflected fields fill [32, 32) exactly.
+// Complete: reflected fields fill [32, 32) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -288,7 +277,7 @@ impl AnyTypeObj {
 
 #[allow(missing_docs)]
 impl AnyType {
-    /// Lossless complete-field allocation.
+    /// Create a `AnyType` from its field values.
     pub fn new(loc: impl IntoArg<Location>) -> Self {
         let obj = AnyTypeObj::new(loc.into_owned());
         Self { data_: ObjectArc::new(obj) }
@@ -311,8 +300,7 @@ pub struct TensorRegionType {
 }
 
 /// The object behind [`TensorRegionType`].
-///
-/// Complete: reflected fields fill [32, 32) exactly.
+// Complete: reflected fields fill [32, 32) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -343,7 +331,7 @@ impl TensorRegionTypeObj {
 
 #[allow(missing_docs)]
 impl TensorRegionType {
-    /// Lossless complete-field allocation.
+    /// Create a `TensorRegionType` from its field values.
     pub fn from_fields(loc: impl IntoArg<Location>) -> Self {
         let obj = TensorRegionTypeObj::new(loc.into_owned());
         Self { data_: ObjectArc::new(obj) }
@@ -379,8 +367,7 @@ pub struct OpaqueType {
 }
 
 /// The object behind [`OpaqueType`].
-///
-/// Complete: reflected fields fill [32, 32) exactly.
+// Complete: reflected fields fill [32, 32) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -411,7 +398,7 @@ impl OpaqueTypeObj {
 
 #[allow(missing_docs)]
 impl OpaqueType {
-    /// Lossless complete-field allocation.
+    /// Create a `OpaqueType` from its field values.
     pub fn from_fields(loc: impl IntoArg<Location>) -> Self {
         let obj = OpaqueTypeObj::new(loc.into_owned());
         Self { data_: ObjectArc::new(obj) }
@@ -456,8 +443,7 @@ pub struct PrimType {
 }
 
 /// The object behind [`PrimType`].
-///
-/// Complete: reflected fields fill [32, 40) exactly (alignment padding [36, 40)).
+// Complete: reflected fields fill [32, 40) exactly (alignment padding [36, 40)).
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -489,7 +475,7 @@ impl PrimTypeObj {
 
 #[allow(missing_docs)]
 impl PrimType {
-    /// Lossless complete-field allocation.
+    /// Create a `PrimType` from its field values.
     pub fn from_fields(loc: impl IntoArg<Location>, dtype: impl Into<DLDataType>) -> Self {
         let obj = PrimTypeObj::new(loc.into_owned(), dtype.into());
         Self { data_: ObjectArc::new(obj) }
@@ -571,8 +557,10 @@ impl PrimType {
     /// opaque handle, as that of `void` is.
     pub fn with_lanes(&self, lanes: u16) -> Result<Self> {
         if i16::try_from(lanes).is_err() {
-            let message = format!("a fixed-length vector has fewer than 32768 lanes, not {lanes}");
-            return Err(Error::new(VALUE_ERROR, &message));
+            tvm_ffi::bail!(
+                VALUE_ERROR,
+                "a fixed-length vector has fewer than 32768 lanes, not {lanes}"
+            );
         }
         Self::try_from(dtype::with_lanes(self.dtype, lanes))
     }
@@ -689,8 +677,7 @@ pub struct StringType {
 }
 
 /// The object behind [`StringType`].
-///
-/// Complete: reflected fields fill [32, 32) exactly.
+// Complete: reflected fields fill [32, 32) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -721,7 +708,7 @@ impl StringTypeObj {
 
 #[allow(missing_docs)]
 impl StringType {
-    /// Lossless complete-field allocation.
+    /// Create a `StringType` from its field values.
     pub fn from_fields(loc: impl IntoArg<Location>) -> Self {
         let obj = StringTypeObj::new(loc.into_owned());
         Self { data_: ObjectArc::new(obj) }
@@ -751,8 +738,7 @@ pub struct PtrType {
 }
 
 /// The object behind [`PtrType`].
-///
-/// Complete: reflected fields fill [32, 48) exactly.
+// Complete: reflected fields fill [32, 48) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -785,7 +771,7 @@ impl PtrTypeObj {
 
 #[allow(missing_docs)]
 impl PtrType {
-    /// Lossless complete-field allocation.
+    /// Create a `PtrType` from its field values.
     pub fn from_fields(
         loc: impl IntoArg<Location>,
         element_type: impl IntoArg<Type>,
@@ -827,8 +813,7 @@ pub struct TupleType {
 }
 
 /// The object behind [`TupleType`].
-///
-/// Complete: reflected fields fill [32, 40) exactly.
+// Complete: reflected fields fill [32, 40) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -860,7 +845,7 @@ impl TupleTypeObj {
 
 #[allow(missing_docs)]
 impl TupleType {
-    /// Lossless complete-field allocation.
+    /// Create a `TupleType` from its field values.
     pub fn from_fields(loc: impl IntoArg<Location>, fields: impl Into<Array<Type>>) -> Self {
         let obj = TupleTypeObj::new(loc.into_owned(), fields.into());
         Self { data_: ObjectArc::new(obj) }
@@ -891,8 +876,7 @@ pub struct FuncType {
 }
 
 /// The object behind [`FuncType`].
-///
-/// Complete: reflected fields fill [32, 48) exactly.
+// Complete: reflected fields fill [32, 48) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -925,7 +909,7 @@ impl FuncTypeObj {
 
 #[allow(missing_docs)]
 impl FuncType {
-    /// Lossless complete-field allocation.
+    /// Create a `FuncType` from its field values.
     pub fn from_fields(
         loc: impl IntoArg<Location>,
         arg_types: impl Into<Array<Type>>,

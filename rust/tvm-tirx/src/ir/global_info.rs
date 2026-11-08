@@ -22,7 +22,9 @@
 //! Module-level information. A [`GlobalInfo`] is information an [`IRModule`](super::IRModule)
 //! holds besides its functions, kept by name in `global_infos`.
 
-// tvm-ffi-stubgen(missing-docs): allow
+// tvm-ffi-stubgen(file): mod(missing_docs = allow)
+// `no_new` generates no allocator for the abstract base: a value is one of its subtypes.
+// tvm-ffi-stubgen(object): ir.GlobalInfo(no_new)
 
 // tvm-ffi-stubgen(begin): import-section
 use tvm_ffi::Object;
@@ -40,8 +42,7 @@ pub struct GlobalInfo {
 }
 
 /// The object behind [`GlobalInfo`].
-///
-/// Complete: reflected fields fill [24, 24) exactly.
+// Complete: reflected fields fill [24, 24) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -60,15 +61,6 @@ impl GlobalInfoObj {
     pub fn new() -> Self {
         let base_ = Object::new();
         Self { base_ }
-    }
-}
-
-#[allow(missing_docs)]
-impl GlobalInfo {
-    /// Lossless complete-field allocation.
-    pub fn new() -> Self {
-        let obj = GlobalInfoObj::new();
-        Self { data_: ObjectArc::new(obj) }
     }
 }
 // tvm-ffi-stubgen(end)

@@ -21,21 +21,21 @@
 //! parameters and return type, with a [`SeqStmt`] body; [`renew_def`] copies one with fresh
 //! variables.
 
-// tvm-ffi-stubgen(missing-docs): allow
-// `custom-new` reserves `new` for a hand-written constructor (`ty` derived from the signature); the
+// tvm-ffi-stubgen(file): mod(missing_docs = allow)
+// `custom_new` reserves `new` for a hand-written constructor (`ty` derived from the signature); the
 // generated `from_fields` allocates the fields as given.
-// tvm-ffi-stubgen(custom-new): tirx.Function
+// tvm-ffi-stubgen(object): tirx.Function(custom_new)
 
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
-// tvm-ffi-stubgen(import-object): tvm_ffi::ObjectRefCore
-// tvm-ffi-stubgen(import-object): tvm_ffi::Result
-// tvm-ffi-stubgen(import-object): crate::ir::r#type::FuncType
-// tvm-ffi-stubgen(import-object): crate::ir::r#type::MissingTypeObj
-// tvm-ffi-stubgen(import-object): crate::ir::r#type::TupleType
-// tvm-ffi-stubgen(import-object): crate::ir::location::UNKNOWN_LOC
-// tvm-ffi-stubgen(import-object): tvm_ffi::IntoArg
-// tvm-ffi-stubgen(import-object): std::borrow::Borrow
+// tvm-ffi-stubgen(import): tvm_ffi::ObjectRefCore
+// tvm-ffi-stubgen(import): tvm_ffi::Result
+// tvm-ffi-stubgen(import): crate::ir::r#type::FuncType
+// tvm-ffi-stubgen(import): crate::ir::r#type::MissingTypeObj
+// tvm-ffi-stubgen(import): crate::ir::r#type::TupleType
+// tvm-ffi-stubgen(import): crate::ir::location::UNKNOWN_LOC
+// tvm-ffi-stubgen(import): tvm_ffi::IntoArg
+// tvm-ffi-stubgen(import): std::borrow::Borrow
 
 // tvm-ffi-stubgen(begin): import-section
 use crate::ir::attrs::DictAttrs;
@@ -89,8 +89,7 @@ pub struct Function {
 }
 
 /// The object behind [`Function`].
-///
-/// Complete: reflected fields fill [48, 72) exactly.
+// Complete: reflected fields fill [48, 72) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -131,7 +130,7 @@ impl FunctionObj {
 
 #[allow(missing_docs)]
 impl Function {
-    /// Lossless complete-field allocation.
+    /// Create a `Function` from its field values.
     pub fn from_fields(
         loc: impl IntoArg<Location>,
         ty: impl IntoArg<Type>,

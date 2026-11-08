@@ -24,8 +24,8 @@
 use std::borrow::BorrowMut;
 
 use tvm_ffi::{
-    Any, AnyView, DefRegionKind, Dispatcher, IntoDispatcher, MutationView, Object, Result,
-    UnchangedOr, WalkOrder,
+    Any, AnyView, DefRegionKind, Dispatcher, IntoDispatcher, MutationView, Result, UnchangedOr,
+    WalkOrder,
 };
 
 use super::structural_mutate_with_constraint_context::{
@@ -91,11 +91,15 @@ where
                 return mutator.default_mutate(self, value);
             }
             let mut mapped: Any = mapped.into();
-            let same_object = value
-                .downcast_ref::<Object>()
-                .zip(mapped.downcast_ref::<Object>())
-                .is_some_and(|(original, replacement)| std::ptr::eq(original, replacement));
-            if same_object {
+            // Same tag and payload bits: the same object, or an equal non-object value such as
+            // an int or a small string, as tvm-ffi `structural_map` compares them.
+            let (original, replacement) =
+                (*value.as_any_view().as_raw_ffi_any(), *mapped.as_raw_ffi_any());
+            let same_value = original.type_index == replacement.type_index
+                && original.small_str_len == replacement.small_str_len
+                // SAFETY: both carriers hold initialized payload bits; only the bits are read.
+                && unsafe { original.data_union.v_uint64 == replacement.data_union.v_uint64 };
+            if same_value {
                 // An identity callback must not make a unique root appear shared.
                 drop(mapped);
                 return mutator.default_mutate(self, value);

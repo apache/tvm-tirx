@@ -96,18 +96,6 @@ fn construction_and_queries() {
 }
 
 #[test]
-fn scope_ends_on_drop() {
-    assert!(Target::current(true).unwrap().is_none());
-    assert!(Target::current(false).is_err());
-    {
-        let _scope = Target::new("c").unwrap().scope().unwrap();
-        let current = Target::current(false).unwrap().unwrap();
-        assert_eq!(current.kind.name().unwrap().as_str(), "c");
-    }
-    assert!(Target::current(true).unwrap().is_none());
-}
-
-#[test]
 fn tags() {
     let tagged = target::register_tag("rust-test/llvm", config("llvm"), true).unwrap();
     assert_eq!(tagged.kind.name().unwrap().as_str(), "llvm");

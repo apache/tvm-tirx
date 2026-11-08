@@ -25,7 +25,7 @@
 //! [`TCGen05InstrDescriptorBlockScaledAttrs`] are the static options of a `tcgen05` instruction
 //! descriptor, and [`TensorMapEncodeTiledAttr`] those of a tiled tensor-map encoding.
 
-// tvm-ffi-stubgen(missing-docs): allow
+// tvm-ffi-stubgen(file): mod(missing_docs = allow)
 
 // tvm-ffi-stubgen(begin): import-section
 use crate::ir::attrs::Attrs;
@@ -49,8 +49,7 @@ pub struct TCGen05InstrDescriptorAttrs {
 }
 
 /// The object behind [`TCGen05InstrDescriptorAttrs`].
-///
-/// Complete: reflected fields fill [24, 120) exactly (alignment padding [98, 104), [116, 120)).
+// Complete: reflected fields fill [24, 120) exactly (alignment padding [98, 104), [116, 120)).
 #[allow(non_snake_case)]
 #[allow(missing_docs)]
 #[repr(C)]
@@ -125,7 +124,7 @@ impl TCGen05InstrDescriptorAttrsObj {
 
 #[allow(missing_docs)]
 impl TCGen05InstrDescriptorAttrs {
-    /// Lossless complete-field allocation.
+    /// Create a `TCGen05InstrDescriptorAttrs` from its field values.
     #[allow(non_snake_case)]
     pub fn new(
         d_dtype: impl Into<String>,
@@ -177,8 +176,7 @@ pub struct TCGen05InstrDescriptorBlockScaledAttrs {
 }
 
 /// The object behind [`TCGen05InstrDescriptorBlockScaledAttrs`].
-///
-/// Complete: reflected fields fill [24, 152) exactly (alignment padding [130, 136), [147, 152)).
+// Complete: reflected fields fill [24, 152) exactly (alignment padding [130, 136), [147, 152)).
 #[allow(non_snake_case)]
 #[allow(missing_docs)]
 #[repr(C)]
@@ -256,7 +254,7 @@ impl TCGen05InstrDescriptorBlockScaledAttrsObj {
 
 #[allow(missing_docs)]
 impl TCGen05InstrDescriptorBlockScaledAttrs {
-    /// Lossless complete-field allocation.
+    /// Create a `TCGen05InstrDescriptorBlockScaledAttrs` from its field values.
     #[allow(non_snake_case)]
     pub fn new(
         d_dtype: impl Into<String>,
@@ -309,8 +307,7 @@ pub struct TensorMapEncodeTiledAttr {
 }
 
 /// The object behind [`TensorMapEncodeTiledAttr`].
-///
-/// Complete: reflected fields fill [24, 80) exactly (alignment padding [28, 32)).
+// Complete: reflected fields fill [24, 80) exactly (alignment padding [28, 32)).
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -365,7 +362,7 @@ impl TensorMapEncodeTiledAttrObj {
 
 #[allow(missing_docs)]
 impl TensorMapEncodeTiledAttr {
-    /// Lossless complete-field allocation.
+    /// Create a `TensorMapEncodeTiledAttr` from its field values.
     pub fn new(
         descriptor_dtype: impl Into<DLDataType>,
         rank: i64,

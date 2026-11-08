@@ -18,25 +18,22 @@
  */
 
 //! Compilation targets. A [`Target`] describes the device and options code is compiled for, as an
-//! instance of a registered [`TargetKind`]; it is created from a tag, a kind name or a config, and
-//! [`Target::scope`] makes it the current one.
+//! instance of a registered [`TargetKind`]; it is created from a tag, a kind name or a config.
 
-// tvm-ffi-stubgen(missing-docs): allow
 // Every object registered under `target` has its block in this file.
-// tvm-ffi-stubgen(prefix): target
+// tvm-ffi-stubgen(file): mod(missing_docs = allow, prefix = target)
 // `target.Target` is hand-written below: a target is built by parsing its config, never from
 // raw fields.
-// tvm-ffi-stubgen(skip): target.Target
+// tvm-ffi-stubgen(object): target.Target(skip, ty_map = crate::target::Target)
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
-// tvm-ffi-stubgen(import-object): tvm_ffi::Module
-// tvm-ffi-stubgen(import-object): crate::ir::module::IRModule
-// tvm-ffi-stubgen(import-object): tvm_ffi::IntoArg
-// tvm-ffi-stubgen(import-object): std::borrow::Borrow
-// tvm-ffi-stubgen(ty-map): target.Target -> crate::target::Target
-// tvm-ffi-stubgen(import-object): tvm_ffi::Any
-// tvm-ffi-stubgen(import-object): tvm_ffi::Map
-// tvm-ffi-stubgen(import-object): tvm_ffi::object::ObjectRef
+// tvm-ffi-stubgen(import): tvm_ffi::Module
+// tvm-ffi-stubgen(import): crate::ir::module::IRModule
+// tvm-ffi-stubgen(import): tvm_ffi::IntoArg
+// tvm-ffi-stubgen(import): std::borrow::Borrow
+// tvm-ffi-stubgen(import): tvm_ffi::Any
+// tvm-ffi-stubgen(import): tvm_ffi::Map
+// tvm-ffi-stubgen(import): tvm_ffi::object::ObjectRef
 
 // tvm-ffi-stubgen(begin): import-section
 use crate::ir::module::IRModule;
@@ -62,15 +59,9 @@ use tvm_ffi::object::ObjectRef;
 ///
 /// ```
 /// use tvm_tirx::target::Target;
-/// use tvm_tirx::tvm_ffi::ObjectRefCore;
 ///
 /// let cpu = Target::new(r#"{"kind": "llvm", "mcpu": "skylake"}"#)?;
 /// assert!(cpu.as_json()?.as_str().contains(r#""keys":["cpu"]"#));
-///
-/// let scope = cpu.scope()?;
-/// assert!(Target::current(false)?.unwrap().same_as(&cpu));
-/// drop(scope);
-/// assert!(Target::current(true)?.is_none());
 /// # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
 /// ```
 #[allow(missing_docs)]
@@ -126,23 +117,6 @@ impl Target {
         tvm_ffi::cached_global_func!("target.Target").call_tuple((&config.into(),))?.try_into()
     }
 
-    /// Make this the current target until the returned [`TargetScope`] is dropped
-    /// (`target.TargetEnterScope`, `target.TargetExitScope`).
-    pub fn scope(&self) -> Result<TargetScope> {
-        tvm_ffi::cached_global_func!("target.TargetEnterScope").call_tuple((self,))?;
-        Ok(TargetScope(self.clone(), crate::ThreadBound::default()))
-    }
-
-    /// Return the innermost current target, or `None` if there is none and `allow_none` is `true`
-    /// (`target.TargetCurrent`).
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if there is no current target and `allow_none` is `false`.
-    pub fn current(allow_none: bool) -> Result<Option<Self>> {
-        tvm_ffi::cached_global_func!("target.TargetCurrent").call_tuple((allow_none,))?.try_into()
-    }
-
     /// Return the config map that describes the target (`target.TargetExport`).
     pub fn export(&self) -> Result<Map<String, Any>> {
         tvm_ffi::cached_global_func!("target.TargetExport").call_tuple((self,))?.try_into()
@@ -167,33 +141,15 @@ impl Target {
 
     /// Return the `feature.<name>` attribute of the target, or `None` when it has none
     /// (`target.TargetGetFeature`).
-    pub fn feature(&self, name: &str) -> Result<Any> {
-        tvm_ffi::cached_global_func!("target.TargetGetFeature")
-            .call_tuple((self, String::from(name)))
+    pub fn feature(&self, name: &str) -> Result<Option<Any>> {
+        let value = tvm_ffi::cached_global_func!("target.TargetGetFeature")
+            .call_tuple((self, String::from(name)))?;
+        Ok((!value.is_none()).then_some(value))
     }
 
     /// Return the names of the registered target kinds (`target.ListTargetKinds`).
     pub fn list_kinds() -> Result<Array<String>> {
         tvm_ffi::cached_global_func!("target.ListTargetKinds").call_tuple(())?.try_into()
-    }
-}
-
-/// A scope in which a target is the current one, returned by [`Target::scope`].
-///
-/// The current targets are a stack of the thread, so a scope stays on the thread that opened it,
-/// and the scopes end in the reverse order they were opened: drop the innermost one first.
-///
-/// ```compile_fail
-/// fn send<T: Send>() {}
-/// send::<tvm_tirx::target::TargetScope>();
-/// ```
-#[must_use = "the target stops being the current one when the scope is dropped"]
-pub struct TargetScope(Target, crate::ThreadBound);
-
-impl Drop for TargetScope {
-    fn drop(&mut self) {
-        // A destructor cannot report the error; the scopes end in the order they were opened.
-        let _ = tvm_ffi::cached_global_func!("target.TargetExitScope").call_tuple((&self.0,));
     }
 }
 
@@ -208,8 +164,7 @@ pub struct TargetKind {
 }
 
 /// The object behind [`TargetKind`].
-///
-/// Opaque: bytes [56, 152) of [24, 152) are not accounted for by reflected fields. Fields are read through the C ABI getters.
+// Opaque: bytes [56, 152) of [24, 152) are not accounted for by reflected fields. Fields are read through the C ABI getters.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]

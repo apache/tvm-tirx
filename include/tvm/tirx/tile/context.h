@@ -126,6 +126,8 @@ class DispatchContextObj : public ffi::Object {
   }
 
   TVM_FFI_DECLARE_OBJECT_INFO_FINAL("tirx.DispatchContext", DispatchContextObj, ffi::Object);
+  // Shared instances are mutated in place, so the class is mutable.
+  static constexpr bool _type_mutable = true;
 };
 
 /*!

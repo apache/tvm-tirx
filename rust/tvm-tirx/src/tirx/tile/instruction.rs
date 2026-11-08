@@ -23,19 +23,18 @@
 //! [`ScopeAttrs`] or [`TrnAttrs`], and is checked by the validator
 //! [`configure_tensor_instruction`] installs.
 
-// tvm-ffi-stubgen(missing-docs): allow
 // Every object registered under `tirx.tensor` has its block in this file.
-// tvm-ffi-stubgen(prefix): tirx.tensor
+// tvm-ffi-stubgen(file): mod(missing_docs = allow, prefix = tirx.tensor)
 
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
-// tvm-ffi-stubgen(import-object): crate::ir::expr::Call
-// tvm-ffi-stubgen(import-object): crate::ir::expr::TensorRegion
-// tvm-ffi-stubgen(import-object): crate::ir::op::Op
-// tvm-ffi-stubgen(import-object): tvm_ffi::Result
-// tvm-ffi-stubgen(import-object): crate::ir::expr::IntoExpr
-// tvm-ffi-stubgen(import-object): std::borrow::Borrow
-// tvm-ffi-stubgen(import-object): tvm_ffi::IntoArg
+// tvm-ffi-stubgen(import): crate::ir::expr::Call
+// tvm-ffi-stubgen(import): crate::ir::expr::TensorRegion
+// tvm-ffi-stubgen(import): crate::ir::op::Op
+// tvm-ffi-stubgen(import): tvm_ffi::Result
+// tvm-ffi-stubgen(import): crate::ir::expr::IntoExpr
+// tvm-ffi-stubgen(import): std::borrow::Borrow
+// tvm-ffi-stubgen(import): tvm_ffi::IntoArg
 
 // tvm-ffi-stubgen(begin): import-section
 use crate::ir::attrs::Attrs;
@@ -65,8 +64,7 @@ pub struct ScopeAttrs {
 }
 
 /// The object behind [`ScopeAttrs`].
-///
-/// Complete: reflected fields fill [24, 32) exactly.
+// Complete: reflected fields fill [24, 32) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -98,7 +96,7 @@ impl ScopeAttrsObj {
 
 #[allow(missing_docs)]
 impl ScopeAttrs {
-    /// Lossless complete-field allocation.
+    /// Create a `ScopeAttrs` from its field values.
     pub fn new(scope: impl IntoArg<ThreadScope>) -> Self {
         let obj = ScopeAttrsObj::new(scope.into_owned());
         Self { data_: ObjectArc::new(obj) }
@@ -120,8 +118,7 @@ pub struct TrnAttrs {
 }
 
 /// The object behind [`TrnAttrs`].
-///
-/// Complete: reflected fields fill [24, 128) exactly (alignment padding [122, 128)).
+// Complete: reflected fields fill [24, 128) exactly (alignment padding [122, 128)).
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -171,7 +168,7 @@ impl TrnAttrsObj {
 
 #[allow(missing_docs)]
 impl TrnAttrs {
-    /// Lossless complete-field allocation.
+    /// Create a `TrnAttrs` from its field values.
     pub fn new(
         scope: impl IntoArg<ThreadScope>,
         max_inst_size: impl Into<Optional<i64>>,
