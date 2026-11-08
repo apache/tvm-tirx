@@ -32,7 +32,7 @@
 // tvm-ffi-stubgen(import-object): tvm_ffi::Result
 // tvm-ffi-stubgen(import-object): crate::ir::expr::IntoExpr
 // tvm-ffi-stubgen(import-object): std::borrow::Borrow
-// tvm-ffi-stubgen(import-object): tvm_ffi::IntoObjectRef
+// tvm-ffi-stubgen(import-object): tvm_ffi::IntoArg
 
 // tvm-ffi-stubgen(begin): import-section
 use crate::ir::expr::IntoExpr;
@@ -44,7 +44,7 @@ use crate::tirx::function::Function;
 use std::borrow::Borrow;
 use tvm_ffi::Any;
 use tvm_ffi::Array;
-use tvm_ffi::IntoObjectRef;
+use tvm_ffi::IntoArg;
 use tvm_ffi::Result;
 // tvm-ffi-stubgen(end)
 
@@ -53,9 +53,9 @@ use tvm_ffi::Result;
 ///
 /// A function without a target attribute, or not of the default calling convention, is not checked
 /// and passes.
-pub fn verify_memory(func: impl IntoObjectRef<Function>) -> Result<bool> {
+pub fn verify_memory(func: impl IntoArg<Function>) -> Result<bool> {
     tvm_ffi::cached_global_func!("tirx.analysis.VerifyMemory")
-        .call_tuple((func.into_object_ref().borrow(),))?
+        .call_tuple((func.into_arg().borrow(),))?
         .try_into()
 }
 
@@ -73,14 +73,14 @@ pub fn verify_memory(func: impl IntoObjectRef<Function>) -> Result<bool> {
 /// let y = PrimVar::new("y", PrimType::int(32), UNKNOWN_LOC);
 /// let sum: Expr = (&x + &y).try_into()?;
 /// let undefined = analysis::undefined_vars(sum, [&x])?;
-/// assert!(undefined.len() == 1 && undefined.get(0)?.same_as(&y));
+/// assert!(undefined.len() == 1 && undefined[0].same_as(&y));
 /// # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
 /// ```
 pub fn undefined_vars(
     node: impl Into<Any>,
-    defs: impl IntoIterator<Item = impl IntoObjectRef<Var>>,
+    defs: impl IntoIterator<Item = impl IntoArg<Var>>,
 ) -> Result<Array<Var>> {
-    let defs = defs.into_iter().map(IntoObjectRef::into_owned_object_ref).collect::<Array<Var>>();
+    let defs = defs.into_iter().map(IntoArg::into_owned).collect::<Array<Var>>();
     tvm_ffi::cached_global_func!("tirx.analysis.UndefinedVars")
         .call_tuple((&node.into(), &defs))?
         .try_into()
@@ -88,20 +88,17 @@ pub fn undefined_vars(
 
 /// Return whether `func` is well formed; invalid IR raises an error instead if `assert_mode`
 /// (`tirx.analysis.CheckWellFormed`).
-pub fn check_well_formed(func: impl IntoObjectRef<Function>, assert_mode: bool) -> Result<bool> {
+pub fn check_well_formed(func: impl IntoArg<Function>, assert_mode: bool) -> Result<bool> {
     tvm_ffi::cached_global_func!("tirx.analysis.CheckWellFormed")
-        .call_tuple((func.into_object_ref().borrow(), assert_mode))?
+        .call_tuple((func.into_arg().borrow(), assert_mode))?
         .try_into()
 }
 
 /// Return whether the TIRx functions of `module` are well formed; invalid IR raises an error
 /// instead if `assert_mode` (`tirx.analysis.CheckWellFormed`).
-pub fn check_well_formed_module(
-    module: impl IntoObjectRef<IRModule>,
-    assert_mode: bool,
-) -> Result<bool> {
+pub fn check_well_formed_module(module: impl IntoArg<IRModule>, assert_mode: bool) -> Result<bool> {
     tvm_ffi::cached_global_func!("tirx.analysis.CheckWellFormed")
-        .call_tuple((module.into_object_ref().borrow(), assert_mode))?
+        .call_tuple((module.into_arg().borrow(), assert_mode))?
         .try_into()
 }
 
@@ -109,10 +106,9 @@ pub fn check_well_formed_module(
 /// an empty array if `expr` has no such form (`tirx.analysis.DetectLinearEquation`).
 pub fn detect_linear_equation(
     expr: impl IntoExpr<PrimExpr>,
-    vars: impl IntoIterator<Item = impl IntoObjectRef<PrimVar>>,
+    vars: impl IntoIterator<Item = impl IntoArg<PrimVar>>,
 ) -> Result<Array<PrimExpr>> {
-    let vars =
-        vars.into_iter().map(IntoObjectRef::into_owned_object_ref).collect::<Array<PrimVar>>();
+    let vars = vars.into_iter().map(IntoArg::into_owned).collect::<Array<PrimVar>>();
     tvm_ffi::cached_global_func!("tirx.analysis.DetectLinearEquation")
         .call_tuple((expr.into_expr()?.borrow(), &vars))?
         .try_into()
@@ -123,10 +119,9 @@ pub fn detect_linear_equation(
 /// (`tirx.analysis.DetectClipBound`).
 pub fn detect_clip_bound(
     expr: impl IntoExpr<PrimExpr>,
-    vars: impl IntoIterator<Item = impl IntoObjectRef<PrimVar>>,
+    vars: impl IntoIterator<Item = impl IntoArg<PrimVar>>,
 ) -> Result<Array<Option<PrimExpr>>> {
-    let vars =
-        vars.into_iter().map(IntoObjectRef::into_owned_object_ref).collect::<Array<PrimVar>>();
+    let vars = vars.into_iter().map(IntoArg::into_owned).collect::<Array<PrimVar>>();
     tvm_ffi::cached_global_func!("tirx.analysis.DetectClipBound")
         .call_tuple((expr.into_expr()?.borrow(), &vars))?
         .try_into()

@@ -30,7 +30,7 @@ use std::cell::UnsafeCell;
 use std::mem::{align_of, offset_of, size_of};
 use tvm_ffi::{AnyView, Array, Error, Result, VALUE_ERROR};
 // tvm-ffi-stubgen(import-object): crate::ir::expr::PrimExpr
-// tvm-ffi-stubgen(import-object): tvm_ffi::IntoObjectRef
+// tvm-ffi-stubgen(import-object): tvm_ffi::IntoArg
 // tvm-ffi-stubgen(import-object): std::borrow::Borrow
 // A binding's value and a predicate are `PrimExpr`s, as in C++.
 // tvm-ffi-stubgen(field): sym.BindingConstraint.value -> PrimExpr
@@ -41,7 +41,7 @@ use crate::ir::expr::Range;
 use crate::ir::expr::Var;
 use std::borrow::Borrow;
 use std::ops::Deref;
-use tvm_ffi::IntoObjectRef;
+use tvm_ffi::IntoArg;
 use tvm_ffi::Object;
 use tvm_ffi::ObjectArc;
 // tvm-ffi-stubgen(end)
@@ -61,9 +61,7 @@ pub struct Constraint {
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
-#[type_key = "sym.Constraint"]
-#[type_immutable]
-#[type_rs_parent]
+#[object(type_key = "sym.Constraint", immutable, rs_parent)]
 pub struct ConstraintObj {
     base_: Object,
 }
@@ -107,9 +105,7 @@ pub struct BindingConstraint {
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
-#[type_key = "sym.BindingConstraint"]
-#[type_final]
-#[type_immutable]
+#[object(type_key = "sym.BindingConstraint", final, immutable)]
 pub struct BindingConstraintObj {
     base_: ConstraintObj,
     pub var: Var,
@@ -139,9 +135,8 @@ impl BindingConstraintObj {
 #[allow(missing_docs)]
 impl BindingConstraint {
     /// Lossless complete-field allocation.
-    pub fn new(var: impl IntoObjectRef<Var>, value: impl IntoObjectRef<PrimExpr>) -> Self {
-        let obj =
-            BindingConstraintObj::new(var.into_owned_object_ref(), value.into_owned_object_ref());
+    pub fn new(var: impl IntoArg<Var>, value: impl IntoArg<PrimExpr>) -> Self {
+        let obj = BindingConstraintObj::new(var.into_owned(), value.into_owned());
         Self { data_: ObjectArc::new(obj) }
     }
 }
@@ -165,9 +160,7 @@ pub struct PredicateConstraint {
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
-#[type_key = "sym.PredicateConstraint"]
-#[type_final]
-#[type_immutable]
+#[object(type_key = "sym.PredicateConstraint", final, immutable)]
 pub struct PredicateConstraintObj {
     base_: ConstraintObj,
     pub condition: PrimExpr,
@@ -197,8 +190,8 @@ impl PredicateConstraintObj {
 #[allow(missing_docs)]
 impl PredicateConstraint {
     /// Lossless complete-field allocation.
-    pub fn new(condition: impl IntoObjectRef<PrimExpr>, assume_always: bool) -> Self {
-        let obj = PredicateConstraintObj::new(condition.into_owned_object_ref(), assume_always);
+    pub fn new(condition: impl IntoArg<PrimExpr>, assume_always: bool) -> Self {
+        let obj = PredicateConstraintObj::new(condition.into_owned(), assume_always);
         Self { data_: ObjectArc::new(obj) }
     }
 }
@@ -222,9 +215,7 @@ pub struct RangeConstraint {
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
-#[type_key = "sym.RangeConstraint"]
-#[type_final]
-#[type_immutable]
+#[object(type_key = "sym.RangeConstraint", final, immutable)]
 pub struct RangeConstraintObj {
     base_: ConstraintObj,
     pub var: Var,
@@ -254,9 +245,8 @@ impl RangeConstraintObj {
 #[allow(missing_docs)]
 impl RangeConstraint {
     /// Lossless complete-field allocation.
-    pub fn new(var: impl IntoObjectRef<Var>, range: impl IntoObjectRef<Range>) -> Self {
-        let obj =
-            RangeConstraintObj::new(var.into_owned_object_ref(), range.into_owned_object_ref());
+    pub fn new(var: impl IntoArg<Var>, range: impl IntoArg<Range>) -> Self {
+        let obj = RangeConstraintObj::new(var.into_owned(), range.into_owned());
         Self { data_: ObjectArc::new(obj) }
     }
 }
@@ -271,8 +261,7 @@ tvm_ffi::impl_object_ref_upcast!(RangeConstraint => Constraint);
 /// prefix are immutable and acyclic.
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
-#[type_key = "sym.ConstraintContext"]
-#[type_final]
+#[object(type_key = "sym.ConstraintContext", final)]
 pub struct ConstraintContextObj {
     base_: Object,
     parent: Option<ObjectArc<ConstraintContextObj>>,
@@ -326,11 +315,9 @@ impl ConstraintContextObj {
     /// Append `constraint` to the local entries (`sym.ConstraintContextAppend`).
     ///
     /// Do not append to the active context of a running native visitor.
-    pub fn append(&self, constraint: impl IntoObjectRef<Constraint>) -> Result<()> {
-        tvm_ffi::cached_global_func!("sym.ConstraintContextAppend").call_packed(&[
-            AnyView::from(self),
-            AnyView::from(constraint.into_object_ref().borrow()),
-        ])?;
+    pub fn append(&self, constraint: impl IntoArg<Constraint>) -> Result<()> {
+        tvm_ffi::cached_global_func!("sym.ConstraintContextAppend")
+            .call_packed(&[AnyView::from(self), AnyView::from(constraint.into_arg().borrow())])?;
         Ok(())
     }
 
@@ -401,15 +388,14 @@ impl ConstraintContext {
     ///
     /// Returns an error if `parent_prefix_size` is negative or larger than the parent's local size.
     pub fn with_parent_prefix_size(
-        parent: impl IntoObjectRef<ConstraintContext>,
+        parent: impl IntoArg<ConstraintContext>,
         parent_prefix_size: i64,
     ) -> Result<Self> {
-        let parent = parent.into_owned_object_ref();
+        let parent = parent.into_owned();
         if parent_prefix_size < 0 || parent_prefix_size > parent.local_size() {
             return Err(Error::new(
                 VALUE_ERROR,
                 "Constraint context parent local prefix is out of bounds",
-                "",
             ));
         }
         Ok(Self::allocate(Some(parent.data_), parent_prefix_size))

@@ -175,9 +175,7 @@ fn typed_walk_callbacks_collect_facts_and_restore_analyzer_scopes() {
         assert_eq!(calls, 1);
         let failure = walk(
             &root,
-            |_: &EvaluateObj| -> Result<WalkResult> {
-                Err(Error::new(RUNTIME_ERROR, "walk stop", ""))
-            },
+            |_: &EvaluateObj| -> Result<WalkResult> { Err(Error::new(RUNTIME_ERROR, "walk stop")) },
             order,
         )
         .err()

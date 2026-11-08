@@ -47,7 +47,7 @@
 // tvm-ffi-stubgen(import-object): tvm_ffi::TYPE_ERROR
 // tvm-ffi-stubgen(import-object): crate::ir::expr::IntoExpr
 // tvm-ffi-stubgen(import-object): crate::ir::expr::PrimExpr
-// tvm-ffi-stubgen(import-object): tvm_ffi::IntoObjectRef
+// tvm-ffi-stubgen(import-object): tvm_ffi::IntoArg
 // tvm-ffi-stubgen(import-object): std::borrow::Borrow
 
 // tvm-ffi-stubgen(begin): import-section
@@ -76,7 +76,7 @@ use std::ops::Deref;
 use tvm_ffi::Array;
 use tvm_ffi::DLDataTypeCode;
 use tvm_ffi::INTERNAL_ERROR;
-use tvm_ffi::IntoObjectRef;
+use tvm_ffi::IntoArg;
 use tvm_ffi::Map;
 use tvm_ffi::ObjectArc;
 use tvm_ffi::ObjectRefCore;
@@ -106,9 +106,7 @@ pub struct CallFFIKernelAttr {
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
-#[type_key = "tirx.CallFFIKernelAttr"]
-#[type_final]
-#[type_immutable]
+#[object(type_key = "tirx.CallFFIKernelAttr", final, immutable)]
 pub struct CallFFIKernelAttrObj {
     base_: AttrsObj,
     pub launch_params: Array<String>,
@@ -180,7 +178,7 @@ pub fn logaddexp(a: impl IntoExpr<PrimExpr>, b: impl IntoExpr<PrimExpr>) -> Resu
 pub fn logaddexp_at(
     a: impl IntoExpr<PrimExpr>,
     b: impl IntoExpr<PrimExpr>,
-    loc: impl IntoObjectRef<Location>,
+    loc: impl IntoArg<Location>,
 ) -> Result<PrimExpr> {
     let (a, b) = (a.into_owned_expr()?, b.into_owned_expr()?);
     for (operand, side) in [(&a, "a"), (&b, "b")] {
@@ -214,17 +212,17 @@ pub fn logaddexp_at(
 /// # Errors
 ///
 /// Returns an error for any other pair of types, or two primitive types of different sizes.
-pub fn reinterpret(ty: impl IntoObjectRef<Type>, value: impl IntoExpr) -> Result<Expr> {
+pub fn reinterpret(ty: impl IntoArg<Type>, value: impl IntoExpr) -> Result<Expr> {
     reinterpret_at(ty, value, UNKNOWN_LOC)
 }
 
 /// Build [`reinterpret`] at `loc`.
 pub fn reinterpret_at(
-    ty: impl IntoObjectRef<Type>,
+    ty: impl IntoArg<Type>,
     value: impl IntoExpr,
-    loc: impl IntoObjectRef<Location>,
+    loc: impl IntoArg<Location>,
 ) -> Result<Expr> {
-    let (ty, value) = (ty.into_object_ref(), value.into_owned_expr()?);
+    let (ty, value) = (ty.into_arg(), value.into_owned_expr()?);
     let ty: &Type = ty.borrow();
     let target_is_pointer = ty.downcast_ref::<PtrTypeObj>().is_some();
     let source_is_pointer = value.ty.downcast_ref::<PtrTypeObj>().is_some();
@@ -345,9 +343,9 @@ pub fn gpu_thread_return() -> Result<PrimExpr> {
 }
 
 /// Build [`gpu_thread_return`] at `loc`.
-pub fn gpu_thread_return_at(loc: impl IntoObjectRef<Location>) -> Result<PrimExpr> {
+pub fn gpu_thread_return_at(loc: impl IntoArg<Location>) -> Result<PrimExpr> {
     tvm_ffi::cached_global_func!("tirx.gpu_thread_return")
-        .call_tuple((loc.into_object_ref().borrow(),))?
+        .call_tuple((loc.into_arg().borrow(),))?
         .try_into()
 }
 

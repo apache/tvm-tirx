@@ -37,19 +37,19 @@ use tvm_tirx::ir::{
 use tvm_tirx::tvm_ffi::{self, rs_object, Array, Result};
 
 fn first_arg_type(call: &CallObj) -> Result<Type> {
-    Ok(call.args.get(0)?.ty.clone())
+    Ok(call.args[0].ty.clone())
 }
 
 /// The variable a loop binds in its body: an index of the extent's type.
 fn loop_index(call: &CallObj) -> Result<Array<Var>> {
-    let ty: PrimType = PrimType::try_from(&call.args.get(0)?.ty)?;
+    let ty: PrimType = PrimType::try_from(&call.args[0].ty)?;
     Ok(Array::from_vec(vec![Var::new("i", ty, UNKNOWN_LOC)]))
 }
 
 // A type, which Python constructs from its fields, `T.ExamplePair(T.int32, T.float32)`, as it
 // constructs a C++ type.
 /// The type of a pair of values.
-#[rs_object("tirx.ExamplePairType", final, immutable)]
+#[rs_object(type_key = "tirx.ExamplePairType", final, immutable)]
 pub struct ExamplePairTypeObj {
     base_: TypeObj,
     pub first: Type,

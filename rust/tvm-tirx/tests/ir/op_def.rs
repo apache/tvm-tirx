@@ -90,13 +90,13 @@ static INFERRED: AtomicUsize = AtomicUsize::new(0);
 
 fn first_arg_type(call: &CallObj) -> Result<Type> {
     INFERRED.fetch_add(1, Ordering::Relaxed);
-    Ok(call.args.get(0)?.ty.clone())
+    Ok(call.args[0].ty.clone())
 }
 
 fn only_variables(call: &CallObj) -> Result<()> {
     match call.args.iter().all(|arg| arg.downcast_ref::<VarObj>().is_some()) {
         true => Ok(()),
-        false => Err(Error::new(VALUE_ERROR, "arguments must be variables", "")),
+        false => Err(Error::new(VALUE_ERROR, "arguments must be variables")),
     }
 }
 
@@ -154,7 +154,7 @@ fn ops_registered_from_rust_are_used_natively() {
 
     // An error a Rust hook returns reaches the native caller with its kind and message.
     let untyped = OpDef::new("rust_test.untyped", "")
-        .set_infer_type(|_: &CallObj| Err(Error::new(TYPE_ERROR, "no result type", "")))
+        .set_infer_type(|_: &CallObj| Err(Error::new(TYPE_ERROR, "no result type")))
         .op()
         .unwrap();
     assert_error(call(&untyped, vec![]), TYPE_ERROR, "no result type");
@@ -399,7 +399,7 @@ fn ops_registered_from_rust_are_used_natively() {
 
 /// The type of the first argument, as `first_arg_type` but without counting the inference.
 fn identity_type(call: &CallObj) -> Result<Type> {
-    Ok(call.args.get(0)?.ty.clone())
+    Ok(call.args[0].ty.clone())
 }
 
 fn accept(_call: &CallObj) -> Result<()> {
@@ -407,7 +407,7 @@ fn accept(_call: &CallObj) -> Result<()> {
 }
 
 /// A type and a count, registered with the operators when the test binary loads.
-#[rs_object("rust_test.BlockType", final, immutable)]
+#[rs_object(type_key = "rust_test.BlockType", final, immutable)]
 pub struct BlockTypeObj {
     base_: TypeObj,
     pub elem: Type,
@@ -481,13 +481,13 @@ fn is_block_registered(block: &StaticInitBlock) -> bool {
 }
 
 fn launch_body_params(call: &CallObj) -> Result<Array<Var>> {
-    let tag = StringImm::try_from(call.args.get(0)?)?;
-    let extent_ty: PrimType = PrimType::try_from(&call.args.get(1)?.ty)?;
+    let tag = StringImm::try_from(call.args[0].clone())?;
+    let extent_ty: PrimType = PrimType::try_from(&call.args[1].ty)?;
     let dtype = extent_ty.dtype;
     if tag.value.as_str().is_empty() {
         let message = "Check failed: (!tag->value.empty()) is false: launch_thread expects a \
                        nonempty StringImm thread tag";
-        return Err(Error::new(VALUE_ERROR, message, ""));
+        return Err(Error::new(VALUE_ERROR, message));
     }
     if dtype.bits <= 1 {
         let message = format!(
@@ -495,7 +495,7 @@ fn launch_body_params(call: &CallObj) -> Result<Array<Var>> {
              integer type wider than one bit",
             dtype.bits
         );
-        return Err(Error::new(VALUE_ERROR, &message, ""));
+        return Err(Error::new(VALUE_ERROR, &message));
     }
     Ok(Array::from_vec(vec![Var::new("", extent_ty, UNKNOWN_LOC)]))
 }
@@ -507,7 +507,7 @@ fn no_results_or_attributes(region: &RegionStmtObj) -> Result<()> {
              {} expects no results or attributes",
             region.op.name.as_str()
         );
-        return Err(Error::new(VALUE_ERROR, &message, ""));
+        return Err(Error::new(VALUE_ERROR, &message));
     }
     Ok(())
 }

@@ -57,7 +57,7 @@ fn modules() {
     module.update(&extra).unwrap();
     assert!(module.contains("extra").unwrap());
     module.update_global_info("info", Vec::<GlobalInfo>::new()).unwrap();
-    assert!(module.global_infos.get(&FfiString::from("info")).is_ok());
+    assert!(module.global_infos.get(FfiString::from("info")).is_ok());
 
     let copy = module.shallow_copy().unwrap();
     copy.remove("extra").unwrap();

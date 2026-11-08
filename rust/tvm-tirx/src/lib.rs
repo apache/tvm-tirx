@@ -72,7 +72,7 @@
 //! use tvm_tirx::tvm_ffi::{self, Result};
 //! # use tvm_tirx::ir::TypeObj;
 //! # use tvm_tirx::tvm_ffi::{rs_object, ObjectRefCore};
-//! # #[rs_object("my_ext.PairType", final, immutable)]
+//! # #[rs_object(type_key = "my_ext.PairType", final, immutable)]
 //! # pub struct PairTypeObj { base_: TypeObj, pub first: Type, pub second: Type }
 //! # #[derive(Clone, tvm_ffi::derive::ObjectRef)]
 //! # #[object_ref(parent = Type)]
@@ -81,7 +81,7 @@
 //! # }
 //!
 //! fn index_type(call: &CallObj) -> Result<Type> {
-//!     Ok(call.args.get(0)?.ty.clone())
+//!     Ok(call.args[0].ty.clone())
 //! }
 //!
 //! tvm_ffi::static_init_block! {
@@ -104,9 +104,9 @@
 //!
 //! ```
 //! use tvm_tirx::ir::{PrimType, Type, TypeObj, UNKNOWN_LOC};
-//! use tvm_tirx::tvm_ffi::{self, rs_object, IntoObjectRef, ObjectRefCore};
+//! use tvm_tirx::tvm_ffi::{self, rs_object, IntoArg, ObjectRefCore};
 //!
-//! #[rs_object("my_ext.PairType", final, immutable)]
+//! #[rs_object(type_key = "my_ext.PairType", final, immutable)]
 //! pub struct PairTypeObj {
 //!     base_: TypeObj,
 //!     pub first: Type,
@@ -122,8 +122,8 @@
 //! }
 //!
 //! impl PairType {
-//!     pub fn new(first: impl IntoObjectRef<Type>, second: impl IntoObjectRef<Type>) -> Self {
-//!         let (first, second) = (first.into_owned_object_ref(), second.into_owned_object_ref());
+//!     pub fn new(first: impl IntoArg<Type>, second: impl IntoArg<Type>) -> Self {
+//!         let (first, second) = (first.into_owned(), second.into_owned());
 //!         Self::from_object(PairTypeObj::new(TypeObj::new(UNKNOWN_LOC.into()), first, second, ""))
 //!     }
 //! }

@@ -34,12 +34,12 @@
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
 // tvm-ffi-stubgen(import-object): crate::ir::support
-// tvm-ffi-stubgen(import-object): tvm_ffi::IntoObjectRef
+// tvm-ffi-stubgen(import-object): tvm_ffi::IntoArg
 
 // tvm-ffi-stubgen(begin): import-section
 use crate::ir::support;
 use std::ops::Deref;
-use tvm_ffi::IntoObjectRef;
+use tvm_ffi::IntoArg;
 use tvm_ffi::Object;
 use tvm_ffi::ObjectArc;
 use tvm_ffi::String;
@@ -76,9 +76,7 @@ pub struct Location {
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
-#[type_key = "ir.Location"]
-#[type_immutable]
-#[type_rs_parent]
+#[object(type_key = "ir.Location", immutable, rs_parent)]
 pub struct LocationObj {
     base_: Object,
 }
@@ -121,9 +119,7 @@ pub struct UnknownLoc {
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
-#[type_key = "ir.UnknownLoc"]
-#[type_final]
-#[type_immutable]
+#[object(type_key = "ir.UnknownLoc", final, immutable)]
 pub struct UnknownLocObj {
     base_: LocationObj,
 }
@@ -167,10 +163,14 @@ impl From<Unknown> for Location {
     }
 }
 
-impl IntoObjectRef<Location> for Unknown {
+impl IntoArg<Location> for Unknown {
     type Output = Location;
     #[inline]
-    fn into_object_ref(self) -> Location {
+    fn into_arg(self) -> Location {
+        self.into()
+    }
+    #[inline]
+    fn into_owned(self) -> Location {
         self.into()
     }
 }
@@ -191,9 +191,7 @@ pub struct SourceLoc {
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
-#[type_key = "ir.SourceLoc"]
-#[type_final]
-#[type_immutable]
+#[object(type_key = "ir.SourceLoc", final, immutable)]
 pub struct SourceLocObj {
     base_: LocationObj,
     pub source_name: SourceName,
@@ -233,14 +231,14 @@ impl SourceLocObj {
 impl SourceLoc {
     /// Lossless complete-field allocation.
     pub fn new(
-        source_name: impl IntoObjectRef<SourceName>,
+        source_name: impl IntoArg<SourceName>,
         start_line: i32,
         start_column: i32,
         end_line: i32,
         end_column: i32,
     ) -> Self {
         let obj = SourceLocObj::new(
-            source_name.into_owned_object_ref(),
+            source_name.into_owned(),
             start_line,
             start_column,
             end_line,
@@ -271,9 +269,7 @@ pub struct CallSiteLoc {
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
-#[type_key = "ir.CallSiteLoc"]
-#[type_final]
-#[type_immutable]
+#[object(type_key = "ir.CallSiteLoc", final, immutable)]
 pub struct CallSiteLocObj {
     base_: LocationObj,
     pub callee: Location,
@@ -303,9 +299,8 @@ impl CallSiteLocObj {
 #[allow(missing_docs)]
 impl CallSiteLoc {
     /// Lossless complete-field allocation.
-    pub fn new(callee: impl IntoObjectRef<Location>, caller: impl IntoObjectRef<Location>) -> Self {
-        let obj =
-            CallSiteLocObj::new(callee.into_owned_object_ref(), caller.into_owned_object_ref());
+    pub fn new(callee: impl IntoArg<Location>, caller: impl IntoArg<Location>) -> Self {
+        let obj = CallSiteLocObj::new(callee.into_owned(), caller.into_owned());
         Self { data_: ObjectArc::new(obj) }
     }
 }
@@ -331,9 +326,7 @@ pub struct SourceName {
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
-#[type_key = "ir.SourceName"]
-#[type_final]
-#[type_immutable]
+#[object(type_key = "ir.SourceName", final, immutable)]
 pub struct SourceNameObj {
     base_: Object,
     pub name: String,

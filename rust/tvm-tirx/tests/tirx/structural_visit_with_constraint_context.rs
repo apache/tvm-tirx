@@ -173,7 +173,7 @@ fn interrupts_restore_native_scope_and_errors_terminate() {
             self.seen += 1;
             assert_eq!(visitor.base().constraints().to_array().len(), 3);
             if self.fail {
-                Err(Error::new(RUNTIME_ERROR, "constraint stop", ""))
+                Err(Error::new(RUNTIME_ERROR, "constraint stop"))
             } else {
                 Ok(Some(VisitInterrupt::new(17_i64)))
             }

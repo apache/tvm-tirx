@@ -48,9 +48,7 @@ pub struct Attrs {
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
-#[type_key = "ir.Attrs"]
-#[type_immutable]
-#[type_rs_parent]
+#[object(type_key = "ir.Attrs", immutable, rs_parent)]
 pub struct AttrsObj {
     base_: Object,
 }
@@ -91,7 +89,7 @@ impl Attrs {
 ///     [("system_lib_prefix".into(), Any::from(String::from("my_lib_")))].into_iter().collect();
 /// let module = IRModule::new(Map::new(), DictAttrs::new(dict), Map::new())?;
 ///
-/// let prefix = module.attrs.dict.get(&"system_lib_prefix".into())?.unwrap();
+/// let prefix = module.attrs.dict.get("system_lib_prefix")?.unwrap();
 /// assert_eq!(String::try_from(prefix)?, "my_lib_");
 /// # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
 /// ```
@@ -109,9 +107,7 @@ pub struct DictAttrs {
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
-#[type_key = "ir.DictAttrs"]
-#[type_final]
-#[type_immutable]
+#[object(type_key = "ir.DictAttrs", final, immutable)]
 pub struct DictAttrsObj {
     base_: AttrsObj,
     pub dict: Map<String, Any>,

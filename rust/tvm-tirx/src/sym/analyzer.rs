@@ -39,7 +39,7 @@
 // tvm-ffi-stubgen(import-object): crate::ir::expr::IntoExpr
 // tvm-ffi-stubgen(import-object): crate::ir::expr::PrimExpr
 // tvm-ffi-stubgen(import-object): std::borrow::Borrow
-// tvm-ffi-stubgen(import-object): tvm_ffi::IntoObjectRef
+// tvm-ffi-stubgen(import-object): tvm_ffi::IntoArg
 
 // tvm-ffi-stubgen(begin): import-section
 use crate::ExitOnDrop;
@@ -51,7 +51,7 @@ use crate::sym::constraint::ConstraintContext;
 use crate::sym::int_set::IntSet;
 use std::borrow::Borrow;
 use tvm_ffi::Error;
-use tvm_ffi::IntoObjectRef;
+use tvm_ffi::IntoArg;
 use tvm_ffi::Map;
 use tvm_ffi::Object;
 use tvm_ffi::ObjectArc;
@@ -105,8 +105,7 @@ pub struct Analyzer {
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
-#[type_key = "sym.Analyzer"]
-#[type_final]
+#[object(type_key = "sym.Analyzer", final)]
 pub struct AnalyzerObj {
     base_: Object,
 }
@@ -149,13 +148,10 @@ impl Analyzer {
     /// # Errors
     ///
     /// Returns an error for a reentrant synchronization, or if `context` defines a variable twice.
-    pub fn sync_constraint_context(
-        &self,
-        context: impl IntoObjectRef<ConstraintContext>,
-    ) -> Result<()> {
+    pub fn sync_constraint_context(&self, context: impl IntoArg<ConstraintContext>) -> Result<()> {
         tvm_ffi::cached_global_func!("sym.AnalyzerSyncConstraintContext").call_packed(&[
             tvm_ffi::AnyView::from(self),
-            tvm_ffi::AnyView::from(context.into_object_ref().borrow()),
+            tvm_ffi::AnyView::from(context.into_arg().borrow()),
         ])?;
         Ok(())
     }
@@ -179,9 +175,9 @@ impl Analyzer {
     }
 
     /// Return whether `var` has constant bounds recorded (`sym.AnalyzerConstIntBoundIsBound`).
-    pub fn const_int_bound_is_bound(&self, var: impl IntoObjectRef<Var>) -> Result<bool> {
+    pub fn const_int_bound_is_bound(&self, var: impl IntoArg<Var>) -> Result<bool> {
         tvm_ffi::cached_global_func!("sym.AnalyzerConstIntBoundIsBound")
-            .call_tuple((self, var.into_object_ref().borrow()))?
+            .call_tuple((self, var.into_arg().borrow()))?
             .try_into()
     }
 
@@ -364,7 +360,7 @@ impl TryFrom<i64> for CompareResult {
             7 => Self::Unknown,
             _ => {
                 let message = format!("{value} is not a sym::CompareResult");
-                return Err(Error::new(VALUE_ERROR, &message, ""));
+                return Err(Error::new(VALUE_ERROR, &message));
             }
         })
     }
@@ -413,9 +409,7 @@ pub struct ConstIntBound {
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
-#[type_key = "sym.ConstIntBound"]
-#[type_final]
-#[type_immutable]
+#[object(type_key = "sym.ConstIntBound", final, immutable)]
 pub struct ConstIntBoundObj {
     base_: Object,
     pub min_value: i64,
@@ -461,9 +455,7 @@ pub struct ModularSet {
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
-#[type_key = "sym.ModularSet"]
-#[type_final]
-#[type_immutable]
+#[object(type_key = "sym.ModularSet", final, immutable)]
 pub struct ModularSetObj {
     base_: Object,
     pub coeff: i64,
@@ -510,9 +502,7 @@ pub struct RewriteSimplifierStats {
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
-#[type_key = "sym.RewriteSimplifierStats"]
-#[type_final]
-#[type_immutable]
+#[object(type_key = "sym.RewriteSimplifierStats", final, immutable)]
 pub struct RewriteSimplifierStatsObj {
     base_: Object,
     pub nodes_visited: i64,

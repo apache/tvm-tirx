@@ -27,7 +27,7 @@
 
 // tvm-ffi-stubgen(begin): import-section
 use tvm_ffi::Function;
-use tvm_ffi::IntoObjectRef;
+use tvm_ffi::IntoArg;
 use tvm_ffi::Object;
 use tvm_ffi::ObjectArc;
 use tvm_ffi::Result;
@@ -66,9 +66,7 @@ pub struct EnvFunc {
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
-#[type_key = "ir.EnvFunc"]
-#[type_final]
-#[type_immutable]
+#[object(type_key = "ir.EnvFunc", final, immutable)]
 pub struct EnvFuncObj {
     base_: Object,
     pub name: String,
@@ -91,8 +89,8 @@ impl EnvFuncObj {
 #[allow(missing_docs)]
 impl EnvFunc {
     /// Lossless complete-field allocation.
-    pub fn new(name: impl Into<String>, func: impl IntoObjectRef<Function>) -> Self {
-        let obj = EnvFuncObj::new(name.into(), func.into_owned_object_ref());
+    pub fn new(name: impl Into<String>, func: impl IntoArg<Function>) -> Self {
+        let obj = EnvFuncObj::new(name.into(), func.into_owned());
         Self { data_: ObjectArc::new(obj) }
     }
 }

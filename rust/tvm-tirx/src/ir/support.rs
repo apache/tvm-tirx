@@ -88,7 +88,7 @@ pub(crate) fn infallible<T>(result: Result<T>) -> T {
 /// The error of a failed check, in the text the native `TVM_FFI_CHECK(condition, kind) << message`
 /// raises; `TVM_FFI_ICHECK` is `INTERNAL_ERROR`.
 pub(crate) fn check_failed(kind: ErrorKind, condition: &str, message: &str) -> Error {
-    Error::new(kind, &format!("Check failed: ({condition}) is false: {message}"), "")
+    Error::new(kind, &format!("Check failed: ({condition}) is false: {message}"))
 }
 
 /// The error of a failed comparison, in the text the native `TVM_FFI_CHECK_EQ(lhs, rhs, kind)` and
@@ -100,7 +100,7 @@ pub(crate) fn compare_failed(
     rhs: impl Display,
     message: &str,
 ) -> Error {
-    Error::new(kind, &format!("Check failed: {condition} ({lhs} vs. {rhs}) : {message}"), "")
+    Error::new(kind, &format!("Check failed: {condition} ({lhs} vs. {rhs}) : {message}"))
 }
 
 /// A dtype as error messages print it, such as `int32`.
@@ -170,7 +170,7 @@ pub(crate) fn lanes(ty: &PrimType) -> Result<i32> {
         Some(lanes) => Ok(i32::from(lanes)),
         None => {
             let message = "Can't fetch the lanes of a scalable vector at a compile time.";
-            Err(Error::new(INTERNAL_ERROR, message, ""))
+            Err(Error::new(INTERNAL_ERROR, message))
         }
     }
 }

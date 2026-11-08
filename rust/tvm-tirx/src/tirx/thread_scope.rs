@@ -26,11 +26,11 @@
 // tvm-ffi-stubgen(import-object): tvm_ffi::Result
 // tvm-ffi-stubgen(import-object): tvm_ffi::String
 // tvm-ffi-stubgen(import-object): std::borrow::Borrow
-// tvm-ffi-stubgen(import-object): tvm_ffi::IntoObjectRef
+// tvm-ffi-stubgen(import-object): tvm_ffi::IntoArg
 
 // tvm-ffi-stubgen(begin): import-section
 use std::borrow::Borrow;
-use tvm_ffi::IntoObjectRef;
+use tvm_ffi::IntoArg;
 use tvm_ffi::ObjectArc;
 use tvm_ffi::Result;
 use tvm_ffi::String;
@@ -71,9 +71,7 @@ pub struct ThreadScope {
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
-#[type_key = "tirx.ThreadScope"]
-#[type_final]
-#[type_immutable]
+#[object(type_key = "tirx.ThreadScope", final, immutable)]
 pub struct ThreadScopeObj {
     base_: EnumObj,
 }
@@ -110,9 +108,9 @@ impl ThreadScope {
     /// # Errors
     ///
     /// Returns an error if the two scopes are of different backends.
-    pub fn is_higher_than(&self, other: impl IntoObjectRef<ThreadScope>) -> Result<bool> {
+    pub fn is_higher_than(&self, other: impl IntoArg<ThreadScope>) -> Result<bool> {
         tvm_ffi::cached_global_func!("tirx.ScopeHigher")
-            .call_tuple((self, other.into_object_ref().borrow()))?
+            .call_tuple((self, other.into_arg().borrow()))?
             .try_into()
     }
 }

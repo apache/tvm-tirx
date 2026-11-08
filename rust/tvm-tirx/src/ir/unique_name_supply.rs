@@ -67,8 +67,7 @@ pub struct UniqueNameSupply {
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
-#[type_key = "ir.UniqueNameSupply"]
-#[type_final]
+#[object(type_key = "ir.UniqueNameSupply", final)]
 pub struct UniqueNameSupplyObj {
     base_: Object,
 }

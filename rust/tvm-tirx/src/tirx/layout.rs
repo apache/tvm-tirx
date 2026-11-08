@@ -43,7 +43,7 @@
 // tvm-ffi-stubgen(field): tirx.Iter.extent -> PrimExpr
 // tvm-ffi-stubgen(field): tirx.Iter.stride -> PrimExpr
 // tvm-ffi-stubgen(import-object): tvm_ffi::Map
-// tvm-ffi-stubgen(import-object): tvm_ffi::IntoObjectRef
+// tvm-ffi-stubgen(import-object): tvm_ffi::IntoArg
 
 // tvm-ffi-stubgen(begin): import-section
 use crate::ir::expr::IntoExpr;
@@ -55,7 +55,7 @@ use std::borrow::Borrow;
 use std::ops::Deref;
 use tvm_ffi::Any;
 use tvm_ffi::Array;
-use tvm_ffi::IntoObjectRef;
+use tvm_ffi::IntoArg;
 use tvm_ffi::Map;
 use tvm_ffi::Object;
 use tvm_ffi::ObjectArc;
@@ -87,7 +87,7 @@ use tvm_ffi::enum_ref::EnumObj;
 ///
 /// let i = PrimVar::new("i", PrimType::int(32), UNKNOWN_LOC);
 /// let j = PrimVar::new("j", PrimType::int(32), UNKNOWN_LOC);
-/// let offset = layout.apply([&i, &j], &Analyzer::new())?.get(&"m".into())?.unwrap();
+/// let offset = layout.apply([&i, &j], &Analyzer::new())?.get("m")?.unwrap();
 /// assert_eq!(script(&offset)?, "i * 8 + j");
 /// # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
 /// ```
@@ -104,9 +104,7 @@ pub struct Layout {
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
-#[type_key = "tirx.Layout"]
-#[type_immutable]
-#[type_rs_parent]
+#[object(type_key = "tirx.Layout", immutable, rs_parent)]
 pub struct LayoutObj {
     base_: Object,
 }
@@ -152,14 +150,14 @@ impl Layout {
     pub fn apply(
         &self,
         coord: impl IntoIterator<Item = impl IntoExpr<PrimExpr>>,
-        analyzer: impl IntoObjectRef<Analyzer>,
+        analyzer: impl IntoArg<Analyzer>,
     ) -> Result<Map<String, PrimExpr>> {
         let coord = coord
             .into_iter()
             .map(IntoExpr::into_owned_expr)
             .collect::<Result<Array<PrimExpr>>>()?;
         tvm_ffi::cached_global_func!("tirx.LayoutApply")
-            .call_tuple((self, &coord, analyzer.into_object_ref().borrow()))?
+            .call_tuple((self, &coord, analyzer.into_arg().borrow()))?
             .try_into()
     }
 
@@ -168,10 +166,10 @@ impl Layout {
     pub fn apply_linear(
         &self,
         coord: impl IntoExpr<PrimExpr>,
-        analyzer: impl IntoObjectRef<Analyzer>,
+        analyzer: impl IntoArg<Analyzer>,
     ) -> Result<Map<String, PrimExpr>> {
         tvm_ffi::cached_global_func!("tirx.LayoutApplyLinear")
-            .call_tuple((self, coord.into_expr()?.borrow(), analyzer.into_object_ref().borrow()))?
+            .call_tuple((self, coord.into_expr()?.borrow(), analyzer.into_arg().borrow()))?
             .try_into()
     }
 
@@ -181,7 +179,7 @@ impl Layout {
         &self,
         coord: impl IntoIterator<Item = impl IntoExpr<PrimExpr>>,
         shape: impl IntoIterator<Item = impl IntoExpr<PrimExpr>>,
-        analyzer: impl IntoObjectRef<Analyzer>,
+        analyzer: impl IntoArg<Analyzer>,
     ) -> Result<Map<String, PrimExpr>> {
         let coord = coord
             .into_iter()
@@ -192,7 +190,7 @@ impl Layout {
             .map(IntoExpr::into_owned_expr)
             .collect::<Result<Array<PrimExpr>>>()?;
         tvm_ffi::cached_global_func!("tirx.LayoutApplyWithShape")
-            .call_tuple((self, &coord, &shape, analyzer.into_object_ref().borrow()))?
+            .call_tuple((self, &coord, &shape, analyzer.into_arg().borrow()))?
             .try_into()
     }
 
@@ -210,7 +208,7 @@ impl Layout {
     /// grouped by its shape.
     pub fn tile(
         &self,
-        outer: impl IntoObjectRef<TileLayout>,
+        outer: impl IntoArg<TileLayout>,
         outer_shape: impl IntoIterator<Item = impl IntoExpr<PrimExpr>>,
         inner_shape: impl IntoIterator<Item = impl IntoExpr<PrimExpr>>,
     ) -> Result<Layout> {
@@ -223,7 +221,7 @@ impl Layout {
             .map(IntoExpr::into_owned_expr)
             .collect::<Result<Array<PrimExpr>>>()?;
         tvm_ffi::cached_global_func!("tirx.LayoutTile")
-            .call_tuple((self, outer.into_object_ref().borrow(), &outer_shape, &inner_shape))?
+            .call_tuple((self, outer.into_arg().borrow(), &outer_shape, &inner_shape))?
             .try_into()
     }
 }
@@ -244,9 +242,7 @@ pub struct TileLayout {
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
-#[type_key = "tirx.TileLayout"]
-#[type_final]
-#[type_immutable]
+#[object(type_key = "tirx.TileLayout", final, immutable)]
 pub struct TileLayoutObj {
     base_: LayoutObj,
     pub shard: Array<Iter>,
@@ -272,14 +268,12 @@ impl TileLayout {
     /// Create the tile layout of the `shard` and `replica` iterators, shifted by `offset`
     /// (`tirx.TileLayout`).
     pub fn new(
-        shard: impl IntoIterator<Item = impl IntoObjectRef<Iter>>,
-        replica: impl IntoIterator<Item = impl IntoObjectRef<Iter>>,
+        shard: impl IntoIterator<Item = impl IntoArg<Iter>>,
+        replica: impl IntoIterator<Item = impl IntoArg<Iter>>,
         offset: impl Into<Map<Axis, PrimExpr>>,
     ) -> Self {
-        let shard =
-            shard.into_iter().map(IntoObjectRef::into_owned_object_ref).collect::<Array<Iter>>();
-        let replica =
-            replica.into_iter().map(IntoObjectRef::into_owned_object_ref).collect::<Array<Iter>>();
+        let shard = shard.into_iter().map(IntoArg::into_owned).collect::<Array<Iter>>();
+        let replica = replica.into_iter().map(IntoArg::into_owned).collect::<Array<Iter>>();
         support::infallible(
             tvm_ffi::cached_global_func!("tirx.TileLayout")
                 .call_tuple((&shard, &replica, &offset.into()))
@@ -317,7 +311,7 @@ impl TileLayout {
         let pair: Array<Any> = tvm_ffi::cached_global_func!("tirx.TileLayoutGroup")
             .call_tuple((self, &shape))?
             .try_into()?;
-        Ok((pair.get(0)?.try_into()?, pair.get(1)?.try_into()?))
+        Ok((pair[0].clone().try_into()?, pair[1].clone().try_into()?))
     }
 
     /// Return the innermost and outermost thread scopes of the thread axes, if the layout has any
@@ -331,7 +325,7 @@ impl TileLayout {
         let pair: Option<Array<Any>> = tvm_ffi::cached_global_func!("tirx.TileLayoutGetScope")
             .call_tuple((self,))?
             .try_into()?;
-        pair.map(|pair| Ok((pair.get(0)?.try_into()?, pair.get(1)?.try_into()?))).transpose()
+        pair.map(|pair| Ok((pair[0].clone().try_into()?, pair[1].clone().try_into()?))).transpose()
     }
 }
 
@@ -351,9 +345,7 @@ pub struct Iter {
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
-#[type_key = "tirx.Iter"]
-#[type_final]
-#[type_immutable]
+#[object(type_key = "tirx.Iter", final, immutable)]
 pub struct IterObj {
     base_: Object,
     pub extent: PrimExpr,
@@ -378,15 +370,11 @@ impl IterObj {
 impl Iter {
     /// Lossless complete-field allocation.
     pub fn new(
-        extent: impl IntoObjectRef<PrimExpr>,
-        stride: impl IntoObjectRef<PrimExpr>,
-        axis: impl IntoObjectRef<Axis>,
+        extent: impl IntoArg<PrimExpr>,
+        stride: impl IntoArg<PrimExpr>,
+        axis: impl IntoArg<Axis>,
     ) -> Self {
-        let obj = IterObj::new(
-            extent.into_owned_object_ref(),
-            stride.into_owned_object_ref(),
-            axis.into_owned_object_ref(),
-        );
+        let obj = IterObj::new(extent.into_owned(), stride.into_owned(), axis.into_owned());
         Self { data_: ObjectArc::new(obj) }
     }
 }
@@ -411,9 +399,7 @@ pub struct Axis {
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
-#[type_key = "tirx.Axis"]
-#[type_final]
-#[type_immutable]
+#[object(type_key = "tirx.Axis", final, immutable)]
 pub struct AxisObj {
     base_: EnumObj,
 }
@@ -480,9 +466,7 @@ pub struct ComposeLayout {
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
-#[type_key = "tirx.ComposeLayout"]
-#[type_final]
-#[type_immutable]
+#[object(type_key = "tirx.ComposeLayout", final, immutable)]
 pub struct ComposeLayoutObj {
     base_: LayoutObj,
     pub per_element: i32,
@@ -521,7 +505,7 @@ impl ComposeLayout {
         per_element: i32,
         swizzle_len: i32,
         atom_len: i32,
-        tile_layout: impl IntoObjectRef<TileLayout>,
+        tile_layout: impl IntoArg<TileLayout>,
         swizzle_inner: bool,
     ) -> Result<Self> {
         tvm_ffi::cached_global_func!("tirx.ComposeLayout")
@@ -529,7 +513,7 @@ impl ComposeLayout {
                 per_element,
                 swizzle_len,
                 atom_len,
-                tile_layout.into_object_ref().borrow(),
+                tile_layout.into_arg().borrow(),
                 swizzle_inner,
             ))?
             .try_into()

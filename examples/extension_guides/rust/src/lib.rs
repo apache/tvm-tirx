@@ -36,7 +36,7 @@ use tvm_tirx::tvm_ffi::{
 
 // begin type
 /// A complex number whose real and imaginary parts share a scalar type.
-#[rs_object("my_ext.ComplexType", final, immutable)]
+#[rs_object(type_key = "my_ext.ComplexType", final, immutable)]
 pub struct ComplexTypeObj {
     base_: TypeObj,
     pub dtype: PrimType,
@@ -53,7 +53,7 @@ tvm_ffi::static_init_block! {
 // end type
 
 fn type_error(message: &str) -> Error {
-    Error::new(tvm_ffi::TYPE_ERROR, message, "")
+    Error::new(tvm_ffi::TYPE_ERROR, message)
 }
 
 fn require(condition: bool, message: &str) -> Result<()> {
@@ -84,8 +84,8 @@ fn float_part(ty: &Type) -> Result<PrimType> {
 // begin inference
 fn infer_complex(call: &CallObj) -> Result<Type> {
     check_call(call, 2)?;
-    let elem = float_part(&call.args.get(0)?.ty)?;
-    let im = float_part(&call.args.get(1)?.ty)?;
+    let elem = float_part(&call.args[0].ty)?;
+    let im = float_part(&call.args[1].ty)?;
     require(elem.dtype == im.dtype, "my_ext.complex expects parts of the same type")?;
     let ty = ComplexType::from_object(ComplexTypeObj::new(TypeObj::new(call.loc.clone()), elem));
     Ok(ty.into())
@@ -94,9 +94,7 @@ fn infer_complex(call: &CallObj) -> Result<Type> {
 
 fn complex_arg(call: &CallObj, index: usize) -> Result<ComplexType> {
     let op = Op::try_from(&call.op)?;
-    let ty: ComplexType = call
-        .args
-        .get(index)?
+    let ty: ComplexType = call.args[index]
         .ty
         .clone()
         .downcast()
@@ -183,7 +181,7 @@ impl Lowering {
         if let Some(call) = expr.downcast_ref::<CallObj>() {
             if call.op.same_as(&Op::get("my_ext.complex")?) {
                 // `my_ext.complex` checked that its parts are scalars.
-                return Ok((call.args.get(0)?.try_into()?, call.args.get(1)?.try_into()?));
+                return Ok((call.args[0].clone().try_into()?, call.args[1].clone().try_into()?));
             }
         }
         for (var, re, im) in &self.bindings {
@@ -191,7 +189,7 @@ impl Lowering {
                 return Ok((re.clone().into(), im.clone().into()));
             }
         }
-        Err(Error::new(tvm_ffi::VALUE_ERROR, "LowerComplex cannot resolve complex operand", ""))
+        Err(Error::new(tvm_ffi::VALUE_ERROR, "LowerComplex cannot resolve complex operand"))
     }
 }
 
@@ -207,8 +205,8 @@ impl Lowering {
             validate_call(&call)?;
         }
         if call.op.same_as(&Op::get("my_ext.cmul")?) {
-            let (a, b) = self.parts(&call.args.get(0)?)?;
-            let (c, d) = self.parts(&call.args.get(1)?)?;
+            let (a, b) = self.parts(&call.args[0])?;
+            let (c, d) = self.parts(&call.args[1])?;
             // (a + bi)(c + di) = (ac - bd) + (ad + bc)i
             let re = &a * &c - &b * &d;
             let im = &a * &d + &b * &c;
@@ -224,7 +222,7 @@ impl Lowering {
         }
         let real = call.op.same_as(&Op::get("my_ext.real")?);
         if real || call.op.same_as(&Op::get("my_ext.imag")?) {
-            let (re, im) = self.parts(&call.args.get(0)?)?;
+            let (re, im) = self.parts(&call.args[0])?;
             return Ok(if real { re.into() } else { im.into() });
         }
         Ok(call.into())
@@ -256,7 +254,6 @@ fn check_type(ty: Type) -> Result<Type> {
         return Err(Error::new(
             tvm_ffi::VALUE_ERROR,
             "LowerComplex left an unsupported complex type",
-            "",
         ));
     }
     Ok(ty)
@@ -274,7 +271,6 @@ fn check_call_lowered(call: Call) -> Result<Call> {
         return Err(Error::new(
             tvm_ffi::VALUE_ERROR,
             "LowerComplex left an unsupported complex call",
-            "",
         ));
     }
     Ok(call)

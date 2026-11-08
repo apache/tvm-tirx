@@ -55,9 +55,7 @@ pub struct TCGen05InstrDescriptorAttrs {
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
-#[type_key = "tirx.cuda.TCGen05InstrDescriptorAttrs"]
-#[type_final]
-#[type_immutable]
+#[object(type_key = "tirx.cuda.TCGen05InstrDescriptorAttrs", final, immutable)]
 pub struct TCGen05InstrDescriptorAttrsObj {
     base_: AttrsObj,
     pub d_dtype: String,
@@ -185,9 +183,7 @@ pub struct TCGen05InstrDescriptorBlockScaledAttrs {
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
-#[type_key = "tirx.cuda.TCGen05InstrDescriptorBlockScaledAttrs"]
-#[type_final]
-#[type_immutable]
+#[object(type_key = "tirx.cuda.TCGen05InstrDescriptorBlockScaledAttrs", final, immutable)]
 pub struct TCGen05InstrDescriptorBlockScaledAttrsObj {
     base_: AttrsObj,
     pub d_dtype: String,
@@ -318,9 +314,7 @@ pub struct TensorMapEncodeTiledAttr {
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
-#[type_key = "tirx.cuda.TensorMapEncodeTiledAttr"]
-#[type_final]
-#[type_immutable]
+#[object(type_key = "tirx.cuda.TensorMapEncodeTiledAttr", final, immutable)]
 pub struct TensorMapEncodeTiledAttrObj {
     base_: AttrsObj,
     pub descriptor_dtype: DLDataType,

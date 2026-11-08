@@ -34,7 +34,7 @@
 // tvm-ffi-stubgen(import-object): crate::tirx::function::Function
 // tvm-ffi-stubgen(import-object): tvm_ffi::Result
 // tvm-ffi-stubgen(import-object): tvm_ffi::String
-// tvm-ffi-stubgen(import-object): tvm_ffi::IntoObjectRef
+// tvm-ffi-stubgen(import-object): tvm_ffi::IntoArg
 // tvm-ffi-stubgen(import-object): std::borrow::Borrow
 
 // tvm-ffi-stubgen(begin): import-section
@@ -42,7 +42,7 @@ use crate::ir::transform::core::Pass;
 use crate::target::Target;
 use crate::tirx::function::Function;
 use std::borrow::Borrow;
-use tvm_ffi::IntoObjectRef;
+use tvm_ffi::IntoArg;
 use tvm_ffi::Object;
 use tvm_ffi::ObjectArc;
 use tvm_ffi::Result;
@@ -67,9 +67,7 @@ pub struct RemoveNoOpConfig {
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
-#[type_key = "tirx.transform.RemoveNoOpConfig"]
-#[type_final]
-#[type_immutable]
+#[object(type_key = "tirx.transform.RemoveNoOpConfig", final, immutable)]
 pub struct RemoveNoOpConfigObj {
     base_: Object,
     pub max_simplification_steps: i64,
@@ -119,9 +117,7 @@ pub struct UnrollLoopConfig {
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
-#[type_key = "tirx.transform.UnrollLoopConfig"]
-#[type_final]
-#[type_immutable]
+#[object(type_key = "tirx.transform.UnrollLoopConfig", final, immutable)]
 pub struct UnrollLoopConfigObj {
     base_: Object,
     pub auto_max_step: i32,
@@ -198,9 +194,9 @@ pub fn bf16_storage_legalize() -> Result<Pass> {
 
 /// Bind `target` to the functions and classify host and device helpers
 /// (`tirx.transform.BindTarget`).
-pub fn bind_target(target: impl IntoObjectRef<Target>) -> Result<Pass> {
+pub fn bind_target(target: impl IntoArg<Target>) -> Result<Pass> {
     tvm_ffi::cached_global_func!("tirx.transform.BindTarget")
-        .call_tuple((target.into_object_ref().borrow(),))?
+        .call_tuple((target.into_arg().borrow(),))?
         .try_into()
 }
 
