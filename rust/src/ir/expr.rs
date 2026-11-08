@@ -2315,13 +2315,11 @@ crate::def_expr_op_over_loads!(crate::ir::prim::Ramp);
 crate::def_expr_op_over_loads!(crate::ir::prim::Broadcast);
 crate::def_expr_op_over_loads!(crate::ir::prim::Shuffle);
 
-// These symbolic reference classes also inherit C++ PrimExpr. The opaque Rust mirrors retain
-// their existing allocation restrictions; attaching operators only forwards their handles.
+// These symbolic reference classes also inherit C++ PrimExpr; attaching operators only forwards
+// their handles.
 crate::def_expr_op_over_loads!(crate::sym::iter_affine_map::IterMapExpr);
 crate::def_expr_op_over_loads!(crate::sym::iter_affine_map::IterSplitExpr);
 crate::def_expr_op_over_loads!(crate::sym::iter_affine_map::IterSumExpr);
-crate::def_expr_op_over_loads!(crate::sym::analyzer::SplitExpr);
-crate::def_expr_op_over_loads!(crate::sym::analyzer::SumExpr);
 
 // ---------------------------------------------------------------------------------------------
 // What the constant constructors check

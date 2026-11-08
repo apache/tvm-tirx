@@ -45,6 +45,7 @@ use tvm_ffi::IntoObjectRef;
 use tvm_ffi::ObjectArc;
 use tvm_ffi::ObjectCore;
 use tvm_ffi::Result;
+use tvm_ffi::extra::cold_init_lazy_lock::ColdInitLazyLock;
 use tvm_ffi::reflection::FieldGetter;
 use tvm_ffi::rvalue_ref::RValueRef;
 // tvm-ffi-stubgen(end)
@@ -107,7 +108,9 @@ impl Deref for FunctionPassObj {
 #[allow(missing_docs)]
 impl FunctionPassObj {
     pub fn pass_info(&self) -> Result<PassInfo> {
-        FieldGetter::new(Self::type_index(), "pass_info")?.get(self)
+        static GETTER: ColdInitLazyLock<Result<FieldGetter>> =
+            ColdInitLazyLock::new(|| FieldGetter::new(FunctionPassObj::type_index(), "pass_info"));
+        GETTER.clone()?.get(self)
     }
 }
 

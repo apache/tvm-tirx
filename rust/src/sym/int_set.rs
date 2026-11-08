@@ -22,10 +22,17 @@
 //! `estimate_region_*` functions bound the region a set of accesses covers.
 
 // tvm-ffi-stubgen(missing-docs): allow
+// The sets are hand-written: C++ constructs them, so they have no field-wise allocator.
+// tvm-ffi-stubgen(ty-map): sym.IntSet -> crate::sym::int_set::IntSet
+// tvm-ffi-stubgen(ty-map): sym.IntervalSet -> crate::sym::int_set::IntervalSet
+// tvm-ffi-stubgen(import-object): std::ops::Deref
+// tvm-ffi-stubgen(import-object): tvm_ffi::Object
+// tvm-ffi-stubgen(import-object): tvm_ffi::ObjectArc
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
 // tvm-ffi-stubgen(import-object): tvm_ffi::Array
 // tvm-ffi-stubgen(import-object): tvm_ffi::Map
+// tvm-ffi-stubgen(import-object): tvm_ffi::Result
 // tvm-ffi-stubgen(import-object): crate::ir::expr::Range
 // tvm-ffi-stubgen(import-object): crate::ir::expr::Var
 // tvm-ffi-stubgen(import-object): crate::sym::analyzer::Analyzer
@@ -34,9 +41,6 @@
 // tvm-ffi-stubgen(import-object): crate::ir::expr::PrimExpr
 // tvm-ffi-stubgen(import-object): std::borrow::Borrow
 // tvm-ffi-stubgen(import-object): tvm_ffi::IntoObjectRef
-// An interval is bounded by `PrimExpr`s, as C++ `IntervalSetObj` holds them.
-// tvm-ffi-stubgen(field): sym.IntervalSet.min_value -> PrimExpr
-// tvm-ffi-stubgen(field): sym.IntervalSet.max_value -> PrimExpr
 // tvm-ffi-stubgen(begin): import-section
 use crate::ir::expr::IntoExpr;
 use crate::ir::expr::PrimExpr;
@@ -51,9 +55,7 @@ use tvm_ffi::IntoObjectRef;
 use tvm_ffi::Map;
 use tvm_ffi::Object;
 use tvm_ffi::ObjectArc;
-use tvm_ffi::ObjectCore;
 use tvm_ffi::Result;
-use tvm_ffi::reflection::FieldGetter;
 // tvm-ffi-stubgen(end)
 
 /// The base of every set of integers, one dimension each, that bounds the values an expression
@@ -78,7 +80,6 @@ use tvm_ffi::reflection::FieldGetter;
 /// assert_eq!(script(&bound)?, "sym.IntervalSet(min_value=neg_inf, max_value=15)");
 /// # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
 /// ```
-// tvm-ffi-stubgen(begin): object/sym.IntSet
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
@@ -88,15 +89,21 @@ pub struct IntSet {
 
 /// The object behind [`IntSet`].
 ///
-/// Opaque: no metadata of its own: total_size is unknown. Fields are read through the C ABI getters.
+/// Complete: reflected fields fill [24, 24) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "sym.IntSet"]
+#[type_immutable]
+#[type_rs_parent]
 pub struct IntSetObj {
     base_: Object,
 }
-// tvm-ffi-stubgen(end)
+
+const _: () = {
+    assert!(::core::mem::size_of::<IntSetObj>() == 24);
+    assert!(::core::mem::align_of::<IntSetObj>() == 8);
+};
 
 impl IntSet {
     /// Return whether the set is empty (`sym.IntSetIsNothing`).
@@ -127,7 +134,6 @@ impl IntSet {
 
 /// The interval `[min_value, max_value]` of integers, whose bounds are symbolic expressions and
 /// may be [`neg_inf`] or [`pos_inf`].
-// tvm-ffi-stubgen(begin): object/sym.IntervalSet
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
@@ -137,7 +143,7 @@ pub struct IntervalSet {
 
 /// The object behind [`IntervalSet`].
 ///
-/// Opaque: parent 'sym.IntSet' is opaque (layout-unknown). Fields are read through the C ABI getters.
+/// Complete: reflected fields fill [24, 40) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -146,7 +152,14 @@ pub struct IntervalSet {
 #[type_immutable]
 pub struct IntervalSetObj {
     base_: IntSetObj,
+    pub min_value: PrimExpr,
+    pub max_value: PrimExpr,
 }
+
+const _: () = {
+    assert!(::core::mem::size_of::<IntervalSetObj>() == 40);
+    assert!(::core::mem::align_of::<IntervalSetObj>() == 8);
+};
 
 impl Deref for IntervalSetObj {
     type Target = IntSetObj;
@@ -155,19 +168,7 @@ impl Deref for IntervalSetObj {
     }
 }
 
-#[allow(missing_docs)]
-impl IntervalSetObj {
-    pub fn min_value(&self) -> Result<PrimExpr> {
-        FieldGetter::new(Self::type_index(), "min_value")?.get(self)
-    }
-
-    pub fn max_value(&self) -> Result<PrimExpr> {
-        FieldGetter::new(Self::type_index(), "max_value")?.get(self)
-    }
-}
-
 tvm_ffi::impl_object_ref_upcast!(IntervalSet => IntSet);
-// tvm-ffi-stubgen(end)
 
 impl IntervalSet {
     /// Create the interval `[min_value, max_value]`, whose bounds may be [`neg_inf`] and

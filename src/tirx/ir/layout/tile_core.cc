@@ -147,7 +147,10 @@ TVM_FFI_INLINE ffi::Expected<ffi::UnchangedOr<ffi::Any>> TileLayoutMaybeInplaceM
 
 }  // namespace
 
-TVM_FFI_STATIC_INIT_BLOCK() { ComposeLayoutObj::RegisterReflection(); }
+TVM_FFI_STATIC_INIT_BLOCK() {
+  ffi::reflection::ObjectDef<LayoutObj>();
+  ComposeLayoutObj::RegisterReflection();
+}
 
 /**************** Iter ****************/
 TVM_FFI_STATIC_INIT_BLOCK() {

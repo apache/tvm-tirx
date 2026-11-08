@@ -22,12 +22,19 @@
 //! strided [`Iter`] factors, and a [`ComposeLayout`] swizzles the memory coordinate of one.
 
 // tvm-ffi-stubgen(missing-docs): allow
+// The layouts are hand-written: C++ constructs them, so they have no field-wise allocator.
+// tvm-ffi-stubgen(ty-map): tirx.Layout -> crate::tirx::layout::Layout
+// tvm-ffi-stubgen(ty-map): tirx.TileLayout -> crate::tirx::layout::TileLayout
+// tvm-ffi-stubgen(ty-map): tirx.ComposeLayout -> crate::tirx::layout::ComposeLayout
+// tvm-ffi-stubgen(import-object): std::ops::Deref
+// tvm-ffi-stubgen(import-object): tvm_ffi::Array
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
 // tvm-ffi-stubgen(import-object): crate::sym::analyzer::Analyzer
 // tvm-ffi-stubgen(import-object): crate::tirx::thread_scope::ThreadScope
 // tvm-ffi-stubgen(import-object): tvm_ffi::Any
 // tvm-ffi-stubgen(import-object): tvm_ffi::String
+// tvm-ffi-stubgen(import-object): tvm_ffi::Result
 // tvm-ffi-stubgen(import-object): crate::ir::support
 // tvm-ffi-stubgen(import-object): crate::ir::expr::IntoExpr
 // tvm-ffi-stubgen(import-object): std::borrow::Borrow
@@ -35,10 +42,9 @@
 // An iterator's extent and stride are `PrimExpr`s, as C++ `IterObj` holds them.
 // tvm-ffi-stubgen(field): tirx.Iter.extent -> PrimExpr
 // tvm-ffi-stubgen(field): tirx.Iter.stride -> PrimExpr
-// A tile layout's offsets are `PrimExpr`s, as C++ `TileLayoutObj` holds them.
-// tvm-ffi-stubgen(field): tirx.TileLayout.offset -> Map<Axis, PrimExpr>
 // tvm-ffi-stubgen(import-object): tvm_ffi::Map
 // tvm-ffi-stubgen(import-object): tvm_ffi::IntoObjectRef
+
 // tvm-ffi-stubgen(begin): import-section
 use crate::ir::expr::IntoExpr;
 use crate::ir::expr::PrimExpr;
@@ -53,11 +59,9 @@ use tvm_ffi::IntoObjectRef;
 use tvm_ffi::Map;
 use tvm_ffi::Object;
 use tvm_ffi::ObjectArc;
-use tvm_ffi::ObjectCore;
 use tvm_ffi::Result;
 use tvm_ffi::String;
 use tvm_ffi::enum_ref::EnumObj;
-use tvm_ffi::reflection::FieldGetter;
 // tvm-ffi-stubgen(end)
 
 /// The base of every layout: a map from the logical indices of a tensor to a coordinate on each
@@ -87,7 +91,6 @@ use tvm_ffi::reflection::FieldGetter;
 /// assert_eq!(script(&offset)?, "i * 8 + j");
 /// # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
 /// ```
-// tvm-ffi-stubgen(begin): object/tirx.Layout
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
@@ -97,15 +100,21 @@ pub struct Layout {
 
 /// The object behind [`Layout`].
 ///
-/// Opaque: no metadata of its own: total_size is unknown. Fields are read through the C ABI getters.
+/// Complete: reflected fields fill [24, 24) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "tirx.Layout"]
+#[type_immutable]
+#[type_rs_parent]
 pub struct LayoutObj {
     base_: Object,
 }
-// tvm-ffi-stubgen(end)
+
+const _: () = {
+    assert!(::core::mem::size_of::<LayoutObj>() == 24);
+    assert!(::core::mem::align_of::<LayoutObj>() == 8);
+};
 
 impl Layout {
     /// Check the invariants of the layout (`tirx.LayoutCheckWellFormed`).
@@ -222,7 +231,6 @@ impl Layout {
 /// The layout of strided factors: each [`Iter`] of `shard` spans distinct elements and each of
 /// `replica` their copies, adding its stride per position to the coordinate on its axis, from the
 /// origin `offset` gives on each axis.
-// tvm-ffi-stubgen(begin): object/tirx.TileLayout
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
@@ -232,7 +240,7 @@ pub struct TileLayout {
 
 /// The object behind [`TileLayout`].
 ///
-/// Opaque: parent 'tirx.Layout' is opaque (layout-unknown). Fields are read through the C ABI getters.
+/// Complete: reflected fields fill [24, 48) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -241,7 +249,15 @@ pub struct TileLayout {
 #[type_immutable]
 pub struct TileLayoutObj {
     base_: LayoutObj,
+    pub shard: Array<Iter>,
+    pub replica: Array<Iter>,
+    pub offset: Map<Axis, PrimExpr>,
 }
+
+const _: () = {
+    assert!(::core::mem::size_of::<TileLayoutObj>() == 48);
+    assert!(::core::mem::align_of::<TileLayoutObj>() == 8);
+};
 
 impl Deref for TileLayoutObj {
     type Target = LayoutObj;
@@ -250,23 +266,7 @@ impl Deref for TileLayoutObj {
     }
 }
 
-#[allow(missing_docs)]
-impl TileLayoutObj {
-    pub fn shard(&self) -> Result<Array<Iter>> {
-        FieldGetter::new(Self::type_index(), "shard")?.get(self)
-    }
-
-    pub fn replica(&self) -> Result<Array<Iter>> {
-        FieldGetter::new(Self::type_index(), "replica")?.get(self)
-    }
-
-    pub fn offset(&self) -> Result<Map<Axis, PrimExpr>> {
-        FieldGetter::new(Self::type_index(), "offset")?.get(self)
-    }
-}
-
 tvm_ffi::impl_object_ref_upcast!(TileLayout => Layout);
-// tvm-ffi-stubgen(end)
 
 impl TileLayout {
     /// Create the tile layout of the `shard` and `replica` iterators, shifted by `offset`
@@ -467,7 +467,6 @@ impl Axis {
 /// The layout `tile_layout` with its memory coordinate XOR-swizzled: above the low `per_element`
 /// bits, the group of `swizzle_len` bits `atom_len` bits up is XORed into the group below if
 /// `swizzle_inner`, and the lower group into the upper one otherwise.
-// tvm-ffi-stubgen(begin): object/tirx.ComposeLayout
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
@@ -477,7 +476,7 @@ pub struct ComposeLayout {
 
 /// The object behind [`ComposeLayout`].
 ///
-/// Opaque: parent 'tirx.Layout' is opaque (layout-unknown). Fields are read through the C ABI getters.
+/// Complete: reflected fields fill [24, 56) exactly (alignment padding [37, 40)).
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -486,7 +485,19 @@ pub struct ComposeLayout {
 #[type_immutable]
 pub struct ComposeLayoutObj {
     base_: LayoutObj,
+    pub per_element: i32,
+    pub swizzle_len: i32,
+    pub atom_len: i32,
+    pub swizzle_inner: bool,
+    pub tile_layout: TileLayout,
+    pub inner_mask: i32,
+    pub outer_mask: i32,
 }
+
+const _: () = {
+    assert!(::core::mem::size_of::<ComposeLayoutObj>() == 56);
+    assert!(::core::mem::align_of::<ComposeLayoutObj>() == 8);
+};
 
 impl Deref for ComposeLayoutObj {
     type Target = LayoutObj;
@@ -495,39 +506,7 @@ impl Deref for ComposeLayoutObj {
     }
 }
 
-#[allow(missing_docs)]
-impl ComposeLayoutObj {
-    pub fn per_element(&self) -> Result<i64> {
-        FieldGetter::new(Self::type_index(), "per_element")?.get(self)
-    }
-
-    pub fn swizzle_len(&self) -> Result<i64> {
-        FieldGetter::new(Self::type_index(), "swizzle_len")?.get(self)
-    }
-
-    pub fn atom_len(&self) -> Result<i64> {
-        FieldGetter::new(Self::type_index(), "atom_len")?.get(self)
-    }
-
-    pub fn swizzle_inner(&self) -> Result<bool> {
-        FieldGetter::new(Self::type_index(), "swizzle_inner")?.get(self)
-    }
-
-    pub fn inner_mask(&self) -> Result<i64> {
-        FieldGetter::new(Self::type_index(), "inner_mask")?.get(self)
-    }
-
-    pub fn outer_mask(&self) -> Result<i64> {
-        FieldGetter::new(Self::type_index(), "outer_mask")?.get(self)
-    }
-
-    pub fn tile_layout(&self) -> Result<TileLayout> {
-        FieldGetter::new(Self::type_index(), "tile_layout")?.get(self)
-    }
-}
-
 tvm_ffi::impl_object_ref_upcast!(ComposeLayout => Layout);
-// tvm-ffi-stubgen(end)
 
 impl ComposeLayout {
     /// Create `tile_layout` with its memory coordinate swizzled: above the low `per_element` bits,

@@ -65,7 +65,7 @@ fn layouts() {
 
     // Memory offset 10 becomes 10 ^ ((10 >> 3) & 3) = 11.
     let swizzled = ComposeLayout::new(0, 2, 3, &tile, true).unwrap();
-    assert_eq!(swizzled.atom_len().unwrap(), 3);
+    assert_eq!(swizzled.atom_len, 3);
     assert_eq!(at(Layout::from(&swizzled).apply([int32(1), int32(2)], &analyzer).unwrap()), 11);
 }
 

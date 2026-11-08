@@ -26,6 +26,16 @@
 // to the file of the Python module that defines it.
 // tvm-ffi-stubgen(prefix): sym
 // tvm-ffi-stubgen(skip): sym.ConstraintContext
+// The canonical simplifier's intermediate forms are internal to it.
+// tvm-ffi-stubgen(skip): sym.CanonicalExpr
+// tvm-ffi-stubgen(skip): sym.SplitExpr
+// tvm-ffi-stubgen(skip): sym.SumExpr
+// Integer sets and iterator sums are hand-written in their modules: C++ constructs them.
+// tvm-ffi-stubgen(skip): sym.IntSet
+// tvm-ffi-stubgen(skip): sym.IntervalSet
+// tvm-ffi-stubgen(skip): sym.IterMapExpr
+// tvm-ffi-stubgen(skip): sym.IterSplitExpr
+// tvm-ffi-stubgen(skip): sym.IterSumExpr
 
 pub mod analyzer;
 pub mod constraint;

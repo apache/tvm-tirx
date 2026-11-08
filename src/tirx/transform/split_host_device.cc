@@ -23,6 +23,7 @@
  */
 #include <tvm/backend/cuda/attr.h>
 #include <tvm/ffi/cast.h>
+#include <tvm/ffi/extra/structural_equal.h>
 #include <tvm/ffi/extra/structural_mutate.h>
 #include <tvm/ffi/function.h>
 #include <tvm/ffi/reflection/registry.h>
@@ -761,7 +762,7 @@ class DeviceKernelMutator : public StmtExprMutator {
     }
 
     if (!force_kernel_launch) {
-      bool same_target = caller_target->str() == callee_target->str();
+      bool same_target = ffi::StructuralEqual()(caller_target, callee_target);
       if (same_target) {
         // Calls within the same target may be handled at codegen time
         // as internal subroutine calls.

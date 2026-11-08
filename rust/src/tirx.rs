@@ -25,6 +25,10 @@
 // An object registered under `tirx` that no file has a block for yet is generated here, to be moved
 // to the file of the Python module that defines it.
 // tvm-ffi-stubgen(prefix): tirx
+// Layouts are hand-written in `layout`: C++ constructs them.
+// tvm-ffi-stubgen(skip): tirx.Layout
+// tvm-ffi-stubgen(skip): tirx.TileLayout
+// tvm-ffi-stubgen(skip): tirx.ComposeLayout
 
 pub mod analysis;
 pub mod function;

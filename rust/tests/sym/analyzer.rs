@@ -19,7 +19,7 @@
 
 //! Tests of `sym::analyzer`: the analyzer and its results.
 
-use tvm_tirx::ir::{Expr, ExprObj};
+use tvm_tirx::ir::Expr;
 use tvm_tirx::sym::*;
 use tvm_tirx::tvm_ffi::Object;
 
@@ -31,12 +31,8 @@ fn generated_types_match_the_registry() {
     assert_type_contracts!(true;
         ConstIntBoundObj: Object, ModularSetObj: Object, RewriteSimplifierStatsObj: Object,
     );
-    // The analyzer holds its sub-analyzers unreflected; the expression hierarchy registers no
-    // layout of its own, so the canonical expressions are opaque too.
-    assert_type_contracts!(false;
-        AnalyzerObj: Object, CanonicalExprObj: ExprObj, SplitExprObj: CanonicalExprObj,
-        SumExprObj: CanonicalExprObj,
-    );
+    // The analyzer holds its sub-analyzers unreflected.
+    assert_type_contracts!(false; AnalyzerObj: Object);
 }
 
 #[test]

@@ -22,10 +22,19 @@
 //! functions simplify, divide and invert such maps.
 
 // tvm-ffi-stubgen(missing-docs): allow
+// The iterator forms are hand-written: C++ constructs them, so they have no field-wise
+// allocator.
+// tvm-ffi-stubgen(ty-map): sym.IterMapExpr -> crate::sym::iter_affine_map::IterMapExpr
+// tvm-ffi-stubgen(ty-map): sym.IterSplitExpr -> crate::sym::iter_affine_map::IterSplitExpr
+// tvm-ffi-stubgen(ty-map): sym.IterSumExpr -> crate::sym::iter_affine_map::IterSumExpr
+// tvm-ffi-stubgen(import-object): crate::ir::expr::Expr
+// tvm-ffi-stubgen(import-object): crate::ir::expr::ExprObj
+// tvm-ffi-stubgen(import-object): std::ops::Deref
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
 // tvm-ffi-stubgen(import-object): tvm_ffi::AnyView
 // tvm-ffi-stubgen(import-object): tvm_ffi::Map
+// tvm-ffi-stubgen(import-object): tvm_ffi::Result
 // tvm-ffi-stubgen(import-object): crate::ir::expr::Range
 // tvm-ffi-stubgen(import-object): crate::ir::expr::Var
 // tvm-ffi-stubgen(import-object): crate::sym::analyzer::Analyzer
@@ -33,21 +42,13 @@
 // tvm-ffi-stubgen(import-object): crate::ir::expr::IntoExpr
 // tvm-ffi-stubgen(import-object): crate::ir::expr::PrimExpr
 // tvm-ffi-stubgen(import-object): crate::ir::expr::PrimVar
-// The iterator forms are primitive expressions, as C++ `IterMapExpr` derives from `PrimExpr`, and
-// their marks and padding predicate are `PrimExpr`s.
-// tvm-ffi-stubgen(upcast): sym.IterMapExpr -> PrimExpr
-// tvm-ffi-stubgen(upcast): sym.IterSplitExpr -> PrimExpr
-// tvm-ffi-stubgen(upcast): sym.IterSumExpr -> PrimExpr
+// The marks and the padding predicate are `PrimExpr`s, as in C++.
 // tvm-ffi-stubgen(field): sym.IterMark.source -> PrimExpr
 // tvm-ffi-stubgen(field): sym.IterMark.extent -> PrimExpr
 // tvm-ffi-stubgen(field): sym.IterMapResult.padding_predicate -> PrimExpr
 // tvm-ffi-stubgen(nullable): sym.IterMapResult.padding_predicate
 // tvm-ffi-stubgen(import-object): std::borrow::Borrow
 // tvm-ffi-stubgen(import-object): tvm_ffi::IntoObjectRef
-// tvm-ffi-stubgen(field): sym.IterSplitExpr.lower_factor -> PrimExpr
-// tvm-ffi-stubgen(field): sym.IterSplitExpr.extent -> PrimExpr
-// tvm-ffi-stubgen(field): sym.IterSplitExpr.scale -> PrimExpr
-// tvm-ffi-stubgen(field): sym.IterSumExpr.base -> PrimExpr
 // tvm-ffi-stubgen(begin): import-section
 use crate::ir::expr::Expr;
 use crate::ir::expr::ExprObj;
@@ -66,15 +67,12 @@ use tvm_ffi::IntoObjectRef;
 use tvm_ffi::Map;
 use tvm_ffi::Object;
 use tvm_ffi::ObjectArc;
-use tvm_ffi::ObjectCore;
 use tvm_ffi::Result;
 use tvm_ffi::String;
-use tvm_ffi::reflection::FieldGetter;
 // tvm-ffi-stubgen(end)
 
 /// The base of the iterator map forms, [`IterSplitExpr`] and [`IterSumExpr`]. They hold the result
 /// of detection and do not appear in a well-formed function.
-// tvm-ffi-stubgen(begin): object/sym.IterMapExpr
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
@@ -84,15 +82,21 @@ pub struct IterMapExpr {
 
 /// The object behind [`IterMapExpr`].
 ///
-/// Opaque: no metadata of its own: total_size is unknown. Fields are read through the C ABI getters.
+/// Complete: reflected fields fill [40, 40) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
 #[type_key = "sym.IterMapExpr"]
 #[type_immutable]
+#[type_rs_parent]
 pub struct IterMapExprObj {
     base_: ExprObj,
 }
+
+const _: () = {
+    assert!(::core::mem::size_of::<IterMapExprObj>() == 40);
+    assert!(::core::mem::align_of::<IterMapExprObj>() == 8);
+};
 
 impl Deref for IterMapExprObj {
     type Target = ExprObj;
@@ -103,7 +107,6 @@ impl Deref for IterMapExprObj {
 
 tvm_ffi::impl_object_ref_upcast!(IterMapExpr => Expr);
 tvm_ffi::impl_object_ref_upcast!(unsafe IterMapExpr => PrimExpr);
-// tvm-ffi-stubgen(end)
 
 /// The result of [`detect_iter_map`]: the detected `indices`, or empty `indices` and the `errors`
 /// that say why detection failed.
@@ -237,7 +240,6 @@ impl IterMark {
 // tvm-ffi-stubgen(end)
 
 /// The split `(source // lower_factor) % extent * scale` of the marked iterator `source`.
-// tvm-ffi-stubgen(begin): object/sym.IterSplitExpr
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
@@ -247,7 +249,7 @@ pub struct IterSplitExpr {
 
 /// The object behind [`IterSplitExpr`].
 ///
-/// Opaque: parent 'sym.IterMapExpr' is opaque (layout-unknown). Fields are read through the C ABI getters.
+/// Complete: reflected fields fill [40, 72) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -256,7 +258,16 @@ pub struct IterSplitExpr {
 #[type_immutable]
 pub struct IterSplitExprObj {
     base_: IterMapExprObj,
+    pub source: IterMark,
+    pub lower_factor: PrimExpr,
+    pub extent: PrimExpr,
+    pub scale: PrimExpr,
 }
+
+const _: () = {
+    assert!(::core::mem::size_of::<IterSplitExprObj>() == 72);
+    assert!(::core::mem::align_of::<IterSplitExprObj>() == 8);
+};
 
 impl Deref for IterSplitExprObj {
     type Target = IterMapExprObj;
@@ -265,31 +276,10 @@ impl Deref for IterSplitExprObj {
     }
 }
 
-#[allow(missing_docs)]
-impl IterSplitExprObj {
-    pub fn source(&self) -> Result<IterMark> {
-        FieldGetter::new(Self::type_index(), "source")?.get(self)
-    }
-
-    pub fn lower_factor(&self) -> Result<PrimExpr> {
-        FieldGetter::new(Self::type_index(), "lower_factor")?.get(self)
-    }
-
-    pub fn extent(&self) -> Result<PrimExpr> {
-        FieldGetter::new(Self::type_index(), "extent")?.get(self)
-    }
-
-    pub fn scale(&self) -> Result<PrimExpr> {
-        FieldGetter::new(Self::type_index(), "scale")?.get(self)
-    }
-}
-
 tvm_ffi::impl_object_ref_upcast!(IterSplitExpr => Expr, IterSplitExpr => IterMapExpr);
 tvm_ffi::impl_object_ref_upcast!(unsafe IterSplitExpr => PrimExpr);
-// tvm-ffi-stubgen(end)
 
 /// The sum of the splits `args` plus `base`.
-// tvm-ffi-stubgen(begin): object/sym.IterSumExpr
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
@@ -299,7 +289,7 @@ pub struct IterSumExpr {
 
 /// The object behind [`IterSumExpr`].
 ///
-/// Opaque: parent 'sym.IterMapExpr' is opaque (layout-unknown). Fields are read through the C ABI getters.
+/// Complete: reflected fields fill [40, 56) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -308,7 +298,14 @@ pub struct IterSumExpr {
 #[type_immutable]
 pub struct IterSumExprObj {
     base_: IterMapExprObj,
+    pub args: Array<IterSplitExpr>,
+    pub base: PrimExpr,
 }
+
+const _: () = {
+    assert!(::core::mem::size_of::<IterSumExprObj>() == 56);
+    assert!(::core::mem::align_of::<IterSumExprObj>() == 8);
+};
 
 impl Deref for IterSumExprObj {
     type Target = IterMapExprObj;
@@ -317,20 +314,8 @@ impl Deref for IterSumExprObj {
     }
 }
 
-#[allow(missing_docs)]
-impl IterSumExprObj {
-    pub fn args(&self) -> Result<Array<IterSplitExpr>> {
-        FieldGetter::new(Self::type_index(), "args")?.get(self)
-    }
-
-    pub fn base(&self) -> Result<PrimExpr> {
-        FieldGetter::new(Self::type_index(), "base")?.get(self)
-    }
-}
-
 tvm_ffi::impl_object_ref_upcast!(IterSumExpr => Expr, IterSumExpr => IterMapExpr);
 tvm_ffi::impl_object_ref_upcast!(unsafe IterSumExpr => PrimExpr);
-// tvm-ffi-stubgen(end)
 
 // `IterMark::new` is generated: the native `sym.IterMark` constructor stores the fields as given.
 

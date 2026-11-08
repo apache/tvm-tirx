@@ -42,6 +42,7 @@ namespace sym {
 using namespace tvm::prim;
 
 TVM_FFI_STATIC_INIT_BLOCK() {
+  ffi::reflection::ObjectDef<IterMapExprObj>();
   IterMarkObj::RegisterReflection();
   IterSplitExprObj::RegisterReflection();
   IterSumExprObj::RegisterReflection();

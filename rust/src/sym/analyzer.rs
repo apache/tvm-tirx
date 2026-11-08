@@ -18,13 +18,11 @@
  */
 
 //! The analyzer. An [`Analyzer`] proves, bounds and simplifies integer expressions under the facts
-//! of a [`ConstraintContext`]; its bounds are [`ConstIntBound`]s and [`ModularSet`]s, and
-//! [`SplitExpr`] and [`SumExpr`] are the forms its canonical simplifier works in.
+//! of a [`ConstraintContext`]; its bounds are [`ConstIntBound`]s and [`ModularSet`]s.
 
 // tvm-ffi-stubgen(missing-docs): allow
-// Python has no class for `CanonicalExpr`, `SumExpr` and `SplitExpr`, the forms of the canonical
-// simplifier, or for the `RewriteSimplifierStats` that `Analyzer.rewrite_simplify_stats()`
-// returns; they are here, with the analyzer they belong to.
+// Python has no class for the `RewriteSimplifierStats` that `Analyzer.rewrite_simplify_stats()`
+// returns; it is here, with the analyzer it belongs to.
 
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
@@ -40,17 +38,11 @@
 // tvm-ffi-stubgen(import-object): crate::ir::support
 // tvm-ffi-stubgen(import-object): crate::ir::expr::IntoExpr
 // tvm-ffi-stubgen(import-object): crate::ir::expr::PrimExpr
-// The canonical forms are primitive expressions, as C++ `SplitExpr` and `SumExpr` derive from
-// `PrimExpr`.
-// tvm-ffi-stubgen(upcast): sym.SplitExpr -> PrimExpr
-// tvm-ffi-stubgen(upcast): sym.SumExpr -> PrimExpr
 // tvm-ffi-stubgen(import-object): std::borrow::Borrow
 // tvm-ffi-stubgen(import-object): tvm_ffi::IntoObjectRef
 
 // tvm-ffi-stubgen(begin): import-section
 use crate::ExitOnDrop;
-use crate::ir::expr::Expr;
-use crate::ir::expr::ExprObj;
 use crate::ir::expr::IntoExpr;
 use crate::ir::expr::PrimExpr;
 use crate::ir::expr::Var;
@@ -58,7 +50,6 @@ use crate::ir::support;
 use crate::sym::constraint::ConstraintContext;
 use crate::sym::int_set::IntSet;
 use std::borrow::Borrow;
-use std::ops::Deref;
 use tvm_ffi::Error;
 use tvm_ffi::IntoObjectRef;
 use tvm_ffi::Map;
@@ -582,103 +573,4 @@ impl RewriteSimplifierStats {
         Self { data_: ObjectArc::new(obj) }
     }
 }
-// tvm-ffi-stubgen(end)
-
-// ---------------------------------------------------------------------------------------------
-// The forms of the canonical simplifier
-
-/// The base of the intermediate forms the canonical simplifier introduces, [`SplitExpr`] and
-/// [`SumExpr`].
-// tvm-ffi-stubgen(begin): object/sym.CanonicalExpr
-#[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct CanonicalExpr {
-    data_: ObjectArc<CanonicalExprObj>,
-}
-
-/// The object behind [`CanonicalExpr`].
-///
-/// Opaque: no metadata of its own: total_size is unknown. Fields are read through the C ABI getters.
-#[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::Object)]
-#[type_key = "sym.CanonicalExpr"]
-#[type_immutable]
-pub struct CanonicalExprObj {
-    base_: ExprObj,
-}
-
-impl Deref for CanonicalExprObj {
-    type Target = ExprObj;
-    fn deref(&self) -> &ExprObj {
-        &self.base_
-    }
-}
-
-tvm_ffi::impl_object_ref_upcast!(CanonicalExpr => Expr);
-// tvm-ffi-stubgen(end)
-
-/// The canonical form of a split index: `((index % upper_factor) / lower_factor) * scale`.
-// tvm-ffi-stubgen(begin): object/sym.SplitExpr
-#[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct SplitExpr {
-    data_: ObjectArc<SplitExprObj>,
-}
-
-/// The object behind [`SplitExpr`].
-///
-/// Opaque: no metadata of its own: total_size is unknown. Fields are read through the C ABI getters.
-#[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::Object)]
-#[type_key = "sym.SplitExpr"]
-#[type_immutable]
-pub struct SplitExprObj {
-    base_: CanonicalExprObj,
-}
-
-impl Deref for SplitExprObj {
-    type Target = CanonicalExprObj;
-    fn deref(&self) -> &CanonicalExprObj {
-        &self.base_
-    }
-}
-
-tvm_ffi::impl_object_ref_upcast!(SplitExpr => Expr, SplitExpr => CanonicalExpr);
-tvm_ffi::impl_object_ref_upcast!(unsafe SplitExpr => PrimExpr);
-// tvm-ffi-stubgen(end)
-
-/// The canonical form of a sum: a sum of [`SplitExpr`]s plus a constant base.
-// tvm-ffi-stubgen(begin): object/sym.SumExpr
-#[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::ObjectRef, Clone)]
-pub struct SumExpr {
-    data_: ObjectArc<SumExprObj>,
-}
-
-/// The object behind [`SumExpr`].
-///
-/// Opaque: no metadata of its own: total_size is unknown. Fields are read through the C ABI getters.
-#[allow(missing_docs)]
-#[repr(C)]
-#[derive(tvm_ffi::derive::Object)]
-#[type_key = "sym.SumExpr"]
-#[type_immutable]
-pub struct SumExprObj {
-    base_: CanonicalExprObj,
-}
-
-impl Deref for SumExprObj {
-    type Target = CanonicalExprObj;
-    fn deref(&self) -> &CanonicalExprObj {
-        &self.base_
-    }
-}
-
-tvm_ffi::impl_object_ref_upcast!(SumExpr => Expr, SumExpr => CanonicalExpr);
-tvm_ffi::impl_object_ref_upcast!(unsafe SumExpr => PrimExpr);
 // tvm-ffi-stubgen(end)

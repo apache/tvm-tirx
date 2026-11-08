@@ -24,12 +24,19 @@
 // tvm-ffi-stubgen(missing-docs): allow
 // Every object registered under `target` has its block in this file.
 // tvm-ffi-stubgen(prefix): target
+// `target.Target` is hand-written below: a target is built by parsing its config, never from
+// raw fields.
+// tvm-ffi-stubgen(skip): target.Target
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
 // tvm-ffi-stubgen(import-object): tvm_ffi::Module
 // tvm-ffi-stubgen(import-object): crate::ir::module::IRModule
 // tvm-ffi-stubgen(import-object): tvm_ffi::IntoObjectRef
 // tvm-ffi-stubgen(import-object): std::borrow::Borrow
+// tvm-ffi-stubgen(ty-map): target.Target -> crate::target::Target
+// tvm-ffi-stubgen(import-object): tvm_ffi::Any
+// tvm-ffi-stubgen(import-object): tvm_ffi::Map
+// tvm-ffi-stubgen(import-object): tvm_ffi::object::ObjectRef
 
 // tvm-ffi-stubgen(begin): import-section
 use crate::ir::module::IRModule;
@@ -44,6 +51,7 @@ use tvm_ffi::ObjectArc;
 use tvm_ffi::ObjectCore;
 use tvm_ffi::Result;
 use tvm_ffi::String;
+use tvm_ffi::extra::cold_init_lazy_lock::ColdInitLazyLock;
 use tvm_ffi::object::ObjectRef;
 use tvm_ffi::reflection::FieldGetter;
 // tvm-ffi-stubgen(end)
@@ -67,7 +75,6 @@ use tvm_ffi::reflection::FieldGetter;
 /// assert!(Target::current(true)?.is_none());
 /// # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
 /// ```
-// tvm-ffi-stubgen(begin): object/target.Target
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::ObjectRef, Clone)]
@@ -77,7 +84,7 @@ pub struct Target {
 
 /// The object behind [`Target`].
 ///
-/// Opaque: bytes [72, 88) of [24, 88) are not accounted for by reflected fields. Fields are read through the C ABI getters.
+/// Complete: reflected fields fill [24, 72) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -85,31 +92,17 @@ pub struct Target {
 #[type_final]
 pub struct TargetObj {
     base_: Object,
+    pub kind: TargetKind,
+    pub host: Option<ObjectRef>,
+    pub tag: String,
+    pub keys: Array<String>,
+    pub attrs: Map<String, Any>,
 }
 
-#[allow(missing_docs)]
-impl TargetObj {
-    pub fn kind(&self) -> Result<TargetKind> {
-        FieldGetter::new(Self::type_index(), "kind")?.get(self)
-    }
-
-    pub fn tag(&self) -> Result<String> {
-        FieldGetter::new(Self::type_index(), "tag")?.get(self)
-    }
-
-    pub fn keys(&self) -> Result<Array<String>> {
-        FieldGetter::new(Self::type_index(), "keys")?.get(self)
-    }
-
-    pub fn attrs(&self) -> Result<Map<String, Any>> {
-        FieldGetter::new(Self::type_index(), "attrs")?.get(self)
-    }
-
-    pub fn host(&self) -> Result<Option<ObjectRef>> {
-        FieldGetter::new(Self::type_index(), "host")?.get(self)
-    }
-}
-// tvm-ffi-stubgen(end)
+const _: () = {
+    assert!(::core::mem::size_of::<TargetObj>() == 72);
+    assert!(::core::mem::align_of::<TargetObj>() == 8);
+};
 
 impl Target {
     /// Create the target that a tag (`"nvidia/nvidia-a100"`), a kind name (`"llvm"`) or a JSON
@@ -232,15 +225,22 @@ pub struct TargetKindObj {
 #[allow(missing_docs)]
 impl TargetKindObj {
     pub fn name(&self) -> Result<String> {
-        FieldGetter::new(Self::type_index(), "name")?.get(self)
+        static GETTER: ColdInitLazyLock<Result<FieldGetter>> =
+            ColdInitLazyLock::new(|| FieldGetter::new(TargetKindObj::type_index(), "name"));
+        GETTER.clone()?.get(self)
     }
 
     pub fn default_device_type(&self) -> Result<i64> {
-        FieldGetter::new(Self::type_index(), "default_device_type")?.get(self)
+        static GETTER: ColdInitLazyLock<Result<FieldGetter>> = ColdInitLazyLock::new(|| {
+            FieldGetter::new(TargetKindObj::type_index(), "default_device_type")
+        });
+        GETTER.clone()?.get(self)
     }
 
     pub fn default_keys(&self) -> Result<Array<String>> {
-        FieldGetter::new(Self::type_index(), "default_keys")?.get(self)
+        static GETTER: ColdInitLazyLock<Result<FieldGetter>> =
+            ColdInitLazyLock::new(|| FieldGetter::new(TargetKindObj::type_index(), "default_keys"));
+        GETTER.clone()?.get(self)
     }
 }
 // tvm-ffi-stubgen(end)
@@ -285,7 +285,7 @@ pub fn list_tags() -> Result<Map<String, Target>> {
 /// let config: Map<String, Any> =
 ///     [("kind".into(), Any::from(String::from("llvm")))].into_iter().collect();
 /// target::register_tag("my_ext/cpu", config, false)?;
-/// assert_eq!(Target::new("my_ext/cpu")?.kind()?.name()?, "llvm");
+/// assert_eq!(Target::new("my_ext/cpu")?.kind.name()?, "llvm");
 /// # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
 /// ```
 pub fn register_tag(
