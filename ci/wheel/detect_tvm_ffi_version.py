@@ -76,7 +76,7 @@ def rewrite_dependency(root, version):
     if not re.fullmatch(VERSION_PATTERN, version):
         raise SystemExit("version must come from the verified submodule release tag")
     main = tomlkit.parse((root / "pyproject.toml").read_text(encoding="utf-8"))
-    crate_path = root / "rust/Cargo.toml"
+    crate_path = root / "rust/tvm-tirx/Cargo.toml"
     crate = tomlkit.parse(crate_path.read_text(encoding="utf-8"))
     # Remove the source path entirely. An exact requirement preserves prerelease versions
     # such as 0.1.15-post2, which a caret requirement could replace with the older 0.1.15.

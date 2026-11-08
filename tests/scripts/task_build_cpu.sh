@@ -33,4 +33,4 @@ uv build --wheel --no-build-isolation --offline --out-dir dist .
 PATH="$PWD/build/rust/bin:$PATH" ./tests/scripts/task_rust_unittest.sh
 
 # The bindings that tvm-ffi-stubgen generates in rust/ must match the types of this build.
-uv run --no-sync python -m tvm_ffi.stub.cli rust/src --target rust --dlls build/lib/libtvm_tirx_compiler.so --check
+uv run --no-sync python -m tvm_ffi.stub.cli rust/tvm-tirx/src --target rust --dlls build/lib/libtvm_tirx_compiler.so --check

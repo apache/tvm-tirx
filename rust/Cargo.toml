@@ -15,36 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-[package]
-name = "tvm-tirx"
-version = "0.1.0-alpha.5"
-edition = "2021"
-# The oldest toolchain that builds the crate and tvm-ffi; CMake checks cargo against it.
-rust-version = "1.95"
-description = "The TVM TIRx compiler in Rust: IR, analysis, passes, and IR extensions"
-license = "Apache-2.0"
-homepage = "https://tvm.apache.org/tirx/"
-documentation = "https://tvm.apache.org/tirx/reference/rust/"
-repository = "https://github.com/apache/tvm-tirx"
-keywords = ["tvm", "compiler", "tensor", "ir", "ffi"]
-categories = ["compilers"]
-# The build directories CMake creates here are not part of the crate.
-include = ["/build.rs", "/src", "/examples", "/tests"]
-
-[lib]
-name = "tvm_tirx"
-# The shared library is the one `import tvm_tirx` loads, installed as `libtvm_tirx_rust`.
-crate-type = ["rlib", "cdylib"]
-
-[dependencies]
-# Develop against the submodule sources, including changes between tvm-ffi releases.
-# Release CI replaces this with an exact crates.io version from the submodule release tag.
-tvm-ffi = { path = "../3rdparty/tvm-ffi/rust/tvm-ffi" }
-
-# A library of operators and a type defined in Rust, which `tests/python/ir/test_op_rust.py` loads.
-[[example]]
-name = "define_ir"
-crate-type = ["cdylib"]
-
-# Standalone crate: not a member of any enclosing workspace.
 [workspace]
+members = ["tvm-tirx"]
+
+resolver = "2"

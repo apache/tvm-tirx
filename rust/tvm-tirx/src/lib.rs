@@ -149,7 +149,7 @@
 //! rebuilding `libtvm_tirx_compiler` (`--check` only reports stale blocks):
 //!
 //! ```bash
-//! tvm-ffi-stubgen rust/src --target rust --dlls build/lib/libtvm_tirx_compiler.so
+//! tvm-ffi-stubgen rust/tvm-tirx/src --target rust --dlls build/lib/libtvm_tirx_compiler.so
 //! ```
 //!
 //! # Tests

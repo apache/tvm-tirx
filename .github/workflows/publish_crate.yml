@@ -176,18 +176,18 @@ jobs:
         run: rustup toolchain install stable --profile minimal
 
       - name: Test crate
-        working-directory: rust
+        working-directory: rust/tvm-tirx
         run: cargo +stable test --release
 
       # Packages and verifies the crate with the release metadata and registry dependency edits.
       - name: Dry-run crate publication
-        working-directory: rust
+        working-directory: rust/tvm-tirx
         run: cargo +stable publish --dry-run --registry crates-io --allow-dirty
 
       # The dry run keeps its .crate file in a temporary directory; write it out again, without
       # re-verifying, for the artifact upload.
       - name: Package crate
-        working-directory: rust
+        working-directory: rust/tvm-tirx
         run: cargo +stable package --registry crates-io --allow-dirty --no-verify
 
       - name: Upload crate artifact
@@ -246,4 +246,4 @@ jobs:
             exit 1
           fi
           echo "Publishing tvm-tirx@${CRATE_VERSION}"
-          cargo +stable publish --manifest-path rust/Cargo.toml --registry crates-io --allow-dirty --no-verify
+          cargo +stable publish --manifest-path rust/tvm-tirx/Cargo.toml --registry crates-io --allow-dirty --no-verify

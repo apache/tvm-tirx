@@ -28,6 +28,6 @@ crate-type = ["cdylib"]
 [dependencies]
 # This example builds against this checkout. A standalone extension depends on
 # the published releases instead, e.g. tvm-tirx = "<version>".
-tvm-tirx = { path = "../../../rust" }
+tvm-tirx = { path = "../../../rust/tvm-tirx" }
 # Procedural macros resolve the FFI crate directly; use the same pinned sources.
 tvm-ffi = { path = "../../../3rdparty/tvm-ffi/rust/tvm-ffi" }

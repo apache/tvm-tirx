@@ -15,10 +15,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# The crate in rust/, built by cargo as a shared library and installed as libtvm_tirx_rust next to
-# libtvm_tirx_compiler. `import tvm_tirx` loads it through the backend autoload and registers the
-# operators it defines (python/tvm_tirx/backend/rust), as loading the compiler registers the C++
-# ones.
+# The crate in rust/tvm-tirx, built by cargo as a shared library and installed as
+# libtvm_tirx_rust next to libtvm_tirx_compiler. `import tvm_tirx` loads it through the backend
+# autoload and registers the operators it defines (python/tvm_tirx/backend/rust), as loading the
+# compiler registers the C++ ones.
 #
 # TVM_TIRX_USE_RUST is ON, OFF or AUTO. AUTO builds the library when it can: with the crate's
 # sources (a source distribution has none), with a cargo at least as new as the crate's
@@ -34,7 +34,7 @@ if("${TVM_TIRX_USE_RUST}" MATCHES ${IS_FALSE_PATTERN})
   file(REMOVE "${_rust_old_lib}")
   return()
 endif()
-set(_rust_manifest "${CMAKE_CURRENT_SOURCE_DIR}/rust/Cargo.toml")
+set(_rust_manifest "${CMAKE_CURRENT_SOURCE_DIR}/rust/tvm-tirx/Cargo.toml")
 set(_rust_problem "")
 if(NOT EXISTS "${_rust_manifest}")
   set(_rust_problem "${_rust_manifest} does not exist")

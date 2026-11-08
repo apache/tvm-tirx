@@ -34,7 +34,7 @@ harnesses on top. The Python package is `tvm_tirx`; the distribution is
 include/tvm/        C++ public headers (ir, sym, tirx, target, runtime, backends)
 src/                C++ compiler and runtime implementations
 python/tvm_tirx/    Python package and reflected C++ bindings
-rust/               Rust crate: IR, analysis, passes, and extension APIs
+rust/tvm-tirx/      Rust crate: IR, analysis, passes, and extension APIs
 tests/cpp/          GoogleTest C++ tests
 tests/python/       pytest tests organized by owning namespace and backend
 tests/lint/         ASF header and file-type checks
@@ -124,7 +124,7 @@ describe missing coverage; they do not demonstrate that a backend works.
 
 ### Rust crate
 
-`rust/` is a standalone crate (`tvm-tirx`) over the initialized
+`rust/` is a Cargo workspace; its crate `rust/tvm-tirx` (`tvm-tirx`) builds over the initialized
 `3rdparty/tvm-ffi/rust` submodule sources. Release CI requires the submodule
 on an exact TVM FFI release tag and rewrites the dependency to that exact
 crates.io version before packaging or publishing. The Rust definitions of
@@ -139,7 +139,7 @@ so build TIRx first. Its build script needs `tvm-ffi-config` and
 install:
 
 ```bash
-uv run --no-sync tvm-ffi-stubgen rust/src --target rust --dlls build/lib/libtvm_tirx_compiler.so --check
+uv run --no-sync tvm-ffi-stubgen rust/tvm-tirx/src --target rust --dlls build/lib/libtvm_tirx_compiler.so --check
 uv run --no-sync cargo fmt --check --manifest-path rust/Cargo.toml
 uv run --no-sync cargo test --manifest-path rust/Cargo.toml
 ```
