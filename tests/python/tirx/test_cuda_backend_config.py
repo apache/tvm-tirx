@@ -357,8 +357,7 @@ def test_concurrent_source_compilation(compiler):
 @pytest.mark.gpu
 @pytest.mark.skipif(not tvm_tirx.cuda().exist, reason="requires CUDA")
 @pytest.mark.parametrize("fallback", [False, True])
-@pytest.mark.parametrize("load_target", ["llvm", "cuda"])
-def test_serialized_config_replays_in_fresh_process(tmp_path, monkeypatch, fallback, load_target):
+def test_serialized_config_replays_in_fresh_process(tmp_path, monkeypatch, fallback):
     _require_compiler("nvrtc")
 
     @T.function
@@ -382,10 +381,8 @@ def test_serialized_config_replays_in_fresh_process(tmp_path, monkeypatch, fallb
 import sys
 import numpy as np
 import tvm_tirx
-# The loader's Target may describe unrelated work or provide incompatible
-# defaults. Source replay must use the configuration saved in the artifact.
-with tvm_tirx.target.Target(LOAD_TARGET):
-    module = tvm_tirx.runtime.load_module(sys.argv[1])
+# Source replay uses the configuration saved in the artifact.
+module = tvm_tirx.runtime.load_module(sys.argv[1])
 from tvm_tirx.backend.config import parse_backend_config
 config = parse_backend_config(module.imports[0].inspect_source("backend_config"))["cuda"]
 assert "--ftz=false" in config["nvrtc"] and "--generate-line-info" in config["nvrtc"]
@@ -395,16 +392,6 @@ b = tvm_tirx.runtime.empty((32,), "float32", tvm_tirx.cuda())
 module["main"](a, b)
 np.testing.assert_array_equal(b.numpy(), x * np.float32(0.5))
 """
-    load_context = (
-        "llvm"
-        if load_target == "llvm"
-        else {
-            "kind": "cuda",
-            "arch": "sm_90a",
-            "backend_config": {"cuda": {"target_format": "fatbin"}},
-        }
-    )
-    script = script.replace("LOAD_TARGET", repr(load_context))
     environment = dict(os.environ, TVM_TIRX_COMPILE_FORCE_FALLBACK="0")
     result = subprocess.run(
         [sys.executable, "-c", script, library], env=environment, text=True, capture_output=True
@@ -541,8 +528,7 @@ def test_cuda_host_embeds_independent_binaries_in_plain_cpp(tmp_path, monkeypatc
 
     target = tvm_tirx.target.Target({"kind": "cuda", "arch": env.cuda_arch(0)}, host="cuda_host")
     module = tvm_tirx.compile(main, target=target)
-    with tvm_tirx.target.Target("llvm"):
-        source = export_cuda_host(module.mod)
+    source = export_cuda_host(module.mod)
     assert "__global__" not in source
     cuda = find_cuda_path()
     library = tvm_ffi.cpp.build_inline(

@@ -56,7 +56,7 @@ PrimExpr CallGLSLIntrin(PrimExpr e) {
 }
 
 template <unsigned id>
-inline PrimExpr DispatchGLSLPureIntrin(const PrimExpr& e) {
+inline PrimExpr DispatchGLSLPureIntrin(const PrimExpr& e, const Target& target) {
   return CallGLSLIntrin<id>(e);
 }
 
@@ -160,7 +160,7 @@ void RegisterVulkanLegalizeRules() {
 
   // clang-format off
   OpDef("prim.clz")
-      .set_attr<FLegalize>("vulkan.FLegalize", [](const PrimExpr& e) -> PrimExpr {
+      .set_attr<FLegalize>("vulkan.FLegalize", [](const PrimExpr& e, const Target& target) -> PrimExpr {
     const CallObj* call = e.as<CallObj>();
     TVM_FFI_ICHECK(call != nullptr);
     TVM_FFI_ICHECK_EQ(call->args.size(), 1);

@@ -47,8 +47,7 @@ from tvm_tirx.tirx.layout import ComposeLayout, S, TileLayout
 def _compile_src(kernel):
     target = tvm_tirx.target.Target("cuda")
     mod = tvm_tirx.IRModule({"main": kernel})
-    with target:
-        compiled = tvm_tirx.compile(mod, target=target, pipeline="tirx")
+    compiled = tvm_tirx.compile(mod, target=target, pipeline="tirx")
     return compiled, compiled.mod.imports[0].inspect_source()
 
 

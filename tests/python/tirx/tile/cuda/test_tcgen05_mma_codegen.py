@@ -32,15 +32,15 @@ from tvm_tirx.tirx.layout import ComposeLayout, R, S, TileLayout
 
 def _compile(func):
     target = tvm_tirx.target.Target({"kind": "cuda", "arch": "sm_100a"})
-    with target:
-        return (
-            tvm_tirx.compile(func, target=target, pipeline="tirx").mod.imports[0].inspect_source()
-        )
+    return tvm_tirx.compile(func, target=target, pipeline="tirx").mod.imports[0].inspect_source()
 
 
 def _lower(func):
-    with tvm_tirx.target.Target({"kind": "cuda", "arch": "sm_100a"}):
-        return tvm_tirx.tirx.transform.TileDispatch()(tvm_tirx.IRModule({"main": func}))["main"]
+    return tvm_tirx.tirx.transform.TileDispatch()(
+        tvm_tirx.tirx.transform.BindTarget(
+            tvm_tirx.target.Target({"kind": "cuda", "arch": "sm_100a"})
+        )(tvm_tirx.IRModule({"main": func}))
+    )["main"]
 
 
 def _calls(src, ws=False, cta=1):

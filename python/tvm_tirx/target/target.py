@@ -144,13 +144,6 @@ class Target(tvm_ffi.Object):
         else:
             self.__init_handle_by_constructor__(_ffi_api.Target, target)
 
-    def __enter__(self):
-        _ffi_api.TargetEnterScope(self)
-        return self
-
-    def __exit__(self, ptype, value, trace):
-        _ffi_api.TargetExitScope(self)
-
     def export(self):
         return _ffi_api.TargetExport(self)
 
@@ -195,21 +188,6 @@ class Target(tvm_ffi.Object):
 
         return detect_target_from_device(device)
 
-    @staticmethod
-    def current(allow_none=True):
-        """Returns the current target.
-
-        Parameters
-        ----------
-        allow_none : bool
-            Whether allow the current target to be none
-
-        Raises
-        ------
-        ValueError if current target is not set.
-        """
-        return _ffi_api.TargetCurrent(allow_none)
-
     @property
     def features(self):
         return TargetFeatures(self)
@@ -234,15 +212,6 @@ class Target(tvm_ffi.Object):
     def list_kinds():
         """Returns the list of available target names."""
         return list(_ffi_api.ListTargetKinds())
-
-    @staticmethod
-    def target_or_current(target):
-        """Returns target, or the current target in the environment if target is None"""
-        if target is None:
-            target = Target.current()
-        if target is None:
-            raise ValueError("Target is not set in env or passed as argument.")
-        return target
 
 
 def device_from_target(target, index=None):

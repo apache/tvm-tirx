@@ -235,7 +235,6 @@ class TileDispatcher : public StmtExprMutator {
     if (auto target = entry_node->attrs->dict.Get(tvm::attr::kTarget.name)) {
       target_ = target.value().cast<Target>();
     }
-    With<Target> target_scope(target_);
 
     bool is_first_block = false;
     std::swap(is_first_block, is_first_block_);
@@ -621,9 +620,8 @@ class TileDispatcher : public StmtExprMutator {
 namespace {
 Target ResolveTarget(const Function& f) {
   auto target = f->GetAttr(tvm::attr::kTarget);
-  if (!target.has_value()) {
-    target = Target::Current(false).value();
-  }
+  TVM_FFI_CHECK(target.has_value(), ValueError)
+      << "TileDispatch: requires a function target attribute";
   return target.value();
 }
 }  // namespace

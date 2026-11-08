@@ -94,7 +94,7 @@ class Layout : public ffi::ObjectRef {
 };
 
 // target, subscope, scope, iter -> fused_iter
-using FAxisFuser = ffi::TypedFunction<ffi::Optional<Iter>(Target, ThreadScope, ThreadScope, Iter)>;
+using FAxisFuser = ffi::TypedFunction<ffi::Optional<Iter>(ThreadScope, ThreadScope, Iter)>;
 
 // Axis
 class AxisObj : public ffi::EnumObj {

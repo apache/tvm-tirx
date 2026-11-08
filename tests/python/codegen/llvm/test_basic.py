@@ -1184,8 +1184,7 @@ def test_invalid_volatile_masked_buffer_load():
 
     err_msg = "The masked load intrinsic does not support declaring load as volatile."
     with pytest.raises(RuntimeError, match=err_msg):
-        with tvm_tirx.target.Target("llvm"):
-            tvm_tirx.compile(Module)
+        tvm_tirx.compile(Module, target=tvm_tirx.target.Target("llvm"))
 
 
 def test_invalid_volatile_masked_decl_buffer_load():
@@ -1207,8 +1206,7 @@ def test_invalid_volatile_masked_decl_buffer_load():
 
     err_msg = "The masked load intrinsic does not support declaring load as volatile."
     with pytest.raises(RuntimeError, match=err_msg):
-        with tvm_tirx.target.Target("llvm"):
-            tvm_tirx.compile(Module)
+        tvm_tirx.compile(Module, target=tvm_tirx.target.Target("llvm"))
 
 
 def test_invalid_volatile_masked_tensor_store():
@@ -1232,8 +1230,7 @@ def test_invalid_volatile_masked_tensor_store():
 
     err_msg = "The masked store intrinsic does not support declaring store as volatile."
     with pytest.raises(RuntimeError, match=err_msg):
-        with tvm_tirx.target.Target("llvm"):
-            tvm_tirx.compile(Module)
+        tvm_tirx.compile(Module, target=tvm_tirx.target.Target("llvm"))
 
 
 def test_int_parameter():

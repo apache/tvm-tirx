@@ -62,7 +62,7 @@ def prepare_target(target, mod=None):
 
     from tvm_tirx.target import Target
 
-    active = Target.current() if target is None else target
+    active = target
     if isinstance(active, Target) and active.kind.name == "cuda" and "arch" not in active.attrs:
         active = dict(active.export())
     generic_cuda = (

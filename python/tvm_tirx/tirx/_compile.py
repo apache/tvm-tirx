@@ -192,16 +192,15 @@ def compile(  # pylint: disable=redefined-builtin
 
     target = prepare_target(target, mod)
 
-    # Step 0: Determine the target in environment
+    # Step 0: Determine the explicit default target
     # It's used to bind the Function without target attr to serve as a default target
-    target_to_bind = Target.current() if target is None else target
+    target_to_bind = target
     if target_to_bind is None:
         target_to_bind = "llvm"
     assert target_to_bind is not None
     target_to_bind = Target(target_to_bind)
 
     # Step 1: Determine the target to search for tirx pipeline
-    target = Target.current() if target is None else target
     if target is None:
         for func in mod.functions.values():
             f_target = func.attrs.get("target", None)

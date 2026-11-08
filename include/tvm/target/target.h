@@ -27,7 +27,6 @@
 #include <tvm/ffi/reflection/registry.h>
 #include <tvm/ir/expr.h>
 #include <tvm/ir/function.h>
-#include <tvm/ir/with_context.h>
 #include <tvm/runtime/device_api.h>
 #include <tvm/target/target_kind.h>
 
@@ -166,15 +165,6 @@ class Target : public ffi::ObjectRef {
    */
   TVM_TIRX_DLL explicit Target(const ffi::Map<ffi::String, ffi::Any>& config);
   /*!
-   * \brief Get the current target context from thread local storage.
-   * \param allow_not_defined If the context stack is empty and this is set to true, std::nullopt
-   *   will be returned. Otherwise, an empty context stack will cause a
-   *   runtime error.
-   * \return The target that is the current context. The result may be absent if
-   * allow_not_defined is true.
-   */
-  TVM_TIRX_DLL static ffi::Optional<Target> Current(bool allow_not_defined = true);
-  /*!
    * \brief Construct a Target given target and host
    * \param target The Target typed object with host field undefined for target
    * \param host The Target typed object for target host
@@ -198,19 +188,7 @@ class Target : public ffi::ObjectRef {
   }
 
  private:
-  // enable with syntax.
   friend class TargetInternal;
-  friend class With<Target>;
-  /*!
-   * \brief Push a new target context onto the thread local stack.
-   *  The Target on top of the stack is returned by Target::Current().
-   */
-  TVM_TIRX_DLL void EnterWithScope();
-  /*!
-   * \brief Pop a target off the thread local context stack,
-   *  restoring the previous target as the current context.
-   */
-  TVM_TIRX_DLL void ExitWithScope();
 };
 
 inline ffi::Optional<Target> TargetObj::GetHost() const { return this->host.as<Target>(); }

@@ -75,8 +75,7 @@ def _reference(operation, x):
 
 
 def _run(kernel, arrays, expected, output=0, atol=1e-3, rtol=1e-7, target="cuda"):
-    with tvm_tirx.target.Target(target):
-        module = tvm_tirx.compile(kernel, target=target, pipeline="tirx")
+    module = tvm_tirx.compile(kernel, target=target, pipeline="tirx")
 
     def check():
         args = [tvm_tirx.runtime.tensor(a, tvm_tirx.cuda()) for a in arrays]
@@ -375,34 +374,33 @@ def test_unary_op_local(input, op_type, src_dtype, dst_dtype):
                         ] = res[j, i * 2 + vec]
 
     target = tvm_tirx.target.Target("cuda")
-    with target:
-        mod = tvm_tirx.IRModule({"main": test_unary})
-        mod = tvm_tirx.compile(mod, target=target, pipeline="tirx")
+    mod = tvm_tirx.IRModule({"main": test_unary})
+    mod = tvm_tirx.compile(mod, target=target, pipeline="tirx")
 
-        np.random.seed(0)
-        A_np = np.abs(np.random.rand(*g_shape_a).astype(src_dtype)) + 0.1
-        B_np = np.zeros(g_shape_b, dtype=dst_dtype)
+    np.random.seed(0)
+    A_np = np.abs(np.random.rand(*g_shape_a).astype(src_dtype)) + 0.1
+    B_np = np.zeros(g_shape_b, dtype=dst_dtype)
 
-        # find ref result
-        if op_type == "reciprocal":
-            B_ref = (1 / A_np).astype(dst_dtype)
-        elif op_type == "exp":
-            B_ref = np.exp(A_np).astype(dst_dtype)
-        elif op_type == "exp2":
-            B_ref = np.exp2(A_np).astype(dst_dtype)
-        elif op_type == "log2":
-            B_ref = np.log2(A_np).astype(dst_dtype)
-        else:
-            raise ValueError(f"op_type={op_type} is not supported")
+    # find ref result
+    if op_type == "reciprocal":
+        B_ref = (1 / A_np).astype(dst_dtype)
+    elif op_type == "exp":
+        B_ref = np.exp(A_np).astype(dst_dtype)
+    elif op_type == "exp2":
+        B_ref = np.exp2(A_np).astype(dst_dtype)
+    elif op_type == "log2":
+        B_ref = np.log2(A_np).astype(dst_dtype)
+    else:
+        raise ValueError(f"op_type={op_type} is not supported")
 
-        def run_and_check():
-            dev = tvm_tirx.cuda(device_id)
-            A = tvm_tirx.runtime.tensor(A_np, dev)
-            B = tvm_tirx.runtime.tensor(B_np, dev)
-            mod(A, B)
-            tvm_tirx.testing.assert_allclose(B_ref, B.numpy(), atol=1e-2, rtol=1e-2)
+    def run_and_check():
+        dev = tvm_tirx.cuda(device_id)
+        A = tvm_tirx.runtime.tensor(A_np, dev)
+        B = tvm_tirx.runtime.tensor(B_np, dev)
+        mod(A, B)
+        tvm_tirx.testing.assert_allclose(B_ref, B.numpy(), atol=1e-2, rtol=1e-2)
 
-        tvm_tirx.testing.run_with_gpu_lock(run_and_check)
+    tvm_tirx.testing.run_with_gpu_lock(run_and_check)
 
 
 @pytest.mark.parametrize(
@@ -564,25 +562,24 @@ def test_unary_op_local_with_bias_scale(input, op_type, bias_type, src_dtype, ds
         return A_ref.astype(dst_dtype)
 
     target = tvm_tirx.target.Target("cuda")
-    with target:
-        np.random.seed(0)
-        A_np = np.random.rand(*g_shape_a).astype(src_dtype)
-        bias_np = np.random.rand(*g_shape_bias).astype(src_dtype)
-        B_np = np.zeros(g_shape_b, dtype=dst_dtype)
-        mod = tvm_tirx.IRModule({"main": test_unary_with_bias})
-        mod = tvm_tirx.compile(mod, target=target, pipeline="tirx")
-        B_ref = get_ref(A_np, bias_np)
-        atol = 1e-3 if src_dtype == dst_dtype else 2e-2
+    np.random.seed(0)
+    A_np = np.random.rand(*g_shape_a).astype(src_dtype)
+    bias_np = np.random.rand(*g_shape_bias).astype(src_dtype)
+    B_np = np.zeros(g_shape_b, dtype=dst_dtype)
+    mod = tvm_tirx.IRModule({"main": test_unary_with_bias})
+    mod = tvm_tirx.compile(mod, target=target, pipeline="tirx")
+    B_ref = get_ref(A_np, bias_np)
+    atol = 1e-3 if src_dtype == dst_dtype else 2e-2
 
-        def run_and_check():
-            dev = tvm_tirx.cuda(device_id)
-            A = tvm_tirx.runtime.tensor(A_np, dev)
-            bias = tvm_tirx.runtime.tensor(bias_np, dev)
-            B = tvm_tirx.runtime.tensor(B_np, dev)
-            mod(A, B, bias)
-            tvm_tirx.testing.assert_allclose(B_ref, B.numpy(), atol=atol)
+    def run_and_check():
+        dev = tvm_tirx.cuda(device_id)
+        A = tvm_tirx.runtime.tensor(A_np, dev)
+        bias = tvm_tirx.runtime.tensor(bias_np, dev)
+        B = tvm_tirx.runtime.tensor(B_np, dev)
+        mod(A, B, bias)
+        tvm_tirx.testing.assert_allclose(B_ref, B.numpy(), atol=atol)
 
-        tvm_tirx.testing.run_with_gpu_lock(run_and_check)
+    tvm_tirx.testing.run_with_gpu_lock(run_and_check)
 
 
 @pytest.mark.gpu
@@ -620,29 +617,28 @@ def test_unary_op_local_thread_wise(op_type, dtype):
         )
 
     target = tvm_tirx.target.Target("cuda")
-    with target:
-        np.random.seed(0)
-        A_np = np.abs(np.random.rand(*shape).astype(dtype)) + 0.1
-        mod = tvm_tirx.IRModule({"main": kernel})
-        mod = tvm_tirx.compile(mod, target=target, pipeline="tirx")
-        if op_type == "zero":
-            A_ref = np.zeros_like(A_np)
-        elif op_type == "sqrt":
-            A_ref = np.sqrt(A_np)
-        elif op_type == "reciprocal":
-            A_ref = (1.0 / A_np).astype(dtype)
-        elif op_type == "exp":
-            A_ref = np.exp(A_np)
-        elif op_type == "silu":
-            A_ref = (A_np / (1.0 + np.exp(-A_np.astype("float32")))).astype(dtype)
+    np.random.seed(0)
+    A_np = np.abs(np.random.rand(*shape).astype(dtype)) + 0.1
+    mod = tvm_tirx.IRModule({"main": kernel})
+    mod = tvm_tirx.compile(mod, target=target, pipeline="tirx")
+    if op_type == "zero":
+        A_ref = np.zeros_like(A_np)
+    elif op_type == "sqrt":
+        A_ref = np.sqrt(A_np)
+    elif op_type == "reciprocal":
+        A_ref = (1.0 / A_np).astype(dtype)
+    elif op_type == "exp":
+        A_ref = np.exp(A_np)
+    elif op_type == "silu":
+        A_ref = (A_np / (1.0 + np.exp(-A_np.astype("float32")))).astype(dtype)
 
-        def run_and_check():
-            dev = tvm_tirx.cuda(0)
-            A = tvm_tirx.runtime.tensor(A_np, dev)
-            mod(A)
-            tvm_tirx.testing.assert_allclose(A_ref, A.numpy(), atol=1e-2, rtol=1e-2)
+    def run_and_check():
+        dev = tvm_tirx.cuda(0)
+        A = tvm_tirx.runtime.tensor(A_np, dev)
+        mod(A)
+        tvm_tirx.testing.assert_allclose(A_ref, A.numpy(), atol=1e-2, rtol=1e-2)
 
-        tvm_tirx.testing.run_with_gpu_lock(run_and_check)
+    tvm_tirx.testing.run_with_gpu_lock(run_and_check)
 
 
 def test_unary_exp_f16_shared_scalar_fallback_dispatch():

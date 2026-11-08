@@ -18,8 +18,8 @@
  */
 
 //! The LLVM backend. Queries of LLVM intrinsics, the host CPU and the CPUs and features of LLVM
-//! targets, which `libtvm_tirx_llvm_backend` registers when it is loaded; a query given no target
-//! uses the current one.
+//! targets, which `libtvm_tirx_llvm_backend` registers when it is loaded. Target-dependent
+//! queries require an explicit target.
 
 // tvm-ffi-stubgen(file): mod(missing_docs = allow)
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
@@ -84,24 +84,24 @@ pub fn get_targets() -> Result<Array<String>> {
 }
 
 /// Return the CPUs of the `-mtriple` of `target` (`codegen.llvm_get_cpu_archlist`).
-pub fn get_cpu_archlist(target: Option<&Target>) -> Result<Array<String>> {
+pub fn get_cpu_archlist(target: &Target) -> Result<Array<String>> {
     tvm_ffi::Function::get_global("codegen.llvm_get_cpu_archlist")?
-        .call_tuple((target.cloned(),))?
+        .call_tuple((target,))?
         .try_into()
 }
 
 /// Return the CPU features of the `-mtriple`, `-mcpu` and `-mattr` of `target`
 /// (`codegen.llvm_get_cpu_features`).
-pub fn get_cpu_features(target: Option<&Target>) -> Result<Map<String, String>> {
+pub fn get_cpu_features(target: &Target) -> Result<Map<String, String>> {
     tvm_ffi::Function::get_global("codegen.llvm_get_cpu_features")?
-        .call_tuple((target.cloned(),))?
+        .call_tuple((target,))?
         .try_into()
 }
 
 /// Return whether the CPU of `target` has the feature `feature` (`codegen.llvm_cpu_has_feature`).
-pub fn cpu_has_feature(feature: &str, target: Option<&Target>) -> Result<bool> {
+pub fn cpu_has_feature(feature: &str, target: &Target) -> Result<bool> {
     tvm_ffi::Function::get_global("codegen.llvm_cpu_has_feature")?
-        .call_tuple((String::from(feature), target.cloned()))?
+        .call_tuple((String::from(feature), target))?
         .try_into()
 }
 
@@ -120,12 +120,12 @@ pub fn cpu_has_feature(feature: &str, target: Option<&Target>) -> Result<bool> {
 /// let _backend = Module::load_from_file(backend)?;
 /// let cpu = llvm::get_system_cpu()?;
 /// let host = Target::new(&format!(r#"{{"kind": "llvm", "mcpu": "{}"}}"#, cpu.as_str()))?;
-/// assert!(llvm::get_vector_width(Some(&host))? > 0);
+/// assert!(llvm::get_vector_width(&host)? > 0);
 /// # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
 /// ```
-pub fn get_vector_width(target: Option<&Target>) -> Result<i32> {
+pub fn get_vector_width(target: &Target) -> Result<i32> {
     tvm_ffi::Function::get_global("codegen.llvm_get_vector_width")?
-        .call_tuple((target.cloned(),))?
+        .call_tuple((target,))?
         .try_into()
 }
 

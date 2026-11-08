@@ -443,10 +443,13 @@ def _build_transpose_numeric(transpose_A, transpose_B, dtype="float16"):
 
 
 def _lower(func):
-    with tvm_tirx.target.Target("cuda"):
-        return tvm_tirx.ir.transform.Sequential(
-            [tvm_tirx.tirx.transform.TileDispatch(), tvm_tirx.tirx.transform.LowerTensorLayouts()]
-        )(tvm_tirx.IRModule({"main": func}))
+    return tvm_tirx.ir.transform.Sequential(
+        [tvm_tirx.tirx.transform.TileDispatch(), tvm_tirx.tirx.transform.LowerTensorLayouts()]
+    )(
+        tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(
+            tvm_tirx.IRModule({"main": func})
+        )
+    )
 
 
 def test_cuda_mma_sync_is_a_registered_instruction():
@@ -580,8 +583,7 @@ def test_cuda_gemm_mma_numerical(dtype):
             rM = s // 2
             D_g[lane // 4 + 8 * rM, 2 * (lane % 4) + rN] = D_reg[s]
 
-    with tvm_tirx.target.Target("cuda"):
-        mod = tvm_tirx.compile(tvm_tirx.IRModule({"main": gemm}), target="cuda", pipeline="tirx")
+    mod = tvm_tirx.compile(tvm_tirx.IRModule({"main": gemm}), target="cuda", pipeline="tirx")
 
     np.random.seed(0)
     A_np = np.random.uniform(-1, 1, (16, 16)).astype(np.float32)
@@ -639,8 +641,7 @@ def test_cuda_gemm_mma_numerical_tiled(dtype, beta, Mt, Nt, Kt, kinst):
         np_dtype = np.float16
 
     func, M, N, K = _build_tiled_numeric(Mt, Nt, Kt, kinst, beta, dtype)
-    with tvm_tirx.target.Target("cuda"):
-        mod = tvm_tirx.compile(tvm_tirx.IRModule({"main": func}), target="cuda", pipeline="tirx")
+    mod = tvm_tirx.compile(tvm_tirx.IRModule({"main": func}), target="cuda", pipeline="tirx")
 
     np.random.seed(0)
     A_np = np.random.uniform(-1, 1, (M, K)).astype(np.float32)
@@ -679,8 +680,7 @@ def test_cuda_gemm_mma_numerical_transpose(transpose_A, transpose_B, dtype):
         np_dtype = np.float16
 
     func = _build_transpose_numeric(transpose_A, transpose_B, dtype)
-    with tvm_tirx.target.Target("cuda"):
-        mod = tvm_tirx.compile(tvm_tirx.IRModule({"main": func}), target="cuda", pipeline="tirx")
+    mod = tvm_tirx.compile(tvm_tirx.IRModule({"main": func}), target="cuda", pipeline="tirx")
 
     np.random.seed(0)
     A_log = np.random.uniform(-1, 1, (16, 16)).astype(np.float32)  # logical A[M, K]
@@ -742,12 +742,11 @@ def test_cuda_gemm_mma_codegen_issue_count(Mt, Nt, Kt, kinst):
     """Full pipeline (UnrollLoop + CUDA codegen) emits one mma per (Mt, Nt, Kt)
     tile; K-tiles accumulate in place, so D is cleared once per output tile."""
     target = tvm_tirx.target.Target({"kind": "cuda", "arch": "sm_80"})
-    with target:
-        mod = tvm_tirx.compile(
-            tvm_tirx.IRModule({"main": _build_tiled(Mt, Nt, Kt, kinst, store=True)}),
-            target=target,
-            pipeline="tirx",
-        )
+    mod = tvm_tirx.compile(
+        tvm_tirx.IRModule({"main": _build_tiled(Mt, Nt, Kt, kinst, store=True)}),
+        target=target,
+        pipeline="tirx",
+    )
     src = mod.mod.imports[0].inspect_source()
     assert f"mma.sync.aligned.m16n8k{kinst}" in src
     # mma is emitted as one __device__ helper, invoked once per tile.
@@ -777,12 +776,11 @@ def test_cuda_gemm_mma_lowers_transpose(transpose_A, transpose_B):
 def test_cuda_gemm_mma_codegen_transpose(transpose_A, transpose_B):
     """Every orientation codegens to a valid m16n8k16 kernel."""
     target = tvm_tirx.target.Target({"kind": "cuda", "arch": "sm_80"})
-    with target:
-        mod = tvm_tirx.compile(
-            tvm_tirx.IRModule({"main": _build_transpose(transpose_A, transpose_B, store=True)}),
-            target=target,
-            pipeline="tirx",
-        )
+    mod = tvm_tirx.compile(
+        tvm_tirx.IRModule({"main": _build_transpose(transpose_A, transpose_B, store=True)}),
+        target=target,
+        pipeline="tirx",
+    )
     assert "mma.sync.aligned.m16n8k16" in mod.mod.imports[0].inspect_source()
 
 

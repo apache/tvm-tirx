@@ -34,6 +34,7 @@
 #include <tvm/ffi/string.h>
 #include <tvm/ir/expr.h>
 #include <tvm/ir/stmt.h>
+#include <tvm/target/target.h>
 
 namespace tvm {
 namespace tirx {
@@ -42,14 +43,14 @@ class StructuralVisitorWithConstraintContextObj;
 class StructuralMutatorWithConstraintContextObj;
 
 /*!
- * \brief The intrinsic lowering function for given op.
+ * \brief The intrinsic lowering function for given op, receiving its compilation target.
  */
-using FLowerIntrinsic = ffi::TypedFunction<PrimExpr(PrimExpr)>;
+using FLowerIntrinsic = ffi::TypedFunction<PrimExpr(PrimExpr, Target)>;
 
 /*!
- * \brief The legalization function for given tirx op.
+ * \brief The legalization function for given tirx op, receiving its compilation target.
  */
-using FLegalize = ffi::TypedFunction<PrimExpr(PrimExpr)>;
+using FLegalize = ffi::TypedFunction<PrimExpr(PrimExpr, Target)>;
 
 namespace op_attr {
 /*!

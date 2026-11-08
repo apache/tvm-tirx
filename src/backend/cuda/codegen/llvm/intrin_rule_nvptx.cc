@@ -34,7 +34,7 @@
 namespace tvm {
 namespace codegen {
 
-inline PrimExpr DispatchPureExternLibDevice(const PrimExpr& e) {
+inline PrimExpr DispatchPureExternLibDevice(const PrimExpr& e, const Target& target) {
   using namespace tirx;
   const CallObj* call = e.as<CallObj>();
   TVM_FFI_ICHECK(call != nullptr);
@@ -69,7 +69,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
       .set_attr<FLowerIntrinsic>("nvptx.FLowerIntrinsic", DispatchPureExternLibDevice);
 
   OpDef("prim.round")
-      .set_attr<FLowerIntrinsic>("nvptx.FLowerIntrinsic", [](const PrimExpr& e) -> PrimExpr {
+      .set_attr<FLowerIntrinsic>("nvptx.FLowerIntrinsic", [](const PrimExpr& e, const Target& target) -> PrimExpr {
         // Redirect to nearbyint (ties-to-even) to match constant-folding semantics.
         using namespace tirx;
         const CallObj* call = e.as<CallObj>();
@@ -77,7 +77,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
         static const Op nearbyint_op = Op::Get("prim.nearbyint");
         auto new_call = Call(call->ty.as_or_throw<PrimType>(), nearbyint_op, call->args)
                             .as_or_throw<PrimExpr>();
-        return DispatchPureExternLibDevice(new_call);
+        return DispatchPureExternLibDevice(new_call, target);
       });
 
   OpDef("prim.nearbyint")

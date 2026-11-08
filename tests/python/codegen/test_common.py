@@ -42,8 +42,7 @@ def test_tensor_store_predicate_not_supported():
 
     err_msg = "Predicated buffer store is not supported."
     with pytest.raises(RuntimeError, match=err_msg):
-        with tvm_tirx.target.Target(target):
-            tvm_tirx.compile(func)
+        tvm_tirx.compile(func, target=tvm_tirx.target.Target(target))
 
 
 @pytest.mark.parametrize(
@@ -77,8 +76,7 @@ def test_tensor_store_predicate_not_supported_gpu(target):
 
     err_msg = "Predicated buffer store is not supported."
     with pytest.raises(RuntimeError, match=err_msg):
-        with tvm_tirx.target.Target(target):
-            tvm_tirx.compile(func)
+        tvm_tirx.compile(func, target=tvm_tirx.target.Target(target))
 
 
 def test_buffer_load_predicate_not_supported():
@@ -97,8 +95,7 @@ def test_buffer_load_predicate_not_supported():
 
     err_msg = "Predicated buffer load is not supported."
     with pytest.raises(RuntimeError, match=err_msg):
-        with tvm_tirx.target.Target(target):
-            tvm_tirx.compile(func)
+        tvm_tirx.compile(func, target=tvm_tirx.target.Target(target))
 
 
 @pytest.mark.parametrize(
@@ -128,8 +125,7 @@ def test_buffer_load_predicate_not_supported_gpu(target):
 
     err_msg = "Predicated buffer load is not supported."
     with pytest.raises(RuntimeError, match=err_msg):
-        with tvm_tirx.target.Target(target):
-            tvm_tirx.compile(func)
+        tvm_tirx.compile(func, target=tvm_tirx.target.Target(target))
 
 
 @pytest.mark.parametrize(

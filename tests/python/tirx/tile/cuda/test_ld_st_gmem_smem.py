@@ -79,9 +79,8 @@ def test_gmem_smem_roundtrip(scope, n_threads, shape, dtype):
     kernel = _build_kernel(scope, n_threads, shape, dtype)
 
     target = tvm_tirx.target.Target("cuda")
-    with target:
-        mod = tvm_tirx.IRModule({"main": kernel})
-        compiled = tvm_tirx.compile(mod, target=target, pipeline="tirx")
+    mod = tvm_tirx.IRModule({"main": kernel})
+    compiled = tvm_tirx.compile(mod, target=target, pipeline="tirx")
 
     np_dtype = tvm_tirx.testing.np_dtype_from_str(dtype)
     A_np = tvm_tirx.testing.generate_random_array(dtype, shape)
@@ -200,25 +199,24 @@ def test_copy_g2s_s2g(task, dtype, scope):
 
     np_dtype = tvm_tirx.testing.np_dtype_from_str(dtype)
     target = tvm_tirx.target.Target("cuda")
-    with target:
-        mod = tvm_tirx.IRModule({"main": copy_sync})
-        mod = tvm_tirx.compile(mod, target=target, pipeline="tirx")
+    mod = tvm_tirx.IRModule({"main": copy_sync})
+    mod = tvm_tirx.compile(mod, target=target, pipeline="tirx")
 
-        np.random.seed(0)
-        A_np = tvm_tirx.testing.generate_random_array(dtype, g_shape)
-        B_np = np.zeros(g_shape, dtype=np_dtype)
+    np.random.seed(0)
+    A_np = tvm_tirx.testing.generate_random_array(dtype, g_shape)
+    B_np = np.zeros(g_shape, dtype=np_dtype)
 
-        B_ref = B_np.copy()
-        B_ref[r_gmem] = A_np[r_gmem]
+    B_ref = B_np.copy()
+    B_ref[r_gmem] = A_np[r_gmem]
 
-        def run_and_check():
-            dev = tvm_tirx.cuda(0)
-            A = tvm_tirx.runtime.tensor(A_np, dev)
-            B = tvm_tirx.runtime.tensor(B_np, dev)
-            mod(A, B)
-            np.testing.assert_allclose(B_ref, B.numpy())
+    def run_and_check():
+        dev = tvm_tirx.cuda(0)
+        A = tvm_tirx.runtime.tensor(A_np, dev)
+        B = tvm_tirx.runtime.tensor(B_np, dev)
+        mod(A, B)
+        np.testing.assert_allclose(B_ref, B.numpy())
 
-        tvm_tirx.testing.run_with_gpu_lock(run_and_check)
+    tvm_tirx.testing.run_with_gpu_lock(run_and_check)
 
 
 def test_swizzled_smem_emit_must_be_swizzle_aware():
@@ -227,8 +225,7 @@ def test_swizzled_smem_emit_must_be_swizzle_aware():
     sl = ComposeLayout(3, 3, 3, TileLayout(S[shape]))
     kernel = _explicit_staging_kernel(shape, shape, gl, sl, 0, "uint32", 4)
     target = tvm_tirx.target.Target({"kind": "cuda", "arch": "sm_90"})
-    with target:
-        ex = tvm_tirx.compile(kernel, target=target)
+    ex = tvm_tirx.compile(kernel, target=target)
     source = ex.mod.imports[0].inspect_source()
     assert "^" in source
     assert "st.shared.v4.b32" in source
@@ -278,8 +275,7 @@ def _check_explicit_staging(g_shape, s_shape, g_layout, s_layout, start, word_dt
         g_shape, s_shape, g_layout, s_layout, start, word_dtype, words
     )
     target = tvm_tirx.target.Target("cuda")
-    with target:
-        ex = tvm_tirx.compile(kernel, target=target)
+    ex = tvm_tirx.compile(kernel, target=target)
     size = int(g_layout.span())
     source = (np.arange(size, dtype="float32") % 113 + 0.5).astype("float16")
     expected = np.empty(s_shape, "float16")
@@ -298,8 +294,10 @@ def _reject_explicit_staging(g_shape, s_shape, g_layout, s_layout, start, word_d
         g_shape, s_shape, g_layout, s_layout, start, word_dtype, words
     )
     target = tvm_tirx.target.Target("cuda")
-    with target, pytest.raises(RuntimeError, match=r"consecutive elements|byte[- ]aligned"):
-        tvm_tirx.tirx.transform.TileDispatch()(tvm_tirx.IRModule({"main": kernel}))
+    with pytest.raises(RuntimeError, match=r"consecutive elements|byte[- ]aligned"):
+        tvm_tirx.tirx.transform.TileDispatch()(
+            tvm_tirx.tirx.transform.BindTarget(target)(tvm_tirx.IRModule({"main": kernel}))
+        )
 
 
 @pytest.mark.gpu

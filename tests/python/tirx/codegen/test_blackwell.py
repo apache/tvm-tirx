@@ -124,11 +124,10 @@ def test_tmem_alloc_dealloc_relinquish():
     # fmt: on
 
     target = tvm_tirx.target.Target("cuda")
-    with target:
-        src, _ = _get_source(test_tmem)
-        assert f"tcgen05.alloc.cta_group::{cta_group}.sync.aligned.shared::cta.b32" in src
-        assert f"tcgen05.dealloc.cta_group::{cta_group}.sync.aligned.b32" in src
-        assert f"tcgen05.relinquish_alloc_permit.cta_group::{cta_group}.sync.aligned" in src
+    src, _ = _get_source(test_tmem)
+    assert f"tcgen05.alloc.cta_group::{cta_group}.sync.aligned.shared::cta.b32" in src
+    assert f"tcgen05.dealloc.cta_group::{cta_group}.sync.aligned.b32" in src
+    assert f"tcgen05.relinquish_alloc_permit.cta_group::{cta_group}.sync.aligned" in src
 
 
 @pytest.mark.gpu
@@ -150,11 +149,10 @@ def test_mbarrier_try_wait_once_codegen():
     # fmt: on
 
     target = tvm_tirx.target.Target("cuda")
-    with target:
-        src, _ = _get_source(test_try_wait_once)
-        assert "mbarrier.try_wait.parity.shared::cta.b64 pd0, [%1], %2, %3;" in src
-        assert "selp.b32 %0, 1, 0, pd0;" in src
-        assert "mbarrier.try_wait.parity.shared::cta.b64 pd0, [%1], %2;" in src
+    src, _ = _get_source(test_try_wait_once)
+    assert "mbarrier.try_wait.parity.shared::cta.b64 pd0, [%1], %2, %3;" in src
+    assert "selp.b32 %0, 1, 0, pd0;" in src
+    assert "mbarrier.try_wait.parity.shared::cta.b64 pd0, [%1], %2;" in src
 
 
 @pytest.mark.gpu
@@ -180,13 +178,12 @@ def test_mbarrier_remote_view_codegen():
     # hence different entries.
     _assert_remote_mbarrier_ir(test_remote_view, "tirx.ptx.mbarrier_arrive_nocount")
     _assert_remote_mbarrier_ir(test_remote_view, "tirx.ptx.mbarrier_arrive")
-    with tvm_tirx.target.Target("cuda"):
-        src, _ = _get_source(test_remote_view)
-        assert "tvm_builtin_ptx_mapa_u64" in src
-        assert "tvm_builtin_ptx_mbarrier_arrive_nocount_arrive_shared__cluster_b64" in src
-        assert "tvm_builtin_ptx_mbarrier_arrive_arrive_shared__cluster_b64" in src
-        assert "mbarrier.arrive.shared::cluster.b64" in src
-        assert 'asm volatile("mbarrier.arrive.shared.b64' not in src
+    src, _ = _get_source(test_remote_view)
+    assert "tvm_builtin_ptx_mapa_u64" in src
+    assert "tvm_builtin_ptx_mbarrier_arrive_nocount_arrive_shared__cluster_b64" in src
+    assert "tvm_builtin_ptx_mbarrier_arrive_arrive_shared__cluster_b64" in src
+    assert "mbarrier.arrive.shared::cluster.b64" in src
+    assert 'asm volatile("mbarrier.arrive.shared.b64' not in src
 
 
 @pytest.mark.gpu
@@ -217,9 +214,8 @@ def test_mbarrier_local_arrive_forwards_predicate_and_count():
     assert call.args[1].value == 2
     assert call.args[-1].value == "pred"
 
-    with tvm_tirx.target.Target("cuda"):
-        src, _ = _get_source(test_local_arrive)
-        assert "@p mbarrier.arrive.shared.b64 _, [%0], %1;" in src
+    src, _ = _get_source(test_local_arrive)
+    assert "@p mbarrier.arrive.shared.b64 _, [%0], %1;" in src
 
 
 @pytest.mark.gpu
@@ -239,13 +235,10 @@ def test_tma_mbarrier_remote_view_codegen():
     # fmt: on
 
     _assert_remote_mbarrier_ir(test_remote_view, "tirx.ptx.mbarrier_arrive_expect_tx")
-    with tvm_tirx.target.Target("cuda"):
-        src, _ = _get_source(test_remote_view)
-        assert (
-            "tvm_builtin_ptx_mbarrier_arrive_expect_tx_arrive_expect_tx_shared__cluster_b64" in src
-        )
-        assert "mbarrier.arrive.expect_tx.shared::cluster.b64" in src
-        assert 'asm volatile("mbarrier.arrive.expect_tx.shared.b64' not in src
+    src, _ = _get_source(test_remote_view)
+    assert "tvm_builtin_ptx_mbarrier_arrive_expect_tx_arrive_expect_tx_shared__cluster_b64" in src
+    assert "mbarrier.arrive.expect_tx.shared::cluster.b64" in src
+    assert 'asm volatile("mbarrier.arrive.expect_tx.shared.b64' not in src
 
 
 def test_mbarrier_remote_view_rejects_invalid_operations():
@@ -322,10 +315,9 @@ def test_fence_before_after_thread_sync():
     # fmt: on
 
     target = tvm_tirx.target.Target("cuda")
-    with target:
-        src, _ = _get_source(test_fence)
-        assert "tcgen05.fence::after_thread_sync" in src
-        assert "tcgen05.fence::before_thread_sync" in src
+    src, _ = _get_source(test_fence)
+    assert "tcgen05.fence::after_thread_sync" in src
+    assert "tcgen05.fence::before_thread_sync" in src
 
 
 @pytest.mark.gpu
@@ -385,10 +377,9 @@ def test_tcgen05_ld_st_roundtrip():
     # fmt: on
 
     target = tvm_tirx.target.Target("cuda")
-    with target:
-        src, mod = _get_source(test_ld_st)
-        assert "tcgen05.ld.sync.aligned.32x32b.x1.b32" in src
-        assert "tcgen05.st.sync.aligned.32x32b.x1.b32" in src
+    src, mod = _get_source(test_ld_st)
+    assert "tcgen05.ld.sync.aligned.32x32b.x1.b32" in src
+    assert "tcgen05.st.sync.aligned.32x32b.x1.b32" in src
 
     def run_and_check():
         dev = tvm_tirx.cuda(0)
@@ -507,10 +498,9 @@ def test_tcgen05_cp_ld_roundtrip():
     # fmt: on
 
     target = tvm_tirx.target.Target("cuda")
-    with target:
-        src, mod = _get_source(test_cp_ld)
-        assert "tcgen05.cp.cta_group::1.128x256b" in src
-        assert "tcgen05.ld.sync.aligned.32x32b.x1.b32" in src
+    src, mod = _get_source(test_cp_ld)
+    assert "tcgen05.cp.cta_group::1.128x256b" in src
+    assert "tcgen05.ld.sync.aligned.32x32b.x1.b32" in src
 
     def run_and_check():
         dev = tvm_tirx.cuda(0)
@@ -706,13 +696,12 @@ def test_tcgen05_mma_ss_no_tma(swizzle):
 
     torch.manual_seed(42)
     target = tvm_tirx.target.Target("cuda")
-    with target:
-        src, mod = _get_source(test_mma_ss_no_tma)
-        print(src)
-        assert "tcgen05.mma.cta_group::1.kind::f16" in src
-        assert "tcgen05.commit.cta_group::1.mbarrier::arrive::one.shared::cluster.b64" in src
-        assert "tcgen05.ld.sync.aligned.32x32b.x1.b32" in src
-        assert "tcgen05.wait::ld.sync.aligned" in src
+    src, mod = _get_source(test_mma_ss_no_tma)
+    print(src)
+    assert "tcgen05.mma.cta_group::1.kind::f16" in src
+    assert "tcgen05.commit.cta_group::1.mbarrier::arrive::one.shared::cluster.b64" in src
+    assert "tcgen05.ld.sync.aligned.32x32b.x1.b32" in src
+    assert "tcgen05.wait::ld.sync.aligned" in src
 
     def run_and_check():
         dev = tvm_tirx.cuda(0)
@@ -762,13 +751,12 @@ def test_tcgen05_mma_pred_codegen():
     # fmt: on
 
     target = tvm_tirx.target.Target("cuda")
-    with target:
-        src, _ = _get_source(test_mma_pred)
-        assert "tvm_builtin_ptx_tcgen05_mma_ss_mma_cta_group__1_kind__f16_pred" in src
-        # enable-input-d converts in via ps0, the @p guard via p -- two
-        # independent setp conversions inside one block.
-        assert "setp.ne.b32 ps0" in src
-        assert "@p tcgen05.mma.cta_group::1.kind::f16" in src
+    src, _ = _get_source(test_mma_pred)
+    assert "tvm_builtin_ptx_tcgen05_mma_ss_mma_cta_group__1_kind__f16_pred" in src
+    # enable-input-d converts in via ps0, the @p guard via p -- two
+    # independent setp conversions inside one block.
+    assert "setp.ne.b32 ps0" in src
+    assert "@p tcgen05.mma.cta_group::1.kind::f16" in src
 
 
 if __name__ == "__main__":

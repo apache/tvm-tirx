@@ -143,28 +143,27 @@ def test_copy_g2s_s2g_cta_vec_load(task, dtype):
 
     np_dtype = tvm_tirx.testing.np_dtype_from_str(dtype)
     target = tvm_tirx.target.Target("cuda")
-    with target:
-        mod = tvm_tirx.IRModule({"main": copy_async})
-        mod = tvm_tirx.ir.transform.Sequential(
-            [tvm_tirx.tirx.transform.TileDispatch(), tvm_tirx.tirx.transform.LowerTensorLayouts()]
-        )(mod)
-        mod = tvm_tirx.compile(mod, target=target, pipeline="tirx")
+    mod = tvm_tirx.IRModule({"main": copy_async})
+    mod = tvm_tirx.ir.transform.Sequential(
+        [tvm_tirx.tirx.transform.TileDispatch(), tvm_tirx.tirx.transform.LowerTensorLayouts()]
+    )(tvm_tirx.tirx.transform.BindTarget(target)(mod))
+    mod = tvm_tirx.compile(mod, target=target, pipeline="tirx")
 
-        np.random.seed(0)
-        A_np = np.random.rand(*g_shape).astype(np_dtype)
-        B_np = np.zeros(g_shape, dtype=np_dtype)
+    np.random.seed(0)
+    A_np = np.random.rand(*g_shape).astype(np_dtype)
+    B_np = np.zeros(g_shape, dtype=np_dtype)
 
-        B_ref = B_np.copy()
-        B_ref[tuple(r_gmem)] = A_np[tuple(r_gmem)]
+    B_ref = B_np.copy()
+    B_ref[tuple(r_gmem)] = A_np[tuple(r_gmem)]
 
-        def run_and_check():
-            dev = tvm_tirx.cuda(0)
-            A = tvm_tirx.runtime.tensor(A_np, dev)
-            B = tvm_tirx.runtime.tensor(B_np, dev)
-            mod(A, B)
-            np.testing.assert_allclose(B_ref, B.numpy())
+    def run_and_check():
+        dev = tvm_tirx.cuda(0)
+        A = tvm_tirx.runtime.tensor(A_np, dev)
+        B = tvm_tirx.runtime.tensor(B_np, dev)
+        mod(A, B)
+        np.testing.assert_allclose(B_ref, B.numpy())
 
-        tvm_tirx.testing.run_with_gpu_lock(run_and_check)
+    tvm_tirx.testing.run_with_gpu_lock(run_and_check)
 
 
 def test_copy_ldgsts_predicate_zero_fill_codegen():
@@ -187,10 +186,7 @@ def test_copy_ldgsts_predicate_zero_fill_codegen():
         )
 
     target = tvm_tirx.target.Target({"kind": "cuda", "arch": "sm_100a"})
-    with target:
-        mod = tvm_tirx.compile(
-            tvm_tirx.IRModule({"main": copy_async}), target=target, pipeline="tirx"
-        )
+    mod = tvm_tirx.compile(tvm_tirx.IRModule({"main": copy_async}), target=target, pipeline="tirx")
     src = mod.mod.imports[0].inspect_source()
     assert "cp.async.cg.shared.global.L2::128B" in src
     # the src-size arity: four operands, the last the zero-fill boundary

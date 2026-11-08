@@ -48,10 +48,10 @@ class IntrinInjecter : public StmtExprMutatorWithConstraintContext {
   using StmtExprMutatorWithConstraintContext::Mutate;
   using StmtExprMutatorWithConstraintContext::Mutate_;
 
-  using FLowerGeneral = ffi::TypedFunction<PrimExpr(PrimExpr)>;
+  using FLowerGeneral = ffi::TypedFunction<PrimExpr(PrimExpr, Target)>;
 
   IntrinInjecter(const sym::ConstraintContext& context, const Target& tgt, bool enable_fast_math)
-      : StmtExprMutatorWithConstraintContext(context) {
+      : StmtExprMutatorWithConstraintContext(context), target_(tgt) {
     std::string target = tgt->kind->name;
     ffi::String mtriple = tgt->GetAttr<ffi::String>("mtriple").value_or("");
 
@@ -91,7 +91,7 @@ class IntrinInjecter : public StmtExprMutatorWithConstraintContext {
         for (const auto& f_attr_map : attr_maps_) {
           FLowerGeneral f = f_attr_map.get(op_ref, nullptr);
           if (f != nullptr) {
-            PrimExpr r = f(prim_e.value());
+            PrimExpr r = f(prim_e.value(), target_);
             TVM_FFI_ICHECK(r.defined()) << "intrinsic rule must always return valid Expr";
             if (!r.same_as(prim_e.value())) {
               r = this->Mutate(r, inplace_mode).ValueOrUnchanged(r);
@@ -325,7 +325,8 @@ class IntrinInjecter : public StmtExprMutatorWithConstraintContext {
 
     if (fma_ != nullptr && op->ty.as_or_throw<PrimType>().code() == DLDataTypeCode::kDLFloat) {
       PrimExpr r = fma_(
-          Call(op->ty.as_or_throw<PrimType>(), fma_op(), {lhs, rhs, c}).as_or_throw<PrimExpr>());
+          Call(op->ty.as_or_throw<PrimType>(), fma_op(), {lhs, rhs, c}).as_or_throw<PrimExpr>(),
+          target_);
       if (r.defined()) return this->Mutate(r, InplaceMode::kDisallow).ValueOrUnchanged(r);
     } else {
       if (!lhs.same_as(a) || !rhs.same_as(b)) {
@@ -387,6 +388,7 @@ class IntrinInjecter : public StmtExprMutatorWithConstraintContext {
   }
 
   std::vector<OpAttrMap<FLowerGeneral>> attr_maps_;
+  Target target_;
   FLowerGeneral fma_{nullptr};
   bool support_bitwise_op_{true};
 };

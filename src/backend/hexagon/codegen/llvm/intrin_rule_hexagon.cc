@@ -51,21 +51,14 @@ inline PrimExpr TVMExternCall(const CallObj* call, const std::string& fname) {
 }
 
 template <std::string& tvm_wrapper, unsigned id, int num_sign>
-inline PrimExpr DispatchTVMQHLWrapperFp16(const PrimExpr& e) {
+inline PrimExpr DispatchTVMQHLWrapperFp16(const PrimExpr& e, const Target& target) {
   using namespace tirx;
   const CallObj* call = e.as<CallObj>();
   TVM_FFI_ICHECK(call != nullptr);
   ffi::Array<PrimExpr> new_args;
 #if ENABLE_QHL
-  // Check target for qfloat enablement
-  const auto f = tvm::ffi::Function::GetGlobal("target.TargetCurrent");
-  TVM_FFI_ICHECK(f.has_value()) << "target.TargetCurrent is not registered";
-  const auto ret = (*f)(true);
-  bool useqhl = true;
-  if (auto opt_target = ret.as<Target>()) {
-    const std::string tstring = opt_target.value()->str();
-    useqhl = tstring.find("+hvx-qfloat") != std::string::npos;
-  }
+  // Select QHL from the explicit compilation target.
+  bool useqhl = target->str().find("+hvx-qfloat") != std::string::npos;
 
   // Enable QHL library for FP16 data type
   PrimExpr x = call->args[0].as_or_throw<PrimExpr>();
@@ -110,22 +103,15 @@ TVM_FFI_STATIC_INIT_BLOCK() {
                                  DispatchLLVMPureIntrin<::llvm::Intrinsic::ctpop, 1>);
 
   OpDef("prim.tanh")
-      .set_attr<FLowerIntrinsic>("hexagon.FLowerIntrinsic", [](const PrimExpr& e) {
+      .set_attr<FLowerIntrinsic>("hexagon.FLowerIntrinsic", [](const PrimExpr& e, const Target& target) {
     const CallObj* call = e.as<CallObj>();
     TVM_FFI_ICHECK(call != nullptr);
     PrimExpr x = call->args[0].as_or_throw<PrimExpr>();
     PrimType x_ty = x.ty();
 
 #if ENABLE_QHL
-    // Check target for qfloat enablement
-    const auto f = tvm::ffi::Function::GetGlobal("target.TargetCurrent");
-    TVM_FFI_ICHECK(f.has_value()) << "target.TargetCurrent is not registered";
-    const auto ret = (*f)(true);
-    bool useqhl = true;
-    if (auto opt_target = ret.as<Target>()) {
-      const std::string tstring = opt_target.value()->str();
-      useqhl = tstring.find("+hvx-qfloat") != std::string::npos;
-    }
+    // Select QHL from the explicit compilation target.
+    bool useqhl = target->str().find("+hvx-qfloat") != std::string::npos;
 
     // Enable QHL library for FP16 data type
     if (x_ty.MatchesElementType(DLDataTypeCode::kDLFloat, 16) &&
@@ -149,21 +135,14 @@ TVM_FFI_STATIC_INIT_BLOCK() {
   });
 
   OpDef("prim.tan")
-      .set_attr<FLowerIntrinsic>("hexagon.FLowerIntrinsic", [](const PrimExpr& e) {
+      .set_attr<FLowerIntrinsic>("hexagon.FLowerIntrinsic", [](const PrimExpr& e, const Target& target) {
     const CallObj* call = e.as<CallObj>();
     TVM_FFI_ICHECK(call != nullptr);
     PrimExpr x = call->args[0].as_or_throw<PrimExpr>();
     PrimType x_ty = x.ty();
 #if ENABLE_QHL
-    // Check target for qfloat enablement
-    const auto f = tvm::ffi::Function::GetGlobal("target.TargetCurrent");
-    TVM_FFI_ICHECK(f.has_value()) << "target.TargetCurrent is not registered";
-    const auto ret = (*f)(true);
-    bool useqhl = true;
-    if (auto opt_target = ret.as<Target>()) {
-      const std::string tstring = opt_target.value()->str();
-      useqhl = tstring.find("+hvx-qfloat") != std::string::npos;
-    }
+    // Select QHL from the explicit compilation target.
+    bool useqhl = target->str().find("+hvx-qfloat") != std::string::npos;
 
     // Enable QHL library for FP16 data type
     if (x_ty.MatchesElementType(DLDataTypeCode::kDLFloat, 16) &&
@@ -181,21 +160,14 @@ TVM_FFI_STATIC_INIT_BLOCK() {
                                  DispatchLLVMPureIntrin<::llvm::Intrinsic::nearbyint, 1>);
 
   OpDef("prim.sigmoid")
-      .set_attr<FLowerIntrinsic>("hexagon.FLowerIntrinsic", [](const PrimExpr& e) {
+      .set_attr<FLowerIntrinsic>("hexagon.FLowerIntrinsic", [](const PrimExpr& e, const Target& target) {
     const CallObj* call = e.as<CallObj>();
     TVM_FFI_ICHECK(call != nullptr);
     PrimExpr x = call->args[0].as_or_throw<PrimExpr>();
     PrimType x_ty = x.ty();
 #if ENABLE_QHL
-    // Check target for qfloat enablement
-    const auto f = tvm::ffi::Function::GetGlobal("target.TargetCurrent");
-    TVM_FFI_ICHECK(f.has_value()) << "target.TargetCurrent is not registered";
-    const auto ret = (*f)(true);
-    bool useqhl = true;
-    if (auto opt_target = ret.as<Target>()) {
-      const std::string tstring = opt_target.value()->str();
-      useqhl = tstring.find("+hvx-qfloat") != std::string::npos;
-    }
+    // Select QHL from the explicit compilation target.
+    bool useqhl = target->str().find("+hvx-qfloat") != std::string::npos;
 
     PrimExpr MinBound = tvm::prim::MakeConst(x_ty, -8);
     PrimExpr MaxBound = tvm::prim::MakeConst(x_ty, 8);

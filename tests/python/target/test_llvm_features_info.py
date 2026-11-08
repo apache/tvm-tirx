@@ -92,8 +92,7 @@ def test_target_features(min_llvm_version, llvm_target, cpu_arch, cpu_features, 
     ##
 
     ### with context
-    with target:
-        assert cpu_arch in codegen.llvm.get_cpu_archlist()
+    assert cpu_arch in codegen.llvm.get_cpu_archlist(target=target)
     ### no context but with expicit target
     assert cpu_arch in codegen.llvm.get_cpu_archlist(target)
     # check ffi vs python
@@ -106,8 +105,7 @@ def test_target_features(min_llvm_version, llvm_target, cpu_arch, cpu_features, 
     ##
 
     ### with context
-    with target:
-        assert codegen.llvm.cpu_has_features(cpu_features) == is_supported
+    assert codegen.llvm.cpu_has_features(cpu_features, target=target) == is_supported
     ### no context but with expicit target
     assert codegen.llvm.cpu_has_features(cpu_features, target) == is_supported
     # check ffi vs python

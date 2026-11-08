@@ -112,12 +112,11 @@ def test_cuda_host_bundle_bf16_cluster(tmp_path, *, backend_config):
 
     arch = env.cuda_arch()
     target = tvm_tirx.target.Target({"kind": "cuda", "arch": arch}, host="cuda_host")
-    with target:
-        built = tvm_tirx.compile(
-            tvm_tirx.IRModule({"main": main}),
-            target={**tvm_tirx.target.Target(target).export(), "backend_config": backend_config},
-            pipeline="tirx",
-        ).mod
+    built = tvm_tirx.compile(
+        tvm_tirx.IRModule({"main": main}),
+        target={**tvm_tirx.target.Target(target).export(), "backend_config": backend_config},
+        pipeline="tirx",
+    ).mod
     source = export_cuda_host(built)
     assert "cudaLaunchAttributeClusterDimension" in source
     library = tvm_ffi.cpp.build_inline(
@@ -215,12 +214,11 @@ def test_cuda_host_bundle_tensor_map_parameter(tmp_path, monkeypatch, *, backend
             T.evaluate(T.address_of(A_map))
 
     target = tvm_tirx.target.Target({"kind": "cuda", "arch": "sm_90a"}, host="cuda_host")
-    with target:
-        built = tvm_tirx.compile(
-            tvm_tirx.IRModule({"main": main}),
-            target={**tvm_tirx.target.Target(target).export(), "backend_config": backend_config},
-            pipeline="tirx",
-        ).mod
+    built = tvm_tirx.compile(
+        tvm_tirx.IRModule({"main": main}),
+        target={**tvm_tirx.target.Target(target).export(), "backend_config": backend_config},
+        pipeline="tirx",
+    ).mod
     source = export_cuda_host(built)
     assert "(CUtensorMap*)" in source
     monkeypatch.setenv("TVM_FFI_CUDA_ARCH_LIST", "9.0a")

@@ -34,7 +34,6 @@
 
 #include <algorithm>
 #include <sstream>
-#include <stack>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -43,8 +42,6 @@ namespace tvm {
 
 class TargetInternal {
  public:
-  static void EnterScope(Target target) { target.EnterWithScope(); }
-  static void ExitScope(Target target) { target.ExitWithScope(); }
   static ffi::Map<ffi::String, ffi::Any> ToConfig(Target target) { return target->ToConfig(); }
   static ffi::ObjectPtr<TargetObj> FromString(const ffi::String& tag_or_config_or_target_str);
   static ffi::ObjectPtr<TargetObj> FromConfigString(const ffi::String& config_str);
@@ -143,41 +140,6 @@ ffi::Map<ffi::String, ffi::Any> TargetObj::ToConfig() const {
     result.Set(kv.first, kv.second);
   }
   return result;
-}
-
-/*! \brief Entry to hold the Target context stack. */
-struct TVMTargetThreadLocalEntry {
-  /*! \brief The current target context */
-  std::stack<Target> context_stack;
-};
-
-/*! \brief Thread local store to hold the Target context stack. */
-static TVMTargetThreadLocalEntry* TVMTargetThreadLocalStoreGet() {
-  static thread_local TVMTargetThreadLocalEntry inst;
-  return &inst;
-}
-
-void Target::EnterWithScope() {
-  TVMTargetThreadLocalEntry* entry = TVMTargetThreadLocalStoreGet();
-  entry->context_stack.push(*this);
-}
-
-void Target::ExitWithScope() {
-  TVMTargetThreadLocalEntry* entry = TVMTargetThreadLocalStoreGet();
-  TVM_FFI_ICHECK(!entry->context_stack.empty());
-  TVM_FFI_ICHECK(entry->context_stack.top().same_as(*this));
-  entry->context_stack.pop();
-}
-
-ffi::Optional<Target> Target::Current(bool allow_not_defined) {
-  TVMTargetThreadLocalEntry* entry = TVMTargetThreadLocalStoreGet();
-  if (entry->context_stack.size() > 0) {
-    return entry->context_stack.top();
-  }
-  TVM_FFI_ICHECK(allow_not_defined)
-      << "Target context required. Please set it by constructing a TargetContext";
-
-  return std::nullopt;
 }
 
 /**********  Creation  **********/
@@ -430,9 +392,6 @@ TVM_FFI_STATIC_INIT_BLOCK() {
   namespace refl = tvm::ffi::reflection;
   refl::GlobalDef()
       .def_packed("target.Target", TargetInternal::ConstructorDispatcher)
-      .def("target.TargetEnterScope", TargetInternal::EnterScope)
-      .def("target.TargetExitScope", TargetInternal::ExitScope)
-      .def("target.TargetCurrent", Target::Current)
       .def("target.TargetExport", TargetInternal::ToConfig)
       .def("target.WithHost", TargetInternal::WithHost)
       .def("target.TargetGetDeviceType",

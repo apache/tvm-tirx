@@ -144,7 +144,7 @@ def backend_enabled(mtriple):
     return True
 
 
-def get_cpu_archlist(target=None):
+def get_cpu_archlist(target):
     """Get CPU architectures for the target's `-mtriple`.
 
     Parameters
@@ -157,11 +157,12 @@ def get_cpu_archlist(target=None):
     cpu_archlist : list[str]
         List of available CPU architectures.
     """
-    assert isinstance(target, Target) or target is None
+    if not isinstance(target, Target):
+        raise TypeError("target must be a Target")
     return get_global_func("codegen.llvm_get_cpu_archlist")(target)
 
 
-def get_cpu_features(target=None):
+def get_cpu_features(target):
     """Get CPU features for the target's `-mtriple` and `-mcpu` and considering `-mattr`.
 
     Parameters
@@ -174,12 +175,13 @@ def get_cpu_features(target=None):
     cpu_features : list[str]
         List of available CPU features.
     """
-    assert isinstance(target, Target) or target is None
+    if not isinstance(target, Target):
+        raise TypeError("target must be a Target")
     feature_map = get_global_func("codegen.llvm_get_cpu_features")(target)
     return set(feature_map.keys())
 
 
-def cpu_has_features(cpu_features, target=None):
+def cpu_has_features(cpu_features, target):
     """Check CPU features for the target's `-mtriple` and `-mcpu` and considering `-mattr`.
 
     Parameters
@@ -194,7 +196,8 @@ def cpu_has_features(cpu_features, target=None):
     has_features : bool
         True if target CPU has the feature(s).
     """
-    assert isinstance(target, Target) or target is None
+    if not isinstance(target, Target):
+        raise TypeError("target must be a Target")
     assert isinstance(cpu_features, Array | list | tuple | str)
     has_feats = True
     cpu_features = [cpu_features] if isinstance(cpu_features, str) else cpu_features
@@ -203,7 +206,7 @@ def cpu_has_features(cpu_features, target=None):
     return has_feats
 
 
-def get_vector_width(target=None):
+def get_vector_width(target):
     """Get vector width from LLVM target's `-mtriple` and `-mcpu` and considering `-mattr`.
 
     Parameters
@@ -216,7 +219,8 @@ def get_vector_width(target=None):
     vector_width : int
         Vector with of target in number of bits, -1 on error.
     """
-    assert isinstance(target, Target) or target is None
+    if not isinstance(target, Target):
+        raise TypeError("target must be a Target")
     return get_global_func("codegen.llvm_get_vector_width")(target)
 
 

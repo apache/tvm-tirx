@@ -33,7 +33,7 @@ class CompilationResult(NamedTuple):
 def compile_source(source: str, backend_config=None, *, target=None) -> CompilationResult:
     """Compile source with per-backend overrides and optional Target/tag defaults.
 
-    When target is omitted, use the current CUDA Target or detect the device.
+    When target is omitted, use the configuration architecture or detect the device.
     Compiler logs are reported on failure and are not part of the artifact.
     """
     from tvm_tirx.support import nvcc

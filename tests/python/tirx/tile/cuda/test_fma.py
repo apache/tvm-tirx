@@ -77,19 +77,18 @@ def test_fma_scalar_scalar():
         T.cuda.tile.apply(T.ptx["fma.rn.f32"], buf, buf, T.float32(scale_val), T.float32(bias_val))
         T.cuda.tile.apply(T.ptx["st.global.f32"], A[tx : tx + 1], buf)
 
-    with target:
-        A_np = np.random.rand(N).astype(dtype)
-        mod = tvm_tirx.IRModule({"main": test_func})
-        mod = tvm_tirx.compile(mod, target=target, pipeline="tirx")
+    A_np = np.random.rand(N).astype(dtype)
+    mod = tvm_tirx.IRModule({"main": test_func})
+    mod = tvm_tirx.compile(mod, target=target, pipeline="tirx")
 
-        def run_and_check():
-            dev = tvm_tirx.cuda(0)
-            A = tvm_tirx.runtime.tensor(A_np, dev)
-            mod(A)
-            expected = A_np * scale_val + bias_val
-            tvm_tirx.testing.assert_allclose(expected, A.numpy(), atol=1e-3)
+    def run_and_check():
+        dev = tvm_tirx.cuda(0)
+        A = tvm_tirx.runtime.tensor(A_np, dev)
+        mod(A)
+        expected = A_np * scale_val + bias_val
+        tvm_tirx.testing.assert_allclose(expected, A.numpy(), atol=1e-3)
 
-        tvm_tirx.testing.run_with_gpu_lock(run_and_check)
+    tvm_tirx.testing.run_with_gpu_lock(run_and_check)
 
 
 @pytest.mark.gpu
@@ -130,21 +129,20 @@ def test_fma_tensor_scale_scalar_bias():
         )
         T.cuda.tile.apply(T.ptx["st.global.v2.f32"], A[0:N], acc)
 
-    with target:
-        A_np = np.random.rand(N).astype(dtype)
-        B_np = np.random.rand(N).astype(dtype)
-        mod = tvm_tirx.IRModule({"main": test_func})
-        mod = tvm_tirx.compile(mod, target=target, pipeline="tirx")
+    A_np = np.random.rand(N).astype(dtype)
+    B_np = np.random.rand(N).astype(dtype)
+    mod = tvm_tirx.IRModule({"main": test_func})
+    mod = tvm_tirx.compile(mod, target=target, pipeline="tirx")
 
-        def run_and_check():
-            dev = tvm_tirx.cuda(0)
-            A = tvm_tirx.runtime.tensor(A_np, dev)
-            B = tvm_tirx.runtime.tensor(B_np, dev)
-            mod(A, B)
-            expected = A_np * B_np + coeff
-            tvm_tirx.testing.assert_allclose(expected, A.numpy(), atol=1e-3)
+    def run_and_check():
+        dev = tvm_tirx.cuda(0)
+        A = tvm_tirx.runtime.tensor(A_np, dev)
+        B = tvm_tirx.runtime.tensor(B_np, dev)
+        mod(A, B)
+        expected = A_np * B_np + coeff
+        tvm_tirx.testing.assert_allclose(expected, A.numpy(), atol=1e-3)
 
-        tvm_tirx.testing.run_with_gpu_lock(run_and_check)
+    tvm_tirx.testing.run_with_gpu_lock(run_and_check)
 
 
 @pytest.mark.gpu
@@ -183,19 +181,18 @@ def test_fma_no_layout(layout):
         for i in T.serial(N):
             A[i] = buf[i]
 
-    with target:
-        A_np = np.array([1.0, 2.0, 3.0, 4.0], dtype=dtype)
-        mod = tvm_tirx.IRModule({"main": test_func})
-        mod = tvm_tirx.compile(mod, target=target, pipeline="tirx")
+    A_np = np.array([1.0, 2.0, 3.0, 4.0], dtype=dtype)
+    mod = tvm_tirx.IRModule({"main": test_func})
+    mod = tvm_tirx.compile(mod, target=target, pipeline="tirx")
 
-        def run_and_check():
-            dev = tvm_tirx.cuda(0)
-            A_dev = tvm_tirx.runtime.tensor(A_np, dev)
-            mod(A_dev)
-            expected = A_np * scale_val + bias_val
-            tvm_tirx.testing.assert_allclose(expected, A_dev.numpy(), atol=1e-3)
+    def run_and_check():
+        dev = tvm_tirx.cuda(0)
+        A_dev = tvm_tirx.runtime.tensor(A_np, dev)
+        mod(A_dev)
+        expected = A_np * scale_val + bias_val
+        tvm_tirx.testing.assert_allclose(expected, A_dev.numpy(), atol=1e-3)
 
-        tvm_tirx.testing.run_with_gpu_lock(run_and_check)
+    tvm_tirx.testing.run_with_gpu_lock(run_and_check)
 
 
 @pytest.mark.gpu
@@ -243,22 +240,21 @@ def test_fma_warpgroup_thread_row_layout():
         for i in T.serial(cols):
             B[tid, i] = reg_row_1[i]
 
-    with target:
-        np.random.seed(0)
-        A_np = np.random.rand(rows, cols).astype(dtype)
-        B_np = np.zeros((rows, cols), dtype=dtype)
-        mod = tvm_tirx.IRModule({"main": test_func})
-        mod = tvm_tirx.compile(mod, target=target, pipeline="tirx")
+    np.random.seed(0)
+    A_np = np.random.rand(rows, cols).astype(dtype)
+    B_np = np.zeros((rows, cols), dtype=dtype)
+    mod = tvm_tirx.IRModule({"main": test_func})
+    mod = tvm_tirx.compile(mod, target=target, pipeline="tirx")
 
-        def run_and_check():
-            dev = tvm_tirx.cuda(0)
-            A_dev = tvm_tirx.runtime.tensor(A_np, dev)
-            B_dev = tvm_tirx.runtime.tensor(B_np, dev)
-            mod(A_dev, B_dev)
-            expected = A_np * scale_val + bias_val
-            tvm_tirx.testing.assert_allclose(expected, B_dev.numpy(), atol=1e-5)
+    def run_and_check():
+        dev = tvm_tirx.cuda(0)
+        A_dev = tvm_tirx.runtime.tensor(A_np, dev)
+        B_dev = tvm_tirx.runtime.tensor(B_np, dev)
+        mod(A_dev, B_dev)
+        expected = A_np * scale_val + bias_val
+        tvm_tirx.testing.assert_allclose(expected, B_dev.numpy(), atol=1e-5)
 
-        tvm_tirx.testing.run_with_gpu_lock(run_and_check)
+    tvm_tirx.testing.run_with_gpu_lock(run_and_check)
 
 
 def test_fma_f32_sm100_packed_f32x2_dispatch():
@@ -301,10 +297,9 @@ def test_fma_f32_sm100_packed_f32x2_dispatch():
         T.cuda.tile.apply(T.ptx["st.global.v4.f32"], D.sub[tx, :].view(8, 4), rd.view(8, 4))
 
     target = tvm_tirx.target.Target({"kind": "cuda", "arch": "sm_100a"})
-    with target:
-        mod = tvm_tirx.IRModule({"main": k})
-        mod = tvm_tirx.compile(mod, target=target, pipeline="tirx")
-        src = mod.mod.imports[0].inspect_source()
+    mod = tvm_tirx.IRModule({"main": k})
+    mod = tvm_tirx.compile(mod, target=target, pipeline="tirx")
+    src = mod.mod.imports[0].inspect_source()
     assert re.search(r"fma\.[a-z]+\.ftz\.f32x2", src), (
         f"expected packed fma_f32x2; got:\n{src[:2000]}"
     )

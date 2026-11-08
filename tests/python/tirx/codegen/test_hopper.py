@@ -111,13 +111,12 @@ def test_stmatrix_sync_aligned(trans):
 
     target = tvm_tirx.target.Target("cuda")
     mod = tvm_tirx.IRModule({"main": func})
-    with target:
-        mod = tvm_tirx.compile(mod, target=target, pipeline="tirx")
-        src = mod.mod.imports[0].inspect_source()
-        if not trans:
-            assert "stmatrix.sync.aligned.m8n8.x4.shared.b16" in src
-        else:
-            assert "stmatrix.sync.aligned.m8n8.x4.trans.shared.b16" in src
+    mod = tvm_tirx.compile(mod, target=target, pipeline="tirx")
+    src = mod.mod.imports[0].inspect_source()
+    if not trans:
+        assert "stmatrix.sync.aligned.m8n8.x4.shared.b16" in src
+    else:
+        assert "stmatrix.sync.aligned.m8n8.x4.trans.shared.b16" in src
     def run_and_check():
         dev = tvm_tirx.cuda(0)
         A_np = np.zeros((16, 16), dtype="float16")
@@ -184,9 +183,8 @@ def test_ptx_stmatrix(trans, num):
 
     target = tvm_tirx.target.Target("cuda")
     mod = tvm_tirx.IRModule({"main": main})
-    with target:
-        mod = tvm_tirx.compile(mod, target=target, pipeline="tirx")
-        src = mod.mod.imports[0].inspect_source()
+    mod = tvm_tirx.compile(mod, target=target, pipeline="tirx")
+    src = mod.mod.imports[0].inspect_source()
     A_np = np.zeros((16, 16), dtype="float16")
     A_ref = np.zeros((16, 16), dtype="float16")
     A_full = np.zeros((16, 16), dtype="float16")
@@ -260,15 +258,14 @@ def test_ptx_stmatrix_noncontiguous(trans, num):
 
     target = tvm_tirx.target.Target("cuda")
     mod = tvm_tirx.IRModule({"main": main})
-    with target:
-        mod = tvm_tirx.compile(mod, target=target, pipeline="tirx")
-        src = mod.mod.imports[0].inspect_source()
-        trans_inst = ".trans" if trans else ""
-        regs = ", ".join(f"%{i + 1}" for i in range(num))
-        assert f"stmatrix.sync.aligned.m8n8.x{num}{trans_inst}.shared.b16 [%0], {{{regs}}};" in src
-        # num independent source registers, each its own helper parameter.
-        for i in range(num):
-            assert f"uint32_t __r{i}" in src
+    mod = tvm_tirx.compile(mod, target=target, pipeline="tirx")
+    src = mod.mod.imports[0].inspect_source()
+    trans_inst = ".trans" if trans else ""
+    regs = ", ".join(f"%{i + 1}" for i in range(num))
+    assert f"stmatrix.sync.aligned.m8n8.x{num}{trans_inst}.shared.b16 [%0], {{{regs}}};" in src
+    # num independent source registers, each its own helper parameter.
+    for i in range(num):
+        assert f"uint32_t __r{i}" in src
 
     A_np = np.zeros((16, 16), dtype="float16")
     A_ref = np.zeros((16, 16), dtype="float16")

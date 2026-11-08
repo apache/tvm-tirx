@@ -113,8 +113,6 @@ def resolve_backend_config(config=None, target=None):
 
     overrides = validate_backend_config(config or {})
     if target is None:
-        target = Target.current()
-    if target is None:
         target = Target(
             {"kind": "cuda", **({"arch": overrides["arch"]} if "arch" in overrides else {})}
         )

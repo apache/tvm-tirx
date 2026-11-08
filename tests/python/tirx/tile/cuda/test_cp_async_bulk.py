@@ -281,16 +281,15 @@ def test_dsmem(shape, dtype, src_spec, dst_spec, expected):
 
     np_dtype = tvm_tirx.testing.np_dtype_from_str(dtype)
     target = tvm_tirx.target.Target("cuda")
-    with target:
-        mod = tvm_tirx.IRModule({"main": dsmem_copy})
-        mod = tvm_tirx.compile(mod, target=target, pipeline="tirx")
+    mod = tvm_tirx.IRModule({"main": dsmem_copy})
+    mod = tvm_tirx.compile(mod, target=target, pipeline="tirx")
 
-        cuda_src = mod.mod.imports[0].inspect_source()
-        assert "cp.async.bulk.shared::cluster.shared::cta" in cuda_src
+    cuda_src = mod.mod.imports[0].inspect_source()
+    assert "cp.async.bulk.shared::cluster.shared::cta" in cuda_src
 
-        np.random.seed(0)
-        A_np = tvm_tirx.testing.generate_random_array(dtype, shape)
-        B_np = np.zeros(shape, dtype=np_dtype)
+    np.random.seed(0)
+    A_np = tvm_tirx.testing.generate_random_array(dtype, shape)
+    B_np = np.zeros(shape, dtype=np_dtype)
 
     def run_and_check():
         dev = tvm_tirx.cuda(0)

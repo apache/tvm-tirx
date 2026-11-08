@@ -74,7 +74,7 @@ def LowerTIRx():
 
     Run ``TrnPrivateTensorAlloc`` and ``TrnNaiveAllocator`` first when tiles
     need workspaces or allocation addresses. Tile dispatch requires a
-    Trainium target on the function or in the current target scope.
+    Trainium target in the function target attribute.
     """
     return tvm_tirx.ir.transform.Sequential(
         [tirx.transform.TileDispatch(), LowerTrainiumLayout()],

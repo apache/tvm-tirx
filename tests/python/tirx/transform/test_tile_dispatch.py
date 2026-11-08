@@ -18,7 +18,6 @@
 # The parser consumes named IR bindings that Python sees as unused.
 # ruff: noqa: F841
 
-from contextlib import nullcontext
 
 import pytest
 
@@ -138,11 +137,18 @@ def test_lower_scope_id():
                 tx: T.let[T.int32] = T.cuda.thread_idx("x")
                 T.evaluate(bx + by + bz + tx)
 
-    with tvm_tirx.target.Target("cuda"):
-        dispatched = TileDispatch()(Before1)
-        tvm_tirx.ir.assert_structural_equal(dispatched, Dispatched)
-        after = LowerTensorLayouts()(dispatched)
-    tvm_tirx.ir.assert_structural_equal(after, Expected1)
+    dispatched = TileDispatch()(
+        tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Before1)
+    )
+    tvm_tirx.ir.assert_structural_equal(
+        dispatched, tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Dispatched)
+    )
+    after = LowerTensorLayouts()(
+        tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(dispatched)
+    )
+    tvm_tirx.ir.assert_structural_equal(
+        after, tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Expected1)
+    )
 
     @I.ir_module
     class Before2:
@@ -212,11 +218,18 @@ def test_lower_scope_id():
                 lane_id: T.let[T.int32] = T.cuda.thread_idx("x") % 32
                 T.evaluate(bx + by + bz + warp_id + lane_id + cbx + cby + cbz)
 
-    with tvm_tirx.target.Target("cuda"):
-        dispatched = TileDispatch()(Before2)
-        tvm_tirx.ir.assert_structural_equal(dispatched, Dispatched2)
-        after = LowerTensorLayouts()(dispatched)
-    tvm_tirx.ir.assert_structural_equal(after, Expected2)
+    dispatched = TileDispatch()(
+        tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Before2)
+    )
+    tvm_tirx.ir.assert_structural_equal(
+        dispatched, tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Dispatched2)
+    )
+    after = LowerTensorLayouts()(
+        tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(dispatched)
+    )
+    tvm_tirx.ir.assert_structural_equal(
+        after, tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Expected2)
+    )
 
     @I.ir_module
     class Before3:
@@ -308,11 +321,18 @@ def test_lower_scope_id():
                 T.evaluate(clx + cly + clz)
                 T.evaluate(wg_id + warp_id_in_wg + lane_id + tid_in_wg)
 
-    with tvm_tirx.target.Target("cuda"):
-        dispatched = TileDispatch()(Before3)
-        tvm_tirx.ir.assert_structural_equal(dispatched, Dispatched3)
-        after = LowerTensorLayouts()(dispatched)
-    tvm_tirx.ir.assert_structural_equal(after, Expected3)
+    dispatched = TileDispatch()(
+        tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Before3)
+    )
+    tvm_tirx.ir.assert_structural_equal(
+        dispatched, tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Dispatched3)
+    )
+    after = LowerTensorLayouts()(
+        tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(dispatched)
+    )
+    tvm_tirx.ir.assert_structural_equal(
+        after, tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Expected3)
+    )
 
 
 def test_lower_ordinary_cta_has_no_cluster_launch_tags():
@@ -329,27 +349,33 @@ def test_lower_ordinary_cta_has_no_cluster_launch_tags():
             with T.device_scope(1, 1, 1, 32, 1, 1, attrs=_CTA_LAUNCH_ATTRS):
                 pass
 
-    with tvm_tirx.target.Target("cuda"):
+    @I.ir_module
+    class Dispatched:
+        @T.function(private=True)
+        def main():
+            with T.device_scope(
+                1,
+                1,
+                1,
+                32,
+                1,
+                1,
+                attrs=_CTA_LAUNCH_ATTRS,
+            ):
+                pass
 
-        @I.ir_module
-        class Dispatched:
-            @T.function(private=True)
-            def main():
-                with T.device_scope(
-                    1,
-                    1,
-                    1,
-                    32,
-                    1,
-                    1,
-                    attrs=_CTA_LAUNCH_ATTRS,
-                ):
-                    pass
-
-        dispatched = TileDispatch()(Before)
-        tvm_tirx.ir.assert_structural_equal(dispatched, Dispatched)
-        after = LowerTensorLayouts()(dispatched)["main"]
-    tvm_tirx.ir.assert_structural_equal(after, Expected["main"])
+    dispatched = TileDispatch()(
+        tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Before)
+    )
+    tvm_tirx.ir.assert_structural_equal(
+        dispatched, tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Dispatched)
+    )
+    after = LowerTensorLayouts()(
+        tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(dispatched)
+    )["main"]
+    tvm_tirx.ir.assert_structural_equal(
+        after, Expected["main"].with_attr("target", tvm_tirx.target.Target("cuda"))
+    )
 
 
 def test_lower_explicit_singleton_cluster_launch_tags_survive_when_unused():
@@ -395,54 +421,60 @@ def test_lower_explicit_singleton_cluster_launch_tags_survive_when_unused():
                 unused_by: T.let[T.int32] = 0
                 unused_bz: T.let[T.int32] = 0
 
-    with tvm_tirx.target.Target("cuda"):
+    @I.ir_module
+    class Dispatched:
+        @T.function(private=True)
+        def cluster_2d():
+            with T.device_scope(
+                1,
+                1,
+                1,
+                32,
+                1,
+                1,
+                1,
+                1,
+                1,
+                attrs=_CLUSTER_LAUNCH_ATTRS,
+            ):
+                unused_cbx: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.x")
+                unused_cby: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.y")
+                unused_bx: T.let[T.int32] = 0
+                unused_by: T.let[T.int32] = 0
 
-        @I.ir_module
-        class Dispatched:
-            @T.function(private=True)
-            def cluster_2d():
-                with T.device_scope(
-                    1,
-                    1,
-                    1,
-                    32,
-                    1,
-                    1,
-                    1,
-                    1,
-                    1,
-                    attrs=_CLUSTER_LAUNCH_ATTRS,
-                ):
-                    unused_cbx: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.x")
-                    unused_cby: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.y")
-                    unused_bx: T.let[T.int32] = 0
-                    unused_by: T.let[T.int32] = 0
+        @T.function(private=True)
+        def cluster_3d():
+            with T.device_scope(
+                1,
+                1,
+                1,
+                32,
+                1,
+                1,
+                1,
+                1,
+                1,
+                attrs=_CLUSTER_LAUNCH_ATTRS,
+            ):
+                unused_cbx: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.x")
+                unused_cby: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.y")
+                unused_cbz: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.z")
+                unused_bx: T.let[T.int32] = 0
+                unused_by: T.let[T.int32] = 0
+                unused_bz: T.let[T.int32] = 0
 
-            @T.function(private=True)
-            def cluster_3d():
-                with T.device_scope(
-                    1,
-                    1,
-                    1,
-                    32,
-                    1,
-                    1,
-                    1,
-                    1,
-                    1,
-                    attrs=_CLUSTER_LAUNCH_ATTRS,
-                ):
-                    unused_cbx: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.x")
-                    unused_cby: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.y")
-                    unused_cbz: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.z")
-                    unused_bx: T.let[T.int32] = 0
-                    unused_by: T.let[T.int32] = 0
-                    unused_bz: T.let[T.int32] = 0
-
-        dispatched = TileDispatch()(Before)
-        tvm_tirx.ir.assert_structural_equal(dispatched, Dispatched)
-        after = LowerTensorLayouts()(dispatched)
-    tvm_tirx.ir.assert_structural_equal(after, Expected)
+    dispatched = TileDispatch()(
+        tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Before)
+    )
+    tvm_tirx.ir.assert_structural_equal(
+        dispatched, tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Dispatched)
+    )
+    after = LowerTensorLayouts()(
+        tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(dispatched)
+    )
+    tvm_tirx.ir.assert_structural_equal(
+        after, tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Expected)
+    )
 
 
 def test_lower_multi_cta_cluster_launch_tags_remain_unchanged():
@@ -464,33 +496,39 @@ def test_lower_multi_cta_cluster_launch_tags_remain_unchanged():
                 unused_bx: T.let[T.int32] = T.cuda.block_idx("x")
                 unused_by: T.let[T.int32] = 0
 
-    with tvm_tirx.target.Target("cuda"):
+    @I.ir_module
+    class Dispatched:
+        @T.function(private=True)
+        def main():
+            with T.device_scope(
+                2,
+                1,
+                1,
+                32,
+                1,
+                1,
+                2,
+                1,
+                1,
+                attrs=_CLUSTER_LAUNCH_ATTRS,
+            ):
+                unused_cbx: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.x")
+                unused_cby: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.y")
+                unused_bx: T.let[T.int32] = T.cuda.block_idx("x")
+                unused_by: T.let[T.int32] = 0
 
-        @I.ir_module
-        class Dispatched:
-            @T.function(private=True)
-            def main():
-                with T.device_scope(
-                    2,
-                    1,
-                    1,
-                    32,
-                    1,
-                    1,
-                    2,
-                    1,
-                    1,
-                    attrs=_CLUSTER_LAUNCH_ATTRS,
-                ):
-                    unused_cbx: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.x")
-                    unused_cby: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.y")
-                    unused_bx: T.let[T.int32] = T.cuda.block_idx("x")
-                    unused_by: T.let[T.int32] = 0
-
-        dispatched = TileDispatch()(Before)
-        tvm_tirx.ir.assert_structural_equal(dispatched, Dispatched)
-        after = LowerTensorLayouts()(dispatched)["main"]
-    tvm_tirx.ir.assert_structural_equal(after, Expected["main"])
+    dispatched = TileDispatch()(
+        tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Before)
+    )
+    tvm_tirx.ir.assert_structural_equal(
+        dispatched, tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Dispatched)
+    )
+    after = LowerTensorLayouts()(
+        tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(dispatched)
+    )["main"]
+    tvm_tirx.ir.assert_structural_equal(
+        after, Expected["main"].with_attr("target", tvm_tirx.target.Target("cuda"))
+    )
 
 
 def test_lower_singleton_cluster_preserves_preferred_cluster_tags():
@@ -518,36 +556,42 @@ def test_lower_singleton_cluster_preserves_preferred_cluster_tags():
                 unused_bx: T.let[T.int32] = T.cuda.block_idx("x")
                 unused_by: T.let[T.int32] = T.cuda.block_idx("y")
 
-    with tvm_tirx.target.Target("cuda"):
+    @I.ir_module
+    class Dispatched:
+        @T.function(private=True)
+        def main():
+            with T.device_scope(
+                2,
+                2,
+                1,
+                32,
+                1,
+                1,
+                1,
+                1,
+                1,
+                2,
+                2,
+                1,
+                attrs=_PREFERRED_CLUSTER_LAUNCH_ATTRS,
+            ):
+                unused_cbx: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.x")
+                unused_cby: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.y")
+                unused_bx: T.let[T.int32] = T.cuda.block_idx("x")
+                unused_by: T.let[T.int32] = T.cuda.block_idx("y")
 
-        @I.ir_module
-        class Dispatched:
-            @T.function(private=True)
-            def main():
-                with T.device_scope(
-                    2,
-                    2,
-                    1,
-                    32,
-                    1,
-                    1,
-                    1,
-                    1,
-                    1,
-                    2,
-                    2,
-                    1,
-                    attrs=_PREFERRED_CLUSTER_LAUNCH_ATTRS,
-                ):
-                    unused_cbx: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.x")
-                    unused_cby: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.y")
-                    unused_bx: T.let[T.int32] = T.cuda.block_idx("x")
-                    unused_by: T.let[T.int32] = T.cuda.block_idx("y")
-
-        dispatched = TileDispatch()(Before)
-        tvm_tirx.ir.assert_structural_equal(dispatched, Dispatched)
-        after = LowerTensorLayouts()(dispatched)["main"]
-    tvm_tirx.ir.assert_structural_equal(after, Expected["main"])
+    dispatched = TileDispatch()(
+        tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Before)
+    )
+    tvm_tirx.ir.assert_structural_equal(
+        dispatched, tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Dispatched)
+    )
+    after = LowerTensorLayouts()(
+        tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(dispatched)
+    )["main"]
+    tvm_tirx.ir.assert_structural_equal(
+        after, Expected["main"].with_attr("target", tvm_tirx.target.Target("cuda"))
+    )
 
 
 def test_lower_scope_id2():
@@ -610,11 +654,18 @@ def test_lower_scope_id2():
                 wg_id: T.let[T.int32] = warp_id_in_cta // 4
                 T.evaluate(wg_id + warp_id + tx)
 
-    with tvm_tirx.target.Target("cuda"):
-        dispatched = TileDispatch()(Before)
-        tvm_tirx.ir.assert_structural_equal(dispatched, Dispatched)
-        after = LowerTensorLayouts()(dispatched)
-    tvm_tirx.ir.assert_structural_equal(after, Expected)
+    dispatched = TileDispatch()(
+        tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Before)
+    )
+    tvm_tirx.ir.assert_structural_equal(
+        dispatched, tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Dispatched)
+    )
+    after = LowerTensorLayouts()(
+        tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(dispatched)
+    )
+    tvm_tirx.ir.assert_structural_equal(
+        after, tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Expected)
+    )
 
 
 @pytest.mark.skip(
@@ -671,16 +722,21 @@ def test_lower_scope_id3():
             tx: T.let[T.int32] = threadIdx_x
             T.evaluate(bx + by + bz + warp_id + tx)
 
-    with tvm_tirx.target.Target("cuda"):
-        after = TileDispatch()(Before)
-        after = LowerTensorLayouts()(after)
-    tvm_tirx.ir.assert_structural_equal(after, Expected)
+    after = TileDispatch()(
+        tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Before)
+    )
+    after = LowerTensorLayouts()(
+        tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(after)
+    )
+    tvm_tirx.ir.assert_structural_equal(
+        after, tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Expected)
+    )
 
 
 @pytest.mark.parametrize(
     "target,error,message",
     [
-        (None, RuntimeError, "Target context required"),
+        (None, ValueError, "requires a function target attribute"),
         ("cuda", RuntimeError, "An explicit layout is required for shared tensors"),
     ],
     ids=["missing-target", "missing-shared-layout"],
@@ -697,10 +753,9 @@ def test_lower_opcall_fail(target, error, message):
             )
             T.cuda.tile.apply(T.ptx["ld.shared.b32"], local, shared, scope="cta")
 
-    with (
-        tvm_tirx.target.Target(target) if target else nullcontext(),
-        pytest.raises(error, match=message),
-    ):
+    if target is not None:
+        Before = tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target(target))(Before)
+    with pytest.raises(error, match=message):
         TileDispatch()(Before)
 
 
@@ -744,11 +799,18 @@ def test_lower_separate_scope_id_def():
                 if tx == 0:
                     T.evaluate(tx)
 
-    with tvm_tirx.target.Target("cuda"):
-        dispatched = TileDispatch()(Before)
-        tvm_tirx.ir.assert_structural_equal(dispatched, Dispatched)
-        after = LowerTensorLayouts()(dispatched)
-    tvm_tirx.ir.assert_structural_equal(after, Expected)
+    dispatched = TileDispatch()(
+        tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Before)
+    )
+    tvm_tirx.ir.assert_structural_equal(
+        dispatched, tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Dispatched)
+    )
+    after = LowerTensorLayouts()(
+        tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(dispatched)
+    )
+    tvm_tirx.ir.assert_structural_equal(
+        after, tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Expected)
+    )
 
 
 def test_lower_uint32_scope_id_casts_at_bind():
@@ -793,11 +855,18 @@ def test_lower_uint32_scope_id_casts_at_bind():
                 for k in range(T.uint32(0), T.uint32(4)):
                     T.evaluate(tx + k)
 
-    with tvm_tirx.target.Target("cuda"):
-        dispatched = TileDispatch()(Before)
-        tvm_tirx.ir.assert_structural_equal(dispatched, Dispatched)
-        after = LowerTensorLayouts()(dispatched)
-    tvm_tirx.ir.assert_structural_equal(after, Expected)
+    dispatched = TileDispatch()(
+        tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Before)
+    )
+    tvm_tirx.ir.assert_structural_equal(
+        dispatched, tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Dispatched)
+    )
+    after = LowerTensorLayouts()(
+        tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(dispatched)
+    )
+    tvm_tirx.ir.assert_structural_equal(
+        after, tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Expected)
+    )
 
 
 def test_lower_exec_context_infers_plain_predicate_for_dispatch():
@@ -838,44 +907,50 @@ def test_lower_exec_context_infers_plain_predicate_for_dispatch():
                 if (warp_id == 0) & (lane_id == 0):
                     pass
 
-    with tvm_tirx.target.Target("cuda"):
-
-        @I.ir_module
-        class Dispatched:
-            @T.function(private=True)
-            def main(
-                A: T.Tensor(
-                    (1,),
-                    T.float32,
-                    layout="default",
-                ),
-                B: T.Tensor(
-                    (1,),
-                    T.float32,
-                    layout="default",
-                ),
+    @I.ir_module
+    class Dispatched:
+        @T.function(private=True)
+        def main(
+            A: T.Tensor(
+                (1,),
+                T.float32,
+                layout="default",
+            ),
+            B: T.Tensor(
+                (1,),
+                T.float32,
+                layout="default",
+            ),
+        ):
+            with T.device_scope(
+                1,
+                1,
+                1,
+                128,
+                1,
+                1,
+                attrs=_CTA_LAUNCH_ATTRS,
             ):
-                with T.device_scope(
-                    1,
-                    1,
-                    1,
-                    128,
-                    1,
-                    1,
-                    attrs=_CTA_LAUNCH_ATTRS,
-                ):
-                    warp_id_in_cta: T.let[T.int32] = T.gpu_warp_shuffle(
-                        T.uint32(4294967295), T.cuda.thread_idx("x") // 32, 0, 32, 32
-                    )
-                    warp_id: T.let[T.int32] = warp_id_in_cta
-                    lane_id: T.let[T.int32] = T.cuda.thread_idx("x") % 32
-                    if (warp_id == 0) & (lane_id == 0):
-                        pass
+                warp_id_in_cta: T.let[T.int32] = T.gpu_warp_shuffle(
+                    T.uint32(4294967295), T.cuda.thread_idx("x") // 32, 0, 32, 32
+                )
+                warp_id: T.let[T.int32] = warp_id_in_cta
+                lane_id: T.let[T.int32] = T.cuda.thread_idx("x") % 32
+                if (warp_id == 0) & (lane_id == 0):
+                    pass
 
-        dispatched = TileDispatch()(Before)
-        tvm_tirx.ir.assert_structural_equal(dispatched, Dispatched)
-        After = LowerTensorLayouts()(dispatched)
-    tvm_tirx.ir.assert_structural_equal(After, Expected)
+    dispatched = TileDispatch()(
+        tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Before)
+    )
+    tvm_tirx.ir.assert_structural_equal(
+        dispatched, tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Dispatched)
+    )
+    After = LowerTensorLayouts()(
+        tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(dispatched)
+    )
+    tvm_tirx.ir.assert_structural_equal(
+        After, tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Expected)
+    )
 
     assert len(seen) == 1
     assert seen[0]["scope_kind"] == "thread"
@@ -929,47 +1004,53 @@ def test_lower_exec_context_tracks_let_aliases_and_hoists_warp_shuffle():
                     if alias_warp == 1:
                         pass
 
-    with tvm_tirx.target.Target("cuda"):
-
-        @I.ir_module
-        class Dispatched:
-            @T.function(private=True)
-            def main(
-                A: T.Tensor(
-                    (1,),
-                    T.float32,
-                    layout="default",
-                ),
-                B: T.Tensor(
-                    (1,),
-                    T.float32,
-                    layout="default",
-                ),
+    @I.ir_module
+    class Dispatched:
+        @T.function(private=True)
+        def main(
+            A: T.Tensor(
+                (1,),
+                T.float32,
+                layout="default",
+            ),
+            B: T.Tensor(
+                (1,),
+                T.float32,
+                layout="default",
+            ),
+        ):
+            with T.device_scope(
+                1,
+                1,
+                1,
+                128,
+                1,
+                1,
+                attrs=_CTA_LAUNCH_ATTRS,
             ):
-                with T.device_scope(
-                    1,
-                    1,
-                    1,
-                    128,
-                    1,
-                    1,
-                    attrs=_CTA_LAUNCH_ATTRS,
-                ):
-                    warp_id_in_cta: T.let[T.int32] = T.gpu_warp_shuffle(
-                        T.uint32(4294967295), T.cuda.thread_idx("x") // 32, 0, 32, 32
-                    )
-                    lane: T.let[T.int32] = T.cuda.thread_idx("x") % 32
-                    alias_lane: T.let[T.int32] = lane
-                    if alias_lane == 0:
-                        warp: T.let[T.int32] = warp_id_in_cta
-                        alias_warp: T.let[T.int32] = warp
-                        if alias_warp == 1:
-                            pass
+                warp_id_in_cta: T.let[T.int32] = T.gpu_warp_shuffle(
+                    T.uint32(4294967295), T.cuda.thread_idx("x") // 32, 0, 32, 32
+                )
+                lane: T.let[T.int32] = T.cuda.thread_idx("x") % 32
+                alias_lane: T.let[T.int32] = lane
+                if alias_lane == 0:
+                    warp: T.let[T.int32] = warp_id_in_cta
+                    alias_warp: T.let[T.int32] = warp
+                    if alias_warp == 1:
+                        pass
 
-        dispatched = TileDispatch()(Before)
-        tvm_tirx.ir.assert_structural_equal(dispatched, Dispatched)
-        lowered = LowerTensorLayouts()(dispatched)
-    tvm_tirx.ir.assert_structural_equal(lowered, Expected)
+    dispatched = TileDispatch()(
+        tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Before)
+    )
+    tvm_tirx.ir.assert_structural_equal(
+        dispatched, tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Dispatched)
+    )
+    lowered = LowerTensorLayouts()(
+        tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(dispatched)
+    )
+    tvm_tirx.ir.assert_structural_equal(
+        lowered, tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Expected)
+    )
 
     assert len(seen) == 1
     assert _int_range(seen[0], "laneid") == (1, 0)
@@ -1017,46 +1098,52 @@ def test_lower_exec_context_respects_preferred_cluster_bounds():
                 if cby == 1:
                     pass
 
-    with tvm_tirx.target.Target("cuda"):
-
-        @I.ir_module
-        class Dispatched:
-            @T.function(private=True)
-            def main(
-                A: T.Tensor(
-                    (1,),
-                    T.float32,
-                    layout="default",
-                ),
-                B: T.Tensor(
-                    (1,),
-                    T.float32,
-                    layout="default",
-                ),
+    @I.ir_module
+    class Dispatched:
+        @T.function(private=True)
+        def main(
+            A: T.Tensor(
+                (1,),
+                T.float32,
+                layout="default",
+            ),
+            B: T.Tensor(
+                (1,),
+                T.float32,
+                layout="default",
+            ),
+        ):
+            with T.device_scope(
+                2,
+                2,
+                1,
+                32,
+                1,
+                1,
+                1,
+                1,
+                1,
+                2,
+                2,
+                1,
+                attrs=_PREFERRED_CLUSTER_LAUNCH_ATTRS,
             ):
-                with T.device_scope(
-                    2,
-                    2,
-                    1,
-                    32,
-                    1,
-                    1,
-                    1,
-                    1,
-                    1,
-                    2,
-                    2,
-                    1,
-                    attrs=_PREFERRED_CLUSTER_LAUNCH_ATTRS,
-                ):
-                    cby: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.y")
-                    if cby == 1:
-                        pass
+                cby: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.y")
+                if cby == 1:
+                    pass
 
-        dispatched = TileDispatch()(Before)
-        tvm_tirx.ir.assert_structural_equal(dispatched, Dispatched)
-        After = LowerTensorLayouts()(dispatched)
-    tvm_tirx.ir.assert_structural_equal(After, Expected)
+    dispatched = TileDispatch()(
+        tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Before)
+    )
+    tvm_tirx.ir.assert_structural_equal(
+        dispatched, tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Dispatched)
+    )
+    After = LowerTensorLayouts()(
+        tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(dispatched)
+    )
+    tvm_tirx.ir.assert_structural_equal(
+        After, tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Expected)
+    )
 
     assert len(seen) == 1
     assert _int_range(seen[0], "cbx") == (2, 0)
@@ -1076,11 +1163,12 @@ def test_lower_exec_context_respects_preferred_cluster_bounds():
             )
             getattr(T.cuda.tile, variant)(B[0:1], A[0:1], scope="cluster")
 
-    with (
-        tvm_tirx.target.Target("cuda"),
-        pytest.raises(ValueError, match="one static cluster shape"),
-    ):
-        TileDispatch()(fixed_shape_instruction)
+    with pytest.raises(ValueError, match="one static cluster shape"):
+        TileDispatch()(
+            tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(
+                fixed_shape_instruction
+            )
+        )
 
 
 def test_lower_exec_context_infers_warpgroup_range_predicate_for_dispatch():
@@ -1129,48 +1217,54 @@ def test_lower_exec_context_infers_warpgroup_range_predicate_for_dispatch():
                 if (0 <= wg_id) & (wg_id < 1):
                     pass
 
-    with tvm_tirx.target.Target("cuda"):
-
-        @I.ir_module
-        class Dispatched:
-            @T.function(private=True)
-            def main(
-                A: T.Tensor(
-                    (1,),
-                    T.float32,
-                    layout="default",
-                ),
-                B: T.Tensor(
-                    (1,),
-                    T.float32,
-                    layout="default",
-                ),
+    @I.ir_module
+    class Dispatched:
+        @T.function(private=True)
+        def main(
+            A: T.Tensor(
+                (1,),
+                T.float32,
+                layout="default",
+            ),
+            B: T.Tensor(
+                (1,),
+                T.float32,
+                layout="default",
+            ),
+        ):
+            with T.device_scope(
+                1,
+                1,
+                1,
+                256,
+                1,
+                1,
+                attrs=_CTA_LAUNCH_ATTRS,
             ):
-                with T.device_scope(
-                    1,
-                    1,
-                    1,
-                    256,
-                    1,
-                    1,
-                    attrs=_CTA_LAUNCH_ATTRS,
-                ):
-                    warp_id_in_cta: T.let[T.int32] = T.gpu_warp_shuffle(
-                        T.uint32(4294967295), T.cuda.thread_idx("x") // 32, 0, 32, 32
-                    )
-                    wg_id: T.let[T.int32] = warp_id_in_cta // 4
-                    _lane: T.let[T.int32] = T.cuda.thread_idx("x") % 32
-                    if wg_id == 0:
-                        pass
-                    if (0 <= wg_id) & (wg_id < 1):
-                        pass
-                    if (0 <= wg_id) & (wg_id < 1):
-                        pass
+                warp_id_in_cta: T.let[T.int32] = T.gpu_warp_shuffle(
+                    T.uint32(4294967295), T.cuda.thread_idx("x") // 32, 0, 32, 32
+                )
+                wg_id: T.let[T.int32] = warp_id_in_cta // 4
+                _lane: T.let[T.int32] = T.cuda.thread_idx("x") % 32
+                if wg_id == 0:
+                    pass
+                if (0 <= wg_id) & (wg_id < 1):
+                    pass
+                if (0 <= wg_id) & (wg_id < 1):
+                    pass
 
-        dispatched = TileDispatch()(Before)
-        tvm_tirx.ir.assert_structural_equal(dispatched, Dispatched)
-        After = LowerTensorLayouts()(dispatched)
-    tvm_tirx.ir.assert_structural_equal(After, Expected)
+    dispatched = TileDispatch()(
+        tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Before)
+    )
+    tvm_tirx.ir.assert_structural_equal(
+        dispatched, tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Dispatched)
+    )
+    After = LowerTensorLayouts()(
+        tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(dispatched)
+    )
+    tvm_tirx.ir.assert_structural_equal(
+        After, tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Expected)
+    )
 
     assert len(seen) == 3
     for item in seen:
@@ -1214,40 +1308,46 @@ def test_lower_exec_context_tracks_cta_thread_range_predicate_for_dispatch():
                 if (0 <= tid) & (tid < 128):
                     pass
 
-    with tvm_tirx.target.Target("cuda"):
-
-        @I.ir_module
-        class Dispatched:
-            @T.function(private=True)
-            def main(
-                A: T.Tensor(
-                    (1,),
-                    T.float32,
-                    layout="default",
-                ),
-                B: T.Tensor(
-                    (1,),
-                    T.float32,
-                    layout="default",
-                ),
+    @I.ir_module
+    class Dispatched:
+        @T.function(private=True)
+        def main(
+            A: T.Tensor(
+                (1,),
+                T.float32,
+                layout="default",
+            ),
+            B: T.Tensor(
+                (1,),
+                T.float32,
+                layout="default",
+            ),
+        ):
+            with T.device_scope(
+                1,
+                1,
+                1,
+                256,
+                1,
+                1,
+                attrs=_CTA_LAUNCH_ATTRS,
             ):
-                with T.device_scope(
-                    1,
-                    1,
-                    1,
-                    256,
-                    1,
-                    1,
-                    attrs=_CTA_LAUNCH_ATTRS,
-                ):
-                    tid: T.let[T.int32] = T.cuda.thread_idx("x")
-                    if (0 <= tid) & (tid < 128):
-                        pass
+                tid: T.let[T.int32] = T.cuda.thread_idx("x")
+                if (0 <= tid) & (tid < 128):
+                    pass
 
-        dispatched = TileDispatch()(Before)
-        tvm_tirx.ir.assert_structural_equal(dispatched, Dispatched)
-        After = LowerTensorLayouts()(dispatched)
-    tvm_tirx.ir.assert_structural_equal(After, Expected)
+    dispatched = TileDispatch()(
+        tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Before)
+    )
+    tvm_tirx.ir.assert_structural_equal(
+        dispatched, tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Dispatched)
+    )
+    After = LowerTensorLayouts()(
+        tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(dispatched)
+    )
+    tvm_tirx.ir.assert_structural_equal(
+        After, tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Expected)
+    )
 
     assert len(seen) == 1
     assert seen[0]["scope_kind"] == "thread"
@@ -1290,40 +1390,46 @@ def test_lower_exec_context_tracks_cta_thread_single_warp_range_predicate():
                 if (34 <= tid) & (tid < 40):
                     pass
 
-    with tvm_tirx.target.Target("cuda"):
-
-        @I.ir_module
-        class Dispatched:
-            @T.function(private=True)
-            def main(
-                A: T.Tensor(
-                    (1,),
-                    T.float32,
-                    layout="default",
-                ),
-                B: T.Tensor(
-                    (1,),
-                    T.float32,
-                    layout="default",
-                ),
+    @I.ir_module
+    class Dispatched:
+        @T.function(private=True)
+        def main(
+            A: T.Tensor(
+                (1,),
+                T.float32,
+                layout="default",
+            ),
+            B: T.Tensor(
+                (1,),
+                T.float32,
+                layout="default",
+            ),
+        ):
+            with T.device_scope(
+                1,
+                1,
+                1,
+                256,
+                1,
+                1,
+                attrs=_CTA_LAUNCH_ATTRS,
             ):
-                with T.device_scope(
-                    1,
-                    1,
-                    1,
-                    256,
-                    1,
-                    1,
-                    attrs=_CTA_LAUNCH_ATTRS,
-                ):
-                    tid: T.let[T.int32] = T.cuda.thread_idx("x")
-                    if (34 <= tid) & (tid < 40):
-                        pass
+                tid: T.let[T.int32] = T.cuda.thread_idx("x")
+                if (34 <= tid) & (tid < 40):
+                    pass
 
-        dispatched = TileDispatch()(Before)
-        tvm_tirx.ir.assert_structural_equal(dispatched, Dispatched)
-        After = LowerTensorLayouts()(dispatched)
-    tvm_tirx.ir.assert_structural_equal(After, Expected)
+    dispatched = TileDispatch()(
+        tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Before)
+    )
+    tvm_tirx.ir.assert_structural_equal(
+        dispatched, tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Dispatched)
+    )
+    After = LowerTensorLayouts()(
+        tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(dispatched)
+    )
+    tvm_tirx.ir.assert_structural_equal(
+        After, tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Expected)
+    )
 
     assert len(seen) == 1
     assert seen[0]["scope_kind"] == "thread"
@@ -1373,45 +1479,51 @@ def test_lower_exec_context_tracks_warpgroup_thread_range_predicate():
                     if (32 <= tid_in_wg) & (tid_in_wg < 64):
                         pass
 
-    with tvm_tirx.target.Target("cuda"):
-
-        @I.ir_module
-        class Dispatched:
-            @T.function(private=True)
-            def main(
-                A: T.Tensor(
-                    (1,),
-                    T.float32,
-                    layout="default",
-                ),
-                B: T.Tensor(
-                    (1,),
-                    T.float32,
-                    layout="default",
-                ),
+    @I.ir_module
+    class Dispatched:
+        @T.function(private=True)
+        def main(
+            A: T.Tensor(
+                (1,),
+                T.float32,
+                layout="default",
+            ),
+            B: T.Tensor(
+                (1,),
+                T.float32,
+                layout="default",
+            ),
+        ):
+            with T.device_scope(
+                1,
+                1,
+                1,
+                256,
+                1,
+                1,
+                attrs=_CTA_LAUNCH_ATTRS,
             ):
-                with T.device_scope(
-                    1,
-                    1,
-                    1,
-                    256,
-                    1,
-                    1,
-                    attrs=_CTA_LAUNCH_ATTRS,
-                ):
-                    warp_id_in_cta: T.let[T.int32] = T.gpu_warp_shuffle(
-                        T.uint32(4294967295), T.cuda.thread_idx("x") // 32, 0, 32, 32
-                    )
-                    wg_id: T.let[T.int32] = warp_id_in_cta // 4
-                    tid_in_wg: T.let[T.int32] = T.cuda.thread_idx("x") % 128
-                    if wg_id == 1:
-                        if (32 <= tid_in_wg) & (tid_in_wg < 64):
-                            pass
+                warp_id_in_cta: T.let[T.int32] = T.gpu_warp_shuffle(
+                    T.uint32(4294967295), T.cuda.thread_idx("x") // 32, 0, 32, 32
+                )
+                wg_id: T.let[T.int32] = warp_id_in_cta // 4
+                tid_in_wg: T.let[T.int32] = T.cuda.thread_idx("x") % 128
+                if wg_id == 1:
+                    if (32 <= tid_in_wg) & (tid_in_wg < 64):
+                        pass
 
-        dispatched = TileDispatch()(Before)
-        tvm_tirx.ir.assert_structural_equal(dispatched, Dispatched)
-        After = LowerTensorLayouts()(dispatched)
-    tvm_tirx.ir.assert_structural_equal(After, Expected)
+    dispatched = TileDispatch()(
+        tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Before)
+    )
+    tvm_tirx.ir.assert_structural_equal(
+        dispatched, tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Dispatched)
+    )
+    After = LowerTensorLayouts()(
+        tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(dispatched)
+    )
+    tvm_tirx.ir.assert_structural_equal(
+        After, tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Expected)
+    )
 
     assert len(seen) == 1
     assert seen[0]["scope_kind"] == "warpgroup"
@@ -1459,44 +1571,50 @@ def test_lower_exec_context_tracks_dependent_conjunctive_predicate():
                 if (32 <= tid_in_wg) & (tid_in_wg < 64) & (wg_id == 1):
                     pass
 
-    with tvm_tirx.target.Target("cuda"):
-
-        @I.ir_module
-        class Dispatched:
-            @T.function(private=True)
-            def main(
-                A: T.Tensor(
-                    (1,),
-                    T.float32,
-                    layout="default",
-                ),
-                B: T.Tensor(
-                    (1,),
-                    T.float32,
-                    layout="default",
-                ),
+    @I.ir_module
+    class Dispatched:
+        @T.function(private=True)
+        def main(
+            A: T.Tensor(
+                (1,),
+                T.float32,
+                layout="default",
+            ),
+            B: T.Tensor(
+                (1,),
+                T.float32,
+                layout="default",
+            ),
+        ):
+            with T.device_scope(
+                1,
+                1,
+                1,
+                256,
+                1,
+                1,
+                attrs=_CTA_LAUNCH_ATTRS,
             ):
-                with T.device_scope(
-                    1,
-                    1,
-                    1,
-                    256,
-                    1,
-                    1,
-                    attrs=_CTA_LAUNCH_ATTRS,
-                ):
-                    warp_id_in_cta: T.let[T.int32] = T.gpu_warp_shuffle(
-                        T.uint32(4294967295), T.cuda.thread_idx("x") // 32, 0, 32, 32
-                    )
-                    wg_id: T.let[T.int32] = warp_id_in_cta // 4
-                    tid_in_wg: T.let[T.int32] = T.cuda.thread_idx("x") % 128
-                    if (32 <= tid_in_wg) & (tid_in_wg < 64) & (wg_id == 1):
-                        pass
+                warp_id_in_cta: T.let[T.int32] = T.gpu_warp_shuffle(
+                    T.uint32(4294967295), T.cuda.thread_idx("x") // 32, 0, 32, 32
+                )
+                wg_id: T.let[T.int32] = warp_id_in_cta // 4
+                tid_in_wg: T.let[T.int32] = T.cuda.thread_idx("x") % 128
+                if (32 <= tid_in_wg) & (tid_in_wg < 64) & (wg_id == 1):
+                    pass
 
-        dispatched = TileDispatch()(Before)
-        tvm_tirx.ir.assert_structural_equal(dispatched, Dispatched)
-        After = LowerTensorLayouts()(dispatched)
-    tvm_tirx.ir.assert_structural_equal(After, Expected)
+    dispatched = TileDispatch()(
+        tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Before)
+    )
+    tvm_tirx.ir.assert_structural_equal(
+        dispatched, tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Dispatched)
+    )
+    After = LowerTensorLayouts()(
+        tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(dispatched)
+    )
+    tvm_tirx.ir.assert_structural_equal(
+        After, tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Expected)
+    )
 
     assert len(seen) == 1
     assert seen[0]["scope_kind"] == "warpgroup"
@@ -1531,39 +1649,45 @@ def test_lower_exec_context_keeps_plain_predicate_condition():
                 if wg_id == 0:
                     T.evaluate(A_1[0])
 
-    with tvm_tirx.target.Target("cuda"):
-
-        @I.ir_module
-        class Dispatched:
-            @T.function(private=True)
-            def main(
-                A: T.Tensor(
-                    (1,),
-                    T.float32,
-                    layout="default",
-                ),
+    @I.ir_module
+    class Dispatched:
+        @T.function(private=True)
+        def main(
+            A: T.Tensor(
+                (1,),
+                T.float32,
+                layout="default",
+            ),
+        ):
+            with T.device_scope(
+                1,
+                1,
+                1,
+                256,
+                1,
+                1,
+                attrs=_CTA_LAUNCH_ATTRS,
             ):
-                with T.device_scope(
-                    1,
-                    1,
-                    1,
-                    256,
-                    1,
-                    1,
-                    attrs=_CTA_LAUNCH_ATTRS,
-                ):
-                    warp_id_in_cta: T.let[T.int32] = T.gpu_warp_shuffle(
-                        T.uint32(4294967295), T.cuda.thread_idx("x") // 32, 0, 32, 32
-                    )
-                    wg_id: T.let[T.int32] = warp_id_in_cta // 4
-                    _lane: T.let[T.int32] = T.cuda.thread_idx("x") % 32
-                    if wg_id == 0:
-                        T.evaluate(A[0])
+                warp_id_in_cta: T.let[T.int32] = T.gpu_warp_shuffle(
+                    T.uint32(4294967295), T.cuda.thread_idx("x") // 32, 0, 32, 32
+                )
+                wg_id: T.let[T.int32] = warp_id_in_cta // 4
+                _lane: T.let[T.int32] = T.cuda.thread_idx("x") % 32
+                if wg_id == 0:
+                    T.evaluate(A[0])
 
-        dispatched = TileDispatch()(Before)
-        tvm_tirx.ir.assert_structural_equal(dispatched, Dispatched)
-        lowered = LowerTensorLayouts()(dispatched)
-    tvm_tirx.ir.assert_structural_equal(lowered, Expected)
+    dispatched = TileDispatch()(
+        tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Before)
+    )
+    tvm_tirx.ir.assert_structural_equal(
+        dispatched, tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Dispatched)
+    )
+    lowered = LowerTensorLayouts()(
+        tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(dispatched)
+    )
+    tvm_tirx.ir.assert_structural_equal(
+        lowered, tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Expected)
+    )
 
     script = lowered.script(extra_config={"tirx.prefix": "T"})
     assert "if wg_id == 0:" in script
@@ -1596,39 +1720,45 @@ def test_lower_exec_context_keeps_plain_scope_predicate_condition():
                 if wg_id == 0:
                     A_1[0] = T.float32(1.0)
 
-    with tvm_tirx.target.Target("cuda"):
-
-        @I.ir_module
-        class Dispatched:
-            @T.function(private=True)
-            def main(
-                A: T.Tensor(
-                    (1,),
-                    T.float32,
-                    layout="default",
-                ),
+    @I.ir_module
+    class Dispatched:
+        @T.function(private=True)
+        def main(
+            A: T.Tensor(
+                (1,),
+                T.float32,
+                layout="default",
+            ),
+        ):
+            with T.device_scope(
+                1,
+                1,
+                1,
+                256,
+                1,
+                1,
+                attrs=_CTA_LAUNCH_ATTRS,
             ):
-                with T.device_scope(
-                    1,
-                    1,
-                    1,
-                    256,
-                    1,
-                    1,
-                    attrs=_CTA_LAUNCH_ATTRS,
-                ):
-                    warp_id_in_cta: T.let[T.int32] = T.gpu_warp_shuffle(
-                        T.uint32(4294967295), T.cuda.thread_idx("x") // 32, 0, 32, 32
-                    )
-                    wg_id: T.let[T.int32] = warp_id_in_cta // 4
-                    _lane: T.let[T.int32] = T.cuda.thread_idx("x") % 32
-                    if wg_id == 0:
-                        A[0] = T.float32(1.0)
+                warp_id_in_cta: T.let[T.int32] = T.gpu_warp_shuffle(
+                    T.uint32(4294967295), T.cuda.thread_idx("x") // 32, 0, 32, 32
+                )
+                wg_id: T.let[T.int32] = warp_id_in_cta // 4
+                _lane: T.let[T.int32] = T.cuda.thread_idx("x") % 32
+                if wg_id == 0:
+                    A[0] = T.float32(1.0)
 
-        dispatched = TileDispatch()(Before)
-        tvm_tirx.ir.assert_structural_equal(dispatched, Dispatched)
-        lowered = LowerTensorLayouts()(dispatched)
-    tvm_tirx.ir.assert_structural_equal(lowered, Expected)
+    dispatched = TileDispatch()(
+        tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Before)
+    )
+    tvm_tirx.ir.assert_structural_equal(
+        dispatched, tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Dispatched)
+    )
+    lowered = LowerTensorLayouts()(
+        tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(dispatched)
+    )
+    tvm_tirx.ir.assert_structural_equal(
+        lowered, tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Expected)
+    )
 
     script = lowered.script(extra_config={"tirx.prefix": "T"})
     assert "if wg_id == 0:" in script
@@ -1678,42 +1808,51 @@ def test_simplify_uses_floor_div_scope_predicate_as_context_fact():
                 if warp_id_in_cta // 4 == 0:
                     A_1[warp_id_in_cta] = T.Cast("float32", T.cuda.thread_idx("x") % 32)
 
-    with tvm_tirx.target.Target("cuda"):
-
-        @I.ir_module
-        class Dispatched:
-            @T.function(private=True)
-            def main(
-                A: T.Tensor(
-                    (16,),
-                    T.float32,
-                    layout="default",
-                ),
+    @I.ir_module
+    class Dispatched:
+        @T.function(private=True)
+        def main(
+            A: T.Tensor(
+                (16,),
+                T.float32,
+                layout="default",
+            ),
+        ):
+            with T.device_scope(
+                1,
+                1,
+                1,
+                256,
+                1,
+                1,
+                attrs=_CTA_LAUNCH_ATTRS,
             ):
-                with T.device_scope(
-                    1,
-                    1,
-                    1,
-                    256,
-                    1,
-                    1,
-                    attrs=_CTA_LAUNCH_ATTRS,
-                ):
-                    warp_id_in_cta: T.let[T.int32] = T.gpu_warp_shuffle(
-                        T.uint32(4294967295), T.cuda.thread_idx("x") // 32, 0, 32, 32
-                    )
-                    wg_id: T.let[T.int32] = warp_id_in_cta // 4
-                    warp_id: T.let[T.int32] = warp_id_in_cta % 4
-                    lane_id: T.let[T.int32] = T.cuda.thread_idx("x") % 32
-                    if wg_id == 0:
-                        A[warp_id] = T.Cast("float32", lane_id)
+                warp_id_in_cta: T.let[T.int32] = T.gpu_warp_shuffle(
+                    T.uint32(4294967295), T.cuda.thread_idx("x") // 32, 0, 32, 32
+                )
+                wg_id: T.let[T.int32] = warp_id_in_cta // 4
+                warp_id: T.let[T.int32] = warp_id_in_cta % 4
+                lane_id: T.let[T.int32] = T.cuda.thread_idx("x") % 32
+                if wg_id == 0:
+                    A[warp_id] = T.Cast("float32", lane_id)
 
-        dispatched = TileDispatch()(Before)
-        tvm_tirx.ir.assert_structural_equal(dispatched, Dispatched)
-        lowered = LowerTensorLayouts()(dispatched)
-        simplified = StmtSimplify()(lowered)
-    tvm_tirx.ir.assert_structural_equal(lowered, Expected)
-    tvm_tirx.ir.assert_structural_equal(simplified, ExpectedSimplified)
+    dispatched = TileDispatch()(
+        tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Before)
+    )
+    tvm_tirx.ir.assert_structural_equal(
+        dispatched, tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Dispatched)
+    )
+    lowered = LowerTensorLayouts()(
+        tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(dispatched)
+    )
+    simplified = StmtSimplify()(lowered)
+    tvm_tirx.ir.assert_structural_equal(
+        lowered, tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Expected)
+    )
+    tvm_tirx.ir.assert_structural_equal(
+        simplified,
+        tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(ExpectedSimplified),
+    )
 
     script = simplified.script(extra_config={"tirx.prefix": "T"})
     assert "if warp_id_in_cta // 4 == 0:" in script
@@ -1763,44 +1902,50 @@ def test_lower_exec_context_selector_filter_for_elect_sync():
                 if T.cuda.elect_sync():
                     pass
 
-    with tvm_tirx.target.Target("cuda"):
-
-        @I.ir_module
-        class Dispatched:
-            @T.function(private=True)
-            def main(
-                A: T.Tensor(
-                    (1,),
-                    T.float32,
-                    layout="default",
-                ),
-                B: T.Tensor(
-                    (1,),
-                    T.float32,
-                    layout="default",
-                ),
+    @I.ir_module
+    class Dispatched:
+        @T.function(private=True)
+        def main(
+            A: T.Tensor(
+                (1,),
+                T.float32,
+                layout="default",
+            ),
+            B: T.Tensor(
+                (1,),
+                T.float32,
+                layout="default",
+            ),
+        ):
+            with T.device_scope(
+                1,
+                1,
+                1,
+                32,
+                1,
+                1,
+                attrs=_CTA_LAUNCH_ATTRS,
             ):
-                with T.device_scope(
-                    1,
-                    1,
-                    1,
-                    32,
-                    1,
-                    1,
-                    attrs=_CTA_LAUNCH_ATTRS,
-                ):
-                    lane_id: T.let[T.int32] = T.cuda.thread_idx("x") % 32
-                    if T.cuda.elect_sync():
-                        pass
-                    if T.cuda.elect_sync() != T.uint32(0):
-                        pass
-                    if T.cuda.elect_sync():
-                        pass
+                lane_id: T.let[T.int32] = T.cuda.thread_idx("x") % 32
+                if T.cuda.elect_sync():
+                    pass
+                if T.cuda.elect_sync() != T.uint32(0):
+                    pass
+                if T.cuda.elect_sync():
+                    pass
 
-        dispatched = TileDispatch()(Before)
-        tvm_tirx.ir.assert_structural_equal(dispatched, Dispatched)
-        After = LowerTensorLayouts()(dispatched)
-    tvm_tirx.ir.assert_structural_equal(After, Expected)
+    dispatched = TileDispatch()(
+        tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Before)
+    )
+    tvm_tirx.ir.assert_structural_equal(
+        dispatched, tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Dispatched)
+    )
+    After = LowerTensorLayouts()(
+        tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(dispatched)
+    )
+    tvm_tirx.ir.assert_structural_equal(
+        After, tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Expected)
+    )
 
     assert len(seen) == 3
     assert any(
@@ -1850,44 +1995,50 @@ def test_lower_exec_context_scope_guard_mixes_structural_and_selector():
                 if T.Cast("uint32", warp_id == 0) & T.cuda.elect_sync():
                     pass
 
-    with tvm_tirx.target.Target("cuda"):
-
-        @I.ir_module
-        class Dispatched:
-            @T.function(private=True)
-            def main(
-                A: T.Tensor(
-                    (1,),
-                    T.float32,
-                    layout="default",
-                ),
-                B: T.Tensor(
-                    (1,),
-                    T.float32,
-                    layout="default",
-                ),
+    @I.ir_module
+    class Dispatched:
+        @T.function(private=True)
+        def main(
+            A: T.Tensor(
+                (1,),
+                T.float32,
+                layout="default",
+            ),
+            B: T.Tensor(
+                (1,),
+                T.float32,
+                layout="default",
+            ),
+        ):
+            with T.device_scope(
+                1,
+                1,
+                1,
+                128,
+                1,
+                1,
+                attrs=_CTA_LAUNCH_ATTRS,
             ):
-                with T.device_scope(
-                    1,
-                    1,
-                    1,
-                    128,
-                    1,
-                    1,
-                    attrs=_CTA_LAUNCH_ATTRS,
-                ):
-                    warp_id_in_cta: T.let[T.int32] = T.gpu_warp_shuffle(
-                        T.uint32(4294967295), T.cuda.thread_idx("x") // 32, 0, 32, 32
-                    )
-                    warp_id: T.let[T.int32] = warp_id_in_cta
-                    lane_id: T.let[T.int32] = T.cuda.thread_idx("x") % 32
-                    if T.Cast("uint32", warp_id == 0) & T.cuda.elect_sync():
-                        pass
+                warp_id_in_cta: T.let[T.int32] = T.gpu_warp_shuffle(
+                    T.uint32(4294967295), T.cuda.thread_idx("x") // 32, 0, 32, 32
+                )
+                warp_id: T.let[T.int32] = warp_id_in_cta
+                lane_id: T.let[T.int32] = T.cuda.thread_idx("x") % 32
+                if T.Cast("uint32", warp_id == 0) & T.cuda.elect_sync():
+                    pass
 
-        dispatched = TileDispatch()(Before)
-        tvm_tirx.ir.assert_structural_equal(dispatched, Dispatched)
-        After = LowerTensorLayouts()(dispatched)
-    tvm_tirx.ir.assert_structural_equal(After, Expected)
+    dispatched = TileDispatch()(
+        tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Before)
+    )
+    tvm_tirx.ir.assert_structural_equal(
+        dispatched, tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Dispatched)
+    )
+    After = LowerTensorLayouts()(
+        tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(dispatched)
+    )
+    tvm_tirx.ir.assert_structural_equal(
+        After, tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Expected)
+    )
 
     assert len(seen) == 1
     assert _int_range(seen[0]["inter"], "warpid") == (1, 0)
@@ -1933,44 +2084,50 @@ def test_lower_exec_context_tracks_factorized_cta_predicate():
                 if cbx == 0:
                     pass
 
-    with tvm_tirx.target.Target("cuda"):
-
-        @I.ir_module
-        class Dispatched:
-            @T.function(private=True)
-            def main(
-                A: T.Tensor(
-                    (1,),
-                    T.float32,
-                    layout="default",
-                ),
-                B: T.Tensor(
-                    (1,),
-                    T.float32,
-                    layout="default",
-                ),
+    @I.ir_module
+    class Dispatched:
+        @T.function(private=True)
+        def main(
+            A: T.Tensor(
+                (1,),
+                T.float32,
+                layout="default",
+            ),
+            B: T.Tensor(
+                (1,),
+                T.float32,
+                layout="default",
+            ),
+        ):
+            with T.device_scope(
+                2,
+                3,
+                1,
+                32,
+                1,
+                1,
+                2,
+                3,
+                1,
+                attrs=_CLUSTER_LAUNCH_ATTRS,
             ):
-                with T.device_scope(
-                    2,
-                    3,
-                    1,
-                    32,
-                    1,
-                    1,
-                    2,
-                    3,
-                    1,
-                    attrs=_CLUSTER_LAUNCH_ATTRS,
-                ):
-                    cbx: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.x")
-                    cby: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.y")
-                    if cbx == 0:
-                        pass
+                cbx: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.x")
+                cby: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.y")
+                if cbx == 0:
+                    pass
 
-        dispatched = TileDispatch()(Before)
-        tvm_tirx.ir.assert_structural_equal(dispatched, Dispatched)
-        After = LowerTensorLayouts()(dispatched)
-    tvm_tirx.ir.assert_structural_equal(After, Expected)
+    dispatched = TileDispatch()(
+        tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Before)
+    )
+    tvm_tirx.ir.assert_structural_equal(
+        dispatched, tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Dispatched)
+    )
+    After = LowerTensorLayouts()(
+        tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(dispatched)
+    )
+    tvm_tirx.ir.assert_structural_equal(
+        After, tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Expected)
+    )
 
     assert len(seen) == 1
     assert _int_range(seen[0], "cbx") == (1, 0)
@@ -2023,46 +2180,52 @@ def test_lower_exec_context_keeps_kernel_cta_predicate_out_of_cluster_active_set
                 if cbx == 0:
                     pass
 
-    with tvm_tirx.target.Target("cuda"):
-
-        @I.ir_module
-        class Dispatched:
-            @T.function(private=True)
-            def main(
-                A: T.Tensor(
-                    (1,),
-                    T.float32,
-                    layout="default",
-                ),
-                B: T.Tensor(
-                    (1,),
-                    T.float32,
-                    layout="default",
-                ),
+    @I.ir_module
+    class Dispatched:
+        @T.function(private=True)
+        def main(
+            A: T.Tensor(
+                (1,),
+                T.float32,
+                layout="default",
+            ),
+            B: T.Tensor(
+                (1,),
+                T.float32,
+                layout="default",
+            ),
+        ):
+            with T.device_scope(
+                8,
+                1,
+                1,
+                32,
+                1,
+                1,
+                2,
+                1,
+                1,
+                attrs=_CLUSTER_LAUNCH_ATTRS,
             ):
-                with T.device_scope(
-                    8,
-                    1,
-                    1,
-                    32,
-                    1,
-                    1,
-                    2,
-                    1,
-                    1,
-                    attrs=_CLUSTER_LAUNCH_ATTRS,
-                ):
-                    bx: T.let[T.int32] = T.cuda.block_idx("x")
-                    cbx: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.x")
-                    if bx == 0:
-                        pass
-                    if cbx == 0:
-                        pass
+                bx: T.let[T.int32] = T.cuda.block_idx("x")
+                cbx: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.x")
+                if bx == 0:
+                    pass
+                if cbx == 0:
+                    pass
 
-        dispatched = TileDispatch()(Before)
-        tvm_tirx.ir.assert_structural_equal(dispatched, Dispatched)
-        After = LowerTensorLayouts()(dispatched)
-    tvm_tirx.ir.assert_structural_equal(After, Expected)
+    dispatched = TileDispatch()(
+        tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Before)
+    )
+    tvm_tirx.ir.assert_structural_equal(
+        dispatched, tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Dispatched)
+    )
+    After = LowerTensorLayouts()(
+        tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(dispatched)
+    )
+    tvm_tirx.ir.assert_structural_equal(
+        After, tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Expected)
+    )
 
     assert set(seen) == {"kernel", "cluster"}
     assert _int_range(seen["kernel"], "cta_id") == (2, 0)
@@ -2103,44 +2266,50 @@ def test_lower_exec_context_tracks_cta_axis_modulo_predicate():
                 if cbx % 2 == 0:
                     pass
 
-    with tvm_tirx.target.Target("cuda"):
-
-        @I.ir_module
-        class Dispatched:
-            @T.function(private=True)
-            def main(
-                A: T.Tensor(
-                    (1,),
-                    T.float32,
-                    layout="default",
-                ),
-                B: T.Tensor(
-                    (1,),
-                    T.float32,
-                    layout="default",
-                ),
+    @I.ir_module
+    class Dispatched:
+        @T.function(private=True)
+        def main(
+            A: T.Tensor(
+                (1,),
+                T.float32,
+                layout="default",
+            ),
+            B: T.Tensor(
+                (1,),
+                T.float32,
+                layout="default",
+            ),
+        ):
+            with T.device_scope(
+                4,
+                2,
+                1,
+                32,
+                1,
+                1,
+                4,
+                2,
+                1,
+                attrs=_CLUSTER_LAUNCH_ATTRS,
             ):
-                with T.device_scope(
-                    4,
-                    2,
-                    1,
-                    32,
-                    1,
-                    1,
-                    4,
-                    2,
-                    1,
-                    attrs=_CLUSTER_LAUNCH_ATTRS,
-                ):
-                    cbx: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.x")
-                    cby: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.y")
-                    if cbx % 2 == 0:
-                        pass
+                cbx: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.x")
+                cby: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.y")
+                if cbx % 2 == 0:
+                    pass
 
-        dispatched = TileDispatch()(Before)
-        tvm_tirx.ir.assert_structural_equal(dispatched, Dispatched)
-        After = LowerTensorLayouts()(dispatched)
-    tvm_tirx.ir.assert_structural_equal(After, Expected)
+    dispatched = TileDispatch()(
+        tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Before)
+    )
+    tvm_tirx.ir.assert_structural_equal(
+        dispatched, tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Dispatched)
+    )
+    After = LowerTensorLayouts()(
+        tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(dispatched)
+    )
+    tvm_tirx.ir.assert_structural_equal(
+        After, tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Expected)
+    )
 
     assert len(seen) == 1
     assert _int_range(seen[0], "cbx") == (2, 0, 2)
@@ -2191,53 +2360,59 @@ def test_lower_exec_context_tracks_cta_id_in_pair_predicate():
                 if cta_id_in_pair == 0:
                     pass
 
-    with tvm_tirx.target.Target("cuda"):
-
-        @I.ir_module
-        class Dispatched:
-            @T.function(private=True)
-            def main(
-                A: T.Tensor(
-                    (1,),
-                    T.float32,
-                    layout="default",
-                ),
-                B: T.Tensor(
-                    (1,),
-                    T.float32,
-                    layout="default",
-                ),
+    @I.ir_module
+    class Dispatched:
+        @T.function(private=True)
+        def main(
+            A: T.Tensor(
+                (1,),
+                T.float32,
+                layout="default",
+            ),
+            B: T.Tensor(
+                (1,),
+                T.float32,
+                layout="default",
+            ),
+        ):
+            with T.device_scope(
+                4,
+                2,
+                1,
+                32,
+                1,
+                1,
+                4,
+                2,
+                1,
+                attrs=_CLUSTER_LAUNCH_ATTRS,
             ):
-                with T.device_scope(
-                    4,
-                    2,
-                    1,
-                    32,
-                    1,
-                    1,
-                    4,
-                    2,
-                    1,
-                    attrs=_CLUSTER_LAUNCH_ATTRS,
-                ):
-                    cbx: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.x")
-                    cby: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.y")
-                    cta_id_in_pair: T.let[T.int32] = (
-                        T.cuda.mov_sreg(32, "cluster_ctaid.x")
-                        + T.cuda.mov_sreg(32, "cluster_nctaid.x")
-                        * (
-                            T.cuda.mov_sreg(32, "cluster_ctaid.y")
-                            + T.cuda.mov_sreg(32, "cluster_nctaid.y")
-                            * T.cuda.mov_sreg(32, "cluster_ctaid.z")
-                        )
-                    ) % 2
-                    if cta_id_in_pair == 0:
-                        pass
+                cbx: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.x")
+                cby: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.y")
+                cta_id_in_pair: T.let[T.int32] = (
+                    T.cuda.mov_sreg(32, "cluster_ctaid.x")
+                    + T.cuda.mov_sreg(32, "cluster_nctaid.x")
+                    * (
+                        T.cuda.mov_sreg(32, "cluster_ctaid.y")
+                        + T.cuda.mov_sreg(32, "cluster_nctaid.y")
+                        * T.cuda.mov_sreg(32, "cluster_ctaid.z")
+                    )
+                ) % 2
+                if cta_id_in_pair == 0:
+                    pass
 
-        dispatched = TileDispatch()(Before)
-        tvm_tirx.ir.assert_structural_equal(dispatched, Dispatched)
-        lowered = LowerTensorLayouts()(dispatched)
-    tvm_tirx.ir.assert_structural_equal(lowered, Expected)
+    dispatched = TileDispatch()(
+        tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Before)
+    )
+    tvm_tirx.ir.assert_structural_equal(
+        dispatched, tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Dispatched)
+    )
+    lowered = LowerTensorLayouts()(
+        tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(dispatched)
+    )
+    tvm_tirx.ir.assert_structural_equal(
+        lowered, tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Expected)
+    )
 
     assert len(seen) == 1
     assert _int_range(seen[0], "cbx") == (2, 0, 2)
@@ -2296,53 +2471,59 @@ def test_lower_exec_context_tracks_two_cta_pair_predicates():
                 if cta_id_in_pair == 1:
                     pass
 
-    with tvm_tirx.target.Target("cuda"):
-
-        @I.ir_module
-        class Dispatched:
-            @T.function(private=True)
-            def main(
-                A: T.Tensor(
-                    (1,),
-                    T.float32,
-                    layout="default",
-                ),
-                B: T.Tensor(
-                    (1,),
-                    T.float32,
-                    layout="default",
-                ),
+    @I.ir_module
+    class Dispatched:
+        @T.function(private=True)
+        def main(
+            A: T.Tensor(
+                (1,),
+                T.float32,
+                layout="default",
+            ),
+            B: T.Tensor(
+                (1,),
+                T.float32,
+                layout="default",
+            ),
+        ):
+            with T.device_scope(
+                2,
+                1,
+                1,
+                32,
+                1,
+                1,
+                2,
+                1,
+                1,
+                attrs=_CLUSTER_LAUNCH_ATTRS,
             ):
-                with T.device_scope(
-                    2,
-                    1,
-                    1,
-                    32,
-                    1,
-                    1,
-                    2,
-                    1,
-                    1,
-                    attrs=_CLUSTER_LAUNCH_ATTRS,
-                ):
-                    cta_id_in_pair: T.let[T.int32] = (
-                        T.cuda.mov_sreg(32, "cluster_ctaid.x")
-                        + T.cuda.mov_sreg(32, "cluster_nctaid.x")
-                        * (
-                            T.cuda.mov_sreg(32, "cluster_ctaid.y")
-                            + T.cuda.mov_sreg(32, "cluster_nctaid.y")
-                            * T.cuda.mov_sreg(32, "cluster_ctaid.z")
-                        )
-                    ) % 2
-                    if cta_id_in_pair == 0:
-                        pass
-                    if cta_id_in_pair == 1:
-                        pass
+                cta_id_in_pair: T.let[T.int32] = (
+                    T.cuda.mov_sreg(32, "cluster_ctaid.x")
+                    + T.cuda.mov_sreg(32, "cluster_nctaid.x")
+                    * (
+                        T.cuda.mov_sreg(32, "cluster_ctaid.y")
+                        + T.cuda.mov_sreg(32, "cluster_nctaid.y")
+                        * T.cuda.mov_sreg(32, "cluster_ctaid.z")
+                    )
+                ) % 2
+                if cta_id_in_pair == 0:
+                    pass
+                if cta_id_in_pair == 1:
+                    pass
 
-        dispatched = TileDispatch()(Before)
-        tvm_tirx.ir.assert_structural_equal(dispatched, Dispatched)
-        After = LowerTensorLayouts()(dispatched)
-    tvm_tirx.ir.assert_structural_equal(After, Expected)
+    dispatched = TileDispatch()(
+        tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Before)
+    )
+    tvm_tirx.ir.assert_structural_equal(
+        dispatched, tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Dispatched)
+    )
+    After = LowerTensorLayouts()(
+        tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(dispatched)
+    )
+    tvm_tirx.ir.assert_structural_equal(
+        After, tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Expected)
+    )
 
     assert set(seen) == {"zero", "one"}
     assert _int_range(seen["zero"], "cta_id") == (1, 0, 2)
@@ -2395,54 +2576,60 @@ def test_lower_exec_context_tracks_cta_id_in_pair_after_axis_predicate():
                     if cta_id_in_pair == 1:
                         pass
 
-    with tvm_tirx.target.Target("cuda"):
-
-        @I.ir_module
-        class Dispatched:
-            @T.function(private=True)
-            def main(
-                A: T.Tensor(
-                    (1,),
-                    T.float32,
-                    layout="default",
-                ),
-                B: T.Tensor(
-                    (1,),
-                    T.float32,
-                    layout="default",
-                ),
+    @I.ir_module
+    class Dispatched:
+        @T.function(private=True)
+        def main(
+            A: T.Tensor(
+                (1,),
+                T.float32,
+                layout="default",
+            ),
+            B: T.Tensor(
+                (1,),
+                T.float32,
+                layout="default",
+            ),
+        ):
+            with T.device_scope(
+                3,
+                2,
+                1,
+                32,
+                1,
+                1,
+                3,
+                2,
+                1,
+                attrs=_CLUSTER_LAUNCH_ATTRS,
             ):
-                with T.device_scope(
-                    3,
-                    2,
-                    1,
-                    32,
-                    1,
-                    1,
-                    3,
-                    2,
-                    1,
-                    attrs=_CLUSTER_LAUNCH_ATTRS,
-                ):
-                    cbx: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.x")
-                    cby: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.y")
-                    cta_id_in_pair: T.let[T.int32] = (
-                        T.cuda.mov_sreg(32, "cluster_ctaid.x")
-                        + T.cuda.mov_sreg(32, "cluster_nctaid.x")
-                        * (
-                            T.cuda.mov_sreg(32, "cluster_ctaid.y")
-                            + T.cuda.mov_sreg(32, "cluster_nctaid.y")
-                            * T.cuda.mov_sreg(32, "cluster_ctaid.z")
-                        )
-                    ) % 2
-                    if cbx == 0:
-                        if cta_id_in_pair == 1:
-                            pass
+                cbx: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.x")
+                cby: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.y")
+                cta_id_in_pair: T.let[T.int32] = (
+                    T.cuda.mov_sreg(32, "cluster_ctaid.x")
+                    + T.cuda.mov_sreg(32, "cluster_nctaid.x")
+                    * (
+                        T.cuda.mov_sreg(32, "cluster_ctaid.y")
+                        + T.cuda.mov_sreg(32, "cluster_nctaid.y")
+                        * T.cuda.mov_sreg(32, "cluster_ctaid.z")
+                    )
+                ) % 2
+                if cbx == 0:
+                    if cta_id_in_pair == 1:
+                        pass
 
-        dispatched = TileDispatch()(Before)
-        tvm_tirx.ir.assert_structural_equal(dispatched, Dispatched)
-        After = LowerTensorLayouts()(dispatched)
-    tvm_tirx.ir.assert_structural_equal(After, Expected)
+    dispatched = TileDispatch()(
+        tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Before)
+    )
+    tvm_tirx.ir.assert_structural_equal(
+        dispatched, tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Dispatched)
+    )
+    After = LowerTensorLayouts()(
+        tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(dispatched)
+    )
+    tvm_tirx.ir.assert_structural_equal(
+        After, tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Expected)
+    )
 
     assert len(seen) == 1
     assert _int_range(seen[0], "cbx") == (1, 0)
@@ -2469,8 +2656,7 @@ def test_warp_indices_require_complete_warps():
             T.evaluate(T.cuda.warp_id())
 
     with pytest.raises(ValueError, match="divisible by 32"):
-        with tvm_tirx.target.Target("cuda"):
-            TileDispatch()(Before)
+        TileDispatch()(tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Before))
 
 
 def test_launch_configuration_does_not_require_index_uses():
@@ -2490,28 +2676,34 @@ def test_launch_configuration_does_not_require_index_uses():
             with T.device_scope(32, 1, 1, 128, 1, 1, attrs=_CTA_LAUNCH_ATTRS):
                 pass
 
-    with tvm_tirx.target.Target("cuda"):
+    @I.ir_module
+    class Dispatched:
+        @T.function
+        def main():
+            T.func_attr({"global_symbol": "kernel"})
+            with T.device_scope(
+                32,
+                1,
+                1,
+                128,
+                1,
+                1,
+                attrs=_CTA_LAUNCH_ATTRS,
+            ):
+                pass
 
-        @I.ir_module
-        class Dispatched:
-            @T.function
-            def main():
-                T.func_attr({"global_symbol": "kernel"})
-                with T.device_scope(
-                    32,
-                    1,
-                    1,
-                    128,
-                    1,
-                    1,
-                    attrs=_CTA_LAUNCH_ATTRS,
-                ):
-                    pass
-
-        dispatched = TileDispatch()(Before)
-        tvm_tirx.ir.assert_structural_equal(dispatched, Dispatched)
-        lowered = LowerTensorLayouts()(dispatched)["main"]
-    tvm_tirx.ir.assert_structural_equal(lowered, Expected["main"])
+    dispatched = TileDispatch()(
+        tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Before)
+    )
+    tvm_tirx.ir.assert_structural_equal(
+        dispatched, tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Dispatched)
+    )
+    lowered = LowerTensorLayouts()(
+        tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(dispatched)
+    )["main"]
+    tvm_tirx.ir.assert_structural_equal(
+        lowered, Expected["main"].with_attr("target", tvm_tirx.target.Target("cuda"))
+    )
 
 
 def test_lower_preferred_cluster():
@@ -2542,35 +2734,41 @@ def test_lower_preferred_cluster():
                 tx: T.let[T.int32] = T.cuda.thread_idx("x")
                 T.evaluate(bx + cbx + cby + tx)
 
-    with tvm_tirx.target.Target("cuda"):
+    @I.ir_module
+    class Dispatched:
+        @T.function(private=True)
+        def main():
+            with T.device_scope(
+                8,
+                2,
+                1,
+                128,
+                1,
+                1,
+                2,
+                1,
+                1,
+                2,
+                2,
+                1,
+                attrs=_PREFERRED_CLUSTER_LAUNCH_ATTRS,
+            ):
+                bx: T.let[T.int32] = T.cuda.block_idx("x")
+                cbx: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.x")
+                cby: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.y")
+                tx: T.let[T.int32] = T.cuda.thread_idx("x")
+                T.evaluate(bx + cbx + cby + tx)
 
-        @I.ir_module
-        class Dispatched:
-            @T.function(private=True)
-            def main():
-                with T.device_scope(
-                    8,
-                    2,
-                    1,
-                    128,
-                    1,
-                    1,
-                    2,
-                    1,
-                    1,
-                    2,
-                    2,
-                    1,
-                    attrs=_PREFERRED_CLUSTER_LAUNCH_ATTRS,
-                ):
-                    bx: T.let[T.int32] = T.cuda.block_idx("x")
-                    cbx: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.x")
-                    cby: T.let[T.int32] = T.cuda.mov_sreg(32, "cluster_ctaid.y")
-                    tx: T.let[T.int32] = T.cuda.thread_idx("x")
-                    T.evaluate(bx + cbx + cby + tx)
-
-        dispatched = TileDispatch()(Before)
-        tvm_tirx.ir.assert_structural_equal(dispatched, Dispatched)
-        after_mod = LowerTensorLayouts()(dispatched)
-    tvm_tirx.ir.assert_structural_equal(after_mod, Expected)
+    dispatched = TileDispatch()(
+        tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Before)
+    )
+    tvm_tirx.ir.assert_structural_equal(
+        dispatched, tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Dispatched)
+    )
+    after_mod = LowerTensorLayouts()(
+        tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(dispatched)
+    )
+    tvm_tirx.ir.assert_structural_equal(
+        after_mod, tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Expected)
+    )
     assert 'T.cuda.mov_sreg(32, "cluster_ctaid.y")' in after_mod.script()

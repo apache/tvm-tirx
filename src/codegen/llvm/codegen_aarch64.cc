@@ -109,17 +109,11 @@ void CodeGenAArch64::SetTargetAttributes(llvm::Function* func) {
   // Add vscale_range() function attribute when appropriate.
   if (llvm_target_->TargetHasCPUFeature("sve") || llvm_target_->TargetHasCPUFeature("sme")) {
     // Compute max_val = largest power-of-two <= vector_width/8.
-    // Guard against calling llvm_get_vector_width_fn when no target is active —
-    // Target::Current() returns an undefined Target outside a compilation context.
-    static auto llvm_get_vector_width_fn =
-        tvm::ffi::Function::GetGlobalRequired("codegen.llvm_get_vector_width");
     unsigned int max_val = 0;
-    if (auto target = Target::Current(); target.has_value()) {
-      unsigned int vector_width =
-          static_cast<unsigned int>(llvm_get_vector_width_fn(target).cast<int>());
-      for (unsigned int i = 0;; ++i) {
-        unsigned int power = 1u << i;
-        if (power > (vector_width / 8)) break;
+    int vector_width = llvm_target_->GetVectorWidth();
+    if (vector_width > 0) {
+      for (unsigned int power = 1; power <= static_cast<unsigned int>(vector_width / 8);
+           power *= 2) {
         max_val = power;
       }
     }

@@ -132,10 +132,7 @@ def test_ptx_ld_st_codegen_emits_shared_asm():
     # fmt: on
 
     target = TARGET
-    with target:
-        mod = tvm_tirx.compile(
-            tvm_tirx.IRModule({"main": copy_kernel}), target=target, pipeline="tirx"
-        )
+    mod = tvm_tirx.compile(tvm_tirx.IRModule({"main": copy_kernel}), target=target, pipeline="tirx")
     src = mod.mod.imports[0].inspect_source("cuda")
     assert "ld.shared" in src, "PTX ld did not emit ld.shared"
     assert "st.shared" in src, "PTX st did not emit st.shared"
@@ -206,10 +203,7 @@ def test_ptx_ld_global_nc_v8_codegen():
                 out[i] = tmp[i]
 
     target = TARGET
-    with target:
-        mod = tvm_tirx.compile(
-            tvm_tirx.IRModule({"main": copy_kernel}), target=target, pipeline="tirx"
-        )
+    mod = tvm_tirx.compile(tvm_tirx.IRModule({"main": copy_kernel}), target=target, pipeline="tirx")
     src = mod.mod.imports[0].inspect_source("cuda")
     assert "ld.global.nc.L1::no_allocate.L2::evict_first.L2::256B.v8.s32" in src
     assert "{%0, %1, %2, %3, %4, %5, %6, %7}, [%8];" in src
@@ -235,10 +229,7 @@ def test_ptx_ld_global_nc_v4_u64_256b_codegen():
                 out[i] = tmp[i]
 
     target = TARGET
-    with target:
-        mod = tvm_tirx.compile(
-            tvm_tirx.IRModule({"main": copy_kernel}), target=target, pipeline="tirx"
-        )
+    mod = tvm_tirx.compile(tvm_tirx.IRModule({"main": copy_kernel}), target=target, pipeline="tirx")
     src = mod.mod.imports[0].inspect_source("cuda")
     assert "ld.global.nc.L1::no_allocate.L2::evict_normal.L2::256B.v4.u64" in src
     assert "{%0, %1, %2, %3}, [%4];" in src
@@ -263,10 +254,7 @@ def test_ptx_ld_vector_scatter_dst_codegen():
             out[3] = tmp3[0]
 
     target = TARGET
-    with target:
-        mod = tvm_tirx.compile(
-            tvm_tirx.IRModule({"main": copy_kernel}), target=target, pipeline="tirx"
-        )
+    mod = tvm_tirx.compile(tvm_tirx.IRModule({"main": copy_kernel}), target=target, pipeline="tirx")
     src = mod.mod.imports[0].inspect_source("cuda")
     assert "ld.global.nc.v4.s32 {%0, %1, %2, %3}, [%4];" in src
     # Four independent destinations: each lane is its own reference parameter.

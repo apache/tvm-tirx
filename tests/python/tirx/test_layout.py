@@ -432,55 +432,52 @@ def test_normalize_tile_layout():
     unit_layout_case1()
 
     def case_fuse_axis():
-        with tvm_tirx.target.Target("cuda"):
-            layout = TileLayout(S[(2, 8, 2, 4) : (2 @ warpid, 4 @ laneid, 1 @ warpid, 1 @ laneid)])
-            layout_expected = TileLayout(S[(2, 8, 2, 4) : (64 @ tx, 4 @ tx, 32 @ tx, 1 @ tx)])
-            layout.check_well_formed()
-            layout_expected.check_well_formed()
-            assert_structural_equal(layout_expected, layout.canonicalize())
+        layout = TileLayout(S[(2, 8, 2, 4) : (2 @ warpid, 4 @ laneid, 1 @ warpid, 1 @ laneid)])
+        layout_expected = TileLayout(S[(2, 8, 2, 4) : (64 @ tx, 4 @ tx, 32 @ tx, 1 @ tx)])
+        layout.check_well_formed()
+        layout_expected.check_well_formed()
+        assert_structural_equal(layout_expected, layout.canonicalize())
 
-            layout = TileLayout(S[(2, 2, 8, 4) : (2 @ warpid, 1 @ warpid, 4 @ laneid, 1 @ laneid)])
-            layout_expected = TileLayout(S[128 : 1 @ tx])
-            layout.check_well_formed()
-            layout_expected.check_well_formed()
-            assert_structural_equal(layout_expected, layout.canonicalize())
+        layout = TileLayout(S[(2, 2, 8, 4) : (2 @ warpid, 1 @ warpid, 4 @ laneid, 1 @ laneid)])
+        layout_expected = TileLayout(S[128 : 1 @ tx])
+        layout.check_well_formed()
+        layout_expected.check_well_formed()
+        assert_structural_equal(layout_expected, layout.canonicalize())
 
-            layout = TileLayout(
-                S[
-                    (2, 2, 8, 2, 2, 4) : (
-                        2 @ wgid,
-                        2 @ wid_in_wg,
-                        4 @ laneid,
-                        1 @ wgid,
-                        1 @ wid_in_wg,
-                        1 @ laneid,
-                    )
-                ]
-            )
-            layout_expected = TileLayout(
-                S[(2, 2, 8, 2, 2, 4) : (256 @ tx, 64 @ tx, 4 @ tx, 128 @ tx, 32 @ tx, 1 @ tx)]
-            )
-            layout.check_well_formed()
-            layout_expected.check_well_formed()
-            assert_structural_equal(layout_expected, layout.canonicalize())
+        layout = TileLayout(
+            S[
+                (2, 2, 8, 2, 2, 4) : (
+                    2 @ wgid,
+                    2 @ wid_in_wg,
+                    4 @ laneid,
+                    1 @ wgid,
+                    1 @ wid_in_wg,
+                    1 @ laneid,
+                )
+            ]
+        )
+        layout_expected = TileLayout(
+            S[(2, 2, 8, 2, 2, 4) : (256 @ tx, 64 @ tx, 4 @ tx, 128 @ tx, 32 @ tx, 1 @ tx)]
+        )
+        layout.check_well_formed()
+        layout_expected.check_well_formed()
+        assert_structural_equal(layout_expected, layout.canonicalize())
 
-            layout = TileLayout(
-                S[(2, 8, 2, 4) : (2 @ wid_in_wg, 4 @ laneid, 1 @ wid_in_wg, 1 @ laneid)]
-            )
-            layout_expected = TileLayout(
-                S[(2, 8, 2, 4) : (64 @ tid_in_wg, 4 @ tid_in_wg, 32 @ tid_in_wg, 1 @ tid_in_wg)]
-            )
-            layout.check_well_formed()
-            layout_expected.check_well_formed()
-            assert_structural_equal(layout_expected, layout.canonicalize())
+        layout = TileLayout(
+            S[(2, 8, 2, 4) : (2 @ wid_in_wg, 4 @ laneid, 1 @ wid_in_wg, 1 @ laneid)]
+        )
+        layout_expected = TileLayout(
+            S[(2, 8, 2, 4) : (64 @ tid_in_wg, 4 @ tid_in_wg, 32 @ tid_in_wg, 1 @ tid_in_wg)]
+        )
+        layout.check_well_formed()
+        layout_expected.check_well_formed()
+        assert_structural_equal(layout_expected, layout.canonicalize())
 
-            layout = TileLayout(
-                S[(2, 2, 4, 32) : (2 @ wgid, 1 @ wgid, 32 @ tid_in_wg, 1 @ tid_in_wg)]
-            )
-            layout_expected = TileLayout(S[512 : 1 @ tx])
-            layout.check_well_formed()
-            layout_expected.check_well_formed()
-            assert_structural_equal(layout_expected, layout.canonicalize())
+        layout = TileLayout(S[(2, 2, 4, 32) : (2 @ wgid, 1 @ wgid, 32 @ tid_in_wg, 1 @ tid_in_wg)])
+        layout_expected = TileLayout(S[512 : 1 @ tx])
+        layout.check_well_formed()
+        layout_expected.check_well_formed()
+        assert_structural_equal(layout_expected, layout.canonicalize())
 
     case_fuse_axis()
 

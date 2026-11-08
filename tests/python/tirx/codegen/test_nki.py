@@ -24,11 +24,10 @@ target = tvm_tirx.target.Target("aws/trn1/trn1.2xlarge")
 
 
 def lower_and_get_source(func):
-    with target:
-        mod = tvm_tirx.IRModule({"main": func})
-        mod = tvm_tirx.compile(mod, pipeline="trn")
-        src = mod.mod.imports[0].inspect_source()
-        return src
+    mod = tvm_tirx.IRModule({"main": func})
+    mod = tvm_tirx.compile(mod, pipeline="trn", target=target)
+    src = mod.mod.imports[0].inspect_source()
+    return src
 
 
 def compare_strings_ignore_whitespace(s1, s2):

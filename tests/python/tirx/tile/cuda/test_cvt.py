@@ -37,8 +37,7 @@ from tvm_tirx.tirx.layout import S, TileLayout
 
 
 def _run(kernel, arrays, expected, output=0, atol=1e-3, rtol=1e-7, target="cuda"):
-    with tvm_tirx.target.Target(target):
-        module = tvm_tirx.compile(kernel, target=target, pipeline="tirx")
+    module = tvm_tirx.compile(kernel, target=target, pipeline="tirx")
 
     def check():
         args = [tvm_tirx.runtime.tensor(a, tvm_tirx.cuda()) for a in arrays]
@@ -99,18 +98,17 @@ def test_cast_thread_local(shape, A_dtype, B_dtype):
             )
 
     target = tvm_tirx.target.Target("cuda")
-    with target:
-        mod = tvm_tirx.IRModule({"main": test_cast})
-        mod = tvm_tirx.compile(mod, target=target, pipeline="tirx")
+    mod = tvm_tirx.IRModule({"main": test_cast})
+    mod = tvm_tirx.compile(mod, target=target, pipeline="tirx")
 
-        def run_and_check():
-            dev = tvm_tirx.cuda(0)
-            A = tvm_tirx.runtime.tensor(A_ref, dev)
-            B = tvm_tirx.runtime.tensor(np.zeros(shape, dtype=B_dtype), dev)
-            mod(A, B)
-            tvm_tirx.testing.assert_allclose(B.numpy(), B_ref, atol=1e-2)
+    def run_and_check():
+        dev = tvm_tirx.cuda(0)
+        A = tvm_tirx.runtime.tensor(A_ref, dev)
+        B = tvm_tirx.runtime.tensor(np.zeros(shape, dtype=B_dtype), dev)
+        mod(A, B)
+        tvm_tirx.testing.assert_allclose(B.numpy(), B_ref, atol=1e-2)
 
-        tvm_tirx.testing.run_with_gpu_lock(run_and_check)
+    tvm_tirx.testing.run_with_gpu_lock(run_and_check)
 
 
 @pytest.mark.gpu
@@ -180,18 +178,17 @@ def test_cast_warpgroup_local_view(A_dtype, B_dtype):
             B[tid_in_wg, i] = reg_dst[i]
 
     target = tvm_tirx.target.Target("cuda")
-    with target:
-        mod = tvm_tirx.IRModule({"main": test_cast})
-        mod = tvm_tirx.compile(mod, target=target, pipeline="tirx")
+    mod = tvm_tirx.IRModule({"main": test_cast})
+    mod = tvm_tirx.compile(mod, target=target, pipeline="tirx")
 
-        def run_and_check():
-            dev = tvm_tirx.cuda(0)
-            A = tvm_tirx.runtime.tensor(A_ref, dev)
-            B = tvm_tirx.runtime.tensor(np.zeros(g_shape, dtype=B_dtype), dev)
-            mod(A, B)
-            tvm_tirx.testing.assert_allclose(B.numpy(), B_ref, atol=1e-2)
+    def run_and_check():
+        dev = tvm_tirx.cuda(0)
+        A = tvm_tirx.runtime.tensor(A_ref, dev)
+        B = tvm_tirx.runtime.tensor(np.zeros(g_shape, dtype=B_dtype), dev)
+        mod(A, B)
+        tvm_tirx.testing.assert_allclose(B.numpy(), B_ref, atol=1e-2)
 
-        tvm_tirx.testing.run_with_gpu_lock(run_and_check)
+    tvm_tirx.testing.run_with_gpu_lock(run_and_check)
 
 
 @pytest.mark.gpu
@@ -252,18 +249,17 @@ def test_cast_cta_local_view(A_dtype, B_dtype):
             B[tx_var, i] = reg_dst[i]
 
     target = tvm_tirx.target.Target("cuda")
-    with target:
-        mod = tvm_tirx.IRModule({"main": test_cast})
-        mod = tvm_tirx.compile(mod, target=target, pipeline="tirx")
+    mod = tvm_tirx.IRModule({"main": test_cast})
+    mod = tvm_tirx.compile(mod, target=target, pipeline="tirx")
 
-        def run_and_check():
-            dev = tvm_tirx.cuda(0)
-            A = tvm_tirx.runtime.tensor(A_ref, dev)
-            B = tvm_tirx.runtime.tensor(np.zeros(g_shape, dtype=B_dtype), dev)
-            mod(A, B)
-            tvm_tirx.testing.assert_allclose(B.numpy(), B_ref, atol=1e-2)
+    def run_and_check():
+        dev = tvm_tirx.cuda(0)
+        A = tvm_tirx.runtime.tensor(A_ref, dev)
+        B = tvm_tirx.runtime.tensor(np.zeros(g_shape, dtype=B_dtype), dev)
+        mod(A, B)
+        tvm_tirx.testing.assert_allclose(B.numpy(), B_ref, atol=1e-2)
 
-        tvm_tirx.testing.run_with_gpu_lock(run_and_check)
+    tvm_tirx.testing.run_with_gpu_lock(run_and_check)
 
 
 @pytest.mark.gpu
@@ -342,20 +338,19 @@ def test_cast_warpgroup_src_layout_to_flat_uses_vec2_intrinsic(A_dtype, B_dtype)
                 B[tid, no * LOCAL_LEN + i] = Dreg_chunk[i]
 
     target = tvm_tirx.target.Target("cuda")
-    with target:
-        mod = tvm_tirx.IRModule({"main": test_cast})
-        mod = tvm_tirx.compile(mod, target=target, pipeline="tirx")
-        src = mod.mod.imports[0].inspect_source()
-        assert opcode in src, src
+    mod = tvm_tirx.IRModule({"main": test_cast})
+    mod = tvm_tirx.compile(mod, target=target, pipeline="tirx")
+    src = mod.mod.imports[0].inspect_source()
+    assert opcode in src, src
 
-        def run_and_check():
-            dev = tvm_tirx.cuda(0)
-            A = tvm_tirx.runtime.tensor(A_ref, dev)
-            B = tvm_tirx.runtime.tensor(np.zeros(g_shape, dtype=B_dtype), dev)
-            mod(A, B)
-            tvm_tirx.testing.assert_allclose(B.numpy(), B_ref, atol=1e-2)
+    def run_and_check():
+        dev = tvm_tirx.cuda(0)
+        A = tvm_tirx.runtime.tensor(A_ref, dev)
+        B = tvm_tirx.runtime.tensor(np.zeros(g_shape, dtype=B_dtype), dev)
+        mod(A, B)
+        tvm_tirx.testing.assert_allclose(B.numpy(), B_ref, atol=1e-2)
 
-        tvm_tirx.testing.run_with_gpu_lock(run_and_check)
+    tvm_tirx.testing.run_with_gpu_lock(run_and_check)
 
 
 @pytest.mark.gpu
@@ -420,9 +415,8 @@ def test_cast_local_view_sliced(A_dtype, B_dtype, slice_start, slice_end):
             B[tx, i] = reg_dst[i]
 
     target = tvm_tirx.target.Target("cuda")
-    with target:
-        mod = tvm_tirx.IRModule({"main": kernel})
-        mod = tvm_tirx.compile(mod, target=target, pipeline="tirx")
+    mod = tvm_tirx.IRModule({"main": kernel})
+    mod = tvm_tirx.compile(mod, target=target, pipeline="tirx")
 
     def run_and_check():
         dev = tvm_tirx.cuda(0)
@@ -492,9 +486,8 @@ def test_cast_mixed_axes_and_subregion(slice_start, slice_end):
             B[j_1, warp_id, k_1, i] = reg_dst[i]
 
     target = tvm_tirx.target.Target("cuda")
-    with target:
-        mod = tvm_tirx.IRModule({"main": kernel})
-        mod = tvm_tirx.compile(mod, target=target, pipeline="tirx")
+    mod = tvm_tirx.IRModule({"main": kernel})
+    mod = tvm_tirx.compile(mod, target=target, pipeline="tirx")
 
     def run_and_check():
         dev = tvm_tirx.cuda(0)
@@ -552,15 +545,14 @@ def test_cast_validate_extent_mismatch_rejected():
             B[warp_id, j_1, k_1, i] = reg_dst[i]
 
     target = tvm_tirx.target.Target("cuda")
-    with target:
-        mod = tvm_tirx.IRModule({"main": kernel})
-        # The mismatched dst also fails the scope-level check (thread axes don't
-        # span the full CTA), which fires first — either rejection is fine.
-        with pytest.raises(
-            Exception,
-            match=r"incorrect .* owner",
-        ):
-            tvm_tirx.compile(mod, target=target, pipeline="tirx")
+    mod = tvm_tirx.IRModule({"main": kernel})
+    # The mismatched dst also fails the scope-level check (thread axes don't
+    # span the full CTA), which fires first — either rejection is fine.
+    with pytest.raises(
+        Exception,
+        match=r"incorrect .* owner",
+    ):
+        tvm_tirx.compile(mod, target=target, pipeline="tirx")
 
 
 @pytest.mark.parametrize(
@@ -615,10 +607,9 @@ def test_cast_vec2_packed_dispatch(src_dtype, dst_dtype, intrinsic):
     target = tvm_tirx.target.Target(
         {"kind": "cuda", "arch": "sm_80", "backend_config": {"cuda": {"target_format": "ptx"}}}
     )
-    with target:
-        mod = tvm_tirx.IRModule({"main": k})
-        mod = tvm_tirx.compile(mod, target=target, pipeline="tirx")
-        src = mod.mod.imports[0].inspect_source()
+    mod = tvm_tirx.IRModule({"main": k})
+    mod = tvm_tirx.compile(mod, target=target, pipeline="tirx")
+    src = mod.mod.imports[0].inspect_source()
     opcode = "cvt.rn.f16x2.f32" if src_dtype == "float32" else "cvt.f32.f16"
     assert opcode in src, src
     rng = np.random.RandomState(0)
@@ -639,8 +630,7 @@ _SL_ROWS, _SL_COLS = 128, 8
 
 def _sl_compile(fn):
     target = tvm_tirx.target.Target("cuda")
-    with target:
-        tvm_tirx.compile(tvm_tirx.IRModule({"main": fn}), target=target, pipeline="tirx")
+    tvm_tirx.compile(tvm_tirx.IRModule({"main": fn}), target=target, pipeline="tirx")
 
 
 def test_cast_wg_rejects_thread_local_view():
@@ -943,12 +933,11 @@ def test_cast_tcgen05_atom_warpgroup_gpu():
     """GPU: bf16→fp32 cast on tcgen05 ``.16x256b`` atom must preserve per-slot layout."""
     m, k = _TCGEN05_M, _TCGEN05_K
     target = tvm_tirx.target.Target("cuda")
-    with target:
-        mod = tvm_tirx.compile(
-            tvm_tirx.IRModule({"main": _tcgen05_cast_warpgroup_kernel()}),
-            target=target,
-            pipeline="tirx",
-        )
+    mod = tvm_tirx.compile(
+        tvm_tirx.IRModule({"main": _tcgen05_cast_warpgroup_kernel()}),
+        target=target,
+        pipeline="tirx",
+    )
 
     np.random.seed(0)
     a_np = (np.random.randn(m, k).astype("float32") * 4.0).astype("bfloat16")

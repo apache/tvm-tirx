@@ -139,7 +139,11 @@ fn fast_erf_follows_the_native_lowering() {
             )
             .unwrap()
             .into();
-            let native: Expr = rule.call_tuple((call,)).unwrap().try_into().unwrap();
+            let native: Expr = rule
+                .call_tuple((call, tvm_tirx::target::Target::new("metal").unwrap()))
+                .unwrap()
+                .try_into()
+                .unwrap();
             assert!(
                 structural_equal(&rust, &native),
                 "{}: {} vs {}",
