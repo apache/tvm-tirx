@@ -23,7 +23,7 @@ set -euxo pipefail
 export RUSTUP_HOME="$PWD/.local/rustup" CARGO_HOME="$PWD/.local/cargo"
 curl --proto '=https' --tlsv1.2 --retry 3 -sSf https://sh.rustup.rs | sh -s -- -y -q \
     --no-modify-path --profile minimal \
-    --default-toolchain "${1:-$(sed -n 's/^rust-version = "\(.*\)"$/\1/p' rust/Cargo.toml)}"
+    --default-toolchain "${1:-$(sed -n 's/^rust-version = "\(.*\)"$/\1/p' rust/tvm-tirx/Cargo.toml)}"
 export PATH="$CARGO_HOME/bin:$PATH"
 
 # rustc links with the cc first on PATH, which in the CI images is a wrapper of sccache: link with

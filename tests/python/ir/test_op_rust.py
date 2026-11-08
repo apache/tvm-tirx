@@ -16,7 +16,7 @@
 # under the License.
 """Operators defined in Rust are registered when their library loads, as C++ ones are.
 
-``rust/examples/define_ir.rs`` is built by cargo into a library of its own, which a fresh
+``rust/tvm-tirx/examples/define_ir.rs`` is built by cargo into a library of its own, which a fresh
 interpreter loads, as ``import tvm_tirx`` loads libtvm_tirx_rust, and then uses its operators as it
 uses C++ ones: registering them also gives them their TVMScript builders. Its type is registered
 with them. A copy of the library is a second library with the same blocks, as libraries that link
@@ -42,7 +42,7 @@ EXTENSION_DIR = RUST_DIR.parent / "examples" / "extension_guides"
 
 def find_cargo():
     """A cargo as new as the crate's rust-version, rustup's first, as the CMake build looks."""
-    manifest = (RUST_DIR / "Cargo.toml").read_text()
+    manifest = (RUST_DIR / "tvm-tirx" / "Cargo.toml").read_text()
     needed = re.search(r'^rust-version *= *"([0-9.]+)"', manifest, re.M).group(1)
     needed = tuple(int(part) for part in needed.split("."))
     homes = [Path(os.environ["CARGO_HOME"])] if "CARGO_HOME" in os.environ else []
@@ -79,7 +79,7 @@ def library_name(name):
 
 def build_rust_example(example):
     """Build an example library of Rust operators and types with cargo."""
-    debug_dir = cargo_build(RUST_DIR / "Cargo.toml", "--example", example)
+    debug_dir = cargo_build(RUST_DIR / "tvm-tirx" / "Cargo.toml", "--example", example)
     return debug_dir / "examples" / library_name(example)
 
 
