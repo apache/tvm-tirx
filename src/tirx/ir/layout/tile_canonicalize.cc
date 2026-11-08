@@ -80,7 +80,7 @@ TileLayout FuseContiguousShardIters(TileLayout layout) {
 }
 
 TileLayout FuseAxesByScope(TileLayout layout) {
-  // Step 1: Get the target and scope information
+  // Step 1: Get the scope information
   auto scope_pair_opt = layout.GetScope();
   if (!scope_pair_opt.has_value()) {
     return layout;
@@ -110,7 +110,12 @@ TileLayout FuseAxesByScope(TileLayout layout) {
   // Step 6: Process offset iterators
   for (auto [axis, off] : layout->offset) {
     Iter iter = try_fuse_axis(Iter(1, off, axis));
-    offset.Set(iter->axis, iter->stride);
+    auto it = offset.find(iter->axis);
+    if (it != offset.end()) {
+      offset.Set(iter->axis, (*it).second + iter->stride);
+    } else {
+      offset.Set(iter->axis, iter->stride);
+    }
   }
   // Step 7: Create and return the new layout
   auto result = TileLayout(shard, replica, offset);
