@@ -24,7 +24,7 @@
 // tvm-ffi-stubgen(missing-docs): allow
 // `ir.Op` has three unreflected members, so its complete layout is hand-written below.
 // tvm-ffi-stubgen(ty-map): ir.Op -> crate::ir::op::Op
-// Names the hand-written `Op` binding uses: the import section keeps them even when no
+// Names the hand-written `Op` definition uses: the import section keeps them even when no
 // generated block does.
 // tvm-ffi-stubgen(import-object): std::ops::Deref
 // tvm-ffi-stubgen(import-object): tvm_ffi::Any

@@ -21,13 +21,13 @@ version = "0.1.0-alpha.5"
 edition = "2021"
 # The oldest toolchain that builds the crate and tvm-ffi; CMake checks cargo against it.
 rust-version = "1.95"
-description = "Rust API for the TVM TIRx compiler: IR bindings and IR extensions"
+description = "The TVM TIRx compiler in Rust: IR, analysis, passes, and IR extensions"
 license = "Apache-2.0"
 homepage = "https://tvm.apache.org/tirx/"
 documentation = "https://tvm.apache.org/tirx/reference/rust/"
 repository = "https://github.com/apache/tvm-tirx"
 keywords = ["tvm", "compiler", "tensor", "ir", "ffi"]
-categories = ["compilers", "api-bindings"]
+categories = ["compilers"]
 # The build directories CMake creates here are not part of the crate.
 include = ["/build.rs", "/src", "/examples", "/tests"]
 
