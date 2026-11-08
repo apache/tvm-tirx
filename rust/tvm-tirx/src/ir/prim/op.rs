@@ -790,16 +790,16 @@ pub fn make_const_at(
     value: impl Into<ConstValue>,
     loc: impl IntoArg<Location>,
 ) -> Result<PrimExpr> {
-    let (ty, value, loc) = (ty.into_owned(), value.into(), loc.into_arg());
+    let (ty, value) = (ty.into_owned(), value.into());
     if !ty.is_scalable_vector() && !ty.is_fixed_length_vector() {
-        return make_const_scalar(ty, value, loc.borrow());
+        return make_const_scalar(ty, value, loc.into_arg().borrow());
     }
-    let scalar = make_const_scalar(ty.with_lanes(1)?, value, loc.borrow())?;
+    let loc = loc.into_owned();
+    let scalar = make_const_scalar(ty.with_lanes(1)?, value, &loc)?;
     let lanes = match ty.vscale_factor() {
         Some(factor) => super::vector_expr::vscale_lanes(i32::from(factor))?,
         None => IntImm::int32(support::lanes(&ty)?).into(),
     };
-    let loc: Location = loc.borrow().clone();
     Ok(Broadcast::new(scalar, lanes, loc)?.into())
 }
 
@@ -880,12 +880,12 @@ pub fn cast_at(
     ty: impl IntoArg<PrimType>,
     loc: impl IntoArg<Location>,
 ) -> Result<PrimExpr> {
-    let (value, ty) = (value.into_owned_expr()?, ty.into_arg());
+    let (value, ty) = (value.into_owned_expr()?, ty.into_owned());
     let from = value.prim_ty().clone();
-    if from.dtype == ty.borrow().dtype {
+    if from.dtype == ty.dtype {
         return Ok(value);
     }
-    let (ty, loc): (PrimType, Location) = (ty.borrow().clone(), loc.into_owned());
+    let loc = loc.into_owned();
     if from.is_void() {
         let message = "Cannot cast an expression with the void sentinel type";
         return Err(support::check_failed(TYPE_ERROR, "!value.ty().IsVoid()", message));
