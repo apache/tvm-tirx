@@ -438,15 +438,21 @@ def test_normalize_tile_layout():
         layout_expected.check_well_formed()
         assert_structural_equal(layout_expected, layout.canonicalize())
 
-        layout = TileLayout(
-            S[(2, 2, 8, 4) : (2 @ warpid, 1 @ warpid, 4 @ laneid, 1 @ laneid)]
-            + 1 @ warpid
-            + 1 @ laneid
-        )
-        layout_expected = TileLayout(S[128 : 1 @ tx] + 33 @ tx)
-        layout.check_well_formed()
-        layout_expected.check_well_formed()
-        assert_structural_equal(layout_expected, layout.canonicalize())
+        for lane_offset, fused_offset in [(1, 33), (-32, 0)]:
+            layout = TileLayout(
+                S[(2, 2, 8, 4) : (2 @ warpid, 1 @ warpid, 4 @ laneid, 1 @ laneid)]
+                + 1 @ warpid
+                + lane_offset @ laneid
+            )
+            expected_spec = S[128 : 1 @ tx]
+            if fused_offset:
+                expected_spec += fused_offset @ tx
+            layout_expected = TileLayout(expected_spec)
+            layout.check_well_formed()
+            layout_expected.check_well_formed()
+            normalized = layout.canonicalize()
+            assert_structural_equal(layout_expected, normalized)
+            assert_structural_equal(normalized, normalized.canonicalize())
 
         layout = TileLayout(
             S[

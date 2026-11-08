@@ -119,7 +119,7 @@ TileLayout FuseAxesByScope(TileLayout layout) {
   }
   // Step 7: Create and return the new layout
   auto result = TileLayout(shard, replica, offset);
-  return result;
+  return RemoveZeroOffsets(result);
 }
 
 Layout layout_detail::Canonicalize(const TileLayoutObj* layout) {
