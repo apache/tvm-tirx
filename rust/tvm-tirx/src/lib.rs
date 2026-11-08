@@ -65,7 +65,7 @@
 //! program or library loads: an operator by an [`ir::OpDef`] chain, a type by
 //! [`tvm_ffi::rs_object`] and [`ir::register_type`].
 //!
-//! ```
+//! ```standalone_crate
 //! use tvm_tirx::ir::op_attr::CALL_EFFECT_KIND;
 //! use tvm_tirx::ir::sig::{self, IntExpr};
 //! use tvm_tirx::ir::{register_type, CallEffectKind, CallObj, Op, OpDef, Type};
@@ -102,7 +102,7 @@
 //! A type extends [`ir::TypeObj`]; its fields are reflected, so Python and the TVMScript printer
 //! see them. The generated code names `tvm_ffi`, which `use tvm_tirx::tvm_ffi` brings into scope.
 //!
-//! ```
+//! ```standalone_crate
 //! use tvm_tirx::ir::{PrimType, Type, TypeObj, UNKNOWN_LOC};
 //! use tvm_tirx::tvm_ffi::{self, rs_object, IntoArg, ObjectRefCore};
 //!
@@ -198,7 +198,7 @@ pub mod exports {
 // program that uses the registry only through `tvm_ffi` itself, without calling a wrapper, must
 // keep the library by other means, such as the linker arguments `tvm-tirx-config --libs compiler`
 // prints.
-extern "C" {
+unsafe extern "C" {
     fn tvm_tirx_compiler_link_anchor() -> i32;
 }
 

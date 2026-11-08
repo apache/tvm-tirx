@@ -47,9 +47,9 @@ impl<'v, 'c, 'r, 'a, D, const PRE: bool>
     > for &mut MapMutator<'a, D, PRE>
 where
     for<'s, 'b, 'ctx> &'s mut D: Dispatcher<
-        (AnyView<'b>, &'ctx ConstraintContext, DefRegionKind),
-        Option<Result<UnchangedOr<Any>>>,
-    >,
+            (AnyView<'b>, &'ctx ConstraintContext, DefRegionKind),
+            Option<Result<UnchangedOr<Any>>>,
+        >,
 {
     #[inline(always)]
     fn dispatch_tuple(
@@ -66,9 +66,9 @@ where
 impl<D, const PRE: bool> MapMutator<'_, D, PRE>
 where
     for<'s, 'v, 'c> &'s mut D: Dispatcher<
-        (AnyView<'v>, &'c ConstraintContext, DefRegionKind),
-        Option<Result<UnchangedOr<Any>>>,
-    >,
+            (AnyView<'v>, &'c ConstraintContext, DefRegionKind),
+            Option<Result<UnchangedOr<Any>>>,
+        >,
 {
     #[inline(always)]
     fn map(
@@ -173,16 +173,16 @@ where
     R: Into<Any>,
     O: BorrowMut<D>,
     for<'v, 'c> H: IntoDispatcher<
-        (AnyView<'v>, &'c ConstraintContext, DefRegionKind),
-        Option<Result<UnchangedOr<Any>>>,
-        M,
-        Target = D,
-        Output = O,
-    >,
+            (AnyView<'v>, &'c ConstraintContext, DefRegionKind),
+            Option<Result<UnchangedOr<Any>>>,
+            M,
+            Target = D,
+            Output = O,
+        >,
     for<'s, 'v, 'c> &'s mut D: Dispatcher<
-        (AnyView<'v>, &'c ConstraintContext, DefRegionKind),
-        Option<Result<UnchangedOr<Any>>>,
-    >,
+            (AnyView<'v>, &'c ConstraintContext, DefRegionKind),
+            Option<Result<UnchangedOr<Any>>>,
+        >,
 {
     let mut storage = mapper.into_dispatcher();
     let mapper = storage.borrow_mut();

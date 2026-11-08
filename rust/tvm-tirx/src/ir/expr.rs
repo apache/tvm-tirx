@@ -1474,8 +1474,7 @@ impl GenericConst {
                 .into_iter()
                 .any(|index| value.type_index() == index as i32);
         if primitive {
-            let condition =
-                "!value.as<ffi::BigInt>() && !value.as<bool>() && !value.as<double>() && \
+            let condition = "!value.as<ffi::BigInt>() && !value.as<bool>() && !value.as<double>() && \
                              !value.as<ffi::String>()";
             let message = "Primitive literals use IntImm, FloatImm, or StringImm";
             return Err(support::check_failed(tvm_ffi::TYPE_ERROR, condition, message));

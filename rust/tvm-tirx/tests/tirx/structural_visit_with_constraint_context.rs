@@ -268,8 +268,9 @@ fn native_assume_and_thread_launch_hooks_preserve_fact_timing() {
     assert!(predicate.condition.same_as(&condition));
     let range = seen.facts[2].1[1].downcast_ref::<RangeConstraintObj>().unwrap();
     assert!(range.var.same_as(&thread));
-    assert!(seen
-        .definitions
-        .iter()
-        .any(|(name, kind)| name == "thread_index" && *kind == DefRegionKind::Simple));
+    assert!(
+        seen.definitions
+            .iter()
+            .any(|(name, kind)| name == "thread_index" && *kind == DefRegionKind::Simple)
+    );
 }

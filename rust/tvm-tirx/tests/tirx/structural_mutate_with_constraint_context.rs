@@ -50,11 +50,7 @@ impl Rewrite {
         node: MutationView<'_, IntImm>,
         _: &mut View<'_, Self>,
     ) -> Result<UnchangedOr<Any>> {
-        if node.value.to_i64().unwrap() == 4 {
-            Ok(int32(8).into())
-        } else {
-            Ok(Unchanged.into())
-        }
+        if node.value.to_i64().unwrap() == 4 { Ok(int32(8).into()) } else { Ok(Unchanged.into()) }
     }
     fn mutate_var(
         &mut self,

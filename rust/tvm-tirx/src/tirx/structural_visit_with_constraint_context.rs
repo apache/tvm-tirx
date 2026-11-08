@@ -61,7 +61,7 @@ impl StructuralVisitorWithConstraintContextBase {
     /// The caller must end the borrow before any operation can replace the context.
     #[inline]
     pub(super) unsafe fn constraints_for_observer(&self) -> &ConstraintContext {
-        &*self.constraints.get()
+        unsafe { &*self.constraints.get() }
     }
 }
 
@@ -95,15 +95,17 @@ unsafe impl StructuralVisitorBase for StructuralVisitorWithConstraintContextBase
             .and_then(|column| column.get_raw_ffi_any(value.type_index()))
             .filter(|hook| hook.type_index != TVMFFITypeIndex::kTVMFFINone as i32);
         if let Some(hook) = hook {
-            StructuralVisitorObj::call_structural_visit_hook_raw(
-                runtime.cast(),
-                *value.as_raw_ffi_any(),
-                hook,
-            )
+            unsafe {
+                StructuralVisitorObj::call_structural_visit_hook_raw(
+                    runtime.cast(),
+                    *value.as_raw_ffi_any(),
+                    hook,
+                )
+            }
         } else {
             // Prefix-only default descent calls the installed vtable for each
             // child; it must not project an ordinary engine's dispatcher offset.
-            StructuralVisitorObj::default_visit_raw(runtime.cast(), value)
+            unsafe { StructuralVisitorObj::default_visit_raw(runtime.cast(), value) }
         }
     }
 }
@@ -180,16 +182,16 @@ where
     R: Into<AnyView<'input>>,
     O: BorrowMut<D>,
     for<'v, 'c, 'r> H: IntoDispatcher<
-        (AnyView<'v>, &'c mut StructuralVisitorWithConstraintContextView<'r, D>),
-        Option<Result<Option<VisitInterrupt>>>,
-        M,
-        Target = D,
-        Output = O,
-    >,
+            (AnyView<'v>, &'c mut StructuralVisitorWithConstraintContextView<'r, D>),
+            Option<Result<Option<VisitInterrupt>>>,
+            M,
+            Target = D,
+            Output = O,
+        >,
     for<'s, 'v, 'c, 'r> &'s mut D: Dispatcher<
-        (AnyView<'v>, &'c mut StructuralVisitorWithConstraintContextView<'r, D>),
-        Option<Result<Option<VisitInterrupt>>>,
-    >,
+            (AnyView<'v>, &'c mut StructuralVisitorWithConstraintContextView<'r, D>),
+            Option<Result<Option<VisitInterrupt>>>,
+        >,
 {
     StructuralVisitEngine::<StructuralVisitorWithConstraintContextBase>::visit_root(root, visitor)
 }

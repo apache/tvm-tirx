@@ -24,20 +24,20 @@
 
 use std::collections::HashMap;
 
-use tvm_tirx::ir::prim::{make_const, Add, Mul};
+use tvm_tirx::ir::prim::{Add, Mul, make_const};
 use tvm_tirx::ir::{
-    Expr, For, If, IntImm, PrimExpr, PrimType, PrimVar, TensorStore, Var, UNKNOWN_LOC,
+    Expr, For, If, IntImm, PrimExpr, PrimType, PrimVar, TensorStore, UNKNOWN_LOC, Var,
 };
 use tvm_tirx::script::script;
 use tvm_tirx::sym::{Analyzer, ConstraintContext, ProofStrength};
+use tvm_tirx::tirx::Function;
 use tvm_tirx::tirx::structural_map_with_constraint_context::structural_map_with_constraint_context;
 use tvm_tirx::tirx::structural_walk_with_constraint_context::structural_walk_with_constraint_context;
-use tvm_tirx::tirx::Function;
 use tvm_tirx::tvm_ffi::object::ObjectIdentity;
 use tvm_tirx::tvm_ffi::{
-    self, dispatch, match_any, Any, AnyView, Array, DefRegionKind, MutationView, ObjectRefCore,
-    Result, StructuralMutatorView, StructuralVisitorView, Unchanged, UnchangedOr, VisitInterrupt,
-    WalkOrder, WalkResult,
+    self, Any, AnyView, Array, DefRegionKind, MutationView, ObjectRefCore, Result,
+    StructuralMutatorView, StructuralVisitorView, Unchanged, UnchangedOr, VisitInterrupt,
+    WalkOrder, WalkResult, dispatch, match_any,
 };
 
 /// A Python list of strings.
@@ -119,11 +119,7 @@ struct Printer;
 impl Printer {
     fn print_add(&self, add: &Add, nested: bool) -> String {
         let text = format!("{} + {}", self.show(&add.a, true), self.show(&add.b, true));
-        if nested {
-            format!("({text})")
-        } else {
-            text
-        }
+        if nested { format!("({text})") } else { text }
     }
 
     fn print_var(&self, var: &Var) -> String {

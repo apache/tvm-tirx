@@ -62,7 +62,7 @@ impl StructuralMutatorWithConstraintContextBase {
     /// End this borrow before default descent can replace the context field.
     #[inline]
     pub(super) unsafe fn constraints_for_observer(&self) -> &ConstraintContext {
-        &*self.constraints.get()
+        unsafe { &*self.constraints.get() }
     }
 }
 
@@ -113,15 +113,17 @@ unsafe impl StructuralMutatorBase for StructuralMutatorWithConstraintContextBase
         if let Some(hook) = hook {
             // Copy the borrowed registry token; the shared helper acquires
             // Function ownership before packed reentry and handles error context.
-            StructuralMutatorObj::call_structural_mutate_hook_raw(
-                runtime.cast(),
-                *borrowed.as_raw_ffi_any(),
-                hook,
-            )
+            unsafe {
+                StructuralMutatorObj::call_structural_mutate_hook_raw(
+                    runtime.cast(),
+                    *borrowed.as_raw_ffi_any(),
+                    hook,
+                )
+            }
         } else {
             // Prefix-only fallback uses installed remap/callback thunks, never
             // an ordinary Rust engine's dispatcher offset.
-            StructuralMutatorObj::default_mutate_raw(runtime.cast(), value)
+            unsafe { StructuralMutatorObj::default_mutate_raw(runtime.cast(), value) }
         }
     }
 }
@@ -184,16 +186,16 @@ where
     R: Into<Any>,
     O: BorrowMut<D>,
     for<'v, 'c, 'r> H: IntoDispatcher<
-        (MutationView<'v>, &'c mut StructuralMutatorWithConstraintContextView<'r, D>),
-        Option<Result<UnchangedOr<Any>>>,
-        M,
-        Target = D,
-        Output = O,
-    >,
+            (MutationView<'v>, &'c mut StructuralMutatorWithConstraintContextView<'r, D>),
+            Option<Result<UnchangedOr<Any>>>,
+            M,
+            Target = D,
+            Output = O,
+        >,
     for<'s, 'v, 'c, 'r> &'s mut D: Dispatcher<
-        (MutationView<'v>, &'c mut StructuralMutatorWithConstraintContextView<'r, D>),
-        Option<Result<UnchangedOr<Any>>>,
-    >,
+            (MutationView<'v>, &'c mut StructuralMutatorWithConstraintContextView<'r, D>),
+            Option<Result<UnchangedOr<Any>>>,
+        >,
 {
     StructuralMutateEngine::<StructuralMutatorWithConstraintContextBase>::mutate_root(
         root, dispatcher,

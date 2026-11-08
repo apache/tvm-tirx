@@ -29,7 +29,7 @@
 ///
 /// # Examples
 ///
-/// ```
+/// ```standalone_crate
 /// use tvm_tirx::ir::{Expr, ExprObj, PrimExpr, PrimType, UNKNOWN_LOC};
 /// use tvm_tirx::sym::Analyzer;
 /// use tvm_tirx::tvm_ffi::{self, rs_object, ObjectRefCore};

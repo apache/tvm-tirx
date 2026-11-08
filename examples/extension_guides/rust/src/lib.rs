@@ -24,14 +24,14 @@ use tvm_tirx::ir::op_attr::CALL_EFFECT_KIND;
 use tvm_tirx::ir::sig;
 use tvm_tirx::ir::transform::{Pass, PassContext, PassInfo};
 use tvm_tirx::ir::{
-    dtype, register_type, Bind, Call, CallEffectKind, CallObj, Expr, IRModule, Op, OpDef, PrimExpr,
-    PrimType, PrimVar, SeqStmt, Type, TypeObj, Var,
+    Bind, Call, CallEffectKind, CallObj, Expr, IRModule, Op, OpDef, PrimExpr, PrimType, PrimVar,
+    SeqStmt, Type, TypeObj, Var, dtype, register_type,
 };
-use tvm_tirx::tirx::transform::FunctionPass;
 use tvm_tirx::tirx::Function;
+use tvm_tirx::tirx::transform::FunctionPass;
 use tvm_tirx::tvm_ffi::{
-    self, dispatch, rs_object, Any, AnyView, Error, ObjectRefCore, Result, Unchanged, UnchangedOr,
-    WalkOrder,
+    self, Any, AnyView, Error, ObjectRefCore, Result, Unchanged, UnchangedOr, WalkOrder, dispatch,
+    rs_object,
 };
 
 // begin type
@@ -57,11 +57,7 @@ fn type_error(message: &str) -> Error {
 }
 
 fn require(condition: bool, message: &str) -> Result<()> {
-    if condition {
-        Ok(())
-    } else {
-        Err(type_error(message))
-    }
+    if condition { Ok(()) } else { Err(type_error(message)) }
 }
 
 fn check_call(call: &CallObj, count: usize) -> Result<()> {
@@ -178,11 +174,11 @@ struct Lowering {
 
 impl Lowering {
     fn parts(&self, expr: &Expr) -> Result<(PrimExpr, PrimExpr)> {
-        if let Some(call) = expr.downcast_ref::<CallObj>() {
-            if call.op.same_as(&Op::get("my_ext.complex")?) {
-                // `my_ext.complex` checked that its parts are scalars.
-                return Ok((call.args[0].clone().try_into()?, call.args[1].clone().try_into()?));
-            }
+        if let Some(call) = expr.downcast_ref::<CallObj>()
+            && call.op.same_as(&Op::get("my_ext.complex")?)
+        {
+            // `my_ext.complex` checked that its parts are scalars.
+            return Ok((call.args[0].clone().try_into()?, call.args[1].clone().try_into()?));
         }
         for (var, re, im) in &self.bindings {
             if var.same_as(expr) {

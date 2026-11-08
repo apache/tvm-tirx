@@ -122,9 +122,11 @@ fn typed_walk_callbacks_collect_facts_and_restore_analyzer_scopes() {
         assert!(range.var.same_as(&i));
         assert_eq!(range.range.begin.downcast_ref::<IntImmObj>().unwrap().value.to_i64(), Some(2));
         assert_eq!(range.range.extent.downcast_ref::<IntImmObj>().unwrap().value.to_i64(), Some(6));
-        assert!(definitions
-            .iter()
-            .any(|(name, kind)| name == "typed_i" && *kind == DefRegionKind::Simple));
+        assert!(
+            definitions
+                .iter()
+                .any(|(name, kind)| name == "typed_i" && *kind == DefRegionKind::Simple)
+        );
     }
     let body =
         For::new(&i, int32(0), int32(4), int32(1), ForKind::Default, eval(11), None, UNKNOWN_LOC)

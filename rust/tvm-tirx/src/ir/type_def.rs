@@ -34,7 +34,7 @@ use tvm_ffi::{Function, ObjectCore, ObjectRefCore, Result, String};
 ///
 /// # Examples
 ///
-/// ```
+/// ```standalone_crate
 /// use tvm_tirx::ir::{register_type, PrimType, Type, TypeObj, Var, UNKNOWN_LOC};
 /// use tvm_tirx::script::script;
 /// use tvm_tirx::tvm_ffi::{self, rs_object, IntoArg};

@@ -920,20 +920,20 @@ pub fn cast_at(
         let integer = ty.matches_code(&INTEGER) && matches!(ty.bits(), 32 | 64);
         if let (Some(base), Some(stride)) =
             (const_fold::int(&ramp.base), const_fold::int(&ramp.stride))
+            && ty.is_fixed_length_vector()
+            && integer
         {
-            if ty.is_fixed_length_vector() && integer {
-                let last = base + stride * i64::from(support::lanes(&ty)? - 1);
-                let source = ramp.base.prim_ty();
-                let fits = |value: &BigInt| const_fold::is_representable(value, &element);
-                if fits(base)
-                    && fits(stride)
-                    && fits(&last)
-                    && const_fold::is_representable(&last, source)
-                {
-                    let base = cast_at(ramp.base.clone(), element.clone(), loc.clone())?;
-                    let stride = cast_at(ramp.stride.clone(), element, loc.clone())?;
-                    return Ok(Ramp::new(base, stride, ramp.lanes.clone(), loc)?.into());
-                }
+            let last = base + stride * i64::from(support::lanes(&ty)? - 1);
+            let source = ramp.base.prim_ty();
+            let fits = |value: &BigInt| const_fold::is_representable(value, &element);
+            if fits(base)
+                && fits(stride)
+                && fits(&last)
+                && const_fold::is_representable(&last, source)
+            {
+                let base = cast_at(ramp.base.clone(), element.clone(), loc.clone())?;
+                let stride = cast_at(ramp.stride.clone(), element, loc.clone())?;
+                return Ok(Ramp::new(base, stride, ramp.lanes.clone(), loc)?.into());
             }
         }
     }
@@ -1082,10 +1082,10 @@ fn fold_cast(value: &PrimExpr, ty: &PrimType) -> Result<Option<PrimExpr>> {
         {
             // Source rounding was checked above; widening preserves its value exactly.
             return float(source, &imm.loc);
-        } else if let Some(limit) = limit_16 {
-            if !source.is_finite() || (-limit..=limit).contains(&source) {
-                return float(source, &imm.loc);
-            }
+        } else if let Some(limit) = limit_16
+            && (!source.is_finite() || (-limit..=limit).contains(&source))
+        {
+            return float(source, &imm.loc);
         }
     }
     Ok(None)
@@ -1761,21 +1761,21 @@ fn fold_shift(
         return Ok(None);
     }
     let (pa, pb) = (const_fold::int(a), const_fold::int(b));
-    if let Some(y) = pb {
-        if y.is_negative() || *y >= BigInt::from(i64::from(ty.bits())) {
-            let condition = "pb->value >= 0 && pb->value < result_ty.bits()";
-            let message = format!(
-                "Shift amount must be non-negative and less than {} for type {}",
-                ty.bits(),
-                ty
-            );
-            return Err(support::check_failed(INTERNAL_ERROR, condition, &message));
-        }
+    if let Some(y) = pb
+        && (y.is_negative() || *y >= BigInt::from(i64::from(ty.bits())))
+    {
+        let condition = "pb->value >= 0 && pb->value < result_ty.bits()";
+        let message = format!(
+            "Shift amount must be non-negative and less than {} for type {}",
+            ty.bits(),
+            ty
+        );
+        return Err(support::check_failed(INTERNAL_ERROR, condition, &message));
     }
-    if let (Some(x), Some(y)) = (pa, pb) {
-        if let Some(value) = shift(x, y)? {
-            return Ok(Some(IntImm::new(ty.clone(), value, loc.clone())?.into()));
-        }
+    if let (Some(x), Some(y)) = (pa, pb)
+        && let Some(value) = shift(x, y)?
+    {
+        return Ok(Some(IntImm::new(ty.clone(), value, loc.clone())?.into()));
     }
     if pb.is_some_and(BigInt::is_zero) {
         return Ok(Some(a.clone()));

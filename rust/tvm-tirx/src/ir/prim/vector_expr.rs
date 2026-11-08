@@ -488,15 +488,15 @@ fn vscale_factor(lanes: &PrimExpr) -> Result<Option<i32>> {
         expr.downcast_ref::<CallObj>().is_some_and(|call| call.op.same_as(&vscale))
     };
     let factor = |imm: &IntImmObj| imm.value.to_i64().and_then(|value| i32::try_from(value).ok());
-    if let Some(imm) = mul.a.downcast_ref::<IntImmObj>() {
-        if is_vscale(&mul.b) {
-            return Ok(factor(imm));
-        }
+    if let Some(imm) = mul.a.downcast_ref::<IntImmObj>()
+        && is_vscale(&mul.b)
+    {
+        return Ok(factor(imm));
     }
-    if let Some(imm) = mul.b.downcast_ref::<IntImmObj>() {
-        if is_vscale(&mul.a) {
-            return Ok(factor(imm));
-        }
+    if let Some(imm) = mul.b.downcast_ref::<IntImmObj>()
+        && is_vscale(&mul.a)
+    {
+        return Ok(factor(imm));
     }
     Ok(None)
 }

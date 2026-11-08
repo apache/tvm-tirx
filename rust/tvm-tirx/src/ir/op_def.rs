@@ -46,7 +46,7 @@ use sig::{Checks, Specs};
 ///
 /// # Examples
 ///
-/// ```
+/// ```standalone_crate
 /// use tvm_tirx::ir::op_attr::CALL_EFFECT_KIND;
 /// use tvm_tirx::ir::sig::{self, IntExpr};
 /// use tvm_tirx::ir::{

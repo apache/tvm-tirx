@@ -718,9 +718,9 @@ fn intrinsics_are_typed_calls() {
     assert!(same(i.clz(), &call("int32", "prim.clz", vec![i.clone()])));
     let error = PrimExpr::try_from(i.tan()).err().unwrap();
     assert_eq!(error.kind(), TYPE_ERROR);
-    assert!(error
-        .message()
-        .ends_with("prim.tan only supports floating-point inputs, but got T.int32"));
+    assert!(
+        error.message().ends_with("prim.tan only supports floating-point inputs, but got T.int32")
+    );
     // A bfloat16 argument is computed in float32 and cast back, keeping its lanes.
     for (ty, wide) in [("bfloat16", "float32"), ("bfloat16x4", "float32x4")] {
         let b = prim_var(ty);

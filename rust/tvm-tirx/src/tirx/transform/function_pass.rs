@@ -120,9 +120,9 @@ impl FunctionPass {
     /// reference.
     pub fn new(
         pass_func: impl Fn(Function, IRModule, PassContext) -> Result<Option<Function>>
-            + Send
-            + Sync
-            + 'static,
+        + Send
+        + Sync
+        + 'static,
         pass_info: impl IntoArg<PassInfo>,
     ) -> Self {
         let pass_func = tvm_ffi::Function::from_typed(
