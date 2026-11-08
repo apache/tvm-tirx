@@ -19,20 +19,20 @@
 
 //! The analyses, which [`analysis`](super) re-exports.
 
-// tvm-ffi-stubgen(missing-docs): allow
+// tvm-ffi-stubgen(file): mod(missing_docs = allow)
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
-// tvm-ffi-stubgen(import-object): crate::ir::expr::PrimExpr
-// tvm-ffi-stubgen(import-object): crate::ir::expr::PrimVar
-// tvm-ffi-stubgen(import-object): crate::ir::expr::Var
-// tvm-ffi-stubgen(import-object): crate::ir::module::IRModule
-// tvm-ffi-stubgen(import-object): crate::tirx::function::Function
-// tvm-ffi-stubgen(import-object): tvm_ffi::Any
-// tvm-ffi-stubgen(import-object): tvm_ffi::Array
-// tvm-ffi-stubgen(import-object): tvm_ffi::Result
-// tvm-ffi-stubgen(import-object): crate::ir::expr::IntoExpr
-// tvm-ffi-stubgen(import-object): std::borrow::Borrow
-// tvm-ffi-stubgen(import-object): tvm_ffi::IntoArg
+// tvm-ffi-stubgen(import): crate::ir::expr::PrimExpr
+// tvm-ffi-stubgen(import): crate::ir::expr::PrimVar
+// tvm-ffi-stubgen(import): crate::ir::expr::Var
+// tvm-ffi-stubgen(import): crate::ir::module::IRModule
+// tvm-ffi-stubgen(import): crate::tirx::function::Function
+// tvm-ffi-stubgen(import): tvm_ffi::Any
+// tvm-ffi-stubgen(import): tvm_ffi::Array
+// tvm-ffi-stubgen(import): tvm_ffi::Result
+// tvm-ffi-stubgen(import): crate::ir::expr::IntoExpr
+// tvm-ffi-stubgen(import): std::borrow::Borrow
+// tvm-ffi-stubgen(import): tvm_ffi::IntoArg
 
 // tvm-ffi-stubgen(begin): import-section
 use crate::ir::expr::IntoExpr;

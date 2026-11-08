@@ -21,26 +21,26 @@
 //! expression takes; [`deduce_bound`] solves a condition for a variable, and the
 //! `estimate_region_*` functions bound the region a set of accesses covers.
 
-// tvm-ffi-stubgen(missing-docs): allow
+// tvm-ffi-stubgen(file): mod(missing_docs = allow)
 // The sets are hand-written: C++ constructs them, so they have no field-wise allocator.
-// tvm-ffi-stubgen(ty-map): sym.IntSet -> crate::sym::int_set::IntSet
-// tvm-ffi-stubgen(ty-map): sym.IntervalSet -> crate::sym::int_set::IntervalSet
-// tvm-ffi-stubgen(import-object): std::ops::Deref
-// tvm-ffi-stubgen(import-object): tvm_ffi::Object
-// tvm-ffi-stubgen(import-object): tvm_ffi::ObjectArc
+// tvm-ffi-stubgen(object): sym.IntSet(ty_map = crate::sym::int_set::IntSet)
+// tvm-ffi-stubgen(object): sym.IntervalSet(ty_map = crate::sym::int_set::IntervalSet)
+// tvm-ffi-stubgen(import): std::ops::Deref
+// tvm-ffi-stubgen(import): tvm_ffi::Object
+// tvm-ffi-stubgen(import): tvm_ffi::ObjectArc
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
-// tvm-ffi-stubgen(import-object): tvm_ffi::Array
-// tvm-ffi-stubgen(import-object): tvm_ffi::Map
-// tvm-ffi-stubgen(import-object): tvm_ffi::Result
-// tvm-ffi-stubgen(import-object): crate::ir::expr::Range
-// tvm-ffi-stubgen(import-object): crate::ir::expr::Var
-// tvm-ffi-stubgen(import-object): crate::sym::analyzer::Analyzer
-// tvm-ffi-stubgen(import-object): crate::ir::support
-// tvm-ffi-stubgen(import-object): crate::ir::expr::IntoExpr
-// tvm-ffi-stubgen(import-object): crate::ir::expr::PrimExpr
-// tvm-ffi-stubgen(import-object): std::borrow::Borrow
-// tvm-ffi-stubgen(import-object): tvm_ffi::IntoArg
+// tvm-ffi-stubgen(import): tvm_ffi::Array
+// tvm-ffi-stubgen(import): tvm_ffi::Map
+// tvm-ffi-stubgen(import): tvm_ffi::Result
+// tvm-ffi-stubgen(import): crate::ir::expr::Range
+// tvm-ffi-stubgen(import): crate::ir::expr::Var
+// tvm-ffi-stubgen(import): crate::sym::analyzer::Analyzer
+// tvm-ffi-stubgen(import): crate::ir::support
+// tvm-ffi-stubgen(import): crate::ir::expr::IntoExpr
+// tvm-ffi-stubgen(import): crate::ir::expr::PrimExpr
+// tvm-ffi-stubgen(import): std::borrow::Borrow
+// tvm-ffi-stubgen(import): tvm_ffi::IntoArg
 // tvm-ffi-stubgen(begin): import-section
 use crate::ir::expr::IntoExpr;
 use crate::ir::expr::PrimExpr;

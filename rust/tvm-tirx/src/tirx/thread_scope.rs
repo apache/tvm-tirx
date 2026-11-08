@@ -20,13 +20,13 @@
 //! Thread scopes. A [`ThreadScope`] is one level of a backend's thread hierarchy, such as
 //! `cuda.warp`; each backend registers its levels, ranked from the widest down.
 
-// tvm-ffi-stubgen(missing-docs): allow
+// tvm-ffi-stubgen(file): mod(missing_docs = allow)
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
-// tvm-ffi-stubgen(import-object): tvm_ffi::Result
-// tvm-ffi-stubgen(import-object): tvm_ffi::String
-// tvm-ffi-stubgen(import-object): std::borrow::Borrow
-// tvm-ffi-stubgen(import-object): tvm_ffi::IntoArg
+// tvm-ffi-stubgen(import): tvm_ffi::Result
+// tvm-ffi-stubgen(import): tvm_ffi::String
+// tvm-ffi-stubgen(import): std::borrow::Borrow
+// tvm-ffi-stubgen(import): tvm_ffi::IntoArg
 
 // tvm-ffi-stubgen(begin): import-section
 use std::borrow::Borrow;
@@ -66,8 +66,7 @@ pub struct ThreadScope {
 }
 
 /// The object behind [`ThreadScope`].
-///
-/// Complete: reflected fields fill [48, 48) exactly.
+// Complete: reflected fields fill [48, 48) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]

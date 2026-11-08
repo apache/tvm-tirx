@@ -21,27 +21,27 @@
 //! another, as a layout transformation does; it maps indices, shapes and tensor data, and inverts
 //! when it is bijective.
 
-// tvm-ffi-stubgen(missing-docs): allow
+// tvm-ffi-stubgen(file): mod(missing_docs = allow)
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
-// tvm-ffi-stubgen(import-object): crate::ir::expr::Range
-// tvm-ffi-stubgen(import-object): crate::sym::analyzer::Analyzer
-// tvm-ffi-stubgen(import-object): tvm_ffi::Any
-// tvm-ffi-stubgen(import-object): tvm_ffi::Result
-// tvm-ffi-stubgen(import-object): tvm_ffi::Tensor
-// tvm-ffi-stubgen(import-object): crate::ir::expr::IntoExpr
-// tvm-ffi-stubgen(import-object): crate::ir::expr::PrimExpr
-// `custom-new` reserves `new` for a constructor that takes the inverse as an `IndexMap`; the
+// tvm-ffi-stubgen(import): crate::ir::expr::Range
+// tvm-ffi-stubgen(import): crate::sym::analyzer::Analyzer
+// tvm-ffi-stubgen(import): tvm_ffi::Any
+// tvm-ffi-stubgen(import): tvm_ffi::Result
+// tvm-ffi-stubgen(import): tvm_ffi::Tensor
+// tvm-ffi-stubgen(import): crate::ir::expr::IntoExpr
+// tvm-ffi-stubgen(import): crate::ir::expr::PrimExpr
+// `custom_new` reserves `new` for a constructor that takes the inverse as an `IndexMap`; the
 // generated `from_fields` stores it as the `ObjectRef` the field holds.
-// tvm-ffi-stubgen(custom-new): tirx.IndexMap
+// tvm-ffi-stubgen(object): tirx.IndexMap(custom_new)
 // The indices a map computes are `PrimExpr`s, as C++ `IndexMapObj` holds them.
-// tvm-ffi-stubgen(field): tirx.IndexMap.final_indices -> Array<PrimExpr>
+// tvm-ffi-stubgen(field): tirx.IndexMap.final_indices(type = Array<PrimExpr>)
 // Its indices are `PrimVar`s, as C++ `IndexMapObj` holds them.
-// tvm-ffi-stubgen(import-object): crate::ir::expr::PrimVar
-// tvm-ffi-stubgen(import-object): tvm_ffi::Array
-// tvm-ffi-stubgen(import-object): tvm_ffi::IntoArg
-// tvm-ffi-stubgen(import-object): std::borrow::Borrow
-// tvm-ffi-stubgen(field): tirx.IndexMap.initial_indices -> Array<PrimVar>
+// tvm-ffi-stubgen(import): crate::ir::expr::PrimVar
+// tvm-ffi-stubgen(import): tvm_ffi::Array
+// tvm-ffi-stubgen(import): tvm_ffi::IntoArg
+// tvm-ffi-stubgen(import): std::borrow::Borrow
+// tvm-ffi-stubgen(field): tirx.IndexMap.initial_indices(type = Array<PrimVar>)
 // tvm-ffi-stubgen(begin): import-section
 use crate::ir::expr::IntoExpr;
 use crate::ir::expr::PrimExpr;
@@ -90,8 +90,7 @@ pub struct IndexMap {
 }
 
 /// The object behind [`IndexMap`].
-///
-/// Complete: reflected fields fill [24, 48) exactly.
+// Complete: reflected fields fill [24, 48) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -122,7 +121,7 @@ impl IndexMapObj {
 
 #[allow(missing_docs)]
 impl IndexMap {
-    /// Lossless complete-field allocation.
+    /// Create a `IndexMap` from its field values.
     pub fn from_fields(
         initial_indices: impl Into<Array<PrimVar>>,
         final_indices: impl Into<Array<PrimExpr>>,

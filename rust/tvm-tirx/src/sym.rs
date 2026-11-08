@@ -21,21 +21,21 @@
 //! under the facts of a [`ConstraintContext`]; [`int_set`] and [`iter_affine_map`] describe the
 //! values and the iterator structure of index expressions.
 
-// tvm-ffi-stubgen(missing-docs): allow
+// tvm-ffi-stubgen(file): mod(missing_docs = allow)
 // An object registered under `sym` that no file has a block for yet is generated here, to be moved
 // to the file of the Python module that defines it.
-// tvm-ffi-stubgen(prefix): sym
-// tvm-ffi-stubgen(skip): sym.ConstraintContext
+// tvm-ffi-stubgen(file): mod(prefix = sym)
+// tvm-ffi-stubgen(object): sym.ConstraintContext(skip)
 // The canonical simplifier's intermediate forms are internal to it.
-// tvm-ffi-stubgen(skip): sym.CanonicalExpr
-// tvm-ffi-stubgen(skip): sym.SplitExpr
-// tvm-ffi-stubgen(skip): sym.SumExpr
+// tvm-ffi-stubgen(object): sym.CanonicalExpr(skip)
+// tvm-ffi-stubgen(object): sym.SplitExpr(skip)
+// tvm-ffi-stubgen(object): sym.SumExpr(skip)
 // Integer sets and iterator sums are hand-written in their modules: C++ constructs them.
-// tvm-ffi-stubgen(skip): sym.IntSet
-// tvm-ffi-stubgen(skip): sym.IntervalSet
-// tvm-ffi-stubgen(skip): sym.IterMapExpr
-// tvm-ffi-stubgen(skip): sym.IterSplitExpr
-// tvm-ffi-stubgen(skip): sym.IterSumExpr
+// tvm-ffi-stubgen(object): sym.IntSet(skip)
+// tvm-ffi-stubgen(object): sym.IntervalSet(skip)
+// tvm-ffi-stubgen(object): sym.IterMapExpr(skip)
+// tvm-ffi-stubgen(object): sym.IterSplitExpr(skip)
+// tvm-ffi-stubgen(object): sym.IterSumExpr(skip)
 
 pub mod analyzer;
 pub mod constraint;

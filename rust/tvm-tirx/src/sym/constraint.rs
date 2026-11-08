@@ -23,18 +23,20 @@
 //! [`RangeConstraint`] or [`PredicateConstraint`]; a [`ConstraintContext`] holds the facts in
 //! scope at a point of a traversal, which an [`Analyzer`](super::Analyzer) proves under.
 
-// tvm-ffi-stubgen(missing-docs): allow
-// tvm-ffi-stubgen(ty-map): sym.ConstraintContext -> crate::sym::constraint::ConstraintContext
+// tvm-ffi-stubgen(file): mod(missing_docs = allow)
+// `no_new` generates no allocator for the abstract base: a value is one of its subtypes.
+// tvm-ffi-stubgen(object): sym.Constraint(no_new)
+// tvm-ffi-stubgen(object): sym.ConstraintContext(ty_map = crate::sym::constraint::ConstraintContext)
 
 use std::cell::UnsafeCell;
 use std::mem::{align_of, offset_of, size_of};
 use tvm_ffi::{AnyView, Array, Error, Result, VALUE_ERROR};
-// tvm-ffi-stubgen(import-object): crate::ir::expr::PrimExpr
-// tvm-ffi-stubgen(import-object): tvm_ffi::IntoArg
-// tvm-ffi-stubgen(import-object): std::borrow::Borrow
+// tvm-ffi-stubgen(import): crate::ir::expr::PrimExpr
+// tvm-ffi-stubgen(import): tvm_ffi::IntoArg
+// tvm-ffi-stubgen(import): std::borrow::Borrow
 // A binding's value and a predicate are `PrimExpr`s, as in C++.
-// tvm-ffi-stubgen(field): sym.BindingConstraint.value -> PrimExpr
-// tvm-ffi-stubgen(field): sym.PredicateConstraint.condition -> PrimExpr
+// tvm-ffi-stubgen(field): sym.BindingConstraint.value(type = PrimExpr)
+// tvm-ffi-stubgen(field): sym.PredicateConstraint.condition(type = PrimExpr)
 // tvm-ffi-stubgen(begin): import-section
 use crate::ir::expr::PrimExpr;
 use crate::ir::expr::Range;
@@ -56,8 +58,7 @@ pub struct Constraint {
 }
 
 /// The object behind [`Constraint`].
-///
-/// Complete: reflected fields fill [24, 24) exactly.
+// Complete: reflected fields fill [24, 24) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -78,15 +79,6 @@ impl ConstraintObj {
         Self { base_ }
     }
 }
-
-#[allow(missing_docs)]
-impl Constraint {
-    /// Lossless complete-field allocation.
-    pub fn new() -> Self {
-        let obj = ConstraintObj::new();
-        Self { data_: ObjectArc::new(obj) }
-    }
-}
 // tvm-ffi-stubgen(end)
 
 /// The binding of `var` to `value`. The value is the bound expression as written, memory reads
@@ -100,8 +92,7 @@ pub struct BindingConstraint {
 }
 
 /// The object behind [`BindingConstraint`].
-///
-/// Complete: reflected fields fill [24, 40) exactly.
+// Complete: reflected fields fill [24, 40) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -134,7 +125,7 @@ impl BindingConstraintObj {
 
 #[allow(missing_docs)]
 impl BindingConstraint {
-    /// Lossless complete-field allocation.
+    /// Create a `BindingConstraint` from its field values.
     pub fn new(var: impl IntoArg<Var>, value: impl IntoArg<PrimExpr>) -> Self {
         let obj = BindingConstraintObj::new(var.into_owned(), value.into_owned());
         Self { data_: ObjectArc::new(obj) }
@@ -155,8 +146,7 @@ pub struct PredicateConstraint {
 }
 
 /// The object behind [`PredicateConstraint`].
-///
-/// Complete: reflected fields fill [24, 40) exactly (alignment padding [33, 40)).
+// Complete: reflected fields fill [24, 40) exactly (alignment padding [33, 40)).
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -189,7 +179,7 @@ impl PredicateConstraintObj {
 
 #[allow(missing_docs)]
 impl PredicateConstraint {
-    /// Lossless complete-field allocation.
+    /// Create a `PredicateConstraint` from its field values.
     pub fn new(condition: impl IntoArg<PrimExpr>, assume_always: bool) -> Self {
         let obj = PredicateConstraintObj::new(condition.into_owned(), assume_always);
         Self { data_: ObjectArc::new(obj) }
@@ -210,8 +200,7 @@ pub struct RangeConstraint {
 }
 
 /// The object behind [`RangeConstraint`].
-///
-/// Complete: reflected fields fill [24, 40) exactly.
+// Complete: reflected fields fill [24, 40) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -244,7 +233,7 @@ impl RangeConstraintObj {
 
 #[allow(missing_docs)]
 impl RangeConstraint {
-    /// Lossless complete-field allocation.
+    /// Create a `RangeConstraint` from its field values.
     pub fn new(var: impl IntoArg<Var>, range: impl IntoArg<Range>) -> Self {
         let obj = RangeConstraintObj::new(var.into_owned(), range.into_owned());
         Self { data_: ObjectArc::new(obj) }

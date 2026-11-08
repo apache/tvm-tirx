@@ -21,21 +21,21 @@
 //! [`DispatchContext`], which describes where the call runs and collects the statements and
 //! allocations the dispatch requests.
 
-// tvm-ffi-stubgen(missing-docs): allow
+// tvm-ffi-stubgen(file): mod(missing_docs = allow)
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
-// tvm-ffi-stubgen(import-object): crate::ir::stmt::Stmt
-// tvm-ffi-stubgen(import-object): tvm_ffi::AnyView
-// tvm-ffi-stubgen(import-object): tvm_ffi::ObjectRefCore
-// tvm-ffi-stubgen(import-object): crate::ir::expr::IntoExpr
-// tvm-ffi-stubgen(import-object): crate::ir::expr::PrimExpr
-// tvm-ffi-stubgen(import-object): crate::ir::expr::PrimVar
-// tvm-ffi-stubgen(import-object): tvm_ffi::Array
-// tvm-ffi-stubgen(import-object): tvm_ffi::IntoArg
-// tvm-ffi-stubgen(import-object): std::borrow::Borrow
+// tvm-ffi-stubgen(import): crate::ir::stmt::Stmt
+// tvm-ffi-stubgen(import): tvm_ffi::AnyView
+// tvm-ffi-stubgen(import): tvm_ffi::ObjectRefCore
+// tvm-ffi-stubgen(import): crate::ir::expr::IntoExpr
+// tvm-ffi-stubgen(import): crate::ir::expr::PrimExpr
+// tvm-ffi-stubgen(import): crate::ir::expr::PrimVar
+// tvm-ffi-stubgen(import): tvm_ffi::Array
+// tvm-ffi-stubgen(import): tvm_ffi::IntoArg
+// tvm-ffi-stubgen(import): std::borrow::Borrow
 // The axis extents and offsets are `PrimExpr`s, as C++ `DispatchContextObj` holds them.
-// tvm-ffi-stubgen(field): tirx.DispatchContext.inter -> Map<String, Array<PrimExpr>>
-// tvm-ffi-stubgen(field): tirx.DispatchContext.intra -> Map<String, Array<PrimExpr>>
+// tvm-ffi-stubgen(field): tirx.DispatchContext.inter(type = Map<String, Array<PrimExpr>>)
+// tvm-ffi-stubgen(field): tirx.DispatchContext.intra(type = Map<String, Array<PrimExpr>>)
 
 // tvm-ffi-stubgen(begin): import-section
 use crate::ir::expr::IntoExpr;
@@ -102,8 +102,7 @@ pub struct DispatchContext {
 }
 
 /// The object behind [`DispatchContext`].
-///
-/// Opaque: field 'launch_params' (Map[str, tuple[ir.Var, ir.Expr]]) has no native mirror. Fields are read through the C ABI getters.
+// Opaque: field 'launch_params' (Map[str, tuple[ir.Var, ir.Expr]]) has no native mirror. Fields are read through the C ABI getters.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]

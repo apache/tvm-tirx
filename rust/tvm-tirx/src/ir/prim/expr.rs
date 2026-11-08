@@ -20,157 +20,157 @@
 //! to [`PrimExpr`] operands, lane by lane for vectors; its `new` checks the operand types and
 //! derives the node's type, without the promotion and folding of [`op`](super::op).
 
-// tvm-ffi-stubgen(missing-docs): allow
-// `custom-new` reserves `new` for a hand-written constructor (operand type checks and the derived
+// tvm-ffi-stubgen(file): mod(missing_docs = allow)
+// `custom_new` reserves `new` for a hand-written constructor (operand type checks and the derived
 // result type); the generated `from_fields` allocates the fields as given.
-// tvm-ffi-stubgen(custom-new): prim.Cast
-// tvm-ffi-stubgen(custom-new): prim.LShift
-// tvm-ffi-stubgen(custom-new): prim.RShift
-// tvm-ffi-stubgen(custom-new): prim.BitwiseAnd
-// tvm-ffi-stubgen(custom-new): prim.BitwiseOr
-// tvm-ffi-stubgen(custom-new): prim.BitwiseXor
-// tvm-ffi-stubgen(custom-new): prim.BitwiseNot
-// tvm-ffi-stubgen(custom-new): prim.Add
-// tvm-ffi-stubgen(custom-new): prim.Sub
-// tvm-ffi-stubgen(custom-new): prim.Mul
-// tvm-ffi-stubgen(custom-new): prim.Div
-// tvm-ffi-stubgen(custom-new): prim.Mod
-// tvm-ffi-stubgen(custom-new): prim.FloorDiv
-// tvm-ffi-stubgen(custom-new): prim.FloorMod
-// tvm-ffi-stubgen(custom-new): prim.Min
-// tvm-ffi-stubgen(custom-new): prim.Max
-// tvm-ffi-stubgen(custom-new): prim.EQ
-// tvm-ffi-stubgen(custom-new): prim.NE
-// tvm-ffi-stubgen(custom-new): prim.LT
-// tvm-ffi-stubgen(custom-new): prim.LE
-// tvm-ffi-stubgen(custom-new): prim.GT
-// tvm-ffi-stubgen(custom-new): prim.GE
-// tvm-ffi-stubgen(custom-new): prim.And
-// tvm-ffi-stubgen(custom-new): prim.Or
-// tvm-ffi-stubgen(custom-new): prim.Not
-// tvm-ffi-stubgen(custom-new): prim.Select
-// tvm-ffi-stubgen(custom-new): prim.Let
+// tvm-ffi-stubgen(object): prim.Cast(custom_new)
+// tvm-ffi-stubgen(object): prim.LShift(custom_new)
+// tvm-ffi-stubgen(object): prim.RShift(custom_new)
+// tvm-ffi-stubgen(object): prim.BitwiseAnd(custom_new)
+// tvm-ffi-stubgen(object): prim.BitwiseOr(custom_new)
+// tvm-ffi-stubgen(object): prim.BitwiseXor(custom_new)
+// tvm-ffi-stubgen(object): prim.BitwiseNot(custom_new)
+// tvm-ffi-stubgen(object): prim.Add(custom_new)
+// tvm-ffi-stubgen(object): prim.Sub(custom_new)
+// tvm-ffi-stubgen(object): prim.Mul(custom_new)
+// tvm-ffi-stubgen(object): prim.Div(custom_new)
+// tvm-ffi-stubgen(object): prim.Mod(custom_new)
+// tvm-ffi-stubgen(object): prim.FloorDiv(custom_new)
+// tvm-ffi-stubgen(object): prim.FloorMod(custom_new)
+// tvm-ffi-stubgen(object): prim.Min(custom_new)
+// tvm-ffi-stubgen(object): prim.Max(custom_new)
+// tvm-ffi-stubgen(object): prim.EQ(custom_new)
+// tvm-ffi-stubgen(object): prim.NE(custom_new)
+// tvm-ffi-stubgen(object): prim.LT(custom_new)
+// tvm-ffi-stubgen(object): prim.LE(custom_new)
+// tvm-ffi-stubgen(object): prim.GT(custom_new)
+// tvm-ffi-stubgen(object): prim.GE(custom_new)
+// tvm-ffi-stubgen(object): prim.And(custom_new)
+// tvm-ffi-stubgen(object): prim.Or(custom_new)
+// tvm-ffi-stubgen(object): prim.Not(custom_new)
+// tvm-ffi-stubgen(object): prim.Select(custom_new)
+// tvm-ffi-stubgen(object): prim.Let(custom_new)
 // Every node is typed by a `PrimType` and holds `PrimExpr` operands, as C++ `Add` derives from
 // `PrimExpr` and `AddObj` holds `PrimExpr a, b`: its allocator takes a `PrimType`, and it converts
 // into a `PrimExpr` without a check.
-// tvm-ffi-stubgen(field): prim.Cast.ty -> PrimType
-// tvm-ffi-stubgen(field): prim.Cast.value -> PrimExpr
-// tvm-ffi-stubgen(upcast): prim.Cast -> PrimExpr
-// tvm-ffi-stubgen(field): prim.LShift.ty -> PrimType
-// tvm-ffi-stubgen(field): prim.LShift.a -> PrimExpr
-// tvm-ffi-stubgen(field): prim.LShift.b -> PrimExpr
-// tvm-ffi-stubgen(upcast): prim.LShift -> PrimExpr
-// tvm-ffi-stubgen(field): prim.RShift.ty -> PrimType
-// tvm-ffi-stubgen(field): prim.RShift.a -> PrimExpr
-// tvm-ffi-stubgen(field): prim.RShift.b -> PrimExpr
-// tvm-ffi-stubgen(upcast): prim.RShift -> PrimExpr
-// tvm-ffi-stubgen(field): prim.BitwiseAnd.ty -> PrimType
-// tvm-ffi-stubgen(field): prim.BitwiseAnd.a -> PrimExpr
-// tvm-ffi-stubgen(field): prim.BitwiseAnd.b -> PrimExpr
-// tvm-ffi-stubgen(upcast): prim.BitwiseAnd -> PrimExpr
-// tvm-ffi-stubgen(field): prim.BitwiseOr.ty -> PrimType
-// tvm-ffi-stubgen(field): prim.BitwiseOr.a -> PrimExpr
-// tvm-ffi-stubgen(field): prim.BitwiseOr.b -> PrimExpr
-// tvm-ffi-stubgen(upcast): prim.BitwiseOr -> PrimExpr
-// tvm-ffi-stubgen(field): prim.BitwiseXor.ty -> PrimType
-// tvm-ffi-stubgen(field): prim.BitwiseXor.a -> PrimExpr
-// tvm-ffi-stubgen(field): prim.BitwiseXor.b -> PrimExpr
-// tvm-ffi-stubgen(upcast): prim.BitwiseXor -> PrimExpr
-// tvm-ffi-stubgen(field): prim.BitwiseNot.ty -> PrimType
-// tvm-ffi-stubgen(field): prim.BitwiseNot.a -> PrimExpr
-// tvm-ffi-stubgen(upcast): prim.BitwiseNot -> PrimExpr
-// tvm-ffi-stubgen(field): prim.Add.ty -> PrimType
-// tvm-ffi-stubgen(field): prim.Add.a -> PrimExpr
-// tvm-ffi-stubgen(field): prim.Add.b -> PrimExpr
-// tvm-ffi-stubgen(upcast): prim.Add -> PrimExpr
-// tvm-ffi-stubgen(field): prim.Sub.ty -> PrimType
-// tvm-ffi-stubgen(field): prim.Sub.a -> PrimExpr
-// tvm-ffi-stubgen(field): prim.Sub.b -> PrimExpr
-// tvm-ffi-stubgen(upcast): prim.Sub -> PrimExpr
-// tvm-ffi-stubgen(field): prim.Mul.ty -> PrimType
-// tvm-ffi-stubgen(field): prim.Mul.a -> PrimExpr
-// tvm-ffi-stubgen(field): prim.Mul.b -> PrimExpr
-// tvm-ffi-stubgen(upcast): prim.Mul -> PrimExpr
-// tvm-ffi-stubgen(field): prim.Div.ty -> PrimType
-// tvm-ffi-stubgen(field): prim.Div.a -> PrimExpr
-// tvm-ffi-stubgen(field): prim.Div.b -> PrimExpr
-// tvm-ffi-stubgen(upcast): prim.Div -> PrimExpr
-// tvm-ffi-stubgen(field): prim.Mod.ty -> PrimType
-// tvm-ffi-stubgen(field): prim.Mod.a -> PrimExpr
-// tvm-ffi-stubgen(field): prim.Mod.b -> PrimExpr
-// tvm-ffi-stubgen(upcast): prim.Mod -> PrimExpr
-// tvm-ffi-stubgen(field): prim.FloorDiv.ty -> PrimType
-// tvm-ffi-stubgen(field): prim.FloorDiv.a -> PrimExpr
-// tvm-ffi-stubgen(field): prim.FloorDiv.b -> PrimExpr
-// tvm-ffi-stubgen(upcast): prim.FloorDiv -> PrimExpr
-// tvm-ffi-stubgen(field): prim.FloorMod.ty -> PrimType
-// tvm-ffi-stubgen(field): prim.FloorMod.a -> PrimExpr
-// tvm-ffi-stubgen(field): prim.FloorMod.b -> PrimExpr
-// tvm-ffi-stubgen(upcast): prim.FloorMod -> PrimExpr
-// tvm-ffi-stubgen(field): prim.Min.ty -> PrimType
-// tvm-ffi-stubgen(field): prim.Min.a -> PrimExpr
-// tvm-ffi-stubgen(field): prim.Min.b -> PrimExpr
-// tvm-ffi-stubgen(upcast): prim.Min -> PrimExpr
-// tvm-ffi-stubgen(field): prim.Max.ty -> PrimType
-// tvm-ffi-stubgen(field): prim.Max.a -> PrimExpr
-// tvm-ffi-stubgen(field): prim.Max.b -> PrimExpr
-// tvm-ffi-stubgen(upcast): prim.Max -> PrimExpr
-// tvm-ffi-stubgen(field): prim.EQ.ty -> PrimType
-// tvm-ffi-stubgen(field): prim.EQ.a -> PrimExpr
-// tvm-ffi-stubgen(field): prim.EQ.b -> PrimExpr
-// tvm-ffi-stubgen(upcast): prim.EQ -> PrimExpr
-// tvm-ffi-stubgen(field): prim.NE.ty -> PrimType
-// tvm-ffi-stubgen(field): prim.NE.a -> PrimExpr
-// tvm-ffi-stubgen(field): prim.NE.b -> PrimExpr
-// tvm-ffi-stubgen(upcast): prim.NE -> PrimExpr
-// tvm-ffi-stubgen(field): prim.LT.ty -> PrimType
-// tvm-ffi-stubgen(field): prim.LT.a -> PrimExpr
-// tvm-ffi-stubgen(field): prim.LT.b -> PrimExpr
-// tvm-ffi-stubgen(upcast): prim.LT -> PrimExpr
-// tvm-ffi-stubgen(field): prim.LE.ty -> PrimType
-// tvm-ffi-stubgen(field): prim.LE.a -> PrimExpr
-// tvm-ffi-stubgen(field): prim.LE.b -> PrimExpr
-// tvm-ffi-stubgen(upcast): prim.LE -> PrimExpr
-// tvm-ffi-stubgen(field): prim.GT.ty -> PrimType
-// tvm-ffi-stubgen(field): prim.GT.a -> PrimExpr
-// tvm-ffi-stubgen(field): prim.GT.b -> PrimExpr
-// tvm-ffi-stubgen(upcast): prim.GT -> PrimExpr
-// tvm-ffi-stubgen(field): prim.GE.ty -> PrimType
-// tvm-ffi-stubgen(field): prim.GE.a -> PrimExpr
-// tvm-ffi-stubgen(field): prim.GE.b -> PrimExpr
-// tvm-ffi-stubgen(upcast): prim.GE -> PrimExpr
-// tvm-ffi-stubgen(field): prim.And.ty -> PrimType
-// tvm-ffi-stubgen(field): prim.And.a -> PrimExpr
-// tvm-ffi-stubgen(field): prim.And.b -> PrimExpr
-// tvm-ffi-stubgen(upcast): prim.And -> PrimExpr
-// tvm-ffi-stubgen(field): prim.Or.ty -> PrimType
-// tvm-ffi-stubgen(field): prim.Or.a -> PrimExpr
-// tvm-ffi-stubgen(field): prim.Or.b -> PrimExpr
-// tvm-ffi-stubgen(upcast): prim.Or -> PrimExpr
-// tvm-ffi-stubgen(field): prim.Not.ty -> PrimType
-// tvm-ffi-stubgen(field): prim.Not.a -> PrimExpr
-// tvm-ffi-stubgen(upcast): prim.Not -> PrimExpr
-// tvm-ffi-stubgen(field): prim.Select.ty -> PrimType
-// tvm-ffi-stubgen(field): prim.Select.condition -> PrimExpr
-// tvm-ffi-stubgen(field): prim.Select.true_value -> PrimExpr
-// tvm-ffi-stubgen(field): prim.Select.false_value -> PrimExpr
-// tvm-ffi-stubgen(upcast): prim.Select -> PrimExpr
-// tvm-ffi-stubgen(field): prim.Let.ty -> PrimType
-// tvm-ffi-stubgen(field): prim.Let.value -> PrimExpr
-// tvm-ffi-stubgen(field): prim.Let.body -> PrimExpr
-// tvm-ffi-stubgen(upcast): prim.Let -> PrimExpr
+// tvm-ffi-stubgen(field): prim.Cast.ty(type = PrimType)
+// tvm-ffi-stubgen(field): prim.Cast.value(type = PrimExpr)
+// tvm-ffi-stubgen(object): prim.Cast(upcast = PrimExpr)
+// tvm-ffi-stubgen(field): prim.LShift.ty(type = PrimType)
+// tvm-ffi-stubgen(field): prim.LShift.a(type = PrimExpr)
+// tvm-ffi-stubgen(field): prim.LShift.b(type = PrimExpr)
+// tvm-ffi-stubgen(object): prim.LShift(upcast = PrimExpr)
+// tvm-ffi-stubgen(field): prim.RShift.ty(type = PrimType)
+// tvm-ffi-stubgen(field): prim.RShift.a(type = PrimExpr)
+// tvm-ffi-stubgen(field): prim.RShift.b(type = PrimExpr)
+// tvm-ffi-stubgen(object): prim.RShift(upcast = PrimExpr)
+// tvm-ffi-stubgen(field): prim.BitwiseAnd.ty(type = PrimType)
+// tvm-ffi-stubgen(field): prim.BitwiseAnd.a(type = PrimExpr)
+// tvm-ffi-stubgen(field): prim.BitwiseAnd.b(type = PrimExpr)
+// tvm-ffi-stubgen(object): prim.BitwiseAnd(upcast = PrimExpr)
+// tvm-ffi-stubgen(field): prim.BitwiseOr.ty(type = PrimType)
+// tvm-ffi-stubgen(field): prim.BitwiseOr.a(type = PrimExpr)
+// tvm-ffi-stubgen(field): prim.BitwiseOr.b(type = PrimExpr)
+// tvm-ffi-stubgen(object): prim.BitwiseOr(upcast = PrimExpr)
+// tvm-ffi-stubgen(field): prim.BitwiseXor.ty(type = PrimType)
+// tvm-ffi-stubgen(field): prim.BitwiseXor.a(type = PrimExpr)
+// tvm-ffi-stubgen(field): prim.BitwiseXor.b(type = PrimExpr)
+// tvm-ffi-stubgen(object): prim.BitwiseXor(upcast = PrimExpr)
+// tvm-ffi-stubgen(field): prim.BitwiseNot.ty(type = PrimType)
+// tvm-ffi-stubgen(field): prim.BitwiseNot.a(type = PrimExpr)
+// tvm-ffi-stubgen(object): prim.BitwiseNot(upcast = PrimExpr)
+// tvm-ffi-stubgen(field): prim.Add.ty(type = PrimType)
+// tvm-ffi-stubgen(field): prim.Add.a(type = PrimExpr)
+// tvm-ffi-stubgen(field): prim.Add.b(type = PrimExpr)
+// tvm-ffi-stubgen(object): prim.Add(upcast = PrimExpr)
+// tvm-ffi-stubgen(field): prim.Sub.ty(type = PrimType)
+// tvm-ffi-stubgen(field): prim.Sub.a(type = PrimExpr)
+// tvm-ffi-stubgen(field): prim.Sub.b(type = PrimExpr)
+// tvm-ffi-stubgen(object): prim.Sub(upcast = PrimExpr)
+// tvm-ffi-stubgen(field): prim.Mul.ty(type = PrimType)
+// tvm-ffi-stubgen(field): prim.Mul.a(type = PrimExpr)
+// tvm-ffi-stubgen(field): prim.Mul.b(type = PrimExpr)
+// tvm-ffi-stubgen(object): prim.Mul(upcast = PrimExpr)
+// tvm-ffi-stubgen(field): prim.Div.ty(type = PrimType)
+// tvm-ffi-stubgen(field): prim.Div.a(type = PrimExpr)
+// tvm-ffi-stubgen(field): prim.Div.b(type = PrimExpr)
+// tvm-ffi-stubgen(object): prim.Div(upcast = PrimExpr)
+// tvm-ffi-stubgen(field): prim.Mod.ty(type = PrimType)
+// tvm-ffi-stubgen(field): prim.Mod.a(type = PrimExpr)
+// tvm-ffi-stubgen(field): prim.Mod.b(type = PrimExpr)
+// tvm-ffi-stubgen(object): prim.Mod(upcast = PrimExpr)
+// tvm-ffi-stubgen(field): prim.FloorDiv.ty(type = PrimType)
+// tvm-ffi-stubgen(field): prim.FloorDiv.a(type = PrimExpr)
+// tvm-ffi-stubgen(field): prim.FloorDiv.b(type = PrimExpr)
+// tvm-ffi-stubgen(object): prim.FloorDiv(upcast = PrimExpr)
+// tvm-ffi-stubgen(field): prim.FloorMod.ty(type = PrimType)
+// tvm-ffi-stubgen(field): prim.FloorMod.a(type = PrimExpr)
+// tvm-ffi-stubgen(field): prim.FloorMod.b(type = PrimExpr)
+// tvm-ffi-stubgen(object): prim.FloorMod(upcast = PrimExpr)
+// tvm-ffi-stubgen(field): prim.Min.ty(type = PrimType)
+// tvm-ffi-stubgen(field): prim.Min.a(type = PrimExpr)
+// tvm-ffi-stubgen(field): prim.Min.b(type = PrimExpr)
+// tvm-ffi-stubgen(object): prim.Min(upcast = PrimExpr)
+// tvm-ffi-stubgen(field): prim.Max.ty(type = PrimType)
+// tvm-ffi-stubgen(field): prim.Max.a(type = PrimExpr)
+// tvm-ffi-stubgen(field): prim.Max.b(type = PrimExpr)
+// tvm-ffi-stubgen(object): prim.Max(upcast = PrimExpr)
+// tvm-ffi-stubgen(field): prim.EQ.ty(type = PrimType)
+// tvm-ffi-stubgen(field): prim.EQ.a(type = PrimExpr)
+// tvm-ffi-stubgen(field): prim.EQ.b(type = PrimExpr)
+// tvm-ffi-stubgen(object): prim.EQ(upcast = PrimExpr)
+// tvm-ffi-stubgen(field): prim.NE.ty(type = PrimType)
+// tvm-ffi-stubgen(field): prim.NE.a(type = PrimExpr)
+// tvm-ffi-stubgen(field): prim.NE.b(type = PrimExpr)
+// tvm-ffi-stubgen(object): prim.NE(upcast = PrimExpr)
+// tvm-ffi-stubgen(field): prim.LT.ty(type = PrimType)
+// tvm-ffi-stubgen(field): prim.LT.a(type = PrimExpr)
+// tvm-ffi-stubgen(field): prim.LT.b(type = PrimExpr)
+// tvm-ffi-stubgen(object): prim.LT(upcast = PrimExpr)
+// tvm-ffi-stubgen(field): prim.LE.ty(type = PrimType)
+// tvm-ffi-stubgen(field): prim.LE.a(type = PrimExpr)
+// tvm-ffi-stubgen(field): prim.LE.b(type = PrimExpr)
+// tvm-ffi-stubgen(object): prim.LE(upcast = PrimExpr)
+// tvm-ffi-stubgen(field): prim.GT.ty(type = PrimType)
+// tvm-ffi-stubgen(field): prim.GT.a(type = PrimExpr)
+// tvm-ffi-stubgen(field): prim.GT.b(type = PrimExpr)
+// tvm-ffi-stubgen(object): prim.GT(upcast = PrimExpr)
+// tvm-ffi-stubgen(field): prim.GE.ty(type = PrimType)
+// tvm-ffi-stubgen(field): prim.GE.a(type = PrimExpr)
+// tvm-ffi-stubgen(field): prim.GE.b(type = PrimExpr)
+// tvm-ffi-stubgen(object): prim.GE(upcast = PrimExpr)
+// tvm-ffi-stubgen(field): prim.And.ty(type = PrimType)
+// tvm-ffi-stubgen(field): prim.And.a(type = PrimExpr)
+// tvm-ffi-stubgen(field): prim.And.b(type = PrimExpr)
+// tvm-ffi-stubgen(object): prim.And(upcast = PrimExpr)
+// tvm-ffi-stubgen(field): prim.Or.ty(type = PrimType)
+// tvm-ffi-stubgen(field): prim.Or.a(type = PrimExpr)
+// tvm-ffi-stubgen(field): prim.Or.b(type = PrimExpr)
+// tvm-ffi-stubgen(object): prim.Or(upcast = PrimExpr)
+// tvm-ffi-stubgen(field): prim.Not.ty(type = PrimType)
+// tvm-ffi-stubgen(field): prim.Not.a(type = PrimExpr)
+// tvm-ffi-stubgen(object): prim.Not(upcast = PrimExpr)
+// tvm-ffi-stubgen(field): prim.Select.ty(type = PrimType)
+// tvm-ffi-stubgen(field): prim.Select.condition(type = PrimExpr)
+// tvm-ffi-stubgen(field): prim.Select.true_value(type = PrimExpr)
+// tvm-ffi-stubgen(field): prim.Select.false_value(type = PrimExpr)
+// tvm-ffi-stubgen(object): prim.Select(upcast = PrimExpr)
+// tvm-ffi-stubgen(field): prim.Let.ty(type = PrimType)
+// tvm-ffi-stubgen(field): prim.Let.value(type = PrimExpr)
+// tvm-ffi-stubgen(field): prim.Let.body(type = PrimExpr)
+// tvm-ffi-stubgen(object): prim.Let(upcast = PrimExpr)
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
-// tvm-ffi-stubgen(import-object): tvm_ffi::AnyView
-// tvm-ffi-stubgen(import-object): tvm_ffi::DLDataTypeCode
-// tvm-ffi-stubgen(import-object): tvm_ffi::ObjectRefCore
-// tvm-ffi-stubgen(import-object): tvm_ffi::Result
-// tvm-ffi-stubgen(import-object): crate::ir::r#type::PrimType
-// tvm-ffi-stubgen(import-object): crate::ir::expr::PrimExpr
-// tvm-ffi-stubgen(import-object): crate::ir::r#type::PrimTypeObj
-// tvm-ffi-stubgen(import-object): crate::ir::support
-// tvm-ffi-stubgen(import-object): crate::ir::expr::IntoExpr
-// tvm-ffi-stubgen(import-object): tvm_ffi::IntoArg
+// tvm-ffi-stubgen(import): tvm_ffi::AnyView
+// tvm-ffi-stubgen(import): tvm_ffi::DLDataTypeCode
+// tvm-ffi-stubgen(import): tvm_ffi::ObjectRefCore
+// tvm-ffi-stubgen(import): tvm_ffi::Result
+// tvm-ffi-stubgen(import): crate::ir::r#type::PrimType
+// tvm-ffi-stubgen(import): crate::ir::expr::PrimExpr
+// tvm-ffi-stubgen(import): crate::ir::r#type::PrimTypeObj
+// tvm-ffi-stubgen(import): crate::ir::support
+// tvm-ffi-stubgen(import): crate::ir::expr::IntoExpr
+// tvm-ffi-stubgen(import): tvm_ffi::IntoArg
 
 // tvm-ffi-stubgen(begin): import-section
 use crate::ir::expr::Expr;
@@ -229,8 +229,7 @@ pub struct Cast {
 }
 
 /// The object behind [`Cast`].
-///
-/// Complete: reflected fields fill [40, 48) exactly.
+// Complete: reflected fields fill [40, 48) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -262,7 +261,7 @@ impl CastObj {
 
 #[allow(missing_docs)]
 impl Cast {
-    /// Lossless complete-field allocation.
+    /// Create a `Cast` from its field values.
     pub fn from_fields(
         loc: impl IntoArg<Location>,
         ty: impl IntoArg<PrimType>,
@@ -312,8 +311,7 @@ pub struct LShift {
 }
 
 /// The object behind [`LShift`].
-///
-/// Complete: reflected fields fill [40, 56) exactly.
+// Complete: reflected fields fill [40, 56) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -346,7 +344,7 @@ impl LShiftObj {
 
 #[allow(missing_docs)]
 impl LShift {
-    /// Lossless complete-field allocation.
+    /// Create a `LShift` from its field values.
     pub fn from_fields(
         loc: impl IntoArg<Location>,
         ty: impl IntoArg<PrimType>,
@@ -377,8 +375,7 @@ pub struct RShift {
 }
 
 /// The object behind [`RShift`].
-///
-/// Complete: reflected fields fill [40, 56) exactly.
+// Complete: reflected fields fill [40, 56) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -411,7 +408,7 @@ impl RShiftObj {
 
 #[allow(missing_docs)]
 impl RShift {
-    /// Lossless complete-field allocation.
+    /// Create a `RShift` from its field values.
     pub fn from_fields(
         loc: impl IntoArg<Location>,
         ty: impl IntoArg<PrimType>,
@@ -442,8 +439,7 @@ pub struct BitwiseAnd {
 }
 
 /// The object behind [`BitwiseAnd`].
-///
-/// Complete: reflected fields fill [40, 56) exactly.
+// Complete: reflected fields fill [40, 56) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -476,7 +472,7 @@ impl BitwiseAndObj {
 
 #[allow(missing_docs)]
 impl BitwiseAnd {
-    /// Lossless complete-field allocation.
+    /// Create a `BitwiseAnd` from its field values.
     pub fn from_fields(
         loc: impl IntoArg<Location>,
         ty: impl IntoArg<PrimType>,
@@ -508,8 +504,7 @@ pub struct BitwiseOr {
 }
 
 /// The object behind [`BitwiseOr`].
-///
-/// Complete: reflected fields fill [40, 56) exactly.
+// Complete: reflected fields fill [40, 56) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -542,7 +537,7 @@ impl BitwiseOrObj {
 
 #[allow(missing_docs)]
 impl BitwiseOr {
-    /// Lossless complete-field allocation.
+    /// Create a `BitwiseOr` from its field values.
     pub fn from_fields(
         loc: impl IntoArg<Location>,
         ty: impl IntoArg<PrimType>,
@@ -574,8 +569,7 @@ pub struct BitwiseXor {
 }
 
 /// The object behind [`BitwiseXor`].
-///
-/// Complete: reflected fields fill [40, 56) exactly.
+// Complete: reflected fields fill [40, 56) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -608,7 +602,7 @@ impl BitwiseXorObj {
 
 #[allow(missing_docs)]
 impl BitwiseXor {
-    /// Lossless complete-field allocation.
+    /// Create a `BitwiseXor` from its field values.
     pub fn from_fields(
         loc: impl IntoArg<Location>,
         ty: impl IntoArg<PrimType>,
@@ -640,8 +634,7 @@ pub struct BitwiseNot {
 }
 
 /// The object behind [`BitwiseNot`].
-///
-/// Complete: reflected fields fill [40, 48) exactly.
+// Complete: reflected fields fill [40, 48) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -673,7 +666,7 @@ impl BitwiseNotObj {
 
 #[allow(missing_docs)]
 impl BitwiseNot {
-    /// Lossless complete-field allocation.
+    /// Create a `BitwiseNot` from its field values.
     pub fn from_fields(
         loc: impl IntoArg<Location>,
         ty: impl IntoArg<PrimType>,
@@ -739,8 +732,7 @@ pub struct Add {
 }
 
 /// The object behind [`Add`].
-///
-/// Complete: reflected fields fill [40, 56) exactly.
+// Complete: reflected fields fill [40, 56) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -773,7 +765,7 @@ impl AddObj {
 
 #[allow(missing_docs)]
 impl Add {
-    /// Lossless complete-field allocation.
+    /// Create a `Add` from its field values.
     pub fn from_fields(
         loc: impl IntoArg<Location>,
         ty: impl IntoArg<PrimType>,
@@ -804,8 +796,7 @@ pub struct Sub {
 }
 
 /// The object behind [`Sub`].
-///
-/// Complete: reflected fields fill [40, 56) exactly.
+// Complete: reflected fields fill [40, 56) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -838,7 +829,7 @@ impl SubObj {
 
 #[allow(missing_docs)]
 impl Sub {
-    /// Lossless complete-field allocation.
+    /// Create a `Sub` from its field values.
     pub fn from_fields(
         loc: impl IntoArg<Location>,
         ty: impl IntoArg<PrimType>,
@@ -869,8 +860,7 @@ pub struct Mul {
 }
 
 /// The object behind [`Mul`].
-///
-/// Complete: reflected fields fill [40, 56) exactly.
+// Complete: reflected fields fill [40, 56) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -903,7 +893,7 @@ impl MulObj {
 
 #[allow(missing_docs)]
 impl Mul {
-    /// Lossless complete-field allocation.
+    /// Create a `Mul` from its field values.
     pub fn from_fields(
         loc: impl IntoArg<Location>,
         ty: impl IntoArg<PrimType>,
@@ -934,8 +924,7 @@ pub struct Div {
 }
 
 /// The object behind [`Div`].
-///
-/// Complete: reflected fields fill [40, 56) exactly.
+// Complete: reflected fields fill [40, 56) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -968,7 +957,7 @@ impl DivObj {
 
 #[allow(missing_docs)]
 impl Div {
-    /// Lossless complete-field allocation.
+    /// Create a `Div` from its field values.
     pub fn from_fields(
         loc: impl IntoArg<Location>,
         ty: impl IntoArg<PrimType>,
@@ -999,8 +988,7 @@ pub struct Mod {
 }
 
 /// The object behind [`Mod`].
-///
-/// Complete: reflected fields fill [40, 56) exactly.
+// Complete: reflected fields fill [40, 56) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -1033,7 +1021,7 @@ impl ModObj {
 
 #[allow(missing_docs)]
 impl Mod {
-    /// Lossless complete-field allocation.
+    /// Create a `Mod` from its field values.
     pub fn from_fields(
         loc: impl IntoArg<Location>,
         ty: impl IntoArg<PrimType>,
@@ -1064,8 +1052,7 @@ pub struct FloorDiv {
 }
 
 /// The object behind [`FloorDiv`].
-///
-/// Complete: reflected fields fill [40, 56) exactly.
+// Complete: reflected fields fill [40, 56) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -1098,7 +1085,7 @@ impl FloorDivObj {
 
 #[allow(missing_docs)]
 impl FloorDiv {
-    /// Lossless complete-field allocation.
+    /// Create a `FloorDiv` from its field values.
     pub fn from_fields(
         loc: impl IntoArg<Location>,
         ty: impl IntoArg<PrimType>,
@@ -1130,8 +1117,7 @@ pub struct FloorMod {
 }
 
 /// The object behind [`FloorMod`].
-///
-/// Complete: reflected fields fill [40, 56) exactly.
+// Complete: reflected fields fill [40, 56) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -1164,7 +1150,7 @@ impl FloorModObj {
 
 #[allow(missing_docs)]
 impl FloorMod {
-    /// Lossless complete-field allocation.
+    /// Create a `FloorMod` from its field values.
     pub fn from_fields(
         loc: impl IntoArg<Location>,
         ty: impl IntoArg<PrimType>,
@@ -1196,8 +1182,7 @@ pub struct Min {
 }
 
 /// The object behind [`Min`].
-///
-/// Complete: reflected fields fill [40, 56) exactly.
+// Complete: reflected fields fill [40, 56) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -1230,7 +1215,7 @@ impl MinObj {
 
 #[allow(missing_docs)]
 impl Min {
-    /// Lossless complete-field allocation.
+    /// Create a `Min` from its field values.
     pub fn from_fields(
         loc: impl IntoArg<Location>,
         ty: impl IntoArg<PrimType>,
@@ -1261,8 +1246,7 @@ pub struct Max {
 }
 
 /// The object behind [`Max`].
-///
-/// Complete: reflected fields fill [40, 56) exactly.
+// Complete: reflected fields fill [40, 56) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -1295,7 +1279,7 @@ impl MaxObj {
 
 #[allow(missing_docs)]
 impl Max {
-    /// Lossless complete-field allocation.
+    /// Create a `Max` from its field values.
     pub fn from_fields(
         loc: impl IntoArg<Location>,
         ty: impl IntoArg<PrimType>,
@@ -1329,8 +1313,7 @@ pub struct EQ {
 }
 
 /// The object behind [`EQ`].
-///
-/// Complete: reflected fields fill [40, 56) exactly.
+// Complete: reflected fields fill [40, 56) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -1363,7 +1346,7 @@ impl EQObj {
 
 #[allow(missing_docs)]
 impl EQ {
-    /// Lossless complete-field allocation.
+    /// Create a `EQ` from its field values.
     pub fn from_fields(
         loc: impl IntoArg<Location>,
         ty: impl IntoArg<PrimType>,
@@ -1394,8 +1377,7 @@ pub struct NE {
 }
 
 /// The object behind [`NE`].
-///
-/// Complete: reflected fields fill [40, 56) exactly.
+// Complete: reflected fields fill [40, 56) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -1428,7 +1410,7 @@ impl NEObj {
 
 #[allow(missing_docs)]
 impl NE {
-    /// Lossless complete-field allocation.
+    /// Create a `NE` from its field values.
     pub fn from_fields(
         loc: impl IntoArg<Location>,
         ty: impl IntoArg<PrimType>,
@@ -1459,8 +1441,7 @@ pub struct LT {
 }
 
 /// The object behind [`LT`].
-///
-/// Complete: reflected fields fill [40, 56) exactly.
+// Complete: reflected fields fill [40, 56) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -1493,7 +1474,7 @@ impl LTObj {
 
 #[allow(missing_docs)]
 impl LT {
-    /// Lossless complete-field allocation.
+    /// Create a `LT` from its field values.
     pub fn from_fields(
         loc: impl IntoArg<Location>,
         ty: impl IntoArg<PrimType>,
@@ -1524,8 +1505,7 @@ pub struct LE {
 }
 
 /// The object behind [`LE`].
-///
-/// Complete: reflected fields fill [40, 56) exactly.
+// Complete: reflected fields fill [40, 56) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -1558,7 +1538,7 @@ impl LEObj {
 
 #[allow(missing_docs)]
 impl LE {
-    /// Lossless complete-field allocation.
+    /// Create a `LE` from its field values.
     pub fn from_fields(
         loc: impl IntoArg<Location>,
         ty: impl IntoArg<PrimType>,
@@ -1589,8 +1569,7 @@ pub struct GT {
 }
 
 /// The object behind [`GT`].
-///
-/// Complete: reflected fields fill [40, 56) exactly.
+// Complete: reflected fields fill [40, 56) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -1623,7 +1602,7 @@ impl GTObj {
 
 #[allow(missing_docs)]
 impl GT {
-    /// Lossless complete-field allocation.
+    /// Create a `GT` from its field values.
     pub fn from_fields(
         loc: impl IntoArg<Location>,
         ty: impl IntoArg<PrimType>,
@@ -1654,8 +1633,7 @@ pub struct GE {
 }
 
 /// The object behind [`GE`].
-///
-/// Complete: reflected fields fill [40, 56) exactly.
+// Complete: reflected fields fill [40, 56) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -1688,7 +1666,7 @@ impl GEObj {
 
 #[allow(missing_docs)]
 impl GE {
-    /// Lossless complete-field allocation.
+    /// Create a `GE` from its field values.
     pub fn from_fields(
         loc: impl IntoArg<Location>,
         ty: impl IntoArg<PrimType>,
@@ -1722,8 +1700,7 @@ pub struct And {
 }
 
 /// The object behind [`And`].
-///
-/// Complete: reflected fields fill [40, 56) exactly.
+// Complete: reflected fields fill [40, 56) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -1756,7 +1733,7 @@ impl AndObj {
 
 #[allow(missing_docs)]
 impl And {
-    /// Lossless complete-field allocation.
+    /// Create a `And` from its field values.
     pub fn from_fields(
         loc: impl IntoArg<Location>,
         ty: impl IntoArg<PrimType>,
@@ -1800,8 +1777,7 @@ pub struct Or {
 }
 
 /// The object behind [`Or`].
-///
-/// Complete: reflected fields fill [40, 56) exactly.
+// Complete: reflected fields fill [40, 56) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -1834,7 +1810,7 @@ impl OrObj {
 
 #[allow(missing_docs)]
 impl Or {
-    /// Lossless complete-field allocation.
+    /// Create a `Or` from its field values.
     pub fn from_fields(
         loc: impl IntoArg<Location>,
         ty: impl IntoArg<PrimType>,
@@ -1878,8 +1854,7 @@ pub struct Not {
 }
 
 /// The object behind [`Not`].
-///
-/// Complete: reflected fields fill [40, 48) exactly.
+// Complete: reflected fields fill [40, 48) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -1911,7 +1886,7 @@ impl NotObj {
 
 #[allow(missing_docs)]
 impl Not {
-    /// Lossless complete-field allocation.
+    /// Create a `Not` from its field values.
     pub fn from_fields(
         loc: impl IntoArg<Location>,
         ty: impl IntoArg<PrimType>,
@@ -1959,8 +1934,7 @@ pub struct Select {
 }
 
 /// The object behind [`Select`].
-///
-/// Complete: reflected fields fill [40, 64) exactly.
+// Complete: reflected fields fill [40, 64) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -2000,7 +1974,7 @@ impl SelectObj {
 
 #[allow(missing_docs)]
 impl Select {
-    /// Lossless complete-field allocation.
+    /// Create a `Select` from its field values.
     pub fn from_fields(
         loc: impl IntoArg<Location>,
         ty: impl IntoArg<PrimType>,
@@ -2087,8 +2061,7 @@ pub struct Let {
 }
 
 /// The object behind [`Let`].
-///
-/// Complete: reflected fields fill [40, 64) exactly.
+// Complete: reflected fields fill [40, 64) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -2128,7 +2101,7 @@ impl LetObj {
 
 #[allow(missing_docs)]
 impl Let {
-    /// Lossless complete-field allocation.
+    /// Create a `Let` from its field values.
     pub fn from_fields(
         loc: impl IntoArg<Location>,
         ty: impl IntoArg<PrimType>,

@@ -21,7 +21,7 @@
 //! [`StructuralMutatorWithConstraintContext`] rewrites them, each keeping the [`ConstraintContext`]
 //! of the bindings, ranges and guards in scope at the current value.
 
-// tvm-ffi-stubgen(missing-docs): allow
+// tvm-ffi-stubgen(file): mod(missing_docs = allow)
 
 // tvm-ffi-stubgen(begin): import-section
 use crate::sym::constraint::ConstraintContext;
@@ -63,8 +63,7 @@ pub struct StructuralMutatorWithConstraintContext {
 }
 
 /// The object behind [`StructuralMutatorWithConstraintContext`].
-///
-/// Opaque: parent 'ffi.StructuralMutator' is opaque (no-mirror). Fields are read through the C ABI getters.
+// Opaque: parent 'ffi.StructuralMutator' is opaque (no-mirror). Fields are read through the C ABI getters.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -93,8 +92,7 @@ pub struct StructuralVisitorWithConstraintContext {
 }
 
 /// The object behind [`StructuralVisitorWithConstraintContext`].
-///
-/// Opaque: parent 'ffi.StructuralVisitor' is opaque (no-mirror). Fields are read through the C ABI getters.
+// Opaque: parent 'ffi.StructuralVisitor' is opaque (no-mirror). Fields are read through the C ABI getters.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]

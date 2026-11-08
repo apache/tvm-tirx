@@ -21,22 +21,22 @@
 //! instance of a registered [`TargetKind`]; it is created from a tag, a kind name or a config, and
 //! [`Target::scope`] makes it the current one.
 
-// tvm-ffi-stubgen(missing-docs): allow
+// tvm-ffi-stubgen(file): mod(missing_docs = allow)
 // Every object registered under `target` has its block in this file.
-// tvm-ffi-stubgen(prefix): target
+// tvm-ffi-stubgen(file): mod(prefix = target)
 // `target.Target` is hand-written below: a target is built by parsing its config, never from
 // raw fields.
-// tvm-ffi-stubgen(skip): target.Target
+// tvm-ffi-stubgen(object): target.Target(skip)
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
-// tvm-ffi-stubgen(import-object): tvm_ffi::Module
-// tvm-ffi-stubgen(import-object): crate::ir::module::IRModule
-// tvm-ffi-stubgen(import-object): tvm_ffi::IntoArg
-// tvm-ffi-stubgen(import-object): std::borrow::Borrow
-// tvm-ffi-stubgen(ty-map): target.Target -> crate::target::Target
-// tvm-ffi-stubgen(import-object): tvm_ffi::Any
-// tvm-ffi-stubgen(import-object): tvm_ffi::Map
-// tvm-ffi-stubgen(import-object): tvm_ffi::object::ObjectRef
+// tvm-ffi-stubgen(import): tvm_ffi::Module
+// tvm-ffi-stubgen(import): crate::ir::module::IRModule
+// tvm-ffi-stubgen(import): tvm_ffi::IntoArg
+// tvm-ffi-stubgen(import): std::borrow::Borrow
+// tvm-ffi-stubgen(object): target.Target(ty_map = crate::target::Target)
+// tvm-ffi-stubgen(import): tvm_ffi::Any
+// tvm-ffi-stubgen(import): tvm_ffi::Map
+// tvm-ffi-stubgen(import): tvm_ffi::object::ObjectRef
 
 // tvm-ffi-stubgen(begin): import-section
 use crate::ir::module::IRModule;
@@ -208,8 +208,7 @@ pub struct TargetKind {
 }
 
 /// The object behind [`TargetKind`].
-///
-/// Opaque: bytes [56, 152) of [24, 152) are not accounted for by reflected fields. Fields are read through the C ABI getters.
+// Opaque: bytes [56, 152) of [24, 152) are not accounted for by reflected fields. Fields are read through the C ABI getters.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]

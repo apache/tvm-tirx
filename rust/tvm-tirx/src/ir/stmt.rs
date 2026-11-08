@@ -23,56 +23,59 @@
 //! [`SeqStmt`], so a single statement given as a body is wrapped in one, and a [`Bind`] binds a
 //! variable for the statements after it in the enclosing body.
 
-// tvm-ffi-stubgen(missing-docs): allow
-// `custom-new` reserves `new` for a hand-written constructor (defaults, implicit conversions,
+// tvm-ffi-stubgen(file): mod(missing_docs = allow)
+// `custom_new` reserves `new` for a hand-written constructor (defaults, implicit conversions,
 // validation); the generated `from_fields` allocates the fields as given.
-// tvm-ffi-stubgen(custom-new): ir.Bind
-// tvm-ffi-stubgen(custom-new): ir.AssertStmt
-// tvm-ffi-stubgen(custom-new): ir.For
-// tvm-ffi-stubgen(custom-new): ir.TensorStore
-// tvm-ffi-stubgen(custom-new): ir.RegionStmt
-// tvm-ffi-stubgen(custom-new): ir.SeqStmt
-// tvm-ffi-stubgen(custom-new): ir.If
-// tvm-ffi-stubgen(custom-new): ir.Evaluate
-// tvm-ffi-stubgen(custom-new): ir.Return
-// tvm-ffi-stubgen(custom-new): ir.While
+// tvm-ffi-stubgen(object): ir.Bind(custom_new)
+// tvm-ffi-stubgen(object): ir.AssertStmt(custom_new)
+// tvm-ffi-stubgen(object): ir.For(custom_new)
+// tvm-ffi-stubgen(object): ir.TensorStore(custom_new)
+// tvm-ffi-stubgen(object): ir.RegionStmt(custom_new)
+// tvm-ffi-stubgen(object): ir.SeqStmt(custom_new)
+// tvm-ffi-stubgen(object): ir.If(custom_new)
+// tvm-ffi-stubgen(object): ir.Evaluate(custom_new)
+// tvm-ffi-stubgen(object): ir.Return(custom_new)
+// tvm-ffi-stubgen(object): ir.While(custom_new)
+// `no_new` generates no allocator for the abstract base: a value is one of its subtypes.
+// tvm-ffi-stubgen(object): ir.Stmt(no_new)
 // A loop's kind is C++ `ForKind`. The `enum` directive declares it as an open newtype of the
 // native `int` field, so a value Rust does not name reads back intact.
-// tvm-ffi-stubgen(enum): ir.For.kind -> ForKind(i32) { Default=0, Parallel=1, Vectorized=2, Unrolled=3 }
+// tvm-ffi-stubgen(enum): ForKind(repr = i32, Default = 0, Parallel = 1, Vectorized = 2, Unrolled = 3)
+// tvm-ffi-stubgen(field): ir.For.kind(type = ForKind)
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
-// tvm-ffi-stubgen(import-object): tvm_ffi::AnyView
-// tvm-ffi-stubgen(import-object): tvm_ffi::BigInt
-// tvm-ffi-stubgen(import-object): tvm_ffi::DLDataTypeCode
-// tvm-ffi-stubgen(import-object): tvm_ffi::ObjectRefCore
-// tvm-ffi-stubgen(import-object): tvm_ffi::Result
-// tvm-ffi-stubgen(import-object): tvm_ffi::reflection::NativeFunction
-// tvm-ffi-stubgen(import-object): tvm_ffi::reflection::TypeAttrColumn
-// tvm-ffi-stubgen(import-object): std::sync::LazyLock
-// tvm-ffi-stubgen(import-object): crate::ir::expr::CallObj
-// tvm-ffi-stubgen(import-object): crate::ir::expr::Call
-// tvm-ffi-stubgen(import-object): crate::ir::expr::IntImm
-// tvm-ffi-stubgen(import-object): crate::ir::expr::IntImmObj
-// tvm-ffi-stubgen(import-object): crate::ir::location::UNKNOWN_LOC
-// tvm-ffi-stubgen(import-object): crate::ir::r#type::MissingType
-// tvm-ffi-stubgen(import-object): crate::ir::r#type::MissingTypeObj
-// tvm-ffi-stubgen(import-object): crate::ir::r#type::PrimType
-// tvm-ffi-stubgen(import-object): crate::ir::support
-// tvm-ffi-stubgen(import-object): crate::ir::expr::IntoExpr
-// tvm-ffi-stubgen(import-object): crate::ir::expr::PrimExpr
-// tvm-ffi-stubgen(import-object): crate::ir::expr::PrimVar
-// tvm-ffi-stubgen(import-object): tvm_ffi::IntoArg
+// tvm-ffi-stubgen(import): tvm_ffi::AnyView
+// tvm-ffi-stubgen(import): tvm_ffi::BigInt
+// tvm-ffi-stubgen(import): tvm_ffi::DLDataTypeCode
+// tvm-ffi-stubgen(import): tvm_ffi::ObjectRefCore
+// tvm-ffi-stubgen(import): tvm_ffi::Result
+// tvm-ffi-stubgen(import): tvm_ffi::reflection::NativeFunction
+// tvm-ffi-stubgen(import): tvm_ffi::reflection::TypeAttrColumn
+// tvm-ffi-stubgen(import): std::sync::LazyLock
+// tvm-ffi-stubgen(import): crate::ir::expr::CallObj
+// tvm-ffi-stubgen(import): crate::ir::expr::Call
+// tvm-ffi-stubgen(import): crate::ir::expr::IntImm
+// tvm-ffi-stubgen(import): crate::ir::expr::IntImmObj
+// tvm-ffi-stubgen(import): crate::ir::location::UNKNOWN_LOC
+// tvm-ffi-stubgen(import): crate::ir::r#type::MissingType
+// tvm-ffi-stubgen(import): crate::ir::r#type::MissingTypeObj
+// tvm-ffi-stubgen(import): crate::ir::r#type::PrimType
+// tvm-ffi-stubgen(import): crate::ir::support
+// tvm-ffi-stubgen(import): crate::ir::expr::IntoExpr
+// tvm-ffi-stubgen(import): crate::ir::expr::PrimExpr
+// tvm-ffi-stubgen(import): crate::ir::expr::PrimVar
+// tvm-ffi-stubgen(import): tvm_ffi::IntoArg
 // Loop bounds, conditions and stored values are primitive, as C++ types them: `ForObj` holds a
 // `PrimVar var` and `PrimExpr begin, end, step`.
-// tvm-ffi-stubgen(field): ir.AssertStmt.condition -> PrimExpr
-// tvm-ffi-stubgen(field): ir.For.var -> PrimVar
-// tvm-ffi-stubgen(field): ir.For.begin -> PrimExpr
-// tvm-ffi-stubgen(field): ir.For.end -> PrimExpr
-// tvm-ffi-stubgen(field): ir.For.step -> PrimExpr
-// tvm-ffi-stubgen(field): ir.While.condition -> PrimExpr
-// tvm-ffi-stubgen(field): ir.TensorStore.indices -> Array<PrimExpr>
-// tvm-ffi-stubgen(field): ir.TensorStore.value -> PrimExpr
-// tvm-ffi-stubgen(field): ir.If.condition -> PrimExpr
+// tvm-ffi-stubgen(field): ir.AssertStmt.condition(type = PrimExpr)
+// tvm-ffi-stubgen(field): ir.For.var(type = PrimVar)
+// tvm-ffi-stubgen(field): ir.For.begin(type = PrimExpr)
+// tvm-ffi-stubgen(field): ir.For.end(type = PrimExpr)
+// tvm-ffi-stubgen(field): ir.For.step(type = PrimExpr)
+// tvm-ffi-stubgen(field): ir.While.condition(type = PrimExpr)
+// tvm-ffi-stubgen(field): ir.TensorStore.indices(type = Array<PrimExpr>)
+// tvm-ffi-stubgen(field): ir.TensorStore.value(type = PrimExpr)
+// tvm-ffi-stubgen(field): ir.If.condition(type = PrimExpr)
 
 // tvm-ffi-stubgen(begin): import-section
 use crate::ir::attrs::DictAttrs;
@@ -152,8 +155,7 @@ pub struct Stmt {
 }
 
 /// The object behind [`Stmt`].
-///
-/// Complete: reflected fields fill [24, 32) exactly.
+// Complete: reflected fields fill [24, 32) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -175,15 +177,6 @@ impl StmtObj {
         Self { base_, loc }
     }
 }
-
-#[allow(missing_docs)]
-impl Stmt {
-    /// Lossless complete-field allocation.
-    pub fn new(loc: impl IntoArg<Location>) -> Self {
-        let obj = StmtObj::new(loc.into_owned());
-        Self { data_: ObjectArc::new(obj) }
-    }
-}
 // tvm-ffi-stubgen(end)
 
 /// The binding of the variable `var` to `value`, visible to the statements after it in the
@@ -197,8 +190,7 @@ pub struct Bind {
 }
 
 /// The object behind [`Bind`].
-///
-/// Complete: reflected fields fill [32, 48) exactly.
+// Complete: reflected fields fill [32, 48) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -231,7 +223,7 @@ impl BindObj {
 
 #[allow(missing_docs)]
 impl Bind {
-    /// Lossless complete-field allocation.
+    /// Create a `Bind` from its field values.
     pub fn from_fields(
         loc: impl IntoArg<Location>,
         var: impl IntoArg<Var>,
@@ -278,8 +270,7 @@ pub struct AssertStmt {
 }
 
 /// The object behind [`AssertStmt`].
-///
-/// Complete: reflected fields fill [32, 56) exactly.
+// Complete: reflected fields fill [32, 56) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -318,7 +309,7 @@ impl AssertStmtObj {
 
 #[allow(missing_docs)]
 impl AssertStmt {
-    /// Lossless complete-field allocation.
+    /// Create a `AssertStmt` from its field values.
     pub fn from_fields(
         loc: impl IntoArg<Location>,
         condition: impl IntoArg<PrimExpr>,
@@ -410,8 +401,7 @@ impl TryFrom<i64> for ForKind {
 }
 
 /// The object behind [`For`].
-///
-/// Complete: reflected fields fill [32, 88) exactly (alignment padding [68, 72)).
+// Complete: reflected fields fill [32, 88) exactly (alignment padding [68, 72)).
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -458,7 +448,7 @@ impl ForObj {
 
 #[allow(missing_docs)]
 impl For {
-    /// Lossless complete-field allocation.
+    /// Create a `For` from its field values.
     pub fn from_fields(
         loc: impl IntoArg<Location>,
         var: impl IntoArg<PrimVar>,
@@ -598,8 +588,7 @@ pub struct While {
 }
 
 /// The object behind [`While`].
-///
-/// Complete: reflected fields fill [32, 48) exactly.
+// Complete: reflected fields fill [32, 48) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -632,7 +621,7 @@ impl WhileObj {
 
 #[allow(missing_docs)]
 impl While {
-    /// Lossless complete-field allocation.
+    /// Create a `While` from its field values.
     pub fn from_fields(
         loc: impl IntoArg<Location>,
         condition: impl IntoArg<PrimExpr>,
@@ -679,8 +668,7 @@ pub struct TensorStore {
 }
 
 /// The object behind [`TensorStore`].
-///
-/// Complete: reflected fields fill [32, 56) exactly.
+// Complete: reflected fields fill [32, 56) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -719,7 +707,7 @@ impl TensorStoreObj {
 
 #[allow(missing_docs)]
 impl TensorStore {
-    /// Lossless complete-field allocation.
+    /// Create a `TensorStore` from its field values.
     pub fn from_fields(
         loc: impl IntoArg<Location>,
         dest: impl IntoArg<Expr>,
@@ -796,8 +784,7 @@ pub struct RegionStmt {
 }
 
 /// The object behind [`RegionStmt`].
-///
-/// Complete: reflected fields fill [32, 80) exactly.
+// Complete: reflected fields fill [32, 80) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -842,7 +829,7 @@ impl RegionStmtObj {
 
 #[allow(missing_docs)]
 impl RegionStmt {
-    /// Lossless complete-field allocation.
+    /// Create a `RegionStmt` from its field values.
     pub fn from_fields(
         loc: impl IntoArg<Location>,
         op: impl IntoArg<Op>,
@@ -947,8 +934,7 @@ pub struct SeqStmt {
 }
 
 /// The object behind [`SeqStmt`].
-///
-/// Complete: reflected fields fill [32, 40) exactly.
+// Complete: reflected fields fill [32, 40) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -980,7 +966,7 @@ impl SeqStmtObj {
 
 #[allow(missing_docs)]
 impl SeqStmt {
-    /// Lossless complete-field allocation.
+    /// Create a `SeqStmt` from its field values.
     pub fn from_fields(loc: impl IntoArg<Location>, seq: impl Into<Array<Stmt>>) -> Self {
         let obj = SeqStmtObj::new(loc.into_owned(), seq.into());
         Self { data_: ObjectArc::new(obj) }
@@ -1013,8 +999,7 @@ pub struct If {
 }
 
 /// The object behind [`If`].
-///
-/// Complete: reflected fields fill [32, 56) exactly.
+// Complete: reflected fields fill [32, 56) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -1053,7 +1038,7 @@ impl IfObj {
 
 #[allow(missing_docs)]
 impl If {
-    /// Lossless complete-field allocation.
+    /// Create a `If` from its field values.
     pub fn from_fields(
         loc: impl IntoArg<Location>,
         condition: impl IntoArg<PrimExpr>,
@@ -1099,8 +1084,7 @@ pub struct Evaluate {
 }
 
 /// The object behind [`Evaluate`].
-///
-/// Complete: reflected fields fill [32, 40) exactly.
+// Complete: reflected fields fill [32, 40) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -1132,7 +1116,7 @@ impl EvaluateObj {
 
 #[allow(missing_docs)]
 impl Evaluate {
-    /// Lossless complete-field allocation.
+    /// Create a `Evaluate` from its field values.
     pub fn from_fields(loc: impl IntoArg<Location>, value: impl IntoArg<Expr>) -> Self {
         let obj = EvaluateObj::new(loc.into_owned(), value.into_owned());
         Self { data_: ObjectArc::new(obj) }
@@ -1159,8 +1143,7 @@ pub struct Break {
 }
 
 /// The object behind [`Break`].
-///
-/// Complete: reflected fields fill [32, 32) exactly.
+// Complete: reflected fields fill [32, 32) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -1191,7 +1174,7 @@ impl BreakObj {
 
 #[allow(missing_docs)]
 impl Break {
-    /// Lossless complete-field allocation.
+    /// Create a `Break` from its field values.
     pub fn new(loc: impl IntoArg<Location>) -> Self {
         let obj = BreakObj::new(loc.into_owned());
         Self { data_: ObjectArc::new(obj) }
@@ -1213,8 +1196,7 @@ pub struct Return {
 }
 
 /// The object behind [`Return`].
-///
-/// Complete: reflected fields fill [32, 40) exactly.
+// Complete: reflected fields fill [32, 40) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -1246,7 +1228,7 @@ impl ReturnObj {
 
 #[allow(missing_docs)]
 impl Return {
-    /// Lossless complete-field allocation.
+    /// Create a `Return` from its field values.
     pub fn from_fields(loc: impl IntoArg<Location>, value: impl IntoArg<Expr>) -> Self {
         let obj = ReturnObj::new(loc.into_owned(), value.into_owned());
         Self { data_: ObjectArc::new(obj) }
@@ -1273,8 +1255,7 @@ pub struct Continue {
 }
 
 /// The object behind [`Continue`].
-///
-/// Complete: reflected fields fill [32, 32) exactly.
+// Complete: reflected fields fill [32, 32) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -1305,7 +1286,7 @@ impl ContinueObj {
 
 #[allow(missing_docs)]
 impl Continue {
-    /// Lossless complete-field allocation.
+    /// Create a `Continue` from its field values.
     pub fn new(loc: impl IntoArg<Location>) -> Self {
         let obj = ContinueObj::new(loc.into_owned());
         Self { data_: ObjectArc::new(obj) }

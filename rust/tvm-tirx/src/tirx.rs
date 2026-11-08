@@ -21,14 +21,14 @@
 //! [`Layout`] maps their indices to memory and threads; [`tile`] instructions are dispatched per
 //! [`ThreadScope`], and [`transform`] and [`analysis`] hold the passes and analyses.
 
-// tvm-ffi-stubgen(missing-docs): allow
+// tvm-ffi-stubgen(file): mod(missing_docs = allow)
 // An object registered under `tirx` that no file has a block for yet is generated here, to be moved
 // to the file of the Python module that defines it.
-// tvm-ffi-stubgen(prefix): tirx
+// tvm-ffi-stubgen(file): mod(prefix = tirx)
 // Layouts are hand-written in `layout`: C++ constructs them.
-// tvm-ffi-stubgen(skip): tirx.Layout
-// tvm-ffi-stubgen(skip): tirx.TileLayout
-// tvm-ffi-stubgen(skip): tirx.ComposeLayout
+// tvm-ffi-stubgen(object): tirx.Layout(skip)
+// tvm-ffi-stubgen(object): tirx.TileLayout(skip)
+// tvm-ffi-stubgen(object): tirx.ComposeLayout(skip)
 
 pub mod analysis;
 pub mod function;

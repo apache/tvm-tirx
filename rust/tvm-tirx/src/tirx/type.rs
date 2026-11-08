@@ -20,7 +20,7 @@
 //! Types of the dialect beyond tensors. A [`TensorMapType`] types the tensor-map descriptors that
 //! backend memory operations take; tensors are typed by [`TensorType`](super::TensorType).
 
-// tvm-ffi-stubgen(missing-docs): allow
+// tvm-ffi-stubgen(file): mod(missing_docs = allow)
 
 // tvm-ffi-stubgen(begin): import-section
 use crate::ir::location::Location;
@@ -44,8 +44,7 @@ pub struct TensorMapType {
 }
 
 /// The object behind [`TensorMapType`].
-///
-/// Complete: reflected fields fill [32, 32) exactly.
+// Complete: reflected fields fill [32, 32) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -76,7 +75,7 @@ impl TensorMapTypeObj {
 
 #[allow(missing_docs)]
 impl TensorMapType {
-    /// Lossless complete-field allocation.
+    /// Create a `TensorMapType` from its field values.
     pub fn new(loc: impl IntoArg<Location>) -> Self {
         let obj = TensorMapTypeObj::new(loc.into_owned());
         Self { data_: ObjectArc::new(obj) }

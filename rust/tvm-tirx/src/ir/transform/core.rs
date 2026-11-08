@@ -21,18 +21,18 @@
 //! the passes that run and the instruments that observe them; [`ModulePass`] wraps a function and
 //! [`Sequential`] runs passes in order.
 
-// tvm-ffi-stubgen(missing-docs): allow
-// `custom-new` reserves `new` for the checked `transform.PassContext`; the generated `from_fields`
+// tvm-ffi-stubgen(file): mod(missing_docs = allow)
+// `custom_new` reserves `new` for the checked `transform.PassContext`; the generated `from_fields`
 // allocates the fields as given.
-// tvm-ffi-stubgen(custom-new): transform.PassContext
-// tvm-ffi-stubgen(field): transform.PassInfo.opt_level -> i32
-// tvm-ffi-stubgen(field): transform.PassContext.opt_level -> i32
+// tvm-ffi-stubgen(object): transform.PassContext(custom_new)
+// tvm-ffi-stubgen(field): transform.PassInfo.opt_level(type = i32)
+// tvm-ffi-stubgen(field): transform.PassContext.opt_level(type = i32)
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
-// tvm-ffi-stubgen(import-object): crate::ir::module::IRModule
-// tvm-ffi-stubgen(import-object): crate::ir::support
-// tvm-ffi-stubgen(import-object): tvm_ffi::IntoArg
-// tvm-ffi-stubgen(import-object): std::borrow::Borrow
+// tvm-ffi-stubgen(import): crate::ir::module::IRModule
+// tvm-ffi-stubgen(import): crate::ir::support
+// tvm-ffi-stubgen(import): tvm_ffi::IntoArg
+// tvm-ffi-stubgen(import): std::borrow::Borrow
 
 // tvm-ffi-stubgen(begin): import-section
 use crate::ir::module::IRModule;
@@ -85,8 +85,7 @@ pub struct Pass {
 }
 
 /// The object behind [`Pass`].
-///
-/// Opaque: no metadata of its own: total_size is unknown. Fields are read through the C ABI getters.
+// Opaque: no metadata of its own: total_size is unknown. Fields are read through the C ABI getters.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -125,8 +124,7 @@ pub struct PassInfo {
 }
 
 /// The object behind [`PassInfo`].
-///
-/// Complete: reflected fields fill [24, 48) exactly (alignment padding [28, 32)).
+// Complete: reflected fields fill [24, 48) exactly (alignment padding [28, 32)).
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -152,7 +150,7 @@ impl PassInfoObj {
 
 #[allow(missing_docs)]
 impl PassInfo {
-    /// Lossless complete-field allocation.
+    /// Create a `PassInfo` from its field values.
     pub fn new(opt_level: i32, name: impl Into<String>) -> Self {
         let obj = PassInfoObj::new(opt_level, name.into());
         Self { data_: ObjectArc::new(obj) }
@@ -173,8 +171,7 @@ pub struct ModulePass {
 }
 
 /// The object behind [`ModulePass`].
-///
-/// Opaque: parent 'transform.Pass' is opaque (layout-unknown). Fields are read through the C ABI getters.
+// Opaque: parent 'transform.Pass' is opaque (layout-unknown). Fields are read through the C ABI getters.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -233,8 +230,7 @@ pub struct Sequential {
 }
 
 /// The object behind [`Sequential`].
-///
-/// Opaque: parent 'transform.Pass' is opaque (layout-unknown). Fields are read through the C ABI getters.
+// Opaque: parent 'transform.Pass' is opaque (layout-unknown). Fields are read through the C ABI getters.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -299,8 +295,7 @@ pub struct PassContext {
 }
 
 /// The object behind [`PassContext`].
-///
-/// Complete: reflected fields fill [24, 64) exactly (alignment padding [28, 32)).
+// Complete: reflected fields fill [24, 64) exactly (alignment padding [28, 32)).
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -335,7 +330,7 @@ impl PassContextObj {
 
 #[allow(missing_docs)]
 impl PassContext {
-    /// Lossless complete-field allocation.
+    /// Create a `PassContext` from its field values.
     pub fn from_fields(
         opt_level: i32,
         required_pass: impl Into<Array<String>>,
@@ -475,8 +470,7 @@ pub struct PassInstrument {
 }
 
 /// The object behind [`PassInstrument`].
-///
-/// Opaque: bytes [40, 48) of [24, 48) are not accounted for by reflected fields. Fields are read through the C ABI getters.
+// Opaque: bytes [40, 48) of [24, 48) are not accounted for by reflected fields. Fields are read through the C ABI getters.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]

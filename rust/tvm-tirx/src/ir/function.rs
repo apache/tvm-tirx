@@ -21,14 +21,16 @@
 //! attributes; a dialect defines the function itself, such as
 //! [`Function`](crate::tirx::Function), and an [`IRModule`](super::IRModule) binds it to a name.
 
-// tvm-ffi-stubgen(missing-docs): allow
+// tvm-ffi-stubgen(file): mod(missing_docs = allow)
+// `no_new` generates no allocator for the abstract base: a value is one of its subtypes.
+// tvm-ffi-stubgen(object): ir.BaseFunc(no_new)
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
-// tvm-ffi-stubgen(import-object): tvm_ffi::Any
-// tvm-ffi-stubgen(import-object): tvm_ffi::Map
-// tvm-ffi-stubgen(import-object): tvm_ffi::rvalue_ref::RValueRef
-// tvm-ffi-stubgen(import-object): tvm_ffi::Result
-// tvm-ffi-stubgen(import-object): tvm_ffi::String
+// tvm-ffi-stubgen(import): tvm_ffi::Any
+// tvm-ffi-stubgen(import): tvm_ffi::Map
+// tvm-ffi-stubgen(import): tvm_ffi::rvalue_ref::RValueRef
+// tvm-ffi-stubgen(import): tvm_ffi::Result
+// tvm-ffi-stubgen(import): tvm_ffi::String
 
 // tvm-ffi-stubgen(begin): import-section
 use crate::ir::attrs::DictAttrs;
@@ -38,7 +40,6 @@ use crate::ir::location::Location;
 use crate::ir::r#type::Type;
 use std::ops::Deref;
 use tvm_ffi::Any;
-use tvm_ffi::IntoArg;
 use tvm_ffi::Map;
 use tvm_ffi::ObjectArc;
 use tvm_ffi::Result;
@@ -76,8 +77,7 @@ pub struct BaseFunc {
 }
 
 /// The object behind [`BaseFunc`].
-///
-/// Complete: reflected fields fill [40, 48) exactly.
+// Complete: reflected fields fill [40, 48) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -104,19 +104,6 @@ impl BaseFuncObj {
     pub fn new(loc: Location, ty: Type, attrs: DictAttrs) -> Self {
         let base_ = ExprObj::new(loc, ty);
         Self { base_, attrs }
-    }
-}
-
-#[allow(missing_docs)]
-impl BaseFunc {
-    /// Lossless complete-field allocation.
-    pub fn new(
-        loc: impl IntoArg<Location>,
-        ty: impl IntoArg<Type>,
-        attrs: impl IntoArg<DictAttrs>,
-    ) -> Self {
-        let obj = BaseFuncObj::new(loc.into_owned(), ty.into_owned(), attrs.into_owned());
-        Self { data_: ObjectArc::new(obj) }
     }
 }
 

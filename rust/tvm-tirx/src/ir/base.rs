@@ -20,10 +20,10 @@
 //! Registry functions held by name. An [`EnvFunc`] keeps a registered global function with its
 //! name, so IR that refers to it serializes the name and resolves it again when loaded.
 
-// tvm-ffi-stubgen(missing-docs): allow
+// tvm-ffi-stubgen(file): mod(missing_docs = allow)
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
-// tvm-ffi-stubgen(import-object): tvm_ffi::Result
+// tvm-ffi-stubgen(import): tvm_ffi::Result
 
 // tvm-ffi-stubgen(begin): import-section
 use tvm_ffi::Function;
@@ -61,8 +61,7 @@ pub struct EnvFunc {
 }
 
 /// The object behind [`EnvFunc`].
-///
-/// Complete: reflected fields fill [24, 48) exactly.
+// Complete: reflected fields fill [24, 48) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -88,7 +87,7 @@ impl EnvFuncObj {
 
 #[allow(missing_docs)]
 impl EnvFunc {
-    /// Lossless complete-field allocation.
+    /// Create a `EnvFunc` from its field values.
     pub fn new(name: impl Into<String>, func: impl IntoArg<Function>) -> Self {
         let obj = EnvFuncObj::new(name.into(), func.into_owned());
         Self { data_: ObjectArc::new(obj) }

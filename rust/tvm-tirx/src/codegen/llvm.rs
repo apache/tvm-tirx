@@ -21,15 +21,15 @@
 //! targets, which `libtvm_tirx_llvm_backend` registers when it is loaded; a query given no target
 //! uses the current one.
 
-// tvm-ffi-stubgen(missing-docs): allow
+// tvm-ffi-stubgen(file): mod(missing_docs = allow)
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
-// tvm-ffi-stubgen(import-object): tvm_ffi::Array
-// tvm-ffi-stubgen(import-object): tvm_ffi::Map
-// tvm-ffi-stubgen(import-object): tvm_ffi::Result
-// tvm-ffi-stubgen(import-object): tvm_ffi::String
-// tvm-ffi-stubgen(import-object): crate::ir::expr::IntImm
-// tvm-ffi-stubgen(import-object): crate::target::Target
+// tvm-ffi-stubgen(import): tvm_ffi::Array
+// tvm-ffi-stubgen(import): tvm_ffi::Map
+// tvm-ffi-stubgen(import): tvm_ffi::Result
+// tvm-ffi-stubgen(import): tvm_ffi::String
+// tvm-ffi-stubgen(import): crate::ir::expr::IntImm
+// tvm-ffi-stubgen(import): crate::target::Target
 
 // tvm-ffi-stubgen(begin): import-section
 use crate::ir::expr::IntImm;

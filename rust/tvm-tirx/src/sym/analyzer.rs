@@ -20,26 +20,26 @@
 //! The analyzer. An [`Analyzer`] proves, bounds and simplifies integer expressions under the facts
 //! of a [`ConstraintContext`]; its bounds are [`ConstIntBound`]s and [`ModularSet`]s.
 
-// tvm-ffi-stubgen(missing-docs): allow
+// tvm-ffi-stubgen(file): mod(missing_docs = allow)
 // Python has no class for the `RewriteSimplifierStats` that `Analyzer.rewrite_simplify_stats()`
 // returns; it is here, with the analyzer it belongs to.
 
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
-// tvm-ffi-stubgen(import-object): tvm_ffi::Error
-// tvm-ffi-stubgen(import-object): tvm_ffi::Map
-// tvm-ffi-stubgen(import-object): tvm_ffi::Result
-// tvm-ffi-stubgen(import-object): tvm_ffi::String
-// tvm-ffi-stubgen(import-object): tvm_ffi::VALUE_ERROR
-// tvm-ffi-stubgen(import-object): crate::ExitOnDrop
-// tvm-ffi-stubgen(import-object): crate::ir::expr::Var
-// tvm-ffi-stubgen(import-object): crate::sym::int_set::IntSet
-// tvm-ffi-stubgen(import-object): crate::sym::constraint::ConstraintContext
-// tvm-ffi-stubgen(import-object): crate::ir::support
-// tvm-ffi-stubgen(import-object): crate::ir::expr::IntoExpr
-// tvm-ffi-stubgen(import-object): crate::ir::expr::PrimExpr
-// tvm-ffi-stubgen(import-object): std::borrow::Borrow
-// tvm-ffi-stubgen(import-object): tvm_ffi::IntoArg
+// tvm-ffi-stubgen(import): tvm_ffi::Error
+// tvm-ffi-stubgen(import): tvm_ffi::Map
+// tvm-ffi-stubgen(import): tvm_ffi::Result
+// tvm-ffi-stubgen(import): tvm_ffi::String
+// tvm-ffi-stubgen(import): tvm_ffi::VALUE_ERROR
+// tvm-ffi-stubgen(import): crate::ExitOnDrop
+// tvm-ffi-stubgen(import): crate::ir::expr::Var
+// tvm-ffi-stubgen(import): crate::sym::int_set::IntSet
+// tvm-ffi-stubgen(import): crate::sym::constraint::ConstraintContext
+// tvm-ffi-stubgen(import): crate::ir::support
+// tvm-ffi-stubgen(import): crate::ir::expr::IntoExpr
+// tvm-ffi-stubgen(import): crate::ir::expr::PrimExpr
+// tvm-ffi-stubgen(import): std::borrow::Borrow
+// tvm-ffi-stubgen(import): tvm_ffi::IntoArg
 
 // tvm-ffi-stubgen(begin): import-section
 use crate::ExitOnDrop;
@@ -100,8 +100,7 @@ pub struct Analyzer {
 }
 
 /// The object behind [`Analyzer`].
-///
-/// Opaque: bytes [24, 120) of [24, 120) are not accounted for by reflected fields. Fields are read through the C ABI getters.
+// Opaque: bytes [24, 120) of [24, 120) are not accounted for by reflected fields. Fields are read through the C ABI getters.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -404,8 +403,7 @@ pub struct ConstIntBound {
 }
 
 /// The object behind [`ConstIntBound`].
-///
-/// Complete: reflected fields fill [24, 40) exactly.
+// Complete: reflected fields fill [24, 40) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -431,7 +429,7 @@ impl ConstIntBoundObj {
 
 #[allow(missing_docs)]
 impl ConstIntBound {
-    /// Lossless complete-field allocation.
+    /// Create a `ConstIntBound` from its field values.
     pub fn new(min_value: i64, max_value: i64) -> Self {
         let obj = ConstIntBoundObj::new(min_value, max_value);
         Self { data_: ObjectArc::new(obj) }
@@ -450,8 +448,7 @@ pub struct ModularSet {
 }
 
 /// The object behind [`ModularSet`].
-///
-/// Complete: reflected fields fill [24, 40) exactly.
+// Complete: reflected fields fill [24, 40) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -477,7 +474,7 @@ impl ModularSetObj {
 
 #[allow(missing_docs)]
 impl ModularSet {
-    /// Lossless complete-field allocation.
+    /// Create a `ModularSet` from its field values.
     pub fn new(coeff: i64, base: i64) -> Self {
         let obj = ModularSetObj::new(coeff, base);
         Self { data_: ObjectArc::new(obj) }
@@ -497,8 +494,7 @@ pub struct RewriteSimplifierStats {
 }
 
 /// The object behind [`RewriteSimplifierStats`].
-///
-/// Complete: reflected fields fill [24, 72) exactly.
+// Complete: reflected fields fill [24, 72) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -543,7 +539,7 @@ impl RewriteSimplifierStatsObj {
 
 #[allow(missing_docs)]
 impl RewriteSimplifierStats {
-    /// Lossless complete-field allocation.
+    /// Create a `RewriteSimplifierStats` from its field values.
     pub fn new(
         nodes_visited: i64,
         constraints_entered: i64,

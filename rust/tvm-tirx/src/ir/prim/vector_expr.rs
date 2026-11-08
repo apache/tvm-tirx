@@ -21,48 +21,48 @@
 //! by `stride`) or a [`Broadcast`] (one value repeated), and rearranged by a [`Shuffle`]; its lane
 //! count is a constant or, for a scalable vector, `vscale() * factor`.
 
-// tvm-ffi-stubgen(missing-docs): allow
-// `custom-new` reserves `new` for a hand-written constructor (operand checks and the derived vector
+// tvm-ffi-stubgen(file): mod(missing_docs = allow)
+// `custom_new` reserves `new` for a hand-written constructor (operand checks and the derived vector
 // type); the generated `from_fields` allocates the fields as given.
-// tvm-ffi-stubgen(custom-new): prim.Ramp
-// tvm-ffi-stubgen(custom-new): prim.Broadcast
-// tvm-ffi-stubgen(custom-new): prim.Shuffle
+// tvm-ffi-stubgen(object): prim.Ramp(custom_new)
+// tvm-ffi-stubgen(object): prim.Broadcast(custom_new)
+// tvm-ffi-stubgen(object): prim.Shuffle(custom_new)
 // Every node is typed by a `PrimType` and holds `PrimExpr` operands: its allocator takes a
 // `PrimType`, and it converts into a `PrimExpr` without a check.
-// tvm-ffi-stubgen(field): prim.Ramp.ty -> PrimType
-// tvm-ffi-stubgen(field): prim.Ramp.base -> PrimExpr
-// tvm-ffi-stubgen(field): prim.Ramp.stride -> PrimExpr
-// tvm-ffi-stubgen(field): prim.Ramp.lanes -> PrimExpr
-// tvm-ffi-stubgen(upcast): prim.Ramp -> PrimExpr
-// tvm-ffi-stubgen(field): prim.Broadcast.ty -> PrimType
-// tvm-ffi-stubgen(field): prim.Broadcast.value -> PrimExpr
-// tvm-ffi-stubgen(field): prim.Broadcast.lanes -> PrimExpr
-// tvm-ffi-stubgen(upcast): prim.Broadcast -> PrimExpr
-// tvm-ffi-stubgen(field): prim.Shuffle.ty -> PrimType
-// tvm-ffi-stubgen(field): prim.Shuffle.vectors -> Array<PrimExpr>
-// tvm-ffi-stubgen(field): prim.Shuffle.indices -> Array<PrimExpr>
-// tvm-ffi-stubgen(upcast): prim.Shuffle -> PrimExpr
+// tvm-ffi-stubgen(field): prim.Ramp.ty(type = PrimType)
+// tvm-ffi-stubgen(field): prim.Ramp.base(type = PrimExpr)
+// tvm-ffi-stubgen(field): prim.Ramp.stride(type = PrimExpr)
+// tvm-ffi-stubgen(field): prim.Ramp.lanes(type = PrimExpr)
+// tvm-ffi-stubgen(object): prim.Ramp(upcast = PrimExpr)
+// tvm-ffi-stubgen(field): prim.Broadcast.ty(type = PrimType)
+// tvm-ffi-stubgen(field): prim.Broadcast.value(type = PrimExpr)
+// tvm-ffi-stubgen(field): prim.Broadcast.lanes(type = PrimExpr)
+// tvm-ffi-stubgen(object): prim.Broadcast(upcast = PrimExpr)
+// tvm-ffi-stubgen(field): prim.Shuffle.ty(type = PrimType)
+// tvm-ffi-stubgen(field): prim.Shuffle.vectors(type = Array<PrimExpr>)
+// tvm-ffi-stubgen(field): prim.Shuffle.indices(type = Array<PrimExpr>)
+// tvm-ffi-stubgen(object): prim.Shuffle(upcast = PrimExpr)
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
-// tvm-ffi-stubgen(import-object): tvm_ffi::DLDataTypeCode
-// tvm-ffi-stubgen(import-object): tvm_ffi::ObjectRefCore
-// tvm-ffi-stubgen(import-object): tvm_ffi::Result
-// tvm-ffi-stubgen(import-object): crate::ir::expr::Call
-// tvm-ffi-stubgen(import-object): crate::ir::expr::CallObj
-// tvm-ffi-stubgen(import-object): crate::ir::expr::IntImm
-// tvm-ffi-stubgen(import-object): crate::ir::expr::IntImmObj
-// tvm-ffi-stubgen(import-object): crate::ir::location::UNKNOWN_LOC
-// tvm-ffi-stubgen(import-object): crate::ir::prim::expr::Mul
-// tvm-ffi-stubgen(import-object): crate::ir::prim::expr::MulObj
-// tvm-ffi-stubgen(import-object): crate::ir::r#type::PrimType
-// tvm-ffi-stubgen(import-object): crate::ir::expr::PrimExpr
-// tvm-ffi-stubgen(import-object): tvm_ffi::Array
-// tvm-ffi-stubgen(import-object): crate::ir::r#type::Type
-// tvm-ffi-stubgen(import-object): crate::ir::support
-// tvm-ffi-stubgen(import-object): crate::ir::prim::op::cast
-// tvm-ffi-stubgen(import-object): crate::ir::dtype::with_lanes
-// tvm-ffi-stubgen(import-object): crate::ir::expr::IntoExpr
-// tvm-ffi-stubgen(import-object): tvm_ffi::IntoArg
+// tvm-ffi-stubgen(import): tvm_ffi::DLDataTypeCode
+// tvm-ffi-stubgen(import): tvm_ffi::ObjectRefCore
+// tvm-ffi-stubgen(import): tvm_ffi::Result
+// tvm-ffi-stubgen(import): crate::ir::expr::Call
+// tvm-ffi-stubgen(import): crate::ir::expr::CallObj
+// tvm-ffi-stubgen(import): crate::ir::expr::IntImm
+// tvm-ffi-stubgen(import): crate::ir::expr::IntImmObj
+// tvm-ffi-stubgen(import): crate::ir::location::UNKNOWN_LOC
+// tvm-ffi-stubgen(import): crate::ir::prim::expr::Mul
+// tvm-ffi-stubgen(import): crate::ir::prim::expr::MulObj
+// tvm-ffi-stubgen(import): crate::ir::r#type::PrimType
+// tvm-ffi-stubgen(import): crate::ir::expr::PrimExpr
+// tvm-ffi-stubgen(import): tvm_ffi::Array
+// tvm-ffi-stubgen(import): crate::ir::r#type::Type
+// tvm-ffi-stubgen(import): crate::ir::support
+// tvm-ffi-stubgen(import): crate::ir::prim::op::cast
+// tvm-ffi-stubgen(import): crate::ir::dtype::with_lanes
+// tvm-ffi-stubgen(import): crate::ir::expr::IntoExpr
+// tvm-ffi-stubgen(import): tvm_ffi::IntoArg
 
 // tvm-ffi-stubgen(begin): import-section
 use crate::ir::dtype::with_lanes;
@@ -118,8 +118,7 @@ pub struct Ramp {
 }
 
 /// The object behind [`Ramp`].
-///
-/// Complete: reflected fields fill [40, 64) exactly.
+// Complete: reflected fields fill [40, 64) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -159,7 +158,7 @@ impl RampObj {
 
 #[allow(missing_docs)]
 impl Ramp {
-    /// Lossless complete-field allocation.
+    /// Create a `Ramp` from its field values.
     pub fn from_fields(
         loc: impl IntoArg<Location>,
         ty: impl IntoArg<PrimType>,
@@ -239,8 +238,7 @@ pub struct Broadcast {
 }
 
 /// The object behind [`Broadcast`].
-///
-/// Complete: reflected fields fill [40, 56) exactly.
+// Complete: reflected fields fill [40, 56) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -273,7 +271,7 @@ impl BroadcastObj {
 
 #[allow(missing_docs)]
 impl Broadcast {
-    /// Lossless complete-field allocation.
+    /// Create a `Broadcast` from its field values.
     pub fn from_fields(
         loc: impl IntoArg<Location>,
         ty: impl IntoArg<PrimType>,
@@ -326,8 +324,7 @@ pub struct Shuffle {
 }
 
 /// The object behind [`Shuffle`].
-///
-/// Complete: reflected fields fill [40, 56) exactly.
+// Complete: reflected fields fill [40, 56) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -365,7 +362,7 @@ impl ShuffleObj {
 
 #[allow(missing_docs)]
 impl Shuffle {
-    /// Lossless complete-field allocation.
+    /// Create a `Shuffle` from its field values.
     pub fn from_fields(
         loc: impl IntoArg<Location>,
         ty: impl IntoArg<PrimType>,

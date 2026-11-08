@@ -21,34 +21,34 @@
 //! [`IterSplitExpr`]s of [`IterMark`]ed iterators; [`detect_iter_map`] finds one, and the other
 //! functions simplify, divide and invert such maps.
 
-// tvm-ffi-stubgen(missing-docs): allow
+// tvm-ffi-stubgen(file): mod(missing_docs = allow)
 // The iterator forms are hand-written: C++ constructs them, so they have no field-wise
 // allocator.
-// tvm-ffi-stubgen(ty-map): sym.IterMapExpr -> crate::sym::iter_affine_map::IterMapExpr
-// tvm-ffi-stubgen(ty-map): sym.IterSplitExpr -> crate::sym::iter_affine_map::IterSplitExpr
-// tvm-ffi-stubgen(ty-map): sym.IterSumExpr -> crate::sym::iter_affine_map::IterSumExpr
-// tvm-ffi-stubgen(import-object): crate::ir::expr::Expr
-// tvm-ffi-stubgen(import-object): crate::ir::expr::ExprObj
-// tvm-ffi-stubgen(import-object): std::ops::Deref
+// tvm-ffi-stubgen(object): sym.IterMapExpr(ty_map = crate::sym::iter_affine_map::IterMapExpr)
+// tvm-ffi-stubgen(object): sym.IterSplitExpr(ty_map = crate::sym::iter_affine_map::IterSplitExpr)
+// tvm-ffi-stubgen(object): sym.IterSumExpr(ty_map = crate::sym::iter_affine_map::IterSumExpr)
+// tvm-ffi-stubgen(import): crate::ir::expr::Expr
+// tvm-ffi-stubgen(import): crate::ir::expr::ExprObj
+// tvm-ffi-stubgen(import): std::ops::Deref
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
-// tvm-ffi-stubgen(import-object): tvm_ffi::AnyView
-// tvm-ffi-stubgen(import-object): tvm_ffi::Map
-// tvm-ffi-stubgen(import-object): tvm_ffi::Result
-// tvm-ffi-stubgen(import-object): crate::ir::expr::Range
-// tvm-ffi-stubgen(import-object): crate::ir::expr::Var
-// tvm-ffi-stubgen(import-object): crate::sym::analyzer::Analyzer
-// tvm-ffi-stubgen(import-object): crate::ir::support
-// tvm-ffi-stubgen(import-object): crate::ir::expr::IntoExpr
-// tvm-ffi-stubgen(import-object): crate::ir::expr::PrimExpr
-// tvm-ffi-stubgen(import-object): crate::ir::expr::PrimVar
+// tvm-ffi-stubgen(import): tvm_ffi::AnyView
+// tvm-ffi-stubgen(import): tvm_ffi::Map
+// tvm-ffi-stubgen(import): tvm_ffi::Result
+// tvm-ffi-stubgen(import): crate::ir::expr::Range
+// tvm-ffi-stubgen(import): crate::ir::expr::Var
+// tvm-ffi-stubgen(import): crate::sym::analyzer::Analyzer
+// tvm-ffi-stubgen(import): crate::ir::support
+// tvm-ffi-stubgen(import): crate::ir::expr::IntoExpr
+// tvm-ffi-stubgen(import): crate::ir::expr::PrimExpr
+// tvm-ffi-stubgen(import): crate::ir::expr::PrimVar
 // The marks and the padding predicate are `PrimExpr`s, as in C++.
-// tvm-ffi-stubgen(field): sym.IterMark.source -> PrimExpr
-// tvm-ffi-stubgen(field): sym.IterMark.extent -> PrimExpr
-// tvm-ffi-stubgen(field): sym.IterMapResult.padding_predicate -> PrimExpr
-// tvm-ffi-stubgen(nullable): sym.IterMapResult.padding_predicate
-// tvm-ffi-stubgen(import-object): std::borrow::Borrow
-// tvm-ffi-stubgen(import-object): tvm_ffi::IntoArg
+// tvm-ffi-stubgen(field): sym.IterMark.source(type = PrimExpr)
+// tvm-ffi-stubgen(field): sym.IterMark.extent(type = PrimExpr)
+// tvm-ffi-stubgen(field): sym.IterMapResult.padding_predicate(type = PrimExpr)
+// tvm-ffi-stubgen(field): sym.IterMapResult.padding_predicate(nullable)
+// tvm-ffi-stubgen(import): std::borrow::Borrow
+// tvm-ffi-stubgen(import): tvm_ffi::IntoArg
 // tvm-ffi-stubgen(begin): import-section
 use crate::ir::expr::Expr;
 use crate::ir::expr::ExprObj;
@@ -145,8 +145,7 @@ pub struct IterMapResult {
 }
 
 /// The object behind [`IterMapResult`].
-///
-/// Complete: reflected fields fill [24, 48) exactly.
+// Complete: reflected fields fill [24, 48) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -177,7 +176,7 @@ impl IterMapResultObj {
 
 #[allow(missing_docs)]
 impl IterMapResult {
-    /// Lossless complete-field allocation.
+    /// Create a `IterMapResult` from its field values.
     pub fn new(
         indices: impl Into<Array<IterSumExpr>>,
         errors: impl Into<Array<String>>,
@@ -199,8 +198,7 @@ pub struct IterMark {
 }
 
 /// The object behind [`IterMark`].
-///
-/// Complete: reflected fields fill [24, 40) exactly.
+// Complete: reflected fields fill [24, 40) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
@@ -226,7 +224,7 @@ impl IterMarkObj {
 
 #[allow(missing_docs)]
 impl IterMark {
-    /// Lossless complete-field allocation.
+    /// Create a `IterMark` from its field values.
     pub fn new(source: impl IntoArg<PrimExpr>, extent: impl IntoArg<PrimExpr>) -> Self {
         let obj = IterMarkObj::new(source.into_owned(), extent.into_owned());
         Self { data_: ObjectArc::new(obj) }

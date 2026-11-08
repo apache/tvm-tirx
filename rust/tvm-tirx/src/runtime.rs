@@ -20,19 +20,19 @@
 //! Runtime objects and queries. A [`MemoryScope`] names the memory a pointer or tensor lives in;
 //! the functions allocate tensors and query devices and the runtime.
 
-// tvm-ffi-stubgen(missing-docs): allow
+// tvm-ffi-stubgen(file): mod(missing_docs = allow)
 // No `prefix`: only the objects with a block below are bound, not all of `runtime`.
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
-// tvm-ffi-stubgen(import-object): tvm_ffi::Any
-// tvm-ffi-stubgen(import-object): tvm_ffi::DLDataType
-// tvm-ffi-stubgen(import-object): tvm_ffi::DLDevice
-// tvm-ffi-stubgen(import-object): tvm_ffi::Result
-// tvm-ffi-stubgen(import-object): tvm_ffi::Shape
-// tvm-ffi-stubgen(import-object): tvm_ffi::String
-// tvm-ffi-stubgen(import-object): tvm_ffi::Tensor
-// tvm-ffi-stubgen(import-object): tvm_ffi::IntoArg
-// tvm-ffi-stubgen(import-object): std::borrow::Borrow
+// tvm-ffi-stubgen(import): tvm_ffi::Any
+// tvm-ffi-stubgen(import): tvm_ffi::DLDataType
+// tvm-ffi-stubgen(import): tvm_ffi::DLDevice
+// tvm-ffi-stubgen(import): tvm_ffi::Result
+// tvm-ffi-stubgen(import): tvm_ffi::Shape
+// tvm-ffi-stubgen(import): tvm_ffi::String
+// tvm-ffi-stubgen(import): tvm_ffi::Tensor
+// tvm-ffi-stubgen(import): tvm_ffi::IntoArg
+// tvm-ffi-stubgen(import): std::borrow::Borrow
 
 // tvm-ffi-stubgen(begin): import-section
 use std::borrow::Borrow;
@@ -63,8 +63,7 @@ pub struct MemoryScope {
 }
 
 /// The object behind [`MemoryScope`].
-///
-/// Complete: reflected fields fill [48, 48) exactly.
+// Complete: reflected fields fill [48, 48) exactly.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
