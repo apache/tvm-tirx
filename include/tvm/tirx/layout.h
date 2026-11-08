@@ -93,7 +93,7 @@ class Layout : public ffi::ObjectRef {
   TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(Layout, ffi::ObjectRef, LayoutObj);
 };
 
-// target, subscope, scope, iter -> fused_iter
+// subscope, scope, iter -> fused_iter
 using FAxisFuser = ffi::TypedFunction<ffi::Optional<Iter>(ThreadScope, ThreadScope, Iter)>;
 
 // Axis

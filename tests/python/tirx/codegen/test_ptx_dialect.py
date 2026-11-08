@@ -4539,8 +4539,7 @@ def test_ptx_ld_st_gpu_roundtrip():
         T.ptx.ld.global_.acquire.gpu.b32(val, A.ptr_to([tx]))
         T.ptx.st.release.gpu.global_.b32(B.ptr_to([tx]), val)
 
-    with TARGET:
-        mod = tvm_tirx.compile(tvm_tirx.IRModule({"main": kernel}), target=TARGET, pipeline="tirx")
+    mod = tvm_tirx.compile(tvm_tirx.IRModule({"main": kernel}), target=TARGET, pipeline="tirx")
 
     def run_and_check():
         dev = tvm_tirx.cuda(0)

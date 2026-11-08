@@ -153,8 +153,7 @@ def test_ptx_ld_st_raw_shared_address_codegen():
             T.ptx.ld.shared.u64(out[1], smem.data)
             T.ptx.st.weak.shared__cta.b128(raw_addr, values.view("uint128")[0])
 
-    with TARGET:
-        mod = tvm_tirx.compile(tvm_tirx.IRModule({"main": main}), target=TARGET, pipeline="tirx")
+    mod = tvm_tirx.compile(tvm_tirx.IRModule({"main": main}), target=TARGET, pipeline="tirx")
     src = mod.mod.imports[0].inspect_source("cuda")
     assert "ld.shared.u64 %0, [%1];" in src
     # One cvta, for the generic pointer. The raw window address is already a
@@ -176,8 +175,7 @@ def test_ptx_ld_st_immediate_offset_codegen():
             T.ptx.ld.global_.v2.b64(values[0], values[1], T.ptx.addr(src.data, 16))
             T.ptx.st.global_.v2.b64(T.ptx.addr(out.data, 16), values[0], values[1])
 
-    with TARGET:
-        mod = tvm_tirx.compile(tvm_tirx.IRModule({"main": main}), target=TARGET, pipeline="tirx")
+    mod = tvm_tirx.compile(tvm_tirx.IRModule({"main": main}), target=TARGET, pipeline="tirx")
     src = mod.mod.imports[0].inspect_source("cuda")
     assert "ld.global.v2.b64 {%0, %1}, [%2+16];" in src
     assert "st.global.v2.b64 [%0+16], {%1, %2};" in src
