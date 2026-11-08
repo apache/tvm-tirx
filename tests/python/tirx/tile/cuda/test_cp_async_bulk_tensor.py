@@ -760,10 +760,9 @@ def _emit(opcode, global_view, shared_view, *, box, coords, sctx=None, **fields)
     else:
         operands = (shared_view, global_view)
         fields.setdefault("mbar", Var("mbar", "handle"))
-    with sctx.target:
-        impl = run_dispatch(
-            T.cuda.tile.apply(T.ptx[opcode], *operands, box=box, coords=coords, **fields), sctx
-        )
+    impl = run_dispatch(
+        T.cuda.tile.apply(T.ptx[opcode], *operands, box=box, coords=coords, **fields), sctx
+    )
     return impl, list(sctx.callbacks.get("host_init_stmt", [])), sctx
 
 
