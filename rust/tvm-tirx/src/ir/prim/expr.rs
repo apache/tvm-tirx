@@ -2141,12 +2141,12 @@ impl Let {
             (var.into_owned(), value.into_owned_expr()?, body.into_owned_expr()?);
         let value_dtype = value.prim_ty().dtype;
         let Some(var_ty) = var.ty.downcast_ref::<PrimTypeObj>() else {
-            let message = format!(
+            tvm_ffi::bail!(
+                tvm_ffi::TYPE_ERROR,
                 "Cannot treat type `{}` as type `ir.PrimType`",
                 tvm_ffi::reflection::type_key(AnyView::from(&var.ty).type_index())
                     .unwrap_or_default()
             );
-            return Err(tvm_ffi::Error::new(tvm_ffi::TYPE_ERROR, &message));
         };
         if value_dtype != var_ty.dtype {
             let condition = "value.ty() == var->ty.as_or_throw<PrimType>()";

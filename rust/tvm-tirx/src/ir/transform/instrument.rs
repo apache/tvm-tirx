@@ -67,7 +67,7 @@ use tvm_ffi::String;
 /// };
 /// let tracer = BasePassInstrument::new("tracer", hooks);
 ///
-/// let _scope = PassContext::new(2, [""; 0], [""; 0], [tracer], None)?.enter()?;
+/// let _scope = PassContext::new(2, &[], &[], &[tracer.into()], None)?.enter()?;
 /// let noop = Pass::from(ModulePass::new(|module, _ctx| Ok(module), PassInfo::new(0, "noop")));
 /// noop.run(IRModule::new(Map::new(), DictAttrs::new(Map::new()), Map::new())?)?;
 /// assert_eq!(*log.lock().unwrap(), ["noop"]);

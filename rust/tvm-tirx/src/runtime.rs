@@ -138,12 +138,13 @@ pub fn create_view(
 ///
 /// Returns an error if the runtime of the device is not enabled and `name` is not `exist`, which is
 /// then `false`.
-pub fn get_device_attr(device: DLDevice, name: &str) -> Result<Any> {
-    tvm_ffi::cached_global_func!("runtime.GetDeviceAttr").call_tuple((
+pub fn get_device_attr(device: DLDevice, name: &str) -> Result<Option<Any>> {
+    let value = tvm_ffi::cached_global_func!("runtime.GetDeviceAttr").call_tuple((
         device.device_type,
         device.device_id,
         String::from(name),
-    ))
+    ))?;
+    Ok((!value.is_none()).then_some(value))
 }
 
 /// Return whether the runtime of the device or target kind `target` (`"cpu"`, `"cuda"`,

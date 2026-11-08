@@ -358,8 +358,7 @@ impl TryFrom<i64> for CompareResult {
             6 => Self::Ne,
             7 => Self::Unknown,
             _ => {
-                let message = format!("{value} is not a sym::CompareResult");
-                return Err(Error::new(VALUE_ERROR, &message));
+                tvm_ffi::bail!(VALUE_ERROR, "{value} is not a sym::CompareResult");
             }
         })
     }

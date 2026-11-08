@@ -65,7 +65,7 @@ fn queries() {
 #[test]
 fn device_attrs() {
     let cpu = DLDevice::new(DLDeviceType::kDLCPU, 0);
-    let exist = runtime::get_device_attr(cpu, "exist").unwrap();
+    let exist = runtime::get_device_attr(cpu, "exist").unwrap().unwrap();
     assert!(bool::try_from(exist).unwrap());
     let missing = runtime::get_device_attr(cpu, "no_such_attr").unwrap();
     assert!(missing.is_none());

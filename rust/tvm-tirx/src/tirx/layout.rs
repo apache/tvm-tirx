@@ -150,14 +150,14 @@ impl Layout {
     pub fn apply(
         &self,
         coord: impl IntoIterator<Item = impl IntoExpr<PrimExpr>>,
-        analyzer: impl IntoArg<Analyzer>,
+        analyzer: &Analyzer,
     ) -> Result<Map<String, PrimExpr>> {
         let coord = coord
             .into_iter()
             .map(IntoExpr::into_owned_expr)
             .collect::<Result<Array<PrimExpr>>>()?;
         tvm_ffi::cached_global_func!("tirx.LayoutApply")
-            .call_tuple((self, &coord, analyzer.into_arg().borrow()))?
+            .call_tuple((self, &coord, analyzer))?
             .try_into()
     }
 
@@ -166,10 +166,10 @@ impl Layout {
     pub fn apply_linear(
         &self,
         coord: impl IntoExpr<PrimExpr>,
-        analyzer: impl IntoArg<Analyzer>,
+        analyzer: &Analyzer,
     ) -> Result<Map<String, PrimExpr>> {
         tvm_ffi::cached_global_func!("tirx.LayoutApplyLinear")
-            .call_tuple((self, coord.into_expr()?.borrow(), analyzer.into_arg().borrow()))?
+            .call_tuple((self, coord.into_expr()?.borrow(), analyzer))?
             .try_into()
     }
 
@@ -179,7 +179,7 @@ impl Layout {
         &self,
         coord: impl IntoIterator<Item = impl IntoExpr<PrimExpr>>,
         shape: impl IntoIterator<Item = impl IntoExpr<PrimExpr>>,
-        analyzer: impl IntoArg<Analyzer>,
+        analyzer: &Analyzer,
     ) -> Result<Map<String, PrimExpr>> {
         let coord = coord
             .into_iter()
@@ -190,7 +190,7 @@ impl Layout {
             .map(IntoExpr::into_owned_expr)
             .collect::<Result<Array<PrimExpr>>>()?;
         tvm_ffi::cached_global_func!("tirx.LayoutApplyWithShape")
-            .call_tuple((self, &coord, &shape, analyzer.into_arg().borrow()))?
+            .call_tuple((self, &coord, &shape, analyzer))?
             .try_into()
     }
 

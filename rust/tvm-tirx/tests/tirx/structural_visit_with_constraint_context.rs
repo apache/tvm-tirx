@@ -51,7 +51,7 @@ impl Observe {
         if let Some(value) = node.value.downcast_ref::<IntImmObj>() {
             let context = visitor.base().constraints();
             if self.live.is_none() {
-                self.snapshot = Some(context.snapshot()?);
+                self.snapshot = Some(context.snapshot());
                 self.array = Some(context.to_array());
                 self.live = Some(context.clone());
             }

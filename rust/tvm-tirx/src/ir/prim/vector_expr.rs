@@ -426,6 +426,17 @@ impl Shuffle {
                 "",
             ));
         }
+        if indices.len() >= 32768 {
+            let condition = "indices.size() < 32768U";
+            let count = indices.len();
+            return Err(support::compare_failed(
+                tvm_ffi::INTERNAL_ERROR,
+                condition,
+                count,
+                32768,
+                "",
+            ));
+        }
         let ty = PrimType::try_from(with_lanes(base_dtype, indices.len() as u16))?;
         Ok(Self::from_fields(loc.into_owned(), ty, vectors, indices))
     }
@@ -439,7 +450,7 @@ impl Shuffle {
 fn vector_lanes(element: &PrimType, lanes: PrimExpr) -> Result<(PrimType, PrimExpr)> {
     if let Some(imm) = lanes.downcast_ref::<IntImmObj>() {
         let Some(count) = imm.value.to_i64().and_then(|count| i32::try_from(count).ok()) else {
-            return Err(tvm_ffi::Error::new(tvm_ffi::INTERNAL_ERROR, "bad optional access"));
+            tvm_ffi::bail!(tvm_ffi::INTERNAL_ERROR, "lanes {} does not fit in i32", imm.value);
         };
         if count <= 1 {
             return Err(support::compare_failed(
@@ -447,6 +458,16 @@ fn vector_lanes(element: &PrimType, lanes: PrimExpr) -> Result<(PrimType, PrimEx
                 "lanes > 1",
                 count,
                 1,
+                "",
+            ));
+        }
+        if count >= 32768 {
+            let condition = "lanes < 32768";
+            return Err(support::compare_failed(
+                tvm_ffi::INTERNAL_ERROR,
+                condition,
+                count,
+                32768,
                 "",
             ));
         }

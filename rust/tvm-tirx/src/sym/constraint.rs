@@ -284,7 +284,7 @@ const _: () = {
 /// let x = PrimVar::new("x", PrimType::int(32), UNKNOWN_LOC);
 /// let outer = ConstraintContext::new();
 /// outer.append(PredicateConstraint::new(ge(&x, 0)?, false))?;
-/// let inner = outer.snapshot()?;
+/// let inner = outer.snapshot();
 /// inner.append(PredicateConstraint::new(lt(&x, 16)?, false))?;
 ///
 /// let analyzer = Analyzer::new();
@@ -317,10 +317,10 @@ impl ConstraintContextObj {
     }
 
     /// Capture the visible prefix in an independently extensible child.
-    pub fn snapshot(&self) -> Result<ConstraintContext> {
+    pub fn snapshot(&self) -> ConstraintContext {
         let parent = ConstraintContext::try_from(AnyView::from(self))
             .expect("context has its registered native type");
-        ConstraintContext::with_parent_prefix_size(parent, self.local_size())
+        ConstraintContext::allocate(Some(parent.data_), self.local_size())
     }
 
     fn local_array(&self) -> Array<Constraint> {

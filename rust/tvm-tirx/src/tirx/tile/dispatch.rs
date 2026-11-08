@@ -106,7 +106,7 @@ pub struct DispatchContext {
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(tvm_ffi::derive::Object)]
-#[object(type_key = "tirx.DispatchContext", final, immutable)]
+#[object(type_key = "tirx.DispatchContext", final)]
 pub struct DispatchContextObj {
     base_: Object,
 }

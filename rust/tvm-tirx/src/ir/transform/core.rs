@@ -69,7 +69,7 @@ use tvm_ffi::cached_field_getter;
 ///
 /// let info = PassInfo::new(0, "pipeline");
 /// let pipeline = Pass::from(Sequential::new([mark("a"), mark("b")], info));
-/// let ctx = PassContext::new(2, [""; 0], ["b"], Vec::<PassInstrument>::new(), None)?;
+/// let ctx = PassContext::new(2, &[], &["b"], &[], None)?;
 /// let _scope = ctx.enter()?;
 /// let empty = IRModule::new(Map::new(), DictAttrs::new(Map::new()), Map::new())?;
 /// let module = pipeline.run(empty)?;
@@ -362,17 +362,14 @@ impl PassContext {
     /// value, or the error of converting a value to its option type.
     pub fn new(
         opt_level: i32,
-        required_pass: impl IntoIterator<Item = impl AsRef<str>>,
-        disabled_pass: impl IntoIterator<Item = impl AsRef<str>>,
-        instruments: impl IntoIterator<Item = impl IntoArg<PassInstrument>>,
+        required_pass: &[&str],
+        disabled_pass: &[&str],
+        instruments: &[PassInstrument],
         config: impl Into<Option<Map<String, Any>>>,
     ) -> Result<Self> {
-        let required_pass =
-            required_pass.into_iter().map(|name| String::from(name.as_ref())).collect::<Array<_>>();
-        let disabled_pass =
-            disabled_pass.into_iter().map(|name| String::from(name.as_ref())).collect::<Array<_>>();
-        let instruments =
-            instruments.into_iter().map(IntoArg::into_owned).collect::<Array<PassInstrument>>();
+        let required_pass = required_pass.iter().copied().map(String::from).collect::<Array<_>>();
+        let disabled_pass = disabled_pass.iter().copied().map(String::from).collect::<Array<_>>();
+        let instruments = instruments.iter().cloned().collect::<Array<PassInstrument>>();
         tvm_ffi::cached_global_func!("transform.PassContext")
             .call_tuple((opt_level, &required_pass, &disabled_pass, &instruments, config.into()))?
             .try_into()
@@ -431,8 +428,8 @@ impl PassContext {
 /// ```
 /// use tvm_tirx::ir::transform::{PassContext, PassInstrument};
 ///
-/// let outer = PassContext::new(3, [""; 0], [""; 0], Vec::<PassInstrument>::new(), None)?;
-/// let inner = PassContext::new(1, [""; 0], [""; 0], Vec::<PassInstrument>::new(), None)?;
+/// let outer = PassContext::new(3, &[], &[], &[], None)?;
+/// let inner = PassContext::new(1, &[], &[], &[], None)?;
 /// let outer_scope = outer.enter()?;
 /// let inner_scope = inner.enter()?;
 /// assert_eq!(PassContext::current()?.opt_level, 1);

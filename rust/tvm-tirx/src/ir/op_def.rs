@@ -188,8 +188,11 @@ impl OpDef {
         let hook: NativeFunction<(&CallObj,)> = validate.into();
         self.then(|op| {
             if op.validator_is_custom() {
-                let message = format!("Validator of {} is already registered", op.name.as_str());
-                return Err(Error::new(VALUE_ERROR, &message));
+                tvm_ffi::bail!(
+                    VALUE_ERROR,
+                    "Validator of {} is already registered",
+                    op.name.as_str()
+                );
             }
             // SAFETY: an operator validator is a `void(const CallObj*)` hook.
             op.write_validator(unsafe { hook.into_any() }, true);
@@ -231,8 +234,9 @@ impl OpDef {
     /// hook setters store one.
     fn value_attr(self, key: &str, value: Any, replace: bool) -> Self {
         if value.type_index() == tvm_ffi::TypeIndex::kTVMFFIOpaquePtr as i32 {
-            let message = format!("Attribute {key} cannot be an opaque pointer");
-            return self.then(|_| Err(Error::new(TYPE_ERROR, &message)));
+            let error =
+                tvm_ffi::format_err!(TYPE_ERROR, "Attribute {key} cannot be an opaque pointer");
+            return self.then(|_| Err(error));
         }
         self.attr(key, value, replace)
     }
@@ -604,12 +608,12 @@ pub mod sig {
                 }
                 None => "None".into(),
             };
-            let message = format!(
+            Err(tvm_ffi::format_err!(
+                TYPE_ERROR,
                 "Op `{}`: Call.attrs expected `{}`, got {actual}",
                 op.name.as_str(),
                 T::ContainerType::TYPE_KEY,
-            );
-            Err(Error::new(TYPE_ERROR, &message))
+            ))
         }
     }
 
@@ -737,11 +741,11 @@ pub mod sig {
             }
             let at_least = if tail { "at least " } else { "" };
             let plural = if expected == 1 { "" } else { "s" };
-            let message = format!(
+            Err(tvm_ffi::format_err!(
+                TYPE_ERROR,
                 "Op `{}`: {label} expected {at_least}{expected} {unit}{plural}, got {got}",
                 op.name.as_str()
-            );
-            Err(Error::new(TYPE_ERROR, &message))
+            ))
         };
         count("Call.args", L::ARGS, L::VAR_ARGS == 1, "argument", call.args.len())?;
         count(
@@ -782,14 +786,14 @@ pub mod sig {
             Some(name) if !name.as_str().is_empty() => format!(" (`{}`)", name.as_str()),
             _ => std::string::String::new(),
         };
-        let message = format!(
+        Err(tvm_ffi::format_err!(
+            TYPE_ERROR,
             "Op `{}`: `{}[{index}]`{name} expected `{}`, got `{}`.",
             op.name.as_str(),
             if type_arg { "Call.ty_args" } else { "Call.args" },
             T::type_str(),
             T::mismatch(value),
-        );
-        Err(Error::new(TYPE_ERROR, &message))
+        ))
     }
 }
 

@@ -200,10 +200,7 @@ impl Op {
             return Ok(None);
         }
         if column.type_index() != tvm_ffi::tvm_ffi_sys::TVMFFITypeIndex::kTVMFFIList as i32 {
-            return Err(tvm_ffi::Error::new(
-                tvm_ffi::TYPE_ERROR,
-                &format!("Op attribute column {name} is not an ffi.List"),
-            ));
+            tvm_ffi::bail!(tvm_ffi::TYPE_ERROR, "Op attribute column {name} is not an ffi.List");
         }
         Ok(Some(OpAttrMap {
             column: column.try_into()?,
@@ -338,14 +335,12 @@ impl<T: tvm_ffi::type_traits::AnyCompatible + TryFrom<Any>> OpAttrMap<T> {
         // The conversion took the entry; read it again to name its type.
         let mismatch =
             self.entry(op).map(|entry| T::get_mismatch_type_info(entry.as_raw_ffi_any()));
-        Err(tvm_ffi::Error::new(
+        Err(tvm_ffi::format_err!(
             tvm_ffi::TYPE_ERROR,
-            &format!(
-                "Op attribute {} of {} has unexpected type {}",
-                self.name.as_str(),
-                op.name.as_str(),
-                mismatch.unwrap_or_default()
-            ),
+            "Op attribute {} of {} has unexpected type {}",
+            self.name.as_str(),
+            op.name.as_str(),
+            mismatch.unwrap_or_default()
         ))
     }
 }

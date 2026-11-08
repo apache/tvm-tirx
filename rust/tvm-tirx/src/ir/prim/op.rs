@@ -854,8 +854,7 @@ pub(crate) fn make_const_scalar(
         };
         return Ok(FloatImm::new(ty, value, loc.clone())?.into());
     }
-    let message = format!("cannot make const for type {ty}");
-    Err(Error::new(INTERNAL_ERROR, &message))
+    Err(tvm_ffi::format_err!(INTERNAL_ERROR, "cannot make const for type {ty}"))
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -1166,8 +1165,7 @@ fn promote_binary_op_type(lhs: DLDataType, rhs: DLDataType) -> Result<DLDataType
         },
         _ => {
             let (lhs, rhs) = (support::dtype_name(lhs), support::dtype_name(rhs));
-            let message = format!("Cannot match type {lhs} vs {rhs}");
-            Err(Error::new(INTERNAL_ERROR, &message))
+            Err(tvm_ffi::format_err!(INTERNAL_ERROR, "Cannot match type {lhs} vs {rhs}"))
         }
     }
 }
@@ -1210,6 +1208,11 @@ folded_binary!(
     /// returns a `TypeError` for an operand that is not a primitive expression, and the
     /// trigonometric and hyperbolic ones also for an operand that is not a float.
     ///
+    /// # Errors
+    ///
+    /// Returns a `TypeError` if an operand is not a primitive expression, or an `InternalError` if
+    /// the operand types cannot be matched.
+    ///
     /// # Examples
     ///
     /// ```
@@ -1224,11 +1227,6 @@ folded_binary!(
     /// assert!(add(&i, 0)?.same_as(&i));
     /// # Ok::<(), tvm_tirx::tvm_ffi::Error>(())
     /// ```
-    ///
-    /// # Errors
-    ///
-    /// Returns a `TypeError` if an operand is not a primitive expression, or an `InternalError` if
-    /// the operand types cannot be matched.
     add / add_at: const_fold::add => Add,
     /// Build `a - b`.
     sub / sub_at: const_fold::sub => Sub,
@@ -1614,8 +1612,7 @@ fn fold_conditions(
 ) -> Result<PrimExpr> {
     let mut conds = conds.into_iter().map(IntoExpr::into_owned_expr);
     let Some(first) = conds.next() else {
-        let message = format!("{name} must take at least 1 argument");
-        return Err(Error::new(VALUE_ERROR, &message));
+        tvm_ffi::bail!(VALUE_ERROR, "{name} must take at least 1 argument");
     };
     conds.try_fold(first?, |acc, cond| op(acc, cond?, loc.clone()))
 }
@@ -1897,8 +1894,7 @@ pub fn max_value_at(ty: impl IntoArg<PrimType>, loc: impl IntoArg<Location>) -> 
         _ => match small_float_bound(code) {
             Some((max, _)) => float(max),
             None => {
-                let message = format!("Cannot decide max_value for type{ty}");
-                Err(Error::new(INTERNAL_ERROR, &message))
+                Err(tvm_ffi::format_err!(INTERNAL_ERROR, "Cannot decide max_value for type{ty}"))
             }
         },
     }
@@ -1925,8 +1921,7 @@ pub fn min_value_at(ty: impl IntoArg<PrimType>, loc: impl IntoArg<Location>) -> 
             Some((_, true)) => float(0.0),
             Some((max, false)) => float(-max),
             None => {
-                let message = format!("Cannot decide min_value for type{ty}");
-                Err(Error::new(INTERNAL_ERROR, &message))
+                Err(tvm_ffi::format_err!(INTERNAL_ERROR, "Cannot decide min_value for type{ty}"))
             }
         },
     }
@@ -1939,10 +1934,7 @@ pub fn infinity_at(ty: impl IntoArg<PrimType>, loc: impl IntoArg<Location>) -> R
     match (ty.dtype.code, ty.bits()) {
         (support::FLOAT, 64) => Ok(FloatImm::new(ty, f64::INFINITY, loc)?.into()),
         (support::FLOAT, 32 | 16) => Ok(FloatImm::new(ty, f64::from(f32::INFINITY), loc)?.into()),
-        _ => {
-            let message = format!("Cannot decide infinity for type {ty}");
-            Err(Error::new(INTERNAL_ERROR, &message))
-        }
+        _ => Err(tvm_ffi::format_err!(INTERNAL_ERROR, "Cannot decide infinity for type {ty}")),
     }
 }
 
@@ -2040,13 +2032,11 @@ fn absolute(x: PrimExpr, loc: Location) -> Result<PrimExpr> {
             }
         },
         support::UINT => Ok(x),
-        _ => {
-            let message = format!(
-                "Data type {} not supported for absolute op. Skipping absolute op...",
-                x.ty
-            );
-            Err(Error::new(INTERNAL_ERROR, &message))
-        }
+        _ => Err(tvm_ffi::format_err!(
+            INTERNAL_ERROR,
+            "Data type {} not supported for absolute op. Skipping absolute op...",
+            x.ty
+        )),
     }
 }
 
@@ -2080,11 +2070,11 @@ fn infinite(x: PrimExpr, loc: Location) -> Result<PrimExpr> {
             let not_nan = logical_not(isnan_at(x, loc)?)?;
             logical_and(at_infinity, not_nan)
         }
-        _ => {
-            let message =
-                format!("Data type {} not supported for finiteness ops. Skipping it...", x.ty);
-            Err(Error::new(INTERNAL_ERROR, &message))
-        }
+        _ => Err(tvm_ffi::format_err!(
+            INTERNAL_ERROR,
+            "Data type {} not supported for finiteness ops. Skipping it...",
+            x.ty
+        )),
     }
 }
 

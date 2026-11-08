@@ -557,8 +557,10 @@ impl PrimType {
     /// opaque handle, as that of `void` is.
     pub fn with_lanes(&self, lanes: u16) -> Result<Self> {
         if i16::try_from(lanes).is_err() {
-            let message = format!("a fixed-length vector has fewer than 32768 lanes, not {lanes}");
-            return Err(Error::new(VALUE_ERROR, &message));
+            tvm_ffi::bail!(
+                VALUE_ERROR,
+                "a fixed-length vector has fewer than 32768 lanes, not {lanes}"
+            );
         }
         Self::try_from(dtype::with_lanes(self.dtype, lanes))
     }
