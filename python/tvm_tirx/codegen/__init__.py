@@ -59,6 +59,8 @@ def target_has_features(cpu_features, target):
     has_features : bool
         True if target has the feature(s).
     """
+    if not isinstance(target, Target):
+        raise TypeError("target must be a Target")
     assert isinstance(cpu_features, Array | list | tuple | str)
     has_feats = True
     cpu_features = [cpu_features] if isinstance(cpu_features, str) else cpu_features
