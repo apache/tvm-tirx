@@ -67,9 +67,7 @@ void RegisterLayoutAxes() {
       .set_attr("backend", ffi::String("cuda"))
       .set_attr("thread", true)
       .set_attr("scope", ThreadScope("cuda.cta"))
-      .set_attr("subscope", ThreadScope("cuda.thread"))
-      .set_attr("fuser", FAxisFuser([](ThreadScope subscope, ThreadScope scope,
-                                       Iter iter) -> ffi::Optional<Iter> { return std::nullopt; }));
+      .set_attr("subscope", ThreadScope("cuda.thread"));
 
   AxisDef("warpid")
       .set_attr("backend", ffi::String("cuda"))
