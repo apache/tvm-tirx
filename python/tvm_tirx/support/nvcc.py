@@ -31,15 +31,15 @@ from tvm_tirx.backend.config import parse_backend_config
 from . import utils
 
 
-def compile_cuda(code, *, backend_config=None, path_target=None):
-    """Compile source using the nested backend_config mapping and return its bytes.
+def compile_cuda(code, *, backend_config=None, target=None, path_target=None):
+    """Compile source with backend configuration and optional target defaults.
 
-    For the binary format and resolved configuration, use
+    Returns the compiled bytes. For the binary format and resolved configuration, use
     :func:`tvm_tirx.backend.cuda.compiler.compile_source` directly.
     """
     from tvm_tirx.backend.cuda.compiler import compile_source
 
-    result = compile_source(code, backend_config)
+    result = compile_source(code, backend_config, target=target)
     if path_target:
         with open(path_target, "wb") as output:
             output.write(result.binary)
