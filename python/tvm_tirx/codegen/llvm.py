@@ -20,7 +20,6 @@ import functools
 
 from tvm_ffi import Array, get_global_func
 
-from tvm_tirx.target import Target
 
 
 def lookup_intrinsic_id(name):
@@ -157,8 +156,6 @@ def get_cpu_archlist(target):
     cpu_archlist : list[str]
         List of available CPU architectures.
     """
-    if not isinstance(target, Target):
-        raise TypeError("target must be a Target")
     return get_global_func("codegen.llvm_get_cpu_archlist")(target)
 
 
@@ -175,8 +172,6 @@ def get_cpu_features(target):
     cpu_features : list[str]
         List of available CPU features.
     """
-    if not isinstance(target, Target):
-        raise TypeError("target must be a Target")
     feature_map = get_global_func("codegen.llvm_get_cpu_features")(target)
     return set(feature_map.keys())
 
@@ -196,8 +191,6 @@ def cpu_has_features(cpu_features, target):
     has_features : bool
         True if target CPU has the feature(s).
     """
-    if not isinstance(target, Target):
-        raise TypeError("target must be a Target")
     assert isinstance(cpu_features, Array | list | tuple | str)
     has_feats = True
     cpu_features = [cpu_features] if isinstance(cpu_features, str) else cpu_features
@@ -219,8 +212,6 @@ def get_vector_width(target):
     vector_width : int
         Vector with of target in number of bits, -1 on error.
     """
-    if not isinstance(target, Target):
-        raise TypeError("target must be a Target")
     return get_global_func("codegen.llvm_get_vector_width")(target)
 
 
