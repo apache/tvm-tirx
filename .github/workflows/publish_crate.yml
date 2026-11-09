@@ -92,6 +92,12 @@ jobs:
           uv pip install tomlkit setuptools-scm
           python ci/wheel/prepare_release_metadata.py --crate-version-from-tag "$RELEASE_TAG"
           echo "CRATE_VERSION=${RELEASE_TAG#v}" >> "$GITHUB_ENV"
+          python - >> "$GITHUB_ENV" <<'PY'
+          import tomlkit
+
+          version = tomlkit.parse(open("pyproject.toml").read())["project"]["version"]
+          print(f"RELEASE_VERSION={version}")
+          PY
           python ci/wheel/detect_tvm_ffi_version.py rewrite --version "$TVM_FFI_VERSION"
 
   build_crate:
