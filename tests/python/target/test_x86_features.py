@@ -189,11 +189,12 @@ def test_x86_target_features(min_llvm_version, tvm_target, x86_feature, is_suppo
         Expected result.
     """
 
-    # Target-dependent queries require an explicit target, even for an empty feature list.
+    # Nonempty feature queries defer target validation to FFI.
     with pytest.raises(TypeError):
         target_has_features(x86_feature)
+    assert target_has_features([], None)
     with pytest.raises(TypeError):
-        target_has_features([], None)
+        target_has_features("sse2", None)
     if isinstance(x86_feature, str):
         with pytest.raises(TypeError):
             tvm_ffi.get_global_func("codegen.target_has_feature")(x86_feature, None)
