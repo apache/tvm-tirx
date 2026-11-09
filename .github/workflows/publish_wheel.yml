@@ -43,6 +43,22 @@ env:
   PIP_NO_CACHE_DIR: "1"
 
 jobs:
+  # The version comes from the git tag, so PyPI releases must build a tag.
+  check_release:
+    name: Check release tag
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require a tag for PyPI
+        if: ${{ inputs.publish_repository == 'pypi' }}
+        shell: bash
+        env:
+          TAG: ${{ inputs.tag }}
+        run: |
+          if ! git ls-remote --exit-code --tags "https://github.com/${{ github.repository }}" "refs/tags/$TAG" > /dev/null; then
+            echo "::error::PyPI publishing needs a tag, got '$TAG'"
+            exit 1
+          fi
+
   # Build the CUDA runtime sidecar once per arch and upload it as an artifact that
   # build_wheels bundles. The Linux legs build inside the official manylinux_2_28
   # CUDA image (CUDA toolkit preinstalled, see pypa/manylinux) -- the same glibc
@@ -50,6 +66,7 @@ jobs:
   # ABI-compatible with the wheel's libtvm_runtime.so regardless of the exact tag.
   build_cuda_runtime:
     name: ${{ matrix.name }}
+    needs: [check_release]
     runs-on: ${{ matrix.os }}
     container: ${{ matrix.container }}
     strategy:
@@ -125,7 +142,7 @@ jobs:
     name: ${{ matrix.name }}
     # All-or-nothing: a failed sidecar leg blocks the whole wheel matrix (a publish
     # needs both complete wheel sets anyway).
-    needs: [build_cuda_runtime]
+    needs: [check_release, build_cuda_runtime]
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false

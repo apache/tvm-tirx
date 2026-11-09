@@ -17,7 +17,7 @@
 
 [project]
 name = "apache-tvm-tirx"
-version = "0.1.0b1"
+dynamic = ["version"]
 description = "TVM TIRx"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
@@ -105,6 +105,7 @@ requires = [
   "scikit-build-core>=0.11",
   "mlc-llvm-static[all]==23.1.1.post0",
   "mlc-z3-static==5.3.1.post1",
+  "setuptools-scm>=8",
 ]
 build-backend = "scikit_build_core.build"
 
@@ -112,6 +113,7 @@ build-backend = "scikit_build_core.build"
 cmake.build-type = "Release"
 wheel.py-api = "py3"
 build-dir = "build"
+metadata.version.provider = "scikit_build_core.metadata.setuptools_scm"
 
 # Wheel configuration
 install.components = ["tvm_tirx", "tvm_tirx_llvm_backend"]
@@ -126,6 +128,7 @@ sdist.include = [
   "/src/**",
   "/include/**",
   "/python/tvm_tirx/**",
+  "/python/tvm_tirx/_version.py",
   "/licenses/**",
   "/LICENSE",
   "/NOTICE",
@@ -144,6 +147,9 @@ sdist.exclude = ["**"]
 
 # Logging
 logging.level = "INFO"
+
+[tool.setuptools_scm]
+version_file = "python/tvm_tirx/_version.py"
 
 [tool.scikit-build.cmake.define]
 TVM_TIRX_BUILD_PYTHON_MODULE = "ON"

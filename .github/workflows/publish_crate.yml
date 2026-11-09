@@ -21,7 +21,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Tag, branch, or SHA to build"
+        description: "Release tag to build: vX.Y.Z, vX.Y.Z-rcN or vX.Y.Z-postN"
         required: true
         type: string
       wheel_run_id:
@@ -49,10 +49,11 @@ env:
   CARGO_TERM_COLOR: always
   PIP_NO_CACHE_DIR: "1"
   WHEEL_RUN_ID: ${{ inputs.wheel_run_id }}
+  RELEASE_TAG: ${{ inputs.tag }}
 
 jobs:
   # Resolve the source once, so that the commit the build jobs verify is the one published even
-  # when the input names a branch.
+  # if the tag moves during the run.
   check_release:
     name: Check release metadata
     runs-on: ubuntu-latest
@@ -89,7 +90,8 @@ jobs:
           TVM_FFI_VERSION: ${{ steps.ffi.outputs.version }}
         run: &prepare_release_metadata |
           uv pip install tomlkit setuptools-scm
-          python ci/wheel/prepare_release_metadata.py
+          python ci/wheel/prepare_release_metadata.py --crate-version-from-tag "$RELEASE_TAG"
+          echo "CRATE_VERSION=${RELEASE_TAG#v}" >> "$GITHUB_ENV"
           python ci/wheel/detect_tvm_ffi_version.py rewrite --version "$TVM_FFI_VERSION"
 
   build_crate:

@@ -32,7 +32,24 @@ endfunction()
 
 # ######### Common options ##########
 
-set(TVM_TIRX_VERSION "0.1.0b1")
+# The version comes from the git tag: setuptools-scm under scikit-build-core, otherwise
+# `git describe`, otherwise a development default.
+if(DEFINED SKBUILD_PROJECT_VERSION_FULL)
+  set(TVM_TIRX_VERSION "${SKBUILD_PROJECT_VERSION_FULL}")
+else()
+  set(TVM_TIRX_VERSION "0.1.0.dev0")
+  find_package(Git QUIET)
+  if(GIT_FOUND)
+    execute_process(
+      COMMAND "${GIT_EXECUTABLE}" describe --tags --match "v[0-9]*"
+      WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+      OUTPUT_VARIABLE _tvm_tirx_git_tag OUTPUT_STRIP_TRAILING_WHITESPACE
+      RESULT_VARIABLE _tvm_tirx_git_result ERROR_QUIET)
+    if(_tvm_tirx_git_result EQUAL 0)
+      string(REGEX REPLACE "^v" "" TVM_TIRX_VERSION "${_tvm_tirx_git_tag}")
+    endif()
+  endif()
+endif()
 if(PROJECT_IS_TOP_LEVEL)
   tvm_tirx_option(TVM_TIRX_BUILD_TESTS BOOL OFF "Build C++ tests")
   tvm_tirx_option(TVM_TIRX_BUILD_PYTHON_MODULE BOOL OFF "Build the Python package with scikit-build-core")
