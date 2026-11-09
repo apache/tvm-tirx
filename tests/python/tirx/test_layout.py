@@ -444,10 +444,11 @@ def test_normalize_tile_layout():
         layout_expected.check_well_formed()
         assert_structural_equal(layout_expected, layout.canonicalize())
 
-        for lane_offset, fused_offset in [(1, 33), (-32, 0)]:
+        n = Var("n", ty="int32")
+        for warp_offset, lane_offset, fused_offset in [(1, 1, 33), (1, -32, 0), (n, -32 * n, 0)]:
             layout = TileLayout(
                 S[(2, 2, 8, 4) : (2 @ warpid, 1 @ warpid, 4 @ laneid, 1 @ laneid)]
-                + 1 @ warpid
+                + warp_offset @ warpid
                 + lane_offset @ laneid
             )
             expected_spec = S[128 : 1 @ tx]

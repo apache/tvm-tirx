@@ -108,11 +108,12 @@ TileLayout FuseAxesByScope(TileLayout layout) {
     replica.push_back(try_fuse_axis(iter));
   }
   // Step 6: Process offset iterators
+  sym::Analyzer analyzer;
   for (auto [axis, off] : layout->offset) {
     Iter iter = try_fuse_axis(Iter(1, off, axis));
     auto it = offset.find(iter->axis);
     if (it != offset.end()) {
-      offset.Set(iter->axis, (*it).second + iter->stride);
+      offset.Set(iter->axis, analyzer->Simplify((*it).second + iter->stride));
     } else {
       offset.Set(iter->axis, iter->stride);
     }
