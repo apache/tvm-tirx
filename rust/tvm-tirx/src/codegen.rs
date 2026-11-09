@@ -83,15 +83,15 @@ pub fn build_module(
         .try_into()
 }
 
-/// Return whether the LLVM target `target`, or the current target, has the CPU feature `feature`,
+/// Return whether the explicit LLVM target `target` has the CPU feature `feature`,
 /// or `false` for a target of another kind (`codegen.target_has_feature`).
 ///
 /// # Errors
 ///
 /// Returns an error if the LLVM backend, which registers the query, is not loaded, or if `target`
-/// is `None` and there is no current target.
-pub fn target_has_feature(feature: &str, target: Option<&Target>) -> Result<bool> {
+/// cannot be queried by the LLVM backend.
+pub fn target_has_feature(feature: &str, target: &Target) -> Result<bool> {
     tvm_ffi::Function::get_global("codegen.target_has_feature")?
-        .call_tuple((String::from(feature), target.cloned()))?
+        .call_tuple((String::from(feature), target))?
         .try_into()
 }

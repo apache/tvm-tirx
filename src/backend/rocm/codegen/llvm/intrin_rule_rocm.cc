@@ -40,7 +40,7 @@ namespace tvm {
 namespace codegen {
 using namespace tvm::prim;
 
-inline PrimExpr DispatchPureExternOCML(const PrimExpr& e) {
+inline PrimExpr DispatchPureExternOCML(const PrimExpr& e, const Target& target) {
   // NOTE: OCML dispatch fails to work properly with vectorization, and thus should be used with
   // extreme caution.
   using namespace tirx;
@@ -65,7 +65,7 @@ inline PrimExpr DispatchPureExternOCML(const PrimExpr& e) {
   return Call(call_ty, tirx::call_pure_extern_op(), new_args).as_or_throw<PrimExpr>();
 }
 
-inline PrimExpr DispatchShuffle(const PrimExpr& e) {
+inline PrimExpr DispatchShuffle(const PrimExpr& e, const Target& target) {
   using namespace tirx;
   const CallObj* call = e.as<CallObj>();
   TVM_FFI_ICHECK(call != nullptr);
@@ -121,7 +121,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
   // dummy because we don't have the activemask
   // clang-format off
   OpDef("tirx.gpu_warp_activemask")
-      .set_attr<FLowerIntrinsic>("rocm.FLowerIntrinsic", [](const PrimExpr& e) -> PrimExpr {
+      .set_attr<FLowerIntrinsic>("rocm.FLowerIntrinsic", [](const PrimExpr& e, const Target& target) -> PrimExpr {
         PrimExpr zero = IntImm::Int32(0);
         return zero;
       });

@@ -55,9 +55,8 @@ def _build_g2s2g_kernel(n_elements, dtype, load, store):
 
 def _compile(kernel):
     target = tvm_tirx.target.Target("cuda")
-    with target:
-        mod = tvm_tirx.IRModule({"main": kernel})
-        ex = tvm_tirx.compile(mod, target=target, pipeline="tirx")
+    mod = tvm_tirx.IRModule({"main": kernel})
+    ex = tvm_tirx.compile(mod, target=target, pipeline="tirx")
     return ex, ex.mod.imports[0].inspect_source()
 
 
@@ -136,10 +135,9 @@ def test_copy_vec_nc_rejects_non_global_src():
         B[0] = reg[0]
 
     target = tvm_tirx.target.Target("cuda")
-    with target:
-        mod = tvm_tirx.IRModule({"main": kernel})
-        with pytest.raises(RuntimeError, match=r"expected storage scope.*global"):
-            tvm_tirx.compile(mod, target=target, pipeline="tirx")
+    mod = tvm_tirx.IRModule({"main": kernel})
+    with pytest.raises(RuntimeError, match=r"expected storage scope.*global"):
+        tvm_tirx.compile(mod, target=target, pipeline="tirx")
 
 
 if __name__ == "__main__":

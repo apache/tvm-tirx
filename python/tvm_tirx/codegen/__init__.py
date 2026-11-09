@@ -44,7 +44,7 @@ def build_module(mod, target):
     return get_global_func("codegen.Build")(mod, target)
 
 
-def target_has_features(cpu_features, target=None):
+def target_has_features(cpu_features, target):
     """Check CPU features for the target's `-mtriple` and `-mcpu` and `-mattr`.
 
     Parameters
@@ -59,7 +59,6 @@ def target_has_features(cpu_features, target=None):
     has_features : bool
         True if target has the feature(s).
     """
-    assert isinstance(target, Target) or target is None
     assert isinstance(cpu_features, Array | list | tuple | str)
     has_feats = True
     cpu_features = [cpu_features] if isinstance(cpu_features, str) else cpu_features

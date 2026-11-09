@@ -61,5 +61,4 @@ def test_riscv_rvv_features(min_llvm_version, tvm_target, vec_width):
     if LLVM_VERSION < min_llvm_version:
         return
 
-    with Target(tvm_target):
-        assert llvm.get_vector_width() == vec_width
+    assert llvm.get_vector_width(target=Target(tvm_target)) == vec_width

@@ -152,7 +152,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
       .set_attr<FLowerIntrinsic>("default.FLowerIntrinsic", DispatchPureExtern<FloatSuffix>);
 }
 
-PrimExpr DispatchFastErf(const PrimExpr& e) {
+PrimExpr DispatchFastErf(const PrimExpr& e, const Target& target) {
   DLOG(WARNING) << "fast_erf will be used instead of erf";
   const CallObj* call = e.as<CallObj>();
   TVM_FFI_ICHECK(call != nullptr);
@@ -167,7 +167,7 @@ PrimExpr DispatchFastErf(const PrimExpr& e) {
   }
 }
 
-PrimExpr DispatchNumericallyStableTanh(const PrimExpr& e) {
+PrimExpr DispatchNumericallyStableTanh(const PrimExpr& e, const Target& target) {
   using tvm::prim::MakeConst;
   const CallObj* call = e.as<CallObj>();
   TVM_FFI_ICHECK(call != nullptr);
@@ -195,7 +195,7 @@ using namespace tirx;
 TVM_FFI_STATIC_INIT_BLOCK() {
   // clang-format off
   OpDef("prim.rsqrt")
-      .set_attr<FLegalize>("default.FLegalize", [](const PrimExpr& e) -> PrimExpr {
+      .set_attr<FLegalize>("default.FLegalize", [](const PrimExpr& e, const Target& target) -> PrimExpr {
     const CallObj* call = e.as<CallObj>();
     TVM_FFI_ICHECK(call != nullptr);
     PrimExpr arg = call->args[0].as_or_throw<PrimExpr>();
@@ -204,7 +204,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
   });
 
   OpDef("prim.sigmoid")
-      .set_attr<FLegalize>("default.FLegalize", [](const PrimExpr& e) -> PrimExpr {
+      .set_attr<FLegalize>("default.FLegalize", [](const PrimExpr& e, const Target& target) -> PrimExpr {
     const CallObj* call = e.as<CallObj>();
     TVM_FFI_ICHECK(call != nullptr);
     PrimExpr arg = call->args[0].as_or_throw<PrimExpr>();

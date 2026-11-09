@@ -198,11 +198,18 @@ def test_lower_view_get():
                 for i_1 in T.vectorized(0, 2):
                     out[lane_id * 2 + i_1] = T.Cast("float32", v_3[i_1])
 
-    with tvm_tirx.target.Target("cuda"):
-        dispatched = TileDispatch()(Before1)
-        tvm_tirx.ir.assert_structural_equal(dispatched, Dispatched)
-        after = LowerTensorLayouts()(Dispatched)
-    tvm_tirx.ir.assert_structural_equal(after, Expected1)
+    dispatched = TileDispatch()(
+        tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Before1)
+    )
+    tvm_tirx.ir.assert_structural_equal(
+        dispatched, tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Dispatched)
+    )
+    after = LowerTensorLayouts()(
+        tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Dispatched)
+    )
+    tvm_tirx.ir.assert_structural_equal(
+        after, tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Expected1)
+    )
 
     @I.ir_module
     class Before2:
@@ -398,11 +405,18 @@ def test_lower_view_get():
                         lane_id // 4 * 8 + i_1 // 2 * 8 + lane_id % 4, lane_id % 4 * 2 + i_1 % 2
                     ] = v_3[i_1]
 
-    with tvm_tirx.target.Target("cuda"):
-        dispatched = TileDispatch()(Before2)
-        tvm_tirx.ir.assert_structural_equal(dispatched, Dispatched2)
-        after = LowerTensorLayouts()(Dispatched2)
-    tvm_tirx.ir.assert_structural_equal(after, Expected2)
+    dispatched = TileDispatch()(
+        tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Before2)
+    )
+    tvm_tirx.ir.assert_structural_equal(
+        dispatched, tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Dispatched2)
+    )
+    after = LowerTensorLayouts()(
+        tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Dispatched2)
+    )
+    tvm_tirx.ir.assert_structural_equal(
+        after, tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Expected2)
+    )
 
     @I.ir_module
     class Before3_wgmma_layout:
@@ -569,11 +583,11 @@ def test_lower_view_get():
                             scope="local",
                             layout=T.TileLayout.from_iters(
                                 shard=[
-                                    T.Iter(8, 1, "warpid"),
+                                    T.Iter(8, 32, "tx"),
                                     T.Iter(2, 2, "m"),
-                                    T.Iter(8, 4, "laneid"),
+                                    T.Iter(8, 4, "tx"),
                                     T.Iter(16, 4, "m"),
-                                    T.Iter(4, 1, "laneid"),
+                                    T.Iter(4, 1, "tx"),
                                     T.Iter(2, 1, "m"),
                                 ],
                                 replica=[],
@@ -611,11 +625,11 @@ def test_lower_view_get():
                             scope="local",
                             layout=T.TileLayout.from_iters(
                                 shard=[
-                                    T.Iter(8, 1, "warpid"),
+                                    T.Iter(8, 32, "tx"),
                                     T.Iter(2, 2, "m"),
-                                    T.Iter(8, 4, "laneid"),
+                                    T.Iter(8, 4, "tx"),
                                     T.Iter(16, 4, "m"),
-                                    T.Iter(4, 1, "laneid"),
+                                    T.Iter(4, 1, "tx"),
                                     T.Iter(2, 1, "m"),
                                 ],
                                 replica=[],
@@ -645,11 +659,19 @@ def test_lower_view_get():
                                 i_1 * 8 + lane_id % 4 * 2 + vec_1,
                             ] = v_3[i_1 * 4 + j_1 * 2 + vec_1]
 
-    with tvm_tirx.target.Target("cuda"):
-        dispatched = TileDispatch()(Before3_wgmma_layout)
-        tvm_tirx.ir.assert_structural_equal(dispatched, Dispatched3)
-        after = LowerTensorLayouts()(Dispatched3)
-    tvm_tirx.ir.assert_structural_equal(after, Expected3_wgmma_layout)
+    dispatched = TileDispatch()(
+        tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Before3_wgmma_layout)
+    )
+    tvm_tirx.ir.assert_structural_equal(
+        dispatched, tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Dispatched3)
+    )
+    after = LowerTensorLayouts()(
+        tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Dispatched3)
+    )
+    tvm_tirx.ir.assert_structural_equal(
+        after,
+        tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Expected3_wgmma_layout),
+    )
 
     @I.ir_module
     class Before4_multi_view_get:
@@ -870,11 +892,21 @@ def test_lower_view_get():
                 )
                 out[lane_id * 2 + 1] = T.Cast("float32", v_7[1])
 
-    with tvm_tirx.target.Target("cuda"):
-        dispatched = TileDispatch()(Before4_multi_view_get)
-        tvm_tirx.ir.assert_structural_equal(dispatched, Dispatched4)
-        after = LowerTensorLayouts()(Dispatched4)
-    tvm_tirx.ir.assert_structural_equal(after, Expected4_multi_view_get)
+    dispatched = TileDispatch()(
+        tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Before4_multi_view_get)
+    )
+    tvm_tirx.ir.assert_structural_equal(
+        dispatched, tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Dispatched4)
+    )
+    after = LowerTensorLayouts()(
+        tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Dispatched4)
+    )
+    tvm_tirx.ir.assert_structural_equal(
+        after,
+        tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(
+            Expected4_multi_view_get
+        ),
+    )
 
 
 def test_lower_layout():
@@ -999,11 +1031,18 @@ def test_lower_layout():
                     for vec in T.vectorized(0, 8):
                         A_smem[row, col + vec] = A[bx * 128 + row, col + vec]
 
-    with tvm_tirx.target.Target("cuda"):
-        dispatched = TileDispatch()(Before)
-        tvm_tirx.ir.assert_structural_equal(dispatched, Dispatched)
-        after = LowerTensorLayouts()(Dispatched)
-    tvm_tirx.ir.assert_structural_equal(after, Expected)
+    dispatched = TileDispatch()(
+        tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Before)
+    )
+    tvm_tirx.ir.assert_structural_equal(
+        dispatched, tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Dispatched)
+    )
+    after = LowerTensorLayouts()(
+        tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Dispatched)
+    )
+    tvm_tirx.ir.assert_structural_equal(
+        after, tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Expected)
+    )
 
 
 def test_lower_decl_tensor_pointer():
@@ -1075,11 +1114,18 @@ def test_lower_decl_tensor_pointer():
                 )
                 T.address_of(A[64])
 
-    with tvm_tirx.target.Target("cuda"):
-        dispatched = TileDispatch()(Before)
-        tvm_tirx.ir.assert_structural_equal(dispatched, Dispatched)
-        after = LowerTensorLayouts()(Dispatched)
-    tvm_tirx.ir.assert_structural_equal(after, Expected)
+    dispatched = TileDispatch()(
+        tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Before)
+    )
+    tvm_tirx.ir.assert_structural_equal(
+        dispatched, tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Dispatched)
+    )
+    after = LowerTensorLayouts()(
+        tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Dispatched)
+    )
+    tvm_tirx.ir.assert_structural_equal(
+        after, tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Expected)
+    )
 
 
 def test_lower_cleanup_accepts_bool_elect_sync_else_path():
@@ -1106,37 +1152,43 @@ def test_lower_cleanup_accepts_bool_elect_sync_else_path():
                 else:
                     A_1[T.cuda.thread_idx("x")] = 0
 
-    with tvm_tirx.target.Target("cuda"):
-
-        @I.ir_module
-        class Dispatched:
-            @T.function(private=True)
-            def main(
-                A: T.Tensor(
-                    (32,),
-                    T.int32,
-                    layout="default",
-                ),
+    @I.ir_module
+    class Dispatched:
+        @T.function(private=True)
+        def main(
+            A: T.Tensor(
+                (32,),
+                T.int32,
+                layout="default",
+            ),
+        ):
+            with T.device_scope(
+                1,
+                1,
+                1,
+                32,
+                1,
+                1,
+                attrs=_CTA_LAUNCH_ATTRS,
             ):
-                with T.device_scope(
-                    1,
-                    1,
-                    1,
-                    32,
-                    1,
-                    1,
-                    attrs=_CTA_LAUNCH_ATTRS,
-                ):
-                    lane_id: T.let[T.int32] = T.cuda.thread_idx("x") % 32
-                    if T.cuda.elect_sync() != T.uint32(0):
-                        A[lane_id] = 1
-                    else:
-                        A[lane_id] = 0
+                lane_id: T.let[T.int32] = T.cuda.thread_idx("x") % 32
+                if T.cuda.elect_sync() != T.uint32(0):
+                    A[lane_id] = 1
+                else:
+                    A[lane_id] = 0
 
-        dispatched = TileDispatch()(Before)
-        tvm_tirx.ir.assert_structural_equal(dispatched, Dispatched)
-        lowered = LowerTensorLayouts()(Dispatched)
-    tvm_tirx.ir.assert_structural_equal(lowered, Expected)
+    dispatched = TileDispatch()(
+        tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Before)
+    )
+    tvm_tirx.ir.assert_structural_equal(
+        dispatched, tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Dispatched)
+    )
+    lowered = LowerTensorLayouts()(
+        tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Dispatched)
+    )
+    tvm_tirx.ir.assert_structural_equal(
+        lowered, tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Expected)
+    )
 
     script = lowered.script(extra_config={"tirx.prefix": "T"})
     assert "T.cuda.elect_sync() != T.uint32(0)" in script
@@ -1177,31 +1229,37 @@ def test_lower_remaps_tensor_memory_address_metadata(offset):
                 )
                 T.evaluate(tensor.data)
 
-    with tvm_tirx.target.Target("cuda"):
+    @I.ir_module
+    class Dispatched:
+        @T.function(private=True)
+        def main():
+            addr = T.alloc_tensor(ty_args=[T.Tensor((1,), T.uint32, scope="shared")])
+            for i in range(2):
+                tensor = T.cuda.decl_tmem(
+                    expected_address(addr, i),
+                    ty_args=[
+                        T.Tensor(
+                            (64,),
+                            T.float32,
+                            scope="tmem",
+                            layout="default",
+                        )
+                    ],
+                )
+                T.evaluate(tensor.data)
 
-        @I.ir_module
-        class Dispatched:
-            @T.function(private=True)
-            def main():
-                addr = T.alloc_tensor(ty_args=[T.Tensor((1,), T.uint32, scope="shared")])
-                for i in range(2):
-                    tensor = T.cuda.decl_tmem(
-                        expected_address(addr, i),
-                        ty_args=[
-                            T.Tensor(
-                                (64,),
-                                T.float32,
-                                scope="tmem",
-                                layout="default",
-                            )
-                        ],
-                    )
-                    T.evaluate(tensor.data)
-
-        dispatched = TileDispatch()(Before)
-        tvm_tirx.ir.assert_structural_equal(dispatched, Dispatched)
-        lowered = LowerTensorLayouts()(Dispatched)["main"]
-    tvm_tirx.ir.assert_structural_equal(lowered, Expected["main"])
+    dispatched = TileDispatch()(
+        tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Before)
+    )
+    tvm_tirx.ir.assert_structural_equal(
+        dispatched, tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Dispatched)
+    )
+    lowered = LowerTensorLayouts()(
+        tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Dispatched)
+    )["main"]
+    tvm_tirx.ir.assert_structural_equal(
+        lowered, Expected["main"].with_attr("target", tvm_tirx.target.Target("cuda"))
+    )
     assert not tvm_tirx.tirx.analysis.undefined_vars(lowered.body, lowered.params)
     tvm_tirx.tirx.analysis.check_well_formed(lowered)
     bindings = []
@@ -1267,11 +1325,18 @@ def test_lower_tensor_offset():
                 )
                 T.address_of(A0[32])
 
-    with tvm_tirx.target.Target("cuda"):
-        dispatched = TileDispatch()(Before)
-        tvm_tirx.ir.assert_structural_equal(dispatched, Dispatched)
-        after = LowerTensorLayouts()(Dispatched)
-    tvm_tirx.ir.assert_structural_equal(after, Expected)
+    dispatched = TileDispatch()(
+        tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Before)
+    )
+    tvm_tirx.ir.assert_structural_equal(
+        dispatched, tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Dispatched)
+    )
+    after = LowerTensorLayouts()(
+        tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Dispatched)
+    )
+    tvm_tirx.ir.assert_structural_equal(
+        after, tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Expected)
+    )
 
 
 def test_lower_alloc_decl_tensor_outside_of_parser():
@@ -1374,11 +1439,18 @@ def test_lower_alloc_decl_tensor_outside_of_parser():
             v_4[0] = 4
             v_4[0] = v_4[0] + 4
 
-    with tvm_tirx.target.Target("cuda"):
-        dispatched = TileDispatch()(Before)
-        tvm_tirx.ir.assert_structural_equal(dispatched, Dispatched)
-        after = LowerTensorLayouts()(Dispatched)
-    tvm_tirx.ir.assert_structural_equal(after, Expected)
+    dispatched = TileDispatch()(
+        tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Before)
+    )
+    tvm_tirx.ir.assert_structural_equal(
+        dispatched, tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Dispatched)
+    )
+    after = LowerTensorLayouts()(
+        tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Dispatched)
+    )
+    tvm_tirx.ir.assert_structural_equal(
+        after, tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Expected)
+    )
 
 
 def test_alloc_tensor_with_thread_axis_layout():
@@ -1486,11 +1558,18 @@ def test_alloc_tensor_with_thread_axis_layout():
                 for i in range(4):
                     v[i] = out[lane_id + warp_id * 32, i]
 
-    with tvm_tirx.target.Target("cuda"):
-        dispatched = TileDispatch()(Before)
-        tvm_tirx.ir.assert_structural_equal(dispatched, Dispatched)
-        after = LowerTensorLayouts()(Dispatched)
-    tvm_tirx.ir.assert_structural_equal(after, Expected)
+    dispatched = TileDispatch()(
+        tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Before)
+    )
+    tvm_tirx.ir.assert_structural_equal(
+        dispatched, tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Dispatched)
+    )
+    after = LowerTensorLayouts()(
+        tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Dispatched)
+    )
+    tvm_tirx.ir.assert_structural_equal(
+        after, tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("cuda"))(Expected)
+    )
 
 
 @pytest.mark.parametrize("scope", ["local", "shared"])
@@ -1512,9 +1591,17 @@ def test_alloc_tensor_layout_span_without_threads(scope):
             A = T.alloc_tensor(ty_args=[T.Tensor((39,), "uint32", scope=scope, layout=None)])
             A[38] = T.uint32(7)
 
-    with tvm_tirx.target.Target({"kind": "cuda", "arch": "sm_100a"}):
-        After = LowerTensorLayouts()(Before)
-    tvm_tirx.ir.assert_structural_equal(After, Expected)
+    After = LowerTensorLayouts()(
+        tvm_tirx.tirx.transform.BindTarget(
+            tvm_tirx.target.Target({"kind": "cuda", "arch": "sm_100a"})
+        )(Before)
+    )
+    tvm_tirx.ir.assert_structural_equal(
+        After,
+        tvm_tirx.tirx.transform.BindTarget(
+            tvm_tirx.target.Target({"kind": "cuda", "arch": "sm_100a"})
+        )(Expected),
+    )
 
 
 @pytest.mark.parametrize("scope", ["local", "shared"])
@@ -1536,9 +1623,17 @@ def test_alloc_tensor_swizzle_storage_span(scope):
             A = T.alloc_tensor(ty_args=[T.Tensor((1024,), "uint32", scope=scope, layout=None)])
             A[1023] = T.uint32(7)
 
-    with tvm_tirx.target.Target({"kind": "cuda", "arch": "sm_100a"}):
-        After = LowerTensorLayouts()(Before)
-    tvm_tirx.ir.assert_structural_equal(After, Expected)
+    After = LowerTensorLayouts()(
+        tvm_tirx.tirx.transform.BindTarget(
+            tvm_tirx.target.Target({"kind": "cuda", "arch": "sm_100a"})
+        )(Before)
+    )
+    tvm_tirx.ir.assert_structural_equal(
+        After,
+        tvm_tirx.tirx.transform.BindTarget(
+            tvm_tirx.target.Target({"kind": "cuda", "arch": "sm_100a"})
+        )(Expected),
+    )
 
 
 def test_shape_tensor_load_is_remapped_in_flattened_offset():
@@ -1562,8 +1657,11 @@ def test_shape_tensor_load_is_remapped_in_flattened_offset():
             b[(d[0] + 2) * d[0]] = T.float32(1)
             out[0] = b[(d[0] + 2) * d[0]]
 
-    with tvm_tirx.target.Target("llvm"):
-        after = LowerTensorLayouts()(Before)
+    after = LowerTensorLayouts()(
+        tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("llvm"))(Before)
+    )
     assert not tvm_tirx.tirx.analysis.undefined_vars(after["main"].body, after["main"].params)
-    tvm_tirx.ir.assert_structural_equal(after, Expected)
+    tvm_tirx.ir.assert_structural_equal(
+        after, tvm_tirx.tirx.transform.BindTarget(tvm_tirx.target.Target("llvm"))(Expected)
+    )
     tvm_tirx.tirx.transform.FlattenTensor()(after)

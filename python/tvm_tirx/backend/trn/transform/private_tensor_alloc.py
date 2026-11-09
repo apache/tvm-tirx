@@ -181,15 +181,17 @@ class TrnPrivateTensorAlloc:
                 C = T.alloc_tensor(ty_args=[tile])
                 T.trn.tile.activation(C, A, bias=T.float32(1), const_bias=const_bias, opcode="exp")
 
-        with tvm.target.Target("aws/trn1/trn1.2xlarge"):
-            after = TrnPrivateTensorAlloc()(Before)
-        tvm.ir.assert_structural_equal(after, Expected)
+        target = tvm.target.Target("aws/trn1/trn1.2xlarge")
+        before = tvm.tirx.transform.BindTarget(target)(Before)
+        after = TrnPrivateTensorAlloc()(before)
+        expected = tvm.tirx.transform.BindTarget(target)(Expected)
+        tvm.ir.assert_structural_equal(after, expected)
     """
 
     def transform_function(self, func, mod, ctx):
         target = func.attrs.get("target", None)
         if target is None:
-            target = Target.current(allow_none=False)
+            raise ValueError("TrnPrivateTensorAlloc: requires a function target attribute")
         new_body = private_alloc(func.body, target)
         new_func = func.with_body(new_body)
         return new_func

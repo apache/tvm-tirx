@@ -127,7 +127,7 @@ using tirx::FLegalize;
 TVM_FFI_STATIC_INIT_BLOCK() {
   // clang-format off
   OpDef("prim.exp10")
-      .set_attr<FLegalize>("llvm.FLegalize", [](const PrimExpr& e) -> PrimExpr {
+      .set_attr<FLegalize>("llvm.FLegalize", [](const PrimExpr& e, const Target& target) -> PrimExpr {
     using tvm::prim::MakeConst;
     const CallObj* call = e.as<CallObj>();
     TVM_FFI_ICHECK(call != nullptr);
@@ -138,7 +138,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
   });
 
   OpDef("prim.tan")
-      .set_attr<FLegalize>("llvm.FLegalize", [](const PrimExpr& e) -> PrimExpr {
+      .set_attr<FLegalize>("llvm.FLegalize", [](const PrimExpr& e, const Target& target) -> PrimExpr {
     const CallObj* call = e.as<CallObj>();
     TVM_FFI_ICHECK(call != nullptr);
     PrimExpr x = call->args[0].as_or_throw<PrimExpr>();
@@ -147,23 +147,23 @@ TVM_FFI_STATIC_INIT_BLOCK() {
   });
 
   OpDef("prim.asin")
-      .set_attr<FLegalize>("llvm.FLegalize", [](const PrimExpr& e) -> PrimExpr {
+      .set_attr<FLegalize>("llvm.FLegalize", [](const PrimExpr& e, const Target& target) -> PrimExpr {
     using namespace intrin;
     const CallObj* call = e.as<CallObj>();
     TVM_FFI_ICHECK(call != nullptr);
-    return ::tvm::codegen::intrin::DispatchPureExtern<::tvm::codegen::intrin::FloatSuffix>(e);
+    return ::tvm::codegen::intrin::DispatchPureExtern<::tvm::codegen::intrin::FloatSuffix>(e, target);
   });
 
   OpDef("prim.acos")
-      .set_attr<FLegalize>("llvm.FLegalize", [](const PrimExpr& e) -> PrimExpr {
+      .set_attr<FLegalize>("llvm.FLegalize", [](const PrimExpr& e, const Target& target) -> PrimExpr {
     using namespace intrin;
     const CallObj* call = e.as<CallObj>();
     TVM_FFI_ICHECK(call != nullptr) << "Invalid call node in acos legalization";
-    return ::tvm::codegen::intrin::DispatchPureExtern<::tvm::codegen::intrin::FloatSuffix>(e);
+    return ::tvm::codegen::intrin::DispatchPureExtern<::tvm::codegen::intrin::FloatSuffix>(e, target);
   });
 
   OpDef("prim.atanh")
-      .set_attr<FLegalize>("llvm.FLegalize", [](const PrimExpr& e) -> PrimExpr {
+      .set_attr<FLegalize>("llvm.FLegalize", [](const PrimExpr& e, const Target& target) -> PrimExpr {
     using tvm::prim::MakeConst;
     const CallObj* call = e.as<CallObj>();
     TVM_FFI_ICHECK(call != nullptr) << "Invalid call node in atanh legalization";
@@ -174,7 +174,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
   });
 
   OpDef("prim.clz")
-      .set_attr<FLegalize>("llvm.FLegalize", [](const PrimExpr& e) -> PrimExpr {
+      .set_attr<FLegalize>("llvm.FLegalize", [](const PrimExpr& e, const Target& target) -> PrimExpr {
     const CallObj* call = e.as<CallObj>();
     TVM_FFI_ICHECK(call != nullptr);
     TVM_FFI_ICHECK_EQ(call->args.size(), 1);

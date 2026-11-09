@@ -74,13 +74,12 @@ def test_rvv(target):
         f = tvm_tirx.compile(load_vec, target).mod
         # Check RVV `vsetvli` prensence
         assembly = f.inspect_source("asm")
-        if target_has_features("v"):
+        if target_has_features("v", tvm_tirx.target.Target(target)):
             assert "vsetvli" in assembly
         else:
             assert "vsetvli" not in assembly
 
-    with tvm_tirx.target.Target(target):
-        check_rvv_presence(16, 32)
+    check_rvv_presence(16, 32)
 
 
 @pytest.mark.skipif(not env.has_llvm_min_version(14), reason="need llvm >= 14")
@@ -123,8 +122,7 @@ def test_rvv_vscale_llvm_dbginfo(target):
     # fmt: on
 
     # tvm.RuntimeError: Can't fetch the lanes of a scalable vector at a compile time.
-    with tvm_tirx.target.Target(target):
-        tvm_tirx.compile(rvv_with_vscale, target).mod
+    tvm_tirx.compile(rvv_with_vscale, target).mod
 
 
 @pytest.mark.skipif(not env.has_llvm_min_version(14), reason="need llvm >= 14")
@@ -156,8 +154,7 @@ def test_rvv_predicated_loop_fallback_and_fixed_width_vectorization():
     )
 
     def check_codegen(func):
-        with target:
-            f = tvm_tirx.compile(func, target).mod
+        f = tvm_tirx.compile(func, target).mod
 
         assembly = f.inspect_source("asm")
         assert "vle32.v" in assembly
@@ -194,8 +191,7 @@ def test_rvv_scalable_ramp_expression():
         }
     )
 
-    with target:
-        f = tvm_tirx.compile(ramp_compare, target).mod
+    f = tvm_tirx.compile(ramp_compare, target).mod
 
     assembly = f.inspect_source("asm")
     assert "vid.v" in assembly

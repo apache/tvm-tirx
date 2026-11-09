@@ -57,7 +57,7 @@ struct MetalWarpIntrinsic {
 };
 
 template <typename T>
-static PrimExpr DispatchMetalShuffle(const PrimExpr& e) {
+static PrimExpr DispatchMetalShuffle(const PrimExpr& e, const Target& target) {
   const CallObj* call = e.as<CallObj>();
   TVM_FFI_ICHECK(call != nullptr);
   TVM_FFI_ICHECK_EQ(call->args.size(), 5);  // mask, value, warp_id, width, warp_size
@@ -84,7 +84,7 @@ void RegisterMetalIntrinRules() {
       .set_attr<FLowerIntrinsic>("metal.FLowerIntrinsic", DispatchPureExtern<Direct>);
 
   OpDef("prim.round")
-      .set_attr<FLowerIntrinsic>("metal.FLowerIntrinsic", [](const PrimExpr& e) -> PrimExpr {
+      .set_attr<FLowerIntrinsic>("metal.FLowerIntrinsic", [](const PrimExpr& e, const Target& target) -> PrimExpr {
         // Metal's rint() uses ties-to-even, matching constant-folding semantics.
         const CallObj* call = e.as<CallObj>();
         TVM_FFI_ICHECK(call != nullptr);

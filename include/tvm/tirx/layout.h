@@ -32,7 +32,6 @@
 #include <tvm/ir/module.h>
 #include <tvm/ir/prim/op.h>
 #include <tvm/sym/analyzer.h>
-#include <tvm/target/target.h>
 #include <tvm/tirx/tile/thread_scope.h>
 
 #include <algorithm>
@@ -93,8 +92,8 @@ class Layout : public ffi::ObjectRef {
   TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(Layout, ffi::ObjectRef, LayoutObj);
 };
 
-// target, subscope, scope, iter -> fused_iter
-using FAxisFuser = ffi::TypedFunction<ffi::Optional<Iter>(Target, ThreadScope, ThreadScope, Iter)>;
+// subscope, scope, iter -> fused_iter
+using FAxisFuser = ffi::TypedFunction<ffi::Optional<Iter>(ThreadScope, ThreadScope, Iter)>;
 
 // Axis
 class AxisObj : public ffi::EnumObj {

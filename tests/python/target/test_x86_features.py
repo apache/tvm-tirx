@@ -189,32 +189,15 @@ def test_x86_target_features(min_llvm_version, tvm_target, x86_feature, is_suppo
         Expected result.
     """
 
-    ##
-    ## no context
-    ##
-
-    # check for feature via the python api (no explicit target, no context target)
-    try:
-        assert target_has_features(x86_feature) == is_supported
-        assert False
-    except RuntimeError as e:
-        msg = str(e)
-        assert msg.find("Check failed: (allow_not_defined) is false: Target context required") != -1
-
+    # Nonempty feature queries defer target validation to FFI.
+    with pytest.raises(TypeError):
+        target_has_features(x86_feature)
+    assert target_has_features([], None)
+    with pytest.raises(TypeError):
+        target_has_features("sse2", None)
     if isinstance(x86_feature, str):
-        # check for feature via the ffi llvm api (no explicit target, no context target)
-        try:
-            assert (
-                tvm_ffi.get_global_func("codegen.target_has_feature")(x86_feature, None)
-                == is_supported
-            )
-            assert False
-        except RuntimeError as e:
-            msg = str(e)
-            assert (
-                msg.find("Check failed: (allow_not_defined) is false: Target context required")
-                != -1
-            )
+        with pytest.raises(TypeError):
+            tvm_ffi.get_global_func("codegen.target_has_feature")(x86_feature, None)
 
     # skip test on llvm_version
     if LLVM_VERSION < min_llvm_version:
@@ -224,32 +207,17 @@ def test_x86_target_features(min_llvm_version, tvm_target, x86_feature, is_suppo
     if not _feature_supported_by_llvm(x86_feature):
         return
 
-    # check for feature via the python api (with explicit target, no context target)
+    # check for feature via the python api (with explicit target)
     assert target_has_features(x86_feature, Target(tvm_target)) == is_supported
     if isinstance(x86_feature, str):
-        # check for feature via the ffi llvm api (with explicit target, no context target)
+        # check for feature via the ffi llvm api (with explicit target)
         assert (
             tvm_ffi.get_global_func("codegen.target_has_feature")(x86_feature, Target(tvm_target))
             == is_supported
         )
 
-    ##
-    ## with context
-    ##
-
-    with Target(tvm_target):
-        # check for feature via the python api (current context target)
-        assert target_has_features(x86_feature) == is_supported
-        # check for feature via the python api (with explicit target)
-        assert target_has_features(x86_feature, Target(tvm_target)) == is_supported
-        # check for feature via the ffi llvm api (current context target)
-        (
-            sum(
-                tvm_ffi.get_global_func("codegen.target_has_feature")(feat, None)
-                for feat in x86_feature
-            )
-            > 0
+    # check for feature in target's llvm full x86 CPU feature list
+    if (not list(Target(tvm_target).attrs.get("mattr", []))) and isinstance(x86_feature, str):
+        assert (
+            x86_feature in codegen.llvm.get_cpu_features(target=Target(tvm_target))
         ) == is_supported
-        # check for feature in target's llvm full x86 CPU feature list
-        if (not list(Target(tvm_target).attrs.get("mattr", []))) and isinstance(x86_feature, str):
-            assert (x86_feature in codegen.llvm.get_cpu_features()) == is_supported

@@ -80,10 +80,9 @@ TileLayout FuseContiguousShardIters(TileLayout layout) {
 }
 
 TileLayout FuseAxesByScope(TileLayout layout) {
-  // Step 1: Get the target and scope information
+  // Step 1: Get the scope information
   auto scope_pair_opt = layout.GetScope();
-  ffi::Optional<Target> target = Target::Current();
-  if (!scope_pair_opt.has_value() || !target.has_value()) {
+  if (!scope_pair_opt.has_value()) {
     return layout;
   }
   auto subscope = scope_pair_opt.value().get<0>();
@@ -97,8 +96,7 @@ TileLayout FuseAxesByScope(TileLayout layout) {
   // Step 3: Define the axis fusion function
   auto try_fuse_axis = [&](const Iter& iter) -> Iter {
     const auto& fuser = iter->axis->GetFuser();
-    return fuser.has_value() ? fuser.value()(target.value(), subscope, scope, iter).value_or(iter)
-                             : iter;
+    return fuser.has_value() ? fuser.value()(subscope, scope, iter).value_or(iter) : iter;
   };
 
   // Step 4: Process shard iterators
@@ -110,13 +108,19 @@ TileLayout FuseAxesByScope(TileLayout layout) {
     replica.push_back(try_fuse_axis(iter));
   }
   // Step 6: Process offset iterators
+  sym::Analyzer analyzer;
   for (auto [axis, off] : layout->offset) {
     Iter iter = try_fuse_axis(Iter(1, off, axis));
-    offset.Set(iter->axis, iter->stride);
+    auto it = offset.find(iter->axis);
+    if (it != offset.end()) {
+      offset.Set(iter->axis, analyzer->Simplify((*it).second + iter->stride));
+    } else {
+      offset.Set(iter->axis, iter->stride);
+    }
   }
   // Step 7: Create and return the new layout
   auto result = TileLayout(shard, replica, offset);
-  return result;
+  return RemoveZeroOffsets(result);
 }
 
 Layout layout_detail::Canonicalize(const TileLayoutObj* layout) {

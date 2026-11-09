@@ -46,14 +46,14 @@ fn llvm_queries() {
     assert!(llvm::target_enabled("llvm").unwrap());
 
     let target = Target::new("llvm").unwrap();
-    assert!(!llvm::get_cpu_archlist(Some(&target)).unwrap().is_empty());
-    let features = llvm::get_cpu_features(Some(&target)).unwrap();
+    assert!(!llvm::get_cpu_archlist(&target).unwrap().is_empty());
+    let features = llvm::get_cpu_features(&target).unwrap();
     let feature = features.keys().next().expect("the host CPU has features");
-    assert!(llvm::cpu_has_feature(feature.as_str(), Some(&target)).unwrap());
-    assert!(!llvm::cpu_has_feature("no_such_feature", Some(&target)).unwrap());
-    let _ = codegen::target_has_feature(feature.as_str(), Some(&target)).unwrap();
-    assert!(llvm::get_vector_width(Some(&target)).unwrap() > 0);
-    assert_eq!(llvm::get_vector_width(Some(&Target::new("c").unwrap())).unwrap(), -1);
+    assert!(llvm::cpu_has_feature(feature.as_str(), &target).unwrap());
+    assert!(!llvm::cpu_has_feature("no_such_feature", &target).unwrap());
+    let _ = codegen::target_has_feature(feature.as_str(), &target).unwrap();
+    assert!(llvm::get_vector_width(&target).unwrap() > 0);
+    assert_eq!(llvm::get_vector_width(&Target::new("c").unwrap()).unwrap(), -1);
 
     let cpu = llvm::get_system_cpu().unwrap();
     assert!(

@@ -60,7 +60,7 @@ struct WebGPUWarpIntrinsic {
 };
 
 template <typename T>
-static PrimExpr DispatchWebGPUShuffle(const PrimExpr& e) {
+static PrimExpr DispatchWebGPUShuffle(const PrimExpr& e, const Target& target) {
   const CallObj* call = e.as<CallObj>();
   TVM_FFI_ICHECK(call != nullptr);
   TVM_FFI_ICHECK_EQ(call->args.size(), 5);  // mask, value, warp_id, width, warp_size

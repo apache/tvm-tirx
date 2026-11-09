@@ -78,11 +78,11 @@ def test_select():
                     T.nki.affine_select(B_sbuf[p_loop, f_loop], p_loop < f_loop, A_sbuf[p_loop, f_loop], T.float32(0.0))  # noqa: E501
             # fmt: on
 
-    with target:
-        mod = tvm_tirx.IRModule({"main": select})
-        mod = tvm_tirx.backend.trn.transform.LowerTIRx()(mod)
-        mod = tvm_tirx.tirx.transform.StmtSimplify()(mod)
-        assert_structural_equal(mod["main"], expected)
+    mod = tvm_tirx.IRModule({"main": select})
+    mod = tvm_tirx.tirx.transform.BindTarget(target)(mod)
+    mod = tvm_tirx.backend.trn.transform.LowerTIRx()(mod)
+    mod = tvm_tirx.tirx.transform.StmtSimplify()(mod)
+    assert_structural_equal(mod["main"], expected.with_attr("target", target))
 
 
 def test_select_in_loop():
@@ -116,11 +116,11 @@ def test_select_in_loop():
                     T.nki.affine_select(B_sbuf[p_loop, f_loop], (i + 1) * p_loop < f_loop, A_sbuf[p_loop, i * 8192 + f_loop], T.float32(0.0))  # noqa: E501
 
             # fmt: on
-    with target:
-        mod = tvm_tirx.IRModule({"main": select})
-        mod = tvm_tirx.backend.trn.transform.LowerTIRx()(mod)
-        mod = tvm_tirx.tirx.transform.StmtSimplify()(mod)
-        assert_structural_equal(mod["main"], expected)
+    mod = tvm_tirx.IRModule({"main": select})
+    mod = tvm_tirx.tirx.transform.BindTarget(target)(mod)
+    mod = tvm_tirx.backend.trn.transform.LowerTIRx()(mod)
+    mod = tvm_tirx.tirx.transform.StmtSimplify()(mod)
+    assert_structural_equal(mod["main"], expected.with_attr("target", target))
 
 
 def test_select_expr_affine():
@@ -152,11 +152,11 @@ def test_select_expr_affine():
                 for f_loop in T.serial(0, 512, annotations={"nki_dim":"F"}):
                     T.nki.affine_select(B_sbuf[p_loop, b_loop * 512 + f_loop], b_loop * 128 + p_loop < f_loop, A_sbuf[p_loop, b_loop * 512 + f_loop], T.float32(0.0))  # noqa: E501
             # fmt: on
-    with target:
-        mod = tvm_tirx.IRModule({"main": select})
-        mod = tvm_tirx.backend.trn.transform.LowerTIRx()(mod)
-        mod = tvm_tirx.tirx.transform.StmtSimplify()(mod)
-        assert_structural_equal(mod["main"], expected)
+    mod = tvm_tirx.IRModule({"main": select})
+    mod = tvm_tirx.tirx.transform.BindTarget(target)(mod)
+    mod = tvm_tirx.backend.trn.transform.LowerTIRx()(mod)
+    mod = tvm_tirx.tirx.transform.StmtSimplify()(mod)
+    assert_structural_equal(mod["main"], expected.with_attr("target", target))
 
 
 def test_select_with_guard():
@@ -191,11 +191,11 @@ def test_select_with_guard():
                     if b_loop - i < 1 and f_loop < j * 128 + 128:
                         T.nki.affine_select(B_sbuf[p_loop, b_loop * 512 + f_loop], b_loop * 128 + p_loop < f_loop, A_sbuf[p_loop, b_loop * 512 + f_loop], T.float32(0.0))  # noqa: E501
             # fmt: on
-    with target:
-        mod = tvm_tirx.IRModule({"main": select})
-        mod = tvm_tirx.backend.trn.transform.LowerTIRx()(mod)
-        mod = tvm_tirx.tirx.transform.StmtSimplify()(mod)
-        assert_structural_equal(mod["main"], expected)
+    mod = tvm_tirx.IRModule({"main": select})
+    mod = tvm_tirx.tirx.transform.BindTarget(target)(mod)
+    mod = tvm_tirx.backend.trn.transform.LowerTIRx()(mod)
+    mod = tvm_tirx.tirx.transform.StmtSimplify()(mod)
+    assert_structural_equal(mod["main"], expected.with_attr("target", target))
 
 
 if __name__ == "__main__":

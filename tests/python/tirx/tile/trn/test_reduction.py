@@ -84,10 +84,10 @@ def test_simple_reduction(op_type):
                     T.nki.tensorreduce(B_sbuf[p_loop, 0], A_sbuf[p_loop, f_loop], opcode, False, -1)
 
             # fmt: on
-    with target:
-        mod = tvm_tirx.IRModule({"main": reduction})
-        mod = tvm_tirx.backend.trn.transform.LowerTIRx()(mod)
-        assert_structural_equal(mod["main"], expected)
+    mod = tvm_tirx.IRModule({"main": reduction})
+    mod = tvm_tirx.tirx.transform.BindTarget(target)(mod)
+    mod = tvm_tirx.backend.trn.transform.LowerTIRx()(mod)
+    assert_structural_equal(mod["main"], expected.with_attr("target", target))
 
 
 def test_reduction_with_multiple_axes():
@@ -120,10 +120,10 @@ def test_reduction_with_multiple_axes():
                     T.nki.tensorreduce(B_sbuf[p_loop, 0], A_sbuf[p_loop, f_loop], "add", False, -1)
 
             # fmt: on
-    with target:
-        mod = tvm_tirx.IRModule({"main": reduction})
-        mod = tvm_tirx.backend.trn.transform.LowerTIRx()(mod)
-        assert_structural_equal(mod["main"], expected)
+    mod = tvm_tirx.IRModule({"main": reduction})
+    mod = tvm_tirx.tirx.transform.BindTarget(target)(mod)
+    mod = tvm_tirx.backend.trn.transform.LowerTIRx()(mod)
+    assert_structural_equal(mod["main"], expected.with_attr("target", target))
 
 
 def test_reduction_in_loop():
@@ -156,10 +156,10 @@ def test_reduction_in_loop():
                 for f_loop in T.serial(0, 512, annotations={"nki_dim":"F"}):
                     T.nki.tensorreduce(B_sbuf[p_loop, i], A_sbuf[p_loop, f_loop * 4 + i], "add", False, -1)  # noqa: E501
             # fmt: on
-    with target:
-        mod = tvm_tirx.IRModule({"main": reduction})
-        mod = tvm_tirx.backend.trn.transform.LowerTIRx()(mod)
-        assert_structural_equal(mod["main"], expected)
+    mod = tvm_tirx.IRModule({"main": reduction})
+    mod = tvm_tirx.tirx.transform.BindTarget(target)(mod)
+    mod = tvm_tirx.backend.trn.transform.LowerTIRx()(mod)
+    assert_structural_equal(mod["main"], expected.with_attr("target", target))
 
 
 def test_reduction_two_stage():
@@ -200,11 +200,12 @@ def test_reduction_two_stage():
                     T.nki.tensorreduce(B_sbuf[p_loop, b_loop], intermediate_tensor[p_loop, f_loop], "add", False, -1)  # noqa: E501
 
             # fmt: on
-    with target:
-        mod = tvm_tirx.IRModule({"main": reduction})
-        mod = tvm_tirx.tirx.trn.transform.TrnPrivateTensorAlloc()(mod)
-        mod = tvm_tirx.backend.trn.transform.LowerTIRx()(mod)
-        assert_structural_equal(mod["main"], expected)
+    mod = tvm_tirx.IRModule({"main": reduction})
+    mod = tvm_tirx.tirx.transform.BindTarget(target)(mod)
+    mod = tvm_tirx.tirx.trn.transform.TrnPrivateTensorAlloc()(mod)
+    mod = tvm_tirx.tirx.transform.BindTarget(target)(mod)
+    mod = tvm_tirx.backend.trn.transform.LowerTIRx()(mod)
+    assert_structural_equal(mod["main"], expected.with_attr("target", target))
 
 
 def test_reduction_with_guard():
@@ -252,12 +253,13 @@ def test_reduction_with_guard():
                         if b_loop - i < 1 and f_loop * 2 - j < 1:
                             T.nki.tensorreduce(B_sbuf[p_loop, b_loop], intermediate_tensor[p_loop, f_loop], "add", T.bool(False), -1)  # noqa: E501
             # fmt: on
-    with target:
-        mod = tvm_tirx.IRModule({"main": reduction})
-        mod = tvm_tirx.tirx.trn.transform.TrnPrivateTensorAlloc()(mod)
-        mod = tvm_tirx.backend.trn.transform.LowerTIRx()(mod)
-        mod = tvm_tirx.tirx.transform.StmtSimplify()(mod)
-        assert_structural_equal(mod["main"], expected)
+    mod = tvm_tirx.IRModule({"main": reduction})
+    mod = tvm_tirx.tirx.transform.BindTarget(target)(mod)
+    mod = tvm_tirx.tirx.trn.transform.TrnPrivateTensorAlloc()(mod)
+    mod = tvm_tirx.tirx.transform.BindTarget(target)(mod)
+    mod = tvm_tirx.backend.trn.transform.LowerTIRx()(mod)
+    mod = tvm_tirx.tirx.transform.StmtSimplify()(mod)
+    assert_structural_equal(mod["main"], expected.with_attr("target", target))
 
 
 def test_reduction_two_stage_workspace():
@@ -303,10 +305,10 @@ def test_reduction_two_stage_workspace():
                     T.nki.tensorreduce(B_sbuf[p_loop, b_loop], intermediate_tensor[p_loop, f_loop], "add", False, -1)  # noqa: E501
 
             # fmt: on
-    with target:
-        mod = tvm_tirx.IRModule({"main": reduction})
-        mod = tvm_tirx.backend.trn.transform.LowerTIRx()(mod)
-        assert_structural_equal(mod["main"], expected)
+    mod = tvm_tirx.IRModule({"main": reduction})
+    mod = tvm_tirx.tirx.transform.BindTarget(target)(mod)
+    mod = tvm_tirx.backend.trn.transform.LowerTIRx()(mod)
+    assert_structural_equal(mod["main"], expected.with_attr("target", target))
 
 
 if __name__ == "__main__":

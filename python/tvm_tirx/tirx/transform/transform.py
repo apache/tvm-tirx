@@ -872,25 +872,7 @@ def SplitHostDevice():
         class Expected:
             @T.function(private=True)
             def main(n: T.int32):
-                T.func_attr(
-                    {
-                        "target": T.target(
-                            {
-                                "host": {
-                                    "keys": ["cpu"],
-                                    "kind": "llvm",
-                                    "mtriple": "",
-                                    "tag": "",
-                                },
-                                "keys": ["cuda", "gpu"],
-                                "kind": "cuda",
-                                "max_num_threads": 1024,
-                                "tag": "",
-                                "thread_warp_size": 32,
-                            }
-                        )
-                    }
-                )
+                T.func_attr({"target": T.target("cuda", host="llvm")})
                 T.call_ffi_kernel("main_kernel", n)
 
             @T.function
@@ -1360,7 +1342,7 @@ def TileDispatch():
     """Lower TIRx tile calls using the active backend dispatch table.
 
     Resolves tile instructions and device launch/execution scopes. Select
-    the backend with a target context; follow with :py:func:`LowerTensorLayouts`
+    the backend with the function target attribute; follow with :py:func:`LowerTensorLayouts`
     or the backend's own layout-lowering pass.
 
     Returns
@@ -1405,10 +1387,11 @@ def TileDispatch():
                     T.ptx.mov(tile_d[repeat_0], T.float32(0.0), "b32", "")
 
         def run_pass():
-            with tvm.target.Target({"kind": "cuda", "arch": "sm_75"}):
-                return tr.TileDispatch()(Before)
+            target = tvm.target.Target({"kind": "cuda", "arch": "sm_75"})
+            return tr.TileDispatch()(tr.BindTarget(target)(Before))
 
-        tvm.ir.assert_structural_equal(run_pass(), Expected)
+        target = tvm.target.Target({"kind": "cuda", "arch": "sm_75"})
+        tvm.ir.assert_structural_equal(run_pass(), tr.BindTarget(target)(Expected))
     """
     return _ffi_api.TileDispatch()  # type: ignore
 
@@ -1458,9 +1441,10 @@ def LowerTensorLayouts():
                 A[38] = T.uint32(7)
 
         def run_pass():
-            with tvm.target.Target({"kind": "cuda", "arch": "sm_75"}):
-                return tr.LowerTensorLayouts()(Before)
+            target = tvm.target.Target({"kind": "cuda", "arch": "sm_75"})
+            return tr.LowerTensorLayouts()(tr.BindTarget(target)(Before))
 
-        tvm.ir.assert_structural_equal(run_pass(), Expected)
+        target = tvm.target.Target({"kind": "cuda", "arch": "sm_75"})
+        tvm.ir.assert_structural_equal(run_pass(), tr.BindTarget(target)(Expected))
     """
     return _ffi_api.LowerTensorLayouts()  # type: ignore

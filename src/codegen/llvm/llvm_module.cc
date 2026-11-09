@@ -418,16 +418,13 @@ static void LLVMReflectionRegister() {
              return "unimplemented";
            })
       .def("codegen.llvm_get_vector_width",
-           [](const ffi::Optional<Target>& target) -> int {
-             auto use_target = target.has_value() ? target.value() : Target::Current(false).value();
+           [](const Target& target) -> int {
              // ignore non "llvm" target
-             if (target.has_value()) {
-               if (target.value()->kind->name != "llvm") {
-                 return -1;
-               }
+             if (target->kind->name != "llvm") {
+               return -1;
              }
              auto llvm_instance = std::make_unique<LLVMInstance>();
-             LLVMTargetInfo llvm_backend(*llvm_instance, use_target);
+             LLVMTargetInfo llvm_backend(*llvm_instance, target);
              return llvm_backend.GetVectorWidth();
            })
       .def("codegen.llvm_get_system_triple",
@@ -441,57 +438,45 @@ static void LLVMReflectionRegister() {
              return llvm_backend.GetAllLLVMTargets();
            })
       .def("codegen.llvm_get_cpu_archlist",
-           [](const ffi::Optional<Target>& target) -> ffi::Array<ffi::String> {
-             auto use_target = target.has_value() ? target.value() : Target::Current(false).value();
+           [](const Target& target) -> ffi::Array<ffi::String> {
              // ignore non "llvm" target
-             if (target.has_value()) {
-               if (target.value()->kind->name != "llvm") {
-                 return ffi::Array<ffi::String>{};
-               }
+             if (target->kind->name != "llvm") {
+               return ffi::Array<ffi::String>{};
              }
              auto llvm_instance = std::make_unique<LLVMInstance>();
-             LLVMTargetInfo llvm_backend(*llvm_instance, use_target);
+             LLVMTargetInfo llvm_backend(*llvm_instance, target);
              return llvm_backend.GetAllLLVMTargetArches();
            })
       .def("codegen.llvm_get_cpu_features",
-           [](const ffi::Optional<Target>& target) -> ffi::Map<ffi::String, ffi::String> {
-             auto use_target = target.has_value() ? target.value() : Target::Current(false).value();
+           [](const Target& target) -> ffi::Map<ffi::String, ffi::String> {
              // ignore non "llvm" target
-             if (target.has_value()) {
-               if (target.value()->kind->name != "llvm") {
-                 return {};
-               }
+             if (target->kind->name != "llvm") {
+               return {};
              }
              auto llvm_instance = std::make_unique<LLVMInstance>();
-             LLVMTargetInfo llvm_backend(*llvm_instance, use_target);
+             LLVMTargetInfo llvm_backend(*llvm_instance, target);
              return llvm_backend.GetAllLLVMCpuFeatures();
            })
       .def("codegen.llvm_cpu_has_feature",
-           [](const ffi::String feature, const ffi::Optional<Target>& target) -> bool {
-             auto use_target = target.has_value() ? target.value() : Target::Current(false).value();
+           [](const ffi::String feature, const Target& target) -> bool {
              // ignore non "llvm" target
-             if (target.has_value()) {
-               if (target.value()->kind->name != "llvm") {
-                 return false;
-               }
+             if (target->kind->name != "llvm") {
+               return false;
              }
              auto llvm_instance = std::make_unique<LLVMInstance>();
-             LLVMTargetInfo llvm_backend(*llvm_instance, use_target);
+             LLVMTargetInfo llvm_backend(*llvm_instance, target);
              auto cpu_features = llvm_backend.GetAllLLVMCpuFeatures();
              bool has_feature = cpu_features.find(feature) != cpu_features.end();
              return has_feature;
            })
       .def("codegen.target_has_feature",
-           [](const ffi::String feature, const ffi::Optional<Target>& target) -> bool {
-             auto use_target = target.has_value() ? target.value() : Target::Current(false).value();
+           [](const ffi::String feature, const Target& target) -> bool {
              // ignore non "llvm" target
-             if (target.has_value()) {
-               if (target.value()->kind->name != "llvm") {
-                 return false;
-               }
+             if (target->kind->name != "llvm") {
+               return false;
              }
              auto llvm_instance = std::make_unique<LLVMInstance>();
-             LLVMTargetInfo llvm_target(*llvm_instance, use_target);
+             LLVMTargetInfo llvm_target(*llvm_instance, target);
              return llvm_target.TargetHasCPUFeature(feature);
            })
       .def("codegen.llvm_is_valid_cpu",

@@ -29,6 +29,7 @@
 #include <tvm/ir/expr.h>
 #include <tvm/ir/op.h>
 #include <tvm/runtime/base.h>
+#include <tvm/target/target.h>
 #include <tvm/tirx/op/abi.h>
 
 #include <string>
@@ -58,6 +59,7 @@ struct Direct {
 /*!
  * \brief Dispatch pure extern function.
  * \param e The call expression.
+ * \param target The explicit compilation target.
  * \tparam T Name mapper with std::string operator()(const PrimType&, std::string).
  * The mapper receives the type and the intrinsic name without its prim. or tirx.
  * prefix. An empty mapped name leaves the original call unchanged.
@@ -69,7 +71,7 @@ struct Direct {
  * \tparam dtype_from_arg Use the argument type of a unary call instead of its result type.
  */
 template <typename T, bool dtype_from_arg = false>
-inline PrimExpr DispatchPureExtern(const PrimExpr& e) {
+inline PrimExpr DispatchPureExtern(const PrimExpr& e, const Target& target) {
   const CallObj* call = e.as<CallObj>();
   TVM_FFI_ICHECK(call != nullptr);
   // Primitive intrinsic names use the prim. namespace prefix.
@@ -100,14 +102,14 @@ inline PrimExpr DispatchPureExtern(const PrimExpr& e) {
  * The expansion clamps the input to [-4, 4] and evaluates numerator and
  * denominator polynomials using the input element width; other types are rejected.
  */
-TVM_TIRX_DLL PrimExpr DispatchFastErf(const PrimExpr& e);
+TVM_TIRX_DLL PrimExpr DispatchFastErf(const PrimExpr& e, const Target& target);
 
 /*!
  * \brief Lower a unary floating-point tanh call using sign-dependent exponential formulas.
  * The expansion avoids the large-positive-input overflow of the symmetric formula;
  * accuracy follows the floating-point arithmetic and exponential lowering in use.
  */
-TVM_TIRX_DLL PrimExpr DispatchNumericallyStableTanh(const PrimExpr& e);
+TVM_TIRX_DLL PrimExpr DispatchNumericallyStableTanh(const PrimExpr& e, const Target& target);
 
 }  // namespace intrin
 }  // namespace codegen

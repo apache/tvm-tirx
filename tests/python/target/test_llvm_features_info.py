@@ -91,10 +91,6 @@ def test_target_features(min_llvm_version, llvm_target, cpu_arch, cpu_features, 
     ## legalize cpu_arch
     ##
 
-    ### with context
-    with target:
-        assert cpu_arch in codegen.llvm.get_cpu_archlist()
-    ### no context but with expicit target
     assert cpu_arch in codegen.llvm.get_cpu_archlist(target)
     # check ffi vs python
     assert str(codegen.llvm.get_cpu_archlist(target)) == str(
@@ -105,10 +101,6 @@ def test_target_features(min_llvm_version, llvm_target, cpu_arch, cpu_features, 
     ## check has_features
     ##
 
-    ### with context
-    with target:
-        assert codegen.llvm.cpu_has_features(cpu_features) == is_supported
-    ### no context but with expicit target
     assert codegen.llvm.cpu_has_features(cpu_features, target) == is_supported
     # check ffi vs python
     for feat in cpu_features:

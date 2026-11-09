@@ -135,7 +135,7 @@ def register_intrin_lowering(
         The target string for given intrinsic lowering function
 
     f : function, optional
-        The function to be registered.
+        The function to be registered, taking (expression, target).
 
     override : bool, optional
         Replace an existing lowering if True; duplicate registration otherwise

@@ -760,10 +760,9 @@ def _emit(opcode, global_view, shared_view, *, box, coords, sctx=None, **fields)
     else:
         operands = (shared_view, global_view)
         fields.setdefault("mbar", Var("mbar", "handle"))
-    with sctx.target:
-        impl = run_dispatch(
-            T.cuda.tile.apply(T.ptx[opcode], *operands, box=box, coords=coords, **fields), sctx
-        )
+    impl = run_dispatch(
+        T.cuda.tile.apply(T.ptx[opcode], *operands, box=box, coords=coords, **fields), sctx
+    )
     return impl, list(sctx.callbacks.get("host_init_stmt", [])), sctx
 
 
@@ -1069,10 +1068,9 @@ def test_explicit_allows_different_operand_ranks_with_equal_payload_bytes():
 
 def _lower_module(func, arch="sm_100a"):
     target = tvm_tirx.target.Target({"kind": "cuda", "arch": arch})
-    with target:
-        return tvm_tirx.ir.transform.Sequential(
-            [tvm_tirx.tirx.transform.TileDispatch(), tvm_tirx.tirx.transform.LowerTensorLayouts()]
-        )(tvm_tirx.IRModule({"main": func}))
+    return tvm_tirx.ir.transform.Sequential(
+        [tvm_tirx.tirx.transform.TileDispatch(), tvm_tirx.tirx.transform.LowerTensorLayouts()]
+    )(tvm_tirx.tirx.transform.BindTarget(target)(tvm_tirx.IRModule({"main": func})))
 
 
 def _compile_module(func, arch="sm_100a"):

@@ -86,10 +86,10 @@ def test_simple_unary(op_type):
                     elif T.constexpr(op_type == "memset"):
                         T.nki.memset(B_sbuf[p_loop, f_loop], 0.0)
             # fmt: on
-    with target:
-        mod = tvm_tirx.IRModule({"main": unary})
-        mod = tvm_tirx.backend.trn.transform.LowerTIRx()(mod)
-        assert_structural_equal(mod["main"], expected)
+    mod = tvm_tirx.IRModule({"main": unary})
+    mod = tvm_tirx.tirx.transform.BindTarget(target)(mod)
+    mod = tvm_tirx.backend.trn.transform.LowerTIRx()(mod)
+    assert_structural_equal(mod["main"], expected.with_attr("target", target))
 
 
 @pytest.mark.parametrize("op_type", ["reciprocal", "memset"])
@@ -137,10 +137,10 @@ def test_unary_in_a_loop(op_type):
                     elif T.constexpr(op_type == "memset"):
                         T.nki.memset(B_sbuf_view[p_loop, i * 512 + f_loop], 0.0)
             # fmt: on
-    with target:
-        mod = tvm_tirx.IRModule({"main": unary})
-        mod = tvm_tirx.backend.trn.transform.LowerTIRx()(mod)
-        assert_structural_equal(mod["main"], expected)
+    mod = tvm_tirx.IRModule({"main": unary})
+    mod = tvm_tirx.tirx.transform.BindTarget(target)(mod)
+    mod = tvm_tirx.backend.trn.transform.LowerTIRx()(mod)
+    assert_structural_equal(mod["main"], expected.with_attr("target", target))
 
 
 def test_unary_complex1():
@@ -166,10 +166,10 @@ def test_unary_complex1():
                 for f_loop in T.serial(0, 512, annotations={"nki_dim":"F"}):
                     T.nki.memset(A_sbuf[p_loop, b_loop * 512 + f_loop], T.float32(0.0))
             # fmt: on
-    with target:
-        mod = tvm_tirx.IRModule({"main": unary})
-        mod = tvm_tirx.backend.trn.transform.LowerTIRx()(mod)
-        assert_structural_equal(mod["main"], expected)
+    mod = tvm_tirx.IRModule({"main": unary})
+    mod = tvm_tirx.tirx.transform.BindTarget(target)(mod)
+    mod = tvm_tirx.backend.trn.transform.LowerTIRx()(mod)
+    assert_structural_equal(mod["main"], expected.with_attr("target", target))
 
 
 @pytest.mark.parametrize("op_type", ["sqrt", "exp"])
@@ -209,10 +209,10 @@ def test_unary_with_bias_scale(op_type):
                 for f_loop in T.serial(0, 512, annotations={"nki_dim":"F"}):
                     T.nki.activation(C_sbuf[p_loop, b_loop * 512  + f_loop], A_sbuf[p_loop, b_loop * 512 + f_loop], op_type, B_sbuf[p_loop, b_loop//2], T.float32(2.0))  # noqa: E501
             # fmt: off
-    with target:
-        mod = tvm_tirx.IRModule({"main": unary})
-        mod = tvm_tirx.backend.trn.transform.LowerTIRx()(mod)
-        assert_structural_equal(mod["main"], expected)
+    mod = tvm_tirx.IRModule({"main": unary})
+    mod = tvm_tirx.tirx.transform.BindTarget(target)(mod)
+    mod = tvm_tirx.backend.trn.transform.LowerTIRx()(mod)
+    assert_structural_equal(mod["main"], expected.with_attr("target", target))
 
 
 @pytest.mark.parametrize("op_type", ["sqrt", "exp"])
@@ -252,11 +252,12 @@ def test_unary_with_bias_scale_2(op_type):
                 for f_loop in T.serial(512, annotations={"nki_dim": "F"}):
                     T.nki.activation(C_sbuf[p_loop, b_loop * 512 + f_loop], A_sbuf[p_loop, b_loop * 512 + f_loop], op_type, const_bias[p_loop, f_loop], T.float32(2.0))  # noqa: E501
             # fmt: off
-    with target:
-        mod = tvm_tirx.IRModule({"main": unary})
-        mod = tvm_tirx.tirx.trn.transform.TrnPrivateTensorAlloc()(mod)
-        mod = tvm_tirx.backend.trn.transform.LowerTIRx()(mod)
-        assert_structural_equal(mod["main"], expected)
+    mod = tvm_tirx.IRModule({"main": unary})
+    mod = tvm_tirx.tirx.transform.BindTarget(target)(mod)
+    mod = tvm_tirx.tirx.trn.transform.TrnPrivateTensorAlloc()(mod)
+    mod = tvm_tirx.tirx.transform.BindTarget(target)(mod)
+    mod = tvm_tirx.backend.trn.transform.LowerTIRx()(mod)
+    assert_structural_equal(mod["main"], expected.with_attr("target", target))
 
 
 def test_unary_with_guard():
@@ -298,11 +299,11 @@ def test_unary_with_guard():
                     if b_loop // 2 - i < 1 and b_loop % 2 * 512 + f_loop < j * 256 + 256:
                         T.nki.activation(C_sbuf[p_loop, b_loop * 512 + f_loop], A_sbuf[p_loop, b_loop * 512 + f_loop], "sqrt", B_sbuf[p_loop, b_loop // 2], T.float32(2.0))  # noqa: E501
              # fmt: off
-    with target:
-        mod = tvm_tirx.IRModule({"main": unary})
-        mod = tvm_tirx.backend.trn.transform.LowerTIRx()(mod)
-        mod = tvm_tirx.tirx.transform.StmtSimplify()(mod)
-        assert_structural_equal(mod["main"], expected)
+    mod = tvm_tirx.IRModule({"main": unary})
+    mod = tvm_tirx.tirx.transform.BindTarget(target)(mod)
+    mod = tvm_tirx.backend.trn.transform.LowerTIRx()(mod)
+    mod = tvm_tirx.tirx.transform.StmtSimplify()(mod)
+    assert_structural_equal(mod["main"], expected.with_attr("target", target))
 
 
 if __name__ == "__main__":

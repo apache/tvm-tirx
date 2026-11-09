@@ -95,8 +95,7 @@ def compile_kernel(kernel):
     target = tvm_tirx.target.Target(
         {"kind": "cuda", "backend_config": {"cuda": {"target_format": "ptx"}}}
     )
-    with target:
-        return tvm_tirx.compile(kernel, target=target, pipeline="tirx")
+    return tvm_tirx.compile(kernel, target=target, pipeline="tirx")
 
 
 @pytest.mark.parametrize("factory", [global_kernel, matrix_kernel])
@@ -233,9 +232,11 @@ def test_matrix_gpu():
 @pytest.mark.parametrize("block,partial", [(32, True), (1, False), (16, False), (31, False)])
 def test_partial_warp_rejected_in_pipeline(block, partial):
     target = tvm_tirx.target.Target({"kind": "cuda", "arch": "sm_100a"})
-    with target, pytest.raises((RuntimeError, ValueError), match="all 32 lanes"):
+    with pytest.raises((RuntimeError, ValueError), match="all 32 lanes"):
         tvm_tirx.tirx.transform.TileDispatch()(
-            tvm_tirx.IRModule({"main": matrix_kernel(partial=partial, block=block)})
+            tvm_tirx.tirx.transform.BindTarget(target)(
+                tvm_tirx.IRModule({"main": matrix_kernel(partial=partial, block=block)})
+            )
         )
 
 
@@ -334,9 +335,12 @@ def test_tma_rejects_under_aligned_shared_atom():
             mbar=barrier.ptr_to([0]),
         )
 
-    with tvm_tirx.target.Target({"kind": "cuda", "arch": "sm_100a"}):
-        with pytest.raises(RuntimeError, match="known 128-byte-aligned base"):
-            tvm_tirx.tirx.transform.TileDispatch()(tvm_tirx.IRModule({"main": kernel}))
+    with pytest.raises(RuntimeError, match="known 128-byte-aligned base"):
+        tvm_tirx.tirx.transform.TileDispatch()(
+            tvm_tirx.tirx.transform.BindTarget(
+                tvm_tirx.target.Target({"kind": "cuda", "arch": "sm_100a"})
+            )(tvm_tirx.IRModule({"main": kernel}))
+        )
 
 
 def test_cluster_pattern_requires_launch_cluster():
@@ -346,9 +350,12 @@ def test_cluster_pattern_requires_launch_cluster():
         r = T.alloc_local((2, 1, 32, 4), "uint32", layout="default")
         T.cuda.tile.apply(T.ptx[LD], r, A, scope="cluster")
 
-    with tvm_tirx.target.Target({"kind": "cuda", "arch": "sm_100a"}):
-        with pytest.raises(RuntimeError, match=r"explicit LaunchConfig\.cluster"):
-            tvm_tirx.tirx.transform.TileDispatch()(tvm_tirx.IRModule({"main": kernel}))
+    with pytest.raises(RuntimeError, match=r"explicit LaunchConfig\.cluster"):
+        tvm_tirx.tirx.transform.TileDispatch()(
+            tvm_tirx.tirx.transform.BindTarget(
+                tvm_tirx.target.Target({"kind": "cuda", "arch": "sm_100a"})
+            )(tvm_tirx.IRModule({"main": kernel}))
+        )
 
 
 def test_swizzled_tmem_copy_rejects_gapped_words():
@@ -373,9 +380,12 @@ def test_swizzled_tmem_copy_rejects_gapped_words():
             src,
         )
 
-    with tvm_tirx.target.Target({"kind": "cuda", "arch": "sm_100a"}):
-        with pytest.raises(RuntimeError, match="descriptor address walk"):
-            tvm_tirx.tirx.transform.TileDispatch()(tvm_tirx.IRModule({"main": kernel}))
+    with pytest.raises(RuntimeError, match="descriptor address walk"):
+        tvm_tirx.tirx.transform.TileDispatch()(
+            tvm_tirx.tirx.transform.BindTarget(
+                tvm_tirx.target.Target({"kind": "cuda", "arch": "sm_100a"})
+            )(tvm_tirx.IRModule({"main": kernel}))
+        )
 
 
 @pytest.mark.parametrize(
@@ -401,9 +411,16 @@ def test_cuda_index_region_bounds(index, block, size, offset):
         start = index() + offset
         T.cuda.tile.apply(T.ptx["ld.global.f32"], r, A[start : start + 1])
 
-    with tvm_tirx.target.Target({"kind": "cuda", "arch": "sm_100a"}):
-        if offset == 0:
-            tvm_tirx.tirx.transform.TileDispatch()(tvm_tirx.IRModule({"main": kernel}))
-        else:
-            with pytest.raises(RuntimeError, match=r"in bounds|exceeds tensor shape"):
-                tvm_tirx.tirx.transform.TileDispatch()(tvm_tirx.IRModule({"main": kernel}))
+    if offset == 0:
+        tvm_tirx.tirx.transform.TileDispatch()(
+            tvm_tirx.tirx.transform.BindTarget(
+                tvm_tirx.target.Target({"kind": "cuda", "arch": "sm_100a"})
+            )(tvm_tirx.IRModule({"main": kernel}))
+        )
+    else:
+        with pytest.raises(RuntimeError, match=r"in bounds|exceeds tensor shape"):
+            tvm_tirx.tirx.transform.TileDispatch()(
+                tvm_tirx.tirx.transform.BindTarget(
+                    tvm_tirx.target.Target({"kind": "cuda", "arch": "sm_100a"})
+                )(tvm_tirx.IRModule({"main": kernel}))
+            )

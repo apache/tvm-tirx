@@ -48,12 +48,11 @@ def _get_source(
         }
     )
     mod = tvm_tirx.IRModule({"main": func})
-    with target:
-        mod = tvm_tirx.compile(
-            mod,
-            target=target,
-            pipeline="tirx",
-        )
+    mod = tvm_tirx.compile(
+        mod,
+        target=target,
+        pipeline="tirx",
+    )
     src = mod.mod.imports[0].inspect_source()
     return src, mod
 
@@ -809,8 +808,7 @@ def test_ptx_sync_and_clc_codegen():
             T.ptx.griddepcontrol.launch_dependents()
 
     target = tvm_tirx.target.Target({"kind": "cuda", "arch": "sm_100a"})
-    with target:
-        mod = tvm_tirx.compile(tvm_tirx.IRModule({"main": main}), target=target, pipeline="tirx")
+    mod = tvm_tirx.compile(tvm_tirx.IRModule({"main": main}), target=target, pipeline="tirx")
     src = mod.mod.imports[0].inspect_source()
     assert "cp.async.mbarrier.arrive.shared.b64" in src
     assert "cp.async.mbarrier.arrive.noinc.shared::cta.b64" in src
@@ -864,8 +862,7 @@ def test_ptx_mbarrier_arrive_new_forms_codegen():
             )
 
     target = tvm_tirx.target.Target({"kind": "cuda", "arch": "sm_100a"})
-    with target:
-        mod = tvm_tirx.compile(tvm_tirx.IRModule({"main": main}), target=target, pipeline="tirx")
+    mod = tvm_tirx.compile(tvm_tirx.IRModule({"main": main}), target=target, pipeline="tirx")
     src = mod.mod.imports[0].inspect_source()
     assert "mbarrier.arrive.relaxed.cta.shared::cta.b64 _, [%0];" in src
     assert "mbarrier.arrive.relaxed.cluster.shared::cluster.b64 _, [%0];" in src

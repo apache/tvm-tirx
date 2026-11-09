@@ -31,6 +31,7 @@
 #include <tvm/ffi/function.h>
 #include <tvm/ir/prim/expr.h>
 #include <tvm/ir/prim/op.h>
+#include <tvm/target/target.h>
 #include <tvm/tirx/op/abi.h>
 
 #include "llvm_instance.h"
@@ -39,7 +40,7 @@ namespace tvm {
 namespace codegen {
 // num_signature means number of arguments used to query signature
 template <unsigned id, int num_signature>
-inline PrimExpr DispatchLLVMPureIntrin(const PrimExpr& e) {
+inline PrimExpr DispatchLLVMPureIntrin(const PrimExpr& e, const Target& target) {
   const CallObj* call = e.as<CallObj>();
   TVM_FFI_ICHECK(call != nullptr);
   ffi::Array<PrimExpr> cargs;
@@ -57,7 +58,7 @@ inline PrimExpr DispatchLLVMPureIntrin(const PrimExpr& e) {
 }
 
 template <unsigned id, int num_signature>
-inline PrimExpr DispatchLLVMIntrin(const PrimExpr& e) {
+inline PrimExpr DispatchLLVMIntrin(const PrimExpr& e, const Target& target) {
   const CallObj* call = e.as<CallObj>();
   TVM_FFI_ICHECK(call != nullptr);
   ffi::Array<Expr> cargs;

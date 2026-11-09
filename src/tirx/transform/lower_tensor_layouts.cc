@@ -384,9 +384,8 @@ class LayoutApplier : public StmtExprMutatorWithConstraintContext {
 namespace {
 Target ResolveTarget(const Function& f) {
   auto target = f->GetAttr(tvm::attr::kTarget);
-  if (!target.has_value()) {
-    target = Target::Current(false).value();
-  }
+  TVM_FFI_CHECK(target.has_value(), ValueError)
+      << "LowerTensorLayouts: requires a function target attribute";
   return target.value();
 }
 }  // namespace

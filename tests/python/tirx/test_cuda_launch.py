@@ -125,11 +125,14 @@ def test_launch_region_roundtrip_and_host_only_operands():
     parsed = tvm_tirx.script.from_source(kernel.script(), extra_vars={"I": I, "T": T})
     tvm_tirx.ir.assert_structural_equal(kernel, parsed)
     target = tvm_tirx.target.Target("cuda", host="llvm")
-    with target:
-        mod = tvm_tirx.ir.transform.Sequential(
-            [tvm_tirx.tirx.transform.TileDispatch(), tvm_tirx.tirx.transform.LowerTensorLayouts()]
-        )(tvm_tirx.IRModule({"main": kernel.with_attr("target", target)}))
-        mod = tvm_tirx.tirx.transform.SplitHostDevice()(mod)
+    mod = tvm_tirx.ir.transform.Sequential(
+        [tvm_tirx.tirx.transform.TileDispatch(), tvm_tirx.tirx.transform.LowerTensorLayouts()]
+    )(
+        tvm_tirx.tirx.transform.BindTarget(target)(
+            tvm_tirx.IRModule({"main": kernel.with_attr("target", target)})
+        )
+    )
+    mod = tvm_tirx.tirx.transform.SplitHostDevice()(mod)
     devices = [f for f in mod.functions.values() if f.attrs and f.attrs.get("calling_conv") == 2]
     assert len(devices) == 1
     assert len(devices[0].params) == 1

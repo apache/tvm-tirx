@@ -27,20 +27,19 @@ import tvm_ffi
 
 import tvm_tirx
 from tvm_tirx.backend.config import parse_backend_config
-from tvm_tirx.target import Target
 
 from . import utils
 
 
-def compile_cuda(code, *, backend_config=None, path_target=None):
-    """Compile source using the nested backend_config mapping and return its bytes.
+def compile_cuda(code, *, backend_config=None, target=None, path_target=None):
+    """Compile source with backend configuration and optional target defaults.
 
-    For the binary format and resolved configuration, use
+    Returns the compiled bytes. For the binary format and resolved configuration, use
     :func:`tvm_tirx.backend.cuda.compiler.compile_source` directly.
     """
     from tvm_tirx.backend.cuda.compiler import compile_source
 
-    result = compile_source(code, backend_config)
+    result = compile_source(code, backend_config, target=target)
     if path_target:
         with open(path_target, "wb") as output:
             output.write(result.binary)
@@ -277,7 +276,7 @@ def _compile_cuda_nvrtc(
     # (including family/architecture qualifiers such as ``a`` and ``f``), but
     # normalize the prefix to the requested output format.
     if arch is None:
-        compute_version = get_target_compute_version(Target.current(allow_none=True))
+        compute_version = get_target_compute_version()
         arch = f"sm_{''.join(compute_version.split('.'))}"
     if target_format == "ptx" and arch.startswith("sm_"):
         arch = f"compute_{arch.removeprefix('sm_')}"
@@ -842,8 +841,7 @@ def callback_libdevice_path(arch):
 def get_target_compute_version(target=None):
     """Utility function to get compute capability of compilation target.
 
-    Looks for the target arch in three different places, first in the target input, then the
-    Target.current() scope, and finally the GPU device (if it exists).
+    Use the explicit target architecture, or query the GPU device if none is supplied.
 
     Parameters
     ----------
@@ -856,8 +854,6 @@ def get_target_compute_version(target=None):
         compute capability of a GPU (e.g. "8.6")
     """
     # 1. input target object
-    # 2. Target.current()
-    target = target or Target.current()
     target_arch = str(target.attrs.get("arch", "")) if target else ""
     if target_arch:
         arch = target_arch.split("_")[1]
@@ -871,7 +867,7 @@ def get_target_compute_version(target=None):
             return major + "." + minor + "." + suffix
         return arch[:-1] + "." + arch[-1]
 
-    # 3. GPU compute version
+    # 2. GPU compute version
     if tvm_tirx.cuda(0).exist:
         cv = tvm_tirx.cuda(0).compute_version
         # Append 'a' suffix for SM 9.0+ (Hopper, Blackwell) which need

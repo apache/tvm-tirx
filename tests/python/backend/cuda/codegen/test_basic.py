@@ -541,69 +541,63 @@ def test_cuda_const_float_to_half(*, backend_config):
 @pytest.mark.gpu
 @pytest.mark.skipif(not env.has_cuda(), reason="need cuda")
 def test_cuda_floordiv_with_vectorization(*, backend_config):
-    with tvm_tirx.target.Target("cuda"):
-        # B[i] = A[floordiv(i, k)]
-        n = 256
-        k = 37
+    # B[i] = A[floordiv(i, k)]
+    n = 256
+    k = 37
 
-        @I.ir_module
-        class Module:
-            @T.function
-            def main(A: T.Tensor((256,), "float32"), B: T.Tensor((256,), "float32")):
-                T.func_attr({"tirx.noalias": True})
-                with T.launch_thread("blockIdx.x", 1) as i_0:
-                    with T.launch_thread("threadIdx.x", 64) as i_1_0:
-                        for i_1_1 in T.vectorized(4):
-                            B[i_0 * 256 + i_1_0 * 4 + i_1_1] = A[
-                                (i_0 * 256 + i_1_0 * 4 + i_1_1) // 37
-                            ]
+    @I.ir_module
+    class Module:
+        @T.function
+        def main(A: T.Tensor((256,), "float32"), B: T.Tensor((256,), "float32")):
+            T.func_attr({"tirx.noalias": True})
+            with T.launch_thread("blockIdx.x", 1) as i_0:
+                with T.launch_thread("threadIdx.x", 64) as i_1_0:
+                    for i_1_1 in T.vectorized(4):
+                        B[i_0 * 256 + i_1_0 * 4 + i_1_1] = A[(i_0 * 256 + i_1_0 * 4 + i_1_1) // 37]
 
-        func = tvm_tirx.compile(Module, target={"kind": "cuda", "backend_config": backend_config})
+    func = tvm_tirx.compile(Module, target={"kind": "cuda", "backend_config": backend_config})
 
-        def run_and_check():
-            dev = tvm_tirx.cuda(0)
-            a_np = np.random.uniform(size=(n,)).astype("float32")
-            b_np = np.array([a_np[i // k] for i in range(0, n)])
-            a_nd = tvm_tirx.runtime.tensor(a_np, dev)
-            b_nd = tvm_tirx.runtime.tensor(np.zeros(b_np.shape, dtype=b_np.dtype), dev)
-            func(a_nd, b_nd)
-            tvm_tirx.testing.assert_allclose(b_nd.numpy(), b_np, rtol=1e-3)
+    def run_and_check():
+        dev = tvm_tirx.cuda(0)
+        a_np = np.random.uniform(size=(n,)).astype("float32")
+        b_np = np.array([a_np[i // k] for i in range(0, n)])
+        a_nd = tvm_tirx.runtime.tensor(a_np, dev)
+        b_nd = tvm_tirx.runtime.tensor(np.zeros(b_np.shape, dtype=b_np.dtype), dev)
+        func(a_nd, b_nd)
+        tvm_tirx.testing.assert_allclose(b_nd.numpy(), b_np, rtol=1e-3)
 
-        tvm_tirx.testing.run_with_gpu_lock(run_and_check)
+    tvm_tirx.testing.run_with_gpu_lock(run_and_check)
 
 
 @pytest.mark.gpu
 @pytest.mark.skipif(not env.has_cuda(), reason="need cuda")
 def test_cuda_floormod_with_vectorization(*, backend_config):
-    with tvm_tirx.target.Target("cuda"):
-        # B[i] = A[floormod(i, k)]
-        n = 256
-        k = 37
+    # B[i] = A[floormod(i, k)]
+    n = 256
+    k = 37
 
-        @I.ir_module
-        class Module:
-            @T.function
-            def main(A: T.Tensor((256,), "float32"), B: T.Tensor((256,), "float32")):
-                T.func_attr({"tirx.noalias": True})
-                with T.launch_thread("blockIdx.x", 1) as i_0:
-                    with T.launch_thread("threadIdx.x", 64) as i_1_0:
-                        for i_1_1 in T.vectorized(4):
-                            B[i_0 * 256 + i_1_0 * 4 + i_1_1] = A[
-                                (i_0 * 256 + i_1_0 * 4 + i_1_1) % 37
-                            ]
+    @I.ir_module
+    class Module:
+        @T.function
+        def main(A: T.Tensor((256,), "float32"), B: T.Tensor((256,), "float32")):
+            T.func_attr({"tirx.noalias": True})
+            with T.launch_thread("blockIdx.x", 1) as i_0:
+                with T.launch_thread("threadIdx.x", 64) as i_1_0:
+                    for i_1_1 in T.vectorized(4):
+                        B[i_0 * 256 + i_1_0 * 4 + i_1_1] = A[(i_0 * 256 + i_1_0 * 4 + i_1_1) % 37]
 
-        func = tvm_tirx.compile(Module, target={"kind": "cuda", "backend_config": backend_config})
+    func = tvm_tirx.compile(Module, target={"kind": "cuda", "backend_config": backend_config})
 
-        def run_and_check():
-            dev = tvm_tirx.cuda(0)
-            a_np = np.random.uniform(size=(n,)).astype("float32")
-            b_np = np.array([a_np[i % k] for i in range(0, n)])
-            a_nd = tvm_tirx.runtime.tensor(a_np, dev)
-            b_nd = tvm_tirx.runtime.tensor(np.zeros(b_np.shape, dtype=b_np.dtype), dev)
-            func(a_nd, b_nd)
-            tvm_tirx.testing.assert_allclose(b_nd.numpy(), b_np, rtol=1e-3)
+    def run_and_check():
+        dev = tvm_tirx.cuda(0)
+        a_np = np.random.uniform(size=(n,)).astype("float32")
+        b_np = np.array([a_np[i % k] for i in range(0, n)])
+        a_nd = tvm_tirx.runtime.tensor(a_np, dev)
+        b_nd = tvm_tirx.runtime.tensor(np.zeros(b_np.shape, dtype=b_np.dtype), dev)
+        func(a_nd, b_nd)
+        tvm_tirx.testing.assert_allclose(b_nd.numpy(), b_np, rtol=1e-3)
 
-        tvm_tirx.testing.run_with_gpu_lock(run_and_check)
+    tvm_tirx.testing.run_with_gpu_lock(run_and_check)
 
 
 _VECTORIZED_CAST_TYPES_4 = [
