@@ -113,15 +113,15 @@ the result in the release thread.
 Step 2. Conclude Release
 ------------------------
 
-After the vote passes, conclude the vote, finalize the release tag, and publish
-wheels from it.
+After the vote passes, conclude the vote, tag the final release, and publish
+the wheels and the crate from it.
 
 **Step 2.1.** Announce the voting results by opening a ``[RESULT][VOTE]`` issue on
 the `issue tracker <https://github.com/apache/tvm-tirx/issues/new>`__.
 Issue notifications are mirrored to ``discuss-archive@tvm.apache.org``;
 post the result to ``dev@tvm.apache.org`` as well.
 
-**Step 2.2.** Tag the approved candidate commit as the final version:
+**Step 2.2.** Tag the candidate commit as the final release and delete the candidate tag:
 
 .. code-block:: bash
 
@@ -134,17 +134,10 @@ post the result to ``dev@tvm.apache.org`` as well.
      git push upstream --delete "$TIRX_VERSION"
    )
 
-Deleting the candidate tag leaves one version tag on the release commit. No version
-bump follows: later commits get development versions from the tag.
-
-**Step 2.3.** Publish PyPI wheels with the `wheel publication workflow
-<https://github.com/apache/tvm-tirx/actions/workflows/publish_wheel.yml>`__, with
-``tag`` set to ``$TIRX_RELEASE_VERSION``. See :doc:`ci_cd` for how wheels are built
-with cibuildwheel.
-
-**Step 2.4.** Publish the crate with the `crate publication workflow
-<https://github.com/apache/tvm-tirx/actions/workflows/publish_crate.yml>`__, with
-``tag`` set to ``$TIRX_RELEASE_VERSION``.
+**Step 2.3.** Publish the wheels and the crate: run the `wheel
+<https://github.com/apache/tvm-tirx/actions/workflows/publish_wheel.yml>`__ and `crate
+<https://github.com/apache/tvm-tirx/actions/workflows/publish_crate.yml>`__ publication
+workflows with ``tag`` set to ``$TIRX_RELEASE_VERSION``.
 
 Step 3. Upload Release Artifacts
 --------------------------------
