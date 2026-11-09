@@ -90,7 +90,8 @@ jobs:
           TVM_FFI_VERSION: ${{ steps.ffi.outputs.version }}
         run: &prepare_release_metadata |
           uv pip install tomlkit setuptools-scm
-          python ci/wheel/prepare_release_metadata.py
+          python ci/wheel/prepare_release_metadata.py --crate-version-from-tag "$RELEASE_TAG"
+          echo "CRATE_VERSION=${RELEASE_TAG#v}" >> "$GITHUB_ENV"
           python ci/wheel/detect_tvm_ffi_version.py rewrite --version "$TVM_FFI_VERSION"
 
   build_crate:
@@ -176,33 +177,6 @@ jobs:
         shell: bash
         run: rustup toolchain install stable --profile minimal
 
-      # Apply the release version after the Python metadata step so setuptools-scm sees a clean tree.
-      - name: Set crate version from Git
-        shell: bash
-        run: &set_crate_version |
-          # The crate version is the tag without its "v": 0.1.0, 0.1.0-rc0 or 0.1.0-post1.
-          if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-(rc|post)[0-9]+)?$ ]]; then
-            echo "::error::unsupported release tag '$RELEASE_TAG': expected vX.Y.Z, vX.Y.Z-rcN or vX.Y.Z-postN"
-            exit 1
-          fi
-          export CRATE_VERSION="${RELEASE_TAG#v}"
-          echo "CRATE_VERSION=$CRATE_VERSION" >> "$GITHUB_ENV"
-          uv run --no-project --with tomlkit python - <<'PY'
-          import os
-          from pathlib import Path
-
-          import tomlkit
-
-          version = os.environ["CRATE_VERSION"]
-          path = Path("rust/tvm-tirx/Cargo.toml")
-          manifest = tomlkit.parse(path.read_text(encoding="utf-8"))
-          manifest["package"]["version"] = version
-          path.write_text(tomlkit.dumps(manifest), encoding="utf-8")
-          print(f"tvm-tirx: {version}")
-          PY
-          # Cargo validates the derived SemVer.
-          cargo +stable metadata --manifest-path rust/Cargo.toml --no-deps --format-version 1 > /dev/null
-
       - name: Test crate
         working-directory: rust/tvm-tirx
         run: cargo +stable test --release
@@ -254,10 +228,6 @@ jobs:
       - name: Set up Rust
         shell: bash
         run: rustup toolchain install stable --profile minimal
-
-      - name: Set crate version from Git
-        shell: bash
-        run: *set_crate_version
 
       # The build jobs verified this commit on every platform; packaging it again without
       # verification needs no TIRx installation. Skipping a version already on crates.io lets a

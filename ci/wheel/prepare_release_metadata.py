@@ -15,9 +15,14 @@
 # specific language governing permissions and limitations
 # under the License.
 
-"""Pin the optional LLVM wheel to the main wheel's resolved release version."""
+"""Pin the optional LLVM wheel to the main wheel's resolved release version.
+
+With ``--crate-version-from-tag``, also set the Rust crate version to the release tag
+without its leading ``v`` (``v0.1.0``, ``v0.1.0-rc0`` or ``v0.1.0-post1``).
+"""
 
 import argparse
+import re
 from pathlib import Path
 
 import tomlkit
@@ -42,7 +47,12 @@ def resolve_version(root, metadata):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("root", nargs="?", type=Path, default=Path(__file__).resolve().parents[2])
-    root = parser.parse_args().root.resolve()
+    parser.add_argument("--crate-version-from-tag", metavar="TAG")
+    args = parser.parse_args()
+    tag = args.crate_version_from_tag
+    if tag is not None and not re.fullmatch(r"v\d+\.\d+\.\d+(-(rc|post)\d+)?", tag):
+        parser.error(f"unsupported release tag {tag!r}: expected vX.Y.Z, -rcN or -postN")
+    root = args.root.resolve()
     main_path = root / "pyproject.toml"
     extra_path = root / "ci/wheel/tvm-tirx-llvm-targets/pyproject.toml"
     main = tomlkit.parse(main_path.read_text(encoding="utf-8"))
@@ -61,6 +71,12 @@ def main():
     main_path.write_text(tomlkit.dumps(main), encoding="utf-8")
     extra_path.write_text(tomlkit.dumps(extra), encoding="utf-8")
     print(f"Prepared main and LLVM targets wheels at version {version}")
+    if tag is not None:
+        crate_path = root / "rust/tvm-tirx/Cargo.toml"
+        crate = tomlkit.parse(crate_path.read_text(encoding="utf-8"))
+        crate["package"]["version"] = tag[1:]
+        crate_path.write_text(tomlkit.dumps(crate), encoding="utf-8")
+        print(f"Prepared tvm-tirx crate at version {tag[1:]}")
 
 
 if __name__ == "__main__":
