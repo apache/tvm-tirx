@@ -872,25 +872,7 @@ def SplitHostDevice():
         class Expected:
             @T.function(private=True)
             def main(n: T.int32):
-                T.func_attr(
-                    {
-                        "target": T.target(
-                            {
-                                "host": {
-                                    "keys": ["cpu"],
-                                    "kind": "llvm",
-                                    "mtriple": "",
-                                    "tag": "",
-                                },
-                                "keys": ["cuda", "gpu"],
-                                "kind": "cuda",
-                                "max_num_threads": 1024,
-                                "tag": "",
-                                "thread_warp_size": 32,
-                            }
-                        )
-                    }
-                )
+                T.func_attr({"target": T.target("cuda", host="llvm")})
                 T.call_ffi_kernel("main_kernel", n)
 
             @T.function
