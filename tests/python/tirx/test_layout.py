@@ -432,6 +432,12 @@ def test_normalize_tile_layout():
     unit_layout_case1()
 
     def case_fuse_axis():
+        layout = TileLayout(S[(2, 4) : (1 @ wgid, 1 @ wid_in_wg)])
+        layout_expected = TileLayout(S[8 : 1 @ warpid])
+        layout.check_well_formed()
+        layout_expected.check_well_formed()
+        assert_structural_equal(layout_expected, layout.canonicalize())
+
         layout = TileLayout(S[(2, 8, 2, 4) : (2 @ warpid, 4 @ laneid, 1 @ warpid, 1 @ laneid)])
         layout_expected = TileLayout(S[(2, 8, 2, 4) : (64 @ tx, 4 @ tx, 32 @ tx, 1 @ tx)])
         layout.check_well_formed()

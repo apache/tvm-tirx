@@ -119,7 +119,7 @@ void RegisterLayoutAxes() {
                   } else if (subscope.same_as(ThreadScope("cuda.warp")) &&
                              scope.same_as(ThreadScope("cuda.cta"))) {
                     // cta->warpgroup ===> cta->warp (warpid)
-                    return Iter(iter->extent, iter->stride * 4, Axis::Get("wgid"));
+                    return Iter(iter->extent, iter->stride * 4, Axis::Get("warpid"));
                   }
                   return std::nullopt;
                 }));
