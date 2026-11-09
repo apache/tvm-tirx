@@ -51,8 +51,7 @@ def DecorateDeviceScope():
         def run_pass():
             return tr.DecorateDeviceScope()(Before)
 
-        target = tvm.target.Target({"kind": "cuda", "arch": "sm_75"})
-        tvm.ir.assert_structural_equal(run_pass(), tr.BindTarget(target)(Expected))
+        tvm.ir.assert_structural_equal(run_pass(), Expected)
     """
     return _ffi_api.DecorateDeviceScope()
 
@@ -96,8 +95,7 @@ def Apply(ftransform):
         def run_pass():
             return tr.Apply(lambda f: f.with_attr("example", 1))(Before)
 
-        target = tvm.target.Target({"kind": "cuda", "arch": "sm_75"})
-        tvm.ir.assert_structural_equal(run_pass(), tr.BindTarget(target)(Expected))
+        tvm.ir.assert_structural_equal(run_pass(), Expected)
     """
 
     # pylint: disable=unused-argument
@@ -157,8 +155,7 @@ def VectorizeLoop(enable_vectorize: bool = True):
         def run_pass():
             return tr.VectorizeLoop()(Before)
 
-        target = tvm.target.Target({"kind": "cuda", "arch": "sm_75"})
-        tvm.ir.assert_structural_equal(run_pass(), tr.BindTarget(target)(Expected))
+        tvm.ir.assert_structural_equal(run_pass(), Expected)
     """
     return _ffi_api.VectorizeLoop(enable_vectorize)  # type: ignore
 
@@ -212,8 +209,7 @@ def StorageRewrite():
         def run_pass():
             return tr.StorageRewrite()(Before)
 
-        target = tvm.target.Target({"kind": "cuda", "arch": "sm_75"})
-        tvm.ir.assert_structural_equal(run_pass(), tr.BindTarget(target)(Expected))
+        tvm.ir.assert_structural_equal(run_pass(), Expected)
     """
     return _ffi_api.StorageRewrite()  # type: ignore
 
@@ -255,8 +251,7 @@ def PointerValueTypeRewrite():
         def run_pass():
             return tr.PointerValueTypeRewrite()(Before)
 
-        target = tvm.target.Target({"kind": "cuda", "arch": "sm_75"})
-        tvm.ir.assert_structural_equal(run_pass(), tr.BindTarget(target)(Expected))
+        tvm.ir.assert_structural_equal(run_pass(), Expected)
     """
     return _ffi_api.PointerValueTypeRewrite()  # type: ignore
 
@@ -298,8 +293,7 @@ def UnrollLoop():
         def run_pass():
             return tr.UnrollLoop()(Before)
 
-        target = tvm.target.Target({"kind": "cuda", "arch": "sm_75"})
-        tvm.ir.assert_structural_equal(run_pass(), tr.BindTarget(target)(Expected))
+        tvm.ir.assert_structural_equal(run_pass(), Expected)
     """
     return _ffi_api.UnrollLoop()  # type: ignore
 
@@ -337,8 +331,7 @@ def RemoveNoOp():
         def run_pass():
             return tr.RemoveNoOp()(Before)
 
-        target = tvm.target.Target({"kind": "cuda", "arch": "sm_75"})
-        tvm.ir.assert_structural_equal(run_pass(), tr.BindTarget(target)(Expected))
+        tvm.ir.assert_structural_equal(run_pass(), Expected)
     """
     return _ffi_api.RemoveNoOp()  # type: ignore
 
@@ -379,8 +372,7 @@ def HoistIf():
         def run_pass():
             return tr.HoistIf()(Before)
 
-        target = tvm.target.Target({"kind": "cuda", "arch": "sm_75"})
-        tvm.ir.assert_structural_equal(run_pass(), tr.BindTarget(target)(Expected))
+        tvm.ir.assert_structural_equal(run_pass(), Expected)
     """
     return _ffi_api.HoistIf()
 
@@ -424,8 +416,7 @@ def BF16ComputeLegalize():
         def run_pass():
             return tr.BF16ComputeLegalize()(Before)
 
-        target = tvm.target.Target({"kind": "cuda", "arch": "sm_75"})
-        tvm.ir.assert_structural_equal(run_pass(), tr.BindTarget(target)(Expected))
+        tvm.ir.assert_structural_equal(run_pass(), Expected)
     """
     return _ffi_api.BF16ComputeLegalize()  # type: ignore
 
@@ -474,8 +465,7 @@ def FP8ComputeLegalize(promote_dtype: str = "float32"):
         def run_pass():
             return tr.FP8ComputeLegalize("float16")(Before)
 
-        target = tvm.target.Target({"kind": "cuda", "arch": "sm_75"})
-        tvm.ir.assert_structural_equal(run_pass(), tr.BindTarget(target)(Expected))
+        tvm.ir.assert_structural_equal(run_pass(), Expected)
     """
     return _ffi_api.FP8ComputeLegalize(promote_dtype)  # type: ignore
 
@@ -516,8 +506,7 @@ def BF16StorageLegalize():
         def run_pass():
             return tr.BF16StorageLegalize()(Before)
 
-        target = tvm.target.Target({"kind": "cuda", "arch": "sm_75"})
-        tvm.ir.assert_structural_equal(run_pass(), tr.BindTarget(target)(Expected))
+        tvm.ir.assert_structural_equal(run_pass(), Expected)
     """
     return _ffi_api.BF16StorageLegalize()  # type: ignore
 
@@ -558,8 +547,7 @@ def FP8StorageLegalize():
         def run_pass():
             return tr.FP8StorageLegalize()(Before)
 
-        target = tvm.target.Target({"kind": "cuda", "arch": "sm_75"})
-        tvm.ir.assert_structural_equal(run_pass(), tr.BindTarget(target)(Expected))
+        tvm.ir.assert_structural_equal(run_pass(), Expected)
     """
     return _ffi_api.FP8StorageLegalize()  # type: ignore
 
@@ -599,8 +587,7 @@ def CommonSubexprElim():
         def run_pass():
             return tr.CommonSubexprElim()(Before)
 
-        target = tvm.target.Target({"kind": "cuda", "arch": "sm_75"})
-        tvm.ir.assert_structural_equal(run_pass(), tr.BindTarget(target)(Expected))
+        tvm.ir.assert_structural_equal(run_pass(), Expected)
     """
     return _ffi_api.CommonSubexprElim()  # type: ignore
 
@@ -637,8 +624,7 @@ def RenormalizeSplitPattern():
         def run_pass():
             return tr.RenormalizeSplitPattern()(Before)
 
-        target = tvm.target.Target({"kind": "cuda", "arch": "sm_75"})
-        tvm.ir.assert_structural_equal(run_pass(), tr.BindTarget(target)(Expected))
+        tvm.ir.assert_structural_equal(run_pass(), Expected)
     """
     return _ffi_api.RenormalizeSplitPattern()  # type: ignore
 
@@ -677,8 +663,7 @@ def StmtSimplify():
         def run_pass():
             return tr.StmtSimplify()(Before)
 
-        target = tvm.target.Target({"kind": "cuda", "arch": "sm_75"})
-        tvm.ir.assert_structural_equal(run_pass(), tr.BindTarget(target)(Expected))
+        tvm.ir.assert_structural_equal(run_pass(), Expected)
     """
     return _ffi_api.StmtSimplify()  # type: ignore
 
@@ -732,8 +717,7 @@ def LowerThreadAllreduce():
         def run_pass():
             return tr.LowerThreadAllreduce()(Before)
 
-        target = tvm.target.Target({"kind": "cuda", "arch": "sm_75"})
-        tvm.ir.assert_structural_equal(run_pass(), tr.BindTarget(target)(Expected))
+        tvm.ir.assert_structural_equal(run_pass(), Expected)
     """
     return _ffi_api.LowerThreadAllreduce()
 
@@ -786,8 +770,7 @@ def ConvertSSA():
         def run_pass():
             return tr.ConvertSSA()(Before)
 
-        target = tvm.target.Target({"kind": "cuda", "arch": "sm_75"})
-        tvm.ir.assert_structural_equal(run_pass(), tr.BindTarget(target)(Expected))
+        tvm.ir.assert_structural_equal(run_pass(), Expected)
     """
     return _ffi_api.ConvertSSA()  # type: ignore
 
@@ -851,8 +834,7 @@ def MakePackedAPI():
         def run_pass():
             return tr.MakePackedAPI()(Before)
 
-        target = tvm.target.Target({"kind": "cuda", "arch": "sm_75"})
-        tvm.ir.assert_structural_equal(run_pass(), tr.BindTarget(target)(Expected))
+        tvm.ir.assert_structural_equal(run_pass(), Expected)
     """
     return _ffi_api.MakePackedAPI()  # type: ignore
 
@@ -927,8 +909,7 @@ def SplitHostDevice():
         def run_pass():
             return tr.SplitHostDevice()(Before)
 
-        target = tvm.target.Target({"kind": "cuda", "arch": "sm_75"})
-        tvm.ir.assert_structural_equal(run_pass(), tr.BindTarget(target)(Expected))
+        tvm.ir.assert_structural_equal(run_pass(), Expected)
     """
     return _ffi_api.SplitHostDevice()  # type: ignore
 
@@ -966,8 +947,7 @@ def SkipAssert():
         def run_pass():
             return tr.SkipAssert()(Before)
 
-        target = tvm.target.Target({"kind": "cuda", "arch": "sm_75"})
-        tvm.ir.assert_structural_equal(run_pass(), tr.BindTarget(target)(Expected))
+        tvm.ir.assert_structural_equal(run_pass(), Expected)
     """
     return _ffi_api.SkipAssert()  # type: ignore
 
@@ -1016,8 +996,7 @@ def LowerTVMBuiltin():
         def run_pass():
             return tr.LowerTVMBuiltin()(Before)
 
-        target = tvm.target.Target({"kind": "cuda", "arch": "sm_75"})
-        tvm.ir.assert_structural_equal(run_pass(), tr.BindTarget(target)(Expected))
+        tvm.ir.assert_structural_equal(run_pass(), Expected)
     """
     return _ffi_api.LowerTVMBuiltin()  # type: ignore
 
@@ -1059,8 +1038,7 @@ def LowerIntrin():
         def run_pass():
             return tr.LowerIntrin()(Before)
 
-        target = tvm.target.Target({"kind": "cuda", "arch": "sm_75"})
-        tvm.ir.assert_structural_equal(run_pass(), tr.BindTarget(target)(Expected))
+        tvm.ir.assert_structural_equal(run_pass(), Expected)
     """
     return _ffi_api.LowerIntrin()  # type: ignore
 
@@ -1110,8 +1088,7 @@ def NarrowDataType(target_bits: int):
         def run_pass():
             return tr.NarrowDataType(32)(Before)
 
-        target = tvm.target.Target({"kind": "cuda", "arch": "sm_75"})
-        tvm.ir.assert_structural_equal(run_pass(), tr.BindTarget(target)(Expected))
+        tvm.ir.assert_structural_equal(run_pass(), Expected)
     """
     return _ffi_api.NarrowDataType(target_bits)  # type: ignore
 
@@ -1160,8 +1137,7 @@ def ForceNarrowIndexToInt32():
         def run_pass():
             return tr.ForceNarrowIndexToInt32()(Before)
 
-        target = tvm.target.Target({"kind": "cuda", "arch": "sm_75"})
-        tvm.ir.assert_structural_equal(run_pass(), tr.BindTarget(target)(Expected))
+        tvm.ir.assert_structural_equal(run_pass(), Expected)
     """
     return _ffi_api.ForceNarrowIndexToInt32()  # type: ignore
 
@@ -1207,8 +1183,7 @@ def VerifyMemory():
         def run_pass():
             return tr.VerifyMemory()(Before)
 
-        target = tvm.target.Target({"kind": "cuda", "arch": "sm_75"})
-        tvm.ir.assert_structural_equal(run_pass(), tr.BindTarget(target)(Expected))
+        tvm.ir.assert_structural_equal(run_pass(), Expected)
     """
     return _ffi_api.VerifyMemory()  # type: ignore
 
@@ -1250,8 +1225,7 @@ def FlattenTensor():
         def run_pass():
             return tr.FlattenTensor()(Before)
 
-        target = tvm.target.Target({"kind": "cuda", "arch": "sm_75"})
-        tvm.ir.assert_structural_equal(run_pass(), tr.BindTarget(target)(Expected))
+        tvm.ir.assert_structural_equal(run_pass(), Expected)
     """
     return _ffi_api.FlattenTensor()  # type: ignore
 
@@ -1299,8 +1273,7 @@ def BindTarget(target):
         def run_pass():
             return tr.BindTarget(tvm.target.Target("cuda"))(Before)
 
-        target = tvm.target.Target({"kind": "cuda", "arch": "sm_75"})
-        tvm.ir.assert_structural_equal(run_pass(), tr.BindTarget(target)(Expected))
+        tvm.ir.assert_structural_equal(run_pass(), Expected)
     """
     return _ffi_api.BindTarget(target)  # type: ignore
 
@@ -1341,8 +1314,7 @@ def AnnotateEntryFunc():
         def run_pass():
             return tr.AnnotateEntryFunc()(Before)
 
-        target = tvm.target.Target({"kind": "cuda", "arch": "sm_75"})
-        tvm.ir.assert_structural_equal(run_pass(), tr.BindTarget(target)(Expected))
+        tvm.ir.assert_structural_equal(run_pass(), Expected)
     """
     return _ffi_api.AnnotateEntryFunc()  # type: ignore
 
@@ -1379,8 +1351,7 @@ def Filter(fcond: Callable):
         def run_pass():
             return tr.Filter(lambda f: False)(Before)
 
-        target = tvm.target.Target({"kind": "cuda", "arch": "sm_75"})
-        tvm.ir.assert_structural_equal(run_pass(), tr.BindTarget(target)(Expected))
+        tvm.ir.assert_structural_equal(run_pass(), Expected)
     """
     return _ffi_api.Filter(fcond)  # type: ignore
 
