@@ -50,6 +50,19 @@ inline PrimExpr TVMExternCall(const CallObj* call, const std::string& fname) {
       .as_or_throw<PrimExpr>();
 }
 
+#if ENABLE_QHL
+bool UseQHL(const Target& target) {
+  if (auto mattr = target->GetAttr<ffi::Array<ffi::String>>("mattr")) {
+    for (const ffi::String& attr : mattr.value()) {
+      if (attr == "+hvx-qfloat") {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+#endif
+
 template <std::string& tvm_wrapper, unsigned id, int num_sign>
 inline PrimExpr DispatchTVMQHLWrapperFp16(const PrimExpr& e, const Target& target) {
   using namespace tirx;
@@ -58,7 +71,7 @@ inline PrimExpr DispatchTVMQHLWrapperFp16(const PrimExpr& e, const Target& targe
   ffi::Array<PrimExpr> new_args;
 #if ENABLE_QHL
   // Select QHL from the explicit compilation target.
-  bool useqhl = target->str().find("+hvx-qfloat") != std::string::npos;
+  bool useqhl = UseQHL(target);
 
   // Enable QHL library for FP16 data type
   PrimExpr x = call->args[0].as_or_throw<PrimExpr>();
@@ -111,7 +124,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
 
 #if ENABLE_QHL
     // Select QHL from the explicit compilation target.
-    bool useqhl = target->str().find("+hvx-qfloat") != std::string::npos;
+    bool useqhl = UseQHL(target);
 
     // Enable QHL library for FP16 data type
     if (x_ty.MatchesElementType(DLDataTypeCode::kDLFloat, 16) &&
@@ -142,7 +155,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
     PrimType x_ty = x.ty();
 #if ENABLE_QHL
     // Select QHL from the explicit compilation target.
-    bool useqhl = target->str().find("+hvx-qfloat") != std::string::npos;
+    bool useqhl = UseQHL(target);
 
     // Enable QHL library for FP16 data type
     if (x_ty.MatchesElementType(DLDataTypeCode::kDLFloat, 16) &&
@@ -167,7 +180,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
     PrimType x_ty = x.ty();
 #if ENABLE_QHL
     // Select QHL from the explicit compilation target.
-    bool useqhl = target->str().find("+hvx-qfloat") != std::string::npos;
+    bool useqhl = UseQHL(target);
 
     PrimExpr MinBound = tvm::prim::MakeConst(x_ty, -8);
     PrimExpr MaxBound = tvm::prim::MakeConst(x_ty, 8);
