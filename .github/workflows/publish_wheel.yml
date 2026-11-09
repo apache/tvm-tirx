@@ -161,7 +161,7 @@ jobs:
             include_cuda_runtime: "1"
             artifact_suffix: linux-aarch64-manylinux_2_28
           - name: "macOS arm64 wheel with Metal"
-            os: macos-14
+            os: macos-latest
             arch: arm64
             build: cp310-macosx_arm64
             include_cuda_runtime: "0"
