@@ -1258,6 +1258,63 @@ def test_masked_store_non_unit_stride(start, end, expected):
     np.testing.assert_array_equal(b.numpy(), expected)
 
 
+@pytest.mark.skipif(not env.has_llvm(), reason="need llvm")
+@pytest.mark.parametrize("dtype", ["float32", "int8", "float64"])
+@pytest.mark.parametrize("op", ["load", "store"])
+def test_masked_access_non_unit_stride_last_lane(op, dtype):
+    # Only lane 3 of 4 is active, so a wrong predicate lane (e.g. i % 2) is caught.
+    @I.ir_module
+    class LoadModule:
+        @T.function
+        def main(
+            A: T.Tensor((10,), dtype),
+            B: T.Tensor((4,), dtype),
+            lane: T.int32,
+        ):
+            B[T.Ramp(0, 1, 4)] = T.call_intrin(
+                "tirx.masked_load",
+                A,
+                T.Ramp(0, 3, 4),
+                T.Ramp(0, 1, 4) == T.Broadcast(lane, 4),
+                ty=f"{dtype}x4",
+            )
+
+    @I.ir_module
+    class StoreModule:
+        @T.function
+        def main(
+            A: T.Tensor((4,), dtype),
+            B: T.Tensor((10,), dtype),
+            lane: T.int32,
+        ):
+            T.evaluate(
+                T.call_intrin(
+                    "tirx.masked_store",
+                    B,
+                    A[T.Ramp(0, 1, 4)],
+                    T.Ramp(0, 3, 4),
+                    T.Ramp(0, 1, 4) == T.Broadcast(lane, 4),
+                    ty="void",
+                )
+            )
+
+    if op == "load":
+        f = tvm_tirx.compile(LoadModule, target="llvm")
+        a = tvm_tirx.runtime.tensor(np.arange(1, 11).astype(dtype))
+        b = tvm_tirx.runtime.tensor(np.full(4, -1, dtype=dtype))
+        f(a, b, 3)
+        # Inactive lanes are poison, so only the active one is checked.
+        assert b.numpy()[3] == 10
+    else:
+        f = tvm_tirx.compile(StoreModule, target="llvm")
+        a = tvm_tirx.runtime.tensor(np.arange(1, 5).astype(dtype))
+        b = tvm_tirx.runtime.tensor(np.full(10, -1, dtype=dtype))
+        f(a, b, 3)
+        expected = np.full(10, -1, dtype=dtype)
+        expected[9] = 4
+        np.testing.assert_array_equal(b.numpy(), expected)
+
+
 def test_invalid_volatile_masked_buffer_load():
     @I.ir_module
     class Module:
