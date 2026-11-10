@@ -234,6 +234,33 @@ def test_asin_acos_boundary_values():
         run_test(*func)
 
 
+@pytest.mark.parametrize(
+    "name, np_func, low, high",
+    [
+        ("log1p", np.log1p, -0.5, 3.0),
+        ("sinh", np.sinh, -3.0, 3.0),
+        ("cosh", np.cosh, -3.0, 3.0),
+        ("asin", np.arcsin, -0.75, 0.75),
+        ("acos", np.arccos, -0.75, 0.75),
+        ("atan", np.arctan, -4.0, 4.0),
+        ("asinh", np.arcsinh, -4.0, 4.0),
+        ("acosh", np.arccosh, 1.25, 4.0),
+        ("erf", np.vectorize(math.erf), -2.0, 2.0),
+    ],
+)
+def test_unary_intrin_float16(name, np_func, low, high):
+    """Math library externs have no float16 variants; LLVM evaluates them in float32."""
+    kernel = _unary_kernel(getattr(tvm_tirx.tirx, name), dtype="float16")
+    func = tvm_tirx.compile(kernel, target="llvm")
+    dev = tvm_tirx.cpu(0)
+    inputs = np.linspace(low, high, num=17).astype("float16")
+    a = tvm_tirx.runtime.tensor(inputs, dev)
+    b = tvm_tirx.runtime.tensor(np.zeros_like(inputs), dev)
+    func(a, b)
+    expected = np_func(inputs.astype("float64")).astype("float16")
+    tvm_tirx.testing.assert_allclose(b.numpy(), expected, rtol=2e-3, atol=1e-3)
+
+
 def test_binary_intrin():
     test_funcs = [
         (tvm_tirx.tirx.atan2, lambda x1, x2: np.arctan2(x1, x2)),

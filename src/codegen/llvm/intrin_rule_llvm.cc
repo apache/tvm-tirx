@@ -124,7 +124,38 @@ TVM_FFI_STATIC_INIT_BLOCK() {
 namespace legalize {
 using tirx::FLegalize;
 
+// The C math library has no float16 entry points, so FloatSuffix names no
+// extern for a float16 call and the call would reach codegen unlowered.
+// Evaluate such calls in float32 and narrow the result back. bfloat16 does not
+// need this: BF16ComputeLegalize has already widened it to float32.
+bool IsFloat16(const PrimType& ty) { return ty->dtype.code == kDLFloat && ty->dtype.bits == 16; }
+
+PrimExpr ComputeFloat16InFloat32(const CallObj* call) {
+  PrimType ty = call->ty.as_or_throw<PrimType>();
+  PrimType f32 = ty.WithBits(32);
+  ffi::Array<PrimExpr> args;
+  for (const PrimExpr& arg : call->args.as_or_throw<ffi::Array<PrimExpr>>()) {
+    args.push_back(cast(arg, f32));
+  }
+  return cast(Call(f32, call->op, args).as_or_throw<PrimExpr>(), ty);
+}
+
+PrimExpr LegalizeFloat16ViaFloat32(const PrimExpr& e, const Target& target) {
+  const CallObj* call = e.as<CallObj>();
+  TVM_FFI_ICHECK(call != nullptr);
+  if (IsFloat16(call->ty.as_or_throw<PrimType>())) {
+    return ComputeFloat16InFloat32(call);
+  }
+  return e;
+}
+
 TVM_FFI_STATIC_INIT_BLOCK() {
+  // Ops that lower through a C math library extern and have no LLVM intrinsic.
+  for (const char* name : {"prim.log1p", "prim.sinh", "prim.cosh", "prim.atan", "prim.asinh",
+                           "prim.acosh", "prim.erf"}) {
+    OpDef(name).set_attr<FLegalize>("llvm.FLegalize", LegalizeFloat16ViaFloat32);
+  }
+
   // clang-format off
   OpDef("prim.exp10")
       .set_attr<FLegalize>("llvm.FLegalize", [](const PrimExpr& e, const Target& target) -> PrimExpr {
@@ -151,6 +182,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
     using namespace intrin;
     const CallObj* call = e.as<CallObj>();
     TVM_FFI_ICHECK(call != nullptr);
+    if (IsFloat16(call->ty.as_or_throw<PrimType>())) return ComputeFloat16InFloat32(call);
     return ::tvm::codegen::intrin::DispatchPureExtern<::tvm::codegen::intrin::FloatSuffix>(e, target);
   });
 
@@ -159,6 +191,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
     using namespace intrin;
     const CallObj* call = e.as<CallObj>();
     TVM_FFI_ICHECK(call != nullptr) << "Invalid call node in acos legalization";
+    if (IsFloat16(call->ty.as_or_throw<PrimType>())) return ComputeFloat16InFloat32(call);
     return ::tvm::codegen::intrin::DispatchPureExtern<::tvm::codegen::intrin::FloatSuffix>(e, target);
   });
 
