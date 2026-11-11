@@ -3271,6 +3271,13 @@ def _check_set_packed(m):
     return None
 
 
+def _check_sin_cos_2pi(m):
+    """`.2pi` requires `.ftz` (PTX ISA 9.7.3.18/19, PTX ISA 9.5)."""
+    if m["unit"] and not m["ftz"]:
+        return ".ftz is required when .2pi is specified"
+    return None
+
+
 _PTX_94_ENTRIES = [
     # PTX ISA 9.4, 9.7.5.1/2 -- SM107 mixed packed add/sub.  Keep the
     # three type positions independent: the syntax defines one up-conversion
@@ -6427,20 +6434,36 @@ _ENTRIES = [
     # half-precision forms (9.7.4.10) are the `ex2_half` entry below: they
     # cannot share this optional `.ftz` slot, because theirs is mandatory on
     # the bf16 line and unspelled on the f16 one.
+    #
+    # PTX ISA 9.5 adds `{.2pi}` to sin and cos only -- `op.approx{.2pi}{.ftz}.f32`,
+    # reading the input in cycles (1.0 is one full turn) -- and "the .ftz
+    # qualifier is required when .2pi is specified", which `_check_sin_cos_2pi`
+    # states.  It is a qualifier on the same syntax line, so it is a slot here
+    # rather than an entry in `_PTX_95_ENTRIES`, and the helper signature of
+    # `T.ptx.sin`/`T.ptx.cos` stays the one shape it was.  `2pi` is not a Python
+    # identifier, so programs spell it through the string form
+    # (`T.ptx["sin.approx.2pi.ftz.f32"]`), as they do the TMA `1d`..`5d` dims.
+    # "Supported on all target architectures."  MEASURED on CUDA 13.5: assembles
+    # at sm_75, sm_90, sm_100 and sm_107a; without `.ftz` ptxas answers ".ftz
+    # modifier required for instruction 'sin' with modifier '.2pi'"; lg2 and ex2
+    # refuse `.2pi` ("Illegal modifier"); `.version 9.4` refuses it.
     *[
         InstructionEntry(
             name=name,
             slots=(
                 ModifierSlot("mode", ("approx",)),
+                *((ModifierSlot("unit", ("2pi",), optional=True),) if trig else ()),
                 ModifierSlot("ftz", ("ftz",), optional=True),
                 ModifierSlot("type", ("f32",)),
             ),
+            check=_check_sin_cos_2pi if trig else None,
             operands=(
                 OperandSlot("d", rw="w"),
                 OperandSlot("value"),
             ),
         )
         for name in ("ex2", "sin", "cos", "lg2")
+        for trig in (name in ("sin", "cos"),)
     ],
     # tanh per PTX ISA 9.7.3.22: `tanh.approx.f32 d, a;` -- alone among the
     # approximations in spelling no `.ftz`, so it gets no such slot. Requires

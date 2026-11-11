@@ -373,7 +373,9 @@ class _Chain_copysign:
     ) -> None: ...
 
 class _Chain_cos:
-    """`cos` — mode∈{approx}; ftz∈{ftz} (opt); type∈{f32}"""
+    """`cos` — mode∈{approx}; unit∈{2pi} (opt); ftz∈{ftz} (opt); type∈{f32} — `.2pi` requires
+    `.ftz` (PTX ISA 9.7.3.18/19, PTX ISA 9.5).
+    """
 
     approx: _Chain_cos
     f32: _Chain_cos
@@ -1901,7 +1903,9 @@ class _Chain_shr:
     ) -> None: ...
 
 class _Chain_sin:
-    """`sin` — mode∈{approx}; ftz∈{ftz} (opt); type∈{f32}"""
+    """`sin` — mode∈{approx}; unit∈{2pi} (opt); ftz∈{ftz} (opt); type∈{f32} — `.2pi` requires
+    `.ftz` (PTX ISA 9.7.3.18/19, PTX ISA 9.5).
+    """
 
     approx: _Chain_sin
     f32: _Chain_sin

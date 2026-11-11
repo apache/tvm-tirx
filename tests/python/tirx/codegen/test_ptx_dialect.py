@@ -3146,6 +3146,87 @@ def test_ptx_95_sync_gpu_executes():
     tvm_tirx.testing.run_with_gpu_lock(run_and_check)
 
 
+def test_ptx_95_sin_cos_2pi_variants():
+    """sin/cos gain PTX 9.5's `.2pi`, legal only together with `.ftz`; lg2/ex2 do not."""
+    from tvm_tirx.backend.cuda.ptx.render import render_variant
+    from tvm_tirx.backend.cuda.ptx.table import TABLE, tokens_for, variants
+
+    for name in ("sin", "cos"):
+        entry = TABLE[name]
+        assert entry.cert_arch is None  # "Supported on all target architectures."
+        assert entry.check({"mode": "approx", "unit": "2pi", "ftz": "", "type": "f32"})
+        assert len(variants(entry)) == 3  # {plain, .ftz, .2pi.ftz}
+        opcode = render_variant(
+            entry, tokens_for(entry, mode="approx", unit="2pi", ftz="ftz", type="f32")
+        )[0]
+        assert opcode == f"{name}.approx.2pi.ftz.f32"
+    for name in ("lg2", "ex2"):
+        assert "unit" not in {slot.name for slot in TABLE[name].slots}
+
+
+def _ptx_95_sin_cos_2pi_kernel():
+    @T.function
+    def kernel(
+        A: T.Tensor((256,), "float32"),
+        S: T.Tensor((256,), "float32"),
+        C: T.Tensor((256,), "float32"),
+    ):
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=256))
+        tx = T.cuda.thread_idx("x")
+        s = T.local_scalar("float32")
+        c = T.local_scalar("float32")
+        T.ptx["sin.approx.2pi.ftz.f32"](s, A[tx])
+        T.ptx["cos.approx.2pi.ftz.f32"](c, A[tx])
+        S[tx] = s
+        C[tx] = c
+
+    return kernel
+
+
+@pytest.mark.skipif(not env.has_nvcc_version(13, 5), reason="sin/cos .2pi is a PTX 9.5 form")
+@requires_nvcc
+def test_ptx_95_sin_cos_2pi_codegen():
+    src = _cuda_source(_ptx_95_sin_cos_2pi_kernel())
+    assert "sin.approx.2pi.ftz.f32 %0, %1;" in src
+    assert "cos.approx.2pi.ftz.f32 %0, %1;" in src
+    _assert_ptxas_ok(src)
+
+
+@pytest.mark.gpu
+@pytest.mark.skipif(not env.has_nvcc_version(13, 5), reason="sin/cos .2pi is a PTX 9.5 form")
+@pytest.mark.skipif(not env.has_cuda(), reason="CUDA GPU not available")
+def test_ptx_95_sin_cos_2pi_gpu_accuracy():
+    """`.2pi` reads its input in cycles; check the ISA's stated absolute error bounds.
+
+    9.7.3.18/19: for cycles as input the maximum absolute error is 2^-20 (sin) and
+    2^-19.9 (cos) over [-1, 1], and 2^-14.2 for both over [-50, 50].
+    """
+    mod = tvm_tirx.compile(
+        tvm_tirx.IRModule({"main": _ptx_95_sin_cos_2pi_kernel()}), target=TARGET, pipeline="tirx"
+    )
+    rng = np.random.default_rng(0)
+    cases = (
+        (np.float32(1.0), 2.0**-20, 2.0**-19.9),
+        (np.float32(50.0), 2.0**-14.2, 2.0**-14.2),
+    )
+
+    def run_and_check():
+        dev = tvm_tirx.cuda(0)
+        for bound, sin_tol, cos_tol in cases:
+            x = rng.uniform(-bound, bound, 256).astype(np.float32)
+            # Exact turns and quarter turns, where the result is exactly 0 or +-1.
+            x[:9] = np.array([0, 0.25, 0.5, 0.75, 1, -0.25, -0.5, -0.75, -1], dtype=np.float32)
+            a = tvm_tirx.runtime.tensor(x, device=dev)
+            s = tvm_tirx.runtime.tensor(np.zeros(256, dtype=np.float32), device=dev)
+            c = tvm_tirx.runtime.tensor(np.zeros(256, dtype=np.float32), device=dev)
+            mod(a, s, c)
+            turns = 2.0 * np.pi * x.astype(np.float64)
+            assert np.max(np.abs(s.numpy() - np.sin(turns))) <= sin_tol
+            assert np.max(np.abs(c.numpy() - np.cos(turns))) <= cos_tol
+
+    tvm_tirx.testing.run_with_gpu_lock(run_and_check)
+
+
 def test_ptx_tcgen05_mapa_address_rendering():
     """Optional state spaces select generic versus shared address carriers."""
     from tvm_tirx.backend.cuda.ptx.render import render_variant
@@ -4246,7 +4327,7 @@ def test_ptx_all_variants_render_unique():
             _, helper, _ = render_variant(entry, *args, addr_offsets=addr_offsets)
             assert helper not in names, f"address-offset helper name collision: {helper}"
             names.add(helper)
-    assert total == 762182  # update when the table grows or a ptxas gap narrows it
+    assert total == 762184  # update when the table grows or a ptxas gap narrows it
 
 
 def test_ptx_no_instruction_registered_twice():
