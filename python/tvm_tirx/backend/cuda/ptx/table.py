@@ -5726,8 +5726,95 @@ _PTX_94_ENTRIES = [
     ),
 ]
 
+# PTX ISA 9.5 additions, grouped by ISA release like `_PTX_94_ENTRIES`.  Every
+# MEASURED note in this group records CUDA 13.5 ptxas behaviour, and ptxas
+# refuses these spellings under `.version 9.4` ("Feature ... requires PTX ISA
+# .version 9.5 or later").
+_PTX_95_ENTRIES = [
+    # fabric.submit.commit_group / fabric.wait.sync_restrict::read N, per PTX
+    # ISA 9.7.11.5.5 and 9.7.11.5.6 (both "Requires sm_100 or higher").
+    #
+    # A fabric submit group tracks the submit of every prior fabric operation
+    # of the issuing thread; `fabric.wait.sync_restrict::read N` waits until at
+    # most N of the most recent groups are pending, after which the
+    # .shared::cta data those groups read may be overwritten -- the same
+    # commit/wait shape as cp.async.bulk.  They are entries of their own rather
+    # than extra choices on the PTX 9.3 `fabric_submit`/`fabric_wait`: they are
+    # separate syntax lines (the wait gains an operand), and the 9.3 entries
+    # keep their own sm_103a certification manifest.
+    #
+    # N is an integer constant with no ISA-declared domain, kept OPEN like
+    # cp.async.bulk.wait_group's.  MEASURED: N = 0 and N = 255 assemble at
+    # sm_100, sm_100a, sm_103a and sm_107f; sm_90 and sm_90a refuse the
+    # instruction.
+    InstructionEntry(  # fabric.submit.commit_group;
+        name="fabric_submit_commit_group",
+        mnemonic="fabric",
+        slots=(
+            ModifierSlot("action", ("submit",)),
+            ModifierSlot("group", ("commit_group",)),
+        ),
+        cert_arch="sm_100",
+        orders_memory=True,
+        operands=(),
+    ),
+    InstructionEntry(  # fabric.wait.sync_restrict::read N;
+        name="fabric_wait_read",
+        mnemonic="fabric",
+        slots=(
+            ModifierSlot("action", ("wait",)),
+            ModifierSlot("waitop", ("sync_restrict::read",)),
+        ),
+        cert_arch="sm_100",
+        orders_memory=True,
+        operands=(OperandSlot("group", kind="imm"),),
+    ),
+    # cp.async.bulk.wait_group.sync_restrict::proxy::async N, per PTX ISA
+    # 9.7.10.28.6.2: the qualifier "only orders async-proxy global and shared
+    # memory accesses before subsequent async-proxy accesses; not before
+    # subsequent generic-proxy accesses".  It is its own syntax line, without
+    # `{.read}`: MEASURED, ptxas answers "Invalid combination of
+    # '.sync_restrict::proxy::async' and '.read'" at every architecture.
+    #
+    # The ISA requires sm_100 or higher.  MEASURED: ptxas also assembles it at
+    # sm_90 and sm_90a; the table follows the ISA where ptxas is the more
+    # permissive of the two, so this entry certifies at sm_100.
+    InstructionEntry(  # cp.async.bulk.wait_group.sync_restrict::proxy::async N;
+        name="cp_async_bulk_wait_group_proxy_async",
+        mnemonic="cp",
+        slots=(
+            ModifierSlot("api", ("async",)),
+            ModifierSlot("kind", ("bulk",)),
+            ModifierSlot("action", ("wait_group",)),
+            ModifierSlot("sync_restrict", ("sync_restrict::proxy::async",)),
+        ),
+        cert_arch="sm_100",
+        orders_memory=True,
+        operands=(OperandSlot("group", kind="imm"),),
+    ),
+    # fence.alias.sync_restrict::read.release.sys, per PTX ISA 9.7.15.4: the
+    # generic-proxy to generic-proxy alias fence ("requires sm_90 or higher").
+    # A fixed token sequence.  MEASURED: ptxas refuses any other scope
+    # ("Modifier '.sync_restrict::read' cannot be combined with modifier
+    # '.gpu'").
+    InstructionEntry(  # fence.alias.sync_restrict::read.release.sys;
+        name="fence_alias_sync_restrict_read",
+        mnemonic="fence",
+        slots=(
+            ModifierSlot("proxykind", ("alias",)),
+            ModifierSlot("sync_restrict", ("sync_restrict::read",)),
+            ModifierSlot("sem", ("release",)),
+            ModifierSlot("scope", ("sys",)),
+        ),
+        cert_arch="sm_90",
+        orders_memory=True,
+        operands=(),
+    ),
+]
+
 _ENTRIES = [
     *_PTX_94_ENTRIES,
+    *_PTX_95_ENTRIES,
     # ------------------------------------------------------------------
     # PTX ISA 9.7.1 — Integer Arithmetic Instructions
     # ------------------------------------------------------------------
@@ -9168,6 +9255,10 @@ _ENTRIES = [
         orders_memory=True,
         operands=(),
     ),
+    # `fabric.wait.sync_restrict::reads` is deprecated by PTX ISA 9.5 in
+    # favour of `fabric.wait.sync_restrict::read N` with
+    # `fabric.submit.commit_group` (both in `_PTX_95_ENTRIES`), and "has no
+    # effect" (9.7.11.5.6). Kept so existing programs keep their spelling.
     InstructionEntry(
         name="fabric_wait",
         mnemonic="fabric",
@@ -9486,9 +9577,10 @@ _ENTRIES = [
     # alone is not enough. Each syntax line whose token sequence differs is its
     # own entry, all sharing the `fence` mnemonic, so the surface stays
     # `T.ptx.fence...` and the chain narrows on the tokens themselves.
-    # NOT REGISTERED: the `.sync_restrict` lines (fixed token sequences with no
-    # users yet), and the deprecated `membar` spellings, which the ISA itself
-    # marks as the old style for `fence`.
+    # NOT REGISTERED: the pre-9.5 `.sync_restrict` lines (fixed token
+    # sequences with no users yet), and the deprecated `membar` spellings,
+    # which the ISA itself marks as the old style for `fence`. PTX ISA 9.5's
+    # `fence.alias.sync_restrict::read.release.sys` is in `_PTX_95_ENTRIES`.
     InstructionEntry(  # fence{.sem}.scope;
         name="fence",
         slots=(

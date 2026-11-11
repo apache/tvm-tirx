@@ -3059,6 +3059,93 @@ def test_ptx_94_sm107_arch_floors_and_delta():
     assert {TABLE[name].cert_arch for name in noftz_siblings} == {"sm_90"}
 
 
+_PTX_95_SYNC_FLOORS = {
+    "fabric_submit_commit_group": "sm_100",
+    "fabric_wait_read": "sm_100",
+    "cp_async_bulk_wait_group_proxy_async": "sm_100",
+    "fence_alias_sync_restrict_read": "sm_90",
+}
+
+
+def test_ptx_95_sync_entries_floors_and_delta():
+    """PTX 9.5 commit/wait/fence lines live in the 9.5 delta at their ISA floor."""
+    from tvm_tirx.backend.cuda.ptx.table import _PTX_95_ENTRIES, TABLE
+
+    assert {name: TABLE[name].cert_arch for name in _PTX_95_SYNC_FLOORS} == _PTX_95_SYNC_FLOORS
+    assert set(_PTX_95_SYNC_FLOORS) <= {entry.name for entry in _PTX_95_ENTRIES}
+    # `.read` and `.sync_restrict::proxy::async` are separate syntax lines.
+    proxy = TABLE["cp_async_bulk_wait_group_proxy_async"]
+    assert "read" not in {slot.name for slot in proxy.slots}
+
+
+def _ptx_95_sync_kernel():
+    @T.function
+    def kernel(A: T.Tensor((32,), "uint32")):
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=32))
+        tx = T.cuda.thread_idx("x")
+        T.ptx.fabric.submit.commit_group()
+        T.ptx.fabric.wait.sync_restrict__read(0)
+        T.ptx["fabric.wait.sync_restrict::read"](3)
+        T.ptx.fabric.wait.sync_restrict__reads()
+        T.ptx.cp.async_.bulk.wait_group.sync_restrict__proxy__async(2)
+        T.ptx.cp.async_.bulk.wait_group(1)
+        T.ptx.cp.async_.bulk.wait_group.read(0)
+        T.ptx.fence.alias.sync_restrict__read.release.sys()
+        A[tx] = tx + T.uint32(7)
+
+    return kernel
+
+
+@pytest.mark.skipif(
+    not env.has_nvcc_version(13, 5),
+    reason="fabric commit groups, proxy-restricted bulk waits and the alias fence are PTX 9.5",
+)
+@requires_nvcc
+def test_ptx_95_sync_codegen():
+    """The PTX 9.5 lines render verbatim beside their pre-9.5 siblings and assemble."""
+    src = _cuda_source(
+        _ptx_95_sync_kernel(), tvm_tirx.target.Target({"kind": "cuda", "arch": "sm_100a"})
+    )
+    for text in (
+        "fabric.submit.commit_group;",
+        "fabric.wait.sync_restrict::read 0;",
+        "fabric.wait.sync_restrict::read 3;",
+        "fabric.wait.sync_restrict::reads;",
+        "cp.async.bulk.wait_group.sync_restrict::proxy::async 2;",
+        "cp.async.bulk.wait_group 1;",
+        "cp.async.bulk.wait_group.read 0;",
+        "fence.alias.sync_restrict::read.release.sys;",
+    ):
+        assert text in src, text
+    # Every one of them orders memory without naming an address.
+    assert src.count('"fabric.submit.commit_group;" :  :  : "memory"') == 1
+    _assert_ptxas_ok(src, arch="sm_100a")
+
+
+@pytest.mark.gpu
+@pytest.mark.skipif(
+    not env.has_nvcc_version(13, 5),
+    reason="fabric commit groups, proxy-restricted bulk waits and the alias fence are PTX 9.5",
+)
+@pytest.mark.skipif(
+    not env.has_cuda() or env.cuda_arch() is None or int(env.cuda_arch()[3:6]) < 100,
+    reason="needs an sm_100+ CUDA GPU",
+)
+def test_ptx_95_sync_gpu_executes():
+    """With nothing pending, every PTX 9.5 wait returns at once and the kernel completes."""
+    mod = tvm_tirx.compile(
+        tvm_tirx.IRModule({"main": _ptx_95_sync_kernel()}), target=TARGET, pipeline="tirx"
+    )
+
+    def run_and_check():
+        dev = tvm_tirx.cuda(0)
+        a = tvm_tirx.runtime.tensor(np.zeros(32, dtype=np.uint32), device=dev)
+        mod(a)
+        np.testing.assert_array_equal(a.numpy(), np.arange(32, dtype=np.uint32) + 7)
+
+    tvm_tirx.testing.run_with_gpu_lock(run_and_check)
+
+
 def test_ptx_tcgen05_mapa_address_rendering():
     """Optional state spaces select generic versus shared address carriers."""
     from tvm_tirx.backend.cuda.ptx.render import render_variant
@@ -4159,7 +4246,7 @@ def test_ptx_all_variants_render_unique():
             _, helper, _ = render_variant(entry, *args, addr_offsets=addr_offsets)
             assert helper not in names, f"address-offset helper name collision: {helper}"
             names.add(helper)
-    assert total == 762178  # update when the table grows or a ptxas gap narrows it
+    assert total == 762182  # update when the table grows or a ptxas gap narrows it
 
 
 def test_ptx_no_instruction_registered_twice():
@@ -4373,14 +4460,20 @@ _PTX_93_SM103A_PHASE_ENTRIES = frozenset(
 
 def _ptx_93_sm103a_manifest():
     """Yield every rendering introduced or extended by PTX 9.3 for SM103a."""
-    from tvm_tirx.backend.cuda.ptx.table import _PTX_94_ENTRIES, TABLE, mods, renderings
+    from tvm_tirx.backend.cuda.ptx.table import (
+        _PTX_94_ENTRIES,
+        _PTX_95_ENTRIES,
+        TABLE,
+        mods,
+        renderings,
+    )
 
-    ptx94 = {entry.name for entry in _PTX_94_ENTRIES}
+    later = {entry.name for entry in (*_PTX_94_ENTRIES, *_PTX_95_ENTRIES)}
     for name, entry in TABLE.items():
-        if name in ptx94:
-            # The 9.4 delta (sm_107f floors, including the cp.async.bulk
-            # `*_report` entries) is certified at its own arch by
-            # test_ptx_all_helpers_certify, not at sm_103a here.
+        if name in later:
+            # The 9.4 and 9.5 deltas (sm_107f floors, the cp.async.bulk
+            # `*_report` entries, fabric submit groups) are certified at their
+            # own arch by test_ptx_all_helpers_certify, not at sm_103a here.
             continue
         for rendering in renderings(entry):
             tokens = rendering[0]
