@@ -86,7 +86,7 @@ set "cuda_root=%CD%"
 popd
 set "CUDA_PATH=%cuda_root%"
 
-python -m pip install -U pip cmake ninja "apache-tvm-ffi>=0.1.16rc4" || exit /b 1
+python -m pip install -U pip cmake ninja "apache-tvm-ffi>=0.1.16" || exit /b 1
 "%nvcc_exe%" --version || exit /b 1
 
 rem nvcc needs the MSVC host compiler (cl.exe), so locate VS via vswhere and run the
