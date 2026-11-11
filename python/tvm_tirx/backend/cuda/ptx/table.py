@@ -5817,6 +5817,78 @@ _PTX_95_ENTRIES = [
         orders_memory=True,
         operands=(),
     ),
+    # tensormap.replace `{.alloc_class}` and tensormap.query.alloc_class_large,
+    # per PTX ISA 9.7.10.29/30: the Tensor Allocation Size of a tensor-map
+    # object, small or large.  Two new tensormap.replace syntax lines --
+    #   tensormap.replace.mode.field4{.alloc_class}{.ss}.b1024.type [addr], new_val;
+    #   tensormap.replace.mode.alloc_class{.ss}.b1024               [addr];
+    # -- where the field-less line takes only .alloc_small/.alloc_large and
+    # `.alloc_same` ("unchanged") exists only beside `.global_address`.  The
+    # global_address line without `.alloc_class` stays the pre-9.5
+    # `tensormap_replace_address` entry; PTX ISA 9.5 clarifies that it now sets
+    # the allocation size to Small.
+    #
+    # "Qualifier .alloc_class is supported on sm_90a, and on following
+    # family-specific architectures: sm_100f / sm_110f / sm_120f or higher in
+    # the same family", and the query has the same list.  MEASURED: all three
+    # assemble at sm_90a, sm_100a, sm_100f, sm_103a, sm_107a, sm_107f and
+    # sm_120f, and are refused at sm_90 and sm_100; `.alloc_same` without a
+    # field answers "Modifier '.alloc_same' requires modifier
+    # '.global_address'", and the other fields refuse `.alloc_*`.
+    #
+    # NOT REGISTERED: the query's `.const` and `.param{::entry}` state spaces.
+    # Neither address can cross the helper-function ABI (the reason `ld` leaves
+    # out `.param`); a `__grid_constant__` kernel-parameter tensor map is
+    # reached through generic addressing, the no-`.ss` spelling registered here.
+    # Nor the query's `.shared::cta`: MEASURED on CUDA 13.5 (sm_90a, sm_100a,
+    # sm_107a), ptxas refuses it with a 32-bit address register -- "Arguments
+    # mismatch for instruction 'mov'" -- while accepting a 64-bit register or a
+    # variable name, and the shared-address ABI here is the 32-bit window
+    # offset (the field-less and global_address replaces take it fine). So a
+    # tensor map in shared memory has no query helper yet; the replaces do.
+    InstructionEntry(  # tensormap.replace.tile.global_address.alloc_class{.ss}.b1024.b64
+        name="tensormap_replace_address_alloc_class",
+        mnemonic="tensormap.replace",
+        slots=(
+            ModifierSlot("mode", ("tile",)),
+            ModifierSlot("field", ("global_address",)),
+            ModifierSlot("alloc_class", ("alloc_small", "alloc_large", "alloc_same")),
+            ModifierSlot("space", ("global", "shared::cta"), optional=True),
+            ModifierSlot("width", ("b1024",)),
+            ModifierSlot("type", ("b64",)),
+        ),
+        cert_arch="sm_90a",
+        operands=(
+            OperandSlot("addr", kind="addr", allow_imm_offset=True),
+            OperandSlot("new_val", dtype="b64"),
+        ),
+    ),
+    InstructionEntry(  # tensormap.replace.tile.alloc_class{.ss}.b1024 [addr];
+        name="tensormap_replace_alloc_class",
+        mnemonic="tensormap.replace",
+        slots=(
+            ModifierSlot("mode", ("tile",)),
+            ModifierSlot("alloc_class", ("alloc_small", "alloc_large")),
+            ModifierSlot("space", ("global", "shared::cta"), optional=True),
+            ModifierSlot("width", ("b1024",)),
+        ),
+        cert_arch="sm_90a",
+        operands=(OperandSlot("addr", kind="addr", allow_imm_offset=True),),
+    ),
+    InstructionEntry(  # tensormap.query.alloc_class_large{.ss}.b1024 p, [addr];
+        name="tensormap_query",
+        mnemonic="tensormap.query",
+        slots=(
+            ModifierSlot("query", ("alloc_class_large",)),
+            ModifierSlot("space", ("global",), optional=True),
+            ModifierSlot("width", ("b1024",)),
+        ),
+        cert_arch="sm_90a",
+        operands=(
+            OperandSlot("p", rw="w", dtype="pred"),
+            OperandSlot("addr", kind="addr", allow_imm_offset=True),
+        ),
+    ),
 ]
 
 _ENTRIES = [
@@ -7589,7 +7661,8 @@ _ENTRIES = [
     # enforces by name.
     # NOT REGISTERED: `.swizzle_atomicity` (sm_100a and later only, while the
     # rest of this instruction is sm_90a), and the `.elemtype` values 13-15 and
-    # `.swizzle_mode` value 4, which need newer architectures still.
+    # `.swizzle_mode` value 4, which need newer architectures still. PTX ISA
+    # 9.5's `.alloc_class` lines and tensormap.query are in `_PTX_95_ENTRIES`.
     *[
         InstructionEntry(
             name=f"tensormap_replace_{group}",

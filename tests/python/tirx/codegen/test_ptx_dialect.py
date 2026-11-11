@@ -3227,6 +3227,126 @@ def test_ptx_95_sin_cos_2pi_gpu_accuracy():
     tvm_tirx.testing.run_with_gpu_lock(run_and_check)
 
 
+_PTX_95_TENSORMAP_ENTRIES = (
+    "tensormap_replace_address_alloc_class",
+    "tensormap_replace_alloc_class",
+    "tensormap_query",
+)
+
+
+def test_ptx_95_tensormap_alloc_class_entries():
+    """The 9.5 allocation-class lines certify at sm_90a; `.alloc_same` needs a field."""
+    from tvm_tirx.backend.cuda.ptx.table import _PTX_95_ENTRIES, TABLE
+
+    delta = {entry.name for entry in _PTX_95_ENTRIES}
+    for name in _PTX_95_TENSORMAP_ENTRIES:
+        assert name in delta and TABLE[name].cert_arch == "sm_90a"
+
+    def alloc_choices(name):
+        (slot,) = [s for s in TABLE[name].slots if s.name == "alloc_class"]
+        return slot.choices
+
+    assert alloc_choices("tensormap_replace_address_alloc_class") == (
+        "alloc_small",
+        "alloc_large",
+        "alloc_same",
+    )
+    assert alloc_choices("tensormap_replace_alloc_class") == ("alloc_small", "alloc_large")
+
+
+def _ptx_95_tensormap_alloc_class_kernel():
+    @T.function
+    def kernel(TM: T.Tensor((32,), "uint32"), OUT: T.Tensor((6,), "uint32")):
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=1))
+        p = T.local_scalar("uint32")
+        smem = T.alloc_tensor(ty_args=[T.Tensor((32,), "uint32", scope="shared")])
+        tmap = TM.ptr_to([0])
+        query = T.ptx["tensormap_query.alloc_class_large.global.b1024"]
+        # Field-less lines.
+        T.ptx["tensormap_replace.tile.alloc_large.global.b1024"](tmap)
+        query(p, tmap)
+        OUT[0] = p
+        T.ptx["tensormap_replace.tile.alloc_small.global.b1024"](tmap)
+        query(p, tmap)
+        OUT[1] = p
+        # `.global_address` with an explicit class.
+        T.ptx["tensormap_replace.tile.global_address.alloc_large.global.b1024.b64"](
+            tmap, T.uint64(0x10000)
+        )
+        query(p, tmap)
+        OUT[2] = p
+        # PTX 9.5 clarification: `.global_address` without `.alloc_class` sets Small.
+        T.ptx["tensormap_replace.tile.global_address.global.b1024.b64"](tmap, T.uint64(0x20000))
+        query(p, tmap)
+        OUT[3] = p
+        # `.alloc_same` keeps whatever class the object already has.
+        T.ptx["tensormap_replace.tile.alloc_large.global.b1024"](tmap)
+        T.ptx["tensormap_replace.tile.global_address.alloc_same.global.b1024.b64"](
+            tmap, T.uint64(0x30000)
+        )
+        query(p, tmap)
+        OUT[4] = p
+        # Generic addressing reads the same object.
+        T.ptx["tensormap_query.alloc_class_large.b1024"](p, tmap)
+        OUT[5] = p
+        # The shared::cta replaces assemble and run; the query has no shared::cta
+        # helper (see the table), so their effect is not observed here.
+        T.ptx["tensormap_replace.tile.alloc_small.shared::cta.b1024"](smem.ptr_to([0]))
+        T.ptx["tensormap_replace.tile.global_address.alloc_large.shared::cta.b1024.b64"](
+            smem.ptr_to([0]), T.uint64(0x40000)
+        )
+
+    return kernel
+
+
+@pytest.mark.skipif(
+    not env.has_nvcc_version(13, 5), reason="tensor-map allocation classes are PTX 9.5"
+)
+@requires_nvcc
+def test_ptx_95_tensormap_alloc_class_codegen():
+    src = _cuda_source(
+        _ptx_95_tensormap_alloc_class_kernel(),
+        tvm_tirx.target.Target({"kind": "cuda", "arch": "sm_90a"}),
+    )
+    for text in (
+        "tensormap.replace.tile.alloc_large.global.b1024 [%0];",
+        "tensormap.replace.tile.alloc_small.shared::cta.b1024 [%0];",
+        "tensormap.replace.tile.global_address.alloc_large.shared::cta.b1024.b64 [%0], %1;",
+        "tensormap.replace.tile.global_address.alloc_large.global.b1024.b64 [%0], %1;",
+        "tensormap.replace.tile.global_address.alloc_same.global.b1024.b64 [%0], %1;",
+        "tensormap.query.alloc_class_large.global.b1024 pd0, [%1];",
+        "tensormap.query.alloc_class_large.b1024 pd0, [%1];",
+    ):
+        assert text in src, text
+    _assert_ptxas_ok(src, arch="sm_90a")
+
+
+@pytest.mark.gpu
+@pytest.mark.skipif(
+    not env.has_nvcc_version(13, 5), reason="tensor-map allocation classes are PTX 9.5"
+)
+@pytest.mark.skipif(
+    not env.has_cuda() or env.cuda_arch() is None or int(env.cuda_arch()[3:6]) < 90,
+    reason="needs an sm_90+ CUDA GPU",
+)
+def test_ptx_95_tensormap_alloc_class_gpu():
+    """Each replace leaves the class the ISA says, as observed by the query."""
+    mod = tvm_tirx.compile(
+        tvm_tirx.IRModule({"main": _ptx_95_tensormap_alloc_class_kernel()}),
+        target=TARGET,
+        pipeline="tirx",
+    )
+
+    def run_and_check():
+        dev = tvm_tirx.cuda(0)
+        tm = tvm_tirx.runtime.tensor(np.zeros(32, dtype=np.uint32), device=dev)
+        out = tvm_tirx.runtime.tensor(np.full(6, 7, dtype=np.uint32), device=dev)
+        mod(tm, out)
+        np.testing.assert_array_equal(out.numpy(), [1, 0, 1, 0, 1, 1])
+
+    tvm_tirx.testing.run_with_gpu_lock(run_and_check)
+
+
 def test_ptx_tcgen05_mapa_address_rendering():
     """Optional state spaces select generic versus shared address carriers."""
     from tvm_tirx.backend.cuda.ptx.render import render_variant
@@ -4327,7 +4447,7 @@ def test_ptx_all_variants_render_unique():
             _, helper, _ = render_variant(entry, *args, addr_offsets=addr_offsets)
             assert helper not in names, f"address-offset helper name collision: {helper}"
             names.add(helper)
-    assert total == 762184  # update when the table grows or a ptxas gap narrows it
+    assert total == 762219  # update when the table grows or a ptxas gap narrows it
 
 
 def test_ptx_no_instruction_registered_twice():

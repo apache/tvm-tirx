@@ -2321,11 +2321,30 @@ class _Chain_tensormap_cp_fenceproxy:
     tensormap__generic: _Chain_tensormap_cp_fenceproxy
     def __call__(self, dst_mem: Any, src_mem: Any, *args: Any, pred: Any = None) -> None: ...
 
+class _Chain_tensormap_query:
+    """`tensormap_query` — query∈{alloc_class_large}; space∈{global} (opt); width∈{b1024}"""
+
+    alloc_class_large: _Chain_tensormap_query
+    b1024: _Chain_tensormap_query
+    global_: _Chain_tensormap_query
+    def __call__(
+        self,
+        p: Any,
+        addr: Any,
+        *args: Any,
+        pred: Any = None,
+        preserve_dst: bool = False,
+    ) -> None: ...
+
 class _Chain_tensormap_replace:
-    """`tensormap_replace` — 9 entries sharing this mnemonic; PTX puts their difference in the
-    operand list, so the call selects one. Shapes: (addr, new_val); (addr, ord, new_val)
+    """`tensormap_replace` — 11 entries sharing this mnemonic; PTX puts their difference in the
+    operand list, so the call selects one. Shapes: (addr, new_val); (addr); (addr, ord,
+    new_val)
     """
 
+    alloc_large: _Chain_tensormap_replace
+    alloc_same: _Chain_tensormap_replace
+    alloc_small: _Chain_tensormap_replace
     b1024: _Chain_tensormap_replace
     b32: _Chain_tensormap_replace
     b64: _Chain_tensormap_replace
@@ -2632,6 +2651,7 @@ class _PTX:
     tanh: _Chain_tanh
     tcgen05: _Chain_tcgen05
     tensormap_cp_fenceproxy: _Chain_tensormap_cp_fenceproxy
+    tensormap_query: _Chain_tensormap_query
     tensormap_replace: _Chain_tensormap_replace
     testp: _Chain_testp
     vote_sync: _Chain_vote_sync
