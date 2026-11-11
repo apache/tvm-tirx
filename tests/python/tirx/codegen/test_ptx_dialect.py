@@ -1227,16 +1227,15 @@ def test_ptx_integer_arithmetic_dispatch():
             T.device_entry()
             T.ptx.mad.lo.sat.s32(out[0], T.int32(2), T.int32(3), T.int32(4))
 
-    # The unavailable add.sat forms added in PTX 9.2 are distinct from the
-    # integer lines on which `.sat` has never been legal. Keep both reasons
-    # visible so an invalid spelling is not misreported as an architecture
-    # gate. In particular, sub.sat.u32 is not the counterpart of add.sat.u32.
-    with pytest.raises(ValueError, match="sm_120f-only"):
-
-        @T.function
-        def add_sat_sm120(out: T.Tensor((1,), "uint32")):
-            T.device_entry()
-            T.ptx.add.sat.u32(out[0], T.uint32(2), T.uint32(3))
+    # The add.sat forms PTX 9.2 gave to sm_107f/sm_120f resolve to their sm_107f
+    # sibling entry. They are distinct from the integer lines on which `.sat` has
+    # never been legal, whose reason stays visible below so an invalid spelling
+    # is not misreported as an architecture gate. In particular, sub.sat.u32 is
+    # not the counterpart of add.sat.u32.
+    @T.function
+    def add_sat_sm107f(out: T.Tensor((1,), "uint32")):
+        T.device_entry()
+        T.ptx.add.sat.u32(out[0], T.uint32(2), T.uint32(3))
 
     with pytest.raises(ValueError, match=r"not on the add\.u64"):
 
@@ -3347,6 +3346,180 @@ def test_ptx_95_tensormap_alloc_class_gpu():
     tvm_tirx.testing.run_with_gpu_lock(run_and_check)
 
 
+_SM107F_PACKED_INT_OPCODES = {
+    "add_int_sm107f": {
+        "add.u8x4",
+        "add.s8x4",
+        "add.sat.u8x4",
+        "add.sat.s8x4",
+        "add.sat.u32",
+        "add.sat.u16x2",
+        "add.sat.s16x2",
+    },
+    "sub_int_sm107f": {"sub.u8x4", "sub.s8x4", "sub.sat.u8x4", "sub.sat.s8x4"},
+    "neg_int_sm107f": {"neg.s8x4"},
+    "min_int8x4": {"min.u8x4", "min.s8x4", "min.relu.s8x4"},
+    "max_int8x4": {"max.u8x4", "max.s8x4", "max.relu.s8x4"},
+}
+
+
+def test_ptx_sm107f_packed_int_entries():
+    """The sm_107f/sm_120f packed-integer lines are sm_107f siblings, exactly these opcodes."""
+    from tvm_tirx.backend.cuda.ptx.render import render_variant
+    from tvm_tirx.backend.cuda.ptx.table import TABLE, variants
+
+    for name, expected in _SM107F_PACKED_INT_OPCODES.items():
+        entry = TABLE[name]
+        assert entry.cert_arch == "sm_107f", name
+        assert {render_variant(entry, tokens)[0] for tokens in variants(entry)} == expected
+    # The families they extend keep their pre-sm_107 floors.
+    assert TABLE["add_int"].cert_arch == "sm_90"
+    assert TABLE["sub_int"].cert_arch is None and TABLE["neg_int"].cert_arch is None
+
+
+def _sm107f_packed_int_kernel():
+    @T.function
+    def kernel(
+        A: T.Tensor((256,), "uint32"),
+        B: T.Tensor((256,), "uint32"),
+        D: T.Tensor((16, 256), "uint32"),
+    ):
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=256))
+        tx = T.cuda.thread_idx("x")
+        a = A[tx]
+        b = B[tx]
+        d = T.local_scalar("uint32")
+        T.ptx.add.u8x4(d, a, b)
+        D[0, tx] = d
+        T.ptx.add.sat.u8x4(d, a, b)
+        D[1, tx] = d
+        T.ptx.add.s8x4(d, a, b)
+        D[2, tx] = d
+        T.ptx.add.sat.s8x4(d, a, b)
+        D[3, tx] = d
+        T.ptx.sub.u8x4(d, a, b)
+        D[4, tx] = d
+        T.ptx.sub.sat.u8x4(d, a, b)
+        D[5, tx] = d
+        T.ptx.sub.sat.s8x4(d, a, b)
+        D[6, tx] = d
+        T.ptx.neg.s8x4(d, a)
+        D[7, tx] = d
+        T.ptx.min.u8x4(d, a, b)
+        D[8, tx] = d
+        T.ptx.max.s8x4(d, a, b)
+        D[9, tx] = d
+        T.ptx.min.relu.s8x4(d, a, b)
+        D[10, tx] = d
+        T.ptx.max.relu.s8x4(d, a, b)
+        D[11, tx] = d
+        T.ptx.add.sat.u32(d, a, b)
+        D[12, tx] = d
+        T.ptx.add.sat.u16x2(d, a, b)
+        D[13, tx] = d
+        T.ptx.add.sat.s16x2(d, a, b)
+        D[14, tx] = d
+        T.ptx.add.u32(d, a, b)  # the sm_90 `add_int` line, still selected
+        D[15, tx] = d
+
+    return kernel
+
+
+@pytest.mark.skipif(not env.has_nvcc_version(13, 4), reason="need nvcc >= 13.4 for sm_107f")
+@requires_nvcc
+def test_ptx_sm107f_packed_int_codegen():
+    src = _cuda_source(
+        _sm107f_packed_int_kernel(), tvm_tirx.target.Target({"kind": "cuda", "arch": "sm_107f"})
+    )
+    for opcode in (
+        "add.u8x4",
+        "add.sat.u8x4",
+        "add.s8x4",
+        "add.sat.s8x4",
+        "sub.u8x4",
+        "sub.sat.u8x4",
+        "sub.sat.s8x4",
+        "neg.s8x4",
+        "min.u8x4",
+        "max.s8x4",
+        "min.relu.s8x4",
+        "max.relu.s8x4",
+        "add.sat.u32",
+        "add.sat.u16x2",
+        "add.sat.s16x2",
+        "add.u32",
+    ):
+        assert f'"{opcode} %0, %1' in src, opcode
+    _assert_ptxas_ok(src, arch="sm_107f")
+
+
+def _lanes(x, dtype, n):
+    return x.view(dtype).reshape(-1, n).astype(np.int64)
+
+
+def _pack(lanes, dtype):
+    info = np.iinfo(dtype)
+    wrapped = (lanes - info.min) % (info.max - info.min + 1) + info.min
+    return wrapped.astype(dtype).reshape(-1).view(np.uint32)
+
+
+@pytest.mark.gpu
+@pytest.mark.skipif(not env.has_nvcc_version(13, 4), reason="need nvcc >= 13.4 for sm_107f")
+@pytest.mark.skipif(
+    env.cuda_arch() not in ("sm_107a", "sm_120a", "sm_121a"),
+    reason="needs an sm_107/sm_12x GPU (the packed int lines are sm_107f/sm_120f-only)",
+)
+def test_ptx_sm107f_packed_int_gpu():
+    """Lane-wise wrap-around and saturation semantics against numpy."""
+    mod = tvm_tirx.compile(
+        tvm_tirx.IRModule({"main": _sm107f_packed_int_kernel()}), target=TARGET, pipeline="tirx"
+    )
+    rng = np.random.default_rng(0)
+    a = rng.integers(0, 2**32, 256, dtype=np.uint64).astype(np.uint32)
+    b = rng.integers(0, 2**32, 256, dtype=np.uint64).astype(np.uint32)
+    # Edge lanes: overflow/underflow in every lane, and the most negative value.
+    a[:4] = [0xFFFFFFFF, 0x80808080, 0x7F7F7F7F, 0x00000000]
+    b[:4] = [0x01010101, 0x80808080, 0x01010101, 0xFFFFFFFF]
+
+    def clamp(x, dtype):
+        info = np.iinfo(dtype)
+        return np.clip(x, info.min, info.max)
+
+    u8a, u8b = _lanes(a, np.uint8, 4), _lanes(b, np.uint8, 4)
+    s8a, s8b = _lanes(a, np.int8, 4), _lanes(b, np.int8, 4)
+    u16a, u16b = _lanes(a, np.uint16, 2), _lanes(b, np.uint16, 2)
+    s16a, s16b = _lanes(a, np.int16, 2), _lanes(b, np.int16, 2)
+    a64, b64 = a.astype(np.int64), b.astype(np.int64)
+    expected = [
+        _pack(u8a + u8b, np.uint8),
+        _pack(clamp(u8a + u8b, np.uint8), np.uint8),
+        _pack(s8a + s8b, np.int8),
+        _pack(clamp(s8a + s8b, np.int8), np.int8),
+        _pack(u8a - u8b, np.uint8),
+        _pack(clamp(u8a - u8b, np.uint8), np.uint8),
+        _pack(clamp(s8a - s8b, np.int8), np.int8),
+        _pack(-s8a, np.int8),
+        _pack(np.minimum(u8a, u8b), np.uint8),
+        _pack(np.maximum(s8a, s8b), np.int8),
+        _pack(np.maximum(np.minimum(s8a, s8b), 0), np.int8),
+        _pack(np.maximum(np.maximum(s8a, s8b), 0), np.int8),
+        np.minimum(a64 + b64, 2**32 - 1).astype(np.uint32),
+        _pack(clamp(u16a + u16b, np.uint16), np.uint16),
+        _pack(clamp(s16a + s16b, np.int16), np.int16),
+        ((a64 + b64) % 2**32).astype(np.uint32),
+    ]
+
+    def run_and_check():
+        dev = tvm_tirx.cuda(0)
+        d = tvm_tirx.runtime.tensor(np.zeros((16, 256), dtype=np.uint32), device=dev)
+        mod(tvm_tirx.runtime.tensor(a, device=dev), tvm_tirx.runtime.tensor(b, device=dev), d)
+        got = d.numpy()
+        for row, want in enumerate(expected):
+            np.testing.assert_array_equal(got[row], want, err_msg=f"row {row}")
+
+    tvm_tirx.testing.run_with_gpu_lock(run_and_check)
+
+
 def test_ptx_tcgen05_mapa_address_rendering():
     """Optional state spaces select generic versus shared address carriers."""
     from tvm_tirx.backend.cuda.ptx.render import render_variant
@@ -4447,7 +4620,7 @@ def test_ptx_all_variants_render_unique():
             _, helper, _ = render_variant(entry, *args, addr_offsets=addr_offsets)
             assert helper not in names, f"address-offset helper name collision: {helper}"
             names.add(helper)
-    assert total == 762219  # update when the table grows or a ptxas gap narrows it
+    assert total == 762237  # update when the table grows or a ptxas gap narrows it
 
 
 def test_ptx_no_instruction_registered_twice():

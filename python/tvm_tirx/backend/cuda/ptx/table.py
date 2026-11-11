@@ -1184,20 +1184,20 @@ def _check_int_addsub(m, mnemonic):
         sub.type1        d, a, b;   .type1 = {.u16, .u32, .u64, .s16, .s64}
         sub{.sat}.type2  d, a, b;   .type2 = {.s32, .u8x4, .s8x4}
 
-    Of the saturating forms only `.s32` is registered. `add.sat` on
-    .u32/.u16x2/.s16x2 arrived in PTX ISA 9.2 as "sm_120f or higher in the same
-    family". The remaining types in these entries belong to syntax lines that
-    never carry `.sat`: .u16/.u64/.s16/.s64 for add, and
-    .u16/.u32/.u64/.s16/.s64 for sub. The `.u8x4`/`.s8x4` types are excluded
-    outright because they are sm_120f-only (see `_MINMAX_INT_PLAIN` below).
-    `add.sat.s32` and `sub.sat.s32` are the PTX 1.0 forms.
+    Of the saturating forms only `.s32` is in these entries: `add.sat.s32` and
+    `sub.sat.s32` are the PTX 1.0 forms. `add.sat` on .u32/.u16x2/.s16x2 and
+    the `.u8x4`/`.s8x4` types arrived in PTX ISA 9.2 for "sm_107f or higher in
+    the same family, sm_120f or higher in the same family", and are the sm_107f
+    `add_int_sm107f`/`sub_int_sm107f` entries. The remaining types here belong
+    to syntax lines that never carry `.sat`: .u16/.u64/.s16/.s64 for add, and
+    .u16/.u32/.u64/.s16/.s64 for sub.
     """
     if not m["sat"] or m["type"] == "s32":
         return None
     if mnemonic == "add" and m["type"] in ("u32", "u16x2", "s16x2"):
         return (
-            f"add.sat.{m['type']} is an sm_120f-only form (PTX ISA 9.2); "
-            ".sat is registered on .s32 only"
+            f"add.sat.{m['type']} is an sm_107f/sm_120f form (PTX ISA 9.2), "
+            "registered as the add_int_sm107f entry"
         )
     return f".sat is not on the {mnemonic}.{m['type']} syntax line"
 
@@ -1210,6 +1210,24 @@ def _check_int_add(m):
 def _check_int_sub(m):
     """Apply the integer sub syntax-line split documented by `_check_int_addsub`."""
     return _check_int_addsub(m, "sub")
+
+
+def _check_int_add_sm107f(m):
+    """The add lines PTX gives to sm_107f/sm_120f (9.7.1.1 Target ISA Notes).
+
+    `add{.sat}.{u8x4,s8x4}` and `add.sat.{u32,u16x2,s16x2}`; the non-saturating
+    .u32/.u16x2/.s16x2 forms are the sm_90 `add_int` entry's.
+    """
+    if m["type"] in ("u32", "u16x2", "s16x2") and not m["sat"]:
+        return f"add.{m['type']} without .sat is the add_int entry (sm_90 floor)"
+    return None
+
+
+def _check_minmax_int8x4(m):
+    """`.relu` is on the signed line only: `min{.relu}.s8x4`, `min.u8x4`."""
+    if m["relu"] and m["type"] != "s8x4":
+        return ".relu applies only to the signed .s8x4 line"
+    return None
 
 
 def _check_int_mad(m):
@@ -1226,9 +1244,9 @@ def _check_int_mad(m):
 
 # The .type tokens of the integer min/max lines (PTX ISA 9.7.1.13/9.7.1.14).
 # `.relu` is only on the signed line (type2); the unsigned/other line takes none.
-# NOT REGISTERED: `.u8x4` and `{.relu}.s8x4`, which the ISA supports only on
-# "sm_120f or higher in the same family" -- outside the architectures this
-# dialect certifies, and ptxas rejects them at sm_100.
+# `.u8x4` and `{.relu}.s8x4` are not here: the ISA gives them only to sm_107f
+# and sm_120f (and ptxas rejects them at sm_100), so they are the sm_107f
+# `{min,max}_int8x4` sibling entries.
 _MINMAX_INT_PLAIN = ("u16", "u32", "u64", "u16x2", "s16", "s64")
 _MINMAX_INT_RELU = ("s16x2", "s32")
 # The floating-point and half-precision lines (9.7.3.11/9.7.3.12, 9.7.4.7/9.7.4.8).
@@ -5902,10 +5920,11 @@ _ENTRIES = [
     # ------------------------------------------------------------------
     # PTX ISA 9.7.1 — Integer Arithmetic Instructions
     # ------------------------------------------------------------------
-    # The existing public families cover this section with one exception,
-    # stated at the entry it belongs to: the packed `.u8x4`/`.s8x4` types
-    # (and the saturating forms that arrived with them), which the ISA gives
-    # only to "sm_120f or higher in the same family".  The distinct `clmad`
+    # The existing public families cover this section. The packed
+    # `.u8x4`/`.s8x4` types (and the saturating forms that arrived with them),
+    # which the ISA gives only to "sm_107f or higher in the same family, sm_120f
+    # or higher in the same family", are sm_107f sibling entries beside the
+    # families they extend, so those families keep their floors.  The distinct `clmad`
     # family (9.7.1.5, introduced in PTX ISA 9.3) is registered below.
     #
     # Several mnemonics have a floating-point line further down the table. The
@@ -5918,9 +5937,9 @@ _ENTRIES = [
     # (single/double), 9.7.4.7, 9.7.4.8 (half).
     # Each mnemonic gets two entries because the ISA gives it two operand
     # shapes: the usual `d, a, b` and the three-source `d, a, b, c` line.
-    # NOT REGISTERED: only the `.u8x4` and `{.relu}.s8x4` tokens of the integer
-    # lines (reason at the `_MINMAX_INT_PLAIN` note above: sm_120f-only). Every
-    # other syntax line and type token of both families is here.
+    # The `.u8x4` and `{.relu}.s8x4` tokens of the integer lines are the sm_107f
+    # `{min,max}_int8x4` entries that follow; every syntax line and type token
+    # of both families is registered.
     *[
         InstructionEntry(
             name=name,
@@ -5936,6 +5955,29 @@ _ENTRIES = [
             # `.u16x2`, `{.relu}.s16x2` and `.relu.s32` need sm_90 (ISA Target
             # Notes); cert_arch is the max over the entry's variants.
             cert_arch="sm_90",
+            operands=(
+                OperandSlot("d", rw="w"),
+                OperandSlot("a"),
+                OperandSlot("b"),
+            ),
+        )
+        for name in ("max", "min")
+    ],
+    # `min/max.u8x4` and `min/max{.relu}.s8x4` (9.7.1.13/9.7.1.14), given only
+    # to "sm_107f or higher in the same family, sm_120f or higher in the same
+    # family": a sibling entry certified at sm_107f. MEASURED on CUDA 13.5:
+    # assembles at sm_107a, sm_107f and sm_120f, refused at sm_90, sm_100a and
+    # sm_103a; `.relu.u8x4` is refused everywhere.
+    *[
+        InstructionEntry(
+            name=f"{name}_int8x4",
+            mnemonic=name,
+            slots=(
+                ModifierSlot("relu", ("relu",), optional=True),
+                ModifierSlot("type", ("u8x4", "s8x4")),
+            ),
+            check=_check_minmax_int8x4,
+            cert_arch="sm_107f",
             operands=(
                 OperandSlot("d", rw="w"),
                 OperandSlot("a"),
@@ -5997,9 +6039,9 @@ _ENTRIES = [
     #   sub{.sat}.type2  d, a, b;   .type2 = {.s32, .u8x4, .s8x4}
     # The two lines differ only in whether `.sat` is offered, so one entry with
     # an optional slot spells both and `_check_int_addsub` draws the boundary.
-    # NOT REGISTERED: the `.u8x4`/`.s8x4` types on either mnemonic, and `.sat`
-    # on .u32/.u16x2/.s16x2 -- all sm_120f-only (PTX ISA 9.2), the same
-    # exclusion the min/max entry above makes for the same reason.
+    # The `.u8x4`/`.s8x4` types on either mnemonic, and `.sat` on
+    # .u32/.u16x2/.s16x2, are the sm_107f `add_int_sm107f`/`sub_int_sm107f`
+    # entries after these two.
     InstructionEntry(
         name="add_int",
         mnemonic="add",
@@ -6025,6 +6067,43 @@ _ENTRIES = [
             ModifierSlot("type", _INT_TYPES),
         ),
         check=_check_int_sub,
+        operands=(
+            OperandSlot("d", rw="w"),
+            OperandSlot("a"),
+            OperandSlot("b"),
+        ),
+    ),
+    # The integer add/sub forms the ISA gives only to "sm_107f or higher in the
+    # same family, sm_120f or higher in the same family" (9.7.1.1/9.7.1.2 Target
+    # ISA Notes, PTX ISA 9.2): the packed `.u8x4`/`.s8x4` types with or without
+    # `.sat`, and `.sat` on .u32/.u16x2/.s16x2. Sibling entries certified at
+    # sm_107f, so `add_int`/`sub_int` keep their floors. MEASURED on CUDA 13.5:
+    # every one of these assembles at sm_107a, sm_107f and sm_120f and is refused
+    # at sm_90, sm_100a and sm_103a; `sub.sat.u32` is refused everywhere, as
+    # the syntax (`sub{.sat}.type2`, `.type2 = {.s32, .u8x4, .s8x4}`) says.
+    InstructionEntry(
+        name="add_int_sm107f",
+        mnemonic="add",
+        slots=(
+            ModifierSlot("sat", ("sat",), optional=True),
+            ModifierSlot("type", ("u32", "u16x2", "u8x4", "s16x2", "s8x4")),
+        ),
+        check=_check_int_add_sm107f,
+        cert_arch="sm_107f",
+        operands=(
+            OperandSlot("d", rw="w"),
+            OperandSlot("a"),
+            OperandSlot("b"),
+        ),
+    ),
+    InstructionEntry(
+        name="sub_int_sm107f",
+        mnemonic="sub",
+        slots=(
+            ModifierSlot("sat", ("sat",), optional=True),
+            ModifierSlot("type", ("u8x4", "s8x4")),
+        ),
+        cert_arch="sm_107f",
         operands=(
             OperandSlot("d", rw="w"),
             OperandSlot("a"),
@@ -6173,7 +6252,7 @@ _ENTRIES = [
     # abs / neg per PTX ISA 9.7.1.11, 9.7.1.12 -- signed integers only. Their
     # floating-point lines (9.7.3.9, 9.7.3.10) are the `abs_f` and `neg`
     # entries below; which of each pair carries a suffix is just which arrived
-    # second. NOT REGISTERED: `neg.s8x4`, sm_120f-only as above.
+    # second. `neg.s8x4` is the sm_107f `neg_int_sm107f` entry after them.
     InstructionEntry(
         name="abs",
         slots=(ModifierSlot("type", ("s16", "s32", "s64")),),
@@ -6186,6 +6265,20 @@ _ENTRIES = [
         name="neg_int",
         mnemonic="neg",
         slots=(ModifierSlot("type", ("s16", "s32", "s64")),),
+        operands=(
+            OperandSlot("d", rw="w"),
+            OperandSlot("a"),
+        ),
+    ),
+    # `neg.s8x4` (9.7.1.12), "sm_107f or higher in the same family, sm_120f or
+    # higher in the same family" -- the sm_107f sibling of `neg_int`. MEASURED
+    # on CUDA 13.5 as for the packed add/sub above; `neg.u8x4` and `abs.s8x4`
+    # are not in the syntax and ptxas refuses them.
+    InstructionEntry(
+        name="neg_int_sm107f",
+        mnemonic="neg",
+        slots=(ModifierSlot("type", ("s8x4",)),),
+        cert_arch="sm_107f",
         operands=(
             OperandSlot("d", rw="w"),
             OperandSlot("a"),

@@ -52,7 +52,7 @@ class _Chain_activemask:
     ) -> None: ...
 
 class _Chain_add:
-    """`add` — 6 entries sharing this mnemonic; PTX puts their difference in the operand list,
+    """`add` — 7 entries sharing this mnemonic; PTX puts their difference in the operand list,
     so the call selects one. Shapes: (d, a, c); (d, a, b)
     """
 
@@ -72,11 +72,13 @@ class _Chain_add:
     s16x2: _Chain_add
     s32: _Chain_add
     s64: _Chain_add
+    s8x4: _Chain_add
     sat: _Chain_add
     u16: _Chain_add
     u16x2: _Chain_add
     u32: _Chain_add
     u64: _Chain_add
+    u8x4: _Chain_add
     def __call__(self, *args: Any, pred: Any = None, preserve_dst: bool = False) -> None: ...
 
 class _Chain_and:
@@ -1022,7 +1024,7 @@ class _Chain_match:
     def __call__(self, *args: Any, pred: Any = None, preserve_dst: bool = False) -> None: ...
 
 class _Chain_max:
-    """`max` — 2 entries sharing this mnemonic; PTX puts their difference in the operand list,
+    """`max` — 3 entries sharing this mnemonic; PTX puts their difference in the operand list,
     so the call selects one. Shapes: (d, a, b); (d, a, b, c)
     """
 
@@ -1040,10 +1042,12 @@ class _Chain_max:
     s16x2: _Chain_max
     s32: _Chain_max
     s64: _Chain_max
+    s8x4: _Chain_max
     u16: _Chain_max
     u16x2: _Chain_max
     u32: _Chain_max
     u64: _Chain_max
+    u8x4: _Chain_max
     xorsign: _Chain_max
     def __call__(self, *args: Any, pred: Any = None, preserve_dst: bool = False) -> None: ...
 
@@ -1087,7 +1091,7 @@ class _Chain_mbarrier:
     def __call__(self, *args: Any, pred: Any = None, preserve_dst: bool = False) -> None: ...
 
 class _Chain_min:
-    """`min` — 2 entries sharing this mnemonic; PTX puts their difference in the operand list,
+    """`min` — 3 entries sharing this mnemonic; PTX puts their difference in the operand list,
     so the call selects one. Shapes: (d, a, b); (d, a, b, c)
     """
 
@@ -1105,10 +1109,12 @@ class _Chain_min:
     s16x2: _Chain_min
     s32: _Chain_min
     s64: _Chain_min
+    s8x4: _Chain_min
     u16: _Chain_min
     u16x2: _Chain_min
     u32: _Chain_min
     u64: _Chain_min
+    u8x4: _Chain_min
     xorsign: _Chain_min
     def __call__(self, *args: Any, pred: Any = None, preserve_dst: bool = False) -> None: ...
 
@@ -1424,7 +1430,7 @@ class _Chain_multimem_st_async:
     def __call__(self, addr: Any, b: Any, *args: Any, pred: Any = None) -> None: ...
 
 class _Chain_neg:
-    """`neg` — 3 entries sharing this mnemonic; PTX puts their difference in the operand list,
+    """`neg` — 4 entries sharing this mnemonic; PTX puts their difference in the operand list,
     so the call selects one. Shapes: (d, a)
     """
 
@@ -1438,6 +1444,7 @@ class _Chain_neg:
     s16: _Chain_neg
     s32: _Chain_neg
     s64: _Chain_neg
+    s8x4: _Chain_neg
     def __call__(self, *args: Any, pred: Any = None, preserve_dst: bool = False) -> None: ...
 
 class _Chain_not:
@@ -2133,7 +2140,7 @@ class _Chain_stmatrix:
     def __call__(self, *args: Any, pred: Any = None) -> None: ...
 
 class _Chain_sub:
-    """`sub` — 6 entries sharing this mnemonic; PTX puts their difference in the operand list,
+    """`sub` — 7 entries sharing this mnemonic; PTX puts their difference in the operand list,
     so the call selects one. Shapes: (d, a, c); (d, a, b)
     """
 
@@ -2152,10 +2159,12 @@ class _Chain_sub:
     s16: _Chain_sub
     s32: _Chain_sub
     s64: _Chain_sub
+    s8x4: _Chain_sub
     sat: _Chain_sub
     u16: _Chain_sub
     u32: _Chain_sub
     u64: _Chain_sub
+    u8x4: _Chain_sub
     def __call__(self, *args: Any, pred: Any = None, preserve_dst: bool = False) -> None: ...
 
 class _Chain_szext:
