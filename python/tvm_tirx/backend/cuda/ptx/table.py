@@ -20,14 +20,19 @@ Pure data + pure functions: this module deliberately imports nothing from
 ``tvm`` so the thin generators (``gen_stubs``, ``gen_coverage``,
 ``gen_helpers``) can load it standalone.
 
-Section and table numbers cite PTX ISA 9.4, the version implemented by the
-CUDA 13.4 ptxas this table is certified against:
-``https://docs.nvidia.com/cuda/developer-preview/13.4/parallel-thread-execution/index.html``.
-Every ``MEASURED`` note records CUDA 13.4 ptxas behaviour.  ``_PTX_94_ENTRIES``
-groups the instructions and qualifiers PTX ISA 9.4 introduced (the SM107
-family additions) ahead of the long-standing families in ``_ENTRIES``; it is a
-grouping by ISA release, not a second document version -- every entry cites
-the same document.
+The table is certified against the CUDA 13.5 ptxas, which implements PTX ISA
+9.5: ``https://docs.nvidia.com/cuda/parallel-thread-execution/index.html``.
+Section and table numbers cite PTX ISA 9.4
+(``https://docs.nvidia.com/cuda/developer-preview/13.4/parallel-thread-execution/index.html``)
+except in ``_PTX_95_ENTRIES``, which cites 9.5; 9.5 inserts a few sections
+(e.g. 9.7.10.30 tensormap.query.alloc_class_large), shifting the numbers after
+them by one.  A ``MEASURED`` note records the ptxas behaviour of the toolkit it
+was written against -- CUDA 13.4 unless it says CUDA 13.5 -- and the whole
+table, those notes included, re-certifies under CUDA 13.5 (``PTX_CERT=1``).
+``_PTX_94_ENTRIES`` and ``_PTX_95_ENTRIES`` group the instructions and
+qualifiers PTX ISA 9.4 (the SM107 family additions) and 9.5 introduced ahead of
+the long-standing families in ``_ENTRIES``; they are groupings by ISA release,
+not separate document versions to certify against.
 
 The converged :class:`InstructionEntry` design:
 
