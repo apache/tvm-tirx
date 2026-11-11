@@ -17,7 +17,7 @@
 
 [package]
 name = "tvm-tirx"
-version = "0.1.0-alpha.5"
+version = "0.1.0"
 edition = "2024"
 # The oldest toolchain that builds the crate and tvm-ffi; CMake checks cargo against it.
 rust-version = "1.95"
