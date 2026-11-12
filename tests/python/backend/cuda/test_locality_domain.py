@@ -210,3 +210,94 @@ def test_locality_domain_aware_kernel():
             assert (got == (k if ctas[k] else -1)).all()
 
     tvm_tirx.testing.run_with_gpu_lock(run_and_check)
+
+
+def _domain_queue_reader(n_words, chunk_words, grid, threads=256):
+    """A persistent kernel: CTAs read the buffer of their own domain, then help the other.
+
+    B<k> lives in locality domain k and Ctr[k] is its chunk queue. Every word read
+    is XORed into Sink[0], so the result proves each chunk was read exactly once.
+    """
+    steps = chunk_words // (threads * 4)
+    n_chunks = n_words // chunk_words
+
+    @T.macro
+    def drain(B, Ctr, k, tx, chunk, c, r, acc):
+        if tx == 0:
+            chunk[0] = T.cuda.atomic_add(Ctr.ptr_to([k]), T.uint32(1))
+        T.cuda.cta_sync()
+        c[0] = chunk[0]
+        T.cuda.cta_sync()
+        while c[0] < T.uint32(n_chunks):
+            for i in T.unroll(steps):
+                idx = T.Cast("int32", c[0]) * chunk_words + (i * threads + tx) * 4
+                T.ptx.ld.global_.cs.v4.u32(r[0], r[1], r[2], r[3], B.ptr_to([idx]))
+                acc[0] = acc[0] ^ r[0] ^ r[1] ^ r[2] ^ r[3]
+            if tx == 0:
+                chunk[0] = T.cuda.atomic_add(Ctr.ptr_to([k]), T.uint32(1))
+            T.cuda.cta_sync()
+            c[0] = chunk[0]
+            T.cuda.cta_sync()
+
+    @T.function
+    def read(
+        B0: T.Tensor((n_words,), "uint32"),
+        B1: T.Tensor((n_words,), "uint32"),
+        Ctr: T.Tensor((2,), "uint32"),
+        Sink: T.Tensor((1,), "uint32"),
+    ):
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=grid, block=threads))
+        dom = T.cuda.mov_sreg(32, "locality_domain_id")
+        tx = T.cuda.thread_idx("x")
+        chunk = T.alloc_shared([1], "uint32")
+        c = T.alloc_local([1], "uint32")
+        r = T.alloc_local([4], "uint32")
+        acc = T.alloc_local([1], "uint32")
+        acc[0] = T.uint32(0)
+        # The hardware decides which domain a CTA runs in, so a domain may get
+        # few CTAs or none: drain the own queue first, then the other one.
+        if dom == 0:
+            drain(B0, Ctr, 0, tx, chunk, c, r, acc)
+            drain(B1, Ctr, 1, tx, chunk, c, r, acc)
+        else:
+            drain(B1, Ctr, 1, tx, chunk, c, r, acc)
+            drain(B0, Ctr, 0, tx, chunk, c, r, acc)
+        T.ptx.red.global_.xor.b32(Sink.ptr_to([0]), acc[0])
+
+    return read
+
+
+@pytest.mark.gpu
+@requires_cuda
+@pytest.mark.parametrize("grid", ["full", 1])
+def test_locality_domain_work_queue_kernel(grid):
+    """A domain-aware persistent kernel reads every chunk exactly once, however CTAs land."""
+    dev = tvm_tirx.cuda(0)
+    count = locality.locality_domain_count(dev)
+    if count != 2 or env.cuda_arch() is None or int(env.cuda_arch()[3:6]) < 100:
+        pytest.skip("needs an sm_100+ GPU with two locality domains")
+    n_words, chunk_words = 1 << 22, 1 << 14
+    if grid == "full":
+        grid = dev.multi_processor_count * 2
+    mod = tvm_tirx.compile(
+        tvm_tirx.IRModule({"main": _domain_queue_reader(n_words, chunk_words, grid)}),
+        target=tvm_tirx.target.Target({"kind": "cuda", "arch": env.cuda_arch()}),
+        pipeline="tirx",
+    )
+    rng = np.random.default_rng(0)
+    data = [rng.integers(0, 1 << 32, n_words, dtype=np.uint32) for _ in range(2)]
+
+    def run_and_check():
+        b = [
+            tvm_tirx.runtime.tensor(data[k], dev, mem_scope=locality.locality_domain_scope(k))
+            for k in range(2)
+        ]
+        ctr = tvm_tirx.runtime.tensor(np.zeros(2, np.uint32), dev)
+        sink = tvm_tirx.runtime.tensor(np.zeros(1, np.uint32), dev)
+        mod(b[0], b[1], ctr, sink)
+        want = np.bitwise_xor.reduce(data[0]) ^ np.bitwise_xor.reduce(data[1])
+        assert sink.numpy()[0] == want
+        # Each queue hands out all its chunks, then one end marker to every CTA.
+        assert (ctr.numpy() == n_words // chunk_words + grid).all()
+
+    tvm_tirx.testing.run_with_gpu_lock(run_and_check)
