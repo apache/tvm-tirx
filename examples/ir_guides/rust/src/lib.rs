@@ -92,7 +92,7 @@ fn casts() -> Result<Strings> {
 // [describe.begin]
 fn describe(expr: &PrimExpr) -> Result<String> {
     let text = match_any! {
-        AnyView::from(expr) {
+        expr {
             Add(ref add) => format!("({} + {})", describe(&add.a)?, describe(&add.b)?),
             Mul(ref mul) => format!("({} * {})", describe(&mul.a)?, describe(&mul.b)?),
             Var(ref var) => var.name.as_str().to_owned(),
