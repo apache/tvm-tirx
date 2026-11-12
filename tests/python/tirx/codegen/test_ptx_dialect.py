@@ -3595,6 +3595,132 @@ def test_ptx_fabric_called_through_string_form():
     _assert_ptxas_ok(src, arch="sm_103a")
 
 
+def test_ptx_fabric_tensor_and_atom_entries():
+    """PTX 9.4's fabric tensor operations and try_atom, in the 9.4 delta at their floors."""
+    from tvm_tirx.backend.cuda.ptx.render import render_variant
+    from tvm_tirx.backend.cuda.ptx.table import _PTX_94_ENTRIES, TABLE, tokens_for, variants
+
+    delta = {entry.name for entry in _PTX_94_ENTRIES}
+    tensor = {name for name in TABLE if name.startswith("fabric_try_") and "_tensor" in name}
+    assert len(tensor) == 25  # get + put/red x {plain, counted}, x 5 override shapes
+    assert tensor <= delta and {TABLE[name].cert_arch for name in tensor} == {"sm_107f"}
+    assert "fabric_try_atom" in delta and TABLE["fabric_try_atom"].cert_arch == "sm_100"
+
+    atom = TABLE["fabric_try_atom"]
+    pairs = {
+        tuple(render_variant(atom, tokens)[0].rsplit(".", 2)[-2:]) for tokens in variants(atom)
+    }
+    assert {("add", "f16x2"), ("cas", "b128")} <= pairs
+    # Off the ISA grid; ptxas accepts `.min.s32`, but the table follows the ISA.
+    assert not {("min", "f32"), ("add", "b32"), ("min", "s32")} & pairs
+    assert len(pairs) == 26  # 3x2 bitwise + 2x3 exch/cas + 2x4 min/max + 6 add
+
+    red = TABLE["fabric_try_red_tensor"]
+    opcode = render_variant(
+        red,
+        tokens_for(
+            red,
+            action="try_red",
+            api="async",
+            unit="tensor",
+            dim="2d",
+            src="shared::cta",
+            load_mode="tile",
+            completion="mbarrier::complete_tx::16B",
+            report="mbarrier::report::fabric",
+            override_address="override::global_address",
+            sem="relaxed",
+            scope="sys",
+            redop="max",
+        ),
+    )[0]
+    assert opcode.endswith(".override::global_address.relaxed.sys.max")  # no element type
+
+
+@pytest.mark.skipif(not env.has_nvcc_version(13, 4), reason="fabric tensor operations are PTX 9.4")
+@requires_nvcc
+def test_ptx_fabric_tensor_codegen():
+    """Each override shape renders its handle bracket and assembles at sm_107f."""
+
+    @T.function
+    def kernel(A: T.Tensor((64,), "uint32"), P: T.Tensor((8,), "uint64")):
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=32))
+        tx = T.cuda.thread_idx("x")
+        smem = T.alloc_tensor(ty_args=[T.Tensor((64,), "uint32", scope="shared")])
+        mbar = T.alloc_tensor(ty_args=[T.Tensor((2,), "uint64", scope="shared")])
+        if tx == 0:
+            tmap = P.ptr_to([0])
+            le = A[0]
+            off = P[1]
+            c0 = T.int32(A[1])
+            c1 = T.int32(A[2])
+            T.ptx[
+                "fabric.try_get.async.tensor.2d.shared::cta.tile"
+                ".mbarrier::complete_tx::bytes.mbarrier::report::fabric"
+                ".override::global_address.relaxed.sys.b128"
+            ](smem.ptr_to([0]), tmap, le, off, c0, c1, mbar.ptr_to([0]))
+            T.ptx[
+                "fabric.try_get.async.tensor.1d.shared::cta.tile"
+                ".mbarrier::complete_tx::bytes.mbarrier::report::fabric.L2::cache_hint"
+                ".override::global_address.override::global_dim.relaxed.sys.b128"
+            ](smem.ptr_to([0]), tmap, le, off, T.uint16(64), c0, mbar.ptr_to([0]), P[2])
+            T.ptx[
+                "fabric.try_put.async.tensor.multimem.3d.shared::cta.tile"
+                ".mbarrier::complete_tx::16B.mbarrier::report::fabric.counted::bytes"
+                ".override::global_address.override::global_dim_stride.relaxed.sys.b128"
+            ](
+                tmap, le, off, P[3],
+                T.uint16(8), T.uint16(8), T.uint16(8),
+                T.uint32(256), T.uint32(2048),
+                T.uint16(0),
+                c0, c1, c0,
+                smem.ptr_to([0]), T.uint32(256), mbar.ptr_to([0]),
+            )  # fmt: skip
+            T.ptx[
+                "fabric.try_red.async.tensor.2d.shared::cta.tile"
+                ".mbarrier::complete_tx::16B.mbarrier::report::fabric"
+                ".override::global_address.relaxed.sys.add"
+            ](tmap, le, off, c0, c1, smem.ptr_to([0]), T.uint32(256), mbar.ptr_to([0]))
+        A[tx] = A[tx]
+
+    src = _cuda_source(kernel, tvm_tirx.target.Target({"kind": "cuda", "arch": "sm_107f"}))
+    for text in (
+        ".override::global_address.relaxed.sys.b128 [%0], [%1, %2, %3, {%4, %5}], [%6];",
+        ".override::global_dim.relaxed.sys.b128 [%0], [%1, %2, %3, {%4}, {%5}], [%6], %7;",
+        ".counted::bytes.override::global_address.override::global_dim_stride.relaxed.sys.b128 "
+        "[%0, %1, %2, %3, {%4, %5, %6}, {%7, %8}, %9, {%10, %11, %12}], [%13], %14, [%15];",
+        ".override::global_address.relaxed.sys.add [%0, %1, %2, {%3, %4}], [%5], %6, [%7];",
+    ):
+        assert text in src, text
+    _assert_ptxas_ok(src, arch="sm_107f")
+
+
+@requires_nvcc
+def test_ptx_fabric_try_atom_codegen():
+    @T.function
+    def kernel(A: T.Tensor((64,), "uint32"), P: T.Tensor((8,), "uint64")):
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=32))
+        tx = T.cuda.thread_idx("x")
+        smem = T.alloc_tensor(ty_args=[T.Tensor((64,), "uint32", scope="shared")])
+        mbar = T.alloc_tensor(ty_args=[T.Tensor((2,), "uint64", scope="shared")])
+        if tx == 0:
+            T.ptx[
+                "fabric.try_atom.async.shared::cta"
+                ".mbarrier::complete_tx::16B.mbarrier::report::fabric.relaxed.sys.add.bf16x2"
+            ](A[0], P[1], smem.ptr_to([0]), smem.ptr_to([16]), mbar.ptr_to([0]))
+            T.ptx[
+                "fabric.try_atom.async.shared::cta"
+                ".mbarrier::complete_tx::16B.mbarrier::report::fabric.L2::cache_hint"
+                ".relaxed.sys.cas.b128"
+            ](A[0], P[1], smem.ptr_to([0]), smem.ptr_to([16]), mbar.ptr_to([0]), P[2])
+        A[tx] = A[tx]
+
+    src = _cuda_source(kernel, tvm_tirx.target.Target({"kind": "cuda", "arch": "sm_100a"}))
+    assert ".relaxed.sys.add.bf16x2 [%0, %1], [%2], [%3], [%4];" in src
+    assert ".L2::cache_hint.relaxed.sys.cas.b128 [%0, %1], [%2], [%3], [%4], %5;" in src
+    _assert_ptxas_ok(src, arch="sm_100a")
+
+
 def test_ptx_tcgen05_mapa_address_rendering():
     """Optional state spaces select generic versus shared address carriers."""
     from tvm_tirx.backend.cuda.ptx.render import render_variant
@@ -4695,7 +4821,7 @@ def test_ptx_all_variants_render_unique():
             _, helper, _ = render_variant(entry, *args, addr_offsets=addr_offsets)
             assert helper not in names, f"address-offset helper name collision: {helper}"
             names.add(helper)
-    assert total == 762239  # update when the table grows or a ptxas gap narrows it
+    assert total == 791291  # update when the table grows or a ptxas gap narrows it
 
 
 def test_ptx_no_instruction_registered_twice():

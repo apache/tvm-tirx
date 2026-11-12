@@ -674,13 +674,14 @@ class _Chain_ex2:
     def __call__(self, *args: Any, pred: Any = None, preserve_dst: bool = False) -> None: ...
 
 class _Chain_fabric:
-    """`fabric` — 11 entries sharing this mnemonic; PTX puts their difference in the operand
-    list, so the call selects one. Shapes: (); (group); (dst_mem, src_le_id, src_data_off,
-    size, mbar); (dst_le_id, dst_data_off, src_mem, size, mbar); (dst_le_id, dst_data_off,
-    src_mem, size, mbar, byte_mask); (dst_le_id, dst_data_off, dst_counter_off, src_mem,
-    size, mbar)
+    """`fabric` — 37 entries sharing this mnemonic; PTX puts their difference in the operand
+    list, so the call selects one. Shapes: (*__operands); (); (group); (dst_mem, src_le_id,
+    src_data_off, size, mbar); (dst_le_id, dst_data_off, src_mem, size, mbar); (dst_le_id,
+    dst_data_off, src_mem, size, mbar, byte_mask); (dst_le_id, dst_data_off,
+    dst_counter_off, src_mem, size, mbar)
     """
 
+    L2__cache_hint: _Chain_fabric
     add: _Chain_fabric
     and_: _Chain_fabric
     async_: _Chain_fabric
@@ -688,10 +689,14 @@ class _Chain_fabric:
     b32: _Chain_fabric
     b64: _Chain_fabric
     bf16: _Chain_fabric
+    bf16x2: _Chain_fabric
+    cas: _Chain_fabric
     commit_group: _Chain_fabric
     counted__bytes: _Chain_fabric
     cp_mask: _Chain_fabric
+    exch: _Chain_fabric
     f16: _Chain_fabric
+    f16x2: _Chain_fabric
     f32: _Chain_fabric
     f64: _Chain_fabric
     max: _Chain_fabric
@@ -702,6 +707,9 @@ class _Chain_fabric:
     multimem: _Chain_fabric
     op_restrict__fetching: _Chain_fabric
     or_: _Chain_fabric
+    override__global_address: _Chain_fabric
+    override__global_dim: _Chain_fabric
+    override__global_dim_stride: _Chain_fabric
     relaxed: _Chain_fabric
     s32: _Chain_fabric
     s64: _Chain_fabric
@@ -711,6 +719,9 @@ class _Chain_fabric:
     sync_restrict__read: _Chain_fabric
     sync_restrict__reads: _Chain_fabric
     sys: _Chain_fabric
+    tensor: _Chain_fabric
+    tile: _Chain_fabric
+    try_atom: _Chain_fabric
     try_get: _Chain_fabric
     try_pullred: _Chain_fabric
     try_put: _Chain_fabric

@@ -3258,6 +3258,78 @@ def _tma_global_dim_stride_operands(bracket, size_type):
     )
 
 
+# Attribute-override shapes of a fabric tensor handle, as for TMA's
+# `.override_attribute` (PTX ISA "Overriding tensor property value"): no
+# override; `.override::global_dim` on 1D tensors (a singleton size vector); or
+# `.override::global_dim_stride` on 2D-5D tensors (sizes, lower strides, upper
+# stride). The size vector binds .b8 or .b16 registers, one entry each.
+_FABRIC_TENSOR_OVERRIDES = (
+    ("", None, ("1d", "2d", "3d", "4d", "5d"), None),
+    ("_global_dim_b8", "override::global_dim", ("1d",), "tma_size_b8"),
+    ("_global_dim_b16", "override::global_dim", ("1d",), "b16"),
+    (
+        "_global_dim_stride_b8",
+        "override::global_dim_stride",
+        ("2d", "3d", "4d", "5d"),
+        "tma_size_b8",
+    ),
+    ("_global_dim_stride_b16", "override::global_dim_stride", ("2d", "3d", "4d", "5d"), "b16"),
+)
+
+
+def _fabric_tensor_handle_operands(bracket, handle, override, size_type):
+    """`[tensorMap, leId, off{, counterOff}{, attributeOverrideInfo}, tensorCoords]`.
+
+    The TMA override operands with the fabric handle (logical-endpoint id, byte
+    offset, and the counter offset of counted completion) in place of TMA's
+    `global_address`.
+    """
+    if override is None:
+        attributes = ()
+        coords = OperandSlot("coords", dtype="s32", lanes=_tma_coords_lanes, bracket=bracket)
+    elif override == "override::global_dim":
+        attributes = (
+            OperandSlot("tensor_size", dtype=size_type, lanes=1, vector=True, bracket=bracket),
+        )
+        coords = OperandSlot("coords", dtype="s32", lanes=1, vector=True, bracket=bracket)
+    else:
+        attributes = (
+            OperandSlot("tensor_size", dtype=size_type, lanes=_tma_dim_lanes, bracket=bracket),
+            OperandSlot(
+                "lower_stride", dtype="b32", lanes=_tma_lower_stride_lanes, bracket=bracket
+            ),
+            OperandSlot("upper_stride", dtype="b16", bracket=bracket),
+        )
+        coords = OperandSlot("coords", dtype="s32", lanes=_tma_coords_lanes, bracket=bracket)
+    return (
+        OperandSlot("tmap", kind="addr", space="global", bracket=bracket),
+        *(OperandSlot(name, dtype=dtype, bracket=bracket) for name, dtype in handle),
+        *attributes,
+        coords,
+    )
+
+
+_FABRIC_ATOM_TYPES = {
+    "and": ("b32", "b64"),
+    "xor": ("b32", "b64"),
+    "or": ("b32", "b64"),
+    "exch": ("b32", "b64", "b128"),
+    "cas": ("b32", "b64", "b128"),
+    "min": ("u32", "u64", "f16x2", "bf16x2"),
+    "max": ("u32", "u64", "f16x2", "bf16x2"),
+    "add": ("u32", "u64", "f16x2", "bf16x2", "f32", "f64"),
+}
+
+
+def _check_fabric_atom(m):
+    """Exact fabric.try_atom operation/type grid (PTX ISA 9.4, 9.7.11.5.10)."""
+    op, ty = m["redop"], m["type"]
+    if ty not in _FABRIC_ATOM_TYPES[op]:
+        allowed = " / ".join("." + item for item in _FABRIC_ATOM_TYPES[op])
+        return f".{op} fabric atomic takes {allowed}"
+    return None
+
+
 _TCGEN05_COLLECTOR_A = (
     "collector::a::fill",
     "collector::a::use",
@@ -5752,6 +5824,140 @@ _PTX_94_ENTRIES = [
         operands=(
             OperandSlot("r", rw="w", dtype="b32", lanes=_ldmatrix_lanes),
             OperandSlot("p", kind="addr", allow_imm_offset=True),
+        ),
+    ),
+    # fabric.try_{get,put,red}.async.tensor, per PTX ISA 9.4 9.7.11.5.7-9:
+    # the TMA-shaped fabric operations, which address a tensor through a
+    # tensor map plus a fabric handle `[tensorMap, leId, off{, counterOff}
+    # {, attributeOverrideInfo}, tensorCoords]`. `.override::global_address`
+    # is mandatory (the handle replaces the tensor map's global address);
+    # `.override_attribute` follows TMA's shapes (`_FABRIC_TENSOR_OVERRIDES`).
+    # try_get ends in `.b128` like try_put, while try_red ends in its `.redOp`
+    # alone: "the type of each data element ... is specified by the tensorMap".
+    # "Requires sm_107f or higher in the same family." MEASURED on CUDA 13.5:
+    # every shape assembles at sm_107f and sm_107a and is refused at sm_100a,
+    # sm_103a and sm_120f; `.override::global_dim` with `.2d` is refused
+    # ("Illegal modifier"), so is a type on try_red and a form without
+    # `.override::global_address`. ptxas also takes `.L2::cache_hint` after
+    # `.relaxed.sys`, as the ISA's own Examples write it; the entries spell the
+    # syntax line's order.
+    *[
+        InstructionEntry(
+            name=f"fabric_try_get_tensor{suffix}",
+            mnemonic="fabric",
+            slots=(
+                ModifierSlot("action", ("try_get",)),
+                ModifierSlot("api", ("async",)),
+                ModifierSlot("unit", ("tensor",)),
+                ModifierSlot("dim", dims),
+                ModifierSlot("dst", ("shared::cta",)),
+                ModifierSlot("load_mode", ("tile",), optional=True),
+                ModifierSlot("completion", ("mbarrier::complete_tx::bytes",)),
+                ModifierSlot("report", ("mbarrier::report::fabric",)),
+                ModifierSlot("cache", ("L2::cache_hint",), optional=True),
+                ModifierSlot("override_address", ("override::global_address",)),
+                *((ModifierSlot("override_attribute", (override,)),) if override else ()),
+                ModifierSlot("sem", ("relaxed",)),
+                ModifierSlot("scope", ("sys",)),
+                ModifierSlot("type", ("b128",)),
+            ),
+            cert_arch="sm_107f",
+            operands=(
+                OperandSlot("dst_mem", kind="addr", allow_imm_offset=True, space="shared::cta"),
+                *_fabric_tensor_handle_operands(
+                    "src", (("src_le_id", "u32"), ("src_data_off", "u64")), override, size_type
+                ),
+                OperandSlot("mbar", kind="addr", allow_imm_offset=True, space="shared::cta"),
+                OperandSlot("cache_policy", dtype="u64", lanes=_tma_cache_lanes, vector=False),
+            ),
+        )
+        for suffix, override, dims, size_type in _FABRIC_TENSOR_OVERRIDES
+    ],
+    *[
+        InstructionEntry(
+            name=f"fabric_try_{kind}_tensor{'_counted' if counted else ''}{suffix}",
+            mnemonic="fabric",
+            slots=(
+                ModifierSlot("action", (f"try_{kind}",)),
+                ModifierSlot("api", ("async",)),
+                ModifierSlot("unit", ("tensor",)),
+                ModifierSlot("multimem", ("multimem",), optional=True),
+                ModifierSlot("dim", dims),
+                ModifierSlot("src", ("shared::cta",)),
+                ModifierSlot("load_mode", ("tile",), optional=True),
+                ModifierSlot("completion", ("mbarrier::complete_tx::16B",)),
+                ModifierSlot("report", ("mbarrier::report::fabric",)),
+                *((ModifierSlot("counted", ("counted::bytes",)),) if counted else ()),
+                ModifierSlot("cache", ("L2::cache_hint",), optional=True),
+                ModifierSlot("override_address", ("override::global_address",)),
+                *((ModifierSlot("override_attribute", (override,)),) if override else ()),
+                ModifierSlot("sem", ("relaxed",)),
+                ModifierSlot("scope", ("sys",)),
+                (
+                    ModifierSlot("type", ("b128",))
+                    if kind == "put"
+                    else ModifierSlot("redop", ("and", "xor", "or", "add", "min", "max"))
+                ),
+            ),
+            cert_arch="sm_107f",
+            operands=(
+                *_fabric_tensor_handle_operands(
+                    "dst",
+                    (
+                        ("dst_le_id", "u32"),
+                        ("dst_data_off", "u64"),
+                        *((("dst_counter_off", "u64"),) if counted else ()),
+                    ),
+                    override,
+                    size_type,
+                ),
+                OperandSlot("src_mem", kind="addr", allow_imm_offset=True, space="shared::cta"),
+                OperandSlot("size", dtype="u32"),
+                OperandSlot("mbar", kind="addr", allow_imm_offset=True, space="shared::cta"),
+                OperandSlot("cache_policy", dtype="u64", lanes=_tma_cache_lanes, vector=False),
+            ),
+        )
+        for kind in ("put", "red")
+        for counted in (False, True)
+        for suffix, override, dims, size_type in _FABRIC_TENSOR_OVERRIDES
+    ],
+    # fabric.try_atom, per PTX ISA 9.4 9.7.11.5.10: an atomic on a fabric
+    # handle that leaves the previous value in shared memory. Four syntax
+    # lines that differ only in their operation/type pair, so one entry whose
+    # `_check_fabric_atom` grid is the ISA's `.redOp*`/`.type*` sets. "Requires
+    # sm_100 or higher." MEASURED on CUDA 13.5: every listed pair assembles at
+    # sm_100 (and sm_100a, sm_103a, sm_107f), sm_90a refuses the instruction,
+    # and pairs outside the grid are refused ("Incorrect type '.s32' for
+    # operation '.add'") -- except `.min/.max.s32`, which ptxas accepts though
+    # the ISA does not list it; the table follows the ISA. ptxas also takes
+    # `.L2::cache_hint` before the completion mechanism, as the ISA's third
+    # Example writes it; the entry spells the syntax line's order.
+    InstructionEntry(
+        name="fabric_try_atom",
+        mnemonic="fabric",
+        slots=(
+            ModifierSlot("action", ("try_atom",)),
+            ModifierSlot("api", ("async",)),
+            ModifierSlot("src", ("shared::cta",)),
+            ModifierSlot("completion", ("mbarrier::complete_tx::16B",)),
+            ModifierSlot("report", ("mbarrier::report::fabric",)),
+            ModifierSlot("cache", ("L2::cache_hint",), optional=True),
+            ModifierSlot("sem", ("relaxed",)),
+            ModifierSlot("scope", ("sys",)),
+            ModifierSlot("redop", tuple(_FABRIC_ATOM_TYPES)),
+            ModifierSlot(
+                "type", ("b32", "b64", "b128", "u32", "u64", "f16x2", "bf16x2", "f32", "f64")
+            ),
+        ),
+        check=_check_fabric_atom,
+        cert_arch="sm_100",
+        operands=(
+            OperandSlot("dst_le_id", dtype="u32", bracket="dst"),
+            OperandSlot("dst_data_off", dtype="u64", bracket="dst"),
+            OperandSlot("smem_dst", kind="addr", allow_imm_offset=True, space="shared::cta"),
+            OperandSlot("smem_src", kind="addr", allow_imm_offset=True, space="shared::cta"),
+            OperandSlot("mbar", kind="addr", allow_imm_offset=True, space="shared::cta"),
+            OperandSlot("cache_policy", dtype="u64", lanes=_tma_cache_lanes, vector=False),
         ),
     ),
 ]
