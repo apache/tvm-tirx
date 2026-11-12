@@ -3523,6 +3523,7 @@ def test_ptx_sm107f_packed_int_gpu():
 
 
 @requires_nvcc
+@pytest.mark.skipif(not env.has_nvcc_version(13, 4), reason="need nvcc >= 13.4 for sm_107a")
 def test_ptx_tcgen05_shift_codegen():
     """tcgen05.shift takes a bracketed tmem address and exists only on `a` targets."""
     from tvm_tirx.backend.cuda.ptx.render import render_variant
@@ -3696,6 +3697,7 @@ def test_ptx_fabric_tensor_codegen():
 
 
 @requires_nvcc
+@pytest.mark.skipif(not env.has_nvcc_version(13, 4), reason="fabric.try_atom is PTX 9.4")
 def test_ptx_fabric_try_atom_codegen():
     @T.function
     def kernel(A: T.Tensor((64,), "uint32"), P: T.Tensor((8,), "uint64")):
