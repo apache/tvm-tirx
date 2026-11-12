@@ -689,11 +689,15 @@ class _Chain_fabric:
     b64: _Chain_fabric
     bf16: _Chain_fabric
     commit_group: _Chain_fabric
+    counted__bytes: _Chain_fabric
     cp_mask: _Chain_fabric
     f16: _Chain_fabric
     f32: _Chain_fabric
     f64: _Chain_fabric
     max: _Chain_fabric
+    mbarrier__complete_tx__16B: _Chain_fabric
+    mbarrier__complete_tx__bytes: _Chain_fabric
+    mbarrier__report__fabric: _Chain_fabric
     min: _Chain_fabric
     multimem: _Chain_fabric
     op_restrict__fetching: _Chain_fabric

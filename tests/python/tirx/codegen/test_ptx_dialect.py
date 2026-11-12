@@ -437,7 +437,9 @@ def test_ptx_93_sm103a_exact_renderings():
                 action="try_put",
                 api="async",
                 src="shared::cta",
-                completion=("mbarrier::complete_tx::16B.mbarrier::report::fabric.counted::bytes"),
+                completion="mbarrier::complete_tx::16B",
+                report="mbarrier::report::fabric",
+                counted="counted::bytes",
                 sem="relaxed",
                 scope="sys",
                 type="b128",
@@ -3545,6 +3547,52 @@ def test_ptx_tcgen05_shift_codegen():
         src = _cuda_source(kernel, tvm_tirx.target.Target({"kind": "cuda", "arch": arch}))
         assert "tcgen05.shift.cta_group::1.down [%0];" in src
         _assert_ptxas_ok(src, arch=arch)
+
+
+def test_ptx_every_modifier_token_is_spellable():
+    """No modifier choice may contain a dot: `T.ptx[...]` and attribute chains split on it."""
+    from tvm_tirx.backend.cuda.ptx.table import TABLE
+
+    dotted = sorted(
+        (entry.name, slot.name, choice)
+        for entry in TABLE.values()
+        for slot in entry.slots
+        for choice in slot.choices
+        if "." in choice
+    )
+    assert not dotted, dotted
+
+
+@pytest.mark.skipif(not env.has_nvcc_version(13, 3), reason="fabric operations are PTX 9.3")
+@requires_nvcc
+def test_ptx_fabric_called_through_string_form():
+    """The PTX 9.3 fabric operations are callable by their exact PTX text."""
+
+    @T.function
+    def kernel(A: T.Tensor((64,), "uint32"), P: T.Tensor((8,), "uint64")):
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=32))
+        tx = T.cuda.thread_idx("x")
+        smem = T.alloc_tensor(ty_args=[T.Tensor((64,), "uint32", scope="shared")])
+        mbar = T.alloc_tensor(ty_args=[T.Tensor((2,), "uint64", scope="shared")])
+        if tx == 0:
+            T.ptx[
+                "fabric.try_get.async.shared::cta"
+                ".mbarrier::complete_tx::bytes.mbarrier::report::fabric.relaxed.sys.b128"
+            ](smem.ptr_to([0]), A[0], P[1], T.uint32(16), mbar.ptr_to([0]))
+            T.ptx[
+                "fabric.try_put.async.shared::cta.mbarrier::complete_tx::16B"
+                ".mbarrier::report::fabric.counted::bytes.relaxed.sys.b128"
+            ](A[0], P[1], P[2], smem.ptr_to([0]), T.uint32(16), mbar.ptr_to([0]))
+            T.ptx.fabric.submit()
+        A[tx] = A[tx]
+
+    src = _cuda_source(kernel, tvm_tirx.target.Target({"kind": "cuda", "arch": "sm_103a"}))
+    assert (
+        "fabric.try_get.async.shared::cta.mbarrier::complete_tx::bytes.mbarrier::report::fabric"
+        ".relaxed.sys.b128 [%0], [%1, %2], %3, [%4];" in src
+    )
+    assert ".counted::bytes.relaxed.sys.b128 [%0, %1, %2], [%3], %4, [%5];" in src
+    _assert_ptxas_ok(src, arch="sm_103a")
 
 
 def test_ptx_tcgen05_mapa_address_rendering():

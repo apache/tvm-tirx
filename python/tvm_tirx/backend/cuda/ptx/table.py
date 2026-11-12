@@ -9310,6 +9310,11 @@ _ENTRIES = [
     # PTX ISA 9.7.11 — Fabric Instructions (introduced in PTX ISA 9.3)
     # ------------------------------------------------------------------
     # A fabric handle is the composite [logical-endpoint id, byte offset].
+    # The completion mechanism `.mbarrier::complete_tx::{bytes,16B}
+    # .mbarrier::report::fabric{.counted::bytes}` is two or three dotted
+    # qualifiers, so it is that many slots: a single slot holding the dotted
+    # text renders the same PTX but cannot be spelled by `T.ptx[...]` or an
+    # attribute chain, which split on the dots.
     # Counted completion adds a third counter-offset member and is therefore a
     # distinct operand shape. Likewise, cp_mask has a trailing byte-mask
     # operand and is incompatible with counted::bytes (ISA 9.7.11.5.2).
@@ -9320,7 +9325,8 @@ _ENTRIES = [
             ModifierSlot("action", ("try_get",)),
             ModifierSlot("api", ("async",)),
             ModifierSlot("dst", ("shared::cta",)),
-            ModifierSlot("completion", ("mbarrier::complete_tx::bytes.mbarrier::report::fabric",)),
+            ModifierSlot("completion", ("mbarrier::complete_tx::bytes",)),
+            ModifierSlot("report", ("mbarrier::report::fabric",)),
             ModifierSlot("sem", ("relaxed",)),
             ModifierSlot("scope", ("sys",)),
             ModifierSlot("type", ("b128",)),
@@ -9343,13 +9349,9 @@ _ENTRIES = [
                 ModifierSlot("api", ("async",)),
                 ModifierSlot("multimem", ("multimem",), optional=True),
                 ModifierSlot("src", ("shared::cta",)),
-                ModifierSlot(
-                    "completion",
-                    (
-                        "mbarrier::complete_tx::16B.mbarrier::report::fabric"
-                        + (".counted::bytes" if counted else ""),
-                    ),
-                ),
+                ModifierSlot("completion", ("mbarrier::complete_tx::16B",)),
+                ModifierSlot("report", ("mbarrier::report::fabric",)),
+                *((ModifierSlot("counted", ("counted::bytes",)),) if counted else ()),
                 *((ModifierSlot("cp_mask", ("cp_mask",)),) if cp_mask else ()),
                 ModifierSlot("sem", ("relaxed",)),
                 ModifierSlot("scope", ("sys",)),
@@ -9381,13 +9383,9 @@ _ENTRIES = [
                 ModifierSlot("api", ("async",)),
                 ModifierSlot("multimem", ("multimem",), optional=True),
                 ModifierSlot("src", ("shared::cta",)),
-                ModifierSlot(
-                    "completion",
-                    (
-                        "mbarrier::complete_tx::16B.mbarrier::report::fabric"
-                        + (".counted::bytes" if counted else ""),
-                    ),
-                ),
+                ModifierSlot("completion", ("mbarrier::complete_tx::16B",)),
+                ModifierSlot("report", ("mbarrier::report::fabric",)),
+                *((ModifierSlot("counted", ("counted::bytes",)),) if counted else ()),
                 ModifierSlot("sem", ("relaxed",)),
                 ModifierSlot("scope", ("sys",)),
                 ModifierSlot("redop", tuple(_FABRIC_RED_TYPES)),
@@ -9420,7 +9418,8 @@ _ENTRIES = [
             ModifierSlot("api", ("async",)),
             ModifierSlot("multimem", ("multimem",)),
             ModifierSlot("dst", ("shared::cta",)),
-            ModifierSlot("completion", ("mbarrier::complete_tx::bytes.mbarrier::report::fabric",)),
+            ModifierSlot("completion", ("mbarrier::complete_tx::bytes",)),
+            ModifierSlot("report", ("mbarrier::report::fabric",)),
             ModifierSlot("sem", ("relaxed",)),
             ModifierSlot("scope", ("sys",)),
             ModifierSlot("redop", tuple(_FABRIC_PULLRED_TYPES)),
