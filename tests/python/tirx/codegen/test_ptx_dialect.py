@@ -3520,6 +3520,33 @@ def test_ptx_sm107f_packed_int_gpu():
     tvm_tirx.testing.run_with_gpu_lock(run_and_check)
 
 
+@requires_nvcc
+def test_ptx_tcgen05_shift_codegen():
+    """tcgen05.shift takes a bracketed tmem address and exists only on `a` targets."""
+    from tvm_tirx.backend.cuda.ptx.render import render_variant
+    from tvm_tirx.backend.cuda.ptx.table import TABLE, variants
+
+    entry = TABLE["tcgen05_shift"]
+    assert entry.cert_arch == "sm_100a"
+    assert {render_variant(entry, tokens)[0] for tokens in variants(entry)} == {
+        "tcgen05.shift.cta_group::1.down",
+        "tcgen05.shift.cta_group::2.down",
+    }
+
+    @T.function
+    def kernel(A: T.Tensor((32,), "uint32")):
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=32))
+        tx = T.cuda.thread_idx("x")
+        if tx == 0:
+            T.ptx.tcgen05.shift.cta_group__1.down(A[0])
+        A[tx] = A[tx]
+
+    for arch in ("sm_100a", "sm_107a"):
+        src = _cuda_source(kernel, tvm_tirx.target.Target({"kind": "cuda", "arch": arch}))
+        assert "tcgen05.shift.cta_group::1.down [%0];" in src
+        _assert_ptxas_ok(src, arch=arch)
+
+
 def test_ptx_tcgen05_mapa_address_rendering():
     """Optional state spaces select generic versus shared address carriers."""
     from tvm_tirx.backend.cuda.ptx.render import render_variant
@@ -4620,7 +4647,7 @@ def test_ptx_all_variants_render_unique():
             _, helper, _ = render_variant(entry, *args, addr_offsets=addr_offsets)
             assert helper not in names, f"address-offset helper name collision: {helper}"
             names.add(helper)
-    assert total == 762237  # update when the table grows or a ptxas gap narrows it
+    assert total == 762239  # update when the table grows or a ptxas gap narrows it
 
 
 def test_ptx_no_instruction_registered_twice():

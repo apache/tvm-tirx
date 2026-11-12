@@ -2198,7 +2198,7 @@ class _Chain_tanh:
     def __call__(self, *args: Any, pred: Any = None, preserve_dst: bool = False) -> None: ...
 
 class _Chain_tcgen05:
-    """`tcgen05` — 59 entries sharing this mnemonic; PTX puts their difference in the operand
+    """`tcgen05` — 60 entries sharing this mnemonic; PTX puts their difference in the operand
     list, so the call selects one. Shapes: (dst, ncols); (taddr, ncols); (mbar, cta_mask);
     (mbar); (*__operands); (d_tmem, a_desc, b_desc, idesc, enable_input_d); (d_tmem, a_desc,
     b_desc, idesc, enable_input_d, zero_col_mask); (d_tmem, a_tmem, b_desc, idesc,
@@ -2212,8 +2212,8 @@ class _Chain_tcgen05:
     (d_tmem, a_desc, b_desc, idesc, sfa_tmem, sfb_tmem, enable_input_d); (d_tmem, a_tmem,
     b_desc, idesc, sfa_tmem, sfb_tmem, enable_input_d); (d_tmem, a_desc, b_desc,
     sp_meta_tmem, idesc, sfa_tmem, sfb_tmem, enable_input_d); (d_tmem, a_tmem, b_desc,
-    sp_meta_tmem, idesc, sfa_tmem, sfb_tmem, enable_input_d); (); (taddr, s_desc); (mbar,
-    mask)
+    sp_meta_tmem, idesc, sfa_tmem, sfb_tmem, enable_input_d); (taddr); (); (taddr, s_desc);
+    (mbar, mask)
     """
 
     NaN: _Chain_tcgen05
@@ -2260,6 +2260,7 @@ class _Chain_tcgen05:
     cta_group__2: _Chain_tcgen05
     dealloc: _Chain_tcgen05
     decompress__lut__b: _Chain_tcgen05
+    down: _Chain_tcgen05
     exclusive: _Chain_tcgen05
     f32: _Chain_tcgen05
     fence__after_thread_sync: _Chain_tcgen05
@@ -2289,6 +2290,7 @@ class _Chain_tcgen05:
     scale_vec__4X: _Chain_tcgen05
     shared__cluster: _Chain_tcgen05
     shared__cta: _Chain_tcgen05
+    shift: _Chain_tcgen05
     sp: _Chain_tcgen05
     sp__2__colon__4: _Chain_tcgen05
     spcompress: _Chain_tcgen05

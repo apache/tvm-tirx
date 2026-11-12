@@ -11497,10 +11497,26 @@ _ENTRIES = [
     # Every one of these carries `orders_memory=True`: the legacy helpers all
     # had `::: "memory"`, and the waits/fences name no address at all.
     #
-    # NOT REGISTERED:
-    # - `tcgen05.shift.cta_group.down [taddr]`: no call site. (The tmem address
-    #   space its bracketed operand needs now exists -- `tcgen05.ld`/`.st`/`.cp`
-    #   all use it -- so this one is registrable the day something calls it.)
+    #
+    # tcgen05.shift per PTX ISA 9.7.18.9.3: asynchronously shift the rows of a
+    # tmem matrix down by one, completed through tcgen05.commit like
+    # tcgen05.mma/.cp. Supported on sm_100a, sm_103a, sm_107a and sm_110a only
+    # -- no family-specific (`f`) target -- so it certifies at sm_100a.
+    # MEASURED on CUDA 13.5: assembles at sm_100a, sm_103a, sm_107a and sm_110a
+    # and is refused at sm_100f, sm_107f and sm_120a. ptxas also takes the
+    # `.down.cta_group::N` order of the ISA's own Examples; the entry spells the
+    # syntax line's `.cta_group.down`.
+    InstructionEntry(  # tcgen05.shift.cta_group.down [taddr];
+        name="tcgen05_shift",
+        mnemonic="tcgen05",
+        slots=(
+            ModifierSlot("action", ("shift",)),
+            ModifierSlot("cta_group", ("cta_group::1", "cta_group::2")),
+            ModifierSlot("direction", ("down",)),
+        ),
+        cert_arch="sm_100a",
+        operands=(OperandSlot("taddr", kind="addr", space="tmem"),),
+    ),
     InstructionEntry(  # tcgen05.alloc.cta_group.sync.aligned{.shared::cta}.b32 [dst], nCols;
         name="tcgen05_alloc",
         mnemonic="tcgen05",
