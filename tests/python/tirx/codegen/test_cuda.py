@@ -1282,5 +1282,69 @@ def test_uint32_loop_var_runs_correctly():
     tvm_tirx.testing.run_with_gpu_lock(run_and_check)
 
 
+def _locality_domain_kernel():
+    @T.function
+    def kernel(ID: T.Tensor((128, 32), "int32"), SUP: T.Tensor((128, 32), "int32")):
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=128, block=32))
+        bx = T.cuda.block_idx("x")
+        tx = T.cuda.thread_idx("x")
+        ID[bx, tx] = T.cuda.mov_sreg(32, "locality_domain_id")
+        SUP[bx, tx] = T.cuda.mov_sreg(32, "locality_domain_supplemental_sm")
+
+    return kernel
+
+
+@pytest.mark.skipif(
+    not env.has_nvcc_version(13, 5), reason="locality-domain special registers are PTX 9.5"
+)
+def test_mov_sreg_locality_domain_codegen():
+    """PTX ISA 9.5's %locality_domain_* registers (10.36/10.37) read through mov_sreg."""
+    src, _ = _get_source(_locality_domain_kernel())
+    assert 'asm volatile("mov.u32 %0, %locality_domain_id;" : "=r"(x));' in src
+    assert 'asm volatile("mov.u32 %0, %locality_domain_supplemental_sm;" : "=r"(x));' in src
+
+
+@pytest.mark.gpu
+@pytest.mark.skipif(
+    not env.has_nvcc_version(13, 5), reason="locality-domain special registers are PTX 9.5"
+)
+@pytest.mark.skipif(
+    not env.has_cuda() or env.cuda_arch() is None or int(env.cuda_arch()[3:6]) < 100,
+    reason="needs an sm_100+ CUDA GPU",
+)
+def test_mov_sreg_locality_domain_gpu():
+    """The domain id is in [0, LOCALITY_DOMAIN_COUNT) and both registers are CTA-uniform."""
+    target = tvm_tirx.target.Target({"kind": "cuda", "arch": env.cuda_arch()})
+    mod = tvm_tirx.compile(
+        tvm_tirx.IRModule({"main": _locality_domain_kernel()}), target=target, pipeline="tirx"
+    )
+    domain_count = None
+    try:
+        from cuda.bindings import driver
+
+        attr = driver.CUdevice_attribute.CU_DEVICE_ATTRIBUTE_LOCALITY_DOMAIN_COUNT
+        driver.cuInit(0)
+        status, count = driver.cuDeviceGetAttribute(attr, 0)
+        if status == driver.CUresult.CUDA_SUCCESS:
+            domain_count = count
+    except (ImportError, AttributeError):
+        pass
+
+    def run_and_check():
+        dev = tvm_tirx.cuda(0)
+        ids = tvm_tirx.runtime.tensor(np.full((128, 32), -1, np.int32), device=dev)
+        sup = tvm_tirx.runtime.tensor(np.full((128, 32), -1, np.int32), device=dev)
+        mod(ids, sup)
+        ids, sup = ids.numpy(), sup.numpy()
+        # "For the lifetime of a cluster [resp. CTA], all threads ... read the same value."
+        assert (ids == ids[:, :1]).all() and (sup == sup[:, :1]).all()
+        assert ids.min() >= 0
+        if domain_count is not None:
+            assert ids.max() < domain_count
+        assert set(np.unique(sup)) <= {0, 1}
+
+    tvm_tirx.testing.run_with_gpu_lock(run_and_check)
+
+
 if __name__ == "__main__":
     tvm_tirx.testing.main()

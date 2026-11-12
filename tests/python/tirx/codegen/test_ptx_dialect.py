@@ -437,7 +437,9 @@ def test_ptx_93_sm103a_exact_renderings():
                 action="try_put",
                 api="async",
                 src="shared::cta",
-                completion=("mbarrier::complete_tx::16B.mbarrier::report::fabric.counted::bytes"),
+                completion="mbarrier::complete_tx::16B",
+                report="mbarrier::report::fabric",
+                counted="counted::bytes",
                 sem="relaxed",
                 scope="sys",
                 type="b128",
@@ -1227,16 +1229,15 @@ def test_ptx_integer_arithmetic_dispatch():
             T.device_entry()
             T.ptx.mad.lo.sat.s32(out[0], T.int32(2), T.int32(3), T.int32(4))
 
-    # The unavailable add.sat forms added in PTX 9.2 are distinct from the
-    # integer lines on which `.sat` has never been legal. Keep both reasons
-    # visible so an invalid spelling is not misreported as an architecture
-    # gate. In particular, sub.sat.u32 is not the counterpart of add.sat.u32.
-    with pytest.raises(ValueError, match="sm_120f-only"):
-
-        @T.function
-        def add_sat_sm120(out: T.Tensor((1,), "uint32")):
-            T.device_entry()
-            T.ptx.add.sat.u32(out[0], T.uint32(2), T.uint32(3))
+    # The add.sat forms PTX 9.2 gave to sm_107f/sm_120f resolve to their sm_107f
+    # sibling entry. They are distinct from the integer lines on which `.sat` has
+    # never been legal, whose reason stays visible below so an invalid spelling
+    # is not misreported as an architecture gate. In particular, sub.sat.u32 is
+    # not the counterpart of add.sat.u32.
+    @T.function
+    def add_sat_sm107f(out: T.Tensor((1,), "uint32")):
+        T.device_entry()
+        T.ptx.add.sat.u32(out[0], T.uint32(2), T.uint32(3))
 
     with pytest.raises(ValueError, match=r"not on the add\.u64"):
 
@@ -3059,6 +3060,669 @@ def test_ptx_94_sm107_arch_floors_and_delta():
     assert {TABLE[name].cert_arch for name in noftz_siblings} == {"sm_90"}
 
 
+_PTX_95_SYNC_FLOORS = {
+    "fabric_submit_commit_group": "sm_100",
+    "fabric_wait_read": "sm_100",
+    "cp_async_bulk_wait_group_proxy_async": "sm_100",
+    "fence_alias_sync_restrict_read": "sm_90",
+}
+
+
+def test_ptx_95_sync_entries_floors_and_delta():
+    """PTX 9.5 commit/wait/fence lines live in the 9.5 delta at their ISA floor."""
+    from tvm_tirx.backend.cuda.ptx.table import _PTX_95_ENTRIES, TABLE
+
+    assert {name: TABLE[name].cert_arch for name in _PTX_95_SYNC_FLOORS} == _PTX_95_SYNC_FLOORS
+    assert set(_PTX_95_SYNC_FLOORS) <= {entry.name for entry in _PTX_95_ENTRIES}
+    # `.read` and `.sync_restrict::proxy::async` are separate syntax lines.
+    proxy = TABLE["cp_async_bulk_wait_group_proxy_async"]
+    assert "read" not in {slot.name for slot in proxy.slots}
+
+
+def _ptx_95_sync_kernel():
+    @T.function
+    def kernel(A: T.Tensor((32,), "uint32")):
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=32))
+        tx = T.cuda.thread_idx("x")
+        T.ptx.fabric.submit.commit_group()
+        T.ptx.fabric.wait.sync_restrict__read(0)
+        T.ptx["fabric.wait.sync_restrict::read"](3)
+        T.ptx.fabric.wait.sync_restrict__reads()
+        T.ptx.cp.async_.bulk.wait_group.sync_restrict__proxy__async(2)
+        T.ptx.cp.async_.bulk.wait_group(1)
+        T.ptx.cp.async_.bulk.wait_group.read(0)
+        T.ptx.fence.alias.sync_restrict__read.release.sys()
+        A[tx] = tx + T.uint32(7)
+
+    return kernel
+
+
+@pytest.mark.skipif(
+    not env.has_nvcc_version(13, 5),
+    reason="fabric commit groups, proxy-restricted bulk waits and the alias fence are PTX 9.5",
+)
+@requires_nvcc
+def test_ptx_95_sync_codegen():
+    """The PTX 9.5 lines render verbatim beside their pre-9.5 siblings and assemble."""
+    src = _cuda_source(
+        _ptx_95_sync_kernel(), tvm_tirx.target.Target({"kind": "cuda", "arch": "sm_100a"})
+    )
+    for text in (
+        "fabric.submit.commit_group;",
+        "fabric.wait.sync_restrict::read 0;",
+        "fabric.wait.sync_restrict::read 3;",
+        "fabric.wait.sync_restrict::reads;",
+        "cp.async.bulk.wait_group.sync_restrict::proxy::async 2;",
+        "cp.async.bulk.wait_group 1;",
+        "cp.async.bulk.wait_group.read 0;",
+        "fence.alias.sync_restrict::read.release.sys;",
+    ):
+        assert text in src, text
+    # Every one of them orders memory without naming an address.
+    assert src.count('"fabric.submit.commit_group;" :  :  : "memory"') == 1
+    _assert_ptxas_ok(src, arch="sm_100a")
+
+
+@pytest.mark.gpu
+@pytest.mark.skipif(
+    not env.has_nvcc_version(13, 5),
+    reason="fabric commit groups, proxy-restricted bulk waits and the alias fence are PTX 9.5",
+)
+@pytest.mark.skipif(
+    not env.has_cuda() or env.cuda_arch() is None or int(env.cuda_arch()[3:6]) < 100,
+    reason="needs an sm_100+ CUDA GPU",
+)
+def test_ptx_95_sync_gpu_executes():
+    """With nothing pending, every PTX 9.5 wait returns at once and the kernel completes."""
+    mod = tvm_tirx.compile(
+        tvm_tirx.IRModule({"main": _ptx_95_sync_kernel()}), target=TARGET, pipeline="tirx"
+    )
+
+    def run_and_check():
+        dev = tvm_tirx.cuda(0)
+        a = tvm_tirx.runtime.tensor(np.zeros(32, dtype=np.uint32), device=dev)
+        mod(a)
+        np.testing.assert_array_equal(a.numpy(), np.arange(32, dtype=np.uint32) + 7)
+
+    tvm_tirx.testing.run_with_gpu_lock(run_and_check)
+
+
+def test_ptx_95_sin_cos_2pi_variants():
+    """sin/cos gain PTX 9.5's `.2pi`, legal only together with `.ftz`; lg2/ex2 do not."""
+    from tvm_tirx.backend.cuda.ptx.render import render_variant
+    from tvm_tirx.backend.cuda.ptx.table import TABLE, tokens_for, variants
+
+    for name in ("sin", "cos"):
+        entry = TABLE[name]
+        assert entry.cert_arch is None  # "Supported on all target architectures."
+        assert entry.check({"mode": "approx", "unit": "2pi", "ftz": "", "type": "f32"})
+        assert len(variants(entry)) == 3  # {plain, .ftz, .2pi.ftz}
+        opcode = render_variant(
+            entry, tokens_for(entry, mode="approx", unit="2pi", ftz="ftz", type="f32")
+        )[0]
+        assert opcode == f"{name}.approx.2pi.ftz.f32"
+    for name in ("lg2", "ex2"):
+        assert "unit" not in {slot.name for slot in TABLE[name].slots}
+
+
+def _ptx_95_sin_cos_2pi_kernel():
+    @T.function
+    def kernel(
+        A: T.Tensor((256,), "float32"),
+        S: T.Tensor((256,), "float32"),
+        C: T.Tensor((256,), "float32"),
+    ):
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=256))
+        tx = T.cuda.thread_idx("x")
+        s = T.local_scalar("float32")
+        c = T.local_scalar("float32")
+        T.ptx["sin.approx.2pi.ftz.f32"](s, A[tx])
+        T.ptx["cos.approx.2pi.ftz.f32"](c, A[tx])
+        S[tx] = s
+        C[tx] = c
+
+    return kernel
+
+
+@pytest.mark.skipif(not env.has_nvcc_version(13, 5), reason="sin/cos .2pi is a PTX 9.5 form")
+@requires_nvcc
+def test_ptx_95_sin_cos_2pi_codegen():
+    src = _cuda_source(_ptx_95_sin_cos_2pi_kernel())
+    assert "sin.approx.2pi.ftz.f32 %0, %1;" in src
+    assert "cos.approx.2pi.ftz.f32 %0, %1;" in src
+    _assert_ptxas_ok(src)
+
+
+@pytest.mark.gpu
+@pytest.mark.skipif(not env.has_nvcc_version(13, 5), reason="sin/cos .2pi is a PTX 9.5 form")
+@pytest.mark.skipif(not env.has_cuda(), reason="CUDA GPU not available")
+def test_ptx_95_sin_cos_2pi_gpu_accuracy():
+    """`.2pi` reads its input in cycles; check the ISA's stated absolute error bounds.
+
+    9.7.3.18/19: for cycles as input the maximum absolute error is 2^-20 (sin) and
+    2^-19.9 (cos) over [-1, 1], and 2^-14.2 for both over [-50, 50].
+    """
+    mod = tvm_tirx.compile(
+        tvm_tirx.IRModule({"main": _ptx_95_sin_cos_2pi_kernel()}), target=TARGET, pipeline="tirx"
+    )
+    rng = np.random.default_rng(0)
+    cases = (
+        (np.float32(1.0), 2.0**-20, 2.0**-19.9),
+        (np.float32(50.0), 2.0**-14.2, 2.0**-14.2),
+    )
+
+    def run_and_check():
+        dev = tvm_tirx.cuda(0)
+        for bound, sin_tol, cos_tol in cases:
+            x = rng.uniform(-bound, bound, 256).astype(np.float32)
+            # Exact turns and quarter turns, where the result is exactly 0 or +-1.
+            x[:9] = np.array([0, 0.25, 0.5, 0.75, 1, -0.25, -0.5, -0.75, -1], dtype=np.float32)
+            a = tvm_tirx.runtime.tensor(x, device=dev)
+            s = tvm_tirx.runtime.tensor(np.zeros(256, dtype=np.float32), device=dev)
+            c = tvm_tirx.runtime.tensor(np.zeros(256, dtype=np.float32), device=dev)
+            mod(a, s, c)
+            turns = 2.0 * np.pi * x.astype(np.float64)
+            assert np.max(np.abs(s.numpy() - np.sin(turns))) <= sin_tol
+            assert np.max(np.abs(c.numpy() - np.cos(turns))) <= cos_tol
+
+    tvm_tirx.testing.run_with_gpu_lock(run_and_check)
+
+
+_PTX_95_TENSORMAP_ENTRIES = (
+    "tensormap_replace_address_alloc_class",
+    "tensormap_replace_alloc_class",
+    "tensormap_query",
+)
+
+
+def test_ptx_95_tensormap_alloc_class_entries():
+    """The 9.5 allocation-class lines certify at sm_90a; `.alloc_same` needs a field."""
+    from tvm_tirx.backend.cuda.ptx.table import _PTX_95_ENTRIES, TABLE
+
+    delta = {entry.name for entry in _PTX_95_ENTRIES}
+    for name in _PTX_95_TENSORMAP_ENTRIES:
+        assert name in delta and TABLE[name].cert_arch == "sm_90a"
+
+    def alloc_choices(name):
+        (slot,) = [s for s in TABLE[name].slots if s.name == "alloc_class"]
+        return slot.choices
+
+    assert alloc_choices("tensormap_replace_address_alloc_class") == (
+        "alloc_small",
+        "alloc_large",
+        "alloc_same",
+    )
+    assert alloc_choices("tensormap_replace_alloc_class") == ("alloc_small", "alloc_large")
+
+
+def _ptx_95_tensormap_alloc_class_kernel():
+    @T.function
+    def kernel(TM: T.Tensor((32,), "uint32"), OUT: T.Tensor((6,), "uint32")):
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=1))
+        p = T.local_scalar("uint32")
+        smem = T.alloc_tensor(ty_args=[T.Tensor((32,), "uint32", scope="shared")])
+        tmap = TM.ptr_to([0])
+        query = T.ptx["tensormap_query.alloc_class_large.global.b1024"]
+        # Field-less lines.
+        T.ptx["tensormap_replace.tile.alloc_large.global.b1024"](tmap)
+        query(p, tmap)
+        OUT[0] = p
+        T.ptx["tensormap_replace.tile.alloc_small.global.b1024"](tmap)
+        query(p, tmap)
+        OUT[1] = p
+        # `.global_address` with an explicit class.
+        T.ptx["tensormap_replace.tile.global_address.alloc_large.global.b1024.b64"](
+            tmap, T.uint64(0x10000)
+        )
+        query(p, tmap)
+        OUT[2] = p
+        # PTX 9.5 clarification: `.global_address` without `.alloc_class` sets Small.
+        T.ptx["tensormap_replace.tile.global_address.global.b1024.b64"](tmap, T.uint64(0x20000))
+        query(p, tmap)
+        OUT[3] = p
+        # `.alloc_same` keeps whatever class the object already has.
+        T.ptx["tensormap_replace.tile.alloc_large.global.b1024"](tmap)
+        T.ptx["tensormap_replace.tile.global_address.alloc_same.global.b1024.b64"](
+            tmap, T.uint64(0x30000)
+        )
+        query(p, tmap)
+        OUT[4] = p
+        # Generic addressing reads the same object.
+        T.ptx["tensormap_query.alloc_class_large.b1024"](p, tmap)
+        OUT[5] = p
+        # The shared::cta replaces assemble and run; the query has no shared::cta
+        # helper (see the table), so their effect is not observed here.
+        T.ptx["tensormap_replace.tile.alloc_small.shared::cta.b1024"](smem.ptr_to([0]))
+        T.ptx["tensormap_replace.tile.global_address.alloc_large.shared::cta.b1024.b64"](
+            smem.ptr_to([0]), T.uint64(0x40000)
+        )
+
+    return kernel
+
+
+@pytest.mark.skipif(
+    not env.has_nvcc_version(13, 5), reason="tensor-map allocation classes are PTX 9.5"
+)
+@requires_nvcc
+def test_ptx_95_tensormap_alloc_class_codegen():
+    src = _cuda_source(
+        _ptx_95_tensormap_alloc_class_kernel(),
+        tvm_tirx.target.Target({"kind": "cuda", "arch": "sm_90a"}),
+    )
+    for text in (
+        "tensormap.replace.tile.alloc_large.global.b1024 [%0];",
+        "tensormap.replace.tile.alloc_small.shared::cta.b1024 [%0];",
+        "tensormap.replace.tile.global_address.alloc_large.shared::cta.b1024.b64 [%0], %1;",
+        "tensormap.replace.tile.global_address.alloc_large.global.b1024.b64 [%0], %1;",
+        "tensormap.replace.tile.global_address.alloc_same.global.b1024.b64 [%0], %1;",
+        "tensormap.query.alloc_class_large.global.b1024 pd0, [%1];",
+        "tensormap.query.alloc_class_large.b1024 pd0, [%1];",
+    ):
+        assert text in src, text
+    _assert_ptxas_ok(src, arch="sm_90a")
+
+
+@pytest.mark.gpu
+@pytest.mark.skipif(
+    not env.has_nvcc_version(13, 5), reason="tensor-map allocation classes are PTX 9.5"
+)
+@pytest.mark.skipif(
+    not env.has_cuda() or env.cuda_arch() is None or int(env.cuda_arch()[3:6]) < 90,
+    reason="needs an sm_90+ CUDA GPU",
+)
+def test_ptx_95_tensormap_alloc_class_gpu():
+    """Each replace leaves the class the ISA says, as observed by the query."""
+    mod = tvm_tirx.compile(
+        tvm_tirx.IRModule({"main": _ptx_95_tensormap_alloc_class_kernel()}),
+        target=TARGET,
+        pipeline="tirx",
+    )
+
+    def run_and_check():
+        dev = tvm_tirx.cuda(0)
+        tm = tvm_tirx.runtime.tensor(np.zeros(32, dtype=np.uint32), device=dev)
+        out = tvm_tirx.runtime.tensor(np.full(6, 7, dtype=np.uint32), device=dev)
+        mod(tm, out)
+        np.testing.assert_array_equal(out.numpy(), [1, 0, 1, 0, 1, 1])
+
+    tvm_tirx.testing.run_with_gpu_lock(run_and_check)
+
+
+_SM107F_PACKED_INT_OPCODES = {
+    "add_int_sm107f": {
+        "add.u8x4",
+        "add.s8x4",
+        "add.sat.u8x4",
+        "add.sat.s8x4",
+        "add.sat.u32",
+        "add.sat.u16x2",
+        "add.sat.s16x2",
+    },
+    "sub_int_sm107f": {"sub.u8x4", "sub.s8x4", "sub.sat.u8x4", "sub.sat.s8x4"},
+    "neg_int_sm107f": {"neg.s8x4"},
+    "min_int8x4": {"min.u8x4", "min.s8x4", "min.relu.s8x4"},
+    "max_int8x4": {"max.u8x4", "max.s8x4", "max.relu.s8x4"},
+}
+
+
+def test_ptx_sm107f_packed_int_entries():
+    """The sm_107f/sm_120f packed-integer lines are sm_107f siblings, exactly these opcodes."""
+    from tvm_tirx.backend.cuda.ptx.render import render_variant
+    from tvm_tirx.backend.cuda.ptx.table import TABLE, variants
+
+    for name, expected in _SM107F_PACKED_INT_OPCODES.items():
+        entry = TABLE[name]
+        assert entry.cert_arch == "sm_107f", name
+        assert {render_variant(entry, tokens)[0] for tokens in variants(entry)} == expected
+    # The families they extend keep their pre-sm_107 floors.
+    assert TABLE["add_int"].cert_arch == "sm_90"
+    assert TABLE["sub_int"].cert_arch is None and TABLE["neg_int"].cert_arch is None
+
+
+def _sm107f_packed_int_kernel():
+    @T.function
+    def kernel(
+        A: T.Tensor((256,), "uint32"),
+        B: T.Tensor((256,), "uint32"),
+        D: T.Tensor((16, 256), "uint32"),
+    ):
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=256))
+        tx = T.cuda.thread_idx("x")
+        a = A[tx]
+        b = B[tx]
+        d = T.local_scalar("uint32")
+        T.ptx.add.u8x4(d, a, b)
+        D[0, tx] = d
+        T.ptx.add.sat.u8x4(d, a, b)
+        D[1, tx] = d
+        T.ptx.add.s8x4(d, a, b)
+        D[2, tx] = d
+        T.ptx.add.sat.s8x4(d, a, b)
+        D[3, tx] = d
+        T.ptx.sub.u8x4(d, a, b)
+        D[4, tx] = d
+        T.ptx.sub.sat.u8x4(d, a, b)
+        D[5, tx] = d
+        T.ptx.sub.sat.s8x4(d, a, b)
+        D[6, tx] = d
+        T.ptx.neg.s8x4(d, a)
+        D[7, tx] = d
+        T.ptx.min.u8x4(d, a, b)
+        D[8, tx] = d
+        T.ptx.max.s8x4(d, a, b)
+        D[9, tx] = d
+        T.ptx.min.relu.s8x4(d, a, b)
+        D[10, tx] = d
+        T.ptx.max.relu.s8x4(d, a, b)
+        D[11, tx] = d
+        T.ptx.add.sat.u32(d, a, b)
+        D[12, tx] = d
+        T.ptx.add.sat.u16x2(d, a, b)
+        D[13, tx] = d
+        T.ptx.add.sat.s16x2(d, a, b)
+        D[14, tx] = d
+        T.ptx.add.u32(d, a, b)  # the sm_90 `add_int` line, still selected
+        D[15, tx] = d
+
+    return kernel
+
+
+@pytest.mark.skipif(not env.has_nvcc_version(13, 4), reason="need nvcc >= 13.4 for sm_107f")
+@requires_nvcc
+def test_ptx_sm107f_packed_int_codegen():
+    src = _cuda_source(
+        _sm107f_packed_int_kernel(), tvm_tirx.target.Target({"kind": "cuda", "arch": "sm_107f"})
+    )
+    for opcode in (
+        "add.u8x4",
+        "add.sat.u8x4",
+        "add.s8x4",
+        "add.sat.s8x4",
+        "sub.u8x4",
+        "sub.sat.u8x4",
+        "sub.sat.s8x4",
+        "neg.s8x4",
+        "min.u8x4",
+        "max.s8x4",
+        "min.relu.s8x4",
+        "max.relu.s8x4",
+        "add.sat.u32",
+        "add.sat.u16x2",
+        "add.sat.s16x2",
+        "add.u32",
+    ):
+        assert f'"{opcode} %0, %1' in src, opcode
+    _assert_ptxas_ok(src, arch="sm_107f")
+
+
+def _lanes(x, dtype, n):
+    return x.view(dtype).reshape(-1, n).astype(np.int64)
+
+
+def _pack(lanes, dtype):
+    info = np.iinfo(dtype)
+    wrapped = (lanes - info.min) % (info.max - info.min + 1) + info.min
+    return wrapped.astype(dtype).reshape(-1).view(np.uint32)
+
+
+@pytest.mark.gpu
+@pytest.mark.skipif(not env.has_nvcc_version(13, 4), reason="need nvcc >= 13.4 for sm_107f")
+@pytest.mark.skipif(
+    env.cuda_arch() not in ("sm_107a", "sm_120a", "sm_121a"),
+    reason="needs an sm_107/sm_12x GPU (the packed int lines are sm_107f/sm_120f-only)",
+)
+def test_ptx_sm107f_packed_int_gpu():
+    """Lane-wise wrap-around and saturation semantics against numpy."""
+    mod = tvm_tirx.compile(
+        tvm_tirx.IRModule({"main": _sm107f_packed_int_kernel()}), target=TARGET, pipeline="tirx"
+    )
+    rng = np.random.default_rng(0)
+    a = rng.integers(0, 2**32, 256, dtype=np.uint64).astype(np.uint32)
+    b = rng.integers(0, 2**32, 256, dtype=np.uint64).astype(np.uint32)
+    # Edge lanes: overflow/underflow in every lane, and the most negative value.
+    a[:4] = [0xFFFFFFFF, 0x80808080, 0x7F7F7F7F, 0x00000000]
+    b[:4] = [0x01010101, 0x80808080, 0x01010101, 0xFFFFFFFF]
+
+    def clamp(x, dtype):
+        info = np.iinfo(dtype)
+        return np.clip(x, info.min, info.max)
+
+    u8a, u8b = _lanes(a, np.uint8, 4), _lanes(b, np.uint8, 4)
+    s8a, s8b = _lanes(a, np.int8, 4), _lanes(b, np.int8, 4)
+    u16a, u16b = _lanes(a, np.uint16, 2), _lanes(b, np.uint16, 2)
+    s16a, s16b = _lanes(a, np.int16, 2), _lanes(b, np.int16, 2)
+    a64, b64 = a.astype(np.int64), b.astype(np.int64)
+    expected = [
+        _pack(u8a + u8b, np.uint8),
+        _pack(clamp(u8a + u8b, np.uint8), np.uint8),
+        _pack(s8a + s8b, np.int8),
+        _pack(clamp(s8a + s8b, np.int8), np.int8),
+        _pack(u8a - u8b, np.uint8),
+        _pack(clamp(u8a - u8b, np.uint8), np.uint8),
+        _pack(clamp(s8a - s8b, np.int8), np.int8),
+        _pack(-s8a, np.int8),
+        _pack(np.minimum(u8a, u8b), np.uint8),
+        _pack(np.maximum(s8a, s8b), np.int8),
+        _pack(np.maximum(np.minimum(s8a, s8b), 0), np.int8),
+        _pack(np.maximum(np.maximum(s8a, s8b), 0), np.int8),
+        np.minimum(a64 + b64, 2**32 - 1).astype(np.uint32),
+        _pack(clamp(u16a + u16b, np.uint16), np.uint16),
+        _pack(clamp(s16a + s16b, np.int16), np.int16),
+        ((a64 + b64) % 2**32).astype(np.uint32),
+    ]
+
+    def run_and_check():
+        dev = tvm_tirx.cuda(0)
+        d = tvm_tirx.runtime.tensor(np.zeros((16, 256), dtype=np.uint32), device=dev)
+        mod(tvm_tirx.runtime.tensor(a, device=dev), tvm_tirx.runtime.tensor(b, device=dev), d)
+        got = d.numpy()
+        for row, want in enumerate(expected):
+            np.testing.assert_array_equal(got[row], want, err_msg=f"row {row}")
+
+    tvm_tirx.testing.run_with_gpu_lock(run_and_check)
+
+
+@requires_nvcc
+@pytest.mark.skipif(not env.has_nvcc_version(13, 4), reason="need nvcc >= 13.4 for sm_107a")
+def test_ptx_tcgen05_shift_codegen():
+    """tcgen05.shift takes a bracketed tmem address and exists only on `a` targets."""
+    from tvm_tirx.backend.cuda.ptx.render import render_variant
+    from tvm_tirx.backend.cuda.ptx.table import TABLE, variants
+
+    entry = TABLE["tcgen05_shift"]
+    assert entry.cert_arch == "sm_100a"
+    assert {render_variant(entry, tokens)[0] for tokens in variants(entry)} == {
+        "tcgen05.shift.cta_group::1.down",
+        "tcgen05.shift.cta_group::2.down",
+    }
+
+    @T.function
+    def kernel(A: T.Tensor((32,), "uint32")):
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=32))
+        tx = T.cuda.thread_idx("x")
+        if tx == 0:
+            T.ptx.tcgen05.shift.cta_group__1.down(A[0])
+        A[tx] = A[tx]
+
+    for arch in ("sm_100a", "sm_107a"):
+        src = _cuda_source(kernel, tvm_tirx.target.Target({"kind": "cuda", "arch": arch}))
+        assert "tcgen05.shift.cta_group::1.down [%0];" in src
+        _assert_ptxas_ok(src, arch=arch)
+
+
+def test_ptx_every_modifier_token_is_spellable():
+    """No modifier choice may contain a dot: `T.ptx[...]` and attribute chains split on it."""
+    from tvm_tirx.backend.cuda.ptx.table import TABLE
+
+    dotted = sorted(
+        (entry.name, slot.name, choice)
+        for entry in TABLE.values()
+        for slot in entry.slots
+        for choice in slot.choices
+        if "." in choice
+    )
+    assert not dotted, dotted
+
+
+@pytest.mark.skipif(not env.has_nvcc_version(13, 3), reason="fabric operations are PTX 9.3")
+@requires_nvcc
+def test_ptx_fabric_called_through_string_form():
+    """The PTX 9.3 fabric operations are callable by their exact PTX text."""
+
+    @T.function
+    def kernel(A: T.Tensor((64,), "uint32"), P: T.Tensor((8,), "uint64")):
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=32))
+        tx = T.cuda.thread_idx("x")
+        smem = T.alloc_tensor(ty_args=[T.Tensor((64,), "uint32", scope="shared")])
+        mbar = T.alloc_tensor(ty_args=[T.Tensor((2,), "uint64", scope="shared")])
+        if tx == 0:
+            T.ptx[
+                "fabric.try_get.async.shared::cta"
+                ".mbarrier::complete_tx::bytes.mbarrier::report::fabric.relaxed.sys.b128"
+            ](smem.ptr_to([0]), A[0], P[1], T.uint32(16), mbar.ptr_to([0]))
+            T.ptx[
+                "fabric.try_put.async.shared::cta.mbarrier::complete_tx::16B"
+                ".mbarrier::report::fabric.counted::bytes.relaxed.sys.b128"
+            ](A[0], P[1], P[2], smem.ptr_to([0]), T.uint32(16), mbar.ptr_to([0]))
+            T.ptx.fabric.submit()
+        A[tx] = A[tx]
+
+    src = _cuda_source(kernel, tvm_tirx.target.Target({"kind": "cuda", "arch": "sm_103a"}))
+    assert (
+        "fabric.try_get.async.shared::cta.mbarrier::complete_tx::bytes.mbarrier::report::fabric"
+        ".relaxed.sys.b128 [%0], [%1, %2], %3, [%4];" in src
+    )
+    assert ".counted::bytes.relaxed.sys.b128 [%0, %1, %2], [%3], %4, [%5];" in src
+    _assert_ptxas_ok(src, arch="sm_103a")
+
+
+def test_ptx_fabric_tensor_and_atom_entries():
+    """PTX 9.4's fabric tensor operations and try_atom, in the 9.4 delta at their floors."""
+    from tvm_tirx.backend.cuda.ptx.render import render_variant
+    from tvm_tirx.backend.cuda.ptx.table import _PTX_94_ENTRIES, TABLE, tokens_for, variants
+
+    delta = {entry.name for entry in _PTX_94_ENTRIES}
+    tensor = {name for name in TABLE if name.startswith("fabric_try_") and "_tensor" in name}
+    assert len(tensor) == 25  # get + put/red x {plain, counted}, x 5 override shapes
+    assert tensor <= delta and {TABLE[name].cert_arch for name in tensor} == {"sm_107f"}
+    assert "fabric_try_atom" in delta and TABLE["fabric_try_atom"].cert_arch == "sm_100"
+
+    atom = TABLE["fabric_try_atom"]
+    pairs = {
+        tuple(render_variant(atom, tokens)[0].rsplit(".", 2)[-2:]) for tokens in variants(atom)
+    }
+    assert {("add", "f16x2"), ("cas", "b128")} <= pairs
+    # Off the ISA grid; ptxas accepts `.min.s32`, but the table follows the ISA.
+    assert not {("min", "f32"), ("add", "b32"), ("min", "s32")} & pairs
+    assert len(pairs) == 26  # 3x2 bitwise + 2x3 exch/cas + 2x4 min/max + 6 add
+
+    red = TABLE["fabric_try_red_tensor"]
+    opcode = render_variant(
+        red,
+        tokens_for(
+            red,
+            action="try_red",
+            api="async",
+            unit="tensor",
+            dim="2d",
+            src="shared::cta",
+            load_mode="tile",
+            completion="mbarrier::complete_tx::16B",
+            report="mbarrier::report::fabric",
+            override_address="override::global_address",
+            sem="relaxed",
+            scope="sys",
+            redop="max",
+        ),
+    )[0]
+    assert opcode.endswith(".override::global_address.relaxed.sys.max")  # no element type
+
+
+@pytest.mark.skipif(not env.has_nvcc_version(13, 4), reason="fabric tensor operations are PTX 9.4")
+@requires_nvcc
+def test_ptx_fabric_tensor_codegen():
+    """Each override shape renders its handle bracket and assembles at sm_107f."""
+
+    @T.function
+    def kernel(A: T.Tensor((64,), "uint32"), P: T.Tensor((8,), "uint64")):
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=32))
+        tx = T.cuda.thread_idx("x")
+        smem = T.alloc_tensor(ty_args=[T.Tensor((64,), "uint32", scope="shared")])
+        mbar = T.alloc_tensor(ty_args=[T.Tensor((2,), "uint64", scope="shared")])
+        if tx == 0:
+            tmap = P.ptr_to([0])
+            le = A[0]
+            off = P[1]
+            c0 = T.int32(A[1])
+            c1 = T.int32(A[2])
+            T.ptx[
+                "fabric.try_get.async.tensor.2d.shared::cta.tile"
+                ".mbarrier::complete_tx::bytes.mbarrier::report::fabric"
+                ".override::global_address.relaxed.sys.b128"
+            ](smem.ptr_to([0]), tmap, le, off, c0, c1, mbar.ptr_to([0]))
+            T.ptx[
+                "fabric.try_get.async.tensor.1d.shared::cta.tile"
+                ".mbarrier::complete_tx::bytes.mbarrier::report::fabric.L2::cache_hint"
+                ".override::global_address.override::global_dim.relaxed.sys.b128"
+            ](smem.ptr_to([0]), tmap, le, off, T.uint16(64), c0, mbar.ptr_to([0]), P[2])
+            T.ptx[
+                "fabric.try_put.async.tensor.multimem.3d.shared::cta.tile"
+                ".mbarrier::complete_tx::16B.mbarrier::report::fabric.counted::bytes"
+                ".override::global_address.override::global_dim_stride.relaxed.sys.b128"
+            ](
+                tmap, le, off, P[3],
+                T.uint16(8), T.uint16(8), T.uint16(8),
+                T.uint32(256), T.uint32(2048),
+                T.uint16(0),
+                c0, c1, c0,
+                smem.ptr_to([0]), T.uint32(256), mbar.ptr_to([0]),
+            )  # fmt: skip
+            T.ptx[
+                "fabric.try_red.async.tensor.2d.shared::cta.tile"
+                ".mbarrier::complete_tx::16B.mbarrier::report::fabric"
+                ".override::global_address.relaxed.sys.add"
+            ](tmap, le, off, c0, c1, smem.ptr_to([0]), T.uint32(256), mbar.ptr_to([0]))
+        A[tx] = A[tx]
+
+    src = _cuda_source(kernel, tvm_tirx.target.Target({"kind": "cuda", "arch": "sm_107f"}))
+    for text in (
+        ".override::global_address.relaxed.sys.b128 [%0], [%1, %2, %3, {%4, %5}], [%6];",
+        ".override::global_dim.relaxed.sys.b128 [%0], [%1, %2, %3, {%4}, {%5}], [%6], %7;",
+        ".counted::bytes.override::global_address.override::global_dim_stride.relaxed.sys.b128 "
+        "[%0, %1, %2, %3, {%4, %5, %6}, {%7, %8}, %9, {%10, %11, %12}], [%13], %14, [%15];",
+        ".override::global_address.relaxed.sys.add [%0, %1, %2, {%3, %4}], [%5], %6, [%7];",
+    ):
+        assert text in src, text
+    _assert_ptxas_ok(src, arch="sm_107f")
+
+
+@requires_nvcc
+@pytest.mark.skipif(not env.has_nvcc_version(13, 4), reason="fabric.try_atom is PTX 9.4")
+def test_ptx_fabric_try_atom_codegen():
+    @T.function
+    def kernel(A: T.Tensor((64,), "uint32"), P: T.Tensor((8,), "uint64")):
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=32))
+        tx = T.cuda.thread_idx("x")
+        smem = T.alloc_tensor(ty_args=[T.Tensor((64,), "uint32", scope="shared")])
+        mbar = T.alloc_tensor(ty_args=[T.Tensor((2,), "uint64", scope="shared")])
+        if tx == 0:
+            T.ptx[
+                "fabric.try_atom.async.shared::cta"
+                ".mbarrier::complete_tx::16B.mbarrier::report::fabric.relaxed.sys.add.bf16x2"
+            ](A[0], P[1], smem.ptr_to([0]), smem.ptr_to([16]), mbar.ptr_to([0]))
+            T.ptx[
+                "fabric.try_atom.async.shared::cta"
+                ".mbarrier::complete_tx::16B.mbarrier::report::fabric.L2::cache_hint"
+                ".relaxed.sys.cas.b128"
+            ](A[0], P[1], smem.ptr_to([0]), smem.ptr_to([16]), mbar.ptr_to([0]), P[2])
+        A[tx] = A[tx]
+
+    src = _cuda_source(kernel, tvm_tirx.target.Target({"kind": "cuda", "arch": "sm_100a"}))
+    assert ".relaxed.sys.add.bf16x2 [%0, %1], [%2], [%3], [%4];" in src
+    assert ".L2::cache_hint.relaxed.sys.cas.b128 [%0, %1], [%2], [%3], [%4], %5;" in src
+    _assert_ptxas_ok(src, arch="sm_100a")
+
+
 def test_ptx_tcgen05_mapa_address_rendering():
     """Optional state spaces select generic versus shared address carriers."""
     from tvm_tirx.backend.cuda.ptx.render import render_variant
@@ -4159,7 +4823,7 @@ def test_ptx_all_variants_render_unique():
             _, helper, _ = render_variant(entry, *args, addr_offsets=addr_offsets)
             assert helper not in names, f"address-offset helper name collision: {helper}"
             names.add(helper)
-    assert total == 762178  # update when the table grows or a ptxas gap narrows it
+    assert total == 791291  # update when the table grows or a ptxas gap narrows it
 
 
 def test_ptx_no_instruction_registered_twice():
@@ -4373,14 +5037,20 @@ _PTX_93_SM103A_PHASE_ENTRIES = frozenset(
 
 def _ptx_93_sm103a_manifest():
     """Yield every rendering introduced or extended by PTX 9.3 for SM103a."""
-    from tvm_tirx.backend.cuda.ptx.table import _PTX_94_ENTRIES, TABLE, mods, renderings
+    from tvm_tirx.backend.cuda.ptx.table import (
+        _PTX_94_ENTRIES,
+        _PTX_95_ENTRIES,
+        TABLE,
+        mods,
+        renderings,
+    )
 
-    ptx94 = {entry.name for entry in _PTX_94_ENTRIES}
+    later = {entry.name for entry in (*_PTX_94_ENTRIES, *_PTX_95_ENTRIES)}
     for name, entry in TABLE.items():
-        if name in ptx94:
-            # The 9.4 delta (sm_107f floors, including the cp.async.bulk
-            # `*_report` entries) is certified at its own arch by
-            # test_ptx_all_helpers_certify, not at sm_103a here.
+        if name in later:
+            # The 9.4 and 9.5 deltas (sm_107f floors, the cp.async.bulk
+            # `*_report` entries, fabric submit groups) are certified at their
+            # own arch by test_ptx_all_helpers_certify, not at sm_103a here.
             continue
         for rendering in renderings(entry):
             tokens = rendering[0]

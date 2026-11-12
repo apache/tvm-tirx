@@ -20,14 +20,19 @@ Pure data + pure functions: this module deliberately imports nothing from
 ``tvm`` so the thin generators (``gen_stubs``, ``gen_coverage``,
 ``gen_helpers``) can load it standalone.
 
-Section and table numbers cite PTX ISA 9.4, the version implemented by the
-CUDA 13.4 ptxas this table is certified against:
-``https://docs.nvidia.com/cuda/developer-preview/13.4/parallel-thread-execution/index.html``.
-Every ``MEASURED`` note records CUDA 13.4 ptxas behaviour.  ``_PTX_94_ENTRIES``
-groups the instructions and qualifiers PTX ISA 9.4 introduced (the SM107
-family additions) ahead of the long-standing families in ``_ENTRIES``; it is a
-grouping by ISA release, not a second document version -- every entry cites
-the same document.
+The table is certified against the CUDA 13.5 ptxas, which implements PTX ISA
+9.5: ``https://docs.nvidia.com/cuda/parallel-thread-execution/index.html``.
+Section and table numbers cite PTX ISA 9.4
+(``https://docs.nvidia.com/cuda/developer-preview/13.4/parallel-thread-execution/index.html``)
+except in ``_PTX_95_ENTRIES``, which cites 9.5; 9.5 inserts a few sections
+(e.g. 9.7.10.30 tensormap.query.alloc_class_large), shifting the numbers after
+them by one.  A ``MEASURED`` note records the ptxas behaviour of the toolkit it
+was written against -- CUDA 13.4 unless it says CUDA 13.5 -- and the whole
+table, those notes included, re-certifies under CUDA 13.5 (``PTX_CERT=1``).
+``_PTX_94_ENTRIES`` and ``_PTX_95_ENTRIES`` group the instructions and
+qualifiers PTX ISA 9.4 (the SM107 family additions) and 9.5 introduced ahead of
+the long-standing families in ``_ENTRIES``; they are groupings by ISA release,
+not separate document versions to certify against.
 
 The converged :class:`InstructionEntry` design:
 
@@ -1179,20 +1184,20 @@ def _check_int_addsub(m, mnemonic):
         sub.type1        d, a, b;   .type1 = {.u16, .u32, .u64, .s16, .s64}
         sub{.sat}.type2  d, a, b;   .type2 = {.s32, .u8x4, .s8x4}
 
-    Of the saturating forms only `.s32` is registered. `add.sat` on
-    .u32/.u16x2/.s16x2 arrived in PTX ISA 9.2 as "sm_120f or higher in the same
-    family". The remaining types in these entries belong to syntax lines that
-    never carry `.sat`: .u16/.u64/.s16/.s64 for add, and
-    .u16/.u32/.u64/.s16/.s64 for sub. The `.u8x4`/`.s8x4` types are excluded
-    outright because they are sm_120f-only (see `_MINMAX_INT_PLAIN` below).
-    `add.sat.s32` and `sub.sat.s32` are the PTX 1.0 forms.
+    Of the saturating forms only `.s32` is in these entries: `add.sat.s32` and
+    `sub.sat.s32` are the PTX 1.0 forms. `add.sat` on .u32/.u16x2/.s16x2 and
+    the `.u8x4`/`.s8x4` types arrived in PTX ISA 9.2 for "sm_107f or higher in
+    the same family, sm_120f or higher in the same family", and are the sm_107f
+    `add_int_sm107f`/`sub_int_sm107f` entries. The remaining types here belong
+    to syntax lines that never carry `.sat`: .u16/.u64/.s16/.s64 for add, and
+    .u16/.u32/.u64/.s16/.s64 for sub.
     """
     if not m["sat"] or m["type"] == "s32":
         return None
     if mnemonic == "add" and m["type"] in ("u32", "u16x2", "s16x2"):
         return (
-            f"add.sat.{m['type']} is an sm_120f-only form (PTX ISA 9.2); "
-            ".sat is registered on .s32 only"
+            f"add.sat.{m['type']} is an sm_107f/sm_120f form (PTX ISA 9.2), "
+            "registered as the add_int_sm107f entry"
         )
     return f".sat is not on the {mnemonic}.{m['type']} syntax line"
 
@@ -1205,6 +1210,24 @@ def _check_int_add(m):
 def _check_int_sub(m):
     """Apply the integer sub syntax-line split documented by `_check_int_addsub`."""
     return _check_int_addsub(m, "sub")
+
+
+def _check_int_add_sm107f(m):
+    """The add lines PTX gives to sm_107f/sm_120f (9.7.1.1 Target ISA Notes).
+
+    `add{.sat}.{u8x4,s8x4}` and `add.sat.{u32,u16x2,s16x2}`; the non-saturating
+    .u32/.u16x2/.s16x2 forms are the sm_90 `add_int` entry's.
+    """
+    if m["type"] in ("u32", "u16x2", "s16x2") and not m["sat"]:
+        return f"add.{m['type']} without .sat is the add_int entry (sm_90 floor)"
+    return None
+
+
+def _check_minmax_int8x4(m):
+    """`.relu` is on the signed line only: `min{.relu}.s8x4`, `min.u8x4`."""
+    if m["relu"] and m["type"] != "s8x4":
+        return ".relu applies only to the signed .s8x4 line"
+    return None
 
 
 def _check_int_mad(m):
@@ -1221,9 +1244,9 @@ def _check_int_mad(m):
 
 # The .type tokens of the integer min/max lines (PTX ISA 9.7.1.13/9.7.1.14).
 # `.relu` is only on the signed line (type2); the unsigned/other line takes none.
-# NOT REGISTERED: `.u8x4` and `{.relu}.s8x4`, which the ISA supports only on
-# "sm_120f or higher in the same family" -- outside the architectures this
-# dialect certifies, and ptxas rejects them at sm_100.
+# `.u8x4` and `{.relu}.s8x4` are not here: the ISA gives them only to sm_107f
+# and sm_120f (and ptxas rejects them at sm_100), so they are the sm_107f
+# `{min,max}_int8x4` sibling entries.
 _MINMAX_INT_PLAIN = ("u16", "u32", "u64", "u16x2", "s16", "s64")
 _MINMAX_INT_RELU = ("s16x2", "s32")
 # The floating-point and half-precision lines (9.7.3.11/9.7.3.12, 9.7.4.7/9.7.4.8).
@@ -3235,6 +3258,78 @@ def _tma_global_dim_stride_operands(bracket, size_type):
     )
 
 
+# Attribute-override shapes of a fabric tensor handle, as for TMA's
+# `.override_attribute` (PTX ISA "Overriding tensor property value"): no
+# override; `.override::global_dim` on 1D tensors (a singleton size vector); or
+# `.override::global_dim_stride` on 2D-5D tensors (sizes, lower strides, upper
+# stride). The size vector binds .b8 or .b16 registers, one entry each.
+_FABRIC_TENSOR_OVERRIDES = (
+    ("", None, ("1d", "2d", "3d", "4d", "5d"), None),
+    ("_global_dim_b8", "override::global_dim", ("1d",), "tma_size_b8"),
+    ("_global_dim_b16", "override::global_dim", ("1d",), "b16"),
+    (
+        "_global_dim_stride_b8",
+        "override::global_dim_stride",
+        ("2d", "3d", "4d", "5d"),
+        "tma_size_b8",
+    ),
+    ("_global_dim_stride_b16", "override::global_dim_stride", ("2d", "3d", "4d", "5d"), "b16"),
+)
+
+
+def _fabric_tensor_handle_operands(bracket, handle, override, size_type):
+    """`[tensorMap, leId, off{, counterOff}{, attributeOverrideInfo}, tensorCoords]`.
+
+    The TMA override operands with the fabric handle (logical-endpoint id, byte
+    offset, and the counter offset of counted completion) in place of TMA's
+    `global_address`.
+    """
+    if override is None:
+        attributes = ()
+        coords = OperandSlot("coords", dtype="s32", lanes=_tma_coords_lanes, bracket=bracket)
+    elif override == "override::global_dim":
+        attributes = (
+            OperandSlot("tensor_size", dtype=size_type, lanes=1, vector=True, bracket=bracket),
+        )
+        coords = OperandSlot("coords", dtype="s32", lanes=1, vector=True, bracket=bracket)
+    else:
+        attributes = (
+            OperandSlot("tensor_size", dtype=size_type, lanes=_tma_dim_lanes, bracket=bracket),
+            OperandSlot(
+                "lower_stride", dtype="b32", lanes=_tma_lower_stride_lanes, bracket=bracket
+            ),
+            OperandSlot("upper_stride", dtype="b16", bracket=bracket),
+        )
+        coords = OperandSlot("coords", dtype="s32", lanes=_tma_coords_lanes, bracket=bracket)
+    return (
+        OperandSlot("tmap", kind="addr", space="global", bracket=bracket),
+        *(OperandSlot(name, dtype=dtype, bracket=bracket) for name, dtype in handle),
+        *attributes,
+        coords,
+    )
+
+
+_FABRIC_ATOM_TYPES = {
+    "and": ("b32", "b64"),
+    "xor": ("b32", "b64"),
+    "or": ("b32", "b64"),
+    "exch": ("b32", "b64", "b128"),
+    "cas": ("b32", "b64", "b128"),
+    "min": ("u32", "u64", "f16x2", "bf16x2"),
+    "max": ("u32", "u64", "f16x2", "bf16x2"),
+    "add": ("u32", "u64", "f16x2", "bf16x2", "f32", "f64"),
+}
+
+
+def _check_fabric_atom(m):
+    """Exact fabric.try_atom operation/type grid (PTX ISA 9.4, 9.7.11.5.10)."""
+    op, ty = m["redop"], m["type"]
+    if ty not in _FABRIC_ATOM_TYPES[op]:
+        allowed = " / ".join("." + item for item in _FABRIC_ATOM_TYPES[op])
+        return f".{op} fabric atomic takes {allowed}"
+    return None
+
+
 _TCGEN05_COLLECTOR_A = (
     "collector::a::fill",
     "collector::a::use",
@@ -3268,6 +3363,13 @@ def _check_set_packed(m):
     """Unsigned aliases .lo/.ls/.hi/.hs are invalid for signed packed types."""
     if m["type"].startswith("s") and m["cmp"] in ("lo", "ls", "hi", "hs"):
         return "unsigned comparison qualifier requires an unsigned packed type"
+    return None
+
+
+def _check_sin_cos_2pi(m):
+    """`.2pi` requires `.ftz` (PTX ISA 9.7.3.18/19, PTX ISA 9.5)."""
+    if m["unit"] and not m["ftz"]:
+        return ".ftz is required when .2pi is specified"
     return None
 
 
@@ -5724,17 +5826,311 @@ _PTX_94_ENTRIES = [
             OperandSlot("p", kind="addr", allow_imm_offset=True),
         ),
     ),
+    # fabric.try_{get,put,red}.async.tensor, per PTX ISA 9.4 9.7.11.5.7-9:
+    # the TMA-shaped fabric operations, which address a tensor through a
+    # tensor map plus a fabric handle `[tensorMap, leId, off{, counterOff}
+    # {, attributeOverrideInfo}, tensorCoords]`. `.override::global_address`
+    # is mandatory (the handle replaces the tensor map's global address);
+    # `.override_attribute` follows TMA's shapes (`_FABRIC_TENSOR_OVERRIDES`).
+    # try_get ends in `.b128` like try_put, while try_red ends in its `.redOp`
+    # alone: "the type of each data element ... is specified by the tensorMap".
+    # "Requires sm_107f or higher in the same family." MEASURED on CUDA 13.5:
+    # every shape assembles at sm_107f and sm_107a and is refused at sm_100a,
+    # sm_103a and sm_120f; `.override::global_dim` with `.2d` is refused
+    # ("Illegal modifier"), so is a type on try_red and a form without
+    # `.override::global_address`. ptxas also takes `.L2::cache_hint` after
+    # `.relaxed.sys`, as the ISA's own Examples write it; the entries spell the
+    # syntax line's order.
+    *[
+        InstructionEntry(
+            name=f"fabric_try_get_tensor{suffix}",
+            mnemonic="fabric",
+            slots=(
+                ModifierSlot("action", ("try_get",)),
+                ModifierSlot("api", ("async",)),
+                ModifierSlot("unit", ("tensor",)),
+                ModifierSlot("dim", dims),
+                ModifierSlot("dst", ("shared::cta",)),
+                ModifierSlot("load_mode", ("tile",), optional=True),
+                ModifierSlot("completion", ("mbarrier::complete_tx::bytes",)),
+                ModifierSlot("report", ("mbarrier::report::fabric",)),
+                ModifierSlot("cache", ("L2::cache_hint",), optional=True),
+                ModifierSlot("override_address", ("override::global_address",)),
+                *((ModifierSlot("override_attribute", (override,)),) if override else ()),
+                ModifierSlot("sem", ("relaxed",)),
+                ModifierSlot("scope", ("sys",)),
+                ModifierSlot("type", ("b128",)),
+            ),
+            cert_arch="sm_107f",
+            operands=(
+                OperandSlot("dst_mem", kind="addr", allow_imm_offset=True, space="shared::cta"),
+                *_fabric_tensor_handle_operands(
+                    "src", (("src_le_id", "u32"), ("src_data_off", "u64")), override, size_type
+                ),
+                OperandSlot("mbar", kind="addr", allow_imm_offset=True, space="shared::cta"),
+                OperandSlot("cache_policy", dtype="u64", lanes=_tma_cache_lanes, vector=False),
+            ),
+        )
+        for suffix, override, dims, size_type in _FABRIC_TENSOR_OVERRIDES
+    ],
+    *[
+        InstructionEntry(
+            name=f"fabric_try_{kind}_tensor{'_counted' if counted else ''}{suffix}",
+            mnemonic="fabric",
+            slots=(
+                ModifierSlot("action", (f"try_{kind}",)),
+                ModifierSlot("api", ("async",)),
+                ModifierSlot("unit", ("tensor",)),
+                ModifierSlot("multimem", ("multimem",), optional=True),
+                ModifierSlot("dim", dims),
+                ModifierSlot("src", ("shared::cta",)),
+                ModifierSlot("load_mode", ("tile",), optional=True),
+                ModifierSlot("completion", ("mbarrier::complete_tx::16B",)),
+                ModifierSlot("report", ("mbarrier::report::fabric",)),
+                *((ModifierSlot("counted", ("counted::bytes",)),) if counted else ()),
+                ModifierSlot("cache", ("L2::cache_hint",), optional=True),
+                ModifierSlot("override_address", ("override::global_address",)),
+                *((ModifierSlot("override_attribute", (override,)),) if override else ()),
+                ModifierSlot("sem", ("relaxed",)),
+                ModifierSlot("scope", ("sys",)),
+                (
+                    ModifierSlot("type", ("b128",))
+                    if kind == "put"
+                    else ModifierSlot("redop", ("and", "xor", "or", "add", "min", "max"))
+                ),
+            ),
+            cert_arch="sm_107f",
+            operands=(
+                *_fabric_tensor_handle_operands(
+                    "dst",
+                    (
+                        ("dst_le_id", "u32"),
+                        ("dst_data_off", "u64"),
+                        *((("dst_counter_off", "u64"),) if counted else ()),
+                    ),
+                    override,
+                    size_type,
+                ),
+                OperandSlot("src_mem", kind="addr", allow_imm_offset=True, space="shared::cta"),
+                OperandSlot("size", dtype="u32"),
+                OperandSlot("mbar", kind="addr", allow_imm_offset=True, space="shared::cta"),
+                OperandSlot("cache_policy", dtype="u64", lanes=_tma_cache_lanes, vector=False),
+            ),
+        )
+        for kind in ("put", "red")
+        for counted in (False, True)
+        for suffix, override, dims, size_type in _FABRIC_TENSOR_OVERRIDES
+    ],
+    # fabric.try_atom, per PTX ISA 9.4 9.7.11.5.10: an atomic on a fabric
+    # handle that leaves the previous value in shared memory. Four syntax
+    # lines that differ only in their operation/type pair, so one entry whose
+    # `_check_fabric_atom` grid is the ISA's `.redOp*`/`.type*` sets. "Requires
+    # sm_100 or higher." MEASURED on CUDA 13.5: every listed pair assembles at
+    # sm_100 (and sm_100a, sm_103a, sm_107f), sm_90a refuses the instruction,
+    # and pairs outside the grid are refused ("Incorrect type '.s32' for
+    # operation '.add'") -- except `.min/.max.s32`, which ptxas accepts though
+    # the ISA does not list it; the table follows the ISA. ptxas also takes
+    # `.L2::cache_hint` before the completion mechanism, as the ISA's third
+    # Example writes it; the entry spells the syntax line's order.
+    InstructionEntry(
+        name="fabric_try_atom",
+        mnemonic="fabric",
+        slots=(
+            ModifierSlot("action", ("try_atom",)),
+            ModifierSlot("api", ("async",)),
+            ModifierSlot("src", ("shared::cta",)),
+            ModifierSlot("completion", ("mbarrier::complete_tx::16B",)),
+            ModifierSlot("report", ("mbarrier::report::fabric",)),
+            ModifierSlot("cache", ("L2::cache_hint",), optional=True),
+            ModifierSlot("sem", ("relaxed",)),
+            ModifierSlot("scope", ("sys",)),
+            ModifierSlot("redop", tuple(_FABRIC_ATOM_TYPES)),
+            ModifierSlot(
+                "type", ("b32", "b64", "b128", "u32", "u64", "f16x2", "bf16x2", "f32", "f64")
+            ),
+        ),
+        check=_check_fabric_atom,
+        cert_arch="sm_100",
+        operands=(
+            OperandSlot("dst_le_id", dtype="u32", bracket="dst"),
+            OperandSlot("dst_data_off", dtype="u64", bracket="dst"),
+            OperandSlot("smem_dst", kind="addr", allow_imm_offset=True, space="shared::cta"),
+            OperandSlot("smem_src", kind="addr", allow_imm_offset=True, space="shared::cta"),
+            OperandSlot("mbar", kind="addr", allow_imm_offset=True, space="shared::cta"),
+            OperandSlot("cache_policy", dtype="u64", lanes=_tma_cache_lanes, vector=False),
+        ),
+    ),
+]
+
+# PTX ISA 9.5 additions, grouped by ISA release like `_PTX_94_ENTRIES`.  Every
+# MEASURED note in this group records CUDA 13.5 ptxas behaviour, and ptxas
+# refuses these spellings under `.version 9.4` ("Feature ... requires PTX ISA
+# .version 9.5 or later").
+_PTX_95_ENTRIES = [
+    # fabric.submit.commit_group / fabric.wait.sync_restrict::read N, per PTX
+    # ISA 9.7.11.5.5 and 9.7.11.5.6 (both "Requires sm_100 or higher").
+    #
+    # A fabric submit group tracks the submit of every prior fabric operation
+    # of the issuing thread; `fabric.wait.sync_restrict::read N` waits until at
+    # most N of the most recent groups are pending, after which the
+    # .shared::cta data those groups read may be overwritten -- the same
+    # commit/wait shape as cp.async.bulk.  They are entries of their own rather
+    # than extra choices on the PTX 9.3 `fabric_submit`/`fabric_wait`: they are
+    # separate syntax lines (the wait gains an operand), and the 9.3 entries
+    # keep their own sm_103a certification manifest.
+    #
+    # N is an integer constant with no ISA-declared domain, kept OPEN like
+    # cp.async.bulk.wait_group's.  MEASURED: N = 0 and N = 255 assemble at
+    # sm_100, sm_100a, sm_103a and sm_107f; sm_90 and sm_90a refuse the
+    # instruction.
+    InstructionEntry(  # fabric.submit.commit_group;
+        name="fabric_submit_commit_group",
+        mnemonic="fabric",
+        slots=(
+            ModifierSlot("action", ("submit",)),
+            ModifierSlot("group", ("commit_group",)),
+        ),
+        cert_arch="sm_100",
+        orders_memory=True,
+        operands=(),
+    ),
+    InstructionEntry(  # fabric.wait.sync_restrict::read N;
+        name="fabric_wait_read",
+        mnemonic="fabric",
+        slots=(
+            ModifierSlot("action", ("wait",)),
+            ModifierSlot("waitop", ("sync_restrict::read",)),
+        ),
+        cert_arch="sm_100",
+        orders_memory=True,
+        operands=(OperandSlot("group", kind="imm"),),
+    ),
+    # cp.async.bulk.wait_group.sync_restrict::proxy::async N, per PTX ISA
+    # 9.7.10.28.6.2: the qualifier "only orders async-proxy global and shared
+    # memory accesses before subsequent async-proxy accesses; not before
+    # subsequent generic-proxy accesses".  It is its own syntax line, without
+    # `{.read}`: MEASURED, ptxas answers "Invalid combination of
+    # '.sync_restrict::proxy::async' and '.read'" at every architecture.
+    #
+    # The ISA requires sm_100 or higher.  MEASURED: ptxas also assembles it at
+    # sm_90 and sm_90a; the table follows the ISA where ptxas is the more
+    # permissive of the two, so this entry certifies at sm_100.
+    InstructionEntry(  # cp.async.bulk.wait_group.sync_restrict::proxy::async N;
+        name="cp_async_bulk_wait_group_proxy_async",
+        mnemonic="cp",
+        slots=(
+            ModifierSlot("api", ("async",)),
+            ModifierSlot("kind", ("bulk",)),
+            ModifierSlot("action", ("wait_group",)),
+            ModifierSlot("sync_restrict", ("sync_restrict::proxy::async",)),
+        ),
+        cert_arch="sm_100",
+        orders_memory=True,
+        operands=(OperandSlot("group", kind="imm"),),
+    ),
+    # fence.alias.sync_restrict::read.release.sys, per PTX ISA 9.7.15.4: the
+    # generic-proxy to generic-proxy alias fence ("requires sm_90 or higher").
+    # A fixed token sequence.  MEASURED: ptxas refuses any other scope
+    # ("Modifier '.sync_restrict::read' cannot be combined with modifier
+    # '.gpu'").
+    InstructionEntry(  # fence.alias.sync_restrict::read.release.sys;
+        name="fence_alias_sync_restrict_read",
+        mnemonic="fence",
+        slots=(
+            ModifierSlot("proxykind", ("alias",)),
+            ModifierSlot("sync_restrict", ("sync_restrict::read",)),
+            ModifierSlot("sem", ("release",)),
+            ModifierSlot("scope", ("sys",)),
+        ),
+        cert_arch="sm_90",
+        orders_memory=True,
+        operands=(),
+    ),
+    # tensormap.replace `{.alloc_class}` and tensormap.query.alloc_class_large,
+    # per PTX ISA 9.7.10.29/30: the Tensor Allocation Size of a tensor-map
+    # object, small or large.  Two new tensormap.replace syntax lines --
+    #   tensormap.replace.mode.field4{.alloc_class}{.ss}.b1024.type [addr], new_val;
+    #   tensormap.replace.mode.alloc_class{.ss}.b1024               [addr];
+    # -- where the field-less line takes only .alloc_small/.alloc_large and
+    # `.alloc_same` ("unchanged") exists only beside `.global_address`.  The
+    # global_address line without `.alloc_class` stays the pre-9.5
+    # `tensormap_replace_address` entry; PTX ISA 9.5 clarifies that it now sets
+    # the allocation size to Small.
+    #
+    # "Qualifier .alloc_class is supported on sm_90a, and on following
+    # family-specific architectures: sm_100f / sm_110f / sm_120f or higher in
+    # the same family", and the query has the same list.  MEASURED: all three
+    # assemble at sm_90a, sm_100a, sm_100f, sm_103a, sm_107a, sm_107f and
+    # sm_120f, and are refused at sm_90 and sm_100; `.alloc_same` without a
+    # field answers "Modifier '.alloc_same' requires modifier
+    # '.global_address'", and the other fields refuse `.alloc_*`.
+    #
+    # NOT REGISTERED: the query's `.const` and `.param{::entry}` state spaces.
+    # Neither address can cross the helper-function ABI (the reason `ld` leaves
+    # out `.param`); a `__grid_constant__` kernel-parameter tensor map is
+    # reached through generic addressing, the no-`.ss` spelling registered here.
+    # Nor the query's `.shared::cta`: MEASURED on CUDA 13.5 (sm_90a, sm_100a,
+    # sm_107a), ptxas refuses it with a 32-bit address register -- "Arguments
+    # mismatch for instruction 'mov'" -- while accepting a 64-bit register or a
+    # variable name, and the shared-address ABI here is the 32-bit window
+    # offset (the field-less and global_address replaces take it fine). So a
+    # tensor map in shared memory has no query helper yet; the replaces do.
+    InstructionEntry(  # tensormap.replace.tile.global_address.alloc_class{.ss}.b1024.b64
+        name="tensormap_replace_address_alloc_class",
+        mnemonic="tensormap.replace",
+        slots=(
+            ModifierSlot("mode", ("tile",)),
+            ModifierSlot("field", ("global_address",)),
+            ModifierSlot("alloc_class", ("alloc_small", "alloc_large", "alloc_same")),
+            ModifierSlot("space", ("global", "shared::cta"), optional=True),
+            ModifierSlot("width", ("b1024",)),
+            ModifierSlot("type", ("b64",)),
+        ),
+        cert_arch="sm_90a",
+        operands=(
+            OperandSlot("addr", kind="addr", allow_imm_offset=True),
+            OperandSlot("new_val", dtype="b64"),
+        ),
+    ),
+    InstructionEntry(  # tensormap.replace.tile.alloc_class{.ss}.b1024 [addr];
+        name="tensormap_replace_alloc_class",
+        mnemonic="tensormap.replace",
+        slots=(
+            ModifierSlot("mode", ("tile",)),
+            ModifierSlot("alloc_class", ("alloc_small", "alloc_large")),
+            ModifierSlot("space", ("global", "shared::cta"), optional=True),
+            ModifierSlot("width", ("b1024",)),
+        ),
+        cert_arch="sm_90a",
+        operands=(OperandSlot("addr", kind="addr", allow_imm_offset=True),),
+    ),
+    InstructionEntry(  # tensormap.query.alloc_class_large{.ss}.b1024 p, [addr];
+        name="tensormap_query",
+        mnemonic="tensormap.query",
+        slots=(
+            ModifierSlot("query", ("alloc_class_large",)),
+            ModifierSlot("space", ("global",), optional=True),
+            ModifierSlot("width", ("b1024",)),
+        ),
+        cert_arch="sm_90a",
+        operands=(
+            OperandSlot("p", rw="w", dtype="pred"),
+            OperandSlot("addr", kind="addr", allow_imm_offset=True),
+        ),
+    ),
 ]
 
 _ENTRIES = [
     *_PTX_94_ENTRIES,
+    *_PTX_95_ENTRIES,
     # ------------------------------------------------------------------
     # PTX ISA 9.7.1 — Integer Arithmetic Instructions
     # ------------------------------------------------------------------
-    # The existing public families cover this section with one exception,
-    # stated at the entry it belongs to: the packed `.u8x4`/`.s8x4` types
-    # (and the saturating forms that arrived with them), which the ISA gives
-    # only to "sm_120f or higher in the same family".  The distinct `clmad`
+    # The existing public families cover this section. The packed
+    # `.u8x4`/`.s8x4` types (and the saturating forms that arrived with them),
+    # which the ISA gives only to "sm_107f or higher in the same family, sm_120f
+    # or higher in the same family", are sm_107f sibling entries beside the
+    # families they extend, so those families keep their floors.  The distinct `clmad`
     # family (9.7.1.5, introduced in PTX ISA 9.3) is registered below.
     #
     # Several mnemonics have a floating-point line further down the table. The
@@ -5747,9 +6143,9 @@ _ENTRIES = [
     # (single/double), 9.7.4.7, 9.7.4.8 (half).
     # Each mnemonic gets two entries because the ISA gives it two operand
     # shapes: the usual `d, a, b` and the three-source `d, a, b, c` line.
-    # NOT REGISTERED: only the `.u8x4` and `{.relu}.s8x4` tokens of the integer
-    # lines (reason at the `_MINMAX_INT_PLAIN` note above: sm_120f-only). Every
-    # other syntax line and type token of both families is here.
+    # The `.u8x4` and `{.relu}.s8x4` tokens of the integer lines are the sm_107f
+    # `{min,max}_int8x4` entries that follow; every syntax line and type token
+    # of both families is registered.
     *[
         InstructionEntry(
             name=name,
@@ -5765,6 +6161,29 @@ _ENTRIES = [
             # `.u16x2`, `{.relu}.s16x2` and `.relu.s32` need sm_90 (ISA Target
             # Notes); cert_arch is the max over the entry's variants.
             cert_arch="sm_90",
+            operands=(
+                OperandSlot("d", rw="w"),
+                OperandSlot("a"),
+                OperandSlot("b"),
+            ),
+        )
+        for name in ("max", "min")
+    ],
+    # `min/max.u8x4` and `min/max{.relu}.s8x4` (9.7.1.13/9.7.1.14), given only
+    # to "sm_107f or higher in the same family, sm_120f or higher in the same
+    # family": a sibling entry certified at sm_107f. MEASURED on CUDA 13.5:
+    # assembles at sm_107a, sm_107f and sm_120f, refused at sm_90, sm_100a and
+    # sm_103a; `.relu.u8x4` is refused everywhere.
+    *[
+        InstructionEntry(
+            name=f"{name}_int8x4",
+            mnemonic=name,
+            slots=(
+                ModifierSlot("relu", ("relu",), optional=True),
+                ModifierSlot("type", ("u8x4", "s8x4")),
+            ),
+            check=_check_minmax_int8x4,
+            cert_arch="sm_107f",
             operands=(
                 OperandSlot("d", rw="w"),
                 OperandSlot("a"),
@@ -5826,9 +6245,9 @@ _ENTRIES = [
     #   sub{.sat}.type2  d, a, b;   .type2 = {.s32, .u8x4, .s8x4}
     # The two lines differ only in whether `.sat` is offered, so one entry with
     # an optional slot spells both and `_check_int_addsub` draws the boundary.
-    # NOT REGISTERED: the `.u8x4`/`.s8x4` types on either mnemonic, and `.sat`
-    # on .u32/.u16x2/.s16x2 -- all sm_120f-only (PTX ISA 9.2), the same
-    # exclusion the min/max entry above makes for the same reason.
+    # The `.u8x4`/`.s8x4` types on either mnemonic, and `.sat` on
+    # .u32/.u16x2/.s16x2, are the sm_107f `add_int_sm107f`/`sub_int_sm107f`
+    # entries after these two.
     InstructionEntry(
         name="add_int",
         mnemonic="add",
@@ -5854,6 +6273,43 @@ _ENTRIES = [
             ModifierSlot("type", _INT_TYPES),
         ),
         check=_check_int_sub,
+        operands=(
+            OperandSlot("d", rw="w"),
+            OperandSlot("a"),
+            OperandSlot("b"),
+        ),
+    ),
+    # The integer add/sub forms the ISA gives only to "sm_107f or higher in the
+    # same family, sm_120f or higher in the same family" (9.7.1.1/9.7.1.2 Target
+    # ISA Notes, PTX ISA 9.2): the packed `.u8x4`/`.s8x4` types with or without
+    # `.sat`, and `.sat` on .u32/.u16x2/.s16x2. Sibling entries certified at
+    # sm_107f, so `add_int`/`sub_int` keep their floors. MEASURED on CUDA 13.5:
+    # every one of these assembles at sm_107a, sm_107f and sm_120f and is refused
+    # at sm_90, sm_100a and sm_103a; `sub.sat.u32` is refused everywhere, as
+    # the syntax (`sub{.sat}.type2`, `.type2 = {.s32, .u8x4, .s8x4}`) says.
+    InstructionEntry(
+        name="add_int_sm107f",
+        mnemonic="add",
+        slots=(
+            ModifierSlot("sat", ("sat",), optional=True),
+            ModifierSlot("type", ("u32", "u16x2", "u8x4", "s16x2", "s8x4")),
+        ),
+        check=_check_int_add_sm107f,
+        cert_arch="sm_107f",
+        operands=(
+            OperandSlot("d", rw="w"),
+            OperandSlot("a"),
+            OperandSlot("b"),
+        ),
+    ),
+    InstructionEntry(
+        name="sub_int_sm107f",
+        mnemonic="sub",
+        slots=(
+            ModifierSlot("sat", ("sat",), optional=True),
+            ModifierSlot("type", ("u8x4", "s8x4")),
+        ),
+        cert_arch="sm_107f",
         operands=(
             OperandSlot("d", rw="w"),
             OperandSlot("a"),
@@ -6002,7 +6458,7 @@ _ENTRIES = [
     # abs / neg per PTX ISA 9.7.1.11, 9.7.1.12 -- signed integers only. Their
     # floating-point lines (9.7.3.9, 9.7.3.10) are the `abs_f` and `neg`
     # entries below; which of each pair carries a suffix is just which arrived
-    # second. NOT REGISTERED: `neg.s8x4`, sm_120f-only as above.
+    # second. `neg.s8x4` is the sm_107f `neg_int_sm107f` entry after them.
     InstructionEntry(
         name="abs",
         slots=(ModifierSlot("type", ("s16", "s32", "s64")),),
@@ -6015,6 +6471,20 @@ _ENTRIES = [
         name="neg_int",
         mnemonic="neg",
         slots=(ModifierSlot("type", ("s16", "s32", "s64")),),
+        operands=(
+            OperandSlot("d", rw="w"),
+            OperandSlot("a"),
+        ),
+    ),
+    # `neg.s8x4` (9.7.1.12), "sm_107f or higher in the same family, sm_120f or
+    # higher in the same family" -- the sm_107f sibling of `neg_int`. MEASURED
+    # on CUDA 13.5 as for the packed add/sub above; `neg.u8x4` and `abs.s8x4`
+    # are not in the syntax and ptxas refuses them.
+    InstructionEntry(
+        name="neg_int_sm107f",
+        mnemonic="neg",
+        slots=(ModifierSlot("type", ("s8x4",)),),
+        cert_arch="sm_107f",
         operands=(
             OperandSlot("d", rw="w"),
             OperandSlot("a"),
@@ -6340,20 +6810,36 @@ _ENTRIES = [
     # half-precision forms (9.7.4.10) are the `ex2_half` entry below: they
     # cannot share this optional `.ftz` slot, because theirs is mandatory on
     # the bf16 line and unspelled on the f16 one.
+    #
+    # PTX ISA 9.5 adds `{.2pi}` to sin and cos only -- `op.approx{.2pi}{.ftz}.f32`,
+    # reading the input in cycles (1.0 is one full turn) -- and "the .ftz
+    # qualifier is required when .2pi is specified", which `_check_sin_cos_2pi`
+    # states.  It is a qualifier on the same syntax line, so it is a slot here
+    # rather than an entry in `_PTX_95_ENTRIES`, and the helper signature of
+    # `T.ptx.sin`/`T.ptx.cos` stays the one shape it was.  `2pi` is not a Python
+    # identifier, so programs spell it through the string form
+    # (`T.ptx["sin.approx.2pi.ftz.f32"]`), as they do the TMA `1d`..`5d` dims.
+    # "Supported on all target architectures."  MEASURED on CUDA 13.5: assembles
+    # at sm_75, sm_90, sm_100 and sm_107a; without `.ftz` ptxas answers ".ftz
+    # modifier required for instruction 'sin' with modifier '.2pi'"; lg2 and ex2
+    # refuse `.2pi` ("Illegal modifier"); `.version 9.4` refuses it.
     *[
         InstructionEntry(
             name=name,
             slots=(
                 ModifierSlot("mode", ("approx",)),
+                *((ModifierSlot("unit", ("2pi",), optional=True),) if trig else ()),
                 ModifierSlot("ftz", ("ftz",), optional=True),
                 ModifierSlot("type", ("f32",)),
             ),
+            check=_check_sin_cos_2pi if trig else None,
             operands=(
                 OperandSlot("d", rw="w"),
                 OperandSlot("value"),
             ),
         )
         for name in ("ex2", "sin", "cos", "lg2")
+        for trig in (name in ("sin", "cos"),)
     ],
     # tanh per PTX ISA 9.7.3.22: `tanh.approx.f32 d, a;` -- alone among the
     # approximations in spelling no `.ftz`, so it gets no such slot. Requires
@@ -7479,7 +7965,8 @@ _ENTRIES = [
     # enforces by name.
     # NOT REGISTERED: `.swizzle_atomicity` (sm_100a and later only, while the
     # rest of this instruction is sm_90a), and the `.elemtype` values 13-15 and
-    # `.swizzle_mode` value 4, which need newer architectures still.
+    # `.swizzle_mode` value 4, which need newer architectures still. PTX ISA
+    # 9.5's `.alloc_class` lines and tensormap.query are in `_PTX_95_ENTRIES`.
     *[
         InstructionEntry(
             name=f"tensormap_replace_{group}",
@@ -9029,6 +9516,11 @@ _ENTRIES = [
     # PTX ISA 9.7.11 — Fabric Instructions (introduced in PTX ISA 9.3)
     # ------------------------------------------------------------------
     # A fabric handle is the composite [logical-endpoint id, byte offset].
+    # The completion mechanism `.mbarrier::complete_tx::{bytes,16B}
+    # .mbarrier::report::fabric{.counted::bytes}` is two or three dotted
+    # qualifiers, so it is that many slots: a single slot holding the dotted
+    # text renders the same PTX but cannot be spelled by `T.ptx[...]` or an
+    # attribute chain, which split on the dots.
     # Counted completion adds a third counter-offset member and is therefore a
     # distinct operand shape. Likewise, cp_mask has a trailing byte-mask
     # operand and is incompatible with counted::bytes (ISA 9.7.11.5.2).
@@ -9039,7 +9531,8 @@ _ENTRIES = [
             ModifierSlot("action", ("try_get",)),
             ModifierSlot("api", ("async",)),
             ModifierSlot("dst", ("shared::cta",)),
-            ModifierSlot("completion", ("mbarrier::complete_tx::bytes.mbarrier::report::fabric",)),
+            ModifierSlot("completion", ("mbarrier::complete_tx::bytes",)),
+            ModifierSlot("report", ("mbarrier::report::fabric",)),
             ModifierSlot("sem", ("relaxed",)),
             ModifierSlot("scope", ("sys",)),
             ModifierSlot("type", ("b128",)),
@@ -9062,13 +9555,9 @@ _ENTRIES = [
                 ModifierSlot("api", ("async",)),
                 ModifierSlot("multimem", ("multimem",), optional=True),
                 ModifierSlot("src", ("shared::cta",)),
-                ModifierSlot(
-                    "completion",
-                    (
-                        "mbarrier::complete_tx::16B.mbarrier::report::fabric"
-                        + (".counted::bytes" if counted else ""),
-                    ),
-                ),
+                ModifierSlot("completion", ("mbarrier::complete_tx::16B",)),
+                ModifierSlot("report", ("mbarrier::report::fabric",)),
+                *((ModifierSlot("counted", ("counted::bytes",)),) if counted else ()),
                 *((ModifierSlot("cp_mask", ("cp_mask",)),) if cp_mask else ()),
                 ModifierSlot("sem", ("relaxed",)),
                 ModifierSlot("scope", ("sys",)),
@@ -9100,13 +9589,9 @@ _ENTRIES = [
                 ModifierSlot("api", ("async",)),
                 ModifierSlot("multimem", ("multimem",), optional=True),
                 ModifierSlot("src", ("shared::cta",)),
-                ModifierSlot(
-                    "completion",
-                    (
-                        "mbarrier::complete_tx::16B.mbarrier::report::fabric"
-                        + (".counted::bytes" if counted else ""),
-                    ),
-                ),
+                ModifierSlot("completion", ("mbarrier::complete_tx::16B",)),
+                ModifierSlot("report", ("mbarrier::report::fabric",)),
+                *((ModifierSlot("counted", ("counted::bytes",)),) if counted else ()),
                 ModifierSlot("sem", ("relaxed",)),
                 ModifierSlot("scope", ("sys",)),
                 ModifierSlot("redop", tuple(_FABRIC_RED_TYPES)),
@@ -9139,7 +9624,8 @@ _ENTRIES = [
             ModifierSlot("api", ("async",)),
             ModifierSlot("multimem", ("multimem",)),
             ModifierSlot("dst", ("shared::cta",)),
-            ModifierSlot("completion", ("mbarrier::complete_tx::bytes.mbarrier::report::fabric",)),
+            ModifierSlot("completion", ("mbarrier::complete_tx::bytes",)),
+            ModifierSlot("report", ("mbarrier::report::fabric",)),
             ModifierSlot("sem", ("relaxed",)),
             ModifierSlot("scope", ("sys",)),
             ModifierSlot("redop", tuple(_FABRIC_PULLRED_TYPES)),
@@ -9168,6 +9654,10 @@ _ENTRIES = [
         orders_memory=True,
         operands=(),
     ),
+    # `fabric.wait.sync_restrict::reads` is deprecated by PTX ISA 9.5 in
+    # favour of `fabric.wait.sync_restrict::read N` with
+    # `fabric.submit.commit_group` (both in `_PTX_95_ENTRIES`), and "has no
+    # effect" (9.7.11.5.6). Kept so existing programs keep their spelling.
     InstructionEntry(
         name="fabric_wait",
         mnemonic="fabric",
@@ -9486,9 +9976,10 @@ _ENTRIES = [
     # alone is not enough. Each syntax line whose token sequence differs is its
     # own entry, all sharing the `fence` mnemonic, so the surface stays
     # `T.ptx.fence...` and the chain narrows on the tokens themselves.
-    # NOT REGISTERED: the `.sync_restrict` lines (fixed token sequences with no
-    # users yet), and the deprecated `membar` spellings, which the ISA itself
-    # marks as the old style for `fence`.
+    # NOT REGISTERED: the pre-9.5 `.sync_restrict` lines (fixed token
+    # sequences with no users yet), and the deprecated `membar` spellings,
+    # which the ISA itself marks as the old style for `fence`. PTX ISA 9.5's
+    # `fence.alias.sync_restrict::read.release.sys` is in `_PTX_95_ENTRIES`.
     InstructionEntry(  # fence{.sem}.scope;
         name="fence",
         slots=(
@@ -11211,10 +11702,26 @@ _ENTRIES = [
     # Every one of these carries `orders_memory=True`: the legacy helpers all
     # had `::: "memory"`, and the waits/fences name no address at all.
     #
-    # NOT REGISTERED:
-    # - `tcgen05.shift.cta_group.down [taddr]`: no call site. (The tmem address
-    #   space its bracketed operand needs now exists -- `tcgen05.ld`/`.st`/`.cp`
-    #   all use it -- so this one is registrable the day something calls it.)
+    #
+    # tcgen05.shift per PTX ISA 9.7.18.9.3: asynchronously shift the rows of a
+    # tmem matrix down by one, completed through tcgen05.commit like
+    # tcgen05.mma/.cp. Supported on sm_100a, sm_103a, sm_107a and sm_110a only
+    # -- no family-specific (`f`) target -- so it certifies at sm_100a.
+    # MEASURED on CUDA 13.5: assembles at sm_100a, sm_103a, sm_107a and sm_110a
+    # and is refused at sm_100f, sm_107f and sm_120a. ptxas also takes the
+    # `.down.cta_group::N` order of the ISA's own Examples; the entry spells the
+    # syntax line's `.cta_group.down`.
+    InstructionEntry(  # tcgen05.shift.cta_group.down [taddr];
+        name="tcgen05_shift",
+        mnemonic="tcgen05",
+        slots=(
+            ModifierSlot("action", ("shift",)),
+            ModifierSlot("cta_group", ("cta_group::1", "cta_group::2")),
+            ModifierSlot("direction", ("down",)),
+        ),
+        cert_arch="sm_100a",
+        operands=(OperandSlot("taddr", kind="addr", space="tmem"),),
+    ),
     InstructionEntry(  # tcgen05.alloc.cta_group.sync.aligned{.shared::cta}.b32 [dst], nCols;
         name="tcgen05_alloc",
         mnemonic="tcgen05",

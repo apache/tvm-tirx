@@ -52,7 +52,7 @@ class _Chain_activemask:
     ) -> None: ...
 
 class _Chain_add:
-    """`add` — 6 entries sharing this mnemonic; PTX puts their difference in the operand list,
+    """`add` — 7 entries sharing this mnemonic; PTX puts their difference in the operand list,
     so the call selects one. Shapes: (d, a, c); (d, a, b)
     """
 
@@ -72,11 +72,13 @@ class _Chain_add:
     s16x2: _Chain_add
     s32: _Chain_add
     s64: _Chain_add
+    s8x4: _Chain_add
     sat: _Chain_add
     u16: _Chain_add
     u16x2: _Chain_add
     u32: _Chain_add
     u64: _Chain_add
+    u8x4: _Chain_add
     def __call__(self, *args: Any, pred: Any = None, preserve_dst: bool = False) -> None: ...
 
 class _Chain_and:
@@ -373,7 +375,9 @@ class _Chain_copysign:
     ) -> None: ...
 
 class _Chain_cos:
-    """`cos` — mode∈{approx}; ftz∈{ftz} (opt); type∈{f32}"""
+    """`cos` — mode∈{approx}; unit∈{2pi} (opt); ftz∈{ftz} (opt); type∈{f32} — `.2pi` requires
+    `.ftz` (PTX ISA 9.7.3.18/19, PTX ISA 9.5).
+    """
 
     approx: _Chain_cos
     f32: _Chain_cos
@@ -388,7 +392,7 @@ class _Chain_cos:
     ) -> None: ...
 
 class _Chain_cp:
-    """`cp` — 77 entries sharing this mnemonic; PTX puts their difference in the operand list,
+    """`cp` — 78 entries sharing this mnemonic; PTX puts their difference in the operand list,
     so the call selects one. Shapes: (*__operands); (src_mem, size); (tmap, global_address,
     tensor_size, coords); (group); (); (dst_mem, src_mem, size, mbar); (addr)
     """
@@ -458,6 +462,7 @@ class _Chain_cp:
     shared: _Chain_cp
     shared__cluster: _Chain_cp
     shared__cta: _Chain_cp
+    sync_restrict__proxy__async: _Chain_cp
     sys: _Chain_cp
     tensor: _Chain_cp
     tile: _Chain_cp
@@ -669,12 +674,14 @@ class _Chain_ex2:
     def __call__(self, *args: Any, pred: Any = None, preserve_dst: bool = False) -> None: ...
 
 class _Chain_fabric:
-    """`fabric` — 9 entries sharing this mnemonic; PTX puts their difference in the operand
-    list, so the call selects one. Shapes: (dst_mem, src_le_id, src_data_off, size, mbar);
-    (dst_le_id, dst_data_off, src_mem, size, mbar); (dst_le_id, dst_data_off, src_mem, size,
-    mbar, byte_mask); (dst_le_id, dst_data_off, dst_counter_off, src_mem, size, mbar); ()
+    """`fabric` — 37 entries sharing this mnemonic; PTX puts their difference in the operand
+    list, so the call selects one. Shapes: (*__operands); (); (group); (dst_mem, src_le_id,
+    src_data_off, size, mbar); (dst_le_id, dst_data_off, src_mem, size, mbar); (dst_le_id,
+    dst_data_off, src_mem, size, mbar, byte_mask); (dst_le_id, dst_data_off,
+    dst_counter_off, src_mem, size, mbar)
     """
 
+    L2__cache_hint: _Chain_fabric
     add: _Chain_fabric
     and_: _Chain_fabric
     async_: _Chain_fabric
@@ -682,23 +689,39 @@ class _Chain_fabric:
     b32: _Chain_fabric
     b64: _Chain_fabric
     bf16: _Chain_fabric
+    bf16x2: _Chain_fabric
+    cas: _Chain_fabric
+    commit_group: _Chain_fabric
+    counted__bytes: _Chain_fabric
     cp_mask: _Chain_fabric
+    exch: _Chain_fabric
     f16: _Chain_fabric
+    f16x2: _Chain_fabric
     f32: _Chain_fabric
     f64: _Chain_fabric
     max: _Chain_fabric
+    mbarrier__complete_tx__16B: _Chain_fabric
+    mbarrier__complete_tx__bytes: _Chain_fabric
+    mbarrier__report__fabric: _Chain_fabric
     min: _Chain_fabric
     multimem: _Chain_fabric
     op_restrict__fetching: _Chain_fabric
     or_: _Chain_fabric
+    override__global_address: _Chain_fabric
+    override__global_dim: _Chain_fabric
+    override__global_dim_stride: _Chain_fabric
     relaxed: _Chain_fabric
     s32: _Chain_fabric
     s64: _Chain_fabric
     shared__cta: _Chain_fabric
     submit: _Chain_fabric
     sync: _Chain_fabric
+    sync_restrict__read: _Chain_fabric
     sync_restrict__reads: _Chain_fabric
     sys: _Chain_fabric
+    tensor: _Chain_fabric
+    tile: _Chain_fabric
+    try_atom: _Chain_fabric
     try_get: _Chain_fabric
     try_pullred: _Chain_fabric
     try_put: _Chain_fabric
@@ -710,7 +733,7 @@ class _Chain_fabric:
     def __call__(self, *args: Any, pred: Any = None) -> None: ...
 
 class _Chain_fence:
-    """`fence` — 6 entries sharing this mnemonic; PTX puts their difference in the operand
+    """`fence` — 7 entries sharing this mnemonic; PTX puts their difference in the operand
     list, so the call selects one. Shapes: (); (addr)
     """
 
@@ -731,6 +754,7 @@ class _Chain_fence:
     sc: _Chain_fence
     shared__cluster: _Chain_fence
     shared__cta: _Chain_fence
+    sync_restrict__read: _Chain_fence
     sys: _Chain_fence
     tensormap__generic: _Chain_fence
     def __call__(self, *args: Any, pred: Any = None) -> None: ...
@@ -1015,7 +1039,7 @@ class _Chain_match:
     def __call__(self, *args: Any, pred: Any = None, preserve_dst: bool = False) -> None: ...
 
 class _Chain_max:
-    """`max` — 2 entries sharing this mnemonic; PTX puts their difference in the operand list,
+    """`max` — 3 entries sharing this mnemonic; PTX puts their difference in the operand list,
     so the call selects one. Shapes: (d, a, b); (d, a, b, c)
     """
 
@@ -1033,10 +1057,12 @@ class _Chain_max:
     s16x2: _Chain_max
     s32: _Chain_max
     s64: _Chain_max
+    s8x4: _Chain_max
     u16: _Chain_max
     u16x2: _Chain_max
     u32: _Chain_max
     u64: _Chain_max
+    u8x4: _Chain_max
     xorsign: _Chain_max
     def __call__(self, *args: Any, pred: Any = None, preserve_dst: bool = False) -> None: ...
 
@@ -1080,7 +1106,7 @@ class _Chain_mbarrier:
     def __call__(self, *args: Any, pred: Any = None, preserve_dst: bool = False) -> None: ...
 
 class _Chain_min:
-    """`min` — 2 entries sharing this mnemonic; PTX puts their difference in the operand list,
+    """`min` — 3 entries sharing this mnemonic; PTX puts their difference in the operand list,
     so the call selects one. Shapes: (d, a, b); (d, a, b, c)
     """
 
@@ -1098,10 +1124,12 @@ class _Chain_min:
     s16x2: _Chain_min
     s32: _Chain_min
     s64: _Chain_min
+    s8x4: _Chain_min
     u16: _Chain_min
     u16x2: _Chain_min
     u32: _Chain_min
     u64: _Chain_min
+    u8x4: _Chain_min
     xorsign: _Chain_min
     def __call__(self, *args: Any, pred: Any = None, preserve_dst: bool = False) -> None: ...
 
@@ -1417,7 +1445,7 @@ class _Chain_multimem_st_async:
     def __call__(self, addr: Any, b: Any, *args: Any, pred: Any = None) -> None: ...
 
 class _Chain_neg:
-    """`neg` — 3 entries sharing this mnemonic; PTX puts their difference in the operand list,
+    """`neg` — 4 entries sharing this mnemonic; PTX puts their difference in the operand list,
     so the call selects one. Shapes: (d, a)
     """
 
@@ -1431,6 +1459,7 @@ class _Chain_neg:
     s16: _Chain_neg
     s32: _Chain_neg
     s64: _Chain_neg
+    s8x4: _Chain_neg
     def __call__(self, *args: Any, pred: Any = None, preserve_dst: bool = False) -> None: ...
 
 class _Chain_not:
@@ -1896,7 +1925,9 @@ class _Chain_shr:
     ) -> None: ...
 
 class _Chain_sin:
-    """`sin` — mode∈{approx}; ftz∈{ftz} (opt); type∈{f32}"""
+    """`sin` — mode∈{approx}; unit∈{2pi} (opt); ftz∈{ftz} (opt); type∈{f32} — `.2pi` requires
+    `.ftz` (PTX ISA 9.7.3.18/19, PTX ISA 9.5).
+    """
 
     approx: _Chain_sin
     f32: _Chain_sin
@@ -2124,7 +2155,7 @@ class _Chain_stmatrix:
     def __call__(self, *args: Any, pred: Any = None) -> None: ...
 
 class _Chain_sub:
-    """`sub` — 6 entries sharing this mnemonic; PTX puts their difference in the operand list,
+    """`sub` — 7 entries sharing this mnemonic; PTX puts their difference in the operand list,
     so the call selects one. Shapes: (d, a, c); (d, a, b)
     """
 
@@ -2143,10 +2174,12 @@ class _Chain_sub:
     s16: _Chain_sub
     s32: _Chain_sub
     s64: _Chain_sub
+    s8x4: _Chain_sub
     sat: _Chain_sub
     u16: _Chain_sub
     u32: _Chain_sub
     u64: _Chain_sub
+    u8x4: _Chain_sub
     def __call__(self, *args: Any, pred: Any = None, preserve_dst: bool = False) -> None: ...
 
 class _Chain_szext:
@@ -2180,7 +2213,7 @@ class _Chain_tanh:
     def __call__(self, *args: Any, pred: Any = None, preserve_dst: bool = False) -> None: ...
 
 class _Chain_tcgen05:
-    """`tcgen05` — 59 entries sharing this mnemonic; PTX puts their difference in the operand
+    """`tcgen05` — 60 entries sharing this mnemonic; PTX puts their difference in the operand
     list, so the call selects one. Shapes: (dst, ncols); (taddr, ncols); (mbar, cta_mask);
     (mbar); (*__operands); (d_tmem, a_desc, b_desc, idesc, enable_input_d); (d_tmem, a_desc,
     b_desc, idesc, enable_input_d, zero_col_mask); (d_tmem, a_tmem, b_desc, idesc,
@@ -2194,8 +2227,8 @@ class _Chain_tcgen05:
     (d_tmem, a_desc, b_desc, idesc, sfa_tmem, sfb_tmem, enable_input_d); (d_tmem, a_tmem,
     b_desc, idesc, sfa_tmem, sfb_tmem, enable_input_d); (d_tmem, a_desc, b_desc,
     sp_meta_tmem, idesc, sfa_tmem, sfb_tmem, enable_input_d); (d_tmem, a_tmem, b_desc,
-    sp_meta_tmem, idesc, sfa_tmem, sfb_tmem, enable_input_d); (); (taddr, s_desc); (mbar,
-    mask)
+    sp_meta_tmem, idesc, sfa_tmem, sfb_tmem, enable_input_d); (taddr); (); (taddr, s_desc);
+    (mbar, mask)
     """
 
     NaN: _Chain_tcgen05
@@ -2242,6 +2275,7 @@ class _Chain_tcgen05:
     cta_group__2: _Chain_tcgen05
     dealloc: _Chain_tcgen05
     decompress__lut__b: _Chain_tcgen05
+    down: _Chain_tcgen05
     exclusive: _Chain_tcgen05
     f32: _Chain_tcgen05
     fence__after_thread_sync: _Chain_tcgen05
@@ -2271,6 +2305,7 @@ class _Chain_tcgen05:
     scale_vec__4X: _Chain_tcgen05
     shared__cluster: _Chain_tcgen05
     shared__cta: _Chain_tcgen05
+    shift: _Chain_tcgen05
     sp: _Chain_tcgen05
     sp__2__colon__4: _Chain_tcgen05
     spcompress: _Chain_tcgen05
@@ -2312,11 +2347,30 @@ class _Chain_tensormap_cp_fenceproxy:
     tensormap__generic: _Chain_tensormap_cp_fenceproxy
     def __call__(self, dst_mem: Any, src_mem: Any, *args: Any, pred: Any = None) -> None: ...
 
+class _Chain_tensormap_query:
+    """`tensormap_query` — query∈{alloc_class_large}; space∈{global} (opt); width∈{b1024}"""
+
+    alloc_class_large: _Chain_tensormap_query
+    b1024: _Chain_tensormap_query
+    global_: _Chain_tensormap_query
+    def __call__(
+        self,
+        p: Any,
+        addr: Any,
+        *args: Any,
+        pred: Any = None,
+        preserve_dst: bool = False,
+    ) -> None: ...
+
 class _Chain_tensormap_replace:
-    """`tensormap_replace` — 9 entries sharing this mnemonic; PTX puts their difference in the
-    operand list, so the call selects one. Shapes: (addr, new_val); (addr, ord, new_val)
+    """`tensormap_replace` — 11 entries sharing this mnemonic; PTX puts their difference in the
+    operand list, so the call selects one. Shapes: (addr, new_val); (addr); (addr, ord,
+    new_val)
     """
 
+    alloc_large: _Chain_tensormap_replace
+    alloc_same: _Chain_tensormap_replace
+    alloc_small: _Chain_tensormap_replace
     b1024: _Chain_tensormap_replace
     b32: _Chain_tensormap_replace
     b64: _Chain_tensormap_replace
@@ -2623,6 +2677,7 @@ class _PTX:
     tanh: _Chain_tanh
     tcgen05: _Chain_tcgen05
     tensormap_cp_fenceproxy: _Chain_tensormap_cp_fenceproxy
+    tensormap_query: _Chain_tensormap_query
     tensormap_replace: _Chain_tensormap_replace
     testp: _Chain_testp
     vote_sync: _Chain_vote_sync
