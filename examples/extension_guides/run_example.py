@@ -23,6 +23,7 @@ import tvm_tirx
 from tvm_tirx import runtime
 from tvm_tirx.script import tirx as T
 
+# fmt: off
 # begin kernel
 N = 16
 
@@ -42,9 +43,8 @@ def complex_product(
         product = my_ext.cmul(z, w)
         R[i] = my_ext.real(product)
         Im[i] = my_ext.imag(product)
-
-
 # end kernel
+# fmt: on
 
 # begin compile
 compiled = tvm_tirx.compile(complex_product, target="llvm", pipeline="my_ext")

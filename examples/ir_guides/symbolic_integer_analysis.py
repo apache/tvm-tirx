@@ -19,6 +19,7 @@
 # Imports stay next to the snippets that use them in the docs.
 # ruff: noqa: E402
 
+# fmt: off
 # [add_one_2d.begin]
 from tvm_tirx.script import tirx as T
 
@@ -29,11 +30,11 @@ n = T.dynamic("n")
 def add_one_2d(A: T.Tensor((n, 4), T.float32), B: T.Tensor((n, 4), T.float32)):
     for i in range(n * 4):
         B[i // 4, i % 4] = A[i // 4, i % 4] + 1
-
-
 # [add_one_2d.end]
+# fmt: on
 
 
+# fmt: off
 # [add_one_1d.begin]
 @T.function
 def add_one_1d(A: T.Tensor((n, 4), T.float32), B: T.Tensor((n, 4), T.float32)):
@@ -41,9 +42,8 @@ def add_one_1d(A: T.Tensor((n, 4), T.float32), B: T.Tensor((n, 4), T.float32)):
     B_flat = T.decl_tensor(B.data, ty_args=[T.Tensor((n * 4,), T.float32)])
     for i in range(n * 4):
         B_flat[i // 4 * 4 + i % 4] = A_flat[i // 4 * 4 + i % 4] + 1
-
-
 # [add_one_1d.end]
+# fmt: on
 
 # [simplify.begin]
 from tvm_tirx import ir, sym
@@ -97,15 +97,15 @@ assert not analyzer.can_prove(i % 4 < 3)
 assert analyzer.can_prove(i // 4 < n)
 
 
+# fmt: off
 # [add_one_guarded.begin]
 @T.function
 def add_one_guarded(A: T.Tensor((n, 4), T.float32), B: T.Tensor((n, 4), T.float32)):
     for i in range(n * 4):
         if i // 4 < n:
             B[i // 4, i % 4] = A[i // 4, i % 4] + 1
-
-
 # [add_one_guarded.end]
+# fmt: on
 
 # [walk.begin]
 from tvm_tirx import tirx

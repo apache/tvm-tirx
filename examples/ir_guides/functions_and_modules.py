@@ -16,6 +16,7 @@
 # under the License.
 """Functions, modules, and global variables in a two-function module."""
 
+# fmt: off
 # [module.begin]
 from tvm_tirx.script import tirx as T
 
@@ -33,9 +34,8 @@ class Module:
     def add_two(A: T.Tensor((n,), T.float32), B: T.Tensor((n,), T.float32)):
         for i in range(n):
             B[i] = A[i] + 2
-
-
 # [module.end]
+# fmt: on
 
 # [ty.begin]
 add_one = Module["add_one"]
@@ -58,14 +58,15 @@ assert "global_symbol" not in private_example().attrs
 
 
 def attrs_example():
+    # fmt: off
     # [func_attr.begin]
     @T.function
     def add_one(A: T.Tensor((n,), T.float32), B: T.Tensor((n,), T.float32)):
         T.func_attr({"note": "example"})
         for i in range(n):
             B[i] = A[i] + 1
-
     # [func_attr.end]
+    # fmt: on
     return add_one
 
 
