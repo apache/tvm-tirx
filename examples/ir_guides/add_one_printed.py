@@ -16,6 +16,7 @@
 # under the License.
 """The printed form of add_one, as produced by add_one.script()."""
 
+# fmt: off
 # [printed.begin]
 from tvm_tirx.script import tirx as T
 
@@ -24,6 +25,5 @@ from tvm_tirx.script import tirx as T
 def add_one[n](A: T.Tensor((n,), T.float32), B: T.Tensor((n,), T.float32)):
     for i in range(n):
         B[i] = A[i] + T.float32(1.0)
-
-
 # [printed.end]
+# fmt: on

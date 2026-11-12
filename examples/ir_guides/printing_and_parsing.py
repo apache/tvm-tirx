@@ -19,6 +19,7 @@
 # Imports stay next to the snippets that use them in the docs.
 # ruff: noqa: E402
 
+# fmt: off
 # [function.begin]
 from tvm_tirx import ir
 from tvm_tirx.script import tirx as T
@@ -30,9 +31,8 @@ n = T.dynamic("n")
 def add_one(A: T.Tensor((n,), T.float32), B: T.Tensor((n,), T.float32)):
     for i in range(n):
         B[i] = A[i] + 1
-
-
 # [function.end]
+# fmt: on
 
 # [print.begin]
 print(add_one.script())
