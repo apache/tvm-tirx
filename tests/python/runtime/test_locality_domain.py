@@ -21,7 +21,7 @@ import pytest
 
 import tvm_tirx
 import tvm_tirx.testing
-from tvm_tirx.backend.cuda import locality
+from tvm_tirx.runtime import locality_domain
 from tvm_tirx.script import tirx as T
 from tvm_tirx.testing import env
 
@@ -29,24 +29,33 @@ requires_cuda = pytest.mark.skipif(not env.has_cuda(), reason="CUDA GPU not avai
 
 
 def test_locality_domain_scopes_registered():
-    for k in range(locality.MAX_LOCALITY_DOMAINS):
-        assert tvm_tirx.runtime.MemoryScope(locality.locality_domain_scope(k)).name == (
+    for k in range(locality_domain.MAX_LOCALITY_DOMAINS):
+        assert tvm_tirx.runtime.MemoryScope(locality_domain.locality_domain_scope(k)).name == (
             f"global.locality_domain.{k}"
         )
     with pytest.raises(ValueError):
-        locality.locality_domain_scope(locality.MAX_LOCALITY_DOMAINS)
+        locality_domain.locality_domain_scope(locality_domain.MAX_LOCALITY_DOMAINS)
     with pytest.raises(ValueError):
-        tvm_tirx.runtime.MemoryScope(f"global.locality_domain.{locality.MAX_LOCALITY_DOMAINS}")
+        tvm_tirx.runtime.MemoryScope(
+            f"global.locality_domain.{locality_domain.MAX_LOCALITY_DOMAINS}"
+        )
 
 
 @pytest.mark.gpu
 @requires_cuda
 def test_locality_domain_topology():
     dev = tvm_tirx.cuda(0)
-    count = locality.locality_domain_count(dev)
-    per_domain = locality.locality_domain_sm_count(dev)
+    count = locality_domain.get_num_locality_domains(dev)
+    per_domain = locality_domain.get_num_sms_per_locality_domain(dev)
     assert count >= 1
     assert 0 < per_domain * count <= dev.multi_processor_count
+    assert locality_domain.is_localization_supported(dev) == (count > 1)
+    # A device id works in place of a Device, as in torch.cuda.green_contexts.
+    assert locality_domain.get_num_locality_domains(0) == count
+    assert locality_domain.get_num_sms_per_locality_domain(0) == per_domain
+    assert locality_domain.is_localization_supported(0) == (count > 1)
+    with pytest.raises(ValueError, match="CUDA device"):
+        locality_domain.get_num_locality_domains(tvm_tirx.cpu(0))
 
 
 @pytest.mark.gpu
@@ -54,22 +63,22 @@ def test_locality_domain_topology():
 def test_locality_domain_allocation_roundtrip():
     """Each scope places memory in its domain; plain `global` memory is not localized."""
     dev = tvm_tirx.cuda(0)
-    count = locality.locality_domain_count(dev)
+    count = locality_domain.get_num_locality_domains(dev)
     plain = tvm_tirx.runtime.empty((1024,), "float32", dev)
-    assert locality.locality_domain_of(plain) == -1
+    assert locality_domain.get_locality_domain_id(plain) is None
     for k in range(count):
         data = np.arange(4096, dtype=np.float32) + k
-        x = tvm_tirx.runtime.tensor(data, dev, mem_scope=locality.locality_domain_scope(k))
+        x = tvm_tirx.runtime.tensor(data, dev, mem_scope=locality_domain.locality_domain_scope(k))
         np.testing.assert_array_equal(x.numpy(), data)
         y = tvm_tirx.runtime.empty((4096,), "float32", dev, mem_scope=f"global.locality_domain.{k}")
         y.copyfrom(x)
         np.testing.assert_array_equal(y.numpy(), data)
-        z = plain.copyto(dev, mem_scope=locality.locality_domain_scope(k))
+        z = plain.copyto(dev, mem_scope=locality_domain.locality_domain_scope(k))
         if count > 1:
-            # On a device without domains, domain 0 is the whole device and may report -1.
-            assert locality.locality_domain_of(x) == k
-            assert locality.locality_domain_of(y) == k
-            assert locality.locality_domain_of(z) == k
+            # On a device without domains, domain 0 is the whole device and reports None.
+            assert locality_domain.get_locality_domain_id(x) == k
+            assert locality_domain.get_locality_domain_id(y) == k
+            assert locality_domain.get_locality_domain_id(z) == k
 
 
 @pytest.mark.gpu
@@ -81,7 +90,6 @@ def test_locality_domain_allocation_as_first_cuda_call():
 
     code = (
         "import tvm_tirx\n"
-        "from tvm_tirx.backend.cuda import locality\n"
         "dev = tvm_tirx.cuda(0)\n"
         "x = tvm_tirx.runtime.empty((256,), 'float32', dev, mem_scope='global.locality_domain.0')\n"
         "print('ok', x.shape)\n"
@@ -95,12 +103,12 @@ def test_locality_domain_allocation_as_first_cuda_call():
 @requires_cuda
 def test_locality_domain_out_of_range():
     dev = tvm_tirx.cuda(0)
-    count = locality.locality_domain_count(dev)
-    if count >= locality.MAX_LOCALITY_DOMAINS:
+    count = locality_domain.get_num_locality_domains(dev)
+    if count >= locality_domain.MAX_LOCALITY_DOMAINS:
         pytest.skip("every registered scope is a valid domain on this device")
     with pytest.raises(ValueError, match=f"has {count} locality domain"):
         tvm_tirx.runtime.empty(
-            (16,), "float32", dev, mem_scope=locality.locality_domain_scope(count)
+            (16,), "float32", dev, mem_scope=locality_domain.locality_domain_scope(count)
         )
 
 
@@ -110,7 +118,7 @@ def test_locality_domain_free_returns_memory():
     """Freed localized tensors go back to the device rather than staying in the pool."""
     dev = tvm_tirx.cuda(0)
     nbytes = 1 << 30
-    scope = locality.locality_domain_scope(locality.locality_domain_count(dev) - 1)
+    scope = locality_domain.locality_domain_scope(locality_domain.get_num_locality_domains(dev) - 1)
     for _ in range(3):  # warm up the pool and the allocator
         tvm_tirx.runtime.empty((nbytes // 4,), "float32", dev, mem_scope=scope)
     before = dev.available_global_memory
@@ -139,13 +147,13 @@ def test_locality_domain_tensor_in_kernel_and_dlpack():
         pipeline="tirx",
     )
     dev = tvm_tirx.cuda(0)
-    last = locality.locality_domain_count(dev) - 1
+    last = locality_domain.get_num_locality_domains(dev) - 1
     data = np.random.default_rng(0).standard_normal(1024).astype(np.float32)
 
     def run_and_check():
-        a = tvm_tirx.runtime.tensor(data, dev, mem_scope=locality.locality_domain_scope(0))
+        a = tvm_tirx.runtime.tensor(data, dev, mem_scope=locality_domain.locality_domain_scope(0))
         b = tvm_tirx.runtime.empty(
-            (1024,), "float32", dev, mem_scope=locality.locality_domain_scope(last)
+            (1024,), "float32", dev, mem_scope=locality_domain.locality_domain_scope(last)
         )
         mod(a, b)
         np.testing.assert_array_equal(b.numpy(), data * 2)
@@ -153,7 +161,7 @@ def test_locality_domain_tensor_in_kernel_and_dlpack():
         assert t.is_cuda
         np.testing.assert_array_equal(t.cpu().numpy(), data * 2)
         # The query accepts any DLPack tensor, e.g. torch's own (plain) allocations.
-        assert locality.locality_domain_of(torch.zeros(4, device="cuda")) == -1
+        assert locality_domain.get_locality_domain_id(torch.zeros(4, device="cuda")) is None
 
     tvm_tirx.testing.run_with_gpu_lock(run_and_check)
 
@@ -163,7 +171,7 @@ def test_locality_domain_tensor_in_kernel_and_dlpack():
 def test_locality_domain_aware_kernel():
     """Each CTA writes the half of the output that lives in the domain it runs on."""
     dev = tvm_tirx.cuda(0)
-    count = locality.locality_domain_count(dev)
+    count = locality_domain.get_num_locality_domains(dev)
     if count < 2 or env.cuda_arch() is None or int(env.cuda_arch()[3:6]) < 100:
         pytest.skip("needs an sm_100+ GPU with several locality domains")
 
@@ -196,7 +204,7 @@ def test_locality_domain_aware_kernel():
     def run_and_check():
         o = [
             tvm_tirx.runtime.tensor(
-                np.full(4096, -1, np.int32), dev, mem_scope=locality.locality_domain_scope(k)
+                np.full(4096, -1, np.int32), dev, mem_scope=locality_domain.locality_domain_scope(k)
             )
             for k in range(2)
         ]
@@ -273,7 +281,7 @@ def _domain_queue_reader(n_words, chunk_words, grid, threads=256):
 def test_locality_domain_work_queue_kernel(grid):
     """A domain-aware persistent kernel reads every chunk exactly once, however CTAs land."""
     dev = tvm_tirx.cuda(0)
-    count = locality.locality_domain_count(dev)
+    count = locality_domain.get_num_locality_domains(dev)
     if count != 2 or env.cuda_arch() is None or int(env.cuda_arch()[3:6]) < 100:
         pytest.skip("needs an sm_100+ GPU with two locality domains")
     n_words, chunk_words = 1 << 22, 1 << 14
@@ -289,7 +297,9 @@ def test_locality_domain_work_queue_kernel(grid):
 
     def run_and_check():
         b = [
-            tvm_tirx.runtime.tensor(data[k], dev, mem_scope=locality.locality_domain_scope(k))
+            tvm_tirx.runtime.tensor(
+                data[k], dev, mem_scope=locality_domain.locality_domain_scope(k)
+            )
             for k in range(2)
         ]
         ctr = tvm_tirx.runtime.tensor(np.zeros(2, np.uint32), dev)

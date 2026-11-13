@@ -35,7 +35,6 @@ _LAZY_SUBMODULES = {
     "axis",
     "thread_scope",
     "launch",
-    "locality",
     "op",
     "ptx",
     "script",

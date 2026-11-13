@@ -15,13 +15,13 @@
     specific language governing permissions and limitations
     under the License.
 
-tvm_tirx.backend.cuda.locality
-==============================
+tvm_tirx.runtime.locality_domain
+================================
 
-.. automodule:: tvm_tirx.backend.cuda.locality
+.. automodule:: tvm_tirx.runtime.locality_domain
    :no-members:
 
-.. currentmodule:: tvm_tirx.backend.cuda.locality
+.. currentmodule:: tvm_tirx.runtime.locality_domain
 
 Functions
 ---------
@@ -29,7 +29,8 @@ Functions
 .. autosummary::
    :toctree: generated/
 
-   locality_domain_count
-   locality_domain_of
+   get_num_locality_domains
+   is_localization_supported
+   get_num_sms_per_locality_domain
+   get_locality_domain_id
    locality_domain_scope
-   locality_domain_sm_count

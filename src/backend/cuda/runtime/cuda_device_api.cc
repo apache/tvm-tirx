@@ -26,6 +26,7 @@
 #include <tvm/ffi/extra/c_env_api.h>
 #include <tvm/ffi/extra/cuda/device_guard.h>
 #include <tvm/ffi/function.h>
+#include <tvm/ffi/optional.h>
 #include <tvm/ffi/reflection/registry.h>
 #include <tvm/runtime/device_api.h>
 #include <tvm/runtime/logging.h>
@@ -96,15 +97,15 @@ std::optional<int> LocalityDomainOf(const MemoryScope& scope) {
 }
 
 // Locality domains go through the driver API, not the CUDA runtime: the
-// runtime library loaded at run time may predate CUDA 13.5 (e.g. the one a
+// runtime library loaded at run time may predate CUDA 13.4 (e.g. the one a
 // PyTorch wheel ships) and then knows neither the attributes nor the new
 // cudaPointerAttributes field, while the driver always matches the device.
-#if CUDA_VERSION >= 13050
-/*! \brief Whether the installed driver implements locality domains (CUDA 13.5+). */
+#if CUDA_VERSION >= 13040
+/*! \brief Whether the installed driver implements locality domains (CUDA 13.4+). */
 bool DriverHasLocalityDomains() {
   static const bool supported = [] {
     int version = 0;
-    return cuDriverGetVersion(&version) == CUDA_SUCCESS && version >= 13050;
+    return cuDriverGetVersion(&version) == CUDA_SUCCESS && version >= 13040;
   }();
   return supported;
 }
@@ -117,10 +118,13 @@ int GetDriverAttribute(CUdevice_attribute attribute, int device_id) {
 }
 #endif
 
+// The functions below back `tvm_tirx.runtime.locality_domain`; each one is
+// registered as `runtime.cuda.<Name>` for the Python function of the same name.
+
 /*! \brief Number of locality domains of a device; 1 when it has none or CUDA predates them. */
-int GetCudaLocalityDomainCount(int device_id) {
+int GetNumLocalityDomains(int device_id) {
   int count = 0;
-#if CUDA_VERSION >= 13050
+#if CUDA_VERSION >= 13040
   if (DriverHasLocalityDomains()) {
     count = GetDriverAttribute(CU_DEVICE_ATTRIBUTE_LOCALITY_DOMAIN_COUNT, device_id);
   }
@@ -128,10 +132,13 @@ int GetCudaLocalityDomainCount(int device_id) {
   return count > 0 ? count : 1;
 }
 
+/*! \brief Whether memory can be localized on a device: it has two or more locality domains. */
+bool IsLocalizationSupported(int device_id) { return GetNumLocalityDomains(device_id) > 1; }
+
 /*! \brief SMs guaranteed to each locality domain; the device's SM count without domains. */
-int GetCudaLocalityDomainMultiprocessorCount(int device_id) {
+int GetNumSMsPerLocalityDomain(int device_id) {
   int count = 0;
-#if CUDA_VERSION >= 13050
+#if CUDA_VERSION >= 13040
   if (DriverHasLocalityDomains()) {
     count = GetDriverAttribute(CU_DEVICE_ATTRIBUTE_LOCALITY_DOMAIN_MULTIPROCESSOR_COUNT, device_id);
   }
@@ -143,22 +150,22 @@ int GetCudaLocalityDomainMultiprocessorCount(int device_id) {
   return count;
 }
 
-/*! \brief The locality domain a tensor's memory belongs to, or -1 if it is not localized. */
-int GetCudaTensorLocalityDomain(ffi::TensorView tensor) {
+/*! \brief The locality domain a tensor's memory belongs to, or None if it is not localized. */
+ffi::Optional<int64_t> GetLocalityDomainId(ffi::TensorView tensor) {
   TVM_FFI_CHECK(tensor.device().device_type == kDLCUDA, ValueError)
       << "Expected a tensor in CUDA device memory, got device type " << tensor.device().device_type;
-#if CUDA_VERSION >= 13050
+#if CUDA_VERSION >= 13040
   if (DriverHasLocalityDomains()) {
     int ordinal = -1;
     CUDA_DRIVER_CALL(cuPointerGetAttribute(&ordinal, CU_POINTER_ATTRIBUTE_LOCALITY_DOMAIN_ORDINAL,
                                            reinterpret_cast<CUdeviceptr>(tensor.data_ptr())));
-    return ordinal;
+    if (ordinal >= 0) return static_cast<int64_t>(ordinal);
   }
 #endif
-  return -1;
+  return std::nullopt;
 }
 
-#if CUDA_VERSION >= 13050
+#if CUDA_VERSION >= 13040
 /*!
  * \brief The memory pool of one (device, locality domain), created on first use.
  *
@@ -339,16 +346,16 @@ class CUDADeviceAPI final : public DeviceAPI {
   void* AllocLocalityDomainSpace(Device dev, size_t nbytes, int domain) {
     TVM_FFI_CHECK(dev.device_type == kDLCUDA, ValueError)
         << "Memory scope " << kLocalityDomainScopePrefix << domain << " requires a CUDA device";
-#if CUDA_VERSION >= 13050
+#if CUDA_VERSION >= 13040
     TVM_FFI_CHECK(DriverHasLocalityDomains(), RuntimeError)
         << "Memory scope " << kLocalityDomainScopePrefix << domain
-        << " requires a CUDA driver for CUDA 13.5 or newer";
+        << " requires a CUDA driver for CUDA 13.4 or newer";
     ffi::CUDADeviceGuard device_guard(dev.device_id);
     // The pool calls below use the driver API, which needs a current context; make
     // the runtime create the device's primary context and bind it to this thread,
     // as it would for its own first call (the allocation may be the first CUDA call).
     TVM_FFI_CHECK_CUDA_ERROR(cudaFree(nullptr));
-    int count = GetCudaLocalityDomainCount(dev.device_id);
+    int count = GetNumLocalityDomains(dev.device_id);
     TVM_FFI_CHECK(domain < count, ValueError)
         << "Memory scope " << kLocalityDomainScopePrefix << domain
         << " is out of range: CUDA device " << dev.device_id << " has " << count
@@ -363,7 +370,7 @@ class CUDADeviceAPI final : public DeviceAPI {
     return reinterpret_cast<void*>(ret);
 #else
     TVM_FFI_THROW(RuntimeError) << "Memory scope " << kLocalityDomainScopePrefix << domain
-                                << " requires TVM-TIRx built with CUDA 13.5 or newer";
+                                << " requires TVM-TIRx built with CUDA 13.4 or newer";
 #endif
   }
 
@@ -601,10 +608,10 @@ TVM_FFI_STATIC_INIT_BLOCK() {
   namespace refl = tvm::ffi::reflection;
   RegisterLocalityDomainScopes();
   refl::GlobalDef()
-      .def("runtime.GetCudaLocalityDomainCount", GetCudaLocalityDomainCount)
-      .def("runtime.GetCudaLocalityDomainMultiprocessorCount",
-           GetCudaLocalityDomainMultiprocessorCount)
-      .def("runtime.GetCudaTensorLocalityDomain", GetCudaTensorLocalityDomain);
+      .def("runtime.cuda.GetNumLocalityDomains", GetNumLocalityDomains)
+      .def("runtime.cuda.IsLocalizationSupported", IsLocalizationSupported)
+      .def("runtime.cuda.GetNumSMsPerLocalityDomain", GetNumSMsPerLocalityDomain)
+      .def("runtime.cuda.GetLocalityDomainId", GetLocalityDomainId);
 }
 
 #if (CUDA_VERSION >= 12000)

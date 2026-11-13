@@ -23,6 +23,18 @@ tvm_tirx.runtime
 
 .. currentmodule:: tvm_tirx.runtime
 
+Namespaces
+----------
+
+* :doc:`tvm_tirx.runtime.locality_domain <runtime.locality_domain>`
+
+.. toctree::
+   :hidden:
+   :maxdepth: 1
+   :titlesonly:
+
+   runtime.locality_domain
+
 Classes
 -------
 
