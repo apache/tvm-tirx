@@ -346,20 +346,22 @@ class CUDADeviceAPI final : public DeviceAPI {
   void* AllocLocalityDomainSpace(Device dev, size_t nbytes, int domain) {
     TVM_FFI_CHECK(dev.device_type == kDLCUDA, ValueError)
         << "Memory scope " << kLocalityDomainScopePrefix << domain << " requires a CUDA device";
-#if CUDA_VERSION >= 13040
-    TVM_FFI_CHECK(DriverHasLocalityDomains(), RuntimeError)
-        << "Memory scope " << kLocalityDomainScopePrefix << domain
-        << " requires a CUDA driver for CUDA 13.4 or newer";
-    ffi::CUDADeviceGuard device_guard(dev.device_id);
-    // The pool calls below use the driver API, which needs a current context; make
-    // the runtime create the device's primary context and bind it to this thread,
-    // as it would for its own first call (the allocation may be the first CUDA call).
-    TVM_FFI_CHECK_CUDA_ERROR(cudaFree(nullptr));
     int count = GetNumLocalityDomains(dev.device_id);
     TVM_FFI_CHECK(domain < count, ValueError)
         << "Memory scope " << kLocalityDomainScopePrefix << domain
         << " is out of range: CUDA device " << dev.device_id << " has " << count
         << " locality domain(s)";
+    if (count == 1) {
+      // Without locality domains, or without CUDA 13.4 support for them, domain 0
+      // is the whole device.
+      return AllocDataSpace(dev, nbytes, kAllocAlignment, DLDataType{kDLUInt, 8, 1});
+    }
+#if CUDA_VERSION >= 13040
+    ffi::CUDADeviceGuard device_guard(dev.device_id);
+    // The pool calls below use the driver API, which needs a current context; make
+    // the runtime create the device's primary context and bind it to this thread,
+    // as it would for its own first call (the allocation may be the first CUDA call).
+    TVM_FFI_CHECK_CUDA_ERROR(cudaFree(nullptr));
     CUdeviceptr ret;
     CUDA_DRIVER_CALL(cuMemAllocFromPoolAsync(&ret, nbytes,
                                              GetLocalityDomainPool(dev.device_id, domain),
@@ -369,8 +371,8 @@ class CUDADeviceAPI final : public DeviceAPI {
     TVM_FFI_ICHECK_EQ(ret % kAllocAlignment, 0U);
     return reinterpret_cast<void*>(ret);
 #else
-    TVM_FFI_THROW(RuntimeError) << "Memory scope " << kLocalityDomainScopePrefix << domain
-                                << " requires TVM-TIRx built with CUDA 13.4 or newer";
+    TVM_FFI_THROW(InternalError)
+        << "A device reports several locality domains only with CUDA 13.4+";
 #endif
   }
 

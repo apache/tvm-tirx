@@ -18,6 +18,7 @@
 
 import numpy as np
 import pytest
+import tvm_ffi
 
 import tvm_tirx
 import tvm_tirx.testing
@@ -26,15 +27,28 @@ from tvm_tirx.script import tirx as T
 from tvm_tirx.testing import env
 
 requires_cuda = pytest.mark.skipif(not env.has_cuda(), reason="CUDA GPU not available")
+requires_cuda_runtime = pytest.mark.skipif(
+    tvm_ffi.get_global_func("runtime.cuda.GetNumLocalityDomains", allow_missing=True) is None,
+    reason="TVM-TIRx is built without the CUDA runtime",
+)
 
 
+def test_locality_domain_scope_names():
+    for k in range(locality_domain.MAX_LOCALITY_DOMAINS):
+        assert locality_domain.locality_domain_scope(k) == f"global.locality_domain.{k}"
+    with pytest.raises(ValueError):
+        locality_domain.locality_domain_scope(locality_domain.MAX_LOCALITY_DOMAINS)
+    with pytest.raises(ValueError):
+        locality_domain.locality_domain_scope(-1)
+
+
+@requires_cuda_runtime
 def test_locality_domain_scopes_registered():
+    """The CUDA runtime registers the scopes, even on a machine without a GPU."""
     for k in range(locality_domain.MAX_LOCALITY_DOMAINS):
         assert tvm_tirx.runtime.MemoryScope(locality_domain.locality_domain_scope(k)).name == (
             f"global.locality_domain.{k}"
         )
-    with pytest.raises(ValueError):
-        locality_domain.locality_domain_scope(locality_domain.MAX_LOCALITY_DOMAINS)
     with pytest.raises(ValueError):
         tvm_tirx.runtime.MemoryScope(
             f"global.locality_domain.{locality_domain.MAX_LOCALITY_DOMAINS}"
