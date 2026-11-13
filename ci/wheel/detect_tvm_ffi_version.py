@@ -34,7 +34,7 @@ VERSION_PATTERN = r"[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]
 
 
 def detect_version(root):
-    """Resolve the committed submodule to exactly one upstream release tag."""
+    """Resolve the committed submodule to its upstream release tag."""
     submodule = subprocess.check_output(
         ["git", "rev-parse", "HEAD:3rdparty/tvm-ffi"], cwd=root, text=True
     ).strip()
@@ -53,6 +53,10 @@ def detect_version(root):
         if re.fullmatch("refs/tags/v" + VERSION_PATTERN, ref)
         and refs.get(ref + "^{}", sha) == submodule
     )
+    # A release is tagged on its last candidate's commit; the release wins.
+    releases = [version for version in versions if "-" not in version.split("+")[0]]
+    if len(releases) == 1:
+        return releases[0]
     if len(versions) != 1:
         raise SystemExit(
             f"3rdparty/tvm-ffi at {submodule} must match exactly one apache/tvm-ffi "
