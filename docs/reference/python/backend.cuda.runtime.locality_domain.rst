@@ -15,13 +15,13 @@
     specific language governing permissions and limitations
     under the License.
 
-tvm_tirx.runtime.locality_domain
-================================
+tvm_tirx.backend.cuda.runtime.locality_domain
+=============================================
 
-.. automodule:: tvm_tirx.runtime.locality_domain
+.. automodule:: tvm_tirx.backend.cuda.runtime.locality_domain
    :no-members:
 
-.. currentmodule:: tvm_tirx.runtime.locality_domain
+.. currentmodule:: tvm_tirx.backend.cuda.runtime.locality_domain
 
 Functions
 ---------

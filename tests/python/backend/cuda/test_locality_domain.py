@@ -22,7 +22,7 @@ import tvm_ffi
 
 import tvm_tirx
 import tvm_tirx.testing
-from tvm_tirx.runtime import locality_domain
+from tvm_tirx.backend.cuda.runtime import locality_domain
 from tvm_tirx.script import tirx as T
 from tvm_tirx.testing import env
 
@@ -31,6 +31,16 @@ requires_cuda_runtime = pytest.mark.skipif(
     tvm_ffi.get_global_func("runtime.cuda.GetNumLocalityDomains", allow_missing=True) is None,
     reason="TVM-TIRx is built without the CUDA runtime",
 )
+
+
+def _skip_unless_domain_aware_kernels(dev):
+    """Skip unless kernels can read %locality_domain_id and see several domains."""
+    if locality_domain.get_num_locality_domains(dev) < 2:
+        pytest.skip("needs a GPU with several locality domains")
+    if env.cuda_arch() is None or int(env.cuda_arch()[3:6]) < 100:
+        pytest.skip("needs an sm_100+ GPU")
+    if not env.has_nvcc_version(13, 5):
+        pytest.skip("%locality_domain_id needs PTX ISA 9.5 (CUDA 13.5)")
 
 
 def test_locality_domain_scope_names():
@@ -145,6 +155,45 @@ def test_locality_domain_free_returns_memory():
 
 @pytest.mark.gpu
 @requires_cuda
+def test_locality_domain_tensor_freed_while_kernel_runs():
+    """Dropping a tensor right after launching a kernel on it is safe.
+
+    The free is ordered after the kernel, so the memory is not handed out again,
+    or returned to the device, while the kernel still writes it.
+    """
+    n, steps = 1 << 24, 256
+
+    @T.function
+    def bump(A: T.Tensor((n,), "int32")):
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=n // 256, block=256))
+        i = T.cuda.block_idx("x") * 256 + T.cuda.thread_idx("x")
+        for _ in T.serial(steps):
+            A[i] = A[i] + 1
+
+    mod = tvm_tirx.compile(
+        tvm_tirx.IRModule({"main": bump}),
+        target=tvm_tirx.target.Target({"kind": "cuda", "arch": env.cuda_arch()}),
+        pipeline="tirx",
+    )
+    dev = tvm_tirx.cuda(0)
+
+    def run_and_check():
+        for k in range(locality_domain.get_num_locality_domains(dev)):
+            scope = locality_domain.locality_domain_scope(k)
+            for _ in range(4):
+                x = tvm_tirx.runtime.empty((n,), "int32", dev, mem_scope=scope)
+                mod(x)
+                del x  # no synchronization: the kernel may still be running
+                y = tvm_tirx.runtime.tensor(np.zeros(n, np.int32), dev, mem_scope=scope)
+                mod(y)
+                np.testing.assert_array_equal(y.numpy(), np.full(n, steps, np.int32))
+        dev.sync()
+
+    tvm_tirx.testing.run_with_gpu_lock(run_and_check)
+
+
+@pytest.mark.gpu
+@requires_cuda
 def test_locality_domain_tensor_in_kernel_and_dlpack():
     """Localized tensors are ordinary CUDA tensors for kernels and DLPack consumers."""
     torch = pytest.importorskip("torch")
@@ -185,9 +234,7 @@ def test_locality_domain_tensor_in_kernel_and_dlpack():
 def test_locality_domain_aware_kernel():
     """Each CTA writes the half of the output that lives in the domain it runs on."""
     dev = tvm_tirx.cuda(0)
-    count = locality_domain.get_num_locality_domains(dev)
-    if count < 2 or env.cuda_arch() is None or int(env.cuda_arch()[3:6]) < 100:
-        pytest.skip("needs an sm_100+ GPU with several locality domains")
+    _skip_unless_domain_aware_kernels(dev)
 
     @T.function
     def fill(
@@ -295,9 +342,9 @@ def _domain_queue_reader(n_words, chunk_words, grid, threads=256):
 def test_locality_domain_work_queue_kernel(grid):
     """A domain-aware persistent kernel reads every chunk exactly once, however CTAs land."""
     dev = tvm_tirx.cuda(0)
-    count = locality_domain.get_num_locality_domains(dev)
-    if count != 2 or env.cuda_arch() is None or int(env.cuda_arch()[3:6]) < 100:
-        pytest.skip("needs an sm_100+ GPU with two locality domains")
+    _skip_unless_domain_aware_kernels(dev)
+    if locality_domain.get_num_locality_domains(dev) != 2:
+        pytest.skip("needs a GPU with exactly two locality domains")
     n_words, chunk_words = 1 << 22, 1 << 14
     if grid == "full":
         grid = dev.multi_processor_count * 2

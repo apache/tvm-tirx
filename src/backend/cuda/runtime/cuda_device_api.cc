@@ -35,12 +35,11 @@
 
 #include <algorithm>
 #include <cstring>
-#include <map>
 #include <mutex>
 #include <optional>
 #include <string>
-#include <string_view>
 #include <utility>
+#include <vector>
 
 #include "../../../runtime/workspace_pool.h"
 
@@ -73,27 +72,28 @@ namespace {
 constexpr int kMaxLocalityDomains = 8;
 constexpr const char* kLocalityDomainScopePrefix = "global.locality_domain.";
 
+/*! \brief Memory-scope attribute: the locality domain k of `global.locality_domain.<k>`. */
+constexpr ffi::reflection::AttrKey<int64_t> kLocalityDomainIdAttr{"cuda.locality_domain_id"};
+
 void RegisterLocalityDomainScopes() {
-  static const bool registered = [] {
-    for (int k = 0; k < kMaxLocalityDomains; ++k) {
-      std::string name = kLocalityDomainScopePrefix + std::to_string(k);
-      if (!MemoryScope::IsDefined(name)) {
-        ffi::reflection::EnumDef<MemoryScopeObj>(name.c_str())
-            .set_attr(attr::kMemoryAllocProperty, static_cast<int>(MemoryAllocProperty::kNormal));
-      }
+  for (int k = 0; k < kMaxLocalityDomains; ++k) {
+    std::string name = kLocalityDomainScopePrefix + std::to_string(k);
+    if (!MemoryScope::IsDefined(name)) {
+      ffi::reflection::EnumDef<MemoryScopeObj>(name.c_str())
+          .set_attr(attr::kMemoryAllocProperty, static_cast<int>(MemoryAllocProperty::kNormal))
+          .set_attr(kLocalityDomainIdAttr, k);
     }
-    return true;
-  }();
-  (void)registered;
+  }
 }
 
-/*! \brief The domain k of `global.locality_domain.<k>`, or nullopt for any other scope. */
+/*! \brief The locality domain of a memory scope; nullopt for other scopes. */
 std::optional<int> LocalityDomainOf(const MemoryScope& scope) {
-  const ffi::String& name = scope.name();
-  const std::string_view view(name.data(), name.size());
-  const std::string_view prefix(kLocalityDomainScopePrefix);
-  if (view.substr(0, prefix.size()) != prefix) return std::nullopt;
-  return std::stoi(std::string(view.substr(prefix.size())));
+  static ffi::reflection::TypeAttrColumn state_column(ffi::type_attr::kEnumState);
+  auto state = state_column[MemoryScopeObj::RuntimeTypeIndex()].cast<ffi::EnumState>();
+  if (auto column = state->attrs.Get(kLocalityDomainIdAttr.name)) {
+    if (auto value = column->Get(scope)) return static_cast<int>(value->cast<int64_t>());
+  }
+  return std::nullopt;
 }
 
 // Locality domains go through the driver API, not the CUDA runtime: the
@@ -167,30 +167,50 @@ ffi::Optional<int64_t> GetLocalityDomainId(ffi::TensorView tensor) {
 
 #if CUDA_VERSION >= 13040
 /*!
- * \brief The memory pool of one (device, locality domain), created on first use.
+ * \brief The memory pools of CUDA locality domains, one per (device, domain),
+ * each created on first use.
  *
  * Pools live until process exit (they are never destroyed) so that tensors freed
  * during static destruction still have a valid pool. The release threshold stays
  * at its default of 0: freed memory goes back to the device at the next
  * synchronization instead of staying reserved by the pool.
  */
-CUmemoryPool GetLocalityDomainPool(int device_id, int domain) {
-  static std::mutex mutex;
-  static auto* pools = new std::map<std::pair<int, int>, CUmemoryPool>();
-  std::lock_guard<std::mutex> lock(mutex);
-  auto it = pools->find({device_id, domain});
-  if (it != pools->end()) return it->second;
-  CUmemPoolProps props{};
-  props.allocType = CU_MEM_ALLOCATION_TYPE_PINNED;
-  props.handleTypes = CU_MEM_HANDLE_TYPE_NONE;
-  props.location.type = CU_MEM_LOCATION_TYPE_DEVICE_LOCALITY_DOMAIN;
-  props.location.localized.deviceId = static_cast<unsigned char>(device_id);
-  props.location.localized.localityDomainId = static_cast<unsigned char>(domain);
-  CUmemoryPool pool;
-  CUDA_DRIVER_CALL(cuMemPoolCreate(&pool, &props));
-  pools->emplace(std::make_pair(device_id, domain), pool);
-  return pool;
-}
+class LocalityDomainPoolManager {
+ public:
+  static LocalityDomainPoolManager* Global() {
+    // Never destroyed, for the same reason as the pools.
+    static auto* manager = new LocalityDomainPoolManager();
+    return manager;
+  }
+
+  CUmemoryPool GetLocalityDomainPool(int device_id, int locality_domain_id) {
+    TVM_FFI_CHECK(device_id >= 0, ValueError) << "Invalid CUDA device id " << device_id;
+    TVM_FFI_CHECK(0 <= locality_domain_id && locality_domain_id < kMaxLocalityDomains, ValueError)
+        << "Invalid locality domain " << locality_domain_id;
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (static_cast<size_t>(device_id) >= pools_.size()) {
+      pools_.resize(device_id + 1, std::vector<CUmemoryPool>(kMaxLocalityDomains, nullptr));
+    }
+    CUmemoryPool& pool = pools_[device_id][locality_domain_id];
+    if (pool == nullptr) {
+      CUmemPoolProps props{};
+      props.allocType = CU_MEM_ALLOCATION_TYPE_PINNED;
+      props.handleTypes = CU_MEM_HANDLE_TYPE_NONE;
+      props.location.type = CU_MEM_LOCATION_TYPE_DEVICE_LOCALITY_DOMAIN;
+      props.location.localized.deviceId = static_cast<unsigned char>(device_id);
+      props.location.localized.localityDomainId = static_cast<unsigned char>(locality_domain_id);
+      CUmemoryPool created = nullptr;
+      CUDA_DRIVER_CALL(cuMemPoolCreate(&created, &props));
+      pool = created;
+    }
+    return pool;
+  }
+
+ private:
+  std::mutex mutex_;
+  /*! \brief pools_[device][domain]; nullptr until created. */
+  std::vector<std::vector<CUmemoryPool>> pools_;
+};
 #endif
 
 }  // namespace
@@ -319,8 +339,13 @@ class CUDADeviceAPI final : public DeviceAPI {
                      static_cast<size_t>((tensor->dtype.bits / 8) * tensor->dtype.lanes));
         tensor->data = api->AllocDataSpace(tensor->device, nbytes, alignment, tensor->dtype);
       }
-      // cudaFree also releases memory-pool allocations, so both kinds share FreeDataSpace.
-      void FreeData(DLTensor* tensor) { api->FreeDataSpace(tensor->device, tensor->data); }
+      void FreeData(DLTensor* tensor) {
+        if (locality_domain.has_value()) {
+          api->FreeLocalityDomainSpace(tensor->device, tensor->data);
+          return;
+        }
+        api->FreeDataSpace(tensor->device, tensor->data);
+      }
     };
     return ffi::Tensor::FromNDAlloc(Allocator{this, locality_domain}, shape, dtype, device);
   }
@@ -347,7 +372,7 @@ class CUDADeviceAPI final : public DeviceAPI {
     TVM_FFI_CHECK(dev.device_type == kDLCUDA, ValueError)
         << "Memory scope " << kLocalityDomainScopePrefix << domain << " requires a CUDA device";
     int count = GetNumLocalityDomains(dev.device_id);
-    TVM_FFI_CHECK(domain < count, ValueError)
+    TVM_FFI_CHECK(0 <= domain && domain < count, ValueError)
         << "Memory scope " << kLocalityDomainScopePrefix << domain
         << " is out of range: CUDA device " << dev.device_id << " has " << count
         << " locality domain(s)";
@@ -358,21 +383,36 @@ class CUDADeviceAPI final : public DeviceAPI {
     }
 #if CUDA_VERSION >= 13040
     ffi::CUDADeviceGuard device_guard(dev.device_id);
-    // The pool calls below use the driver API, which needs a current context; make
-    // the runtime create the device's primary context and bind it to this thread,
-    // as it would for its own first call (the allocation may be the first CUDA call).
-    TVM_FFI_CHECK_CUDA_ERROR(cudaFree(nullptr));
+    // Ensure a current context even when the guard did not switch devices: the
+    // driver calls below need one, and this may be the first CUDA call. Since
+    // CUDA 12.0, cudaSetDevice initializes the device's primary context.
+    TVM_FFI_CHECK_CUDA_ERROR(cudaSetDevice(dev.device_id));
     CUdeviceptr ret;
-    CUDA_DRIVER_CALL(cuMemAllocFromPoolAsync(&ret, nbytes,
-                                             GetLocalityDomainPool(dev.device_id, domain),
-                                             /*hStream=*/nullptr));
+    CUDA_DRIVER_CALL(cuMemAllocFromPoolAsync(
+        &ret, nbytes,
+        LocalityDomainPoolManager::Global()->GetLocalityDomainPool(dev.device_id, domain),
+        /*hStream=*/nullptr));
     // Like cudaMalloc, the allocation is usable from any stream once this returns.
     CUDA_DRIVER_CALL(cuStreamSynchronize(nullptr));
-    TVM_FFI_ICHECK_EQ(ret % kAllocAlignment, 0U);
     return reinterpret_cast<void*>(ret);
 #else
     TVM_FFI_THROW(InternalError)
         << "A device reports several locality domains only with CUDA 13.4+";
+#endif
+  }
+
+  void FreeLocalityDomainSpace(Device dev, void* ptr) {
+    // Without locality domains, AllocLocalityDomainSpace made a plain allocation.
+    if (GetNumLocalityDomains(dev.device_id) == 1) return FreeDataSpace(dev, ptr);
+#if CUDA_VERSION >= 13040
+    // As in FreeDataSpace, skip the free while unwinding from a sticky CUDA error.
+    if (std::uncaught_exceptions() && cudaPeekAtLastError() == cudaErrorIllegalAddress) return;
+    ffi::CUDADeviceGuard device_guard(dev.device_id);
+    // Unlike for cudaMalloc memory, cuMemFree of pool memory does not wait for
+    // kernels still using it. Free in the order of the legacy default stream
+    // instead, which runs after the work already queued on it and on every
+    // blocking stream; nonblocking streams must synchronize before the tensor dies.
+    CUDA_DRIVER_CALL(cuMemFreeAsync(reinterpret_cast<CUdeviceptr>(ptr), /*hStream=*/nullptr));
 #endif
   }
 

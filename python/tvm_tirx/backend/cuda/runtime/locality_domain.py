@@ -21,7 +21,7 @@ an SM reads memory of its own domain faster than memory of another one. A
 tensor is placed in domain ``k`` by allocating it with the memory scope
 ``global.locality_domain.<k>``::
 
-    from tvm_tirx.runtime import locality_domain
+    from tvm_tirx.backend.cuda.runtime import locality_domain
 
     dev = tvm_tirx.cuda(0)
     for k in range(locality_domain.get_num_locality_domains(dev)):
@@ -35,16 +35,25 @@ The query names and their semantics follow ``torch.cuda.green_contexts``
 ``runtime.cuda.<Name>`` of the same name, e.g. ``get_num_locality_domains`` is
 ``runtime.cuda.GetNumLocalityDomains``.
 
+Like ``cudaMalloc`` memory, a localized tensor is ready on every stream once it
+is allocated. It is freed in the order of the legacy default stream, after the
+work queued on it and on every blocking stream. Work on a nonblocking stream
+must be synchronized before the last reference to the tensor goes away.
+
 A kernel reads the domain of the SM it runs on with
 ``T.cuda.mov_sreg(32, "locality_domain_id")`` (PTX ISA 9.5) and can then work on
 the data of its own domain. Memory of any domain stays accessible from every
-SM; only the access speed differs. A device without locality domains reports
-one domain, and ``global.locality_domain.0`` then behaves like ``global``.
+SM; only the access speed differs. A device without locality domains, or with
+a CUDA build or driver older than 13.4, reports one domain:
+``global.locality_domain.0`` then behaves like ``global``, and
+``get_locality_domain_id`` returns None for its memory.
 """
 
 import tvm_ffi
 
-from .device import Device
+from tvm_tirx.runtime import Device
+
+from . import _ffi_api
 
 __all__ = [
     "MAX_LOCALITY_DOMAINS",
@@ -78,7 +87,7 @@ def get_num_locality_domains(device: Device | int = 0) -> int:
     device : tvm_tirx.runtime.Device or int
         A CUDA device, e.g. ``tvm_tirx.cuda(0)``, or its device id.
     """
-    return int(tvm_ffi.get_global_func("runtime.cuda.GetNumLocalityDomains")(_device_id(device)))
+    return int(_ffi_api.GetNumLocalityDomains(_device_id(device)))
 
 
 def is_localization_supported(device: Device | int = 0) -> bool:
@@ -92,7 +101,7 @@ def is_localization_supported(device: Device | int = 0) -> bool:
     device : tvm_tirx.runtime.Device or int
         A CUDA device, e.g. ``tvm_tirx.cuda(0)``, or its device id.
     """
-    return bool(tvm_ffi.get_global_func("runtime.cuda.IsLocalizationSupported")(_device_id(device)))
+    return bool(_ffi_api.IsLocalizationSupported(_device_id(device)))
 
 
 def get_num_sms_per_locality_domain(device: Device | int = 0) -> int:
@@ -108,23 +117,22 @@ def get_num_sms_per_locality_domain(device: Device | int = 0) -> int:
     device : tvm_tirx.runtime.Device or int
         A CUDA device, e.g. ``tvm_tirx.cuda(0)``, or its device id.
     """
-    return int(
-        tvm_ffi.get_global_func("runtime.cuda.GetNumSMsPerLocalityDomain")(_device_id(device))
-    )
+    return int(_ffi_api.GetNumSMsPerLocalityDomain(_device_id(device)))
 
 
 def get_locality_domain_id(tensor) -> int | None:
     """Return the locality domain a CUDA tensor's memory belongs to.
 
     Returns None for memory that is not localized, e.g. memory allocated with
-    the plain ``global`` scope.
+    the plain ``global`` scope, or with ``global.locality_domain.0`` on a device
+    that reports a single locality domain.
 
     Parameters
     ----------
     tensor : tvm_tirx.runtime.Tensor or any DLPack-compatible tensor
         A tensor in CUDA device memory.
     """
-    domain = tvm_ffi.get_global_func("runtime.cuda.GetLocalityDomainId")(tensor)
+    domain = _ffi_api.GetLocalityDomainId(tensor)
     return None if domain is None else int(domain)
 
 
