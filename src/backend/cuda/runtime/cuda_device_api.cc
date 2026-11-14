@@ -342,6 +342,15 @@ class CUDADeviceAPI final : public DeviceAPI {
       locality_domain = LocalityDomainOf(mem_scope.value());
       TVM_FFI_CHECK(locality_domain.has_value(), ValueError)
           << "Unsupported memory scope: " << mem_scope.value().name();
+      TVM_FFI_CHECK(device.device_type == kDLCUDA, ValueError)
+          << "Memory scope " << mem_scope.value().name() << " requires a CUDA device";
+      int count = GetNumLocalityDomains(device.device_id);
+      TVM_FFI_CHECK(*locality_domain < count, ValueError)
+          << "Memory scope " << mem_scope.value().name() << " is out of range: CUDA device "
+          << device.device_id << " has " << count << " locality domain(s)";
+      // Without locality domains, or without CUDA 13.4 support for them, domain 0
+      // is the whole device: allocate it like `global`.
+      if (count == 1) locality_domain = std::nullopt;
     }
     struct Allocator {
       CUDADeviceAPI* api;
@@ -386,19 +395,8 @@ class CUDADeviceAPI final : public DeviceAPI {
     return ret;
   }
 
+  /*! \brief Allocate in locality domain `domain` of a device with several domains. */
   void* AllocLocalityDomainSpace(Device dev, size_t nbytes, int domain) {
-    TVM_FFI_CHECK(dev.device_type == kDLCUDA, ValueError)
-        << "Memory scope " << kLocalityDomainScopePrefix << domain << " requires a CUDA device";
-    int count = GetNumLocalityDomains(dev.device_id);
-    TVM_FFI_CHECK(0 <= domain && domain < count, ValueError)
-        << "Memory scope " << kLocalityDomainScopePrefix << domain
-        << " is out of range: CUDA device " << dev.device_id << " has " << count
-        << " locality domain(s)";
-    if (count == 1) {
-      // Without locality domains, or without CUDA 13.4 support for them, domain 0
-      // is the whole device.
-      return AllocDataSpace(dev, nbytes, kAllocAlignment, DLDataType{kDLUInt, 8, 1});
-    }
 #if CUDA_VERSION >= 13040
     ffi::CUDADeviceGuard device_guard(dev.device_id);
     // Ensure a current context even when the guard did not switch devices: the
@@ -419,15 +417,14 @@ class CUDADeviceAPI final : public DeviceAPI {
 #endif
   }
 
+  /*! \brief Free memory from AllocLocalityDomainSpace. */
   void FreeLocalityDomainSpace(Device dev, void* ptr) {
-    // With several locality domains the memory comes from a pool (otherwise it
-    // is a plain cudaMalloc allocation). cudaFree of cudaMalloc memory waits for
-    // all work on the device, but cudaFree of pool memory does not, so
-    // synchronize the device first: as for global memory, no kernel on any
-    // stream may still use the memory once it is freed.
-    if (GetNumLocalityDomains(dev.device_id) > 1) {
-      // As in FreeDataSpace, skip while unwinding from a sticky CUDA error.
-      if (std::uncaught_exceptions() && cudaPeekAtLastError() == cudaErrorIllegalAddress) return;
+    // As in FreeDataSpace, skip the free while unwinding from a sticky CUDA error.
+    if (std::uncaught_exceptions() && cudaPeekAtLastError() == cudaErrorIllegalAddress) return;
+    // cudaFree of cudaMalloc memory waits for all work on the device, but
+    // cudaFree of pool memory does not. Synchronize the device first so that,
+    // as for global memory, no kernel on any stream still uses the memory.
+    {
       ffi::CUDADeviceGuard device_guard(dev.device_id);
       TVM_FFI_CHECK_CUDA_ERROR(cudaDeviceSynchronize());
     }
