@@ -31,6 +31,7 @@ __all__ = [
     "has_cuda_arch",
     # version / capability
     "has_cuda_compute",
+    "has_cuda_locality_domain_nvrtc_support",
     "has_cudagraph",
     "has_gpu",
     "has_llvm",
@@ -219,6 +220,31 @@ def has_nvcc_version(major: int, minor: int = 0, release: int = 0) -> bool:
     reason="need nvcc >= 11.4")`` (add ``@pytest.mark.gpu`` for GPU selection).
     """
     return has_cuda() and _nvcc_version() >= (major, minor, release)
+
+
+@functools.cache
+def has_cuda_locality_domain_nvrtc_support() -> bool:
+    """True if locality-domain kernels can run with the default NVRTC compiler.
+
+    Requires a CUDA runtime and an sm_100+ device with multiple locality domains,
+    plus loaded NVRTC 13.5+ for the PTX 9.5 locality-domain special registers.
+    This probes kernel-test capability, not just localized allocation support.
+    Missing bindings, libraries, or failed capability queries return False.
+    """
+    try:
+        if not has_cuda_compute(10):
+            return False
+        get_num_domains = tvm_ffi.get_global_func(
+            "runtime.cuda.GetNumLocalityDomains", allow_missing=True
+        )
+        if get_num_domains is None or get_num_domains(0) < 2:
+            return False
+        from cuda.bindings import nvrtc  # pylint: disable=import-outside-toplevel
+
+        status, major, minor = nvrtc.nvrtcVersion()
+        return status == nvrtc.nvrtcResult.NVRTC_SUCCESS and (major, minor) >= (13, 5)
+    except Exception:  # pylint: disable=broad-except
+        return False
 
 
 @functools.cache

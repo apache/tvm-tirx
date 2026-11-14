@@ -16,8 +16,6 @@
 # under the License.
 """Locality-domain memory scopes of the CUDA device API."""
 
-import re
-
 import numpy as np
 import pytest
 import tvm_ffi
@@ -27,23 +25,6 @@ import tvm_tirx.testing
 from tvm_tirx.backend.cuda.runtime import locality_domain
 from tvm_tirx.script import tirx as T
 from tvm_tirx.testing import env
-
-requires_cuda = pytest.mark.skipif(not env.has_cuda(), reason="CUDA GPU not available")
-requires_cuda_runtime = pytest.mark.skipif(
-    tvm_ffi.get_global_func("runtime.cuda.GetNumLocalityDomains", allow_missing=True) is None,
-    reason="TVM-TIRx is built without the CUDA runtime",
-)
-
-
-def _skip_unless_domain_aware_kernels(dev):
-    """Skip unless kernels can read %locality_domain_id and see several domains."""
-    if locality_domain.get_num_locality_domains(dev) < 2:
-        pytest.skip("needs a GPU with several locality domains")
-    arch = env.cuda_arch()
-    if arch is None or int(re.match(r"sm_(\d+)", arch).group(1)) < 100:
-        pytest.skip("needs an sm_100+ GPU")
-    if not env.has_nvcc_version(13, 5):
-        pytest.skip("%locality_domain_id needs PTX ISA 9.5 (CUDA 13.5)")
 
 
 def test_locality_domain_scope_names():
@@ -55,7 +36,10 @@ def test_locality_domain_scope_names():
         locality_domain.locality_domain_scope(-1)
 
 
-@requires_cuda_runtime
+@pytest.mark.skipif(
+    tvm_ffi.get_global_func("runtime.cuda.GetNumLocalityDomains", allow_missing=True) is None,
+    reason="TVM-TIRx is built without the CUDA runtime",
+)
 def test_locality_domain_scopes_registered():
     """The CUDA runtime registers the scopes, even on a machine without a GPU."""
     for k in range(locality_domain.MAX_LOCALITY_DOMAINS):
@@ -69,7 +53,7 @@ def test_locality_domain_scopes_registered():
 
 
 @pytest.mark.gpu
-@requires_cuda
+@pytest.mark.skipif(not env.has_cuda(), reason="CUDA GPU not available")
 def test_locality_domain_topology():
     dev = tvm_tirx.cuda(0)
     count = locality_domain.get_num_locality_domains(dev)
@@ -86,7 +70,7 @@ def test_locality_domain_topology():
 
 
 @pytest.mark.gpu
-@requires_cuda
+@pytest.mark.skipif(not env.has_cuda(), reason="CUDA GPU not available")
 def test_locality_domain_allocation_roundtrip():
     """Each scope places memory in its domain; plain `global` memory is not localized."""
     dev = tvm_tirx.cuda(0)
@@ -109,7 +93,7 @@ def test_locality_domain_allocation_roundtrip():
 
 
 @pytest.mark.gpu
-@requires_cuda
+@pytest.mark.skipif(not env.has_cuda(), reason="CUDA GPU not available")
 def test_locality_domain_allocation_as_first_cuda_call():
     """A localized allocation works as the very first CUDA operation of a process."""
     import subprocess
@@ -127,7 +111,7 @@ def test_locality_domain_allocation_as_first_cuda_call():
 
 
 @pytest.mark.gpu
-@requires_cuda
+@pytest.mark.skipif(not env.has_cuda(), reason="CUDA GPU not available")
 def test_locality_domain_out_of_range():
     dev = tvm_tirx.cuda(0)
     count = locality_domain.get_num_locality_domains(dev)
@@ -140,7 +124,7 @@ def test_locality_domain_out_of_range():
 
 
 @pytest.mark.gpu
-@requires_cuda
+@pytest.mark.skipif(not env.has_cuda(), reason="CUDA GPU not available")
 def test_locality_domain_free_returns_memory():
     """Freed localized tensors go back to the device rather than staying in the pool."""
     dev = tvm_tirx.cuda(0)
@@ -161,7 +145,7 @@ def test_locality_domain_free_returns_memory():
 
 
 @pytest.mark.gpu
-@requires_cuda
+@pytest.mark.skipif(not env.has_cuda(), reason="CUDA GPU not available")
 def test_locality_domain_tensor_freed_while_kernel_runs():
     """Dropping a tensor right after launching a kernel on it is safe.
 
@@ -200,7 +184,7 @@ def test_locality_domain_tensor_freed_while_kernel_runs():
 
 
 @pytest.mark.gpu
-@requires_cuda
+@pytest.mark.skipif(not env.has_cuda(), reason="CUDA GPU not available")
 def test_locality_domain_tensor_in_kernel_and_dlpack():
     """Localized tensors are ordinary CUDA tensors for kernels and DLPack consumers."""
     torch = pytest.importorskip("torch")
@@ -237,11 +221,13 @@ def test_locality_domain_tensor_in_kernel_and_dlpack():
 
 
 @pytest.mark.gpu
-@requires_cuda
+@pytest.mark.skipif(
+    not env.has_cuda_locality_domain_nvrtc_support(),
+    reason="needs multiple CUDA locality domains and NVRTC 13.5+",
+)
 def test_locality_domain_aware_kernel():
     """Each CTA writes the half of the output that lives in the domain it runs on."""
     dev = tvm_tirx.cuda(0)
-    _skip_unless_domain_aware_kernels(dev)
 
     @T.function
     def fill(
@@ -344,12 +330,14 @@ def _domain_queue_reader(n_words, chunk_words, grid, threads=256):
 
 
 @pytest.mark.gpu
-@requires_cuda
+@pytest.mark.skipif(
+    not env.has_cuda_locality_domain_nvrtc_support(),
+    reason="needs multiple CUDA locality domains and NVRTC 13.5+",
+)
 @pytest.mark.parametrize("grid", ["full", 1])
 def test_locality_domain_work_queue_kernel(grid):
     """A domain-aware persistent kernel reads every chunk exactly once, however CTAs land."""
     dev = tvm_tirx.cuda(0)
-    _skip_unless_domain_aware_kernels(dev)
     if locality_domain.get_num_locality_domains(dev) != 2:
         pytest.skip("needs a GPU with exactly two locality domains")
     n_words, chunk_words = 1 << 22, 1 << 14
