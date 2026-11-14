@@ -90,11 +90,12 @@ void RegisterLocalityDomainScopes() {
 /*! \brief The locality domain of a memory scope, or nullopt if it is not a locality-domain scope.
  */
 std::optional<int> LocalityDomainOf(const MemoryScope& scope) {
-  static ffi::reflection::TypeAttrColumn state_column(ffi::type_attr::kEnumState);
-  auto state = state_column[MemoryScopeObj::RuntimeTypeIndex()].cast<ffi::EnumState>();
-  if (auto column = state->attrs.Get(kLocalityDomainIdAttr.name)) {
-    if (auto value = column->Get(scope)) return static_cast<int>(value->cast<int64_t>());
-  }
+  static auto column = [] {
+    ffi::reflection::TypeAttrColumn state_column(ffi::type_attr::kEnumState);
+    auto state = state_column[MemoryScopeObj::RuntimeTypeIndex()].cast<ffi::EnumState>();
+    return state->attrs.at(kLocalityDomainIdAttr.name);
+  }();
+  if (auto value = column.Get(scope)) return static_cast<int>(value->cast<int64_t>());
   return std::nullopt;
 }
 
