@@ -170,6 +170,7 @@ int GetNumSMsPerLocalityDomain(int device_id) {
 ffi::Optional<int64_t> GetLocalityDomainId(ffi::TensorView tensor) {
   TVM_FFI_CHECK(tensor.device().device_type == kDLCUDA, ValueError)
       << "Expected a tensor in CUDA device memory, got device type " << tensor.device().device_type;
+  if (tensor.data_ptr() == nullptr) return std::nullopt;
 #if CUDA_VERSION >= 13040
   if (DriverHasLocalityDomains()) {
     // The driver call needs a current context, which a fresh thread may lack.

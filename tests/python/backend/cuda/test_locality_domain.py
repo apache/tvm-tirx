@@ -94,6 +94,15 @@ def test_locality_domain_allocation_roundtrip():
 
 @pytest.mark.gpu
 @pytest.mark.skipif(not env.has_cuda(), reason="CUDA GPU not available")
+@pytest.mark.parametrize("shape", [(0,), (2, 0, 3)])
+def test_locality_domain_id_empty_tensor(shape):
+    """Empty CUDA tensors have no localized allocation to query."""
+    tensor = tvm_tirx.runtime.empty(shape, "float32", tvm_tirx.cuda(0))
+    assert locality_domain.get_locality_domain_id(tensor) is None
+
+
+@pytest.mark.gpu
+@pytest.mark.skipif(not env.has_cuda(), reason="CUDA GPU not available")
 def test_locality_domain_allocation_as_first_cuda_call():
     """A localized allocation works as the very first CUDA operation of a process."""
     import subprocess
