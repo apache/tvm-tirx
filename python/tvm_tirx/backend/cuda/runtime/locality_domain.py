@@ -19,7 +19,7 @@
 Some GPUs (e.g. Rubin) split their SMs and device memory into locality domains;
 an SM reads memory of its own domain faster than memory of another one. A
 tensor is placed in domain ``k`` by allocating it with the memory scope
-``global.locality_domain.<k>``::
+``global.locality_domain.<k>``. On a GPU with multiple locality domains::
 
     from tvm_tirx.backend.cuda.runtime import locality_domain
 
