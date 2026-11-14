@@ -16,6 +16,8 @@
 # under the License.
 """Locality-domain memory scopes of the CUDA device API."""
 
+import re
+
 import numpy as np
 import pytest
 import tvm_ffi
@@ -37,7 +39,8 @@ def _skip_unless_domain_aware_kernels(dev):
     """Skip unless kernels can read %locality_domain_id and see several domains."""
     if locality_domain.get_num_locality_domains(dev) < 2:
         pytest.skip("needs a GPU with several locality domains")
-    if env.cuda_arch() is None or int(env.cuda_arch()[3:6]) < 100:
+    arch = env.cuda_arch()
+    if arch is None or int(re.match(r"sm_(\d+)", arch).group(1)) < 100:
         pytest.skip("needs an sm_100+ GPU")
     if not env.has_nvcc_version(13, 5):
         pytest.skip("%locality_domain_id needs PTX ISA 9.5 (CUDA 13.5)")
@@ -143,14 +146,18 @@ def test_locality_domain_free_returns_memory():
     dev = tvm_tirx.cuda(0)
     nbytes = 1 << 30
     scope = locality_domain.locality_domain_scope(locality_domain.get_num_locality_domains(dev) - 1)
-    for _ in range(3):  # warm up the pool and the allocator
-        tvm_tirx.runtime.empty((nbytes // 4,), "float32", dev, mem_scope=scope)
-    before = dev.available_global_memory
-    for _ in range(8):
-        x = tvm_tirx.runtime.empty((nbytes // 4,), "float32", dev, mem_scope=scope)
-        del x
-    dev.sync()
-    assert dev.available_global_memory >= before - nbytes
+
+    def run_and_check():
+        for _ in range(3):  # warm up the pool and the allocator
+            tvm_tirx.runtime.empty((nbytes // 4,), "float32", dev, mem_scope=scope)
+        before = dev.available_global_memory
+        for _ in range(8):
+            x = tvm_tirx.runtime.empty((nbytes // 4,), "float32", dev, mem_scope=scope)
+            del x
+        dev.sync()
+        assert dev.available_global_memory >= before - nbytes
+
+    tvm_tirx.testing.run_with_gpu_lock(run_and_check)
 
 
 @pytest.mark.gpu
@@ -158,7 +165,7 @@ def test_locality_domain_free_returns_memory():
 def test_locality_domain_tensor_freed_while_kernel_runs():
     """Dropping a tensor right after launching a kernel on it is safe.
 
-    The free is ordered after the kernel, so the memory is not handed out again,
+    The free waits for the kernel, so the memory is not handed out again,
     or returned to the device, while the kernel still writes it.
     """
     n, steps = 1 << 24, 256

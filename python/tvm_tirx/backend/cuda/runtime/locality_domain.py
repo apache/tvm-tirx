@@ -36,9 +36,7 @@ The query names and their semantics follow ``torch.cuda.green_contexts``
 ``runtime.cuda.GetNumLocalityDomains``.
 
 Like ``cudaMalloc`` memory, a localized tensor is ready on every stream once it
-is allocated. It is freed in the order of the legacy default stream, after the
-work queued on it and on every blocking stream. Work on a nonblocking stream
-must be synchronized before the last reference to the tensor goes away.
+is allocated, and freeing it waits for the work on every stream of the device.
 
 A kernel reads the domain of the SM it runs on with
 ``T.cuda.mov_sreg(32, "locality_domain_id")`` (PTX ISA 9.5) and can then work on

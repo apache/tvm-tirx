@@ -38,6 +38,7 @@
 #include <mutex>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -86,7 +87,8 @@ void RegisterLocalityDomainScopes() {
   }
 }
 
-/*! \brief The locality domain of a memory scope; nullopt for other scopes. */
+/*! \brief The locality domain of a memory scope, or nullopt if it is not a locality-domain scope.
+ */
 std::optional<int> LocalityDomainOf(const MemoryScope& scope) {
   static ffi::reflection::TypeAttrColumn state_column(ffi::type_attr::kEnumState);
   auto state = state_column[MemoryScopeObj::RuntimeTypeIndex()].cast<ffi::EnumState>();
@@ -112,24 +114,37 @@ bool DriverHasLocalityDomains() {
 
 int GetDriverAttribute(CUdevice_attribute attribute, int device_id) {
   CUDA_DRIVER_CALL(cuInit(0));
+  CUdevice device;
+  CUDA_DRIVER_CALL(cuDeviceGet(&device, device_id));
   int value = 0;
-  CUDA_DRIVER_CALL(cuDeviceGetAttribute(&value, attribute, device_id));
+  CUDA_DRIVER_CALL(cuDeviceGetAttribute(&value, attribute, device));
   return value;
 }
 #endif
 
-// The functions below back `tvm_tirx.runtime.locality_domain`; each one is
-// registered as `runtime.cuda.<Name>` for the Python function of the same name.
+// The functions below back `tvm_tirx.backend.cuda.runtime.locality_domain`; each
+// one is registered as `runtime.cuda.<Name>` for the Python function of the same name.
 
 /*! \brief Number of locality domains of a device; 1 when it has none or CUDA predates them. */
 int GetNumLocalityDomains(int device_id) {
+  // Queried once per device: every localized allocation and free needs it.
+  static std::mutex mutex;
+  static std::vector<int> cache;  // 0 = not queried yet
+  std::lock_guard<std::mutex> lock(mutex);
+  TVM_FFI_CHECK(device_id >= 0, ValueError) << "Invalid CUDA device id " << device_id;
+  if (static_cast<size_t>(device_id) < cache.size() && cache[device_id] > 0) {
+    return cache[device_id];
+  }
   int count = 0;
 #if CUDA_VERSION >= 13040
   if (DriverHasLocalityDomains()) {
     count = GetDriverAttribute(CU_DEVICE_ATTRIBUTE_LOCALITY_DOMAIN_COUNT, device_id);
   }
 #endif
-  return count > 0 ? count : 1;
+  if (count <= 0) count = 1;
+  if (static_cast<size_t>(device_id) >= cache.size()) cache.resize(device_id + 1, 0);
+  cache[device_id] = count;
+  return count;
 }
 
 /*! \brief Whether memory can be localized on a device: it has two or more locality domains. */
@@ -156,6 +171,9 @@ ffi::Optional<int64_t> GetLocalityDomainId(ffi::TensorView tensor) {
       << "Expected a tensor in CUDA device memory, got device type " << tensor.device().device_type;
 #if CUDA_VERSION >= 13040
   if (DriverHasLocalityDomains()) {
+    // The driver call needs a current context, which a fresh thread may lack.
+    ffi::CUDADeviceGuard device_guard(tensor.device().device_id);
+    TVM_FFI_CHECK_CUDA_ERROR(cudaSetDevice(tensor.device().device_id));
     int ordinal = -1;
     CUDA_DRIVER_CALL(cuPointerGetAttribute(&ordinal, CU_POINTER_ATTRIBUTE_LOCALITY_DOMAIN_ORDINAL,
                                            reinterpret_cast<CUdeviceptr>(tensor.data_ptr())));
@@ -402,18 +420,18 @@ class CUDADeviceAPI final : public DeviceAPI {
   }
 
   void FreeLocalityDomainSpace(Device dev, void* ptr) {
-    // Without locality domains, AllocLocalityDomainSpace made a plain allocation.
-    if (GetNumLocalityDomains(dev.device_id) == 1) return FreeDataSpace(dev, ptr);
-#if CUDA_VERSION >= 13040
-    // As in FreeDataSpace, skip the free while unwinding from a sticky CUDA error.
-    if (std::uncaught_exceptions() && cudaPeekAtLastError() == cudaErrorIllegalAddress) return;
-    ffi::CUDADeviceGuard device_guard(dev.device_id);
-    // Unlike for cudaMalloc memory, cuMemFree of pool memory does not wait for
-    // kernels still using it. Free in the order of the legacy default stream
-    // instead, which runs after the work already queued on it and on every
-    // blocking stream; nonblocking streams must synchronize before the tensor dies.
-    CUDA_DRIVER_CALL(cuMemFreeAsync(reinterpret_cast<CUdeviceptr>(ptr), /*hStream=*/nullptr));
-#endif
+    // With several locality domains the memory comes from a pool (otherwise it
+    // is a plain cudaMalloc allocation). cudaFree of cudaMalloc memory waits for
+    // all work on the device, but cudaFree of pool memory does not, so
+    // synchronize the device first: as for global memory, no kernel on any
+    // stream may still use the memory once it is freed.
+    if (GetNumLocalityDomains(dev.device_id) > 1) {
+      // As in FreeDataSpace, skip while unwinding from a sticky CUDA error.
+      if (std::uncaught_exceptions() && cudaPeekAtLastError() == cudaErrorIllegalAddress) return;
+      ffi::CUDADeviceGuard device_guard(dev.device_id);
+      TVM_FFI_CHECK_CUDA_ERROR(cudaDeviceSynchronize());
+    }
+    FreeDataSpace(dev, ptr);
   }
 
   void FreeDataSpace(Device dev, void* ptr) {
