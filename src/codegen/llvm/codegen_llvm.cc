@@ -1873,6 +1873,13 @@ void CodeGenLLVM::BufferAccessHelper(
     llvm::Value* predicate_value = nullptr;
     if (predicate.has_value()) {
       predicate_value = MakeValue(predicate.value());
+
+      // lanes() throws for scalable vectors, so check IsScalableVector() first.
+      PrimType predicate_dtype(predicate.value().ty()->dtype);
+      if (last_index_lanes > 1 && !predicate_dtype.IsScalableVector() &&
+          predicate_dtype.lanes() == last_index_lanes) {
+        predicate_value = builder_->CreateExtractElement(predicate_value, i);
+      }
     }
 
     TypedPointer buffer_ptr =
@@ -1948,9 +1955,28 @@ llvm::Value* CodeGenLLVM::CreateMaskedLoad(const CallObj* op) {
                      int alignment, bool is_volatile) {
         TVM_FFI_ICHECK(!is_volatile)
             << "The masked load intrinsic does not support declaring load as volatile.";
-        llvm::Instruction* value = builder_->CreateMaskedLoad(buffer_ptr.type, buffer_ptr.addr,
-                                                              llvm::Align(alignment), predicate);
-        loads.push_back(value);
+
+        if (predicate->getType()->isVectorTy()) {
+          llvm::Instruction* value = builder_->CreateMaskedLoad(buffer_ptr.type, buffer_ptr.addr,
+                                                                llvm::Align(alignment), predicate);
+          loads.push_back(value);
+          return value;
+        }
+
+        llvm::Type* vector_type = llvm::FixedVectorType::get(buffer_ptr.type, 1);
+        llvm::Type* mask_vector_type = llvm::FixedVectorType::get(predicate->getType(), 1);
+
+        llvm::Value* mask = llvm::UndefValue::get(mask_vector_type);
+        mask = builder_->CreateInsertElement(mask, predicate, ConstInt32(0));
+
+        llvm::Instruction* value =
+            builder_->CreateMaskedLoad(vector_type, buffer_ptr.addr, llvm::Align(alignment), mask,
+                                       llvm::UndefValue::get(vector_type));
+
+        llvm::Value* scalar = builder_->CreateExtractElement(value, ConstInt32(0));
+        loads.push_back(scalar);
+
+        // Return the memory-access instruction so AddAliasInfo attaches TBAA to it.
         return value;
       };
   BufferAccessHelper(buffer, indices, predicate, access_dtype, make_load);
@@ -1986,8 +2012,24 @@ llvm::Value* CodeGenLLVM::CreateMaskedStore(const CallObj* op) {
             << "The masked store intrinsic does not support declaring store as volatile.";
         llvm::Value* to_store =
             subelement_i == -1 ? value : builder_->CreateExtractElement(value, subelement_i);
-        last_store = builder_->CreateMaskedStore(to_store, buffer_ptr.addr, llvm::Align(alignment),
-                                                 predicate);
+
+        if (predicate->getType()->isVectorTy()) {
+          last_store = builder_->CreateMaskedStore(to_store, buffer_ptr.addr,
+                                                   llvm::Align(alignment), predicate);
+          return last_store;
+        }
+
+        // llvm.masked.store only accepts vectors: store a scalar lane as a 1-element vector.
+        llvm::Type* vector_type = llvm::FixedVectorType::get(to_store->getType(), 1);
+        llvm::Type* mask_vector_type = llvm::FixedVectorType::get(predicate->getType(), 1);
+
+        llvm::Value* vector_value = builder_->CreateInsertElement(
+            llvm::UndefValue::get(vector_type), to_store, ConstInt32(0));
+        llvm::Value* mask = builder_->CreateInsertElement(llvm::UndefValue::get(mask_vector_type),
+                                                          predicate, ConstInt32(0));
+
+        last_store = builder_->CreateMaskedStore(vector_value, buffer_ptr.addr,
+                                                 llvm::Align(alignment), mask);
         return last_store;
       };
   BufferAccessHelper(buffer, indices, predicate, value_dtype, make_store);
