@@ -33,6 +33,56 @@ from tvm_tirx.testing import env
 
 
 @pytest.mark.skipif(not env.has_llvm(), reason="need llvm")
+@pytest.mark.parametrize(
+    "dtype, mantissa, bias",
+    [("float6_e2m3fn", 3, 1), ("float6_e3m2fn", 2, 3)],
+)
+def test_float6_literals_in_select(dtype, mantissa, bias):
+    sign_bit = 1 << 5
+    fraction_mask = (1 << mantissa) - 1
+    expected_bits = list(range(1 << 6))
+    values = []
+    for bits in expected_bits:
+        exponent = (bits & (sign_bit - 1)) >> mantissa
+        fraction = bits & fraction_mask
+        significand = fraction if exponent == 0 else fraction + (1 << mantissa)
+        value = math.ldexp(significand, max(exponent, 1) - bias - mantissa)
+        values.append(-value if bits & sign_bit else value)
+
+    # Midpoints at the subnormal step round to the even payload.
+    step = math.ldexp(1.0, 1 - bias - mantissa)
+    values.extend([0.5 * step, -0.5 * step, 1.5 * step, 2.5 * step])
+    expected_bits.extend([0, sign_bit, 2, 2])
+    size = len(values)
+    # Carry the sub-byte values in uint8 tensors to exercise the LLVM scalar
+    # representation independently of the tensor storage layout.
+    source = [
+        "@T.function",
+        f'def choose(use_literal: T.bool, A: T.Tensor(({size},), "uint8"), '
+        f'B: T.Tensor(({size},), "uint8")):',
+    ]
+    for i, value in enumerate(values):
+        source.append(f'    loaded_{i} = T.reinterpret(T.Cast("uint6", A[{i}]), ty="{dtype}")')
+        source.append(f"    selected_{i} = T.Select(use_literal, T.{dtype}({value!r}), loaded_{i})")
+        source.append(f'    B[{i}] = T.Cast("uint8", T.reinterpret(selected_{i}, ty="uint6"))')
+
+    func = tvm_tirx.script.from_source("\n".join(source), extra_vars={"T": T})
+    if not env.has_llvm_min_version(19):
+        with pytest.raises(ValueError, match="require LLVM 19"):
+            tvm_tirx.compile(func, target="llvm")
+        return
+
+    compiled = tvm_tirx.compile(func, target="llvm")
+    expected = np.array(expected_bits, dtype="uint8")
+    load_bits = expected ^ sign_bit
+    a = tvm_tirx.runtime.tensor(load_bits)
+    b = tvm_tirx.runtime.empty((size,), "uint8")
+    for use_literal, ref in [(True, expected), (False, load_bits)]:
+        compiled(use_literal, a, b)
+        np.testing.assert_array_equal(b.numpy(), ref, strict=True)
+
+
+@pytest.mark.skipif(not env.has_llvm(), reason="need llvm")
 def test_bool_comparisons():
     @T.function
     def compare(A: T.Tensor((4,), "bool"), B: T.Tensor((4,), "bool"), C: T.Tensor((6, 4), "bool")):

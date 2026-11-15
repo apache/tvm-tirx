@@ -24,6 +24,7 @@
 // Part of the code are adapted from Halide's CodeGen_LLVM
 #include "codegen_llvm.h"
 
+#include <llvm/ADT/APFloat.h>
 #include <llvm/ADT/ArrayRef.h>
 #include <llvm/ADT/SmallVector.h>
 #include <llvm/ADT/StringRef.h>
@@ -1568,8 +1569,23 @@ llvm::Value* CodeGenLLVM::Dispatch_(const IntImmObj* op) {
 }
 
 llvm::Value* CodeGenLLVM::Dispatch_(const FloatImmObj* op) {
-  return llvm::ConstantFP::get(DTypeToLLVMType(PrimType(op->ty.as_or_throw<PrimType>()->dtype)),
-                               op->value);
+  PrimType dtype = op->ty.as_or_throw<PrimType>();
+  llvm::Type* llvm_type = DTypeToLLVMType(dtype);
+  if (dtype.MatchesCode(DLDataTypeCode::kDLFloat6_e2m3fn, DLDataTypeCode::kDLFloat6_e3m2fn)) {
+#if TVM_LLVM_VERSION >= 190
+    // TIRx carries Float6 values in LLVM i6, including the bits of literals.
+    const llvm::fltSemantics& format = dtype.MatchesCode(DLDataTypeCode::kDLFloat6_e2m3fn)
+                                           ? llvm::APFloat::Float6E2M3FN()
+                                           : llvm::APFloat::Float6E3M2FN();
+    llvm::APFloat value(op->value);
+    bool loses_info;
+    value.convert(format, llvm::APFloat::rmNearestTiesToEven, &loses_info);
+    return llvm::ConstantInt::get(llvm_type, value.bitcastToAPInt());
+#else
+    TVM_FFI_THROW(ValueError) << "Float6 literals require LLVM 19 or newer";
+#endif
+  }
+  return llvm::ConstantFP::get(llvm_type, op->value);
 }
 
 llvm::Value* CodeGenLLVM::Dispatch_(const StringImmObj* op) { return GetConstString(op->value); }
