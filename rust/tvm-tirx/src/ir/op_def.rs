@@ -143,16 +143,17 @@ impl OpDef {
 
     /// Register the value of the attribute `key` for the operator; a value already registered
     /// fails the chain with a `ValueError`, and an opaque pointer with a `TypeError`.
-    pub fn set_attr<T: Into<Any>>(self, key: AttrKey<T>, value: impl Into<T>) -> Self {
-        let value: T = value.into();
-        self.value_attr(key.name, value.into(), false)
+    ///
+    /// The value of a hook key, such as [`op_attr::INFER_TYPE`], is a function or a closure that
+    /// captures nothing.
+    pub fn set_attr<T>(self, key: AttrKey<T>, value: impl Into<T>) -> Self {
+        (key.store)(self, key.name, value.into(), false)
     }
 
     /// Register the value of the attribute `key` for the operator, replacing a value already
     /// registered; an opaque pointer fails the chain with a `TypeError`.
-    pub fn replace_attr<T: Into<Any>>(self, key: AttrKey<T>, value: impl Into<T>) -> Self {
-        let value: T = value.into();
-        self.value_attr(key.name, value.into(), true)
+    pub fn replace_attr<T>(self, key: AttrKey<T>, value: impl Into<T>) -> Self {
+        (key.store)(self, key.name, value.into(), true)
     }
 
     /// Remove the operator's value of the attribute `key`; a missing value is ignored, and live
@@ -171,9 +172,7 @@ impl OpDef {
     where
         F: Fn(&CallObj) -> Result<Type> + Copy + 'static,
     {
-        let hook: NativeFunction<(&CallObj,), Type> = infer.into();
-        // SAFETY: `FInferType` holds `Type(const CallObj*)` hooks.
-        self.attr("FInferType", unsafe { hook.into_any() }, false)
+        self.set_attr(op_attr::INFER_TYPE, infer)
     }
 
     /// Set a custom validator of the operator, `validate`, a function or a closure that captures
@@ -210,9 +209,7 @@ impl OpDef {
     where
         F: Fn(&CallObj) -> Result<Array<Var>> + Copy + 'static,
     {
-        let hook: NativeFunction<(&CallObj,), Array<Var>> = body_params.into();
-        // SAFETY: `FRegionGetBodyParams` holds `Array<Var>(const CallObj*)` hooks.
-        self.attr("FRegionGetBodyParams", unsafe { hook.into_any() }, false)
+        self.set_attr(op_attr::REGION_GET_BODY_PARAMS, body_params)
     }
 
     /// Set the check of the operator's regions, its `FRegionValidate`, to `validate`, a function or
@@ -224,14 +221,12 @@ impl OpDef {
     where
         F: Fn(&RegionStmtObj) -> Result<()> + Copy + 'static,
     {
-        let hook: NativeFunction<(&RegionStmtObj,)> = validate.into();
-        // SAFETY: `FRegionValidate` holds `void(const RegionStmtObj*)` hooks.
-        self.attr("FRegionValidate", unsafe { hook.into_any() }, false)
+        self.set_attr(op_attr::REGION_VALIDATE, validate)
     }
 
     /// [`attr`](Self::attr) for a value that is not a hook. Native code calls an opaque pointer
-    /// in a hook column as a function, and operator attributes live for the process, so only the
-    /// hook setters store one.
+    /// in a hook column as a function, and operator attributes live for the process, so only a
+    /// hook key ([`AttrKey::native_fn`]) stores one.
     fn value_attr(self, key: &str, value: Any, replace: bool) -> Self {
         if value.type_index() == tvm_ffi::TypeIndex::kTVMFFIOpaquePtr as i32 {
             let error =
@@ -284,18 +279,41 @@ impl Drop for OpDef {
 /// The key of an operator attribute: its name and the type `T` of its values.
 ///
 /// [`op_attr`] and [`tirx::op_attr`](crate::tirx::op_attr) have the keys of the built-in
-/// attributes; [`AttrKey::new`] names another.
+/// attributes; [`AttrKey::new`] names another, and [`AttrKey::native_fn`] another hook.
 pub struct AttrKey<T> {
     name: &'static str,
-    value: PhantomData<fn() -> T>,
+    // How `OpDef` stores a value: a hook as it is, any other value through `value_attr`.
+    store: fn(OpDef, &'static str, T, bool) -> OpDef,
+}
+
+impl<T: Into<Any>> AttrKey<T> {
+    /// Create the key of the attribute `name`, whose values are `T`.
+    pub const fn new(name: &'static str) -> Self {
+        Self {
+            name,
+            store: |def, name, value, replace| def.value_attr(name, value.into(), replace),
+        }
+    }
+}
+
+impl<Args, R> AttrKey<NativeFunction<Args, R>> {
+    /// Create the key of the hook attribute `name`, whose values are native hooks that take `Args`
+    /// and return `R`.
+    ///
+    /// # Safety
+    ///
+    /// Every caller of the column `name` calls its hooks with exactly `Args` and reads `R`: a
+    /// native caller calls the function pointer unchecked.
+    pub const unsafe fn native_fn(name: &'static str) -> Self {
+        Self {
+            name,
+            // SAFETY: the caller of `native_fn` vouches for the callers of `name`.
+            store: |def, name, hook, replace| def.attr(name, unsafe { hook.into_any() }, replace),
+        }
+    }
 }
 
 impl<T> AttrKey<T> {
-    /// Create the key of the attribute `name`, whose values are `T`.
-    pub const fn new(name: &'static str) -> Self {
-        Self { name, value: PhantomData }
-    }
-
     /// Return the name of the attribute, which [`Op::attr_map`] reads the column of.
     pub const fn name(&self) -> &'static str {
         self.name
@@ -313,13 +331,29 @@ impl<T> Copy for AttrKey<T> {}
 /// The keys of the operator attributes of the shared IR.
 pub mod op_attr {
     use super::{AttrKey, CallEffectKind};
+    use crate::ir::expr::{CallObj, Var};
     use crate::ir::r#type::Type;
+    use crate::ir::stmt::RegionStmtObj;
+    use tvm_ffi::reflection::NativeFunction;
+    use tvm_ffi::Array;
 
     /// The runtime effect of a call, `TCallEffectKind`.
     pub const CALL_EFFECT_KIND: AttrKey<CallEffectKind> = AttrKey::new("TCallEffectKind");
     /// The result type of every call, `TFixedReturnType`, which takes precedence over
     /// `FInferType`.
     pub const FIXED_RETURN_TYPE: AttrKey<Type> = AttrKey::new("TFixedReturnType");
+    /// The type inference of a call, `FInferType`.
+    // SAFETY: C++ `op_attr::kInferType` holds `Type(const CallObj*)` hooks.
+    pub const INFER_TYPE: AttrKey<NativeFunction<(&CallObj,), Type>> =
+        unsafe { AttrKey::native_fn("FInferType") };
+    /// The body parameters of a region, `FRegionGetBodyParams`.
+    // SAFETY: C++ `op_attr::kRegionGetBodyParams` holds `Array<Var>(const CallObj*)` hooks.
+    pub const REGION_GET_BODY_PARAMS: AttrKey<NativeFunction<(&CallObj,), Array<Var>>> =
+        unsafe { AttrKey::native_fn("FRegionGetBodyParams") };
+    /// The check of a complete region statement, `FRegionValidate`.
+    // SAFETY: C++ `op_attr::kRegionValidate` holds `void(const RegionStmtObj*)` hooks.
+    pub const REGION_VALIDATE: AttrKey<NativeFunction<(&RegionStmtObj,)>> =
+        unsafe { AttrKey::native_fn("FRegionValidate") };
 }
 
 /// The runtime effect of an operator call: the value of [`op_attr::CALL_EFFECT_KIND`].
