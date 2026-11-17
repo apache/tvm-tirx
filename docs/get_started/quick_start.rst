@@ -124,8 +124,73 @@ shows ``device='cuda:0'``):
    explicit backend_config arch or Target arch when no CUDA device is available``
    even though the machine has a GPU, TIRx could not find the CUDA runtime library
    ``libcudart.so.13``. Install and import a CUDA 13 build of PyTorch, which ships
-   this library, or install the CUDA 13 toolkit and add its ``lib64`` directory to
-   ``LD_LIBRARY_PATH``.
+   this library, install the CUDA 13 toolkit and add its ``lib64`` directory to
+   ``LD_LIBRARY_PATH``, or assemble the runtime from NVIDIA's redistributable
+   packages as described in :ref:`quick-start-cuda-without-pytorch` below.
+
+
+Providing the CUDA Runtime without PyTorch
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. _quick-start-cuda-without-pytorch:
+
+Environments that cannot install PyTorch (minimal CI images, GPU servers
+without a deep-learning stack, or users who simply prefer a smaller
+footprint) can assemble the required CUDA 13 runtime directly from NVIDIA's
+redistributable packages. Three components are needed:
+
+- ``cuda_cudart`` — the CUDA runtime library (``libcudart.so.13``)
+- ``cuda_nvrtc`` — the NVRTC compiler library used to compile kernels
+- ``cuda_cccl`` — the CCCL headers (``cuda/std/...``, ``nv/...``) included by
+  generated kernels
+
+The package manifest at
+``https://developer.download.nvidia.com/compute/cuda/redist/redistrib_13.0.1.json``
+lists the current file names and SHA-256 checksums. Download the archives and
+assemble them into a CUDA root:
+
+.. code-block:: bash
+
+   BASE=https://developer.download.nvidia.com/compute/cuda/redist
+   wget "$BASE/cuda_cudart/linux-x86_64/cuda_cudart-linux-x86_64-13.0.88-archive.tar.xz"
+   wget "$BASE/cuda_nvrtc/linux-x86_64/cuda_nvrtc-linux-x86_64-13.0.88-archive.tar.xz"
+   wget "$BASE/cuda_cccl/linux-x86_64/cuda_cccl-linux-x86_64-13.0.85-archive.tar.xz"
+
+   for pkg in cuda_cudart cuda_nvrtc cuda_cccl; do
+     tar xf ${pkg}-linux-x86_64-*.tar.xz
+   done
+   mkdir -p cuda13/lib64 cuda13/include/cuda
+   (cd cuda13/lib64 && ln -s ../../cuda_cudart-linux-x86_64-*/lib/libcudart.so* .)
+   (cd cuda13/lib64 && ln -s ../../cuda_nvrtc-linux-x86_64-*/lib/libnvrtc*.so* .)
+   (cd cuda13/include && ln -s ../../cuda_cudart-linux-x86_64-*/include/* .)
+   (cd cuda13/include && ln -s ../../cuda_cccl-linux-x86_64-*/include/cccl .)
+   (cd cuda13/include && ln -s ../../cuda_cccl-linux-x86_64-*/include/nv .)
+   for path in cuda_cccl-linux-x86_64-*/include/cccl/cuda/*; do
+     (cd cuda13/include/cuda && ln -s ../cccl/cuda/"$(basename "$path")" .)
+   done
+
+TIRx locates the assembled tree through the standard ``CUDA_PATH`` variable,
+and the dynamic loader through ``LD_LIBRARY_PATH``:
+
+.. code-block:: bash
+
+   export CUDA_PATH=$PWD/cuda13
+   export LD_LIBRARY_PATH=$CUDA_PATH/lib64:$LD_LIBRARY_PATH
+
+With ``apache-tvm-tirx[cuda]`` installed (it pulls in ``cuda-bindings`` for
+device queries), the ``add_one`` example above works without modification:
+``tvm_tirx.compile(add_one, target="cuda")`` detects the local device and
+compiles through NVRTC, and tensors can be allocated with
+``tvm_tirx.runtime.tensor(..., device=tvm_tirx.cuda(0))`` in place of the
+``torch`` calls. No ``nvcc`` or ``ptxas`` binary is involved; kernels are
+compiled to CUDA C++ and JIT-compiled by NVRTC at load time.
+
+.. note::
+
+   The commands above assume the Linux x86_64 redistributables and have been
+   verified with CUDA 13.0 packages on an ``sm_89`` GPU. Other platforms and
+   CUDA 13.x updates follow the same layout; adjust the file names from the
+   package manifest accordingly.
 
 
 Inspect and Transform the Program
