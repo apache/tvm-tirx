@@ -129,10 +129,10 @@ shows ``device='cuda:0'``):
    packages as described in :ref:`quick-start-cuda-without-pytorch` below.
 
 
+.. _quick-start-cuda-without-pytorch:
+
 Providing the CUDA Runtime without PyTorch
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. _quick-start-cuda-without-pytorch:
 
 Environments that cannot install PyTorch (minimal CI images, GPU servers
 without a deep-learning stack, or users who simply prefer a smaller
