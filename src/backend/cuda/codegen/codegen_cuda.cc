@@ -26,6 +26,7 @@
 #include <tvm/backend/cuda/attr.h>
 #include <tvm/ffi/function.h>
 #include <tvm/ffi/reflection/registry.h>
+#include <tvm/ir/analysis.h>
 #include <tvm/ir/function.h>
 #include <tvm/ir/prim/op.h>
 #include <tvm/runtime/memory_scope.h>
@@ -39,6 +40,7 @@
 
 #include <cmath>
 #include <iomanip>
+#include <limits>
 #include <string>
 #include <utility>
 #include <vector>
@@ -256,6 +258,7 @@ class ThreadIdxExtractor : public tirx::StmtExprVisitor {
 
 void CodeGenCUDA::InitFuncState(const Function& func) {
   CodeGenC::InitFuncState(func);
+  allocation_analyzer_ = sym::Analyzer();
   min_blocks_per_sm_.reset();
   max_blocks_per_cluster_.reset();
   max_registers_per_thread_.reset();
@@ -1489,6 +1492,12 @@ void CodeGenCUDA::Dispatch_(const BindObj* op) {
   if (const auto* call = op->value.as<CallObj>(); call) {
     if (call->op.same_as(tirx::alloc_tensor_op())) return DispatchAllocTensor(op, call);
   }
+  if (auto value = op->value.as<PrimExpr>();
+      value && SideEffect(value.value()) <= CallEffectKind::kPure) {
+    auto context = allocation_analyzer_->GetConstraintContext();
+    context->Append(sym::BindingConstraint(op->var, value.value()));
+    allocation_analyzer_->SyncConstraintContext(context);
+  }
   CodeGenC::Dispatch_(op);
 }
 
@@ -1519,9 +1528,22 @@ void CodeGenCUDA::DispatchAllocTensor(const BindObj* op, const CallObj* buffer_c
     // Compute constant_size from buffer shape
     size_t constant_size = 1;
     for (const auto& dim : shape->fields) {
-      const IntImmObj* dim_imm = dim.as<IntImmObj>();
-      TVM_FFI_ICHECK(dim_imm) << "Can only handle constant size stack allocation for now";
-      constant_size *= dim_imm->value.as<size_t>().value();
+      const auto* dim_imm = dim.as<IntImmObj>();
+      int64_t size =
+          dim_imm ? static_cast<int64_t>(dim_imm->value)
+                  : allocation_analyzer_->const_int_bound(dim.as_or_throw<PrimExpr>())->max_value;
+      if (!dim_imm) {
+        PrimExpr dtype_max_value = max_value(dim->ty.as_or_throw<PrimType>());
+        const auto* dtype_max = dtype_max_value.as<IntImmObj>();
+        TVM_FFI_ICHECK(dtype_max && size < dtype_max->value)
+            << "CUDA allocation extent requires a finite compile-time upper bound, but got " << dim;
+      }
+      TVM_FFI_ICHECK_GT(size, 0)
+          << "CUDA allocation extent requires a positive compile-time upper bound, but got " << dim;
+      TVM_FFI_ICHECK_LE(static_cast<uint64_t>(size),
+                        std::numeric_limits<size_t>::max() / constant_size)
+          << "CUDA allocation element count is too large to represent";
+      constant_size *= static_cast<size_t>(size);
     }
     TVM_FFI_ICHECK_GT(constant_size, 0) << "Can only handle constant size stack allocation for now";
 

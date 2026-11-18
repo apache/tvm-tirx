@@ -29,6 +29,7 @@
 #include <tvm/ir/prim/expr.h>
 #include <tvm/ir/prim/op.h>
 #include <tvm/runtime/memory_scope.h>
+#include <tvm/sym/analyzer.h>
 
 #include <array>
 #include <optional>
@@ -117,6 +118,7 @@ class CodeGenCUDA final : public CodeGenC {
                        bool skip_first_arg, std::ostream& os) final;  // NOLINT(*)
 
  private:
+  sym::Analyzer allocation_analyzer_;
   void PrintFunctionPrefix(const Function& func, std::ostream& os);
   std::array<PrimExpr, 6> launch_dimensions_{IntImm::Int32(1), IntImm::Int32(1), IntImm::Int32(1),
                                              IntImm::Int32(1), IntImm::Int32(1), IntImm::Int32(1)};
