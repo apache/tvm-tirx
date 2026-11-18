@@ -65,6 +65,11 @@ static PrimExpr DispatchWebGPUShuffle(const PrimExpr& e, const Target& target) {
   TVM_FFI_ICHECK(call != nullptr);
   TVM_FFI_ICHECK_EQ(call->args.size(), 5);  // mask, value, warp_id, width, warp_size
   PrimExpr lane = call->args[2].as_or_throw<PrimExpr>();
+  if (call->op.same_as(tirx::gpu_warp_shuffle_op())) {
+    // CUDA wraps an absolute source lane within the warp. WGSL requires an
+    // in-range subgroup lane and leaves out-of-range broadcasts undefined.
+    lane = prim::FloorMod(lane, call->args[4].as_or_throw<PrimExpr>());
+  }
   PrimExpr lane_or_delta = prim::Cast(PrimType::UInt(32, lane.ty().lanes()), lane);
   ffi::Array<PrimExpr> webgpu_args{call->args[1].as_or_throw<PrimExpr>(), lane_or_delta};
   return Call(e.ty(), T()(e.ty(), call->op.as_or_throw<Op>()), webgpu_args).as_or_throw<PrimExpr>();
