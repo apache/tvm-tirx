@@ -496,5 +496,45 @@ def test_webgpu_target_subgroup_attrs():
             Target(config)
 
 
+@pytest.mark.parametrize(
+    "mcpu, expected",
+    [
+        ("gfx1030", 32),
+        ("gfx1100", 32),
+        ("gfx1151", 32),
+        ("gfx1201", 32),
+        ("gfx90a", 64),
+        ("gfx942", 64),
+    ],
+)
+def test_rocm_thread_warp_size_default(mcpu, expected):
+    """RDNA (gfx10/11/12) executes wave32; GCN/CDNA (gfx9) wave64."""
+    target = Target({"kind": "rocm", "mcpu": mcpu})
+    assert int(target.attrs["thread_warp_size"]) == expected
+
+
+def test_rocm_thread_warp_size_explicit():
+    target = Target({"kind": "rocm", "mcpu": "gfx1100", "thread_warp_size": 64})
+    assert int(target.attrs["thread_warp_size"]) == 64
+
+
+@pytest.mark.parametrize(
+    "compute_version, mfma, wmma",
+    [
+        ("8.0", False, False),
+        ("10.3", False, False),
+        ("11.0", False, True),
+        ("11.5", False, True),
+        ("12.0", False, True),
+    ],
+)
+def test_rocm_matrix_core_detection(compute_version, mfma, wmma):
+    """RDNA GPUs have WMMA, not MFMA: MFMA code (and tests) must not run there."""
+    from tvm_tirx.support import rocm  # pylint: disable=import-outside-toplevel
+
+    assert rocm.have_matrixcore(compute_version) == mfma
+    assert rocm.have_rdna_wmma(compute_version) == wmma
+
+
 if __name__ == "__main__":
     tvm_tirx.testing.main()

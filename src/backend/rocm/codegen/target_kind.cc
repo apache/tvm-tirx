@@ -89,6 +89,14 @@ ffi::Map<ffi::String, ffi::Any> UpdateROCmAttrs(ffi::Map<ffi::String, ffi::Any> 
     target.Set("mcpu", ffi::String(arch));
   }
 
+  // RDNA (gfx10xx, gfx11xx, gfx12xx) executes wave32; GCN/CDNA (gfx9xx) wave64. Respect an
+  // explicit thread_warp_size.
+  if (!target.count("thread_warp_size")) {
+    std::string ver = arch.rfind("gfx", 0) == 0 ? arch.substr(3) : arch;
+    bool rdna = ver.rfind("10", 0) == 0 || ver.rfind("11", 0) == 0 || ver.rfind("12", 0) == 0;
+    target.Set("thread_warp_size", static_cast<int64_t>(rdna ? 32 : 64));
+  }
+
   ffi::Any val;
   int version;
   if (!DetectDeviceFlag({kDLROCM, 0}, "api_version", &val)) {
@@ -123,12 +131,11 @@ TVM_FFI_STATIC_INIT_BLOCK() {
       .def_option<ffi::String>("mcpu")
       .def_option<ffi::String>("mtriple")
       .def_option<ffi::Array<ffi::String>>("mattr")
-      // TODO(masahi): Support querying from a target device
-      // On RDNA cards, thread_warp_size should be 32
       .def_option<int64_t>("max_num_threads", refl::DefaultValue(256))
       .def_option<int64_t>("max_threads_per_block", refl::DefaultValue(256))
       .def_option<int64_t>("max_shared_memory_per_block", refl::DefaultValue(65536))
-      .def_option<int64_t>("thread_warp_size", refl::DefaultValue(64))
+      // Set by UpdateROCmAttrs from mcpu when not given: 32 on RDNA (gfx10/11/12), else 64.
+      .def_option<int64_t>("thread_warp_size")
       .set_default_keys({"rocm", "gpu"})
       .set_target_canonicalizer(UpdateROCmAttrs);
 }
