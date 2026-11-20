@@ -698,8 +698,9 @@ union SmemDescriptor
   uint64_t desc_ = 0;
   // Bitfield implementation avoids the need for shifts in assignment
   struct {
-    // start_address, bit [0,14), 4LSB not included
-    uint16_t start_address_ : 14, : 2;                     // 14 bits [0,14), 2 bits unused
+    // start_address, bit [0,15), 4LSB not included. Bit 14 is only reachable
+    // with more than 256 KB of shared memory (sm_107 oversized mode).
+    uint16_t start_address_ : 15, : 1;                     // 15 bits [0,15), 1 bit reserved
     // leading dimension byte offset, bit [16,30), 4LSB not included
     uint16_t leading_byte_offset_ : 14, : 2;               // 14 bits [0,14), 2 bits unused
     // stride dimension byte offset, bit [32,46), 4LSB not included
