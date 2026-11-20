@@ -1970,8 +1970,7 @@ llvm::Value* CodeGenLLVM::CreateMaskedLoad(const CallObj* op) {
         mask = builder_->CreateInsertElement(mask, predicate, ConstInt32(0));
 
         llvm::Instruction* value =
-            builder_->CreateMaskedLoad(vector_type, buffer_ptr.addr, llvm::Align(alignment), mask,
-                                       llvm::UndefValue::get(vector_type));
+            builder_->CreateMaskedLoad(vector_type, buffer_ptr.addr, llvm::Align(alignment), mask);
 
         llvm::Value* scalar = builder_->CreateExtractElement(value, ConstInt32(0));
         loads.push_back(scalar);

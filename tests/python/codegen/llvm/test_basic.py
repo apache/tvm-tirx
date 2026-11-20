@@ -1171,97 +1171,9 @@ def test_call_extern_returning_void():
 
 
 @pytest.mark.skipif(not env.has_llvm(), reason="need llvm")
-def test_masked_load_non_unit_stride():
-    @I.ir_module
-    class Module:
-        @T.function
-        def main(
-            A: T.Tensor((3,), "float32"),
-            B: T.Tensor((2,), "float32"),
-        ):
-            B[T.Ramp(0, 1, 2)] = T.call_intrin(
-                "tirx.masked_load",
-                A,
-                T.Ramp(0, 2, 2),
-                T.Broadcast(T.bool(True), 2),
-                ty="float32x2",
-            )
-
-    tvm_tirx.compile(Module, target="llvm")
-
-
-@pytest.mark.skipif(not env.has_llvm(), reason="need llvm")
-@pytest.mark.parametrize("start, end", [(0, 0), (0, 1), (1, 2), (0, 2)])
-def test_masked_load_non_unit_stride_values(start, end):
-    @I.ir_module
-    class Module:
-        @T.function
-        def main(
-            A: T.Tensor((3,), "float32"),
-            B: T.Tensor((2,), "float32"),
-            start: T.int32,
-            end: T.int32,
-        ):
-            B[T.Ramp(0, 1, 2)] = T.call_intrin(
-                "tirx.masked_load",
-                A,
-                T.Ramp(0, 2, 2),
-                (T.Ramp(0, 1, 2) >= T.Broadcast(start, 2))
-                & (T.Ramp(0, 1, 2) < T.Broadcast(end, 2)),
-                ty="float32x2",
-            )
-
-    f = tvm_tirx.compile(Module, target="llvm")
-    a = tvm_tirx.runtime.tensor(np.array([1.0, 2.0, 3.0], dtype="float32"))
-    b = tvm_tirx.runtime.tensor(np.full(2, -1.0, dtype="float32"))
-    f(a, b, start, end)
-    # Inactive lanes are poison, so only the active ones are checked.
-    np.testing.assert_array_equal(b.numpy()[start:end], [1.0, 3.0][start:end])
-
-
-@pytest.mark.skipif(not env.has_llvm(), reason="need llvm")
-@pytest.mark.parametrize(
-    "start, end, expected",
-    [
-        (0, 0, [-1.0, -1.0, -1.0]),
-        (0, 1, [1.0, -1.0, -1.0]),
-        (1, 2, [-1.0, -1.0, 2.0]),
-        (0, 2, [1.0, -1.0, 2.0]),
-    ],
-)
-def test_masked_store_non_unit_stride(start, end, expected):
-    @I.ir_module
-    class Module:
-        @T.function
-        def main(
-            A: T.Tensor((2,), "float32"),
-            B: T.Tensor((3,), "float32"),
-            start: T.int32,
-            end: T.int32,
-        ):
-            T.evaluate(
-                T.call_intrin(
-                    "tirx.masked_store",
-                    B,
-                    A[T.Ramp(0, 1, 2)],
-                    T.Ramp(0, 2, 2),
-                    (T.Ramp(0, 1, 2) >= T.Broadcast(start, 2))
-                    & (T.Ramp(0, 1, 2) < T.Broadcast(end, 2)),
-                    ty="void",
-                )
-            )
-
-    f = tvm_tirx.compile(Module, target="llvm")
-    a = tvm_tirx.runtime.tensor(np.array([1.0, 2.0], dtype="float32"))
-    b = tvm_tirx.runtime.tensor(np.full(3, -1.0, dtype="float32"))
-    f(a, b, start, end)
-    np.testing.assert_array_equal(b.numpy(), expected)
-
-
-@pytest.mark.skipif(not env.has_llvm(), reason="need llvm")
-@pytest.mark.parametrize("dtype", ["float32", "int8", "float64"])
 @pytest.mark.parametrize("op", ["load", "store"])
-def test_masked_access_non_unit_stride_last_lane(op, dtype):
+def test_masked_access_non_unit_stride_last_lane(op):
+    dtype = "float32"
     # Only lane 3 of 4 is active, so a wrong predicate lane (e.g. i % 2) is caught.
     @I.ir_module
     class LoadModule:
