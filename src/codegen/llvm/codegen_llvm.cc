@@ -1823,11 +1823,18 @@ void CodeGenLLVM::BufferAccessHelper(
     }
   }
 
+  bool last_index_is_scalar =
+      !PrimType(last_index.ty()->dtype).IsScalableVector() && last_index_lanes == 1;
+  // Masked intrinsics describe one contiguous vector access. The per-index
+  // fallback below would require explicit lowering of both the value and mask.
+  if (predicate.has_value() && !last_index_is_scalar) {
+    TVM_FFI_THROW(ValueError)
+        << "LLVM codegen currently only supports contiguous vector accesses for masked load/store.";
+  }
+
   // All TVM arrays are densely packed.  If the vectorized LLVM type
   // contains padding for alignment, we need to index based on the
   // size of the scalar type to avoid introducing that padding.
-  bool last_index_is_scalar =
-      !PrimType(last_index.ty()->dtype).IsScalableVector() && last_index_lanes == 1;
   if (last_index_is_scalar && HasAlignmentPadding(buffer_element_dtype)) {
     last_index = buffer_element_lanes * last_index;
     buffer_element_dtype = buffer_element_dtype.WithLanes(1);
