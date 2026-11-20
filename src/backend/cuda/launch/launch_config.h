@@ -200,14 +200,18 @@ inline void PrepareResources(typename API::Kernel kernel, int device, LaunchValu
     API::Initialize(kernel, device, state);
     state->initialized = true;
   }
-  if (config->Has(Option::kCluster) && !config->Has(Option::kPortableClusterSizeMode)) {
-#if CUDA_VERSION >= 13020 && CUDART_VERSION >= 13020
-    config->SetInt(Field::kPortableClusterSizeMode, 2);
-#else
-    if (!state->nonportable_cluster) {
+  if (config->Has(Option::kCluster)) {
+    bool explicit_mode = config->Has(Option::kPortableClusterSizeMode);
+    // The portable-cluster-size launch attribute alone does not lift the
+    // portable limit on every driver; also set the function attribute unless
+    // the launch explicitly asks for portable cluster sizes.
+    if ((!explicit_mode || config->Int(Field::kPortableClusterSizeMode) == 2) &&
+        !state->nonportable_cluster) {
       API::AllowCluster(kernel);
       state->nonportable_cluster = true;
     }
+#if CUDA_VERSION >= 13020 && CUDART_VERSION >= 13020
+    if (!explicit_mode) config->SetInt(Field::kPortableClusterSizeMode, 2);
 #endif
   }
   if (!config->Has(Option::kSharedMemoryMode)) {

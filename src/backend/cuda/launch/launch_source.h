@@ -871,14 +871,18 @@ inline void PrepareResources(typename API::Kernel kernel, int device, LaunchValu
     API::Initialize(kernel, device, state);
     state->initialized = true;
   }
-  if (config->Has(Option::kCluster) && !config->Has(Option::kPortableClusterSizeMode)) {
-#if CUDA_VERSION >= 13020 && CUDART_VERSION >= 13020
-    config->SetInt(Field::kPortableClusterSizeMode, 2);
-#else
-    if (!state->nonportable_cluster) {
+  if (config->Has(Option::kCluster)) {
+    bool explicit_mode = config->Has(Option::kPortableClusterSizeMode);
+    // The portable-cluster-size launch attribute alone does not lift the
+    // portable limit on every driver; also set the function attribute unless
+    // the launch explicitly asks for portable cluster sizes.
+    if ((!explicit_mode || config->Int(Field::kPortableClusterSizeMode) == 2) &&
+        !state->nonportable_cluster) {
       API::AllowCluster(kernel);
       state->nonportable_cluster = true;
     }
+#if CUDA_VERSION >= 13020 && CUDART_VERSION >= 13020
+    if (!explicit_mode) config->SetInt(Field::kPortableClusterSizeMode, 2);
 #endif
   }
   if (!config->Has(Option::kSharedMemoryMode)) {
@@ -932,14 +936,14 @@ inline void EncodeRuntime(const LaunchValues& values, const KernelRequirements& 
                           cudaStream_t default_stream, cudaLaunchConfig_t* config,
                           std::array<cudaLaunchAttribute, kMaxAttributes>* attrs) {
   unsigned int* grid[] = {&config->gridDim.x, &config->gridDim.y, &config->gridDim.z};
-  unsigned int* block[] = {&config->blockDim.x, &config->blockDim.y, &config->blockDim.z};
+)TVM_CUDA_LAUNCH"
+    R"TVM_CUDA_LAUNCH(  unsigned int* block[] = {&config->blockDim.x, &config->blockDim.y, &config->blockDim.z};
   for (int axis = 0; axis != 3; ++axis) {
     *grid[axis] = values.Int(Axis(Field::kGridX, axis));
     *block[axis] = values.Int(Axis(Field::kBlockX, axis));
     if (kernel.required_block_size) {
 #if CUDART_VERSION >= 13000
-)TVM_CUDA_LAUNCH"
-    R"TVM_CUDA_LAUNCH(      *grid[axis] /= values.Int(Axis(Field::kClusterX, axis));
+      *grid[axis] /= values.Int(Axis(Field::kClusterX, axis));
       *block[axis] = 1;
 #else
       throw std::invalid_argument("CUDA required block size requires CUDA 13 or newer");
