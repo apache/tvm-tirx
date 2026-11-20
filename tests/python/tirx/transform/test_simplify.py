@@ -155,7 +155,8 @@ def test_load_store_noop_after_simplify():
 
     @T.function(private=True)
     def before(A: T.Tensor((1,), "float32")):
-        A[0] = A[0] + (5.0 - 5.0)
+        # x * 1.0 is an identity for every x; x + 0.0 is not (-0.0 + 0.0 == +0.0).
+        A[0] = A[0] * (5.0 - 4.0)
 
     @T.function(private=True)
     def expected(A: T.Tensor((1,), "float32")):
