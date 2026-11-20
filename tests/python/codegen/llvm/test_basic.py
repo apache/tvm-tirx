@@ -1204,12 +1204,10 @@ def test_masked_access_requires_contiguous_index(op, stride):
 
     if stride != 1:
         with pytest.raises(
-            ValueError, match="LLVM masked load/store requires a contiguous vector access"
-        ) as exc:
+            ValueError,
+            match="LLVM codegen currently only supports contiguous vector accesses for masked load/store",
+        ):
             tvm_tirx.compile(Module, target="llvm")
-        assert f"tensor {'A' if op == 'load' else 'B'}" in str(exc.value)
-        assert "unsupported index T.Ramp(0, 2, 2)" in str(exc.value)
-        assert "Use a unit-stride Ramp" in str(exc.value)
         return
 
     f = tvm_tirx.compile(Module, target="llvm")

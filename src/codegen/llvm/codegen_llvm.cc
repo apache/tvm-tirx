@@ -1829,10 +1829,7 @@ void CodeGenLLVM::BufferAccessHelper(
   // fallback below would require explicit lowering of both the value and mask.
   if (predicate.has_value() && !last_index_is_scalar) {
     TVM_FFI_THROW(ValueError)
-        << "LLVM masked load/store requires a contiguous vector access; tensor " << buffer->name
-        << " has unsupported index " << last_index_origin
-        << ". Use a unit-stride Ramp, or lower non-contiguous masked accesses explicitly before "
-           "LLVM codegen.";
+        << "LLVM codegen currently only supports contiguous vector accesses for masked load/store.";
   }
 
   // All TVM arrays are densely packed.  If the vectorized LLVM type
