@@ -17,7 +17,6 @@
 """Export standalone tvm-ffi host C++ with independently compiled CUDA binaries."""
 
 import json
-from collections.abc import Mapping
 from pathlib import Path
 
 from tvm_ffi import Module
@@ -25,7 +24,7 @@ from tvm_ffi import Module
 from tvm_tirx.backend.config import parse_backend_config
 
 
-def export_cuda_host(mod: Module, *, cubins: Mapping[str, bytes] | None = None) -> str:
+def export_cuda_host(mod: Module) -> str:
     """Return C++ host source with embedded device binaries.
 
     Build with a CUDA Target whose host is ``cuda_host``. Each device import
@@ -36,8 +35,6 @@ def export_cuda_host(mod: Module, *, cubins: Mapping[str, bytes] | None = None) 
 
     Source-only fallback imports are compiled using their serialized settings.
     Binary imports work after a save/load roundtrip, without original source.
-    Additional precompiled cubins can be supplied by exported kernel symbol.
-    The caller must match the kernel argument ABI and the target GPU.
     """
     if not isinstance(mod, Module):
         raise TypeError("export_cuda_host expects a runtime Module")
@@ -80,16 +77,6 @@ def export_cuda_host(mod: Module, *, cubins: Mapping[str, bytes] | None = None) 
 
     for imported in mod.imports:
         collect(imported)
-    external_images: dict[bytes, list[str]] = {}
-    for name, image in (cubins or {}).items():
-        if not isinstance(name, str) or not name.isascii() or not name.isidentifier():
-            raise ValueError("Expected a CUDA kernel symbol spelled as a C identifier")
-        if name in symbols:
-            raise ValueError(f"Duplicate CUDA kernel symbol: {name}")
-        if not isinstance(image, bytes) or not image.startswith(b"\x7fELF"):
-            raise ValueError(f"Expected cubin ELF bytes for {name!r}")
-        external_images.setdefault(image, []).append(name)
-    binaries.extend(external_images.items())
     source = [
         "#define TVM_FFI_CUBIN_LAUNCHER_USE_DRIVER_API 1",
         "#include <tvm/ffi/extra/cuda/cubin_launcher.h>",
@@ -118,18 +105,19 @@ def export_cuda_host(mod: Module, *, cubins: Mapping[str, bytes] | None = None) 
     return "\n\n".join(source)
 
 
-def jit_cuda_host(mod: Module, *, cubins: Mapping[str, bytes]) -> Module:
+def jit_cuda_host(mod: Module) -> Module:
     """Build the emitted host C++ and load its TVM-FFI entry points on Linux.
 
-    Pass the runtime module produced with host="cuda_host" and precompiled CUDA
-    images keyed by kernel symbol. The host compiler requires CUDA development
-    headers, cudart and the CUDA driver. Build artifacts use the TVM-FFI cache.
+    Pass the runtime module produced with host="cuda_host". Its imported CUDA
+    images are embedded in the library. The CPU compiler requires the CUDA
+    development headers, cudart and the driver library. Set CUDA_PATH to the
+    toolkit root when nvcc is absent. Build artifacts use the TVM-FFI cache.
     """
     import tvm_ffi.cpp
 
     from tvm_tirx.support.nvcc import find_cuda_path
 
-    source = export_cuda_host(mod, cubins=cubins)
+    source = export_cuda_host(mod)
     cuda = Path(find_cuda_path())
     return tvm_ffi.cpp.load_inline(
         name="tirx_cuda_host",

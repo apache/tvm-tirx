@@ -24,6 +24,7 @@ from tvm_ffi.libinfo import load_lib_ctypes
 from tvm_tirx.base import _LOADED_LIBS
 
 from .backend_config import BackendConfig
+from .cubin import bind_cubin
 from .host import export_cuda_host, jit_cuda_host
 
 _LAZY_SUBMODULES = {
@@ -131,6 +132,7 @@ def __getattr__(name: str):
 __all__ = [
     "BackendConfig",
     "axis",
+    "bind_cubin",
     "codegen",
     "cpp",
     "export_cuda_host",

@@ -72,6 +72,7 @@ Functions
 .. autosummary::
    :toctree: generated/
 
+   bind_cubin
    export_cuda_host
    jit_cuda_host
    register_backend
@@ -81,16 +82,16 @@ Functions
 Launch a kernel from a precompiled cubin
 ----------------------------------------
 
-On Linux, a host TVMScript function can launch a named entry from a cubin built
-for the target GPU. For example, suppose ``add_one.cubin`` exports the CUDA kernel
-``add_one(const float* x, float* y, int n)`` with C linkage:
+A host function can launch a named entry from an existing cubin. For example,
+suppose ``add_one.cubin`` exports ``add_one(const float* x, float* y, int n)``
+with C linkage. The wrapper can compute the grid from a tensor's shape:
 
 .. code-block:: python
 
    from pathlib import Path
 
    import tvm_tirx
-   from tvm_tirx.backend.cuda import jit_cuda_host
+   from tvm_tirx.backend.cuda import bind_cubin
    from tvm_tirx.script import tirx as T
 
    n = T.dynamic("n")
@@ -103,12 +104,40 @@ for the target GPU. For example, suppose ``add_one.cubin`` exports the CUDA kern
                T.cuda.LaunchConfig(grid=T.ceildiv(n, 256), block=256),
            )
 
-   target = tvm_tirx.target.Target("cuda", host="cuda_host")
-   host = tvm_tirx.compile(wrapper, target=target).mod
-   module = jit_cuda_host(host, cubins={"add_one": Path("add_one.cubin").read_bytes()})
-   # Given CUDA tensors x and y, invoke module["wrapper"](x, y).
+   program = bind_cubin(
+       wrapper, Path("add_one.cubin").read_bytes(),
+       kernels={"add_one": ("handle", "handle", "int32")},
+   )
+   target = tvm_tirx.target.Target("cuda", host="llvm")
+   executable = tvm_tirx.compile(program, target=target)
+   # Given CUDA tensors x and y:
+   executable["wrapper"](x, y)
 
-The tuple supplies kernel arguments in the cubin's ABI order and types. The
-host computes launch geometry for each call. Compilation uses the system C++
-compiler and the TVM-FFI build cache. The generated host library embeds the cubin
-and launches it with the CUDA driver.
+The kernel declaration comes from the producer of the cubin. TIRx checks the
+host operands against that declaration and records the launch fields in the
+device module. Each launch of a given symbol must supply the same fields. Field
+values, including grid and block dimensions, can vary per call. The GPU must
+support the supplied image. The CUDA driver resolves the entry on first use.
+
+With an LLVM-enabled TIRx build and ``apache-tvm-ffi-orcjit`` installed, the
+host function JITs in-process. The imported CUDA module packs the declared
+arguments and launches on the current TVM-FFI stream. A program containing
+only host code and bound cubins can be compiled and run without invoking a
+CUDA device compiler. The standard ``executable.export_library(path)`` includes
+the device image for later loading with ``tvm_tirx.runtime.load_module(path)``.
+
+To build a standalone TVM-FFI host wrapper on Linux, compile the same program
+with the CUDA host C++ backend:
+
+.. code-block:: python
+
+   from tvm_tirx.backend.cuda import jit_cuda_host
+
+   target = tvm_tirx.target.Target("cuda", host="cuda_host")
+   host = tvm_tirx.compile(program, target=target).mod
+   module = jit_cuda_host(host)
+   module["wrapper"](x, y)
+
+This path uses the system C++ compiler and the TVM-FFI build cache. The host
+library embeds the cubin and issues the driver call ``cuLaunchKernelEx``.
+It requires the CUDA development headers, cudart and the driver library.
