@@ -1339,6 +1339,9 @@ def get_active_lane_mask(base, limit, *, ty, loc: Location = UNKNOWN_LOC):
 def masked_load(tensor, index, *args, ty=None, loc: Location = UNKNOWN_LOC):
     """Load vector lanes selected by a predicate mask.
 
+    The LLVM backend accepts vector indices only as a unit-stride ``Ramp``.
+    Other vector indices must be lowered explicitly before LLVM code generation.
+
     Parameters
     ----------
     ty : str
@@ -1364,6 +1367,9 @@ def masked_load(tensor, index, *args, ty=None, loc: Location = UNKNOWN_LOC):
 
 def masked_store(tensor, value, index, *args, ty=None, loc: Location = UNKNOWN_LOC):
     """Store vector lanes selected by a predicate mask.
+
+    The LLVM backend accepts vector indices only as a unit-stride ``Ramp``.
+    Other vector indices must be lowered explicitly before LLVM code generation.
 
     Parameters
     ----------

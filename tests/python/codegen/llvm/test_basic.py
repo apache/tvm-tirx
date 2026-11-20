@@ -1170,6 +1170,60 @@ def test_call_extern_returning_void():
     tvm_tirx.compile(Module, target="llvm")
 
 
+@pytest.mark.skipif(not env.has_llvm(), reason="need llvm")
+@pytest.mark.parametrize("op", ["load", "store"])
+@pytest.mark.parametrize("stride", [1, 2])
+def test_masked_access_requires_contiguous_index(op, stride):
+    @I.ir_module
+    class Module:
+        @T.function
+        def main(
+            A: T.Tensor((3,), "float32"),
+            B: T.Tensor((3,), "float32"),
+            lane: T.int32,
+        ):
+            if T.constexpr(op == "load"):
+                B[T.Ramp(0, 1, 2)] = T.call_intrin(
+                    "tirx.masked_load",
+                    A,
+                    T.Ramp(0, stride, 2),
+                    T.Ramp(0, 1, 2) == T.Broadcast(lane, 2),
+                    ty="float32x2",
+                )
+            else:
+                T.evaluate(
+                    T.call_intrin(
+                        "tirx.masked_store",
+                        B,
+                        A[T.Ramp(0, 1, 2)],
+                        T.Ramp(0, stride, 2),
+                        T.Ramp(0, 1, 2) == T.Broadcast(lane, 2),
+                        ty="void",
+                    )
+                )
+
+    if stride != 1:
+        with pytest.raises(
+            ValueError, match="LLVM masked load/store requires a contiguous vector access"
+        ) as exc:
+            tvm_tirx.compile(Module, target="llvm")
+        assert f"tensor {'A' if op == 'load' else 'B'}" in str(exc.value)
+        assert "unsupported index T.Ramp(0, 2, 2)" in str(exc.value)
+        assert "Use a unit-stride Ramp" in str(exc.value)
+        return
+
+    f = tvm_tirx.compile(Module, target="llvm")
+    a = tvm_tirx.runtime.tensor(np.array([1.0, 2.0, 3.0], dtype="float32"))
+    b = tvm_tirx.runtime.tensor(np.full(3, -1.0, dtype="float32"))
+    f(a, b, 1)
+    if op == "load":
+        # Only lane 1 has a defined load result; B[2] is outside the output slice.
+        assert b.numpy()[1] == 2.0
+        assert b.numpy()[2] == -1.0
+    else:
+        np.testing.assert_array_equal(b.numpy(), [-1.0, 2.0, -1.0])
+
+
 def test_invalid_volatile_masked_buffer_load():
     @I.ir_module
     class Module:
