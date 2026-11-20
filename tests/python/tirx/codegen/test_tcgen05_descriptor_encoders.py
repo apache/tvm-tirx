@@ -57,7 +57,7 @@ def _compile_and_run(kernel, n_out):
 
 
 # One case per axis the SMEM encoder branches on: every swizzle enum, and
-# offsets that exercise both 14-bit fields.
+# offsets that exercise both offset fields.
 @pytest.mark.gpu
 @pytest.mark.skipif(not env.has_cuda(), reason="need cuda")
 @pytest.mark.parametrize(
@@ -85,11 +85,47 @@ def test_smem_descriptor_matches_runtime_encoder(ldo, sdo, swizzle):
             out[1] = T.cast(T.cuda.cvta_generic_to_shared(smem.ptr_to([0])), ty="uint64")
 
     got = _compile_and_run(kernel, 2)
-    want = encode_smem_descriptor_base_uint64(ldo, sdo, swizzle) | ((int(got[1]) >> 4) & 0x3FFF)
+    want = encode_smem_descriptor_base_uint64(ldo, sdo, swizzle) | ((int(got[1]) >> 4) & 0x7FFF)
     assert int(got[0]) == want, (
         f"runtime {int(got[0]):#018x} != compile-time {want:#018x} "
         f"for ldo={ldo} sdo={sdo} swizzle={swizzle}"
     )
+
+
+@pytest.mark.gpu
+@pytest.mark.skipif(
+    not env.has_cuda_compute(10, 7, exact=True), reason="need sm_107 oversized shared memory"
+)
+def test_smem_descriptor_start_address_above_256kb():
+    """Bit 14 of the start address field is only reachable above 256 KB of shared memory."""
+    nbytes = 300 * 1024
+    offset = 270336  # 0x42000: bit 18 of the byte address, bit 14 once encoded
+
+    @T.function
+    def kernel(out: T.Tensor((2,), "uint64")):
+        T.device_entry(
+            launch=T.cuda.LaunchConfig(
+                grid=1,
+                block=32,
+                dynamic_smem_bytes=nbytes,
+                shared_memory_mode="allow_oversized",
+            )
+        )
+        tx = T.cuda.thread_idx("x")
+        smem = T.alloc_tensor(ty_args=[T.Tensor((nbytes // 4,), "uint32", scope="shared.dyn")])
+        smem[offset // 4 + tx] = T.uint32(0)
+        if tx == 0:
+            desc = T.local_scalar("uint64")
+            T.cuda.tcgen05.encode_matrix_descriptor(
+                T.address_of(desc), smem.ptr_to([offset // 4]), ldo=0, sdo=8, swizzle=0
+            )
+            out[0] = desc
+            out[1] = T.cast(T.cuda.cvta_generic_to_shared(smem.ptr_to([offset // 4])), ty="uint64")
+
+    got = _compile_and_run(kernel, 2)
+    address = int(got[1])
+    assert address >= 1 << 18
+    assert int(got[0]) & 0x7FFF == address >> 4
 
 
 # (M, N, K, a_dtype, b_dtype, trans_a, trans_b, cta_group)

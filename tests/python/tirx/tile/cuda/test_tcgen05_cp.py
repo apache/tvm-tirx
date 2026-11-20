@@ -409,7 +409,7 @@ def test_cp_explicit_shape_and_inferred_descriptor():
     ex = _compile(kernel)
     assert len(_cp_call_lines(ex, "128x256b")) == 4
     source = ex.mod.imports[0].inspect_source()
-    assert "16383" in source  # descriptor's 14-bit start-address field
+    assert "32767" in source  # descriptor's 15-bit start-address field
 
 
 @pytest.mark.gpu
@@ -720,7 +720,7 @@ def test_cp_explicit_32x128b_instruction_sequence():
     assert len(cp_lines) == 4
     # The host readback test checks the physical correspondence independently.
     for line in cp_lines:
-        assert "16383" in line
+        assert "32767" in line
 
 
 # Invalid native opcode, ownership, alignment and descriptor contracts
@@ -1446,7 +1446,7 @@ def test_multi_cp_infers_descriptor_fields():
     ex = _compile(kernel)
     calls = _cp_call_lines(ex, "32x128b", "warpx4")
     assert len(calls) == 4
-    assert all("16383" in line for line in calls)
+    assert all("32767" in line for line in calls)
 
 
 @pytest.mark.skipif(not env.has_cuda_compute(10), reason="Blackwell required")
