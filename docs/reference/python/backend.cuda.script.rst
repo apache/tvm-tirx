@@ -47,6 +47,7 @@ Functions
    :toctree: generated/
    :template: autosummary/callable.rst
 
+   launch
    mma_store
    mma_fill
    __shfl_sync

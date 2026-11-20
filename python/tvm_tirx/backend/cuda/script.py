@@ -40,6 +40,15 @@ from .tile.instructions import make_namespace as _make_tensor_namespace
 # pylint: disable=protected-access
 
 
+def launch(kernel: str, args, config: LaunchConfig):
+    """Launch a named CUDA kernel from host TVMScript with typed device ABI operands."""
+    from tvm_tirx.tirx.op import call_ffi_kernel
+
+    if not isinstance(kernel, str) or not kernel.isascii() or not kernel.isidentifier():
+        raise ValueError("T.cuda.launch expects a CUDA kernel symbol spelled as a C identifier")
+    return call_ffi_kernel(kernel, *args, launch=config)
+
+
 class _CpAsyncRaw:
     """The raw cp.async node's printer surface."""
 
