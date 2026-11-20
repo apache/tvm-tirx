@@ -2328,6 +2328,56 @@ def test_ptx_tcgen05_mma_ws_collectors_certify_sm100a():
     _assert_certifications_ok(by_arch)
 
 
+@pytest.mark.parametrize("collector", ("", "a::lastuse", "a::discard", "b::discard"))
+def test_ptx_tcgen05_mma_ashift_collector_optional(collector):
+    """PTX makes every collector qualifier optional on the convolution `.ashift` form."""
+    opcode = "tcgen05.mma.cta_group::1.kind::f16.ashift"
+    if collector:
+        opcode += f".collector::{collector}"
+
+    @T.function
+    def kernel():
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=32))
+        T.ptx[opcode](
+            T.uint32(0),
+            T.uint32(0),
+            T.uint64(0),
+            T.uint32(0),
+            T.uint32(0),
+            T.uint32(0),
+            T.uint32(0),
+            T.uint32(0),
+            T.ptx.pred(T.uint32(0)),
+        )
+
+    src = _cuda_source(kernel, tvm_tirx.target.Target({"kind": "cuda", "arch": "sm_107a"}))
+    assert f"{opcode} [%0], [%1], %2, %3, " in src
+
+
+def test_ptx_tcgen05_mma_ashift_rejects_collector_a_fill():
+    from tvm_tirx.backend.cuda.ptx.render import render_variant
+    from tvm_tirx.backend.cuda.ptx.table import TABLE, variants
+
+    entry = TABLE["tcgen05_mma_ashift_ts"]
+    opcodes = {render_variant(entry, tokens)[0] for tokens in variants(entry)}
+    assert "tcgen05.mma.cta_group::1.kind::f16.ashift" in opcodes
+    assert not any("collector::a::fill" in v or "collector::a::use" in v for v in opcodes)
+
+
+@requires_nvcc
+def test_ptx_tcgen05_mma_ashift_certify_sm100a():
+    """The convolution `.ashift` form without collector B assembles on SM100a."""
+    from tvm_tirx.backend.cuda.ptx.render import render_variant
+    from tvm_tirx.backend.cuda.ptx.table import TABLE, renderings
+
+    by_arch = {}
+    entry = TABLE["tcgen05_mma_ashift_ts"]
+    for rendering in renderings(entry):
+        _, helper, source = render_variant(entry, *_as_render_args(rendering))
+        _append_certification(by_arch, "sm_100a", helper, source)
+    _assert_certifications_ok(by_arch)
+
+
 @pytest.mark.parametrize("mismatch", ("modifier", "operand"))
 def test_ptx_codegen_rejects_stale_table_layout(mismatch):
     """A traced call must not silently feed modifier strings to an old helper."""
@@ -4823,7 +4873,7 @@ def test_ptx_all_variants_render_unique():
             _, helper, _ = render_variant(entry, *args, addr_offsets=addr_offsets)
             assert helper not in names, f"address-offset helper name collision: {helper}"
             names.add(helper)
-    assert total == 791291  # update when the table grows or a ptxas gap narrows it
+    assert total == 791315  # update when the table grows or a ptxas gap narrows it
 
 
 def test_ptx_no_instruction_registered_twice():

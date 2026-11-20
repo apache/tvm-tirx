@@ -2213,7 +2213,7 @@ class _Chain_tanh:
     def __call__(self, *args: Any, pred: Any = None, preserve_dst: bool = False) -> None: ...
 
 class _Chain_tcgen05:
-    """`tcgen05` — 60 entries sharing this mnemonic; PTX puts their difference in the operand
+    """`tcgen05` — 61 entries sharing this mnemonic; PTX puts their difference in the operand
     list, so the call selects one. Shapes: (dst, ncols); (taddr, ncols); (mbar, cta_mask);
     (mbar); (*__operands); (d_tmem, a_desc, b_desc, idesc, enable_input_d); (d_tmem, a_desc,
     b_desc, idesc, enable_input_d, zero_col_mask); (d_tmem, a_tmem, b_desc, idesc,
