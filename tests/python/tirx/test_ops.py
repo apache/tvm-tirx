@@ -63,6 +63,24 @@ def test_const_fold2():
     assert isinstance(tdiv(1, x), tvm_tirx.tirx.Div)
 
 
+def test_const_fold_float_signed_zero():
+    """Only identities that hold for -0.0 may be folded (IEEE 754 round-to-nearest)."""
+    x = tvm_tirx.tirx.Var("x", "float32")
+    pos = tvm_tirx.tirx.const(0.0, "float32")
+    neg = tvm_tirx.tirx.const(-0.0, "float32")
+    # x + (-0.0) == x and x - (+0.0) == x for every x, including x = -0.0.
+    assert (x + neg).same_as(x)
+    assert (neg + x).same_as(x)
+    assert (x - pos).same_as(x)
+    # x + (+0.0) and x - (-0.0) map -0.0 to +0.0, so they must stay.
+    assert isinstance(x + pos, tvm_tirx.tirx.Add)
+    assert isinstance(pos + x, tvm_tirx.tirx.Add)
+    assert isinstance(x - neg, tvm_tirx.tirx.Sub)
+    # Integer zero is still an identity.
+    i = tvm_tirx.tirx.Var("i", "int32")
+    assert (i + 0).same_as(i)
+
+
 def test_const_fold3():
     # Test that using ints with logic operations is forbidden
     x = tvm_tirx.tirx.Var("x", "int32")

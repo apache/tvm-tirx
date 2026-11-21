@@ -121,6 +121,19 @@ inline bool IsInFloat32Range(double value) {
                                    value <= std::numeric_limits<float>::max());
 }
 
+/*!
+ * \brief Whether a float constant is the additive identity for x.
+ *
+ * IEEE 754 (round to nearest): x + (-0.0) == x for every x, while x + (+0.0)
+ * maps -0.0 to +0.0. A positive zero is therefore an identity only when x is a
+ * constant that is not -0.0.
+ */
+inline bool IsFloatAddIdentity(const FloatImmObj* zero, const FloatImmObj* x) {
+  if (zero == nullptr || zero->value != 0) return false;
+  if (std::signbit(zero->value)) return true;
+  return x != nullptr && !(x->value == 0 && std::signbit(x->value));
+}
+
 }  // namespace detail
 
 #define TVM_PRIM_CONST_PROPAGATION(BODY)       \
@@ -161,8 +174,8 @@ inline ffi::Optional<PrimExpr> TryConstFold<prim::Add>(PrimExpr a, PrimExpr b) {
         return FloatImm(result_ty, fa->value + fb->value);
       }
     }
-    if (fa && fa->value == 0) return b;
-    if (fb && fb->value == 0) return a;
+    if (detail::IsFloatAddIdentity(fa, fb)) return b;
+    if (detail::IsFloatAddIdentity(fb, fa)) return a;
   });
   return std::nullopt;
 }
@@ -188,7 +201,11 @@ inline ffi::Optional<PrimExpr> TryConstFold<prim::Sub>(PrimExpr a, PrimExpr b) {
         return FloatImm(result_ty, fa->value - fb->value);
       }
     }
-    if (fb && fb->value == 0) return a;
+    // x - (+0.0) == x + (-0.0) == x for every x; x - (-0.0) == x + (+0.0).
+    if (fb && fb->value == 0 &&
+        (!std::signbit(fb->value) || (fa && !(fa->value == 0 && std::signbit(fa->value))))) {
+      return a;
+    }
   });
   return std::nullopt;
 }
