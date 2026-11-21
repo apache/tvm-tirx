@@ -25,7 +25,7 @@ from tvm_tirx.base import _LOADED_LIBS
 
 from .backend_config import BackendConfig
 from .cubin import bind_cubin
-from .host import export_cuda_host, jit_cuda_host
+from .host import build_cuda_host, export_cuda_host, jit_cuda_host
 
 _LAZY_SUBMODULES = {
     "codegen",
@@ -133,6 +133,7 @@ __all__ = [
     "BackendConfig",
     "axis",
     "bind_cubin",
+    "build_cuda_host",
     "codegen",
     "cpp",
     "export_cuda_host",

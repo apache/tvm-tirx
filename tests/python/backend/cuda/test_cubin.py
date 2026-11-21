@@ -16,8 +16,12 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import os
+import shlex
+import shutil
 import subprocess
 import sys
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -26,7 +30,7 @@ import tvm_ffi
 import tvm_tirx
 import tvm_tirx.support.nvcc
 import tvm_tirx.testing
-from tvm_tirx.backend.cuda import bind_cubin, export_cuda_host, jit_cuda_host
+from tvm_tirx.backend.cuda import bind_cubin, build_cuda_host, export_cuda_host, jit_cuda_host
 from tvm_tirx.script import tirx as T
 from tvm_tirx.testing import env
 
@@ -89,6 +93,12 @@ def test_cubin_binding_diagnostics():
     with pytest.raises(ValueError, match=r"first.*already defined"):
         bind_cubin(bound, image, kernels={"first": ("handle",)})
 
+    target = tvm_tirx.target.Target({"kind": "cuda", "arch": "sm_100"}, host="cuda_host")
+    with pytest.raises(ValueError, match="CUDA ELF cubin"):
+        export_cuda_host(tvm_tirx.compile(original, target=target).mod, cubin=b"invalid")
+    with pytest.raises(ValueError, match="no device imports"):
+        export_cuda_host(tvm_tirx.compile(bound, target=target).mod, cubin=image)
+
     @T.function
     def mixed(x: T.Tensor((32,), T.int32)):
         T.cuda.launch("mixed_kernel", (x.data,), T.cuda.LaunchConfig(grid=1, block=32))
@@ -97,7 +107,6 @@ def test_cubin_binding_diagnostics():
 
     # SplitHostDevice introduces mixed_kernel for the thread region.
     program = bind_cubin(mixed, image, kernels={"mixed_kernel": ("handle",)})
-    target = tvm_tirx.target.Target({"kind": "cuda", "arch": "sm_100"}, host="cuda_host")
     with pytest.raises(ValueError, match=r"mixed_kernel.*also defined by an import"):
         tvm_tirx.compile(program, target=target)
 
@@ -174,3 +183,59 @@ np.testing.assert_array_equal(y.numpy(), values + 1)
             )
     finally:
         dev.free_raw_stream(stream)
+
+
+@pytest.mark.gpu
+@pytest.mark.skipif(sys.platform != "linux" or not env.has_cuda(), reason="requires Linux and CUDA")
+def test_standalone_raw_cubin(cubin, tmp_path):
+    """A native TVM-FFI process can run a single deployed library."""
+    from tvm_ffi import libinfo
+
+    from tvm_tirx.support.nvcc import find_cuda_path
+
+    n = T.dynamic("n")
+
+    @T.function
+    def wrapper(x: T.Tensor((n,), T.float32), y: T.Tensor((n,), T.float32), threads: T.int32):
+        # Two sites with different launch fields for the same cubin entry.
+        if n <= threads:
+            T.cuda.launch(
+                "add_one",
+                (x.data, y.data, T.Cast("int32", n)),
+                T.cuda.LaunchConfig(grid=1, block=threads),
+            )
+        else:
+            T.cuda.launch(
+                "add_one",
+                (x.data, y.data, T.Cast("int32", n)),
+                T.cuda.LaunchConfig(
+                    grid=T.ceildiv(n, threads), block=threads, dynamic_smem_bytes=128
+                ),
+            )
+
+    target = tvm_tirx.target.Target({"kind": "cuda", "arch": env.cuda_arch()}, host="cuda_host")
+    host = tvm_tirx.compile(wrapper, target=target).mod
+    assert not host.imports
+    library = shutil.copyfile(build_cuda_host(host, cubin=cubin), tmp_path / "wrapper.so")
+
+    cuda = Path(find_cuda_path())
+    ffi_lib = Path(libinfo.find_libtvm_ffi()).parent
+    runner = tmp_path / "runner"
+    subprocess.run(
+        [
+            *shlex.split(os.environ.get("CXX") or "c++"),
+            "-std=c++17",
+            Path(__file__).with_name("standalone_cubin_runner.cc"),
+            *[f"-I{inc}" for inc in libinfo.include_paths()],
+            f"-I{cuda / 'include'}",
+            f"-L{cuda / 'lib64'}",
+            "-lcudart",
+            f"-L{ffi_lib}",
+            f"-Wl,-rpath,{ffi_lib}",
+            "-ltvm_ffi",
+            "-o",
+            runner,
+        ],
+        check=True,
+    )
+    subprocess.run([runner, library], cwd=tmp_path, check=True)

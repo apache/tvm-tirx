@@ -19,12 +19,12 @@
 import json
 from pathlib import Path
 
-from tvm_ffi import Module
+from tvm_ffi import Module, load_module
 
 from tvm_tirx.backend.config import parse_backend_config
 
 
-def export_cuda_host(mod: Module) -> str:
+def export_cuda_host(mod: Module, *, cubin: bytes | None = None) -> str:
     """Return C++ host source with embedded device binaries.
 
     Build with a CUDA Target whose host is ``cuda_host``. Each device import
@@ -35,6 +35,11 @@ def export_cuda_host(mod: Module) -> str:
 
     Source-only fallback imports are compiled using their serialized settings.
     Binary imports work after a save/load roundtrip, without original source.
+
+    For a host-only module, pass one raw cubin to resolve every kernel name
+    directly against that image. The typed operands at each launch site must
+    match the device ABI. This form uses no CUDA runtime module or FunctionInfo
+    table, and launch fields may differ between sites calling the same entry.
     """
     if not isinstance(mod, Module):
         raise TypeError("export_cuda_host expects a runtime Module")
@@ -75,8 +80,16 @@ def export_cuda_host(mod: Module) -> str:
         symbols.update(names)
         binaries.append((bytes(binary), names))
 
-    for imported in mod.imports:
-        collect(imported)
+    if cubin is None:
+        for imported in mod.imports:
+            collect(imported)
+    else:
+        from .cubin import _check_cubin_image
+
+        if mod.imports:
+            raise ValueError("Passing a raw cubin requires a host module with no device imports")
+        _check_cubin_image(cubin)
+        binaries.append((cubin, ()))
     source = [
         "#define TVM_FFI_CUBIN_LAUNCHER_USE_DRIVER_API 1",
         "#include <tvm/ffi/extra/cuda/cubin_launcher.h>",
@@ -100,30 +113,46 @@ def export_cuda_host(mod: Module) -> str:
                 f"    static tvm::ffi::CubinModule module(tvm_cuda_binary_{index});\n"
                 "    return module.GetKernel(name).GetHandle();\n  }"
             )
-    source.append('  TVM_FFI_THROW(ValueError) << "Unknown CUDA kernel: " << name;\n}')
+    if cubin is None:
+        source.append('  TVM_FFI_THROW(ValueError) << "Unknown CUDA kernel: " << name;')
+    else:
+        source.extend(
+            [
+                "  static tvm::ffi::CubinModule module(tvm_cuda_binary_0);",
+                "  return module.GetKernel(name).GetHandle();",
+            ]
+        )
+    source.append("}")
     source.append(host_source)
     return "\n\n".join(source)
 
 
-def jit_cuda_host(mod: Module) -> Module:
-    """Build the emitted host C++ and load its TVM-FFI entry points on Linux.
+def build_cuda_host(mod: Module, *, cubin: bytes | None = None) -> str:
+    """Build a standalone host shared library on Linux and return its cached path.
 
-    Pass the runtime module produced with host="cuda_host". Its imported CUDA
-    images are embedded in the library. The CPU compiler requires the CUDA
-    development headers, cudart and the driver library. Set CUDA_PATH to the
-    toolkit root when nvcc is absent. Build artifacts use the TVM-FFI cache.
+    The CPU compiler needs CUDA headers, cudart and the driver library. Set
+    CUDA_PATH to the toolkit root when nvcc is absent. Pass an optional raw
+    cubin as in :func:`export_cuda_host`. The resulting library can be copied
+    to another compatible host and loaded with TVM-FFI.
     """
     import tvm_ffi.cpp
 
     from tvm_tirx.support.nvcc import find_cuda_path
 
-    source = export_cuda_host(mod)
+    source = export_cuda_host(mod, cubin=cubin)
     cuda = Path(find_cuda_path())
-    return tvm_ffi.cpp.load_inline(
+    return tvm_ffi.cpp.build_inline(
         name="tirx_cuda_host",
         cpp_sources=source,
         backend="cpu",
         extra_include_paths=[str(cuda / "include")],
         extra_ldflags=[f"-L{cuda / 'lib64'}", "-lcuda", "-lcudart"],
-        keep_module_alive=False,
     )
+
+
+def jit_cuda_host(mod: Module, *, cubin: bytes | None = None) -> Module:
+    """Build and load the standalone TVM-FFI entry points on Linux.
+
+    Accepts the same module and optional raw cubin as :func:`build_cuda_host`.
+    """
+    return load_module(build_cuda_host(mod, cubin=cubin), keep_module_alive=False)

@@ -73,6 +73,7 @@ Functions
    :toctree: generated/
 
    bind_cubin
+   build_cuda_host
    export_cuda_host
    jit_cuda_host
    register_backend
@@ -126,18 +127,36 @@ only host code and bound cubins can be compiled and run without invoking a
 CUDA device compiler. The standard ``executable.export_library(path)`` includes
 the device image for later loading with ``tvm_tirx.runtime.load_module(path)``.
 
-To build a standalone TVM-FFI host wrapper on Linux, compile the same program
-with the CUDA host C++ backend:
+To deploy a standalone library on Linux, compile the host function and give
+the CUDA host exporter the raw cubin. This route accepts a single image
+containing one or more kernels. The driver resolves names against that image.
+The caller must match the kernel ABI at every launch site. Each site supplies
+its own launch fields, so calls to one kernel can use different configurations.
 
 .. code-block:: python
 
-   from tvm_tirx.backend.cuda import jit_cuda_host
+   from tvm_tirx.backend.cuda import build_cuda_host
 
    target = tvm_tirx.target.Target("cuda", host="cuda_host")
-   host = tvm_tirx.compile(program, target=target).mod
-   module = jit_cuda_host(host)
+   host = tvm_tirx.compile(wrapper, target=target).mod
+   library_path = build_cuda_host(host, cubin=Path("add_one.cubin").read_bytes())
+
+Copy the shared library to the deployment machine as ``wrapper.so`` and load it
+with TVM-FFI:
+
+.. code-block:: python
+
+   import tvm_ffi
+
+   module = tvm_ffi.load_module("./wrapper.so")
    module["wrapper"](x, y)
 
-This path uses the system C++ compiler and the TVM-FFI build cache. The host
-library embeds the cubin and issues the driver call ``cuLaunchKernelEx``.
-It requires the CUDA development headers, cudart and the driver library.
+The generated wrapper embeds the cubin, packs arguments and calls
+``cuLaunchKernelEx`` directly. Deployment requires TVM-FFI, the CUDA driver,
+cudart and the system C++ runtime. TIRx and the CUDA development headers
+are build-time dependencies. The wrapper resolves its kernels and computes
+launch parameters without a TIRx CUDA module or a separate metadata file.
+
+For in-process use, ``jit_cuda_host(host, cubin=image)`` also loads the
+compiled library. For programs that already carry device imports, omit
+``cubin`` to embed the imported images instead.
