@@ -33,6 +33,7 @@
 #include <tvm/sym/analyzer.h>
 
 #include <algorithm>
+#include <cmath>
 #include <numeric>
 #include <tuple>
 #include <utility>
@@ -272,7 +273,9 @@ UnchangedOr<PrimExpr> RewriteSimplifier::Impl::Mutate_(const prim::AddObj* op,
     TVM_TRY_REWRITE(ramp(b1, s1, lanes) + broadcast(x, lanes), ramp(b1 + x, s1, lanes));
     TVM_TRY_REWRITE(broadcast(x, lanes) + ramp(b1, s1, lanes), ramp(x + b1, s1, lanes));
     TVM_TRY_REWRITE(broadcast(x, lanes) + broadcast(y, lanes), broadcast(x + y, lanes));
-    TVM_TRY_REWRITE_IF(x + broadcast(c4, lanes), x, c4.Eval()->value == 0.0f);
+    // Only -0.0 is an additive identity for every x: x + (+0.0) maps -0.0 to +0.0.
+    TVM_TRY_REWRITE_IF(x + broadcast(c4, lanes), x,
+                       c4.Eval()->value == 0.0 && std::signbit(c4.Eval()->value));
   }
 
   if (IsIndexTypedExpr(op)) {

@@ -160,10 +160,17 @@ class TestVector(BaseCompare):
             tvm_tirx.ir.prim.vector_expr.Broadcast(0, tirx.vscale() * 8) + y,
             tvm_tirx.ir.prim.vector_expr.Broadcast(y, tirx.vscale() * 8),
         ),
+        # x + (-0.0) is an identity for every x; x + (+0.0) maps -0.0 to +0.0 and stays.
+        TestCase(
+            tvm_tirx.ir.prim.vector_expr.Ramp(x, 1, 4).astype("float32x4")
+            + tvm_tirx.ir.prim.vector_expr.Broadcast(tirx.const(-0.0, "float32"), 4),
+            tvm_tirx.ir.prim.vector_expr.Ramp(x, 1, 4).astype("float32x4"),
+        ),
         TestCase(
             tvm_tirx.ir.prim.vector_expr.Ramp(x, 1, 4).astype("float32x4")
             + tvm_tirx.ir.prim.vector_expr.Broadcast(0.0, 4),
-            tvm_tirx.ir.prim.vector_expr.Ramp(x, 1, 4).astype("float32x4"),
+            tvm_tirx.ir.prim.vector_expr.Ramp(x, 1, 4).astype("float32x4")
+            + tvm_tirx.ir.prim.vector_expr.Broadcast(0.0, 4),
         ),
         # Sub rules
         TestCase(
