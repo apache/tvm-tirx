@@ -322,6 +322,34 @@ def test_increasing_dynamic_shared_memory(host, tmp_path):
     tvm_tirx.testing.run_with_gpu_lock(check)
 
 
+@pytest.mark.gpu
+@pytest.mark.skipif(
+    not env.has_cuda_compute(10, 7, exact=True), reason="requires sm_107 oversized shared memory"
+)
+@pytest.mark.skipif(not env.has_nvcc_version(13, 4), reason="requires CUDA 13.4 or newer")
+@pytest.mark.parametrize("host", ["llvm", "cuda_host"])
+def test_oversized_dynamic_shared_memory_without_cluster(host, tmp_path):
+    """Above the opt-in limit the runtime selects the oversized mode; no cluster is needed."""
+
+    @T.function
+    def shared(A: T.Tensor((1,), "int32"), n: T.int32, bytes_: T.int32):
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=1, block=32, dynamic_smem_bytes=bytes_))
+        scratch = T.alloc_tensor(ty_args=[T.Tensor((n,), "int32", scope="shared.dyn")])
+        if T.cuda.thread_idx("x") == 0:
+            scratch[n - 1] = n
+            A[0] = scratch[n - 1]
+
+    module, _ = _compile(shared, host, tmp_path)
+
+    def check():
+        out = tvm_tirx.runtime.empty((1,), "int32", tvm_tirx.cuda(0))
+        n = 300 * 1024 // 4
+        module["shared"](out, n, n * 4)
+        assert out.numpy()[0] == n
+
+    tvm_tirx.testing.run_with_gpu_lock(check)
+
+
 def test_static_shared_memory_override_cannot_shrink_allocation():
     @T.function
     def kernel():

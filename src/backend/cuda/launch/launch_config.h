@@ -214,7 +214,7 @@ inline void PrepareResources(typename API::Kernel kernel, int device, LaunchValu
     size_t bytes = config->Int(Field::kDynamicSmemBytes);
     if (bytes + state->static_bytes > state->optin_bytes) {
 #if CUDA_VERSION >= 13040 && CUDART_VERSION >= 13040
-      Require(config->Has(Option::kCluster), "oversized shared memory needs a cluster launch");
+      // The oversized mode is a launch attribute; CUDA does not require a cluster launch.
       config->SetInt(Field::kSharedMemoryMode, 3);
 #else
       throw std::invalid_argument("CUDA oversized shared memory requires CUDA 13.4 or newer");
