@@ -11963,9 +11963,9 @@ _ENTRIES = [
     # NOT REGISTERED:
     # - `{, scale-input-d}`: an instruction-text immediate in [0, 15], no
     #   call site uses it.
-    # - Pre-9.4 sparse MMA forms without `.kind::ti16` or collector B, and
-    #   convolution ashift forms: no call sites. The shared-A dense form below
-    #   carries optional collector A for SM107 kernels.
+    # - Pre-9.4 sparse MMA forms without `.kind::ti16` or collector B: no call
+    #   sites. The shared-A dense form below carries optional collector A for
+    #   SM107 kernels; the dense convolution `.ashift` form follows it.
     #   PTX 9.4's ti16 dense/sparse/WS shapes and every SM107 collector-B
     #   shape are registered in `_PTX_94_ENTRIES`.
     # - The pre-9.4 .ws kinds without zero-column-mask-desc: every existing
@@ -12007,6 +12007,39 @@ _ENTRIES = [
         )
         for form in ("ss", "ts")
     ],
+    # PTX ISA 8.6 dense convolution MMA, A in Tensor Memory:
+    # `tcgen05.mma.cta_group.kind.ashift{.collector_a_usage}`. Collector B is
+    # optional in the manual; the spellings that carry it are owned by
+    # `tcgen05_mma_ashift_collector_b_ts` and `tcgen05_mma_collector_ab_ts`.
+    InstructionEntry(
+        name="tcgen05_mma_ashift_ts",
+        mnemonic="tcgen05",
+        slots=(
+            ModifierSlot("action", ("mma",)),
+            ModifierSlot("cta_group", ("cta_group::1", "cta_group::2")),
+            ModifierSlot("kind", ("kind::f16", "kind::tf32", "kind::f8f6f4", "kind::i8")),
+            ModifierSlot("ashift", ("ashift",)),
+            # .ashift cannot be combined with collector A fill/use.
+            ModifierSlot(
+                "collector_a",
+                ("collector::a::lastuse", "collector::a::discard"),
+                optional=True,
+            ),
+        ),
+        cert_arch="sm_100a",
+        operands=(
+            OperandSlot("d_tmem", kind="addr", space="tmem"),
+            OperandSlot("a_tmem", kind="addr", space="tmem"),
+            OperandSlot("b_desc", dtype="u64"),
+            OperandSlot("idesc", dtype="u32"),
+            OperandSlot(
+                "disable_output_lane",
+                dtype="u32",
+                lanes=_tcgen05_mma_mask_lanes,
+            ),
+            OperandSlot("enable_input_d", dtype="pred"),
+        ),
+    ),
     *[
         InstructionEntry(  # block-scaled: A/B scale factors live in tmem
             name=f"tcgen05_mma_block_scale_{form}",
