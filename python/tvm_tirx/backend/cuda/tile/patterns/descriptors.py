@@ -61,7 +61,8 @@ def _encode_matrix_descriptor(ctx, smem, ldo, sdo, swizzle, atom_origin):
             + T.cast(swizzle_bytes(physical, swizzle), ty="uint32")
         )
     address = T.cast(address // T.uint32(16), ty="uint64")
-    return T.bitwise_or(descriptor, T.bitwise_and(address, T.uint64(0x3FFF)))
+    # The start address field is 15 bits (PTX ISA 9.7.18.4.1, bits 0-14).
+    return T.bitwise_or(descriptor, T.bitwise_and(address, T.uint64(0x7FFF)))
 
 
 def _constant_stride(ctx, difference):

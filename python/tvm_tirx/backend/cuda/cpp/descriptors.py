@@ -752,7 +752,7 @@ def encode_smem_descriptor_base_uint64(ldo, sdo, swizzle):
     the address.
 
     `start_address_` is the only runtime input, so the descriptor splits into a
-    constant the caller bakes in and an `addr >> 4` it ORs into bits [0,14).
+    constant the caller bakes in and an `addr >> 4` it ORs into bits [0,15).
     Bit layout: `SmemDescriptor` in `python/tvm/backend/cuda/codegen/header.py`.
 
     `ldo` / `sdo` are in 16-byte units, matching what the runtime encoder
