@@ -350,6 +350,28 @@ def test_oversized_dynamic_shared_memory_without_cluster(host, tmp_path):
     tvm_tirx.testing.run_with_gpu_lock(check)
 
 
+@pytest.mark.gpu
+@pytest.mark.skipif(not env.has_cuda_compute(10), reason="requires CUDA compute >= 10.0")
+@pytest.mark.parametrize("host", ["llvm", "cuda_host"])
+def test_non_portable_cluster_size(host, tmp_path):
+    """Clusters above the portable size of 8 launch without an explicit opt-in."""
+
+    @T.function
+    def clusters(A: T.Tensor((32,), "int32")):
+        T.device_entry(launch=T.cuda.LaunchConfig(grid=32, block=32, cluster=16))
+        if T.cuda.thread_idx("x") == 0:
+            A[T.cuda.block_idx("x")] = T.cuda.cluster_cta_id("x")
+
+    module, _ = _compile(clusters, host, tmp_path)
+
+    def check():
+        out = tvm_tirx.runtime.empty((32,), "int32", tvm_tirx.cuda(0))
+        module["clusters"](out)
+        np.testing.assert_array_equal(out.numpy(), np.arange(32) % 16)
+
+    tvm_tirx.testing.run_with_gpu_lock(check)
+
+
 def test_static_shared_memory_override_cannot_shrink_allocation():
     @T.function
     def kernel():
