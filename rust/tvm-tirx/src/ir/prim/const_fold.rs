@@ -54,13 +54,28 @@ pub(super) fn add(a: &PrimExpr, b: &PrimExpr) -> Folded {
             _ => {}
         }
     }
-    if fa == Some(0.0) {
+    if is_float_add_identity(fa, fb) {
         return keep(b);
     }
-    if fb == Some(0.0) {
+    if is_float_add_identity(fb, fa) {
         return keep(a);
     }
     Ok(None)
+}
+
+/// Whether the float constant `zero` is the additive identity for `x`.
+///
+/// IEEE 754 (round to nearest): `x + (-0.0) == x` for every x, while `x + (+0.0)` maps -0.0 to
+/// +0.0. A positive zero is therefore an identity only when `x` is a constant that is not -0.0.
+fn is_float_add_identity(zero: Option<f64>, x: Option<f64>) -> bool {
+    match zero {
+        Some(z) if z == 0.0 => z.is_sign_negative() || x.is_some_and(|x| !is_negative_zero(x)),
+        _ => false,
+    }
+}
+
+fn is_negative_zero(x: f64) -> bool {
+    x == 0.0 && x.is_sign_negative()
 }
 
 /// Fold `a - b`.
@@ -80,7 +95,11 @@ pub(super) fn sub(a: &PrimExpr, b: &PrimExpr) -> Folded {
             _ => {}
         }
     }
-    if fb == Some(0.0) {
+    // x - (+0.0) == x + (-0.0) == x for every x; x - (-0.0) == x + (+0.0).
+    if let Some(y) = fb
+        && y == 0.0
+        && (!y.is_sign_negative() || fa.is_some_and(|x| !is_negative_zero(x)))
+    {
         return keep(a);
     }
     Ok(None)
