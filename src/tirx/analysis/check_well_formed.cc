@@ -75,6 +75,8 @@ class WellFormednessVerifier : public StmtExprVisitor {
       if (paths.empty()) throw;
       std::ostringstream path;
       path << paths[0];
+      // Identical siblings have the same visit breadcrumbs. Show both matching slots.
+      if (check_ == Check::kStatements && paths.size() > 1) path << " and " << paths[1];
       std::string message = error.message();
       const std::string marker = "<current location>";
       size_t pos = 0;
