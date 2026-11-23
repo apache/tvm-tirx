@@ -1197,6 +1197,9 @@ bool IketEnabled(const IRModule& module) {
 
 IRModule LowerIketImpl(IRModule module) {
   if (!IketEnabled(module)) {
+    // Update the module after the loop: updating it while iterating its function map
+    // invalidates the iteration, which then repeats forever or stops early.
+    std::vector<std::pair<GlobalVar, Function>> stripped_functions;
     for (const auto& [global_var, base_function] : module->functions) {
       const auto* function_node = base_function.as<FunctionObj>();
       if (!function_node || function_node->GetAttr(tvm::attr::kDeclaration).value_or(false))
@@ -1221,8 +1224,11 @@ IRModule LowerIketImpl(IRModule module) {
           ffi::make_object<RemoveStrippedIketNoOps>()->Mutate(stripped).ValueOrUnchanged(stripped);
       if (!function->body.same_as(body)) {
         function.CopyOnWrite()->body = body;
-        module->Update(global_var, function);
+        stripped_functions.emplace_back(global_var, function);
       }
+    }
+    for (const auto& [global_var, function] : stripped_functions) {
+      module->Update(global_var, function);
     }
     return module;
   }
