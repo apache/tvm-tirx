@@ -358,7 +358,7 @@ Stmt UnrollLoop(Stmt stmt, UnrollLoopConfig cfg) {
                                      cfg->explicit_unroll, cfg->unroll_local_access)
           ->Mutate(stmt, InplaceMode::kDisallow);
   if (!result.UnchangedOrSameAs(stmt)) {
-    return ConvertSSA(std::move(result).ValueUnchecked());
+    return MakeStmtUnique(ConvertSSA(std::move(result).ValueUnchecked()));
   } else {
     return stmt;
   }

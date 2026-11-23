@@ -152,6 +152,9 @@ TVM_TIRX_DLL Pass StmtSimplify();
  */
 TVM_TIRX_DLL Pass ConvertSSA();
 
+/*! \brief Give each statement occurrence in a function a distinct identity. */
+TVM_TIRX_DLL Pass MakeStmtUnique();
+
 /*! \brief Lower cross-thread reductions to target-specific communication. */
 TVM_TIRX_DLL Pass LowerThreadAllreduce();
 

@@ -208,6 +208,11 @@ pub fn convert_ssa() -> Result<Pass> {
     tvm_ffi::cached_global_func!("tirx.transform.ConvertSSA").call_tuple(())?.try_into()
 }
 
+/// Give each statement occurrence in a function a distinct identity (`tirx.transform.MakeStmtUnique`).
+pub fn make_stmt_unique() -> Result<Pass> {
+    tvm_ffi::cached_global_func!("tirx.transform.MakeStmtUnique").call_tuple(())?.try_into()
+}
+
 /// Wrap each function body in a `tirx.device_scope` region (`tirx.transform.DecorateDeviceScope`).
 pub fn decorate_device_scope() -> Result<Pass> {
     tvm_ffi::cached_global_func!("tirx.transform.DecorateDeviceScope").call_tuple(())?.try_into()
