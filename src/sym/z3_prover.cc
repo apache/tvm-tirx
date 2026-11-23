@@ -38,6 +38,7 @@
 
 #include <algorithm>
 #include <climits>
+#include <cstdint>
 #include <map>
 #include <memory>
 #include <optional>
@@ -901,7 +902,25 @@ class Z3Prover::Impl final : tvm::ExprFunctor<z3::expr(const Expr&)> {
     return VisitShiftOp(z3::shl, op, op->a, op->b);
   }
   z3::expr Dispatch_(const prim::RShiftObj* op) override {
-    return VisitShiftOp(z3::ashr, op, op->a, op->b);
+    const PrimExpr& a = op->a;
+    const PrimExpr& b = op->b;
+    if (IsZ3SupportedExpr(a.get()) && IsZ3SupportedExpr(b.get())) {
+      unsigned bit_width = std::max(a.ty().bits(), b.ty().bits());
+      std::optional<int64_t> shift_amount;
+      if (auto b_imm = b.as<IntImm>(); b_imm.has_value()) {
+        shift_amount = (*b_imm)->value.as<int64_t>();
+      }
+      if (a.ty().MatchesCode(DLDataTypeCode::kDLInt) && shift_amount.has_value() &&
+          0 <= *shift_amount && *shift_amount < bit_width && bit_width <= 64) {
+        // Both powers of two fit in uint64_t. Wrap the unbounded input to its
+        // signed value before dividing to model an arithmetic right shift.
+        z3::expr a_expr = VisitInt(a);
+        z3::expr half_range = ctx->int_val(uint64_t{1} << (bit_width - 1));
+        z3::expr signed_value = z3::mod(a_expr + half_range, 2 * half_range) - half_range;
+        return signed_value / ctx->int_val(uint64_t{1} << *shift_amount);
+      }
+    }
+    return VisitShiftOp(z3::ashr, op, a, b);
   }
 
   z3::expr Dispatch_(const CallObj* op) override {
