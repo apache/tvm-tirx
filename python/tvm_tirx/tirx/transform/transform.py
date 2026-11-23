@@ -725,8 +725,8 @@ def LowerThreadAllreduce():
 def MakeStmtUnique():
     """Give each statement occurrence in a function a distinct identity.
 
-    Variables and expressions retain their identity. A function whose statements
-    are already unique is returned unchanged.
+    Variables and expressions retain their identity. Sequence mutation also
+    flattens nested sequences and removes no-op statements.
     """
     return _ffi_api.MakeStmtUnique()  # type: ignore
 

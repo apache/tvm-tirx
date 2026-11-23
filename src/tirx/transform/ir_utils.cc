@@ -271,21 +271,8 @@ Stmt MakeStmtUnique(Stmt stmt) {
   auto visit = [&](const Stmt& node, ffi::StructuralMutatorObj* mutator) -> ffi::Any {
     // Visit every occurrence. Copying a shared parent alone would leave its children shared.
     bool repeated = !seen.insert(node.get()).second;
-    if (const auto* seq = node.as<SeqStmtObj>()) {
-      // The default SeqStmt mutation also flattens nested sequences and removes no-ops.
-      // Only replace child identities here, preserving the exact sequence shape.
-      auto children =
-          mutator->MutateExpected(seq->seq).value().as_or_throw<UnchangedOr<ffi::Array<Stmt>>>();
-      if (!children.UnchangedOrSameAs(seq->seq)) {
-        auto copy = ffi::make_object<SeqStmtObj>(*seq);
-        copy->seq = std::move(children).ValueUnchecked();
-        return SeqStmt(std::move(copy));
-      }
-    } else {
-      auto result = mutator->DefaultMutateExpected(node, InplaceMode::kDisallow).value();
-      if (!result.UnchangedOrSameAs(node)) return result;
-    }
-    if (!repeated) return ffi::Unchanged();
+    auto result = mutator->DefaultMutateExpected(node, InplaceMode::kDisallow).value();
+    if (!repeated || !result.UnchangedOrSameAs(node)) return result;
     static const ffi::reflection::TypeAttrColumn shallow_copy(ffi::type_attr::kShallowCopy);
     return shallow_copy[node->type_index()].cast<ffi::Function>()(node);
   };
