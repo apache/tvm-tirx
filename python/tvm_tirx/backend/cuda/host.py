@@ -80,16 +80,19 @@ def export_cuda_host(mod: Module, *, cubin: bytes | None = None) -> str:
         symbols.update(names)
         binaries.append((bytes(binary), names))
 
-    if cubin is None:
-        for imported in mod.imports:
-            collect(imported)
-    else:
-        from .cubin import _check_cubin_image
-
+    if cubin is not None:
         if mod.imports:
             raise ValueError("Passing a raw cubin requires a host module with no device imports")
-        _check_cubin_image(cubin)
+        if not (
+            isinstance(cubin, bytes)
+            and len(cubin) >= 64
+            and cubin.startswith(b"\x7fELF\x02\x01\x01")
+            and int.from_bytes(cubin[18:20], "little") == 190  # EM_CUDA
+        ):
+            raise ValueError("Expected a 64-bit little-endian CUDA ELF cubin")
         binaries.append((cubin, ()))
+    for imported in mod.imports:
+        collect(imported)
     source = [
         "#define TVM_FFI_CUBIN_LAUNCHER_USE_DRIVER_API 1",
         "#include <tvm/ffi/extra/cuda/cubin_launcher.h>",

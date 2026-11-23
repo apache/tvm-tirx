@@ -31,17 +31,6 @@ def _check_kernel_symbol(name):
         raise ValueError(f"Expected a CUDA kernel symbol spelled as a C identifier, got {name!r}")
 
 
-def _check_cubin_image(image):
-    # Both the ELF identification and e_machine must describe a CUDA image.
-    if not (
-        isinstance(image, bytes)
-        and len(image) >= 64
-        and image.startswith(b"\x7fELF\x02\x01\x01")
-        and int.from_bytes(image[18:20], "little") == 190  # EM_CUDA
-    ):
-        raise ValueError("Expected a 64-bit little-endian CUDA ELF cubin")
-
-
 def _imported_cuda_symbols(imports):
     names = set()
     for module in imports:
@@ -127,7 +116,14 @@ def bind_cubin(
         mod = ir.IRModule.from_expr(mod)
     if not isinstance(mod, ir.IRModule):
         raise TypeError("bind_cubin expects an IRModule or TIRx function")
-    _check_cubin_image(image)
+    # Both the ELF identification and e_machine must describe a CUDA image.
+    if not (
+        isinstance(image, bytes)
+        and len(image) >= 64
+        and image.startswith(b"\x7fELF\x02\x01\x01")
+        and int.from_bytes(image[18:20], "little") == 190  # EM_CUDA
+    ):
+        raise ValueError("Expected a 64-bit little-endian CUDA ELF cubin")
     if not isinstance(kernels, Mapping):
         raise TypeError("kernels must map CUDA symbols to parameter types")
     if not kernels:
