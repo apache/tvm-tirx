@@ -519,7 +519,7 @@ def test_make_stmt_unique():
 
     assert not check(before, assert_mode=False)
     with pytest.raises(
-        (ValueError, RuntimeError), match=r"seq\[0\].*seq\[1\].*occurs more than once"
+        (ValueError, RuntimeError), match=r"occurs more than once.*seq\[0\].*seq\[1\]"
     ):
         check(before)
     after = normalize(before)

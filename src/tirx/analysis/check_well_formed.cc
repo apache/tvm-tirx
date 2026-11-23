@@ -75,8 +75,6 @@ class WellFormednessVerifier : public StmtExprVisitor {
       if (paths.empty()) throw;
       std::ostringstream path;
       path << paths[0];
-      // Identical siblings have the same visit breadcrumbs. Show both matching slots.
-      if (check_ == Check::kStatements && paths.size() > 1) path << " and " << paths[1];
       std::string message = error.message();
       const std::string marker = "<current location>";
       size_t pos = 0;
@@ -125,11 +123,7 @@ class WellFormednessVerifier : public StmtExprVisitor {
     }
     if (check_ == Check::kStatements) {
       if (const auto* stmt = value.as<StmtObj>(); stmt && !seen_stmts_.insert(stmt).second) {
-        TVM_FFI_VISIT_BEGIN();
-        Verify(false) << "ValueError: Statement at <current location> occurs more than once "
-                         "in the same function.";
-        return std::nullopt;
-        TVM_FFI_VISIT_END(object.value());
+        return ReportSharedStatement(object.value());
       }
     }
     if (value.as<Stmt>() && !table_->CanDispatch(value)) {
@@ -150,6 +144,26 @@ class WellFormednessVerifier : public StmtExprVisitor {
           << "Unsupported non-primitive TIR expression " << object.value()->GetTypeKey();
     }
     return StmtExprVisitor::Visit(value);
+  }
+
+  Result ReportSharedStatement(const ffi::ObjectRef& stmt) {
+    has_error_ = true;
+    if (!assert_mode_) return std::nullopt;
+    // Search this body by identity. The current visit's breadcrumbs only describe one
+    // parent, and a module may expose the same function under multiple globals.
+    const auto& function = visit_stack_[root_.as<IRModuleObj>() ? 1 : 0];
+    auto pattern = ffi::make_object<ffi::VisitErrorContextObj>();
+    pattern->reverse_visit_pattern.push_back(stmt);
+    auto paths = ffi::VisitErrorContext::FindAccessPaths(
+        function.as_or_throw<Function>()->body, ffi::VisitErrorContext(std::move(pattern)));
+    std::ostringstream locations;
+    if (paths.size() >= 2) {
+      locations << " Occurrences in the body include " << paths[0] << " and " << paths[1] << ".";
+    }
+    TVM_FFI_VISIT_THROW(ValueError, stmt)
+        << "Statement at <current location> occurs more than once in the same function."
+        << locations.str();
+    TVM_FFI_UNREACHABLE();
   }
 
   class VerifyStream {
