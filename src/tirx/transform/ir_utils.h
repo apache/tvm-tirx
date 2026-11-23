@@ -67,6 +67,9 @@ inline PrimType APIType(const PrimType& t) {
  */
 Stmt ConvertSSA(Stmt stmt);
 
+/*! \brief Give each occurrence of a statement in this tree a distinct identity. */
+Stmt MakeStmtUnique(Stmt stmt);
+
 }  // namespace tirx
 }  // namespace tvm
 #endif  // TVM_TIRX_TRANSFORM_IR_UTILS_H_

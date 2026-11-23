@@ -24,6 +24,7 @@
 #include "ir_utils.h"
 
 #include <tvm/ffi/cast.h>
+#include <tvm/ffi/extra/structural_mutate.h>
 #include <tvm/ffi/extra/structural_visit.h>
 #include <tvm/ffi/reflection/registry.h>
 #include <tvm/ir/function.h>
@@ -50,7 +51,6 @@ class IRConvertSSA final : public StmtExprMutator {
   using StmtExprMutator::Mutate;
   using StmtExprMutator::Mutate_;
   Function VisitFunction(Function func);
-  IRModule VisitIRModule(IRModule mod);
 
  private:
   UnchangedOr<Expr> Mutate_(const VarObj* op, InplaceMode inplace_mode) final;
@@ -241,12 +241,13 @@ void IRConvertSSA::SetVarRemap(const Var& old_var, const Var& new_var) {
   scope_.Current().insert_or_assign(old_var.get(), new_var);
 }
 
-IRModule IRConvertSSA::VisitIRModule(IRModule mod) {
+template <typename F>
+IRModule MapFunctions(IRModule mod, F transform) {
   ffi::Map<GlobalVar, BaseFunc> functions;
   bool made_change = false;
   for (auto [gvar, base_func] : mod->functions) {
     if (auto* ptr = base_func.as<tirx::FunctionObj>()) {
-      auto updated = VisitFunction(ffi::GetRef<tirx::Function>(ptr));
+      auto updated = transform(ffi::GetRef<tirx::Function>(ptr));
       if (!updated.same_as(base_func)) {
         made_change = true;
         base_func = updated;
@@ -265,17 +266,46 @@ Stmt ConvertSSA(Stmt stmt) {
   return ffi::make_object<IRConvertSSA>()->Mutate(stmt, InplaceMode::kAllow).ValueOrUnchanged(stmt);
 }
 
+Stmt MakeStmtUnique(Stmt stmt) {
+  std::unordered_set<const StmtObj*> seen;
+  auto visit = [&](const Stmt& node, ffi::StructuralMutatorObj* mutator) -> ffi::Any {
+    // Visit every occurrence. Copying a shared parent alone would leave its children shared.
+    bool repeated = !seen.insert(node.get()).second;
+    auto result = mutator->DefaultMutateExpected(node, InplaceMode::kDisallow).value();
+    if (!repeated || !result.UnchangedOrSameAs(node)) return result;
+    static const ffi::reflection::TypeAttrColumn shallow_copy(ffi::type_attr::kShallowCopy);
+    return shallow_copy[node->type_index()].cast<ffi::Function>()(node);
+  };
+  auto keep_expr = [](const Expr&, ffi::StructuralMutatorObj*) { return ffi::Unchanged(); };
+  return ffi::StructuralMutate(std::move(stmt), visit, keep_expr).cast<Stmt>();
+}
+
 namespace transform {
 Pass ConvertSSA() {
   auto pass_func = [](IRModule mod, PassContext ctx) {
-    return ffi::make_object<tirx::IRConvertSSA>()->VisitIRModule(std::move(mod));
+    auto converter = ffi::make_object<IRConvertSSA>();
+    return MapFunctions(std::move(mod),
+                        [&](Function func) { return converter->VisitFunction(std::move(func)); });
   };
   return tvm::transform::CreateModulePass(pass_func, 0, "tirx.ConvertSSA");
 }
 
+Pass MakeStmtUnique() {
+  auto pass_func = [](IRModule mod, PassContext ctx) {
+    return MapFunctions(std::move(mod), [](Function func) {
+      Stmt body = tirx::MakeStmtUnique(func->body);
+      if (!body.same_as(func->body)) func.CopyOnWrite()->body = SeqStmt(std::move(body));
+      return func;
+    });
+  };
+  return tvm::transform::CreateModulePass(pass_func, 0, "tirx.MakeStmtUnique");
+}
+
 TVM_FFI_STATIC_INIT_BLOCK() {
   namespace refl = tvm::ffi::reflection;
-  refl::GlobalDef().def("tirx.transform.ConvertSSA", ConvertSSA);
+  refl::GlobalDef()
+      .def("tirx.transform.ConvertSSA", ConvertSSA)
+      .def("tirx.transform.MakeStmtUnique", MakeStmtUnique);
 }
 
 }  // namespace transform

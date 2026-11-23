@@ -19,6 +19,8 @@
 # ruff: noqa: F841
 
 
+import pytest
+
 import tvm_tirx
 import tvm_tirx.testing
 from tvm_tirx.script import ir as I
@@ -497,6 +499,39 @@ def test_reused_loop_var_in_decl_tensor_elem_offset():
     After = tvm_tirx.tirx.transform.ConvertSSA()(Before)
     tvm_tirx.ir.assert_structural_equal(After, Expected)
     tvm_tirx.tirx.analysis.check_well_formed(After["main"], assert_mode=True)
+
+
+def test_make_stmt_unique():
+    ir = tvm_tirx.ir
+    check = tvm_tirx.tirx.analysis.check_well_formed
+    normalize = tvm_tirx.tirx.transform.MakeStmtUnique()
+    x = ir.Var("x", "int32")
+    value = x + 1
+    branch = ir.If(x > 0, [ir.Evaluate(value)], None)
+    shared_across_functions = ir.Evaluate(1)
+    helper = tvm_tirx.tirx.Function([], shared_across_functions)
+    before = tvm_tirx.IRModule(
+        {
+            "main": tvm_tirx.tirx.Function([x], [branch, branch, shared_across_functions]),
+            "f": helper,
+        }
+    )
+
+    assert not check(before, assert_mode=False)
+    with pytest.raises((ValueError, RuntimeError), match="occurs more than once"):
+        check(before)
+    after = normalize(before)
+    assert check(after)
+    first, second, last = after["main"].body
+    assert after["f"].same_as(helper)
+    assert last.same_as(after["f"].body[0])
+    assert first.same_as(branch)
+    assert not second.same_as(first)
+    assert not second.then_case.same_as(first.then_case)
+    assert not second.then_case[0].same_as(first.then_case[0])
+    assert second.then_case[0].value.same_as(value)
+    assert after["main"].params[0].same_as(x)
+    assert normalize(after).same_as(after)
 
 
 if __name__ == "__main__":

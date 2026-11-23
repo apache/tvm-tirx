@@ -583,8 +583,7 @@ def test_no_lift_bool_logical():
     assert "cse_v" not in after["main"].script()
 
 
-# T24: Shared subtree stays SSA. UnrollLoop reuses one Stmt object across
-# positions; the identity-keyed rewriter must bind fresh cse vars per occurrence.
+# The identity-keyed rewriter must bind fresh CSE variables per statement occurrence.
 def test_shared_subtree_stays_ssa():
     @tvm_tirx.script.ir_module
     class Before:
@@ -611,9 +610,11 @@ def test_shared_subtree_stays_ssa():
 
     unrolled = tvm_tirx.tirx.transform.UnrollLoop()(Before)
     body = unrolled["main"].body
-    assert body[0].same_as(body[2])
-    assert body[1].same_as(body[3])
-    After = tvm_tirx.tirx.transform.CommonSubexprElim()(unrolled)
+    assert not body[0].same_as(body[2])
+    assert not body[1].same_as(body[3])
+    # Construct shared input explicitly to exercise CSE on repeated statement identities.
+    shared = tvm_tirx.IRModule({"main": unrolled["main"].with_body([body[0], body[1]] * 2)})
+    After = tvm_tirx.tirx.transform.CommonSubexprElim()(shared)
     tvm_tirx.ir.assert_structural_equal(After, Expected)
     assert tvm_tirx.tirx.analysis.check_well_formed(After["main"])
 

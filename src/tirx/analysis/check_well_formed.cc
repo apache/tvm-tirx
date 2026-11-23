@@ -35,6 +35,7 @@
 #include <optional>
 #include <sstream>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -48,7 +49,7 @@ class WellFormednessVerifier : public StmtExprVisitor {
   friend class tvm::ObjectVisitor;
 
  public:
-  enum class Check { kVariables, kTensors, kTensorLoadType, kLoopControl, kThreadBinding };
+  enum class Check { kVariables, kTensors, kTensorLoadType, kStatements, kThreadBinding };
   using AccessPath = ffi::reflection::AccessPath;
   using Result = ffi::Optional<VisitInterrupt>;
 
@@ -119,6 +120,15 @@ class WellFormednessVerifier : public StmtExprVisitor {
         !(visit_stack_.size() == 2 && root_.as<IRModule>())) {
       TVM_FFI_VISIT_THROW(TypeError, object.value())
           << "Unsupported non-primitive TIR expression " << object.value()->GetTypeKey();
+    }
+    if (check_ == Check::kStatements) {
+      if (const auto* stmt = value.as<StmtObj>(); stmt && !seen_stmts_.insert(stmt).second) {
+        TVM_FFI_VISIT_BEGIN();
+        Verify(false) << "ValueError: Statement at <current location> occurs more than once "
+                         "in the same function.";
+        return std::nullopt;
+        TVM_FFI_VISIT_END(object.value());
+      }
     }
     if (value.as<Stmt>() && !table_->CanDispatch(value)) {
       TVM_FFI_VISIT_BEGIN();
@@ -295,6 +305,7 @@ class WellFormednessVerifier : public StmtExprVisitor {
                        "but a definition is required.";
       return std::nullopt;
     }
+    seen_stmts_.clear();
     int enclosing_depth = loop_depth_;
     loop_depth_ = 0;
     WithScope([&]() -> Result {
@@ -374,7 +385,7 @@ class WellFormednessVerifier : public StmtExprVisitor {
     this->Visit(op->begin);
     this->Visit(op->end);
     this->Visit(op->step);
-    if (check_ == Check::kLoopControl) {
+    if (check_ == Check::kStatements) {
       ++loop_depth_;
       this->Visit(op->body);
       --loop_depth_;
@@ -458,7 +469,7 @@ class WellFormednessVerifier : public StmtExprVisitor {
   }
 
   Result Visit_(const BreakObj* op) override {
-    if (check_ == Check::kLoopControl) {
+    if (check_ == Check::kStatements) {
       Verify(loop_depth_ > 0) << "ValueError: break at <current location> requires an enclosing "
                                  "loop in the same function.";
     }
@@ -466,7 +477,7 @@ class WellFormednessVerifier : public StmtExprVisitor {
   }
 
   Result Visit_(const ContinueObj* op) override {
-    if (check_ == Check::kLoopControl) {
+    if (check_ == Check::kStatements) {
       Verify(loop_depth_ > 0) << "ValueError: continue at <current location> requires an enclosing "
                                  "loop in the same function.";
     }
@@ -492,6 +503,7 @@ class WellFormednessVerifier : public StmtExprVisitor {
   bool assert_mode_;
   bool has_error_{false};
   int loop_depth_{0};
+  std::unordered_set<const StmtObj*> seen_stmts_;
   ffi::ObjectRef root_;
   std::vector<ffi::ObjectRef> visit_stack_;
   ScopeStack<std::vector<std::pair<Var, DefinitionSite>>> scopes_;
@@ -572,7 +584,7 @@ auto WellFormednessVerifier::Visit_(const TensorLoadObj* op) -> Result {
 bool CheckWellFormedCommon(const ffi::ObjectRef& node, bool assert_mode) {
   using Check = WellFormednessVerifier::Check;
   for (Check check :
-       {Check::kVariables, Check::kTensors, Check::kTensorLoadType, Check::kLoopControl}) {
+       {Check::kVariables, Check::kTensors, Check::kTensorLoadType, Check::kStatements}) {
     if (!ffi::make_object<WellFormednessVerifier>(check, assert_mode)->Run(node)) return false;
   }
   return true;

@@ -722,6 +722,15 @@ def LowerThreadAllreduce():
     return _ffi_api.LowerThreadAllreduce()
 
 
+def MakeStmtUnique():
+    """Give each statement occurrence in a function a distinct identity.
+
+    Variables and expressions retain their identity. A function whose statements
+    are already unique is returned unchanged.
+    """
+    return _ffi_api.MakeStmtUnique()  # type: ignore
+
+
 def ConvertSSA():
     """Give every variable definition in an IRModule a distinct identity.
 
