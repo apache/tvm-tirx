@@ -210,16 +210,37 @@ class TestVector(BaseCompare):
         TestCase(
             tdiv(tvm_tirx.ir.prim.vector_expr.Ramp(x, 4, 4), 2),
             tvm_tirx.ir.prim.vector_expr.Ramp(tdiv(x, 2), 2, 4),
+            x >= 0,
         ),
+        TestCase(
+            tdiv(tvm_tirx.ir.prim.vector_expr.Ramp(x, 4, 4), 2),
+            tdiv(tvm_tirx.ir.prim.vector_expr.Ramp(x, 4, 4), 2),
+        ),  # Example negative case: x = -1; [-1, 3, 7, 11] / 2 = [0, 1, 3, 5] != [0, 2, 4, 6]
         TestCase(
             tdiv(tvm_tirx.ir.prim.vector_expr.Ramp(x, 4, tirx.vscale() * 5), 2),
             tvm_tirx.ir.prim.vector_expr.Ramp(tdiv(x, 2), 2, tirx.vscale() * 5),
+            x >= 0,
+        ),
+        TestCase(
+            tdiv(tvm_tirx.ir.prim.vector_expr.Ramp(x, -4, 2), 2),
+            tdiv(tvm_tirx.ir.prim.vector_expr.Ramp(x, -4, 2), 2),
+            x >= 0,
+        ),  # Example negative case: x = 1; [1, -3] / 2 = [0, -1] != [0, -2]
+        TestCase(
+            tdiv(tvm_tirx.ir.prim.vector_expr.Ramp(x, -4, 2), 2),
+            tvm_tirx.ir.prim.vector_expr.Ramp(tdiv(x, 2), -2, 2),
+            x <= 0,
         ),
         TestCase(
             tdiv(tvm_tirx.ir.prim.vector_expr.Ramp(x * 8 + 1, 1, 4), 8),
             x.astype("int32x4"),
             x >= 0,
         ),
+        TestCase(
+            tdiv(tvm_tirx.ir.prim.vector_expr.Ramp(x * 4, -1, 2), 4),
+            tdiv(tvm_tirx.ir.prim.vector_expr.Ramp(x * 4, -1, 2), 4),
+            x >= 0,
+        ),  # Example negative case: x = 1; [4, 3] / 4 = [1, 0] != [1, 1]
         TestCase(
             tdiv(tvm_tirx.ir.prim.vector_expr.Ramp(x * 8 + 15, 1, 4), 8),
             tdiv(tvm_tirx.ir.prim.vector_expr.Ramp(x * 8 + 15, 1, 4), 8),
@@ -229,12 +250,37 @@ class TestVector(BaseCompare):
         TestCase(
             tmod(tvm_tirx.ir.prim.vector_expr.Ramp(x, 4, 4), 2),
             tvm_tirx.ir.prim.vector_expr.Broadcast(tmod(x, 2), 4),
+            x >= 0,
+        ),
+        TestCase(
+            tmod(tvm_tirx.ir.prim.vector_expr.Ramp(x, 4, 4), 2),
+            tmod(tvm_tirx.ir.prim.vector_expr.Ramp(x, 4, 4), 2),
+        ),  # Example negative case: x = -1; [-1, 3, 7, 11] % 2 = [-1, 1, 1, 1] != [-1, -1, -1, -1]
+        TestCase(
+            tmod(tvm_tirx.ir.prim.vector_expr.Ramp(x, -4, 2), 2),
+            tmod(tvm_tirx.ir.prim.vector_expr.Ramp(x, -4, 2), 2),
+            x >= 0,
+        ),  # Example negative case: x = 1; [1, -3] % 2 = [1, -1] != [1, 1]
+        TestCase(
+            tmod(tvm_tirx.ir.prim.vector_expr.Ramp(x, -4, 2), 2),
+            tvm_tirx.ir.prim.vector_expr.Broadcast(tmod(x, 2), 2),
+            x <= 0,
         ),
         TestCase(
             tmod(tvm_tirx.ir.prim.vector_expr.Ramp(x * 8 + 1, 1, 4), 8),
             tvm_tirx.ir.prim.vector_expr.Ramp(1, 1, 4),
             x >= 0,
         ),
+        TestCase(
+            tmod(tvm_tirx.ir.prim.vector_expr.Ramp(x * 4, -1, 2), 4),
+            tmod(tvm_tirx.ir.prim.vector_expr.Ramp(x * 4, -1, 2), 4),
+            x >= 0,
+        ),  # Example negative case: x = 1; [4, 3] % 4 = [0, 3] != [0, -1]
+        TestCase(
+            tmod(tvm_tirx.ir.prim.vector_expr.Ramp(x * 2, -5, 2), 2),
+            tmod(tvm_tirx.ir.prim.vector_expr.Ramp(x * 2, -5, 2), 2),
+            x >= 0,
+        ),  # Example negative case: x = 3; [6, 1] % 2 = [0, 1] != [0, -1]
         TestCase(
             tmod(tvm_tirx.ir.prim.vector_expr.Ramp(x * 8 + 1, 1, tirx.vscale() * 4), 8),
             tmod(tvm_tirx.ir.prim.vector_expr.Ramp(1, 1, tirx.vscale() * 4), 8),
@@ -372,6 +418,60 @@ class TestVector(BaseCompare):
                 tvm_tirx.ir.prim.vector_expr.Broadcast(64, 4),
             ),
         ),  # Example negative case: x = 9; [63, 70, 77, 84] % 64 = [0, 1, 1, 1]
+        TestCase(
+            fld(
+                tvm_tirx.ir.prim.vector_expr.Ramp(x, -5, 2),
+                tvm_tirx.ir.prim.vector_expr.Broadcast(-8, 2),
+            ),
+            fld(
+                tvm_tirx.ir.prim.vector_expr.Ramp(x, -5, 2),
+                tvm_tirx.ir.prim.vector_expr.Broadcast(-8, 2),
+            ),
+        ),  # Example negative case: x = 1; [1, -4] // -8 = [-1, 0] != [-1, -1]
+        TestCase(
+            fld(
+                tvm_tirx.ir.prim.vector_expr.Ramp(x * 4, -1, 5),
+                tvm_tirx.ir.prim.vector_expr.Broadcast(-8, 5),
+            ),
+            fld(
+                tvm_tirx.ir.prim.vector_expr.Ramp(x * 4, -1, 5),
+                tvm_tirx.ir.prim.vector_expr.Broadcast(-8, 5),
+            ),
+        ),  # Example negative case: x = 1; [4, 3, 2, 1, 0] // -8 = [-1, -1, -1, -1, 0]
+        TestCase(
+            fld(
+                tvm_tirx.ir.prim.vector_expr.Ramp(x * 4 + 3, -1, 4),
+                tvm_tirx.ir.prim.vector_expr.Broadcast(64, 4),
+            ),
+            tvm_tirx.ir.prim.vector_expr.Broadcast(fld(x, 16), 4),
+        ),
+        TestCase(
+            fld(
+                tvm_tirx.ir.prim.vector_expr.Ramp(x * 4, 1, 2),
+                tvm_tirx.ir.prim.vector_expr.Broadcast(-8, 2),
+            ),
+            fld(
+                tvm_tirx.ir.prim.vector_expr.Ramp(x * 4, 1, 2),
+                tvm_tirx.ir.prim.vector_expr.Broadcast(-8, 2),
+            ),
+        ),  # Example negative case: x = 0; [0, 1] // -8 = [0, -1] != [0, 0]
+        TestCase(
+            fld(
+                tvm_tirx.ir.prim.vector_expr.Ramp(x * 4 + 1, -1, 2),
+                tvm_tirx.ir.prim.vector_expr.Broadcast(-8, 2),
+            ),
+            fld(
+                tvm_tirx.ir.prim.vector_expr.Ramp(x * 4 + 1, -1, 2),
+                tvm_tirx.ir.prim.vector_expr.Broadcast(-8, 2),
+            ),
+        ),  # Example negative case: x = 0; [1, 0] // -8 = [-1, 0] != [-1, -1]
+        TestCase(
+            fld(
+                tvm_tirx.ir.prim.vector_expr.Ramp(x * 4 + 3, 1, 2),
+                tvm_tirx.ir.prim.vector_expr.Broadcast(-8, 2),
+            ),
+            tvm_tirx.ir.prim.vector_expr.Broadcast(fld(x * 4 + 3, -8), 2),
+        ),
         # floor mod
         TestCase(flm(y.astype("int32x2"), x.astype("int32x2")), flm(y, x).astype("int32x2")),
         TestCase(
@@ -492,6 +592,60 @@ class TestVector(BaseCompare):
                 tvm_tirx.ir.prim.vector_expr.Broadcast(64, 4),
             ),
         ),  # Example negative case: x = 9; [63, 70, 77, 84] % 64 = [63, 6, 13, 20]
+        TestCase(
+            flm(
+                tvm_tirx.ir.prim.vector_expr.Ramp(x, -5, 2),
+                tvm_tirx.ir.prim.vector_expr.Broadcast(-8, 2),
+            ),
+            flm(
+                tvm_tirx.ir.prim.vector_expr.Ramp(x, -5, 2),
+                tvm_tirx.ir.prim.vector_expr.Broadcast(-8, 2),
+            ),
+        ),  # Example negative case: x = 1; [1, -4] % -8 = [-7, -4] != [-7, -12]
+        TestCase(
+            flm(
+                tvm_tirx.ir.prim.vector_expr.Ramp(x * 4, -1, 5),
+                tvm_tirx.ir.prim.vector_expr.Broadcast(-8, 5),
+            ),
+            flm(
+                tvm_tirx.ir.prim.vector_expr.Ramp(x * 4, -1, 5),
+                tvm_tirx.ir.prim.vector_expr.Broadcast(-8, 5),
+            ),
+        ),  # Example negative case: x = 1; [4, 3, 2, 1, 0] % -8 = [-4, -5, -6, -7, 0]
+        TestCase(
+            flm(
+                tvm_tirx.ir.prim.vector_expr.Ramp(x * 4 + 3, -1, 4),
+                tvm_tirx.ir.prim.vector_expr.Broadcast(64, 4),
+            ),
+            tvm_tirx.ir.prim.vector_expr.Ramp(flm(x, 16) * 4 + 3, -1, 4),
+        ),
+        TestCase(
+            flm(
+                tvm_tirx.ir.prim.vector_expr.Ramp(x * 4, 1, 2),
+                tvm_tirx.ir.prim.vector_expr.Broadcast(-8, 2),
+            ),
+            flm(
+                tvm_tirx.ir.prim.vector_expr.Ramp(x * 4, 1, 2),
+                tvm_tirx.ir.prim.vector_expr.Broadcast(-8, 2),
+            ),
+        ),  # Example negative case: x = 0; [0, 1] % -8 = [0, -7] != [0, 1]
+        TestCase(
+            flm(
+                tvm_tirx.ir.prim.vector_expr.Ramp(x * 4 + 1, -1, 2),
+                tvm_tirx.ir.prim.vector_expr.Broadcast(-8, 2),
+            ),
+            flm(
+                tvm_tirx.ir.prim.vector_expr.Ramp(x * 4 + 1, -1, 2),
+                tvm_tirx.ir.prim.vector_expr.Broadcast(-8, 2),
+            ),
+        ),  # Example negative case: x = 0; [1, 0] % -8 = [-7, 0] != [-7, -8]
+        TestCase(
+            flm(
+                tvm_tirx.ir.prim.vector_expr.Ramp(x * 4 + 3, 1, 2),
+                tvm_tirx.ir.prim.vector_expr.Broadcast(-8, 2),
+            ),
+            tvm_tirx.ir.prim.vector_expr.Ramp(flm(x * 4 + 3, -8), 1, 2),
+        ),
         # Min/Max rules
         TestCase(
             tvm_tirx.tirx.min(y.astype("int32x2"), x.astype("int32x2")),
