@@ -16,7 +16,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import ctypes
 import os
+import re
 import shlex
 import shutil
 import subprocess
@@ -30,7 +32,13 @@ import tvm_ffi
 import tvm_tirx
 import tvm_tirx.support.nvcc
 import tvm_tirx.testing
-from tvm_tirx.backend.cuda import bind_cubin, build_cuda_host, export_cuda_host, jit_cuda_host
+from tvm_tirx.backend.cuda import (
+    bind_cubin,
+    build_cuda_host,
+    build_cuda_host_object,
+    export_cuda_host,
+    jit_cuda_host,
+)
 from tvm_tirx.script import tirx as T
 from tvm_tirx.testing import env
 
@@ -110,6 +118,22 @@ def test_cubin_binding_diagnostics():
     with pytest.raises(ValueError, match=r"mixed_kernel.*also defined by an import"):
         tvm_tirx.compile(program, target=target)
 
+    if sys.platform == "linux" and tvm_tirx.runtime.enabled("llvm"):
+        llvm = target.with_host("llvm")
+        with pytest.raises(ValueError, match="only host functions"):
+            build_cuda_host_object(bound, target=llvm, cubin=image)
+        with pytest.raises(ValueError, match="only host functions"):
+            build_cuda_host_object(mixed, target=llvm, cubin=image)
+
+        @T.function
+        def cooperative(x: T.Tensor((1,), T.int32)):
+            T.cuda.launch("fill", (x.data,), T.cuda.LaunchConfig(grid=1, block=1, cooperative=True))
+
+        with pytest.raises(
+            ValueError, match=r"Unsupported direct CUDA launch attributes.*cooperative"
+        ):
+            build_cuda_host_object(cooperative, target=llvm, cubin=image)
+
 
 @pytest.fixture(scope="module")
 def cubin():
@@ -187,7 +211,8 @@ np.testing.assert_array_equal(y.numpy(), values + 1)
 
 @pytest.mark.gpu
 @pytest.mark.skipif(sys.platform != "linux" or not env.has_cuda(), reason="requires Linux and CUDA")
-def test_standalone_raw_cubin(cubin, tmp_path):
+@pytest.mark.parametrize("host_kind", ["cuda_host", "llvm"])
+def test_standalone_raw_cubin(host_kind, cubin, tmp_path):
     """A native TVM-FFI process can run a single deployed library."""
     from tvm_ffi import libinfo
 
@@ -213,17 +238,67 @@ def test_standalone_raw_cubin(cubin, tmp_path):
                 ),
             )
 
-    target = tvm_tirx.target.Target({"kind": "cuda", "arch": env.cuda_arch()}, host="cuda_host")
-    host = tvm_tirx.compile(wrapper, target=target).mod
-    assert not host.imports
-    library = shutil.copyfile(build_cuda_host(host, cubin=cubin), tmp_path / "wrapper.so")
-
+    target = tvm_tirx.target.Target({"kind": "cuda", "arch": env.cuda_arch()}, host=host_kind)
     cuda = Path(find_cuda_path())
     ffi_lib = Path(libinfo.find_libtvm_ffi()).parent
+    cxx = shlex.split(os.environ.get("CXX") or "c++")
+    library = tmp_path / "wrapper.so"
+    if host_kind == "llvm":
+        orc = pytest.importorskip("tvm_ffi_orcjit")
+        obj = build_cuda_host_object(wrapper, target=target, cubin=cubin)
+        path = tmp_path / "wrapper.o"
+        path.write_bytes(obj)
+        # Find the relocation in the LLVM wrapper (the compute block may be outlined).
+        disasm = subprocess.check_output(["objdump", "-dr", path], text=True)
+        blocks = re.split(r"(?m)^[0-9a-f]+ <([^>]+)>:$", disasm)
+        assert any(
+            "wrapper" in name and re.search(r"\bR_\S+\s+cuLaunchKernelEx\b", body)
+            for name, body in zip(blocks[1::2], blocks[2::2], strict=True)
+        )
+        relocs = subprocess.check_output(["readelf", "-Wr", path], text=True)
+        assert "TVMBackend" not in relocs and "TVMFFIEnvModLookupFromImports" not in relocs
+        subprocess.run(
+            [
+                *cxx,
+                "-shared",
+                "-Wl,-z,defs",
+                path,
+                f"-L{ffi_lib}",
+                "-ltvm_ffi",
+                f"-L{cuda / 'lib64'}",
+                "-lcuda",
+                "-lcudart",
+                "-o",
+                library,
+            ],
+            check=True,
+        )
+        ctypes.CDLL("libcuda.so.1", mode=ctypes.RTLD_GLOBAL)
+        ctypes.CDLL(str(cuda / "lib64/libcudart.so"), mode=ctypes.RTLD_GLOBAL)
+        run = orc.default_session().load_module(obj)["wrapper"]
+        dev = tvm_tirx.cuda(0)
+        stream = dev.create_raw_stream()
+        try:
+            values = np.arange(513, dtype="float32")
+            x = tvm_tirx.runtime.tensor(values, dev)
+            y = tvm_tirx.runtime.empty(values.shape, "float32", dev)
+            with tvm_ffi.use_raw_stream(dev, stream):
+                with pytest.raises(RuntimeError, match=r"cuLaunchKernelEx: .*invalid"):
+                    run(x, y, 2048)
+                run(x, y, 64)
+                dev.sync(stream)
+            np.testing.assert_array_equal(y.numpy(), values + 1)
+        finally:
+            dev.free_raw_stream(stream)
+    else:
+        host = tvm_tirx.compile(wrapper, target=target).mod
+        assert not host.imports
+        shutil.copyfile(build_cuda_host(host, cubin=cubin), library)
+
     runner = tmp_path / "runner"
     subprocess.run(
         [
-            *shlex.split(os.environ.get("CXX") or "c++"),
+            *cxx,
             "-std=c++17",
             Path(__file__).with_name("standalone_cubin_runner.cc"),
             *[f"-I{inc}" for inc in libinfo.include_paths()],

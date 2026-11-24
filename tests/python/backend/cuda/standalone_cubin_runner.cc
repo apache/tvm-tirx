@@ -22,7 +22,9 @@
 #include <tvm/ffi/extra/module.h>
 
 #include <cstdint>
+#include <fstream>
 #include <numeric>
+#include <string>
 #include <vector>
 
 int main(int argc, char** argv) {
@@ -51,8 +53,11 @@ int main(int argc, char** argv) {
       TVM_FFI_ICHECK_EQ(output[i], input[i] + 1);
     }
   }
-  // These registry entries would be available if the TIRx runtimes had been loaded.
-  TVM_FFI_ICHECK(!tvm::ffi::Function::GetGlobal("runtime.LoadMetaDataFromJSON"));
-  TVM_FFI_ICHECK(!tvm::ffi::Function::GetGlobal("ffi.Module.load_from_bytes.cuda"));
+  std::ifstream maps("/proc/self/maps");
+  TVM_FFI_ICHECK(maps.is_open());
+  for (std::string line; std::getline(maps, line);) {
+    TVM_FFI_ICHECK(line.find("/libtvm_runtime") == std::string::npos);
+    TVM_FFI_ICHECK(line.find("/libtvm_tirx") == std::string::npos);
+  }
   return 0;
 }
