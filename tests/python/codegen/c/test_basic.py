@@ -434,6 +434,16 @@ def test_string_literal_escapes(message, index, tmp_path):
     assert out.numpy()[0] == expected[index]
 
 
+def test_call_extern_header():
+    @T.function
+    def string_length() -> T.uint64:
+        return T.call_extern("strlen", "abc", ty="uint64", attrs={"c_header": "string.h"})
+
+    executable = tvm_tirx.compile(string_length, target="c")
+    assert "#include <string.h>" in executable.mod.inspect_source()
+    assert executable() == 3
+
+
 def test_decl_tensor_stack_initializer():
     @T.function
     def stack_initializer(Out: T.Tensor((2,), "int64")):

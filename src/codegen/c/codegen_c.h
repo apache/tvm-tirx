@@ -384,6 +384,8 @@ class CodeGenC : public tvm::ExprFunctor<void(const Expr&, std::ostream&)>,
  private:
   /*! \brief set of volatile buf access */
   std::unordered_set<const VarObj*> volatile_buf_;
+  /*! \brief Declaration headers already emitted for external C calls. */
+  std::unordered_set<std::string> extern_headers_;
 
   // deep comparison of PrimExpr
   prim::ExprDeepEqual deep_equal_;

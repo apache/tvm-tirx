@@ -29,6 +29,7 @@ Functions
 .. autosummary::
    :toctree: generated/
 
+   LowerCUDAHostLaunch
    LowerIket
    BindBackendConfig
    SpecializeDeviceHelpers

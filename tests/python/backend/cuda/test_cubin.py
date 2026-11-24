@@ -135,6 +135,32 @@ def test_cubin_binding_diagnostics():
             build_cuda_host_object(cooperative, target=llvm, cubin=image)
 
 
+@pytest.mark.skipif(not tvm_tirx.runtime.enabled("llvm"), reason="requires LLVM codegen")
+def test_same_lowered_host_ir_for_c_and_llvm():
+    from tvm_tirx.backend.cuda.transform import LowerCUDAHostLaunch
+    from tvm_tirx.tirx._compile import _split_host_device_modules
+
+    mod = tvm_tirx.IRModule.from_expr(_wrapper())
+    target = tvm_tirx.target.Target({"kind": "cuda", "arch": "sm_80"}, host="c")
+    pipeline, finalize_host, _ = tvm_tirx.tirx.get_default_tir_pipeline(
+        target, mod, target_to_bind=target
+    )
+    host, devices = _split_host_device_modules(pipeline(mod))
+    assert not devices and "call_ffi_kernel" in host.script()
+    shared = finalize_host()(LowerCUDAHostLaunch()(host))
+    assert "call_ffi_kernel" not in shared.script()
+
+    # Feed the very same IRModule to both ordinary code generators.
+    c = tvm_tirx.codegen.build_module(shared, tvm_tirx.target.Target("c")).inspect_source()
+    llvm = tvm_tirx.codegen.build_module(shared, tvm_tirx.target.Target("llvm")).inspect_source(
+        "ll"
+    )
+    assert c.count("#include <cuda.h>") == 1
+    assert "cuLaunchKernelEx(" in c and "cuGetErrorString(" in c
+    assert re.search(r"call .*@cuLaunchKernelEx\(", llvm)
+    assert "TVMFFIEnvModLookupFromImports(" not in c
+
+
 @pytest.fixture(scope="module")
 def cubin():
     from tvm_tirx.backend.cuda.compiler import compile_source
@@ -144,7 +170,9 @@ def cubin():
         'extern "C" __global__ void add_one(const float* x, float* y, int n) {'
         "  int i = blockIdx.x * blockDim.x + threadIdx.x;"
         "  if (i < n) y[i] = x[i] + 1;"
-        "}",
+        "}"
+        'extern "C" __global__ void write_bits(unsigned short* out, unsigned short x, '
+        "                                   unsigned short y) { out[0] = x; out[1] = y; }",
         {"cuda": {"compiler": "nvrtc", "target_format": "cubin"}},
         target=tvm_tirx.target.Target({"kind": "cuda", "arch": env.cuda_arch()}),
     ).binary
@@ -211,7 +239,7 @@ np.testing.assert_array_equal(y.numpy(), values + 1)
 
 @pytest.mark.gpu
 @pytest.mark.skipif(sys.platform != "linux" or not env.has_cuda(), reason="requires Linux and CUDA")
-@pytest.mark.parametrize("host_kind", ["cuda_host", "llvm"])
+@pytest.mark.parametrize("host_kind", ["c", "llvm", "cuda_host"])
 def test_standalone_raw_cubin(host_kind, cubin, tmp_path):
     """A native TVM-FFI process can run a single deployed library."""
     from tvm_ffi import libinfo
@@ -243,12 +271,12 @@ def test_standalone_raw_cubin(host_kind, cubin, tmp_path):
     ffi_lib = Path(libinfo.find_libtvm_ffi()).parent
     cxx = shlex.split(os.environ.get("CXX") or "c++")
     library = tmp_path / "wrapper.so"
-    if host_kind == "llvm":
+    if host_kind in ("c", "llvm"):
         orc = pytest.importorskip("tvm_ffi_orcjit")
         obj = build_cuda_host_object(wrapper, target=target, cubin=cubin)
         path = tmp_path / "wrapper.o"
         path.write_bytes(obj)
-        # Find the relocation in the LLVM wrapper (the compute block may be outlined).
+        # Find the relocation in the compiled wrapper (the compute block may be outlined).
         disasm = subprocess.check_output(["objdump", "-dr", path], text=True)
         blocks = re.split(r"(?m)^[0-9a-f]+ <([^>]+)>:$", disasm)
         assert any(
@@ -314,3 +342,29 @@ def test_standalone_raw_cubin(host_kind, cubin, tmp_path):
         check=True,
     )
     subprocess.run([runner, library], cwd=tmp_path, check=True)
+
+
+@pytest.mark.gpu
+@pytest.mark.skipif(sys.platform != "linux" or not env.has_cuda(), reason="requires Linux and CUDA")
+@pytest.mark.parametrize("host", ["c", "llvm"])
+def test_standalone_16bit_scalar_arguments(host, cubin):
+    from tvm_tirx.support.nvcc import find_cuda_path
+
+    orc = pytest.importorskip("tvm_ffi_orcjit")
+
+    @T.function
+    def scalar_bits(out: T.Tensor((2,), T.uint16), value: T.float32):
+        T.cuda.launch(
+            "write_bits",
+            (out.data, T.Cast("float16", value), T.Cast("bfloat16", value)),
+            T.cuda.LaunchConfig(grid=1, block=1),
+        )
+
+    target = tvm_tirx.target.Target({"kind": "cuda", "arch": env.cuda_arch()}, host=host)
+    obj = build_cuda_host_object(scalar_bits, target=target, cubin=cubin)
+    ctypes.CDLL("libcuda.so.1", mode=ctypes.RTLD_GLOBAL)
+    ctypes.CDLL(str(Path(find_cuda_path()) / "lib64/libcudart.so"), mode=ctypes.RTLD_GLOBAL)
+    run = orc.default_session().load_module(obj)["scalar_bits"]
+    out = tvm_tirx.runtime.empty((2,), "uint16", tvm_tirx.cuda(0))
+    run(out, 1.5)
+    np.testing.assert_array_equal(out.numpy(), [0x3E00, 0x3FC0])

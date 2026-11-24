@@ -74,6 +74,7 @@ Functions
 
    bind_cubin
    build_cuda_host
+   build_cuda_host_object
    export_cuda_host
    jit_cuda_host
    register_backend
@@ -160,3 +161,25 @@ launch parameters without a TIRx CUDA module or a separate metadata file.
 For in-process use, ``jit_cuda_host(host, cubin=image)`` also loads the
 compiled library. For programs that already carry device imports, omit
 ``cubin`` to embed the imported images instead.
+
+Standalone C and LLVM host objects
+----------------------------------
+
+For a host-only wrapper and one raw cubin, choose either standard host backend.
+Both consume the same lowering of the launch to C ABI calls, including
+``cuLaunchKernelEx``. Set ``host="c"`` for the system C compiler or
+``host="llvm"`` for LLVM object emission.
+
+.. code-block:: python
+
+   from tvm_tirx.backend.cuda import build_cuda_host_object
+
+   target = tvm_tirx.target.Target("cuda", host="c")
+   obj = build_cuda_host_object(wrapper, cubin=Path("add_one.cubin").read_bytes(), target=target)
+   Path("wrapper.o").write_bytes(obj)
+
+The relocatable object embeds the cubin and can be linked into a shared library
+with TVM-FFI, the CUDA driver, cudart and the system C++ runtime. TVM-FFI ORC
+can also load the object bytes when the CUDA libraries are visible to the process.
+The direct object build supports native 64-bit Linux, pointer and scalar kernel
+arguments, and per-call grid, block, stream and dynamic shared memory.

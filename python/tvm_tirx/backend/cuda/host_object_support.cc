@@ -17,6 +17,8 @@
  * under the License.
  */
 
+#include "host_object_support.h"
+
 #define TVM_FFI_CUBIN_LAUNCHER_USE_DRIVER_API 1
 #include <tvm/ffi/extra/c_env_api.h>
 #include <tvm/ffi/extra/cuda/cubin_launcher.h>
