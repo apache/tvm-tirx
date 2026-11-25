@@ -130,7 +130,20 @@ def build_cuda_host_object(mod, *, cubin: bytes, target) -> bytes:
         # ORC cannot resolve hidden compiler-rt/libgcc helpers from the process.
         compiler_rt = subprocess.check_output([*cxx, "-print-libgcc-file-name"], text=True).strip()
         subprocess.run(
-            [*cxx, "-nostdlib", "-r", "host.o", support, "image.o", compiler_rt, "-o", "wrapper.o"],
+            [
+                *cxx,
+                "-nostdlib",
+                "-r",
+                # GNU ld can assign a VMA to libgcc's non-allocated build notes.
+                # Keep it zero so ORC does not map the notes over unwind records.
+                "-Wl,--section-start=.gnu.build.attributes=0",
+                "host.o",
+                support,
+                "image.o",
+                compiler_rt,
+                "-o",
+                "wrapper.o",
+            ],
             cwd=work,
             check=True,
         )
