@@ -107,6 +107,15 @@ class ComputeLegalizePlanner : public StmtExprVisitor {
         opaque_var_access_.insert(tensor.value());
       }
     }
+    // A tensor whose elements are bit-reinterpreted (e.g. bf16 -> int16 operands of a matrix
+    // instruction) must keep its storage type: promoting it would change the bit pattern.
+    if (op->op.same_as(tirx::reinterpret_op()) && op->args.size() == 1) {
+      if (const auto* load = op->args[0].as<TensorLoadObj>()) {
+        if (auto tensor = load->source.as<Var>()) {
+          opaque_var_access_.insert(tensor.value());
+        }
+      }
+    }
     return StmtExprVisitor::Visit_(op);
   }
 
