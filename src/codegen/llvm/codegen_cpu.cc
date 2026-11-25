@@ -108,6 +108,8 @@ void CodeGenCPU::Init(const std::string& module_name, LLVMTarget* llvm_target,
                                            llvmGetPointerTo(t_tvm_shape_index_, 0), t_int64_});
   // Defined in include/tvm/ffi/c_api.h:
   t_tvm_ffi_any_ = llvm::StructType::create({t_int32_, t_int32_, t_float64_});
+  // TVMFFIObject holds a 64-bit reference count, a type index, padding and a deleter union.
+  t_tvm_ffi_object_ = llvm::StructType::create({t_int64_, t_int32_, t_int32_, t_int64_});
   // Defined in include/tvm/runtime/c_backend_api.h:
   // typedef struct { void* sync_handle; int32_t num_task; } TVMParallelGroupEnv;
   t_tvm_parallel_group_env_ = llvm::StructType::create({llvmGetPointerTo(t_int32_, 0), t_int32_});
@@ -236,6 +238,9 @@ void CodeGenCPU::AddFunction(const GlobalVar& gvar, const Function& func) {
     DeclareFunction(gvar, func);
     return;
   }
+  managed_object_frame_ = managed_any_frame_ = llvm::ConstantPointerNull::get(t_void_p_);
+  managed_object_slot_count_ = managed_any_slot_count_ = 0;
+  managed_frame_function_ = nullptr;
   di_subprogram_ = CreateDebugFunction(gvar, func);
   EmitDebugLocation(func->loc);
   CodeGenLLVM::AddFunction(gvar, func);
@@ -378,6 +383,11 @@ CodeGenLLVM::TypedPointer CodeGenCPU::CreateStructRefPtr(Type type, llvm::Value*
       buf = builder_->CreateInBoundsGEP(t_tvm_ffi_any_, buf, {index, ConstInt32(0)});
       return TypedPointer(t_int32_, buf);
     }
+    case tirx::kTVMFFIObjectTypeIndex: {
+      buf = builder_->CreatePointerCast(buf, llvmGetPointerTo(t_tvm_ffi_object_, 0));
+      buf = builder_->CreateInBoundsGEP(t_tvm_ffi_object_, buf, {index, ConstInt32(1)});
+      return TypedPointer(t_int32_, buf);
+    }
     case tirx::kTVMFFIAnyZeroPadding: {
       buf = builder_->CreatePointerCast(buf, llvmGetPointerTo(t_tvm_ffi_any_, 0));
       buf = builder_->CreateInBoundsGEP(t_tvm_ffi_any_, buf, {index, ConstInt32(1)});
@@ -387,7 +397,7 @@ CodeGenLLVM::TypedPointer CodeGenCPU::CreateStructRefPtr(Type type, llvm::Value*
       buf = builder_->CreatePointerCast(buf, llvmGetPointerTo(t_tvm_ffi_any_, 0));
       // field 2 is the union value
       buf = builder_->CreateInBoundsGEP(t_tvm_ffi_any_, buf, {index, ConstInt32(2)});
-      if (type.as<PtrTypeObj>()) {
+      if (type.as<PtrTypeObj>() || type.as<ObjectTypeObj>()) {
         buf = builder_->CreatePointerCast(buf, llvmGetPointerTo(t_void_p_, 0));
         return TypedPointer(t_void_p_, buf);
       }
@@ -408,6 +418,10 @@ CodeGenLLVM::TypedPointer CodeGenCPU::CreateStructRefPtr(Type type, llvm::Value*
       TVM_FFI_THROW(InternalError)
           << "Type " << type << " cannot be stored into a TVMFFIAny's value field";
     }
+    case tirx::kTVMFFIAnyValue:
+      return TypedPointer(t_tvm_ffi_any_, builder_->CreateInBoundsGEP(t_tvm_ffi_any_, buf, index));
+    case tirx::kTVMFFIObjectHandle:
+      return TypedPointer(t_void_p_, builder_->CreateInBoundsGEP(t_void_p_, buf, index));
     case tirx::kInt64ArrayElem: {
       buf = builder_->CreatePointerCast(buf, llvmGetPointerTo(t_int64_, 0));
       llvm::Value* elem_addr = builder_->CreateInBoundsGEP(t_int64_, buf, index);
@@ -509,7 +523,7 @@ void CodeGenCPU::InitGlobalContext(bool dynamic_lookup) {
   }
 }
 
-llvm::BasicBlock* CodeGenCPU::CheckCallSuccess(llvm::Value* retcode) {
+llvm::BasicBlock* CodeGenCPU::CheckCallSuccess(llvm::Value* retcode, llvm::Value* scratch_result) {
   // create emit codes that checks and load the function.
   llvm::LLVMContext* ctx = llvm_target_->GetContext();
   auto* fail_block = llvm::BasicBlock::Create(*ctx, "call_fail", function_);
@@ -518,6 +532,7 @@ llvm::BasicBlock* CodeGenCPU::CheckCallSuccess(llvm::Value* retcode) {
   builder_->CreateCondBr(succ, end_block, fail_block, md_very_likely_branch_);
   builder_->SetInsertPoint(fail_block);
   // return the code.
+  EmitManagedErrorCleanup(scratch_result);
   builder_->CreateRet(retcode);
   // otherwise set it to be new end.
   builder_->SetInsertPoint(end_block);
@@ -811,9 +826,8 @@ CodeGenCPU::PackedCall CodeGenCPU::MakeCallPackedLowered(const ffi::Array<Expr>&
   llvm::Value* packed_args = builder_->CreateInBoundsGEP(
       t_tvm_ffi_any_, builder_->CreatePointerCast(stack_args, llvmGetPointerTo(t_tvm_ffi_any_, 0)),
       ConstInt32(begin));
-  llvm::Value* result = builder_->CreateInBoundsGEP(
-      t_tvm_ffi_any_, builder_->CreatePointerCast(stack_args, llvmGetPointerTo(t_tvm_ffi_any_, 0)),
-      ConstInt32(end));
+  llvm::Value* result =
+      builder_->CreateInBoundsGEP(t_tvm_ffi_any_, MakeValue(args[4]), MakeValue(args[5]));
 
   llvm::FunctionType* callee_ftype = nullptr;
   llvm::Value* callee_value = nullptr;
@@ -829,8 +843,9 @@ CodeGenCPU::PackedCall CodeGenCPU::MakeCallPackedLowered(const ffi::Array<Expr>&
     callee_ftype = ftype_tvm_ffi_c_func_;
     callee_value = module_->getFunction(ffi::symbol::tvm_ffi_symbol_prefix + func_name);
     if (callee_value == nullptr) {
-      callee_value = llvm::Function::Create(ftype_tvm_ffi_c_func_, llvm::Function::ExternalLinkage,
-                                            func_name, module_.get());
+      callee_value =
+          llvm::Function::Create(ftype_tvm_ffi_c_func_, llvm::Function::ExternalLinkage,
+                                 ffi::symbol::tvm_ffi_symbol_prefix + func_name, module_.get());
     }
     call_args.push_back(llvm::ConstantPointerNull::get(t_void_p_));
     call_args.insert(call_args.end(), {packed_args, ConstInt32(nargs), result});
@@ -838,7 +853,7 @@ CodeGenCPU::PackedCall CodeGenCPU::MakeCallPackedLowered(const ffi::Array<Expr>&
   auto call_callee = llvm::FunctionCallee(callee_ftype, callee_value);
   llvm::Value* call = builder_->CreateCall(call_callee, call_args);
 
-  llvm::BasicBlock* end_block = CheckCallSuccess(call);
+  llvm::BasicBlock* end_block = CheckCallSuccess(call, args[1].same_as(args[4]) ? result : nullptr);
 
   PackedCall pc = {nullptr};
 
@@ -879,7 +894,6 @@ CodeGenCPU::PackedCall CodeGenCPU::MakeCallPackedLowered(const ffi::Array<Expr>&
 }
 
 llvm::Value* CodeGenCPU::CreateCallPacked(const CallObj* op) {
-  TVM_FFI_ICHECK_EQ(op->args.size(), 4U);
   bool use_string_lookup = op->op.same_as(tirx::call_packed_lowered_op());
   PackedCall pc = MakeCallPackedLowered(
       op->args, op->ty, static_cast<int64_t>(op->args[2].as<IntImmObj>()->value),
@@ -1013,7 +1027,229 @@ void CodeGenCPU::AddStartupFunction() {
   }
 }
 
+// ============================================================
+// Explicit managed frames and failure cleanup
+// ============================================================
+
+// Equivalent C value: (TVMFFIAny){kTVMFFINone, 0, {0}}.
+llvm::Constant* CodeGenCPU::ManagedNone() {
+  return llvm::ConstantStruct::get(t_tvm_ffi_any_, {ConstInt32(kTVMFFINone), ConstInt32(0),
+                                                    llvm::ConstantFP::get(t_float64_, 0.0)});
+}
+
+// On the caller failure path: cleanup(objects, object_count, anys, any_count).
+// The helper saves the primary error, clears/releases every occupied slot, then
+// restores the error. It is shared across functions and cannot use caller SSA.
+void CodeGenCPU::EmitManagedErrorCleanup(llvm::Value* scratch_result) {
+  bool has_frames = function_ == managed_frame_function_ &&
+                    (managed_object_slot_count_ || managed_any_slot_count_);
+  if (!has_frames && !scratch_result) return;
+  if (!managed_cleanup_) {
+    // Emit one internal cold helper per module, equivalent to:
+    //
+    // static void cleanup(TVMFFIObjectHandle* objects, int64_t nobj,
+    //                     TVMFFIAny* anys, int64_t nany) {
+    //   TVMFFIObjectHandle primary = NULL;
+    //   TVMFFIErrorMoveFromRaised(&primary);
+    //   for (int64_t i = 0; i < nobj; ++i) {
+    //     TVMFFIObjectHandle value = objects[i];
+    //     objects[i] = NULL;
+    //     if (value) TVMFFIObjectDecRef(value);
+    //   }
+    //   for (int64_t i = 0; i < nany; ++i) {
+    //     TVMFFIAny value = anys[i];
+    //     anys[i] = (TVMFFIAny){kTVMFFINone, 0, {0}};
+    //     if (value.type_index >= kTVMFFIStaticObjectBegin) TVMFFIObjectDecRef(value.v_obj);
+    //   }
+    //   TVMFFIErrorSetRaised(primary);
+    //   if (primary) TVMFFIObjectDecRef(primary);
+    // }
+    auto* ctx = llvm_target_->GetContext();
+    auto* ptr = t_void_p_;
+    auto* type = llvm::FunctionType::get(t_void_, {ptr, t_int64_, ptr, t_int64_}, false);
+    managed_cleanup_ = llvm::Function::Create(type, llvm::Function::InternalLinkage,
+                                              "__tvm_managed_cleanup_on_error", module_.get());
+    managed_cleanup_->addFnAttr(llvm::Attribute::Cold);
+    // An independent builder/context keeps helper functions out of the caller's frames.
+    llvm::IRBuilder<> local_builder(llvm::BasicBlock::Create(*ctx, "entry", managed_cleanup_));
+    auto runtime = [&](const char* name, llvm::Type* ret, std::vector<llvm::Value*> args) {
+      std::vector<llvm::Type*> types;
+      for (auto* arg : args) types.push_back(arg->getType());
+      return local_builder.CreateCall(
+          module_->getOrInsertFunction(name, llvm::FunctionType::get(ret, types, false)), args);
+    };
+    auto* primary = local_builder.CreateAlloca(ptr);
+    local_builder.CreateStore(llvm::ConstantPointerNull::get(ptr), primary);
+    runtime("TVMFFIErrorMoveFromRaised", t_void_, {primary});
+    auto arg = managed_cleanup_->arg_begin();
+    llvm::Value* objects = &*arg++;
+    llvm::Value* nobj = &*arg++;
+    llvm::Value* anys = &*arg++;
+    llvm::Value* nany = &*arg++;
+    auto scan = [&](llvm::Value* frame, llvm::Value* count, bool object) {
+      auto* entry = local_builder.GetInsertBlock();
+      auto* cond = llvm::BasicBlock::Create(*ctx, "scan", managed_cleanup_);
+      auto* body = llvm::BasicBlock::Create(*ctx, "cell", managed_cleanup_);
+      auto* release = llvm::BasicBlock::Create(*ctx, "release", managed_cleanup_);
+      auto* next = llvm::BasicBlock::Create(*ctx, "next", managed_cleanup_);
+      auto* end = llvm::BasicBlock::Create(*ctx, "end", managed_cleanup_);
+      local_builder.CreateBr(cond);
+      local_builder.SetInsertPoint(cond);
+      auto* index = local_builder.CreatePHI(t_int64_, 2);
+      index->addIncoming(llvm::ConstantInt::get(t_int64_, 0), entry);
+      local_builder.CreateCondBr(local_builder.CreateICmpULT(index, count), body, end);
+      local_builder.SetInsertPoint(body);
+      auto* cell_type = object ? static_cast<llvm::Type*>(ptr) : t_tvm_ffi_any_;
+      auto* cell = local_builder.CreateInBoundsGEP(cell_type, frame, index);
+      llvm::Value* value = local_builder.CreateLoad(cell_type, cell);
+      local_builder.CreateStore(
+          object ? static_cast<llvm::Constant*>(llvm::ConstantPointerNull::get(ptr))
+                 : ManagedNone(),
+          cell);
+      llvm::Value* present;
+      if (object)
+        present = local_builder.CreateIsNotNull(value);
+      else {
+        present = local_builder.CreateICmpSGE(local_builder.CreateExtractValue(value, 0),
+                                              ConstInt32(kTVMFFIStaticObjectBegin));
+        value = local_builder.CreateIntToPtr(
+            local_builder.CreateBitCast(local_builder.CreateExtractValue(value, 2), t_int64_), ptr);
+      }
+      local_builder.CreateCondBr(present, release, next);
+      local_builder.SetInsertPoint(release);
+      runtime("TVMFFIObjectDecRef", t_int_, {value});
+      local_builder.CreateBr(next);
+      local_builder.SetInsertPoint(next);
+      auto* incremented = local_builder.CreateAdd(index, llvm::ConstantInt::get(t_int64_, 1));
+      index->addIncoming(incremented, next);
+      local_builder.CreateBr(cond);
+      local_builder.SetInsertPoint(end);
+    };
+    scan(objects, nobj, true);
+    scan(anys, nany, false);
+    auto* error = local_builder.CreateLoad(ptr, primary);
+    runtime("TVMFFIErrorSetRaised", t_void_, {error});
+    auto* release = llvm::BasicBlock::Create(*ctx, "release_primary", managed_cleanup_);
+    auto* end = llvm::BasicBlock::Create(*ctx, "done", managed_cleanup_);
+    local_builder.CreateCondBr(local_builder.CreateIsNotNull(error), release, end);
+    local_builder.SetInsertPoint(release);
+    runtime("TVMFFIObjectDecRef", t_int_, {error});
+    local_builder.CreateBr(end);
+    local_builder.SetInsertPoint(end);
+    local_builder.CreateRetVoid();
+  }
+  if (scratch_result) {
+    // A failed call owns any partial output in its scratch result cell.
+    builder_->CreateCall(managed_cleanup_, {llvm::ConstantPointerNull::get(t_void_p_),
+                                            llvm::ConstantInt::get(t_int64_, 0), scratch_result,
+                                            llvm::ConstantInt::get(t_int64_, 1)});
+  }
+  if (has_frames) {
+    builder_->CreateCall(
+        managed_cleanup_,
+        {managed_object_frame_, llvm::ConstantInt::get(t_int64_, managed_object_slot_count_),
+         managed_any_frame_, llvm::ConstantInt::get(t_int64_, managed_any_slot_count_)});
+  }
+}
+
+void CodeGenCPU::Dispatch_(const BindObj* op) {
+  if (op->var->ty.as<AnyTypeObj>() || op->var->ty.as<ObjectTypeObj>()) {
+    // Borrowed aggregate SSA values have no primitive DWARF type. Their storage
+    // and ownership effects are already explicit in the lowered expression.
+    var_map_[op->var.get()] = MakeValue(op->value);
+    return;
+  }
+  CodeGenLLVM::Dispatch_(op);
+}
+
+// ============================================================
+// Ordinary intrinsic emission
+// ============================================================
+
+llvm::Value* CodeGenCPU::CreateIntrinAllocManagedFrame(const CallObj* op) {
+  bool object = op->op.same_as(tirx::alloc_object_frame_op());
+  auto*& frame = object ? managed_object_frame_ : managed_any_frame_;
+  auto& count = object ? managed_object_slot_count_ : managed_any_slot_count_;
+  managed_frame_function_ = function_;
+  count = op->args[0].as_or_throw<IntImm>()->value.as<int64_t>().value();
+  if (!count) return frame;
+
+  auto* type = object ? static_cast<llvm::Type*>(t_void_p_) : t_tvm_ffi_any_;
+  auto* empty = object ? static_cast<llvm::Constant*>(llvm::ConstantPointerNull::get(t_void_p_))
+                       : ManagedNone();
+  frame = builder_->CreateAlloca(type, llvm::ConstantInt::get(t_int64_, count));
+  for (int64_t i = 0; i < count; ++i) {
+    auto* slot = builder_->CreateInBoundsGEP(type, frame, llvm::ConstantInt::get(t_int64_, i));
+    builder_->CreateStore(empty, slot);
+  }
+  return frame;
+}
+
+llvm::Value* CodeGenCPU::CreateIntrinRetainAnySlot(const CallObj* op) {
+  auto* slot =
+      builder_->CreateInBoundsGEP(t_tvm_ffi_any_, MakeValue(op->args[0]), MakeValue(op->args[1]));
+  llvm::Value* borrowed;
+  const char* convert;
+  if (auto* literal = op->args[2].as<StringImmObj>()) {
+    auto* size_type = data_layout_->getIntPtrType(*llvm_target_->GetContext());
+    auto* view = llvm::ConstantStruct::getAnon(
+        {GetConstString(literal->value), llvm::ConstantInt::get(size_type, literal->value.size())});
+    borrowed = new llvm::GlobalVariable(*module_, view->getType(), true,
+                                        llvm::GlobalValue::PrivateLinkage, view, ".string_view");
+    convert = "TVMFFIStringFromByteArray";
+  } else {
+    borrowed = WithFunctionEntry([&]() { return builder_->CreateAlloca(t_tvm_ffi_any_); });
+    builder_->CreateStore(MakeValue(op->args[2]), borrowed);
+    convert = "TVMFFIAnyViewToOwnedAny";
+  }
+  CheckCallSuccess(builder_->CreateCall(
+      module_->getOrInsertFunction(convert,
+                                   llvm::FunctionType::get(t_int_, {t_void_p_, t_void_p_}, false)),
+      {borrowed, slot}));
+  return ConstInt32(0);
+}
+
+llvm::Value* CodeGenCPU::CreateIntrinDropObjectSlot(const CallObj* op) {
+  auto* slot =
+      builder_->CreateInBoundsGEP(t_void_p_, MakeValue(op->args[0]), MakeValue(op->args[1]));
+  auto* object = builder_->CreateLoad(t_void_p_, slot);
+  builder_->CreateStore(llvm::ConstantPointerNull::get(t_void_p_), slot);
+  return CreateConditionalDecRef(object, builder_->CreateIsNotNull(object));
+}
+
+llvm::Value* CodeGenCPU::CreateIntrinDropAnySlot(const CallObj* op) {
+  auto* slot =
+      builder_->CreateInBoundsGEP(t_tvm_ffi_any_, MakeValue(op->args[0]), MakeValue(op->args[1]));
+  auto* value = builder_->CreateLoad(t_tvm_ffi_any_, slot);
+  builder_->CreateStore(ManagedNone(), slot);
+  auto* is_object = builder_->CreateICmpSGE(builder_->CreateExtractValue(value, 0),
+                                            ConstInt32(kTVMFFIStaticObjectBegin));
+  auto* payload = builder_->CreateBitCast(builder_->CreateExtractValue(value, 2), t_int64_);
+  return CreateConditionalDecRef(builder_->CreateIntToPtr(payload, t_void_p_), is_object);
+}
+
+// The caller clears the slot before releasing its reference so failure cleanup can scan it.
+llvm::Value* CodeGenCPU::CreateConditionalDecRef(llvm::Value* object, llvm::Value* present) {
+  auto* release = llvm::BasicBlock::Create(*llvm_target_->GetContext(), "drop", function_);
+  auto* end = llvm::BasicBlock::Create(*llvm_target_->GetContext(), "drop_end", function_);
+  builder_->CreateCondBr(present, release, end);
+  builder_->SetInsertPoint(release);
+  CheckCallSuccess(builder_->CreateCall(
+      module_->getOrInsertFunction("TVMFFIObjectDecRef",
+                                   llvm::FunctionType::get(t_int_, {t_void_p_}, false)),
+      {object}));
+  builder_->CreateBr(end);
+  builder_->SetInsertPoint(end);
+  return ConstInt32(0);
+}
+
 llvm::Value* CodeGenCPU::CreateIntrinsic(const CallObj* op) {
+  if (op->op.same_as(tirx::alloc_object_frame_op()) || op->op.same_as(tirx::alloc_any_frame_op())) {
+    return CreateIntrinAllocManagedFrame(op);
+  }
+  if (op->op.same_as(tirx::retain_any_slot_op())) return CreateIntrinRetainAnySlot(op);
+  if (op->op.same_as(tirx::drop_object_slot_op())) return CreateIntrinDropObjectSlot(op);
+  if (op->op.same_as(tirx::drop_any_slot_op())) return CreateIntrinDropAnySlot(op);
   const ffi::Array<Expr>& args = op->args;
   if (op->op.same_as(tirx::call_packed_lowered_op())) {
     return CreateCallPacked(op);
@@ -1031,6 +1267,7 @@ llvm::Value* CodeGenCPU::CreateIntrinsic(const CallObj* op) {
   } else if (op->op.same_as(tirx::static_handle_op())) {
     return CreateStaticHandle();
   } else if (op->op.same_as(tirx::throw_last_error_op())) {
+    EmitManagedErrorCleanup();
     builder_->CreateRet(ConstInt32(-1));
     auto next_block = std::next(builder_->GetInsertBlock()->getIterator());
     llvm::BasicBlock* new_bb =
@@ -1050,6 +1287,7 @@ llvm::Value* CodeGenCPU::CreateIntrinsic(const CallObj* op) {
 
     llvm::Value* struct_value = builder_->CreateLoad(ref.type, ref.addr);
 
+    if (op_type.as<AnyTypeObj>() || op_type.as<ObjectTypeObj>()) return struct_value;
     if (auto prim_type = op_type.as<PrimType>()) {
       if (prim_type.value() == PrimType::Bool()) {
         struct_value = CreateCast(PrimType::Int(64), prim_type.value(), struct_value);
@@ -1144,6 +1382,7 @@ void CodeGenCPU::Dispatch_(const AssertStmtObj* op) {
     }
   }
   builder_->CreateCall(helper, call_args);
+  EmitManagedErrorCleanup();
   builder_->CreateRet(ConstInt32(-1));
   // otherwise set it to be new end.
   builder_->SetInsertPoint(end_block);

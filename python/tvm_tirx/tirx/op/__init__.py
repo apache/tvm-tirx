@@ -32,7 +32,9 @@ from tvm_tirx.ir import (
     Call,
     Expr,
     ExprWithOp,
+    GenericConst,
     IntImm,
+    NoneType,
     PrimType,
     PtrType,
     TensorLoad,
@@ -230,30 +232,20 @@ def _pack_tensor(buf, loc: Location = UNKNOWN_LOC):
     )
 
 
+def store_return(destination, value, *, loc: Location = UNKNOWN_LOC, ty=None):
+    """Write a packed wrapper's result and yield its success status."""
+    if value is None:
+        value = GenericConst(NoneType(), None)
+    return call_intrin("tirx.store_return", destination, value, loc=loc, ty=ty)
+
+
 def call_packed_lowered(*args, loc: Location = UNKNOWN_LOC, ty=None):
-    """Lowered version of call packed.
-    The argument to a packed function can be an Expr or a tensor variable.
-    The argument is the corresponding POD type when Expr is presented.
-    When the argument is a Var carrying TensorType, the corresponding PackedFunc
-    will receive an TVMArrayHandle whose content is valid during the callback period.
-    If the PackedFunc is a python callback, then the corresponding argument is Tensor.
+    """Call a packed function through explicit argument and result stacks.
 
-    Parameters
-    ----------
-    args : list of Expr or Var.
-        Positional arguments.
-
-    loc : Location, optional
-        The location of this operator in the source code.
-
-    Returns
-    -------
-    call : Expr
-        The call expression.
-
-    See Also
-    --------
-    te.extern : Create tensor with extern function call.
+    The six operands are the function name, argument stack, begin and end indices,
+    result stack, and result index. Indices address TVMFFIAny elements; the result
+    slot must be empty and must not overlap live arguments. Ownership lowering
+    chooses managed result storage before code generation.
     """
     call_args = [
         _pack_tensor(x) if is_tensor_var(x) else _reject_tensor_region(x, "call_packed_lowered")
@@ -268,26 +260,12 @@ def call_packed_lowered(*args, loc: Location = UNKNOWN_LOC, ty=None):
 
 
 def call_cpacked_lowered(*args, loc: Location = UNKNOWN_LOC, ty=None):
-    """Lowered version of call c-packed.
-    Same as call_packed, except that the first argument is the function name
-    (as in call_extern), and the last argument is the resource handle.
+    """Call a linked packed symbol through explicit argument and result stacks.
 
-    Parameters
-    ----------
-    args : list of Expr or Var.
-        Positional arguments.
-
-    loc : Location, optional
-        The location of this operator in the source code.
-
-    Returns
-    -------
-    call : Expr
-        The call expression.
-
-    See Also
-    --------
-    te.extern : Create tensor with extern function call.
+    The six operands are the function name, argument stack, begin and end indices,
+    result stack, and result index. Indices address TVMFFIAny elements; the result
+    slot must be empty and must not overlap live arguments. Ownership lowering
+    chooses managed result storage before code generation.
     """
     call_args = [
         _pack_tensor(x) if is_tensor_var(x) else _reject_tensor_region(x, "call_cpacked_lowered")
@@ -385,8 +363,9 @@ def call_ffi_kernel(
 def call_cpacked(*args, loc: Location = UNKNOWN_LOC, ty=None):
     """Build expression by call an external packed function.
 
-    Same as call_packed, except that the first argument is the function name
-    (as in call_extern), and the last argument is the resource handle.
+    The first argument names a linked packed symbol; remaining arguments are
+    packed values. The call returns a value of ``ty`` through the ordinary packed
+    ABI, using a null self handle.
 
     Parameters
     ----------
@@ -1064,7 +1043,7 @@ def ptr_byte_offset(data, byte_offset, *, ty, loc: Location = UNKNOWN_LOC):
 
 
 def throw_last_error(*, ty=None, loc: Location = UNKNOWN_LOC):
-    """Throw TVMGetLastError()
+    """Return -1 while preserving the raised runtime error.
 
     Returns
     -------

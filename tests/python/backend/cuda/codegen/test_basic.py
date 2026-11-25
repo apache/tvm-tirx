@@ -1163,7 +1163,7 @@ def test_cuda_tensormap(*, backend_config):
 
         A_map: T.let[T.handle("tensormap")] = T.stack_alloca("tensormap", 1)
         T.call_packed("runtime.cuTensorMapInit", A_map, "float32", 2, A.data,
-                      16, 16, 64, 16, 16, 1, 1, 0, 0, 0, 0)
+                      16, 16, 64, 16, 16, 1, 1, 0, 0, 0, 0, ty="void")
 
         with T.launch_thread("blockIdx.x", 1) as blockIdx:
             with T.launch_thread("threadIdx.x", 128) as threadIdx:

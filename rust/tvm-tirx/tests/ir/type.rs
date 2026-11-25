@@ -25,8 +25,8 @@ use std::mem::offset_of;
 
 use tvm_tirx::ir::{
     UNKNOWN_LOC, Location, UnknownLoc, dtype, Evaluate, FuncType, MissingType, NoneType,
-    OpaqueType, PrimType, PtrType, StringType, TensorRegionType, TupleType, Type, TypeObj, Var,
-    VarObj,
+    ObjectType, OpaqueType, PrimType, PtrType, StringType, TensorRegionType, TupleType, Type,
+    TypeObj, Var, VarObj,
 };
 use tvm_tirx::tvm_ffi::reflection::{FieldGetter, ShallowCopy};
 use tvm_tirx::tvm_ffi::{rs_object, structural_hash, structural_map};
@@ -46,6 +46,9 @@ fn types() {
     MissingType::new();
     NoneType::new();
     TensorRegionType::new();
+    let object = ObjectType::new("ir.Var", UNKNOWN_LOC).unwrap();
+    assert_eq!(object.type_key.as_str(), "ir.Var");
+    assert!(ObjectType::new("testing.UnregisteredObjectClass", UNKNOWN_LOC).is_err());
     let i32_ty = PrimType::int(32);
     assert_eq!(i32_ty.dtype, dtype::int(32));
     let ptr = PtrType::new(&i32_ty, scope()).unwrap();

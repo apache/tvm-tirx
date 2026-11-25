@@ -489,7 +489,7 @@ TVM_DEFINE_CMPOP_EXPR_MUTATE_WITH_TYPE_MATCH(prim::GEObj, operator>=);
 
 UnchangedOr<Expr> IndexDataTypeRewriter::Mutate_(const CallObj* op, InplaceMode inplace_mode) {
   // handle if_then_else condition
-  if (op->op.same_as(prim::if_then_else_op())) {
+  if (op->op.same_as(prim::if_then_else_op()) && op->ty.as<PrimTypeObj>()) {
     bool is_condition = is_condition_;
     is_condition_ = true;
     PrimExpr cond = Mutate(op->args[0]).ValueOrUnchanged(op->args[0]).as_or_throw<PrimExpr>();

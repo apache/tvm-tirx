@@ -19,6 +19,7 @@ import shutil
 
 import numpy as np
 import pytest
+import tvm_ffi
 
 import tvm_tirx
 import tvm_tirx.testing
@@ -58,6 +59,31 @@ def test_add():
         tvm_tirx.testing.assert_allclose(c.numpy(), a.numpy() + b.numpy())
 
     check_c()
+
+
+def test_packed_initializer_names_across_functions():
+    @I.ir_module
+    class Module:
+        @T.function
+        def first(foo_packed_init: T.int32) -> T.int32:
+            result: T.let[T.int32] = T.call_packed("foo", foo_packed_init, ty="int32")
+            return result
+
+        @T.function
+        def second(foo_packed_init_1: T.int32) -> T.int32:
+            result: T.let[T.int32] = T.call_packed("foo", foo_packed_init_1, ty="int32")
+            return result
+
+    @tvm_ffi.register_global_func("foo")
+    def foo(x):
+        return x + 1
+
+    try:
+        executable = tvm_tirx.compile(Module, target="c").jit()
+        assert executable["first"](4) == 5
+        assert executable["second"](8) == 9
+    finally:
+        tvm_ffi.registry.remove_global_func("foo")
 
 
 def test_reinterpret():

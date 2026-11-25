@@ -82,7 +82,7 @@ def test_pack_buffer_simple():
     class Module:
         @T.function
         def main(A: T.Tensor((1024,), "float32"), C: T.Tensor((1024,), "float32")):
-            T.evaluate(T.call_packed("my_extern_array_func1", A, C))
+            T.call_packed("my_extern_array_func1", A, C, ty="void")
 
     @tvm_ffi.register_global_func
     def my_extern_array_func1(aa, bb):

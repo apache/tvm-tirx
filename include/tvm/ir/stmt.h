@@ -245,6 +245,13 @@ namespace op_attr {
 inline constexpr ffi::reflection::AttrKey<
     ffi::reflection::NativeFunctionView<ffi::Array<Var>(const CallObj* call)>>
     kRegionGetBodyParams{"FRegionGetBodyParams"};
+/*!
+ * \brief On entry the caller executes the body once, synchronously, within its sequential
+ * control flow. The region may establish and restore context around its body.
+ * An absent attribute provides no such guarantee.
+ */
+inline constexpr ffi::reflection::AttrKey<bool> kRegionIsSequentialScope{
+    "TRegionIsSequentialScope"};
 /*! \brief Optional dialect validation of a complete region statement. */
 inline constexpr ffi::reflection::AttrKey<
     ffi::reflection::NativeFunctionView<void(const RegionStmtObj*)>>

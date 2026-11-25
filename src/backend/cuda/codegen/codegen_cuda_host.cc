@@ -62,17 +62,8 @@ class CodeGenCUDAHost : public CodeGenCHost {
                    "<cuda_bf16.h>\n#include <math.h>\n"
                 << "#define TVM_DLL TVM_FFI_DLL_EXPORT\n";
     InitGlobalContext();
-    check_error_ = name_supply_->FreshName("tvm_cuda_host_check");
-    decl_stream << "static int " << check_error_
-                << "(cudaError_t error, bool allow_unloading = false) {\n"
-                << "  if (error == cudaSuccess || "
-                << "(allow_unloading && error == cudaErrorCudartUnloading)) return 0;\n"
-                << "  const char* parts[] = {\"CUDA launch: \", cudaGetErrorString(error)};\n"
-                << "  TVMFFIErrorSetRaisedFromCStrParts(\"CUDAError\", parts, 2);\n"
-                << "  cudaGetLastError();\n"
-                << "  return -1;\n}\n";
     decl_stream << tvm_cuda_launch::kSupportSource;
-    decl_stream << "\n#include <map>\n#include <memory>\n";
+    decl_stream << "\n#include <exception>\n#include <map>\n#include <memory>\n";
     decl_stream << "static CUkernel tvm_cuda_host_get_kernel(const char* name);\n";
     launch_ = name_supply_->FreshName("tvm_cuda_host_launch");
     decl_stream << "template <typename... Args>\n"
@@ -150,10 +141,16 @@ class CodeGenCUDAHost : public CodeGenCHost {
     int scope = BeginScope();
     PrintStmt(func->body);
     EndScope(scope);
-    // CUDADeviceGuard reports errors by throwing. Clear the reported CUDA
-    // last-error state so a subsequent successful launch is not blamed for it.
-    stream << "  } catch (...) {\n    cudaGetLastError();\n    throw;\n  }\n"
-           << "  TVM_FFI_SAFE_CALL_END();\n}\n\n";
+    stream << "  } catch (...) {\n";
+    if (func->GetAttr(tvm::attr::kCallingConv) == CallingConv::kCPackedFunc) {
+      // Frame guards have released local owners. A throwing CUDADeviceGuard destructor
+      // can also interrupt a return after ownership has moved to the caller's result.
+      DeclareFrameCleanup();
+      stream << "    __tvm_managed_cleanup_on_error(nullptr, 0, static_cast<TVMFFIAny*>("
+             << GetVarID(func->params[3].get()) << "), 1);\n";
+    }
+    // Clear the CUDA last-error state before propagating the original exception.
+    stream << "    cudaGetLastError();\n    throw;\n  }\n  TVM_FFI_SAFE_CALL_END();\n}\n\n";
     if (auto symbol = func->GetAttr(tvm::attr::kGlobalSymbol)) {
       function_names_.push_back(symbol.value());
       if (func->HasNonzeroAttr(tvm::tirx::attr::kIsEntryFunc.name) && !has_tvm_ffi_main_func_) {
@@ -170,6 +167,40 @@ class CodeGenCUDAHost : public CodeGenCHost {
   ffi::Array<ffi::String> GetFunctionNames() { return function_names_; }
 
   void Dispatch_(const BindObj* op) override {
+    if (const auto* call = op->value.as<CallObj>();
+        call && (call->op.same_as(tirx::alloc_any_frame_op()) ||
+                 call->op.same_as(tirx::alloc_object_frame_op()))) {
+      CodeGenC::Dispatch_(op);
+      // The frame is still in scope when its guard runs during exception unwinding.
+      DeclareFrameCleanup();
+      if (!frame_guard_declared_) {
+        decl_stream << R"CUDA(
+struct __tvm_cuda_frame_guard {
+  TVMFFIObjectHandle* objects;
+  int64_t object_count;
+  TVMFFIAny* anys;
+  int64_t any_count;
+  int depth = std::uncaught_exceptions();
+  ~__tvm_cuda_frame_guard() {
+    if (std::uncaught_exceptions() > depth)
+      __tvm_managed_cleanup_on_error(objects, object_count, anys, any_count);
+  }
+};
+)CUDA";
+        frame_guard_declared_ = true;
+      }
+      std::string frame = GetVarID(op->var.get());
+      int64_t count = call->args[0].as_or_throw<IntImm>()->value.as<int64_t>().value();
+      PrintIndent();
+      stream << "__tvm_cuda_frame_guard " << name_supply_->FreshName("frame_guard") << "{";
+      if (call->op.same_as(tirx::alloc_any_frame_op())) {
+        stream << "nullptr, 0, static_cast<TVMFFIAny*>(" << frame << "), " << count;
+      } else {
+        stream << "static_cast<TVMFFIObjectHandle*>(" << frame << "), " << count << ", nullptr, 0";
+      }
+      stream << "};\n";
+      return;
+    }
     // C accepts the implicit void* conversion emitted for descriptor handles;
     // the CUDA translation unit is C++, which requires an explicit cast.
     auto* ptr = op->var->ty.as<PtrTypeObj>();
@@ -225,7 +256,9 @@ class CodeGenCUDAHost : public CodeGenCHost {
         PrintIndent();
         stream << "if (" << device_type << " != kDLCUDA) {\n"
                << "  TVMFFIErrorSetRaisedFromCStr(\"ValueError\", "
-               << "\"cuda_host requires a CUDA device\");\n  return -1;\n}\n";
+               << "\"cuda_host requires a CUDA device\");\n";
+        EmitFrameCleanup();
+        stream << "  return -1;\n}\n";
         PrintIndent();
         stream << "tvm::ffi::CUDADeviceGuard " << guard << "(" << device_index << ");\n";
         os << "0";
@@ -349,12 +382,6 @@ class CodeGenCUDAHost : public CodeGenCHost {
   }
 
  private:
-  void CheckError(const std::string& call, bool allow_unloading = false) {
-    PrintIndent();
-    stream << "if (::" << check_error_ << "(" << call;
-    if (allow_unloading) stream << ", true";
-    stream << ") != 0) return -1;\n";
-  }
   void PrintTensorMapEncode(const CallObj* op) {
     const auto* attr =
         (op->attrs.has_value() ? op->attrs.value().as<backend::cuda::TensorMapEncodeTiledAttr>()
@@ -445,11 +472,12 @@ class CodeGenCUDAHost : public CodeGenCHost {
     stream << "if (" << error << " != CUDA_SUCCESS) {\n"
            << "  const char* message = \"cuTensorMapEncodeTiled failed\";\n"
            << "  cuGetErrorString(" << error << ", &message);\n"
-           << "  TVMFFIErrorSetRaisedFromCStr(\"CUDAError\", message);\n"
-           << "  return -1;\n}\n";
+           << "  TVMFFIErrorSetRaisedFromCStr(\"CUDAError\", message);\n";
+    EmitFrameCleanup();
+    stream << "  return -1;\n}\n";
   }
 
-  std::string check_error_;
+  bool frame_guard_declared_ = false;
   std::string launch_;
   ffi::Array<ffi::String> function_names_;
 };

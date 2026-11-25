@@ -82,66 +82,10 @@ class ReturnRewriter : public StmtExprMutator {
 
   UnchangedOr<Stmt> Mutate_(const ReturnObj* node, InplaceMode inplace_mode) override {
     TVM_FFI_ICHECK_EQ(in_parallel_, 0) << "Return cannot be used in parallel scope.";
-    return WriteToOut(this->Mutate(node->value, inplace_mode).ValueOrUnchanged(node->value));
+    return Return(Call(PrimType::Int(32), store_return_op(), {ret_var_, node->value}), node->loc);
   }
 
  private:
-  struct ConvertedInfo {
-    int type_index{-1};
-    Expr expr;
-  };
-
-  ConvertedInfo ConvertForFFI(Expr val) {
-    ConvertedInfo info{-1, val};
-
-    // convert val's data type to FFI data type, return type code
-    if (val->ty.as<PtrTypeObj>()) {
-      info.type_index = ffi::TypeIndex::kTVMFFIOpaquePtr;
-      info.expr = val;
-      return info;
-    }
-
-    PrimExpr prim_val = val.as_or_throw<PrimExpr>();
-    PrimType dtype = prim_val.ty();
-    if (dtype.MatchesCode(DLDataTypeCode::kDLBool)) {
-      info.type_index = ffi::TypeIndex::kTVMFFIBool;
-      info.expr = prim::Cast(PrimType::Int(64), prim_val);
-
-    } else if (dtype.MatchesCode(DLDataTypeCode::kDLInt, DLDataTypeCode::kDLUInt)) {
-      info.type_index = ffi::TypeIndex::kTVMFFIInt;
-      info.expr = prim::Cast(PrimType::Int(64), prim_val);
-    } else if (dtype.code() == DLDataTypeCode::kDLFloat) {
-      info.type_index = ffi::TypeIndex::kTVMFFIFloat;
-      info.expr = prim::Cast(PrimType::Float(64), prim_val);
-    } else if (dtype.IsVoid()) {
-      info.type_index = ffi::TypeIndex::kTVMFFINone;
-      info.expr = prim_val;
-    } else {
-      TVM_FFI_THROW(InternalError) << "data type " << dtype->dtype << " not supported yet";
-    }
-    return info;
-  }
-
-  Stmt WriteToOut(Expr val) {
-    auto info = ConvertForFFI(val);
-    Stmt store_tindex =
-        Evaluate(Call(PrimType::Int(32), tirx::abi_field_set_op(),
-                      {ret_var_, IntImm::Int32(0), IntImm::Int32(tirx::kTVMFFIAnyTypeIndex),
-                       IntImm::Int32(info.type_index)})
-                     .as_or_throw<PrimExpr>());
-    Stmt store_zero_padding =
-        Evaluate(Call(PrimType::Int(32), tirx::abi_field_set_op(),
-                      {ret_var_, IntImm::Int32(0), IntImm::Int32(tirx::kTVMFFIAnyZeroPadding),
-                       IntImm::Int32(0)})
-                     .as_or_throw<PrimExpr>());
-    Stmt store_val = Evaluate(
-        Call(PrimType::Int(32), tirx::abi_field_set_op(),
-             {ret_var_, IntImm::Int32(0), IntImm::Int32(tirx::kTVMFFIAnyUnionValue), info.expr})
-            .as_or_throw<PrimExpr>());
-    Stmt ret_zero = Return(IntImm::Int32(0));
-    return SeqStmt({store_tindex, store_zero_padding, store_val, ret_zero});
-  }
-
   Var ret_var_;
   int in_parallel_{0};
 };
@@ -272,7 +216,7 @@ Function MakePackedAPI(Function func) {
                                       ffi::symbol::tvm_ffi_symbol_prefix + global_symbol.value()}});
 
   Stmt body = ffi::make_object<ReturnRewriter>(v_result)
-                  ->Mutate(func_ptr->body, InplaceMode::kAllow)
+                  ->Mutate(func_ptr->body, InplaceMode::kDisallow)
                   .ValueOrUnchanged(func_ptr->body);
   body = RegionStmt(tirx::compute_scope_op(), {StringImm(name_hint + "_compute_")}, {}, DictAttrs(),
                     body);
@@ -291,7 +235,8 @@ Function MakePackedAPI(Function func) {
     }
   }
 
-  // Return error code of zero on success
+  // The caller supplies an empty result cell. Fallthrough returns success;
+  // explicit source returns have already stored their result.
   body = SeqStmt({body, Return(IntImm::Int32(0))});
 
   // Prepend tensor declarations and alignment assumptions.

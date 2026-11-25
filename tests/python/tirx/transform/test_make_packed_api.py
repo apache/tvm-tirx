@@ -582,10 +582,7 @@ def test_zero_arg_function():
                 ["Expected ", "0", " arguments", " when calling:\n  `", "func_without_arg()", "`"],
             )
             with T.compute_scope("func_without_arg_compute_"):
-                T.abi_field_set(result, 0, 13, 1)
-                T.abi_field_set(result, 0, 14, 0)
-                T.abi_field_set(result, 0, 15, T.Cast("int64", T.int64(42)))
-                return 0
+                return T.store_return(result, T.int64(42))
             return 0
 
     After = tvm_tirx.tirx.transform.MakePackedAPI()(Before)
@@ -659,26 +656,11 @@ def test_pointer_return():
                 ty=T.Ptr(T.void),
             )
             with T.compute_scope("main_compute_"):
-                T.abi_field_set(result, 0, 13, 4)
-                T.abi_field_set(result, 0, 14, 0)
-                T.abi_field_set(result, 0, 15, arg)
-                return 0
+                return T.store_return(result, arg)
             return 0
 
     after = tvm_tirx.tirx.transform.MakePackedAPI()(Before)
     tvm_tirx.ir.assert_structural_equal(after, Expected)
-    after = after["main"]
-    return_type_indices = []
-
-    def collect(node):
-        if not isinstance(node, tvm_tirx.ir.Call) or node.op.name != "tirx.abi_field_set":
-            return
-        field = node.args[2]
-        if isinstance(field, tvm_tirx.ir.IntImm) and int(field) == 13:
-            return_type_indices.append(int(node.args[3]))
-
-    tvm_ffi.structural_walk(after.body, collect)
-    assert 4 in return_type_indices  # ffi::TypeIndex::kTVMFFIOpaquePtr
 
 
 def test_return_from_parallel_scope_is_rejected():
@@ -748,15 +730,9 @@ def test_int_parameter():
             arg: T.let[T.int32] = T.Cast("int32", T.abi_field_get(args, 0, 15, ty="int64"))
             with T.compute_scope("main_compute_"):
                 if arg > 0:
-                    T.abi_field_set(result, 0, 13, 1)
-                    T.abi_field_set(result, 0, 14, 0)
-                    T.abi_field_set(result, 0, 15, T.Cast("int64", 10))
-                    return 0
+                    return T.store_return(result, 10)
                 else:
-                    T.abi_field_set(result, 0, 13, 1)
-                    T.abi_field_set(result, 0, 14, 0)
-                    T.abi_field_set(result, 0, 15, T.Cast("int64", 20))
-                    return 0
+                    return T.store_return(result, 20)
             return 0
 
     After = tvm_tirx.tirx.transform.MakePackedAPI()(Before)
@@ -815,15 +791,9 @@ def test_bool_parameter():
             arg: T.let[T.bool] = T.Cast("bool", T.abi_field_get(args, 0, 15, ty="int64"))
             with T.compute_scope("main_compute_"):
                 if arg:
-                    T.abi_field_set(result, 0, 13, 1)
-                    T.abi_field_set(result, 0, 14, 0)
-                    T.abi_field_set(result, 0, 15, T.Cast("int64", 10))
-                    return 0
+                    return T.store_return(result, 10)
                 else:
-                    T.abi_field_set(result, 0, 13, 1)
-                    T.abi_field_set(result, 0, 14, 0)
-                    T.abi_field_set(result, 0, 15, T.Cast("int64", 20))
-                    return 0
+                    return T.store_return(result, 20)
             return 0
 
     After = tvm_tirx.tirx.transform.MakePackedAPI()(Before)
@@ -886,15 +856,9 @@ def test_float_parameter():
             )
             with T.compute_scope("main_compute_"):
                 if arg > T.float32(0.0):
-                    T.abi_field_set(result, 0, 13, 1)
-                    T.abi_field_set(result, 0, 14, 0)
-                    T.abi_field_set(result, 0, 15, T.Cast("int64", 10))
-                    return 0
+                    return T.store_return(result, 10)
                 else:
-                    T.abi_field_set(result, 0, 13, 1)
-                    T.abi_field_set(result, 0, 14, 0)
-                    T.abi_field_set(result, 0, 15, T.Cast("int64", 20))
-                    return 0
+                    return T.store_return(result, 20)
             return 0
 
     After = tvm_tirx.tirx.transform.MakePackedAPI()(Before)

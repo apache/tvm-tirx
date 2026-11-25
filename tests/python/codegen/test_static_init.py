@@ -42,6 +42,7 @@ def test_static_init():
                 "test_static_callback",
                 T.call_intrin("tirx.static_handle", ty="handle"),
                 Ab.data,
+                ty="handle",
             )
 
     mod = Module

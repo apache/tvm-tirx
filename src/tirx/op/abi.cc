@@ -150,6 +150,7 @@ const Op& throw_last_error_op() {
 
 TVM_FFI_STATIC_INIT_BLOCK() {
   OpDef("tirx.throw_last_error")
+      .signature()
       .set_attr(tvm::op_attr::kFixedReturnType, PrimType::Void())
       .set_attr(tvm::op_attr::kCallEffectKind, CallEffectKind::kOpaque)
       .expose();
@@ -254,6 +255,20 @@ TVM_FFI_STATIC_INIT_BLOCK() {
       .expose();
 }
 
+const Op& store_return_op() {
+  static const Op op = Op::Get("tirx.store_return");
+  return op;
+}
+
+TVM_FFI_STATIC_INIT_BLOCK() {
+  OpDef("tirx.store_return")
+      .signature(sig::arg("destination", "Caller-provided result cell."),
+                 sig::arg("value", "Value returned from the wrapper."))
+      .set_attr(tvm::op_attr::kFixedReturnType, PrimType::Int(32))
+      .set_attr(tvm::op_attr::kCallEffectKind, CallEffectKind::kOpaque)
+      .expose();
+}
+
 const Op& call_packed_lowered_op() {
   static const Op op = Op::Get("tirx.call_packed_lowered");
   return op;
@@ -265,7 +280,9 @@ TVM_FFI_STATIC_INIT_BLOCK() {
       .signature(sig::arg("func_name", "The function name."),
                  sig::arg("args_stack", "The argument stack."),
                  sig::arg<IntExpr>("begin", "The start index."),
-                 sig::arg<IntExpr>("end", "The end index."))
+                 sig::arg<IntExpr>("end", "The end index."),
+                 sig::arg("res_stack", "The result stack."),
+                 sig::arg<IntExpr>("res_index", "The result element index."))
       .set_attr(tvm::op_attr::kCallEffectKind, CallEffectKind::kOpaque)
       .expose();
 }
@@ -281,7 +298,9 @@ TVM_FFI_STATIC_INIT_BLOCK() {
       .signature(sig::arg("func_name", "The function name."),
                  sig::arg("args_stack", "The argument stack."),
                  sig::arg<IntExpr>("begin", "The start index."),
-                 sig::arg<IntExpr>("end", "The end index."))
+                 sig::arg<IntExpr>("end", "The end index."),
+                 sig::arg("res_stack", "The result stack."),
+                 sig::arg<IntExpr>("res_index", "The result element index."))
       .set_attr(tvm::op_attr::kCallEffectKind, CallEffectKind::kOpaque)
       .expose();
 }
@@ -308,6 +327,61 @@ TVM_FFI_STATIC_INIT_BLOCK() {
       .set_attr(tvm::tirx::op_attr::kGlobalSymbol, "TVMBackendFreeWorkspace")
       .set_attr(tvm::op_attr::kCallEffectKind, CallEffectKind::kOpaque)
       .expose();
+}
+
+// Allocate initialized object-pointer storage.
+const Op& alloc_object_frame_op() {
+  static const Op& op = Op::Get("tirx.alloc_object_frame");
+  return op;
+}
+
+// Allocate initialized tagged Any storage.
+const Op& alloc_any_frame_op() {
+  static const Op& op = Op::Get("tirx.alloc_any_frame");
+  return op;
+}
+
+// Release and clear an owned object slot.
+const Op& drop_object_slot_op() {
+  static const Op& op = Op::Get("tirx.drop_object_slot");
+  return op;
+}
+
+// Release and clear an owned Any slot.
+const Op& drop_any_slot_op() {
+  static const Op& op = Op::Get("tirx.drop_any_slot");
+  return op;
+}
+
+// Store an owned copy of a borrowed Any.
+const Op& retain_any_slot_op() {
+  static const Op& op = Op::Get("tirx.retain_any_slot");
+  return op;
+}
+
+TVM_FFI_STATIC_INIT_BLOCK() {
+  OpDef("tirx.retain_any_slot")
+      .signature(sig::arg("ptr", "Base of the live Any frame."),
+                 sig::arg<IntExpr>("index", "In-bounds element index of an empty slot."),
+                 sig::arg("value", "Borrowed Any value or string literal to retain."))
+      .set_attr(tvm::op_attr::kFixedReturnType, PrimType::Int(32))
+      .set_attr(tvm::op_attr::kCallEffectKind, CallEffectKind::kOpaque)
+      .expose();
+  for (const char* name : {"tirx.alloc_object_frame", "tirx.alloc_any_frame"}) {
+    OpDef(name)
+        .signature(sig::arg<IntExpr>("count", "Nonnegative constant slot capacity."))
+        .set_attr(tvm::op_attr::kFixedReturnType, PtrType::VoidPtrType())
+        .set_attr(tvm::op_attr::kCallEffectKind, CallEffectKind::kOpaque)
+        .expose();
+  }
+  for (const char* name : {"tirx.drop_object_slot", "tirx.drop_any_slot"}) {
+    OpDef(name)
+        .signature(sig::arg("ptr", "Base of the live slot array."),
+                   sig::arg<IntExpr>("index", "In-bounds element index, not a byte offset."))
+        .set_attr(tvm::op_attr::kFixedReturnType, PrimType::Int(32))
+        .set_attr(tvm::op_attr::kCallEffectKind, CallEffectKind::kOpaque)
+        .expose();
+  }
 }
 
 }  // namespace tirx

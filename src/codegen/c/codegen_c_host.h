@@ -59,6 +59,9 @@ class CodeGenCHost : public CodeGenC {
   void PrintType(const PrimType& t, std::ostream& os) override;  // NOLINT(*)
   void PrintFuncPrefix(std::ostream& os) final;                  // NOLINT(*)
 
+  using CodeGenC::Dispatch;
+  void PrintType(const Type& type, std::ostream& os) override;
+
   // overload visitor functions
   void Dispatch_(const prim::BroadcastObj* op, std::ostream& os) final;  // NOLINT(*)
   void Dispatch_(const CallObj* op, std::ostream& os) override;          // NOLINT(*)
@@ -76,14 +79,33 @@ class CodeGenCHost : public CodeGenC {
   ffi::Array<ffi::String> GetFunctionNames() { return function_names_; }
 
  protected:
+  void EmitFrameCleanup(const std::string& scratch_result = {});
+  void DeclareFrameCleanup();
+  void InitFuncState(const Function& func) final;
   // Plain C has no address-space qualifiers.  Buffer storage scopes still
   // control allocation lowering, but are not part of emitted pointer types.
   bool IsScopePartOfType() const final { return false; }
 
  private:
+  std::string object_frame_ = "NULL", any_frame_ = "NULL";
+  int64_t object_frame_count_ = 0, any_frame_count_ = 0;
+  bool managed_cleanup_declared_ = false;
+  void CheckRuntimeStatus(const std::string& call, const std::string& scratch_result = {});
+  void EmitAllocObjectFrame(const CallObj* op, std::ostream& os);
+  void EmitAllocAnyFrame(const CallObj* op, std::ostream& os);
+  void EmitRetainAnySlot(const CallObj* op, std::ostream& os);
+  void EmitDropObjectSlot(const CallObj* op, std::ostream& os);
+  void EmitDropAnySlot(const CallObj* op, std::ostream& os);
+  std::string EmitClearSlot(const CallObj* op, const char* type, const char* empty);
+  void EmitConditionalDecRef(const std::string& object, const std::string& condition);
+  std::string EmitFrameArray(const char* name, const char* type, const char* empty, int64_t count);
+
   std::string module_name_;
-  /* \brief mapping global packed func to the unique name */
-  std::unordered_map<std::string, std::string> declared_globals_;
+  struct PackedGlobalNames {
+    std::string handle;
+    std::string initializer;
+  };
+  std::unordered_map<std::string, PackedGlobalNames> packed_globals_;
   /* \brief names of the functions declared in this module */
   ffi::Array<ffi::String> function_names_;
   /*! \brief whether to emit asserts in the resulting C code */
@@ -93,9 +115,8 @@ class CodeGenCHost : public CodeGenC {
   /*! \brief whether to generate the entry function if encountered */
   bool has_main_func_ = false;
 
-  std::string GetPackedName(const CallObj* op);
-  void PrintGetFuncFromBackend(const std::string& func_name, const std::string& packed_func_name);
-  void PrintCallPacked(const CallObj* op);
+  std::string PrintGetFuncFromBackend(const std::string& func_name);
+  void PrintCallPacked(const CallObj* op, std::ostream& os);
   /*!
    * \brief Print min/max, propagating floating-point NaNs and selecting rhs on ties.
    * Forces the operands to be in SSA form.

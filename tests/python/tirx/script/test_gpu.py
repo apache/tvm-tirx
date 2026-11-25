@@ -362,7 +362,8 @@ def test_roundtrip_tensormap():
 
         A_map: T.let[T.handle("tensormap")] = T.stack_alloca("tensormap", 1)
         T.call_packed(
-            "runtime.tensormap_init", T.address_of(A_map), T.reinterpret( A.data, ty="handle")
+            "runtime.tensormap_init", T.address_of(A_map), T.reinterpret( A.data, ty="handle"),
+            ty="void",
         )
     # fmt: on
     code = func1.script()

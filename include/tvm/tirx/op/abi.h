@@ -98,6 +98,12 @@ enum TVMStructFieldKind : int {
   kTVMValueKindBound_,
   // Generic int64 array element access: ((int64_t*)buf)[index]
   kInt64ArrayElem,
+  // Whole borrowed TVMFFIAny / nullable object-handle array elements. Stores
+  // copy bits only: ownership acquisition, transfer and clearing are explicit.
+  kTVMFFIAnyValue,
+  kTVMFFIObjectHandle,
+  // Type tag in the header of a concrete TVMFFIObject.
+  kTVMFFIObjectTypeIndex,
 };
 
 /*!
@@ -122,9 +128,50 @@ TVM_TIRX_DLL const Op& abi_field_get_op();
 TVM_TIRX_DLL const Op& abi_field_set_op();
 
 /*!
- * \brief Raise the last runtime error.
+ * \brief Raise the last runtime error and return -1 after registered frame cleanup.
  */
 TVM_TIRX_DLL const Op& throw_last_error_op();
+
+/*!
+ * \brief Allocate count null object-handle slots and register full error cleanup.
+ * Count is a nonnegative integer constant. Bind the returned pointer in the
+ * function's declaration prefix, at most once per frame kind. Storage is local
+ * to the invocation and lives until return; no conditional/nested declarations.
+ */
+TVM_TIRX_DLL const Op& alloc_object_frame_op();
+
+/*!
+ * \brief Allocate count ABI TVMFFIAny slots initialized to valid None values.
+ * Has the same placement and lifetime contract as alloc_object_frame.
+ */
+TVM_TIRX_DLL const Op& alloc_any_frame_op();
+
+/*!
+ * \brief Release and clear object slot ptr[index], accepting an empty slot.
+ * Ptr addresses a live object-handle array; index is an in-bounds element index.
+ * The slot is cleared before release. The operation mutates memory and reference
+ * counts, never throws across generated code, and propagates runtime errors via
+ * the function's status ABI with full frame cleanup.
+ */
+TVM_TIRX_DLL const Op& drop_object_slot_op();
+
+/*!
+ * \brief Release and clear a TVMFFIAny slot to valid None, including its payload.
+ * Ptr addresses a live Any array; index is an in-bounds element index. Empty and
+ * primitive values need no release. Other contracts match drop_object_slot.
+ */
+TVM_TIRX_DLL const Op& drop_any_slot_op();
+
+/*!
+ * \brief Promote a borrowed Any value or string literal into the empty slot ptr[index].
+ * Ptr addresses a live Any array; index is an in-bounds element index. The
+ * destination must contain valid None and be owned by the caller or a cleanup frame.
+ * Retains object values and materializes borrowed strings/bytes through the
+ * ordinary FFI conversion. On success the slot owns the value and must be
+ * transferred or dropped. On failure full frame cleanup covers the destination.
+ * Mutates memory/reference counts and propagates errors through the status ABI.
+ */
+TVM_TIRX_DLL const Op& retain_any_slot_op();
 
 /*!
  * \brief Allocate stack storage for runtime values.
@@ -164,6 +211,11 @@ TVM_TIRX_DLL const Op& stack_make_dltensor_op();
  * - args[1...]: args, trailing Expr operands.
  */
 TVM_TIRX_DLL const Op& call_packed_op();
+
+/*! \brief Store a packed wrapper result and yield the integer success status.
+ * Used as the operand of Return until LowerFFIABI selects copy or ownership transfer.
+ */
+TVM_TIRX_DLL const Op& store_return_op();
 
 /*! \brief Launch metadata for call_ffi_kernel. */
 struct CallFFIKernelAttr : public AttrsObj {
@@ -212,6 +264,11 @@ TVM_TIRX_DLL const Op& call_cpacked_op();
  * - args[1]: args_stack, The argument stack.
  * - args[2]: begin, The start index.
  * - args[3]: end, The end index.
+ * - args[4]: res_stack, The TVMFFIAny result storage.
+ * - args[5]: res_index, The result element index (not a byte offset).
+ * The destination must be empty and distinct from live arguments. When args_stack
+ * and res_stack are the same operand, the call clears its result cell on failure.
+ * Otherwise the caller provides cleanup for any partial output.
  */
 TVM_TIRX_DLL const Op& call_packed_lowered_op();
 
@@ -223,6 +280,11 @@ TVM_TIRX_DLL const Op& call_packed_lowered_op();
  * - args[1]: args_stack, The argument stack.
  * - args[2]: begin, The start index.
  * - args[3]: end, The end index.
+ * - args[4]: res_stack, The TVMFFIAny result storage.
+ * - args[5]: res_index, The result element index (not a byte offset).
+ * The destination must be empty and distinct from live arguments. When args_stack
+ * and res_stack are the same operand, the call clears its result cell on failure.
+ * Otherwise the caller provides cleanup for any partial output.
  */
 TVM_TIRX_DLL const Op& call_cpacked_lowered_op();
 

@@ -157,6 +157,87 @@ def test_decl_buffer_offset_preserves_storage_scope(target, qualifier):
 
 
 @pytest.mark.parametrize("target", ["c", "llvm"])
+def test_chained_any_results_from_global_functions(target):
+    if target != "c" and not tvm_tirx.testing.device_enabled(target):
+        pytest.skip(f"{target} not enabled")
+
+    @T.function
+    def chain() -> T.Any:
+        x: T.let[T.Any] = T.call_packed("test.ffi_chain_source", ty=T.Any)
+        y: T.let[T.Any] = T.call_packed("test.ffi_chain_next", x, ty=T.Any)
+        return y
+
+    @T.function
+    def discard():
+        T.call_packed("test.ffi_chain_source")
+
+    source_value = tvm_ffi.convert([41])
+
+    @tvm_ffi.register_global_func("test.ffi_chain_source")
+    def source():
+        return source_value
+
+    @tvm_ffi.register_global_func("test.ffi_chain_next")
+    def next_value(x):
+        return tvm_ffi.convert([x[0] + 1])
+
+    try:
+        result = tvm_tirx.compile(chain, target=target)()
+        assert list(result) == [42]
+        count = tvm_tirx.testing.object_use_count(source_value)
+        tvm_tirx.compile(discard, target=target)()
+        assert tvm_tirx.testing.object_use_count(source_value) == count
+    finally:
+        tvm_ffi.registry.remove_global_func("test.ffi_chain_next")
+        tvm_ffi.registry.remove_global_func("test.ffi_chain_source")
+
+
+@pytest.mark.parametrize("target", ["c", "llvm"])
+def test_packed_entry_cleans_up_compute_scope_failures(target):
+    if target != "c" and not tvm_tirx.testing.device_enabled(target):
+        pytest.skip(f"{target} not enabled")
+
+    @T.function
+    def fail_after_write(self: T.handle, args: T.handle, n: T.int32, result: T.handle) -> T.int32:
+        T.func_attr({"global_symbol": "__tvm_ffi_fail_after_write", "calling_conv": 1})
+        T.retain_any_slot(result, 0, T.abi_field_get(args, 0, 18, ty=T.Any()))
+        T.call_extern("TVMFFIErrorSetRaisedFromCStr", "ValueError", "partial output", ty="void")
+        T.throw_last_error()
+        return 0
+
+    @T.function
+    def entry(self: T.handle, args: T.handle, n: T.int32, result: T.handle) -> T.int32:
+        T.func_attr({"global_symbol": "__tvm_ffi_entry", "calling_conv": 1})
+        value: T.let[T.Any()] = T.abi_field_get(args, 0, 18, ty=T.Any())
+        mode: T.let[T.int64] = T.abi_field_get(args, 1, 15, ty="int64")
+        if mode == 1:
+            T.call_cpacked("fail_after_write", value, ty="void")
+        with T.compute_scope("managed_compute"):
+            alias: T.let[T.Any()] = value
+            if mode == 2:
+                status: T.let[T.int32] = T.call_cpacked("fail_after_write", alias, ty="int32")
+                return T.store_return(result, status)
+            return T.store_return(result, alias)
+        return 0
+
+    mod = tvm_tirx.tirx.transform.LowerFFIABI()(tvm_tirx.IRModule({"entry": entry}))
+    mod["fail_after_write"] = fail_after_write
+    lib = tvm_tirx.codegen.build_module(mod, target)
+    exe = tvm_tirx.codegen.Executable(lib).jit()
+    obj = tvm_ffi.convert([7])
+    original_count = tvm_tirx.testing.object_use_count(obj)
+    result = exe["entry"](obj, 0)
+    assert result.same_as(obj)
+    assert tvm_tirx.testing.object_use_count(obj) == original_count + 1
+    del result
+    assert tvm_tirx.testing.object_use_count(obj) == original_count
+    for mode in (1, 2):
+        with pytest.raises(ValueError, match="partial output"):
+            exe["entry"](obj, mode)
+        assert tvm_tirx.testing.object_use_count(obj) == original_count
+
+
+@pytest.mark.parametrize("target", ["c", "llvm"])
 def test_codegen_loop_step(target):
     if target != "c" and not tvm_tirx.testing.device_enabled(target):
         pytest.skip(f"{target} not enabled")

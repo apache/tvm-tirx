@@ -386,11 +386,13 @@ std::string CodeGenC::GetStructRef(const Type& t, const Expr& buffer, const Prim
     }
     os << ')';
     return os.str();
-  } else if (kind == tirx::kTVMFFIAnyTypeIndex) {
+  } else if (kind == tirx::kTVMFFIAnyTypeIndex || kind == tirx::kTVMFFIObjectTypeIndex) {
     std::ostringstream os;
-    os << "(((TVMFFIAny*)";
+    os << "(((" << (kind == tirx::kTVMFFIAnyTypeIndex ? "TVMFFIAny" : "TVMFFIObject") << "*)";
     this->PrintExpr(buffer, os);
-    os << ")[" << index << "].type_index)";
+    os << ")[";
+    this->PrintExpr(index, os);
+    os << "].type_index)";
     return os.str();
   } else if (kind == tirx::kTVMFFIAnyZeroPadding) {
     std::ostringstream os;
@@ -402,8 +404,12 @@ std::string CodeGenC::GetStructRef(const Type& t, const Expr& buffer, const Prim
     std::ostringstream os;
     os << "(((TVMFFIAny*)";
     this->PrintExpr(buffer, os);
-    os << ")[" << index << "].";
-    if (t.as<PtrTypeObj>()) {
+    os << ")[";
+    this->PrintExpr(index, os);
+    os << "].";
+    if (t.as<ObjectTypeObj>()) {
+      os << "v_obj";
+    } else if (t.as<PtrTypeObj>()) {
       os << "v_ptr";
     } else if (PrimType prim_type = t.as_or_throw<PrimType>();
                prim_type.MatchesCode(DLDataTypeCode::kDLFloat)) {
@@ -414,6 +420,14 @@ std::string CodeGenC::GetStructRef(const Type& t, const Expr& buffer, const Prim
       TVM_FFI_THROW(InternalError) << "Do not know how to handle type" << t;
     }
     os << ")";
+    return os.str();
+  } else if (kind == tirx::kTVMFFIAnyValue || kind == tirx::kTVMFFIObjectHandle) {
+    std::ostringstream os;
+    os << "(((" << (kind == tirx::kTVMFFIAnyValue ? "TVMFFIAny" : "TVMFFIObjectHandle") << "*)";
+    this->PrintExpr(buffer, os);
+    os << ")[";
+    this->PrintExpr(index, os);
+    os << "])";
     return os.str();
   } else if (kind == tirx::kInt64ArrayElem) {
     std::ostringstream os;
@@ -1467,10 +1481,9 @@ void CodeGenC::Dispatch_(const WhileObj* op) {
 }
 
 void CodeGenC::Dispatch_(const ReturnObj* op) {
+  auto value = PrintExpr(op->value);
   PrintIndent();
-  stream << "return ";
-  PrintExpr(op->value, stream);
-  stream << ";\n";
+  stream << "return " << value << ";\n";
 }
 
 void CodeGenC::Dispatch_(const BreakObj* op) {
@@ -1533,8 +1546,8 @@ void CodeGenC::Dispatch_(const EvaluateObj* op) {
       std::string cast;
 
       auto store_prim_type = store_ty.as<PrimType>();
-      bool clears_union =
-          store_ty.as<PtrTypeObj>() || (store_prim_type && store_prim_type.value().bits() < 64);
+      bool clears_union = store_ty.as<PtrTypeObj>() || store_ty.as<ObjectTypeObj>() ||
+                          (store_prim_type && store_prim_type.value().bits() < 64);
       if (kind == tirx::kTVMFFIAnyUnionValue && clears_union) {
         this->PrintIndent();
         // when we set any union value, we need to be careful to

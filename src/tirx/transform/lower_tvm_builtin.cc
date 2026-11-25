@@ -18,11 +18,12 @@
  */
 
 /*!
- *  Lower TVM related builtin intrinsics such as packed call.
+ *  Lower device runtime allocation and host runtime builtins.
  * \file tirx/transform/lower_tvm_builtin.cc
  */
 #include <tvm/backend/cuda/op/tensormap.h>
 #include <tvm/backend/opencl/op/memory.h>
+#include <tvm/ffi/c_api.h>
 #include <tvm/ffi/cast.h>
 #include <tvm/ffi/function.h>
 #include <tvm/ffi/reflection/registry.h>
@@ -38,8 +39,6 @@
 #include <tvm/tirx/stmt_functor.h>
 #include <tvm/tirx/transform.h>
 
-#include <unordered_set>
-
 #include "ir_utils.h"
 
 namespace tvm {
@@ -54,8 +53,7 @@ TVM_FFI_INLINE int GetVectorBytes(const PrimType& dtype) {
 
 }  // namespace
 
-// Calculate the statistics of packed function.
-// These information are needed during codegen.
+// Lower device allocations in their lexical scope and translate runtime calls.
 class BuiltinLower : public StmtExprMutator {
  public:
   using StmtExprMutator::Mutate;
@@ -71,7 +69,7 @@ class BuiltinLower : public StmtExprMutator {
     }
 
     auto mutator = ffi::make_object<BuiltinLower>(device_type, preserve_ffi_kernel);
-    func.CopyOnWrite()->body = mutator->VisitBodyAndRealizeAlloca(func->body);
+    func.CopyOnWrite()->body = SeqStmt(mutator->VisitBody(func->body));
     return func;
   }
 
@@ -79,185 +77,9 @@ class BuiltinLower : public StmtExprMutator {
                         bool preserve_ffi_kernel = false)
       : device_type_(device_type), preserve_ffi_kernel_(preserve_ffi_kernel) {}
 
-  // NOTE: Right now, we make the following scoping requirement
-  // for memory allocated by the following primitives
-  // - stack_make_dltensor
-  // - stack_make_shape
-  // - arg stack
-  //
-  // Scoping and liveness rules:
-  // - Every call_packed introduce a new scope.
-  // - The memory allocated by stack_make_dltensor/make_shape will
-  //   no longer become valid outside the scope (and may be reused by
-  //   subsequent call_packed.
-  // - TODO(tvm-team): we might consider a root scope so stack_make_shape
-  //   can be called out-side call_packed.
-  //
-  //  Example:
-  //  {
-  //    call_packed(make_shape1(...),
-  //                call_packed(make_shape2(...))
-  //    call_packed(make_shape3(...))
-  //  }
-  //
-  //  In this case, make_shape1 and make_shape2 should not share memory,
-  //  but they can share memory with make_shape3.
-  //
-  //  Rationale: most of the packed calls needs their own internal
-  //  argument stack, and those stack can be shared across calls.
-  //  Scoping is a quick way to enable sharing without having
-  //  to do full-scale liveness analysis and it does its job.
-  //  Alternative approaches can also be used.
-  struct StackSizes {
-    // If a stack_make_shape call has no arguments, it is still
-    // valid and represents a scalar shape ().  Therefore, -1 is used
-    // to represent "no shape arguments exist", while 0 represents
-    // "shape arguments exist, all of which are size 0".
-    int64_t shape_stack{-1};
-    uint64_t array_stack{0};
-    uint64_t arg_stack{0};
-  };
-
-  // Record stack frame for existing scope.
-  struct AllocaScope {
-    ffi::Optional<TensorVar> stack_shape;
-    Var stack_array = Var("stack_array", PtrType::VoidPtrType());
-    Var stack_ffi_any = Var("stack_ffi_any", PtrType::VoidPtrType());
-
-    StackSizes max_sizes;
-    StackSizes run_sizes;
-
-    void UpdateMax() {
-      max_sizes.shape_stack = std::max(max_sizes.shape_stack, run_sizes.shape_stack);
-      max_sizes.array_stack = std::max(max_sizes.array_stack, run_sizes.array_stack);
-      max_sizes.arg_stack = std::max(max_sizes.arg_stack, run_sizes.arg_stack);
-    }
-
-    void AssertMaxIsValid() const {
-      TVM_FFI_ICHECK((max_sizes.shape_stack >= run_sizes.shape_stack) ||
-                     (max_sizes.array_stack >= run_sizes.array_stack) ||
-                     (max_sizes.arg_stack >= run_sizes.arg_stack));
-    }
-  };
-
-  Stmt Build(Stmt stmt) { return this->VisitBodyAndRealizeAlloca(stmt); }
-
-  StackSizes GetMaxStack(Stmt stmt) {
-    auto precheck = ffi::make_object<BuiltinLower>();
-    precheck->is_precheck_ = true;
-    precheck->device_id_ = this->device_id_;
-    precheck->device_type_ = this->device_type_;
-
-    precheck->alloca_scope_.emplace_back();
-    {
-      // NOTE: this scope reference is invalid after any mutation is applied to alloca_scope_.
-      auto& scope = precheck->alloca_scope_.back();
-      scope.stack_shape =
-          TensorVar("stack_shape", TensorType({IntImm::Int64(0)}, PrimType::Int(64)));
-    }
-
-    precheck->Mutate(stmt, InplaceMode::kDisallow).ValueOrUnchanged(stmt);
-
-    TVM_FFI_ICHECK_EQ(precheck->alloca_scope_.size(), 1);
-    return precheck->alloca_scope_[0].max_sizes;
-  }
-
-  // Allcoate stack frames, only at parallel-for or root.
-  Stmt VisitBodyAndRealizeAlloca(Stmt stmt) {
-    // Only perform the precheck up to the point where we would add a
-    // new scope.
-    if (is_precheck_) {
-      return stmt;
-    }
-
-    alloca_scope_.emplace_back();
-    {
-      // NOTE: this scope reference is invalid after any mutation is applied to alloca_scope_.
-      auto& scope = alloca_scope_.back();
-
-      // Initial check to identify maximum stack sizes.  These are used
-      // to construct buffers to hold the stack, which are then
-      // used when mutating.
-      scope.max_sizes = GetMaxStack(stmt);
-
-      // Build a flat list of Bind stmts followed by the body
-      ffi::Array<Stmt> alloca_stmts;
-      if (scope.max_sizes.arg_stack != 0) {
-        alloca_stmts.push_back(
-            Bind(scope.stack_ffi_any,
-                 Call(scope.stack_ffi_any->ty, tirx::stack_alloca_op(),
-                      {StringImm("tvm_ffi_any"), IntImm::Int32(scope.max_sizes.arg_stack)})));
-      }
-
-      if (scope.max_sizes.array_stack != 0) {
-        alloca_stmts.push_back(
-            Bind(scope.stack_array,
-                 Call(scope.stack_array->ty, tirx::stack_alloca_op(),
-                      {StringImm("array"), IntImm::Int32(scope.max_sizes.array_stack)})));
-      }
-
-      if (scope.max_sizes.shape_stack != -1) {
-        scope.stack_shape =
-            TensorVar("stack_shape",
-                      TensorType({IntImm::Int64(scope.max_sizes.shape_stack)}, PrimType::Int(64)));
-        stmt = SeqStmt(
-            {Bind(scope.stack_shape.value(),
-                  Call(scope.stack_shape.value().ty(), decl_tensor_op(),
-                       {Call(scope.stack_shape.value().ty()->DataPtrType(), tirx::stack_alloca_op(),
-                             {StringImm("shape"), IntImm::Int32(scope.max_sizes.shape_stack)})},
-                       {}, {scope.stack_shape.value().ty()})),
-             stmt});
-      }
-
-      if (!alloca_stmts.empty()) {
-        alloca_stmts.push_back(stmt);
-        stmt = SeqStmt(alloca_stmts);
-      }
-    }
-
-    stmt = scope_.WithNewScope([&]() -> Stmt {
-      Stmt visited = this->Mutate(stmt, InplaceMode::kDisallow).ValueOrUnchanged(stmt);
-      return AppendPendingFrees(visited);
-    });
-
-    TVM_FFI_ICHECK(!alloca_scope_.empty());
-    alloca_scope_.pop_back();
-
-    return stmt;
-  }
-
-  UnchangedOr<ffi::Any> Mutate(ffi::AnyView input, InplaceMode inplace_mode) final {
-    if (!input.as<StmtObj>()) return StmtExprMutator::Mutate(input, inplace_mode);
-    // Allocate space to hold preparation statements for this statement.
-    prep_seq_stack_.emplace_back(std::vector<Stmt>());
-
-    auto scope_size = alloca_scope_.size();
-    auto mutated = StmtExprMutator::Mutate(input, inplace_mode);
-    Stmt stmt = std::move(mutated).ValueOrUnchanged(input).as_or_throw<Stmt>();
-    {
-      // NOTE: this scope reference is invalid after any mutation is applied to alloca_scope_.
-      auto& scope = alloca_scope_.back();
-      // This invariant asserts the assumption that
-      // make_stack_shape only happens within a call_packed.
-      // We could relax this in the future if we want to
-      // introduce root scope as a separate scope
-      TVM_FFI_ICHECK_EQ(alloca_scope_.size(), scope_size)
-          << "alloca_scope_ length is different before and after recursion";
-      TVM_FFI_ICHECK_EQ(scope.run_sizes.shape_stack, -1)
-          << "Expect no stack_make_shape outside of CallNodes";
-      TVM_FFI_ICHECK_EQ(scope.run_sizes.array_stack, 0)
-          << "Expect no stack_make_dltensor outside of CallNodes";
-    }
-
-    auto prep_seq = std::move(prep_seq_stack_.back());
-    prep_seq_stack_.pop_back();
-
-    if (prep_seq.size() != 0) {
-      prep_seq.push_back(stmt);
-      return SeqStmt(prep_seq);
-    } else {
-      return stmt;
-    }
+  Stmt VisitBody(const SeqStmt& body) {
+    return scope_.WithNewScope(
+        [&]() -> Stmt { return AppendPendingFrees(Mutate(body).ValueOrUnchanged(body)); });
   }
 
   UnchangedOr<Stmt> Mutate_(const BindObj* op, InplaceMode inplace_mode) final {
@@ -301,13 +123,12 @@ class BuiltinLower : public StmtExprMutator {
     }
     TVM_FFI_ICHECK(device_type_) << "Unknown device type in current IR";
     TVM_FFI_ICHECK(device_id_) << "Unknown device id in current IR";
-    Stmt throw_last_error =
-        Evaluate(Call(PrimType::Void(), throw_last_error_op(), {}).as_or_throw<PrimExpr>());
+    Call throw_last_error(PrimType::Void(), throw_last_error_op(), {});
 
     Stmt alloc_nullptr_check =
         If(Call(PrimType::Bool(), isnullptr_op(), {op->var.as_or_throw<TensorVar>().data()})
                .as_or_throw<PrimExpr>(),
-           throw_last_error);
+           Evaluate(throw_last_error));
 
     static const Op free_workspace_op = Op::Get("tirx.free_workspace");
     static const Op alloc_workspace_op = Op::Get("tirx.alloc_workspace");
@@ -316,7 +137,7 @@ class BuiltinLower : public StmtExprMutator {
                              prim::cast(device_id_.value(), PrimType::Int(32)),
                              op->var.as_or_throw<TensorVar>().data()})
                            .as_or_throw<PrimExpr>();
-    Stmt free_stmt = If(free_op != IntImm::Int32(0), throw_last_error);
+    Stmt free_stmt = If(free_op != IntImm::Int32(0), Evaluate(throw_last_error));
 
     // Push free to enclosing scope's pending_frees (LIFO ordering preserved).
     scope_.Current().pending_frees.push_back(free_stmt);
@@ -351,7 +172,9 @@ class BuiltinLower : public StmtExprMutator {
       });
       device_type_ = saved_type;
       device_id_ = saved_id;
-      return body;
+      // Packed tensor descriptors still need the lexical device in LowerFFIABI.
+      return RegionStmt(op->op, {device_type, device_id}, op->body_params, op->attrs, SeqStmt(body),
+                        op->result_vars, op->loc);
     }
     return scope_.WithNewScope([&]() -> Stmt {
       RegionStmt region = StmtExprMutator::Mutate_(op, inplace_mode)
@@ -372,16 +195,7 @@ class BuiltinLower : public StmtExprMutator {
     bool end_unchanged = end_result.UnchangedOrSameAs(op->end);
     PrimExpr end = std::move(end_result).ValueOrUnchanged(op->end);
     PrimExpr step = Mutate(op->step, inplace_mode).ValueOrUnchanged(op->step);
-    Stmt body = op->body;
-
-    if (op->kind == ForKind::kParallel) {
-      body = this->VisitBodyAndRealizeAlloca(op->body);
-    } else {
-      body = scope_.WithNewScope([&]() -> Stmt {
-        Stmt visited = this->Mutate(op->body, inplace_mode).ValueOrUnchanged(op->body);
-        return AppendPendingFrees(visited);
-      });
-    }
+    Stmt body = VisitBody(op->body);
 
     if (begin_unchanged && end_unchanged && step.same_as(op->step) && body.same_as(op->body)) {
       return ffi::Unchanged();
@@ -428,39 +242,33 @@ class BuiltinLower : public StmtExprMutator {
   }
 
   UnchangedOr<Expr> Mutate_(const CallObj* op, InplaceMode inplace_mode) final {
-    if (op->op.same_as(backend::cuda::tensormap_encode_tiled_op()) && !preserve_ffi_kernel_) {
-      const auto* attr =
-          (op->attrs.has_value() ? op->attrs.value().as<backend::cuda::TensorMapEncodeTiledAttr>()
-                                 : nullptr);
-      TVM_FFI_CHECK(attr && attr->rank >= 1 && attr->rank <= 5 &&
-                        op->args.size() == static_cast<size_t>(4 * attr->rank + 1),
-                    ValueError)
-          << "Invalid tensormap_encode_tiled attributes or operands";
-      ffi::Array<Expr> args{StringImm("runtime.cuTensorMapEncodeTiled"), op->args[0],
-                            StringImm(ffi::DLDataTypeToString(attr->descriptor_dtype)),
-                            IntImm(PrimType::Int(32), attr->rank), op->args[1]};
-      for (size_t i = 2; i < op->args.size(); ++i) args.push_back(op->args[i]);
-      for (int64_t value : {attr->interleave, attr->swizzle, attr->l2_promotion, attr->oob_fill}) {
-        args.push_back(IntImm(PrimType::Int(32), value));
-      }
-      if (attr->force_cu_dtype != -1) {
-        args.push_back(IntImm(PrimType::Int(32), attr->force_cu_dtype));
-      }
-      Call packed(op->ty, call_packed_op(), args);
-      return MakeCallPackedGeneric(packed.get(), 0, call_packed_lowered_op());
+    auto rewritten = StmtExprMutator::Mutate_(op, inplace_mode);
+    if (preserve_ffi_kernel_ || !(op->op.same_as(call_ffi_kernel_op()) ||
+                                  op->op.same_as(backend::cuda::tensormap_encode_tiled_op())))
+      return rewritten;
+    auto call = std::move(rewritten).ValueOrUnchanged(ffi::GetRef<Expr>(op)).as_or_throw<Call>();
+    if (call->op.same_as(call_ffi_kernel_op())) {
+      return Call(call->ty, call_packed_op(), call->args, call->attrs, call->ty_args, call->loc);
     }
-    if (op->op.same_as(call_packed_op()) ||
-        (op->op.same_as(call_ffi_kernel_op()) && !preserve_ffi_kernel_)) {
-      return MakeCallPackedGeneric(op, 0, call_packed_lowered_op());
-    } else if (op->op.same_as(call_cpacked_op())) {
-      return MakeCallPackedGeneric(op, 0, call_cpacked_lowered_op());
-    } else if (op->op.same_as(stack_make_shape_op())) {
-      return MakeShape(op);
-    } else if (op->op.same_as(stack_make_dltensor_op())) {
-      return MakeArray(op);
-    } else {
-      return StmtExprMutator::Mutate_(op, inplace_mode);
+    op = call.get();
+    const auto* attr =
+        (op->attrs.has_value() ? op->attrs.value().as<backend::cuda::TensorMapEncodeTiledAttr>()
+                               : nullptr);
+    TVM_FFI_CHECK(attr && attr->rank >= 1 && attr->rank <= 5 &&
+                      op->args.size() == static_cast<size_t>(4 * attr->rank + 1),
+                  ValueError)
+        << "Invalid tensormap_encode_tiled attributes or operands";
+    ffi::Array<Expr> args{StringImm("runtime.cuTensorMapEncodeTiled"), op->args[0],
+                          StringImm(ffi::DLDataTypeToString(attr->descriptor_dtype)),
+                          IntImm(PrimType::Int(32), attr->rank), op->args[1]};
+    for (size_t i = 2; i < op->args.size(); ++i) args.push_back(op->args[i]);
+    for (int64_t value : {attr->interleave, attr->swizzle, attr->l2_promotion, attr->oob_fill}) {
+      args.push_back(IntImm(PrimType::Int(32), value));
     }
+    if (attr->force_cu_dtype != -1) {
+      args.push_back(IntImm(PrimType::Int(32), attr->force_cu_dtype));
+    }
+    return Call(PrimType::Void(), call_packed_op(), args);
   }
 
   StringImm GetDeviceMethodName(const char* method_name) const {
@@ -477,241 +285,10 @@ class BuiltinLower : public StmtExprMutator {
     return StringImm("device_api." + device_name + "." + method_name);
   }
 
-  // call shape
-  Expr MakeShape(const CallObj* op) {
-    // if args.size() == 0, it represents a scalar shape ()
-    TVM_FFI_ICHECK(!alloca_scope_.empty());
-    auto& scope = alloca_scope_.back();
-    auto& prep_seq = prep_seq_stack_.back();
-    if (scope.run_sizes.shape_stack == -1) {
-      scope.run_sizes.shape_stack = 0;
-    }
-    int64_t stack_begin = scope.run_sizes.shape_stack;
-    scope.run_sizes.shape_stack += op->args.size();
-    Expr expr = StmtExprMutator::Mutate_(op, InplaceMode::kDisallow)
-                    .ValueOrUnchanged(ffi::GetRef<Expr>(op));
-    op = expr.as<CallObj>();
-    // no need to perform any store for a scalar shape
-    for (size_t i = 0; i < op->args.size(); ++i) {
-      prep_seq.emplace_back(
-          TensorStore(scope.stack_shape.value(), {IntImm::Int32(stack_begin + i)},
-                      prim::cast(op->args[i].as_or_throw<PrimExpr>(), PrimType::Int(64))));
-    }
-    PrimExpr offset = IntImm::Int32(stack_begin);
-    TensorLoad load = TensorLoad(scope.stack_shape.value(), {offset});
-    return Call(scope.stack_shape.value().ty()->DataPtrType(), address_of_op(), {load});
-  }
-  // make array
-  Expr MakeArray(const CallObj* op) {
-    TVM_FFI_ICHECK(!alloca_scope_.empty());
-    auto& scope = alloca_scope_.back();
-    auto& prep_seq = prep_seq_stack_.back();
-
-    size_t idx = scope.run_sizes.array_stack;
-    scope.run_sizes.array_stack += 1;
-    Expr expr = StmtExprMutator::Mutate_(op, InplaceMode::kDisallow)
-                    .ValueOrUnchanged(ffi::GetRef<Expr>(op));
-    op = expr.as<CallObj>();
-
-    prep_seq.emplace_back(Evaluate(
-        Call(PrimType::Int(32), tirx::abi_field_set_op(),
-             {scope.stack_array, IntImm::Int32(idx), IntImm::Int32(kDLTensorData), op->args[0]})
-            .as_or_throw<PrimExpr>()));
-    prep_seq.emplace_back(Evaluate(
-        Call(PrimType::Int(32), tirx::abi_field_set_op(),
-             {scope.stack_array, IntImm::Int32(idx), IntImm::Int32(kDLTensorShape), op->args[1]})
-            .as_or_throw<PrimExpr>()));
-    Expr strides = op->args[2];
-    if (auto prim_strides = strides.as<PrimExpr>(); prim_strides && IsZero(prim_strides.value())) {
-      strides = tirx::ConstHandle(0);
-    }
-    prep_seq.emplace_back(Evaluate(
-        Call(PrimType::Int(32), tirx::abi_field_set_op(),
-             {scope.stack_array, IntImm::Int32(idx), IntImm::Int32(kDLTensorStrides), strides})
-            .as_or_throw<PrimExpr>()));
-    prep_seq.emplace_back(
-        Evaluate(Call(PrimType::Int(32), tirx::abi_field_set_op(),
-                      {scope.stack_array, IntImm::Int32(idx), IntImm::Int32(kDLTensorNDim),
-                       op->args[3].as_or_throw<PrimExpr>()})
-                     .as_or_throw<PrimExpr>()));
-    PrimType dtype = op->args[4].as_or_throw<PrimExpr>().ty();
-    prep_seq.emplace_back(
-        Evaluate(Call(PrimType::Int(32), tirx::abi_field_set_op(),
-                      {scope.stack_array, IntImm::Int32(idx), IntImm::Int32(kDLTensorTypeCode),
-                       IntImm(PrimType::UInt(8), static_cast<int>(dtype.code()))})
-                     .as_or_throw<PrimExpr>()));
-    prep_seq.emplace_back(
-        Evaluate(Call(PrimType::Int(32), tirx::abi_field_set_op(),
-                      {scope.stack_array, IntImm::Int32(idx), IntImm::Int32(kDLTensorTypeBits),
-                       IntImm(PrimType::UInt(8), dtype.bits())})
-                     .as_or_throw<PrimExpr>()));
-    prep_seq.emplace_back(
-        Evaluate(Call(PrimType::Int(32), tirx::abi_field_set_op(),
-                      {scope.stack_array, IntImm::Int32(idx), IntImm::Int32(kDLTensorTypeLanes),
-                       IntImm(PrimType::UInt(16), dtype.lanes())})
-                     .as_or_throw<PrimExpr>()));
-    // set byte offset
-    int data_bytes = GetVectorBytes(dtype);
-    PrimExpr elem_offset = op->args[5].as_or_throw<PrimExpr>();
-    PrimExpr byte_offset = elem_offset;
-    if (!IsZero(elem_offset)) {
-      byte_offset = elem_offset * IntImm(elem_offset.ty(), data_bytes);
-    } else {
-      byte_offset = elem_offset;
-    }
-    prep_seq.emplace_back(
-        Evaluate(Call(PrimType::Int(32), tirx::abi_field_set_op(),
-                      {scope.stack_array, IntImm::Int32(idx), IntImm::Int32(kDLTensorByteOffset),
-                       prim::cast(byte_offset, PrimType::UInt(64))})
-                     .as_or_throw<PrimExpr>()));
-    TVM_FFI_ICHECK(device_type_) << "Unknown device type in current IR";
-    TVM_FFI_ICHECK(device_id_) << "Unknown device id in current IR";
-    prep_seq.emplace_back(
-        Evaluate(Call(PrimType::Int(32), tirx::abi_field_set_op(),
-                      {scope.stack_array, IntImm::Int32(idx), IntImm::Int32(kDLTensorDeviceId),
-                       prim::cast(device_id_.value(), PrimType::Int(32))})
-                     .as_or_throw<PrimExpr>()));
-    prep_seq.emplace_back(
-        Evaluate(Call(PrimType::Int(32), tirx::abi_field_set_op(),
-                      {scope.stack_array, IntImm::Int32(idx), IntImm::Int32(kDLTensorDeviceType),
-                       prim::cast(device_type_.value(), PrimType::Int(32))})
-                     .as_or_throw<PrimExpr>()));
-    return Call(PtrType::VoidPtrType(), tirx::abi_field_get_op(),
-                {scope.stack_array, IntImm::Int32(idx), IntImm::Int32(kDLTensorAddr)});
-  }
-
-  void SetPackedArg(Expr arg, const Var& args_stack, size_t stack_offset,
-                    std::vector<Stmt>* prep_seq) {
-    int arg_type_index;
-    if (arg.as<StringImmObj>()) {
-      arg_type_index = ffi::TypeIndex::kTVMFFIRawStr;
-      arg = tirx::reinterpret(PtrType::VoidPtrType(), std::move(arg));
-    } else if (arg->ty.as<PtrTypeObj>()) {
-      arg_type_index = IsArrayHandle(arg) ? ffi::TypeIndex::kTVMFFIDLTensorPtr
-                                          : ffi::TypeIndex::kTVMFFIOpaquePtr;
-    } else {
-      PrimExpr prim_arg = arg.as_or_throw<PrimExpr>();
-      PrimType arg_ty = prim_arg.ty();
-      PrimType api_ty = APIType(arg_ty);
-      if (arg_ty != api_ty) {
-        arg = prim::Cast(api_ty, prim_arg);
-      }
-      if (api_ty.MatchesCode(DLDataTypeCode::kDLBool)) {
-        arg_type_index = ffi::TypeIndex::kTVMFFIBool;
-      } else if (api_ty.MatchesCode(DLDataTypeCode::kDLInt, DLDataTypeCode::kDLUInt)) {
-        arg_type_index = ffi::TypeIndex::kTVMFFIInt;
-      } else if (api_ty.code() == DLDataTypeCode::kDLFloat) {
-        arg_type_index = ffi::TypeIndex::kTVMFFIFloat;
-      } else {
-        TVM_FFI_THROW(InternalError) << "Unsupported type: " << api_ty;
-      }
-    }
-
-    // opaque handle need to set the kind properly
-    if (arg_type_index == ffi::TypeIndex::kTVMFFIOpaquePtr) {
-      prep_seq->emplace_back(
-          If(Call(PrimType::Bool(), isnullptr_op(), {arg}).as_or_throw<PrimExpr>(),
-             Evaluate(
-                 Call(PrimType::Int(32), tirx::abi_field_set_op(),
-                      {args_stack, IntImm::Int32(stack_offset), IntImm::Int32(kTVMFFIAnyTypeIndex),
-                       IntImm::Int32(ffi::TypeIndex::kTVMFFINone)})
-                     .as_or_throw<PrimExpr>()),
-             SeqStmt(Evaluate(
-                 Call(PrimType::Int(32), tirx::abi_field_set_op(),
-                      {args_stack, IntImm::Int32(stack_offset), IntImm::Int32(kTVMFFIAnyTypeIndex),
-                       IntImm::Int32(ffi::TypeIndex::kTVMFFIOpaquePtr)})
-                     .as_or_throw<PrimExpr>()))));
-    } else {
-      prep_seq->emplace_back(
-          Evaluate(Call(PrimType::Int(32), tirx::abi_field_set_op(),
-                        {args_stack, IntImm::Int32(stack_offset),
-                         IntImm::Int32(kTVMFFIAnyTypeIndex), IntImm::Int32(arg_type_index)})
-                       .as_or_throw<PrimExpr>()));
-    }
-    // set zero padding to ensure compatibility with FFI convention
-    prep_seq->emplace_back(Evaluate(Call(PrimType::Int(32), tirx::abi_field_set_op(),
-                                         {args_stack, IntImm::Int32(stack_offset),
-                                          IntImm::Int32(kTVMFFIAnyZeroPadding), IntImm::Int32(0)})
-                                        .as_or_throw<PrimExpr>()));
-    // handle arg value
-    // NOTE: the intrinsic codegen will handle padding value clear for 32bit
-    // types or types that are smaller than 64 bits.
-    prep_seq->emplace_back(Evaluate(
-        Call(PrimType::Int(32), tirx::abi_field_set_op(),
-             {args_stack, IntImm::Int32(stack_offset), IntImm::Int32(kTVMFFIAnyUnionValue), arg})
-            .as_or_throw<PrimExpr>()));
-  }
-
-  /*!
-   * \brief Generic tool to make low-level
-   *  packed_call(other_args..., func_name, packed_arg0, packed_arg1...)
-   *
-   * \param op The call
-   * \param name_offset The beginning of function name and call packed section.
-   * \param lowered_packed_op The target lowered op.
-   */
-  Call MakeCallPackedGeneric(const CallObj* op, size_t name_offset, const Op& lowered_packed_op) {
-    auto& scope = alloca_scope_.back();
-    auto& prep_seq = prep_seq_stack_.back();
-
-    int64_t restore_shape_stack = scope.run_sizes.shape_stack;
-    size_t restore_array_stack = scope.run_sizes.array_stack;
-    size_t arg_stack_begin = scope.run_sizes.arg_stack;
-
-    size_t args_begin = name_offset + 1;
-    size_t args_end = op->args.size();
-
-    size_t num_args = args_end - args_begin;
-
-    // The extra one slot is for return value.
-    scope.run_sizes.arg_stack += num_args + 1;
-    // Specially handle the tensor packed intrinsic
-    Expr expr = StmtExprMutator::Mutate_(op, InplaceMode::kDisallow)
-                    .ValueOrUnchanged(ffi::GetRef<Expr>(op));
-    op = expr.as<CallObj>();
-
-    for (size_t i = 0; i < num_args; ++i) {
-      const Expr& arg = op->args[args_begin + i];
-      TVM_FFI_CHECK(arg.as<PrimExpr>() || arg->ty.as<PtrTypeObj>() || arg.as<StringImmObj>(),
-                    TypeError)
-          << "Packed call argument must have a primitive, pointer, or string type, but got "
-          << arg->ty;
-      this->SetPackedArg(arg, scope.stack_ffi_any, arg_stack_begin + i, &prep_seq);
-    }
-    // explicitly set return value to None to avoid bad state interpretation
-    prep_seq.emplace_back(Evaluate(
-        Call(PrimType::Int(32), tirx::abi_field_set_op(),
-             {scope.stack_ffi_any, IntImm::Int32(num_args), IntImm::Int32(kTVMFFIAnyTypeIndex),
-              IntImm::Int32(ffi::TypeIndex::kTVMFFINone)})
-            .as_or_throw<PrimExpr>()));
-    prep_seq.emplace_back(Evaluate(Call(PrimType::Int(32), tirx::abi_field_set_op(),
-                                        {scope.stack_ffi_any, IntImm::Int32(num_args),
-                                         IntImm::Int32(kTVMFFIAnyZeroPadding), IntImm::Int32(0)})
-                                       .as_or_throw<PrimExpr>()));
-    prep_seq.emplace_back(Evaluate(Call(PrimType::Int(32), tirx::abi_field_set_op(),
-                                        {scope.stack_ffi_any, IntImm::Int32(num_args),
-                                         IntImm::Int32(kTVMFFIAnyUnionValue), IntImm::Int64(0)})
-                                       .as_or_throw<PrimExpr>()));
-    // Verify stack size matches earlier value.
-    if (is_precheck_) {
-      scope.UpdateMax();
-    } else {
-      scope.AssertMaxIsValid();
-    }
-    scope.run_sizes.shape_stack = restore_shape_stack;
-    scope.run_sizes.array_stack = restore_array_stack;
-    scope.run_sizes.arg_stack = arg_stack_begin;
-    ffi::Array<Expr> packed_args = {op->args[name_offset], scope.stack_ffi_any,
-                                    IntImm::Int32(arg_stack_begin),
-                                    IntImm::Int32(arg_stack_begin + num_args)};
-    return Call(op->ty, lowered_packed_op, packed_args);
-  }
-
   Stmt MakeNdMemAllocWithScope(const BindObj* let, const CallObj* call) {
     TVM_FFI_ICHECK(device_type_) << "Unknown device type in current IR";
     TVM_FFI_ICHECK(device_id_) << "Unknown device id in current IR";
-    Stmt throw_last_error =
-        Evaluate(Call(PrimType::Void(), throw_last_error_op(), {}).as_or_throw<PrimExpr>());
+    Call throw_last_error(PrimType::Void(), throw_last_error_op(), {});
 
     const auto* dtype_node = let->var->ty.as<PtrTypeObj>()->element_type.as<PrimTypeObj>();
     TVM_FFI_ICHECK(dtype_node);
@@ -729,7 +306,7 @@ class BuiltinLower : public StmtExprMutator {
     Call call_packed = Call(let->var->ty, call_packed_op(), args);
     Stmt null_check = If(
         Call(PrimType::Bool(), isnullptr_op(), ffi::Array<Expr>{let->var}).as_or_throw<PrimExpr>(),
-        throw_last_error);
+        Evaluate(throw_last_error));
 
     // Construct free_nd call and register in current scope.
     // The free will be emitted on scope exit, matching the old LetStmt body semantics.
@@ -737,32 +314,13 @@ class BuiltinLower : public StmtExprMutator {
     Call free_op = Call(PrimType::Int(32), call_packed_op(),
                         {GetDeviceMethodName("free_nd"), device_type_.value(), device_id_.value(),
                          storage_scope, let->var});
-    Stmt free_stmt = If(free_op.as_or_throw<PrimExpr>() != IntImm::Int32(0), throw_last_error);
-    // Visit the free_stmt so call_packed builtins inside it get lowered.
-    free_stmt = StmtExprMutator::Mutate(ffi::AnyView(free_stmt), InplaceMode::kDisallow)
-                    .ValueOrUnchanged(free_stmt)
-                    .as_or_throw<Stmt>();
+    Stmt free_stmt =
+        If(free_op.as_or_throw<PrimExpr>() != IntImm::Int32(0), Evaluate(throw_last_error));
     scope_.Current().pending_frees.push_back(free_stmt);
-
-    // Re-visit so call_packed in the Bind value and null_check get lowered.
-    Stmt input = SeqStmt({Bind(let->var, call_packed), null_check});
-    return StmtExprMutator::Mutate(ffi::AnyView(input), InplaceMode::kDisallow)
-        .ValueOrUnchanged(input)
-        .as_or_throw<Stmt>();
+    return SeqStmt({Bind(let->var, call_packed), null_check});
   }
 
  private:
-  bool IsArrayHandle(const Expr& arg) {
-    // specially set array handle.
-    if (const CallObj* buf = arg.as<CallObj>()) {
-      if (buf->op.same_as(abi_field_get_op()) &&
-          buf->args[2].as<IntImmObj>()->value == kDLTensorAddr) {
-        return true;
-      }
-    }
-    return false;
-  }
-
   /*!
    * \brief Scope level for tracking nd_mem_alloc_with_scope deallocations.
    *
@@ -789,17 +347,11 @@ class BuiltinLower : public StmtExprMutator {
     return SeqStmt(stmts);
   }
 
-  // The prepration sequence to be emitted before the current statement.
-  std::vector<std::vector<Stmt>> prep_seq_stack_;
   ffi::Optional<PrimExpr> device_type_{std::nullopt};
   ffi::Optional<PrimExpr> device_id_{std::nullopt};
 
   // CUDA host codegen consumes explicit launches after ordinary builtin lowering.
   bool preserve_ffi_kernel_{false};
-  bool is_precheck_{false};
-
-  // Record all stack frames.
-  std::vector<AllocaScope> alloca_scope_;
   // Scope stack for nd_mem_alloc_with_scope free tracking.
   ScopeStack<ScopeLevel> scope_;
 };

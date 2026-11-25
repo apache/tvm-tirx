@@ -58,7 +58,7 @@ def test_ssa_across_entire_module():
         def main():
             T.func_attr({"target": T.target("cuda", host="llvm")})
             for i in range(16):
-                T.call_ffi_kernel("main_kernel", i)
+                T.call_ffi_kernel("main_kernel", i, ty="void")
 
         @T.function
         def main_kernel(i: T.int32):
@@ -93,7 +93,7 @@ def test_split_host_device():
         @T.function
         def main(n: T.int32):
             T.func_attr({"target": T.target("cuda", host={"kind": "llvm", "opt-level": 0})})
-            T.call_ffi_kernel("main_kernel", n, launch_params=[])
+            T.call_ffi_kernel("main_kernel", n, launch_params=[], ty="void")
 
         @T.function
         def main_kernel(n: T.int32):
@@ -196,7 +196,7 @@ def test_split_host_device_without_func_host_attribute():
         @T.function
         def main(n: T.int32):
             T.func_attr({"target": T.target("llvm")})
-            T.call_ffi_kernel("main_kernel", n, launch_params=[])
+            T.call_ffi_kernel("main_kernel", n, launch_params=[], ty="void")
 
         @T.function
         def main_kernel(n: T.int32):
@@ -267,7 +267,7 @@ def test_split_host_device_name_collision():
         @T.function
         def main(n: T.int32):
             T.func_attr({"target": T.target("cuda", host={"kind": "llvm", "opt-level": 0})})
-            T.call_ffi_kernel("main_kernel_1", n, launch_params=[])
+            T.call_ffi_kernel("main_kernel_1", n, launch_params=[], ty="void")
 
         @T.function
         def main_kernel_1(n: T.int32):
@@ -433,7 +433,7 @@ def test_tensor_used_only_through_data_projection():
         @T.function
         def main(A: T.Tensor((16,), T.float32)):
             T.func_attr({"target": T.target("cuda", host="llvm")})
-            T.call_ffi_kernel("main_kernel", A.data)
+            T.call_ffi_kernel("main_kernel", A.data, ty="void")
 
         @T.function
         def main_kernel(A_ptr: T.Ptr(T.PrimType("float32"))):
@@ -468,7 +468,7 @@ def test_thread_extent_region_extracted_as_device_kernel():
         @T.function
         def main(A: T.Tensor(16, "float32")):
             T.func_attr({"target": T.target("cuda", host="llvm")})
-            T.call_ffi_kernel("main_kernel", A.data, 16, launch_params=["threadIdx.x"])
+            T.call_ffi_kernel("main_kernel", A.data, 16, launch_params=["threadIdx.x"], ty="void")
 
         @T.function
         def main_kernel(A_data: T.handle("float32")):
@@ -549,6 +549,7 @@ def test_cuda_launch_preserves_flag_metadata():
                 A.data,
                 16,
                 launch_params=["threadIdx.x", "tirx.use_programtic_dependent_launch"],
+                ty="void",
             )
 
         @T.function
@@ -648,6 +649,7 @@ def test_cuda_required_block_size_coexists_with_launch_bounds():
                 },
                 launch_fields=["grid.x", "grid.y", "grid.z", "block.x", "block.y", "block.z"],
                 num_kernel_args=1,
+                ty="void",
             )
 
         @T.function
@@ -743,6 +745,7 @@ def test_cuda_launch_preserves_singleton_cluster_dimensions():
                     "clusterCtaIdx.z",
                     "threadIdx.x",
                 ],
+                ty="void",
             )
 
         @T.function
@@ -789,7 +792,7 @@ def test_device_scope_region_extracted_as_device_kernel():
         @T.function
         def main(A: T.Tensor(1, "float32")):
             T.func_attr({"target": T.target("cuda", host="llvm")})
-            T.call_ffi_kernel("main_kernel", A.data, launch_params=[])
+            T.call_ffi_kernel("main_kernel", A.data, launch_params=[], ty="void")
 
         @T.function
         def main_kernel(A_data: T.handle("float32")):
@@ -831,7 +834,7 @@ def test_lower_device_kernel_launch():
         @T.function
         def main(A: T.Tensor(1, "float32")):
             T.func_attr({"target": T.target("llvm")})
-            T.call_ffi_kernel("kernel", A.data, launch_params=[])
+            T.call_ffi_kernel("kernel", A.data, launch_params=[], ty="void")
 
         @T.function
         def kernel(A_data: T.handle("float32")):
@@ -872,7 +875,7 @@ def test_externally_visible_kernel_launch():
         @T.function
         def main(A: T.Tensor(1, "float32")):
             T.func_attr({"target": T.target("llvm")})
-            T.call_ffi_kernel("kernel_by_another_name", A.data, launch_params=[])
+            T.call_ffi_kernel("kernel_by_another_name", A.data, launch_params=[], ty="void")
 
         @T.function
         def kernel(A_data: T.handle("float32")):
@@ -919,7 +922,7 @@ def test_collect_launch_parameter():
         @T.function
         def main(A: T.Tensor(16, "float32")):
             T.func_attr({"target": T.target("llvm")})
-            T.call_ffi_kernel("kernel", A.data, 16, launch_params=["threadIdx.x"])
+            T.call_ffi_kernel("kernel", A.data, 16, launch_params=["threadIdx.x"], ty="void")
 
         @T.function
         def kernel(A_data: T.handle("float32")):
@@ -1002,7 +1005,7 @@ def test_bind_before_thread_extent():
         @T.function
         def main(A: T.Tensor(16, "float32"), n: T.int32):
             T.func_attr({"target": T.target("llvm")})
-            T.call_ffi_kernel("kernel", A.data, n, n + 1, launch_params=["threadIdx.x"])
+            T.call_ffi_kernel("kernel", A.data, n, n + 1, launch_params=["threadIdx.x"], ty="void")
 
         @T.function
         def kernel(A_data: T.handle("float32"), n: T.int32):

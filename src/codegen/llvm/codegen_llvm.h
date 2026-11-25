@@ -188,7 +188,7 @@ class CodeGenLLVM : public tvm::ExprFunctor<llvm::Value*(const Expr&)>,
   llvm::Value* MakeValue(const PrimExpr& e) { return Dispatch(e); }
   llvm::Value* MakeValue(const Expr& e) {
     if (auto prim = e.as<PrimExpr>()) return MakeValue(prim.value());
-    if (const auto* var = e.as<VarObj>()) return GetVarValue(var);
+    if (const auto* var = e.as<VarObj>()) return Dispatch_(var);
     if (const auto* call = e.as<CallObj>()) return Dispatch_(call);
     if (const auto* str = e.as<StringImmObj>()) return Dispatch_(str);
     TVM_FFI_THROW(TypeError) << "Cannot lower non-primitive expression " << e->GetTypeKey();

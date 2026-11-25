@@ -354,8 +354,10 @@ class LetAnnotation:
         if self.type_spec is not None:
             if isinstance(self.type_spec, ir.Var):
                 return self.type_spec  # Already a Var (e.g. T.handle(...))
-            elif isinstance(self.type_spec, Type):
-                return Var("", self.type_spec)
+            elif isinstance(self.type_spec, Type) or (
+                isinstance(self.type_spec, type) and issubclass(self.type_spec, Type)
+            ):
+                return Var("", _normalize_type(self.type_spec))
             elif callable(self.type_spec):
                 return self.type_spec()
             else:

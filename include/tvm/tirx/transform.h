@@ -49,6 +49,11 @@ using tvm::transform::Sequential;
 /*! \brief Wrap a function body in a device scope region. */
 TVM_TIRX_DLL Pass DecorateDeviceScope();
 
+/*! \brief Lower packed calls and wrapper returns to the host FFI ABI.
+ * Lay out argument scratch and emit explicit ownership operations for managed values.
+ */
+TVM_TIRX_DLL Pass LowerFFIABI();
+
 /*!
  * \brief Create a function pass from an owning FFI callback.
  *

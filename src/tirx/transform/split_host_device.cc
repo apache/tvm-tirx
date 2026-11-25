@@ -625,7 +625,7 @@ Stmt MakeCudaKernelLaunch(const GlobalVar& symbol, Function* func, ffi::Array<Ex
   call_args.insert(call_args.end(), args.begin(), args.end());
   call_args.insert(call_args.end(), values.begin(), values.end());
   host_stmts.push_back(
-      Evaluate(Call(PrimType::Int(32), call_ffi_kernel_op(), call_args, Attrs(attrs))));
+      Evaluate(Call(PrimType::Void(), call_ffi_kernel_op(), call_args, Attrs(attrs))));
   return SeqStmt(host_stmts);
 }
 
@@ -827,8 +827,7 @@ class DeviceKernelMutator : public StmtExprMutator {
                               .as_or_throw<PrimExpr>());
     }
 
-    PrimType node_ty = IsVoidType(node->ty) ? PrimType::Void() : node->ty.as_or_throw<PrimType>();
-    PrimType ret_ty = node_ty.IsVoid() ? PrimType::Int(32) : node_ty;
+    PrimType ret_ty = IsVoidType(node->ty) ? PrimType::Void() : node->ty.as_or_throw<PrimType>();
 
     auto attrs = ffi::make_object<CallFFIKernelAttr>();
     attrs->launch_params = dev_info.launch_params;
