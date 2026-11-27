@@ -405,6 +405,29 @@ def test_bf16_storage_compute_scope_wont_legalize():
     tvm_tirx.ir.assert_structural_equal(after_storage, BindTarget(target)(after_storage_legalize()))
 
 
+def test_bf16_reinterpreted_tensor_keeps_storage():
+    """An intermediate bf16 tensor whose elements are bit-reinterpreted (e.g. bf16 operands passed
+    to a matrix instruction as int16) must keep its bf16 storage: promoting it to fp32 would turn
+    the reinterpret into an invalid fp32 -> int16 bitcast."""
+
+    @tvm_tirx.script.ir_module
+    class Before:
+        @T.function
+        def main(Aptr: T.handle("bfloat16"), Dptr: T.handle("int16")):
+            T.func_attr({"global_symbol": "main"})
+            A = T.decl_tensor(Aptr, ty_args=[T.Tensor((100,), "bfloat16", data=Aptr)])
+            D = T.decl_tensor(Dptr, ty_args=[T.Tensor((100,), "int16", data=Dptr)])
+            C = T.alloc_tensor(ty_args=[T.Tensor((100,), "bfloat16")])
+            for i in T.grid(100):
+                C[i] = A[i]
+                D[i] = T.reinterpret(C[i], ty="int16")
+
+    target = Target("nvidia/geforce-rtx-2080-ti")
+    before = BindTarget(target)(Before)
+    after_compute = tvm_tirx.tirx.transform.BF16ComputeLegalize()(before)
+    tvm_tirx.ir.assert_structural_equal(after_compute, before)
+
+
 def test_bf16_reduce_will_legalize():
     def get_before():
         @tvm_tirx.script.ir_module
