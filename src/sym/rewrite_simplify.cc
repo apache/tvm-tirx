@@ -649,12 +649,14 @@ UnchangedOr<PrimExpr> RewriteSimplifier::Impl::Mutate_(const prim::DivObj* op,
       ffi::BigInt c1val = c1.Eval()->value;
       ffi::BigInt c2val = c2.Eval()->value;
       TVM_FFI_ICHECK(c2val != 0) << "division by zero";
-      if (c1val % c2val == 0) {
+      if (c1val % c2val == 0 &&
+          (c1val == 0 || (c1val > 0 && CanProveGreaterEqual(b1.Eval(), 0)) ||
+           (c1val < 0 && CanProveLess(b1.Eval(), 1)))) {
         return ramp(div(b1, c2), div(c1, c2), lanes).Eval();
       }
       // If all possible indices in ramp are the same.
       if (const auto* lanes_int = lanes.Eval().as<IntImmObj>();
-          lanes_int && CanProveGreaterEqual(b1.Eval(), 0)) {
+          lanes_int && c1val >= 0 && CanProveGreaterEqual(b1.Eval(), 0)) {
         ModularSet bmod = analyzer_->modular_set(b1.Eval());
         ffi::BigInt ramp_min = bmod->base / c2val;
         ffi::BigInt ramp_max = (bmod->base + (lanes_int->value - 1) * c1val) / c2val;
@@ -801,11 +803,13 @@ UnchangedOr<PrimExpr> RewriteSimplifier::Impl::Mutate_(const prim::ModObj* op,
       ffi::BigInt c1val = c1.Eval()->value;
       ffi::BigInt c2val = c2.Eval()->value;
       TVM_FFI_ICHECK(c2val != 0) << "division by zero";
-      if (c1val % c2val == 0) {
+      if (c1val % c2val == 0 &&
+          (c1val == 0 || (c1val > 0 && CanProveGreaterEqual(b1.Eval(), 0)) ||
+           (c1val < 0 && CanProveLess(b1.Eval(), 1)))) {
         return broadcast(truncmod(b1, c2), lanes).Eval();
       }
       // If all possible indices in ramp are the same.
-      if (CanProveGreaterEqual(b1.Eval(), 0)) {
+      if (c1val >= 0 && CanProveGreaterEqual(b1.Eval(), 0)) {
         ModularSet bmod = analyzer_->modular_set(b1.Eval());
         if (const auto* lanes_int = lanes.Eval().as<IntImmObj>()) {
           ffi::BigInt ramp_min = bmod->base / c2val;
@@ -902,8 +906,13 @@ UnchangedOr<PrimExpr> RewriteSimplifier::Impl::Mutate_(const prim::FloorDivObj* 
             return broadcast(floordiv(b1, c2), lanes).Eval();
           }
           // If all indices can be guaranteed to settle inside a coeff range
-          if (c2val % bmod->coeff == 0 &&
-              bmod->base + (lanes_int->value - 1) * c1val < bmod->coeff) {
+          ffi::BigInt ramp_base(bmod->base);
+          ffi::BigInt ramp_end = ramp_base + (lanes_int->value - 1) * c1val;
+          ffi::BigInt ramp_lo = std::min(ramp_base, ramp_end);
+          ffi::BigInt ramp_hi = std::max(ramp_base, ramp_end);
+          bool in_single_bucket = c2val > 0 ? (ramp_lo >= 0 && ramp_hi < bmod->coeff)
+                                            : (ramp_lo > 0 && ramp_hi <= bmod->coeff);
+          if (c2val % bmod->coeff == 0 && in_single_bucket) {
             return broadcast(floordiv(b1, c2), lanes).Eval();
           }
         }
@@ -1108,8 +1117,13 @@ UnchangedOr<PrimExpr> RewriteSimplifier::Impl::Mutate_(const prim::FloorModObj* 
                 .Eval();
           }
           // If all indices can be guaranteed to settle inside a coeff range
-          if (c2val % bmod->coeff == 0 &&
-              bmod->base + (lanes_int->value - 1) * c1val < bmod->coeff) {
+          ffi::BigInt ramp_base(bmod->base);
+          ffi::BigInt ramp_end = ramp_base + (lanes_int->value - 1) * c1val;
+          ffi::BigInt ramp_lo = std::min(ramp_base, ramp_end);
+          ffi::BigInt ramp_hi = std::max(ramp_base, ramp_end);
+          bool in_single_bucket = c2val > 0 ? (ramp_lo >= 0 && ramp_hi < bmod->coeff)
+                                            : (ramp_lo > 0 && ramp_hi <= bmod->coeff);
+          if (c2val % bmod->coeff == 0 && in_single_bucket) {
             return ramp(floormod(b1, c2), c1, lanes).Eval();
           }
         }
