@@ -202,18 +202,24 @@ def parse_compute_version(compute_version):
         raise RuntimeError("Compute version parsing error: " + str(err))
 
 
+MFMA_ARCHS = ("gfx908", "gfx90a", "gfx940", "gfx941", "gfx942", "gfx950")
+
+
 def have_matrixcore(compute_version=None):
-    """Either MatrixCore support is provided in the compute capability or not
+    """Whether the GPU has MFMA matrix cores (CDNA: gfx908, gfx90a, gfx94x, gfx950).
+
+    RDNA GPUs (compute version 10.x-12.x) have WMMA instead of MFMA (see `have_rdna_wmma`), and
+    MFMA code must not be run on them.
 
     Parameters
     ----------
     compute_version : str, optional
-        compute capability of a GPU (e.g. "7.0").
+        compute capability of a GPU (e.g. "9.4").
 
     Returns
     -------
     have_matrixcore : bool
-        True if MatrixCore support is provided, False otherwise
+        True if MFMA matrix cores are available, False otherwise
     """
     if compute_version is None:
         if tvm_tirx.rocm(0).exist:
@@ -221,11 +227,24 @@ def have_matrixcore(compute_version=None):
         else:
             raise RuntimeError("No ROCm runtime found")
     major, _ = parse_compute_version(compute_version)
-    # matrix core first introduced in 8.0
-    if major >= 8:
-        return True
+    if major != 9:
+        return False  # GCN <= 8.x: no matrix cores; RDNA 10.x-12.x: WMMA, not MFMA
+    try:
+        arch = get_rocm_arch()
+    except Exception:  # pylint: disable=broad-except
+        return True  # cannot query the arch: keep the previous (permissive) behaviour for 9.x
+    return arch in MFMA_ARCHS
 
-    return False
+
+def have_rdna_wmma(compute_version=None):
+    """Whether the GPU has RDNA WMMA (gfx11xx / gfx12xx, wave32)."""
+    if compute_version is None:
+        if tvm_tirx.rocm(0).exist:
+            compute_version = tvm_tirx.rocm(0).compute_version
+        else:
+            raise RuntimeError("No ROCm runtime found")
+    major, _ = parse_compute_version(compute_version)
+    return major in (11, 12)
 
 
 @tvm_ffi.register_global_func("tvm_callback_rocm_get_arch")
