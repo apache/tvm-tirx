@@ -26,6 +26,7 @@ from tvm_tirx.script.ir_builder.base import auto_emit_void_call as _auto_emit_vo
 from . import layout as layout
 from .axis import Axis as Axis
 from .backend_config import BackendConfig as BackendConfig
+from .cubin import _check_kernel_symbol
 from .launch import AccessPolicyWindow as AccessPolicyWindow
 from .launch import KernelAttributes as KernelAttributes
 from .launch import LaunchCompletionEvent as LaunchCompletionEvent
@@ -38,6 +39,18 @@ from .thread_scope import ThreadScope as ThreadScope
 from .tile.instructions import make_namespace as _make_tensor_namespace
 
 # pylint: disable=protected-access
+
+
+def launch(kernel: str, args, config: LaunchConfig):
+    """Launch a named CUDA kernel from host TVMScript on the configured grid.
+
+    Pass device pointers and scalars in kernel ABI order. Use
+    :func:`tvm_tirx.backend.cuda.bind_cubin` to supply a precompiled image.
+    """
+    from tvm_tirx.tirx.op import call_ffi_kernel
+
+    _check_kernel_symbol(kernel)
+    return call_ffi_kernel(kernel, *args, launch=config)
 
 
 class _CpAsyncRaw:

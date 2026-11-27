@@ -482,8 +482,8 @@ def call_pure_extern(func_name, *args, ty, loc: Location = UNKNOWN_LOC):
     )
 
 
-def call_extern(func_name, *args, ty, loc: Location = UNKNOWN_LOC):
-    """Build expression by calling a extern function.
+def call_extern(func_name, *args, ty, attrs=None, loc: Location = UNKNOWN_LOC):
+    """Call an external C function.
 
     Parameters
     ----------
@@ -496,6 +496,10 @@ def call_extern(func_name, *args, ty, loc: Location = UNKNOWN_LOC):
     args : list
         Positional arguments.
 
+    attrs : dict, optional
+        Call attributes. Set ``{"c_header": "header.h"}`` to use the function's
+        declaration from that header during C source generation.
+
     loc : Location, optional
         The location of this operator in the source code.
 
@@ -507,6 +511,7 @@ def call_extern(func_name, *args, ty, loc: Location = UNKNOWN_LOC):
     return Call(
         "tirx.call_extern",
         [func_name, *(_reject_tensor_region(arg, "call_extern") for arg in args)],
+        attrs=attrs,
         loc=loc,
         ty=ty,
     )

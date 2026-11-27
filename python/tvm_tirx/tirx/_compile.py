@@ -147,6 +147,13 @@ def _codegen_host_and_device(
     mhost_all = ir.IRModule({}, attrs=host_mod.attrs)
 
     mhost_all.update(host_mod)
+    external_mods = host_mod.get_attr("external_mods") or []
+    if external_mods:
+        cuda_groups = [group for (t, _), group in device_mod_dict.items() if t.kind.name == "cuda"]
+        if cuda_groups:
+            from tvm_tirx.backend.cuda.cubin import _check_import_conflicts
+
+            _check_import_conflicts(cuda_groups, external_mods)
     device_modules = []
     for (target, _config), device_mod in device_mod_dict.items():
         if len(device_mod.functions) != 0:
@@ -156,7 +163,7 @@ def _codegen_host_and_device(
     for dev_mod in device_modules:
         if dev_mod is not None:
             mhost.import_module(dev_mod)
-    for external_mod in host_mod.get_attr("external_mods") or []:
+    for external_mod in external_mods:
         mhost.import_module(external_mod)
     return mhost
 

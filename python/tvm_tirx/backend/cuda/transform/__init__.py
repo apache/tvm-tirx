@@ -20,6 +20,8 @@
 
 from tvm_ffi import get_global_func
 
+from .lower_host_launch import LowerCUDAHostLaunch
+
 
 def LowerIket():
     """Lower frontend-only NVIDIA IKET annotations.
@@ -162,4 +164,10 @@ def SpecializeEntryHelpers():
     return get_global_func("tirx.backend.cuda.transform.SpecializeEntryHelpers")()
 
 
-__all__ = ["BindBackendConfig", "LowerIket", "SpecializeDeviceHelpers", "SpecializeEntryHelpers"]
+__all__ = [
+    "BindBackendConfig",
+    "LowerCUDAHostLaunch",
+    "LowerIket",
+    "SpecializeDeviceHelpers",
+    "SpecializeEntryHelpers",
+]

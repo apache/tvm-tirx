@@ -752,9 +752,17 @@ void CodeGenC::Dispatch_(const CallObj* op, std::ostream& os) {  // NOLINT(*)
       ffi::Array<Expr> args = op->args;
       this->PrintCallExtern(op->ty, func->value, args, true, os);
 
-      // If the call_extern refers to an function within the IRModule, then
-      // the forward declaration is already provided from DeclareFunction.
-      if (!func_name_supply_->ContainsName(func->value)) {
+      // A system header can express const and opaque pointer types absent from host IR.
+      // Calls into the IRModule already have declarations emitted by DeclareFunction.
+      const auto* attrs = op->attrs.as<DictAttrsObj>();
+      if (attrs && attrs->dict.count("c_header")) {
+        std::string header = attrs->dict.at("c_header").cast<ffi::String>();
+        TVM_FFI_CHECK(!header.empty() && header.find_first_of(">\r\n") == std::string::npos &&
+                          header.find('\0') == std::string::npos,
+                      ValueError)
+            << "Invalid C header name: " << header;
+        if (extern_headers_.insert(header).second) decl_stream << "#include <" << header << ">\n";
+      } else if (!func_name_supply_->ContainsName(func->value)) {
         ffi::Array<Type> arg_types;
         for (size_t i = 1; i < op->args.size(); i++) {
           arg_types.push_back(op->args[i]->ty);
