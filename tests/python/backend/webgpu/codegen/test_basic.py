@@ -392,5 +392,43 @@ def test_grid_pack_guard_rejects_id_equal_to_workgroup_count():
     assert re.search(r"blockIdx\.x >= \w+\.packGridDimX\) \{ return; \}", source)
 
 
+@pytest.mark.parametrize("source_lane", [0, 1, 31, 32, 64, 224])
+def test_shuffle_source_lane_wraps_within_subgroup(source_lane):
+    @I.ir_module
+    class Module:
+        @T.function
+        def main(A: T.Tensor((256,), "float32"), B: T.Tensor((256,), "float32")):
+            with T.launch_thread("threadIdx.y", 8) as ty:
+                with T.launch_thread("threadIdx.x", 32) as tx:
+                    B[ty * 32 + tx] = T.gpu_warp_shuffle(
+                        0, A[ty * 32 + tx], source_lane, 32, 32, ty="float32"
+                    )
+
+    target = {"kind": "webgpu", "supports_subgroups": True}
+    executable = tvm_tirx.tirx.compile(Module, target=target)
+    source = executable.mod.imports[0].inspect_source("wgsl")
+    assert re.search(rf"subgroupShuffle\([^,]+, u32\({source_lane % 32}i\)\)", source)
+
+
+def test_shuffle_source_lane_removes_workgroup_offset():
+    @I.ir_module
+    class Module:
+        @T.function
+        def main(A: T.Tensor((256,), "float32"), B: T.Tensor((256,), "float32")):
+            with T.launch_thread("threadIdx.y", 8) as ty:
+                with T.launch_thread("threadIdx.x", 32) as tx:
+                    B[ty * 32 + tx] = T.gpu_warp_shuffle(
+                        0, A[ty * 32 + tx], ty * 32, 32, 32, ty="float32"
+                    )
+
+    target = {"kind": "webgpu", "supports_subgroups": True}
+    executable = tvm_tirx.tirx.compile(Module, target=target)
+    source = executable.mod.imports[0].inspect_source("wgsl")
+    assert "subgroupShuffle" in source
+    assert re.search(r"(?:% 32i|& 31i)", source) or re.search(
+        r"subgroupShuffle\([^,]+, u32\(0i\)\)", source
+    )
+
+
 if __name__ == "__main__":
     tvm_tirx.testing.main()
