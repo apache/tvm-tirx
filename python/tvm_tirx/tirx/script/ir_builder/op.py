@@ -505,6 +505,9 @@ stack_make_shape = _auto_emit_void_call(_tir_op.stack_make_shape)
 stack_make_dltensor = _auto_emit_void_call(_tir_op.stack_make_dltensor)
 
 
+store_return = _tir_op.store_return
+
+
 call_packed = _auto_emit_void_call(_tir_op.call_packed)
 
 
@@ -880,6 +883,7 @@ __all__ = [
     "stack_alloca",
     "stack_make_dltensor",
     "stack_make_shape",
+    "store_return",
     "tan",
     "tanh",
     "tensor_data_ptr",

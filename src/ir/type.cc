@@ -317,6 +317,33 @@ TVM_FFI_STATIC_INIT_BLOCK() {
   Type::Expose<AnyTypeObj>();
 }
 
+ObjectType::ObjectType(ffi::String type_key, Location loc) : Type(ffi::UnsafeInit{}) {
+  TVMFFIByteArray key{type_key.data(), type_key.size()};
+  int32_t index;
+  TVM_FFI_CHECK(!type_key.empty(), ValueError) << "ObjectType requires a non-empty type key";
+  TVM_FFI_CHECK_EQ(TVMFFITypeKeyToIndex(&key, &index), 0, ValueError)
+      << "ObjectType requires a registered type key: " << type_key;
+  TVM_FFI_CHECK_GE(index, kTVMFFIStaticObjectBegin, ValueError)
+      << "ObjectType requires an object class: " << type_key;
+  auto n = ffi::make_object<ObjectTypeObj>();
+  n->type_key = std::move(type_key);
+  n->loc = std::move(loc);
+  data_ = std::move(n);
+}
+
+TVM_FFI_STATIC_INIT_BLOCK() {
+  namespace refl = ffi::reflection;
+  ObjectTypeObj::RegisterReflection();
+  refl::TypeAttrDef<ObjectTypeObj>()
+      .attr(ffi::type_attr::kStructuralVisit, ffi::FStructuralVisit::FromNative<&TypeVisit>())
+      .attr(ffi::type_attr::kStructuralMutate, ffi::FStructuralMutate::FromNative<&TypeMutate>())
+      .attr(ffi::type_attr::kStructuralMaybeInplaceMutate,
+            ffi::FStructuralMutate::FromNative<&TypeMaybeInplaceMutate>());
+  refl::GlobalDef().def("ir.ObjectType",
+                        [](ffi::String key, Location loc) { return ObjectType(key, loc); });
+  Type::Expose<ObjectTypeObj>();
+}
+
 TensorRegionType::TensorRegionType() : Type(ffi::UnsafeInit{}) {
   static const auto singleton = ffi::make_object<TensorRegionTypeObj>();
   data_ = singleton;

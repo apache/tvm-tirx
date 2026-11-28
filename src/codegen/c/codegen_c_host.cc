@@ -49,7 +49,7 @@ void CodeGenCHost::Init(bool output_ssa, bool emit_asserts, bool emit_fwd_func_d
                         std::string target_str) {
   emit_asserts_ = emit_asserts;
   emit_fwd_func_decl_ = emit_fwd_func_decl;
-  declared_globals_.clear();
+  packed_globals_.clear();
   decl_stream << "// tvm target: " << target_str << "\n";
   decl_stream << "#include \"tvm/ffi/extra/c_env_api.h\"\n";
   decl_stream << "#include \"tvm/runtime/base.h\"\n";
@@ -60,6 +60,17 @@ void CodeGenCHost::Init(bool output_ssa, bool emit_asserts, bool emit_fwd_func_d
   decl_stream << "#include <stdbool.h>\n";
   CodeGenCHost::InitGlobalContext();
   CodeGenC::Init(output_ssa);
+}
+
+void CodeGenCHost::InitFuncState(const Function& func) {
+  CodeGenC::InitFuncState(func);
+  object_frame_ = any_frame_ = "NULL";
+  object_frame_count_ = any_frame_count_ = 0;
+  // Keep parameters and locals from shadowing a handle or callback emitted for a prior function.
+  for (const auto& [_, names] : packed_globals_) {
+    name_supply_->ReserveName(names.handle);
+    name_supply_->ReserveName(names.initializer);
+  }
 }
 
 void CodeGenCHost::InitGlobalContext() {
@@ -104,9 +115,9 @@ void CodeGenCHost::AddFunction(const GlobalVar& gvar, const Function& func,
 void CodeGenCHost::GenerateForwardFunctionDeclarations(ffi::String global_symbol,
                                                        const ffi::Array<Type>& arg_types,
                                                        const Type& ret_type) {
-  if (!emit_fwd_func_decl_) {
-    return;
-  }
+  // Runtime declarations come from the included ABI headers. Reconstructing
+  // them from IR would lose const qualifiers on their borrowed pointer inputs.
+  if (!emit_fwd_func_decl_ || global_symbol.starts_with("TVMFFI")) return;
   for (auto& func_already_defined : GetFunctionNames()) {
     if (global_symbol == func_already_defined) {
       return;
@@ -213,89 +224,236 @@ void CodeGenCHost::Dispatch_(const prim::BroadcastObj* op, std::ostream& os) {  
   os << "))";
 }
 
-void CodeGenCHost::PrintGetFuncFromBackend(const std::string& func_name,
-                                           const std::string& packed_func_name) {
-  this->PrintIndent();
-  this->stream << "if (" << packed_func_name << " == NULL) {\n";
-  int packed_func_if_scope = this->BeginScope();
-  this->PrintIndent();
-  this->stream << "if (TVMFFIEnvModLookupFromImports(" << module_name_ << ", \"" << func_name
-               << "\", &" << packed_func_name << ") != 0) {\n";
-  int get_func_env_scope = this->BeginScope();
-  this->PrintIndent();
-  this->stream << "return -1;\n";
-  this->EndScope(get_func_env_scope);
-  this->PrintIndent();
-  this->stream << "}\n";
-  this->EndScope(packed_func_if_scope);
-  this->PrintIndent();
-  this->stream << "}\n";
+// Initialized ownership frames and full-capacity cleanup on error. Normal-path
+// retains, transfers and drops are already explicit in the input IR.
+void CodeGenCHost::PrintType(const Type& type, std::ostream& os) {
+  if (type.as<ObjectTypeObj>())
+    os << "TVMFFIObjectHandle";
+  else if (type.as<AnyTypeObj>())
+    os << "TVMFFIAny";
+  else
+    CodeGenC::PrintType(type, os);
 }
 
-void CodeGenCHost::PrintCallPacked(const CallObj* op) {
-  const StringImmObj* func_name = op->args[0].as<StringImmObj>();
-  TVM_FFI_ICHECK(func_name != nullptr)
-      << "call_[c]packed_lowered expects first argument as function name";
-  int64_t begin = static_cast<int64_t>(op->args[2].as<IntImmObj>()->value);
-  int64_t end = static_cast<int64_t>(op->args[3].as<IntImmObj>()->value);
-  int64_t num_args = end - begin;
-  TVM_FFI_ICHECK_GE(num_args, 0);
-
-  std::string packed_func_name;
-  if (op->op.same_as(tirx::call_packed_lowered_op())) {
-    packed_func_name = GetPackedName(op);
-    this->PrintGetFuncFromBackend(func_name->value, packed_func_name);
-  } else {
-    // directly use the original symbol
-    TVM_FFI_ICHECK(op->op.same_as(tirx::call_cpacked_lowered_op()));
-    packed_func_name = ffi::symbol::tvm_ffi_symbol_prefix + func_name->value;
+void CodeGenCHost::DeclareFrameCleanup() {
+  if (managed_cleanup_declared_) return;
+  managed_cleanup_declared_ = true;
+  decl_stream << R"(
+// Match the runtime's cold-code convention with C-compatible syntax.
+#if defined(__GNUC__) || defined(__clang__)
+__attribute__((cold))
+#endif
+static void __tvm_managed_cleanup_on_error(TVMFFIObjectHandle* objects, int64_t nobj,
+                                          TVMFFIAny* anys, int64_t nany) {
+  TVMFFIObjectHandle primary = NULL;
+  TVMFFIErrorMoveFromRaised(&primary);
+  for (int64_t i = 0; i < nobj; ++i) {
+    TVMFFIObjectHandle value = objects[i];
+    objects[i] = NULL;
+    if (value) TVMFFIObjectDecRef(value);
   }
-
-  std::string args_stack = PrintExpr(op->args[1]);
-  this->PrintIndent();
-  std::string result = name_supply_->FreshName("result");
-  this->stream << "TVMFFIAny " << result << ";\n";
-  this->PrintIndent();
-  // must make sure type_index is set to none
-  this->stream << result << ".type_index = kTVMFFINone;\n";
-  this->PrintIndent();
-  this->stream << result << ".zero_padding = 0;\n";
-  this->PrintIndent();
-  this->stream << result << ".v_int64 = 0;\n";
-  this->PrintIndent();
-  if (op->op.same_as(tirx::call_packed_lowered_op())) {
-    this->stream << "if (TVMFFIFunctionCall(" << packed_func_name << ", ";
-  } else {
-    this->stream << "if (" << packed_func_name << "(NULL, ";
+  for (int64_t i = 0; i < nany; ++i) {
+    TVMFFIAny value = anys[i];
+    anys[i].type_index = kTVMFFINone;
+    anys[i].zero_padding = 0;
+    anys[i].v_int64 = 0;
+    if (value.type_index >= kTVMFFIStaticObjectBegin) TVMFFIObjectDecRef(value.v_obj);
   }
-  this->stream << "(TVMFFIAny*) " << args_stack << ", " << num_args << ", "
-               << "&" << result << ") != 0) {\n";
-  int func_call_scope = this->BeginScope();
-  this->PrintIndent();
-  this->stream << "return -1;\n";
-  this->EndScope(func_call_scope);
-  this->PrintIndent();
-  this->stream << "}\n";
+  TVMFFIErrorSetRaised(primary);
+  if (primary) TVMFFIObjectDecRef(primary);
+}
+)";
 }
 
-std::string CodeGenCHost::GetPackedName(const CallObj* op) {
-  const StringImmObj* s = op->args[0].as<StringImmObj>();
-  TVM_FFI_ICHECK(s != nullptr) << "call_packed_lowered expects first argument as function name";
-  std::string func_name = s->value;
-  std::string packed_func_name = func_name + "_packed";
-  std::string unique_name;
-  auto it = declared_globals_.find(packed_func_name);
-  if (it != declared_globals_.end()) {
-    unique_name = it->second;
-  } else {
-    unique_name = name_supply_->FreshName(packed_func_name);
-    declared_globals_[packed_func_name] = unique_name;
-    decl_stream << "static void* " << unique_name << " = NULL;\n";
+void CodeGenCHost::EmitFrameCleanup(const std::string& scratch_result) {
+  bool has_frames = object_frame_count_ || any_frame_count_;
+  if (!has_frames && scratch_result.empty()) return;
+  DeclareFrameCleanup();
+  if (!scratch_result.empty()) {
+    // A failing packed callee can leave an owned value in the ordinary result cell.
+    PrintIndent();
+    stream << "__tvm_managed_cleanup_on_error(NULL, 0, " << scratch_result << ", 1);\n";
   }
-  return unique_name;
+  if (has_frames) {
+    PrintIndent();
+    stream << "__tvm_managed_cleanup_on_error(" << object_frame_ << ", " << object_frame_count_
+           << ", " << any_frame_ << ", " << any_frame_count_ << ");\n";
+  }
+  PrintIndent();
+}
+
+void CodeGenCHost::CheckRuntimeStatus(const std::string& call, const std::string& scratch_result) {
+  auto status = name_supply_->FreshName("status");
+  PrintIndent();
+  stream << "int " << status << " = " << call << ";\n";
+  PrintIndent();
+  stream << "if (" << status << " != 0) {\n";
+  auto scope = BeginScope();
+  EmitFrameCleanup(scratch_result);
+  stream << "return " << status << ";\n";
+  EndScope(scope);
+  PrintIndent();
+  stream << "}\n";
+}
+
+// Ordinary packed calls share argument/result storage and error handling.
+std::string CodeGenCHost::PrintGetFuncFromBackend(const std::string& func_name) {
+  auto [it, inserted] = packed_globals_.try_emplace(func_name);
+  PackedGlobalNames& names = it->second;
+  if (inserted) {
+    auto fresh_global = [&](const std::string& hint) {
+      std::string name;
+      do {
+        name = name_supply_->FreshName(hint);
+      } while (func_name_supply_->ContainsName(name));
+      func_name_supply_->ReserveName(name);
+      return name;
+    };
+    names.handle = fresh_global(func_name + "_packed");
+    names.initializer = fresh_global(names.handle + "_init");
+    decl_stream << "static void* " << names.handle << " = NULL;\n";
+    decl_stream << "static int " << names.initializer << "(void** result) {\n"
+                << "  return TVMFFIEnvModLookupFromImports(" << module_name_ << ", ";
+    PrintEscapedCString(func_name, decl_stream);
+    decl_stream << ", result);\n}\n";
+  }
+  CheckRuntimeStatus("TVMFFIHandleInitOnce(&" + names.handle + ", " + names.initializer + ")");
+  return names.handle;
+}
+
+void CodeGenCHost::PrintCallPacked(const CallObj* op, std::ostream& os) {
+  auto name = op->args[0].as_or_throw<StringImm>()->value;
+  int64_t begin = op->args[2].as_or_throw<IntImm>()->value.as<int64_t>().value();
+  int64_t end = op->args[3].as_or_throw<IntImm>()->value.as<int64_t>().value();
+  bool lookup = op->op.same_as(tirx::call_packed_lowered_op());
+  std::string callee;
+  if (lookup) {
+    std::string handle = PrintGetFuncFromBackend(name);
+    callee = "TVMFFIFunctionCall(" + handle;
+  } else {
+    auto symbol = ffi::symbol::tvm_ffi_symbol_prefix + name;
+    if (!func_name_supply_->ContainsName(symbol)) {
+      decl_stream << "#ifdef __cplusplus\nextern \"C\"\n#endif\nint " << symbol
+                  << "(void*, TVMFFIAny*, int32_t, TVMFFIAny*);\n";
+    }
+    callee = symbol + "(NULL";
+  }
+  auto stack = PrintExprToSSA(op->args[1]);
+  auto result_stack = PrintExprToSSA(op->args[4]);
+  auto result_index = PrintExpr(op->args[5]);
+  auto result = name_supply_->FreshName("packed_result_slot");
+  PrintIndent();
+  stream << "TVMFFIAny* " << result << " = (TVMFFIAny*)" << result_stack << " + (" << result_index
+         << ");\n";
+  CheckRuntimeStatus(callee + ", ((TVMFFIAny*)" + stack + " + " + std::to_string(begin) + "), " +
+                         std::to_string(end - begin) + ", " + result + ")",
+                     op->args[1].same_as(op->args[4]) ? result : "");
+  if (!IsVoidType(op->ty) && !(op->ty.as<PrimType>() && op->ty.as_or_throw<PrimType>().IsVoid())) {
+    PrintType(op->ty, os << "((");
+    auto type = op->ty.as<PrimType>();
+    os << ")" << result << "->"
+       << (op->ty.as<PtrTypeObj>()                      ? "v_ptr"
+           : type && type.value().MatchesCode(kDLFloat) ? "v_float64"
+                                                        : "v_int64")
+       << ")";
+  }
+}
+
+std::string CodeGenCHost::EmitFrameArray(const char* name, const char* type, const char* empty,
+                                         int64_t count) {
+  // Emit a stack array and initialize every slot before a fallible operation can use it.
+  if (!count) return "NULL";
+  auto frame = name_supply_->FreshName(name);
+  PrintIndent();
+  stream << type << " " << frame << "[" << count << "];\n";
+  PrintIndent();
+  stream << "for (int64_t i = 0; i < " << count << "; ++i) " << frame << "[i] = " << empty << ";\n";
+  return frame;
+}
+
+void CodeGenCHost::EmitAllocObjectFrame(const CallObj* op, std::ostream& os) {
+  // Emit a frame of null object handles and record its bounds for failure cleanup.
+  object_frame_count_ = op->args[0].as_or_throw<IntImm>()->value.as<int64_t>().value();
+  object_frame_ = EmitFrameArray("object_frame", "TVMFFIObjectHandle", "NULL", object_frame_count_);
+  os << object_frame_;
+}
+
+void CodeGenCHost::EmitAllocAnyFrame(const CallObj* op, std::ostream& os) {
+  // Emit a frame of empty tagged values so failure cleanup can scan every slot.
+  any_frame_count_ = op->args[0].as_or_throw<IntImm>()->value.as<int64_t>().value();
+  any_frame_ = EmitFrameArray("any_frame", "TVMFFIAny", "(TVMFFIAny){kTVMFFINone, 0, {0}}",
+                              any_frame_count_);
+  os << any_frame_;
+}
+
+void CodeGenCHost::EmitRetainAnySlot(const CallObj* op, std::ostream& os) {
+  // Convert the borrowed value or string literal to an owned Any in the destination slot.
+  auto ptr = PrintExpr(op->args[0]);
+  auto index = PrintExpr(op->args[1]);
+  auto borrowed = name_supply_->FreshName("borrowed_any");
+  std::string convert;
+  if (auto* literal = op->args[2].as<StringImmObj>()) {
+    PrintIndent();
+    stream << "static const TVMFFIByteArray " << borrowed << " = {";
+    PrintEscapedCString(literal->value, stream);
+    stream << ", " << literal->value.size() << "};\n";
+    convert = "TVMFFIStringFromByteArray";
+  } else {
+    auto value = PrintExpr(op->args[2]);
+    PrintIndent();
+    stream << "TVMFFIAny " << borrowed << " = " << value << ";\n";
+    convert = "TVMFFIAnyViewToOwnedAny";
+  }
+  CheckRuntimeStatus(convert + "(&" + borrowed + ", ((TVMFFIAny*)" + ptr + ") + " + index + ")");
+  os << "0";
+}
+
+std::string CodeGenCHost::EmitClearSlot(const CallObj* op, const char* type, const char* empty) {
+  // Save the value and clear its slot before a release can trigger frame cleanup.
+  auto ptr = PrintExprToSSA(op->args[0]);
+  auto index = PrintExpr(op->args[1]);
+  auto slot = name_supply_->FreshName("drop_slot");
+  auto value = name_supply_->FreshName("drop");
+  PrintIndent();
+  stream << type << "* " << slot << " = (" << type << "*)" << ptr << " + (" << index << ");\n";
+  PrintIndent();
+  stream << type << " " << value << " = *" << slot << ";\n";
+  PrintIndent();
+  stream << "*" << slot << " = " << empty << ";\n";
+  return value;
+}
+
+void CodeGenCHost::EmitConditionalDecRef(const std::string& object, const std::string& condition) {
+  PrintIndent();
+  stream << "if (" << condition << ") {\n";
+  auto scope = BeginScope();
+  CheckRuntimeStatus("TVMFFIObjectDecRef(" + object + ")");
+  EndScope(scope);
+  PrintIndent();
+  stream << "}\n";
+}
+
+void CodeGenCHost::EmitDropObjectSlot(const CallObj* op, std::ostream& os) {
+  // A non-null handle owns one object reference.
+  auto object = EmitClearSlot(op, "TVMFFIObjectHandle", "NULL");
+  EmitConditionalDecRef(object, object);
+  os << "0";
+}
+
+void CodeGenCHost::EmitDropAnySlot(const CallObj* op, std::ostream& os) {
+  // Only an object-tagged Any owns an object reference.
+  auto value = EmitClearSlot(op, "TVMFFIAny", "(TVMFFIAny){kTVMFFINone, 0, {0}}");
+  EmitConditionalDecRef(value + ".v_obj", value + ".type_index >= kTVMFFIStaticObjectBegin");
+  os << "0";
 }
 
 void CodeGenCHost::Dispatch_(const CallObj* op, std::ostream& os) {  // NOLINT(*)
+  if (op->op.same_as(tirx::alloc_object_frame_op())) return EmitAllocObjectFrame(op, os);
+  if (op->op.same_as(tirx::alloc_any_frame_op())) return EmitAllocAnyFrame(op, os);
+  if (op->op.same_as(tirx::retain_any_slot_op())) return EmitRetainAnySlot(op, os);
+  if (op->op.same_as(tirx::drop_object_slot_op())) return EmitDropObjectSlot(op, os);
+  if (op->op.same_as(tirx::drop_any_slot_op())) return EmitDropAnySlot(op, os);
+
   if (op->op.same_as(tirx::stack_alloca_op())) {
     std::string stack_name = name_supply_->FreshName("stack");
     const std::string& type = op->args[0].as<StringImmObj>()->value;
@@ -320,11 +478,12 @@ void CodeGenCHost::Dispatch_(const CallObj* op, std::ostream& os) {  // NOLINT(*
     PrintType(op->ty, os);
     os << ")" << stack_name << ")";
   } else if (op->op.same_as(tirx::call_packed_lowered_op())) {
-    this->PrintCallPacked(op);
+    this->PrintCallPacked(op, os);
   } else if (op->op.same_as(tirx::call_cpacked_lowered_op())) {
-    this->PrintCallPacked(op);
+    this->PrintCallPacked(op, os);
   } else if (op->op.same_as(tirx::throw_last_error_op())) {
     this->PrintIndent();
+    EmitFrameCleanup();
     this->stream << "return -1;\n";
   } else {
     CodeGenC::Dispatch_(op, os);
@@ -350,6 +509,7 @@ void CodeGenCHost::Dispatch_(const AssertStmtObj* op) {  // NOLINT(*)
     PrintEscapedCString(op->error_kind->value, stream);
     stream << ", __tvm_assert_parts, " << num_parts << ");\n";
     PrintIndent();
+    EmitFrameCleanup();
     stream << "return -1;\n";
     this->EndScope(assert_if_scope);
     PrintIndent();

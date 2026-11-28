@@ -724,8 +724,8 @@ class Call(_CallableExprWithOp):
         Explicit type arguments, empty by default.
     loc : Location, optional
         The source location of the call.
-    ty : Type or str, optional
-        Keyword-only result type; a primitive dtype string is accepted.
+    ty : Type, type[Type] or str, optional
+        Keyword-only result type. A concrete Type class denotes its nullary instance.
     """
 
     op: Expr
@@ -742,7 +742,7 @@ class Call(_CallableExprWithOp):
         ty_args: list["tvm_tirx.ir.Type"] | tuple["tvm_tirx.ir.Type", ...] | None = None,
         loc: Location = UNKNOWN_LOC,
         *,
-        ty: "tvm_tirx.ir.Type | str | None" = None,
+        ty: "tvm_tirx.ir.Type | type[tvm_tirx.ir.Type] | str | None" = None,
     ) -> None:
         self.__init_handle_by_constructor__(
             _ffi_api.Call, *self._normalize_constructor_args(ty, op, args, attrs, ty_args, loc)
@@ -753,7 +753,7 @@ class Call(_CallableExprWithOp):
         # pylint: disable=import-outside-toplevel
         from .attrs import DictAttrs
         from .op import Op
-        from .type import PrimType, PtrType, Type
+        from .type import PrimType, PtrType, Type, _normalize_type
 
         if isinstance(op, str):
             op = Op.get(op)
@@ -761,6 +761,8 @@ class Call(_CallableExprWithOp):
             attrs = DictAttrs(attrs)
         if isinstance(ty, str) and ty == "handle":
             ty = PtrType(PrimType("void"))
+        elif isinstance(ty, type) and issubclass(ty, Type):
+            ty = _normalize_type(ty)
         elif ty is not None and not isinstance(ty, Type):
             ty = PrimType(ty)
         if ty_args is None:

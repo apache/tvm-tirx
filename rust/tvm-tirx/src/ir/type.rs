@@ -36,6 +36,8 @@
 // tvm-ffi-stubgen(object): ir.StringType(custom_new)
 // `no_new` generates no allocator for the abstract base: a value is one of its subtypes.
 // tvm-ffi-stubgen(object): ir.Type(no_new)
+// The native constructor checks that the key names a registered object class.
+// tvm-ffi-stubgen(object): ir.ObjectType(no_new)
 // Names the hand-written wrappers use: the import section keeps them even when no generated block
 // does.
 // tvm-ffi-stubgen(import): tvm_ffi::ObjectRefCore
@@ -64,6 +66,7 @@ use tvm_ffi::Object;
 use tvm_ffi::ObjectArc;
 use tvm_ffi::ObjectRefCore;
 use tvm_ffi::Result;
+use tvm_ffi::String;
 use tvm_ffi::VALUE_ERROR;
 // tvm-ffi-stubgen(end)
 
@@ -288,6 +291,50 @@ tvm_ffi::impl_object_ref_upcast!(AnyType => Type);
 // tvm-ffi-stubgen(end)
 
 // `ir.AnyType` stores its location as given: the generated `AnyType::new` is the same.
+
+/// The type of non-null instances of a registered FFI class and its subclasses.
+// tvm-ffi-stubgen(begin): object/ir.ObjectType
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::ObjectRef, Clone)]
+pub struct ObjectType {
+    data_: ObjectArc<ObjectTypeObj>,
+}
+
+/// The object behind [`ObjectType`].
+// Complete: reflected fields fill [32, 48) exactly.
+#[allow(missing_docs)]
+#[repr(C)]
+#[derive(tvm_ffi::derive::Object)]
+#[object(type_key = "ir.ObjectType", final, immutable)]
+pub struct ObjectTypeObj {
+    base_: TypeObj,
+    pub type_key: String,
+}
+
+const _: () = {
+    assert!(::core::mem::size_of::<ObjectTypeObj>() == 48);
+    assert!(::core::mem::align_of::<ObjectTypeObj>() == 8);
+};
+
+impl Deref for ObjectTypeObj {
+    type Target = TypeObj;
+    fn deref(&self) -> &TypeObj {
+        &self.base_
+    }
+}
+
+tvm_ffi::impl_object_ref_upcast!(ObjectType => Type);
+// tvm-ffi-stubgen(end)
+
+impl ObjectType {
+    /// Construct the type for a registered object class at the given location.
+    pub fn new(type_key: &str, loc: impl IntoArg<Location>) -> Result<Self> {
+        tvm_ffi::cached_global_func!("ir.ObjectType")
+            .call_tuple((String::from(type_key), loc.into_owned()))?
+            .try_into()
+    }
+}
 
 /// The type of a [`TensorRegion`](crate::ir::TensorRegion), a multi-dimensional region of a
 /// tensor.

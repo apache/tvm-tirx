@@ -944,9 +944,9 @@ def SkipAssert():
 
 
 def LowerTVMBuiltin():
-    """Lower runtime builtins to explicit stack storage and ABI operations.
+    """Lower runtime allocations and translate target-specific host builtins.
 
-    For example, packed calls gain argument/result slots. Requires the
+    LowerFFIABI then prepares tensor descriptors, packs arguments and emits each call. Requires the
     function target attribute for target-dependent lowering.
 
     Returns
@@ -968,7 +968,7 @@ def LowerTVMBuiltin():
             @T.function(private=True)
             def main():
                 T.func_attr({"target": T.target("llvm")})
-                T.call_packed("callback", 1)
+                T.call_packed("callback", 1, ty="int64")
 
         @I.ir_module
         class Expected:
@@ -982,10 +982,10 @@ def LowerTVMBuiltin():
                 T.abi_field_set(stack_ffi_any, 1, 13, 0)
                 T.abi_field_set(stack_ffi_any, 1, 14, 0)
                 T.abi_field_set(stack_ffi_any, 1, 15, T.int64(0))
-                T.call_packed_lowered("callback", stack_ffi_any, 0, 1)
+                T.call_packed_lowered("callback", stack_ffi_any, 0, 1, stack_ffi_any, 1, ty="void")
 
         def run_pass():
-            return tr.LowerTVMBuiltin()(Before)
+            return tr.LowerFFIABI()(tr.LowerTVMBuiltin()(Before))
 
         tvm.ir.assert_structural_equal(run_pass(), Expected)
     """
@@ -1457,3 +1457,14 @@ def LowerTensorLayouts():
         tvm.ir.assert_structural_equal(run_pass(), tr.BindTarget(target)(Expected))
     """
     return _ffi_api.LowerTensorLayouts()  # type: ignore
+
+
+def LowerFFIABI():
+    """Lower host packed calls, wrapper results and managed ownership to the FFI ABI.
+
+    Run once after MakePackedAPI and LowerTVMBuiltin. Each input statement occurrence
+    must be unique and packed operands must still be explicit. The pass prepares their
+    shapes and tensor descriptors at the call site. In managed functions, bind an
+    inner packed result before using it in another packed call.
+    """
+    return _ffi_api.LowerFFIABI()

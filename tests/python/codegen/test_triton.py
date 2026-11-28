@@ -106,6 +106,7 @@ def test_triton_call_kernel():
                 *scratch_args,
                 256,
                 (m + T.int64(64) - T.int64(1)) // T.int64(64),
+                ty="void",
             )
 
     tvm_tirx.ir.assert_structural_equal(Module["add"], Parsed["add"])

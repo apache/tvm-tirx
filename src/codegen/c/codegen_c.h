@@ -400,7 +400,9 @@ class CodeGenC : public tvm::ExprFunctor<void(const Expr&, std::ostream&)>,
    */
   std::unordered_map<GlobalVar, ffi::String> internal_functions_;
 
-  /* \brief Unique unique name supply to generate unique function names */
+ protected:
+  // Shared with host ABI emission to avoid redeclaring module functions.
+  /* \brief Unique name supply to generate unique function names */
   UniqueNameSupply func_name_supply_;
 };
 

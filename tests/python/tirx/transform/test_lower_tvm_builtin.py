@@ -45,7 +45,7 @@ def test_lower_call_packed():
         ):
             T.func_attr({"target": tvm_tirx.target.Target("llvm")})
             with T.device_context(1, 0):
-                T.call_packed("tvm.test_matmul", A, B, C)
+                T.call_packed("tvm.test_matmul", A, B, C, ty="void")
 
     @I.ir_module(check_well_formed=False)
     class Expected:
@@ -58,16 +58,12 @@ def test_lower_call_packed():
             T.func_attr({"target": tvm_tirx.target.Target("llvm")})
             stack_ffi_any: T.let[T.handle] = T.stack_alloca("tvm_ffi_any", 4)
             stack_array: T.let[T.handle] = T.stack_alloca("array", 3)
-            stack_shape = T.decl_tensor(
-                T.stack_alloca("shape", 6),
-                ty_args=[
-                    T.Tensor((T.int64(6),), "int64", layout=None, data=T.stack_alloca("shape", 6))
-                ],
-            )
-            stack_shape[0] = T.int64(64)
-            stack_shape[1] = T.int64(64)
+            stack_shape: T.let[T.Ptr(T.int64)] = T.stack_alloca("shape", 6, ty=T.Ptr(T.int64))
             T.abi_field_set(stack_array, 0, 1, A.data)
-            T.abi_field_set(stack_array, 0, 2, T.address_of(stack_shape[0]))
+            shape_0 = T.decl_tensor(stack_shape, ty_args=[T.Tensor((T.int64(2),), "int64")])
+            shape_0[0] = T.int64(64)
+            shape_0[1] = T.int64(64)
+            T.abi_field_set(stack_array, 0, 2, stack_shape)
             T.abi_field_set(stack_array, 0, 3, T.reinterpret(T.uint64(0), ty="handle"))
             T.abi_field_set(stack_array, 0, 4, 2)
             T.abi_field_set(stack_array, 0, 5, T.uint8(2))
@@ -76,10 +72,19 @@ def test_lower_call_packed():
             T.abi_field_set(stack_array, 0, 8, T.uint64(0))
             T.abi_field_set(stack_array, 0, 9, 0)
             T.abi_field_set(stack_array, 0, 10, 1)
-            stack_shape[2] = T.int64(64)
-            stack_shape[3] = T.int64(64)
+            T.abi_field_set(stack_ffi_any, 0, 13, 7)
+            T.abi_field_set(stack_ffi_any, 0, 14, 0)
+            T.abi_field_set(stack_ffi_any, 0, 15, T.abi_field_get(stack_array, 0, 0, ty="handle"))
             T.abi_field_set(stack_array, 1, 1, B.data)
-            T.abi_field_set(stack_array, 1, 2, T.address_of(stack_shape[2]))
+            shape_1 = T.decl_tensor(
+                T.ptr_byte_offset(stack_shape, T.int64(16), ty=T.Ptr(T.int64)),
+                ty_args=[T.Tensor((T.int64(2),), "int64")],
+            )
+            shape_1[0] = T.int64(64)
+            shape_1[1] = T.int64(64)
+            T.abi_field_set(
+                stack_array, 1, 2, T.ptr_byte_offset(stack_shape, T.int64(16), ty=T.Ptr(T.int64))
+            )
             T.abi_field_set(stack_array, 1, 3, T.reinterpret(T.uint64(0), ty="handle"))
             T.abi_field_set(stack_array, 1, 4, 2)
             T.abi_field_set(stack_array, 1, 5, T.uint8(2))
@@ -88,10 +93,19 @@ def test_lower_call_packed():
             T.abi_field_set(stack_array, 1, 8, T.uint64(0))
             T.abi_field_set(stack_array, 1, 9, 0)
             T.abi_field_set(stack_array, 1, 10, 1)
-            stack_shape[4] = T.int64(64)
-            stack_shape[5] = T.int64(64)
+            T.abi_field_set(stack_ffi_any, 1, 13, 7)
+            T.abi_field_set(stack_ffi_any, 1, 14, 0)
+            T.abi_field_set(stack_ffi_any, 1, 15, T.abi_field_get(stack_array, 1, 0, ty="handle"))
             T.abi_field_set(stack_array, 2, 1, C.data)
-            T.abi_field_set(stack_array, 2, 2, T.address_of(stack_shape[4]))
+            shape_2 = T.decl_tensor(
+                T.ptr_byte_offset(stack_shape, T.int64(32), ty=T.Ptr(T.int64)),
+                ty_args=[T.Tensor((T.int64(2),), "int64")],
+            )
+            shape_2[0] = T.int64(64)
+            shape_2[1] = T.int64(64)
+            T.abi_field_set(
+                stack_array, 2, 2, T.ptr_byte_offset(stack_shape, T.int64(32), ty=T.Ptr(T.int64))
+            )
             T.abi_field_set(stack_array, 2, 3, T.reinterpret(T.uint64(0), ty="handle"))
             T.abi_field_set(stack_array, 2, 4, 2)
             T.abi_field_set(stack_array, 2, 5, T.uint8(2))
@@ -100,21 +114,19 @@ def test_lower_call_packed():
             T.abi_field_set(stack_array, 2, 8, T.uint64(0))
             T.abi_field_set(stack_array, 2, 9, 0)
             T.abi_field_set(stack_array, 2, 10, 1)
-            T.abi_field_set(stack_ffi_any, 0, 13, 7)
-            T.abi_field_set(stack_ffi_any, 0, 14, 0)
-            T.abi_field_set(stack_ffi_any, 0, 15, T.abi_field_get(stack_array, 0, 0, ty="handle"))
-            T.abi_field_set(stack_ffi_any, 1, 13, 7)
-            T.abi_field_set(stack_ffi_any, 1, 14, 0)
-            T.abi_field_set(stack_ffi_any, 1, 15, T.abi_field_get(stack_array, 1, 0, ty="handle"))
             T.abi_field_set(stack_ffi_any, 2, 13, 7)
             T.abi_field_set(stack_ffi_any, 2, 14, 0)
             T.abi_field_set(stack_ffi_any, 2, 15, T.abi_field_get(stack_array, 2, 0, ty="handle"))
             T.abi_field_set(stack_ffi_any, 3, 13, 0)
             T.abi_field_set(stack_ffi_any, 3, 14, 0)
             T.abi_field_set(stack_ffi_any, 3, 15, T.int64(0))
-            T.call_packed_lowered("tvm.test_matmul", stack_ffi_any, 0, 3)
+            T.call_packed_lowered(
+                "tvm.test_matmul", stack_ffi_any, 0, 3, stack_ffi_any, 3, ty="void"
+            )
+            T.drop_any_slot(stack_ffi_any, 3)
 
     After = tvm_tirx.tirx.transform.LowerTVMBuiltin()(Before)
+    After = tvm_tirx.tirx.transform.LowerFFIABI()(After)
     tvm_tirx.ir.assert_structural_equal(After, Expected)
 
 
@@ -145,9 +157,11 @@ def test_lower_call_packed_raw_string(call):
             T.abi_field_set(stack_ffi_any, 1, 13, 0)
             T.abi_field_set(stack_ffi_any, 1, 14, 0)
             T.abi_field_set(stack_ffi_any, 1, 15, T.int64(0))
-            T.call_packed_lowered("testing.echo", stack_ffi_any, 0, 1)
+            T.call_packed_lowered("testing.echo", stack_ffi_any, 0, 1, stack_ffi_any, 1, ty="void")
+            T.drop_any_slot(stack_ffi_any, 1)
 
     After = tvm_tirx.tirx.transform.LowerTVMBuiltin()(Before)
+    After = tvm_tirx.tirx.transform.LowerFFIABI()(After)
     tvm_tirx.ir.assert_structural_equal(After, Expected)
 
     # The typed pointer is required by the LLVM TVMFFIAny lowering.
@@ -180,22 +194,25 @@ def test_call_packed_return_non_i32():
             T.abi_field_set(stack_ffi_any, 1, 13, 0)
             T.abi_field_set(stack_ffi_any, 1, 14, 0)
             T.abi_field_set(stack_ffi_any, 1, 15, T.int64(0))
-            A[0] = T.call_packed_lowered("testing.echo", stack_ffi_any, 0, 1, ty="float32")
-            if T.isnullptr(A.data):
-                T.abi_field_set(stack_ffi_any, 0, 13, 0)
-            else:
-                T.abi_field_set(stack_ffi_any, 0, 13, 4)
+            result: T.let[T.float32] = T.call_packed_lowered(
+                "testing.echo", stack_ffi_any, 0, 1, stack_ffi_any, 1, ty="float32"
+            )
+            A[0] = result
+            packed_value: T.let[T.Ptr(T.float32)] = A.data
+            T.abi_field_set(stack_ffi_any, 0, 13, T.if_then_else(T.isnullptr(packed_value), 0, 4))
             T.abi_field_set(stack_ffi_any, 0, 14, 0)
-            T.abi_field_set(stack_ffi_any, 0, 15, A.data)
+            T.abi_field_set(stack_ffi_any, 0, 15, packed_value)
             T.abi_field_set(stack_ffi_any, 1, 13, 0)
             T.abi_field_set(stack_ffi_any, 1, 14, 0)
             T.abi_field_set(stack_ffi_any, 1, 15, T.int64(0))
-            duplicate: T.let[T.Ptr(T.PrimType("float32"))] = T.call_packed_lowered(
-                "testing.echo", stack_ffi_any, 0, 1, ty=A.data.ty
+            pointer: T.let[T.Ptr(T.float32)] = T.call_packed_lowered(
+                "testing.echo", stack_ffi_any, 0, 1, stack_ffi_any, 1, ty=A.data.ty
             )
+            duplicate: T.let[T.Ptr(T.float32)] = pointer
             A[1] = T.float32(1.3999999999999999)
 
     After = tvm_tirx.tirx.transform.LowerTVMBuiltin()(Before)
+    After = tvm_tirx.tirx.transform.LowerFFIABI()(After)
     tvm_tirx.ir.assert_structural_equal(After, Expected)
     f = tvm_tirx.compile(Before, "llvm")
     a = tvm_tirx.runtime.tensor(np.zeros(2, dtype="float32"))
@@ -263,6 +280,7 @@ def test_lower_overflow_int32():
                 T.throw_last_error()
 
     After = tvm_tirx.tirx.transform.LowerTVMBuiltin()(Before)
+    After = tvm_tirx.tirx.transform.LowerFFIABI()(After)
     tvm_tirx.ir.assert_structural_equal(After, Expected)
     tvm_tirx.compile(Before, target="llvm")
 
@@ -297,7 +315,22 @@ def test_lower_device_allocate():
                 T.throw_last_error()
 
     After = tvm_tirx.tirx.transform.LowerTVMBuiltin()(Before)
+    assert tvm_tirx.tirx.analysis.check_well_formed(After)
+    After = tvm_tirx.tirx.transform.LowerFFIABI()(After)
     tvm_tirx.ir.assert_structural_equal(After, Expected)
+
+
+def test_scoped_nd_allocation_has_distinct_error_statements():
+    @T.function
+    def allocate():
+        T.func_attr({"tirx.is_host_func": True})
+        with T.device_context(4, 0):  # kDLOpenCL
+            ptr: T.let[T.Ptr(T.float32)] = T.call_intrin(
+                "tirx.opencl.nd_mem_alloc_with_scope", "global", 1, 16, ty=T.Ptr(T.float32)
+            )
+
+    lowered = tvm_tirx.tirx.transform.LowerTVMBuiltin()(tvm_tirx.IRModule({"main": allocate}))
+    assert tvm_tirx.tirx.analysis.check_well_formed(lowered)
 
 
 def test_lower_cpu_allocation():
@@ -323,6 +356,7 @@ def test_lower_cpu_allocation():
             buf[0] = 0.0
 
     After = tvm_tirx.tirx.transform.LowerTVMBuiltin()(Before)
+    After = tvm_tirx.tirx.transform.LowerFFIABI()(After)
     tvm_tirx.ir.assert_structural_equal(After, Expected)
 
 
@@ -387,6 +421,7 @@ def test_lower_cpu_alloc_with_function_attr():
     Expected = Before
 
     After = tvm_tirx.tirx.transform.LowerTVMBuiltin()(Before)
+    After = tvm_tirx.tirx.transform.LowerFFIABI()(After)
     tvm_tirx.ir.assert_structural_equal(After, Expected)
 
 

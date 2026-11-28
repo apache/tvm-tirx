@@ -45,7 +45,18 @@ ffi::Optional<ExprDoc> DataTypeImmDocTranslate(DocTranslatorObj*, ffi::AnyView i
       {LiteralDoc::DataType(imm->value, std::nullopt)});
 }
 
+ffi::Optional<ExprDoc> GenericConstDocTranslate(DocTranslatorObj* d, ffi::AnyView input,
+                                                const ffi::Object*) {
+  const auto* value =
+      ffi::detail::AnyUnsafe::RawObjectPtrFromAnyViewAfterCheck<const GenericConstObj>(input);
+  if (value->ty.as<NoneTypeObj>() && value->value == nullptr) return LiteralDoc::None(std::nullopt);
+  return AddMetadata(d, input);
+}
+
 TVM_FFI_STATIC_INIT_BLOCK() {
+  ffi::reflection::TypeAttrDef<GenericConstObj>().attr(
+      tvm::script::printer::type_attr::kDocTranslate.name,
+      FDocTranslate::FromNative<&GenericConstDocTranslate>());
   ffi::reflection::TypeAttrDef<DataTypeImmObj>().attr(
       tvm::script::printer::type_attr::kDocTranslate.name,
       FDocTranslate::FromNative<&DataTypeImmDocTranslate>());

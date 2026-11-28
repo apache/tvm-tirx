@@ -23,6 +23,7 @@
  */
 #include "tvm_ffi_binder.h"
 
+#include <tvm/ffi/c_api.h>
 #include <tvm/ffi/cast.h>
 #include <tvm/ir/expr_functor.h>
 #include <tvm/ir/prim/expr.h>
@@ -537,6 +538,29 @@ void TVMFFIABIBuilder::DecodeParam(int param_index) {
 
   ffi::reflection::AccessPath param_path =
       ffi::reflection::AccessPath::Root()->Extend(AccessStep::ArrayItem(param_index));
+
+  if (param->ty.as<AnyTypeObj>()) {
+    init_nest_.push_back(Bind(
+        param, Call(param->ty, abi_field_get_op(),
+                    {v_packed_args_, IntImm::Int32(param_index), IntImm::Int32(kTVMFFIAnyValue)})));
+    var_defs_.emplace(param.get(), VarDefInfo{param, param_path});
+    return;
+  } else if (param->ty.as<ObjectTypeObj>()) {
+    // Generic ffi.Object accepts every concrete object tag, but never null.
+    // Keep this check active even when optional assertions are disabled.
+    init_nest_.push_back(If(
+        type_index.as_or_throw<PrimExpr>() < IntImm::Int32(kTVMFFIStaticObjectBegin),
+        SeqStmt({Evaluate(Call(PrimType::Void(), call_extern_op(),
+                               {StringImm("TVMFFIErrorSetRaisedFromCStr"), StringImm("TypeError"),
+                                StringImm("Expected non-null ffi.Object")})),
+                 Evaluate(Call(PrimType::Void(), throw_last_error_op(), {}))})));
+    Expr value =
+        Call(param->ty, abi_field_get_op(),
+             {v_packed_args_, IntImm::Int32(param_index), IntImm::Int32(kTVMFFIAnyUnionValue)});
+    init_nest_.push_back(Bind(param, value));
+    var_defs_.emplace(param.get(), VarDefInfo{param, param_path});
+    return;
+  }
 
   if (param->ty.as<NoneTypeObj>()) {
     // A None parameter still occupies an ABI slot, even when the body ignores it.

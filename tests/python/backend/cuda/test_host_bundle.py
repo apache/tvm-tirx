@@ -231,5 +231,96 @@ def test_cuda_host_bundle_tensor_map_parameter(tmp_path, monkeypatch, *, backend
     )
 
 
+@pytest.mark.gpu
+@pytest.mark.skipif(not env.has_cuda(), reason="need cuda")
+def test_cuda_host_managed_error_cleanup(tmp_path):
+    from shutil import which
+
+    import tvm_ffi.cpp
+
+    from tvm_tirx.backend.cuda import export_cuda_host
+
+    if which("nvcc") is None:
+        pytest.skip("CUDA-host compilation requires NVCC")
+
+    @T.function
+    def managed(arg: T.Any, obj: T.Object, kind: T.int32, index: T.int32) -> T.Any:
+        owned: T.let[T.Any] = arg
+        local: T.let[T.Object] = obj
+        T.call_extern("TVMBackendSetDevice", kind, index, ty="int32")
+        T.call_packed("test.cuda_host_keep", local, ty="void")
+        return owned
+
+    @T.function
+    def plain(kind: T.int32, index: T.int32) -> T.int32:
+        T.call_extern("TVMBackendSetDevice", kind, index, ty="int32")
+        return 31
+
+    mod = tvm_tirx.IRModule({"managed": managed, "plain": plain})
+    target = tvm_tirx.target.Target("cuda", host="cuda_host")
+    source = export_cuda_host(tvm_tirx.compile(mod, target=target).mod)
+    # Exercise a restoration failure in the real CUDADeviceGuard on single-GPU runners.
+    # The synthetic index makes construction succeed and only the restoring call fail.
+    fail_restore_index = 12345
+    guard_header = tmp_path / "fail_restore.h"
+    guard_header.write_text(
+        f"""
+#include <cuda_runtime.h>
+static cudaError_t test_set_device(int index) {{
+  static thread_local bool fail_restore = false;
+  if (index == {fail_restore_index}) {{
+    fail_restore = true;
+    return cudaSuccess;
+  }}
+  if (fail_restore) {{
+    fail_restore = false;
+    return cudaErrorInvalidDevice;
+  }}
+  return cudaSetDevice(index);
+}}
+#define cudaSetDevice test_set_device
+#include <tvm/ffi/extra/cuda/device_guard.h>
+#undef cudaSetDevice
+"""
+    )
+    library = tvm_ffi.cpp.build_inline(
+        name="cuda_host_managed_cleanup",
+        cuda_sources=source,
+        extra_cuda_cflags=["-include", str(guard_header)],
+        extra_ldflags=["-lcuda"],
+        build_directory=str(tmp_path),
+        backend="cuda",
+    )
+    loaded = tvm_ffi.load_module(library)
+    x, y = tvm_ffi.convert([1]), tvm_ffi.convert([2])
+    count = tvm_tirx.testing.object_use_count
+    original = (count(x), count(y))
+
+    @tvm_ffi.register_global_func("test.cuda_host_keep")
+    def keep(value):
+        assert value.same_as(y)
+
+    def run():
+        for kind, index, error in (
+            (1, 0, "requires a CUDA device"),
+            (2, -1, "invalid device"),
+            (2, fail_restore_index, "invalid device"),
+        ):
+            for name, args in (("managed", (x, y, kind, index)), ("plain", (kind, index))):
+                with pytest.raises((ValueError, RuntimeError), match=error):
+                    loaded[name](*args)
+                assert (count(x), count(y)) == original
+        result = loaded["managed"](x, y, 2, 0)
+        assert result.same_as(x) and (count(x), count(y)) == (original[0] + 1, original[1])
+        del result
+        assert (count(x), count(y)) == original
+        assert loaded["plain"](2, 0) == 31
+
+    try:
+        tvm_tirx.testing.run_with_gpu_lock(run)
+    finally:
+        tvm_ffi.registry.remove_global_func("test.cuda_host_keep")
+
+
 if __name__ == "__main__":
     tvm_tirx.testing.main()

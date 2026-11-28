@@ -248,6 +248,6 @@ def test_kernel_compile(compiler):
     @T.function
     def expected(my_pe_out: T.Tensor((1,), "int32"), n_pes_out: T.Tensor((1,), "int32")):
         T.func_attr({"global_symbol": "query_pe"})
-        T.call_packed("nvshmem_query_kernel", my_pe_out.data, n_pes_out.data, 1, 1)
+        T.call_packed("nvshmem_query_kernel", my_pe_out.data, n_pes_out.data, 1, 1, ty="void")
 
     tvm_tirx.ir.assert_structural_equal(NvshmemQueryModule["query_pe"], expected)

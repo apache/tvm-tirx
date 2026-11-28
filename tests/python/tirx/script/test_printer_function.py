@@ -983,7 +983,9 @@ def opt_conv_tensorcore_mod_host():
             stack_tcode[7] = 0
             T.evaluate(T.abi_field_set(stack_value, 8, 12, T.cast(32, ty="int64")))
             stack_tcode[8] = 0
-            T.evaluate(T.call_packed_lowered("default_function_kernel0", stack_value, 0, 9))
+            T.evaluate(
+                T.call_packed_lowered("default_function_kernel0", stack_value, 0, 9, stack_value, 9)
+            )
 
     return opt_conv_tensorcore_mod_host
 

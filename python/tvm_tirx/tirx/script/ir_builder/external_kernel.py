@@ -240,4 +240,4 @@ def call_kernel(
     else:
         external_mods.append(kernel_module)
         module_set_attr("external_mods", external_mods, True)
-    return call_packed(kernel_name, *runtime_args)
+    return call_packed(kernel_name, *runtime_args, ty="void")

@@ -246,7 +246,7 @@ IRModule MapFunctions(IRModule mod, F transform) {
   ffi::Map<GlobalVar, BaseFunc> functions;
   bool made_change = false;
   for (auto [gvar, base_func] : mod->functions) {
-    if (auto* ptr = base_func.as<tirx::FunctionObj>()) {
+    if (auto* ptr = base_func.template as<tirx::FunctionObj>()) {
       auto updated = transform(ffi::GetRef<tirx::Function>(ptr));
       if (!updated.same_as(base_func)) {
         made_change = true;

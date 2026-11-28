@@ -61,7 +61,9 @@ class LLVMTarget;
 // CPU host code generation
 class CodeGenCPU : public CodeGenLLVM {
  public:
+  using CodeGenLLVM::Dispatch;
   using CodeGenLLVM::Dispatch_;
+  void Dispatch_(const BindObj* op) override;
   CodeGenCPU();
   virtual ~CodeGenCPU();
 
@@ -91,6 +93,7 @@ class CodeGenCPU : public CodeGenLLVM {
   llvm::StructType* t_tvm_type_{nullptr};
   llvm::StructType* t_tvm_array_{nullptr};
   llvm::StructType* t_tvm_ffi_any_{nullptr};
+  llvm::StructType* t_tvm_ffi_object_{nullptr};
   llvm::StructType* t_tvm_parallel_group_env_{nullptr};
   llvm::FunctionType* ftype_tvm_ffi_c_func_{nullptr};
   llvm::FunctionType* ftype_tvm_parallel_lambda_{nullptr};
@@ -105,6 +108,28 @@ class CodeGenCPU : public CodeGenLLVM {
   llvm::FunctionType* ftype_tvm_register_system_symbol_{nullptr};
 
  private:
+  // Managed object frames and error cleanup
+  // Pointer to the current function's frame of owned object handles.
+  llvm::Value* managed_object_frame_ = nullptr;
+  // Number of object slots to scan on failure.
+  int64_t managed_object_slot_count_ = 0;
+  // Pointer to the current function's frame of owned TVMFFIAny values.
+  llvm::Value* managed_any_frame_ = nullptr;
+  // Number of Any slots to scan on failure.
+  int64_t managed_any_slot_count_ = 0;
+  // Function that owns the frame pointers; outlined functions have their own SSA scope.
+  llvm::Function* managed_frame_function_ = nullptr;
+  // Module-local helper that releases the frames while preserving the raised error.
+  llvm::Function* managed_cleanup_ = nullptr;
+
+  llvm::Constant* ManagedNone();
+  llvm::Value* CreateIntrinAllocManagedFrame(const CallObj* op);
+  llvm::Value* CreateIntrinRetainAnySlot(const CallObj* op);
+  llvm::Value* CreateIntrinDropObjectSlot(const CallObj* op);
+  llvm::Value* CreateIntrinDropAnySlot(const CallObj* op);
+  llvm::Value* CreateConditionalDecRef(llvm::Value* object, llvm::Value* present);
+  void EmitManagedErrorCleanup(llvm::Value* scratch_result = nullptr);
+
   // the parallel group information
   struct ParallelEnv {
     ffi::Optional<Var> task_id;
@@ -151,7 +176,7 @@ class CodeGenCPU : public CodeGenLLVM {
   // Check if the call to packed function is successful
   // if not directly finalize function and pass on return code.
   // return the end block after the check
-  llvm::BasicBlock* CheckCallSuccess(llvm::Value* retcode);
+  llvm::BasicBlock* CheckCallSuccess(llvm::Value* retcode, llvm::Value* scratch_result = nullptr);
 
   llvm::DISubprogram* CreateDebugFunction(const GlobalVar& gvar, const Function& f);
   llvm::DISubprogram* CreateDebugFunction(llvm::StringRef name, const ffi::Array<Type>& param_types,

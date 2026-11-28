@@ -90,6 +90,14 @@ class AnyType(Type):
         self.__init_handle_by_constructor__(_ffi_api.AnyType, loc)
 
 
+@tvm_ffi.register_object("ir.ObjectType")
+class ObjectType(Type):
+    """Non-null instances of an FFI class or subclass, independent of ownership."""
+
+    def __init__(self, type_key: str = "ffi.Object", loc: Location = UNKNOWN_LOC):
+        self.__init_handle_by_constructor__(_ffi_api.ObjectType, type_key, loc)
+
+
 @tvm_ffi.register_object("ir.TensorRegionType")
 class TensorRegionType(Type):
     """The type of a multi-dimensional :class:`tvm_tirx.ir.TensorRegion`."""

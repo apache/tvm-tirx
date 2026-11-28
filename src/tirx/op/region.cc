@@ -320,6 +320,7 @@ const Op& device_context_op() {
 TVM_FFI_STATIC_INIT_BLOCK() {
   OpDef("tirx.device_context", "Supply the device type and ID within a region.")
       .signature(sig::arg<IntExpr>("device_type"), sig::arg<IntExpr>("device_id"))
+      .set_attr(tvm::op_attr::kRegionIsSequentialScope, true)
       .set_native_fn_attr<&RegionNoBodyParams>(tvm::op_attr::kRegionGetBodyParams)
       .set_native_fn_attr<&ValidateBuiltinRegion>(tvm::op_attr::kRegionValidate)
       .expose();
@@ -333,6 +334,7 @@ const Op& compute_scope_op() {
 TVM_FFI_STATIC_INIT_BLOCK() {
   OpDef("tirx.compute_scope", "Outline a named CPU compute region.")
       .signature(sig::arg<StringImm>("name"))
+      .set_attr(tvm::op_attr::kRegionIsSequentialScope, true)
       .set_native_fn_attr<&RegionNoBodyParams>(tvm::op_attr::kRegionGetBodyParams)
       .set_native_fn_attr<&ValidateBuiltinRegion>(tvm::op_attr::kRegionValidate)
       .expose();

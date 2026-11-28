@@ -644,6 +644,9 @@ llvm::Type* CodeGenLLVM::GetLLVMType(const Type& type) const {
       }
     } else if (ptr->element_type->IsInstance<tirx::TensorMapTypeObj>()) {
       return llvmGetPointerTo(t_tvm_tensormap_, 0);
+    } else if (ptr->element_type.as<AnyTypeObj>() || ptr->element_type.as<ObjectTypeObj>()) {
+      // Runtime ABI field operations supply the pointee layout when loading.
+      return t_void_p_;
     }
     // TODO(tvm-team) consider put storage scope into the pointer type.
     return llvmGetPointerTo(GetLLVMType(ptr->element_type), GetGlobalAddressSpace());
@@ -2586,7 +2589,13 @@ llvm::DIType* CodeGenLLVM::GetDebugType(const Type& ty_tir, llvm::Type* ty_llvm)
     auto* ptr_type = ty_tir.as<PtrTypeObj>();
     TVM_FFI_ICHECK(ptr_type != nullptr)
         << "Got LLVM pointer type from non-pointer IR type: " << ty_tir;
-    auto* pointee_type = GetDebugType(ptr_type->element_type, GetLLVMType(ptr_type->element_type));
+    llvm::DIType* pointee_type;
+    if (ptr_type->element_type.as<AnyTypeObj>() || ptr_type->element_type.as<ObjectTypeObj>()) {
+      pointee_type = dbg_info_->di_builder_->createUnspecifiedType(
+          ptr_type->element_type.as<AnyTypeObj>() ? "TVMFFIAny" : "TVMFFIObjectHandle");
+    } else {
+      pointee_type = GetDebugType(ptr_type->element_type, GetLLVMType(ptr_type->element_type));
+    }
     return dbg_info_->di_builder_->createPointerType(pointee_type,
                                                      ty_llvm->getPrimitiveSizeInBits());
 

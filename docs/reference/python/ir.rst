@@ -61,6 +61,7 @@ Type
    FuncType
    MissingType
    NoneType
+   ObjectType
    OpaqueType
    PtrType
    PrimType

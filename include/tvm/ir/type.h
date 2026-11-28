@@ -386,6 +386,26 @@ class AnyType : public Type {
   TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(AnyType, Type, AnyTypeObj);
 };
 
+/*! \brief A non-null instance of a registered FFI object class or subclass.
+ * Ownership is a property of a binding, not of this value type.
+ */
+class ObjectTypeObj : public TypeObj {
+ public:
+  ffi::String type_key;
+  static void RegisterReflection() {
+    ffi::reflection::ObjectDef<ObjectTypeObj>().def_ro("type_key", &ObjectTypeObj::type_key);
+  }
+  TVM_FFI_DECLARE_OBJECT_INFO_FINAL("ir.ObjectType", ObjectTypeObj, TypeObj);
+};
+
+/*! \brief Managed reference to ObjectTypeObj. */
+class ObjectType : public Type {
+ public:
+  TVM_TIRX_DLL explicit ObjectType(ffi::String type_key = "ffi.Object",
+                                   Location loc = UnknownLoc());
+  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(ObjectType, Type, ObjectTypeObj);
+};
+
 /*! \brief The type of a multi-dimensional tensor region expression. */
 class TensorRegionTypeObj : public TypeObj {
  public:
