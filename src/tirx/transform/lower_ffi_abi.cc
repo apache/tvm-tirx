@@ -133,6 +133,7 @@ class ManagedLocalLastUse : public StmtExprVisitor {
     std::unordered_set<Var, ffi::ObjectPtrHash, ffi::ObjectPtrEqual> managed_local_vars;
   };
 
+  // Validate the declared object type and register managed definitions in the current scope.
   bool CheckAndRecordManagedType(const Type& type, ffi::Optional<Var> definition = std::nullopt) {
     if (auto object = type.as<ObjectTypeObj>()) {
       TVM_FFI_CHECK(object->type_key == "ffi.Object", TypeError)
@@ -145,6 +146,7 @@ class ManagedLocalLastUse : public StmtExprVisitor {
     return managed;
   }
 
+  // The defining scope supplies the statement to charge for a nested use.
   const Scope* FindDefScope(const Var& var) const {
     for (auto it = scopes_.rbegin(); it != scopes_.rend(); ++it) {
       if (it->managed_local_vars.count(var)) {
@@ -265,6 +267,8 @@ class ManagedLocalLastUse : public StmtExprVisitor {
     return std::nullopt;
   }
 
+  // True inside an ordinary or packed call argument. A lazy conditional or store_return
+  // preserves the enclosing argument context.
   bool inside_call_argument_ = false;
   // Accumulate the last statement for each local, retaining definition order for ties.
   ffi::Map<Var, Stmt> last_use_;
@@ -324,12 +328,13 @@ class PackedCallBuilder {
 
   /*!
    * \brief Reserve the argument cells for a packed call before visiting its operands.
-   * \param cells Number of TVMFFIAny cells, including a scratch result cell when needed.
+   * \param num_cells Number of TVMFFIAny cells, including a scratch result cell when needed.
    * \return The previous offsets in TVMFFIAny cells, DLTensor descriptors and int64 dimensions.
    * \note Pass these offsets to EmitCall to restore the enclosing call's reservations.
    */
-  CallStackOffsets ReserveCall(size_t cells) {
-    return {args_stack_.Reserve(std::max<size_t>(1, cells)), dltensor_stack_.offset,
+  CallStackOffsets ReserveCall(size_t num_cells) {
+    // One cell keeps HasActivePackedCall() true even for a zero-argument call with a frame result.
+    return {args_stack_.Reserve(std::max<size_t>(1, num_cells)), dltensor_stack_.offset,
             shape_stack_.offset};
   }
 
@@ -440,17 +445,17 @@ class PackedCallBuilder {
     args_stack_.offset = begin;
     dltensor_stack_.offset = offsets.dl_tensor_offset;
     shape_stack_.offset = offsets.shape_offset;
-    size_t count = call->args.size() - 1;
+    size_t num_args = call->args.size() - 1;
     if (!result_any_frame) {
       result_any_frame = &args_stack_.data;
-      slot = begin + count;
+      slot = begin + num_args;
       StorePackedValue(body, *result_any_frame, slot, GenericConst(NoneType(), nullptr));
     }
     const Op& op =
         call->op.same_as(call_cpacked_op()) ? call_cpacked_lowered_op() : call_packed_lowered_op();
     return Call(type, op,
                 {call->args[0], args_stack_.data, IntImm::Int32(begin),
-                 IntImm::Int32(begin + count), *result_any_frame, IntImm::Int32(slot)},
+                 IntImm::Int32(begin + num_args), *result_any_frame, IntImm::Int32(slot)},
                 {}, {}, call->loc);
   }
 
@@ -466,6 +471,7 @@ class PackedCallBuilder {
   }
 
  private:
+  // ABI field loads of descriptor addresses use the DLTensor argument tag.
   static bool IsDLTensorAddress(const Expr& value) {
     auto call = value.as<CallObj>();
     if (!call || !call->op.same_as(abi_field_get_op())) {
@@ -525,19 +531,19 @@ struct ManagedFrame {
    */
   enum class Kind { kObject, kAny };
 
-  /*!
-   * \brief Construct the frame for one ownership layout.
-   * \param data Base pointer to use in emitted slot operations.
-   * \param kind Runtime representation of each slot.
-   */
-  ManagedFrame(Var data, Kind kind) : data(std::move(data)), kind_(kind) {}
-
   // Base pointer used by emitted slot operations.
   Var data;
   // Live local bindings. Temporary call results reserve indices without binding a Var.
   ffi::Map<Var, int64_t> slot_index_map;
   // Peak element count used to allocate this frame at function entry.
   int64_t capacity = 0;
+
+  /*!
+   * \brief Construct the frame for one ownership layout.
+   * \param data Base pointer to use in emitted slot operations.
+   * \param kind Runtime representation of each slot.
+   */
+  ManagedFrame(Var data, Kind kind) : data(std::move(data)), kind_(kind) {}
 
   /*!
    * \brief Reserve an empty slot for a local or temporary result.
@@ -705,27 +711,6 @@ class ABIRewriter : public StmtExprMutator {
   // from the live slot. Keep CallAndStoreResult beside Bind for the tagged-result
   // check and the transfer from an Any slot to an Object slot.
 
-  UnchangedOr<Stmt> Mutate_(const BindObj* bind, InplaceMode mode) final {
-    if (!bind->var->ty.as<AnyTypeObj>() && !bind->var->ty.as<ObjectTypeObj>()) {
-      return StmtExprMutator::Mutate_(bind, mode);
-    }
-    ManagedFrame& frame = bind->var->ty.as<ObjectTypeObj>() ? object_frame_ : any_frame_;
-    int64_t slot = frame.AllocSlot();
-    ffi::Array<Stmt> body;
-    auto call = bind->value.as<CallObj>();
-    if (call && (call->op.same_as(call_packed_op()) || call->op.same_as(call_cpacked_op()))) {
-      CallAndStoreResult(body, slot, call, bind->var->ty);
-    } else {
-      TVM_FFI_CHECK(bind->value.as<VarObj>() || (call && call->op.same_as(abi_field_get_op())),
-                    ValueError)
-          << "Unsupported managed binding operation: " << bind->value;
-      frame.EmitRetain(body, slot, Rewrite(bind->value));
-    }
-    frame.slot_index_map.Set(bind->var, slot);
-    scopes_.Current().definitions.push_back(bind->var);
-    return SeqStmt(std::move(body));
-  }
-
   void CallAndStoreResult(ffi::Array<Stmt>& body, int64_t binding, const CallObj* call,
                           const Type& type) {
     // A packed callee always writes TVMFFIAny. Typed results are checked while
@@ -753,10 +738,33 @@ class ABIRewriter : public StmtExprMutator {
     body.push_back(Evaluate(Call(PrimType::Int(32), abi_field_set_op(),
                                  {object_frame_.data, IntImm::Int32(binding),
                                   IntImm::Int32(kTVMFFIObjectHandle), checked_value})));
+    // The Object slot now owns the reference. Clear the temporary Any without releasing it.
     any_frame_.Clear(body, index);
     any_frame_.FreeSlot(index);
   }
 
+  UnchangedOr<Stmt> Mutate_(const BindObj* bind, InplaceMode mode) final {
+    if (!bind->var->ty.as<AnyTypeObj>() && !bind->var->ty.as<ObjectTypeObj>()) {
+      return StmtExprMutator::Mutate_(bind, mode);
+    }
+    ManagedFrame& frame = bind->var->ty.as<ObjectTypeObj>() ? object_frame_ : any_frame_;
+    int64_t slot = frame.AllocSlot();
+    ffi::Array<Stmt> body;
+    auto call = bind->value.as<CallObj>();
+    if (call && (call->op.same_as(call_packed_op()) || call->op.same_as(call_cpacked_op()))) {
+      CallAndStoreResult(body, slot, call, bind->var->ty);
+    } else {
+      TVM_FFI_CHECK(bind->value.as<VarObj>() || (call && call->op.same_as(abi_field_get_op())),
+                    ValueError)
+          << "Unsupported managed binding operation: " << bind->value;
+      frame.EmitRetain(body, slot, Rewrite(bind->value));
+    }
+    frame.slot_index_map.Set(bind->var, slot);
+    scopes_.Current().definitions.push_back(bind->var);
+    return SeqStmt(std::move(body));
+  }
+
+  // Read a bound local from its frame slot, or return the variable itself.
   Expr ReadManagedValue(const Var& var) {
     ManagedFrame& frame = var->ty.as<ObjectTypeObj>() ? object_frame_ : any_frame_;
     if (ffi::Optional<int64_t> slot = frame.slot_index_map.Get(var)) {
@@ -779,38 +787,12 @@ class ABIRewriter : public StmtExprMutator {
   // then invokes the callee with the selected result cell. Shape and DLTensor
   // operations construct descriptors in the active call's scratch space.
 
-  UnchangedOr<Expr> Mutate_(const CallObj* call, InplaceMode mode) final {
-    if (!call->op.same_as(call_packed_op()) && !call->op.same_as(call_cpacked_op())) {
-      if (call->op.same_as(prim::if_then_else_op())) {
-        return MutateIfThenElse(call, mode);
-      }
-      if (call->op.same_as(stack_make_shape_op())) {
-        return EmitStackMakeShape(call);
-      }
-      if (call->op.same_as(stack_make_dltensor_op())) {
-        return EmitDLTensor(call);
-      }
-      return StmtExprMutator::Mutate_(call, mode);
-    }
-    bool managed_result = call->ty.as<AnyTypeObj>() || call->ty.as<ObjectTypeObj>();
-    if (PackedCallBuilder::IsVoidOrNoneType(call->ty)) {
-      pending_stmts_.push_back(CallAndDiscard(call));
-      return GenericConst(NoneType(), nullptr);
-    }
-    TVM_FFI_CHECK(!managed_result, ValueError) << "Managed packed results must be bound";
-    Call invoke = EmitPackedCall(call, call->ty);
-    // Capture the result at its evaluation site before another call reuses the scratch cell.
-    Var value("packed_value", call->ty);
-    pending_stmts_.push_back(Bind(value, invoke));
-    return value;
-  }
-
   Call EmitPackedCall(const CallObj* call, Type type, const Var* result_any_frame = nullptr,
                       int64_t slot = 0) {
-    size_t count = call->args.size() - 1;
+    size_t num_args = call->args.size() - 1;
     PackedCallBuilder::CallStackOffsets offsets =
-        packed_call_builder_.ReserveCall(count + (result_any_frame == nullptr));
-    for (size_t i = 0; i < count; ++i) {
+        packed_call_builder_.ReserveCall(num_args + (result_any_frame == nullptr));
+    for (size_t i = 0; i < num_args; ++i) {
       const Expr& operand = call->args[i + 1];
       if ((operand->ty.as<AnyTypeObj>() || operand->ty.as<ObjectTypeObj>()) &&
           !operand.as<VarObj>()) {
@@ -871,6 +853,32 @@ class ABIRewriter : public StmtExprMutator {
                 {frame, IntImm::Int32(index), IntImm::Int32(kDLTensorAddr)});
   }
 
+  UnchangedOr<Expr> Mutate_(const CallObj* call, InplaceMode mode) final {
+    if (!call->op.same_as(call_packed_op()) && !call->op.same_as(call_cpacked_op())) {
+      if (call->op.same_as(prim::if_then_else_op())) {
+        return MutateIfThenElse(call, mode);
+      }
+      if (call->op.same_as(stack_make_shape_op())) {
+        return EmitStackMakeShape(call);
+      }
+      if (call->op.same_as(stack_make_dltensor_op())) {
+        return EmitDLTensor(call);
+      }
+      return StmtExprMutator::Mutate_(call, mode);
+    }
+    bool managed_result = call->ty.as<AnyTypeObj>() || call->ty.as<ObjectTypeObj>();
+    if (PackedCallBuilder::IsVoidOrNoneType(call->ty)) {
+      pending_stmts_.push_back(CallAndDiscard(call));
+      return GenericConst(NoneType(), nullptr);
+    }
+    TVM_FFI_CHECK(!managed_result, ValueError) << "Managed packed results must be bound";
+    Call invoke = EmitPackedCall(call, call->ty);
+    // Capture the result at its evaluation site before another call reuses the scratch cell.
+    Var value("packed_value", call->ty);
+    pending_stmts_.push_back(Bind(value, invoke));
+    return value;
+  }
+
   // -----------------------------------------------------------------------------
   // Statement boundaries, expression sequencing, and discarded results
   // -----------------------------------------------------------------------------
@@ -878,6 +886,25 @@ class ABIRewriter : public StmtExprMutator {
   // scheduled last-use drops. Keep ReleaseLastUses beside the statement hook.
   // Check let bodies and conditional arms for unsupported setup, and drop
   // discarded packed results when required.
+
+  // Retire ending slots for reuse, emitting their runtime drops on fallthrough.
+  void ReleaseLastUses(const Stmt& original, ffi::Array<Stmt>& body) {
+    ffi::Optional<ffi::List<Var>> ending = drops_after_.Get(original);
+    if (!ending) {
+      return;
+    }
+    // A return already transferred or dropped every local that ends here.
+    bool is_return = original.as<ReturnObj>();
+    for (const Var& var : *ending) {
+      ManagedFrame& frame = var->ty.as<ObjectTypeObj>() ? object_frame_ : any_frame_;
+      int64_t slot = frame.slot_index_map.at(var);
+      if (!is_return) {
+        body.push_back(frame.EmitDrop(slot));
+      }
+      frame.FreeSlot(slot);
+      frame.slot_index_map.erase(var);
+    }
+  }
 
   // Preparation belongs to the statement that evaluates it, including inside nested statements.
   UnchangedOr<ffi::Any> Mutate(ffi::AnyView input, InplaceMode mode) final {
@@ -890,27 +917,11 @@ class ABIRewriter : public StmtExprMutator {
         StmtExprMutator::Mutate(input, mode).ValueOrUnchanged(input).as_or_throw<Stmt>();
     ffi::Array<Stmt> body = std::exchange(pending_stmts_, std::move(outer));
     body.push_back(rewritten);
+    // Last uses are keyed by the original statement; its inputs must stay live until the
+    // rewritten statement executes.
     ReleaseLastUses(original, body);
     if (body.size() == 1) return rewritten;
     return SeqStmt(std::move(body), original->loc);
-  }
-
-  void ReleaseLastUses(const Stmt& original, ffi::Array<Stmt>& body) {
-    ffi::Optional<ffi::List<Var>> ending = drops_after_.Get(original);
-    if (!ending) {
-      return;
-    }
-    // A return already transferred or dropped every local that ends here.
-    bool exit = original.as<ReturnObj>();
-    for (const Var& var : *ending) {
-      ManagedFrame& frame = var->ty.as<ObjectTypeObj>() ? object_frame_ : any_frame_;
-      int64_t slot = frame.slot_index_map.at(var);
-      if (!exit) {
-        body.push_back(frame.EmitDrop(slot));
-      }
-      frame.FreeSlot(slot);
-      frame.slot_index_map.erase(var);
-    }
   }
 
   UnchangedOr<PrimExpr> Mutate_(const prim::LetObj* op, InplaceMode mode) final {
@@ -926,6 +937,7 @@ class ABIRewriter : public StmtExprMutator {
     return prim::Let(var, value, body, op->loc);
   }
 
+  // Only the condition can prepare statements before the conditional expression.
   Expr MutateIfThenElse(const CallObj* op, InplaceMode mode) {
     Expr condition = Mutate(op->args[0], mode).ValueOrUnchanged(op->args[0]);
     size_t before_arms = pending_stmts_.size();
@@ -935,6 +947,16 @@ class ABIRewriter : public StmtExprMutator {
         << "The true and false values of `if_then_else` must be free of setup statements. "
            "Use a statement `if` and evaluate each value inside its branch.";
     return Call(op->ty, op->op, {condition, yes, no}, op->attrs, op->ty_args, op->loc);
+  }
+
+  // A discarded call still owns the tagged value written to its scratch result cell.
+  Stmt CallAndDiscard(const CallObj* call) {
+    Call invoke = EmitPackedCall(call, PrimType::Void());
+    constexpr size_t kResultFrame = 4;
+    constexpr size_t kResultSlot = 5;
+    Stmt drop = Evaluate(Call(PrimType::Int(32), drop_any_slot_op(),
+                              {invoke->args[kResultFrame], invoke->args[kResultSlot]}));
+    return SeqStmt({Evaluate(invoke), drop});
   }
 
   UnchangedOr<Stmt> Mutate_(const EvaluateObj* eval, InplaceMode mode) final {
@@ -958,15 +980,6 @@ class ABIRewriter : public StmtExprMutator {
                            rewritten->ty_args, rewritten->loc));
     }
     return StmtExprMutator::Mutate_(eval, mode);
-  }
-
-  Stmt CallAndDiscard(const CallObj* call) {
-    Call invoke = EmitPackedCall(call, PrimType::Void());
-    constexpr size_t kResultFrame = 4;
-    constexpr size_t kResultSlot = 5;
-    Stmt drop = Evaluate(Call(PrimType::Int(32), drop_any_slot_op(),
-                              {invoke->args[kResultFrame], invoke->args[kResultSlot]}));
-    return SeqStmt({Evaluate(invoke), drop});
   }
 
   // -----------------------------------------------------------------------------
@@ -1049,8 +1062,28 @@ class ABIRewriter : public StmtExprMutator {
   // Break and Continue unwind through the target loop. Keep EmitScopeExitDrops
   // beside these three handlers.
 
-  // For "x = f(); y = g(); return y", move y to the caller, clear its slot, and drop x
-  // if it is still live on this path.
+  // Drop live locals in reverse definition order across the exited scopes. A loop exit stops
+  // after cleaning the target loop's scope. Sibling paths keep their bindings.
+  void EmitScopeExitDrops(ffi::Array<Stmt>& body, bool stop_at_loop,
+                          ffi::Optional<Var> return_var = std::nullopt) {
+    for (auto scope = scopes_.rbegin(); scope != scopes_.rend(); ++scope) {
+      for (auto it = scope->definitions.rbegin(); it != scope->definitions.rend(); ++it) {
+        const Var& var = *it;
+        if (return_var && var.same_as(return_var.value())) {
+          // Ownership of the returned local has already moved to the caller.
+          continue;
+        }
+        ManagedFrame& frame = var->ty.as<ObjectTypeObj>() ? object_frame_ : any_frame_;
+        if (ffi::Optional<int64_t> slot = frame.slot_index_map.Get(var)) {
+          body.push_back(frame.EmitDrop(*slot));
+        }
+      }
+      if (stop_at_loop && scope->is_loop) {
+        return;
+      }
+    }
+  }
+
   UnchangedOr<Stmt> Mutate_(const ReturnObj* ret, InplaceMode) final {
     ffi::Array<Stmt> body;
     if (auto call = ret->value.as<CallObj>(); call && call->op.same_as(store_return_op())) {
@@ -1058,6 +1091,8 @@ class ABIRewriter : public StmtExprMutator {
       const Expr& value = call->args[1];
       ffi::Optional<Var> transferred;
       if (value->ty.as<AnyTypeObj>() || value->ty.as<ObjectTypeObj>()) {
+        // Examples: return local_obj or return borrowed_arg.
+        // Move the local's reference to the caller, or retain the borrowed argument first.
         auto var = value.as<Var>();
         TVM_FFI_CHECK(var, ValueError) << "Managed return expressions must be bound variables";
         ManagedFrame& frame = value->ty.as<ObjectTypeObj>() ? object_frame_ : any_frame_;
@@ -1076,9 +1111,13 @@ class ABIRewriter : public StmtExprMutator {
           frame.FreeSlot(slot);
         }
       } else if (value.as<StringImmObj>()) {
+        // Example: return "hello".
+        // Store an owned string in the caller's result cell.
         body.push_back(Evaluate(
             Call(PrimType::Int(32), retain_any_slot_op(), {destination, IntImm::Int64(0), value})));
       } else if (PackedCallBuilder::IsVoidOrNoneType(value->ty)) {
+        // Example: return a_void_function().
+        // Preserve the call's side effects, then store None in the caller's result cell.
         if (!value.as<ConstantObj>() && !value.as<VarObj>()) {
           Stmt effect = Evaluate(value);
           body.push_back(Mutate(effect).ValueOrUnchanged(effect));
@@ -1086,6 +1125,8 @@ class ABIRewriter : public StmtExprMutator {
         PackedCallBuilder::StorePackedValue(&body, destination, 0,
                                             GenericConst(NoneType(), nullptr));
       } else {
+        // Example: return n + 1.
+        // Evaluate the expression and pack its value into the caller's result cell.
         PackedCallBuilder::StorePackedValue(&body, destination, 0, Rewrite(value));
       }
       EmitScopeExitDrops(body, /*stop_at_loop=*/false, transferred);
@@ -1122,26 +1163,6 @@ class ABIRewriter : public StmtExprMutator {
     EmitScopeExitDrops(body, /*stop_at_loop=*/true);
     body.push_back(ffi::GetRef<Stmt>(stmt));
     return SeqStmt(std::move(body));
-  }
-
-  // Emit path-specific drops in reverse definition order. Sibling paths keep their bindings.
-  void EmitScopeExitDrops(ffi::Array<Stmt>& body, bool stop_at_loop,
-                          ffi::Optional<Var> returned = std::nullopt) {
-    for (auto scope = scopes_.rbegin(); scope != scopes_.rend(); ++scope) {
-      for (auto it = scope->definitions.rbegin(); it != scope->definitions.rend(); ++it) {
-        const Var& var = *it;
-        if (returned && var.same_as(returned.value())) {
-          continue;
-        }
-        ManagedFrame& frame = var->ty.as<ObjectTypeObj>() ? object_frame_ : any_frame_;
-        if (ffi::Optional<int64_t> slot = frame.slot_index_map.Get(var)) {
-          body.push_back(frame.EmitDrop(*slot));
-        }
-      }
-      if (stop_at_loop && scope->is_loop) {
-        return;
-      }
-    }
   }
 };
 }  // namespace
