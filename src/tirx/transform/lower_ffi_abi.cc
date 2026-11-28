@@ -53,10 +53,6 @@ namespace {
 // Input and lifetime analysis
 // -----------------------------------------------------------------------------
 
-bool IsPackedCall(const CallObj* call) {
-  return call && (call->op.same_as(call_packed_op()) || call->op.same_as(call_cpacked_op()));
-}
-
 /*!
  * \brief Compute last-use statements in the lexical scope of each managed local.
  * \note A use inside a branch or loop is charged to its enclosing statement in the defining scope.
@@ -155,8 +151,10 @@ class ManagedLocalLastUse : public StmtExprVisitor {
     if (call && call->op.same_as(store_return_op())) {
       call = call->args[1].as<CallObj>();
     }
-    TVM_FFI_CHECK(!IsPackedCall(call), ValueError)
-        << "A packed call cannot be returned directly. Bind its result to a variable first.";
+    if (call && (call->op.same_as(call_packed_op()) || call->op.same_as(call_cpacked_op()))) {
+      TVM_FFI_THROW(ValueError)
+          << "A packed call cannot be returned directly. Bind its result to a variable first.";
+    }
     return Visit(ret->value);
   }
 
@@ -198,13 +196,15 @@ class ManagedLocalLastUse : public StmtExprVisitor {
       // Returning even a borrowed parameter uses a temporary ownership slot.
       CheckBoundaries();
     }
-    TVM_FFI_CHECK(!in_eager_argument_ || !IsPackedCall(call), ValueError)
-        << "A packed call cannot be used inside a call argument. Bind its result to a variable "
-           "first.";
+    if (call->op.same_as(call_packed_op()) || call->op.same_as(call_cpacked_op())) {
+      TVM_FFI_CHECK(!inside_call_argument_, ValueError)
+          << "A packed call cannot be used inside a call argument. Bind its result to a variable "
+             "first.";
+    }
     // The lazy conditional checks its arms separately. The packed wrapper's
     // store_return represents the source return, not an eager call in that source.
-    bool outer = in_eager_argument_;
-    in_eager_argument_ |=
+    bool outer = inside_call_argument_;
+    inside_call_argument_ |=
         !call->op.same_as(prim::if_then_else_op()) && !call->op.same_as(store_return_op());
     CheckAndRecordManagedType(call->ty);
     for (size_t i = 0; i < call->args.size(); ++i) {
@@ -212,14 +212,17 @@ class ManagedLocalLastUse : public StmtExprVisitor {
         continue;  // Only the static type of the dtype witness enters the descriptor.
       }
       const Expr& arg = call->args[i];
-      CheckAndRecordManagedType(arg->ty);
+      if (CheckAndRecordManagedType(arg->ty)) {
+        TVM_FFI_CHECK(!call->op.same_as(reinterpret_op()), ValueError)
+            << "LowerFFIABI input cannot reinterpret a managed value";
+      }
       Visit(arg);
     }
-    in_eager_argument_ = outer;
+    inside_call_argument_ = outer;
     return std::nullopt;
   }
 
-  bool in_eager_argument_ = false;
+  bool inside_call_argument_ = false;
   // Accumulate the last statement for each local, retaining definition order for ties.
   ffi::Map<Var, Stmt> last_use_;
   // Active lexical blocks and their statement cursors, with borrowed parameters at the
@@ -667,7 +670,7 @@ class ABIRewriter : public StmtExprMutator {
     int64_t slot = frame.AllocSlot();
     ffi::Array<Stmt> body;
     auto call = bind->value.as<CallObj>();
-    if (IsPackedCall(call)) {
+    if (call && (call->op.same_as(call_packed_op()) || call->op.same_as(call_cpacked_op()))) {
       CallAndStoreResult(body, slot, call, bind->var->ty);
     } else {
       TVM_FFI_CHECK(bind->value.as<VarObj>() || (call && call->op.same_as(abi_field_get_op())),
@@ -730,12 +733,11 @@ class ABIRewriter : public StmtExprMutator {
   // Call lowering
   // -----------------------------------------------------------------------------
   // Dispatch by callee. EmitPackedCall evaluates and stores operands in order,
-  // then invokes the callee with the selected result cell. Keep managed-operand
-  // checks and shape and DLTensor construction here.
+  // then invokes the callee with the selected result cell. Shape and DLTensor
+  // operations construct descriptors in the active call's scratch space.
 
   UnchangedOr<Expr> Mutate_(const CallObj* call, InplaceMode mode) final {
-    if (!IsPackedCall(call)) {
-      CheckManagedOperands(call);
+    if (!call->op.same_as(call_packed_op()) && !call->op.same_as(call_cpacked_op())) {
       if (call->op.same_as(prim::if_then_else_op())) {
         return MutateIfThenElse(call, mode);
       }
@@ -779,38 +781,6 @@ class ABIRewriter : public StmtExprMutator {
     }
     return packed_call_builder_.EmitCall(&pending_stmts_, call, type, offsets, result_any_frame,
                                          slot);
-  }
-
-  static void CheckManagedOperands(const CallObj* call) {
-    if (IsPackedCall(call) || call->op.same_as(store_return_op())) {
-      return;
-    }
-    for (size_t i = 0; i < call->args.size(); ++i) {
-      const Expr& arg = call->args[i];
-      bool any = arg->ty.as<AnyTypeObj>();
-      bool object = arg->ty.as<ObjectTypeObj>();
-      if (!any && !object) {
-        continue;
-      }
-      TVM_FFI_CHECK(!call->op.same_as(reinterpret_op()), ValueError)
-          << "LowerFFIABI input cannot reinterpret a managed value";
-      if (arg.as<VarObj>()) {
-        // A retain copies a borrowed Any into an owned slot. A matching field store copies
-        // a borrowed Any or Object representation without changing its reference count.
-        if (call->op.same_as(retain_any_slot_op()) && i == 2 && any) {
-          continue;
-        }
-        if (call->op.same_as(abi_field_set_op()) && i == 3) {
-          auto field = call->args[2].as<IntImmObj>();
-          if (field && ((any && field->value == kTVMFFIAnyValue) ||
-                        (object && field->value == kTVMFFIObjectHandle))) {
-            continue;
-          }
-        }
-      }
-      TVM_FFI_THROW(ValueError)
-          << "Managed operands require bound variables and an explicit packed ABI consumer";
-    }
   }
 
   Expr EmitStackMakeShape(const CallObj* call) {
@@ -929,7 +899,7 @@ class ABIRewriter : public StmtExprMutator {
                   ValueError)
         << "Managed results must be bound to a variable";
     auto call = eval->value.as<CallObj>();
-    if (IsPackedCall(call)) {
+    if (call && (call->op.same_as(call_packed_op()) || call->op.same_as(call_cpacked_op()))) {
       // An unannotated packed call has IR type int32 even when its callback returns an
       // object. Drop the tagged result to release an object returned through that form.
       auto scalar = call->ty.as<PrimType>();
