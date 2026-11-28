@@ -19,11 +19,7 @@
 
 /*!
  * \file lower_ffi_abi.cc
- * \brief Lower host packed calls and managed ownership to explicit FFI operations.
- *
- * - ManagedLocalLastUse computes lexical lifetimes.
- * - PackedCallBuilder lays out packed arguments, descriptors and results.
- * - ABIRewriter emits calls, ownership transfers and cleanup at control-flow exits.
+ * \brief Lower packed calls and managed values to explicit host FFI ABI operations.
  */
 #include <tvm/ffi/c_api.h>
 #include <tvm/ffi/container/list.h>
@@ -48,6 +44,53 @@
 namespace tvm {
 namespace tirx {
 namespace {
+
+// -----------------------------------------------------------------------------
+// Overall strategy
+// -----------------------------------------------------------------------------
+// Example code before and after the transformation:
+//
+//   @I.ir_module
+//   class Before:
+//       @T.function
+//       def main(out: T.handle) -> T.int32:
+//           x: T.let[T.Any] = T.call_packed("f", ty=T.Any)
+//           y: T.let[T.Any] = T.call_packed("g", x, ty=T.Any)
+//           return T.store_return(out, y)
+//
+//   @I.ir_module
+//   class After:
+//       @T.function
+//       def main(out: T.handle) -> T.int32:
+//           frame: T.let[T.handle] = T.alloc_any_frame(T.int64(2))
+//           args: T.let[T.handle] = T.stack_alloca("tvm_ffi_any", 1)
+//
+//           T.call_packed_lowered("f", args, 0, 0, frame, 0, ty="void")
+//           T.abi_field_set(args, 0, 18, T.abi_field_get(frame, 0, 18, ty=T.Any))
+//           T.call_packed_lowered("g", args, 0, 1, frame, 1, ty="void")
+//           T.drop_any_slot(frame, T.int64(0))
+//
+//           # Move y to the caller and clear its former slot.
+//           T.abi_field_set(out, 0, 18, T.abi_field_get(frame, 1, 18, ty=T.Any))
+//           T.abi_field_set(frame, 1, 13, 0)
+//           T.abi_field_set(frame, 1, 14, 0)
+//           T.abi_field_set(frame, 1, 15, T.int64(0))
+//           return 0
+//
+// Strategy: Allocate explicit frames for owned Any and Object locals. Insert a
+// drop after each local's last use, or transfer its reference to the caller if
+// the local is returned.
+//
+// - ManagedLocalLastUse: Step 0. Map each original statement to the locals
+//   whose last use occurs there.
+// - ABIRewriter: Step 1. Rewrite calls, returns, and scope exits using that plan.
+//   - ManagedFrame: Used by ABIRewriter to reserve and reuse ownership slots
+//     and emit the reads, retains, drops, and clears for those slots.
+//   - PackedCallBuilder: Used by ABIRewriter to pack arguments into scratch
+//     and emit each call with its chosen result slot.
+// - Host codegen contract after this pass: On error, release all references
+//   still owned by the frames, including partially written call results,
+//   and propagate the original error.
 
 // -----------------------------------------------------------------------------
 // Input and lifetime analysis
@@ -1110,22 +1153,6 @@ namespace transform {
  *   eligible host bodies.
  */
 Pass LowerFFIABI() {
-  // The result of f() stays alive while g(x) borrows it.
-  //
-  // @T.function
-  // def chain() -> T.Any:
-  //     x: T.let[T.Any] = T.call_packed("f", ty=T.Any)
-  //     y: T.let[T.Any] = T.call_packed("g", x, ty=T.Any)
-  //     return y
-  //
-  // ManagedLocalLastUse schedules x's release after g borrows it. ABIRewriter reserves
-  // both result slots, and PackedCallBuilder encodes the argument and emits both calls.
-  // Returning y transfers its reference to the caller and clears its slot.
-  //
-  // Input host definitions have unique statement occurrences, logical packed calls and
-  // wrapper returns expressed as store_return. The pass emits argument and descriptor
-  // scratch, initialized owner frames and explicit slot operations. On failure C and LLVM
-  // release the remaining live or partially written slots and preserve the original error.
   auto pass = [](Function func, IRModule, PassContext) -> ffi::Optional<Function> {
     if (func->GetAttr(tvm::attr::kDeclaration).value_or(false)) {
       return func;
